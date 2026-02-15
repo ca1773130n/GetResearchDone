@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 12 — Hierarchical Roadmap Refinement & Promotion
-- **Current plan:** Plan 1 of 2 complete (12-01-PLAN.md done)
+- **Active phase:** Phase 12 — Hierarchical Roadmap Refinement & Promotion (COMPLETE)
+- **Current plan:** Plan 2 of 2 complete (12-02-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 12 of 15 [######-] 50% (8/14 plans in v0.1.0)
-- **Next:** 12-02-PLAN.md (Refinement & Promotion CLI Commands)
+- **Progress:** Phase 12 of 15 [######--] 57% (9/14 plans in v0.1.0)
+- **Next:** Phase 13 (Auto-Cleanup & Project Lifecycle)
 
 ## Pending Decisions
 
@@ -46,6 +46,9 @@ None.
 | 2026-02-16 | In-place markdown editing via replaceSubsection helper | Phase 12 | Preserves exact formatting; avoids serialize/deserialize round-trip |
 | 2026-02-16 | Later->Next promotion fills TBD placeholders for required fields | Phase 12 | Allows user to fill in details after promotion |
 | 2026-02-16 | Next->Now uses estimated_start as Start date when available | Phase 12 | Falls back to today's date if no estimated_start |
+| 2026-02-16 | Structured JSON output includes content field with full updated markdown | Phase 12 | Downstream agents can write the file directly without re-parsing |
+| 2026-02-16 | Promote subcommand calls getMilestoneTier on result to report new_tier | Phase 12 | Provides immediate feedback on promotion result |
+| 2026-02-16 | Refine subcommand reports updated_fields array from Object.keys(updates) | Phase 12 | Audit trail for which fields were updated |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -86,12 +89,13 @@ None.
 | 11 | 01 | 4min | 2 | 2 | +32 tests (722 total) |
 | 11 | 02 | 4min | 2 | 3 | +22 tests (744 total) |
 | 12 | 01 | 3min | 2 | 2 | +28 tests (772 total) |
+| 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 12-01-PLAN.md (milestone refinement & promotion data layer)
-- **Next action:** Execute 12-02-PLAN.md (refinement & promotion CLI commands)
-- **Context needed:** `lib/long-term-roadmap.js`, `lib/commands.js`, `bin/grd-tools.js`
+- **Last action:** Completed 12-02-PLAN.md (refinement & promotion CLI commands)
+- **Next action:** Execute Phase 13 (auto-cleanup & project lifecycle)
+- **Context needed:** Phase 13 plans, `.planning/config.json`
 
 ---
 
