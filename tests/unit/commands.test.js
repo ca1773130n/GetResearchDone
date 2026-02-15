@@ -30,6 +30,7 @@ const {
   cmdDashboard,
   cmdPhaseDetail,
   cmdHealth,
+  cmdDetectBackend,
 } = require('../../lib/commands');
 
 /**
@@ -1226,5 +1227,190 @@ describe('cmdHealth', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.blockers.count).toBe(0);
+  });
+});
+
+// ─── cmdDetectBackend ────────────────────────────────────────────────────────
+
+describe('cmdDetectBackend', () => {
+  let fixtureDir;
+  let savedEnv;
+
+  // Detection-relevant env vars (same list as backend.test.js)
+  const DETECTION_ENV_VARS = [
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+    'AGENT',
+  ];
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+    // Save and clean all detection-relevant env vars
+    savedEnv = { ...process.env };
+    for (const key of Object.keys(process.env)) {
+      if (
+        key.startsWith('CLAUDE_CODE_') ||
+        DETECTION_ENV_VARS.includes(key)
+      ) {
+        delete process.env[key];
+      }
+    }
+  });
+
+  afterEach(() => {
+    process.env = savedEnv;
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('JSON output (raw=false) returns object with backend, models, and capabilities', () => {
+    // Default detection (no env vars, no config override) -> claude
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('backend');
+    expect(parsed).toHaveProperty('models');
+    expect(parsed).toHaveProperty('capabilities');
+    expect(parsed.models).toHaveProperty('opus');
+    expect(parsed.models).toHaveProperty('sonnet');
+    expect(parsed.models).toHaveProperty('haiku');
+    expect(parsed.capabilities).toHaveProperty('subagents');
+    expect(parsed.capabilities).toHaveProperty('parallel');
+    expect(parsed.capabilities).toHaveProperty('teams');
+    expect(parsed.capabilities).toHaveProperty('hooks');
+    expect(parsed.capabilities).toHaveProperty('mcp');
+  });
+
+  test('raw output (raw=true) returns just the backend name string', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, true);
+    });
+    expect(exitCode).toBe(0);
+    // Raw mode: just the backend name, no JSON
+    expect(stdout.trim()).toBe('claude');
+  });
+
+  test('Claude backend: models are opus/sonnet/haiku, all capabilities true', () => {
+    // Default detection -> claude
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('opus');
+    expect(parsed.models.sonnet).toBe('sonnet');
+    expect(parsed.models.haiku).toBe('haiku');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(true);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('Codex backend: correct models and capabilities', () => {
+    // Force codex via config override
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'codex';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('codex');
+    expect(parsed.models.opus).toBe('gpt-5.3-codex');
+    expect(parsed.models.sonnet).toBe('gpt-5.3-codex-spark');
+    expect(parsed.models.haiku).toBe('gpt-5.3-codex-spark');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(false);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('Gemini backend: correct models and capabilities (experimental subagents)', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'gemini';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('gemini');
+    expect(parsed.models.opus).toBe('gemini-3-pro');
+    expect(parsed.models.sonnet).toBe('gemini-3-flash');
+    expect(parsed.models.haiku).toBe('gemini-2.5-flash');
+    expect(parsed.capabilities.subagents).toBe('experimental');
+    expect(parsed.capabilities.parallel).toBe(false);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('OpenCode backend: models use anthropic/claude-* format', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'opencode';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('opencode');
+    expect(parsed.models.opus).toBe('anthropic/claude-opus-4-5');
+    expect(parsed.models.sonnet).toBe('anthropic/claude-sonnet-4-5');
+    expect(parsed.models.haiku).toBe('anthropic/claude-haiku-4-5');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('config model overrides: backend_models overrides are reflected in models field', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend_models = {
+      claude: {
+        opus: 'custom-opus-model',
+        haiku: 'custom-haiku-model',
+      },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('custom-opus-model');
+    expect(parsed.models.sonnet).toBe('sonnet'); // Not overridden
+    expect(parsed.models.haiku).toBe('custom-haiku-model');
+  });
+
+  test('unknown backend falls back to claude defaults', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'unknown-backend';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Unknown backends are not in VALID_BACKENDS, so detectBackend ignores the
+    // config override and falls through to default 'claude'. Test that the
+    // output is claude with correct defaults regardless.
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    // detectBackend skips invalid config.backend values -> falls to default claude
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('opus');
+    expect(parsed.capabilities.subagents).toBe(true);
   });
 });
