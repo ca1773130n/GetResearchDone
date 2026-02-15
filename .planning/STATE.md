@@ -4,10 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 7 (07-validation-release) — IN PROGRESS
-- **Current plan:** 07-03 (complete)
-- **Milestone:** M4: Polish and Release
-- **Progress:** [██████████] 100%
+- **Active phase:** None — milestone complete
+- **Current plan:** None
+- **Milestone:** v0.0.5 shipped (2026-02-15)
+- **Progress:** [██████████] 100% — All 8 phases, 23 plans complete
+- **Next:** `/grd:new-milestone` to plan next milestone
 
 ## Pending Decisions
 
