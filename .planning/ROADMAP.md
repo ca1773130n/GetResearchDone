@@ -80,7 +80,10 @@ Plans:
   2. `/grd:long-term-roadmap` command creates a new long-term roadmap via interactive wizard on first run, and displays current roadmap with tier indicators on subsequent runs
   3. Planning mode auto-detection works: hierarchical mode activates when `LONG-TERM-ROADMAP.md` exists, progressive mode (current behavior) when it does not
   4. All existing commands work unchanged in progressive mode (no breaking changes)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 11-01-PLAN.md -- TDD: Create lib/long-term-roadmap.js with parsing, validation, generation, and mode detection (Wave 1)
+- [ ] 11-02-PLAN.md -- Add long-term-roadmap CLI command with parse/validate/display/mode/generate subcommands (Wave 2)
 
 ### Phase 12: Hierarchical Roadmap Refinement & Promotion
 **Goal**: Users can progressively refine rough milestones into detailed plans and promote them through tiers toward execution
