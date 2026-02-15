@@ -55,6 +55,11 @@ module.exports = {
       functions: 90,
       branches: 60,
     },
+    './lib/backend.js': {
+      lines: 90,
+      functions: 100,
+      branches: 90,
+    },
   },
   testTimeout: 15000,
 };
