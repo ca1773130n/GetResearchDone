@@ -27,7 +27,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
 - [x] **Phase 9: Backend Detection & Model Resolution** - Core detection, model mapping, config schema, and tests `implement`
 - [x] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
 - [x] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
-- [ ] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
+- [x] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
 - [ ] **Phase 13: Auto-Cleanup Config & Quality Analysis** - Config option, phase-boundary quality analysis `implement`
 - [ ] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Doc drift detection, auto-generated cleanup plans `implement`
 - [ ] **Phase 15: Integration & Validation** - Cross-feature integration, regression, deferred validations `integrate`
@@ -99,8 +99,8 @@ Plans:
   4. Unit tests cover LONG-TERM-ROADMAP.md parsing, tier detection, mode detection, and milestone promotion logic; integration tests cover create/display/refine commands; coverage >= 80%
 **Plans**: 2 plans
 Plans:
-- [ ] 12-01-PLAN.md -- TDD: Add refineMilestone, promoteMilestone, getMilestoneTier, updateRefinementHistory to lib/long-term-roadmap.js (Wave 1)
-- [ ] 12-02-PLAN.md -- Add refine/promote/tier/history CLI subcommands with comprehensive tests (Wave 2)
+- [x] 12-01-PLAN.md -- TDD: Add refineMilestone, promoteMilestone, getMilestoneTier, updateRefinementHistory to lib/long-term-roadmap.js (Wave 1)
+- [x] 12-02-PLAN.md -- Add refine/promote/tier/history CLI subcommands with comprehensive tests (Wave 2)
 
 ### Phase 13: Auto-Cleanup Config & Quality Analysis
 **Goal**: GRD can optionally run quality analysis at phase boundaries, detecting code quality issues after plan execution
@@ -156,8 +156,8 @@ Sequential dependencies: 9->10, 11->12, 13->14, then all converge at 15.
 |-------|-----------|----------------|--------|-----------|
 | 9. Backend Detection & Model Resolution | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 10. Backend Capabilities & Context Integration | v0.1.0 | 2/2 | Complete | 2026-02-16 |
-| 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 0/TBD | Not started | - |
-| 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 0/TBD | Not started | - |
+| 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 2/2 | Complete | 2026-02-16 |
+| 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | 0/TBD | Not started | - |
 | 14. Auto-Cleanup Doc Drift & Plan Generation | v0.1.0 | 0/TBD | Not started | - |
 | 15. Integration & Validation | v0.1.0 | 0/TBD | Not started | - |
