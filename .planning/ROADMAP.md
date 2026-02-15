@@ -97,7 +97,10 @@ Plans:
   2. `/grd:promote-milestone <N>` moves milestones between tiers (Later->Next, Next->Now) and triggers full ROADMAP.md generation when promoted to Now
   3. Promotion integrates with existing `/grd:new-milestone` flow without duplication
   4. Unit tests cover LONG-TERM-ROADMAP.md parsing, tier detection, mode detection, and milestone promotion logic; integration tests cover create/display/refine commands; coverage >= 80%
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 12-01-PLAN.md -- TDD: Add refineMilestone, promoteMilestone, getMilestoneTier, updateRefinementHistory to lib/long-term-roadmap.js (Wave 1)
+- [ ] 12-02-PLAN.md -- Add refine/promote/tier/history CLI subcommands with comprehensive tests (Wave 2)
 
 ### Phase 13: Auto-Cleanup Config & Quality Analysis
 **Goal**: GRD can optionally run quality analysis at phase boundaries, detecting code quality issues after plan execution
