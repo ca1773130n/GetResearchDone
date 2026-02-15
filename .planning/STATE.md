@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 9 — Backend Detection & Model Resolution (ready to plan)
-- **Current plan:** None
+- **Active phase:** Phase 9 — Backend Detection & Model Resolution
+- **Current plan:** Plan 1 of 2 complete (09-01-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 9 of 15 [-------] 0% (7 phases in v0.1.0)
-- **Next:** Plan Phase 9 (backend detection, model resolution, config schema, tests)
+- **Progress:** Phase 9 of 15 [#------] 7% (1/14 plans in v0.1.0)
+- **Next:** Execute 09-02-PLAN.md (integrate backend.js into utils.js, extend loadConfig)
 
 ## Pending Decisions
 
@@ -31,6 +31,8 @@ None.
 | 2026-02-16 | Scope v0.1.0 to detection + model resolution only | Planning | Sub-agent spawning divergence is critical risk; defer orchestrator adaptation to v0.2.0 |
 | 2026-02-16 | Mark Gemini capabilities as experimental | Planning | Gemini CLI sub-agents are experimental; degrade gracefully |
 | 2026-02-16 | Three independent feature streams with integration phase | Planning | Backend, hierarchical roadmap, and auto-cleanup are independent; converge at Phase 15 |
+| 2026-02-16 | Read config.json directly in backend.js (no utils.js import) | Phase 9 | Avoids circular dependency; utils.js will import from backend.js in plan 09-02 |
+| 2026-02-16 | Exclude AGENT env var from OpenCode detection | Phase 9 | Per PITFALLS.md P5: too generic, collision risk with other tools |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -60,15 +62,19 @@ None.
 - Average duration: 5.6 min
 - Total execution time: ~2.2 hours
 
-**v0.1.0:** No plans executed yet.
+**v0.1.0:**
+
+| Phase | Plan | Duration | Tasks | Files | Test Delta |
+|-------|------|----------|-------|-------|------------|
+| 09 | 01 | 3min | 2 | 3 | +62 tests (656 total) |
 
 ## Session Continuity
 
-- **Last action:** Created v0.1.0 ROADMAP.md with 7 phases (9-15) covering multi-backend, hierarchical roadmap, auto-cleanup
-- **Next action:** Plan Phase 9 (Backend Detection & Model Resolution)
-- **Context needed:** Research files in `.planning/research/multi-backend-detection.md` and `.planning/research/ARCHITECTURE.md`
+- **Last action:** Completed 09-01-PLAN.md (TDD backend detection & model resolution)
+- **Next action:** Execute 09-02-PLAN.md (integrate backend.js into utils.js, extend loadConfig, integration tests)
+- **Context needed:** `lib/backend.js`, `lib/utils.js`, 09-02-PLAN.md
 
 ---
 
-*State managed by: Claude (grd-roadmapper)*
+*State managed by: Claude (grd-executor)*
 *Last updated: 2026-02-16*
