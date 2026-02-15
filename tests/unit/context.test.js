@@ -25,7 +25,10 @@ const {
   cmdInitMapCodebase,
   cmdInitProgress,
   cmdInitResearchWorkflow,
+  cmdInitPlanMilestoneGaps,
 } = require('../../lib/context');
+const os = require('os');
+const { VALID_BACKENDS, BACKEND_CAPABILITIES } = require('../../lib/backend');
 
 // ─── cmdInitExecutePhase ─────────────────────────────────────────────────────
 
@@ -520,5 +523,180 @@ describe('cmdInitQuick', () => {
     const result = JSON.parse(stdout);
     expect(result.slug).toBeNull();
     expect(result.description).toBeNull();
+  });
+});
+
+// ─── Backend-aware context init ──────────────────────────────────────────────
+
+describe('backend-aware context init', () => {
+  let tmpDir;
+  const savedEnv = {};
+  // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
+  const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+  const envVarsToClean = [
+    ...claudeCodeVars,
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+  ];
+
+  beforeEach(() => {
+    // Save env vars
+    for (const key of envVarsToClean) {
+      savedEnv[key] = process.env[key];
+    }
+    // Clear env vars to ensure clean backend detection
+    for (const key of envVarsToClean) {
+      delete process.env[key];
+    }
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    // Restore env vars
+    for (const key of envVarsToClean) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase includes backend field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(VALID_BACKENDS).toContain(result.backend);
+    expect(result).toHaveProperty('backend_capabilities');
+    expect(result.backend_capabilities).toHaveProperty('subagents');
+    expect(result.backend_capabilities).toHaveProperty('parallel');
+    expect(result.backend_capabilities).toHaveProperty('teams');
+    expect(result.backend_capabilities).toHaveProperty('hooks');
+    expect(result.backend_capabilities).toHaveProperty('mcp');
+  });
+
+  test('cmdInitPlanPhase includes backend field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(VALID_BACKENDS).toContain(result.backend);
+    expect(result).toHaveProperty('backend_capabilities');
+    expect(result.backend_capabilities).toHaveProperty('subagents');
+  });
+
+  test('cmdInitNewProject includes backend field', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitNewProject(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(VALID_BACKENDS).toContain(result.backend);
+    expect(result).toHaveProperty('backend_capabilities');
+  });
+
+  test('cmdInitResume includes backend field', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitResume(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(VALID_BACKENDS).toContain(result.backend);
+    expect(result).toHaveProperty('backend_capabilities');
+  });
+
+  test('backend field reflects detected backend (Claude default)', () => {
+    // No config override and no backend env vars -> claude
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('claude');
+    expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.claude);
+  });
+
+  test('backend field reflects config override', () => {
+    // Write config.json with backend: 'codex'
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        backend: 'codex',
+        branching_strategy: 'phase',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('codex');
+    expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.codex);
+  });
+
+  test('model fields are backend-resolved (codex backend)', () => {
+    // Write config.json with backend: 'codex'
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        backend: 'codex',
+        branching_strategy: 'phase',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    // executor_model should be codex-specific, not 'sonnet'
+    expect(result.executor_model).toContain('gpt-5.3-codex');
+  });
+
+  test('all 14 cmdInit* functions include backend (spot check)', () => {
+    // Representative sample covering all categories: core, operation, R&D
+    const functions = [
+      // Core workflow
+      () => cmdInitExecutePhase(tmpDir, '1', new Set(), false),
+      () => cmdInitPlanPhase(tmpDir, '1', new Set(), false),
+      () => cmdInitNewProject(tmpDir, false),
+      () => cmdInitNewMilestone(tmpDir, false),
+      () => cmdInitQuick(tmpDir, 'test', false),
+      () => cmdInitResume(tmpDir, false),
+      // Operation workflow
+      () => cmdInitVerifyWork(tmpDir, '1', false),
+      () => cmdInitPhaseOp(tmpDir, '1', false),
+      () => cmdInitTodos(tmpDir, null, false),
+      () => cmdInitMilestoneOp(tmpDir, false),
+      () => cmdInitMapCodebase(tmpDir, false),
+      () => cmdInitProgress(tmpDir, new Set(), false),
+      // R&D workflow
+      () => cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(), false),
+      () => cmdInitPlanMilestoneGaps(tmpDir, false),
+    ];
+
+    for (const fn of functions) {
+      const { stdout, exitCode } = captureOutput(fn);
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('backend');
+      expect(typeof result.backend).toBe('string');
+      expect(VALID_BACKENDS).toContain(result.backend);
+      expect(result).toHaveProperty('backend_capabilities');
+      expect(typeof result.backend_capabilities).toBe('object');
+      expect(result.backend_capabilities).toHaveProperty('subagents');
+      expect(result.backend_capabilities).toHaveProperty('parallel');
+      expect(result.backend_capabilities).toHaveProperty('teams');
+      expect(result.backend_capabilities).toHaveProperty('hooks');
+      expect(result.backend_capabilities).toHaveProperty('mcp');
+    }
   });
 });
