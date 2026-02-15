@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 9 — Backend Detection & Model Resolution
-- **Current plan:** Plan 1 of 2 complete (09-01-PLAN.md done)
+- **Active phase:** Phase 9 — Backend Detection & Model Resolution (COMPLETE)
+- **Current plan:** Plan 2 of 2 complete (09-02-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 9 of 15 [#------] 7% (1/14 plans in v0.1.0)
-- **Next:** Execute 09-02-PLAN.md (integrate backend.js into utils.js, extend loadConfig)
+- **Progress:** Phase 9 of 15 [##-----] 14% (2/14 plans in v0.1.0)
+- **Next:** Plan and execute Phase 10 (Backend-aware Context Initialization)
 
 ## Pending Decisions
 
@@ -33,6 +33,8 @@ None.
 | 2026-02-16 | Three independent feature streams with integration phase | Planning | Backend, hierarchical roadmap, and auto-cleanup are independent; converge at Phase 15 |
 | 2026-02-16 | Read config.json directly in backend.js (no utils.js import) | Phase 9 | Avoids circular dependency; utils.js will import from backend.js in plan 09-02 |
 | 2026-02-16 | Exclude AGENT env var from OpenCode detection | Phase 9 | Per PITFALLS.md P5: too generic, collision risk with other tools |
+| 2026-02-16 | Optional cwd param on resolveModelForAgent (not breaking) | Phase 9 | Appended as third parameter; existing 2-arg callers unchanged |
+| 2026-02-16 | Dynamic CLAUDE_CODE_* env var cleanup in tests | Phase 9 | Hardcoding specific vars would break as Claude Code adds new env vars |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -67,12 +69,13 @@ None.
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 09 | 01 | 3min | 2 | 3 | +62 tests (656 total) |
+| 09 | 02 | 3min | 2 | 2 | +18 tests (674 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 09-01-PLAN.md (TDD backend detection & model resolution)
-- **Next action:** Execute 09-02-PLAN.md (integrate backend.js into utils.js, extend loadConfig, integration tests)
-- **Context needed:** `lib/backend.js`, `lib/utils.js`, 09-02-PLAN.md
+- **Last action:** Completed 09-02-PLAN.md (backend integration into utils.js)
+- **Next action:** Plan and execute Phase 10 (Backend-aware Context Initialization)
+- **Context needed:** `lib/context.js`, `lib/utils.js`, `lib/backend.js`
 
 ---
 

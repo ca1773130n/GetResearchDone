@@ -24,7 +24,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
 **Milestone Goal:** Improve setup functionality and usability by supporting multiple AI backends, adding auto-refactoring/doc-sync options, and enabling hierarchical long-term roadmap planning.
 **Start:** 2026-02-16
 
-- [ ] **Phase 9: Backend Detection & Model Resolution** - Core detection, model mapping, config schema, and tests `implement`
+- [x] **Phase 9: Backend Detection & Model Resolution** - Core detection, model mapping, config schema, and tests `implement`
 - [ ] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
 - [ ] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
 - [ ] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
@@ -49,7 +49,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
   5. Unit tests for `lib/backend.js` achieve >= 80% line coverage, covering detection waterfall, model resolution, and config override precedence
 **Plans**: 2 plans
   - [x] 09-01-PLAN.md -- TDD: Create lib/backend.js with detection waterfall, model resolution, capabilities (Wave 1)
-  - [ ] 09-02-PLAN.md -- Integrate backend.js into utils.js, extend loadConfig, add integration tests (Wave 2)
+  - [x] 09-02-PLAN.md -- Integrate backend.js into utils.js, extend loadConfig, add integration tests (Wave 2)
 
 ### Phase 10: Backend Capabilities & Context Integration
 **Goal**: Orchestrator commands receive backend info and adapt behavior based on backend capabilities
@@ -145,7 +145,7 @@ Sequential dependencies: 9->10, 11->12, 13->14, then all converge at 15.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 9. Backend Detection & Model Resolution | v0.1.0 | 1/2 | In Progress | - |
+| 9. Backend Detection & Model Resolution | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 10. Backend Capabilities & Context Integration | v0.1.0 | 0/TBD | Not started | - |
 | 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 0/TBD | Not started | - |
 | 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 0/TBD | Not started | - |
