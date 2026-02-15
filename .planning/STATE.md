@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 11 — Hierarchical Roadmap Schema & Commands (COMPLETE)
-- **Current plan:** Plan 2 of 2 complete (11-02-PLAN.md done)
+- **Active phase:** Phase 12 — Hierarchical Roadmap Refinement & Promotion
+- **Current plan:** Plan 1 of 2 complete (12-01-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 11 of 15 [#####--] 43% (7/14 plans in v0.1.0)
-- **Next:** Phase 12 (Milestone Refinement & Promotion Commands)
+- **Progress:** Phase 12 of 15 [######-] 50% (8/14 plans in v0.1.0)
+- **Next:** 12-02-PLAN.md (Refinement & Promotion CLI Commands)
 
 ## Pending Decisions
 
@@ -43,6 +43,9 @@ None.
 | 2026-02-16 | Later milestones: success_criteria optional (warning not error) | Phase 11 | Per research: Later tier is rough; forcing success criteria adds false precision |
 | 2026-02-16 | getPlanningMode reads frontmatter for explicit override | Phase 11 | Allows users to opt-out of hierarchical mode without deleting file |
 | 2026-02-16 | Local flag() helper in commands.js for generate subcommand args | Phase 11 | Avoids importing grd-tools.js flag(); keeps commands.js self-contained |
+| 2026-02-16 | In-place markdown editing via replaceSubsection helper | Phase 12 | Preserves exact formatting; avoids serialize/deserialize round-trip |
+| 2026-02-16 | Later->Next promotion fills TBD placeholders for required fields | Phase 12 | Allows user to fill in details after promotion |
+| 2026-02-16 | Next->Now uses estimated_start as Start date when available | Phase 12 | Falls back to today's date if no estimated_start |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -82,11 +85,12 @@ None.
 | 10 | 02 | 4min | 2 | 2 | +8 tests (690 total) |
 | 11 | 01 | 4min | 2 | 2 | +32 tests (722 total) |
 | 11 | 02 | 4min | 2 | 3 | +22 tests (744 total) |
+| 12 | 01 | 3min | 2 | 2 | +28 tests (772 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 11-02-PLAN.md (long-term roadmap CLI commands)
-- **Next action:** Phase 12 planning (milestone refinement & promotion commands)
+- **Last action:** Completed 12-01-PLAN.md (milestone refinement & promotion data layer)
+- **Next action:** Execute 12-02-PLAN.md (refinement & promotion CLI commands)
 - **Context needed:** `lib/long-term-roadmap.js`, `lib/commands.js`, `bin/grd-tools.js`
 
 ---
