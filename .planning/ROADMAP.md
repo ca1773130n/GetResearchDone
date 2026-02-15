@@ -114,7 +114,10 @@ Plans:
   2. When `phase_cleanup.enabled` is true, quality analysis runs after the last plan in a phase and produces a structured quality report
   3. Quality analysis covers: ESLint complexity check, dead export detection (unused exports vs. test coverage), file size check against thresholds
   4. Quality report is surfaced in phase completion summary output
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 13-01-PLAN.md -- TDD: Create lib/cleanup.js with config schema, quality analysis functions (complexity, dead exports, file size) (Wave 1)
+- [ ] 13-02-PLAN.md -- Add quality-analysis CLI command, integrate into phase completion flow, add integration tests (Wave 2)
 
 ### Phase 14: Auto-Cleanup Doc Drift & Plan Generation
 **Goal**: GRD detects documentation drift and can auto-generate cleanup plans when quality issues exceed thresholds
