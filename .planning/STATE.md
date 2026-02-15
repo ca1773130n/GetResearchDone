@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 12 — Hierarchical Roadmap Refinement & Promotion (COMPLETE)
-- **Current plan:** Plan 2 of 2 complete (12-02-PLAN.md done)
+- **Active phase:** Phase 13 — Auto-Cleanup & Project Lifecycle
+- **Current plan:** Plan 1 of 2 complete (13-01-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 12 of 15 [######--] 57% (9/14 plans in v0.1.0)
-- **Next:** Phase 13 (Auto-Cleanup & Project Lifecycle)
+- **Progress:** Phase 13 of 15 [#######-] 71% (10/14 plans in v0.1.0)
+- **Next:** Plan 13-02 (phase completion wiring)
 
 ## Pending Decisions
 
@@ -49,6 +49,10 @@ None.
 | 2026-02-16 | Structured JSON output includes content field with full updated markdown | Phase 12 | Downstream agents can write the file directly without re-parsing |
 | 2026-02-16 | Promote subcommand calls getMilestoneTier on result to report new_tier | Phase 12 | Provides immediate feedback on promotion result |
 | 2026-02-16 | Refine subcommand reports updated_fields array from Object.keys(updates) | Phase 12 | Audit trail for which fields were updated |
+| 2026-02-16 | execFileSync over execSync for ESLint subprocess | Phase 13 | Avoids shell quoting issues with JSON rule arguments |
+| 2026-02-16 | Relative paths with -- separator for ESLint v10 | Phase 13 | ESLint v10 rejects absolute paths outside base path |
+| 2026-02-16 | fs.realpathSync for macOS path resolution in ESLint parser | Phase 13 | Handles /var vs /private/var symlink for correct relative paths |
+| 2026-02-16 | Regex-based dead export detection (not AST) for v0.1.0 | Phase 13 | Simplicity goal; catches obvious dead exports, edge cases accepted |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -90,12 +94,13 @@ None.
 | 11 | 02 | 4min | 2 | 3 | +22 tests (744 total) |
 | 12 | 01 | 3min | 2 | 2 | +28 tests (772 total) |
 | 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
+| 13 | 01 | 6min | 2 | 2 | +25 tests (821 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 12-02-PLAN.md (refinement & promotion CLI commands)
-- **Next action:** Execute Phase 13 (auto-cleanup & project lifecycle)
-- **Context needed:** Phase 13 plans, `.planning/config.json`
+- **Last action:** Completed 13-01-PLAN.md (cleanup config & quality analysis functions)
+- **Next action:** Execute 13-02-PLAN.md (phase completion wiring)
+- **Context needed:** lib/cleanup.js exports, phase completion flow
 
 ---
 
