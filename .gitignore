@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env*
+*.key
+*.pem
+credentials.*
+secrets.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# GRD-specific
+grd-local-patches/
+
+# Build/coverage artifacts
+coverage/
+.nyc_output/
+dist/
+build/
+
+# npm
+*.tgz
+
+# Test artifacts
+tmp/
+
+# Claude Code local settings
+.claude/

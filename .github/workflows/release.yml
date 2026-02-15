@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Verify version consistency
+        id: version
+        run: |
+          VERSION_FILE=$(cat VERSION)
+          PLUGIN_VERSION=$(node -e "console.log(require('./.claude-plugin/plugin.json').version)")
+          CHANGELOG_HAS=$(grep -c "\[$VERSION_FILE\]" CHANGELOG.md || true)
+          echo "VERSION file: $VERSION_FILE"
+          echo "plugin.json:  $PLUGIN_VERSION"
+          echo "CHANGELOG:    $CHANGELOG_HAS match(es)"
+          if [ "$VERSION_FILE" != "$PLUGIN_VERSION" ]; then
+            echo "::error::VERSION ($VERSION_FILE) does not match plugin.json ($PLUGIN_VERSION)"
+            exit 1
+          fi
+          if [ "$CHANGELOG_HAS" -eq 0 ]; then
+            echo "::error::CHANGELOG.md has no entry for version $VERSION_FILE"
+            exit 1
+          fi
+          echo "Version consistency: OK"
+          echo "version=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Extract release notes
+        run: |
+          VERSION=$(cat VERSION)
+          # Extract the section for current version from CHANGELOG.md
+          # Matches from "## [$VERSION]" to the next "## [" or end of file
+          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | head -n -1 > release-notes.md
+          echo "--- Release Notes ---"
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          draft: true

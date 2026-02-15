@@ -1,0 +1,12 @@
+{
+  "found": true,
+  "directory": ".planning/phases/01-security-foundation",
+  "phase_number": "01",
+  "phase_name": "security-foundation",
+  "plans": [
+    "01-01-PLAN.md"
+  ],
+  "summaries": [
+    "01-01-SUMMARY.md"
+  ]
+}

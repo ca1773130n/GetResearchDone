@@ -1,0 +1,66 @@
+{
+  "mode": "interactive",
+  "depth": "standard",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  },
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "parallelization": {
+    "enabled": true,
+    "plan_level": true,
+    "task_level": false,
+    "skip_checkpoints": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2
+  },
+  "gates": {
+    "confirm_project": true,
+    "confirm_phases": true,
+    "confirm_roadmap": true,
+    "confirm_breakdown": true,
+    "confirm_plan": true,
+    "execute_next_plan": true,
+    "issues_review": true,
+    "confirm_transition": true
+  },
+  "research_gates": {
+    "before_plan": false,
+    "verification_design": true,
+    "after_eval": true,
+    "feasibility": true
+  },
+  "autonomous_mode": false,
+  "tracker": {
+    "provider": "none",
+    "auto_sync": true,
+    "github": {
+      "project_board": "",
+      "default_assignee": "",
+      "default_labels": ["research", "implementation", "evaluation", "integration"],
+      "auto_issues": true,
+      "pr_per_phase": false
+    },
+    "mcp_atlassian": {
+      "project_key": "",
+      "milestone_issue_type": "Epic",
+      "phase_issue_type": "Task",
+      "plan_issue_type": "Sub-task",
+      "start_date_field": "customfield_10015",
+      "default_duration_days": 7
+    }
+  },
+  "eval_config": {
+    "default_metrics": ["PSNR", "SSIM", "LPIPS"],
+    "baseline_tracking": true,
+    "auto_iterate_on_failure": false
+  },
+  "safety": {
+    "always_confirm_destructive": true,
+    "always_confirm_external_services": true
+  }
+}

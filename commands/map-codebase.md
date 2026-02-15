@@ -1,0 +1,95 @@
+<purpose>
+Orchestrate parallel codebase mapper agents to analyze codebase and produce structured documents in .planning/codebase/
+
+Each agent has fresh context, explores a specific focus area, and writes documents directly. The orchestrator only receives confirmation + line counts, then writes a summary.
+
+Output: .planning/codebase/ folder with 7 structured documents about the codebase state.
+</purpose>
+
+<process>
+
+<step name="init_context" priority="first">
+```bash
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init map-codebase)
+```
+
+Extract: `mapper_model`, `commit_docs`, `codebase_dir`, `existing_maps`, `has_maps`, `codebase_dir_exists`.
+</step>
+
+<step name="check_existing">
+If `codebase_dir_exists` is true: Offer Refresh/Update/Skip.
+If doesn't exist: Continue to create_structure.
+</step>
+
+<step name="create_structure">
+```bash
+mkdir -p .planning/codebase
+```
+
+Expected: STACK.md, INTEGRATIONS.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md
+</step>
+
+<step name="spawn_agents">
+Spawn 4 parallel grd-codebase-mapper agents:
+
+**Agent 1: Tech Focus** — STACK.md, INTEGRATIONS.md
+**Agent 2: Architecture Focus** — ARCHITECTURE.md, STRUCTURE.md
+**Agent 3: Quality Focus** — CONVENTIONS.md, TESTING.md
+**Agent 4: Concerns Focus** — CONCERNS.md
+
+Each uses `subagent_type="grd-codebase-mapper"`, `model="{mapper_model}"`, `run_in_background=true`.
+</step>
+
+<step name="verify_output">
+```bash
+ls -la .planning/codebase/
+wc -l .planning/codebase/*.md
+```
+
+All 7 documents exist, no empty documents.
+</step>
+
+<step name="scan_for_secrets">
+```bash
+grep -E '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[A-Z0-9]{16}|-----BEGIN.*PRIVATE KEY)' .planning/codebase/*.md 2>/dev/null && SECRETS_FOUND=true || SECRETS_FOUND=false
+```
+
+If SECRETS_FOUND: Alert and pause before commit.
+</step>
+
+<step name="commit_codebase_map">
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: map existing codebase" --files .planning/codebase/*.md
+```
+</step>
+
+<step name="offer_next">
+```
+Codebase mapping complete.
+
+Created .planning/codebase/:
+- STACK.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, INTEGRATIONS.md, CONCERNS.md
+
+---
+
+## Next Up
+
+**Initialize project** — use codebase context for planning
+
+`/grd:new-project`
+
+<sub>`/clear` first -> fresh context window</sub>
+
+---
+```
+</step>
+
+</process>
+
+<success_criteria>
+- .planning/codebase/ directory created
+- 4 parallel grd-codebase-mapper agents spawned
+- All 7 codebase documents exist
+- Clear completion summary with line counts
+- User offered clear next steps
+</success_criteria>

@@ -1,0 +1,19 @@
+{
+  "current_phase": null,
+  "current_phase_name": null,
+  "total_phases": null,
+  "current_plan": null,
+  "total_plans_in_phase": null,
+  "status": null,
+  "progress_percent": null,
+  "last_activity": null,
+  "last_activity_desc": null,
+  "decisions": [],
+  "blockers": [],
+  "paused_at": null,
+  "session": {
+    "last_date": null,
+    "stopped_at": null,
+    "resume_file": null
+  }
+}

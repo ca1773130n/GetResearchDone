@@ -1,0 +1,53 @@
+{
+  "model_profile": "quality",
+  "commit_docs": true,
+  "search_gitignored": false,
+  "branching_strategy": "phase",
+  "phase_branch_template": "grd/{milestone}/{phase}-{slug}",
+  "milestone_branch_template": "grd/{milestone}-{slug}",
+  "workflow": {
+    "research": false,
+    "plan_check": true,
+    "verifier": true
+  },
+  "parallelization": true,
+  "autonomous_mode": true,
+  "_saved_research_gates": {
+    "verification_design": false,
+    "method_selection": false,
+    "baseline_review": true
+  },
+  "_saved_confirmation_gates": {},
+  "research_gates": {
+    "survey_approval": false,
+    "deep_dive_approval": false,
+    "comparison_approval": false,
+    "feasibility_approval": false,
+    "verification_design": false,
+    "product_plan_approval": false,
+    "phase_plan_approval": false,
+    "execution_approval": false
+  },
+  "confirmation_gates": {
+    "commit_confirmation": false,
+    "file_deletion": false,
+    "phase_completion": false,
+    "target_adjustment": false,
+    "approach_change": false
+  },
+  "eval_config": {
+    "default_metrics": [
+      "test_coverage_pct",
+      "lint_error_count",
+      "max_file_lines",
+      "ci_pass_rate"
+    ],
+    "baseline_tracking": true
+  },
+  "code_review": {
+    "enabled": true,
+    "timing": "per_wave",
+    "severity_gate": "blocker",
+    "auto_fix_warnings": true
+  }
+}
