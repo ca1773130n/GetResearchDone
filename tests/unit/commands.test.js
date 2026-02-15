@@ -32,6 +32,7 @@ const {
   cmdHealth,
   cmdDetectBackend,
   cmdLongTermRoadmap,
+  cmdQualityAnalysis,
 } = require('../../lib/commands');
 
 /**
@@ -2265,5 +2266,184 @@ Build the foundational infrastructure.
       });
       expect(exitCode).toBe(1);
     });
+  });
+});
+
+// ─── cmdQualityAnalysis ──────────────────────────────────────────────────────
+
+describe('cmdQualityAnalysis', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  // Helper: write config with optional phase_cleanup section
+  function setCleanupConfig(enabled) {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (enabled !== undefined) {
+      config.phase_cleanup = { enabled };
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  }
+
+  // Helper: create a minimal JS file in lib/ for analysis
+  function createSourceFile(name, content) {
+    const libDir = path.join(fixtureDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+    fs.writeFileSync(path.join(libDir, name), content, 'utf-8');
+  }
+
+  // ─── Config handling ──────────────────────────────────────────────────
+
+  test('returns skipped when phase_cleanup not enabled', () => {
+    setCleanupConfig(false);
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.skipped).toBe(true);
+    expect(parsed.reason).toContain('not enabled');
+  });
+
+  test('returns skipped when phase_cleanup section missing', () => {
+    // Default fixture config has no phase_cleanup section
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.skipped).toBe(true);
+  });
+
+  test('returns error when --phase flag missing', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdQualityAnalysis(fixtureDir, [], false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('--phase');
+  });
+
+  // ─── Quality report output ────────────────────────────────────────────
+
+  test('returns structured report when enabled', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'function hello() { return 1; }\nmodule.exports = { hello };\n');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('summary');
+    expect(parsed).toHaveProperty('details');
+  });
+
+  test('report includes phase number', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '42'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phase).toBe('42');
+  });
+
+  test('report includes timestamp matching YYYY-MM-DD', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('report summary has all count fields', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary).toHaveProperty('total_issues');
+    expect(parsed.summary).toHaveProperty('complexity_violations');
+    expect(parsed.summary).toHaveProperty('dead_exports');
+    expect(parsed.summary).toHaveProperty('oversized_files');
+  });
+
+  test('report details has all arrays', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(Array.isArray(parsed.details.complexity)).toBe(true);
+    expect(Array.isArray(parsed.details.dead_exports)).toBe(true);
+    expect(Array.isArray(parsed.details.file_size)).toBe(true);
+  });
+
+  // ─── Raw output mode ──────────────────────────────────────────────────
+
+  test('raw mode outputs human-readable text', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Quality Analysis');
+    expect(stdout).toContain('Total issues');
+  });
+
+  test('raw mode for skipped outputs reason', () => {
+    setCleanupConfig(false);
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('not enabled');
+  });
+
+  // ─── File analysis integration ────────────────────────────────────────
+
+  test('detects oversized files in report', () => {
+    setCleanupConfig(true);
+    // Create a file with 600+ lines
+    const bigContent = Array.from({ length: 601 }, (_, i) => `// line ${i + 1}`).join('\n') + '\n';
+    createSourceFile('big-file.js', bigContent);
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary.oversized_files).toBeGreaterThan(0);
+    expect(parsed.details.file_size.length).toBeGreaterThan(0);
+  });
+
+  test('clean codebase produces zero-issue report', () => {
+    setCleanupConfig(true);
+    // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
+    createSourceFile('math.js', 'function add(a, b) { return a + b; }\nmodule.exports = { add };\n');
+    createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary.total_issues).toBe(0);
   });
 });
