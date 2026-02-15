@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 11 — Hierarchical Roadmap Schema & Commands
-- **Current plan:** Plan 1 of 2 complete (11-01-PLAN.md done)
+- **Active phase:** Phase 11 — Hierarchical Roadmap Schema & Commands (COMPLETE)
+- **Current plan:** Plan 2 of 2 complete (11-02-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 11 of 15 [####---] 36% (5/14 plans in v0.1.0)
-- **Next:** Execute 11-02-PLAN.md (CLI commands for long-term roadmap)
+- **Progress:** Phase 11 of 15 [#####--] 43% (7/14 plans in v0.1.0)
+- **Next:** Phase 12 (Milestone Refinement & Promotion Commands)
 
 ## Pending Decisions
 
@@ -42,6 +42,7 @@ None.
 | 2026-02-16 | Used extractFrontmatter from lib/frontmatter.js for YAML parsing | Phase 11 | Consistency with existing codebase; avoids duplicating YAML parser |
 | 2026-02-16 | Later milestones: success_criteria optional (warning not error) | Phase 11 | Per research: Later tier is rough; forcing success criteria adds false precision |
 | 2026-02-16 | getPlanningMode reads frontmatter for explicit override | Phase 11 | Allows users to opt-out of hierarchical mode without deleting file |
+| 2026-02-16 | Local flag() helper in commands.js for generate subcommand args | Phase 11 | Avoids importing grd-tools.js flag(); keeps commands.js self-contained |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -80,11 +81,12 @@ None.
 | 10 | 01 | 3min | 2 | 3 | +8 tests (682 total) |
 | 10 | 02 | 4min | 2 | 2 | +8 tests (690 total) |
 | 11 | 01 | 4min | 2 | 2 | +32 tests (722 total) |
+| 11 | 02 | 4min | 2 | 3 | +22 tests (744 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 11-01-PLAN.md (long-term roadmap schema and parsing module)
-- **Next action:** Execute 11-02-PLAN.md (CLI commands for long-term roadmap)
+- **Last action:** Completed 11-02-PLAN.md (long-term roadmap CLI commands)
+- **Next action:** Phase 12 planning (milestone refinement & promotion commands)
 - **Context needed:** `lib/long-term-roadmap.js`, `lib/commands.js`, `bin/grd-tools.js`
 
 ---
