@@ -26,7 +26,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
 
 - [x] **Phase 9: Backend Detection & Model Resolution** - Core detection, model mapping, config schema, and tests `implement`
 - [x] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
-- [ ] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
+- [x] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
 - [ ] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
 - [ ] **Phase 13: Auto-Cleanup Config & Quality Analysis** - Config option, phase-boundary quality analysis `implement`
 - [ ] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Doc drift detection, auto-generated cleanup plans `implement`
@@ -82,8 +82,8 @@ Plans:
   4. All existing commands work unchanged in progressive mode (no breaking changes)
 **Plans**: 2 plans
 Plans:
-- [ ] 11-01-PLAN.md -- TDD: Create lib/long-term-roadmap.js with parsing, validation, generation, and mode detection (Wave 1)
-- [ ] 11-02-PLAN.md -- Add long-term-roadmap CLI command with parse/validate/display/mode/generate subcommands (Wave 2)
+- [x] 11-01-PLAN.md -- TDD: Create lib/long-term-roadmap.js with parsing, validation, generation, and mode detection (Wave 1)
+- [x] 11-02-PLAN.md -- Add long-term-roadmap CLI command with parse/validate/display/mode/generate subcommands (Wave 2)
 
 ### Phase 12: Hierarchical Roadmap Refinement & Promotion
 **Goal**: Users can progressively refine rough milestones into detailed plans and promote them through tiers toward execution
