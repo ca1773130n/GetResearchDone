@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 9 — Backend Detection & Model Resolution (COMPLETE)
-- **Current plan:** Plan 2 of 2 complete (09-02-PLAN.md done)
+- **Active phase:** Phase 10 — Backend Capabilities Context Integration (IN PROGRESS)
+- **Current plan:** Plan 1 of 2 complete (10-01-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 9 of 15 [##-----] 14% (2/14 plans in v0.1.0)
-- **Next:** Plan and execute Phase 10 (Backend-aware Context Initialization)
+- **Progress:** Phase 10 of 15 [###----] 21% (3/14 plans in v0.1.0)
+- **Next:** Execute Plan 10-02 (Context initialization backend awareness)
 
 ## Pending Decisions
 
@@ -35,6 +35,8 @@ None.
 | 2026-02-16 | Exclude AGENT env var from OpenCode detection | Phase 9 | Per PITFALLS.md P5: too generic, collision risk with other tools |
 | 2026-02-16 | Optional cwd param on resolveModelForAgent (not breaking) | Phase 9 | Appended as third parameter; existing 2-arg callers unchanged |
 | 2026-02-16 | Dynamic CLAUDE_CODE_* env var cleanup in tests | Phase 9 | Hardcoding specific vars would break as Claude Code adds new env vars |
+| 2026-02-16 | Use loadConfig in cmdDetectBackend (not backend.js readConfig) | Phase 10 | Consistent with other cmd* functions; avoids duplicating internal readConfig |
+| 2026-02-16 | Wire detect-backend as top-level CLI route (no subcommand) | Phase 10 | Matches flat CLI pattern of existing commands |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -70,12 +72,13 @@ None.
 |-------|------|----------|-------|-------|------------|
 | 09 | 01 | 3min | 2 | 3 | +62 tests (656 total) |
 | 09 | 02 | 3min | 2 | 2 | +18 tests (674 total) |
+| 10 | 01 | 3min | 2 | 3 | +8 tests (682 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 09-02-PLAN.md (backend integration into utils.js)
-- **Next action:** Plan and execute Phase 10 (Backend-aware Context Initialization)
-- **Context needed:** `lib/context.js`, `lib/utils.js`, `lib/backend.js`
+- **Last action:** Completed 10-01-PLAN.md (detect-backend CLI command)
+- **Next action:** Execute Plan 10-02 (Context initialization backend awareness)
+- **Context needed:** `lib/context.js`, `lib/commands.js`, `lib/backend.js`
 
 ---
 
