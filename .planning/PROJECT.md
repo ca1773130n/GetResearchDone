@@ -34,6 +34,15 @@ v0.0.5 is the production-quality engineering foundation:
 - JSDoc on all 105 exported functions
 - CONTRIBUTING.md for developer onboarding
 
+## Current Milestone: v0.1.0 — Setup Functionality & Usability
+
+**Goal:** Improve setup functionality and usability by supporting multiple AI backends, adding auto-refactoring/doc-sync options, and enabling hierarchical long-term roadmap planning.
+
+**Target features:**
+1. **Multi AI-backend support** — Detect and adapt to Claude Code, Codex, Gemini, OpenCode at runtime. Dynamic model selection per role (planner, executor, researcher, reviewer) based on which backend is active. Not just model names in config — runtime detection and adaptation.
+2. **Auto refactoring/doc-sync plans** — Setup option to automatically append refactoring and document synchronization plans at the end of each phase execution.
+3. **Hierarchical roadmap planning** — Support long-term roadmap (e.g., year plan) with rough milestones defined upfront, then progressively refine each milestone's goals and requirements through AI discussion. Replace the current "add next milestone after completing previous" pattern.
+
 ## Validated Goals (v0.0.5)
 
 - [x] Test coverage >= 80% on lib/ modules
@@ -58,6 +67,7 @@ v0.0.5 is the production-quality engineering foundation:
 - **Zero external runtime deps:** Only Node.js built-in modules. Dev-dependencies (jest, eslint) acceptable.
 - **Backward compatibility:** All existing commands must continue to work. No breaking changes to `.planning/` file formats.
 - **Plugin compatibility:** Must remain compatible with Claude Code plugin SDK.
+- **Multi-backend:** Must work across Claude Code, Codex, Gemini CLI, OpenCode without requiring backend-specific code in the plugin's core logic.
 
 ## Stakeholders
 
