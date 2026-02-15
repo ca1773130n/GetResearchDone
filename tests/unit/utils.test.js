@@ -398,3 +398,285 @@ describe('error', () => {
     expect(stderr).toContain('Error: something went wrong');
   });
 });
+
+// ─── Backend-aware model resolution (integration with lib/backend.js) ────
+
+const fs = require('fs');
+const os = require('os');
+
+describe('Backend-aware model resolution', () => {
+  describe('resolveModelInternal with backend', () => {
+    let tmpDir;
+    const savedEnv = {};
+    // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
+    const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+    const envVarsToClean = [
+      ...claudeCodeVars,
+      'CODEX_HOME',
+      'CODEX_THREAD_ID',
+      'GEMINI_CLI_HOME',
+      'OPENCODE',
+    ];
+
+    beforeEach(() => {
+      // Save env vars
+      for (const key of envVarsToClean) {
+        savedEnv[key] = process.env[key];
+      }
+      // Clear env vars to ensure clean detection
+      for (const key of envVarsToClean) {
+        delete process.env[key];
+      }
+      // Create temp dir with .planning/config.json
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-utils-'));
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    });
+
+    afterEach(() => {
+      // Restore env vars
+      for (const key of envVarsToClean) {
+        if (savedEnv[key] !== undefined) {
+          process.env[key] = savedEnv[key];
+        } else {
+          delete process.env[key];
+        }
+      }
+      // Cleanup
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('returns sonnet for grd-executor on claude backend with balanced profile (existing behavior preserved)', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      const model = resolveModelInternal(tmpDir, 'grd-executor');
+      expect(model).toBe('sonnet');
+    });
+
+    test('returns gpt-5.3-codex-spark for grd-executor on codex backend (CODEX_HOME set)', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      process.env.CODEX_HOME = '/tmp/codex';
+      const model = resolveModelInternal(tmpDir, 'grd-executor');
+      expect(model).toBe('gpt-5.3-codex-spark');
+    });
+
+    test('returns gemini-3-flash for grd-executor on gemini backend (GEMINI_CLI_HOME set)', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      process.env.GEMINI_CLI_HOME = '/tmp/gemini';
+      const model = resolveModelInternal(tmpDir, 'grd-executor');
+      expect(model).toBe('gemini-3-flash');
+    });
+
+    test('returns anthropic/claude-sonnet-4-5 for grd-executor on opencode backend (OPENCODE set)', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      process.env.OPENCODE = '1';
+      const model = resolveModelInternal(tmpDir, 'grd-executor');
+      expect(model).toBe('anthropic/claude-sonnet-4-5');
+    });
+
+    test('returns opus for grd-planner on claude backend with quality profile', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'quality' })
+      );
+      const model = resolveModelInternal(tmpDir, 'grd-planner');
+      expect(model).toBe('opus');
+    });
+
+    test('returns gpt-5.3-codex for grd-planner on codex backend with quality profile', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'quality' })
+      );
+      process.env.CODEX_HOME = '/tmp/codex';
+      const model = resolveModelInternal(tmpDir, 'grd-planner');
+      expect(model).toBe('gpt-5.3-codex');
+    });
+
+    test('honors backend_models override in config.json', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          backend: 'codex',
+          backend_models: {
+            codex: { sonnet: 'custom-codex-model' },
+          },
+        })
+      );
+      const model = resolveModelInternal(tmpDir, 'grd-executor');
+      expect(model).toBe('custom-codex-model');
+    });
+
+    test('returns backend-specific model for unknown agent type (defaults to sonnet tier)', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      process.env.CODEX_HOME = '/tmp/codex';
+      const model = resolveModelInternal(tmpDir, 'nonexistent-agent');
+      expect(model).toBe('gpt-5.3-codex-spark');
+    });
+  });
+
+  describe('resolveModelForAgent with cwd', () => {
+    let tmpDir;
+    const savedEnv = {};
+    // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
+    const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+    const envVarsToClean = [
+      ...claudeCodeVars,
+      'CODEX_HOME',
+      'CODEX_THREAD_ID',
+      'GEMINI_CLI_HOME',
+      'OPENCODE',
+    ];
+
+    beforeEach(() => {
+      for (const key of envVarsToClean) {
+        savedEnv[key] = process.env[key];
+      }
+      for (const key of envVarsToClean) {
+        delete process.env[key];
+      }
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-agent-'));
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    });
+
+    afterEach(() => {
+      for (const key of envVarsToClean) {
+        if (savedEnv[key] !== undefined) {
+          process.env[key] = savedEnv[key];
+        } else {
+          delete process.env[key];
+        }
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('returns tier name when cwd is not provided (backward compatible)', () => {
+      const config = { model_profile: 'quality' };
+      expect(resolveModelForAgent(config, 'grd-executor')).toBe('opus');
+    });
+
+    test('returns backend-specific name when cwd is provided', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      process.env.CODEX_HOME = '/tmp/codex';
+      const config = { model_profile: 'balanced' };
+      const model = resolveModelForAgent(config, 'grd-executor', tmpDir);
+      expect(model).toBe('gpt-5.3-codex-spark');
+    });
+
+    test('honors backend_models config override when cwd provided', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          backend: 'gemini',
+          backend_models: {
+            gemini: { sonnet: 'custom-gemini-flash' },
+          },
+        })
+      );
+      const config = {
+        model_profile: 'balanced',
+        backend_models: { gemini: { sonnet: 'custom-gemini-flash' } },
+      };
+      const model = resolveModelForAgent(config, 'grd-executor', tmpDir);
+      expect(model).toBe('custom-gemini-flash');
+    });
+
+    test('returns sonnet tier for unknown agent without cwd', () => {
+      const config = { model_profile: 'quality' };
+      expect(resolveModelForAgent(config, 'nonexistent-agent')).toBe('sonnet');
+    });
+  });
+
+  describe('loadConfig backend fields', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-config-'));
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('returns undefined for backend when not in config', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      const config = loadConfig(tmpDir);
+      expect(config.backend).toBeUndefined();
+    });
+
+    test('returns undefined for backend_models when not in config', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      const config = loadConfig(tmpDir);
+      expect(config.backend_models).toBeUndefined();
+    });
+
+    test('returns backend value when present in config.json', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced', backend: 'codex' })
+      );
+      const config = loadConfig(tmpDir);
+      expect(config.backend).toBe('codex');
+    });
+
+    test('returns backend_models when present in config.json', () => {
+      const backendModels = { codex: { sonnet: 'custom-model' } };
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced', backend_models: backendModels })
+      );
+      const config = loadConfig(tmpDir);
+      expect(config.backend_models).toEqual(backendModels);
+    });
+
+    test('backward compatible: all existing config fields still returned correctly', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'quality',
+          commit_docs: false,
+          backend: 'gemini',
+          backend_models: { gemini: { opus: 'gemini-custom' } },
+        })
+      );
+      const config = loadConfig(tmpDir);
+      // Existing fields
+      expect(config.model_profile).toBe('quality');
+      expect(config.commit_docs).toBe(false);
+      // New backend fields
+      expect(config.backend).toBe('gemini');
+      expect(config.backend_models).toEqual({ gemini: { opus: 'gemini-custom' } });
+    });
+
+    test('returns undefined for backend and backend_models when config missing', () => {
+      const config = loadConfig('/tmp/nonexistent-dir-99999');
+      expect(config.backend).toBeUndefined();
+      expect(config.backend_models).toBeUndefined();
+    });
+  });
+});
