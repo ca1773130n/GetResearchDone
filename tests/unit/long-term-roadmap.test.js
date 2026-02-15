@@ -16,6 +16,10 @@ const {
   getPlanningMode,
   generateLongTermRoadmap,
   formatLongTermRoadmap,
+  getMilestoneTier,
+  refineMilestone,
+  promoteMilestone,
+  updateRefinementHistory,
 } = require('../../lib/long-term-roadmap');
 
 // ─── Test Fixtures ───────────────────────────────────────────────────────────
@@ -672,5 +676,375 @@ describe('formatLongTermRoadmap', () => {
     expect(formatted).toContain('v1.0.0');
     // Should not crash
     expect(typeof formatted).toBe('string');
+  });
+});
+
+// ─── Refinement & Promotion Test Fixtures ────────────────────────────────────
+
+const REFINE_FIXTURE = `---
+project: "RefineTest"
+roadmap_type: hierarchical
+created: "2026-01-01"
+last_refined: "2026-02-01"
+planning_horizon: "6 months"
+---
+
+# Long-Term Roadmap: RefineTest
+
+## Current Milestone (Now)
+
+**Milestone:** v0.1.0 - Foundation
+**Status:** In Progress
+**Start:** 2026-01-15
+**Target:** 2026-03-01
+
+### Goal
+Establish core R&D workflow with research, planning, execution, and evaluation.
+
+### Success Criteria
+- All Phase 6 tests passing
+- Documentation complete
+- First external user onboarded
+
+---
+
+## Next Milestones
+
+### v0.2.0 - Agent Teams
+
+**Status:** Next
+**Estimated Start:** 2026-03-01
+**Estimated Duration:** 6 weeks
+**Dependencies:** v0.1.0 complete
+
+#### Goal
+Enable parallel execution of independent phases.
+
+#### Success Criteria
+- Execute 3 independent phases in parallel
+- Agent team collaboration works
+- 30% time reduction
+
+#### Rough Phase Sketch
+1. Agent Team Protocol
+2. Parallel Execution Engine
+3. Coordination Primitives
+4. Integration Testing
+
+#### Open Questions
+- Which protocol: hierarchical vs peer-to-peer?
+- How to handle merge conflicts?
+
+---
+
+### v0.3.0 - Advanced Evaluation
+
+**Status:** Next
+**Estimated Start:** 2026-04-15
+**Estimated Duration:** 4 weeks
+**Dependencies:** v0.2.0 complete
+
+#### Goal
+Richer evaluation framework with A/B testing and regression detection.
+
+#### Success Criteria
+- Automated regression detection
+- A/B test support
+- Performance profiling
+
+#### Rough Phase Sketch
+1. Regression Detection
+2. A/B Testing Framework
+3. Profiling Integration
+
+#### Open Questions
+- Baseline storage: in-repo vs external database?
+
+---
+
+## Later Milestones
+
+### v0.4.0 - Multi-Project Management
+
+**Status:** Later
+**Estimated Timeline:** Q3 2026
+**Dependencies:** v0.3.0 complete
+
+#### Goal
+Support multiple concurrent R&D projects with shared knowledge base.
+
+#### Success Criteria
+- Manage 3+ projects in single workspace
+- Cross-project research reuse
+- Unified progress dashboard
+
+#### Open Research Questions
+- Monorepo vs separate repos per project?
+- How to structure shared research knowledge graph?
+
+---
+
+### v0.5.0 - Community & Marketplace
+
+**Status:** Later
+**Estimated Timeline:** Q4 2026
+**Dependencies:** v0.4.0 complete
+
+#### Goal
+Enable sharing of research artifacts, phase templates, and evaluation frameworks.
+
+#### Success Criteria
+- 10+ published research landscapes
+- 20+ reusable phase templates
+
+#### Open Research Questions
+- Licensing and attribution model?
+- Quality curation mechanism?
+
+---
+
+## Refinement History
+
+| Date | Action | Details |
+|------|--------|---------|
+| 2026-01-01 | Initial roadmap | Defined v0.1.0 - v0.5.0 with Now-Next-Later tiers |
+`;
+
+// ─── getMilestoneTier ────────────────────────────────────────────────────────
+
+describe('getMilestoneTier', () => {
+  test('returns now for the Now milestone version', () => {
+    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.1.0')).toBe('now');
+  });
+
+  test('returns next for a Next milestone version', () => {
+    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.2.0')).toBe('next');
+  });
+
+  test('returns later for a Later milestone version', () => {
+    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.4.0')).toBe('later');
+  });
+
+  test('returns null for unknown version', () => {
+    expect(getMilestoneTier(REFINE_FIXTURE, 'v9.9.9')).toBeNull();
+  });
+
+  test('works with two-segment versions', () => {
+    const twoSegContent = REFINE_FIXTURE.replace(/v0\.1\.0/g, 'v1.0');
+    expect(getMilestoneTier(twoSegContent, 'v1.0')).toBe('now');
+  });
+});
+
+// ─── refineMilestone ─────────────────────────────────────────────────────────
+
+describe('refineMilestone', () => {
+  test('updates goal of a Next milestone', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Updated goal text' });
+    expect(typeof result).toBe('string');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.next[0].goal).toBe('Updated goal text');
+  });
+
+  test('updates success_criteria of a Next milestone', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
+      success_criteria: ['New criterion 1', 'New criterion 2'],
+    });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.next[0].success_criteria).toEqual(['New criterion 1', 'New criterion 2']);
+  });
+
+  test('updates rough_phase_sketch of a Next milestone', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
+      rough_phase_sketch: ['Phase A', 'Phase B', 'Phase C'],
+    });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.next[0].rough_phase_sketch).toEqual(['Phase A', 'Phase B', 'Phase C']);
+  });
+
+  test('updates open_questions of a Next milestone', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
+      open_questions: ['Question 1?', 'Question 2?'],
+    });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.next[0].open_questions).toEqual(['Question 1?', 'Question 2?']);
+  });
+
+  test('updates goal of a Later milestone', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.4.0', { goal: 'Refined later goal' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.later[0].goal).toBe('Refined later goal');
+  });
+
+  test('preserves other milestones unchanged', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Changed goal' });
+    const parsed = parseLongTermRoadmap(result);
+    // v0.3.0 (another Next) should be unchanged
+    expect(parsed.next[1].goal).toContain('Richer evaluation framework');
+    // v0.4.0 (Later) should be unchanged
+    expect(parsed.later[0].goal).toContain('multiple concurrent');
+  });
+
+  test('preserves frontmatter and other sections', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Changed goal' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.frontmatter.project).toBe('RefineTest');
+    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
+    expect(parsed.refinement_history.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('returns error object for unknown version', () => {
+    const result = refineMilestone(REFINE_FIXTURE, 'v9.9.9', { goal: 'x' });
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
+});
+
+// ─── promoteMilestone ────────────────────────────────────────────────────────
+
+describe('promoteMilestone', () => {
+  test('promotes Later to Next', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
+    expect(typeof result).toBe('string');
+    const parsed = parseLongTermRoadmap(result);
+    const nextVersions = parsed.next.map((m) => m.version);
+    expect(nextVersions).toContain('v0.4.0');
+    const laterVersions = parsed.later.map((m) => m.version);
+    expect(laterVersions).not.toContain('v0.4.0');
+  });
+
+  test('Later->Next adds required Next-tier fields', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
+    const parsed = parseLongTermRoadmap(result);
+    const promoted = parsed.next.find((m) => m.version === 'v0.4.0');
+    expect(promoted).toBeDefined();
+    expect(promoted.estimated_start).toBeDefined();
+    expect(promoted.estimated_duration).toBeDefined();
+    expect(promoted.rough_phase_sketch).toBeDefined();
+  });
+
+  test('Later->Next preserves existing goal and success_criteria', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
+    const parsed = parseLongTermRoadmap(result);
+    const promoted = parsed.next.find((m) => m.version === 'v0.4.0');
+    expect(promoted.goal).toContain('multiple concurrent');
+    expect(promoted.success_criteria).toBeInstanceOf(Array);
+    expect(promoted.success_criteria.length).toBeGreaterThan(0);
+  });
+
+  test('promotes Next to Now', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
+    expect(typeof result).toBe('string');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.now.version).toBe('v0.2.0');
+    const nextVersions = parsed.next.map((m) => m.version);
+    expect(nextVersions).not.toContain('v0.2.0');
+  });
+
+  test('Next->Now replaces existing Now section', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
+    const parsed = parseLongTermRoadmap(result);
+    // Old Now (v0.1.0) should no longer be in Now
+    expect(parsed.now.version).not.toBe('v0.1.0');
+    expect(parsed.now.version).toBe('v0.2.0');
+  });
+
+  test('Next->Now preserves other Next milestones', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
+    const parsed = parseLongTermRoadmap(result);
+    const nextVersions = parsed.next.map((m) => m.version);
+    expect(nextVersions).toContain('v0.3.0');
+  });
+
+  test('returns error for Now milestone (cannot promote further)', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.1.0');
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
+
+  test('returns error for unknown version', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v9.9.9');
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
+
+  test('preserves Later milestones when promoting Later->Next', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
+    const parsed = parseLongTermRoadmap(result);
+    const laterVersions = parsed.later.map((m) => m.version);
+    expect(laterVersions).toContain('v0.5.0');
+  });
+
+  test('preserves frontmatter after promotion', () => {
+    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.frontmatter.project).toBe('RefineTest');
+    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
+    expect(parsed.frontmatter.planning_horizon).toBe('6 months');
+  });
+});
+
+// ─── updateRefinementHistory ─────────────────────────────────────────────────
+
+describe('updateRefinementHistory', () => {
+  test('appends a new row to refinement history', () => {
+    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+    expect(typeof result).toBe('string');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.refinement_history.length).toBe(2);
+  });
+
+  test('new entry has today\'s date', () => {
+    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+    const parsed = parseLongTermRoadmap(result);
+    const today = new Date().toISOString().split('T')[0];
+    const newEntry = parsed.refinement_history[parsed.refinement_history.length - 1];
+    expect(newEntry.date).toBe(today);
+  });
+
+  test('new entry has correct action and details', () => {
+    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+    const parsed = parseLongTermRoadmap(result);
+    const newEntry = parsed.refinement_history[parsed.refinement_history.length - 1];
+    expect(newEntry.action).toBe('Refined');
+    expect(newEntry.details).toBe('Updated v0.2.0 goal');
+  });
+
+  test('preserves existing history entries', () => {
+    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.refinement_history[0].action).toContain('Initial');
+    expect(parsed.refinement_history[0].date).toBe('2026-01-01');
+  });
+
+  test('works when Refinement History section has no prior entries', () => {
+    const emptyHistory = `---
+project: "EmptyHistoryTest"
+roadmap_type: hierarchical
+created: "2026-01-01"
+last_refined: "2026-01-01"
+planning_horizon: "3 months"
+---
+
+# Long-Term Roadmap: EmptyHistoryTest
+
+## Current Milestone (Now)
+
+**Milestone:** v1.0.0 - Start
+**Status:** In Progress
+**Start:** 2026-01-01
+**Target:** 2026-02-01
+
+### Goal
+Get started with the project.
+
+### Success Criteria
+- Initial setup complete
+
+## Refinement History
+
+| Date | Action | Details |
+|------|--------|---------|
+`;
+    const result = updateRefinementHistory(emptyHistory, 'Added', 'New milestone v2.0');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.refinement_history.length).toBe(1);
+    expect(parsed.refinement_history[0].action).toBe('Added');
   });
 });
