@@ -25,7 +25,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
 **Start:** 2026-02-16
 
 - [x] **Phase 9: Backend Detection & Model Resolution** - Core detection, model mapping, config schema, and tests `implement`
-- [ ] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
+- [x] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
 - [ ] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
 - [ ] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
 - [ ] **Phase 13: Auto-Cleanup Config & Quality Analysis** - Config option, phase-boundary quality analysis `implement`
@@ -65,8 +65,8 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
   4. Existing orchestrator commands continue to work unchanged when backend is `claude` (backward compatibility)
 **Plans**: 2 plans
 Plans:
-- [ ] 10-01-PLAN.md -- TDD: detect-backend CLI command with JSON/raw output (Wave 1)
-- [ ] 10-02-PLAN.md -- Add backend field and capabilities to all 14 cmdInit* functions (Wave 1)
+- [x] 10-01-PLAN.md -- TDD: detect-backend CLI command with JSON/raw output (Wave 1)
+- [x] 10-02-PLAN.md -- Add backend field and capabilities to all 14 cmdInit* functions (Wave 1)
 
 ### Phase 11: Hierarchical Roadmap Schema & Commands
 **Goal**: Users can create and view a long-term roadmap with Now/Next/Later milestone tiers, with automatic mode detection
@@ -149,7 +149,7 @@ Sequential dependencies: 9->10, 11->12, 13->14, then all converge at 15.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 9. Backend Detection & Model Resolution | v0.1.0 | 2/2 | Complete | 2026-02-16 |
-| 10. Backend Capabilities & Context Integration | v0.1.0 | 0/2 | Planned | - |
+| 10. Backend Capabilities & Context Integration | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 0/TBD | Not started | - |
 | 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 0/TBD | Not started | - |
 | 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | 0/TBD | Not started | - |
