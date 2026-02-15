@@ -114,25 +114,25 @@ Unit tests for LONG-TERM-ROADMAP.md parsing, tier detection, mode detection, and
 
 ## Traceability Matrix
 
-| REQ | Feature | Priority | Phase |
-|-----|---------|----------|-------|
-| REQ-01 | Multi-backend | P0 | TBD |
-| REQ-02 | Multi-backend | P0 | TBD |
-| REQ-03 | Multi-backend | P0 | TBD |
-| REQ-04 | Multi-backend | P1 | TBD |
-| REQ-05 | Multi-backend | P1 | TBD |
-| REQ-06 | Multi-backend | P0 | TBD |
-| REQ-07 | Multi-backend | P0 | TBD |
-| REQ-08 | Auto-cleanup | P1 | TBD |
-| REQ-09 | Auto-cleanup | P1 | TBD |
-| REQ-10 | Auto-cleanup | P2 | TBD |
-| REQ-11 | Auto-cleanup | P2 | TBD |
-| REQ-12 | Hierarchical roadmap | P0 | TBD |
-| REQ-13 | Hierarchical roadmap | P0 | TBD |
-| REQ-14 | Hierarchical roadmap | P1 | TBD |
-| REQ-15 | Hierarchical roadmap | P1 | TBD |
-| REQ-16 | Hierarchical roadmap | P2 | TBD |
-| REQ-17 | Hierarchical roadmap | P1 | TBD |
+| REQ | Feature | Priority | Phase | Status |
+|-----|---------|----------|-------|--------|
+| REQ-01 | Multi-backend | P0 | Phase 9 | Pending |
+| REQ-02 | Multi-backend | P0 | Phase 9 | Pending |
+| REQ-03 | Multi-backend | P0 | Phase 9 | Pending |
+| REQ-04 | Multi-backend | P1 | Phase 10 | Pending |
+| REQ-05 | Multi-backend | P1 | Phase 10 | Pending |
+| REQ-06 | Multi-backend | P0 | Phase 10 | Pending |
+| REQ-07 | Multi-backend | P0 | Phase 9 | Pending |
+| REQ-08 | Auto-cleanup | P1 | Phase 13 | Pending |
+| REQ-09 | Auto-cleanup | P1 | Phase 13 | Pending |
+| REQ-10 | Auto-cleanup | P2 | Phase 14 | Pending |
+| REQ-11 | Auto-cleanup | P2 | Phase 14 | Pending |
+| REQ-12 | Hierarchical roadmap | P0 | Phase 11 | Pending |
+| REQ-13 | Hierarchical roadmap | P0 | Phase 11 | Pending |
+| REQ-14 | Hierarchical roadmap | P1 | Phase 11 | Pending |
+| REQ-15 | Hierarchical roadmap | P1 | Phase 12 | Pending |
+| REQ-16 | Hierarchical roadmap | P2 | Phase 12 | Pending |
+| REQ-17 | Hierarchical roadmap | P1 | Phase 12 | Pending |
 
 ---
 
