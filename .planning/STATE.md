@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 10 — Backend Capabilities Context Integration (COMPLETE)
-- **Current plan:** Plan 2 of 2 complete (10-02-PLAN.md done)
+- **Active phase:** Phase 11 — Hierarchical Roadmap Schema & Commands
+- **Current plan:** Plan 1 of 2 complete (11-01-PLAN.md done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 10 of 15 [###----] 29% (4/14 plans in v0.1.0)
-- **Next:** Plan and execute Phase 11 (Hierarchical Roadmap Structure)
+- **Progress:** Phase 11 of 15 [####---] 36% (5/14 plans in v0.1.0)
+- **Next:** Execute 11-02-PLAN.md (CLI commands for long-term roadmap)
 
 ## Pending Decisions
 
@@ -39,6 +39,9 @@ None.
 | 2026-02-16 | Wire detect-backend as top-level CLI route (no subcommand) | Phase 10 | Matches flat CLI pattern of existing commands |
 | 2026-02-16 | Direct import from lib/backend.js in context.js | Phase 10 | utils.js does not re-export getBackendCapabilities; cleaner than adding re-export |
 | 2026-02-16 | All 14 cmdInit* get backend fields regardless of model usage | Phase 10 | Consistent output shape; any downstream agent can adapt behavior |
+| 2026-02-16 | Used extractFrontmatter from lib/frontmatter.js for YAML parsing | Phase 11 | Consistency with existing codebase; avoids duplicating YAML parser |
+| 2026-02-16 | Later milestones: success_criteria optional (warning not error) | Phase 11 | Per research: Later tier is rough; forcing success criteria adds false precision |
+| 2026-02-16 | getPlanningMode reads frontmatter for explicit override | Phase 11 | Allows users to opt-out of hierarchical mode without deleting file |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -76,12 +79,13 @@ None.
 | 09 | 02 | 3min | 2 | 2 | +18 tests (674 total) |
 | 10 | 01 | 3min | 2 | 3 | +8 tests (682 total) |
 | 10 | 02 | 4min | 2 | 2 | +8 tests (690 total) |
+| 11 | 01 | 4min | 2 | 2 | +32 tests (722 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 10-02-PLAN.md (backend-aware context initialization)
-- **Next action:** Plan and execute Phase 11 (Hierarchical Roadmap Structure)
-- **Context needed:** `.planning/ROADMAP.md`, `lib/phase.js`, `lib/commands.js`
+- **Last action:** Completed 11-01-PLAN.md (long-term roadmap schema and parsing module)
+- **Next action:** Execute 11-02-PLAN.md (CLI commands for long-term roadmap)
+- **Context needed:** `lib/long-term-roadmap.js`, `lib/commands.js`, `bin/grd-tools.js`
 
 ---
 
