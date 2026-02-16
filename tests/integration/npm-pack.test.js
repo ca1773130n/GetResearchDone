@@ -71,64 +71,55 @@ afterAll(() => {
 // ─── 1. npm pack validation ───────────────────────────────────────────────
 
 describe('npm pack validation', () => {
+  let dryRunInfo;
+  let dryRunFilePaths;
+
+  beforeAll(() => {
+    const dryRunOutput = execFileSync(
+      'npm',
+      ['pack', '--dry-run', '--json'],
+      { cwd: PROJECT_ROOT, encoding: 'utf-8' },
+    );
+    dryRunInfo = JSON.parse(dryRunOutput);
+    dryRunFilePaths = dryRunInfo[0].files.map((f) => f.path);
+  });
+
   test('npm pack produces a .tgz tarball', () => {
     expect(tarballName).toMatch(/^grd-tools-.*\.tgz$/);
     expect(fs.existsSync(tarballPath)).toBe(true);
   });
 
   test('pack JSON output includes expected file count', () => {
-    const dryRunOutput = execFileSync(
-      'npm',
-      ['pack', '--dry-run', '--json'],
-      { cwd: PROJECT_ROOT, encoding: 'utf-8' },
-    );
-    const info = JSON.parse(dryRunOutput);
     // Should have at least 20 files (bin, lib, commands, agents, plugin.json)
-    expect(info[0].files.length).toBeGreaterThanOrEqual(20);
+    expect(dryRunInfo[0].files.length).toBeGreaterThanOrEqual(20);
   });
 
   test('tarball contains all required files', () => {
-    const dryRunOutput = execFileSync(
-      'npm',
-      ['pack', '--dry-run', '--json'],
-      { cwd: PROJECT_ROOT, encoding: 'utf-8' },
-    );
-    const info = JSON.parse(dryRunOutput);
-    const filePaths = info[0].files.map((f) => f.path);
-
     // bin/ entries
-    expect(filePaths).toContain('bin/grd-tools.js');
-    expect(filePaths).toContain('bin/grd-mcp-server.js');
-    expect(filePaths).toContain('bin/postinstall.js');
+    expect(dryRunFilePaths).toContain('bin/grd-tools.js');
+    expect(dryRunFilePaths).toContain('bin/grd-mcp-server.js');
+    expect(dryRunFilePaths).toContain('bin/postinstall.js');
 
     // lib/ files (spot-check key modules)
-    expect(filePaths).toContain('lib/backend.js');
-    expect(filePaths).toContain('lib/cleanup.js');
-    expect(filePaths).toContain('lib/commands.js');
-    expect(filePaths).toContain('lib/context.js');
-    expect(filePaths).toContain('lib/mcp-server.js');
+    expect(dryRunFilePaths).toContain('lib/backend.js');
+    expect(dryRunFilePaths).toContain('lib/cleanup.js');
+    expect(dryRunFilePaths).toContain('lib/commands.js');
+    expect(dryRunFilePaths).toContain('lib/context.js');
+    expect(dryRunFilePaths).toContain('lib/mcp-server.js');
 
     // .claude-plugin/plugin.json
-    expect(filePaths).toContain('.claude-plugin/plugin.json');
+    expect(dryRunFilePaths).toContain('.claude-plugin/plugin.json');
 
     // agents/ and commands/ directories should have contents
-    const agentFiles = filePaths.filter((p) => p.startsWith('agents/'));
+    const agentFiles = dryRunFilePaths.filter((p) => p.startsWith('agents/'));
     expect(agentFiles.length).toBeGreaterThan(0);
 
-    const commandFiles = filePaths.filter((p) => p.startsWith('commands/'));
+    const commandFiles = dryRunFilePaths.filter((p) => p.startsWith('commands/'));
     expect(commandFiles.length).toBeGreaterThan(0);
   });
 
   test('tarball excludes test files, .planning/, .github/, and coverage/', () => {
-    const dryRunOutput = execFileSync(
-      'npm',
-      ['pack', '--dry-run', '--json'],
-      { cwd: PROJECT_ROOT, encoding: 'utf-8' },
-    );
-    const info = JSON.parse(dryRunOutput);
-    const filePaths = info[0].files.map((f) => f.path);
-
-    const excluded = filePaths.filter(
+    const excluded = dryRunFilePaths.filter(
       (p) =>
         p.startsWith('tests/') ||
         p.startsWith('.planning/') ||
@@ -184,11 +175,12 @@ describe('bin entry execution', () => {
     );
 
     try {
-      execFileSync('node', [grdToolsPath], {
+      const stdout = execFileSync('node', [grdToolsPath], {
         encoding: 'utf-8',
         timeout: 10000,
       });
-      // If it exits 0, that is also fine
+      // If it exits 0, verify it produced some output
+      expect(stdout.length).toBeGreaterThan(0);
     } catch (err) {
       // Exit code 1 with usage info in stderr is acceptable
       expect(err.status).toBe(1);

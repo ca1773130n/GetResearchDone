@@ -148,7 +148,7 @@ describe('E2E: Context init enrichment', () => {
 // ─── 3. Quality Analysis Pipeline ─────────────────────────────────────────────
 
 describe('E2E: Quality analysis pipeline', () => {
-  const { runQualityAnalysis, generateCleanupPlan, getCleanupConfig } = require('../../lib/cleanup');
+  const { runQualityAnalysis, generateCleanupPlan } = require('../../lib/cleanup');
 
   test('runQualityAnalysis returns quality report with expected fields when enabled', () => {
     // Enable cleanup in the fixture config
