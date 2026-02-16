@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 18 — Integration & Distribution Validation
-- **Current plan:** Plan 1 of 2 complete
+- **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** [█████████░] 90%
-- **Next:** Execute 18-02-PLAN.md (distribution validation)
+- **Progress:** [██████████] 100%
+- **Next:** Phase 18 complete; all v0.1.1 phases done
 
 ## Pending Decisions
 
@@ -60,6 +60,7 @@ None.
 | 2026-02-16 | Resolve package root from __dirname (not cwd) for setup command | Phase 17 | Ensures correct path regardless of where user runs grd-tools setup |
 | 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
 | 2026-02-16 | Direct module import (not CLI subprocess) for E2E integration tests | Phase 18 | Speed and directness; validates actual module interfaces not CLI parsing |
+| 2026-02-16 | execFileSync with input option for MCP handshake test (not spawn) | Phase 18 | Avoids open handle warnings; synchronous approach cleaner for test assertions |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -150,13 +151,14 @@ None.
 | 17 | 01 | 2min | 2 | 3 | +21 tests (1229 total) |
 | 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
 | 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
+| 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 18 Plan 01 (E2E workflow integration test)
-- **Stopped at:** Completed 18-01-PLAN.md
-- **Next action:** Execute 18-02-PLAN.md (distribution validation)
-- **Context needed:** 1272 tests passing (1258 tracked + 14 from other test growth); E2E integration validated
+- **Last action:** Completed Phase 18 Plan 02 (distribution validation)
+- **Stopped at:** Completed 18-02-PLAN.md
+- **Next action:** Phase 18 complete; all v0.1.1 phases done
+- **Context needed:** 1272 tests passing; full distribution pipeline validated (pack, install, bin entries, MCP server, plugin.json)
 
 ---
 
