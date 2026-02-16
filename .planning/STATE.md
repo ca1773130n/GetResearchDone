@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 16 — MCP Server
+- **Active phase:** Phase 17 — npm Distribution
 - **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
 - **Progress:** [██████████] 100%
-- **Next:** Phase 16 complete; proceed to Phase 17
+- **Next:** Phase 17 complete; proceed to Phase 18
 
 ## Pending Decisions
 
@@ -54,6 +54,8 @@ None.
 | 2026-02-16 | Bulk execute lambda coverage via tools/call path for all 97 tools | Phase 16 | Exercises every COMMAND_DESCRIPTORS execute function for 93% line coverage |
 | 2026-02-16 | Fixture isolation with createFixtureDir for MCP test safety | Phase 16 | Tests operate on temp .planning/ copy, not real project state |
 | 2026-02-16 | Notification id-absence: no-id messages return null regardless of method | Phase 16 | Per JSON-RPC spec, messages without id are notifications requiring no response |
+| 2026-02-16 | Resolve package root from __dirname (not cwd) for setup command | Phase 17 | Ensures correct path regardless of where user runs grd-tools setup |
+| 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -141,13 +143,14 @@ None.
 | 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
 | 16 | 01 | 5min | 2 | 2 | - |
 | 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
+| 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 16 Plan 02 (MCP server unit tests)
-- **Stopped at:** Completed 16-02-PLAN.md
-- **Next action:** Phase 16 complete; proceed to Phase 17
-- **Context needed:** 1208 tests passing; lib/mcp-server.js has 93% coverage
+- **Last action:** Completed Phase 17 Plan 02 (setup command)
+- **Stopped at:** Completed 17-02-PLAN.md
+- **Next action:** Phase 17 complete; proceed to Phase 18
+- **Context needed:** 1243 tests passing; grd-tools setup command implemented
 
 ---
 
