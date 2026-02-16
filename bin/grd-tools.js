@@ -514,7 +514,10 @@ function routeCommand(command, args, cwd, raw) {
       break;
     case 'long-term-roadmap': {
       const sub = args[1];
-      if (!sub) error('subcommand required: parse, validate, display, mode, generate, refine, promote, tier, history');
+      if (!sub)
+        error(
+          'subcommand required: parse, validate, display, mode, generate, refine, promote, tier, history'
+        );
       const subArgs = args.slice(2);
       cmdLongTermRoadmap(cwd, sub, subArgs, raw);
       break;

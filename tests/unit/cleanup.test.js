@@ -215,11 +215,7 @@ describe('analyzeDeadExports', () => {
 
   test('ignores test files as consumers when excludePatterns set', () => {
     writeFile(tmpDir, 'lib.js', 'function funcA() {}\nmodule.exports = { funcA };\n');
-    writeFile(
-      tmpDir,
-      'tests/consumer.test.js',
-      "const { funcA } = require('../lib');\nfuncA();\n"
-    );
+    writeFile(tmpDir, 'tests/consumer.test.js', "const { funcA } = require('../lib');\nfuncA();\n");
     // With exclude pattern, test file should not count as consumer
     const result = analyzeDeadExports(tmpDir, ['lib.js'], { excludePatterns: ['tests/'] });
     expect(result.length).toBe(1);
@@ -308,7 +304,11 @@ describe('runQualityAnalysis', () => {
   test('returns structured report when enabled with no issues', () => {
     writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
     // Create a simple well-structured source file in lib/
-    writeFile(tmpDir, 'lib/clean.js', 'function hello() { return 1; }\nmodule.exports = { hello };\n');
+    writeFile(
+      tmpDir,
+      'lib/clean.js',
+      'function hello() { return 1; }\nmodule.exports = { hello };\n'
+    );
     writeFile(tmpDir, 'app.js', "const { hello } = require('./lib/clean');\nhello();\n");
 
     const result = runQualityAnalysis(tmpDir, '13');

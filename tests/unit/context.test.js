@@ -613,9 +613,7 @@ describe('backend-aware context init', () => {
 
   test('backend field reflects detected backend (Claude default)', () => {
     // No config override and no backend env vars -> claude
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('claude');
     expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.claude);
@@ -633,9 +631,7 @@ describe('backend-aware context init', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('codex');
     expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.codex);
@@ -653,9 +649,7 @@ describe('backend-aware context init', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     // executor_model should be codex-specific, not 'sonnet'
     expect(result.executor_model).toContain('gpt-5.3-codex');

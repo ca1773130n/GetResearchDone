@@ -39,10 +39,7 @@ function createTempDir(opts = {}) {
   if (opts.config) {
     const configDir = path.join(tmpDir, '.planning');
     fs.mkdirSync(configDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(configDir, 'config.json'),
-      JSON.stringify(opts.config, null, 2)
-    );
+    fs.writeFileSync(path.join(configDir, 'config.json'), JSON.stringify(opts.config, null, 2));
   }
 
   if (opts.files) {

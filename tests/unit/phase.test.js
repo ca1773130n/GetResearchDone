@@ -467,7 +467,10 @@ describe('cmdPhaseComplete quality analysis integration', () => {
 
   test('phase complete output includes quality_report when cleanup enabled', () => {
     setCleanupConfig(true);
-    createSourceFile('sample.js', 'function greet() { return "hi"; }\nmodule.exports = { greet };\n');
+    createSourceFile(
+      'sample.js',
+      'function greet() { return "hi"; }\nmodule.exports = { greet };\n'
+    );
 
     const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
@@ -524,7 +527,10 @@ describe('cmdPhaseComplete quality analysis integration', () => {
   test('raw output does not mention quality when no issues', () => {
     setCleanupConfig(true);
     // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
-    createSourceFile('math.js', 'function add(a, b) { return a + b; }\nmodule.exports = { add };\n');
+    createSourceFile(
+      'math.js',
+      'function add(a, b) { return a + b; }\nmodule.exports = { add };\n'
+    );
     createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
 
     const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));

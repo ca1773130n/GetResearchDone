@@ -990,7 +990,7 @@ describe('updateRefinementHistory', () => {
     expect(parsed.refinement_history.length).toBe(2);
   });
 
-  test('new entry has today\'s date', () => {
+  test("new entry has today's date", () => {
     const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
     const parsed = parseLongTermRoadmap(result);
     const today = new Date().toISOString().split('T')[0];

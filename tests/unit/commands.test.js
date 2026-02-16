@@ -1252,10 +1252,7 @@ describe('cmdDetectBackend', () => {
     // Save and clean all detection-relevant env vars
     savedEnv = { ...process.env };
     for (const key of Object.keys(process.env)) {
-      if (
-        key.startsWith('CLAUDE_CODE_') ||
-        DETECTION_ENV_VARS.includes(key)
-      ) {
+      if (key.startsWith('CLAUDE_CODE_') || DETECTION_ENV_VARS.includes(key)) {
         delete process.env[key];
       }
     }
@@ -1795,13 +1792,42 @@ Build the foundational infrastructure.
 
     test('generates valid roadmap content', () => {
       const milestones = JSON.stringify([
-        { version: 'v0.1.0', name: 'Alpha', status: 'In Progress', goal: 'Build alpha', start: '2026-01-01', target: '2026-02-28', success_criteria: ['Core done'] },
-        { version: 'v0.2.0', name: 'Beta', status: 'Next', goal: 'Build beta', estimated_start: '2026-03-01', estimated_duration: '2 months', dependencies: 'v0.1.0', success_criteria: ['API done'] },
-        { version: 'v0.3.0', name: 'GA', status: 'Later', goal: 'Go GA', estimated_timeline: 'Q3 2026', dependencies: 'v0.2.0' },
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
+        {
+          version: 'v0.2.0',
+          name: 'Beta',
+          status: 'Next',
+          goal: 'Build beta',
+          estimated_start: '2026-03-01',
+          estimated_duration: '2 months',
+          dependencies: 'v0.1.0',
+          success_criteria: ['API done'],
+        },
+        {
+          version: 'v0.3.0',
+          name: 'GA',
+          status: 'Later',
+          goal: 'Go GA',
+          estimated_timeline: 'Q3 2026',
+          dependencies: 'v0.2.0',
+        },
       ]);
 
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'generate', ['--project', 'TestGen', '--horizon', '12 months', '--milestones', milestones], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'TestGen', '--horizon', '12 months', '--milestones', milestones],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -1815,13 +1841,33 @@ Build the foundational infrastructure.
 
     test('generated content round-trips through parse and validate', () => {
       const milestones = JSON.stringify([
-        { version: 'v0.1.0', name: 'Alpha', status: 'In Progress', goal: 'Build alpha', start: '2026-01-01', target: '2026-02-28', success_criteria: ['Core done'] },
-        { version: 'v0.2.0', name: 'Beta', status: 'Next', goal: 'Build beta', dependencies: 'v0.1.0', success_criteria: ['API done'] },
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
+        {
+          version: 'v0.2.0',
+          name: 'Beta',
+          status: 'Next',
+          goal: 'Build beta',
+          dependencies: 'v0.1.0',
+          success_criteria: ['API done'],
+        },
       ]);
 
       // Generate
       const { stdout: genStdout } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'generate', ['--project', 'RoundTrip', '--milestones', milestones], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'RoundTrip', '--milestones', milestones],
+          false
+        );
       });
       const genResult = JSON.parse(genStdout);
 
@@ -1855,11 +1901,24 @@ Build the foundational infrastructure.
 
     test('raw mode returns markdown content directly', () => {
       const milestones = JSON.stringify([
-        { version: 'v0.1.0', name: 'Alpha', status: 'In Progress', goal: 'Build alpha', start: '2026-01-01', target: '2026-02-28', success_criteria: ['Core done'] },
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
       ]);
 
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'generate', ['--project', 'RawTest', '--milestones', milestones], true);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'RawTest', '--milestones', milestones],
+          true
+        );
       });
       expect(exitCode).toBe(0);
       // Raw output is the generated markdown
@@ -1969,7 +2028,12 @@ Build the foundational infrastructure.
 
       const updates = JSON.stringify({ goal: 'New expanded goal for feature work' });
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v0.2.0', '--updates', updates], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -1985,7 +2049,12 @@ Build the foundational infrastructure.
 
       const updates = JSON.stringify({ success_criteria: ['Criterion A', 'Criterion B'] });
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v0.2.0', '--updates', updates], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2000,7 +2069,12 @@ Build the foundational infrastructure.
 
       const updates = JSON.stringify({ goal: 'New goal' });
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v9.9.9', '--updates', updates], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v9.9.9', '--updates', updates],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2013,7 +2087,12 @@ Build the foundational infrastructure.
       fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
 
       const { exitCode, stderr } = captureError(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v0.2.0', '--updates', 'not-json'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', 'not-json'],
+          false
+        );
       });
       expect(exitCode).toBe(1);
       expect(stderr).toContain('Invalid updates JSON');
@@ -2032,7 +2111,12 @@ Build the foundational infrastructure.
 
       const updates = JSON.stringify({ goal: 'Raw mode goal' });
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v0.2.0', '--updates', updates], true);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          true
+        );
       });
       expect(exitCode).toBe(0);
       expect(stdout).toContain('## Current Milestone (Now)');
@@ -2042,7 +2126,12 @@ Build the foundational infrastructure.
     test('returns error when file missing', () => {
       const updates = JSON.stringify({ goal: 'New goal' });
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'refine', ['--version', 'v0.2.0', '--updates', updates], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2163,7 +2252,12 @@ Build the foundational infrastructure.
       fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
 
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Refined', '--details', 'Updated v0.2.0 goal'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Refined', '--details', 'Updated v0.2.0 goal'],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2196,7 +2290,12 @@ Build the foundational infrastructure.
       fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
 
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Promoted', '--details', 'Moved v0.4.0 to Next'], true);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Promoted', '--details', 'Moved v0.4.0 to Next'],
+          true
+        );
       });
       expect(exitCode).toBe(0);
       expect(stdout).toContain('Refinement History');
@@ -2206,7 +2305,12 @@ Build the foundational infrastructure.
 
     test('returns error when file missing', () => {
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Refined', '--details', 'something'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Refined', '--details', 'something'],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2234,7 +2338,9 @@ Build the foundational infrastructure.
       });
       expect(exitCode).toBe(1);
       expect(stderr).toContain('Unknown subcommand');
-      expect(stderr).toContain('parse, validate, display, mode, generate, refine, promote, tier, history');
+      expect(stderr).toContain(
+        'parse, validate, display, mode, generate, refine, promote, tier, history'
+      );
     });
 
     test('validate returns error when file missing', () => {
@@ -2262,7 +2368,12 @@ Build the foundational infrastructure.
 
     test('generate with invalid JSON returns error', () => {
       const { exitCode } = captureError(() => {
-        cmdLongTermRoadmap(fixtureDir, 'generate', ['--project', 'Test', '--milestones', 'not-json'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'Test', '--milestones', 'not-json'],
+          false
+        );
       });
       expect(exitCode).toBe(1);
     });
@@ -2437,7 +2548,10 @@ describe('cmdQualityAnalysis', () => {
   test('clean codebase produces zero-issue report', () => {
     setCleanupConfig(true);
     // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
-    createSourceFile('math.js', 'function add(a, b) { return a + b; }\nmodule.exports = { add };\n');
+    createSourceFile(
+      'math.js',
+      'function add(a, b) { return a + b; }\nmodule.exports = { add };\n'
+    );
     createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
 
     const { stdout } = captureOutput(() => {
