@@ -37,6 +37,7 @@ const {
   cmdRequirementList,
   cmdRequirementTraceability,
   cmdSearch,
+  cmdRequirementUpdateStatus,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -2982,5 +2983,129 @@ describe('cmdSearch', () => {
     expect(result.matches).toBeDefined();
     expect(result.count).toBeDefined();
     expect(result.query).toBe('REQ-01');
+  });
+});
+
+// ─── cmdRequirementUpdateStatus ─────────────────────────────────────────────
+
+describe('cmdRequirementUpdateStatus', () => {
+  let fixtureDir;
+
+  beforeEach(() => { fixtureDir = createFixtureDir(); });
+  afterEach(() => { cleanupFixtureDir(fixtureDir); });
+
+  test('updates status for existing REQ-01 from Done to Deferred', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-01', 'Deferred', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.updated).toBe(true);
+    expect(result.id).toBe('REQ-01');
+    expect(result.old_status).toBe('Done');
+    expect(result.new_status).toBe('Deferred');
+
+    // Verify file was actually modified on disk
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
+    const reqRow = content.split('\n').find((line) => line.includes('REQ-01') && line.startsWith('|'));
+    expect(reqRow).toContain('Deferred');
+    expect(reqRow).not.toContain('Done');
+  });
+
+  test('updates status to In Progress (multi-word status)', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-01', 'In Progress', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.new_status).toBe('In Progress');
+
+    // Verify file was actually modified on disk
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
+    const reqRow = content.split('\n').find((line) => line.includes('REQ-01') && line.startsWith('|'));
+    expect(reqRow).toContain('In Progress');
+  });
+
+  test('validates all four valid statuses: Pending, In Progress, Done, Deferred', () => {
+    ['Pending', 'In Progress', 'Done', 'Deferred'].forEach((status) => {
+      const dir = createFixtureDir();
+      try {
+        const { exitCode } = captureOutput(() => {
+          cmdRequirementUpdateStatus(dir, 'REQ-02', status, true);
+        });
+        expect(exitCode).toBe(0);
+      } finally {
+        cleanupFixtureDir(dir);
+      }
+    });
+  });
+
+  test('rejects invalid status with clear error', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-01', 'Invalid', true);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr.toLowerCase()).toContain('invalid status');
+  });
+
+  test('rejects non-existent REQ-ID with clear error', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-999', 'Done', true);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr.toLowerCase()).toContain('not found');
+  });
+
+  test('case-insensitive REQ-ID matching', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'req-01', 'Deferred', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.updated).toBe(true);
+  });
+
+  test('preserves other columns and file content after update', () => {
+    const reqPath = path.join(fixtureDir, '.planning', 'REQUIREMENTS.md');
+    const before = fs.readFileSync(reqPath, 'utf-8');
+
+    captureOutput(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-02', 'Done', true);
+    });
+
+    const after = fs.readFileSync(reqPath, 'utf-8');
+
+    // REQ-01 row should be unchanged (still Done)
+    const req01Before = before.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-01'));
+    const req01After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-01'));
+    expect(req01After).toBe(req01Before);
+
+    // REQ-03 row should be unchanged (still In Progress)
+    const req03Before = before.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-03'));
+    const req03After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-03'));
+    expect(req03After).toBe(req03Before);
+
+    // Content above Traceability Matrix section is unchanged
+    const matrixIdx = (text) => text.indexOf('## Traceability Matrix');
+    expect(after.substring(0, matrixIdx(after))).toBe(before.substring(0, matrixIdx(before)));
+
+    // REQ-02 Feature and Priority columns preserved
+    const req02After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-02'));
+    expect(req02After).toContain('CLI Feature');
+    expect(req02After).toContain('P1');
+  });
+
+  test('round-trip: update-status then get returns new status', () => {
+    const { exitCode: updateExit } = captureOutput(() => {
+      cmdRequirementUpdateStatus(fixtureDir, 'REQ-02', 'Done', true);
+    });
+    expect(updateExit).toBe(0);
+
+    const { stdout, exitCode: getExit } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-02', true);
+    });
+    expect(getExit).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.status).toBe('Done');
   });
 });
