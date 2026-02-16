@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-16
+**Updated:** 2026-02-17
 
 ## Vision
 
@@ -15,35 +15,47 @@ A Claude Code plugin providing:
 - Autonomous mode for unattended operation
 - Issue tracker integration (GitHub Issues, Jira via MCP Atlassian)
 - TUI dashboard for project visibility (dashboard, phase-detail, health)
-- 108 CLI commands across 10 modular lib/ modules
+- Multi-backend support (Claude Code, Codex CLI, Gemini CLI, OpenCode) with dynamic model detection
+- Hierarchical roadmap planning (Now/Next/Later milestone tiers) with progressive refinement
+- Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
+- 120+ CLI commands across 13 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
-## Current State (v0.0.5)
+## Current State (v0.1.0)
 
-**Shipped:** 2026-02-15
+**Shipped:** 2026-02-16
 
-v0.0.5 is the production-quality engineering foundation:
-- 10 lib/ modules (8,295 LOC) with 108 exports, thin 188-line CLI router
-- 594 Jest tests (8,010 LOC), 80%+ line coverage
+v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering foundation:
+- 13 lib/ modules (~10,050 LOC) with 120+ exports, thin CLI router
+- 858 Jest tests, 80%+ line coverage across all modules
+- Multi-backend support: Claude Code, Codex CLI, Gemini CLI, OpenCode with dynamic model detection
+- Hierarchical roadmap planning with Now/Next/Later milestone tiers and progressive refinement
+- Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - ESLint v10 + Prettier, zero errors
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
-- JSDoc on all 105 exported functions
-- CONTRIBUTING.md for developer onboarding
 
-## Current Milestone: v0.1.0 — Setup Functionality & Usability
+## Validated Goals (v0.1.0)
 
-**Goal:** Improve setup functionality and usability by supporting multiple AI backends, adding auto-refactoring/doc-sync options, and enabling hierarchical long-term roadmap planning.
+- [x] `detectBackend()` returns correct backend for all 4 backends via env var detection
+- [x] `resolveModelInternal()` maps opus/sonnet/haiku to correct backend-specific model names
+- [x] Config override takes precedence over environment detection
+- [x] Dynamic model detection via OpenCode CLI probing with 5-min TTL cache
+- [x] `detect-backend` CLI command with JSON/raw output and `models_source` field
+- [x] All 14 `cmdInit*` functions include backend and model info
+- [x] LONG-TERM-ROADMAP.md schema with Now/Next/Later tiers
+- [x] `long-term-roadmap` CLI with 9 subcommands (parse, validate, display, mode, generate, refine, promote, tier, history)
+- [x] Planning mode auto-detection (hierarchical vs progressive)
+- [x] Milestone refinement and promotion through tiers
+- [x] `phase_cleanup` config with quality analysis at phase boundaries
+- [x] `quality-analysis` CLI command with structured reports
+- [x] 858 tests passing, 80%+ coverage on all new modules
 
-**Target features:**
-1. **Multi AI-backend support** — Detect and adapt to Claude Code, Codex, Gemini, OpenCode at runtime. Dynamic model selection per role (planner, executor, researcher, reviewer) based on which backend is active. Not just model names in config — runtime detection and adaptation.
-2. **Auto refactoring/doc-sync plans** — Setup option to automatically append refactoring and document synchronization plans at the end of each phase execution.
-3. **Hierarchical roadmap planning** — Support long-term roadmap (e.g., year plan) with rough milestones defined upfront, then progressively refine each milestone's goals and requirements through AI discussion. Replace the current "add next milestone after completing previous" pattern.
-
-## Validated Goals (v0.0.5)
+<details>
+<summary>Validated Goals (v0.0.5)</summary>
 
 - [x] Test coverage >= 80% on lib/ modules
 - [x] CI checks pass (lint, test, security audit) on every PR
@@ -55,9 +67,17 @@ v0.0.5 is the production-quality engineering foundation:
 - [x] Input validation on all CLI arguments
 - [x] Developer documentation (CONTRIBUTING.md, JSDoc, SECURITY.md)
 
+</details>
+
 ## Open Items
 
-- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v0.0.5)
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-09-01: Backend detection accuracy across real environments (v0.1.1)
+- DEFER-10-01: Context init backward compatibility under all 4 backends (v0.1.1)
+- DEFER-11-01: Long-term roadmap round-trip integrity (v0.1.1)
+- DEFER-13-01: Auto-cleanup non-interference when disabled (v0.1.1)
+- Phase 14: Auto-Cleanup Doc Drift & Plan Generation (deferred to v0.1.1)
+- Phase 15: Integration & Validation (deferred to v0.1.1)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
@@ -79,3 +99,4 @@ v0.0.5 is the production-quality engineering foundation:
 
 *Project definition: 2026-02-12*
 *v0.0.5 milestone shipped: 2026-02-15*
+*v0.1.0 milestone shipped: 2026-02-16*

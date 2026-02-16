@@ -22,3 +22,31 @@
 
 ---
 
+
+## v0.1.0 Setup Functionality & Usability (Shipped: 2026-02-16)
+
+**Phases completed:** 5 phases (9-13), 10 plans, 62 key decisions
+**Timeline:** 2026-02-16 (single day)
+**Source:** 3 new lib/ modules (+1,755 LOC), 858 tests (+264 from v0.0.5)
+
+**Key accomplishments:**
+- Multi-backend detection for Claude Code, Codex CLI, Gemini CLI, and OpenCode with config override waterfall
+- Dynamic model detection via OpenCode `opencode models` CLI probing with 5-min TTL cache
+- Backend capabilities registry with per-backend feature flags (subagents, parallel, teams, hooks, mcp)
+- `detect-backend` CLI command with `models_source` field and all 14 `cmdInit*` enriched with backend info
+- Hierarchical roadmap (Now/Next/Later) with LONG-TERM-ROADMAP.md schema, mode auto-detection
+- Milestone refinement (in-place markdown editing) and promotion (Later->Next->Now tier movement)
+- `long-term-roadmap` CLI with 9 subcommands: parse, validate, display, mode, generate, refine, promote, tier, history
+- Auto-cleanup quality analysis: ESLint complexity, dead export detection, file size checks at phase boundaries
+- `quality-analysis` CLI command with structured reports; non-blocking integration into phase completion
+
+**Deferred to v0.1.1:**
+- Phase 14: Auto-Cleanup Doc Drift & Plan Generation (REQ-10, REQ-11)
+- Phase 15: Integration & Validation
+- DEFER-09-01: Backend detection accuracy across real environments
+- DEFER-10-01: Context init backward compatibility under all 4 backends
+- DEFER-11-01: Long-term roadmap round-trip integrity
+- DEFER-13-01: Auto-cleanup non-interference when disabled
+
+---
+
