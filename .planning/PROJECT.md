@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-16
+**Updated:** 2026-02-17
 
 ## Vision
 
@@ -20,19 +20,22 @@ A Claude Code plugin providing:
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
+- 102 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- Execute-phase branching with configurable base branch and graceful edge-case handling
 - 120+ CLI commands across 13 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
-## Current Milestone (v0.1.3)
+## Previous State (v0.1.3)
 
-**Goal:** MCP tool wiring for v0.1.2 commands and execute-phase branching fix
+**Shipped:** 2026-02-17
 
-v0.1.3 completes MCP coverage and fixes a branching workflow gap:
-- **MCP wiring:** Expose requirement get/list/traceability/update-status and search as MCP tools
-- **Branching fix:** execute-phase checks out main and pulls before creating phase branches
+v0.1.3 completed MCP coverage and fixed a branching workflow gap:
+- MCP wiring: 5 new tools (requirement get/list/traceability/update-status, search) — 102 total
+- Execute-phase branching fix: `base_branch` config with checkout-and-pull before branch creation
+- 1,360 tests passing
 
 ## Previous State (v0.1.2)
 
@@ -68,6 +71,16 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - ESLint v10 + Prettier, zero errors
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
+
+## Validated Goals (v0.1.3)
+
+- [x] 5 new MCP tools wired via COMMAND_DESCRIPTORS with correct parameter schemas (102 total tools)
+- [x] MCP tools/list includes all new tools; tools/call executes each with structured JSON responses
+- [x] MCP server tests cover new tool definitions with 92% line coverage
+- [x] docs/mcp-server.md updated with Requirement & Search section
+- [x] `cmdInitExecutePhase` includes `base_branch` field (default "main") when branching enabled
+- [x] execute-phase template has checkout-and-pull logic with 4 graceful edge case handlers
+- [x] 3 new tests verify base_branch behavior; 1,360 total tests passing
 
 ## Validated Goals (v0.1.2)
 
@@ -152,3 +165,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.0 milestone shipped: 2026-02-16*
 *v0.1.1 milestone shipped: 2026-02-16*
 *v0.1.2 milestone shipped: 2026-02-16*
+*v0.1.3 milestone shipped: 2026-02-17*

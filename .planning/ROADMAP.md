@@ -6,7 +6,7 @@
 - v0.1.0 Setup Functionality & Usability - Phases 9-13 (shipped 2026-02-16)
 - v0.1.1 Completeness, Interoperability & Distribution - Phases 14-18 (shipped 2026-02-16)
 - v0.1.2 Developer Experience & Requirement Traceability - Phases 19-20 (shipped 2026-02-16)
-- v0.1.3 MCP Completion & Branching Fix - Phases 21-22 (in progress)
+- v0.1.3 MCP Completion & Branching Fix - Phases 21-22 (shipped 2026-02-17)
 
 ## Phases
 
@@ -38,63 +38,16 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
 
 </details>
 
-### v0.1.3 MCP Completion & Branching Fix (In Progress)
+<details>
+<summary>v0.1.3 MCP Completion & Branching Fix (Phases 21-22) - SHIPPED 2026-02-17</summary>
 
-**Milestone Goal:** Wire v0.1.2 CLI commands as MCP tools and fix execute-phase branching to always fork from latest main.
-**Start:** 2026-02-16
+Phases 21-22 wired v0.1.2 CLI commands as MCP tools (102 total) and fixed execute-phase branching to always fork from latest base branch. See `.planning/milestones/v0.1.3-ROADMAP.md` for details.
 
-- [x] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate` (completed 2026-02-16)
-- [ ] **Phase 22: Execute-Phase Branching Fix** - Checkout main and pull before creating phase branches `implement`
-
-## Phase Details
-
-### Phase 21: MCP Extension & Wiring
-**Goal**: All new CLI commands from v0.1.2 (requirement get/list/traceability/update-status, search) are accessible as MCP tools with correct schemas, test coverage, and documentation
-**Type**: integrate
-**Depends on**: Phase 20 (all new CLI commands must exist before MCP wiring)
-**Duration**: 1d
-**Requirements**: REQ-37
-**Verification Level**: proxy
-**Success Criteria** (what must be TRUE):
-  1. COMMAND_DESCRIPTORS includes tool definitions for: `requirement get`, `requirement list`, `requirement traceability`, `requirement update-status`, and `search` with correct parameter schemas (types, required/optional flags)
-  2. MCP `tools/list` response includes all new tools; `tools/call` executes each successfully with valid input and returns structured JSON
-  3. Invalid input to new MCP tools returns proper MCP error responses (not server crashes)
-  4. MCP server tests cover all new tool definitions with >= 80% line coverage on new code
-  5. `docs/mcp-server.md` updated with entries for all new MCP tools
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 21-01-PLAN.md — MCP tool wiring: add 5 COMMAND_DESCRIPTORS + imports + tests
-- [ ] 21-02-PLAN.md — Documentation: update docs/mcp-server.md with new tool entries
-
-### Phase 22: Execute-Phase Branching Fix
-**Goal**: When branching is enabled, execute-phase checks out main and pulls from remote before creating phase branches, ensuring branches always fork from the latest main
-**Type**: implement
-**Depends on**: Phase 21 (stable MCP foundation; branching fix is independent but sequenced for clean milestone)
-**Duration**: 1d
-**Requirements**: REQ-38, REQ-39
-**Verification Level**: proxy
-**Success Criteria** (what must be TRUE):
-  1. `cmdInitExecutePhase` output includes `base_branch` field (default `"main"`) when `branching_strategy` is not `"none"`
-  2. `execute-phase` command template runs `git checkout <base_branch> && git pull origin <base_branch>` before `git checkout -b $BRANCH_NAME` when branching is enabled
-  3. Uncommitted changes on current branch produce a warning (not a crash); execution continues on current branch if checkout fails
-  4. Missing remote or offline scenario skips pull gracefully (warns, continues from local base branch)
-  5. Already-on-main scenario skips checkout (only pulls)
-  6. Tests verify `cmdInitExecutePhase` includes `base_branch` in branching output
-**Plans:** 1 plan
-Plans:
-- [ ] 22-01-PLAN.md — Add base_branch config, context output, command template update, and tests
-
-## Progress
-
-**Execution Order:** 21 -> 22
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 21. MCP Extension & Wiring | v0.1.3 | Complete    | 2026-02-16 | - |
-| 22. Execute-Phase Branching Fix | v0.1.3 | 0/1 | Not started | - |
+</details>
 
 ## Deferred Validations
 
 | Deferred From | Validation | Must Resolve By | Status |
 |---------------|-----------|-----------------|--------|
 | Phase 8 (DEFER-08-01) | User acceptance testing of TUI dashboard commands | post-v1.0 | Pending (not in scope) |
+| Phase 22 (DEFER-22-01) | End-to-end git branching workflow validation | integration | Pending |

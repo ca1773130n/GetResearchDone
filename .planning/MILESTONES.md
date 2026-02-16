@@ -96,3 +96,28 @@
 
 ---
 
+
+## v0.1.3 MCP Completion & Branching Fix (Shipped: 2026-02-17)
+
+**Delivered:** Wired all v0.1.2 CLI commands as MCP tools and fixed execute-phase branching to always fork from latest base branch.
+
+**Phases completed:** 2 phases (21-22), 3 plans, 5 key decisions
+**Timeline:** 2026-02-16 to 2026-02-17 (2 days)
+**Source:** 1,360 tests (+17 from v0.1.2), 7 files modified
+
+**Key accomplishments:**
+- MCP tool wiring: 5 new tools (requirement get/list/traceability/update-status, search) increasing total from 97 to 102 with 92% line coverage
+- MCP documentation: docs/mcp-server.md updated with new Requirement & Search section
+- Execute-phase branching fix: `base_branch` config support (default "main") with checkout-and-pull logic before phase branch creation
+- 4 graceful edge case handlers: uncommitted changes, already-on-base, checkout failure, pull failure
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-22-01: End-to-end git branching workflow validation (integration phase)
+
+**Git range:** `feat(21-01)` -> `docs(phase-22)`
+
+**What's next:** Next milestone TBD
+
+---
+

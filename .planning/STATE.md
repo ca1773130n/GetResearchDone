@@ -4,11 +4,10 @@
 
 ## Current Position
 
-- **Active phase:** 21 — MCP Extension Wiring (complete)
-- **Current plan:** 21-02 complete (2/2 plans done)
-- **Milestone:** v0.1.3 — MCP Completion & Branching Fix
-- **Progress:** [█████░░░░░] 50%
-- **Next:** `/grd:plan-phase 22` or `/grd:execute-phase 22`
+- **Active phase:** None — milestone complete
+- **Milestone:** v0.1.3 — MCP Completion & Branching Fix (SHIPPED 2026-02-17)
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:new-milestone` for next milestone
 
 ## Pending Decisions
 
@@ -32,6 +31,9 @@ None.
 | 2026-02-16 | Same-status update returns success without disk write (no-op) | Phase 20 | Regex replacement produces identical content when old==new; no-op avoids false error |
 | 2026-02-17 | All 5 new MCP tools use raw=false for JSON output (not TUI text) | Phase 21 | Consistent with existing non-TUI tools; returns structured JSON for MCP responses |
 | 2026-02-17 | New tools documented in separate Requirement & Search section, not appended to Utility | Phase 21 | Keeps logical grouping clear; Utility section count unchanged |
+| 2026-02-17 | base_branch defaults to 'main', reads from config git.base_branch | Phase 22 | Most common default; configurable for repos using develop or other base branches |
+| 2026-02-17 | base_branch null when branching_strategy is 'none' | Phase 22 | Field irrelevant when no branching; null signals not applicable |
+| 2026-02-17 | 4 graceful edge case handlers in handle_branching step | Phase 22 | Uncommitted changes, already-on-base, checkout failure, pull failure — all warn and continue |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -147,9 +149,9 @@ None.
 - Total execution time: ~13 min
 
 **Velocity (v0.1.3):**
-- Total plans completed: 2
-- Average duration: 1.5 min
-- Total execution time: ~3 min
+- Total plans completed: 3
+- Average duration: 1.7 min
+- Total execution time: ~5 min
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -159,13 +161,14 @@ None.
 | 20 | 02 | 3min | 2 | 3 | +8 tests (1343 total) |
 | 21 | 01 | 2min | 2 | 2 | +14 tests (1357 total) |
 | 21 | 02 | 1min | 1 | 1 | — |
+| 22 | 01 | 2min | 2 | 4 | +3 tests (1360 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 21-02 (MCP docs update plan 2)
-- **Stopped at:** Phase 21 fully complete (2/2 plans)
-- **Next action:** `/grd:plan-phase 22` or `/grd:execute-phase 22`
-- **Context needed:** 1,357 tests passing; 102 MCP tools; Phase 21 complete; Phase 22 = execute-phase branching fix
+- **Last action:** Completed 22-01 (base_branch support for execute-phase branching)
+- **Stopped at:** Phase 22 plan 1 complete (1/1 plans)
+- **Next action:** Phase 22 verification or next milestone phase
+- **Context needed:** 1,360 tests passing; base_branch in loadConfig + cmdInitExecutePhase; execute-phase.md has checkout-and-pull logic
 
 ---
 
