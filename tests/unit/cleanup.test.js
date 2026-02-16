@@ -4,6 +4,7 @@
  * Tests config schema handling and quality analysis functions:
  * getCleanupConfig, analyzeComplexity, analyzeDeadExports, analyzeFileSize, runQualityAnalysis.
  * Also tests doc drift detection: analyzeChangelogDrift, analyzeReadmeLinks, analyzeJsdocDrift.
+ * Also tests generateCleanupPlan for auto-generating cleanup PLAN.md files.
  */
 
 const fs = require('fs');
@@ -20,6 +21,7 @@ const {
   analyzeChangelogDrift,
   analyzeReadmeLinks,
   analyzeJsdocDrift,
+  generateCleanupPlan,
 } = require('../../lib/cleanup');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -66,7 +68,7 @@ describe('getCleanupConfig', () => {
   test('returns defaults when config.json has no phase_cleanup section', () => {
     writeConfig(tmpDir, {});
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false });
+    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
   });
 
   test('returns user values when phase_cleanup section exists', () => {
@@ -74,7 +76,7 @@ describe('getCleanupConfig', () => {
       phase_cleanup: { enabled: true, refactoring: true, doc_sync: false },
     });
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: true, refactoring: true, doc_sync: false });
+    expect(result).toEqual({ enabled: true, refactoring: true, doc_sync: false, cleanup_threshold: 5 });
   });
 
   test('merges defaults for missing fields', () => {
@@ -82,13 +84,13 @@ describe('getCleanupConfig', () => {
       phase_cleanup: { enabled: true },
     });
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: true, refactoring: false, doc_sync: false });
+    expect(result).toEqual({ enabled: true, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
   });
 
   test('returns defaults when config.json does not exist', () => {
     // tmpDir has no .planning/config.json
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false });
+    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
   });
 
   test('returns defaults when config.json is invalid JSON', () => {
@@ -96,7 +98,7 @@ describe('getCleanupConfig', () => {
     fs.mkdirSync(planningDir, { recursive: true });
     fs.writeFileSync(path.join(planningDir, 'config.json'), 'not valid json {{{');
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false });
+    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
   });
 });
 
@@ -705,5 +707,337 @@ describe('runQualityAnalysis doc_drift integration', () => {
     expect(result.details.complexity).toBeDefined();
     expect(result.details.dead_exports).toBeDefined();
     expect(result.details.file_size).toBeDefined();
+  });
+});
+
+// ─── generateCleanupPlan ──────────────────────────────────────────────────────
+
+describe('generateCleanupPlan', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  // Helper: create a phase directory structure
+  function createPhaseDir(phaseNum, slug, existingPlans = []) {
+    const padded = String(phaseNum).padStart(2, '0');
+    const dirName = `${padded}-${slug}`;
+    const dirPath = path.join(tmpDir, '.planning', 'phases', dirName);
+    fs.mkdirSync(dirPath, { recursive: true });
+    for (const plan of existingPlans) {
+      const planFile = `${padded}-${String(plan).padStart(2, '0')}-PLAN.md`;
+      fs.writeFileSync(path.join(dirPath, planFile), '---\nplan: ' + plan + '\n---\n');
+    }
+    return dirPath;
+  }
+
+  // Helper: build a quality report with configurable issue counts
+  function makeQualityReport(options = {}) {
+    const complexity = options.complexity || [];
+    const dead_exports = options.dead_exports || [];
+    const file_size = options.file_size || [];
+    const doc_drift = options.doc_drift || null;
+
+    const baseIssues = complexity.length + dead_exports.length + file_size.length;
+    let docDriftCount = 0;
+    if (doc_drift) {
+      docDriftCount =
+        (doc_drift.changelog || []).length +
+        (doc_drift.readme_links || []).length +
+        (doc_drift.jsdoc || []).length;
+    }
+
+    const summary = {
+      total_issues: baseIssues + docDriftCount,
+      complexity_violations: complexity.length,
+      dead_exports: dead_exports.length,
+      oversized_files: file_size.length,
+    };
+    if (doc_drift) {
+      summary.doc_drift_issues = docDriftCount;
+    }
+
+    const details = { complexity, dead_exports, file_size };
+    if (doc_drift) {
+      details.doc_drift = doc_drift;
+    }
+
+    return { phase: '14', timestamp: '2026-02-16', summary, details };
+  }
+
+  test('returns null when total_issues is 0', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport();
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).toBeNull();
+  });
+
+  test('returns null when total_issues is at cleanup_threshold (default 5)', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      complexity: [
+        { file: 'lib/a.js', line: 1, functionName: 'f1', complexity: 15 },
+        { file: 'lib/a.js', line: 10, functionName: 'f2', complexity: 12 },
+        { file: 'lib/b.js', line: 1, functionName: 'f3', complexity: 11 },
+      ],
+      dead_exports: [
+        { file: 'lib/c.js', exportName: 'unused1', line: 5 },
+        { file: 'lib/c.js', exportName: 'unused2', line: 10 },
+      ],
+    });
+    // total_issues = 5, which equals threshold
+    expect(report.summary.total_issues).toBe(5);
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).toBeNull();
+  });
+
+  test('generates PLAN.md when total_issues exceeds cleanup_threshold', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      complexity: [
+        { file: 'lib/a.js', line: 1, functionName: 'bigFunc', complexity: 20 },
+        { file: 'lib/a.js', line: 50, functionName: 'bigFunc2', complexity: 15 },
+      ],
+      dead_exports: [
+        { file: 'lib/b.js', exportName: 'unusedX', line: 3 },
+        { file: 'lib/b.js', exportName: 'unusedY', line: 7 },
+      ],
+      file_size: [{ file: 'lib/c.js', lines: 800, threshold: 500 }],
+      doc_drift: {
+        changelog: [{ file: 'CHANGELOG.md', reason: 'stale' }],
+        readme_links: [],
+        jsdoc: [],
+      },
+    });
+    // total_issues = 2+2+1+1 = 6 > 5
+    expect(report.summary.total_issues).toBe(6);
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).not.toBeNull();
+    expect(result.path).toMatch(/14-01-PLAN\.md$/);
+    expect(result.plan_number).toBe('01');
+    expect(result.issues_addressed).toBe(6);
+
+    // Verify the file was actually written
+    const planPath = path.join(tmpDir, result.path);
+    expect(fs.existsSync(planPath)).toBe(true);
+  });
+
+  test('generated PLAN.md has valid YAML frontmatter with required fields', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      file_size: [
+        { file: 'lib/big.js', lines: 900, threshold: 500 },
+        { file: 'lib/huge.js', lines: 1200, threshold: 500 },
+      ],
+      dead_exports: [
+        { file: 'lib/big.js', exportName: 'unused1', line: 1 },
+        { file: 'lib/big.js', exportName: 'unused2', line: 2 },
+        { file: 'lib/big.js', exportName: 'unused3', line: 3 },
+        { file: 'lib/big.js', exportName: 'unused4', line: 4 },
+      ],
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+
+    // Check frontmatter fields
+    expect(content).toMatch(/^---/);
+    expect(content).toContain('phase: test-phase');
+    expect(content).toContain('plan: 01');
+    expect(content).toContain('type: execute');
+    expect(content).toContain('wave: 1');
+    expect(content).toContain('autonomous: true');
+    expect(content).toContain('verification_level: sanity');
+    expect(content).toContain('cleanup_generated: true');
+    expect(content).toContain('files_modified:');
+  });
+
+  test('generated PLAN.md contains tasks referencing actual quality issues', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      complexity: [
+        { file: 'lib/a.js', line: 1, functionName: 'complexFunc', complexity: 25 },
+      ],
+      dead_exports: [
+        { file: 'lib/b.js', exportName: 'deadExport', line: 5 },
+      ],
+      file_size: [{ file: 'lib/c.js', lines: 600, threshold: 500 }],
+      doc_drift: {
+        changelog: [{ file: 'CHANGELOG.md', reason: 'stale' }],
+        readme_links: [{ file: 'README.md', link: 'missing.md', line: 3 }],
+        jsdoc: [{ file: 'lib/a.js', line: 1, functionName: 'complexFunc', issue: 'extra @param: ghost' }],
+      },
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+
+    // Verify tasks reference actual issues
+    expect(content).toContain('complexFunc');
+    expect(content).toContain('deadExport');
+    expect(content).toContain('lib/c.js');
+    expect(content).toContain('CHANGELOG.md');
+    expect(content).toContain('missing.md');
+    expect(content).toContain('JSDoc');
+  });
+
+  test('respects custom cleanup_threshold from config', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 2 } });
+    createPhaseDir(14, 'test-phase');
+
+    // 3 issues > threshold of 2
+    const report = makeQualityReport({
+      dead_exports: [
+        { file: 'lib/a.js', exportName: 'x', line: 1 },
+        { file: 'lib/a.js', exportName: 'y', line: 2 },
+        { file: 'lib/a.js', exportName: 'z', line: 3 },
+      ],
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).not.toBeNull();
+    expect(result.issues_addressed).toBe(3);
+  });
+
+  test('returns null with custom threshold when issues are at threshold', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 2 } });
+    createPhaseDir(14, 'test-phase');
+
+    // 2 issues = threshold of 2, should not generate
+    const report = makeQualityReport({
+      dead_exports: [
+        { file: 'lib/a.js', exportName: 'x', line: 1 },
+        { file: 'lib/a.js', exportName: 'y', line: 2 },
+      ],
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).toBeNull();
+  });
+
+  test('plan number is sequential after existing plans in the phase directory', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase', [1, 2]); // existing plans 01 and 02
+
+    const report = makeQualityReport({
+      file_size: [
+        { file: 'lib/big.js', lines: 900, threshold: 500 },
+        { file: 'lib/big2.js', lines: 800, threshold: 500 },
+        { file: 'lib/big3.js', lines: 700, threshold: 500 },
+        { file: 'lib/big4.js', lines: 600, threshold: 500 },
+        { file: 'lib/big5.js', lines: 550, threshold: 500 },
+        { file: 'lib/big6.js', lines: 510, threshold: 500 },
+      ],
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).not.toBeNull();
+    expect(result.plan_number).toBe('03');
+    expect(result.path).toMatch(/14-03-PLAN\.md$/);
+  });
+
+  test('starts at plan 01 when no existing plans in phase directory', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase'); // no existing plans
+
+    const report = makeQualityReport({
+      file_size: Array.from({ length: 6 }, (_, i) => ({
+        file: `lib/f${i}.js`,
+        lines: 600 + i * 100,
+        threshold: 500,
+      })),
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).not.toBeNull();
+    expect(result.plan_number).toBe('01');
+  });
+
+  test('files_modified in frontmatter reflects files from quality issues', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      complexity: [
+        { file: 'lib/alpha.js', line: 1, functionName: 'f', complexity: 20 },
+        { file: 'lib/alpha.js', line: 50, functionName: 'g', complexity: 18 },
+      ],
+      dead_exports: [{ file: 'lib/beta.js', exportName: 'x', line: 1 }],
+      file_size: [{ file: 'lib/gamma.js', lines: 600, threshold: 500 }],
+      doc_drift: {
+        changelog: [{ file: 'CHANGELOG.md', reason: 'stale' }],
+        readme_links: [],
+        jsdoc: [{ file: 'lib/alpha.js', line: 1, functionName: 'f', issue: 'extra @param: x' }],
+      },
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+
+    // Should list unique files
+    expect(content).toContain('"lib/alpha.js"');
+    expect(content).toContain('"lib/beta.js"');
+    expect(content).toContain('"lib/gamma.js"');
+    expect(content).toContain('"CHANGELOG.md"');
+  });
+
+  test('returns null when qualityReport is null', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const result = generateCleanupPlan(tmpDir, '14', null);
+    expect(result).toBeNull();
+  });
+
+  test('returns null when qualityReport has no summary', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const result = generateCleanupPlan(tmpDir, '14', { details: {} });
+    expect(result).toBeNull();
+  });
+
+  test('returns null when phase directory does not exist', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    // No phase dir created
+    const report = makeQualityReport({
+      file_size: Array.from({ length: 6 }, (_, i) => ({
+        file: `lib/f${i}.js`,
+        lines: 600,
+        threshold: 500,
+      })),
+    });
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    expect(result).toBeNull();
+  });
+
+  test('combines code quality issues into one task and doc drift into another', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    createPhaseDir(14, 'test-phase');
+    const report = makeQualityReport({
+      complexity: [{ file: 'lib/a.js', line: 1, functionName: 'f1', complexity: 20 }],
+      dead_exports: [{ file: 'lib/a.js', exportName: 'x', line: 5 }],
+      file_size: [{ file: 'lib/a.js', lines: 700, threshold: 500 }],
+      doc_drift: {
+        changelog: [{ file: 'CHANGELOG.md', reason: 'stale' }],
+        readme_links: [{ file: 'README.md', link: 'bad.md', line: 2 }],
+        jsdoc: [{ file: 'lib/a.js', line: 1, functionName: 'f1', issue: 'missing @param: x' }],
+      },
+    });
+
+    const result = generateCleanupPlan(tmpDir, '14', report);
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+
+    // Should have two task blocks
+    expect(content).toContain('Task 1: Resolve code quality issues');
+    expect(content).toContain('Task 2: Update stale documentation');
   });
 });
