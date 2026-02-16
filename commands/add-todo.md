@@ -1,3 +1,8 @@
+---
+description: Capture an idea or task as a structured todo for later work
+argument-hint: <brief description of the todo>
+---
+
 <purpose>
 Capture an idea, task, or issue that surfaces during a GRD session as a structured todo for later work. Enables "thought -> capture -> continue" flow without losing context.
 </purpose>

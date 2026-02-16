@@ -1,3 +1,8 @@
+---
+description: Execute small ad-hoc tasks with GRD guarantees, skipping optional agents
+argument-hint: <task description>
+---
+
 <purpose>
 Execute small, ad-hoc tasks with GRD guarantees (atomic commits, STATE.md tracking) while skipping optional agents (research, plan-checker, verifier). Quick mode spawns grd-planner (quick mode) + grd-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
 </purpose>

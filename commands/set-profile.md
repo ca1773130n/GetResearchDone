@@ -1,3 +1,8 @@
+---
+description: Switch the model profile used by GRD agents
+argument-hint: [quality | balanced | budget]
+---
+
 <purpose>
 Switch the model profile used by GRD agents. Controls which Claude model each agent uses, balancing quality vs token spend.
 </purpose>

@@ -1,3 +1,7 @@
+---
+description: Project health indicators — blockers, velocity, stale phases, risk register
+---
+
 <purpose>
 Display project health indicators including blockers, deferred validations, velocity trends, stale phases, and risk register summary.
 </purpose>

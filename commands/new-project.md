@@ -1,3 +1,8 @@
+---
+description: Initialize a new R&D project from idea to roadmap
+argument-hint: [--auto @document.md | --yolo]
+---
+
 <purpose>
 Initialize a new R&D project through unified flow: questioning, research (optional), requirements, roadmap, research landscape, and product-level quality targets. This is the most leveraged moment in any project — deep questioning here means better plans, better execution, better outcomes. One workflow takes you from idea to ready-for-planning.
 </purpose>

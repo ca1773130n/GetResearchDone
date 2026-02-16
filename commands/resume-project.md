@@ -1,3 +1,7 @@
+---
+description: Restore full project context to resume work seamlessly
+---
+
 <trigger>
 Use this workflow when:
 - Starting a new session on an existing project

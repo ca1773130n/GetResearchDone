@@ -1,3 +1,7 @@
+---
+description: Analyze codebase architecture with parallel mapper agents
+---
+
 <purpose>
 Orchestrate parallel codebase mapper agents to analyze codebase and produce structured documents in .planning/codebase/
 

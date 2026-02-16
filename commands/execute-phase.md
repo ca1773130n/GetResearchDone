@@ -1,3 +1,8 @@
+---
+description: Execute all plans in a phase using wave-based parallel execution
+argument-hint: <phase number>
+---
+
 <purpose>
 Execute all plans in a phase using wave-based parallel execution. Orchestrator stays lean — delegates plan execution to subagents. After execution, auto-triggers eval report if EVAL.md exists and tracks experiment parameters in commit messages.
 </purpose>

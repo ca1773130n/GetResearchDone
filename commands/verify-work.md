@@ -1,3 +1,8 @@
+---
+description: Validate built features through conversational testing with metrics
+argument-hint: <phase number>
+---
+
 <purpose>
 Validate built features through conversational testing with persistent state and quantitative metrics. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /grd:plan-phase --gaps.
 

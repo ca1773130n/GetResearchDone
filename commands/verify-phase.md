@@ -1,3 +1,8 @@
+---
+description: Verify phase goal achievement through tiered evaluation
+argument-hint: <phase number>
+---
+
 <purpose>
 Verify phase goal achievement through tiered evaluation and goal-backward analysis. Uses EVAL.md for verification plan when available, reports quantitative results (not just pass/fail), and tracks deferred validations for integration phases.
 

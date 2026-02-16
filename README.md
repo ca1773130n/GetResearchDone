@@ -109,7 +109,7 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
   → Integration → Product Verification → Done
 ```
 
-## Commands
+## Commands (45 slash commands)
 
 ### Research
 | Command | Description |
@@ -118,13 +118,16 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:deep-dive <paper>` | Paper deep analysis |
 | `/grd:compare-methods` | Method comparison matrix |
 | `/grd:feasibility <approach>` | Paper→production gap analysis |
+| `/grd:research-phase <N>` | Research how to implement a phase |
 
 ### Planning & Execution
 | Command | Description |
 |---------|-------------|
 | `/grd:new-project` | Initialize R&D project |
+| `/grd:new-milestone` | Start a new milestone cycle |
 | `/grd:product-plan` | Product-level planning |
-| `/grd:discuss-phase <N>` | Brainstorming with approach proposals |
+| `/grd:discuss-phase <N>` | Extract implementation decisions before planning |
+| `/grd:list-phase-assumptions <N>` | Surface Claude's assumptions before planning |
 | `/grd:plan-phase <N>` | Phase planning with research context |
 | `/grd:execute-phase <N>` | Phase execution with wave parallelization |
 | `/grd:quick <desc>` | Quick task with GRD guarantees |
@@ -133,8 +136,16 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | Command | Description |
 |---------|-------------|
 | `/grd:long-term-roadmap` | Create or display long-term roadmap |
-| `/grd:refine-milestone <V>` | Progressively refine a milestone |
-| `/grd:promote-milestone <V>` | Move milestone up a tier (Later->Next->Now) |
+
+### Phase & Milestone Management
+| Command | Description |
+|---------|-------------|
+| `/grd:add-phase <name>` | Add a new phase to the end of the milestone |
+| `/grd:insert-phase <N> <name>` | Insert a decimal phase between existing phases |
+| `/grd:remove-phase <N>` | Remove an unstarted phase and renumber |
+| `/grd:audit-milestone` | Verify milestone definition of done |
+| `/grd:complete-milestone` | Mark milestone as complete and archive |
+| `/grd:plan-milestone-gaps` | Create phases to close gaps from milestone audit |
 
 ### Evaluation
 | Command | Description |
@@ -144,23 +155,54 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:eval-report <N>` | Collect and analyze results |
 | `/grd:iterate <N>` | Iteration loop on failed metrics |
 
+### Verification & Testing
+| Command | Description |
+|---------|-------------|
+| `/grd:verify-phase <N>` | Tiered phase verification |
+| `/grd:verify-work <N>` | Conversational feature testing with metrics |
+
+### Requirements
+| Command | Description |
+|---------|-------------|
+| `/grd:requirement <subcommand>` | Look up, list, trace, or update requirements |
+
 ### Integration
 | Command | Description |
 |---------|-------------|
 | `/grd:sync [roadmap\|phase N\|reschedule]` | Sync GRD state to issue tracker |
 | `/grd:tracker-setup` | Configure GitHub Issues or MCP Atlassian |
 
-### Verification & Navigation
+### Navigation & Status
 | Command | Description |
 |---------|-------------|
-| `/grd:verify-phase <N>` | Tiered phase verification |
-| `/grd:progress` | Project progress + metrics |
+| `/grd:progress` | Project progress and smart routing |
+| `/grd:dashboard` | Full graphical TUI overview |
+| `/grd:phase-detail <N>` | Drill-down view for a single phase |
+| `/grd:health` | Blockers, velocity, stale phases, risk register |
+| `/grd:map-codebase` | Analyze codebase architecture |
+
+### Session Management
+| Command | Description |
+|---------|-------------|
+| `/grd:pause-work` | Save work state for session continuity |
+| `/grd:resume-project` | Restore full project context |
+| `/grd:add-todo <desc>` | Capture idea as structured todo |
+| `/grd:check-todos` | List and route pending todos |
+| `/grd:debug <desc>` | Systematic debugging with persistent state |
+
+### Configuration
+| Command | Description |
+|---------|-------------|
+| `/grd:settings` | Configure workflow agents and preferences |
+| `/grd:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
 | `/grd:yolo` | Toggle autonomous mode |
 | `/grd:help` | Full command reference |
+| `/grd:update` | Check for updates |
+| `/grd:reapply-patches` | Restore local modifications after update |
 
 ## MCP Server
 
-GRD includes an MCP server (`grd-mcp-server`) that exposes all 97 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
+GRD includes an MCP server (`grd-mcp-server`) that exposes all 102 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
 
 ```json
 {
@@ -286,20 +328,15 @@ GRD uses a thin orchestrator pattern. Commands (`.md` prompt files) delegate det
 | Long-Term Roadmap | `long-term-roadmap parse/validate/display/mode/generate/refine/promote/tier/history` | Hierarchical milestone management |
 | Backend | `detect-backend` | Backend detection with dynamic model resolution |
 | Quality | `quality-analysis --phase N` | Phase-boundary code quality checks |
+| Requirements | `requirement get/list/traceability/update-status` | Requirement queries and status management |
+| Search | `search <query>` | Full-text search across planning documents |
 | Init | 21 workflow initializers | Context loading for commands |
 
 All outputs are JSON by default (pass `--raw` for plain text). All tracker calls are non-blocking.
 
 ### Self-Update
 
-GRD includes a self-update system for git-cloned installations:
-
-| Command | Description |
-|---------|-------------|
-| `/grd:update` | Check for updates, display changelog, backup modifications, pull latest |
-| `/grd:reapply-patches` | Restore local modifications after update |
-
-The update system uses SHA256 manifests (`bin/grd-manifest.js`) to detect local modifications before updating, backs them up to `grd-local-patches/`, and supports intelligent merge after update.
+GRD includes a self-update system for git-cloned installations. Uses SHA256 manifests (`bin/grd-manifest.js`) to detect local modifications before updating, backs them up to `grd-local-patches/`, and supports intelligent merge after update. See `/grd:update` and `/grd:reapply-patches`.
 
 ## Credits
 

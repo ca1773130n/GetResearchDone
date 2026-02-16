@@ -1,3 +1,8 @@
+---
+description: Systematic debugging with persistent state across context resets
+argument-hint: [bug description or session ID to resume]
+---
+
 <purpose>
 Systematic debugging with persistent state across context resets. Manages debug sessions via .planning/debug/ files that track hypotheses, evidence, and resolutions. Spawns grd-debugger agent for investigation.
 

@@ -1,3 +1,8 @@
+---
+description: Create executable phase plans with research, verification, and eval planning
+argument-hint: <phase number>
+---
+
 <purpose>
 Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research, verification, and eval planning. Default flow: Research (if needed) -> Plan -> Verify -> Eval Plan -> Done. Orchestrates grd-phase-researcher, grd-planner, grd-plan-checker, and grd-eval-planner agents with a revision loop (max 3 iterations). Loads research landscape context before planning.
 </purpose>

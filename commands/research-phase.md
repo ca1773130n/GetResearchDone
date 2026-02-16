@@ -1,3 +1,8 @@
+---
+description: Research how to implement a phase before planning
+argument-hint: <phase number>
+---
+
 <purpose>
 Research how to implement a phase. Spawns grd-phase-researcher with phase context.
 

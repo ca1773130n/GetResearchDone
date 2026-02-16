@@ -1,3 +1,7 @@
+---
+description: Configure GRD workflow agents, model profile, research gates, and autonomous mode
+---
+
 <purpose>
 Interactive configuration of GRD workflow agents (research, plan_check, verifier), model profile selection, research gates, and autonomous mode via multi-question prompt. Updates .planning/config.json with user preferences.
 </purpose>

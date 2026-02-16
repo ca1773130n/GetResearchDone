@@ -1,3 +1,7 @@
+---
+description: Full graphical overview of milestones, phases, and plans with progress bars
+---
+
 <purpose>
 Display a full graphical TUI overview of all milestones, phases, and plans with progress bars, status indicators, and key metrics summary.
 </purpose>

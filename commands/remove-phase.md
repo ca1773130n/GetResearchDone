@@ -1,3 +1,8 @@
+---
+description: Remove an unstarted phase from the roadmap and renumber subsequent phases
+argument-hint: <phase number>
+---
+
 <purpose>
 Remove an unstarted future phase from the project roadmap, delete its directory, renumber all subsequent phases to maintain a clean linear sequence, and commit the change.
 </purpose>

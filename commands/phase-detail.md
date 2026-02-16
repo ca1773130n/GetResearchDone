@@ -1,3 +1,8 @@
+---
+description: Detailed drill-down view for a single phase with plans, status, and metrics
+argument-hint: <phase number>
+---
+
 <purpose>
 Display a detailed drill-down view for a single phase, showing all plans with status, duration, task/file counts, decisions, and artifact status.
 </purpose>

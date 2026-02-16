@@ -3,7 +3,40 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [0.1.0] - 2026-02-16 (In Progress)
+## [0.1.4] - 2026-02-17
+
+### Added
+- **`/grd:long-term-roadmap` slash command:** Interactive wizard for creating/displaying LONG-TERM-ROADMAP.md, refining milestones, and promoting through tiers
+- **`/grd:requirement` slash command:** Look up requirements by ID, list with filters, query traceability matrix, update status
+
+### Fixed
+- **Skill registration for 28 commands:** Added YAML frontmatter (`description` + `argument-hint`) to 28 command files that were missing it. Commands without frontmatter were not registered as skills by the plugin system, making them invisible to the AI model. All 45 commands now register as skills.
+- **Documentation accuracy:** README command table expanded from 24 to 45 commands, MCP tool count updated to 102
+
+### Commands now registered as skills (were previously invisible)
+`add-phase`, `add-todo`, `audit-milestone`, `check-todos`, `complete-milestone`, `dashboard`, `debug`, `discuss-phase`, `execute-phase`, `health`, `insert-phase`, `list-phase-assumptions`, `map-codebase`, `new-milestone`, `new-project`, `pause-work`, `phase-detail`, `plan-milestone-gaps`, `plan-phase`, `progress`, `quick`, `remove-phase`, `research-phase`, `resume-project`, `set-profile`, `settings`, `verify-phase`, `verify-work`
+
+## [0.1.3] - 2026-02-17
+
+### Added
+- **MCP extension wiring:** 5 new MCP tools (requirement get/list/traceability/update-status, search) — total 102
+- **Execute-phase branching fix:** `base_branch` config field, checkout-and-pull before branch creation, 4 graceful edge-case handlers
+
+## [0.1.2] - 2026-02-16
+
+### Added
+- **Requirement CLI commands:** `requirement get`, `requirement list`, `requirement traceability`, `requirement update-status`
+- **Search CLI command:** Full-text search across planning documents
+- **Phase cleanup analysis:** Complexity, dead exports, file size, doc drift, test coverage gaps
+
+## [0.1.1] - 2026-02-16
+
+### Added
+- **Code review integration:** Auto code review with configurable timing and severity gates
+- **Agent Teams execution:** Wave-based parallel plan execution with named teammates
+- **Eval reporting:** Quantitative evaluation collection and ablation analysis
+
+## [0.1.0] - 2026-02-16
 
 ### Added
 - **Multi-backend support:** Detect and adapt to Claude Code, Codex CLI, Gemini CLI, and OpenCode backends
