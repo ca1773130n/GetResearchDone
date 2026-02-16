@@ -21,8 +21,8 @@ None.
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | PENDING |
-| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | PENDING |
+| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | RESOLVED (15-01) |
+| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | RESOLVED (15-01) |
 | DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | RESOLVED (15-02) |
 | DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | RESOLVED (15-03) |
 
@@ -46,6 +46,8 @@ None.
 | 2026-02-16 | Lifecycle round-trip tests (not per-function) for DEFER-11-01 validation | Phase 15 | Multi-step chains catch integration bugs that unit tests miss |
 | 2026-02-16 | Test generateCleanupPlan threshold-gating (not enabled-flag) for DEFER-13-01 | Phase 15 | generateCleanupPlan does not check enabled; non-interference relies on caller pattern |
 | 2026-02-16 | Verify import isolation by scanning source text (not Node require cache) | Phase 15 | More reliable and deterministic assertions for import verification |
+| 2026-02-16 | Accept dynamically detected OpenCode models in test assertions | Phase 15 | OpenCode `getCachedModels` returns CLI-detected models; tests verify non-raw-tier instead of exact match |
+| 2026-02-16 | Config override (not env vars) for backend switching in context tests | Phase 15 | Tests highest-priority detection path; avoids env var interference between parallel tests |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
