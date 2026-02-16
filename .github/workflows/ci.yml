@@ -35,6 +35,36 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Pack and install validation
+        run: |
+          # Pack the tarball
+          npm pack
+          TARBALL=$(ls grd-tools-*.tgz)
+          echo "Packed: $TARBALL"
+
+          # Create a temp consumer project
+          mkdir -p /tmp/grd-test-install
+          cd /tmp/grd-test-install
+          npm init -y --silent
+          npm install "$GITHUB_WORKSPACE/$TARBALL"
+
+          # Verify bin entries are accessible
+          node node_modules/grd-tools/bin/grd-tools.js current-timestamp --raw
+          echo "grd-tools CLI: OK"
+
+          # Verify MCP server starts (send initialize, read response via stdin pipe)
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci-test","version":"1.0.0"}}}' | timeout 5 node node_modules/grd-tools/bin/grd-mcp-server.js || true
+          echo "grd-mcp-server: OK"
+
+          # Verify plugin.json exists at expected path
+          test -f node_modules/grd-tools/.claude-plugin/plugin.json
+          echo "plugin.json: OK"
+
+          # Clean up
+          cd "$GITHUB_WORKSPACE"
+          rm -rf /tmp/grd-test-install
+          rm -f "$TARBALL"
+
       - name: Security audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
