@@ -54,6 +54,9 @@ None.
 | 2026-02-16 | Bulk execute lambda coverage via tools/call path for all 97 tools | Phase 16 | Exercises every COMMAND_DESCRIPTORS execute function for 93% line coverage |
 | 2026-02-16 | Fixture isolation with createFixtureDir for MCP test safety | Phase 16 | Tests operate on temp .planning/ copy, not real project state |
 | 2026-02-16 | Notification id-absence: no-id messages return null regardless of method | Phase 16 | Per JSON-RPC spec, messages without id are notifications requiring no response |
+| 2026-02-16 | Package name 'grd-tools' for npm registry | Phase 17 | Avoiding reserved 'grd'; clear CLI tool identity |
+| 2026-02-16 | Idempotent postinstall: exit silently if .planning/ exists, never fail | Phase 17 | Postinstall must not block npm install; existing projects unchanged |
+| 2026-02-16 | Zero runtime dependencies maintained | Phase 17 | Only devDependencies; consistent with GRD zero-dep philosophy |
 | 2026-02-16 | Resolve package root from __dirname (not cwd) for setup command | Phase 17 | Ensures correct path regardless of where user runs grd-tools setup |
 | 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
 
@@ -143,6 +146,7 @@ None.
 | 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
 | 16 | 01 | 5min | 2 | 2 | - |
 | 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
+| 17 | 01 | 2min | 2 | 3 | +21 tests (1229 total) |
 | 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
 
 ## Session Continuity
