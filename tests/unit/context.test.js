@@ -123,6 +123,59 @@ describe('cmdInitExecutePhase', () => {
     expect(result.incomplete_plans).toContain('02-01-PLAN.md');
     expect(result.incomplete_count).toBe(1);
   });
+
+  test('includes base_branch when branching_strategy is phase', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.base_branch).toBe('main');
+  });
+
+  describe('base_branch config variations', () => {
+    let customTmpDir;
+
+    beforeAll(() => {
+      customTmpDir = createFixtureDir();
+    });
+
+    afterAll(() => {
+      cleanupFixtureDir(customTmpDir);
+    });
+
+    test('base_branch is null when branching_strategy is none', () => {
+      fs.writeFileSync(
+        path.join(customTmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          branching_strategy: 'none',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(customTmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.base_branch).toBeNull();
+    });
+
+    test('base_branch reads custom value from config', () => {
+      fs.writeFileSync(
+        path.join(customTmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          branching_strategy: 'phase',
+          base_branch: 'develop',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(customTmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.base_branch).toBe('develop');
+    });
+  });
 });
 
 // ─── cmdInitPlanPhase ────────────────────────────────────────────────────────
