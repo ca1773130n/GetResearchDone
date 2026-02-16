@@ -116,8 +116,8 @@ Plans:
   4. Quality report is surfaced in phase completion summary output
 **Plans**: 2 plans
 Plans:
-- [ ] 13-01-PLAN.md -- TDD: Create lib/cleanup.js with config schema, quality analysis functions (complexity, dead exports, file size) (Wave 1)
-- [ ] 13-02-PLAN.md -- Add quality-analysis CLI command, integrate into phase completion flow, add integration tests (Wave 2)
+- [x] 13-01-PLAN.md -- TDD: Create lib/cleanup.js with config schema, quality analysis functions (complexity, dead exports, file size) (Wave 1)
+- [x] 13-02-PLAN.md -- Add quality-analysis CLI command, integrate into phase completion flow, add integration tests (Wave 2)
 
 ### Phase 14: Auto-Cleanup Doc Drift & Plan Generation
 **Goal**: GRD detects documentation drift and can auto-generate cleanup plans when quality issues exceed thresholds
@@ -161,7 +161,7 @@ Sequential dependencies: 9->10, 11->12, 13->14, then all converge at 15.
 | 10. Backend Capabilities & Context Integration | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 2/2 | Complete | 2026-02-16 |
-| 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | Complete    | 2026-02-16 | - |
+| 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 14. Auto-Cleanup Doc Drift & Plan Generation | v0.1.0 | 0/TBD | Not started | - |
 | 15. Integration & Validation | v0.1.0 | 0/TBD | Not started | - |
 

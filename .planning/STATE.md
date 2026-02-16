@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 13 — Auto-Cleanup & Project Lifecycle
-- **Current plan:** Plan 2 of 2 complete (13-02-PLAN.md done)
+- **Active phase:** Phase 13 complete — proceeding to Phase 14
+- **Current plan:** All plans complete (13-01 and 13-02 done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 13 of 15 [########-] 79% (11/14 plans in v0.1.0)
-- **Next:** Phase 13 complete; proceed to Phase 14 (evaluation plan)
+- **Progress:** Phase 13 of 15 [#########-] 79% (11/14 plans in v0.1.0)
+- **Next:** Phase 14 — Auto-Cleanup Doc Drift & Plan Generation
 
 ## Pending Decisions
 
