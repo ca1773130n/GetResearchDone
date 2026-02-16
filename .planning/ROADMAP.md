@@ -43,7 +43,7 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
 **Milestone Goal:** Wire v0.1.2 CLI commands as MCP tools and fix execute-phase branching to always fork from latest main.
 **Start:** 2026-02-16
 
-- [ ] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate`
+- [x] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate` (completed 2026-02-16)
 - [ ] **Phase 22: Execute-Phase Branching Fix** - Checkout main and pull before creating phase branches `implement`
 
 ## Phase Details
@@ -61,7 +61,7 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
   3. Invalid input to new MCP tools returns proper MCP error responses (not server crashes)
   4. MCP server tests cover all new tool definitions with >= 80% line coverage on new code
   5. `docs/mcp-server.md` updated with entries for all new MCP tools
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 21-01-PLAN.md — MCP tool wiring: add 5 COMMAND_DESCRIPTORS + imports + tests
 - [ ] 21-02-PLAN.md — Documentation: update docs/mcp-server.md with new tool entries
@@ -87,7 +87,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. MCP Extension & Wiring | v0.1.3 | 0/0 | Not started | - |
+| 21. MCP Extension & Wiring | v0.1.3 | Complete    | 2026-02-16 | - |
 | 22. Execute-Phase Branching Fix | v0.1.3 | 0/0 | Not started | - |
 
 ## Deferred Validations
