@@ -26,6 +26,14 @@ A Claude Code plugin providing:
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
+## Current Milestone (v0.1.3)
+
+**Goal:** MCP tool wiring for v0.1.2 commands and execute-phase branching fix
+
+v0.1.3 completes MCP coverage and fixes a branching workflow gap:
+- **MCP wiring:** Expose requirement get/list/traceability/update-status and search as MCP tools
+- **Branching fix:** execute-phase checks out main and pulls before creating phase branches
+
 ## Previous State (v0.1.2)
 
 **Shipped:** 2026-02-16
@@ -120,7 +128,6 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
-- Phase 21: MCP Extension & Wiring (descoped from v0.1.2, REQ-37)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing

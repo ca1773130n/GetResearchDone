@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** None (between milestones)
+- **Active phase:** None (milestone defined, not yet planned)
 - **Current plan:** N/A
-- **Milestone:** v0.1.2 shipped — next milestone TBD
-- **Progress:** [██████████] 100%
-- **Next:** `/grd:new-milestone` to start next milestone
+- **Milestone:** v0.1.3 — MCP Completion & Branching Fix
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** `/grd:plan-phase 21` to plan first phase
 
 ## Pending Decisions
 
@@ -24,7 +24,8 @@ None.
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
-| 2026-02-16 | Phase 21 descoped from v0.1.2 to future milestone | Milestone | Phase 19-20 complete; MCP wiring can wait for next milestone |
+| 2026-02-16 | v0.1.3 milestone: MCP wiring + branching fix | Milestone | REQ-37 carried from v0.1.2; REQ-38/39 fix execute-phase branching gap |
+| 2026-02-16 | Phase 21 descoped from v0.1.2 to v0.1.3 | Milestone | Phase 19-20 complete; MCP wiring can wait for next milestone |
 | 2026-02-16 | 3 phases for v0.1.2 (19-21): requirement inspection, convenience commands, MCP wiring | Roadmap | REQ-31/32/33/34 share parsing logic; REQ-35/36 are independent utilities; REQ-37 depends on all others |
 | 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
@@ -152,10 +153,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed v0.1.2 milestone
-- **Stopped at:** Milestone v0.1.2 shipped
-- **Next action:** `/grd:new-milestone` to start next milestone
-- **Context needed:** 1,343 tests passing; all requirement + search commands operational; Phase 21 (MCP wiring) in backlog
+- **Last action:** Created v0.1.3 milestone with 2 phases (21-22)
+- **Stopped at:** Milestone v0.1.3 roadmap defined
+- **Next action:** `/grd:plan-phase 21` to plan MCP wiring
+- **Context needed:** 1,343 tests passing; Phase 21 = MCP tools for v0.1.2 commands; Phase 22 = execute-phase branching fix (checkout main + pull)
 
 ---
 
