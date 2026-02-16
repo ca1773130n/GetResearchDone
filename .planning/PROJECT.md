@@ -24,15 +24,25 @@ A Claude Code plugin providing:
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
-## Current Milestone (v0.1.1)
+## Current Milestone (v0.1.2)
 
-**Goal:** Completeness, interoperability, and distribution readiness
+**Goal:** Developer experience improvements and requirement traceability
 
-v0.1.1 completes deferred work from v0.1.0, adds MCP server mode for programmatic access, and prepares for plugin marketplace publishing:
-- **Deferred completion:** Doc drift detection, auto-generated cleanup plans, integration & validation phase
-- **Deferred validations:** Backend detection accuracy, context init backward compat, roadmap round-trip integrity, auto-cleanup non-interference
-- **MCP server mode:** Expose GRD commands as MCP tools so any MCP-compatible client can call them programmatically
-- **Plugin marketplace prep:** npm packaging, versioned releases, install/update scripts
+v0.1.2 adds requirement inspection commands, enhances phase-detail with requirement summaries, and adds convenience commands for navigating planning artifacts:
+- **Requirement commands:** Look up requirements by ID, list/filter by phase/priority/status/category, traceability matrix queries
+- **Phase-detail enhancement:** Show requirement summaries even for unplanned phases
+- **Convenience commands:** Planning artifact search, requirement status tracking, cross-reference utilities
+
+## Previous State (v0.1.1)
+
+**Shipped:** 2026-02-16
+
+v0.1.1 completed deferred work, added MCP server mode, and prepared for npm distribution:
+- MCP server exposing 97 CLI commands as MCP tools
+- Doc drift detection with 4 expanded quality analyzers
+- All deferred validations resolved
+- npm package configuration with CI pack/install validation
+- 1,305 tests passing
 
 ## Previous State (v0.1.0)
 

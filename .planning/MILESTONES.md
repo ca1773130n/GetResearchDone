@@ -50,3 +50,24 @@
 
 ---
 
+
+## v0.1.1 Completeness, Interoperability & Distribution (Shipped: 2026-02-16)
+
+**Phases completed:** 5 phases (14-18), 11 plans, 37 key decisions
+**Timeline:** 2026-02-16 (single day)
+**Source:** 1,305 tests (+447 from v0.1.0), MCP server (1,608 LOC), expanded cleanup (1,393 LOC)
+
+**Key accomplishments:**
+- Doc drift detection (CHANGELOG staleness, broken README links, JSDoc mismatches) with auto-generated cleanup plans
+- 4 expanded quality analyzers: test coverage gaps, export consistency, doc staleness, config schema drift
+- All 4 deferred validations resolved: backend detection, context init, roadmap round-trip, cleanup non-interference
+- MCP server exposing 97 GRD CLI commands as MCP tools via JSON-RPC 2.0 over stdio with auto-generated schemas
+- npm package configuration: postinstall scaffold, setup command, CI pack/install validation
+- E2E workflow integration test validating full phase lifecycle
+- MCP server usage guide (docs/mcp-server.md)
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+
+---
+
