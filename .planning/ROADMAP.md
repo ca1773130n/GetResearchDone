@@ -61,6 +61,10 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
   3. Invalid input to new MCP tools returns proper MCP error responses (not server crashes)
   4. MCP server tests cover all new tool definitions with >= 80% line coverage on new code
   5. `docs/mcp-server.md` updated with entries for all new MCP tools
+**Plans:** 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — MCP tool wiring: add 5 COMMAND_DESCRIPTORS + imports + tests
+- [ ] 21-02-PLAN.md — Documentation: update docs/mcp-server.md with new tool entries
 
 ### Phase 22: Execute-Phase Branching Fix
 **Goal**: When branching is enabled, execute-phase checks out main and pulls from remote before creating phase branches, ensuring branches always fork from the latest main
