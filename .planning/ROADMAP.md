@@ -36,7 +36,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Start:** 2026-02-16
 
 - [x] **Phase 19: Requirement Inspection & Phase-Detail Enhancement** - Parse requirements and expose via CLI commands; enrich phase-detail with requirement summaries `implement` (completed 2026-02-16)
-- [ ] **Phase 20: Convenience Commands** - Planning artifact search and requirement status management `implement`
+- [x] **Phase 20: Convenience Commands** - Planning artifact search and requirement status management `implement` (completed 2026-02-16)
 - [ ] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate`
 
 ## Phase Details
@@ -65,7 +65,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Duration**: 1d
 **Requirements**: REQ-35, REQ-36
 **Verification Level**: proxy
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
   - [ ] 20-01-PLAN.md — Search command for planning artifacts (TDD)
   - [ ] 20-02-PLAN.md — Requirement update-status command (TDD)
 **Success Criteria** (what must be TRUE):
@@ -95,7 +95,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 19. Requirement Inspection & Phase-Detail | v0.1.2 | Complete    | 2026-02-16 | - |
-| 20. Convenience Commands | v0.1.2 | 0/2 | Not started | - |
+| 20. Convenience Commands | v0.1.2 | Complete    | 2026-02-16 | - |
 | 21. MCP Extension & Wiring | v0.1.2 | 0/0 | Not started | - |
 
 ## Deferred Validations

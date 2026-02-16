@@ -52,7 +52,7 @@ Add MCP tool definitions in COMMAND_DESCRIPTORS for all new CLI commands (requir
 
 | REQ | Feature | Priority | Phase | Status |
 |-----|---------|----------|-------|--------|
-| REQ-31 | Requirement Inspection | P0 | Phase 19 | Pending |
+| REQ-31 | Requirement Inspection | P0 | Phase 19 | Done |
 | REQ-32 | Requirement Inspection | P1 | Phase 19 | Pending |
 | REQ-33 | Requirement Inspection | P1 | Phase 19 | Pending |
 | REQ-34 | Phase-Detail Enhancement | P0 | Phase 19 | Pending |
