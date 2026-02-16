@@ -33,6 +33,9 @@ const {
   cmdDetectBackend,
   cmdLongTermRoadmap,
   cmdQualityAnalysis,
+  cmdRequirementGet,
+  cmdRequirementList,
+  cmdRequirementTraceability,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -2565,5 +2568,239 @@ describe('cmdQualityAnalysis', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.summary.total_issues).toBe(0);
+  });
+});
+
+// ─── cmdRequirementGet ──────────────────────────────────────────────────────
+
+describe('cmdRequirementGet', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('returns structured JSON for existing REQ-01 with all fields', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-01', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.id).toBe('REQ-01');
+    expect(parsed.title).toBe('First Requirement');
+    expect(parsed.priority).toBe('P0');
+    expect(parsed.category).toBe('Core');
+    expect(parsed.description).toContain('first requirement');
+    expect(parsed.status).toBe('Done');
+  });
+
+  test('returns deferred_from and resolves fields for REQ-03', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-03', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.id).toBe('REQ-03');
+    expect(parsed.deferred_from).toBe('REQ-99 (v0.9)');
+    expect(parsed.resolves).toBe('DEFER-01-01');
+  });
+
+  test('falls back to archived milestone file for REQ-99', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-99', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.id).toBe('REQ-99');
+    expect(parsed.title).toBe('Archived Requirement');
+    expect(parsed.priority).toBe('P2');
+    expect(parsed.category).toBe('Legacy');
+    expect(parsed.milestone).toBeDefined();
+  });
+
+  test('returns error JSON for non-existent REQ-999', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-999', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.error).toContain('not found');
+    expect(parsed.id).toBe('REQ-999');
+  });
+
+  test('raw=true produces JSON output', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-01', true);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.id).toBe('REQ-01');
+  });
+});
+
+// ─── cmdRequirementList ─────────────────────────────────────────────────────
+
+describe('cmdRequirementList', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('no filters returns all requirements (3 items)', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, {}, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(3);
+    expect(parsed.count).toBe(3);
+  });
+
+  test('--phase 1 returns only Phase 1 requirements', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { phase: '1' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(2);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-01');
+    expect(ids).toContain('REQ-03');
+  });
+
+  test('--priority P0 returns only P0 requirements', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { priority: 'P0' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(2);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-01');
+    expect(ids).toContain('REQ-03');
+  });
+
+  test('--status Pending returns only REQ-02', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { status: 'Pending' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(1);
+    expect(parsed.requirements[0].id).toBe('REQ-02');
+  });
+
+  test('--category Core returns REQ-01 and REQ-03', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { category: 'Core' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(2);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-01');
+    expect(ids).toContain('REQ-03');
+  });
+
+  test('--all includes archived requirements from milestones', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { all: true }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(4);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-99');
+  });
+
+  test('filters compose: --phase 1 --priority P0', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { phase: '1', priority: 'P0' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements.length).toBe(2);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-01');
+    expect(ids).toContain('REQ-03');
+  });
+
+  test('filter with no matches returns empty array', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementList(fixtureDir, { status: 'NonExistent' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.requirements).toEqual([]);
+    expect(parsed.count).toBe(0);
+  });
+});
+
+// ─── cmdRequirementTraceability ─────────────────────────────────────────────
+
+describe('cmdRequirementTraceability', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('returns full traceability matrix as JSON array (3 rows)', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementTraceability(fixtureDir, {}, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.matrix.length).toBe(3);
+    expect(parsed.count).toBe(3);
+  });
+
+  test('each row has req, feature, priority, phase, status fields', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementTraceability(fixtureDir, {}, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    const row = parsed.matrix[0];
+    expect(row).toHaveProperty('req');
+    expect(row).toHaveProperty('feature');
+    expect(row).toHaveProperty('priority');
+    expect(row).toHaveProperty('phase');
+    expect(row).toHaveProperty('status');
+  });
+
+  test('--phase 1 returns only Phase 1 rows', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementTraceability(fixtureDir, { phase: '1' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.matrix.length).toBe(2);
+    for (const row of parsed.matrix) {
+      expect(row.phase).toContain('1');
+    }
+  });
+
+  test('--phase 99 returns empty array', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementTraceability(fixtureDir, { phase: '99' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.matrix).toEqual([]);
+    expect(parsed.count).toBe(0);
   });
 });
