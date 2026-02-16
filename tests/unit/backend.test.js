@@ -524,10 +524,7 @@ describe('lib/backend.js', () => {
     });
 
     test('parses openai/google models via pro/flash keywords', () => {
-      const stdout = [
-        'google/gemini-3-pro',
-        'google/gemini-3-flash',
-      ].join('\n');
+      const stdout = ['google/gemini-3-pro', 'google/gemini-3-flash'].join('\n');
       const result = parseOpenCodeModels(stdout);
       expect(result).toEqual({
         opus: 'google/gemini-3-pro',
