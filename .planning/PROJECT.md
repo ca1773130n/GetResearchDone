@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-17
+**Updated:** 2026-02-16
 
 ## Vision
 
@@ -18,20 +18,23 @@ A Claude Code plugin providing:
 - Multi-backend support (Claude Code, Codex CLI, Gemini CLI, OpenCode) with dynamic model detection
 - Hierarchical roadmap planning (Now/Next/Later milestone tiers) with progressive refinement
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
+- Requirement inspection and traceability (get, list, traceability, update-status)
+- Planning artifact search across all .planning/ files
 - 120+ CLI commands across 13 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
-## Current Milestone (v0.1.2)
+## Previous State (v0.1.2)
 
-**Goal:** Developer experience improvements and requirement traceability
+**Shipped:** 2026-02-16
 
-v0.1.2 adds requirement inspection commands, enhances phase-detail with requirement summaries, and adds convenience commands for navigating planning artifacts:
-- **Requirement commands:** Look up requirements by ID, list/filter by phase/priority/status/category, traceability matrix queries
-- **Phase-detail enhancement:** Show requirement summaries even for unplanned phases
-- **Convenience commands:** Planning artifact search, requirement status tracking, cross-reference utilities
+v0.1.2 added developer experience improvements and requirement traceability:
+- Requirement commands: Look up requirements by ID, list/filter by phase/priority/status/category, traceability matrix queries
+- Phase-detail enhancement: Show requirement summaries (JSON + TUI) for any phase
+- Convenience commands: Planning artifact search, requirement status update
+- 1,343 tests passing
 
 ## Previous State (v0.1.1)
 
@@ -58,7 +61,30 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
-## Validated Goals (v0.1.0)
+## Validated Goals (v0.1.2)
+
+- [x] `grd-tools requirement get REQ-31` returns structured JSON with all fields; falls back to archived milestones
+- [x] `grd-tools requirement list` with composable --phase, --priority, --status, --category, --all filters
+- [x] `grd-tools requirement traceability` returns full matrix as JSON with --phase filter
+- [x] `cmdPhaseDetail` includes requirements summary block for any phase
+- [x] `grd-tools search <query>` searches all .planning/ markdown files recursively
+- [x] `grd-tools requirement update-status` edits traceability matrix with validation
+- [x] 38 new tests across 4 plans, 1,343 total passing
+
+<details>
+<summary>Validated Goals (v0.1.1)</summary>
+
+- [x] Doc drift detection: CHANGELOG staleness, broken README links, JSDoc mismatches
+- [x] 4 expanded quality analyzers: test coverage gaps, export consistency, doc staleness, config schema drift
+- [x] All 4 deferred validations resolved (DEFER-09/10/11/13)
+- [x] MCP server with 97 tools via JSON-RPC 2.0 over stdio
+- [x] npm package with postinstall scaffold and setup command
+- [x] E2E workflow integration test validating full phase lifecycle
+
+</details>
+
+<details>
+<summary>Validated Goals (v0.1.0)</summary>
 
 - [x] `detectBackend()` returns correct backend for all 4 backends via env var detection
 - [x] `resolveModelInternal()` maps opus/sonnet/haiku to correct backend-specific model names
@@ -73,6 +99,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] `phase_cleanup` config with quality analysis at phase boundaries
 - [x] `quality-analysis` CLI command with structured reports
 - [x] 858 tests passing, 80%+ coverage on all new modules
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.0.5)</summary>
@@ -92,12 +120,7 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
-- DEFER-09-01: Backend detection accuracy across real environments (v0.1.1)
-- DEFER-10-01: Context init backward compatibility under all 4 backends (v0.1.1)
-- DEFER-11-01: Long-term roadmap round-trip integrity (v0.1.1)
-- DEFER-13-01: Auto-cleanup non-interference when disabled (v0.1.1)
-- Phase 14: Auto-Cleanup Doc Drift & Plan Generation (deferred to v0.1.1)
-- Phase 15: Integration & Validation (deferred to v0.1.1)
+- Phase 21: MCP Extension & Wiring (descoped from v0.1.2, REQ-37)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
@@ -120,3 +143,5 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *Project definition: 2026-02-12*
 *v0.0.5 milestone shipped: 2026-02-15*
 *v0.1.0 milestone shipped: 2026-02-16*
+*v0.1.1 milestone shipped: 2026-02-16*
+*v0.1.2 milestone shipped: 2026-02-16*

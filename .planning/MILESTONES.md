@@ -71,3 +71,28 @@
 
 ---
 
+
+## v0.1.2 Developer Experience & Requirement Traceability (Shipped: 2026-02-16)
+
+**Delivered:** Requirement inspection CLI commands, phase-detail requirement summaries, planning artifact search, and requirement status management.
+
+**Phases completed:** 2 phases (19-20), 4 plans, 4 key decisions
+**Timeline:** 2026-02-16 (single day)
+**Source:** 1,343 tests (+38 from v0.1.1), 7 files modified (+1,135 LOC)
+
+**Key accomplishments:**
+- Requirement inspection: `get`, `list`, `traceability` commands with archived milestone fallback and composable filters
+- Phase-detail enhancement with requirement summaries (JSON + TUI output)
+- Planning artifact search command with recursive case-insensitive matching
+- Requirement status update command with regex-based traceability matrix editing
+
+**Descoped to next milestone:**
+- Phase 21: MCP Extension & Wiring (REQ-37)
+- DEFER-08-01: User acceptance testing of TUI dashboard (post-v1.0)
+
+**Git range:** `feat(19-01)` -> `docs(phase-20)`
+
+**What's next:** MCP tool wiring for new CLI commands, then further usability improvements
+
+---
+

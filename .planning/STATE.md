@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 20 — Convenience Commands
-- **Current plan:** 20-02 (completed)
-- **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
-- **Progress:** [██████████] 99%
-- **Next:** Execute remaining Phase 20 plans or Phase 21
+- **Active phase:** None (between milestones)
+- **Current plan:** N/A
+- **Milestone:** v0.1.2 shipped — next milestone TBD
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:new-milestone` to start next milestone
 
 ## Pending Decisions
 
@@ -19,15 +19,12 @@ None.
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | RESOLVED (15-01) |
-| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | RESOLVED (15-01) |
-| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | RESOLVED (15-02) |
-| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | RESOLVED (15-03) |
 
 ## Key Decisions
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-16 | Phase 21 descoped from v0.1.2 to future milestone | Milestone | Phase 19-20 complete; MCP wiring can wait for next milestone |
 | 2026-02-16 | 3 phases for v0.1.2 (19-21): requirement inspection, convenience commands, MCP wiring | Roadmap | REQ-31/32/33/34 share parsing logic; REQ-35/36 are independent utilities; REQ-37 depends on all others |
 | 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
@@ -141,40 +138,24 @@ None.
 - Average duration: 3.7 min
 - Total execution time: ~41 min
 
+**Velocity (v0.1.2):**
+- Total plans completed: 4
+- Average duration: 3.3 min
+- Total execution time: ~13 min
+
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
-| 09 | 01 | 3min | 2 | 3 | +62 tests (656 total) |
-| 09 | 02 | 3min | 2 | 2 | +18 tests (674 total) |
-| 10 | 01 | 3min | 2 | 3 | +8 tests (682 total) |
-| 10 | 02 | 4min | 2 | 2 | +8 tests (690 total) |
-| 11 | 01 | 4min | 2 | 2 | +32 tests (722 total) |
-| 11 | 02 | 4min | 2 | 3 | +22 tests (744 total) |
-| 12 | 01 | 3min | 2 | 2 | +28 tests (772 total) |
-| 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
-| 13 | 01 | 6min | 2 | 2 | +25 tests (821 total) |
-| 13 | 02 | 4min | 2 | 5 | +20 tests (841 total) |
-| -- | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
-| 14 | 01 | 3min | 2 | 2 | +21 tests (879 total) |
-| 14 | 02 | 4min | 2 | 4 | +22 tests (901 total) |
-| 15 | 02 | 4min | 2 | 1 | +28 tests (929 total) |
-| 15 | 01 | 5min | 2 | 2 | +89 tests (1018 total) |
-| 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
-| 16 | 01 | 5min | 2 | 2 | - |
-| 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
-| 17 | 01 | 2min | 2 | 3 | +21 tests (1229 total) |
-| 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
-| 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
-| 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
-| Phase 18 P02 | 8min | 4 tasks | 5 files |
+| 19 | 01 | 5min | 2 | 5 | +17 tests (1322 total) |
+| 19 | 02 | 3min | 2 | 3 | +5 tests (1327 total) |
 | 20 | 01 | 2min | 2 | 3 | +8 tests (1335 total) |
 | 20 | 02 | 3min | 2 | 3 | +8 tests (1343 total) |
 
 ## Session Continuity
 
-- **Last action:** Executed 20-02 (requirement update-status command via TDD)
-- **Stopped at:** Completed 20-02-PLAN.md
-- **Next action:** Execute remaining Phase 20 plans or Phase 21
-- **Context needed:** 1,343 tests passing; search and requirement update-status commands operational; Phase 20 plans 01-02 done
+- **Last action:** Completed v0.1.2 milestone
+- **Stopped at:** Milestone v0.1.2 shipped
+- **Next action:** `/grd:new-milestone` to start next milestone
+- **Context needed:** 1,343 tests passing; all requirement + search commands operational; Phase 21 (MCP wiring) in backlog
 
 ---
 
