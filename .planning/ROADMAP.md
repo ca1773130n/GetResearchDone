@@ -35,7 +35,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Milestone Goal:** Add requirement inspection commands, enhance phase-detail with requirement summaries, and provide convenience commands for navigating planning artifacts.
 **Start:** 2026-02-16
 
-- [ ] **Phase 19: Requirement Inspection & Phase-Detail Enhancement** - Parse requirements and expose via CLI commands; enrich phase-detail with requirement summaries `implement`
+- [x] **Phase 19: Requirement Inspection & Phase-Detail Enhancement** - Parse requirements and expose via CLI commands; enrich phase-detail with requirement summaries `implement` (completed 2026-02-16)
 - [ ] **Phase 20: Convenience Commands** - Planning artifact search and requirement status management `implement`
 - [ ] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate`
 
@@ -48,9 +48,9 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Duration**: 1d
 **Requirements**: REQ-31, REQ-32, REQ-33, REQ-34
 **Verification Level**: proxy
-**Plans:** 2 plans
-  - [x] 19-01-PLAN.md — Requirement parsing + get/list/traceability commands (TDD) *(completed 2026-02-16)*
-  - [x] 19-02-PLAN.md — Phase-detail requirements enhancement (TDD) *(completed 2026-02-16)*
+**Plans:** 2/2 plans complete
+  - [ ] 19-01-PLAN.md — Requirement parsing + get/list/traceability commands (TDD)
+  - [ ] 19-02-PLAN.md — Phase-detail requirements enhancement (TDD)
 **Success Criteria** (what must be TRUE):
   1. `grd-tools requirement get REQ-31` returns structured JSON with all fields (ID, title, priority, category, description, phase, status) parsed from REQUIREMENTS.md; falls back to archived milestone files when ID is not in current file
   2. `grd-tools requirement list` returns all requirements; `--phase 19`, `--priority P0`, `--status Pending`, `--category CLI`, and `--all` filters each narrow results correctly and compose together
@@ -91,7 +91,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 19. Requirement Inspection & Phase-Detail | v0.1.2 | 0/2 | Planned | - |
+| 19. Requirement Inspection & Phase-Detail | v0.1.2 | Complete    | 2026-02-16 | - |
 | 20. Convenience Commands | v0.1.2 | 0/0 | Not started | - |
 | 21. MCP Extension & Wiring | v0.1.2 | 0/0 | Not started | - |
 
