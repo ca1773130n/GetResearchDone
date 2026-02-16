@@ -118,6 +118,10 @@ Plans:
   3. `npm pack` produces valid tarball; `npm install` from tarball works; `grd-tools` CLI is accessible; `grd-mcp-server` starts and responds to initialize
   4. plugin.json paths resolve correctly when installed via npm (not just from repo checkout)
   5. CI job validates pack + install cycle on Node 18, 20, and 22
+**Plans**: 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — E2E workflow integration test (backend -> context -> quality -> drift -> MCP)
+- [ ] 18-02-PLAN.md — npm pack/install validation test + CI job
 
 ## Progress
 
@@ -129,7 +133,7 @@ Plans:
 | 15. Deferred Validations | v0.1.1 | Complete    | 2026-02-16 | - |
 | 16. MCP Server | v0.1.1 | Complete    | 2026-02-16 | - |
 | 17. npm Distribution | v0.1.1 | Complete    | 2026-02-16 | - |
-| 18. Integration & Validation | v0.1.1 | 0/TBD | Not started | - |
+| 18. Integration & Validation | v0.1.1 | 0/2 | Not started | - |
 
 ## Deferred Validations
 
