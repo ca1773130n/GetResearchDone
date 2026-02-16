@@ -158,6 +158,20 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:yolo` | Toggle autonomous mode |
 | `/grd:help` | Full command reference |
 
+## MCP Server
+
+GRD includes an MCP server (`grd-mcp-server`) that exposes all 97 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
+
+```json
+{
+  "mcpServers": {
+    "grd": { "command": "grd-mcp-server" }
+  }
+}
+```
+
+See [docs/mcp-server.md](docs/mcp-server.md) for full setup, tool reference, and examples.
+
 ## Installation
 
 ```bash
