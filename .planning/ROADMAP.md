@@ -27,7 +27,7 @@ Phases 9-13 delivered multi-backend detection, context init enrichment, hierarch
 **Milestone Goal:** Complete deferred work from v0.1.0, add MCP server mode for programmatic access, and prepare for npm distribution.
 **Start:** 2026-02-16
 
-- [ ] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Detect stale docs and auto-generate cleanup plans `implement`
+- [x] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Detect stale docs and auto-generate cleanup plans `implement` (completed 2026-02-16)
 - [ ] **Phase 15: Deferred Validations** - Resolve all v0.1.0 deferred verification items `evaluate`
 - [ ] **Phase 16: MCP Server** - Expose GRD commands as MCP tools over stdio `implement`
 - [ ] **Phase 17: npm Distribution** - Package for npm publishing with install scripts `implement`
@@ -115,7 +115,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 14. Auto-Cleanup Doc Drift | v0.1.1 | 0/2 | Not started | - |
+| 14. Auto-Cleanup Doc Drift | v0.1.1 | Complete    | 2026-02-16 | - |
 | 15. Deferred Validations | v0.1.1 | 0/TBD | Not started | - |
 | 16. MCP Server | v0.1.1 | 0/TBD | Not started | - |
 | 17. npm Distribution | v0.1.1 | 0/TBD | Not started | - |
