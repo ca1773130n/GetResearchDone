@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 21 — MCP Extension Wiring
-- **Current plan:** 21-01 complete
+- **Active phase:** 21 — MCP Extension Wiring (complete)
+- **Current plan:** 21-02 complete (2/2 plans done)
 - **Milestone:** v0.1.3 — MCP Completion & Branching Fix
 - **Progress:** [█████░░░░░] 50%
-- **Next:** `/grd:execute-phase 21` plan 2, or `/grd:plan-phase 22`
+- **Next:** `/grd:plan-phase 22` or `/grd:execute-phase 22`
 
 ## Pending Decisions
 
@@ -31,6 +31,7 @@ None.
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
 | 2026-02-16 | Same-status update returns success without disk write (no-op) | Phase 20 | Regex replacement produces identical content when old==new; no-op avoids false error |
 | 2026-02-17 | All 5 new MCP tools use raw=false for JSON output (not TUI text) | Phase 21 | Consistent with existing non-TUI tools; returns structured JSON for MCP responses |
+| 2026-02-17 | New tools documented in separate Requirement & Search section, not appended to Utility | Phase 21 | Keeps logical grouping clear; Utility section count unchanged |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -145,21 +146,26 @@ None.
 - Average duration: 3.3 min
 - Total execution time: ~13 min
 
+**Velocity (v0.1.3):**
+- Total plans completed: 2
+- Average duration: 1.5 min
+- Total execution time: ~3 min
+
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 19 | 01 | 5min | 2 | 5 | +17 tests (1322 total) |
 | 19 | 02 | 3min | 2 | 3 | +5 tests (1327 total) |
 | 20 | 01 | 2min | 2 | 3 | +8 tests (1335 total) |
 | 20 | 02 | 3min | 2 | 3 | +8 tests (1343 total) |
+| 21 | 01 | 2min | 2 | 2 | +14 tests (1357 total) |
 | 21 | 02 | 1min | 1 | 1 | — |
-| Phase 21 P01 | 2min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-- **Last action:** Completed 21-01 (MCP Extension Wiring plan 1)
-- **Stopped at:** Completed 21-01-PLAN.md
-- **Next action:** `/grd:execute-phase 21` for plan 2, or `/grd:plan-phase 22`
-- **Context needed:** 1,357 tests passing; 102 MCP tools; Phase 21 plan 1 complete; Phase 22 = execute-phase branching fix
+- **Last action:** Completed 21-02 (MCP docs update plan 2)
+- **Stopped at:** Phase 21 fully complete (2/2 plans)
+- **Next action:** `/grd:plan-phase 22` or `/grd:execute-phase 22`
+- **Context needed:** 1,357 tests passing; 102 MCP tools; Phase 21 complete; Phase 22 = execute-phase branching fix
 
 ---
 
