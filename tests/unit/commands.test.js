@@ -1058,6 +1058,79 @@ describe('cmdPhaseDetail', () => {
   });
 });
 
+// ─── cmdPhaseDetail requirements ──────────────────────────────────────────
+
+describe('cmdPhaseDetail requirements', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('phase with Requirements field includes requirements array in JSON output', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '1', true);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(Array.isArray(parsed.requirements)).toBe(true);
+    expect(parsed.requirements.length).toBe(2);
+    const ids = parsed.requirements.map((r) => r.id);
+    expect(ids).toContain('REQ-01');
+    expect(ids).toContain('REQ-03');
+  });
+
+  test('each requirement entry has correct fields from REQUIREMENTS.md', () => {
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '1', true);
+    });
+    const parsed = parseFirstJson(stdout);
+    const req01 = parsed.requirements.find((r) => r.id === 'REQ-01');
+    expect(req01).toBeDefined();
+    expect(req01.title).toBe('First Requirement');
+    expect(req01.priority).toBe('P0');
+    expect(req01.status).toBe('Done');
+
+    const req03 = parsed.requirements.find((r) => r.id === 'REQ-03');
+    expect(req03).toBeDefined();
+    expect(req03.title).toBe('Third Requirement');
+    expect(req03.priority).toBe('P0');
+    expect(req03.status).toBe('In Progress');
+  });
+
+  test('phase without Requirements field returns empty requirements array', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '2', true);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = parseFirstJson(stdout);
+    expect(Array.isArray(parsed.requirements)).toBe(true);
+    expect(parsed.requirements.length).toBe(0);
+  });
+
+  test('TUI output includes Requirements section when requirements exist', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('## Requirements');
+    expect(stdout).toContain('REQ-01');
+    expect(stdout).toContain('REQ-03');
+  });
+
+  test('TUI output does NOT include Requirements section when phase has no requirements', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '2', false);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain('## Requirements');
+  });
+});
+
 // ─── cmdHealth ─────────────────────────────────────────────────────────────
 
 describe('cmdHealth', () => {
