@@ -89,19 +89,19 @@ Validate the npm package works end-to-end: `npm pack` produces valid tarball, `n
 
 | REQ | Feature | Priority | Phase | Status |
 |-----|---------|----------|-------|--------|
-| REQ-18 | Auto-cleanup | P1 | TBD | Pending |
-| REQ-19 | Auto-cleanup | P2 | TBD | Pending |
-| REQ-20 | Integration | P0 | TBD | Pending |
-| REQ-21 | Validation | P1 | TBD | Pending |
-| REQ-22 | Validation | P1 | TBD | Pending |
-| REQ-23 | Validation | P1 | TBD | Pending |
-| REQ-24 | Validation | P1 | TBD | Pending |
-| REQ-25 | MCP | P0 | TBD | Pending |
-| REQ-26 | MCP | P1 | TBD | Pending |
-| REQ-27 | MCP | P0 | TBD | Pending |
-| REQ-28 | Distribution | P1 | TBD | Pending |
-| REQ-29 | Distribution | P2 | TBD | Pending |
-| REQ-30 | Distribution | P1 | TBD | Pending |
+| REQ-18 | Auto-cleanup | P1 | Phase 14 | Pending |
+| REQ-19 | Auto-cleanup | P2 | Phase 14 | Pending |
+| REQ-20 | Integration | P0 | Phase 18 | Pending |
+| REQ-21 | Validation | P1 | Phase 15 | Pending |
+| REQ-22 | Validation | P1 | Phase 15 | Pending |
+| REQ-23 | Validation | P1 | Phase 15 | Pending |
+| REQ-24 | Validation | P1 | Phase 15 | Pending |
+| REQ-25 | MCP | P0 | Phase 16 | Pending |
+| REQ-26 | MCP | P1 | Phase 16 | Pending |
+| REQ-27 | MCP | P0 | Phase 16 | Pending |
+| REQ-28 | Distribution | P1 | Phase 17 | Pending |
+| REQ-29 | Distribution | P2 | Phase 17 | Pending |
+| REQ-30 | Distribution | P1 | Phase 18 | Pending |
 
 ---
 

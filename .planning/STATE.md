@@ -1,14 +1,16 @@
 # State
 
-**Updated:** 2026-02-17
+**Updated:** 2026-02-16
 
 ## Current Position
 
-- **Active phase:** None — defining requirements
-- **Current plan:** None
+- **Active phase:** Phase 14 — Auto-Cleanup Doc Drift & Plan Generation
+- **Current plan:** None (ready to plan)
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** Not started (defining requirements)
-- **Next:** Define requirements and create roadmap
+- **Progress:** Phase 14 of 18 (0/5 milestone phases complete)
+- **Next:** `/grd:plan-phase 14`
+
+Progress: [----------] 0%
 
 ## Pending Decisions
 
@@ -19,22 +21,22 @@ None.
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | v0.1.1 | PENDING |
-| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | v0.1.1 | PENDING |
-| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | v0.1.1 | PENDING |
-| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | v0.1.1 | PENDING |
+| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | PENDING |
+| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | PENDING |
+| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | PENDING |
+| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | PENDING |
 
 ## Key Decisions
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-16 | 5 phases for v0.1.1 (14-18) with deferred validations in Phase 15 | Roadmap | Early validation confirms stable foundation before MCP server feature |
+| 2026-02-16 | MCP server + schema + tests in single phase (16) | Roadmap | Tightly coupled: implementation without tests is unverifiable |
+| 2026-02-16 | Integration phase (18) collects REQ-20 + REQ-30 | Roadmap | Both are end-to-end validation; neither can run until all features complete |
 | 2026-02-16 | Scope v0.1.0 to detection + model resolution only | Planning | Sub-agent spawning divergence is critical risk; defer orchestrator adaptation to v0.2.0 |
 | 2026-02-16 | Mark Gemini capabilities as experimental | Planning | Gemini CLI sub-agents are experimental; degrade gracefully |
-| 2026-02-16 | Three independent feature streams with integration phase | Planning | Backend, hierarchical roadmap, and auto-cleanup are independent; converge at Phase 15 |
 | 2026-02-16 | Defer phases 14-15 to v0.1.1 | Milestone | P2 features (doc drift, integration validation) deferred; all P0/P1 requirements shipped |
 | 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
-| 2026-02-16 | 5-min TTL cache for detected models | Post-13 | Avoids repeated subprocess spawns; clearModelCache() exported for tests |
-| 2026-02-16 | Resolution priority: config > detected > defaults | Post-13 | User overrides always win; detected models fill gap between config and stale defaults |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -114,15 +116,15 @@ None.
 | 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
 | 13 | 01 | 6min | 2 | 2 | +25 tests (821 total) |
 | 13 | 02 | 4min | 2 | 5 | +20 tests (841 total) |
-| — | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
+| -- | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
 
 ## Session Continuity
 
-- **Last action:** Started v0.1.1 milestone definition
-- **Next action:** Define requirements, create roadmap
-- **Context needed:** Deferred phases 14-15, 4 deferred validations, new features (MCP server, marketplace prep)
+- **Last action:** Created v0.1.1 roadmap (Phases 14-18)
+- **Next action:** Plan Phase 14 (Auto-Cleanup Doc Drift & Plan Generation)
+- **Context needed:** REQ-18 (doc drift detection), REQ-19 (auto-generated cleanup plans), existing lib/cleanup.js
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-16*
