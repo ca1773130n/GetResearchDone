@@ -19,7 +19,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -33,10 +33,36 @@ Check `branching_strategy` from init:
 
 **"none":** Skip, continue on current branch.
 
-**"phase" or "milestone":** Use pre-computed `branch_name` from init:
-```bash
-git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-```
+**"phase" or "milestone":** Use pre-computed `branch_name` and `base_branch` from init:
+
+1. **Check for uncommitted changes:**
+   ```bash
+   DIRTY=$(git status --porcelain)
+   ```
+   If `DIRTY` is non-empty: warn "Uncommitted changes detected on current branch. Skipping checkout/pull, creating branch from current position." — then skip directly to step 5.
+
+2. **Check current branch:**
+   ```bash
+   CURRENT=$(git rev-parse --abbrev-ref HEAD)
+   ```
+   If `CURRENT` equals `$BASE_BRANCH`: skip to step 4 (already on base).
+
+3. **Checkout base branch:**
+   ```bash
+   git checkout "$BASE_BRANCH"
+   ```
+   If this fails: warn "Could not checkout $BASE_BRANCH, continuing on current branch." — skip to step 5 (skip pull, go straight to branch creation).
+
+4. **Pull latest from remote:**
+   ```bash
+   git pull origin "$BASE_BRANCH"
+   ```
+   If this fails (offline, no remote, conflicts): warn "Pull failed (offline or conflict), continuing from local $BASE_BRANCH." — continue to step 5 anyway.
+
+5. **Create or switch to phase branch:**
+   ```bash
+   git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+   ```
 
 All subsequent commits go to this branch. User handles merging.
 </step>
