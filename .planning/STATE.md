@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 19 — Requirement Inspection & Phase-Detail Enhancement
-- **Current plan:** —
+- **Current plan:** Plan 1 of 2
 - **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Plan Phase 19
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Execute Phase 19 Plan 02
 
 ## Pending Decisions
 
@@ -31,6 +31,10 @@ None.
 | 2026-02-16 | 3 phases for v0.1.2 (19-21): requirement inspection, convenience commands, MCP wiring | Roadmap | REQ-31/32/33/34 share parsing logic; REQ-35/36 are independent utilities; REQ-37 depends on all others |
 | 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
+| 2026-02-16 | Regex-based REQUIREMENTS.md parsing (consistent with Phase 13 approach) | Phase 19 | No AST dependency; catches requirement headings and metadata reliably |
+| 2026-02-16 | Description stops at ## headings and --- separators | Phase 19 | Prevents cross-section bleed in parsed requirement descriptions |
+| 2026-02-16 | Case-insensitive REQ-ID matching | Phase 19 | User convenience; REQ-01 and req-01 both work |
+| 2026-02-16 | Archived milestone fallback scans v*-REQUIREMENTS.md; adds milestone field | Phase 19 | Enables lookup of deferred/historical requirements across milestones |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -165,13 +169,14 @@ None.
 | 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
 | 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
 | Phase 18 P02 | 8min | 4 tasks | 5 files |
+| Phase 19 P01 | 5min | 2 tasks | 5 files |
 
 ## Session Continuity
 
-- **Last action:** Created v0.1.2 roadmap (3 phases: 19-21)
-- **Stopped at:** Roadmap creation complete
-- **Next action:** Plan Phase 19 (Requirement Inspection & Phase-Detail Enhancement)
-- **Context needed:** 1,272 tests passing; v0.1.1 shipped; 7 new requirements (REQ-31 through REQ-37) across 3 phases
+- **Last action:** Executed 19-01-PLAN.md (requirement get/list/traceability commands)
+- **Stopped at:** Completed 19-01-PLAN.md
+- **Next action:** Execute Phase 19 Plan 02 (phase-detail enhancement)
+- **Context needed:** 1,322 tests passing; requirement parsing helpers exported for Plan 02 reuse; 4 decisions recorded
 
 ---
 
