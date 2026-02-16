@@ -3,6 +3,7 @@
  *
  * Tests config schema handling and quality analysis functions:
  * getCleanupConfig, analyzeComplexity, analyzeDeadExports, analyzeFileSize, runQualityAnalysis.
+ * Also tests doc drift detection: analyzeChangelogDrift, analyzeReadmeLinks, analyzeJsdocDrift.
  */
 
 const fs = require('fs');
@@ -16,6 +17,9 @@ const {
   analyzeDeadExports,
   analyzeFileSize,
   runQualityAnalysis,
+  analyzeChangelogDrift,
+  analyzeReadmeLinks,
+  analyzeJsdocDrift,
 } = require('../../lib/cleanup');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -344,5 +348,362 @@ describe('runQualityAnalysis', () => {
     writeFile(tmpDir, 'lib/mod.js', 'module.exports = {};\n');
     const result = runQualityAnalysis(tmpDir, '13');
     expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ─── analyzeChangelogDrift ──────────────────────────────────────────────────
+
+describe('analyzeChangelogDrift', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('returns stale warning when CHANGELOG.md mtime is older than newest SUMMARY.md', () => {
+    // Create CHANGELOG.md with old timestamp
+    writeFile(tmpDir, 'CHANGELOG.md', '# Changelog\n');
+    const changelogPath = path.join(tmpDir, 'CHANGELOG.md');
+    const oldTime = new Date('2025-01-01T00:00:00Z');
+    fs.utimesSync(changelogPath, oldTime, oldTime);
+
+    // Create a SUMMARY.md with newer timestamp
+    const summaryPath = writeFile(
+      tmpDir,
+      '.planning/phases/01-init/01-01-SUMMARY.md',
+      '# Summary\n'
+    );
+    const newTime = new Date('2025-06-01T00:00:00Z');
+    fs.utimesSync(summaryPath, newTime, newTime);
+
+    const result = analyzeChangelogDrift(tmpDir);
+    expect(result.length).toBe(1);
+    expect(result[0].file).toBe('CHANGELOG.md');
+    expect(result[0].reason).toMatch(/not updated/i);
+    expect(result[0].last_modified).toBeDefined();
+    expect(result[0].latest_summary).toBeDefined();
+  });
+
+  test('returns empty array when CHANGELOG.md was modified after latest SUMMARY.md', () => {
+    // Create SUMMARY.md with old timestamp
+    const summaryPath = writeFile(
+      tmpDir,
+      '.planning/phases/01-init/01-01-SUMMARY.md',
+      '# Summary\n'
+    );
+    const oldTime = new Date('2025-01-01T00:00:00Z');
+    fs.utimesSync(summaryPath, oldTime, oldTime);
+
+    // Create CHANGELOG.md with newer timestamp
+    writeFile(tmpDir, 'CHANGELOG.md', '# Changelog\n');
+    const changelogPath = path.join(tmpDir, 'CHANGELOG.md');
+    const newTime = new Date('2025-06-01T00:00:00Z');
+    fs.utimesSync(changelogPath, newTime, newTime);
+
+    const result = analyzeChangelogDrift(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when no CHANGELOG.md exists', () => {
+    // No CHANGELOG.md in tmpDir
+    const result = analyzeChangelogDrift(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when no SUMMARY.md files exist', () => {
+    writeFile(tmpDir, 'CHANGELOG.md', '# Changelog\n');
+    // No .planning/phases/ directory or SUMMARY.md files
+    const result = analyzeChangelogDrift(tmpDir);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── analyzeReadmeLinks ─────────────────────────────────────────────────────
+
+describe('analyzeReadmeLinks', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('detects broken internal file link in README.md', () => {
+    writeFile(
+      tmpDir,
+      'README.md',
+      '# Project\n\nSee [docs](path/to/nonexistent.md) for details.\n'
+    );
+
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result.length).toBe(1);
+    expect(result[0].file).toBe('README.md');
+    expect(result[0].link).toBe('path/to/nonexistent.md');
+    expect(result[0].line).toBeDefined();
+  });
+
+  test('ignores external links (http://, https://)', () => {
+    writeFile(
+      tmpDir,
+      'README.md',
+      '# Project\n\n[Site](https://example.com) and [Other](http://other.com)\n'
+    );
+
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when all internal links resolve to existing files', () => {
+    writeFile(tmpDir, 'docs/guide.md', '# Guide\n');
+    writeFile(tmpDir, 'README.md', '# Project\n\nSee [guide](docs/guide.md) for help.\n');
+
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when no README.md exists', () => {
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('detects broken links in both [text](path) and [text](path "title") formats', () => {
+    writeFile(
+      tmpDir,
+      'README.md',
+      '# Project\n\n[A](missing-a.md) and [B](missing-b.md "some title")\n'
+    );
+
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result.length).toBe(2);
+    const links = result.map((r) => r.link).sort();
+    expect(links).toEqual(['missing-a.md', 'missing-b.md']);
+  });
+
+  test('ignores anchor-only links (#section)', () => {
+    writeFile(tmpDir, 'README.md', '# Project\n\nSee [section](#overview) below.\n');
+
+    const result = analyzeReadmeLinks(tmpDir);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── analyzeJsdocDrift ──────────────────────────────────────────────────────
+
+describe('analyzeJsdocDrift', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('detects @param annotation for parameter not in function signature', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      [
+        '/**',
+        ' * Does something.',
+        ' * @param {string} name - The name',
+        ' * @param {number} age - The age',
+        ' * @param {boolean} extra - Not in signature',
+        ' */',
+        'function doSomething(name, age) {',
+        '  return name + age;',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    const extraParam = result.find((r) => r.issue.includes('extra') && r.issue.includes('extra'));
+    expect(extraParam).toBeDefined();
+    expect(extraParam.issue).toMatch(/extra/i);
+  });
+
+  test('detects missing @param for parameter that exists in signature', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      [
+        '/**',
+        ' * Does something.',
+        ' * @param {string} name - The name',
+        ' */',
+        'function doSomething(name, age) {',
+        '  return name + age;',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    const missingParam = result.find((r) => r.issue.includes('missing'));
+    expect(missingParam).toBeDefined();
+    expect(missingParam.issue).toMatch(/missing/i);
+  });
+
+  test('returns empty array when @param annotations match function signatures exactly', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      [
+        '/**',
+        ' * Adds numbers.',
+        ' * @param {number} a - First number',
+        ' * @param {number} b - Second number',
+        ' */',
+        'function add(a, b) {',
+        '  return a + b;',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result).toEqual([]);
+  });
+
+  test('handles arrow functions with JSDoc blocks', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      [
+        '/**',
+        ' * Multiply.',
+        ' * @param {number} x - First',
+        ' * @param {number} y - Second',
+        ' * @param {number} ghost - Not in signature',
+        ' */',
+        'const multiply = (x, y) => {',
+        '  return x * y;',
+        '};',
+        '',
+      ].join('\n')
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    const extra = result.find((r) => r.issue.includes('ghost'));
+    expect(extra).toBeDefined();
+  });
+
+  test('returns empty array for files with no JSDoc blocks', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      'function plain(a, b) { return a + b; }\n'
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when files list is empty', () => {
+    const result = analyzeJsdocDrift(tmpDir, []);
+    expect(result).toEqual([]);
+  });
+
+  test('handles destructured and default parameters gracefully', () => {
+    writeFile(
+      tmpDir,
+      'lib/example.js',
+      [
+        '/**',
+        ' * Process options.',
+        ' * @param {Object} options - The options',
+        ' * @param {number} count - The count',
+        ' */',
+        'function process(options = {}, count = 0) {',
+        '  return count;',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── runQualityAnalysis doc_drift integration ───────────────────────────────
+
+describe('runQualityAnalysis doc_drift integration', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('report includes doc_drift section when config.doc_sync is true and enabled is true', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, doc_sync: true } });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'consumer.js', "const { a } = require('./lib/mod');\na();\n");
+
+    const result = runQualityAnalysis(tmpDir, '14');
+    expect(result.details.doc_drift).toBeDefined();
+    expect(result.details.doc_drift.changelog).toBeDefined();
+    expect(result.details.doc_drift.readme_links).toBeDefined();
+    expect(result.details.doc_drift.jsdoc).toBeDefined();
+    expect(typeof result.summary.doc_drift_issues).toBe('number');
+  });
+
+  test('report omits doc_drift section when config.doc_sync is false', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, doc_sync: false } });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'consumer.js', "const { a } = require('./lib/mod');\na();\n");
+
+    const result = runQualityAnalysis(tmpDir, '14');
+    expect(result.details.doc_drift).toBeUndefined();
+    expect(result.summary.doc_drift_issues).toBeUndefined();
+  });
+
+  test('summary.doc_drift_issues count reflects total of all 3 doc drift checks', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, doc_sync: true } });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'consumer.js', "const { a } = require('./lib/mod');\na();\n");
+    // Create a broken README link to produce at least 1 issue
+    writeFile(tmpDir, 'README.md', '# Hello\n\n[broken](does-not-exist.md)\n');
+
+    const result = runQualityAnalysis(tmpDir, '14');
+    expect(result.summary.doc_drift_issues).toBeGreaterThanOrEqual(1);
+    // Verify total_issues includes doc_drift_issues
+    const baseIssues =
+      result.summary.complexity_violations +
+      result.summary.dead_exports +
+      result.summary.oversized_files;
+    expect(result.summary.total_issues).toBe(baseIssues + result.summary.doc_drift_issues);
+  });
+
+  test('backward compatible: existing summary fields unchanged when doc_sync enabled', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, doc_sync: true } });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'consumer.js', "const { a } = require('./lib/mod');\na();\n");
+
+    const result = runQualityAnalysis(tmpDir, '14');
+    // Original fields must still be present
+    expect(typeof result.summary.complexity_violations).toBe('number');
+    expect(typeof result.summary.dead_exports).toBe('number');
+    expect(typeof result.summary.oversized_files).toBe('number');
+    // Original details must still be present
+    expect(result.details.complexity).toBeDefined();
+    expect(result.details.dead_exports).toBeDefined();
+    expect(result.details.file_size).toBeDefined();
   });
 });
