@@ -93,6 +93,7 @@ const {
   cmdRequirementGet,
   cmdRequirementList,
   cmdRequirementTraceability,
+  cmdRequirementUpdateStatus,
   cmdSearch,
 } = require('../lib/commands');
 
@@ -169,7 +170,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-mapping',
     'record-status',
   ];
-  const REQUIREMENT_SUBS = ['get', 'list', 'traceability'];
+  const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'plan-phase',
@@ -556,6 +557,15 @@ function routeCommand(command, args, cwd, raw) {
         cmdRequirementTraceability(cwd, {
           phase: flag(args, '--phase', null),
         }, raw);
+      } else if (sub === 'update-status') {
+        if (!args[2]) error('REQ-ID required');
+        if (!args[3]) error('Status required (Pending, In Progress, Done, Deferred)');
+        // Handle multi-word status "In Progress" — args[3] might be "In" and args[4] "Progress"
+        let status = args[3];
+        if (args[3] === 'In' && args[4] === 'Progress') {
+          status = 'In Progress';
+        }
+        cmdRequirementUpdateStatus(cwd, args[2], status, raw);
       }
       break;
     }
