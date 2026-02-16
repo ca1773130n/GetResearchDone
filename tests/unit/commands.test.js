@@ -2885,8 +2885,12 @@ describe('cmdRequirementTraceability', () => {
 describe('cmdSearch', () => {
   let fixtureDir;
 
-  beforeEach(() => { fixtureDir = createFixtureDir(); });
-  afterEach(() => { cleanupFixtureDir(fixtureDir); });
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
 
   test('returns matches for a known string in REQUIREMENTS.md', () => {
     const { stdout, exitCode } = captureOutput(() => {
@@ -2991,8 +2995,12 @@ describe('cmdSearch', () => {
 describe('cmdRequirementUpdateStatus', () => {
   let fixtureDir;
 
-  beforeEach(() => { fixtureDir = createFixtureDir(); });
-  afterEach(() => { cleanupFixtureDir(fixtureDir); });
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
 
   test('updates status for existing REQ-01 from Done to Deferred', () => {
     const { stdout, exitCode } = captureOutput(() => {
@@ -3007,7 +3015,9 @@ describe('cmdRequirementUpdateStatus', () => {
 
     // Verify file was actually modified on disk
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
-    const reqRow = content.split('\n').find((line) => line.includes('REQ-01') && line.startsWith('|'));
+    const reqRow = content
+      .split('\n')
+      .find((line) => line.includes('REQ-01') && line.startsWith('|'));
     expect(reqRow).toContain('Deferred');
     expect(reqRow).not.toContain('Done');
   });
@@ -3022,7 +3032,9 @@ describe('cmdRequirementUpdateStatus', () => {
 
     // Verify file was actually modified on disk
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
-    const reqRow = content.split('\n').find((line) => line.includes('REQ-01') && line.startsWith('|'));
+    const reqRow = content
+      .split('\n')
+      .find((line) => line.includes('REQ-01') && line.startsWith('|'));
     expect(reqRow).toContain('In Progress');
   });
 

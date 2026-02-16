@@ -556,17 +556,25 @@ function routeCommand(command, args, cwd, raw) {
         if (!args[2]) error('REQ-ID required');
         cmdRequirementGet(cwd, args[2], raw);
       } else if (sub === 'list') {
-        cmdRequirementList(cwd, {
-          phase: flag(args, '--phase', null),
-          priority: flag(args, '--priority', null),
-          status: flag(args, '--status', null),
-          category: flag(args, '--category', null),
-          all: args.includes('--all'),
-        }, raw);
+        cmdRequirementList(
+          cwd,
+          {
+            phase: flag(args, '--phase', null),
+            priority: flag(args, '--priority', null),
+            status: flag(args, '--status', null),
+            category: flag(args, '--category', null),
+            all: args.includes('--all'),
+          },
+          raw
+        );
       } else if (sub === 'traceability') {
-        cmdRequirementTraceability(cwd, {
-          phase: flag(args, '--phase', null),
-        }, raw);
+        cmdRequirementTraceability(
+          cwd,
+          {
+            phase: flag(args, '--phase', null),
+          },
+          raw
+        );
       } else if (sub === 'update-status') {
         if (!args[2]) error('REQ-ID required');
         if (!args[3]) error('Status required (Pending, In Progress, Done, Deferred)');
