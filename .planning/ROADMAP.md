@@ -64,7 +64,11 @@ Plans:
   2. All 14 `cmdInit*` functions produce correct output under each backend; existing orchestrator commands work unchanged when backend is `claude` (DEFER-10-01)
   3. Full long-term roadmap lifecycle round-trips without data loss: create -> refine -> promote through tiers -> generate ROADMAP.md (DEFER-11-01)
   4. When `phase_cleanup.enabled` is false, cleanup system produces no extra output, no performance impact, and no side effects during phase execution (DEFER-13-01)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 15-01-PLAN.md — Backend detection + context init validation (DEFER-09-01, DEFER-10-01)
+- [ ] 15-02-PLAN.md — Long-term roadmap round-trip integrity (DEFER-11-01)
+- [ ] 15-03-PLAN.md — Auto-cleanup non-interference (DEFER-13-01)
 
 ### Phase 16: MCP Server
 **Goal**: Any MCP-compatible client can call GRD commands programmatically via a stdio-based MCP server with auto-generated tool schemas
