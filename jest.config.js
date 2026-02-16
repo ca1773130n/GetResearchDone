@@ -60,6 +60,11 @@ module.exports = {
       functions: 100,
       branches: 90,
     },
+    './lib/mcp-server.js': {
+      lines: 80,
+      functions: 80,
+      branches: 60,
+    },
   },
   testTimeout: 15000,
 };

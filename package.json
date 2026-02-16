@@ -1,12 +1,27 @@
 {
-  "name": "grd",
+  "name": "grd-tools",
   "version": "0.1.0",
   "description": "Get Research Done — R&D workflow automation for Claude Code",
   "author": "Cameleon X",
   "license": "UNLICENSED",
-  "private": true,
   "engines": {
     "node": ">=18"
+  },
+  "bin": {
+    "grd-tools": "bin/grd-tools.js",
+    "grd-mcp-server": "bin/grd-mcp-server.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "commands/",
+    "agents/",
+    ".claude-plugin/plugin.json"
+  ],
+  "keywords": ["research", "workflow", "claude", "mcp", "cli"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cameleon-x/grd"
   },
   "scripts": {
     "test": "jest --coverage",
@@ -16,7 +31,8 @@
     "lint": "eslint bin/ lib/",
     "lint:fix": "eslint --fix bin/ lib/",
     "format": "prettier --write bin/ lib/ tests/ jest.config.js",
-    "format:check": "prettier --check bin/ lib/ tests/ jest.config.js"
+    "format:check": "prettier --check bin/ lib/ tests/ jest.config.js",
+    "postinstall": "node bin/postinstall.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

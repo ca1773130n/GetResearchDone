@@ -87,7 +87,12 @@ Optional phase-boundary quality analysis (disabled by default):
 - ESLint complexity violation detection
 - Dead export scanning
 - File size threshold checks
-- Integrated into phase completion flow
+- Doc drift detection (changelog staleness, broken README links, JSDoc mismatches)
+- Test coverage gap detection (exports without test mentions)
+- Export consistency checking (stale imports referencing removed exports)
+- Doc staleness detection (CLAUDE.md CLI docs vs actual COMMAND_DESCRIPTORS)
+- Config schema drift analysis (documented vs actual config keys)
+- Integrated into phase completion flow with auto-generated cleanup plans
 
 ### Agent Teams (Experimental)
 
@@ -152,6 +157,20 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:progress` | Project progress + metrics |
 | `/grd:yolo` | Toggle autonomous mode |
 | `/grd:help` | Full command reference |
+
+## MCP Server
+
+GRD includes an MCP server (`grd-mcp-server`) that exposes all 97 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
+
+```json
+{
+  "mcpServers": {
+    "grd": { "command": "grd-mcp-server" }
+  }
+}
+```
+
+See [docs/mcp-server.md](docs/mcp-server.md) for full setup, tool reference, and examples.
 
 ## Installation
 

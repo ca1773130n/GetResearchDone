@@ -1,14 +1,14 @@
 # State
 
-**Updated:** 2026-02-17
+**Updated:** 2026-02-16
 
 ## Current Position
 
-- **Active phase:** None — milestone v0.1.0 complete
-- **Current plan:** None
-- **Milestone:** v0.1.0 — Setup Functionality & Usability (SHIPPED)
-- **Progress:** 5/5 phases complete, 10/10 plans complete, 858 tests
-- **Next:** `/grd:new-milestone` to start v0.1.1
+- **Active phase:** Phase 18 — Integration & Distribution Validation
+- **Current plan:** Plan 2 of 2 complete
+- **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
+- **Progress:** [██████████] 100%
+- **Next:** Phase 18 complete; all v0.1.1 phases done
 
 ## Pending Decisions
 
@@ -19,22 +19,48 @@ None.
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | v0.1.1 | PENDING |
-| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | v0.1.1 | PENDING |
-| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | v0.1.1 | PENDING |
-| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | v0.1.1 | PENDING |
+| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | RESOLVED (15-01) |
+| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | RESOLVED (15-01) |
+| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | RESOLVED (15-02) |
+| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | RESOLVED (15-03) |
 
 ## Key Decisions
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-16 | 5 phases for v0.1.1 (14-18) with deferred validations in Phase 15 | Roadmap | Early validation confirms stable foundation before MCP server feature |
+| 2026-02-16 | MCP server + schema + tests in single phase (16) | Roadmap | Tightly coupled: implementation without tests is unverifiable |
+| 2026-02-16 | Integration phase (18) collects REQ-20 + REQ-30 | Roadmap | Both are end-to-end validation; neither can run until all features complete |
 | 2026-02-16 | Scope v0.1.0 to detection + model resolution only | Planning | Sub-agent spawning divergence is critical risk; defer orchestrator adaptation to v0.2.0 |
 | 2026-02-16 | Mark Gemini capabilities as experimental | Planning | Gemini CLI sub-agents are experimental; degrade gracefully |
-| 2026-02-16 | Three independent feature streams with integration phase | Planning | Backend, hierarchical roadmap, and auto-cleanup are independent; converge at Phase 15 |
 | 2026-02-16 | Defer phases 14-15 to v0.1.1 | Milestone | P2 features (doc drift, integration validation) deferred; all P0/P1 requirements shipped |
 | 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
-| 2026-02-16 | 5-min TTL cache for detected models | Post-13 | Avoids repeated subprocess spawns; clearModelCache() exported for tests |
-| 2026-02-16 | Resolution priority: config > detected > defaults | Post-13 | User overrides always win; detected models fill gap between config and stale defaults |
+| 2026-02-16 | Regex-based JSDoc parsing (not AST) for doc drift detection | Phase 14 | Consistent with Phase 13 approach; catches obvious mismatches without dependencies |
+| 2026-02-16 | Config-gated doc_drift: omitted entirely when doc_sync=false | Phase 14 | Backward compatible; no null fields in quality report |
+| 2026-02-16 | Graceful skip on missing files for all 3 doc drift functions | Phase 14 | Prevents false alerts on repos without CHANGELOG.md or README.md |
+| 2026-02-16 | cleanup_threshold defaults to 5 when not specified in config | Phase 14 | Reasonable default; avoids cleanup plans for minor issues |
+| 2026-02-16 | Non-blocking generateCleanupPlan in phase completion (try/catch) | Phase 14 | Consistent with quality analysis pattern; phase completion never fails |
+| 2026-02-16 | cleanup_plan_generated field conditionally spread (absent when not generated) | Phase 14 | Clean JSON output; matches quality_report conditional pattern |
+| 2026-02-16 | Lifecycle round-trip tests (not per-function) for DEFER-11-01 validation | Phase 15 | Multi-step chains catch integration bugs that unit tests miss |
+| 2026-02-16 | Test generateCleanupPlan threshold-gating (not enabled-flag) for DEFER-13-01 | Phase 15 | generateCleanupPlan does not check enabled; non-interference relies on caller pattern |
+| 2026-02-16 | Verify import isolation by scanning source text (not Node require cache) | Phase 15 | More reliable and deterministic assertions for import verification |
+| 2026-02-16 | Accept dynamically detected OpenCode models in test assertions | Phase 15 | OpenCode `getCachedModels` returns CLI-detected models; tests verify non-raw-tier instead of exact match |
+| 2026-02-16 | Config override (not env vars) for backend switching in context tests | Phase 15 | Tests highest-priority detection path; avoids env var interference between parallel tests |
+| 2026-02-16 | Auto-generate MCP tool definitions from COMMAND_DESCRIPTORS table | Phase 16 | Ensures all CLI commands exposed without manual JSON authoring |
+| 2026-02-16 | Output capture pattern (intercept process.exit) for MCP tool execution | Phase 16 | Reuses existing cmd* functions without modification |
+| 2026-02-16 | 97 tools covering all routeCommand paths | Phase 16 | Every CLI command/subcommand has corresponding MCP tool |
+| 2026-02-16 | Zero external dependencies for MCP server | Phase 16 | Node.js built-ins only, consistent with GRD philosophy |
+| 2026-02-16 | raw=true for TUI commands (dashboard/health/phase-detail) in MCP | Phase 16 | Gets JSON output instead of TUI text for structured MCP responses |
+| 2026-02-16 | Bulk execute lambda coverage via tools/call path for all 97 tools | Phase 16 | Exercises every COMMAND_DESCRIPTORS execute function for 93% line coverage |
+| 2026-02-16 | Fixture isolation with createFixtureDir for MCP test safety | Phase 16 | Tests operate on temp .planning/ copy, not real project state |
+| 2026-02-16 | Notification id-absence: no-id messages return null regardless of method | Phase 16 | Per JSON-RPC spec, messages without id are notifications requiring no response |
+| 2026-02-16 | Package name 'grd-tools' for npm registry | Phase 17 | Avoiding reserved 'grd'; clear CLI tool identity |
+| 2026-02-16 | Idempotent postinstall: exit silently if .planning/ exists, never fail | Phase 17 | Postinstall must not block npm install; existing projects unchanged |
+| 2026-02-16 | Zero runtime dependencies maintained | Phase 17 | Only devDependencies; consistent with GRD zero-dep philosophy |
+| 2026-02-16 | Resolve package root from __dirname (not cwd) for setup command | Phase 17 | Ensures correct path regardless of where user runs grd-tools setup |
+| 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
+| 2026-02-16 | Direct module import (not CLI subprocess) for E2E integration tests | Phase 18 | Speed and directness; validates actual module interfaces not CLI parsing |
+| 2026-02-16 | execFileSync with input option for MCP handshake test (not spawn) | Phase 18 | Avoids open handle warnings; synchronous approach cleaner for test assertions |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -114,15 +140,28 @@ None.
 | 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
 | 13 | 01 | 6min | 2 | 2 | +25 tests (821 total) |
 | 13 | 02 | 4min | 2 | 5 | +20 tests (841 total) |
-| — | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
+| -- | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
+| 14 | 01 | 3min | 2 | 2 | +21 tests (879 total) |
+| 14 | 02 | 4min | 2 | 4 | +22 tests (901 total) |
+| 15 | 02 | 4min | 2 | 1 | +28 tests (929 total) |
+| 15 | 01 | 5min | 2 | 2 | +89 tests (1018 total) |
+| 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
+| 16 | 01 | 5min | 2 | 2 | - |
+| 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
+| 17 | 01 | 2min | 2 | 3 | +21 tests (1229 total) |
+| 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
+| 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
+| 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
+| Phase 18 P02 | 8min | 4 tasks | 5 files |
 
 ## Session Continuity
 
-- **Last action:** Completed v0.1.0 milestone
-- **Next action:** `/grd:new-milestone` to define v0.1.1
-- **Context needed:** Phases 14-15 deferred to v0.1.1; 5 deferred validations pending
+- **Last action:** Completed Phase 18 Plan 02 (distribution validation)
+- **Stopped at:** Completed phase 18 execution
+- **Next action:** Phase 18 complete; all v0.1.1 phases done
+- **Context needed:** 1272 tests passing; full distribution pipeline validated (pack, install, bin entries, MCP server, plugin.json)
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-16*
