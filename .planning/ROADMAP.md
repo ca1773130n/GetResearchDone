@@ -49,8 +49,8 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Requirements**: REQ-31, REQ-32, REQ-33, REQ-34
 **Verification Level**: proxy
 **Plans:** 2 plans
-  - [ ] 19-01-PLAN.md — Requirement parsing + get/list/traceability commands (TDD)
-  - [ ] 19-02-PLAN.md — Phase-detail requirements enhancement (TDD)
+  - [x] 19-01-PLAN.md — Requirement parsing + get/list/traceability commands (TDD) *(completed 2026-02-16)*
+  - [x] 19-02-PLAN.md — Phase-detail requirements enhancement (TDD) *(completed 2026-02-16)*
 **Success Criteria** (what must be TRUE):
   1. `grd-tools requirement get REQ-31` returns structured JSON with all fields (ID, title, priority, category, description, phase, status) parsed from REQUIREMENTS.md; falls back to archived milestone files when ID is not in current file
   2. `grd-tools requirement list` returns all requirements; `--phase 19`, `--priority P0`, `--status Pending`, `--category CLI`, and `--all` filters each narrow results correctly and compose together

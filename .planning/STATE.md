@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 19 — Requirement Inspection & Phase-Detail Enhancement
-- **Current plan:** Plan 1 of 2
+- **Current plan:** Plan 2 of 2 (complete)
 - **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Execute Phase 19 Plan 02
+- **Progress:** [██████████] 100%
+- **Next:** Plan Phase 20 or Phase 21
 
 ## Pending Decisions
 
@@ -35,6 +35,8 @@ None.
 | 2026-02-16 | Description stops at ## headings and --- separators | Phase 19 | Prevents cross-section bleed in parsed requirement descriptions |
 | 2026-02-16 | Case-insensitive REQ-ID matching | Phase 19 | User convenience; REQ-01 and req-01 both work |
 | 2026-02-16 | Archived milestone fallback scans v*-REQUIREMENTS.md; adds milestone field | Phase 19 | Enables lookup of deferred/historical requirements across milestones |
+| 2026-02-16 | Requirements extracted from ROADMAP.md phase section via regex (not plan files) | Phase 19 | Consistent with how requirements are declared per-phase in roadmap |
+| 2026-02-16 | Empty requirements array for phases without Requirements field | Phase 19 | Cleaner than undefined; consumers don't need null checks |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -170,13 +172,14 @@ None.
 | 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
 | Phase 18 P02 | 8min | 4 tasks | 5 files |
 | Phase 19 P01 | 5min | 2 tasks | 5 files |
+| Phase 19 P02 | 3min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-- **Last action:** Executed 19-01-PLAN.md (requirement get/list/traceability commands)
-- **Stopped at:** Completed 19-01-PLAN.md
-- **Next action:** Execute Phase 19 Plan 02 (phase-detail enhancement)
-- **Context needed:** 1,322 tests passing; requirement parsing helpers exported for Plan 02 reuse; 4 decisions recorded
+- **Last action:** Executed 19-02-PLAN.md (phase-detail requirements enhancement)
+- **Stopped at:** Completed 19-02-PLAN.md
+- **Next action:** Plan Phase 20 (convenience commands) or Phase 21 (MCP wiring)
+- **Context needed:** 1,327 tests passing; Phase 19 complete (2/2 plans); cmdPhaseDetail now includes requirements; 6 decisions recorded for Phase 19
 
 ---
 
