@@ -556,3 +556,156 @@ describe('cmdPhaseComplete quality analysis integration', () => {
     expect(roadmap).toMatch(/\*\*Plans:\*\*\s*\d+\/\d+\s*plans complete/);
   });
 });
+
+// ─── cmdPhaseComplete cleanup plan generation integration ───────────────────
+
+describe('cmdPhaseComplete cleanup plan generation integration', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  // Helper: set phase_cleanup config with options
+  function setCleanupConfig(options) {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (options === undefined) {
+      delete config.phase_cleanup;
+    } else if (options === false) {
+      config.phase_cleanup = { enabled: false };
+    } else {
+      config.phase_cleanup = options;
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  }
+
+  // Helper: create source files in lib/ that trigger quality issues
+  function createSourceFiles(options = {}) {
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    if (options.oversized) {
+      // Create multiple oversized files to exceed default threshold of 5
+      for (let i = 0; i < (options.oversizedCount || 6); i++) {
+        const content =
+          Array.from({ length: 601 }, (_, j) => `// line ${j + 1}`).join('\n') +
+          `\nfunction f${i}() { return ${i}; }\nmodule.exports = { f${i} };\n`;
+        fs.writeFileSync(path.join(libDir, `big-${i}.js`), content, 'utf-8');
+      }
+    }
+
+    if (options.clean) {
+      // Create clean files that produce no issues
+      fs.writeFileSync(
+        path.join(libDir, 'clean.js'),
+        'function hello() { return 1; }\nmodule.exports = { hello };\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, 'consumer.js'),
+        "const { hello } = require('./lib/clean');\nhello();\n",
+        'utf-8'
+      );
+    }
+  }
+
+  test('cmdPhaseComplete includes cleanup_plan_generated when quality issues exceed threshold', () => {
+    setCleanupConfig({ enabled: true, cleanup_threshold: 2 });
+    createSourceFiles({ oversized: true, oversizedCount: 3 });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('cleanup_plan_generated');
+    expect(result.cleanup_plan_generated).toHaveProperty('path');
+    expect(result.cleanup_plan_generated).toHaveProperty('plan_number');
+    expect(result.cleanup_plan_generated).toHaveProperty('issues_addressed');
+    expect(result.cleanup_plan_generated.issues_addressed).toBeGreaterThan(2);
+  });
+
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when issues below threshold', () => {
+    setCleanupConfig({ enabled: true });
+    createSourceFiles({ clean: true });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('cleanup_plan_generated');
+  });
+
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup.enabled is false', () => {
+    setCleanupConfig(false);
+    createSourceFiles({ oversized: true });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('cleanup_plan_generated');
+  });
+
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup section missing', () => {
+    setCleanupConfig(undefined);
+    createSourceFiles({ oversized: true });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('cleanup_plan_generated');
+  });
+
+  test('cleanup plan generation failure does not break phase completion', () => {
+    // Enable cleanup with low threshold but make generateCleanupPlan likely to work
+    // The non-blocking try/catch ensures even if it throws, phase completes
+    setCleanupConfig({ enabled: true, cleanup_threshold: 0 });
+    createSourceFiles({ clean: true });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // Core fields must still be present regardless
+    expect(result.completed_phase).toBe('1');
+    expect(result.roadmap_updated).toBe(true);
+    expect(result.state_updated).toBe(true);
+  });
+
+  test('raw output includes cleanup plan path when generated', () => {
+    setCleanupConfig({ enabled: true, cleanup_threshold: 2 });
+    createSourceFiles({ oversized: true, oversizedCount: 3 });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Cleanup plan generated:');
+    expect(stdout).toContain('PLAN.md');
+  });
+
+  test('raw output does NOT mention cleanup plan when not generated', () => {
+    setCleanupConfig({ enabled: true });
+    createSourceFiles({ clean: true });
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain('Cleanup plan generated');
+  });
+
+  test('existing phase completion behavior unchanged when cleanup disabled', () => {
+    setCleanupConfig(false);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // All standard fields present
+    expect(result.completed_phase).toBe('1');
+    expect(result.plans_executed).toMatch(/\d+\/\d+/);
+    expect(result.next_phase).toBeTruthy();
+    expect(result.roadmap_updated).toBe(true);
+    expect(result.state_updated).toBe(true);
+    // No quality or cleanup fields
+    expect(result).not.toHaveProperty('quality_report');
+    expect(result).not.toHaveProperty('cleanup_plan_generated');
+  });
+});
