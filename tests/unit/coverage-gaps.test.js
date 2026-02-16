@@ -71,13 +71,13 @@ describe('context --include flag branches', () => {
     expect(result.roadmap_content).toContain('Roadmap');
   });
 
-  test('plan-phase with --include requirements (file missing)', () => {
+  test('plan-phase with --include requirements (file present in fixture)', () => {
     const { stdout } = captureOutput(() =>
       cmdInitPlanPhase(tmpDir, '1', new Set(['requirements']), false)
     );
     const result = JSON.parse(stdout);
-    // REQUIREMENTS.md does not exist in fixture
-    expect(result.requirements_content).toBeNull();
+    // REQUIREMENTS.md exists in fixture (created for requirement command tests)
+    expect(result.requirements_content).toContain('Requirements');
   });
 
   test('plan-phase with --include context (no context file)', () => {

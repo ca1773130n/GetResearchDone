@@ -90,6 +90,9 @@ const {
   cmdLongTermRoadmap,
   cmdQualityAnalysis,
   cmdSetup,
+  cmdRequirementGet,
+  cmdRequirementList,
+  cmdRequirementTraceability,
 } = require('../lib/commands');
 
 /** Extract --flag value from args, returns value or fallback */
@@ -165,6 +168,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-mapping',
     'record-status',
   ];
+  const REQUIREMENT_SUBS = ['get', 'list', 'traceability'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'plan-phase',
@@ -529,6 +533,27 @@ function routeCommand(command, args, cwd, raw) {
     case 'setup':
       cmdSetup(cwd, raw);
       break;
+    case 'requirement': {
+      const sub = args[1];
+      validateSubcommand(sub, REQUIREMENT_SUBS, 'requirement');
+      if (sub === 'get') {
+        if (!args[2]) error('REQ-ID required');
+        cmdRequirementGet(cwd, args[2], raw);
+      } else if (sub === 'list') {
+        cmdRequirementList(cwd, {
+          phase: flag(args, '--phase', null),
+          priority: flag(args, '--priority', null),
+          status: flag(args, '--status', null),
+          category: flag(args, '--category', null),
+          all: args.includes('--all'),
+        }, raw);
+      } else if (sub === 'traceability') {
+        cmdRequirementTraceability(cwd, {
+          phase: flag(args, '--phase', null),
+        }, raw);
+      }
+      break;
+    }
     default:
       error(`Unknown command: ${command}`);
   }
