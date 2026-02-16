@@ -36,6 +36,7 @@ const {
   cmdRequirementGet,
   cmdRequirementList,
   cmdRequirementTraceability,
+  cmdSearch,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -2875,5 +2876,111 @@ describe('cmdRequirementTraceability', () => {
     const parsed = parseFirstJson(stdout);
     expect(parsed.matrix).toEqual([]);
     expect(parsed.count).toBe(0);
+  });
+});
+
+// ─── cmdSearch ───────────────────────────────────────────────────────────────
+
+describe('cmdSearch', () => {
+  let fixtureDir;
+
+  beforeEach(() => { fixtureDir = createFixtureDir(); });
+  afterEach(() => { cleanupFixtureDir(fixtureDir); });
+
+  test('returns matches for a known string in REQUIREMENTS.md', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'REQ-01', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(Array.isArray(result.matches)).toBe(true);
+    expect(result.matches.length).toBeGreaterThanOrEqual(1);
+    for (const m of result.matches) {
+      expect(typeof m.file).toBe('string');
+      expect(typeof m.line).toBe('number');
+      expect(m.line).toBeGreaterThanOrEqual(1);
+      expect(typeof m.content).toBe('string');
+      expect(m.content.toLowerCase()).toContain('req-01');
+    }
+    expect(result.count).toBe(result.matches.length);
+  });
+
+  test('returns matches across multiple files', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'REQ-01', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    const uniqueFiles = new Set(result.matches.map((m) => m.file));
+    expect(uniqueFiles.size).toBeGreaterThanOrEqual(2);
+  });
+
+  test('search is case-insensitive', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'req-01', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.matches.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('returns line numbers starting from 1', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'Traceability Matrix', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.matches.length).toBeGreaterThanOrEqual(1);
+    for (const m of result.matches) {
+      expect(m.line).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  test('recurses into subdirectories (phases/, milestones/)', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'REQ-99', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.matches.length).toBeGreaterThanOrEqual(1);
+    const hasSubdirMatch = result.matches.some((m) => m.file.includes('milestones/'));
+    expect(hasSubdirMatch).toBe(true);
+  });
+
+  test('query with no matches returns empty array', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'NONEXISTENT_QUERY_12345', true);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.matches).toEqual([]);
+    expect(result.count).toBe(0);
+  });
+
+  test('missing .planning/ directory returns empty matches', () => {
+    const os = require('os');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-no-planning-'));
+    try {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdSearch(tempDir, 'anything', true);
+      });
+      expect(exitCode).toBe(0);
+      const result = parseFirstJson(stdout);
+      expect(result.matches).toEqual([]);
+      expect(result.count).toBe(0);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('raw=false produces JSON output', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSearch(fixtureDir, 'REQ-01', false);
+    });
+    expect(exitCode).toBe(0);
+    const result = parseFirstJson(stdout);
+    expect(result.matches).toBeDefined();
+    expect(result.count).toBeDefined();
+    expect(result.query).toBe('REQ-01');
   });
 });
