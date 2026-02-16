@@ -1,14 +1,14 @@
 # State
 
-**Updated:** 2026-02-16
+**Updated:** 2026-02-17
 
 ## Current Position
 
-- **Active phase:** None (milestone defined, not yet planned)
-- **Current plan:** N/A
+- **Active phase:** 21 — MCP Extension Wiring
+- **Current plan:** 21-01 complete
 - **Milestone:** v0.1.3 — MCP Completion & Branching Fix
-- **Progress:** [██████████] 98%
-- **Next:** `/grd:plan-phase 21` to plan first phase
+- **Progress:** [█████░░░░░] 50%
+- **Next:** `/grd:execute-phase 21` plan 2, or `/grd:plan-phase 22`
 
 ## Pending Decisions
 
@@ -30,7 +30,7 @@ None.
 | 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
 | 2026-02-16 | Same-status update returns success without disk write (no-op) | Phase 20 | Regex replacement produces identical content when old==new; no-op avoids false error |
-| 2026-02-17 | New tools documented in separate Requirement & Search section, not appended to Utility | Phase 21 | Keeps logical grouping clear; Utility section count unchanged |
+| 2026-02-17 | All 5 new MCP tools use raw=false for JSON output (not TUI text) | Phase 21 | Consistent with existing non-TUI tools; returns structured JSON for MCP responses |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -152,15 +152,16 @@ None.
 | 20 | 01 | 2min | 2 | 3 | +8 tests (1335 total) |
 | 20 | 02 | 3min | 2 | 3 | +8 tests (1343 total) |
 | 21 | 02 | 1min | 1 | 1 | — |
+| Phase 21 P01 | 2min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-- **Last action:** Created v0.1.3 milestone with 2 phases (21-22)
-- **Stopped at:** Completed 21-02-PLAN.md
-- **Next action:** `/grd:plan-phase 21` to plan MCP wiring
-- **Context needed:** 1,343 tests passing; Phase 21 = MCP tools for v0.1.2 commands; Phase 22 = execute-phase branching fix (checkout main + pull)
+- **Last action:** Completed 21-01 (MCP Extension Wiring plan 1)
+- **Stopped at:** Completed 21-01-PLAN.md
+- **Next action:** `/grd:execute-phase 21` for plan 2, or `/grd:plan-phase 22`
+- **Context needed:** 1,357 tests passing; 102 MCP tools; Phase 21 plan 1 complete; Phase 22 = execute-phase branching fix
 
 ---
 
-*State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-02-16*
+*State managed by: Claude (grd-executor)*
+*Last updated: 2026-02-17*
