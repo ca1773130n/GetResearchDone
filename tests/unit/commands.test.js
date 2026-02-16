@@ -34,6 +34,7 @@ const {
   cmdLongTermRoadmap,
   cmdQualityAnalysis,
 } = require('../../lib/commands');
+const { clearModelCache } = require('../../lib/backend');
 
 /**
  * Parse the first JSON object from stdout that may contain concatenated
@@ -1261,6 +1262,7 @@ describe('cmdDetectBackend', () => {
   afterEach(() => {
     process.env = savedEnv;
     cleanupFixtureDir(fixtureDir);
+    clearModelCache();
   });
 
   test('JSON output (raw=false) returns object with backend, models, and capabilities', () => {
@@ -1272,10 +1274,12 @@ describe('cmdDetectBackend', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed).toHaveProperty('backend');
     expect(parsed).toHaveProperty('models');
+    expect(parsed).toHaveProperty('models_source');
     expect(parsed).toHaveProperty('capabilities');
     expect(parsed.models).toHaveProperty('opus');
     expect(parsed.models).toHaveProperty('sonnet');
     expect(parsed.models).toHaveProperty('haiku');
+    expect(['detected', 'defaults']).toContain(parsed.models_source);
     expect(parsed.capabilities).toHaveProperty('subagents');
     expect(parsed.capabilities).toHaveProperty('parallel');
     expect(parsed.capabilities).toHaveProperty('teams');
@@ -1352,7 +1356,7 @@ describe('cmdDetectBackend', () => {
     expect(parsed.capabilities.mcp).toBe(true);
   });
 
-  test('OpenCode backend: models use anthropic/claude-* format', () => {
+  test('OpenCode backend: models resolved and capabilities correct', () => {
     const configPath = path.join(fixtureDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     config.backend = 'opencode';
@@ -1363,9 +1367,11 @@ describe('cmdDetectBackend', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.backend).toBe('opencode');
-    expect(parsed.models.opus).toBe('anthropic/claude-opus-4-5');
-    expect(parsed.models.sonnet).toBe('anthropic/claude-sonnet-4-5');
-    expect(parsed.models.haiku).toBe('anthropic/claude-haiku-4-5');
+    // Models may come from detection or defaults depending on opencode availability
+    expect(typeof parsed.models.opus).toBe('string');
+    expect(typeof parsed.models.sonnet).toBe('string');
+    expect(typeof parsed.models.haiku).toBe('string');
+    expect(['detected', 'defaults']).toContain(parsed.models_source);
     expect(parsed.capabilities.subagents).toBe(true);
     expect(parsed.capabilities.parallel).toBe(true);
     expect(parsed.capabilities.teams).toBe(false);

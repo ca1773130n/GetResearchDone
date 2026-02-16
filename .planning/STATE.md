@@ -7,7 +7,7 @@
 - **Active phase:** Phase 13 complete — proceeding to Phase 14
 - **Current plan:** All plans complete (13-01 and 13-02 done)
 - **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 13 of 15 [#########-] 79% (11/14 plans in v0.1.0)
+- **Progress:** Phase 13 of 15 [#########-] 79% (11/14 plans in v0.1.0, 858 tests)
 - **Next:** Phase 14 — Auto-Cleanup Doc Drift & Plan Generation
 
 ## Pending Decisions
@@ -56,6 +56,9 @@ None.
 | 2026-02-16 | Non-blocking quality analysis in phase completion | Phase 13 | Errors swallowed via try/catch; phase completion never fails due to quality checks |
 | 2026-02-16 | quality_report field conditionally spread (absent when disabled) | Phase 13 | Clean JSON output; no null fields when feature is off |
 | 2026-02-16 | Raw output appends quality only when issues > 0 | Phase 13 | Non-interference: clean output when no problems found |
+| 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
+| 2026-02-16 | 5-min TTL cache for detected models | Post-13 | Avoids repeated subprocess spawns; clearModelCache() exported for tests |
+| 2026-02-16 | Resolution priority: config > detected > defaults | Post-13 | User overrides always win; detected models fill gap between config and stale defaults |
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -99,12 +102,13 @@ None.
 | 12 | 02 | 3min | 2 | 3 | +24 tests (796 total) |
 | 13 | 01 | 6min | 2 | 2 | +25 tests (821 total) |
 | 13 | 02 | 4min | 2 | 5 | +20 tests (841 total) |
+| — | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed 13-02-PLAN.md (quality-analysis CLI and phase completion wiring)
-- **Next action:** Complete Phase 13, proceed to Phase 14 (evaluation plan)
-- **Context needed:** Phase 13 provides quality-analysis CLI command and phase completion integration
+- **Last action:** Implemented dynamic model detection via CLI probing (OpenCode `opencode models`)
+- **Next action:** Proceed to Phase 14 (Auto-Cleanup Doc Drift & Plan Generation)
+- **Context needed:** `detect-backend` now includes `models_source` field ("detected" or "defaults"); `resolveBackendModel` accepts optional `cwd` param for dynamic detection
 
 ---
 

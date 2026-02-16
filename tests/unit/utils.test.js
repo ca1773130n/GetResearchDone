@@ -27,6 +27,7 @@ const {
   output,
   error,
 } = require('../../lib/utils');
+const { clearModelCache } = require('../../lib/backend');
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -442,6 +443,7 @@ describe('Backend-aware model resolution', () => {
         }
       }
       // Cleanup
+      clearModelCache();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
@@ -474,14 +476,15 @@ describe('Backend-aware model resolution', () => {
       expect(model).toBe('gemini-3-flash');
     });
 
-    test('returns anthropic/claude-sonnet-4-5 for grd-executor on opencode backend (OPENCODE set)', () => {
+    test('returns sonnet-tier model for grd-executor on opencode backend (OPENCODE set)', () => {
       fs.writeFileSync(
         path.join(tmpDir, '.planning', 'config.json'),
         JSON.stringify({ model_profile: 'balanced' })
       );
       process.env.OPENCODE = '1';
       const model = resolveModelInternal(tmpDir, 'grd-executor');
-      expect(model).toBe('anthropic/claude-sonnet-4-5');
+      // Model may be detected or default; either way should contain sonnet
+      expect(model).toMatch(/sonnet/i);
     });
 
     test('returns opus for grd-planner on claude backend with quality profile', () => {

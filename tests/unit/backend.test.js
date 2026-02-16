@@ -67,6 +67,10 @@ const {
   detectBackend,
   resolveBackendModel,
   getBackendCapabilities,
+  parseOpenCodeModels,
+  detectModels,
+  getCachedModels,
+  clearModelCache,
 } = require('../../lib/backend');
 
 describe('lib/backend.js', () => {
@@ -497,6 +501,170 @@ describe('lib/backend.js', () => {
 
     test('returns claude capabilities for null backend', () => {
       expect(getBackendCapabilities(null)).toEqual(BACKEND_CAPABILITIES.claude);
+    });
+  });
+
+  // ─── parseOpenCodeModels(stdout) ──────────────────────────────────────
+
+  describe('parseOpenCodeModels(stdout)', () => {
+    test('parses anthropic models into correct tiers', () => {
+      const stdout = [
+        'Available models:',
+        '---',
+        'anthropic/claude-opus-4-5',
+        'anthropic/claude-sonnet-4-5',
+        'anthropic/claude-haiku-4-5',
+      ].join('\n');
+      const result = parseOpenCodeModels(stdout);
+      expect(result).toEqual({
+        opus: 'anthropic/claude-opus-4-5',
+        sonnet: 'anthropic/claude-sonnet-4-5',
+        haiku: 'anthropic/claude-haiku-4-5',
+      });
+    });
+
+    test('parses openai/google models via pro/flash keywords', () => {
+      const stdout = [
+        'google/gemini-3-pro',
+        'google/gemini-3-flash',
+      ].join('\n');
+      const result = parseOpenCodeModels(stdout);
+      expect(result).toEqual({
+        opus: 'google/gemini-3-pro',
+        sonnet: null,
+        haiku: 'google/gemini-3-flash',
+      });
+    });
+
+    test('returns null for empty input', () => {
+      expect(parseOpenCodeModels('')).toBeNull();
+      expect(parseOpenCodeModels(null)).toBeNull();
+      expect(parseOpenCodeModels(undefined)).toBeNull();
+    });
+
+    test('returns null when no models recognized', () => {
+      const stdout = 'No models found.\n';
+      expect(parseOpenCodeModels(stdout)).toBeNull();
+    });
+
+    test('skips header lines', () => {
+      const stdout = [
+        'Available models:',
+        '---',
+        '# Header comment',
+        'anthropic/claude-sonnet-4-5',
+      ].join('\n');
+      const result = parseOpenCodeModels(stdout);
+      expect(result).toEqual({
+        opus: null,
+        sonnet: 'anthropic/claude-sonnet-4-5',
+        haiku: null,
+      });
+    });
+
+    test('partial detection returns matched tiers with nulls for unmatched', () => {
+      const stdout = 'anthropic/claude-opus-4-5\n';
+      const result = parseOpenCodeModels(stdout);
+      expect(result).toEqual({
+        opus: 'anthropic/claude-opus-4-5',
+        sonnet: null,
+        haiku: null,
+      });
+    });
+
+    test('mini keyword maps to haiku tier', () => {
+      const stdout = 'openai/gpt-4o-mini\n';
+      const result = parseOpenCodeModels(stdout);
+      expect(result).toEqual({
+        opus: null,
+        sonnet: null,
+        haiku: 'openai/gpt-4o-mini',
+      });
+    });
+
+    test('first match wins per tier', () => {
+      const stdout = [
+        'anthropic/claude-opus-4-5',
+        'anthropic/claude-opus-4',
+        'anthropic/claude-sonnet-4-5',
+        'anthropic/claude-sonnet-4',
+      ].join('\n');
+      const result = parseOpenCodeModels(stdout);
+      expect(result.opus).toBe('anthropic/claude-opus-4-5');
+      expect(result.sonnet).toBe('anthropic/claude-sonnet-4-5');
+    });
+  });
+
+  // ─── detectModels(backend, cwd) ───────────────────────────────────────
+
+  describe('detectModels(backend, cwd)', () => {
+    test('returns null for claude backend', () => {
+      expect(detectModels('claude')).toBeNull();
+    });
+
+    test('returns null for codex backend', () => {
+      expect(detectModels('codex')).toBeNull();
+    });
+
+    test('returns null for gemini backend', () => {
+      expect(detectModels('gemini')).toBeNull();
+    });
+
+    test('returns null or valid object for opencode', () => {
+      // If opencode is on PATH, returns detected models; otherwise null
+      const result = detectModels('opencode', '/tmp');
+      if (result !== null) {
+        expect(result).toHaveProperty('opus');
+        expect(result).toHaveProperty('sonnet');
+        expect(result).toHaveProperty('haiku');
+      }
+    });
+  });
+
+  // ─── getCachedModels / clearModelCache ────────────────────────────────
+
+  describe('getCachedModels / clearModelCache', () => {
+    afterEach(() => {
+      clearModelCache();
+    });
+
+    test('returns null for non-opencode backends (cached)', () => {
+      expect(getCachedModels('claude')).toBeNull();
+    });
+
+    test('clearModelCache resets cache', () => {
+      // First call caches the result
+      getCachedModels('claude');
+      clearModelCache();
+      // After clear, re-detection should occur (still null for claude)
+      expect(getCachedModels('claude')).toBeNull();
+    });
+  });
+
+  // ─── resolveBackendModel with cwd (detection layer) ───────────────────
+
+  describe('resolveBackendModel with cwd param', () => {
+    afterEach(() => {
+      clearModelCache();
+    });
+
+    test('config override takes priority over detection', () => {
+      const config = {
+        backend_models: {
+          opencode: { opus: 'custom/model' },
+        },
+      };
+      // Even with cwd, config override wins
+      expect(resolveBackendModel('opencode', 'opus', config, '/tmp')).toBe('custom/model');
+    });
+
+    test('falls back to defaults when cwd provided but no models detected', () => {
+      // claude backend has no detection, so defaults are used
+      expect(resolveBackendModel('claude', 'opus', {}, '/tmp')).toBe('opus');
+    });
+
+    test('backward compatible: undefined cwd uses defaults', () => {
+      expect(resolveBackendModel('opencode', 'opus')).toBe('anthropic/claude-opus-4-5');
     });
   });
 });
