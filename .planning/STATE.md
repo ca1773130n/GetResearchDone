@@ -1,14 +1,14 @@
 # State
 
-**Updated:** 2026-02-16
+**Updated:** 2026-02-17
 
 ## Current Position
 
-- **Active phase:** Phase 13 complete — proceeding to Phase 14
-- **Current plan:** All plans complete (13-01 and 13-02 done)
-- **Milestone:** v0.1.0 — Setup Functionality & Usability
-- **Progress:** Phase 13 of 15 [#########-] 79% (11/14 plans in v0.1.0, 858 tests)
-- **Next:** Phase 14 — Auto-Cleanup Doc Drift & Plan Generation
+- **Active phase:** None — milestone v0.1.0 complete
+- **Current plan:** None
+- **Milestone:** v0.1.0 — Setup Functionality & Usability (SHIPPED)
+- **Progress:** 5/5 phases complete, 10/10 plans complete, 858 tests
+- **Next:** `/grd:new-milestone` to start v0.1.1
 
 ## Pending Decisions
 
@@ -19,10 +19,10 @@ None.
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | PENDING |
-| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | PENDING |
-| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | PENDING |
-| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | PENDING |
+| DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | v0.1.1 | PENDING |
+| DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | v0.1.1 | PENDING |
+| DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | v0.1.1 | PENDING |
+| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | v0.1.1 | PENDING |
 
 ## Key Decisions
 
@@ -31,6 +31,16 @@ None.
 | 2026-02-16 | Scope v0.1.0 to detection + model resolution only | Planning | Sub-agent spawning divergence is critical risk; defer orchestrator adaptation to v0.2.0 |
 | 2026-02-16 | Mark Gemini capabilities as experimental | Planning | Gemini CLI sub-agents are experimental; degrade gracefully |
 | 2026-02-16 | Three independent feature streams with integration phase | Planning | Backend, hierarchical roadmap, and auto-cleanup are independent; converge at Phase 15 |
+| 2026-02-16 | Defer phases 14-15 to v0.1.1 | Milestone | P2 features (doc drift, integration validation) deferred; all P0/P1 requirements shipped |
+| 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
+| 2026-02-16 | 5-min TTL cache for detected models | Post-13 | Avoids repeated subprocess spawns; clearModelCache() exported for tests |
+| 2026-02-16 | Resolution priority: config > detected > defaults | Post-13 | User overrides always win; detected models fill gap between config and stale defaults |
+
+<details>
+<summary>v0.1.0 Phase Decisions (28 decisions)</summary>
+
+| Date | Decision | Phase | Rationale |
+|------|----------|-------|-----------|
 | 2026-02-16 | Read config.json directly in backend.js (no utils.js import) | Phase 9 | Avoids circular dependency; utils.js will import from backend.js in plan 09-02 |
 | 2026-02-16 | Exclude AGENT env var from OpenCode detection | Phase 9 | Per PITFALLS.md P5: too generic, collision risk with other tools |
 | 2026-02-16 | Optional cwd param on resolveModelForAgent (not breaking) | Phase 9 | Appended as third parameter; existing 2-arg callers unchanged |
@@ -56,9 +66,8 @@ None.
 | 2026-02-16 | Non-blocking quality analysis in phase completion | Phase 13 | Errors swallowed via try/catch; phase completion never fails due to quality checks |
 | 2026-02-16 | quality_report field conditionally spread (absent when disabled) | Phase 13 | Clean JSON output; no null fields when feature is off |
 | 2026-02-16 | Raw output appends quality only when issues > 0 | Phase 13 | Non-interference: clean output when no problems found |
-| 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
-| 2026-02-16 | 5-min TTL cache for detected models | Post-13 | Avoids repeated subprocess spawns; clearModelCache() exported for tests |
-| 2026-02-16 | Resolution priority: config > detected > defaults | Post-13 | User overrides always win; detected models fill gap between config and stale defaults |
+
+</details>
 
 <details>
 <summary>v0.0.5 Decisions (57 decisions)</summary>
@@ -88,7 +97,10 @@ None.
 - Average duration: 5.6 min
 - Total execution time: ~2.2 hours
 
-**v0.1.0:**
+**Velocity (v0.1.0):**
+- Total plans completed: 10 (+1 dynamic-models)
+- Average duration: 3.7 min
+- Total execution time: ~41 min
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -106,11 +118,11 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Implemented dynamic model detection via CLI probing (OpenCode `opencode models`)
-- **Next action:** Proceed to Phase 14 (Auto-Cleanup Doc Drift & Plan Generation)
-- **Context needed:** `detect-backend` now includes `models_source` field ("detected" or "defaults"); `resolveBackendModel` accepts optional `cwd` param for dynamic detection
+- **Last action:** Completed v0.1.0 milestone
+- **Next action:** `/grd:new-milestone` to define v0.1.1
+- **Context needed:** Phases 14-15 deferred to v0.1.1; 5 deferred validations pending
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-16*
+*Last updated: 2026-02-17*
