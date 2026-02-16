@@ -44,7 +44,7 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
 **Start:** 2026-02-16
 
 - [x] **Phase 21: MCP Extension & Wiring** - Expose all new commands as MCP tools with tests and docs `integrate` (completed 2026-02-16)
-- [ ] **Phase 22: Execute-Phase Branching Fix** - Checkout main and pull before creating phase branches `implement`
+- [x] **Phase 22: Execute-Phase Branching Fix** - Checkout main and pull before creating phase branches `implement` (completed 2026-02-16)
 
 ## Phase Details
 
@@ -80,7 +80,7 @@ Plans:
   4. Missing remote or offline scenario skips pull gracefully (warns, continues from local base branch)
   5. Already-on-main scenario skips checkout (only pulls)
   6. Tests verify `cmdInitExecutePhase` includes `base_branch` in branching output
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 22-01-PLAN.md — Add base_branch config, context output, command template update, and tests
 
@@ -91,7 +91,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 21. MCP Extension & Wiring | v0.1.3 | Complete    | 2026-02-16 | - |
-| 22. Execute-Phase Branching Fix | v0.1.3 | 1/1 | Complete | 2026-02-17 |
+| 22. Execute-Phase Branching Fix | v0.1.3 | Complete    | 2026-02-16 | 2026-02-17 |
 
 ## Deferred Validations
 
