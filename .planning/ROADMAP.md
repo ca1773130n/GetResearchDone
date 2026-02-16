@@ -28,7 +28,7 @@ See `.planning/milestones/v0.0.5-ROADMAP.md` for full phase details.
 - [x] **Phase 10: Backend Capabilities & Context Integration** - CLI command, capabilities registry, context init integration `implement`
 - [x] **Phase 11: Hierarchical Roadmap Schema & Commands** - LONG-TERM-ROADMAP.md schema, create/display command, mode detection `implement`
 - [x] **Phase 12: Hierarchical Roadmap Refinement & Promotion** - Refine/promote commands and full test suite `implement`
-- [ ] **Phase 13: Auto-Cleanup Config & Quality Analysis** - Config option, phase-boundary quality analysis `implement`
+- [x] **Phase 13: Auto-Cleanup Config & Quality Analysis** - Config option, phase-boundary quality analysis `implement` (completed 2026-02-16)
 - [ ] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Doc drift detection, auto-generated cleanup plans `implement`
 - [ ] **Phase 15: Integration & Validation** - Cross-feature integration, regression, deferred validations `integrate`
 
@@ -161,7 +161,7 @@ Sequential dependencies: 9->10, 11->12, 13->14, then all converge at 15.
 | 10. Backend Capabilities & Context Integration | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 11. Hierarchical Roadmap Schema & Commands | v0.1.0 | 2/2 | Complete | 2026-02-16 |
 | 12. Hierarchical Roadmap Refinement & Promotion | v0.1.0 | 2/2 | Complete | 2026-02-16 |
-| 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | 0/TBD | Not started | - |
+| 13. Auto-Cleanup Config & Quality Analysis | v0.1.0 | Complete    | 2026-02-16 | - |
 | 14. Auto-Cleanup Doc Drift & Plan Generation | v0.1.0 | 0/TBD | Not started | - |
 | 15. Integration & Validation | v0.1.0 | 0/TBD | Not started | - |
 
