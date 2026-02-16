@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
+- **Active phase:** Phase 19 — Requirement Inspection & Phase-Detail Enhancement
 - **Current plan:** —
 - **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
 - **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Define requirements and create roadmap
+- **Next:** Plan Phase 19
 
 ## Pending Decisions
 
@@ -28,13 +28,18 @@ None.
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-16 | 3 phases for v0.1.2 (19-21): requirement inspection, convenience commands, MCP wiring | Roadmap | REQ-31/32/33/34 share parsing logic; REQ-35/36 are independent utilities; REQ-37 depends on all others |
+| 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
+| 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
+
+<details>
+<summary>v0.1.1 Phase Decisions (33 decisions)</summary>
+
+| Date | Decision | Phase | Rationale |
+|------|----------|-------|-----------|
 | 2026-02-16 | 5 phases for v0.1.1 (14-18) with deferred validations in Phase 15 | Roadmap | Early validation confirms stable foundation before MCP server feature |
 | 2026-02-16 | MCP server + schema + tests in single phase (16) | Roadmap | Tightly coupled: implementation without tests is unverifiable |
 | 2026-02-16 | Integration phase (18) collects REQ-20 + REQ-30 | Roadmap | Both are end-to-end validation; neither can run until all features complete |
-| 2026-02-16 | Scope v0.1.0 to detection + model resolution only | Planning | Sub-agent spawning divergence is critical risk; defer orchestrator adaptation to v0.2.0 |
-| 2026-02-16 | Mark Gemini capabilities as experimental | Planning | Gemini CLI sub-agents are experimental; degrade gracefully |
-| 2026-02-16 | Defer phases 14-15 to v0.1.1 | Milestone | P2 features (doc drift, integration validation) deferred; all P0/P1 requirements shipped |
-| 2026-02-16 | Dynamic model detection via CLI probing for OpenCode only | Post-13 | Only OpenCode has `opencode models` CLI; other backends lack programmatic listing |
 | 2026-02-16 | Regex-based JSDoc parsing (not AST) for doc drift detection | Phase 14 | Consistent with Phase 13 approach; catches obvious mismatches without dependencies |
 | 2026-02-16 | Config-gated doc_drift: omitted entirely when doc_sync=false | Phase 14 | Backward compatible; no null fields in quality report |
 | 2026-02-16 | Graceful skip on missing files for all 3 doc drift functions | Phase 14 | Prevents false alerts on repos without CHANGELOG.md or README.md |
@@ -61,6 +66,8 @@ None.
 | 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
 | 2026-02-16 | Direct module import (not CLI subprocess) for E2E integration tests | Phase 18 | Speed and directness; validates actual module interfaces not CLI parsing |
 | 2026-02-16 | execFileSync with input option for MCP handshake test (not spawn) | Phase 18 | Avoids open handle warnings; synchronous approach cleaner for test assertions |
+
+</details>
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -128,6 +135,11 @@ None.
 - Average duration: 3.7 min
 - Total execution time: ~41 min
 
+**Velocity (v0.1.1):**
+- Total plans completed: 11
+- Average duration: 3.7 min
+- Total execution time: ~41 min
+
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 09 | 01 | 3min | 2 | 3 | +62 tests (656 total) |
@@ -156,12 +168,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 18 Plan 02 (distribution validation)
-- **Stopped at:** Completed phase 18 execution
-- **Next action:** Phase 18 complete; all v0.1.1 phases done
-- **Context needed:** 1272 tests passing; full distribution pipeline validated (pack, install, bin entries, MCP server, plugin.json)
+- **Last action:** Created v0.1.2 roadmap (3 phases: 19-21)
+- **Stopped at:** Roadmap creation complete
+- **Next action:** Plan Phase 19 (Requirement Inspection & Phase-Detail Enhancement)
+- **Context needed:** 1,272 tests passing; v0.1.1 shipped; 7 new requirements (REQ-31 through REQ-37) across 3 phases
 
 ---
 
-*State managed by: Claude (grd-executor)*
+*State managed by: Claude (grd-roadmapper)*
 *Last updated: 2026-02-16*

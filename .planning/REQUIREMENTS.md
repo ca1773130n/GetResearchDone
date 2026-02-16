@@ -52,13 +52,13 @@ Add MCP tool definitions in COMMAND_DESCRIPTORS for all new CLI commands (requir
 
 | REQ | Feature | Priority | Phase | Status |
 |-----|---------|----------|-------|--------|
-| REQ-31 | Requirement Inspection | P0 | TBD | Pending |
-| REQ-32 | Requirement Inspection | P1 | TBD | Pending |
-| REQ-33 | Requirement Inspection | P1 | TBD | Pending |
-| REQ-34 | Phase-Detail Enhancement | P0 | TBD | Pending |
-| REQ-35 | Convenience Commands | P2 | TBD | Pending |
-| REQ-36 | Convenience Commands | P2 | TBD | Pending |
-| REQ-37 | MCP Server Extension | P1 | TBD | Pending |
+| REQ-31 | Requirement Inspection | P0 | Phase 19 | Pending |
+| REQ-32 | Requirement Inspection | P1 | Phase 19 | Pending |
+| REQ-33 | Requirement Inspection | P1 | Phase 19 | Pending |
+| REQ-34 | Phase-Detail Enhancement | P0 | Phase 19 | Pending |
+| REQ-35 | Convenience Commands | P2 | Phase 20 | Pending |
+| REQ-36 | Convenience Commands | P2 | Phase 20 | Pending |
+| REQ-37 | MCP Server Extension | P1 | Phase 21 | Pending |
 
 ---
 
