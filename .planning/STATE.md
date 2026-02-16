@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** None — milestone v0.1.0 complete
+- **Active phase:** None — defining requirements
 - **Current plan:** None
-- **Milestone:** v0.1.0 — Setup Functionality & Usability (SHIPPED)
-- **Progress:** 5/5 phases complete, 10/10 plans complete, 858 tests
-- **Next:** `/grd:new-milestone` to start v0.1.1
+- **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
+- **Progress:** Not started (defining requirements)
+- **Next:** Define requirements and create roadmap
 
 ## Pending Decisions
 
@@ -118,9 +118,9 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed v0.1.0 milestone
-- **Next action:** `/grd:new-milestone` to define v0.1.1
-- **Context needed:** Phases 14-15 deferred to v0.1.1; 5 deferred validations pending
+- **Last action:** Started v0.1.1 milestone definition
+- **Next action:** Define requirements, create roadmap
+- **Context needed:** Deferred phases 14-15, 4 deferred validations, new features (MCP server, marketplace prep)
 
 ---
 
