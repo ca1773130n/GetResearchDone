@@ -40,15 +40,31 @@ Not every phase can be fully evaluated independently:
 
 Deferred validations are tracked and automatically collected at integration phases.
 
-### Product Owner Hierarchy
+### Hierarchical Roadmap (Now/Next/Later)
 
-GRD supports two-level planning:
+GRD supports multi-level planning with a hierarchical roadmap:
 
 ```
-Product Level (long-term vision, quality targets)
-  └── Phase Level (implementation, experimentation)
-        └── Plan Level (specific tasks)
+LONG-TERM-ROADMAP.md
+  ├── Now   → Active milestone (full ROADMAP.md with phases)
+  ├── Next  → Upcoming milestones (goals + rough phase sketch)
+  └── Later → Future milestones (goals + open research questions)
 ```
+
+Milestones flow through tiers as they mature: **Later** (rough idea) -> **Next** (refined plan) -> **Now** (active execution). Each promotion adds detail. See [Hierarchical Roadmap Tutorial](docs/hierarchical-roadmap-tutorial.md) for a walkthrough.
+
+### Multi-Backend Support
+
+GRD detects and adapts to multiple AI coding CLIs:
+
+| Backend | Detection | Model Resolution |
+|---------|-----------|-----------------|
+| Claude Code | `CLAUDE_CODE_*` env vars | Native tier names |
+| Codex CLI | `CODEX_HOME` env var | GPT-5.3 model names |
+| Gemini CLI | `GEMINI_CLI_HOME` env var | Gemini model names |
+| OpenCode | `OPENCODE` env var | Dynamic detection via `opencode models` |
+
+Resolution priority: config overrides > dynamically detected models > hardcoded defaults. OpenCode is the only backend that supports runtime model discovery; others use static mappings.
 
 ### Autonomous Mode (YOLO)
 
@@ -64,6 +80,14 @@ Automatic two-stage code review after execution:
 - **Stage 1 — Spec compliance:** Plan alignment, research methodology match, pitfall avoidance, eval coverage
 - **Stage 2 — Code quality:** Architecture consistency, reproducibility, documentation, deviation documentation
 - Output: REVIEW.md with BLOCKER/WARNING/INFO severity levels
+
+### Quality Analysis
+
+Optional phase-boundary quality analysis (disabled by default):
+- ESLint complexity violation detection
+- Dead export scanning
+- File size threshold checks
+- Integrated into phase completion flow
 
 ### Agent Teams (Experimental)
 
@@ -99,6 +123,13 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:plan-phase <N>` | Phase planning with research context |
 | `/grd:execute-phase <N>` | Phase execution with wave parallelization |
 | `/grd:quick <desc>` | Quick task with GRD guarantees |
+
+### Hierarchical Roadmap
+| Command | Description |
+|---------|-------------|
+| `/grd:long-term-roadmap` | Create or display long-term roadmap |
+| `/grd:refine-milestone <V>` | Progressively refine a milestone |
+| `/grd:promote-milestone <V>` | Move milestone up a tier (Later->Next->Now) |
 
 ### Evaluation
 | Command | Description |
@@ -191,6 +222,15 @@ gh extension install github/gh-sub-issue  # optional, for parent/child linking
     "use_teams": false,
     "team_timeout_minutes": 30,
     "max_concurrent_teammates": 4
+  },
+  "phase_cleanup": {
+    "enabled": false,
+    "refactoring": false,
+    "doc_sync": false
+  },
+  "backend": "auto",
+  "backend_models": {
+    "opencode": { "opus": "anthropic/claude-opus-4-5" }
   }
 }
 ```
@@ -224,7 +264,10 @@ GRD uses a thin orchestrator pattern. Commands (`.md` prompt files) delegate det
 | Parsers | `phase-plan-index/state-snapshot/summary-extract/history-digest` | Context-optimized data extraction |
 | Frontmatter | `frontmatter get/set/merge/validate` | YAML frontmatter CRUD |
 | Tracker | `tracker get-config/sync-roadmap/sync-phase/update-status/add-comment/prepare-*/schedule/prepare-reschedule` | GitHub/MCP Atlassian integration |
-| Init | 20 workflow initializers | Context loading for commands |
+| Long-Term Roadmap | `long-term-roadmap parse/validate/display/mode/generate/refine/promote/tier/history` | Hierarchical milestone management |
+| Backend | `detect-backend` | Backend detection with dynamic model resolution |
+| Quality | `quality-analysis --phase N` | Phase-boundary code quality checks |
+| Init | 21 workflow initializers | Context loading for commands |
 
 All outputs are JSON by default (pass `--raw` for plain text). All tracker calls are non-blocking.
 
