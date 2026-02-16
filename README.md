@@ -87,7 +87,12 @@ Optional phase-boundary quality analysis (disabled by default):
 - ESLint complexity violation detection
 - Dead export scanning
 - File size threshold checks
-- Integrated into phase completion flow
+- Doc drift detection (changelog staleness, broken README links, JSDoc mismatches)
+- Test coverage gap detection (exports without test mentions)
+- Export consistency checking (stale imports referencing removed exports)
+- Doc staleness detection (CLAUDE.md CLI docs vs actual COMMAND_DESCRIPTORS)
+- Config schema drift analysis (documented vs actual config keys)
+- Integrated into phase completion flow with auto-generated cleanup plans
 
 ### Agent Teams (Experimental)
 

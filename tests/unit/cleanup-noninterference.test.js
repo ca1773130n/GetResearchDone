@@ -4,11 +4,11 @@
  * Validates that the cleanup system does NOT interfere with normal phase execution
  * when phase_cleanup.enabled is false (the default). Tests cover:
  * - Config-gated early exit (runQualityAnalysis)
- * - No filesystem side effects when disabled
+ * - No filesystem side effects when disabled (including new analyzer flags)
  * - generateCleanupPlan non-interference when disabled
  * - Output equivalence between absent and disabled configs
  * - Performance (no I/O overhead when disabled)
- * - getCleanupConfig defaults
+ * - getCleanupConfig defaults (including test_coverage, export_consistency, doc_staleness, config_schema)
  */
 
 const fs = require('fs');
@@ -142,6 +142,20 @@ describe('Config-Gated Early Exit (runQualityAnalysis)', () => {
     expect(result).toEqual({ skipped: true, reason: 'phase_cleanup not enabled' });
   });
 
+  test('enabled: false with all new analyzer flags true still returns skipped', () => {
+    writeConfig(tmpDir, {
+      phase_cleanup: {
+        enabled: false,
+        test_coverage: true,
+        export_consistency: true,
+        doc_staleness: true,
+        config_schema: true,
+      },
+    });
+    const result = runQualityAnalysis(tmpDir, '13');
+    expect(result).toEqual({ skipped: true, reason: 'phase_cleanup not enabled' });
+  });
+
   test('malformed config.json (invalid JSON) returns skipped gracefully', () => {
     const planningDir = path.join(tmpDir, '.planning');
     fs.mkdirSync(planningDir, { recursive: true });
@@ -199,6 +213,35 @@ describe('No Filesystem Side Effects When Disabled (runQualityAnalysis)', () => 
     runQualityAnalysis(tmpDir, '01');
     const filesAfter = collectFilePaths(tmpDir);
 
+    expect(filesAfter).toEqual(filesBefore);
+  });
+
+  test('no filesystem side effects when disabled with all new analyzer flags true', () => {
+    writeConfig(tmpDir, {
+      phase_cleanup: {
+        enabled: false,
+        doc_sync: true,
+        test_coverage: true,
+        export_consistency: true,
+        doc_staleness: true,
+        config_schema: true,
+      },
+    });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n- `missing` — Missing\n## CLI Tooling\n- `ghost cmd` — Not real\n## Other\n');
+    writeFile(tmpDir, 'lib/mcp-server.js', "const COMMAND_DESCRIPTORS = [{ name: 'grd_real' }];\n");
+
+    const mtimesBefore = collectFileMtimes(tmpDir);
+    const filesBefore = collectFilePaths(tmpDir);
+
+    runQualityAnalysis(tmpDir, '01');
+
+    const mtimesAfter = collectFileMtimes(tmpDir);
+    const filesAfter = collectFilePaths(tmpDir);
+
+    for (const [filePath, mtime] of mtimesBefore) {
+      expect(mtimesAfter.get(filePath)).toBe(mtime);
+    }
     expect(filesAfter).toEqual(filesBefore);
   });
 });
@@ -473,6 +516,10 @@ describe('getCleanupConfig Defaults', () => {
     expect(config.enabled).toBe(true);
     expect(config.refactoring).toBe(false);
     expect(config.doc_sync).toBe(false);
+    expect(config.test_coverage).toBe(false);
+    expect(config.export_consistency).toBe(false);
+    expect(config.doc_staleness).toBe(false);
+    expect(config.config_schema).toBe(false);
     expect(config.cleanup_threshold).toBe(5);
   });
 
@@ -481,6 +528,18 @@ describe('getCleanupConfig Defaults', () => {
     const config = getCleanupConfig(tmpDir);
     expect(config.cleanup_threshold).toBe(10);
     expect(config.enabled).toBe(false);
+  });
+
+  test('new analyzer flags individually override defaults', () => {
+    writeConfig(tmpDir, {
+      phase_cleanup: { test_coverage: true, config_schema: true },
+    });
+    const config = getCleanupConfig(tmpDir);
+    expect(config.enabled).toBe(false);
+    expect(config.test_coverage).toBe(true);
+    expect(config.export_consistency).toBe(false);
+    expect(config.doc_staleness).toBe(false);
+    expect(config.config_schema).toBe(true);
   });
 });
 

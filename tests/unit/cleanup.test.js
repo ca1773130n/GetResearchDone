@@ -4,6 +4,8 @@
  * Tests config schema handling and quality analysis functions:
  * getCleanupConfig, analyzeComplexity, analyzeDeadExports, analyzeFileSize, runQualityAnalysis.
  * Also tests doc drift detection: analyzeChangelogDrift, analyzeReadmeLinks, analyzeJsdocDrift.
+ * Also tests expanded drift detection: analyzeTestCoverageGaps, analyzeExportConsistency,
+ * analyzeDocStaleness, analyzeConfigSchemaDrift.
  * Also tests generateCleanupPlan for auto-generating cleanup PLAN.md files.
  */
 

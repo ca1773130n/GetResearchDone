@@ -124,6 +124,7 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `eval_config` — Default metrics and baseline tracking
 - `code_review` — Auto code review (enabled, timing, severity gate)
 - `execution` — Agent Teams toggle, timeout, concurrency limits
+- `phase_cleanup` — Phase-boundary quality analysis (complexity, dead exports, file size, doc drift, test coverage gaps, export consistency, doc staleness, config schema drift)
 - Standard GSD settings (parallelization, gates, safety)
 
 ## CLI Tooling (`grd-tools.js`)

@@ -76,6 +76,16 @@ Configuration options for `.planning/` directory behavior in GRD projects.
   "use_teams": false,
   "team_timeout_minutes": 30,
   "max_concurrent_teammates": 4
+},
+"phase_cleanup": {
+  "enabled": false,
+  "refactoring": false,
+  "doc_sync": false,
+  "test_coverage": false,
+  "export_consistency": false,
+  "doc_staleness": false,
+  "config_schema": false,
+  "cleanup_threshold": 5
 }
 ```
 
@@ -194,6 +204,26 @@ Configuration options for `.planning/` directory behavior in GRD projects.
 - Team lead monitors via TaskList, handles failures, coordinates checkpoint resolution
 - `team_timeout_minutes`: Per-plan execution timeout; exceeded plans are reported as failed
 - `max_concurrent_teammates`: Limits concurrent executor agents to manage resource usage
+
+### phase_cleanup
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Enable phase-boundary quality analysis |
+| `refactoring` | `false` | Enable refactoring suggestions |
+| `doc_sync` | `false` | Enable doc drift detection (changelog staleness, broken README links, JSDoc mismatches) |
+| `test_coverage` | `false` | Detect exported functions with no test file mentions |
+| `export_consistency` | `false` | Detect stale imports referencing names no longer exported |
+| `doc_staleness` | `false` | Cross-reference CLAUDE.md CLI docs with COMMAND_DESCRIPTORS |
+| `config_schema` | `false` | Compare documented config keys with actual config.json keys |
+| `cleanup_threshold` | `5` | Minimum issue count to auto-generate a cleanup PLAN.md |
+
+**Quality analysis behavior:**
+- When `enabled: false` (default): No analysis runs, no filesystem access, no performance impact
+- When `enabled: true`: Core analyses (complexity, dead exports, file size) always run
+- Optional analyses (`doc_sync`, `test_coverage`, `export_consistency`, `doc_staleness`, `config_schema`) are individually gated by their flags
+- When total issues exceed `cleanup_threshold`: A cleanup PLAN.md is auto-generated in the phase directory
+- All analyzers are regex-based (no AST, no external dependencies beyond ESLint for complexity)
 
 </config_schema>
 
