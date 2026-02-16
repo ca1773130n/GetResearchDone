@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 15 — Deferred Validations
-- **Current plan:** Plan 2 of 3 complete
+- **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
 - **Progress:** Phase 15 of 18 (2/5 milestone phases complete)
-- **Next:** `/grd:execute-phase 15` (plan 03)
+- **Next:** `/grd:phase complete 15` then `/grd:plan-phase 16`
 
 Progress: [####------] 40%
 
@@ -24,7 +24,7 @@ None.
 | DEFER-09-01 | Backend detection accuracy across real environments | Phase 9 | Phase 15 | PENDING |
 | DEFER-10-01 | Context init backward compatibility under all 4 backends | Phase 10 | Phase 15 | PENDING |
 | DEFER-11-01 | Long-term roadmap round-trip integrity | Phase 11 | Phase 15 | RESOLVED (15-02) |
-| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | PENDING |
+| DEFER-13-01 | Auto-cleanup non-interference when disabled | Phase 13 | Phase 15 | RESOLVED (15-03) |
 
 ## Key Decisions
 
@@ -44,6 +44,8 @@ None.
 | 2026-02-16 | Non-blocking generateCleanupPlan in phase completion (try/catch) | Phase 14 | Consistent with quality analysis pattern; phase completion never fails |
 | 2026-02-16 | cleanup_plan_generated field conditionally spread (absent when not generated) | Phase 14 | Clean JSON output; matches quality_report conditional pattern |
 | 2026-02-16 | Lifecycle round-trip tests (not per-function) for DEFER-11-01 validation | Phase 15 | Multi-step chains catch integration bugs that unit tests miss |
+| 2026-02-16 | Test generateCleanupPlan threshold-gating (not enabled-flag) for DEFER-13-01 | Phase 15 | generateCleanupPlan does not check enabled; non-interference relies on caller pattern |
+| 2026-02-16 | Verify import isolation by scanning source text (not Node require cache) | Phase 15 | More reliable and deterministic assertions for import verification |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -127,13 +129,15 @@ None.
 | 14 | 01 | 3min | 2 | 2 | +21 tests (879 total) |
 | 14 | 02 | 4min | 2 | 4 | +22 tests (901 total) |
 | 15 | 02 | 4min | 2 | 1 | +28 tests (929 total) |
+| 15 | 01 | 5min | 2 | 2 | +89 tests (1018 total) |
+| 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 15 Plan 02 (roadmap round-trip integrity tests)
-- **Stopped at:** Completed 15-02-PLAN.md
-- **Next action:** Execute Phase 15 Plan 03 (remaining deferred validations)
-- **Context needed:** DEFER-11-01 resolved; DEFER-09-01, DEFER-10-01, DEFER-13-01 still pending
+- **Last action:** Completed Phase 15 Plan 03 (auto-cleanup non-interference validation)
+- **Stopped at:** Completed 15-03-PLAN.md
+- **Next action:** Complete Phase 15, then plan Phase 16
+- **Context needed:** All Phase 15 deferred validations resolved (DEFER-09-01, DEFER-10-01, DEFER-11-01, DEFER-13-01); 1038 tests passing
 
 ---
 
