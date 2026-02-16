@@ -1,6 +1,6 @@
 # GRD MCP Server
 
-The GRD MCP Server exposes all 97 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
+The GRD MCP Server exposes all 102 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
 
 ## Setup
 
@@ -71,7 +71,7 @@ The server reads newline-delimited JSON-RPC 2.0 messages from stdin and writes r
 | Method | Purpose |
 |--------|---------|
 | `initialize` | Handshake — returns server info and capabilities |
-| `tools/list` | Returns all 97 tool definitions with JSON Schema |
+| `tools/list` | Returns all 102 tool definitions with JSON Schema |
 | `tools/call` | Executes a tool and returns structured results |
 
 All tool outputs are JSON by default. The server runs in the current working directory, so GRD operations target the project where the server was started.
@@ -208,6 +208,16 @@ Context loaders for GRD workflows. Each returns structured JSON with all context
 | `grd_progress` | Render progress in json, table, or bar format |
 | `grd_summary_extract` | Extract structured data from SUMMARY.md |
 
+### Requirement & Search (5 tools)
+
+| Tool | Description |
+|------|-------------|
+| `grd_requirement_get` | Get a requirement by ID with status and phase from traceability matrix |
+| `grd_requirement_list` | List requirements with optional filters (phase, priority, status, category) |
+| `grd_requirement_traceability` | Get the traceability matrix with optional phase filter |
+| `grd_requirement_update_status` | Update the status of a requirement in the traceability matrix |
+| `grd_search` | Search across all .planning/ markdown files for a text query |
+
 ### Utility (9 tools)
 
 | Tool | Description |
@@ -263,6 +273,18 @@ Context loaders for GRD workflows. Each returns structured JSON with all context
 
 ```json
 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"grd_init_execute_phase","arguments":{"phase":"14","include":"state,roadmap"}}}
+```
+
+### Search planning files
+
+```json
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"grd_search","arguments":{"query":"MCP"}}}
+```
+
+### Get a requirement
+
+```json
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"grd_requirement_get","arguments":{"req_id":"REQ-37"}}}
 ```
 
 ## Protocol Details

@@ -134,6 +134,38 @@ describe('buildToolDefinitions()', () => {
     expect(tool.inputSchema.required).toContain('file');
   });
 
+  // ── Spot-checks for requirement & search tools ──
+
+  test('grd_requirement_get has required req_id param of type string', () => {
+    const tool = tools.find((t) => t.name === 'grd_requirement_get');
+    expect(tool).toBeDefined();
+    expect(tool.inputSchema.required).toContain('req_id');
+    expect(tool.inputSchema.properties.req_id.type).toBe('string');
+  });
+
+  test('grd_requirement_list has 5 optional params and no required array', () => {
+    const tool = tools.find((t) => t.name === 'grd_requirement_list');
+    expect(tool).toBeDefined();
+    expect(Object.keys(tool.inputSchema.properties)).toHaveLength(5);
+    expect(tool.inputSchema.required).toBeUndefined();
+  });
+
+  test('grd_requirement_update_status has required req_id and status params', () => {
+    const tool = tools.find((t) => t.name === 'grd_requirement_update_status');
+    expect(tool).toBeDefined();
+    expect(tool.inputSchema.required).toContain('req_id');
+    expect(tool.inputSchema.required).toContain('status');
+    expect(tool.inputSchema.properties.req_id.type).toBe('string');
+    expect(tool.inputSchema.properties.status.type).toBe('string');
+  });
+
+  test('grd_search has required query param of type string', () => {
+    const tool = tools.find((t) => t.name === 'grd_search');
+    expect(tool).toBeDefined();
+    expect(tool.inputSchema.required).toContain('query');
+    expect(tool.inputSchema.properties.query.type).toBe('string');
+  });
+
   test('grd_init_execute_phase has required phase param', () => {
     const tool = tools.find((t) => t.name === 'grd_init_execute_phase');
     expect(tool).toBeDefined();
@@ -172,8 +204,8 @@ describe('COMMAND_DESCRIPTORS', () => {
     expect(COMMAND_DESCRIPTORS.length).toBeGreaterThan(0);
   });
 
-  test('has 90+ entries covering all command groups', () => {
-    expect(COMMAND_DESCRIPTORS.length).toBeGreaterThanOrEqual(90);
+  test('has 100+ entries covering all command groups', () => {
+    expect(COMMAND_DESCRIPTORS.length).toBeGreaterThanOrEqual(100);
   });
 
   test('each descriptor has name, description, params array, and execute function', () => {
@@ -220,6 +252,16 @@ describe('COMMAND_DESCRIPTORS', () => {
       d.name.startsWith('grd_long_term_roadmap_')
     );
     expect(ltrCommands.length).toBeGreaterThanOrEqual(8);
+  });
+
+  test('covers requirement command family', () => {
+    const reqCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_requirement_'));
+    expect(reqCommands.length).toBeGreaterThanOrEqual(4);
+  });
+
+  test('covers search command', () => {
+    const searchCmd = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_search');
+    expect(searchCmd).toBeDefined();
   });
 
   test('each param has name, type, required, and description', () => {
@@ -1018,6 +1060,42 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
     const r = callTool('grd_quality_analysis', { phase: '1' });
     expect(r.result || r.error).toBeDefined();
   });
+
+  // Requirement & Search commands
+  test('grd_requirement_get execute lambda', () => {
+    const r = callTool('grd_requirement_get', { req_id: 'REQ-1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_requirement_list execute lambda', () => {
+    const r = callTool('grd_requirement_list', {});
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_requirement_list with filters execute lambda', () => {
+    const r = callTool('grd_requirement_list', { phase: '1', priority: 'P1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_requirement_traceability execute lambda', () => {
+    const r = callTool('grd_requirement_traceability', {});
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_requirement_traceability with phase filter execute lambda', () => {
+    const r = callTool('grd_requirement_traceability', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_requirement_update_status execute lambda', () => {
+    const r = callTool('grd_requirement_update_status', { req_id: 'REQ-1', status: 'Done' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_search execute lambda', () => {
+    const r = callTool('grd_search', { query: 'test' });
+    expect(r.result || r.error).toBeDefined();
+  });
 });
 
 // ─── 7. handleMessage — Error Paths ────────────────────────────────────────
@@ -1124,6 +1202,19 @@ describe('handleMessage — error paths', () => {
     expect(response.error).toBeDefined();
     expect(response.error.code).toBe(-32602);
     expect(response.error.data.missing).toContain('file');
+  });
+
+  test('grd_requirement_update_status with missing req_id returns -32602', () => {
+    const response = server.handleMessage({
+      jsonrpc: '2.0',
+      id: 47.1,
+      method: 'tools/call',
+      params: { name: 'grd_requirement_update_status', arguments: { status: 'Done' } },
+    });
+
+    expect(response.error).toBeDefined();
+    expect(response.error.code).toBe(-32602);
+    expect(response.error.data.missing).toContain('req_id');
   });
 
   test('multiple missing required params are all listed', () => {
