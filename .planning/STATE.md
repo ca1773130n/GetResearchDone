@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 19 — Requirement Inspection & Phase-Detail Enhancement
-- **Current plan:** —
+- **Active phase:** Phase 20 — Convenience Commands
+- **Current plan:** 20-01 (completed)
 - **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Plan Phase 19
+- **Progress:** [██████████] 98%
+- **Next:** Execute 20-02
 
 ## Pending Decisions
 
@@ -165,13 +165,14 @@ None.
 | 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
 | 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
 | Phase 18 P02 | 8min | 4 tasks | 5 files |
+| 20 | 01 | 2min | 2 | 3 | +8 tests (1335 total) |
 
 ## Session Continuity
 
-- **Last action:** Created v0.1.2 roadmap (3 phases: 19-21)
-- **Stopped at:** Roadmap creation complete
-- **Next action:** Plan Phase 19 (Requirement Inspection & Phase-Detail Enhancement)
-- **Context needed:** 1,272 tests passing; v0.1.1 shipped; 7 new requirements (REQ-31 through REQ-37) across 3 phases
+- **Last action:** Executed 20-01 (search command via TDD)
+- **Stopped at:** Completed 20-01-PLAN.md
+- **Next action:** Execute 20-02 (requirement update-status command)
+- **Context needed:** 1,335 tests passing; search command operational; Phase 19 complete; Phase 20 plan 01 done
 
 ---
 
