@@ -1,6 +1,6 @@
 {
   "name": "grd-tools",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Get Research Done — R&D workflow automation for Claude Code",
   "author": "Cameleon X",
   "license": "UNLICENSED",
@@ -18,7 +18,13 @@
     "agents/",
     ".claude-plugin/plugin.json"
   ],
-  "keywords": ["research", "workflow", "claude", "mcp", "cli"],
+  "keywords": [
+    "research",
+    "workflow",
+    "claude",
+    "mcp",
+    "cli"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/cameleon-x/grd"
