@@ -5,12 +5,12 @@
 ## Current Position
 
 - **Active phase:** Phase 14 — Auto-Cleanup Doc Drift & Plan Generation
-- **Current plan:** Plan 1 of 2 complete
+- **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** Phase 14 of 18 (0/5 milestone phases complete)
-- **Next:** `/grd:execute-phase 14` (plan 02)
+- **Progress:** Phase 14 of 18 (1/5 milestone phases complete)
+- **Next:** `/grd:phase complete 14` then `/grd:plan-phase 15`
 
-Progress: [#---------] 10%
+Progress: [##--------] 20%
 
 ## Pending Decisions
 
@@ -40,6 +40,9 @@ None.
 | 2026-02-16 | Regex-based JSDoc parsing (not AST) for doc drift detection | Phase 14 | Consistent with Phase 13 approach; catches obvious mismatches without dependencies |
 | 2026-02-16 | Config-gated doc_drift: omitted entirely when doc_sync=false | Phase 14 | Backward compatible; no null fields in quality report |
 | 2026-02-16 | Graceful skip on missing files for all 3 doc drift functions | Phase 14 | Prevents false alerts on repos without CHANGELOG.md or README.md |
+| 2026-02-16 | cleanup_threshold defaults to 5 when not specified in config | Phase 14 | Reasonable default; avoids cleanup plans for minor issues |
+| 2026-02-16 | Non-blocking generateCleanupPlan in phase completion (try/catch) | Phase 14 | Consistent with quality analysis pattern; phase completion never fails |
+| 2026-02-16 | cleanup_plan_generated field conditionally spread (absent when not generated) | Phase 14 | Clean JSON output; matches quality_report conditional pattern |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -121,13 +124,14 @@ None.
 | 13 | 02 | 4min | 2 | 5 | +20 tests (841 total) |
 | -- | dynamic-models | 5min | 4 | 6 | +17 tests (858 total) |
 | 14 | 01 | 3min | 2 | 2 | +21 tests (879 total) |
+| 14 | 02 | 4min | 2 | 4 | +22 tests (901 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 14 Plan 01 (doc drift detection TDD)
-- **Stopped at:** Completed 14-01-PLAN.md
-- **Next action:** Execute Phase 14 Plan 02 (auto-generated cleanup plans)
-- **Context needed:** REQ-19 (auto-generated cleanup plans), doc drift functions in lib/cleanup.js
+- **Last action:** Completed Phase 14 Plan 02 (auto-generated cleanup plans)
+- **Stopped at:** Completed 14-02-PLAN.md
+- **Next action:** Complete Phase 14, then plan Phase 15 (deferred validations)
+- **Context needed:** Phase 14 complete with doc drift + auto cleanup plans; Phase 15 validates deferred items
 
 ---
 
