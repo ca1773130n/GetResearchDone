@@ -479,3 +479,119 @@ describe('getCleanupConfig Defaults', () => {
     expect(config.enabled).toBe(false);
   });
 });
+
+// ─── Test Group 7: Integration with Phase Execution Context ──────────────────
+
+describe('Integration with Phase Execution Context', () => {
+  const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
+  const { captureOutput } = require('../helpers/setup');
+  const { cmdInitExecutePhase } = require('../../lib/context');
+
+  let tmpDirA;
+  let tmpDirB;
+
+  beforeEach(() => {
+    tmpDirA = createFixtureDir();
+    tmpDirB = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDirA);
+    cleanupFixtureDir(tmpDirB);
+  });
+
+  test('cmdInitExecutePhase produces identical output with and without phase_cleanup config', () => {
+    // Dir A: Standard fixture (no phase_cleanup config at all)
+    // (createFixtureDir already has config.json without phase_cleanup)
+
+    // Dir B: Same fixture but add phase_cleanup: { enabled: false, doc_sync: true, refactoring: true }
+    const configB = JSON.parse(
+      fs.readFileSync(path.join(tmpDirB, '.planning', 'config.json'), 'utf-8')
+    );
+    configB.phase_cleanup = { enabled: false, doc_sync: true, refactoring: true, cleanup_threshold: 3 };
+    fs.writeFileSync(
+      path.join(tmpDirB, '.planning', 'config.json'),
+      JSON.stringify(configB, null, 2)
+    );
+
+    const { stdout: stdoutA } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDirA, '1', new Set(), false)
+    );
+    const { stdout: stdoutB } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDirB, '1', new Set(), false)
+    );
+
+    const resultA = JSON.parse(stdoutA);
+    const resultB = JSON.parse(stdoutB);
+
+    // Core output structure should be identical — no cleanup-related fields
+    expect(resultA.phase_found).toBe(resultB.phase_found);
+    expect(resultA.phase_number).toBe(resultB.phase_number);
+    expect(resultA.phase_name).toBe(resultB.phase_name);
+    expect(resultA.plans).toEqual(resultB.plans);
+    expect(resultA.incomplete_plans).toEqual(resultB.incomplete_plans);
+    expect(resultA.state_exists).toBe(resultB.state_exists);
+    expect(resultA.roadmap_exists).toBe(resultB.roadmap_exists);
+    expect(resultA.config_exists).toBe(resultB.config_exists);
+
+    // Neither should have any cleanup-related keys
+    expect(resultA).not.toHaveProperty('cleanup');
+    expect(resultA).not.toHaveProperty('quality_report');
+    expect(resultA).not.toHaveProperty('cleanup_plan');
+    expect(resultB).not.toHaveProperty('cleanup');
+    expect(resultB).not.toHaveProperty('quality_report');
+    expect(resultB).not.toHaveProperty('cleanup_plan');
+  });
+
+  test('cmdInitExecutePhase does NOT include cleanup-related fields in output when cleanup disabled', () => {
+    const configA = JSON.parse(
+      fs.readFileSync(path.join(tmpDirA, '.planning', 'config.json'), 'utf-8')
+    );
+    configA.phase_cleanup = { enabled: false };
+    fs.writeFileSync(
+      path.join(tmpDirA, '.planning', 'config.json'),
+      JSON.stringify(configA, null, 2)
+    );
+
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDirA, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+
+    // The execute-phase init should NOT include any cleanup fields
+    const keys = Object.keys(result);
+    const cleanupKeys = keys.filter(
+      (k) => k.includes('cleanup') || k.includes('quality') || k.includes('doc_drift')
+    );
+    expect(cleanupKeys).toEqual([]);
+  });
+});
+
+// ─── Test Group 8: Verify cleanup functions are not imported in hot paths ─────
+
+describe('Verify cleanup functions are not imported in hot paths', () => {
+  test('lib/context.js does NOT import from lib/cleanup.js', () => {
+    const contextPath = path.resolve(__dirname, '../../lib/context.js');
+    const content = fs.readFileSync(contextPath, 'utf-8');
+
+    // Check for require('cleanup'), require('./cleanup'), require('../cleanup'), etc.
+    const cleanupImportPattern = /require\s*\(\s*['"][^'"]*cleanup[^'"]*['"]\s*\)/g;
+    const matches = content.match(cleanupImportPattern);
+
+    // context.js should NOT import cleanup.js
+    // The cleanup integration happens in bin/grd-tools.js cmdPhaseComplete, not in context init
+    expect(matches).toBeNull();
+  });
+
+  test('lib/context.js import list does not reference cleanup module', () => {
+    const contextPath = path.resolve(__dirname, '../../lib/context.js');
+    const content = fs.readFileSync(contextPath, 'utf-8');
+
+    // Also check for dynamic imports or destructured requires mentioning cleanup functions
+    expect(content).not.toContain('getCleanupConfig');
+    expect(content).not.toContain('runQualityAnalysis');
+    expect(content).not.toContain('generateCleanupPlan');
+    expect(content).not.toContain('analyzeComplexity');
+    expect(content).not.toContain('analyzeDeadExports');
+  });
+});
