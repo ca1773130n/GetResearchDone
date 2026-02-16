@@ -93,6 +93,7 @@ const {
   cmdRequirementGet,
   cmdRequirementList,
   cmdRequirementTraceability,
+  cmdSearch,
 } = require('../lib/commands');
 
 /** Extract --flag value from args, returns value or fallback */
@@ -111,7 +112,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement'
     );
   }
 
@@ -532,6 +533,10 @@ function routeCommand(command, args, cwd, raw) {
       break;
     case 'setup':
       cmdSetup(cwd, raw);
+      break;
+    case 'search':
+      if (!args[1]) error('Search query is required');
+      cmdSearch(cwd, args[1], raw);
       break;
     case 'requirement': {
       const sub = args[1];
