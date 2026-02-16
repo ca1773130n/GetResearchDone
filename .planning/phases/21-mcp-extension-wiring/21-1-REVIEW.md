@@ -5,7 +5,7 @@ plans_reviewed: [21-01, 21-02]
 timestamp: 2026-02-17T00:30:00+09:00
 blockers: 0
 warnings: 0
-info: 2
+info: 3
 verdict: pass
 ---
 
@@ -122,11 +122,14 @@ No undocumented file modifications (beyond expected `.planning/` artifacts).
 |---|----------|-------|------|-------------|
 | 1 | INFO | 2 | Documentation | Pre-existing: Utility section header says "9 tools" but table lists 14 entries. Section header counts across the document sum to 97 rather than 102. This mismatch existed before wave 1 and was not introduced by these changes. |
 | 2 | INFO | 1 | Plan Alignment | Plan 21-01 Task 2 action item 4 (error path for missing req_id) was marked "Optionally" in the plan. The executor implemented it, which is a positive addition beyond the minimum requirement. |
+| 3 | INFO | 2 | Code | `grd_requirement_list` description at mcp-server.js:1277 says "optional filters (phase, priority, status, category)" but omits the 5th param `all` (boolean). Not functionally impactful since MCP clients see the full inputSchema with all 5 properties regardless. |
 
 ## Recommendations
 
-No blockers or warnings. Two informational observations only:
+No blockers or warnings. Three informational observations only:
 
 1. **Pre-existing doc count mismatch (INFO #1):** Consider updating the Utility section header from "9 tools" to "14 tools" in a future housekeeping pass. This is out of scope for Phase 21 but would improve documentation accuracy. All other section headers should also be audited.
 
 2. **Positive observation (INFO #2):** The optional error path test was implemented, strengthening the test suite beyond minimum requirements.
+
+3. **Minor description gap (INFO #3):** The `grd_requirement_list` tool description could mention the `all` param for completeness (e.g., "optional filters (phase, priority, status, category, all)"). Low priority since the JSON Schema exposes all 5 properties to MCP clients.
