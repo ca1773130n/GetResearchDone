@@ -28,7 +28,7 @@ Phases 9-13 delivered multi-backend detection, context init enrichment, hierarch
 **Start:** 2026-02-16
 
 - [x] **Phase 14: Auto-Cleanup Doc Drift & Plan Generation** - Detect stale docs and auto-generate cleanup plans `implement` (completed 2026-02-16)
-- [ ] **Phase 15: Deferred Validations** - Resolve all v0.1.0 deferred verification items `evaluate`
+- [x] **Phase 15: Deferred Validations** - Resolve all v0.1.0 deferred verification items `evaluate` (completed 2026-02-16)
 - [ ] **Phase 16: MCP Server** - Expose GRD commands as MCP tools over stdio `implement`
 - [ ] **Phase 17: npm Distribution** - Package for npm publishing with install scripts `implement`
 - [ ] **Phase 18: Integration & Distribution Validation** - End-to-end validation of all v0.1.1 features `integrate`
@@ -120,7 +120,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 14. Auto-Cleanup Doc Drift | v0.1.1 | Complete    | 2026-02-16 | - |
-| 15. Deferred Validations | v0.1.1 | 0/TBD | Not started | - |
+| 15. Deferred Validations | v0.1.1 | Complete    | 2026-02-16 | - |
 | 16. MCP Server | v0.1.1 | 0/TBD | Not started | - |
 | 17. npm Distribution | v0.1.1 | 0/TBD | Not started | - |
 | 18. Integration & Validation | v0.1.1 | 0/TBD | Not started | - |

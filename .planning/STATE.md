@@ -7,7 +7,7 @@
 - **Active phase:** Phase 15 — Deferred Validations
 - **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** Phase 15 of 18 (2/5 milestone phases complete)
+- **Progress:** [██████████] 100%
 - **Next:** `/grd:phase complete 15` then `/grd:plan-phase 16`
 
 Progress: [####------] 40%
