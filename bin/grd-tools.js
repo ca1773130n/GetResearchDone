@@ -50,6 +50,7 @@ const {
   cmdPhaseComplete,
   cmdMilestoneComplete,
   cmdValidateConsistency,
+  cmdVersionBump,
 } = require('../lib/phase');
 const { cmdTracker } = require('../lib/tracker');
 const {
@@ -397,6 +398,15 @@ function routeCommand(command, args, cwd, raw) {
           { name: ni !== -1 ? args.slice(ni + 1).join(' ') : null },
           raw
         );
+      }
+      break;
+    }
+    case 'version': {
+      const VERSION_SUBS = ['bump'];
+      validateSubcommand(args[1], VERSION_SUBS, 'version');
+      if (args[1] === 'bump') {
+        if (!args[2]) error('version string required (e.g., v1.0.0)');
+        cmdVersionBump(cwd, args[2], raw);
       }
       break;
     }

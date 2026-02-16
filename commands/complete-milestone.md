@@ -62,6 +62,14 @@ After archival, handle: reorganize ROADMAP.md, full PROJECT.md evolution, delete
 Check branching strategy and offer merge options. Handle squash merge, merge with history, delete without merging, or keep branches.
 </step>
 
+<step name="bump_versions">
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js version bump v[X.Y]
+```
+
+Bump VERSION, package.json, and .claude-plugin/plugin.json to match the milestone version.
+</step>
+
 <step name="git_tag">
 ```bash
 git tag -a v[X.Y] -m "v[X.Y] [Name] ..."
@@ -71,7 +79,7 @@ Ask: "Push tag to remote? (y/n)"
 
 <step name="git_commit_milestone">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md VERSION package.json .claude-plugin/plugin.json
 ```
 </step>
 
