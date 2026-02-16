@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 16 — MCP Server
-- **Current plan:** Plan 1 of 2 complete
+- **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Execute 16-02-PLAN.md (MCP server tests)
+- **Progress:** [██████████] 100%
+- **Next:** Phase 16 complete; proceed to Phase 17
 
 ## Pending Decisions
 
@@ -51,6 +51,9 @@ None.
 | 2026-02-16 | 97 tools covering all routeCommand paths | Phase 16 | Every CLI command/subcommand has corresponding MCP tool |
 | 2026-02-16 | Zero external dependencies for MCP server | Phase 16 | Node.js built-ins only, consistent with GRD philosophy |
 | 2026-02-16 | raw=true for TUI commands (dashboard/health/phase-detail) in MCP | Phase 16 | Gets JSON output instead of TUI text for structured MCP responses |
+| 2026-02-16 | Bulk execute lambda coverage via tools/call path for all 97 tools | Phase 16 | Exercises every COMMAND_DESCRIPTORS execute function for 93% line coverage |
+| 2026-02-16 | Fixture isolation with createFixtureDir for MCP test safety | Phase 16 | Tests operate on temp .planning/ copy, not real project state |
+| 2026-02-16 | Notification id-absence: no-id messages return null regardless of method | Phase 16 | Per JSON-RPC spec, messages without id are notifications requiring no response |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -137,13 +140,14 @@ None.
 | 15 | 01 | 5min | 2 | 2 | +89 tests (1018 total) |
 | 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
 | 16 | 01 | 5min | 2 | 2 | - |
+| 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 16 Plan 01 (MCP server protocol handler and entry point)
-- **Stopped at:** Completed 16-01-PLAN.md
-- **Next action:** Execute 16-02-PLAN.md (MCP server tests)
-- **Context needed:** lib/mcp-server.js (97 tools, McpServer class), bin/grd-mcp-server.js (stdio transport); 1038 tests passing
+- **Last action:** Completed Phase 16 Plan 02 (MCP server unit tests)
+- **Stopped at:** Completed 16-02-PLAN.md
+- **Next action:** Phase 16 complete; proceed to Phase 17
+- **Context needed:** 1208 tests passing; lib/mcp-server.js has 93% coverage
 
 ---
 
