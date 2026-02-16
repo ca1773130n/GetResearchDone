@@ -5,10 +5,10 @@
 ## Current Position
 
 - **Active phase:** Phase 20 — Convenience Commands
-- **Current plan:** 20-01 (completed)
+- **Current plan:** 20-02 (completed)
 - **Milestone:** v0.1.2 — Developer Experience & Requirement Traceability
-- **Progress:** [██████████] 98%
-- **Next:** Execute 20-02
+- **Progress:** [██████████] 99%
+- **Next:** Execute remaining Phase 20 plans or Phase 21
 
 ## Pending Decisions
 
@@ -31,6 +31,7 @@ None.
 | 2026-02-16 | 3 phases for v0.1.2 (19-21): requirement inspection, convenience commands, MCP wiring | Roadmap | REQ-31/32/33/34 share parsing logic; REQ-35/36 are independent utilities; REQ-37 depends on all others |
 | 2026-02-16 | No Integration Phase for v0.1.2 | Roadmap | No deferred validations; all verification is proxy-level (unit tests); MCP wiring phase validates end-to-end |
 | 2026-02-16 | REQ-34 grouped with requirement commands (Phase 19) not convenience commands | Roadmap | Phase-detail enhancement requires the same REQUIREMENTS.md parser as REQ-31/32/33 |
+| 2026-02-16 | Same-status update returns success without disk write (no-op) | Phase 20 | Regex replacement produces identical content when old==new; no-op avoids false error |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -166,13 +167,14 @@ None.
 | 18 | 02 | 3min | 2 | 2 | +14 tests (1272 total) |
 | Phase 18 P02 | 8min | 4 tasks | 5 files |
 | 20 | 01 | 2min | 2 | 3 | +8 tests (1335 total) |
+| 20 | 02 | 3min | 2 | 3 | +8 tests (1343 total) |
 
 ## Session Continuity
 
-- **Last action:** Executed 20-01 (search command via TDD)
-- **Stopped at:** Completed 20-01-PLAN.md
-- **Next action:** Execute 20-02 (requirement update-status command)
-- **Context needed:** 1,335 tests passing; search command operational; Phase 19 complete; Phase 20 plan 01 done
+- **Last action:** Executed 20-02 (requirement update-status command via TDD)
+- **Stopped at:** Completed 20-02-PLAN.md
+- **Next action:** Execute remaining Phase 20 plans or Phase 21
+- **Context needed:** 1,343 tests passing; search and requirement update-status commands operational; Phase 20 plans 01-02 done
 
 ---
 
