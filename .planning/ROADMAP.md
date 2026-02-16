@@ -100,7 +100,10 @@ Plans:
   2. Post-install script creates `.planning/` directory structure and default `config.json` when not present; does nothing when structure already exists
   3. `grd-tools setup` command configures Claude Code plugin.json to point at the installed package location
   4. Zero external runtime dependencies (devDependencies only for jest/eslint)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 17-01-PLAN.md — npm package.json configuration + postinstall script + tests
+- [ ] 17-02-PLAN.md — grd-tools setup command + tests
 
 ### Phase 18: Integration & Distribution Validation
 **Goal**: All v0.1.1 features work together end-to-end, and the npm package installs and functions correctly from tarball
@@ -125,7 +128,7 @@ Plans:
 | 14. Auto-Cleanup Doc Drift | v0.1.1 | Complete    | 2026-02-16 | - |
 | 15. Deferred Validations | v0.1.1 | Complete    | 2026-02-16 | - |
 | 16. MCP Server | v0.1.1 | Complete    | 2026-02-16 | - |
-| 17. npm Distribution | v0.1.1 | 0/TBD | Not started | - |
+| 17. npm Distribution | v0.1.1 | 0/2 | Not started | - |
 | 18. Integration & Validation | v0.1.1 | 0/TBD | Not started | - |
 
 ## Deferred Validations
