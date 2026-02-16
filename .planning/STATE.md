@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 17 — npm Distribution
-- **Current plan:** Plan 2 of 2 complete
+- **Active phase:** Phase 18 — Integration & Distribution Validation
+- **Current plan:** Plan 1 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** [██████████] 100%
-- **Next:** Phase 17 complete; proceed to Phase 18
+- **Progress:** [█████████░] 90%
+- **Next:** Execute 18-02-PLAN.md (distribution validation)
 
 ## Pending Decisions
 
@@ -59,6 +59,7 @@ None.
 | 2026-02-16 | Zero runtime dependencies maintained | Phase 17 | Only devDependencies; consistent with GRD zero-dep philosophy |
 | 2026-02-16 | Resolve package root from __dirname (not cwd) for setup command | Phase 17 | Ensures correct path regardless of where user runs grd-tools setup |
 | 2026-02-16 | Plugin directory path (not plugin.json) in user instructions | Phase 17 | Matches Claude Code plugin_path configuration convention |
+| 2026-02-16 | Direct module import (not CLI subprocess) for E2E integration tests | Phase 18 | Speed and directness; validates actual module interfaces not CLI parsing |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -148,13 +149,14 @@ None.
 | 16 | 02 | 4min | 2 | 2 | +170 tests (1208 total) |
 | 17 | 01 | 2min | 2 | 3 | +21 tests (1229 total) |
 | 17 | 02 | 3min | 2 | 3 | +14 tests (1243 total) |
+| 18 | 01 | 2min | 2 | 1 | +15 tests (1258 total) |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 17 Plan 02 (setup command)
-- **Stopped at:** Completed 17-02-PLAN.md
-- **Next action:** Phase 17 complete; proceed to Phase 18
-- **Context needed:** 1243 tests passing; grd-tools setup command implemented
+- **Last action:** Completed Phase 18 Plan 01 (E2E workflow integration test)
+- **Stopped at:** Completed 18-01-PLAN.md
+- **Next action:** Execute 18-02-PLAN.md (distribution validation)
+- **Context needed:** 1272 tests passing (1258 tracked + 14 from other test growth); E2E integration validated
 
 ---
 
