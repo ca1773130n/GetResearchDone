@@ -65,6 +65,9 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 **Duration**: 1d
 **Requirements**: REQ-35, REQ-36
 **Verification Level**: proxy
+**Plans:** 2 plans
+  - [ ] 20-01-PLAN.md — Search command for planning artifacts (TDD)
+  - [ ] 20-02-PLAN.md — Requirement update-status command (TDD)
 **Success Criteria** (what must be TRUE):
   1. `grd-tools search <query>` returns matching file paths, line numbers, and content lines from all `.planning/` markdown files; searches STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, and VERIFICATION.md files recursively
   2. `grd-tools requirement update-status REQ-31 Done` updates the Status column in the Traceability Matrix for that requirement; validates REQ-ID exists and status is one of Pending, In Progress, Done, Deferred
@@ -92,7 +95,7 @@ Phases 14-18 delivered doc drift detection, deferred validation resolution, MCP 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 19. Requirement Inspection & Phase-Detail | v0.1.2 | Complete    | 2026-02-16 | - |
-| 20. Convenience Commands | v0.1.2 | 0/0 | Not started | - |
+| 20. Convenience Commands | v0.1.2 | 0/2 | Not started | - |
 | 21. MCP Extension & Wiring | v0.1.2 | 0/0 | Not started | - |
 
 ## Deferred Validations
