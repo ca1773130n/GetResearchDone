@@ -83,7 +83,10 @@ Plans:
   3. `tools/call` executes representative commands (state load, phase add, validate consistency) and returns structured JSON results
   4. Invalid tool names and malformed input return proper MCP error responses (not crashes)
   5. Test coverage for MCP server module >= 80% line coverage
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 16-01-PLAN.md — MCP server protocol handler + auto-generated tool registry + stdio entry point
+- [ ] 16-02-PLAN.md — MCP server comprehensive unit tests + coverage validation
 
 ### Phase 17: npm Distribution
 **Goal**: GRD is packaged for npm publishing with correct bin entries, files whitelist, and post-install setup
