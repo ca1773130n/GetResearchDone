@@ -430,3 +430,129 @@ describe('cmdValidateConsistency', () => {
     expect(result.errors).toContain('ROADMAP.md not found');
   });
 });
+
+// ─── cmdPhaseComplete quality analysis integration ──────────────────────────
+
+describe('cmdPhaseComplete quality analysis integration', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  // Helper: set phase_cleanup config
+  function setCleanupConfig(enabled) {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (enabled !== undefined) {
+      config.phase_cleanup = { enabled };
+    } else {
+      delete config.phase_cleanup;
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  }
+
+  // Helper: create a source file in lib/ for quality analysis to find
+  function createSourceFile(name, content) {
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+    fs.writeFileSync(path.join(libDir, name), content, 'utf-8');
+  }
+
+  // ─── Integration behavior ─────────────────────────────────────────────
+
+  test('phase complete output includes quality_report when cleanup enabled', () => {
+    setCleanupConfig(true);
+    createSourceFile(
+      'sample.js',
+      'function greet() { return "hi"; }\nmodule.exports = { greet };\n'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('quality_report');
+    expect(result.quality_report).toHaveProperty('summary');
+    expect(result.quality_report).toHaveProperty('details');
+  });
+
+  test('phase complete output does NOT include quality_report when cleanup disabled', () => {
+    setCleanupConfig(false);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('quality_report');
+  });
+
+  test('phase complete output does NOT include quality_report when phase_cleanup section missing', () => {
+    setCleanupConfig(undefined);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('quality_report');
+  });
+
+  test('quality analysis errors do not block phase completion', () => {
+    // Set enabled but ensure no lib dir exists (quality analysis may return empty but not crash)
+    setCleanupConfig(true);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // Phase completion still works (core fields present)
+    expect(result.completed_phase).toBe('1');
+    expect(result.roadmap_updated).toBe(true);
+  });
+
+  // ─── Raw output integration ───────────────────────────────────────────
+
+  test('raw output includes quality summary when issues found', () => {
+    setCleanupConfig(true);
+    // Create an oversized file to trigger issues
+    const bigContent = Array.from({ length: 601 }, (_, i) => `// line ${i + 1}`).join('\n') + '\n';
+    createSourceFile('big-module.js', bigContent);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Quality');
+    expect(stdout).toContain('issue');
+  });
+
+  test('raw output does not mention quality when no issues', () => {
+    setCleanupConfig(true);
+    // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
+    createSourceFile(
+      'math.js',
+      'function add(a, b) { return a + b; }\nmodule.exports = { add };\n'
+    );
+    createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain('Quality');
+  });
+
+  test('raw output does not mention quality when disabled', () => {
+    setCleanupConfig(false);
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain('Quality');
+  });
+
+  test('phase completion still updates ROADMAP.md correctly with quality analysis running', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+
+    const roadmap = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    expect(roadmap).toMatch(/\*\*Plans:\*\*\s*\d+\/\d+\s*plans complete/);
+  });
+});

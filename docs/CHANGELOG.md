@@ -3,6 +3,33 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.1.0] - 2026-02-16 (In Progress)
+
+### Added
+- **Multi-backend support:** Detect and adapt to Claude Code, Codex CLI, Gemini CLI, and OpenCode backends
+- **Dynamic model detection:** OpenCode backend discovers available models via `opencode models` CLI with 5-min TTL cache
+- **Backend capabilities registry:** Per-backend feature flags (subagents, parallel, teams, hooks, mcp)
+- **`detect-backend` CLI command:** Returns backend name, resolved models, `models_source` field, and capabilities
+- **Hierarchical roadmap:** Now/Next/Later milestone tiers in `LONG-TERM-ROADMAP.md`
+- **`long-term-roadmap` CLI command:** parse, validate, display, mode, generate, refine, promote, tier, history subcommands
+- **Planning mode detection:** Auto-detect hierarchical vs progressive mode based on `LONG-TERM-ROADMAP.md` presence
+- **Milestone refinement:** In-place markdown editing to progressively refine milestones
+- **Milestone promotion:** Later->Next->Now tier movement with automatic field population
+- **Auto-cleanup quality analysis:** Optional phase-boundary code quality checks (ESLint complexity, dead exports, file size)
+- **`quality-analysis` CLI command:** Structured quality reports per phase
+- **Hierarchical roadmap tutorial:** `docs/hierarchical-roadmap-tutorial.md`
+
+### Changed
+- **`resolveBackendModel` signature:** New optional `cwd` param for dynamic model detection (backward compatible)
+- **`cmdDetectBackend` output:** Added `models_source` field (`"detected"` or `"defaults"`)
+- **All `cmdInit*` functions:** Now include `backend` and backend-resolved model names in output
+- **Context init:** Backend capabilities integrated into all 14 workflow initializers
+
+### Testing
+- 858 tests (up from 594 in v0.0.5)
+- `lib/backend.js` at 98.96% statement coverage
+- All lib/ modules maintain >= 80% line coverage
+
 ## [0.0.5] - 2026-02-15
 
 ### Added

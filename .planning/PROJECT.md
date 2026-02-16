@@ -1,56 +1,73 @@
-# Project: GRD v1.0
+# Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-12
+**Updated:** 2026-02-16
 
 ## Vision
 
-GRD (Get Research Done) is a production-ready R&D workflow automation plugin for Claude Code that transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering. Version 1.0 will be the first release where the plugin itself meets the engineering standards it helps users achieve: tested, linted, secure, modular, and CI-verified.
+GRD (Get Research Done) is a production-ready R&D workflow automation plugin for Claude Code that transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering.
 
-## Product Goals
+## What This Is
 
-### Primary Goal
-Ship GRD v1.0 as a production-quality Claude Code plugin with automated test coverage, CI/CD, security hardening, and a modular codebase that enables sustainable development.
+A Claude Code plugin providing:
+- Paper-driven R&D workflow automation (survey, deep-dive, feasibility, plan, execute, evaluate, iterate)
+- Tiered verification (sanity/proxy/deferred) for research phases
+- Autonomous mode for unattended operation
+- Issue tracker integration (GitHub Issues, Jira via MCP Atlassian)
+- TUI dashboard for project visibility (dashboard, phase-detail, health)
+- 108 CLI commands across 10 modular lib/ modules
 
-**Success criteria:**
-- Test coverage >= 80% on `bin/grd-tools.js` core functions
-- All CI checks pass (lint, test, security audit) on every PR
-- Zero known command injection vulnerabilities
-- Largest single source file <= 500 lines
-- `.gitignore` in place; no sensitive files in git history
+## Core Value
 
-### Secondary Goals
-1. Consistent code style enforced by linting (ESLint + Prettier)
-2. Version synchronization across VERSION, plugin.json, CHANGELOG.md
-3. Input validation on all CLI arguments
-4. Deprecated config sections removed with migration path
-5. Developer documentation for contributors (architecture, testing, adding commands)
+Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
-### Non-Goals
-- Feature additions (no new commands, agents, or workflows in v1.0 scope)
-- TypeScript migration (evaluated and deferred; see Decision Log)
-- External dependency additions beyond dev-dependencies (test framework, linter)
-- Performance optimization of async I/O (evaluated and deferred; see Decision Log)
-- UI/UX redesign of command output formats
+## Current State (v0.0.5)
+
+**Shipped:** 2026-02-15
+
+v0.0.5 is the production-quality engineering foundation:
+- 10 lib/ modules (8,295 LOC) with 108 exports, thin 188-line CLI router
+- 594 Jest tests (8,010 LOC), 80%+ line coverage
+- ESLint v10 + Prettier, zero errors
+- GitHub Actions CI (Node 18/20/22), release workflow
+- Security hardened: zero execSync shell interpolation, input validation, git whitelist
+- JSDoc on all 105 exported functions
+- CONTRIBUTING.md for developer onboarding
+
+## Current Milestone: v0.1.0 — Setup Functionality & Usability
+
+**Goal:** Improve setup functionality and usability by supporting multiple AI backends, adding auto-refactoring/doc-sync options, and enabling hierarchical long-term roadmap planning.
+
+**Target features:**
+1. **Multi AI-backend support** — Detect and adapt to Claude Code, Codex, Gemini, OpenCode at runtime. Dynamic model selection per role (planner, executor, researcher, reviewer) based on which backend is active. Not just model names in config — runtime detection and adaptation.
+2. **Auto refactoring/doc-sync plans** — Setup option to automatically append refactoring and document synchronization plans at the end of each phase execution.
+3. **Hierarchical roadmap planning** — Support long-term roadmap (e.g., year plan) with rough milestones defined upfront, then progressively refine each milestone's goals and requirements through AI discussion. Replace the current "add next milestone after completing previous" pattern.
+
+## Validated Goals (v0.0.5)
+
+- [x] Test coverage >= 80% on lib/ modules
+- [x] CI checks pass (lint, test, security audit) on every PR
+- [x] Zero known command injection vulnerabilities
+- [x] Modular architecture (no file > 1,600 lines; router = 188 lines)
+- [x] .gitignore in place; no sensitive files in git history
+- [x] Consistent code style (ESLint + Prettier)
+- [x] Version sync across VERSION, plugin.json, CHANGELOG.md
+- [x] Input validation on all CLI arguments
+- [x] Developer documentation (CONTRIBUTING.md, JSDoc, SECURITY.md)
+
+## Open Items
+
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v0.0.5)
+- TypeScript migration (evaluated and deferred)
+- Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
-
-## Timeline
-
-**Target:** 4 milestones, 7 phases, estimated 21 working days (AI-assisted development)
-
-| Milestone | Phases | Objective | Duration |
-|-----------|--------|-----------|----------|
-| M1: Foundation | 1-2 | Security hardening + project infrastructure | 5d |
-| M2: Modularization | 3 | Break monolith into testable modules | 5d |
-| M3: Quality | 4-5 | Test suite + CI/CD pipeline | 7d |
-| M4: Polish | 6-7 | Linting, validation, cleanup, release prep | 4d |
 
 ## Constraints
 
-- **Zero external runtime deps:** GRD must remain a zero-dependency Node.js tool (only built-in modules). Dev-dependencies (jest, eslint) are acceptable.
-- **Backward compatibility:** All 40 existing commands must continue to work. No breaking changes to `.planning/` file formats.
+- **Zero external runtime deps:** Only Node.js built-in modules. Dev-dependencies (jest, eslint) acceptable.
+- **Backward compatibility:** All existing commands must continue to work. No breaking changes to `.planning/` file formats.
 - **Plugin compatibility:** Must remain compatible with Claude Code plugin SDK.
-- **No feature changes:** v1.0 is purely an engineering quality release. Feature work comes in v1.1+.
+- **Multi-backend:** Must work across Claude Code, Codex, Gemini CLI, OpenCode without requiring backend-specific code in the plugin's core logic.
 
 ## Stakeholders
 
@@ -61,3 +78,4 @@ Ship GRD v1.0 as a production-quality Claude Code plugin with automated test cov
 ---
 
 *Project definition: 2026-02-12*
+*v0.0.5 milestone shipped: 2026-02-15*

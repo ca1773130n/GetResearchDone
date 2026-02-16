@@ -30,7 +30,11 @@ const {
   cmdDashboard,
   cmdPhaseDetail,
   cmdHealth,
+  cmdDetectBackend,
+  cmdLongTermRoadmap,
+  cmdQualityAnalysis,
 } = require('../../lib/commands');
+const { clearModelCache } = require('../../lib/backend');
 
 /**
  * Parse the first JSON object from stdout that may contain concatenated
@@ -1226,5 +1230,1340 @@ describe('cmdHealth', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.blockers.count).toBe(0);
+  });
+});
+
+// ─── cmdDetectBackend ────────────────────────────────────────────────────────
+
+describe('cmdDetectBackend', () => {
+  let fixtureDir;
+  let savedEnv;
+
+  // Detection-relevant env vars (same list as backend.test.js)
+  const DETECTION_ENV_VARS = [
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+    'AGENT',
+  ];
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+    // Save and clean all detection-relevant env vars
+    savedEnv = { ...process.env };
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('CLAUDE_CODE_') || DETECTION_ENV_VARS.includes(key)) {
+        delete process.env[key];
+      }
+    }
+  });
+
+  afterEach(() => {
+    process.env = savedEnv;
+    cleanupFixtureDir(fixtureDir);
+    clearModelCache();
+  });
+
+  test('JSON output (raw=false) returns object with backend, models, and capabilities', () => {
+    // Default detection (no env vars, no config override) -> claude
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('backend');
+    expect(parsed).toHaveProperty('models');
+    expect(parsed).toHaveProperty('models_source');
+    expect(parsed).toHaveProperty('capabilities');
+    expect(parsed.models).toHaveProperty('opus');
+    expect(parsed.models).toHaveProperty('sonnet');
+    expect(parsed.models).toHaveProperty('haiku');
+    expect(['detected', 'defaults']).toContain(parsed.models_source);
+    expect(parsed.capabilities).toHaveProperty('subagents');
+    expect(parsed.capabilities).toHaveProperty('parallel');
+    expect(parsed.capabilities).toHaveProperty('teams');
+    expect(parsed.capabilities).toHaveProperty('hooks');
+    expect(parsed.capabilities).toHaveProperty('mcp');
+  });
+
+  test('raw output (raw=true) returns just the backend name string', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, true);
+    });
+    expect(exitCode).toBe(0);
+    // Raw mode: just the backend name, no JSON
+    expect(stdout.trim()).toBe('claude');
+  });
+
+  test('Claude backend: models are opus/sonnet/haiku, all capabilities true', () => {
+    // Default detection -> claude
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('opus');
+    expect(parsed.models.sonnet).toBe('sonnet');
+    expect(parsed.models.haiku).toBe('haiku');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(true);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('Codex backend: correct models and capabilities', () => {
+    // Force codex via config override
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'codex';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('codex');
+    expect(parsed.models.opus).toBe('gpt-5.3-codex');
+    expect(parsed.models.sonnet).toBe('gpt-5.3-codex-spark');
+    expect(parsed.models.haiku).toBe('gpt-5.3-codex-spark');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(false);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('Gemini backend: correct models and capabilities (experimental subagents)', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'gemini';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('gemini');
+    expect(parsed.models.opus).toBe('gemini-3-pro');
+    expect(parsed.models.sonnet).toBe('gemini-3-flash');
+    expect(parsed.models.haiku).toBe('gemini-2.5-flash');
+    expect(parsed.capabilities.subagents).toBe('experimental');
+    expect(parsed.capabilities.parallel).toBe(false);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('OpenCode backend: models resolved and capabilities correct', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'opencode';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('opencode');
+    // Models may come from detection or defaults depending on opencode availability
+    expect(typeof parsed.models.opus).toBe('string');
+    expect(typeof parsed.models.sonnet).toBe('string');
+    expect(typeof parsed.models.haiku).toBe('string');
+    expect(['detected', 'defaults']).toContain(parsed.models_source);
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
+    expect(parsed.capabilities.teams).toBe(false);
+    expect(parsed.capabilities.hooks).toBe(true);
+    expect(parsed.capabilities.mcp).toBe(true);
+  });
+
+  test('config model overrides: backend_models overrides are reflected in models field', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend_models = {
+      claude: {
+        opus: 'custom-opus-model',
+        haiku: 'custom-haiku-model',
+      },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('custom-opus-model');
+    expect(parsed.models.sonnet).toBe('sonnet'); // Not overridden
+    expect(parsed.models.haiku).toBe('custom-haiku-model');
+  });
+
+  test('unknown backend falls back to claude defaults', () => {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.backend = 'unknown-backend';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Unknown backends are not in VALID_BACKENDS, so detectBackend ignores the
+    // config override and falls through to default 'claude'. Test that the
+    // output is claude with correct defaults regardless.
+    const { stdout } = captureOutput(() => {
+      cmdDetectBackend(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    // detectBackend skips invalid config.backend values -> falls to default claude
+    expect(parsed.backend).toBe('claude');
+    expect(parsed.models.opus).toBe('opus');
+    expect(parsed.capabilities.subagents).toBe(true);
+  });
+});
+
+// ─── cmdLongTermRoadmap ──────────────────────────────────────────────────────
+
+/** Well-formed LONG-TERM-ROADMAP.md fixture content */
+const LONG_TERM_ROADMAP_FIXTURE = `---
+project: TestProject
+roadmap_type: hierarchical
+created: 2026-01-01
+last_refined: 2026-02-15
+planning_horizon: 6 months
+---
+
+# Long-Term Roadmap: TestProject
+
+## Current Milestone (Now)
+
+**Milestone:** v0.1.0 - Foundation
+**Status:** In Progress
+**Start:** 2026-01-01
+**Target:** 2026-02-28
+
+### Goal
+Build the foundational infrastructure for the project.
+
+### Success Criteria
+- Core modules implemented
+- Test coverage above 80%
+- CI pipeline running
+
+### Open Questions
+- Which CI provider to use?
+
+---
+
+## Next Milestones
+
+### v0.2.0 - Feature Expansion
+**Status:** Next
+**Estimated Start:** 2026-03-01
+**Estimated Duration:** 3 months
+**Dependencies:** v0.1.0
+
+#### Goal
+Add advanced features and integrations.
+
+#### Success Criteria
+- API integrations complete
+- User-facing features operational
+
+#### Rough Phase Sketch
+1. Research API options
+2. Implement integration layer
+3. Build user features
+
+#### Open Questions
+- Which APIs to prioritize?
+
+---
+
+### v0.3.0 - Scalability
+**Status:** Next
+**Estimated Start:** 2026-06-01
+**Estimated Duration:** 2 months
+**Dependencies:** v0.2.0
+
+#### Goal
+Scale the system for production workloads.
+
+#### Success Criteria
+- Handle 10x current load
+- Response times under 200ms
+
+---
+
+## Later Milestones
+
+### v0.4.0 - Enterprise Features
+**Status:** Later
+**Estimated Timeline:** Q4 2026
+**Dependencies:** v0.3.0
+
+#### Goal
+Add enterprise-grade security and compliance features.
+
+---
+
+## Refinement History
+
+| Date | Action | Details |
+|------|--------|---------|
+| 2026-01-01 | Initial roadmap | Defined v0.1.0, v0.2.0, v0.3.0, v0.4.0 with Now-Next-Later tiers |
+`;
+
+describe('cmdLongTermRoadmap', () => {
+  // ─── parse subcommand ──────────────────────────────────────────────────
+
+  describe('parse', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('parses existing LONG-TERM-ROADMAP.md with correct structure', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('now');
+      expect(parsed).toHaveProperty('next');
+      expect(parsed).toHaveProperty('later');
+      expect(parsed).toHaveProperty('frontmatter');
+      expect(parsed.now).not.toBeNull();
+      expect(parsed.next).toHaveLength(2);
+      expect(parsed.later).toHaveLength(1);
+      expect(parsed.frontmatter.project).toBe('TestProject');
+    });
+
+    test('returns error when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+
+    test('parses custom file path', () => {
+      const customPath = path.join(fixtureDir, 'custom-roadmap.md');
+      fs.writeFileSync(customPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', [customPath], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('now');
+      expect(parsed.now).not.toBeNull();
+      expect(parsed.frontmatter.project).toBe('TestProject');
+    });
+
+    test('raw mode returns milestone count summary', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', [], true);
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('4 milestones');
+      expect(stdout).toContain('1 now');
+      expect(stdout).toContain('2 next');
+      expect(stdout).toContain('1 later');
+    });
+  });
+
+  // ─── validate subcommand ───────────────────────────────────────────────
+
+  describe('validate', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('valid roadmap returns valid=true', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'validate', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.valid).toBe(true);
+      expect(parsed.errors).toHaveLength(0);
+    });
+
+    test('invalid roadmap returns errors', () => {
+      // Write a roadmap with no Now section
+      const invalidContent = `---
+project: TestProject
+---
+
+# Long-Term Roadmap: TestProject
+
+## Next Milestones
+
+### v0.2.0 - Feature Expansion
+**Status:** Next
+
+#### Goal
+Add advanced features.
+`;
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, invalidContent);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'validate', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.valid).toBe(false);
+      expect(parsed.errors.length).toBeGreaterThan(0);
+    });
+
+    test('raw mode returns valid or invalid string', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'validate', [], true);
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).toBe('valid');
+    });
+  });
+
+  // ─── display subcommand ────────────────────────────────────────────────
+
+  describe('display', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('displays formatted roadmap with tier labels', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'display', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('formatted');
+      expect(parsed).toHaveProperty('milestone_count');
+      expect(parsed).toHaveProperty('mode');
+      expect(parsed.formatted).toContain('[Now]');
+      expect(parsed.formatted).toContain('[Next]');
+      expect(parsed.formatted).toContain('[Later]');
+      expect(parsed.milestone_count).toBe(4);
+      expect(parsed.mode).toBe('hierarchical');
+    });
+
+    test('returns error when no roadmap exists', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'display', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+
+    test('raw mode returns formatted text directly', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'display', [], true);
+      });
+      expect(exitCode).toBe(0);
+      // Raw output is the formatted display string (not JSON)
+      expect(stdout).toContain('[Now]');
+      expect(stdout).toContain('[Next]');
+      expect(stdout).toContain('[Later]');
+      expect(stdout).toContain('TestProject');
+    });
+  });
+
+  // ─── mode subcommand ───────────────────────────────────────────────────
+
+  describe('mode', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('returns hierarchical when LONG-TERM-ROADMAP.md exists', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'mode', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('hierarchical');
+      expect(parsed.long_term_roadmap_exists).toBe(true);
+    });
+
+    test('returns progressive when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'mode', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('progressive');
+      expect(parsed.long_term_roadmap_exists).toBe(false);
+    });
+
+    test('respects roadmap_type override in frontmatter', () => {
+      const overrideContent = `---
+project: TestProject
+roadmap_type: progressive
+---
+
+# Long-Term Roadmap: TestProject
+
+## Current Milestone (Now)
+
+**Milestone:** v0.1.0 - Foundation
+**Status:** In Progress
+
+### Goal
+Build the foundational infrastructure.
+`;
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, overrideContent);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'mode', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mode).toBe('progressive');
+    });
+
+    test('raw mode returns mode string only', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'mode', [], true);
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).toBe('hierarchical');
+    });
+  });
+
+  // ─── generate subcommand ───────────────────────────────────────────────
+
+  describe('generate', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('generates valid roadmap content', () => {
+      const milestones = JSON.stringify([
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
+        {
+          version: 'v0.2.0',
+          name: 'Beta',
+          status: 'Next',
+          goal: 'Build beta',
+          estimated_start: '2026-03-01',
+          estimated_duration: '2 months',
+          dependencies: 'v0.1.0',
+          success_criteria: ['API done'],
+        },
+        {
+          version: 'v0.3.0',
+          name: 'GA',
+          status: 'Later',
+          goal: 'Go GA',
+          estimated_timeline: 'Q3 2026',
+          dependencies: 'v0.2.0',
+        },
+      ]);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'TestGen', '--horizon', '12 months', '--milestones', milestones],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed).toHaveProperty('path');
+      expect(parsed.path).toBe('.planning/LONG-TERM-ROADMAP.md');
+      expect(parsed.content).toContain('TestGen');
+      expect(parsed.content).toContain('Current Milestone (Now)');
+      expect(parsed.content).toContain('v0.1.0');
+    });
+
+    test('generated content round-trips through parse and validate', () => {
+      const milestones = JSON.stringify([
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
+        {
+          version: 'v0.2.0',
+          name: 'Beta',
+          status: 'Next',
+          goal: 'Build beta',
+          dependencies: 'v0.1.0',
+          success_criteria: ['API done'],
+        },
+      ]);
+
+      // Generate
+      const { stdout: genStdout } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'RoundTrip', '--milestones', milestones],
+          false
+        );
+      });
+      const genResult = JSON.parse(genStdout);
+
+      // Write generated content to file
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, genResult.content);
+
+      // Parse
+      const { stdout: parseStdout } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', [], false);
+      });
+      const parsedResult = JSON.parse(parseStdout);
+      expect(parsedResult).toHaveProperty('now');
+      expect(parsedResult.now).not.toBeNull();
+      expect(parsedResult.frontmatter.project).toBe('RoundTrip');
+
+      // Validate
+      const { stdout: valStdout } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'validate', [], false);
+      });
+      const valResult = JSON.parse(valStdout);
+      expect(valResult.valid).toBe(true);
+    });
+
+    test('returns error when milestones missing', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'generate', ['--project', 'Test'], false);
+      });
+      expect(exitCode).toBe(1);
+    });
+
+    test('raw mode returns markdown content directly', () => {
+      const milestones = JSON.stringify([
+        {
+          version: 'v0.1.0',
+          name: 'Alpha',
+          status: 'In Progress',
+          goal: 'Build alpha',
+          start: '2026-01-01',
+          target: '2026-02-28',
+          success_criteria: ['Core done'],
+        },
+      ]);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'RawTest', '--milestones', milestones],
+          true
+        );
+      });
+      expect(exitCode).toBe(0);
+      // Raw output is the generated markdown
+      expect(stdout).toContain('RawTest');
+      expect(stdout).toContain('Current Milestone (Now)');
+      expect(stdout).toContain('v0.1.0');
+    });
+  });
+
+  // ─── tier subcommand ───────────────────────────────────────────────────
+
+  describe('tier', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('returns tier for Now milestone', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', ['--version', 'v0.1.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.version).toBe('v0.1.0');
+      expect(parsed.tier).toBe('now');
+    });
+
+    test('returns tier for Next milestone', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', ['--version', 'v0.2.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.version).toBe('v0.2.0');
+      expect(parsed.tier).toBe('next');
+    });
+
+    test('returns null for unknown version', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', ['--version', 'v9.9.9'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.version).toBe('v9.9.9');
+      expect(parsed.tier).toBeNull();
+    });
+
+    test('raw mode returns tier string', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', ['--version', 'v0.1.0'], true);
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).toBe('now');
+    });
+
+    test('returns error when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', ['--version', 'v0.1.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+
+    test('errors when --version flag missing', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'tier', [], false);
+      });
+      expect(exitCode).toBe(1);
+    });
+  });
+
+  // ─── refine subcommand ────────────────────────────────────────────────
+
+  describe('refine', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('refines milestone goal', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const updates = JSON.stringify({ goal: 'New expanded goal for feature work' });
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed.version).toBe('v0.2.0');
+      expect(parsed.updated_fields).toEqual(['goal']);
+      expect(parsed.content).toContain('New expanded goal for feature work');
+    });
+
+    test('refines success_criteria', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const updates = JSON.stringify({ success_criteria: ['Criterion A', 'Criterion B'] });
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed.content).toContain('Criterion A');
+      expect(parsed.content).toContain('Criterion B');
+    });
+
+    test('returns error for unknown version', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const updates = JSON.stringify({ goal: 'New goal' });
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v9.9.9', '--updates', updates],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.error).toContain('v9.9.9');
+    });
+
+    test('returns error for invalid JSON', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { exitCode, stderr } = captureError(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', 'not-json'],
+          false
+        );
+      });
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Invalid updates JSON');
+    });
+
+    test('returns error when --version missing', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'refine', ['--updates', '{}'], false);
+      });
+      expect(exitCode).toBe(1);
+    });
+
+    test('raw mode returns markdown content', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const updates = JSON.stringify({ goal: 'Raw mode goal' });
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          true
+        );
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('## Current Milestone (Now)');
+      expect(stdout).toContain('Raw mode goal');
+    });
+
+    test('returns error when file missing', () => {
+      const updates = JSON.stringify({ goal: 'New goal' });
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'refine',
+          ['--version', 'v0.2.0', '--updates', updates],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+  });
+
+  // ─── promote subcommand ───────────────────────────────────────────────
+
+  describe('promote', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('promotes Later to Next', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v0.4.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed.new_tier).toBe('next');
+      expect(parsed.version).toBe('v0.4.0');
+      // Verify content has v0.4.0 in the Next section
+      expect(parsed.content).toContain('v0.4.0');
+    });
+
+    test('promotes Next to Now', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v0.2.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed.new_tier).toBe('now');
+      // Verify the Now section now has v0.2.0
+      expect(parsed.content).toContain('v0.2.0 - Feature Expansion');
+    });
+
+    test('returns error for Now milestone (already at top)', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v0.1.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.error).toContain('already in Now');
+    });
+
+    test('returns error for unknown version', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v9.9.9'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.error).toContain('v9.9.9');
+    });
+
+    test('raw mode returns markdown content', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v0.4.0'], true);
+      });
+      expect(exitCode).toBe(0);
+      // Raw output is the updated markdown
+      expect(stdout).toContain('## Current Milestone (Now)');
+      expect(stdout).toContain('v0.4.0');
+    });
+
+    test('returns error when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'promote', ['--version', 'v0.4.0'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+  });
+
+  // ─── history subcommand ───────────────────────────────────────────────
+
+  describe('history', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('appends refinement history entry', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Refined', '--details', 'Updated v0.2.0 goal'],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('content');
+      expect(parsed.action).toBe('Refined');
+      expect(parsed.details).toBe('Updated v0.2.0 goal');
+      // Verify content has the new entry
+      expect(parsed.content).toContain('Refined');
+      expect(parsed.content).toContain('Updated v0.2.0 goal');
+      // Original entry still present
+      expect(parsed.content).toContain('Initial roadmap');
+    });
+
+    test('returns error when --action missing', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'history', ['--details', 'something'], false);
+      });
+      expect(exitCode).toBe(1);
+    });
+
+    test('returns error when --details missing', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Refined'], false);
+      });
+      expect(exitCode).toBe(1);
+    });
+
+    test('raw mode returns markdown content with Refinement History table', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Promoted', '--details', 'Moved v0.4.0 to Next'],
+          true
+        );
+      });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Refinement History');
+      expect(stdout).toContain('Promoted');
+      expect(stdout).toContain('Moved v0.4.0 to Next');
+    });
+
+    test('returns error when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Refined', '--details', 'something'],
+          false
+        );
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+  });
+
+  // ─── Edge cases ────────────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    let fixtureDir;
+
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
+
+    test('unknown subcommand returns error listing all 9 subcommands', () => {
+      const { exitCode, stderr } = captureError(() => {
+        cmdLongTermRoadmap(fixtureDir, 'badcommand', [], false);
+      });
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Unknown subcommand');
+      expect(stderr).toContain(
+        'parse, validate, display, mode, generate, refine, promote, tier, history'
+      );
+    });
+
+    test('validate returns error when file missing', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'validate', [], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('error');
+      expect(parsed.exists).toBe(false);
+    });
+
+    test('parse with relative file path resolves from cwd', () => {
+      const roadmapPath = path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md');
+      fs.writeFileSync(roadmapPath, LONG_TERM_ROADMAP_FIXTURE);
+
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdLongTermRoadmap(fixtureDir, 'parse', ['.planning/LONG-TERM-ROADMAP.md'], false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty('now');
+      expect(parsed.now).not.toBeNull();
+    });
+
+    test('generate with invalid JSON returns error', () => {
+      const { exitCode } = captureError(() => {
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'generate',
+          ['--project', 'Test', '--milestones', 'not-json'],
+          false
+        );
+      });
+      expect(exitCode).toBe(1);
+    });
+  });
+});
+
+// ─── cmdQualityAnalysis ──────────────────────────────────────────────────────
+
+describe('cmdQualityAnalysis', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  // Helper: write config with optional phase_cleanup section
+  function setCleanupConfig(enabled) {
+    const configPath = path.join(fixtureDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (enabled !== undefined) {
+      config.phase_cleanup = { enabled };
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  }
+
+  // Helper: create a minimal JS file in lib/ for analysis
+  function createSourceFile(name, content) {
+    const libDir = path.join(fixtureDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+    fs.writeFileSync(path.join(libDir, name), content, 'utf-8');
+  }
+
+  // ─── Config handling ──────────────────────────────────────────────────
+
+  test('returns skipped when phase_cleanup not enabled', () => {
+    setCleanupConfig(false);
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.skipped).toBe(true);
+    expect(parsed.reason).toContain('not enabled');
+  });
+
+  test('returns skipped when phase_cleanup section missing', () => {
+    // Default fixture config has no phase_cleanup section
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.skipped).toBe(true);
+  });
+
+  test('returns error when --phase flag missing', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdQualityAnalysis(fixtureDir, [], false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('--phase');
+  });
+
+  // ─── Quality report output ────────────────────────────────────────────
+
+  test('returns structured report when enabled', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'function hello() { return 1; }\nmodule.exports = { hello };\n');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('summary');
+    expect(parsed).toHaveProperty('details');
+  });
+
+  test('report includes phase number', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '42'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phase).toBe('42');
+  });
+
+  test('report includes timestamp matching YYYY-MM-DD', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('report summary has all count fields', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary).toHaveProperty('total_issues');
+    expect(parsed.summary).toHaveProperty('complexity_violations');
+    expect(parsed.summary).toHaveProperty('dead_exports');
+    expect(parsed.summary).toHaveProperty('oversized_files');
+  });
+
+  test('report details has all arrays', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(Array.isArray(parsed.details.complexity)).toBe(true);
+    expect(Array.isArray(parsed.details.dead_exports)).toBe(true);
+    expect(Array.isArray(parsed.details.file_size)).toBe(true);
+  });
+
+  // ─── Raw output mode ──────────────────────────────────────────────────
+
+  test('raw mode outputs human-readable text', () => {
+    setCleanupConfig(true);
+    createSourceFile('sample.js', 'module.exports = {};\n');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Quality Analysis');
+    expect(stdout).toContain('Total issues');
+  });
+
+  test('raw mode for skipped outputs reason', () => {
+    setCleanupConfig(false);
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('not enabled');
+  });
+
+  // ─── File analysis integration ────────────────────────────────────────
+
+  test('detects oversized files in report', () => {
+    setCleanupConfig(true);
+    // Create a file with 600+ lines
+    const bigContent = Array.from({ length: 601 }, (_, i) => `// line ${i + 1}`).join('\n') + '\n';
+    createSourceFile('big-file.js', bigContent);
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary.oversized_files).toBeGreaterThan(0);
+    expect(parsed.details.file_size.length).toBeGreaterThan(0);
+  });
+
+  test('clean codebase produces zero-issue report', () => {
+    setCleanupConfig(true);
+    // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
+    createSourceFile(
+      'math.js',
+      'function add(a, b) { return a + b; }\nmodule.exports = { add };\n'
+    );
+    createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdQualityAnalysis(fixtureDir, ['--phase', '13'], false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary.total_issues).toBe(0);
   });
 });

@@ -86,6 +86,9 @@ const {
   cmdDashboard,
   cmdPhaseDetail,
   cmdHealth,
+  cmdDetectBackend,
+  cmdLongTermRoadmap,
+  cmdQualityAnalysis,
 } = require('../lib/commands');
 
 /** Extract --flag value from args, returns value or fallback */
@@ -104,7 +107,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis'
     );
   }
 
@@ -505,6 +508,22 @@ function routeCommand(command, args, cwd, raw) {
       break;
     case 'health':
       cmdHealth(cwd, raw);
+      break;
+    case 'detect-backend':
+      cmdDetectBackend(cwd, raw);
+      break;
+    case 'long-term-roadmap': {
+      const sub = args[1];
+      if (!sub)
+        error(
+          'subcommand required: parse, validate, display, mode, generate, refine, promote, tier, history'
+        );
+      const subArgs = args.slice(2);
+      cmdLongTermRoadmap(cwd, sub, subArgs, raw);
+      break;
+    }
+    case 'quality-analysis':
+      cmdQualityAnalysis(cwd, args.slice(1), raw);
       break;
     default:
       error(`Unknown command: ${command}`);
