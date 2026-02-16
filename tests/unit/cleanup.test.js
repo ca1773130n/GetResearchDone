@@ -21,6 +21,10 @@ const {
   analyzeChangelogDrift,
   analyzeReadmeLinks,
   analyzeJsdocDrift,
+  analyzeTestCoverageGaps,
+  analyzeExportConsistency,
+  analyzeDocStaleness,
+  analyzeConfigSchemaDrift,
   generateCleanupPlan,
 } = require('../../lib/cleanup');
 
@@ -65,10 +69,17 @@ describe('getCleanupConfig', () => {
     removeTempDir(tmpDir);
   });
 
+  const FULL_DEFAULTS = {
+    enabled: false, refactoring: false, doc_sync: false,
+    test_coverage: false, export_consistency: false,
+    doc_staleness: false, config_schema: false,
+    cleanup_threshold: 5,
+  };
+
   test('returns defaults when config.json has no phase_cleanup section', () => {
     writeConfig(tmpDir, {});
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
+    expect(result).toEqual(FULL_DEFAULTS);
   });
 
   test('returns user values when phase_cleanup section exists', () => {
@@ -76,7 +87,7 @@ describe('getCleanupConfig', () => {
       phase_cleanup: { enabled: true, refactoring: true, doc_sync: false },
     });
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: true, refactoring: true, doc_sync: false, cleanup_threshold: 5 });
+    expect(result).toEqual({ ...FULL_DEFAULTS, enabled: true, refactoring: true, doc_sync: false });
   });
 
   test('merges defaults for missing fields', () => {
@@ -84,13 +95,13 @@ describe('getCleanupConfig', () => {
       phase_cleanup: { enabled: true },
     });
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: true, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
+    expect(result).toEqual({ ...FULL_DEFAULTS, enabled: true });
   });
 
   test('returns defaults when config.json does not exist', () => {
     // tmpDir has no .planning/config.json
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
+    expect(result).toEqual(FULL_DEFAULTS);
   });
 
   test('returns defaults when config.json is invalid JSON', () => {
@@ -98,7 +109,7 @@ describe('getCleanupConfig', () => {
     fs.mkdirSync(planningDir, { recursive: true });
     fs.writeFileSync(path.join(planningDir, 'config.json'), 'not valid json {{{');
     const result = getCleanupConfig(tmpDir);
-    expect(result).toEqual({ enabled: false, refactoring: false, doc_sync: false, cleanup_threshold: 5 });
+    expect(result).toEqual(FULL_DEFAULTS);
   });
 });
 
@@ -1039,5 +1050,552 @@ describe('generateCleanupPlan', () => {
     // Should have two task blocks
     expect(content).toContain('Task 1: Resolve code quality issues');
     expect(content).toContain('Task 2: Update stale documentation');
+  });
+});
+
+// ─── analyzeTestCoverageGaps ──────────────────────────────────────────────────
+
+describe('analyzeTestCoverageGaps', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('returns empty array when all exports are mentioned in test file', () => {
+    writeFile(
+      tmpDir,
+      'lib/utils.js',
+      'function alpha() {}\nfunction beta() {}\nmodule.exports = { alpha, beta };\n'
+    );
+    writeFile(
+      tmpDir,
+      'tests/unit/utils.test.js',
+      "const { alpha, beta } = require('../../lib/utils');\ndescribe('alpha', () => {});\ndescribe('beta', () => {});\n"
+    );
+    const result = analyzeTestCoverageGaps(tmpDir, ['lib/utils.js']);
+    expect(result).toEqual([]);
+  });
+
+  test('detects exports not mentioned in test file', () => {
+    writeFile(
+      tmpDir,
+      'lib/utils.js',
+      'function alpha() {}\nfunction beta() {}\nfunction gamma() {}\nmodule.exports = { alpha, beta, gamma };\n'
+    );
+    writeFile(
+      tmpDir,
+      'tests/unit/utils.test.js',
+      "const { alpha } = require('../../lib/utils');\ndescribe('alpha', () => {});\n"
+    );
+    const result = analyzeTestCoverageGaps(tmpDir, ['lib/utils.js']);
+    expect(result.length).toBe(2);
+    const names = result.map((r) => r.exportName).sort();
+    expect(names).toEqual(['beta', 'gamma']);
+    expect(result[0].testFile).toBe(path.join('tests', 'unit', 'utils.test.js'));
+  });
+
+  test('flags all exports when test file does not exist', () => {
+    writeFile(
+      tmpDir,
+      'lib/orphan.js',
+      'function x() {}\nfunction y() {}\nmodule.exports = { x, y };\n'
+    );
+    const result = analyzeTestCoverageGaps(tmpDir, ['lib/orphan.js']);
+    expect(result.length).toBe(2);
+    expect(result[0].testFile).toBe(path.join('tests', 'unit', 'orphan.test.js'));
+  });
+
+  test('returns empty array for empty files list', () => {
+    const result = analyzeTestCoverageGaps(tmpDir, []);
+    expect(result).toEqual([]);
+  });
+
+  test('skips files with no exports', () => {
+    writeFile(tmpDir, 'lib/empty.js', '// no exports\n');
+    const result = analyzeTestCoverageGaps(tmpDir, ['lib/empty.js']);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── analyzeExportConsistency ─────────────────────────────────────────────────
+
+describe('analyzeExportConsistency', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('returns empty array when all imports match exports', () => {
+    writeFile(
+      tmpDir,
+      'lib/source.js',
+      'function foo() {}\nfunction bar() {}\nmodule.exports = { foo, bar };\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/consumer.js',
+      "const { foo, bar } = require('./source');\nfoo(); bar();\n"
+    );
+    const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
+    expect(result).toEqual([]);
+  });
+
+  test('detects stale import not in source exports', () => {
+    writeFile(
+      tmpDir,
+      'lib/source.js',
+      'function foo() {}\nmodule.exports = { foo };\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/consumer.js',
+      "const { foo, removed } = require('./source');\nfoo();\n"
+    );
+    const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
+    expect(result.length).toBe(1);
+    expect(result[0].importedName).toBe('removed');
+    expect(result[0].file).toBe('lib/consumer.js');
+    expect(result[0].line).toBe(1);
+  });
+
+  test('skips non-relative requires', () => {
+    writeFile(
+      tmpDir,
+      'lib/consumer.js',
+      "const { readFileSync } = require('fs');\nreadFileSync('x');\n"
+    );
+    const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array for empty files list', () => {
+    const result = analyzeExportConsistency(tmpDir, []);
+    expect(result).toEqual([]);
+  });
+
+  test('handles missing source module gracefully', () => {
+    writeFile(
+      tmpDir,
+      'lib/consumer.js',
+      "const { foo } = require('./nonexistent');\nfoo();\n"
+    );
+    const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── analyzeDocStaleness ──────────────────────────────────────────────────────
+
+describe('analyzeDocStaleness', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('returns empty array when no CLAUDE.md exists', () => {
+    const result = analyzeDocStaleness(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when no mcp-server.js exists', () => {
+    writeFile(tmpDir, 'CLAUDE.md', '## CLI Tooling\n- `state load` — desc\n## Other\n');
+    const result = analyzeDocStaleness(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('detects documented-but-not-implemented command', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## CLI Tooling\n- `state load` — desc\n- `ghost command` — not real\n## Other\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/mcp-server.js',
+      "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n];\n"
+    );
+    const result = analyzeDocStaleness(tmpDir);
+    const notImpl = result.filter((r) => r.issue === 'documented-but-not-implemented');
+    expect(notImpl.length).toBe(1);
+    expect(notImpl[0].detail).toContain('ghost command');
+  });
+
+  test('detects implemented-but-not-documented tool', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## CLI Tooling\n- `state load` — desc\n## Other\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/mcp-server.js',
+      "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n  { name: 'grd_secret_tool', execute: () => {} },\n];\n"
+    );
+    const result = analyzeDocStaleness(tmpDir);
+    const notDoc = result.filter((r) => r.issue === 'implemented-but-not-documented');
+    expect(notDoc.length).toBe(1);
+    expect(notDoc[0].detail).toContain('grd_secret_tool');
+  });
+
+  test('returns empty when documented commands match implementations', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## CLI Tooling\n- `state load` — desc\n- `verify plan-structure` — desc\n## Other\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/mcp-server.js',
+      "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n  { name: 'grd_verify_plan_structure', execute: () => {} },\n];\n"
+    );
+    const result = analyzeDocStaleness(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('handles slash-separated subcommands correctly', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## CLI Tooling\n- `phase add/remove` — ops\n## Other\n'
+    );
+    writeFile(
+      tmpDir,
+      'lib/mcp-server.js',
+      "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_phase_add', execute: () => {} },\n  { name: 'grd_phase_remove', execute: () => {} },\n];\n"
+    );
+    const result = analyzeDocStaleness(tmpDir);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── analyzeConfigSchemaDrift ─────────────────────────────────────────────────
+
+describe('analyzeConfigSchemaDrift', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('returns empty array when no CLAUDE.md exists', () => {
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  test('detects documented key not in config', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n\n- `tracker` — Issue tracker\n- `execution` — Execution settings\n\n## Other\n'
+    );
+    writeConfig(tmpDir, { some_key: true });
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    const notInConfig = result.filter((r) => r.issue === 'documented-key-not-in-config');
+    expect(notInConfig.length).toBe(2);
+    expect(notInConfig.map((r) => r.detail)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tracker'),
+        expect.stringContaining('execution'),
+      ])
+    );
+  });
+
+  test('detects config key not documented', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n\n- `known_key` — Known\n\n## Other\n'
+    );
+    writeConfig(tmpDir, { known_key: true, secret_key: false });
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
+    expect(notDoc.length).toBe(1);
+    expect(notDoc[0].detail).toContain('secret_key');
+  });
+
+  test('skips internal config keys prefixed with underscore', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n\n- `visible` — Visible\n\n## Other\n'
+    );
+    writeConfig(tmpDir, { visible: true, _internal: 'hidden' });
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
+    expect(notDoc).toEqual([]);
+  });
+
+  test('returns empty when documented keys match config keys', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n\n- `alpha` — Alpha\n- `beta` — Beta\n\n## Other\n'
+    );
+    writeConfig(tmpDir, { alpha: 1, beta: 2 });
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    const configIssues = result.filter(
+      (r) => r.issue === 'documented-key-not-in-config' || r.issue === 'config-key-not-documented'
+    );
+    expect(configIssues).toEqual([]);
+  });
+
+  test('detects execute function not imported in mcp-server.js', () => {
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n\n## Other\n'
+    );
+    writeConfig(tmpDir, {});
+    writeFile(
+      tmpDir,
+      'lib/mcp-server.js',
+      [
+        'const { cmdKnown } = require("./tools");',
+        'const COMMAND_DESCRIPTORS = [',
+        "  { name: 'grd_known', execute: (cwd, args) => cmdKnown(cwd, args) },",
+        "  { name: 'grd_ghost', execute: (cwd, args) => cmdGhost(cwd, args) },",
+        '];',
+      ].join('\n')
+    );
+    const result = analyzeConfigSchemaDrift(tmpDir);
+    const notImported = result.filter((r) => r.issue === 'execute-function-not-imported');
+    expect(notImported.length).toBe(1);
+    expect(notImported[0].detail).toContain('cmdGhost');
+  });
+});
+
+// ─── runQualityAnalysis new analyzer integration ─────────────────────────────
+
+describe('runQualityAnalysis new analyzer integration', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('includes test_coverage in report when config enabled', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, test_coverage: true } });
+    writeFile(
+      tmpDir,
+      'lib/mod.js',
+      'function aFn() {}\nmodule.exports = { aFn };\n'
+    );
+    // No test file → should flag aFn as uncovered
+    const result = runQualityAnalysis(tmpDir, '20');
+    expect(result.details.test_coverage).toBeDefined();
+    expect(result.summary.test_coverage_gaps).toBeGreaterThanOrEqual(1);
+    expect(result.summary.total_issues).toBeGreaterThanOrEqual(1);
+  });
+
+  test('includes export_consistency in report when config enabled', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, export_consistency: true } });
+    writeFile(tmpDir, 'lib/source.js', 'function foo() {}\nmodule.exports = { foo };\n');
+    writeFile(
+      tmpDir,
+      'lib/consumer.js',
+      "const { foo, stale } = require('./source');\nmodule.exports = { foo };\n"
+    );
+    const result = runQualityAnalysis(tmpDir, '20');
+    expect(result.details.export_consistency).toBeDefined();
+    expect(result.summary.stale_imports).toBeGreaterThanOrEqual(1);
+  });
+
+  test('new options disabled by default — backward compatible', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
+    writeFile(tmpDir, 'consumer.js', "const { a } = require('./lib/mod');\na();\n");
+    const result = runQualityAnalysis(tmpDir, '20');
+    expect(result.details.test_coverage).toBeUndefined();
+    expect(result.details.export_consistency).toBeUndefined();
+    expect(result.details.doc_staleness).toBeUndefined();
+    expect(result.details.config_schema).toBeUndefined();
+    expect(result.summary.test_coverage_gaps).toBeUndefined();
+    expect(result.summary.stale_imports).toBeUndefined();
+  });
+
+  test('total_issues sums all enabled categories correctly', () => {
+    writeConfig(tmpDir, {
+      phase_cleanup: {
+        enabled: true,
+        doc_sync: true,
+        test_coverage: true,
+      },
+    });
+    writeFile(
+      tmpDir,
+      'lib/mod.js',
+      'function a() {}\nfunction b() {}\nmodule.exports = { a, b };\n'
+    );
+    writeFile(tmpDir, 'consumer.js', "const { a, b } = require('./lib/mod');\na(); b();\n");
+    // No test file → 2 test coverage gaps
+    // broken readme → 1 doc drift issue
+    writeFile(tmpDir, 'README.md', '[broken](no.md)\n');
+
+    const result = runQualityAnalysis(tmpDir, '20');
+    const expected =
+      result.summary.complexity_violations +
+      result.summary.dead_exports +
+      result.summary.oversized_files +
+      (result.summary.doc_drift_issues || 0) +
+      (result.summary.test_coverage_gaps || 0);
+    expect(result.summary.total_issues).toBe(expected);
+  });
+});
+
+// ─── generateCleanupPlan new task groupings ──────────────────────────────────
+
+describe('generateCleanupPlan new task groupings', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  function createPhaseDir(phaseNum, slug, existingPlans = []) {
+    const padded = String(phaseNum).padStart(2, '0');
+    const dirName = `${padded}-${slug}`;
+    const dirPath = path.join(tmpDir, '.planning', 'phases', dirName);
+    fs.mkdirSync(dirPath, { recursive: true });
+    for (const plan of existingPlans) {
+      const planFile = `${padded}-${String(plan).padStart(2, '0')}-PLAN.md`;
+      fs.writeFileSync(path.join(dirPath, planFile), '---\nplan: ' + plan + '\n---\n');
+    }
+    return dirPath;
+  }
+
+  test('generated plan contains test coverage task', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 0 } });
+    createPhaseDir(20, 'drift-test');
+    const report = {
+      phase: '20',
+      timestamp: '2026-02-16',
+      summary: { total_issues: 3 },
+      details: {
+        complexity: [],
+        dead_exports: [],
+        file_size: [],
+        test_coverage: [
+          { file: 'lib/a.js', exportName: 'fn1', testFile: 'tests/unit/a.test.js', line: 5 },
+          { file: 'lib/a.js', exportName: 'fn2', testFile: 'tests/unit/a.test.js', line: 10 },
+          { file: 'lib/b.js', exportName: 'fn3', testFile: 'tests/unit/b.test.js', line: 1 },
+        ],
+      },
+    };
+    const result = generateCleanupPlan(tmpDir, '20', report);
+    expect(result).not.toBeNull();
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+    expect(content).toContain('Close test coverage gaps');
+    expect(content).toContain('fn1');
+    expect(content).toContain('fn2');
+    expect(content).toContain('fn3');
+  });
+
+  test('generated plan contains consistency and schema task', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 0 } });
+    createPhaseDir(20, 'drift-test');
+    const report = {
+      phase: '20',
+      timestamp: '2026-02-16',
+      summary: { total_issues: 3 },
+      details: {
+        complexity: [],
+        dead_exports: [],
+        file_size: [],
+        export_consistency: [
+          { file: 'lib/a.js', importedName: 'old', sourceModule: 'lib/b.js', line: 1 },
+        ],
+        doc_staleness: [
+          { file: 'CLAUDE.md', issue: 'documented-but-not-implemented', detail: 'ghost cmd', line: 5 },
+        ],
+        config_schema: [
+          { file: '.planning/config.json', issue: 'config-key-not-documented', detail: 'secret', line: 0 },
+        ],
+      },
+    };
+    const result = generateCleanupPlan(tmpDir, '20', report);
+    expect(result).not.toBeNull();
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+    expect(content).toContain('Fix consistency and schema issues');
+    expect(content).toContain('stale import');
+    expect(content).toContain('doc staleness');
+    expect(content).toContain('config schema drift');
+  });
+
+  test('files from new categories appear in filesSet', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 0 } });
+    createPhaseDir(20, 'drift-test');
+    const report = {
+      phase: '20',
+      timestamp: '2026-02-16',
+      summary: { total_issues: 2 },
+      details: {
+        complexity: [],
+        dead_exports: [],
+        file_size: [],
+        test_coverage: [
+          { file: 'lib/unique-test.js', exportName: 'fn', testFile: 'tests/unit/unique-test.test.js', line: 1 },
+        ],
+        export_consistency: [
+          { file: 'lib/unique-import.js', importedName: 'x', sourceModule: 'lib/y.js', line: 1 },
+        ],
+      },
+    };
+    const result = generateCleanupPlan(tmpDir, '20', report);
+    expect(result).not.toBeNull();
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+    expect(content).toContain('"lib/unique-test.js"');
+    expect(content).toContain('"lib/unique-import.js"');
+  });
+
+  test('backward compat: new detail categories absent → no new tasks', () => {
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true, cleanup_threshold: 0 } });
+    createPhaseDir(20, 'drift-test');
+    const report = {
+      phase: '20',
+      timestamp: '2026-02-16',
+      summary: { total_issues: 2 },
+      details: {
+        complexity: [
+          { file: 'lib/a.js', line: 1, functionName: 'f', complexity: 20 },
+        ],
+        dead_exports: [
+          { file: 'lib/a.js', exportName: 'x', line: 5 },
+        ],
+        file_size: [],
+      },
+    };
+    const result = generateCleanupPlan(tmpDir, '20', report);
+    expect(result).not.toBeNull();
+    const content = fs.readFileSync(path.join(tmpDir, result.path), 'utf-8');
+    expect(content).toContain('Resolve code quality issues');
+    expect(content).not.toContain('Close test coverage gaps');
+    expect(content).not.toContain('Fix consistency and schema issues');
   });
 });

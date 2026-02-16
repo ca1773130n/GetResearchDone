@@ -459,6 +459,10 @@ describe('getCleanupConfig Defaults', () => {
       enabled: false,
       refactoring: false,
       doc_sync: false,
+      test_coverage: false,
+      export_consistency: false,
+      doc_staleness: false,
+      config_schema: false,
       cleanup_threshold: 5,
     });
   });
