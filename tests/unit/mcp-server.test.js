@@ -71,7 +71,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('tools with required params have required array in inputSchema', () => {
-    const toolsWithRequired = tools.filter(t => t.inputSchema.required);
+    const toolsWithRequired = tools.filter((t) => t.inputSchema.required);
     expect(toolsWithRequired.length).toBeGreaterThan(0);
     for (const tool of toolsWithRequired) {
       expect(Array.isArray(tool.inputSchema.required)).toBe(true);
@@ -84,7 +84,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('tools without required params do not have required array', () => {
-    const toolsWithoutRequired = tools.filter(t => !t.inputSchema.required);
+    const toolsWithoutRequired = tools.filter((t) => !t.inputSchema.required);
     expect(toolsWithoutRequired.length).toBeGreaterThan(0);
     for (const tool of toolsWithoutRequired) {
       expect(tool.inputSchema.required).toBeUndefined();
@@ -99,7 +99,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('no duplicate tool names', () => {
-    const names = tools.map(t => t.name);
+    const names = tools.map((t) => t.name);
     const unique = new Set(names);
     expect(unique.size).toBe(names.length);
   });
@@ -107,14 +107,14 @@ describe('buildToolDefinitions()', () => {
   // ── Spot-check specific tools ──
 
   test('grd_state_load has no required params', () => {
-    const tool = tools.find(t => t.name === 'grd_state_load');
+    const tool = tools.find((t) => t.name === 'grd_state_load');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toBeUndefined();
     expect(Object.keys(tool.inputSchema.properties)).toHaveLength(0);
   });
 
   test('grd_state_get has optional section param of type string', () => {
-    const tool = tools.find(t => t.name === 'grd_state_get');
+    const tool = tools.find((t) => t.name === 'grd_state_get');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.properties.section).toBeDefined();
     expect(tool.inputSchema.properties.section.type).toBe('string');
@@ -122,27 +122,27 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('grd_phase_add has required description param', () => {
-    const tool = tools.find(t => t.name === 'grd_phase_add');
+    const tool = tools.find((t) => t.name === 'grd_phase_add');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('description');
     expect(tool.inputSchema.properties.description.type).toBe('string');
   });
 
   test('grd_verify_plan_structure has required file param', () => {
-    const tool = tools.find(t => t.name === 'grd_verify_plan_structure');
+    const tool = tools.find((t) => t.name === 'grd_verify_plan_structure');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('file');
   });
 
   test('grd_init_execute_phase has required phase param', () => {
-    const tool = tools.find(t => t.name === 'grd_init_execute_phase');
+    const tool = tools.find((t) => t.name === 'grd_init_execute_phase');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('phase');
   });
 
   test('inputSchema properties have correct types for various param types', () => {
     // array type
-    const commitTool = tools.find(t => t.name === 'grd_commit');
+    const commitTool = tools.find((t) => t.name === 'grd_commit');
     expect(commitTool).toBeDefined();
     const filesProp = commitTool.inputSchema.properties.files;
     expect(filesProp.type).toBe('array');
@@ -153,12 +153,12 @@ describe('buildToolDefinitions()', () => {
     expect(amendProp.type).toBe('boolean');
 
     // object type
-    const patchTool = tools.find(t => t.name === 'grd_state_patch');
+    const patchTool = tools.find((t) => t.name === 'grd_state_patch');
     expect(patchTool).toBeDefined();
     expect(patchTool.inputSchema.properties.patches.type).toBe('object');
 
     // number type
-    const verifySummary = tools.find(t => t.name === 'grd_verify_summary');
+    const verifySummary = tools.find((t) => t.name === 'grd_verify_summary');
     expect(verifySummary).toBeDefined();
     expect(verifySummary.inputSchema.properties.check_count.type).toBe('number');
   });
@@ -186,37 +186,39 @@ describe('COMMAND_DESCRIPTORS', () => {
   });
 
   test('covers state command family', () => {
-    const stateCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_state_'));
+    const stateCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_state_'));
     expect(stateCommands.length).toBeGreaterThanOrEqual(10);
   });
 
   test('covers verify command family', () => {
-    const verifyCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_verify_'));
+    const verifyCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_verify_'));
     expect(verifyCommands.length).toBeGreaterThanOrEqual(5);
   });
 
   test('covers frontmatter command family', () => {
-    const fmCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_frontmatter_'));
+    const fmCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_frontmatter_'));
     expect(fmCommands.length).toBeGreaterThanOrEqual(4);
   });
 
   test('covers phase command family', () => {
-    const phaseCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_phase_'));
+    const phaseCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_phase_'));
     expect(phaseCommands.length).toBeGreaterThanOrEqual(4);
   });
 
   test('covers init command family', () => {
-    const initCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_init_'));
+    const initCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_init_'));
     expect(initCommands.length).toBeGreaterThanOrEqual(15);
   });
 
   test('covers tracker command family', () => {
-    const trackerCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_tracker_'));
+    const trackerCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_tracker_'));
     expect(trackerCommands.length).toBeGreaterThanOrEqual(10);
   });
 
   test('covers long_term_roadmap command family', () => {
-    const ltrCommands = COMMAND_DESCRIPTORS.filter(d => d.name.startsWith('grd_long_term_roadmap_'));
+    const ltrCommands = COMMAND_DESCRIPTORS.filter((d) =>
+      d.name.startsWith('grd_long_term_roadmap_')
+    );
     expect(ltrCommands.length).toBeGreaterThanOrEqual(8);
   });
 
@@ -570,14 +572,20 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
 
   test('grd_state_record_metric execute lambda', () => {
     const r = callTool('grd_state_record_metric', {
-      phase: '1', plan: '1', duration: '1min', tasks: '1', files: '1',
+      phase: '1',
+      plan: '1',
+      duration: '1min',
+      tasks: '1',
+      files: '1',
     });
     expect(r.result || r.error).toBeDefined();
   });
 
   test('grd_state_add_decision execute lambda', () => {
     const r = callTool('grd_state_add_decision', {
-      summary: 'Test decision', phase: '1', rationale: 'test',
+      summary: 'Test decision',
+      phase: '1',
+      rationale: 'test',
     });
     expect(r.result || r.error).toBeDefined();
   });
@@ -594,7 +602,8 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
 
   test('grd_state_record_session execute lambda', () => {
     const r = callTool('grd_state_record_session', {
-      stopped_at: 'Test stop', resume_file: 'None',
+      stopped_at: 'Test stop',
+      resume_file: 'None',
     });
     expect(r.result || r.error).toBeDefined();
   });
@@ -663,7 +672,12 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
   });
 
   test('grd_template_fill execute lambda', () => {
-    const r = callTool('grd_template_fill', { template: 'summary', phase: '1', plan: '1', name: 'Test' });
+    const r = callTool('grd_template_fill', {
+      template: 'summary',
+      phase: '1',
+      plan: '1',
+      name: 'Test',
+    });
     expect(r.result || r.error).toBeDefined();
   });
 

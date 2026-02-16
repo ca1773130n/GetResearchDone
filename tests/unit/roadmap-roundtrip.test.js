@@ -76,7 +76,11 @@ function makeMilestones() {
       estimated_start: '2026-05-01',
       estimated_duration: '4 weeks',
       dependencies: 'v2.0.0 complete',
-      rough_phase_sketch: ['Regression Detection', 'A/B Testing Framework', 'Profiling Integration'],
+      rough_phase_sketch: [
+        'Regression Detection',
+        'A/B Testing Framework',
+        'Profiling Integration',
+      ],
       open_questions: ['Baseline storage: in-repo vs external database?'],
     },
     {
@@ -100,17 +104,11 @@ function makeMilestones() {
       name: 'Community & Marketplace',
       version: 'v5.0.0',
       goal: 'Enable sharing of research artifacts and phase templates',
-      success_criteria: [
-        '10+ published research landscapes',
-        '20+ reusable phase templates',
-      ],
+      success_criteria: ['10+ published research landscapes', '20+ reusable phase templates'],
       status: 'Later',
       estimated_timeline: 'Q4 2026',
       dependencies: 'v4.0.0 complete, user base >100',
-      open_research_questions: [
-        'Licensing and attribution model?',
-        'Quality curation mechanism?',
-      ],
+      open_research_questions: ['Licensing and attribution model?', 'Quality curation mechanism?'],
     },
   ];
 }
@@ -693,7 +691,11 @@ describe('ROADMAP.md Generation Integrity', () => {
     content = updateRefinementHistory(content, 'Refined', 'Updated v3.0.0 goal');
 
     content = refineMilestone(content, 'v4.0.0', {
-      success_criteria: ['Multi-workspace support', 'Shared knowledge graph', 'Cross-project search'],
+      success_criteria: [
+        'Multi-workspace support',
+        'Shared knowledge graph',
+        'Cross-project search',
+      ],
     });
     content = updateRefinementHistory(content, 'Refined', 'Updated v4.0.0 success criteria');
 
@@ -712,7 +714,9 @@ describe('ROADMAP.md Generation Integrity', () => {
     expect(parsed.next.some((m) => m.version === 'v3.0.0')).toBe(true);
     expect(parsed.next.find((m) => m.version === 'v3.0.0').goal).toContain('ML-powered');
     expect(parsed.next.some((m) => m.version === 'v4.0.0')).toBe(true);
-    expect(parsed.next.find((m) => m.version === 'v4.0.0').success_criteria).toContain('Multi-workspace support');
+    expect(parsed.next.find((m) => m.version === 'v4.0.0').success_criteria).toContain(
+      'Multi-workspace support'
+    );
     expect(parsed.later).toHaveLength(1);
     expect(parsed.later[0].version).toBe('v5.0.0');
     expect(parsed.refinement_history).toHaveLength(4);

@@ -42,11 +42,7 @@ beforeAll(() => {
   // Create minimal consumer package.json
   fs.writeFileSync(
     path.join(consumerDir, 'package.json'),
-    JSON.stringify(
-      { name: 'test-consumer', version: '1.0.0', private: true },
-      null,
-      2,
-    ) + '\n',
+    JSON.stringify({ name: 'test-consumer', version: '1.0.0', private: true }, null, 2) + '\n'
   );
 
   // Install from tarball
@@ -75,11 +71,10 @@ describe('npm pack validation', () => {
   let dryRunFilePaths;
 
   beforeAll(() => {
-    const dryRunOutput = execFileSync(
-      'npm',
-      ['pack', '--dry-run', '--json'],
-      { cwd: PROJECT_ROOT, encoding: 'utf-8' },
-    );
+    const dryRunOutput = execFileSync('npm', ['pack', '--dry-run', '--json'], {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf-8',
+    });
     dryRunInfo = JSON.parse(dryRunOutput);
     dryRunFilePaths = dryRunInfo[0].files.map((f) => f.path);
   });
@@ -124,7 +119,7 @@ describe('npm pack validation', () => {
         p.startsWith('tests/') ||
         p.startsWith('.planning/') ||
         p.startsWith('.github/') ||
-        p.startsWith('coverage/'),
+        p.startsWith('coverage/')
     );
     expect(excluded).toEqual([]);
   });
@@ -166,13 +161,7 @@ describe('npm install from tarball', () => {
 
 describe('bin entry execution', () => {
   test('grd-tools.js produces usage output', () => {
-    const grdToolsPath = path.join(
-      consumerDir,
-      'node_modules',
-      'grd-tools',
-      'bin',
-      'grd-tools.js',
-    );
+    const grdToolsPath = path.join(consumerDir, 'node_modules', 'grd-tools', 'bin', 'grd-tools.js');
 
     try {
       const stdout = execFileSync('node', [grdToolsPath], {
@@ -194,7 +183,7 @@ describe('bin entry execution', () => {
       'node_modules',
       'grd-tools',
       'bin',
-      'grd-mcp-server.js',
+      'grd-mcp-server.js'
     );
 
     // Send initialize message via stdin using input option (synchronous, no open handles)
@@ -229,7 +218,7 @@ describe('bin entry execution', () => {
       'node_modules',
       'grd-tools',
       'bin',
-      'postinstall.js',
+      'postinstall.js'
     );
     const content = fs.readFileSync(postinstallPath, 'utf-8');
     expect(content.startsWith('#!/usr/bin/env node')).toBe(true);
@@ -245,7 +234,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     expect(fs.existsSync(pluginPath)).toBe(true);
   });
@@ -256,7 +245,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     const content = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
     expect(content.name).toBeDefined();
@@ -270,7 +259,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     const raw = fs.readFileSync(pluginPath, 'utf-8');
     expect(raw).toContain('${CLAUDE_PLUGIN_ROOT}');

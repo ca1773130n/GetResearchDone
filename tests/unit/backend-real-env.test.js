@@ -323,7 +323,10 @@ describe('Real-environment backend detection (DEFER-09-01)', () => {
     test.each([
       ['claude', { subagents: true, parallel: true, teams: true, hooks: true, mcp: true }],
       ['codex', { subagents: true, parallel: true, teams: false, hooks: false, mcp: true }],
-      ['gemini', { subagents: 'experimental', parallel: false, teams: false, hooks: true, mcp: true }],
+      [
+        'gemini',
+        { subagents: 'experimental', parallel: false, teams: false, hooks: true, mcp: true },
+      ],
       ['opencode', { subagents: true, parallel: true, teams: false, hooks: true, mcp: true }],
     ])('detected %s backend returns correct capabilities', (backend, expectedCaps) => {
       cleanupTempDir(tmpDir);

@@ -70,7 +70,11 @@ afterAll(() => {
 // ─── 1. Backend Detection ─────────────────────────────────────────────────────
 
 describe('E2E: Backend detection', () => {
-  const { detectBackend, getBackendCapabilities, resolveBackendModel } = require('../../lib/backend');
+  const {
+    detectBackend,
+    getBackendCapabilities,
+    resolveBackendModel,
+  } = require('../../lib/backend');
 
   test('detectBackend returns a valid backend string', () => {
     const backend = detectBackend(fixtureDir);
@@ -104,11 +108,7 @@ describe('E2E: Backend detection', () => {
 
 describe('E2E: Context init enrichment', () => {
   const { captureExecution } = require('../../lib/mcp-server');
-  const {
-    cmdInitExecutePhase,
-    cmdInitPlanPhase,
-    cmdInitResume,
-  } = require('../../lib/context');
+  const { cmdInitExecutePhase, cmdInitPlanPhase, cmdInitResume } = require('../../lib/context');
 
   test('cmdInitExecutePhase returns backend-enriched context', () => {
     const result = captureExecution(() => {

@@ -15,11 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const {
-  getCleanupConfig,
-  runQualityAnalysis,
-  generateCleanupPlan,
-} = require('../../lib/cleanup');
+const { getCleanupConfig, runQualityAnalysis, generateCleanupPlan } = require('../../lib/cleanup');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -228,7 +224,11 @@ describe('No Filesystem Side Effects When Disabled (runQualityAnalysis)', () => 
       },
     });
     writeFile(tmpDir, 'lib/mod.js', 'function a() {}\nmodule.exports = { a };\n');
-    writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n- `missing` — Missing\n## CLI Tooling\n- `ghost cmd` — Not real\n## Other\n');
+    writeFile(
+      tmpDir,
+      'CLAUDE.md',
+      '## Configuration\n- `missing` — Missing\n## CLI Tooling\n- `ghost cmd` — Not real\n## Other\n'
+    );
     writeFile(tmpDir, 'lib/mcp-server.js', "const COMMAND_DESCRIPTORS = [{ name: 'grd_real' }];\n");
 
     const mtimesBefore = collectFileMtimes(tmpDir);
@@ -436,9 +436,7 @@ describe('Performance (No I/O Overhead)', () => {
 
     // Populate with many files to make a full scan slow
     for (let i = 0; i < 25; i++) {
-      const content = Array(100)
-        .fill(`// line ${i}`)
-        .join('\n');
+      const content = Array(100).fill(`// line ${i}`).join('\n');
       writeFile(tmpDir, `lib/module-${i}.js`, content + '\nmodule.exports = {};\n');
     }
     writeFile(tmpDir, 'CHANGELOG.md', '# Changelog\n');
@@ -456,9 +454,7 @@ describe('Performance (No I/O Overhead)', () => {
     // Set up with enabled: true first for comparison
     writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
     for (let i = 0; i < 25; i++) {
-      const content = Array(100)
-        .fill(`// line ${i}`)
-        .join('\n');
+      const content = Array(100).fill(`// line ${i}`).join('\n');
       writeFile(tmpDir, `lib/module-${i}.js`, content + '\nmodule.exports = {};\n');
     }
 
@@ -571,7 +567,12 @@ describe('Integration with Phase Execution Context', () => {
     const configB = JSON.parse(
       fs.readFileSync(path.join(tmpDirB, '.planning', 'config.json'), 'utf-8')
     );
-    configB.phase_cleanup = { enabled: false, doc_sync: true, refactoring: true, cleanup_threshold: 3 };
+    configB.phase_cleanup = {
+      enabled: false,
+      doc_sync: true,
+      refactoring: true,
+      cleanup_threshold: 3,
+    };
     fs.writeFileSync(
       path.join(tmpDirB, '.planning', 'config.json'),
       JSON.stringify(configB, null, 2)
@@ -616,9 +617,7 @@ describe('Integration with Phase Execution Context', () => {
       JSON.stringify(configA, null, 2)
     );
 
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDirA, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDirA, '1', new Set(), false));
     const result = JSON.parse(stdout);
 
     // The execute-phase init should NOT include any cleanup fields

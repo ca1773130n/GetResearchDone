@@ -56,13 +56,7 @@ describe('package.json npm configuration', () => {
 
   test('files whitelist contains required entries', () => {
     expect(pkg.files).toEqual(
-      expect.arrayContaining([
-        'bin/',
-        'lib/',
-        'commands/',
-        'agents/',
-        '.claude-plugin/plugin.json',
-      ])
+      expect.arrayContaining(['bin/', 'lib/', 'commands/', 'agents/', '.claude-plugin/plugin.json'])
     );
   });
 

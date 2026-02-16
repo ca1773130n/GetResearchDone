@@ -34,7 +34,12 @@ const {
   cmdInitResearchWorkflow,
   cmdInitPlanMilestoneGaps,
 } = require('../../lib/context');
-const { VALID_BACKENDS, BACKEND_CAPABILITIES, DEFAULT_BACKEND_MODELS, clearModelCache } = require('../../lib/backend');
+const {
+  VALID_BACKENDS,
+  BACKEND_CAPABILITIES,
+  DEFAULT_BACKEND_MODELS,
+  clearModelCache,
+} = require('../../lib/backend');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -342,16 +347,22 @@ describe('Context init backward compatibility (DEFER-10-01)', () => {
       { name: 'cmdInitMilestoneOp', fn: (dir) => cmdInitMilestoneOp(dir, false) },
       { name: 'cmdInitMapCodebase', fn: (dir) => cmdInitMapCodebase(dir, false) },
       { name: 'cmdInitProgress', fn: (dir) => cmdInitProgress(dir, new Set(), false) },
-      { name: 'cmdInitResearchWorkflow', fn: (dir) => cmdInitResearchWorkflow(dir, 'survey', null, new Set(), false) },
+      {
+        name: 'cmdInitResearchWorkflow',
+        fn: (dir) => cmdInitResearchWorkflow(dir, 'survey', null, new Set(), false),
+      },
       { name: 'cmdInitPlanMilestoneGaps', fn: (dir) => cmdInitPlanMilestoneGaps(dir, false) },
     ];
 
-    test.each(functions.map((f) => [f.name, f.fn]))('%s produces valid JSON with backend and backend_capabilities under codex', (name, fn) => {
-      setFixtureBackend(tmpDir, 'codex');
-      const result = callInit(() => fn(tmpDir));
-      expect(result.backend).toBe('codex');
-      expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.codex);
-    });
+    test.each(functions.map((f) => [f.name, f.fn]))(
+      '%s produces valid JSON with backend and backend_capabilities under codex',
+      (name, fn) => {
+        setFixtureBackend(tmpDir, 'codex');
+        const result = callInit(() => fn(tmpDir));
+        expect(result.backend).toBe('codex');
+        expect(result.backend_capabilities).toEqual(BACKEND_CAPABILITIES.codex);
+      }
+    );
   });
 
   // ─── No regressions: output shape consistency ──────────────────────────

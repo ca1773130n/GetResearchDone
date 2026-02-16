@@ -72,9 +72,13 @@ describe('getCleanupConfig', () => {
   });
 
   const FULL_DEFAULTS = {
-    enabled: false, refactoring: false, doc_sync: false,
-    test_coverage: false, export_consistency: false,
-    doc_staleness: false, config_schema: false,
+    enabled: false,
+    refactoring: false,
+    doc_sync: false,
+    test_coverage: false,
+    export_consistency: false,
+    doc_staleness: false,
+    config_schema: false,
     cleanup_threshold: 5,
   };
 
@@ -616,11 +620,7 @@ describe('analyzeJsdocDrift', () => {
   });
 
   test('returns empty array for files with no JSDoc blocks', () => {
-    writeFile(
-      tmpDir,
-      'lib/example.js',
-      'function plain(a, b) { return a + b; }\n'
-    );
+    writeFile(tmpDir, 'lib/example.js', 'function plain(a, b) { return a + b; }\n');
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result).toEqual([]);
@@ -879,17 +879,15 @@ describe('generateCleanupPlan', () => {
     writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
     createPhaseDir(14, 'test-phase');
     const report = makeQualityReport({
-      complexity: [
-        { file: 'lib/a.js', line: 1, functionName: 'complexFunc', complexity: 25 },
-      ],
-      dead_exports: [
-        { file: 'lib/b.js', exportName: 'deadExport', line: 5 },
-      ],
+      complexity: [{ file: 'lib/a.js', line: 1, functionName: 'complexFunc', complexity: 25 }],
+      dead_exports: [{ file: 'lib/b.js', exportName: 'deadExport', line: 5 }],
       file_size: [{ file: 'lib/c.js', lines: 600, threshold: 500 }],
       doc_drift: {
         changelog: [{ file: 'CHANGELOG.md', reason: 'stale' }],
         readme_links: [{ file: 'README.md', link: 'missing.md', line: 3 }],
-        jsdoc: [{ file: 'lib/a.js', line: 1, functionName: 'complexFunc', issue: 'extra @param: ghost' }],
+        jsdoc: [
+          { file: 'lib/a.js', line: 1, functionName: 'complexFunc', issue: 'extra @param: ghost' },
+        ],
       },
     });
 
@@ -1153,16 +1151,8 @@ describe('analyzeExportConsistency', () => {
   });
 
   test('detects stale import not in source exports', () => {
-    writeFile(
-      tmpDir,
-      'lib/source.js',
-      'function foo() {}\nmodule.exports = { foo };\n'
-    );
-    writeFile(
-      tmpDir,
-      'lib/consumer.js',
-      "const { foo, removed } = require('./source');\nfoo();\n"
-    );
+    writeFile(tmpDir, 'lib/source.js', 'function foo() {}\nmodule.exports = { foo };\n');
+    writeFile(tmpDir, 'lib/consumer.js', "const { foo, removed } = require('./source');\nfoo();\n");
     const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
     expect(result.length).toBe(1);
     expect(result[0].importedName).toBe('removed');
@@ -1186,11 +1176,7 @@ describe('analyzeExportConsistency', () => {
   });
 
   test('handles missing source module gracefully', () => {
-    writeFile(
-      tmpDir,
-      'lib/consumer.js',
-      "const { foo } = require('./nonexistent');\nfoo();\n"
-    );
+    writeFile(tmpDir, 'lib/consumer.js', "const { foo } = require('./nonexistent');\nfoo();\n");
     const result = analyzeExportConsistency(tmpDir, ['lib/consumer.js']);
     expect(result).toEqual([]);
   });
@@ -1238,11 +1224,7 @@ describe('analyzeDocStaleness', () => {
   });
 
   test('detects implemented-but-not-documented tool', () => {
-    writeFile(
-      tmpDir,
-      'CLAUDE.md',
-      '## CLI Tooling\n- `state load` — desc\n## Other\n'
-    );
+    writeFile(tmpDir, 'CLAUDE.md', '## CLI Tooling\n- `state load` — desc\n## Other\n');
     writeFile(
       tmpDir,
       'lib/mcp-server.js',
@@ -1270,11 +1252,7 @@ describe('analyzeDocStaleness', () => {
   });
 
   test('handles slash-separated subcommands correctly', () => {
-    writeFile(
-      tmpDir,
-      'CLAUDE.md',
-      '## CLI Tooling\n- `phase add/remove` — ops\n## Other\n'
-    );
+    writeFile(tmpDir, 'CLAUDE.md', '## CLI Tooling\n- `phase add/remove` — ops\n## Other\n');
     writeFile(
       tmpDir,
       'lib/mcp-server.js',
@@ -1322,11 +1300,7 @@ describe('analyzeConfigSchemaDrift', () => {
   });
 
   test('detects config key not documented', () => {
-    writeFile(
-      tmpDir,
-      'CLAUDE.md',
-      '## Configuration\n\n- `known_key` — Known\n\n## Other\n'
-    );
+    writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `known_key` — Known\n\n## Other\n');
     writeConfig(tmpDir, { known_key: true, secret_key: false });
     const result = analyzeConfigSchemaDrift(tmpDir);
     const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
@@ -1335,11 +1309,7 @@ describe('analyzeConfigSchemaDrift', () => {
   });
 
   test('skips internal config keys prefixed with underscore', () => {
-    writeFile(
-      tmpDir,
-      'CLAUDE.md',
-      '## Configuration\n\n- `visible` — Visible\n\n## Other\n'
-    );
+    writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `visible` — Visible\n\n## Other\n');
     writeConfig(tmpDir, { visible: true, _internal: 'hidden' });
     const result = analyzeConfigSchemaDrift(tmpDir);
     const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
@@ -1361,11 +1331,7 @@ describe('analyzeConfigSchemaDrift', () => {
   });
 
   test('detects execute function not imported in mcp-server.js', () => {
-    writeFile(
-      tmpDir,
-      'CLAUDE.md',
-      '## Configuration\n\n## Other\n'
-    );
+    writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n## Other\n');
     writeConfig(tmpDir, {});
     writeFile(
       tmpDir,
@@ -1400,11 +1366,7 @@ describe('runQualityAnalysis new analyzer integration', () => {
 
   test('includes test_coverage in report when config enabled', () => {
     writeConfig(tmpDir, { phase_cleanup: { enabled: true, test_coverage: true } });
-    writeFile(
-      tmpDir,
-      'lib/mod.js',
-      'function aFn() {}\nmodule.exports = { aFn };\n'
-    );
+    writeFile(tmpDir, 'lib/mod.js', 'function aFn() {}\nmodule.exports = { aFn };\n');
     // No test file → should flag aFn as uncovered
     const result = runQualityAnalysis(tmpDir, '20');
     expect(result.details.test_coverage).toBeDefined();
@@ -1534,10 +1496,20 @@ describe('generateCleanupPlan new task groupings', () => {
           { file: 'lib/a.js', importedName: 'old', sourceModule: 'lib/b.js', line: 1 },
         ],
         doc_staleness: [
-          { file: 'CLAUDE.md', issue: 'documented-but-not-implemented', detail: 'ghost cmd', line: 5 },
+          {
+            file: 'CLAUDE.md',
+            issue: 'documented-but-not-implemented',
+            detail: 'ghost cmd',
+            line: 5,
+          },
         ],
         config_schema: [
-          { file: '.planning/config.json', issue: 'config-key-not-documented', detail: 'secret', line: 0 },
+          {
+            file: '.planning/config.json',
+            issue: 'config-key-not-documented',
+            detail: 'secret',
+            line: 0,
+          },
         ],
       },
     };
@@ -1562,7 +1534,12 @@ describe('generateCleanupPlan new task groupings', () => {
         dead_exports: [],
         file_size: [],
         test_coverage: [
-          { file: 'lib/unique-test.js', exportName: 'fn', testFile: 'tests/unit/unique-test.test.js', line: 1 },
+          {
+            file: 'lib/unique-test.js',
+            exportName: 'fn',
+            testFile: 'tests/unit/unique-test.test.js',
+            line: 1,
+          },
         ],
         export_consistency: [
           { file: 'lib/unique-import.js', importedName: 'x', sourceModule: 'lib/y.js', line: 1 },
@@ -1584,12 +1561,8 @@ describe('generateCleanupPlan new task groupings', () => {
       timestamp: '2026-02-16',
       summary: { total_issues: 2 },
       details: {
-        complexity: [
-          { file: 'lib/a.js', line: 1, functionName: 'f', complexity: 20 },
-        ],
-        dead_exports: [
-          { file: 'lib/a.js', exportName: 'x', line: 5 },
-        ],
+        complexity: [{ file: 'lib/a.js', line: 1, functionName: 'f', complexity: 20 }],
+        dead_exports: [{ file: 'lib/a.js', exportName: 'x', line: 5 }],
         file_size: [],
       },
     };
