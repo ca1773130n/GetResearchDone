@@ -47,7 +47,10 @@ Phases 9-13 delivered multi-backend detection, context init enrichment, hierarch
   2. Doc drift warnings appear in the phase completion summary alongside existing quality metrics (ESLint complexity, dead exports, file size)
   3. When quality issues exceed configured thresholds, a cleanup PLAN.md is auto-generated in standard format with frontmatter, and appended to the current phase
   4. User can execute or skip the generated cleanup plan without disrupting normal workflow
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 14-01-PLAN.md — TDD: Doc drift detection functions (CHANGELOG, README links, JSDoc)
+- [ ] 14-02-PLAN.md — Auto-generate cleanup PLAN.md and wire into phase completion
 
 ### Phase 15: Deferred Validations
 **Goal**: All four v0.1.0 deferred validations pass, confirming backend detection, context init, hierarchical roadmap, and auto-cleanup work correctly in real conditions
@@ -112,7 +115,7 @@ Phases 9-13 delivered multi-backend detection, context init enrichment, hierarch
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 14. Auto-Cleanup Doc Drift | v0.1.1 | 0/TBD | Not started | - |
+| 14. Auto-Cleanup Doc Drift | v0.1.1 | 0/2 | Not started | - |
 | 15. Deferred Validations | v0.1.1 | 0/TBD | Not started | - |
 | 16. MCP Server | v0.1.1 | 0/TBD | Not started | - |
 | 17. npm Distribution | v0.1.1 | 0/TBD | Not started | - |
