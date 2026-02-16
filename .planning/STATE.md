@@ -4,13 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 15 — Deferred Validations
-- **Current plan:** Plan 3 of 3 complete
+- **Active phase:** Phase 16 — MCP Server
+- **Current plan:** Plan 1 of 2 complete
 - **Milestone:** v0.1.1 — Completeness, Interoperability & Distribution
-- **Progress:** [██████████] 100%
-- **Next:** `/grd:phase complete 15` then `/grd:plan-phase 16`
-
-Progress: [####------] 40%
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Execute 16-02-PLAN.md (MCP server tests)
 
 ## Pending Decisions
 
@@ -48,6 +46,11 @@ None.
 | 2026-02-16 | Verify import isolation by scanning source text (not Node require cache) | Phase 15 | More reliable and deterministic assertions for import verification |
 | 2026-02-16 | Accept dynamically detected OpenCode models in test assertions | Phase 15 | OpenCode `getCachedModels` returns CLI-detected models; tests verify non-raw-tier instead of exact match |
 | 2026-02-16 | Config override (not env vars) for backend switching in context tests | Phase 15 | Tests highest-priority detection path; avoids env var interference between parallel tests |
+| 2026-02-16 | Auto-generate MCP tool definitions from COMMAND_DESCRIPTORS table | Phase 16 | Ensures all CLI commands exposed without manual JSON authoring |
+| 2026-02-16 | Output capture pattern (intercept process.exit) for MCP tool execution | Phase 16 | Reuses existing cmd* functions without modification |
+| 2026-02-16 | 97 tools covering all routeCommand paths | Phase 16 | Every CLI command/subcommand has corresponding MCP tool |
+| 2026-02-16 | Zero external dependencies for MCP server | Phase 16 | Node.js built-ins only, consistent with GRD philosophy |
+| 2026-02-16 | raw=true for TUI commands (dashboard/health/phase-detail) in MCP | Phase 16 | Gets JSON output instead of TUI text for structured MCP responses |
 
 <details>
 <summary>v0.1.0 Phase Decisions (28 decisions)</summary>
@@ -133,13 +136,14 @@ None.
 | 15 | 02 | 4min | 2 | 1 | +28 tests (929 total) |
 | 15 | 01 | 5min | 2 | 2 | +89 tests (1018 total) |
 | 15 | 03 | 3min | 2 | 1 | +20 tests (1038 total) |
+| 16 | 01 | 5min | 2 | 2 | - |
 
 ## Session Continuity
 
-- **Last action:** Completed Phase 15 Plan 03 (auto-cleanup non-interference validation)
-- **Stopped at:** Completed 15-03-PLAN.md
-- **Next action:** Complete Phase 15, then plan Phase 16
-- **Context needed:** All Phase 15 deferred validations resolved (DEFER-09-01, DEFER-10-01, DEFER-11-01, DEFER-13-01); 1038 tests passing
+- **Last action:** Completed Phase 16 Plan 01 (MCP server protocol handler and entry point)
+- **Stopped at:** Completed 16-01-PLAN.md
+- **Next action:** Execute 16-02-PLAN.md (MCP server tests)
+- **Context needed:** lib/mcp-server.js (97 tools, McpServer class), bin/grd-mcp-server.js (stdio transport); 1038 tests passing
 
 ---
 
