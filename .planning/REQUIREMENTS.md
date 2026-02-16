@@ -1,87 +1,50 @@
-# Requirements: v0.1.1 — Completeness, Interoperability & Distribution
+# Requirements: v0.1.2 — Developer Experience & Requirement Traceability
 
 **Created:** 2026-02-16
-**Milestone:** v0.1.1
+**Milestone:** v0.1.2
 
-## Feature 1: Deferred Completion (from v0.1.0)
+## Feature 1: Requirement Inspection Commands
 
-### REQ-18: Doc Drift Detection
+### REQ-31: Requirement Lookup by ID
+**Priority:** P0
+**Category:** CLI
+Implement `grd-tools requirement get <REQ-ID>` command that parses REQUIREMENTS.md (current or archived milestones) and returns structured JSON with all fields: ID, title, priority, category, description, phase mapping, status, deferred-from, and resolves references. Falls back to archived milestone requirements if not found in current file.
+
+### REQ-32: Requirement Listing with Filters
 **Priority:** P1
-**Category:** Auto-cleanup
-**Deferred from:** REQ-10 (v0.1.0 Phase 14)
-Detect stale documentation at phase boundaries: CHANGELOG not updated since last plan, README links broken, JSDoc parameter mismatches. Report as warnings in phase completion summary. Integrate with existing `lib/cleanup.js` quality analysis pipeline.
+**Category:** CLI
+Implement `grd-tools requirement list` command with optional filters: `--phase N`, `--priority P0|P1|P2`, `--status Pending|Done`, `--category <name>`. Returns filtered list of requirements with summary fields. Supports `--all` flag to include archived milestone requirements.
 
-### REQ-19: Auto-Generated Cleanup Plan
+### REQ-33: Requirement Traceability Query
+**Priority:** P1
+**Category:** CLI
+Implement `grd-tools requirement traceability` command that parses the Traceability Matrix from REQUIREMENTS.md and returns it as structured JSON. Supports optional `--phase N` filter to show only requirements mapped to a specific phase.
+
+## Feature 2: Phase-Detail Enhancement
+
+### REQ-34: Phase-Detail Shows Requirements
+**Priority:** P0
+**Category:** Enhancement
+Enhance `cmdPhaseDetail` to extract `**Requirements**: REQ-XX, REQ-YY` from the ROADMAP.md phase section and display a requirements summary block. For each REQ-ID, show: ID, title, priority, and status. Works for both planned and unplanned phases (requirements come from ROADMAP.md, not plan files).
+
+## Feature 3: Convenience Commands
+
+### REQ-35: Planning Artifact Search
 **Priority:** P2
-**Category:** Auto-cleanup
-**Deferred from:** REQ-11 (v0.1.0 Phase 14)
-When quality analysis (including doc drift) finds issues above configured thresholds, auto-generate a cleanup PLAN.md and append it to the current phase. User can execute or skip. Plan follows standard PLAN.md format with frontmatter.
+**Category:** CLI
+Implement `grd-tools search <query>` command that searches across all `.planning/` markdown files (STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md) for a given text query. Returns file paths, line numbers, and matching lines. Useful for finding all references to a requirement ID, decision, or concept across planning artifacts.
 
-### REQ-20: Integration & Cross-Feature Validation
-**Priority:** P0
-**Category:** Integration
-**Deferred from:** v0.1.0 Phase 15
-End-to-end validation that all v0.1.0 and v0.1.1 features work together: backend detection + context init + quality analysis + doc drift + MCP server. Run full test suite, verify no regressions, validate deferred items.
-
-## Feature 2: Deferred Validations
-
-### REQ-21: Backend Detection Real-Environment Accuracy
-**Priority:** P1
-**Category:** Validation
-**Resolves:** DEFER-09-01
-Validate that `detectBackend()` returns correct results in real (non-mocked) environments. Test with actual environment variable patterns from each backend. Document any detection edge cases found.
-
-### REQ-22: Context Init Backward Compatibility
-**Priority:** P1
-**Category:** Validation
-**Resolves:** DEFER-10-01
-Validate that all 14 `cmdInit*` functions produce correct output when running under each of the 4 backends. Verify backward compatibility: existing orchestrator commands work unchanged when backend is `claude`.
-
-### REQ-23: Long-Term Roadmap Round-Trip Integrity
-**Priority:** P1
-**Category:** Validation
-**Resolves:** DEFER-11-01
-Validate the full long-term roadmap lifecycle: create LONG-TERM-ROADMAP.md -> refine milestone -> promote through tiers -> generate ROADMAP.md. Verify no data loss or format corruption through the round-trip.
-
-### REQ-24: Auto-Cleanup Non-Interference
-**Priority:** P1
-**Category:** Validation
-**Resolves:** DEFER-13-01
-Validate that when `phase_cleanup.enabled` is false (default), the cleanup system does not interfere with normal phase execution. No extra output, no performance impact, no side effects.
-
-## Feature 3: MCP Server Mode
-
-### REQ-25: MCP Server Implementation
-**Priority:** P0
-**Category:** MCP
-Implement an MCP server (`bin/grd-mcp-server.js`) that exposes all GRD CLI commands as MCP tools. Server uses stdio transport (stdin/stdout JSON-RPC). Each grd-tools.js command maps to one MCP tool with structured input schema and JSON output. Zero external runtime deps (implement MCP protocol directly over stdio).
-
-### REQ-26: MCP Tool Schema Generation
-**Priority:** P1
-**Category:** MCP
-Auto-generate MCP tool definitions (name, description, inputSchema) from the existing CLI command registry. Schema includes parameter types, required/optional flags, and descriptions. Generated at server startup, not hardcoded.
-
-### REQ-27: MCP Server Tests
-**Priority:** P0
-**Category:** MCP
-Unit tests for MCP server: protocol handshake (initialize), tool listing (tools/list), tool execution (tools/call) for representative commands, error handling for invalid tool names and malformed input. Coverage >= 80%.
-
-## Feature 4: Plugin Marketplace Prep (npm)
-
-### REQ-28: npm Package Configuration
-**Priority:** P1
-**Category:** Distribution
-Configure `package.json` for npm publishing: name (`grd-tools` or scoped `@grd/tools`), version sync with VERSION file, bin entries for `grd-tools` and `grd-mcp-server`, files whitelist (bin/, lib/, commands/, agents/, plugin.json), engines (Node >= 18). No bundling — ship source directly.
-
-### REQ-29: Install & Setup Scripts
+### REQ-36: Requirement Status Update
 **Priority:** P2
-**Category:** Distribution
-Post-install script that creates `.planning/` directory structure and default `config.json` if not present. Setup command (`grd-tools setup`) that configures Claude Code plugin.json to point at the installed package. Uninstall cleanup optional.
+**Category:** CLI
+Implement `grd-tools requirement update-status <REQ-ID> <status>` command that updates the Status column in the Traceability Matrix for a specific requirement. Valid statuses: Pending, In Progress, Done, Deferred. Validates the REQ-ID exists before updating.
 
-### REQ-30: Distribution Validation
+## Feature 4: MCP Server Extension
+
+### REQ-37: MCP Tools for New Commands
 **Priority:** P1
-**Category:** Distribution
-Validate the npm package works end-to-end: `npm pack` produces valid tarball, `npm install` from tarball works, `grd-tools` CLI is accessible, MCP server starts, plugin.json paths resolve correctly. Add CI job for pack + install test.
+**Category:** MCP
+Add MCP tool definitions in COMMAND_DESCRIPTORS for all new CLI commands (requirement get, requirement list, requirement traceability, search, requirement update-status). Update MCP server test coverage to include new tools. Update docs/mcp-server.md with new tool entries.
 
 ---
 
@@ -89,19 +52,13 @@ Validate the npm package works end-to-end: `npm pack` produces valid tarball, `n
 
 | REQ | Feature | Priority | Phase | Status |
 |-----|---------|----------|-------|--------|
-| REQ-18 | Auto-cleanup | P1 | Phase 14 | Pending |
-| REQ-19 | Auto-cleanup | P2 | Phase 14 | Pending |
-| REQ-20 | Integration | P0 | Phase 18 | Pending |
-| REQ-21 | Validation | P1 | Phase 15 | Pending |
-| REQ-22 | Validation | P1 | Phase 15 | Pending |
-| REQ-23 | Validation | P1 | Phase 15 | Pending |
-| REQ-24 | Validation | P1 | Phase 15 | Pending |
-| REQ-25 | MCP | P0 | Phase 16 | Pending |
-| REQ-26 | MCP | P1 | Phase 16 | Pending |
-| REQ-27 | MCP | P0 | Phase 16 | Pending |
-| REQ-28 | Distribution | P1 | Phase 17 | Pending |
-| REQ-29 | Distribution | P2 | Phase 17 | Pending |
-| REQ-30 | Distribution | P1 | Phase 18 | Pending |
+| REQ-31 | Requirement Inspection | P0 | TBD | Pending |
+| REQ-32 | Requirement Inspection | P1 | TBD | Pending |
+| REQ-33 | Requirement Inspection | P1 | TBD | Pending |
+| REQ-34 | Phase-Detail Enhancement | P0 | TBD | Pending |
+| REQ-35 | Convenience Commands | P2 | TBD | Pending |
+| REQ-36 | Convenience Commands | P2 | TBD | Pending |
+| REQ-37 | MCP Server Extension | P1 | TBD | Pending |
 
 ---
 
