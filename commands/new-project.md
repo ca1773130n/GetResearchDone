@@ -1066,6 +1066,36 @@ Use AskUserQuestion:
 Run `/grd:assess-baseline` to establish performance baseline
 ```
 
+## 8.9. Long-Term Roadmap
+
+**After roadmap is committed, offer long-term roadmap creation:**
+
+**If YOLO mode:** Skip — LT roadmap can be created later.
+
+Check if LONG-TERM-ROADMAP.md already exists:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw 2>/dev/null
+```
+
+**If no LT roadmap exists:**
+
+Use AskUserQuestion:
+- header: "LT Roadmap"
+- question: "Create a long-term roadmap? This groups milestones into strategic LT milestones for multi-milestone planning."
+- options:
+  - "Create LT roadmap" — Initialize from current milestones and define future LT milestones
+  - "Skip for now" — Create later with `/grd:long-term-roadmap init`
+
+**If "Create LT roadmap":**
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap init
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: initialize long-term roadmap" --files .planning/LONG-TERM-ROADMAP.md
+```
+Display the created roadmap and offer refinement:
+```
+Long-term roadmap created. Use `/grd:long-term-roadmap add` to add more LT milestones.
+```
+
 ## 9. Done
 
 Present completion with next steps:
@@ -1154,6 +1184,7 @@ Present completion with next steps:
 - [ ] REQUIREMENTS.md traceability updated
 - [ ] Product-level quality targets offered (if interactive)
 - [ ] Baseline assessment offered (if brownfield)
+- [ ] Long-term roadmap creation offered (if interactive)
 - [ ] User knows next step is `/grd:discuss-phase 1`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.

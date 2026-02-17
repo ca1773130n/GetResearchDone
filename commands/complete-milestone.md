@@ -88,6 +88,31 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "chore: complete v[X.Y] miles
 ```
 </step>
 
+<step name="update_lt_roadmap">
+Check if LONG-TERM-ROADMAP.md exists and update LT milestone status:
+
+```bash
+LT_LIST=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw 2>/dev/null || true)
+```
+
+**If LT roadmap exists:**
+1. Check if v[X.Y] is linked to any LT milestone
+2. If linked, check if all normal milestones in that LT milestone are now shipped
+3. If all shipped, update LT milestone status to `completed`:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap update --id [LT-N] --status completed
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap history --action "Completed LT-N" --details "All normal milestones shipped"
+```
+4. If the next LT milestone exists and is `planned`, update to `active`:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap update --id [LT-N+1] --status active
+```
+5. Commit changes:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: update LT roadmap after v[X.Y] completion" --files .planning/LONG-TERM-ROADMAP.md
+```
+</step>
+
 <step name="offer_next">
 ```
 Milestone v[X.Y] [Name] complete
@@ -117,5 +142,6 @@ Milestone v[X.Y] [Name] complete
 - [ ] STATE.md updated
 - [ ] Git tag created
 - [ ] Milestone commit made
+- [ ] LT roadmap status updated (if applicable)
 - [ ] User knows next step (/grd:new-milestone)
 </success_criteria>

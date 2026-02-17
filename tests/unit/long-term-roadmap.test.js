@@ -1,226 +1,91 @@
 /**
  * Unit tests for lib/long-term-roadmap.js
  *
- * TDD RED phase: Tests for LONG-TERM-ROADMAP.md parsing, validation,
- * mode detection, generation, and display formatting.
+ * Tests for flat LT-N milestone format: parsing, validation,
+ * generation, display formatting, CRUD, and protection rules.
  */
-
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
 const {
   parseLongTermRoadmap,
   validateLongTermRoadmap,
-  getPlanningMode,
   generateLongTermRoadmap,
   formatLongTermRoadmap,
-  getMilestoneTier,
-  refineMilestone,
-  promoteMilestone,
   updateRefinementHistory,
+  parseNormalMilestoneList,
+  formatNormalMilestoneList,
+  parseLtMilestone,
+  extractShippedVersions,
+  nextLtId,
+  addLtMilestone,
+  removeLtMilestone,
+  updateLtMilestone,
+  linkNormalMilestone,
+  unlinkNormalMilestone,
+  getLtMilestoneById,
+  initFromRoadmap,
 } = require('../../lib/long-term-roadmap');
 
 // ─── Test Fixtures ───────────────────────────────────────────────────────────
 
 const VALID_ROADMAP_CONTENT = `---
-project: "GRD - Get Research Done"
-roadmap_type: hierarchical
-created: "2026-02-16"
-last_refined: "2026-02-16"
-planning_horizon: "6 months"
+project: GRD
+created: 2026-02-17
+last_refined: 2026-02-17
 ---
 
 # Long-Term Roadmap: GRD
 
-## Current Milestone (Now)
+## LT-1: Foundation & Stability
+**Status:** completed
+**Goal:** Build core R&D workflow with security, testing, and distribution
+**Normal milestones:** v0.0.5, v0.1.0, v0.1.1, v0.1.2, v0.1.3, v0.1.4
 
-**Milestone:** v0.1.0 - Foundation
-**Status:** In Progress
-**Start:** 2026-01-15
-**Target:** 2026-03-01
+## LT-2: Distribution & Polish
+**Status:** active
+**Goal:** Plugin marketplace publishing, onboarding UX, documentation completeness
+**Normal milestones:** v0.2.0 (planned)
 
-### Goal
-Establish core R&D workflow with research, planning, execution, and evaluation.
-
-### Success Criteria
-- All Phase 6 tests passing
-- Documentation complete
-- First external user onboarded
-
-### Open Questions
-- None
-
----
-
-## Next Milestones
-
-### v0.2.0 - Agent Teams & Parallelization
-
-**Status:** Next
-**Estimated Start:** 2026-03-01
-**Estimated Duration:** 6 weeks
-**Dependencies:** v0.1.0 complete
-
-#### Goal
-Enable parallel execution of independent phases and agent team collaboration.
-
-#### Success Criteria
-- Execute 3 independent phases in parallel
-- Agent team plans and executes a multi-component feature
-- 30% reduction in end-to-end milestone time
-
-#### Rough Phase Sketch
-1. Agent Team Protocol
-2. Parallel Execution Engine
-3. Coordination Primitives
-4. Integration Testing
-
-#### Open Questions
-- Which agent team protocol: hierarchical vs peer-to-peer?
-- How to handle merge conflicts in parallel execution?
-
----
-
-### v0.3.0 - Advanced Evaluation & Metrics
-
-**Status:** Next
-**Estimated Start:** 2026-04-15
-**Estimated Duration:** 4 weeks
-**Dependencies:** v0.2.0 complete
-
-#### Goal
-Richer evaluation framework with A/B testing and regression detection.
-
-#### Success Criteria
-- Automated regression detection on 5 baseline metrics
-- A/B test support with statistical significance
-- Performance profiling in eval reports
-
-#### Rough Phase Sketch
-1. Regression Detection
-2. A/B Testing Framework
-3. Profiling Integration
-
-#### Open Questions
-- Baseline storage: in-repo vs external database?
-
----
-
-## Later Milestones
-
-### v0.4.0 - Multi-Project Management
-
-**Status:** Later
-**Estimated Timeline:** Q3 2026
-**Dependencies:** v0.3.0 complete
-
-#### Goal
-Support multiple concurrent R&D projects with shared research knowledge base.
-
-#### Success Criteria
-- Manage 3+ projects in single workspace
-- Cross-project research reuse
-- Unified progress dashboard
-
-#### Open Research Questions
-- Monorepo vs separate repos per project?
-- How to structure shared research knowledge graph?
-
----
-
-### v0.5.0 - Community & Marketplace
-
-**Status:** Later
-**Estimated Timeline:** Q4 2026
-**Dependencies:** v0.4.0 complete, user base >100
-
-#### Goal
-Enable sharing of research artifacts, phase templates, and evaluation frameworks.
-
-#### Success Criteria
-- 10+ published research landscapes
-- 20+ reusable phase templates
-
-#### Open Research Questions
-- Licensing and attribution model?
-- Quality curation mechanism?
-
----
-
-## Milestone Dependency Graph
-
-\`\`\`
-v0.1.0 (Now)
-  |
-v0.2.0 (Next)
-  |
-v0.3.0 (Next)
-  |
-v0.4.0 (Later)
-  |
-v0.5.0 (Later)
-\`\`\`
+## LT-3: Advanced Workflows
+**Status:** planned
+**Goal:** Agent Teams enhancements, async I/O, advanced eval, cross-project knowledge reuse
+**Normal milestones:** (none yet)
 
 ## Refinement History
 
 | Date | Action | Details |
 |------|--------|---------|
-| 2026-02-16 | Initial roadmap | Defined v0.1.0 - v0.5.0 with Now-Next-Later tiers |
+| 2026-02-17 | Initial roadmap | Created 3 LT milestones |
 `;
 
 const MINIMAL_ROADMAP_CONTENT = `---
-project: "TestProject"
-roadmap_type: hierarchical
-created: "2026-01-01"
-last_refined: "2026-01-01"
-planning_horizon: "3 months"
+project: TestProject
+created: 2026-01-01
+last_refined: 2026-01-01
 ---
 
 # Long-Term Roadmap: TestProject
 
-## Current Milestone (Now)
+## LT-1: MVP
+**Status:** active
+**Goal:** Build the minimum viable product
+**Normal milestones:** v1.0.0 (planned)
 
-**Milestone:** v1.0.0 - MVP
-**Status:** In Progress
-**Start:** 2026-01-01
-**Target:** 2026-03-01
+## Refinement History
 
-### Goal
-Build the minimum viable product.
-
-### Success Criteria
-- Core features working
-- Basic tests passing
+| Date | Action | Details |
+|------|--------|---------|
 `;
 
-const EMPTY_SECTIONS_CONTENT = `---
-project: "EmptyTest"
-roadmap_type: hierarchical
-created: "2026-01-01"
-last_refined: "2026-01-01"
-planning_horizon: "3 months"
----
+const ROADMAP_MD_CONTENT = `# Roadmap: GRD
 
-# Long-Term Roadmap: EmptyTest
+## Milestones
 
-## Current Milestone (Now)
-
-**Milestone:** v1.0.0 - Start
-**Status:** In Progress
-**Start:** 2026-01-01
-**Target:** 2026-02-01
-
-### Goal
-Get started with the project.
-
-### Success Criteria
-- Initial setup complete
-
-## Next Milestones
-
-## Later Milestones
+- v0.0.5 Production-Ready R&D Workflow Automation - Phases 1-8 (shipped 2026-02-15)
+- v0.1.0 Setup Functionality & Usability - Phases 9-13 (shipped 2026-02-16)
+- v0.1.1 Completeness, Interoperability & Distribution - Phases 14-18 (shipped 2026-02-16)
+- v0.1.2 Developer Experience & Requirement Traceability - Phases 19-20 (shipped 2026-02-16)
+- v0.1.3 MCP Completion & Branching Fix - Phases 21-22 (shipped 2026-02-17)
+- v0.1.4 Slash Command Registration & Missing Commands (shipped 2026-02-17)
 `;
 
 // ─── parseLongTermRoadmap ────────────────────────────────────────────────────
@@ -230,113 +95,152 @@ describe('parseLongTermRoadmap', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     expect(parsed).toBeDefined();
     expect(parsed.frontmatter).toBeDefined();
-    expect(parsed.frontmatter.project).toBe('GRD - Get Research Done');
-    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
-    expect(parsed.frontmatter.created).toBe('2026-02-16');
-    expect(parsed.frontmatter.last_refined).toBe('2026-02-16');
-    expect(parsed.frontmatter.planning_horizon).toBe('6 months');
+    expect(parsed.frontmatter.project).toBe('GRD');
+    expect(parsed.frontmatter.created).toBe('2026-02-17');
+    expect(parsed.frontmatter.last_refined).toBe('2026-02-17');
   });
 
-  test('parses Now milestone section', () => {
+  test('parses all LT milestones into flat array', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
-    expect(parsed.now).toBeDefined();
-    expect(parsed.now.milestone).toBe('v0.1.0 - Foundation');
-    expect(parsed.now.version).toBe('v0.1.0');
-    expect(parsed.now.status).toBe('In Progress');
-    expect(parsed.now.start).toBe('2026-01-15');
-    expect(parsed.now.target).toBe('2026-03-01');
-    expect(parsed.now.goal).toContain('core R&D workflow');
-    expect(parsed.now.success_criteria).toBeInstanceOf(Array);
-    expect(parsed.now.success_criteria.length).toBe(3);
-    expect(parsed.now.success_criteria[0]).toContain('Phase 6 tests');
+    expect(parsed.milestones).toBeInstanceOf(Array);
+    expect(parsed.milestones.length).toBe(3);
   });
 
-  test('parses multiple Next milestones', () => {
+  test('parses LT-1 with correct fields', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
-    expect(parsed.next).toBeInstanceOf(Array);
-    expect(parsed.next.length).toBe(2);
-
-    // First Next milestone
-    const next0 = parsed.next[0];
-    expect(next0.milestone).toContain('Agent Teams');
-    expect(next0.version).toBe('v0.2.0');
-    expect(next0.status).toBe('Next');
-    expect(next0.estimated_start).toBe('2026-03-01');
-    expect(next0.estimated_duration).toBe('6 weeks');
-    expect(next0.dependencies).toContain('v0.1.0');
-    expect(next0.goal).toContain('parallel execution');
-    expect(next0.success_criteria).toBeInstanceOf(Array);
-    expect(next0.success_criteria.length).toBe(3);
-    expect(next0.rough_phase_sketch).toBeInstanceOf(Array);
-    expect(next0.rough_phase_sketch.length).toBe(4);
-    expect(next0.rough_phase_sketch[0]).toContain('Agent Team Protocol');
-    expect(next0.open_questions).toBeInstanceOf(Array);
-    expect(next0.open_questions.length).toBe(2);
-
-    // Second Next milestone
-    const next1 = parsed.next[1];
-    expect(next1.milestone).toContain('Advanced Evaluation');
-    expect(next1.version).toBe('v0.3.0');
-    expect(next1.estimated_duration).toBe('4 weeks');
+    const lt1 = parsed.milestones[0];
+    expect(lt1.id).toBe('LT-1');
+    expect(lt1.name).toBe('Foundation & Stability');
+    expect(lt1.status).toBe('completed');
+    expect(lt1.goal).toContain('core R&D workflow');
+    expect(lt1.normal_milestones).toBeInstanceOf(Array);
+    expect(lt1.normal_milestones.length).toBe(6);
+    expect(lt1.normal_milestones[0].version).toBe('v0.0.5');
   });
 
-  test('parses multiple Later milestones', () => {
+  test('parses LT-2 with note on normal milestone', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
-    expect(parsed.later).toBeInstanceOf(Array);
-    expect(parsed.later.length).toBe(2);
-
-    // First Later milestone
-    const later0 = parsed.later[0];
-    expect(later0.milestone).toContain('Multi-Project Management');
-    expect(later0.version).toBe('v0.4.0');
-    expect(later0.status).toBe('Later');
-    expect(later0.estimated_timeline).toBe('Q3 2026');
-    expect(later0.dependencies).toContain('v0.3.0');
-    expect(later0.goal).toContain('multiple concurrent');
-    expect(later0.success_criteria).toBeInstanceOf(Array);
-    expect(later0.open_research_questions).toBeInstanceOf(Array);
-    expect(later0.open_research_questions.length).toBe(2);
-
-    // Second Later milestone
-    const later1 = parsed.later[1];
-    expect(later1.version).toBe('v0.5.0');
-    expect(later1.estimated_timeline).toBe('Q4 2026');
+    const lt2 = parsed.milestones[1];
+    expect(lt2.id).toBe('LT-2');
+    expect(lt2.name).toBe('Distribution & Polish');
+    expect(lt2.status).toBe('active');
+    expect(lt2.normal_milestones.length).toBe(1);
+    expect(lt2.normal_milestones[0].version).toBe('v0.2.0');
+    expect(lt2.normal_milestones[0].note).toBe('planned');
   });
 
-  test('handles empty sections gracefully', () => {
-    const parsed = parseLongTermRoadmap(EMPTY_SECTIONS_CONTENT);
-    expect(parsed).toBeDefined();
-    expect(parsed.now).toBeDefined();
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.next).toBeInstanceOf(Array);
-    expect(parsed.next.length).toBe(0);
-    expect(parsed.later).toBeInstanceOf(Array);
-    expect(parsed.later.length).toBe(0);
+  test('parses LT-3 with no normal milestones', () => {
+    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
+    const lt3 = parsed.milestones[2];
+    expect(lt3.id).toBe('LT-3');
+    expect(lt3.status).toBe('planned');
+    expect(lt3.normal_milestones).toEqual([]);
   });
 
   test('returns null for non-roadmap content', () => {
     const result = parseLongTermRoadmap('# Some Random Document\n\nJust text.\n');
-    expect(result === null || (result && result.now === null)).toBeTruthy();
+    expect(result).toBeNull();
   });
 
-  test('parses minimal roadmap with only Now milestone', () => {
-    const parsed = parseLongTermRoadmap(MINIMAL_ROADMAP_CONTENT);
-    expect(parsed).toBeDefined();
-    expect(parsed.now).toBeDefined();
-    expect(parsed.now.milestone).toBe('v1.0.0 - MVP');
-    expect(parsed.now.goal).toContain('minimum viable product');
-    expect(parsed.next).toBeInstanceOf(Array);
-    expect(parsed.next.length).toBe(0);
-    expect(parsed.later).toBeInstanceOf(Array);
-    expect(parsed.later.length).toBe(0);
+  test('returns null for null/undefined input', () => {
+    expect(parseLongTermRoadmap(null)).toBeNull();
+    expect(parseLongTermRoadmap(undefined)).toBeNull();
+    expect(parseLongTermRoadmap('')).toBeNull();
   });
 
   test('parses refinement history table', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     expect(parsed.refinement_history).toBeInstanceOf(Array);
-    expect(parsed.refinement_history.length).toBeGreaterThanOrEqual(1);
-    expect(parsed.refinement_history[0].date).toBe('2026-02-16');
+    expect(parsed.refinement_history.length).toBe(1);
+    expect(parsed.refinement_history[0].date).toBe('2026-02-17');
     expect(parsed.refinement_history[0].action).toContain('Initial');
+  });
+
+  test('parses minimal roadmap with single milestone', () => {
+    const parsed = parseLongTermRoadmap(MINIMAL_ROADMAP_CONTENT);
+    expect(parsed).toBeDefined();
+    expect(parsed.milestones.length).toBe(1);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[0].name).toBe('MVP');
+  });
+});
+
+// ─── parseNormalMilestoneList ────────────────────────────────────────────────
+
+describe('parseNormalMilestoneList', () => {
+  test('parses comma-separated versions', () => {
+    const result = parseNormalMilestoneList('v0.0.5, v0.1.0, v0.1.1');
+    expect(result).toEqual([
+      { version: 'v0.0.5' },
+      { version: 'v0.1.0' },
+      { version: 'v0.1.1' },
+    ]);
+  });
+
+  test('parses versions with notes', () => {
+    const result = parseNormalMilestoneList('v0.0.5, v0.2.0 (planned)');
+    expect(result).toEqual([
+      { version: 'v0.0.5' },
+      { version: 'v0.2.0', note: 'planned' },
+    ]);
+  });
+
+  test('returns empty for "(none yet)"', () => {
+    expect(parseNormalMilestoneList('(none yet)')).toEqual([]);
+  });
+
+  test('returns empty for null/empty', () => {
+    expect(parseNormalMilestoneList(null)).toEqual([]);
+    expect(parseNormalMilestoneList('')).toEqual([]);
+  });
+
+  test('handles single version', () => {
+    const result = parseNormalMilestoneList('v1.0.0');
+    expect(result).toEqual([{ version: 'v1.0.0' }]);
+  });
+});
+
+// ─── formatNormalMilestoneList ───────────────────────────────────────────────
+
+describe('formatNormalMilestoneList', () => {
+  test('formats versions with notes', () => {
+    const result = formatNormalMilestoneList([
+      { version: 'v0.0.5' },
+      { version: 'v0.2.0', note: 'planned' },
+    ]);
+    expect(result).toBe('v0.0.5, v0.2.0 (planned)');
+  });
+
+  test('returns "(none yet)" for empty array', () => {
+    expect(formatNormalMilestoneList([])).toBe('(none yet)');
+    expect(formatNormalMilestoneList(null)).toBe('(none yet)');
+  });
+});
+
+// ─── parseLtMilestone ────────────────────────────────────────────────────────
+
+describe('parseLtMilestone', () => {
+  test('parses section text with all fields', () => {
+    const text = `
+**Status:** active
+**Goal:** Build the platform
+**Normal milestones:** v0.1.0, v0.2.0 (planned)
+`;
+    const result = parseLtMilestone(text, 'LT-1', 'Foundation');
+    expect(result.id).toBe('LT-1');
+    expect(result.name).toBe('Foundation');
+    expect(result.status).toBe('active');
+    expect(result.goal).toBe('Build the platform');
+    expect(result.normal_milestones.length).toBe(2);
+  });
+
+  test('defaults status to planned when missing', () => {
+    const text = `
+**Goal:** Do something
+**Normal milestones:** (none yet)
+`;
+    const result = parseLtMilestone(text, 'LT-5', 'Future');
+    expect(result.status).toBe('planned');
   });
 });
 
@@ -347,163 +251,85 @@ describe('validateLongTermRoadmap', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(true);
-    expect(result.errors).toBeInstanceOf(Array);
-    expect(result.errors.length).toBe(0);
+    expect(result.errors).toHaveLength(0);
   });
 
-  test('missing Now milestone fails validation', () => {
-    const parsed = {
-      frontmatter: { project: 'Test' },
-      now: null,
-      next: [],
-      later: [],
-    };
-    const result = validateLongTermRoadmap(parsed);
+  test('null parsed fails validation', () => {
+    const result = validateLongTermRoadmap(null);
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => /now/i.test(e))).toBe(true);
   });
 
-  test('Now milestone missing goal fails validation', () => {
-    const parsed = {
-      frontmatter: { project: 'Test' },
-      now: { milestone: 'v1.0 - Test', version: 'v1.0', status: 'In Progress' },
-      next: [],
-      later: [],
-    };
-    const result = validateLongTermRoadmap(parsed);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /goal/i.test(e))).toBe(true);
-  });
-
-  test('Next milestone missing goal fails validation', () => {
-    const parsed = {
-      frontmatter: { project: 'Test' },
-      now: { milestone: 'v1.0 - Test', version: 'v1.0', goal: 'Build things', status: 'Active' },
-      next: [{ milestone: 'v2.0 - Next', version: 'v2.0', status: 'Next' }],
-      later: [],
-    };
-    const result = validateLongTermRoadmap(parsed);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /goal/i.test(e))).toBe(true);
-  });
-
-  test('warns but passes if Later milestones missing success criteria', () => {
-    const parsed = {
-      frontmatter: { project: 'Test' },
-      now: { milestone: 'v1.0 - Test', version: 'v1.0', goal: 'Build things', status: 'Active' },
-      next: [],
-      later: [
-        { milestone: 'v3.0 - Future', version: 'v3.0', goal: 'Future stuff', status: 'Later' },
-      ],
-    };
-    const result = validateLongTermRoadmap(parsed);
-    expect(result.valid).toBe(true);
-    expect(result.warnings).toBeInstanceOf(Array);
-    expect(result.warnings.length).toBeGreaterThan(0);
-    expect(result.warnings.some((w) => /success.criteria/i.test(w))).toBe(true);
-  });
-
-  test('warns when milestone count exceeds soft limit', () => {
-    const parsed = {
-      frontmatter: { project: 'Test' },
-      now: { milestone: 'v1.0 - Test', version: 'v1.0', goal: 'Build', status: 'Active' },
-      next: [
-        { milestone: 'v2.0 - A', version: 'v2.0', goal: 'Goal A', status: 'Next' },
-        { milestone: 'v3.0 - B', version: 'v3.0', goal: 'Goal B', status: 'Next' },
-      ],
-      later: [
-        {
-          milestone: 'v4.0 - C',
-          version: 'v4.0',
-          goal: 'Goal C',
-          status: 'Later',
-          success_criteria: ['Done'],
-        },
-        {
-          milestone: 'v5.0 - D',
-          version: 'v5.0',
-          goal: 'Goal D',
-          status: 'Later',
-          success_criteria: ['Done'],
-        },
-        {
-          milestone: 'v6.0 - E',
-          version: 'v6.0',
-          goal: 'Goal E',
-          status: 'Later',
-          success_criteria: ['Done'],
-        },
-        {
-          milestone: 'v7.0 - F',
-          version: 'v7.0',
-          goal: 'Goal F',
-          status: 'Later',
-          success_criteria: ['Done'],
-        },
-      ],
-    };
-    const result = validateLongTermRoadmap(parsed);
-    expect(result.valid).toBe(true);
-    expect(result.warnings.some((w) => /5|count|many/i.test(w))).toBe(true);
-  });
-
-  test('missing project in frontmatter fails validation', () => {
-    const parsed = {
-      frontmatter: {},
-      now: { milestone: 'v1.0 - Test', version: 'v1.0', goal: 'Build', status: 'Active' },
-      next: [],
-      later: [],
-    };
+  test('missing project in frontmatter fails', () => {
+    const parsed = { frontmatter: {}, milestones: [{ id: 'LT-1', name: 'X', goal: 'Y', status: 'active', normal_milestones: [] }] };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /project/i.test(e))).toBe(true);
   });
-});
 
-// ─── getPlanningMode ─────────────────────────────────────────────────────────
-
-describe('getPlanningMode', () => {
-  let tmpDir;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-mode-test-'));
+  test('no milestones fails validation', () => {
+    const parsed = { frontmatter: { project: 'Test' }, milestones: [] };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /no lt/i.test(e))).toBe(true);
   });
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+  test('missing goal fails validation', () => {
+    const parsed = {
+      frontmatter: { project: 'Test' },
+      milestones: [{ id: 'LT-1', name: 'X', goal: '', status: 'active', normal_milestones: [] }],
+    };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /goal/i.test(e))).toBe(true);
   });
 
-  test('returns hierarchical when LONG-TERM-ROADMAP.md exists', () => {
-    const planningDir = path.join(tmpDir, '.planning');
-    fs.mkdirSync(planningDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(planningDir, 'LONG-TERM-ROADMAP.md'),
-      `---\nproject: Test\nroadmap_type: hierarchical\n---\n\n# Roadmap\n`
-    );
-    expect(getPlanningMode(tmpDir)).toBe('hierarchical');
+  test('invalid status fails validation', () => {
+    const parsed = {
+      frontmatter: { project: 'Test' },
+      milestones: [{ id: 'LT-1', name: 'X', goal: 'Y', status: 'unknown', normal_milestones: [] }],
+    };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /status/i.test(e))).toBe(true);
   });
 
-  test('returns progressive when no LONG-TERM-ROADMAP.md', () => {
-    const planningDir = path.join(tmpDir, '.planning');
-    fs.mkdirSync(planningDir, { recursive: true });
-    // No LONG-TERM-ROADMAP.md file
-    expect(getPlanningMode(tmpDir)).toBe('progressive');
+  test('duplicate IDs fail validation', () => {
+    const parsed = {
+      frontmatter: { project: 'Test' },
+      milestones: [
+        { id: 'LT-1', name: 'A', goal: 'G1', status: 'active', normal_milestones: [] },
+        { id: 'LT-1', name: 'B', goal: 'G2', status: 'planned', normal_milestones: [] },
+      ],
+    };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /duplicate/i.test(e))).toBe(true);
   });
 
-  test('returns progressive when .planning/ dir missing', () => {
-    // tmpDir has no .planning/ directory
-    expect(getPlanningMode(tmpDir)).toBe('progressive');
+  test('warns when no active milestone', () => {
+    const parsed = {
+      frontmatter: { project: 'Test' },
+      milestones: [
+        { id: 'LT-1', name: 'A', goal: 'G1', status: 'planned', normal_milestones: [] },
+      ],
+    };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => /active/i.test(w))).toBe(true);
   });
 
-  test('respects roadmap_type frontmatter override to progressive', () => {
-    const planningDir = path.join(tmpDir, '.planning');
-    fs.mkdirSync(planningDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(planningDir, 'LONG-TERM-ROADMAP.md'),
-      `---\nproject: Test\nroadmap_type: progressive\n---\n\n# Roadmap\n`
-    );
-    expect(getPlanningMode(tmpDir)).toBe('progressive');
+  test('warns when multiple active milestones', () => {
+    const parsed = {
+      frontmatter: { project: 'Test' },
+      milestones: [
+        { id: 'LT-1', name: 'A', goal: 'G1', status: 'active', normal_milestones: [] },
+        { id: 'LT-2', name: 'B', goal: 'G2', status: 'active', normal_milestones: [] },
+      ],
+    };
+    const result = validateLongTermRoadmap(parsed);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => /multiple/i.test(w))).toBe(true);
   });
 });
 
@@ -512,79 +338,51 @@ describe('getPlanningMode', () => {
 describe('generateLongTermRoadmap', () => {
   const testMilestones = [
     {
+      id: 'LT-1',
       name: 'Foundation',
-      version: 'v1.0.0',
-      goal: 'Build the core platform',
-      success_criteria: ['Core features working', 'Tests passing'],
-      status: 'In Progress',
-      start: '2026-01-01',
-      target: '2026-03-01',
+      status: 'completed',
+      goal: 'Build core platform',
+      normal_milestones: [{ version: 'v0.0.5' }, { version: 'v0.1.0' }],
     },
     {
-      name: 'Agent Teams',
-      version: 'v2.0.0',
-      goal: 'Enable parallel execution',
-      success_criteria: ['Parallel phases work', 'Team collaboration works'],
-      status: 'Next',
-      estimated_start: '2026-03-15',
-      estimated_duration: '6 weeks',
-      dependencies: 'v1.0.0 complete',
-      rough_phase_sketch: ['Agent Protocol', 'Parallel Engine', 'Integration'],
-      open_questions: ['Which protocol?'],
+      id: 'LT-2',
+      name: 'Growth',
+      status: 'active',
+      goal: 'Expand features',
+      normal_milestones: [{ version: 'v0.2.0', note: 'planned' }],
     },
     {
-      name: 'Advanced Eval',
-      version: 'v3.0.0',
-      goal: 'Richer evaluation framework',
-      success_criteria: ['Regression detection', 'A/B testing'],
-      status: 'Next',
-      estimated_start: '2026-05-01',
-      estimated_duration: '4 weeks',
-      dependencies: 'v2.0.0 complete',
-    },
-    {
-      name: 'Multi-Project',
-      version: 'v4.0.0',
-      goal: 'Support multiple concurrent projects',
-      success_criteria: ['3+ projects in workspace'],
-      status: 'Later',
-      estimated_timeline: 'Q3 2026',
-      dependencies: 'v3.0.0 complete',
-      open_research_questions: ['Monorepo vs separate repos?'],
+      id: 'LT-3',
+      name: 'Scale',
+      status: 'planned',
+      goal: 'Production scale',
+      normal_milestones: [],
     },
   ];
 
   test('generates valid YAML frontmatter', () => {
-    const output = generateLongTermRoadmap(testMilestones, 'TestProject', '6 months');
+    const output = generateLongTermRoadmap(testMilestones, 'TestProject');
     expect(output).toMatch(/^---\n/);
     expect(output).toContain('project: TestProject');
-    expect(output).toContain('roadmap_type: hierarchical');
-    expect(output).toContain('planning_horizon: 6 months');
     expect(output).toMatch(/created:/);
     expect(output).toMatch(/last_refined:/);
   });
 
-  test('generates Now section from current milestone', () => {
+  test('generates LT-N sections', () => {
     const output = generateLongTermRoadmap(testMilestones, 'TestProject');
-    expect(output).toContain('## Current Milestone (Now)');
-    expect(output).toContain('v1.0.0 - Foundation');
-    expect(output).toContain('Build the core platform');
-    expect(output).toContain('Core features working');
+    expect(output).toContain('## LT-1: Foundation');
+    expect(output).toContain('## LT-2: Growth');
+    expect(output).toContain('## LT-3: Scale');
   });
 
-  test('generates Next section from middle milestones', () => {
+  test('includes status, goal, and normal milestones fields', () => {
     const output = generateLongTermRoadmap(testMilestones, 'TestProject');
-    expect(output).toContain('## Next Milestones');
-    expect(output).toContain('v2.0.0 - Agent Teams');
-    expect(output).toContain('v3.0.0 - Advanced Eval');
-    expect(output).toContain('Enable parallel execution');
-  });
-
-  test('generates Later section from remaining milestones', () => {
-    const output = generateLongTermRoadmap(testMilestones, 'TestProject');
-    expect(output).toContain('## Later Milestones');
-    expect(output).toContain('v4.0.0 - Multi-Project');
-    expect(output).toContain('Support multiple concurrent projects');
+    expect(output).toContain('**Status:** completed');
+    expect(output).toContain('**Status:** active');
+    expect(output).toContain('**Goal:** Build core platform');
+    expect(output).toContain('**Normal milestones:** v0.0.5, v0.1.0');
+    expect(output).toContain('**Normal milestones:** v0.2.0 (planned)');
+    expect(output).toContain('**Normal milestones:** (none yet)');
   });
 
   test('generates Refinement History table', () => {
@@ -595,388 +393,323 @@ describe('generateLongTermRoadmap', () => {
   });
 
   test('round-trip: generate then parse produces same data', () => {
-    const output = generateLongTermRoadmap(testMilestones, 'TestProject', '6 months');
+    const output = generateLongTermRoadmap(testMilestones, 'TestProject');
     const parsed = parseLongTermRoadmap(output);
 
     expect(parsed).toBeDefined();
     expect(parsed.frontmatter.project).toBe('TestProject');
-    expect(parsed.frontmatter.planning_horizon).toBe('6 months');
-
-    // Now milestone
-    expect(parsed.now).toBeDefined();
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.now.goal).toContain('core platform');
-
-    // Next milestones
-    expect(parsed.next.length).toBe(2);
-    expect(parsed.next[0].version).toBe('v2.0.0');
-    expect(parsed.next[1].version).toBe('v3.0.0');
-
-    // Later milestones
-    expect(parsed.later.length).toBe(1);
-    expect(parsed.later[0].version).toBe('v4.0.0');
-  });
-
-  test('uses default planning horizon when not specified', () => {
-    const output = generateLongTermRoadmap(testMilestones, 'TestProject');
-    expect(output).toContain('planning_horizon:');
-  });
-
-  test('handles single milestone (Now only)', () => {
-    const single = [testMilestones[0]];
-    const output = generateLongTermRoadmap(single, 'TestProject');
-    expect(output).toContain('## Current Milestone (Now)');
-    expect(output).toContain('v1.0.0');
-    // Should not have Next or Later sections with content
-    const parsed = parseLongTermRoadmap(output);
-    expect(parsed.next.length).toBe(0);
-    expect(parsed.later.length).toBe(0);
+    expect(parsed.milestones.length).toBe(3);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[0].status).toBe('completed');
+    expect(parsed.milestones[0].normal_milestones.length).toBe(2);
+    expect(parsed.milestones[1].id).toBe('LT-2');
+    expect(parsed.milestones[2].normal_milestones).toEqual([]);
   });
 });
 
 // ─── formatLongTermRoadmap ───────────────────────────────────────────────────
 
 describe('formatLongTermRoadmap', () => {
-  test('formats summary view with tier indicators', () => {
+  test('formats with [done]/[active]/[planned] icons', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     const formatted = formatLongTermRoadmap(parsed);
-    expect(formatted).toContain('[Now]');
-    expect(formatted).toContain('[Next]');
-    expect(formatted).toContain('[Later]');
+    expect(formatted).toContain('[done]');
+    expect(formatted).toContain('[active]');
+    expect(formatted).toContain('[planned]');
   });
 
-  test('includes milestone version, name, and status', () => {
-    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
-    const formatted = formatLongTermRoadmap(parsed);
-    expect(formatted).toContain('v0.1.0');
-    expect(formatted).toContain('Foundation');
-    expect(formatted).toContain('In Progress');
-    expect(formatted).toContain('v0.2.0');
-    expect(formatted).toContain('v0.4.0');
-  });
-
-  test('includes milestone dependency info', () => {
-    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
-    const formatted = formatLongTermRoadmap(parsed);
-    // Should contain some dependency representation
-    expect(formatted).toMatch(/depend|->|v0\.\d+\.0/i);
-  });
-
-  test('includes project name and planning horizon', () => {
+  test('includes project name', () => {
     const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     const formatted = formatLongTermRoadmap(parsed);
     expect(formatted).toContain('GRD');
-    expect(formatted).toContain('6 months');
   });
 
-  test('handles roadmap with no Next or Later milestones', () => {
-    const parsed = parseLongTermRoadmap(MINIMAL_ROADMAP_CONTENT);
+  test('includes milestone IDs, names, and goals', () => {
+    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
     const formatted = formatLongTermRoadmap(parsed);
-    expect(formatted).toContain('[Now]');
-    expect(formatted).toContain('v1.0.0');
-    // Should not crash
-    expect(typeof formatted).toBe('string');
+    expect(formatted).toContain('LT-1');
+    expect(formatted).toContain('Foundation & Stability');
+    expect(formatted).toContain('LT-2');
+    expect(formatted).toContain('LT-3');
+  });
+
+  test('includes normal milestone lists', () => {
+    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
+    const formatted = formatLongTermRoadmap(parsed);
+    expect(formatted).toContain('v0.0.5');
+    expect(formatted).toContain('v0.2.0 (planned)');
+    expect(formatted).toContain('(none yet)');
+  });
+
+  test('handles empty parsed result', () => {
+    expect(formatLongTermRoadmap(null)).toBe('');
   });
 });
 
-// ─── Refinement & Promotion Test Fixtures ────────────────────────────────────
+// ─── extractShippedVersions ──────────────────────────────────────────────────
 
-const REFINE_FIXTURE = `---
-project: "RefineTest"
-roadmap_type: hierarchical
-created: "2026-01-01"
-last_refined: "2026-02-01"
-planning_horizon: "6 months"
----
+describe('extractShippedVersions', () => {
+  test('extracts shipped versions from ROADMAP.md bullet list', () => {
+    const versions = extractShippedVersions(ROADMAP_MD_CONTENT);
+    expect(versions).toContain('v0.0.5');
+    expect(versions).toContain('v0.1.0');
+    expect(versions).toContain('v0.1.1');
+    expect(versions).toContain('v0.1.2');
+    expect(versions).toContain('v0.1.3');
+    expect(versions).toContain('v0.1.4');
+    expect(versions.length).toBe(6);
+  });
 
-# Long-Term Roadmap: RefineTest
+  test('returns empty for null input', () => {
+    expect(extractShippedVersions(null)).toEqual([]);
+  });
 
-## Current Milestone (Now)
+  test('returns empty when no shipped milestones', () => {
+    const content = '# Roadmap\n\n## Milestones\n\n- v1.0.0 First Release\n';
+    expect(extractShippedVersions(content)).toEqual([]);
+  });
+});
 
-**Milestone:** v0.1.0 - Foundation
-**Status:** In Progress
-**Start:** 2026-01-15
-**Target:** 2026-03-01
+// ─── nextLtId ────────────────────────────────────────────────────────────────
 
-### Goal
-Establish core R&D workflow with research, planning, execution, and evaluation.
+describe('nextLtId', () => {
+  test('returns LT-1 for empty/null', () => {
+    expect(nextLtId(null)).toBe('LT-1');
+    expect(nextLtId({ milestones: [] })).toBe('LT-1');
+  });
 
-### Success Criteria
-- All Phase 6 tests passing
-- Documentation complete
-- First external user onboarded
+  test('computes next ID from existing milestones', () => {
+    const parsed = parseLongTermRoadmap(VALID_ROADMAP_CONTENT);
+    expect(nextLtId(parsed)).toBe('LT-4');
+  });
+});
 
----
+// ─── addLtMilestone ──────────────────────────────────────────────────────────
 
-## Next Milestones
+describe('addLtMilestone', () => {
+  test('adds new milestone before Refinement History', () => {
+    const result = addLtMilestone(VALID_ROADMAP_CONTENT, 'New Feature', 'Build new feature');
+    expect(result.id).toBe('LT-4');
+    const parsed = parseLongTermRoadmap(result.content);
+    expect(parsed.milestones.length).toBe(4);
+    expect(parsed.milestones[3].id).toBe('LT-4');
+    expect(parsed.milestones[3].name).toBe('New Feature');
+    expect(parsed.milestones[3].goal).toBe('Build new feature');
+    expect(parsed.milestones[3].status).toBe('planned');
+  });
 
-### v0.2.0 - Agent Teams
+  test('preserves existing milestones', () => {
+    const result = addLtMilestone(VALID_ROADMAP_CONTENT, 'New', 'Goal');
+    const parsed = parseLongTermRoadmap(result.content);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[1].id).toBe('LT-2');
+    expect(parsed.milestones[2].id).toBe('LT-3');
+  });
 
-**Status:** Next
-**Estimated Start:** 2026-03-01
-**Estimated Duration:** 6 weeks
-**Dependencies:** v0.1.0 complete
+  test('preserves refinement history', () => {
+    const result = addLtMilestone(VALID_ROADMAP_CONTENT, 'New', 'Goal');
+    const parsed = parseLongTermRoadmap(result.content);
+    expect(parsed.refinement_history.length).toBe(1);
+  });
+});
 
-#### Goal
-Enable parallel execution of independent phases.
+// ─── removeLtMilestone ───────────────────────────────────────────────────────
 
-#### Success Criteria
-- Execute 3 independent phases in parallel
-- Agent team collaboration works
-- 30% time reduction
+describe('removeLtMilestone', () => {
+  test('removes a planned milestone', () => {
+    const result = removeLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3');
+    expect(typeof result).toBe('string');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones.length).toBe(2);
+    expect(parsed.milestones.every((m) => m.id !== 'LT-3')).toBe(true);
+  });
 
-#### Rough Phase Sketch
-1. Agent Team Protocol
-2. Parallel Execution Engine
-3. Coordination Primitives
-4. Integration Testing
+  test('returns error for non-existent ID', () => {
+    const result = removeLtMilestone(VALID_ROADMAP_CONTENT, 'LT-99');
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
 
-#### Open Questions
-- Which protocol: hierarchical vs peer-to-peer?
-- How to handle merge conflicts?
+  test('refuses to remove completed milestone', () => {
+    const result = removeLtMilestone(VALID_ROADMAP_CONTENT, 'LT-1');
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('completed') }));
+  });
 
----
+  test('refuses if linked milestones are shipped', () => {
+    // LT-1 has shipped milestones, but it's already blocked by completed status
+    // Create a scenario: active LT with shipped links
+    const content = VALID_ROADMAP_CONTENT.replace(
+      '## LT-2: Distribution & Polish\n**Status:** active',
+      '## LT-2: Distribution & Polish\n**Status:** active'
+    );
+    // LT-2 has v0.2.0 (planned), not shipped. Let's create content with shipped link
+    const withShipped = content.replace(
+      '**Normal milestones:** v0.2.0 (planned)',
+      '**Normal milestones:** v0.1.0, v0.2.0 (planned)'
+    );
+    const result = removeLtMilestone(withShipped, 'LT-2', ROADMAP_MD_CONTENT);
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('shipped') }));
+  });
 
-### v0.3.0 - Advanced Evaluation
+  test('preserves other milestones when removing', () => {
+    const result = removeLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[1].id).toBe('LT-2');
+  });
+});
 
-**Status:** Next
-**Estimated Start:** 2026-04-15
-**Estimated Duration:** 4 weeks
-**Dependencies:** v0.2.0 complete
+// ─── updateLtMilestone ───────────────────────────────────────────────────────
 
-#### Goal
-Richer evaluation framework with A/B testing and regression detection.
+describe('updateLtMilestone', () => {
+  test('updates milestone name', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-2', { name: 'Polish & Ship' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[1].name).toBe('Polish & Ship');
+  });
 
-#### Success Criteria
-- Automated regression detection
-- A/B test support
-- Performance profiling
+  test('updates milestone goal', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3', { goal: 'Updated goal text' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[2].goal).toBe('Updated goal text');
+  });
 
-#### Rough Phase Sketch
-1. Regression Detection
-2. A/B Testing Framework
-3. Profiling Integration
+  test('updates milestone status', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3', { status: 'active' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[2].status).toBe('active');
+  });
 
-#### Open Questions
-- Baseline storage: in-repo vs external database?
+  test('returns error for invalid status', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3', { status: 'badstatus' });
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('Invalid status') }));
+  });
 
----
+  test('returns error for non-existent ID', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-99', { name: 'X' });
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
 
-## Later Milestones
+  test('updates multiple fields at once', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3', {
+      name: 'New Name',
+      goal: 'New Goal',
+      status: 'active',
+    });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[2].name).toBe('New Name');
+    expect(parsed.milestones[2].goal).toBe('New Goal');
+    expect(parsed.milestones[2].status).toBe('active');
+  });
 
-### v0.4.0 - Multi-Project Management
+  test('preserves other milestones', () => {
+    const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-2', { goal: 'Changed' });
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[0].goal).toContain('core R&D workflow');
+    expect(parsed.milestones[2].goal).toContain('Agent Teams');
+  });
+});
 
-**Status:** Later
-**Estimated Timeline:** Q3 2026
-**Dependencies:** v0.3.0 complete
+// ─── linkNormalMilestone ─────────────────────────────────────────────────────
 
-#### Goal
-Support multiple concurrent R&D projects with shared knowledge base.
+describe('linkNormalMilestone', () => {
+  test('links a new version to LT milestone', () => {
+    const result = linkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-3', 'v0.3.0');
+    const parsed = parseLongTermRoadmap(result);
+    const lt3 = parsed.milestones[2];
+    expect(lt3.normal_milestones.length).toBe(1);
+    expect(lt3.normal_milestones[0].version).toBe('v0.3.0');
+  });
 
-#### Success Criteria
-- Manage 3+ projects in single workspace
-- Cross-project research reuse
-- Unified progress dashboard
+  test('links with optional note', () => {
+    const result = linkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-3', 'v0.3.0', 'planned');
+    const parsed = parseLongTermRoadmap(result);
+    const lt3 = parsed.milestones[2];
+    expect(lt3.normal_milestones[0].note).toBe('planned');
+  });
 
-#### Open Research Questions
-- Monorepo vs separate repos per project?
-- How to structure shared research knowledge graph?
+  test('returns error if already linked', () => {
+    const result = linkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-1', 'v0.0.5');
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('already linked') }));
+  });
 
----
+  test('returns error for non-existent ID', () => {
+    const result = linkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-99', 'v1.0.0');
+    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
+  });
+});
 
-### v0.5.0 - Community & Marketplace
+// ─── unlinkNormalMilestone ───────────────────────────────────────────────────
 
-**Status:** Later
-**Estimated Timeline:** Q4 2026
-**Dependencies:** v0.4.0 complete
+describe('unlinkNormalMilestone', () => {
+  test('unlinks a non-shipped version', () => {
+    const result = unlinkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-2', 'v0.2.0');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones[1].normal_milestones).toEqual([]);
+  });
 
-#### Goal
-Enable sharing of research artifacts, phase templates, and evaluation frameworks.
+  test('refuses to unlink shipped version', () => {
+    const result = unlinkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-1', 'v0.0.5', ROADMAP_MD_CONTENT);
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('shipped') }));
+  });
 
-#### Success Criteria
-- 10+ published research landscapes
-- 20+ reusable phase templates
+  test('returns error if version not linked', () => {
+    const result = unlinkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-3', 'v9.9.9');
+    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('not linked') }));
+  });
+});
 
-#### Open Research Questions
-- Licensing and attribution model?
-- Quality curation mechanism?
+// ─── getLtMilestoneById ──────────────────────────────────────────────────────
 
----
+describe('getLtMilestoneById', () => {
+  test('finds milestone by ID', () => {
+    const ms = getLtMilestoneById(VALID_ROADMAP_CONTENT, 'LT-2');
+    expect(ms).toBeDefined();
+    expect(ms.name).toBe('Distribution & Polish');
+  });
 
-## Refinement History
+  test('returns null for non-existent ID', () => {
+    expect(getLtMilestoneById(VALID_ROADMAP_CONTENT, 'LT-99')).toBeNull();
+  });
+});
 
-| Date | Action | Details |
-|------|--------|---------|
-| 2026-01-01 | Initial roadmap | Defined v0.1.0 - v0.5.0 with Now-Next-Later tiers |
+// ─── initFromRoadmap ─────────────────────────────────────────────────────────
+
+describe('initFromRoadmap', () => {
+  test('groups all milestones into LT-1', () => {
+    const result = initFromRoadmap(ROADMAP_MD_CONTENT, 'GRD');
+    const parsed = parseLongTermRoadmap(result);
+    expect(parsed.milestones.length).toBe(1);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[0].name).toBe('Initial Milestone Group');
+    expect(parsed.milestones[0].normal_milestones.length).toBe(6);
+  });
+
+  test('marks shipped versions without note, unshipped with "planned"', () => {
+    const content = `# Roadmap
+
+## Milestones
+
+- v0.1.0 First (shipped 2026-01-01)
+- v0.2.0 Second
 `;
-
-// ─── getMilestoneTier ────────────────────────────────────────────────────────
-
-describe('getMilestoneTier', () => {
-  test('returns now for the Now milestone version', () => {
-    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.1.0')).toBe('now');
-  });
-
-  test('returns next for a Next milestone version', () => {
-    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.2.0')).toBe('next');
-  });
-
-  test('returns later for a Later milestone version', () => {
-    expect(getMilestoneTier(REFINE_FIXTURE, 'v0.4.0')).toBe('later');
-  });
-
-  test('returns null for unknown version', () => {
-    expect(getMilestoneTier(REFINE_FIXTURE, 'v9.9.9')).toBeNull();
-  });
-
-  test('works with two-segment versions', () => {
-    const twoSegContent = REFINE_FIXTURE.replace(/v0\.1\.0/g, 'v1.0');
-    expect(getMilestoneTier(twoSegContent, 'v1.0')).toBe('now');
-  });
-});
-
-// ─── refineMilestone ─────────────────────────────────────────────────────────
-
-describe('refineMilestone', () => {
-  test('updates goal of a Next milestone', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Updated goal text' });
-    expect(typeof result).toBe('string');
+    const result = initFromRoadmap(content, 'Test');
     const parsed = parseLongTermRoadmap(result);
-    expect(parsed.next[0].goal).toBe('Updated goal text');
+    const milestones = parsed.milestones[0].normal_milestones;
+    expect(milestones[0]).toEqual({ version: 'v0.1.0' });
+    expect(milestones[1]).toEqual({ version: 'v0.2.0', note: 'planned' });
   });
 
-  test('updates success_criteria of a Next milestone', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
-      success_criteria: ['New criterion 1', 'New criterion 2'],
-    });
+  test('sets status to active when shipped milestones exist', () => {
+    const result = initFromRoadmap(ROADMAP_MD_CONTENT, 'GRD');
     const parsed = parseLongTermRoadmap(result);
-    expect(parsed.next[0].success_criteria).toEqual(['New criterion 1', 'New criterion 2']);
+    expect(parsed.milestones[0].status).toBe('active');
   });
 
-  test('updates rough_phase_sketch of a Next milestone', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
-      rough_phase_sketch: ['Phase A', 'Phase B', 'Phase C'],
-    });
+  test('sets status to planned when no shipped milestones', () => {
+    const content = '# Roadmap\n\n## Milestones\n\n- v1.0.0 First\n';
+    const result = initFromRoadmap(content, 'Test');
     const parsed = parseLongTermRoadmap(result);
-    expect(parsed.next[0].rough_phase_sketch).toEqual(['Phase A', 'Phase B', 'Phase C']);
-  });
-
-  test('updates open_questions of a Next milestone', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', {
-      open_questions: ['Question 1?', 'Question 2?'],
-    });
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.next[0].open_questions).toEqual(['Question 1?', 'Question 2?']);
-  });
-
-  test('updates goal of a Later milestone', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.4.0', { goal: 'Refined later goal' });
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.later[0].goal).toBe('Refined later goal');
-  });
-
-  test('preserves other milestones unchanged', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Changed goal' });
-    const parsed = parseLongTermRoadmap(result);
-    // v0.3.0 (another Next) should be unchanged
-    expect(parsed.next[1].goal).toContain('Richer evaluation framework');
-    // v0.4.0 (Later) should be unchanged
-    expect(parsed.later[0].goal).toContain('multiple concurrent');
-  });
-
-  test('preserves frontmatter and other sections', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v0.2.0', { goal: 'Changed goal' });
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.frontmatter.project).toBe('RefineTest');
-    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
-    expect(parsed.refinement_history.length).toBeGreaterThanOrEqual(1);
-  });
-
-  test('returns error object for unknown version', () => {
-    const result = refineMilestone(REFINE_FIXTURE, 'v9.9.9', { goal: 'x' });
-    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
-  });
-});
-
-// ─── promoteMilestone ────────────────────────────────────────────────────────
-
-describe('promoteMilestone', () => {
-  test('promotes Later to Next', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
-    expect(typeof result).toBe('string');
-    const parsed = parseLongTermRoadmap(result);
-    const nextVersions = parsed.next.map((m) => m.version);
-    expect(nextVersions).toContain('v0.4.0');
-    const laterVersions = parsed.later.map((m) => m.version);
-    expect(laterVersions).not.toContain('v0.4.0');
-  });
-
-  test('Later->Next adds required Next-tier fields', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
-    const parsed = parseLongTermRoadmap(result);
-    const promoted = parsed.next.find((m) => m.version === 'v0.4.0');
-    expect(promoted).toBeDefined();
-    expect(promoted.estimated_start).toBeDefined();
-    expect(promoted.estimated_duration).toBeDefined();
-    expect(promoted.rough_phase_sketch).toBeDefined();
-  });
-
-  test('Later->Next preserves existing goal and success_criteria', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
-    const parsed = parseLongTermRoadmap(result);
-    const promoted = parsed.next.find((m) => m.version === 'v0.4.0');
-    expect(promoted.goal).toContain('multiple concurrent');
-    expect(promoted.success_criteria).toBeInstanceOf(Array);
-    expect(promoted.success_criteria.length).toBeGreaterThan(0);
-  });
-
-  test('promotes Next to Now', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
-    expect(typeof result).toBe('string');
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.now.version).toBe('v0.2.0');
-    const nextVersions = parsed.next.map((m) => m.version);
-    expect(nextVersions).not.toContain('v0.2.0');
-  });
-
-  test('Next->Now replaces existing Now section', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
-    const parsed = parseLongTermRoadmap(result);
-    // Old Now (v0.1.0) should no longer be in Now
-    expect(parsed.now.version).not.toBe('v0.1.0');
-    expect(parsed.now.version).toBe('v0.2.0');
-  });
-
-  test('Next->Now preserves other Next milestones', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.2.0');
-    const parsed = parseLongTermRoadmap(result);
-    const nextVersions = parsed.next.map((m) => m.version);
-    expect(nextVersions).toContain('v0.3.0');
-  });
-
-  test('returns error for Now milestone (cannot promote further)', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.1.0');
-    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
-  });
-
-  test('returns error for unknown version', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v9.9.9');
-    expect(result).toEqual(expect.objectContaining({ error: expect.any(String) }));
-  });
-
-  test('preserves Later milestones when promoting Later->Next', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
-    const parsed = parseLongTermRoadmap(result);
-    const laterVersions = parsed.later.map((m) => m.version);
-    expect(laterVersions).toContain('v0.5.0');
-  });
-
-  test('preserves frontmatter after promotion', () => {
-    const result = promoteMilestone(REFINE_FIXTURE, 'v0.4.0');
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.frontmatter.project).toBe('RefineTest');
-    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
-    expect(parsed.frontmatter.planning_horizon).toBe('6 months');
+    expect(parsed.milestones[0].status).toBe('planned');
   });
 });
 
@@ -984,67 +717,21 @@ describe('promoteMilestone', () => {
 
 describe('updateRefinementHistory', () => {
   test('appends a new row to refinement history', () => {
-    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
-    expect(typeof result).toBe('string');
+    const result = updateRefinementHistory(VALID_ROADMAP_CONTENT, 'Added', 'Added LT-4');
     const parsed = parseLongTermRoadmap(result);
     expect(parsed.refinement_history.length).toBe(2);
   });
 
   test("new entry has today's date", () => {
-    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+    const result = updateRefinementHistory(VALID_ROADMAP_CONTENT, 'Added', 'LT-4');
     const parsed = parseLongTermRoadmap(result);
     const today = new Date().toISOString().split('T')[0];
-    const newEntry = parsed.refinement_history[parsed.refinement_history.length - 1];
-    expect(newEntry.date).toBe(today);
+    expect(parsed.refinement_history[1].date).toBe(today);
   });
 
-  test('new entry has correct action and details', () => {
-    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
-    const parsed = parseLongTermRoadmap(result);
-    const newEntry = parsed.refinement_history[parsed.refinement_history.length - 1];
-    expect(newEntry.action).toBe('Refined');
-    expect(newEntry.details).toBe('Updated v0.2.0 goal');
-  });
-
-  test('preserves existing history entries', () => {
-    const result = updateRefinementHistory(REFINE_FIXTURE, 'Refined', 'Updated v0.2.0 goal');
+  test('preserves existing entries', () => {
+    const result = updateRefinementHistory(VALID_ROADMAP_CONTENT, 'Added', 'LT-4');
     const parsed = parseLongTermRoadmap(result);
     expect(parsed.refinement_history[0].action).toContain('Initial');
-    expect(parsed.refinement_history[0].date).toBe('2026-01-01');
-  });
-
-  test('works when Refinement History section has no prior entries', () => {
-    const emptyHistory = `---
-project: "EmptyHistoryTest"
-roadmap_type: hierarchical
-created: "2026-01-01"
-last_refined: "2026-01-01"
-planning_horizon: "3 months"
----
-
-# Long-Term Roadmap: EmptyHistoryTest
-
-## Current Milestone (Now)
-
-**Milestone:** v1.0.0 - Start
-**Status:** In Progress
-**Start:** 2026-01-01
-**Target:** 2026-02-01
-
-### Goal
-Get started with the project.
-
-### Success Criteria
-- Initial setup complete
-
-## Refinement History
-
-| Date | Action | Details |
-|------|--------|---------|
-`;
-    const result = updateRefinementHistory(emptyHistory, 'Added', 'New milestone v2.0');
-    const parsed = parseLongTermRoadmap(result);
-    expect(parsed.refinement_history.length).toBe(1);
-    expect(parsed.refinement_history[0].action).toBe('Added');
   });
 });

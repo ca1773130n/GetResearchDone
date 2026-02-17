@@ -251,7 +251,7 @@ describe('COMMAND_DESCRIPTORS', () => {
     const ltrCommands = COMMAND_DESCRIPTORS.filter((d) =>
       d.name.startsWith('grd_long_term_roadmap_')
     );
-    expect(ltrCommands.length).toBeGreaterThanOrEqual(8);
+    expect(ltrCommands.length).toBeGreaterThanOrEqual(12);
   });
 
   test('covers requirement command family', () => {
@@ -1025,8 +1025,38 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
   });
 
   // Long-term roadmap commands
-  test('grd_long_term_roadmap_mode execute lambda', () => {
-    const r = callTool('grd_long_term_roadmap_mode');
+  test('grd_long_term_roadmap_list execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_list');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_add execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_add', { name: 'Test', goal: 'Test goal' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_remove execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_remove', { id: 'LT-99' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_update execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_update', { id: 'LT-1', goal: 'Updated' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_link execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_link', { id: 'LT-1', version: 'v9.9.9' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_unlink execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_unlink', { id: 'LT-1', version: 'v9.9.9' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_long_term_roadmap_init execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_init');
     expect(r.result || r.error).toBeDefined();
   });
 
@@ -1045,8 +1075,8 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
     expect(r.result || r.error).toBeDefined();
   });
 
-  test('grd_long_term_roadmap_tier execute lambda', () => {
-    const r = callTool('grd_long_term_roadmap_tier', { version: 'v1.0' });
+  test('grd_long_term_roadmap_refine execute lambda', () => {
+    const r = callTool('grd_long_term_roadmap_refine', { id: 'LT-1' });
     expect(r.result || r.error).toBeDefined();
   });
 

@@ -1,141 +1,77 @@
 /**
- * Round-trip integrity tests for lib/long-term-roadmap.js (DEFER-11-01)
+ * Round-trip integrity tests for lib/long-term-roadmap.js
  *
- * Validates the full long-term roadmap lifecycle: create -> refine -> promote ->
- * refine -> promote -> validate, ensuring no data loss at any step.
- *
- * Unlike long-term-roadmap.test.js (unit tests), these tests exercise multi-step
- * lifecycle chains with independent fixture data per test.
+ * Validates the full long-term roadmap lifecycle: create -> update -> link ->
+ * unlink -> add -> remove -> validate, ensuring no data loss at any step.
  */
 
 const {
   parseLongTermRoadmap,
   validateLongTermRoadmap,
   generateLongTermRoadmap,
-  refineMilestone,
-  promoteMilestone,
+  formatLongTermRoadmap,
   updateRefinementHistory,
-  getMilestoneTier,
+  addLtMilestone,
+  removeLtMilestone,
+  updateLtMilestone,
+  linkNormalMilestone,
+  unlinkNormalMilestone,
+  nextLtId,
 } = require('../../lib/long-term-roadmap');
 
 // ─── Shared Fixture Data ──────────────────────────────────────────────────────
 
-/**
- * Build a 5-milestone array: 1 Now, 2 Next, 2 Later.
- * Each test should call this fresh to avoid shared mutable state.
- */
 function makeMilestones() {
   return [
     {
+      id: 'LT-1',
       name: 'Foundation',
-      version: 'v1.0.0',
+      status: 'completed',
       goal: 'Establish core platform with full test coverage',
-      success_criteria: [
-        'All unit tests passing',
-        'Integration tests for critical paths',
-        'Documentation for public API',
-      ],
-      status: 'In Progress',
-      start: '2026-01-15',
-      target: '2026-03-01',
-    },
-    {
-      name: 'Agent Teams',
-      version: 'v2.0.0',
-      goal: 'Enable parallel execution of independent phases',
-      success_criteria: [
-        'Execute 3 independent phases in parallel',
-        'Agent team collaboration works end-to-end',
-        '30% reduction in milestone completion time',
-      ],
-      status: 'Next',
-      estimated_start: '2026-03-15',
-      estimated_duration: '6 weeks',
-      dependencies: 'v1.0.0 complete',
-      rough_phase_sketch: [
-        'Agent Team Protocol',
-        'Parallel Execution Engine',
-        'Coordination Primitives',
-        'Integration Testing',
-      ],
-      open_questions: [
-        'Which protocol: hierarchical vs peer-to-peer?',
-        'How to handle merge conflicts in parallel execution?',
+      normal_milestones: [
+        { version: 'v0.0.5' },
+        { version: 'v0.1.0' },
+        { version: 'v0.1.1' },
       ],
     },
     {
-      name: 'Advanced Evaluation',
-      version: 'v3.0.0',
-      goal: 'Richer evaluation framework with A/B testing and regression detection',
-      success_criteria: [
-        'Automated regression detection on 5 baseline metrics',
-        'A/B test support with statistical significance',
-        'Performance profiling in eval reports',
-      ],
-      status: 'Next',
-      estimated_start: '2026-05-01',
-      estimated_duration: '4 weeks',
-      dependencies: 'v2.0.0 complete',
-      rough_phase_sketch: [
-        'Regression Detection',
-        'A/B Testing Framework',
-        'Profiling Integration',
-      ],
-      open_questions: ['Baseline storage: in-repo vs external database?'],
-    },
-    {
-      name: 'Multi-Project Management',
-      version: 'v4.0.0',
-      goal: 'Support multiple concurrent R&D projects with shared knowledge base',
-      success_criteria: [
-        'Manage 3+ projects in single workspace',
-        'Cross-project research reuse',
-        'Unified progress dashboard',
-      ],
-      status: 'Later',
-      estimated_timeline: 'Q3 2026',
-      dependencies: 'v3.0.0 complete',
-      open_research_questions: [
-        'Monorepo vs separate repos per project?',
-        'How to structure shared research knowledge graph?',
+      id: 'LT-2',
+      name: 'Growth & Polish',
+      status: 'active',
+      goal: 'Expand features and improve developer experience',
+      normal_milestones: [
+        { version: 'v0.2.0', note: 'planned' },
       ],
     },
     {
-      name: 'Community & Marketplace',
-      version: 'v5.0.0',
-      goal: 'Enable sharing of research artifacts and phase templates',
-      success_criteria: ['10+ published research landscapes', '20+ reusable phase templates'],
-      status: 'Later',
-      estimated_timeline: 'Q4 2026',
-      dependencies: 'v4.0.0 complete, user base >100',
-      open_research_questions: ['Licensing and attribution model?', 'Quality curation mechanism?'],
+      id: 'LT-3',
+      name: 'Advanced Workflows',
+      status: 'planned',
+      goal: 'Agent Teams, async I/O, advanced evaluation',
+      normal_milestones: [],
     },
   ];
 }
 
-/**
- * Generate a fresh roadmap from milestone data and return the content string.
- */
 function freshRoadmap() {
-  return generateLongTermRoadmap(makeMilestones(), 'RoundTripTest', '12 months');
+  return generateLongTermRoadmap(makeMilestones(), 'RoundTripTest');
 }
 
 // ─── Test Group 1: Full Create->Parse Round-Trip ──────────────────────────────
 
 describe('Full Create->Parse Round-Trip', () => {
-  test('generated content parses back into 5 milestones in correct tiers', () => {
+  test('generated content parses back into correct milestones', () => {
     const content = freshRoadmap();
     const parsed = parseLongTermRoadmap(content);
 
     expect(parsed).toBeDefined();
-    expect(parsed.now).toBeDefined();
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.next).toHaveLength(2);
-    expect(parsed.next[0].version).toBe('v2.0.0');
-    expect(parsed.next[1].version).toBe('v3.0.0');
-    expect(parsed.later).toHaveLength(2);
-    expect(parsed.later[0].version).toBe('v4.0.0');
-    expect(parsed.later[1].version).toBe('v5.0.0');
+    expect(parsed.milestones).toHaveLength(3);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[0].status).toBe('completed');
+    expect(parsed.milestones[1].id).toBe('LT-2');
+    expect(parsed.milestones[1].status).toBe('active');
+    expect(parsed.milestones[2].id).toBe('LT-3');
+    expect(parsed.milestones[2].status).toBe('planned');
   });
 
   test('frontmatter fields survive round-trip', () => {
@@ -143,76 +79,31 @@ describe('Full Create->Parse Round-Trip', () => {
     const parsed = parseLongTermRoadmap(content);
 
     expect(parsed.frontmatter.project).toBe('RoundTripTest');
-    expect(parsed.frontmatter.roadmap_type).toBe('hierarchical');
-    expect(parsed.frontmatter.planning_horizon).toBe('12 months');
     expect(parsed.frontmatter.created).toBeDefined();
     expect(parsed.frontmatter.last_refined).toBeDefined();
   });
 
-  test('Now milestone preserves all data fields through round-trip', () => {
+  test('normal milestones survive round-trip', () => {
     const content = freshRoadmap();
     const parsed = parseLongTermRoadmap(content);
 
-    expect(parsed.now.milestone).toContain('v1.0.0');
-    expect(parsed.now.milestone).toContain('Foundation');
-    expect(parsed.now.status).toBe('In Progress');
-    expect(parsed.now.start).toBe('2026-01-15');
-    expect(parsed.now.target).toBe('2026-03-01');
-    expect(parsed.now.goal).toContain('core platform');
-    expect(parsed.now.success_criteria).toHaveLength(3);
-    expect(parsed.now.success_criteria).toContain('All unit tests passing');
-    expect(parsed.now.success_criteria).toContain('Integration tests for critical paths');
-    expect(parsed.now.success_criteria).toContain('Documentation for public API');
+    expect(parsed.milestones[0].normal_milestones).toHaveLength(3);
+    expect(parsed.milestones[0].normal_milestones[0].version).toBe('v0.0.5');
+    expect(parsed.milestones[1].normal_milestones).toHaveLength(1);
+    expect(parsed.milestones[1].normal_milestones[0].note).toBe('planned');
+    expect(parsed.milestones[2].normal_milestones).toEqual([]);
   });
 
-  test('Next milestones preserve all data fields through round-trip', () => {
+  test('goals survive round-trip', () => {
     const content = freshRoadmap();
     const parsed = parseLongTermRoadmap(content);
 
-    // v2.0.0 (first Next)
-    const next0 = parsed.next[0];
-    expect(next0.goal).toContain('parallel execution');
-    expect(next0.success_criteria).toHaveLength(3);
-    expect(next0.estimated_start).toBe('2026-03-15');
-    expect(next0.estimated_duration).toBe('6 weeks');
-    expect(next0.dependencies).toContain('v1.0.0');
-    expect(next0.rough_phase_sketch).toHaveLength(4);
-    expect(next0.rough_phase_sketch[0]).toBe('Agent Team Protocol');
-    expect(next0.open_questions).toHaveLength(2);
-
-    // v3.0.0 (second Next)
-    const next1 = parsed.next[1];
-    expect(next1.goal).toContain('evaluation framework');
-    expect(next1.success_criteria).toHaveLength(3);
-    expect(next1.estimated_start).toBe('2026-05-01');
-    expect(next1.estimated_duration).toBe('4 weeks');
-    expect(next1.rough_phase_sketch).toHaveLength(3);
-    expect(next1.open_questions).toHaveLength(1);
+    expect(parsed.milestones[0].goal).toContain('core platform');
+    expect(parsed.milestones[1].goal).toContain('Expand features');
+    expect(parsed.milestones[2].goal).toContain('Agent Teams');
   });
 
-  test('Later milestones preserve all data fields through round-trip', () => {
-    const content = freshRoadmap();
-    const parsed = parseLongTermRoadmap(content);
-
-    // v4.0.0 (first Later)
-    const later0 = parsed.later[0];
-    expect(later0.goal).toContain('multiple concurrent');
-    expect(later0.success_criteria).toHaveLength(3);
-    expect(later0.estimated_timeline).toBe('Q3 2026');
-    expect(later0.dependencies).toContain('v3.0.0');
-    expect(later0.open_research_questions).toHaveLength(2);
-    expect(later0.open_research_questions[0]).toContain('Monorepo');
-
-    // v5.0.0 (second Later)
-    const later1 = parsed.later[1];
-    expect(later1.goal).toContain('sharing of research artifacts');
-    expect(later1.success_criteria).toHaveLength(2);
-    expect(later1.estimated_timeline).toBe('Q4 2026');
-    expect(later1.dependencies).toContain('v4.0.0');
-    expect(later1.open_research_questions).toHaveLength(2);
-  });
-
-  test('parsed result passes validateLongTermRoadmap with valid=true and no errors', () => {
+  test('parsed result passes validation', () => {
     const content = freshRoadmap();
     const parsed = parseLongTermRoadmap(content);
     const validation = validateLongTermRoadmap(parsed);
@@ -222,503 +113,343 @@ describe('Full Create->Parse Round-Trip', () => {
   });
 });
 
-// ─── Test Group 2: Refine->Parse Round-Trip ───────────────────────────────────
+// ─── Test Group 2: Update->Parse Round-Trip ───────────────────────────────────
 
-describe('Refine->Parse Round-Trip', () => {
-  test('refining a Next milestone goal preserves all other milestones', () => {
-    const content = freshRoadmap();
-
-    const refined = refineMilestone(content, 'v2.0.0', {
-      goal: 'Completely rewritten goal for Agent Teams',
-    });
-    expect(typeof refined).toBe('string');
-
-    const parsed = parseLongTermRoadmap(refined);
-
-    // Refined milestone has new goal
-    expect(parsed.next[0].goal).toBe('Completely rewritten goal for Agent Teams');
-
-    // All other milestones unchanged
-    expect(parsed.now.goal).toContain('core platform');
-    expect(parsed.now.success_criteria).toHaveLength(3);
-    expect(parsed.next[1].goal).toContain('evaluation framework');
-    expect(parsed.next[1].success_criteria).toHaveLength(3);
-    expect(parsed.later[0].goal).toContain('multiple concurrent');
-    expect(parsed.later[0].success_criteria).toHaveLength(3);
-    expect(parsed.later[1].goal).toContain('sharing of research artifacts');
-    expect(parsed.later[1].success_criteria).toHaveLength(2);
-  });
-
-  test('sequential refinements to the same milestone accumulate correctly', () => {
+describe('Update->Parse Round-Trip', () => {
+  test('updating goal preserves other milestones', () => {
     let content = freshRoadmap();
-
-    // Refine goal
-    content = refineMilestone(content, 'v2.0.0', {
-      goal: 'New goal for Agent Teams v2',
-    });
-
-    // Refine success_criteria
-    content = refineMilestone(content, 'v2.0.0', {
-      success_criteria: ['First new criterion', 'Second new criterion'],
-    });
+    content = updateLtMilestone(content, 'LT-2', { goal: 'Completely rewritten goal' });
 
     const parsed = parseLongTermRoadmap(content);
-
-    // Both refinements present
-    expect(parsed.next[0].goal).toBe('New goal for Agent Teams v2');
-    expect(parsed.next[0].success_criteria).toEqual([
-      'First new criterion',
-      'Second new criterion',
-    ]);
-
-    // Everything else intact
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.next[1].version).toBe('v3.0.0');
-    expect(parsed.later).toHaveLength(2);
+    expect(parsed.milestones[1].goal).toBe('Completely rewritten goal');
+    expect(parsed.milestones[0].goal).toContain('core platform');
+    expect(parsed.milestones[2].goal).toContain('Agent Teams');
   });
 
-  test('refining a DIFFERENT milestone (Later tier) preserves prior refinements', () => {
+  test('updating name preserves other fields', () => {
     let content = freshRoadmap();
-
-    // Refine Next milestone
-    content = refineMilestone(content, 'v2.0.0', {
-      goal: 'Refined Next goal',
-    });
-
-    // Refine Later milestone
-    content = refineMilestone(content, 'v4.0.0', {
-      goal: 'Refined Later goal for Multi-Project',
-    });
+    content = updateLtMilestone(content, 'LT-2', { name: 'Renamed Milestone' });
 
     const parsed = parseLongTermRoadmap(content);
-
-    // Both refinements present
-    expect(parsed.next[0].goal).toBe('Refined Next goal');
-    expect(parsed.later[0].goal).toBe('Refined Later goal for Multi-Project');
-
-    // Unrelated milestones unchanged
-    expect(parsed.now.goal).toContain('core platform');
-    expect(parsed.next[1].goal).toContain('evaluation framework');
-    expect(parsed.later[1].goal).toContain('sharing of research artifacts');
+    expect(parsed.milestones[1].name).toBe('Renamed Milestone');
+    expect(parsed.milestones[1].goal).toContain('Expand features');
+    expect(parsed.milestones[1].status).toBe('active');
   });
 
-  test('refining multiple fields across different milestones produces valid output', () => {
+  test('updating status preserves other fields', () => {
     let content = freshRoadmap();
+    content = updateLtMilestone(content, 'LT-3', { status: 'active' });
 
-    content = refineMilestone(content, 'v2.0.0', {
-      goal: 'Refined v2 goal',
-      success_criteria: ['SC-A', 'SC-B'],
-    });
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[2].status).toBe('active');
+    expect(parsed.milestones[2].goal).toContain('Agent Teams');
+    expect(parsed.milestones[2].name).toBe('Advanced Workflows');
+  });
 
-    content = refineMilestone(content, 'v3.0.0', {
-      rough_phase_sketch: ['Phase X', 'Phase Y'],
-    });
+  test('sequential updates to same milestone accumulate', () => {
+    let content = freshRoadmap();
+    content = updateLtMilestone(content, 'LT-2', { goal: 'New goal' });
+    content = updateLtMilestone(content, 'LT-2', { name: 'New name' });
+    content = updateLtMilestone(content, 'LT-2', { status: 'completed' });
 
-    content = refineMilestone(content, 'v4.0.0', {
-      open_research_questions: ['New Q1?', 'New Q2?', 'New Q3?'],
-    });
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[1].goal).toBe('New goal');
+    expect(parsed.milestones[1].name).toBe('New name');
+    expect(parsed.milestones[1].status).toBe('completed');
+  });
+
+  test('updates across different milestones all preserved', () => {
+    let content = freshRoadmap();
+    content = updateLtMilestone(content, 'LT-2', { goal: 'Goal 2 updated' });
+    content = updateLtMilestone(content, 'LT-3', { goal: 'Goal 3 updated' });
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[1].goal).toBe('Goal 2 updated');
+    expect(parsed.milestones[2].goal).toBe('Goal 3 updated');
+    expect(parsed.milestones[0].goal).toContain('core platform');
+  });
+
+  test('updated content passes validation', () => {
+    let content = freshRoadmap();
+    content = updateLtMilestone(content, 'LT-2', { goal: 'Updated goal' });
+    content = updateLtMilestone(content, 'LT-3', { status: 'active' });
 
     const parsed = parseLongTermRoadmap(content);
     const validation = validateLongTermRoadmap(parsed);
-
     expect(validation.valid).toBe(true);
-    expect(validation.errors).toHaveLength(0);
-
-    // Verify each refinement
-    expect(parsed.next[0].goal).toBe('Refined v2 goal');
-    expect(parsed.next[0].success_criteria).toEqual(['SC-A', 'SC-B']);
-    expect(parsed.next[1].rough_phase_sketch).toEqual(['Phase X', 'Phase Y']);
-    expect(parsed.later[0].open_research_questions).toEqual(['New Q1?', 'New Q2?', 'New Q3?']);
   });
 });
 
-// ─── Test Group 3: Multi-Step Promotion Chain ─────────────────────────────────
+// ─── Test Group 3: Link/Unlink Round-Trip ─────────────────────────────────────
 
-describe('Multi-Step Promotion Chain', () => {
-  test('Later -> Next promotion: tier counts shift correctly', () => {
+describe('Link/Unlink Round-Trip', () => {
+  test('link adds version to normal milestones', () => {
     let content = freshRoadmap();
-
-    // Start: 1 Now, 2 Next, 2 Later
-    let parsed = parseLongTermRoadmap(content);
-    expect(parsed.next).toHaveLength(2);
-    expect(parsed.later).toHaveLength(2);
-
-    // Promote v4.0.0: Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(typeof content).toBe('string');
-
-    parsed = parseLongTermRoadmap(content);
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.next).toHaveLength(3);
-    expect(parsed.later).toHaveLength(1);
-
-    // Promoted milestone preserved its data
-    const promoted = parsed.next.find((m) => m.version === 'v4.0.0');
-    expect(promoted).toBeDefined();
-    expect(promoted.goal).toContain('multiple concurrent');
-    expect(promoted.success_criteria.length).toBeGreaterThan(0);
-  });
-
-  test('Next -> Now promotion: replaces current Now', () => {
-    let content = freshRoadmap();
-
-    // Promote v2.0.0: Next -> Now
-    content = promoteMilestone(content, 'v2.0.0');
-    expect(typeof content).toBe('string');
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0');
 
     const parsed = parseLongTermRoadmap(content);
-    expect(parsed.now.version).toBe('v2.0.0');
-    expect(parsed.now.goal).toContain('parallel execution');
-    expect(parsed.next.map((m) => m.version)).not.toContain('v2.0.0');
-    // v3.0.0 still in Next
-    expect(parsed.next.some((m) => m.version === 'v3.0.0')).toBe(true);
-    // Later unchanged
-    expect(parsed.later).toHaveLength(2);
+    expect(parsed.milestones[2].normal_milestones).toHaveLength(1);
+    expect(parsed.milestones[2].normal_milestones[0].version).toBe('v0.3.0');
   });
 
-  test('each promotion step passes parse + validate', () => {
+  test('link with note preserves note', () => {
     let content = freshRoadmap();
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0', 'planned');
 
-    // Step 1: Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-    let parsed = parseLongTermRoadmap(content);
-    let validation = validateLongTermRoadmap(parsed);
-    expect(parsed).toBeDefined();
-    expect(validation.valid).toBe(true);
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[2].normal_milestones[0].note).toBe('planned');
+  });
 
-    // Step 2: Next -> Now
-    content = promoteMilestone(content, 'v2.0.0');
-    parsed = parseLongTermRoadmap(content);
-    validation = validateLongTermRoadmap(parsed);
-    expect(parsed).toBeDefined();
-    expect(validation.valid).toBe(true);
+  test('multiple links accumulate', () => {
+    let content = freshRoadmap();
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0');
+    content = linkNormalMilestone(content, 'LT-3', 'v0.4.0', 'planned');
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[2].normal_milestones).toHaveLength(2);
+    expect(parsed.milestones[2].normal_milestones[0].version).toBe('v0.3.0');
+    expect(parsed.milestones[2].normal_milestones[1].version).toBe('v0.4.0');
+  });
+
+  test('unlink removes version from normal milestones', () => {
+    let content = freshRoadmap();
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0');
+    content = unlinkNormalMilestone(content, 'LT-3', 'v0.3.0');
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[2].normal_milestones).toEqual([]);
+  });
+
+  test('link/unlink preserves other milestones', () => {
+    let content = freshRoadmap();
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0');
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[0].normal_milestones).toHaveLength(3);
+    expect(parsed.milestones[1].normal_milestones).toHaveLength(1);
   });
 });
 
-// ─── Test Group 4: Combined Refine + Promote Chain ────────────────────────────
+// ─── Test Group 4: Add/Remove Round-Trip ──────────────────────────────────────
 
-describe('Combined Refine + Promote Chain', () => {
-  test('refine Later, promote to Next, refine again, promote to Now: all refinements preserved', () => {
+describe('Add/Remove Round-Trip', () => {
+  test('add milestone increases count', () => {
     let content = freshRoadmap();
+    const result = addLtMilestone(content, 'New Feature', 'Build something new');
+    content = result.content;
 
-    // Step 1: Refine v4.0.0 in Later tier
-    content = refineMilestone(content, 'v4.0.0', {
-      success_criteria: ['Refined criterion A', 'Refined criterion B', 'Refined criterion C'],
-    });
-
-    // Step 2: Promote v4.0.0 Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(typeof content).toBe('string');
-
-    let parsed = parseLongTermRoadmap(content);
-    let promoted = parsed.next.find((m) => m.version === 'v4.0.0');
-    expect(promoted).toBeDefined();
-    // Refinement from step 1 should be preserved
-    expect(promoted.success_criteria).toContain('Refined criterion A');
-    expect(promoted.success_criteria).toContain('Refined criterion B');
-    expect(promoted.success_criteria).toContain('Refined criterion C');
-
-    // Step 3: Refine v4.0.0 in Next tier (update goal)
-    content = refineMilestone(content, 'v4.0.0', {
-      goal: 'Updated goal after promotion to Next',
-    });
-
-    // Step 4: Promote v4.0.0 Next -> Now (needs to remove current Now first via the function)
-    // First promote the old Now's successor
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(typeof content).toBe('string');
-
-    parsed = parseLongTermRoadmap(content);
-
-    // v4.0.0 is now the Now milestone
-    expect(parsed.now.version).toBe('v4.0.0');
-    // Goal from step 3 refinement should be present
-    expect(parsed.now.goal).toBe('Updated goal after promotion to Next');
-    // Success criteria from step 1 refinement should still be present
-    expect(parsed.now.success_criteria).toContain('Refined criterion A');
-    expect(parsed.now.success_criteria).toContain('Refined criterion B');
-    expect(parsed.now.success_criteria).toContain('Refined criterion C');
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones).toHaveLength(4);
+    expect(parsed.milestones[3].id).toBe('LT-4');
+    expect(parsed.milestones[3].name).toBe('New Feature');
   });
 
-  test('combined chain produces valid output at every step', () => {
+  test('remove milestone decreases count', () => {
     let content = freshRoadmap();
+    content = removeLtMilestone(content, 'LT-3');
 
-    // Refine
-    content = refineMilestone(content, 'v4.0.0', {
-      goal: 'Detailed multi-project goal',
-    });
-    expect(validateLongTermRoadmap(parseLongTermRoadmap(content)).valid).toBe(true);
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones).toHaveLength(2);
+  });
 
-    // Promote Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(validateLongTermRoadmap(parseLongTermRoadmap(content)).valid).toBe(true);
+  test('add then remove returns to original state', () => {
+    let content = freshRoadmap();
+    const result = addLtMilestone(content, 'Temp', 'Temporary');
+    content = result.content;
+    content = removeLtMilestone(content, result.id);
 
-    // Refine again
-    content = refineMilestone(content, 'v4.0.0', {
-      success_criteria: ['New SC 1', 'New SC 2'],
-    });
-    expect(validateLongTermRoadmap(parseLongTermRoadmap(content)).valid).toBe(true);
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones).toHaveLength(3);
+    expect(parsed.milestones[0].id).toBe('LT-1');
+    expect(parsed.milestones[1].id).toBe('LT-2');
+    expect(parsed.milestones[2].id).toBe('LT-3');
+  });
 
-    // Promote Next -> Now
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(validateLongTermRoadmap(parseLongTermRoadmap(content)).valid).toBe(true);
+  test('multiple adds increment ID correctly', () => {
+    let content = freshRoadmap();
+    let result = addLtMilestone(content, 'A', 'Goal A');
+    content = result.content;
+    result = addLtMilestone(content, 'B', 'Goal B');
+    content = result.content;
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones).toHaveLength(5);
+    expect(parsed.milestones[3].id).toBe('LT-4');
+    expect(parsed.milestones[4].id).toBe('LT-5');
+  });
+
+  test('add/remove preserves existing milestones', () => {
+    let content = freshRoadmap();
+    const result = addLtMilestone(content, 'Extra', 'Extra goal');
+    content = result.content;
+
+    const parsed = parseLongTermRoadmap(content);
+    expect(parsed.milestones[0].goal).toContain('core platform');
+    expect(parsed.milestones[1].goal).toContain('Expand features');
+    expect(parsed.milestones[2].goal).toContain('Agent Teams');
   });
 });
 
 // ─── Test Group 5: Refinement History Accumulation ────────────────────────────
 
 describe('Refinement History Accumulation', () => {
-  test('multiple updateRefinementHistory calls accumulate entries correctly', () => {
+  test('multiple history updates accumulate entries', () => {
     let content = freshRoadmap();
 
-    // Initial history has 1 entry (from generation)
     let parsed = parseLongTermRoadmap(content);
     expect(parsed.refinement_history).toHaveLength(1);
-    expect(parsed.refinement_history[0].action).toContain('Initial');
 
-    // Add 3 more entries
-    content = updateRefinementHistory(content, 'Refined', 'Updated v2.0.0 goal');
-    content = updateRefinementHistory(content, 'Promoted', 'Moved v4.0.0 to Next tier');
-    content = updateRefinementHistory(content, 'Refined', 'Updated v4.0.0 success criteria');
+    content = updateRefinementHistory(content, 'Added', 'Added LT-4');
+    content = updateRefinementHistory(content, 'Updated', 'Changed LT-2 goal');
+    content = updateRefinementHistory(content, 'Linked', 'Linked v0.3.0 to LT-3');
 
     parsed = parseLongTermRoadmap(content);
-
     expect(parsed.refinement_history).toHaveLength(4);
-
-    // Check order: initial first, then appended entries
     expect(parsed.refinement_history[0].action).toContain('Initial');
-    expect(parsed.refinement_history[1].action).toBe('Refined');
-    expect(parsed.refinement_history[1].details).toBe('Updated v2.0.0 goal');
-    expect(parsed.refinement_history[2].action).toBe('Promoted');
-    expect(parsed.refinement_history[2].details).toBe('Moved v4.0.0 to Next tier');
-    expect(parsed.refinement_history[3].action).toBe('Refined');
-    expect(parsed.refinement_history[3].details).toBe('Updated v4.0.0 success criteria');
+    expect(parsed.refinement_history[1].action).toBe('Added');
+    expect(parsed.refinement_history[2].action).toBe('Updated');
+    expect(parsed.refinement_history[3].action).toBe('Linked');
   });
 
-  test('all history entries have correct date format', () => {
+  test('history entries have correct date format', () => {
     let content = freshRoadmap();
     const today = new Date().toISOString().split('T')[0];
 
-    content = updateRefinementHistory(content, 'Added', 'New milestone v6.0.0');
-    content = updateRefinementHistory(content, 'Refined', 'Updated v3.0.0 goal');
+    content = updateRefinementHistory(content, 'Test', 'Test entry');
 
     const parsed = parseLongTermRoadmap(content);
-
     for (const entry of parsed.refinement_history) {
       expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
-
-    // New entries should have today's date
     expect(parsed.refinement_history[1].date).toBe(today);
-    expect(parsed.refinement_history[2].date).toBe(today);
   });
 
   test('history accumulation does not corrupt milestone data', () => {
     let content = freshRoadmap();
-
-    content = updateRefinementHistory(content, 'Refined', 'First update');
-    content = updateRefinementHistory(content, 'Refined', 'Second update');
-    content = updateRefinementHistory(content, 'Refined', 'Third update');
+    content = updateRefinementHistory(content, 'A', 'First');
+    content = updateRefinementHistory(content, 'B', 'Second');
+    content = updateRefinementHistory(content, 'C', 'Third');
 
     const parsed = parseLongTermRoadmap(content);
-
-    // All milestones intact
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.now.success_criteria).toHaveLength(3);
-    expect(parsed.next).toHaveLength(2);
-    expect(parsed.later).toHaveLength(2);
-    expect(parsed.later[0].open_research_questions).toHaveLength(2);
+    expect(parsed.milestones).toHaveLength(3);
+    expect(parsed.milestones[0].normal_milestones).toHaveLength(3);
+    expect(parsed.milestones[1].normal_milestones).toHaveLength(1);
   });
 });
 
-// ─── Test Group 6: Edge Cases for Data Preservation ───────────────────────────
+// ─── Test Group 6: Combined Operations ────────────────────────────────────────
 
-describe('Edge Cases for Data Preservation', () => {
+describe('Combined Operations', () => {
+  test('full lifecycle: add, update, link, history, validate', () => {
+    let content = freshRoadmap();
+
+    // Add LT-4
+    const addResult = addLtMilestone(content, 'Scale', 'Scale to production');
+    content = addResult.content;
+    content = updateRefinementHistory(content, 'Added', 'Added LT-4: Scale');
+
+    // Update LT-2 goal
+    content = updateLtMilestone(content, 'LT-2', { goal: 'Enhanced dev experience' });
+    content = updateRefinementHistory(content, 'Updated', 'Changed LT-2 goal');
+
+    // Link v0.3.0 to LT-3
+    content = linkNormalMilestone(content, 'LT-3', 'v0.3.0', 'planned');
+    content = updateRefinementHistory(content, 'Linked', 'Linked v0.3.0 to LT-3');
+
+    // Validate
+    const parsed = parseLongTermRoadmap(content);
+    const validation = validateLongTermRoadmap(parsed);
+
+    expect(validation.valid).toBe(true);
+    expect(validation.errors).toHaveLength(0);
+
+    // Verify data integrity
+    expect(parsed.milestones).toHaveLength(4);
+    expect(parsed.milestones[1].goal).toBe('Enhanced dev experience');
+    expect(parsed.milestones[2].normal_milestones[0].version).toBe('v0.3.0');
+    expect(parsed.milestones[3].id).toBe('LT-4');
+    expect(parsed.milestones[3].name).toBe('Scale');
+    expect(parsed.refinement_history).toHaveLength(4);
+  });
+
+  test('format produces expected output after multiple operations', () => {
+    let content = freshRoadmap();
+    content = updateLtMilestone(content, 'LT-2', { status: 'completed' });
+    content = updateLtMilestone(content, 'LT-3', { status: 'active' });
+
+    const parsed = parseLongTermRoadmap(content);
+    const formatted = formatLongTermRoadmap(parsed);
+
+    // Two completed, one active
+    const doneCount = (formatted.match(/\[done\]/g) || []).length;
+    const activeCount = (formatted.match(/\[active\]/g) || []).length;
+    expect(doneCount).toBe(2);
+    expect(activeCount).toBe(1);
+  });
+
+  test('nextLtId works after add/remove operations', () => {
+    let content = freshRoadmap();
+
+    // Add LT-4
+    const result1 = addLtMilestone(content, 'A', 'Goal A');
+    content = result1.content;
+    expect(result1.id).toBe('LT-4');
+
+    // Remove LT-3
+    content = removeLtMilestone(content, 'LT-3');
+
+    // Next ID should be LT-5 (based on max existing, which is LT-4)
+    const parsed = parseLongTermRoadmap(content);
+    expect(nextLtId(parsed)).toBe('LT-5');
+  });
+});
+
+// ─── Test Group 7: Edge Cases ─────────────────────────────────────────────────
+
+describe('Edge Cases', () => {
   test('milestone with special characters in goal survives round-trip', () => {
     const milestones = makeMilestones();
-    milestones[0].goal = 'Build the "core" platform (v1.0) - first release: alpha';
-    const content = generateLongTermRoadmap(milestones, 'SpecialChars', '6 months');
+    milestones[0].goal = 'Build the "core" platform (v1) - first: alpha';
+    const content = generateLongTermRoadmap(milestones, 'SpecialChars');
     const parsed = parseLongTermRoadmap(content);
 
-    expect(parsed.now.goal).toContain('"core"');
-    expect(parsed.now.goal).toContain('(v1.0)');
-    expect(parsed.now.goal).toContain('first release: alpha');
+    expect(parsed.milestones[0].goal).toContain('"core"');
+    expect(parsed.milestones[0].goal).toContain('(v1)');
+    expect(parsed.milestones[0].goal).toContain('first: alpha');
   });
 
-  test('success criteria with markdown formatting survives round-trip', () => {
-    const milestones = makeMilestones();
-    milestones[0].success_criteria = [
-      '**Bold criterion** with emphasis',
-      'Criterion with `inline code` block',
-      'Criterion with a [link](http://example.com)',
-    ];
-    const content = generateLongTermRoadmap(milestones, 'MarkdownTest', '6 months');
-    const parsed = parseLongTermRoadmap(content);
-
-    expect(parsed.now.success_criteria).toHaveLength(3);
-    expect(parsed.now.success_criteria[0]).toContain('**Bold criterion**');
-    expect(parsed.now.success_criteria[1]).toContain('`inline code`');
-    expect(parsed.now.success_criteria[2]).toContain('[link](http://example.com)');
-  });
-
-  test('open questions with special characters survive round-trip', () => {
-    const milestones = makeMilestones();
-    milestones[1].open_questions = [
-      'What is the cost: $100 or $200?',
-      'Should we use approach A (fast) or B (reliable)?',
-      'See https://example.com/docs for details?',
-    ];
-    const content = generateLongTermRoadmap(milestones, 'SpecialQTest', '6 months');
-    const parsed = parseLongTermRoadmap(content);
-
-    expect(parsed.next[0].open_questions).toHaveLength(3);
-    expect(parsed.next[0].open_questions[0]).toContain('$100 or $200?');
-    expect(parsed.next[0].open_questions[1]).toContain('approach A (fast)');
-    expect(parsed.next[0].open_questions[2]).toContain('https://example.com/docs');
-  });
-
-  test('milestones with hyphens and colons in names survive round-trip', () => {
+  test('milestone with colons and hyphens in name survives round-trip', () => {
     const milestones = makeMilestones();
     milestones[0].name = 'Phase-1: Core - Foundation';
-    const content = generateLongTermRoadmap(milestones, 'HyphenColonTest', '6 months');
+    const content = generateLongTermRoadmap(milestones, 'HyphenTest');
     const parsed = parseLongTermRoadmap(content);
 
-    expect(parsed.now.milestone).toContain('Phase-1: Core - Foundation');
+    expect(parsed.milestones[0].name).toContain('Phase-1: Core - Foundation');
   });
-});
 
-// ─── Test Group 7: ROADMAP.md Generation Integrity ────────────────────────────
-
-describe('ROADMAP.md Generation Integrity', () => {
-  test('after full promotion chain, Now milestone has correct data for ROADMAP.md population', () => {
-    let content = freshRoadmap();
-
-    // Refine v4.0.0 in Later
-    content = refineMilestone(content, 'v4.0.0', {
-      success_criteria: ['Workspace mgmt', 'Knowledge sharing', 'Dashboard'],
-    });
-
-    // Promote Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-
-    // Promote Next -> Now
-    content = promoteMilestone(content, 'v4.0.0');
-
+  test('empty normal milestones list round-trips correctly', () => {
+    const milestones = [
+      { id: 'LT-1', name: 'Solo', status: 'active', goal: 'Only one', normal_milestones: [] },
+    ];
+    const content = generateLongTermRoadmap(milestones, 'EmptyTest');
     const parsed = parseLongTermRoadmap(content);
 
-    // Now milestone has the promoted data
-    expect(parsed.now.version).toBe('v4.0.0');
-    expect(parsed.now.milestone).toContain('Multi-Project Management');
-    expect(parsed.now.status).toBe('In Progress');
-    expect(parsed.now.goal).toContain('multiple concurrent');
-    expect(parsed.now.success_criteria).toContain('Workspace mgmt');
-    expect(parsed.now.success_criteria).toContain('Knowledge sharing');
-    expect(parsed.now.success_criteria).toContain('Dashboard');
+    expect(parsed.milestones[0].normal_milestones).toEqual([]);
   });
 
-  test('generateLongTermRoadmap produces markdown that passes both parse and validate', () => {
-    const milestones = makeMilestones();
-    const content = generateLongTermRoadmap(milestones, 'IntegrityTest', '12 months');
-
-    const parsed = parseLongTermRoadmap(content);
-    expect(parsed).toBeDefined();
-    expect(parsed.now).toBeDefined();
-    expect(parsed.next).toBeInstanceOf(Array);
-    expect(parsed.later).toBeInstanceOf(Array);
-
-    const validation = validateLongTermRoadmap(parsed);
-    expect(validation.valid).toBe(true);
-    expect(validation.errors).toHaveLength(0);
-  });
-
-  test('Milestone Dependency Graph section is present and contains version strings', () => {
-    const content = freshRoadmap();
-
-    expect(content).toContain('## Milestone Dependency Graph');
-    expect(content).toContain('v1.0.0 (Now)');
-    expect(content).toContain('v2.0.0 (Next)');
-    expect(content).toContain('v4.0.0 (Later)');
-  });
-
-  test('Refinement History table is well-formed after multiple operations', () => {
-    let content = freshRoadmap();
-
-    content = updateRefinementHistory(content, 'Refined', 'Updated v2.0.0 goal');
-    content = refineMilestone(content, 'v2.0.0', { goal: 'New goal' });
-    content = updateRefinementHistory(content, 'Promoted', 'Moved v4.0.0 to Next');
-    content = promoteMilestone(content, 'v4.0.0');
-    content = updateRefinementHistory(content, 'Refined', 'Updated v4.0.0 success criteria');
-
+  test('large number of normal milestones round-trips', () => {
+    const milestones = [
+      {
+        id: 'LT-1',
+        name: 'Mega',
+        status: 'active',
+        goal: 'Many milestones',
+        normal_milestones: Array.from({ length: 10 }, (_, i) => ({ version: `v0.${i}.0` })),
+      },
+    ];
+    const content = generateLongTermRoadmap(milestones, 'LargeTest');
     const parsed = parseLongTermRoadmap(content);
 
-    // History table should have 4 entries: initial + 3 updates
-    expect(parsed.refinement_history).toHaveLength(4);
-
-    // All entries have proper structure
-    for (const entry of parsed.refinement_history) {
-      expect(entry).toHaveProperty('date');
-      expect(entry).toHaveProperty('action');
-      expect(entry).toHaveProperty('details');
-      expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(entry.action.length).toBeGreaterThan(0);
-      expect(entry.details.length).toBeGreaterThan(0);
-    }
-  });
-
-  test('getMilestoneTier reports correct tiers after operations', () => {
-    let content = freshRoadmap();
-
-    expect(getMilestoneTier(content, 'v1.0.0')).toBe('now');
-    expect(getMilestoneTier(content, 'v2.0.0')).toBe('next');
-    expect(getMilestoneTier(content, 'v4.0.0')).toBe('later');
-
-    // Promote v4.0.0 Later -> Next
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(getMilestoneTier(content, 'v4.0.0')).toBe('next');
-
-    // Promote v4.0.0 Next -> Now
-    content = promoteMilestone(content, 'v4.0.0');
-    expect(getMilestoneTier(content, 'v4.0.0')).toBe('now');
-  });
-
-  test('full lifecycle: generate -> refine -> promote -> history -> validate', () => {
-    let content = freshRoadmap();
-
-    // Multiple operations in sequence
-    content = refineMilestone(content, 'v3.0.0', {
-      goal: 'Enhanced evaluation with ML-powered regression detection',
-    });
-    content = updateRefinementHistory(content, 'Refined', 'Updated v3.0.0 goal');
-
-    content = refineMilestone(content, 'v4.0.0', {
-      success_criteria: [
-        'Multi-workspace support',
-        'Shared knowledge graph',
-        'Cross-project search',
-      ],
-    });
-    content = updateRefinementHistory(content, 'Refined', 'Updated v4.0.0 success criteria');
-
-    content = promoteMilestone(content, 'v4.0.0');
-    content = updateRefinementHistory(content, 'Promoted', 'Moved v4.0.0 Later -> Next');
-
-    // Final validation
-    const parsed = parseLongTermRoadmap(content);
-    const validation = validateLongTermRoadmap(parsed);
-
-    expect(validation.valid).toBe(true);
-    expect(validation.errors).toHaveLength(0);
-
-    // Verify all data integrity
-    expect(parsed.now.version).toBe('v1.0.0');
-    expect(parsed.next.some((m) => m.version === 'v3.0.0')).toBe(true);
-    expect(parsed.next.find((m) => m.version === 'v3.0.0').goal).toContain('ML-powered');
-    expect(parsed.next.some((m) => m.version === 'v4.0.0')).toBe(true);
-    expect(parsed.next.find((m) => m.version === 'v4.0.0').success_criteria).toContain(
-      'Multi-workspace support'
-    );
-    expect(parsed.later).toHaveLength(1);
-    expect(parsed.later[0].version).toBe('v5.0.0');
-    expect(parsed.refinement_history).toHaveLength(4);
+    expect(parsed.milestones[0].normal_milestones).toHaveLength(10);
   });
 });

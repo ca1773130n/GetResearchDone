@@ -274,6 +274,25 @@ cat .planning/PRODUCT-QUALITY.md 2>/dev/null
 **ALWAYS use Write tool to persist to disk.**
 </step>
 
+<step name="long_term_roadmap">
+Check long-term roadmap for strategic alignment.
+
+```bash
+cat .planning/LONG-TERM-ROADMAP.md 2>/dev/null
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw 2>/dev/null || true
+```
+
+If LONG-TERM-ROADMAP.md exists:
+- Verify current work aligns with active LT milestone goals
+- Check that planned phases serve the LT milestone's stated goal
+- Flag if work is drifting from LT milestone scope
+- Suggest updating LT milestone status if goals are being met
+
+If LONG-TERM-ROADMAP.md does not exist:
+- Recommend `/grd:long-term-roadmap init` to create one from existing milestones
+- Or `/grd:long-term-roadmap add` to define strategic milestones
+</step>
+
 <step name="update_roadmap">
 Update ROADMAP.md with planned phases if needed.
 

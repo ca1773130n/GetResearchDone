@@ -1,32 +1,39 @@
 ---
 description: Create or display long-term roadmap
-argument-hint: [--refine <version> | --promote <version>]
+argument-hint: [list | add | remove | update | refine | link | unlink | display | init]
 ---
 
 <purpose>
-Manage the hierarchical Now/Next/Later long-term roadmap. On first run (no LONG-TERM-ROADMAP.md), launches an interactive wizard to define milestones. On subsequent runs, displays the current roadmap. Supports refinement and promotion of milestones through tiers.
+Manage the flat, ordered list of long-term (LT) milestones. Each LT milestone groups 1+ normal milestones from ROADMAP.md with full traceability. Supports CRUD operations, linking/unlinking normal milestones, and protection of completed work.
 </purpose>
 
 <process>
 
-## Step 0: Detect Mode
+## Step 0: Detect State
+
+Check if LONG-TERM-ROADMAP.md exists:
 
 ```bash
-MODE=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap mode --raw)
+PARSED=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap parse --raw 2>&1)
 ```
 
-This returns the current planning mode: `progressive` (no LONG-TERM-ROADMAP.md) or `hierarchical` (file exists).
-
-Parse `$ARGUMENTS` for flags:
-- `--refine <version>` — jump to **Refine Flow**
-- `--promote <version>` — jump to **Promote Flow**
-- No flags — **Display or Create Flow**
+Parse `$ARGUMENTS` for subcommand:
+- `list` — **List Flow**
+- `add` — **Add Flow**
+- `remove` — **Remove Flow**
+- `update` — **Update Flow**
+- `refine` — **Refine Flow**
+- `link` — **Link Flow**
+- `unlink` — **Unlink Flow**
+- `display` — **Display Flow** (default when no subcommand)
+- `init` — **Init Flow**
+- No subcommand — **Display or Init Flow**
 
 ---
 
-## Display or Create Flow
+## Display or Init Flow
 
-### If hierarchical mode (LONG-TERM-ROADMAP.md exists):
+### If LONG-TERM-ROADMAP.md exists:
 
 **Display the current roadmap:**
 
@@ -41,236 +48,155 @@ Present the formatted output to the user, then offer actions:
 
 ## Actions
 
-- `/grd:long-term-roadmap --refine <version>` — refine a milestone with more detail
-- `/grd:long-term-roadmap --promote <version>` — move a milestone up a tier
-- `/grd:new-milestone` — start executing the Now milestone
+- `/grd:long-term-roadmap add` — add a new LT milestone
+- `/grd:long-term-roadmap update` — update a milestone's name, goal, or status
+- `/grd:long-term-roadmap link` — link a normal milestone to an LT milestone
+- `/grd:long-term-roadmap refine` — discuss and refine a milestone
+- `/grd:new-milestone` — start executing the active milestone
 
 ---
 ```
 
 Done.
 
-### If progressive mode (no LONG-TERM-ROADMAP.md):
+### If no LONG-TERM-ROADMAP.md:
 
-**Launch the creation wizard.**
-
-**Step 1: Load context**
-
-Read in parallel:
-- `.planning/PROJECT.md` — project vision and goals
-- `.planning/config.json` — check `autonomous_mode`
-
-**Step 2: Gather milestones**
-
-Check if `autonomous_mode` is true in config. If YOLO mode, synthesize milestones from PROJECT.md context and skip questioning.
-
-Otherwise, present the wizard:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GRD >>> LONG-TERM ROADMAP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-Ask inline (freeform):
-
-"Describe 3-5 milestones for your project. For each, give a version number, a name, and a rough goal. The first one becomes your active (Now) milestone."
-
-Wait for response. If the user's response is vague, probe for:
-- Version numbers (v0.1.0, v0.2.0, etc.)
-- Concrete goals for each milestone
-- Rough timeline or ordering
-- Dependencies between milestones
-
-**Step 3: Planning horizon**
-
-Use AskUserQuestion:
-- header: "Horizon"
-- question: "What's your planning horizon?"
-- options:
-  - "3 months" — Short sprint
-  - "6 months (Recommended)" — Standard R&D cycle
-  - "12 months" — Long-term research program
-
-**Step 4: Generate the roadmap**
-
-Structure milestones into the format expected by `generateLongTermRoadmap`:
-- First milestone = Now (status: "In Progress")
-- Milestones 2-3 = Next (status: "Next")
-- Remaining = Later (status: "Later")
+**Auto-initialize from existing ROADMAP.md:**
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap generate \
-  --project "<project_name>" \
-  --horizon "<planning_horizon>" \
-  --milestones '<JSON array of milestone objects>'
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap init --project "<project_name>" --raw)
 ```
 
-Each milestone object: `{"version":"v0.1.0","name":"Core Pipeline","status":"In Progress","goal":"Build the core pipeline","start":"2026-02-17"}`
+If ROADMAP.md exists, this auto-groups all existing milestones into LT-1. Write the result to `.planning/LONG-TERM-ROADMAP.md`.
 
-If the CLI `generate` subcommand doesn't accept `--milestones` directly, construct the markdown content manually using the schema from the tutorial and write it to `.planning/LONG-TERM-ROADMAP.md`.
+If no ROADMAP.md either, ask the user to create their first milestone with `/grd:new-project`.
 
-**Step 5: Validate**
+**Then offer to add more LT milestones:**
+
+Use AskUserQuestion:
+- header: "Milestones"
+- question: "Would you like to add more long-term milestones beyond the auto-grouped LT-1?"
+- options:
+  - "Yes" — Ask for milestone details
+  - "No" — Keep LT-1 only for now
+
+If "Yes", ask inline (freeform) for each milestone's name and goal. Use the `add` subcommand for each:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap add --name "<name>" --goal "<goal>"
+```
+
+**Validate and commit:**
 
 ```bash
 VALID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap validate --raw)
 ```
 
-If validation fails, fix issues and re-validate.
-
-**Step 6: Display result**
-
-```bash
-DISPLAY=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap display --raw)
-```
-
-Present the formatted roadmap.
-
-**Step 7: Log history**
-
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap history \
   --action "Initial roadmap" \
-  --details "Defined <N> milestones: <version list>"
+  --details "Created <N> LT milestones"
 ```
-
-**Step 8: Commit**
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: create long-term roadmap" --files .planning/LONG-TERM-ROADMAP.md
 ```
 
-Present completion:
+---
 
+## List Flow
+
+```bash
+LIST=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw)
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GRD >>> LONG-TERM ROADMAP CREATED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-<DISPLAY output>
+Present the list to the user.
 
-## Next Steps
+---
 
-- `/grd:long-term-roadmap --refine <version>` — add detail to a Next/Later milestone
-- `/grd:new-milestone` — start working on the Now milestone
+## Add Flow
+
+Ask inline (freeform) for the milestone name and goal (if not provided as arguments).
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap add --name "<name>" --goal "<goal>"
 ```
+
+Write the returned content to `.planning/LONG-TERM-ROADMAP.md`. Log history and commit.
+
+---
+
+## Remove Flow
+
+Parse `$ARGUMENTS` for `--id LT-N`.
+
+```bash
+RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap remove --id "<LT-N>")
+```
+
+**Protection:** The command refuses if the LT milestone has any completed (shipped) normal milestones. Present the error to the user if so.
+
+If successful, write the returned content and commit.
+
+---
+
+## Update Flow
+
+Parse `$ARGUMENTS` for `--id LT-N` and optional `--name`, `--goal`, `--status`.
+
+```bash
+RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap update \
+  --id "<LT-N>" [--name "<name>"] [--goal "<goal>"] [--status "<status>"])
+```
+
+Valid statuses: `completed`, `active`, `planned`. Write result and commit.
 
 ---
 
 ## Refine Flow
 
-Triggered by `--refine <version>` argument.
-
-**Step 1: Parse current state**
+Parse `$ARGUMENTS` for `--id LT-N`.
 
 ```bash
-PARSED=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap parse)
-TIER=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap tier --version <version> --raw)
+CONTEXT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap refine --id "<LT-N>" --raw)
 ```
 
-If version not found, error: "Milestone `<version>` not found in LONG-TERM-ROADMAP.md"
-
-**Step 2: Show current state of the milestone**
-
-Display the milestone's current goal, success criteria, phase sketch, and open questions.
-
-**Step 3: Gather refinements**
-
-Use AskUserQuestion:
-- header: "Refine"
-- question: "What would you like to refine for <version>?"
-- multiSelect: true
-- options:
-  - "Goal" — Sharpen the objective
-  - "Success criteria" — Add measurable targets
-  - "Phase sketch" — Break into implementation phases
-  - "Open questions" — Update unknowns
-
-For each selected area, ask inline (freeform) for the updated content.
-
-**Step 4: Apply refinements**
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap refine \
-  --version <version> \
-  --updates '<JSON with updated fields>'
-```
-
-The updates JSON may include: `goal`, `success_criteria` (array), `rough_phases` (array), `open_questions` (array).
-
-**Step 5: Log and commit**
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap history \
-  --action "Refined <version>" \
-  --details "<what was updated>"
-```
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: refine milestone <version>" --files .planning/LONG-TERM-ROADMAP.md
-```
-
-Display updated milestone state.
+Present the milestone context to the user. Discuss refinements. After gathering updates, use the `update` subcommand to apply changes. Log history and commit.
 
 ---
 
-## Promote Flow
+## Link Flow
 
-Triggered by `--promote <version>` argument.
-
-**Step 1: Check current tier**
+Parse `$ARGUMENTS` for `--id LT-N` and `--version vX.Y.Z`.
 
 ```bash
-TIER=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap tier --version <version> --raw)
+RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap link --id "<LT-N>" --version "<version>")
 ```
 
-If tier is "now", error: "Milestone `<version>` is already the active (Now) milestone."
+Write result and commit.
 
-**Step 2: Confirm promotion**
+---
 
-Use AskUserQuestion:
-- header: "Promote"
-- question: "Promote <version> from <current_tier> to <target_tier>?"
-- options:
-  - "Promote" — Move up one tier
-  - "Cancel" — Keep current tier
+## Unlink Flow
 
-If "Cancel", exit.
-
-**Step 3: Execute promotion**
+Parse `$ARGUMENTS` for `--id LT-N` and `--version vX.Y.Z`.
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap promote --version <version>
+RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap unlink --id "<LT-N>" --version "<version>")
 ```
 
-**For Next -> Now promotion:**
-- Warn if current Now milestone is not completed
-- After promotion, suggest: `/grd:new-milestone` to set up phases for the new active milestone
-
-**Step 4: Log and commit**
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap history \
-  --action "Promoted <version>" \
-  --details "<previous_tier> -> <new_tier>"
-```
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: promote milestone <version>" --files .planning/LONG-TERM-ROADMAP.md
-```
-
-Display updated roadmap.
+**Protection:** Refuses to unlink shipped versions. Present error if so. Write result and commit.
 
 ---
 
 </process>
 
 <success_criteria>
-- [ ] Progressive mode: wizard creates LONG-TERM-ROADMAP.md with Now/Next/Later tiers
-- [ ] Hierarchical mode: displays formatted roadmap overview
-- [ ] --refine flag: gathers and applies milestone refinements
-- [ ] --promote flag: moves milestone up one tier with confirmation
+- [ ] Init creates LONG-TERM-ROADMAP.md from existing ROADMAP.md milestones
+- [ ] Display shows formatted LT milestone list with status icons
+- [ ] Add/Remove/Update CRUD operations work with protection rules
+- [ ] Link/Unlink manages normal milestone associations
+- [ ] Shipped milestones cannot be removed or unlinked
 - [ ] All changes committed with history logged
 - [ ] Validation passes after any modification
 </success_criteria>
-</process>

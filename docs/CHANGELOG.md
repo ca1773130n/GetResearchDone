@@ -3,6 +3,25 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.1.5] - 2026-02-17
+
+### Changed
+- **Long-term roadmap redesign:** Replaced rigid Now/Next/Later tier system with flat, ordered LT-N milestones supporting full CRUD operations
+- **12 new subcommands:** `list`, `add`, `remove`, `update`, `refine`, `link`, `unlink`, `display`, `init`, `history`, `parse`, `validate`
+- **Protection rules:** Cannot remove LT milestones with shipped normal milestones; cannot unlink shipped versions
+- **Auto-initialization:** `init` subcommand auto-groups existing ROADMAP.md milestones into LT-1
+- **Normal milestone linking:** Each LT milestone tracks linked normal milestones with `(planned)` annotations
+- **12 MCP tools:** Replaced 9 old tools (`mode`, `generate`, `promote`, `tier`) with 12 new CRUD tools
+
+### Removed
+- `mode`, `generate`, `promote`, `tier` subcommands (replaced by flat LT-N model)
+- Now/Next/Later tier hierarchy
+- `roadmap_type` and `planning_horizon` frontmatter fields
+
+### Documentation
+- **New tutorial:** `docs/long-term-roadmap-tutorial.md` with step-by-step guide and breakdown refinement workflow
+- Updated README, CLAUDE.md, MCP server docs, quickstart, slash command definition
+
 ## [0.1.4] - 2026-02-17
 
 ### Added
@@ -43,14 +62,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Dynamic model detection:** OpenCode backend discovers available models via `opencode models` CLI with 5-min TTL cache
 - **Backend capabilities registry:** Per-backend feature flags (subagents, parallel, teams, hooks, mcp)
 - **`detect-backend` CLI command:** Returns backend name, resolved models, `models_source` field, and capabilities
-- **Hierarchical roadmap:** Now/Next/Later milestone tiers in `LONG-TERM-ROADMAP.md`
-- **`long-term-roadmap` CLI command:** parse, validate, display, mode, generate, refine, promote, tier, history subcommands
-- **Planning mode detection:** Auto-detect hierarchical vs progressive mode based on `LONG-TERM-ROADMAP.md` presence
-- **Milestone refinement:** In-place markdown editing to progressively refine milestones
-- **Milestone promotion:** Later->Next->Now tier movement with automatic field population
+- **Long-term roadmap:** `LONG-TERM-ROADMAP.md` for multi-milestone planning (redesigned in v0.1.5)
+- **`long-term-roadmap` CLI command:** Milestone management subcommands (redesigned in v0.1.5)
 - **Auto-cleanup quality analysis:** Optional phase-boundary code quality checks (ESLint complexity, dead exports, file size)
 - **`quality-analysis` CLI command:** Structured quality reports per phase
-- **Hierarchical roadmap tutorial:** `docs/hierarchical-roadmap-tutorial.md`
+- **Long-term roadmap tutorial:** `docs/long-term-roadmap-tutorial.md` (rewritten in v0.1.5)
 
 ### Changed
 - **`resolveBackendModel` signature:** New optional `cwd` param for dynamic model detection (backward compatible)

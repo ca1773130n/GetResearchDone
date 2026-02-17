@@ -533,7 +533,7 @@ function routeCommand(command, args, cwd, raw) {
       const sub = args[1];
       if (!sub)
         error(
-          'subcommand required: parse, validate, display, mode, generate, refine, promote, tier, history'
+          'subcommand required: list, add, remove, update, refine, link, unlink, display, init, history, parse, validate'
         );
       const subArgs = args.slice(2);
       cmdLongTermRoadmap(cwd, sub, subArgs, raw);

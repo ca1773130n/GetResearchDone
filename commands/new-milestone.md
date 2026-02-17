@@ -103,6 +103,33 @@ Handle return (BLOCKED or CREATED), present inline, get approval, commit.
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: create milestone v[X.Y] roadmap ([N] phases)" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
 ```
 
+## 10.5. Link to Long-Term Roadmap
+
+Check if LONG-TERM-ROADMAP.md exists:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw 2>/dev/null
+```
+
+**If LT roadmap exists:**
+
+Find the active LT milestone and offer to link:
+
+Use AskUserQuestion:
+- header: "LT Link"
+- question: "Link this milestone to an LT milestone?"
+- options:
+  - "Link to [active LT milestone name]" — Associate v[X.Y] with the active LT milestone
+  - "Skip" — Don't link to long-term roadmap
+
+**If "Link":**
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap link --id [LT-N] --version v[X.Y]
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: link v[X.Y] to [LT-N]" --files .planning/LONG-TERM-ROADMAP.md
+```
+
+**If no LT roadmap exists:** Skip silently.
+
 ## 11. Done
 
 ```
@@ -135,5 +162,6 @@ Also: `/grd:plan-phase [N]` — skip discussion, plan directly
 - [ ] grd-roadmapper spawned with phase numbering context
 - [ ] ROADMAP.md phases continue from previous milestone
 - [ ] All commits made
+- [ ] LT roadmap link offered (if LONG-TERM-ROADMAP.md exists)
 - [ ] User knows next step: `/grd:discuss-phase [N]`
 </success_criteria>

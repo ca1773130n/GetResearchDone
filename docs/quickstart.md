@@ -46,12 +46,12 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 | Category | Commands |
 |----------|----------|
 | **Research** | `survey`, `deep-dive`, `compare-methods`, `feasibility` |
-| **Planning** | `new-project`, `product-plan`, `discuss-phase`, `plan-phase` |
+| **Planning** | `new-project`, `product-plan`, `long-term-roadmap`, `discuss-phase`, `plan-phase` |
 | **Execution** | `execute-phase`, `quick` |
 | **Evaluation** | `eval-plan`, `eval-report`, `assess-baseline`, `iterate` |
 | **Verification** | `verify-phase`, `verify-work` |
 | **Navigation** | `progress`, `help`, `settings`, `set-profile`, `yolo` |
-| **Lifecycle** | `pause-work`, `resume-work`, `complete-milestone`, `new-milestone` |
+| **Lifecycle** | `pause-work`, `resume-project`, `complete-milestone`, `new-milestone` |
 
 ## Key Files
 

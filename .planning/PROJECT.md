@@ -16,11 +16,11 @@ A Claude Code plugin providing:
 - Issue tracker integration (GitHub Issues, Jira via MCP Atlassian)
 - TUI dashboard for project visibility (dashboard, phase-detail, health)
 - Multi-backend support (Claude Code, Codex CLI, Gemini CLI, OpenCode) with dynamic model detection
-- Hierarchical roadmap planning (Now/Next/Later milestone tiers) with progressive refinement
+- Long-term roadmap planning (flat LT-N milestones) with CRUD operations and protection rules
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
-- 102 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- 105 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - 120+ CLI commands across 13 modular lib/ modules
 
@@ -28,12 +28,24 @@ A Claude Code plugin providing:
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 
+## Previous State (v0.1.5)
+
+**Shipped:** 2026-02-17
+
+v0.1.5 replaced the rigid Now/Next/Later tier system with flat, ordered LT-N milestones:
+- Complete rewrite of lib/long-term-roadmap.js with 18 new functions
+- 12 new subcommands replacing 4 old ones (mode, generate, promote, tier)
+- 12 new MCP tools (105 total), protection rules for shipped milestones
+- LT roadmap integration in agents (roadmapper, product-owner) and commands (new-milestone, complete-milestone, new-project)
+- Comprehensive tutorial, updated all docs
+- 1,399 tests passing
+
 ## Previous State (v0.1.3)
 
 **Shipped:** 2026-02-17
 
 v0.1.3 completed MCP coverage and fixed a branching workflow gap:
-- MCP wiring: 5 new tools (requirement get/list/traceability/update-status, search) — 102 total
+- MCP wiring: 5 new tools (requirement get/list/traceability/update-status, search) — 102 total (now 105 after v0.1.5)
 - Execute-phase branching fix: `base_branch` config with checkout-and-pull before branch creation
 - 1,360 tests passing
 
@@ -66,15 +78,26 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - 13 lib/ modules (~10,050 LOC) with 120+ exports, thin CLI router
 - 858 Jest tests, 80%+ line coverage across all modules
 - Multi-backend support: Claude Code, Codex CLI, Gemini CLI, OpenCode with dynamic model detection
-- Hierarchical roadmap planning with Now/Next/Later milestone tiers and progressive refinement
+- Long-term roadmap planning with flat LT-N milestones, CRUD operations, and protection rules
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - ESLint v10 + Prettier, zero errors
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
+## Validated Goals (v0.1.5)
+
+- [x] `lib/long-term-roadmap.js` complete rewrite with 18 functions for flat LT-N format
+- [x] 12 subcommands: list, add, remove, update, refine, link, unlink, display, init, history, parse, validate
+- [x] Protection rules: can't remove LT milestones with shipped normal milestones; can't unlink shipped versions
+- [x] `init` subcommand auto-groups existing ROADMAP.md milestones into LT-1
+- [x] 12 MCP tools replacing 9 old tier-based tools (105 total)
+- [x] `docs/long-term-roadmap-tutorial.md` comprehensive step-by-step tutorial
+- [x] LT roadmap integration in agents (grd-roadmapper, grd-product-owner) and commands (new-milestone, complete-milestone, new-project)
+- [x] 1,399 tests passing across 26 suites
+
 ## Validated Goals (v0.1.3)
 
-- [x] 5 new MCP tools wired via COMMAND_DESCRIPTORS with correct parameter schemas (102 total tools)
+- [x] 5 new MCP tools wired via COMMAND_DESCRIPTORS with correct parameter schemas (102 total tools; now 105 after v0.1.5)
 - [x] MCP tools/list includes all new tools; tools/call executes each with structured JSON responses
 - [x] MCP server tests cover new tool definitions with 92% line coverage
 - [x] docs/mcp-server.md updated with Requirement & Search section
@@ -113,10 +136,9 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] Dynamic model detection via OpenCode CLI probing with 5-min TTL cache
 - [x] `detect-backend` CLI command with JSON/raw output and `models_source` field
 - [x] All 14 `cmdInit*` functions include backend and model info
-- [x] LONG-TERM-ROADMAP.md schema with Now/Next/Later tiers
-- [x] `long-term-roadmap` CLI with 9 subcommands (parse, validate, display, mode, generate, refine, promote, tier, history)
-- [x] Planning mode auto-detection (hierarchical vs progressive)
-- [x] Milestone refinement and promotion through tiers
+- [x] LONG-TERM-ROADMAP.md schema with flat LT-N milestones (redesigned in v0.1.5 from Now/Next/Later tiers)
+- [x] `long-term-roadmap` CLI with 12 subcommands (list, add, remove, update, refine, link, unlink, display, init, history, parse, validate) — redesigned in v0.1.5
+- [x] LT milestone CRUD with protection rules (can't remove shipped, can't unlink shipped)
 - [x] `phase_cleanup` config with quality analysis at phase boundaries
 - [x] `quality-analysis` CLI command with structured reports
 - [x] 858 tests passing, 80%+ coverage on all new modules
@@ -166,3 +188,5 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.1 milestone shipped: 2026-02-16*
 *v0.1.2 milestone shipped: 2026-02-16*
 *v0.1.3 milestone shipped: 2026-02-17*
+*v0.1.4 milestone shipped: 2026-02-17*
+*v0.1.5 milestone shipped: 2026-02-17*

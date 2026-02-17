@@ -5,7 +5,7 @@
 ## Current Position
 
 - **Active phase:** None — milestone complete
-- **Milestone:** v0.1.3 — MCP Completion & Branching Fix (SHIPPED 2026-02-17)
+- **Milestone:** v0.1.5 — Long-Term Roadmap Redesign (SHIPPED 2026-02-17)
 - **Progress:** [██████████] 100%
 - **Next:** `/grd:new-milestone` for next milestone
 
@@ -34,6 +34,10 @@ None.
 | 2026-02-17 | base_branch defaults to 'main', reads from config git.base_branch | Phase 22 | Most common default; configurable for repos using develop or other base branches |
 | 2026-02-17 | base_branch null when branching_strategy is 'none' | Phase 22 | Field irrelevant when no branching; null signals not applicable |
 | 2026-02-17 | 4 graceful edge case handlers in handle_branching step | Phase 22 | Uncommitted changes, already-on-base, checkout failure, pull failure — all warn and continue |
+| 2026-02-17 | Replace Now/Next/Later with flat LT-N milestones | Phase 23 | Rigid tier system too inflexible; flat ordered list with CRUD is simpler and more powerful |
+| 2026-02-17 | Protection rules: can't remove shipped LT milestones, can't unlink shipped versions | Phase 23 | Prevent accidental loss of history |
+| 2026-02-17 | 12 subcommands replacing 4 old ones (mode, generate, promote, tier) | Phase 24 | CRUD operations (list/add/remove/update) + linking (link/unlink) + display + init + history + parse + validate |
+| 2026-02-17 | LT roadmap integration added to agents (roadmapper, product-owner) and commands (new-milestone, complete-milestone, new-project) | Phase 25 | New features must be discoverable through existing workflows |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -153,6 +157,11 @@ None.
 - Average duration: 1.7 min
 - Total execution time: ~5 min
 
+**Velocity (v0.1.5):**
+- Phases completed: 3 (23-25)
+- Tests: 1,399 (+39 from v0.1.3)
+- Key: Complete rewrite of long-term-roadmap module, 12 new MCP tools (105 total)
+
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 19 | 01 | 5min | 2 | 5 | +17 tests (1322 total) |
@@ -165,10 +174,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 22-01 (base_branch support for execute-phase branching)
-- **Stopped at:** Phase 22 plan 1 complete (1/1 plans)
-- **Next action:** Phase 22 verification or next milestone phase
-- **Context needed:** 1,360 tests passing; base_branch in loadConfig + cmdInitExecutePhase; execute-phase.md has checkout-and-pull logic
+- **Last action:** Shipped v0.1.5 — Long-Term Roadmap Redesign (Phases 23-25)
+- **Stopped at:** All phases complete, docs updated, tests passing (1,399)
+- **Next action:** `/grd:new-milestone` for next milestone
+- **Context needed:** 1,399 tests passing; flat LT-N milestones with 12 subcommands; 105 MCP tools; agents and commands integrated with LT roadmap
 
 ---
 

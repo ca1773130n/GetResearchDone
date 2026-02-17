@@ -40,18 +40,19 @@ Not every phase can be fully evaluated independently:
 
 Deferred validations are tracked and automatically collected at integration phases.
 
-### Hierarchical Roadmap (Now/Next/Later)
+### Long-Term Roadmap (LT Milestones)
 
-GRD supports multi-level planning with a hierarchical roadmap:
+GRD supports a flat, ordered list of long-term milestones for multi-milestone planning:
 
 ```
 LONG-TERM-ROADMAP.md
-  ├── Now   → Active milestone (full ROADMAP.md with phases)
-  ├── Next  → Upcoming milestones (goals + rough phase sketch)
-  └── Later → Future milestones (goals + open research questions)
+  ├── LT-1: Foundation & Stability    [completed]  → v0.0.5, v0.1.0, v0.1.1
+  ├── LT-2: Distribution & Polish     [active]     → v0.2.0 (planned)
+  ├── LT-3: Advanced Workflows        [planned]    → (none yet)
+  └── LT-4: Production Release        [planned]    → v1.0.0 (planned)
 ```
 
-Milestones flow through tiers as they mature: **Later** (rough idea) -> **Next** (refined plan) -> **Now** (active execution). Each promotion adds detail. See [Hierarchical Roadmap Tutorial](docs/hierarchical-roadmap-tutorial.md) for a walkthrough.
+Each LT milestone groups normal milestones from `ROADMAP.md` with full traceability. Protection rules prevent removing shipped milestones or unlinking shipped versions. See [Long-Term Roadmap Tutorial](docs/long-term-roadmap-tutorial.md) for a walkthrough.
 
 ### Multi-Backend Support
 
@@ -132,10 +133,18 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:execute-phase <N>` | Phase execution with wave parallelization |
 | `/grd:quick <desc>` | Quick task with GRD guarantees |
 
-### Hierarchical Roadmap
+### Long-Term Roadmap
 | Command | Description |
 |---------|-------------|
-| `/grd:long-term-roadmap` | Create or display long-term roadmap |
+| `/grd:long-term-roadmap list` | List all LT milestones |
+| `/grd:long-term-roadmap add` | Add a new LT milestone |
+| `/grd:long-term-roadmap remove` | Remove an LT milestone (protected) |
+| `/grd:long-term-roadmap update` | Update LT milestone fields |
+| `/grd:long-term-roadmap refine` | Output context for AI discussion |
+| `/grd:long-term-roadmap link` | Link normal milestone to LT |
+| `/grd:long-term-roadmap unlink` | Unlink (protected if shipped) |
+| `/grd:long-term-roadmap display` | Formatted TUI view |
+| `/grd:long-term-roadmap init` | Auto-group existing milestones |
 
 ### Phase & Milestone Management
 | Command | Description |
@@ -202,7 +211,7 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 
 ## MCP Server
 
-GRD includes an MCP server (`grd-mcp-server`) that exposes all 102 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
+GRD includes an MCP server (`grd-mcp-server`) that exposes all 105 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
 
 ```json
 {
@@ -325,7 +334,7 @@ GRD uses a thin orchestrator pattern. Commands (`.md` prompt files) delegate det
 | Parsers | `phase-plan-index/state-snapshot/summary-extract/history-digest` | Context-optimized data extraction |
 | Frontmatter | `frontmatter get/set/merge/validate` | YAML frontmatter CRUD |
 | Tracker | `tracker get-config/sync-roadmap/sync-phase/update-status/add-comment/prepare-*/schedule/prepare-reschedule` | GitHub/MCP Atlassian integration |
-| Long-Term Roadmap | `long-term-roadmap parse/validate/display/mode/generate/refine/promote/tier/history` | Hierarchical milestone management |
+| Long-Term Roadmap | `long-term-roadmap list/add/remove/update/refine/link/unlink/display/init/history/parse/validate` | LT milestone CRUD with protection rules |
 | Backend | `detect-backend` | Backend detection with dynamic model resolution |
 | Quality | `quality-analysis --phase N` | Phase-boundary code quality checks |
 | Requirements | `requirement get/list/traceability/update-status` | Requirement queries and status management |

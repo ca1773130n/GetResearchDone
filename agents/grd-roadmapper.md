@@ -560,7 +560,19 @@ If tracker configured (provider != "none"):
 3. Milestone Epics and phase Tasks created automatically (GitHub: Issues with epic/task labels; MCP Atlassian: Epics for milestones, Tasks for phases)
 4. Results reported with created/skipped/error counts
 
-## Step 10: Return Summary
+## Step 10: Long-Term Roadmap Integration
+
+If `.planning/LONG-TERM-ROADMAP.md` exists, suggest linking the new milestone to an LT milestone:
+
+```bash
+LT_LIST=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap list --raw 2>/dev/null || true)
+```
+
+If LT milestones exist and the current milestone version isn't already linked:
+- Include in the return summary: "Consider linking this milestone to an LT milestone: `/grd:long-term-roadmap link --id LT-N --version vX.Y`"
+- If there's an active LT milestone, suggest that one specifically
+
+## Step 11: Return Summary
 
 Return `## ROADMAP CREATED` with summary of what was written.
 

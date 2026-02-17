@@ -117,7 +117,49 @@
 
 **Git range:** `feat(21-01)` -> `docs(phase-22)`
 
-**What's next:** Next milestone TBD
+**What's next:** v0.1.5 Long-Term Roadmap Redesign
+
+---
+
+
+## v0.1.4 Slash Command Registration & Missing Commands (Shipped: 2026-02-17)
+
+**Delivered:** Registered all 45 slash commands as skills and added two missing commands.
+
+**Key accomplishments:**
+- Added YAML frontmatter (description + argument-hint) to 28 command files that were missing it, fixing skill registration
+- Created `/grd:long-term-roadmap` and `/grd:requirement` slash commands
+- Expanded README command table from 24 to 45 commands, updated MCP tool count to 102
+
+---
+
+
+## v0.1.5 Long-Term Roadmap Redesign (Shipped: 2026-02-17)
+
+**Delivered:** Replaced rigid Now/Next/Later tier system with flat, ordered LT-N milestone model supporting full CRUD operations, protection rules, and cross-workflow integration.
+
+**Phases completed:** 3 phases (23-25), 1,399 tests (+39 from v0.1.3)
+**Timeline:** 2026-02-17 (single day)
+
+**Key accomplishments:**
+- Complete rewrite of `lib/long-term-roadmap.js` with 18 new functions for flat LT-N format
+- 12 new subcommands: list, add, remove, update, refine, link, unlink, display, init, history, parse, validate
+- Removed 4 old subcommands: mode, generate, promote, tier
+- 12 new MCP tools (105 total, replacing 9 old tier-based tools)
+- Protection rules: cannot remove LT milestones with shipped normal milestones; cannot unlink shipped versions
+- Auto-initialization: `init` subcommand auto-groups existing ROADMAP.md milestones into LT-1
+- Normal milestone linking with `(planned)` annotations
+- Comprehensive tutorial: `docs/long-term-roadmap-tutorial.md`
+- LT roadmap integration added to agents (grd-roadmapper, grd-product-owner) and commands (new-milestone, complete-milestone, new-project)
+- Updated all docs: README, CLAUDE.md, mcp-server.md, quickstart, CHANGELOG
+
+**Removed:**
+- `mode`, `generate`, `promote`, `tier` subcommands
+- Now/Next/Later tier hierarchy
+- `roadmap_type` and `planning_horizon` frontmatter fields
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
 
 ---
 

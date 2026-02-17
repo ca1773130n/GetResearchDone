@@ -1,6 +1,6 @@
 # GRD MCP Server
 
-The GRD MCP Server exposes all 102 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
+The GRD MCP Server exposes all 105 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
 
 ## Setup
 
@@ -71,7 +71,7 @@ The server reads newline-delimited JSON-RPC 2.0 messages from stdin and writes r
 | Method | Purpose |
 |--------|---------|
 | `initialize` | Handshake — returns server info and capabilities |
-| `tools/list` | Returns all 102 tool definitions with JSON Schema |
+| `tools/list` | Returns all 105 tool definitions with JSON Schema |
 | `tools/call` | Executes a tool and returns structured results |
 
 All tool outputs are JSON by default. The server runs in the current working directory, so GRD operations target the project where the server was started.
@@ -168,19 +168,22 @@ Context loaders for GRD workflows. Each returns structured JSON with all context
 | `grd_init_product_plan` | Context for product-plan workflow |
 | `grd_init_iterate` | Context for iterate workflow |
 
-### Long-Term Roadmap (9 tools)
+### Long-Term Roadmap (12 tools)
 
 | Tool | Description |
 |------|-------------|
-| `grd_long_term_roadmap_parse` | Parse LONG-TERM-ROADMAP.md into structured data |
-| `grd_long_term_roadmap_validate` | Validate roadmap structure |
-| `grd_long_term_roadmap_display` | Display formatted roadmap |
-| `grd_long_term_roadmap_mode` | Get planning mode (flat/hierarchical) |
-| `grd_long_term_roadmap_generate` | Generate roadmap from milestone definitions |
-| `grd_long_term_roadmap_refine` | Refine a milestone |
-| `grd_long_term_roadmap_promote` | Promote a milestone to next tier |
-| `grd_long_term_roadmap_tier` | Get tier of a milestone |
-| `grd_long_term_roadmap_history` | Update refinement history |
+| `grd_long_term_roadmap_list` | List all LT milestones with status |
+| `grd_long_term_roadmap_add` | Add a new LT milestone |
+| `grd_long_term_roadmap_remove` | Remove an LT milestone (protected if shipped) |
+| `grd_long_term_roadmap_update` | Update LT milestone fields (name, goal, status) |
+| `grd_long_term_roadmap_link` | Link a normal milestone version to an LT milestone |
+| `grd_long_term_roadmap_unlink` | Unlink a normal milestone (protected if shipped) |
+| `grd_long_term_roadmap_init` | Auto-group existing ROADMAP.md milestones into LT-1 |
+| `grd_long_term_roadmap_display` | Display formatted roadmap with status icons |
+| `grd_long_term_roadmap_parse` | Parse LONG-TERM-ROADMAP.md into structured JSON |
+| `grd_long_term_roadmap_validate` | Validate roadmap structure (IDs, statuses, goals) |
+| `grd_long_term_roadmap_refine` | Output milestone context for AI discussion |
+| `grd_long_term_roadmap_history` | Update refinement history table |
 
 ### Templates & Scaffold (3 tools)
 

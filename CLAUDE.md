@@ -87,6 +87,7 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 ### Planning & Execution
 - `/grd:new-project` — Initialize R&D project
 - `/grd:product-plan` — Product-level planning
+- `/grd:long-term-roadmap [list|add|remove|update|refine|link|unlink|display|init]` — Manage LT milestones
 - `/grd:discuss-phase <N>` — Brainstorming with no-solutions-before-questions protocol
 - `/grd:plan-phase <N>` — Phase planning with research context
 - `/grd:execute-phase <N>` — Phase execution (supports Agent Teams)
@@ -153,6 +154,7 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 - `roadmap get-phase <N> / analyze` — Roadmap queries
 - `milestone complete [--name]` — Archive milestone
 - `validate consistency` — Phase numbering + disk/roadmap sync
+- `long-term-roadmap list/add/remove/update/refine/link/unlink/display/init/history/parse/validate` — LT milestone CRUD
 
 ### Scaffold
 - `scaffold context/uat/verification/phase-dir/research-dir/eval/baseline`

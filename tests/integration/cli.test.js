@@ -737,6 +737,213 @@ describe('health command', () => {
   });
 });
 
+// ─── Long-Term Roadmap Commands ─────────────────────────────────────────────
+
+describe('long-term-roadmap commands', () => {
+  let ltDir;
+
+  beforeEach(() => {
+    ltDir = createTestDir();
+    // Write a valid LONG-TERM-ROADMAP.md fixture
+    fs.writeFileSync(
+      path.join(ltDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+      [
+        '---',
+        'project: TestProject',
+        'created: 2026-02-17',
+        'last_refined: 2026-02-17',
+        '---',
+        '',
+        '# Long-Term Roadmap: TestProject',
+        '',
+        '## LT-1: Foundation',
+        '**Status:** completed',
+        '**Goal:** Build core pipeline',
+        '**Normal milestones:** v0.1.0',
+        '',
+        '## LT-2: Optimization',
+        '**Status:** active',
+        '**Goal:** Optimize for production',
+        '**Normal milestones:** v0.2.0 (planned)',
+        '',
+        '## Refinement History',
+        '',
+        '| Date | Action | Details |',
+        '|------|--------|---------|',
+        '| 2026-02-17 | Initial roadmap | Created 2 LT milestones |',
+        '',
+      ].join('\n')
+    );
+  });
+
+  afterEach(() => {
+    cleanupDir(ltDir);
+  });
+
+  test('list returns milestones array with count', () => {
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'list'], ltDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('milestones');
+    expect(data).toHaveProperty('count', 2);
+    expect(data.milestones[0].id).toBe('LT-1');
+    expect(data.milestones[1].status).toBe('active');
+  });
+
+  test('list --raw returns compact text', () => {
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'list', '--raw'], ltDir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('LT-1');
+    expect(stdout).toContain('[completed]');
+    expect(stdout).toContain('[active]');
+  });
+
+  test('display returns formatted roadmap with status icons', () => {
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'display', '--raw'], ltDir);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('[done]');
+    expect(stdout).toContain('[active]');
+    expect(stdout).toContain('Foundation');
+  });
+
+  test('parse returns structured JSON', () => {
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'parse'], ltDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('frontmatter');
+    expect(data).toHaveProperty('milestones');
+    expect(data).toHaveProperty('refinement_history');
+    expect(data.milestones.length).toBe(2);
+  });
+
+  test('validate returns valid for correct file', () => {
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'validate'], ltDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.valid).toBe(true);
+    expect(data.errors).toEqual([]);
+  });
+
+  test('add appends new milestone', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'add', '--name', 'New Feature', '--goal', 'Build new feature'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.id).toBe('LT-3');
+    expect(data.content).toContain('LT-3: New Feature');
+  });
+
+  test('update changes milestone goal', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'update', '--id', 'LT-2', '--goal', 'Updated goal'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.updated_fields).toContain('goal');
+    expect(data.content).toContain('Updated goal');
+  });
+
+  test('update rejects invalid status', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'update', '--id', 'LT-2', '--status', 'bogus'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('error');
+    expect(data.error).toContain('Invalid status');
+  });
+
+  test('link adds version to milestone', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'link', '--id', 'LT-2', '--version', 'v0.2.1'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.linked).toBe('v0.2.1');
+    expect(data.content).toContain('v0.2.1');
+  });
+
+  test('link rejects duplicate version', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'link', '--id', 'LT-2', '--version', 'v0.2.0'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('error');
+    expect(data.error).toContain('already linked');
+  });
+
+  test('remove deletes planned milestone', () => {
+    // Add LT-3 first, then remove it
+    runCLI(
+      ['long-term-roadmap', 'add', '--name', 'Temp', '--goal', 'Temporary milestone'],
+      ltDir
+    );
+    // Write the add result to disk so remove can find it
+    const addResult = runCLI(
+      ['long-term-roadmap', 'add', '--name', 'Removable', '--goal', 'To be removed'],
+      ltDir
+    );
+    const addData = parseJSON(addResult.stdout);
+    fs.writeFileSync(path.join(ltDir, '.planning', 'LONG-TERM-ROADMAP.md'), addData.content);
+
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'remove', '--id', 'LT-3'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.removed).toBe('LT-3');
+    expect(data.content).not.toContain('LT-3');
+  });
+
+  test('refine outputs milestone context', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'refine', '--id', 'LT-2', '--raw'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('LT-2');
+    expect(stdout).toContain('Optimization');
+    expect(stdout).toContain('active');
+  });
+
+  test('history appends entry', () => {
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'history', '--action', 'Test action', '--details', 'Test details'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.content).toContain('Test action');
+    expect(data.content).toContain('Test details');
+  });
+
+  test('init auto-groups from ROADMAP.md', () => {
+    // Remove existing LONG-TERM-ROADMAP.md to test init
+    fs.unlinkSync(path.join(ltDir, '.planning', 'LONG-TERM-ROADMAP.md'));
+    const { stdout, exitCode } = runCLI(
+      ['long-term-roadmap', 'init', '--project', 'InitProject', '--raw'],
+      ltDir
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('LT-1');
+    expect(stdout).toContain('InitProject');
+  });
+
+  test('unknown subcommand lists valid subcommands', () => {
+    const { exitCode, stderr } = runCLI(['long-term-roadmap', 'nonexistent'], ltDir);
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain('list, add, remove, update, refine, link, unlink, display, init, history, parse, validate');
+  });
+});
+
 // ─── Error Handling ─────────────────────────────────────────────────────────
 
 describe('error handling', () => {
