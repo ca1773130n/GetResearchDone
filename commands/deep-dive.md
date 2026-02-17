@@ -86,7 +86,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-deep-diver` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-deep-diver"`:
+Use Task tool with `subagent_type="grd:grd-deep-diver"`:
 
 ```
 Deep-dive analysis of paper: {PAPER_TITLE}

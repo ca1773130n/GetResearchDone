@@ -130,7 +130,7 @@ Execute each wave in sequence using Agent Teams coordination.
 
    ```
    Task(
-     subagent_type="grd-executor",
+     subagent_type="grd:grd-executor",
      model="{executor_model}",
      team_name="grd-phase-${PHASE_NUMBER}-${PHASE_SLUG}",
      name="executor-${PLAN_ID}",
@@ -200,7 +200,7 @@ Execute each wave in sequence using Agent Teams coordination.
 
    ```
    Task(
-     subagent_type="grd-code-reviewer",
+     subagent_type="grd:grd-code-reviewer",
      model="{reviewer_model}",
      team_name="grd-phase-${PHASE_NUMBER}-${PHASE_SLUG}",
      name="reviewer-wave-${WAVE}",
@@ -255,7 +255,7 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
 
    ```
    Task(
-     subagent_type="grd-executor",
+     subagent_type="grd:grd-executor",
      model="{executor_model}",
      prompt="
        <objective>
@@ -402,7 +402,7 @@ Only when `code_review_timing: "per_phase"` and `code_review_enabled: true`. Ski
 
 ```
 Task(
-  subagent_type="grd-code-reviewer",
+  subagent_type="grd:grd-code-reviewer",
   model="{reviewer_model}",
   prompt="
     Review all plans in phase ${PHASE_NUMBER}.
@@ -490,7 +490,7 @@ Task(
 Phase directory: {phase_dir}
 Phase goal: {goal from ROADMAP.md}
 Check must_haves against actual codebase. Create VERIFICATION.md.",
-  subagent_type="grd-verifier",
+  subagent_type="grd:grd-verifier",
   model="{verifier_model}"
 )
 ```

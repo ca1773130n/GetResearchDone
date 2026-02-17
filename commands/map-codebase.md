@@ -41,7 +41,7 @@ Spawn 4 parallel grd-codebase-mapper agents:
 **Agent 3: Quality Focus** — CONVENTIONS.md, TESTING.md
 **Agent 4: Concerns Focus** — CONCERNS.md
 
-Each uses `subagent_type="grd-codebase-mapper"`, `model="{mapper_model}"`, `run_in_background=true`.
+Each uses `subagent_type="grd:grd-codebase-mapper"`, `model="{mapper_model}"`, `run_in_background=true`.
 </step>
 
 <step name="verify_output">

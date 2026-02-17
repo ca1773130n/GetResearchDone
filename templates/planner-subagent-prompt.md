@@ -77,7 +77,7 @@ Before returning PLANNING COMPLETE:
 ```python
 Task(
   prompt=filled_template,
-  subagent_type="grd-planner",
+  subagent_type="grd:grd-planner",
   description="Plan Phase {phase}"
 )
 ```
@@ -86,7 +86,7 @@ Task(
 ```python
 Task(
   prompt=filled_template,
-  subagent_type="grd-planner",
+  subagent_type="grd:grd-planner",
   description="Plan gaps for Phase {phase}"
 )
 ```

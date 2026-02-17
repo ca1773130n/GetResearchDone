@@ -93,7 +93,7 @@ Write plan to: ${QUICK_DIR}/${next_num}-PLAN.md
 Return: ## PLANNING COMPLETE with plan path
 </output>
 ",
-  subagent_type="grd-planner",
+  subagent_type="grd:grd-planner",
   model="{planner_model}",
   description="Quick plan: ${DESCRIPTION}"
 )
@@ -118,7 +118,7 @@ Project state: @.planning/STATE.md
 - Do NOT update ROADMAP.md (quick tasks are separate from planned phases)
 </constraints>
 ",
-  subagent_type="grd-executor",
+  subagent_type="grd:grd-executor",
   model="{executor_model}",
   description="Execute: ${DESCRIPTION}"
 )

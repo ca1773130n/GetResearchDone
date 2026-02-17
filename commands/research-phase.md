@@ -65,7 +65,7 @@ Phase context: {context_md}
 <output>
 Write to: .planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
 </output>",
-  subagent_type="grd-phase-researcher",
+  subagent_type="grd:grd-phase-researcher",
   model="{researcher_model}"
 )
 ```

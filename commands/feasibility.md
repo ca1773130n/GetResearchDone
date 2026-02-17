@@ -74,7 +74,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-feasibility-analyst` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-feasibility-analyst"`:
+Use Task tool with `subagent_type="grd:grd-feasibility-analyst"`:
 
 ```
 Analyze paper-to-production feasibility for: {method_name}

@@ -113,7 +113,7 @@ goal: find_and_fix
 Create: .planning/debug/{slug}.md
 </debug_file>
 """,
-  subagent_type="grd-debugger",
+  subagent_type="grd:grd-debugger",
   model="{debugger_model}",
   description="Debug: {slug}"
 )
@@ -148,7 +148,7 @@ Debug file: @.planning/debug/{slug}.md
 goal: find_and_fix
 </mode>
 """,
-  subagent_type="grd-debugger",
+  subagent_type="grd:grd-debugger",
   model="{debugger_model}",
   description="Resume debug: {slug}"
 )
@@ -201,7 +201,7 @@ Debug file: @.planning/debug/{slug}.md
 goal: find_and_fix
 </mode>
 """,
-  subagent_type="grd-debugger",
+  subagent_type="grd:grd-debugger",
   model="{debugger_model}",
   description="Continue debug: {slug}"
 )

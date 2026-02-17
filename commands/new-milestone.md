@@ -94,7 +94,7 @@ Create roadmap for milestone v[X.Y]:
 4. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
 5. Return ROADMAP CREATED with summary
 </instructions>
-", subagent_type="grd-roadmapper", model="{roadmapper_model}", description="Create roadmap")
+", subagent_type="grd:grd-roadmapper", model="{roadmapper_model}", description="Create roadmap")
 ```
 
 Handle return (BLOCKED or CREATED), present inline, get approval, commit.

@@ -447,7 +447,7 @@ goal: find_root_cause_only
 Create: .planning/debug/{slug}.md
 </debug_file>
 """,
-  subagent_type="grd-debugger",
+  subagent_type="grd:grd-debugger",
   model="{debugger_model}",
   description="Debug: {truth_short}"
 )
@@ -507,7 +507,7 @@ Output consumed by /grd:execute-phase
 Plans must be executable prompts.
 </downstream_consumer>
 """,
-  subagent_type="grd-planner",
+  subagent_type="grd:grd-planner",
   model="{planner_model}",
   description="Plan gap fixes for Phase {phase}"
 )
@@ -558,7 +558,7 @@ Return one of:
 - ## ISSUES FOUND — structured issue list
 </expected_output>
 """,
-  subagent_type="grd-plan-checker",
+  subagent_type="grd:grd-plan-checker",
   model="{checker_model}",
   description="Verify Phase {phase} fix plans"
 )

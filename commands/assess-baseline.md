@@ -79,7 +79,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-baseline-assessor` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-baseline-assessor"`:
+Use Task tool with `subagent_type="grd:grd-baseline-assessor"`:
 
 ```
 Assess current code quality and performance baseline.

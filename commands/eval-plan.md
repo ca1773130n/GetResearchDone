@@ -86,7 +86,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-eval-planner` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-eval-planner"`:
+Use Task tool with `subagent_type="grd:grd-eval-planner"`:
 
 ```
 Design tiered evaluation plan for phase: {N} — {phase_name}

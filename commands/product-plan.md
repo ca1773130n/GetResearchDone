@@ -84,7 +84,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-product-owner` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-product-owner"`:
+Use Task tool with `subagent_type="grd:grd-product-owner"`:
 
 ```
 Create product-level plan for: {product_goal}

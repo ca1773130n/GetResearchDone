@@ -76,7 +76,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-surveyor` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-surveyor"`:
+Use Task tool with `subagent_type="grd:grd-surveyor"`:
 
 ```
 Survey the state-of-the-art for: {topic}

@@ -78,7 +78,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 **Launch `grd-eval-reporter` agent via Task tool:**
 
-Use Task tool with `subagent_type="grd-eval-reporter"`:
+Use Task tool with `subagent_type="grd:grd-eval-reporter"`:
 
 ```
 Execute evaluation protocol and analyze results for phase: {N} — {phase_name}

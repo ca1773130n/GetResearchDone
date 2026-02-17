@@ -47,7 +47,7 @@ Phases: {phase_dirs}
 Phase exports: {from SUMMARYs}
 API routes: {routes created}
 Verify cross-phase wiring and E2E user flows.",
-  subagent_type="grd-integration-checker",
+  subagent_type="grd:grd-integration-checker",
   model="{integration_checker_model}"
 )
 ```

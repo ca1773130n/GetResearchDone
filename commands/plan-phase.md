@@ -282,7 +282,7 @@ IMPORTANT: Plans MUST honor user decisions. Flag as issue if plans contradict.
 ```
 Task(
   prompt=checker_prompt,
-  subagent_type="grd-plan-checker",
+  subagent_type="grd:grd-plan-checker",
   model="{checker_model}",
   description="Verify Phase {phase} plans"
 )
@@ -384,7 +384,7 @@ For each tier:
 Write to: {phase_dir}/{phase}-EVAL.md
 </instructions>
 ",
-  subagent_type="grd-eval-planner",
+  subagent_type="grd:grd-eval-planner",
   model="{checker_model}",
   description="Design evaluation for Phase {phase}"
 )
