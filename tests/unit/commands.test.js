@@ -926,6 +926,179 @@ describe('cmdDashboard', () => {
     expect(parsed.timeline[0].start).toBe('2026-01-01');
     expect(parsed.timeline[1].target).toBe('2026-02-01');
   });
+
+  test('shipped milestones in <details> blocks are parsed from bullet list', () => {
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    const roadmap = `# Roadmap
+
+## Milestones
+
+- v0.1.0 Alpha Release - Phases 1-3 (shipped 2026-01-20)
+- v0.2.0 Beta Release - Phases 4-6 (shipped 2026-02-01)
+
+## Phases
+
+<details>
+<summary>v0.1.0 Alpha Release (Phases 1-3) - SHIPPED 2026-01-20</summary>
+Phases 1-3 delivered core features.
+</details>
+
+<details>
+<summary>v0.2.0 Beta Release (Phases 4-6) - SHIPPED 2026-02-01</summary>
+Phases 4-6 delivered beta features.
+</details>
+`;
+    fs.writeFileSync(roadmapPath, roadmap);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.milestones.length).toBe(2);
+    expect(parsed.milestones[0].name).toBe('Alpha Release');
+    expect(parsed.milestones[1].name).toBe('Beta Release');
+  });
+
+  test('shipped milestones have status "shipped" and progress_percent 100', () => {
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    const roadmap = `# Roadmap
+
+## Milestones
+
+- v0.1.0 Alpha Release - Phases 1-3 (shipped 2026-01-20)
+
+## Phases
+
+<details>
+<summary>v0.1.0 Alpha Release (Phases 1-3) - SHIPPED 2026-01-20</summary>
+Shipped.
+</details>
+`;
+    fs.writeFileSync(roadmapPath, roadmap);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true);
+    });
+    const parsed = JSON.parse(stdout);
+    const ms = parsed.milestones[0];
+    expect(ms.status).toBe('shipped');
+    expect(ms.progress_percent).toBe(100);
+    expect(ms.shipped_date).toBe('2026-01-20');
+    expect(ms.phase_range).toBe('1-3');
+    expect(ms.phase_count).toBe(3);
+    expect(ms.version).toBe('v0.1.0');
+  });
+
+  test('summary totals include shipped milestone and phase counts', () => {
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    const roadmap = `# Roadmap
+
+## Milestones
+
+- v0.1.0 Alpha - Phases 1-4 (shipped 2026-01-20)
+
+## Phases
+
+<details>
+<summary>v0.1.0 Alpha (Phases 1-4) - SHIPPED 2026-01-20</summary>
+Shipped.
+</details>
+
+## Milestone 2: Beta
+**Start:** 2026-02-01
+**Target:** 2026-02-15
+**Goal:** Build beta
+
+### Phase 5: Test -- Testing
+- **Duration:** 1d
+- **Type:** implement
+`;
+    fs.writeFileSync(roadmapPath, roadmap);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.summary.total_milestones).toBe(2);
+    expect(parsed.summary.shipped_milestones).toBe(1);
+    // 4 shipped + 1 active = 5 total phases
+    expect(parsed.summary.total_phases).toBe(5);
+  });
+
+  test('TUI output includes shipped milestone names', () => {
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    const roadmap = `# Roadmap
+
+## Milestones
+
+- v0.1.0 Alpha Release - Phases 1-3 (shipped 2026-01-20)
+
+## Phases
+
+<details>
+<summary>v0.1.0 Alpha Release (Phases 1-3) - SHIPPED 2026-01-20</summary>
+Shipped.
+</details>
+`;
+    fs.writeFileSync(roadmapPath, roadmap);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, false);
+    });
+    expect(stdout).toContain('## Shipped');
+    expect(stdout).toContain('v0.1.0 Alpha Release');
+    expect(stdout).toContain('3 phases');
+    expect(stdout).toContain('shipped 2026-01-20');
+    expect(stdout).toContain('1 shipped milestones');
+  });
+
+  test('mix of shipped + active milestones renders both', () => {
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    const roadmap = `# Roadmap
+
+## Milestones
+
+- v0.1.0 Alpha - Phases 1-3 (shipped 2026-01-20)
+
+## Phases
+
+<details>
+<summary>v0.1.0 Alpha (Phases 1-3) - SHIPPED 2026-01-20</summary>
+Shipped.
+</details>
+
+## Milestone 2: Beta
+**Start:** 2026-02-01
+**Target:** 2026-02-15
+**Goal:** Build beta
+
+### Phase 4: Build -- Core build
+- **Duration:** 2d
+- **Type:** implement
+`;
+    fs.writeFileSync(roadmapPath, roadmap);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, false);
+    });
+    // Shipped section
+    expect(stdout).toContain('## Shipped');
+    expect(stdout).toContain('v0.1.0 Alpha');
+    // Active section
+    expect(stdout).toContain('Milestone 2: Beta');
+    expect(stdout).toContain('Phase 4');
+    // Summary line shows both
+    expect(stdout).toContain('1 shipped + 1 active milestones');
+
+    // JSON also has both
+    const { stdout: jsonOut } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true);
+    });
+    const parsed = JSON.parse(jsonOut);
+    expect(parsed.milestones.length).toBe(2);
+    expect(parsed.milestones[0].status).toBe('shipped');
+    expect(parsed.milestones[1].name).toBe('Beta');
+  });
 });
 
 // ─── cmdPhaseDetail ────────────────────────────────────────────────────────

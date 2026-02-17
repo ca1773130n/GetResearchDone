@@ -7,6 +7,7 @@
 - v0.1.1 Completeness, Interoperability & Distribution - Phases 14-18 (shipped 2026-02-16)
 - v0.1.2 Developer Experience & Requirement Traceability - Phases 19-20 (shipped 2026-02-16)
 - v0.1.3 MCP Completion & Branching Fix - Phases 21-22 (shipped 2026-02-17)
+- v0.1.4 Slash Command Registration & Missing Commands (shipped 2026-02-17)
 
 ## Phases
 
@@ -42,6 +43,13 @@ Phases 19-20 delivered requirement inspection commands, phase-detail requirement
 <summary>v0.1.3 MCP Completion & Branching Fix (Phases 21-22) - SHIPPED 2026-02-17</summary>
 
 Phases 21-22 wired v0.1.2 CLI commands as MCP tools (102 total) and fixed execute-phase branching to always fork from latest base branch. See `.planning/milestones/v0.1.3-ROADMAP.md` for details.
+
+</details>
+
+<details>
+<summary>v0.1.4 Slash Command Registration & Missing Commands - SHIPPED 2026-02-17</summary>
+
+Added /grd:long-term-roadmap and /grd:requirement slash commands, added YAML frontmatter to 28 command files fixing skill registration (all 45 commands now discoverable), updated README command table from 24 to 45 commands.
 
 </details>
 
