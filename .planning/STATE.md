@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 30 — Parallel Execution & Fallback
+- **Active phase:** 30 — Parallel Execution & Fallback (COMPLETE)
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 30-01 complete; proceed to 30-02
-- **Progress:** [████████░░] 80%
-- **Next:** 30-02 CLI wiring and MCP integration
+- **Current Plan:** 30-02 complete; Phase 30 done, proceed to Phase 31
+- **Progress:** [██████████] 100%
+- **Next:** Phase 31 integration testing (validates DEFER-22-01, DEFER-30-01)
 
 ## Deferred Validations
 
@@ -22,6 +22,8 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | CLI variadic args (space-separated), MCP comma-separated string for phases input | Phase 30 | Follows established patterns: CLI uses argv, MCP uses string splitting |
+| 2026-02-19 | MCP descriptor grd_init_execute_parallel placed after grd_init_execute_phase | Phase 30 | Logical grouping keeps execution-related init workflows adjacent |
 | 2026-02-19 | Direct edge check (not transitive path) for independence validation | Phase 30 | parallel_groups handle ordering; independence only needs direct edge check, O(edges) |
 | 2026-02-19 | Sequential fallback_note explicitly mentions Claude Code for discoverability | Phase 30 | Users on non-teams backends should know how to enable parallel execution |
 | 2026-02-19 | Status tracker keyed by phase_number with pending initial state | Phase 30 | Foundation for orchestrator to track running/complete/failed states during execution |
@@ -60,8 +62,8 @@
 ## Performance Metrics
 
 **Velocity (v0.2.0):**
-- Phases completed: 3 (in progress: 30)
-- Tests: 1,545 (+112 from v0.1.6)
+- Phases completed: 4 (27, 28, 29, 30)
+- Tests: 1,552 (+119 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -73,6 +75,7 @@
 | 29 | 01 | 4min | 2 | 3 | +27 tests (1514 total) |
 | 29 | 02 | 3min | 2 | 3 | +5 tests (1519 total) |
 | 30 | 01 | 3min | 2 | 2 | +25 tests (1545 total) |
+| 30 | 02 | 2min | 2 | 3 | +7 tests (1552 total) |
 
 ## Blockers
 
@@ -80,10 +83,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 30-01-PLAN.md (parallel execution module with TDD)
-- **Stopped at:** Completed 30-01 parallel execution core module
-- **Next action:** Proceed to 30-02 (CLI wiring, MCP descriptor, integration tests)
-- **Context needed:** 1,545 tests passing; lib/parallel.js exports validateIndependentPhases, buildParallelContext, cmdInitExecuteParallel; needs CLI dispatch wiring in bin/grd-tools.js and MCP descriptor
+- **Last action:** Completed 30-02-PLAN.md (CLI wiring, MCP descriptor, integration tests)
+- **Stopped at:** Completed Phase 30 (both plans)
+- **Next action:** Proceed to Phase 31 integration testing
+- **Context needed:** 1,552 tests passing; lib/parallel.js complete with CLI route (bin/grd-tools.js) and MCP descriptor (lib/mcp-server.js); DEFER-22-01 and DEFER-30-01 await Phase 31
 
 ---
 
