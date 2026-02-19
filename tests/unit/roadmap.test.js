@@ -277,4 +277,135 @@ describe('cmdRoadmapAnalyze', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.error).toContain('not found');
   });
+
+  test('parses depends_on with colon outside bold markers', () => {
+    const tmpDir = createFixtureDir();
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '**Target:** 2026-06-01',
+      '',
+      '### Phase 1: First',
+      '**Goal:** Do first thing',
+      '**Depends on**: Nothing',
+      '',
+      '### Phase 2: Second',
+      '**Goal:** Do second thing',
+      '**Depends on**: Phase 1',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const phase2 = parsed.phases.find(p => p.number === '2');
+    expect(phase2.depends_on).toBe('Phase 1');
+    cleanupFixtureDir(tmpDir);
+  });
+});
+
+// ─── Multi-milestone: shipped sections are stripped ──────────────────────────
+
+describe('multi-milestone shipped sections', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  const MULTI_MILESTONE_ROADMAP = [
+    '# Roadmap',
+    '',
+    '<details>',
+    '<summary>v0.0.5 — Shipped</summary>',
+    '',
+    '## M0 v0.0.5: Foundation',
+    '',
+    '### Phase 1: Old Setup',
+    '**Goal:** Old goal',
+    '**Duration:** 5d',
+    '',
+    '### Phase 2: Old Build',
+    '**Goal:** Old build goal',
+    '**Duration:** 3d',
+    '',
+    '</details>',
+    '',
+    '## M1 v0.2.0: Active Milestone',
+    '**Start:** 2026-02-01',
+    '',
+    '### Phase 29: New Work',
+    '**Goal:** Build new things',
+    '**Duration:** 7d',
+    '',
+    '### Phase 30: Final Work',
+    '**Goal:** Ship it',
+    '**Duration:** 5d',
+  ].join('\n');
+
+  test('computeSchedule only finds active milestone phases', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const schedule = computeSchedule(tmpDir);
+    const phaseNumbers = schedule.phases.map((p) => p.number);
+    expect(phaseNumbers).toContain('29');
+    expect(phaseNumbers).toContain('30');
+    expect(phaseNumbers).not.toContain('1');
+    expect(phaseNumbers).not.toContain('2');
+  });
+
+  test('computeSchedule finds active milestone version', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const schedule = computeSchedule(tmpDir);
+    const versions = schedule.milestones.map((m) => m.version);
+    expect(versions).toContain('v0.2.0');
+    expect(versions).not.toContain('v0.0.5');
+  });
+
+  test('cmdRoadmapGetPhase finds active phase, not shipped', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapGetPhase(tmpDir, '29', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found).toBe(true);
+    expect(parsed.phase_name).toContain('New Work');
+  });
+
+  test('cmdRoadmapGetPhase does not find shipped phase', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapGetPhase(tmpDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found).toBe(false);
+  });
+
+  test('cmdRoadmapAnalyze only reports active phases', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const phaseNumbers = parsed.phases.map((p) => p.number);
+    expect(phaseNumbers).toContain('29');
+    expect(phaseNumbers).toContain('30');
+    expect(phaseNumbers).not.toContain('1');
+    expect(phaseNumbers).not.toContain('2');
+  });
+
+  test('cmdRoadmapAnalyze only reports active milestones', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const versions = parsed.milestones.map((m) => m.version);
+    expect(versions).toContain('v0.2.0');
+    expect(versions).not.toContain('v0.0.5');
+  });
 });

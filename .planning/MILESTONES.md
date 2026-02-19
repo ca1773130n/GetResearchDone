@@ -187,3 +187,30 @@
 
 ---
 
+
+## v0.2.0 Git Worktree Parallel Execution (Shipped: 2026-02-19)
+
+**Delivered:** Worktree-isolated phase execution with parallel teammate spawning for independent phases, sequential fallback for non-Claude Code backends.
+
+**Phases completed:** 5 phases (27-31), 10 plans, 52 commits
+**Timeline:** 2026-02-19 (single day)
+**Source:** 1,577 tests (+144 from v0.1.6), 59 files changed (+10,867 LOC), 3 new modules (lib/worktree.js, lib/deps.js, lib/parallel.js)
+
+**Key accomplishments:**
+- Git worktree lifecycle management (`lib/worktree.js`): create, remove, list, stale cleanup with macOS symlink resolution and idempotent operations
+- PR workflow from worktrees: branch push and PR creation targeting base branch with executor worktree awareness
+- Phase dependency analysis (`lib/deps.js`): Kahn's algorithm for parallel group computation, DFS cycle detection, `depends_on` field in ROADMAP.md
+- Parallel execution engine (`lib/parallel.js`): teammate spawning for independent phases, shared task coordination, per-phase status tracking
+- Sequential fallback for non-Claude Code backends with identical artifact output
+- End-to-end integration test suite (`worktree-parallel-e2e.test.js`, 946 LOC) validating full pipeline
+- 4 deferred validations resolved (DEFER-22-01, DEFER-27-01, DEFER-27-02, DEFER-30-01 partially)
+- 7 new MCP tools for worktree and parallel execution commands
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-30-01: Full parallel execution with real teammate spawning (requires Claude Code runtime)
+
+**Git range:** v0.1.6..v0.2.0
+
+---
+

@@ -31,6 +31,8 @@ cat .planning/STATE.md 2>/dev/null
 
 If STATE.md missing but .planning/ exists: offer to reconstruct or continue without.
 If .planning/ missing: Error — project not initialized.
+
+If your prompt includes a `<worktree>` block, use `WORKTREE_PATH` as the working directory for all subsequent operations except STATE.md updates.
 </step>
 
 <step name="load_plan">
@@ -113,6 +115,22 @@ For each task:
 </step>
 
 </execution_flow>
+
+<worktree_execution>
+## Working Directory: Worktree Isolation
+
+When spawned with a `<worktree>` block in your prompt, you are operating in an isolated git worktree — NOT the main checkout.
+
+**Rules:**
+1. **All file paths are relative to the worktree.** The worktree is a full copy of the repo. Use the `WORKTREE_PATH` from your prompt as the root for all operations.
+2. **Bash commands:** Always prefix with `cd "${WORKTREE_PATH}" &&` or use absolute paths within the worktree.
+3. **Read/Write/Edit tools:** Use absolute paths: `${WORKTREE_PATH}/lib/worktree.js` not `lib/worktree.js`.
+4. **Git commits happen in the worktree.** The worktree has its own branch. Commits go to that branch automatically.
+5. **State updates (.planning/STATE.md):** These should be written to the MAIN repo (not the worktree), because STATE.md is shared state. Use the original project root (without WORKTREE_PATH prefix) for STATE.md operations.
+6. **SUMMARY.md:** Write to the worktree's .planning/phases/ directory (within WORKTREE_PATH). The orchestrator handles merging.
+
+**When NO `<worktree>` block is present:** Operate normally in the current working directory (backwards compatible).
+</worktree_execution>
 
 <deviation_rules>
 **While executing, you WILL discover work not in the plan.** Apply these rules automatically. Track all deviations for Summary.
@@ -322,6 +340,8 @@ When executing task with `tdd="true"`:
 <task_commit_protocol>
 After each task completes (verification passed, done criteria met), commit immediately.
 
+**When operating in a worktree:** Git commands automatically use the worktree's branch. Ensure you `cd` to `WORKTREE_PATH` before running git commands, or use `-C "${WORKTREE_PATH}"` flag.
+
 **1. Check modified files:** `git status --short`
 
 **2. Stage task-related files individually** (NEVER `git add .` or `git add -A`):
@@ -451,6 +471,8 @@ Do NOT skip. Do NOT proceed to state updates if self-check fails.
 </self_check>
 
 <state_updates>
+**Note:** STATE.md lives in the main repo, not the worktree. Use the original project root (the cwd from your init context, NOT WORKTREE_PATH) when running grd-tools state commands.
+
 After SUMMARY.md, update STATE.md using grd-tools:
 
 ```bash

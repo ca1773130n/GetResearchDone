@@ -24,6 +24,8 @@ const {
   resolveModelInternal,
   resolveModelForAgent,
   findPhaseInternal,
+  stripShippedSections,
+  getMilestoneInfo,
   loadConfig,
   output,
   error,
@@ -725,5 +727,136 @@ describe('Backend-aware model resolution', () => {
       expect(config.backend).toBeUndefined();
       expect(config.backend_models).toBeUndefined();
     });
+  });
+});
+
+// ─── stripShippedSections ────────────────────────────────────────────────────
+
+describe('stripShippedSections', () => {
+  test('passes through content with no <details> blocks', () => {
+    const content = '### Phase 1: Test\n**Goal:** Build things\n';
+    expect(stripShippedSections(content)).toBe(content);
+  });
+
+  test('strips a single <details> block', () => {
+    const content = '<details>\nold shipped milestone\n</details>\n### Phase 29: Active';
+    expect(stripShippedSections(content)).toBe('\n### Phase 29: Active');
+  });
+
+  test('strips multiple <details> blocks', () => {
+    const content =
+      '<details>\nmilestone v0.0\n</details>\n<details>\nmilestone v0.1\n</details>\n### Phase 29: Active';
+    expect(stripShippedSections(content)).toBe('\n\n### Phase 29: Active');
+  });
+
+  test('handles null input', () => {
+    expect(stripShippedSections(null)).toBeNull();
+  });
+
+  test('handles empty string', () => {
+    expect(stripShippedSections('')).toBe('');
+  });
+
+  test('handles undefined input', () => {
+    expect(stripShippedSections(undefined)).toBeUndefined();
+  });
+
+  test('is case-insensitive for tags', () => {
+    const content = '<DETAILS>\nold\n</DETAILS>\nactive';
+    expect(stripShippedSections(content)).toBe('\nactive');
+  });
+});
+
+// ─── getMilestoneInfo ────────────────────────────────────────────────────────
+
+describe('getMilestoneInfo', () => {
+  const fs = require('fs');
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns correct milestone from standard fixture', () => {
+    const info = getMilestoneInfo(tmpDir);
+    expect(info.version).toBe('v1.0');
+  });
+
+  test('finds in-progress milestone, not shipped one', () => {
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      [
+        '# Roadmap',
+        '',
+        '<details>',
+        '<summary>v0.0.5 — Shipped</summary>',
+        '',
+        '## M0 v0.0.5: Foundation',
+        '### Phase 1: Old stuff',
+        '',
+        '</details>',
+        '',
+        '- v0.0.5 Foundation (shipped 2026-01-01)',
+        '- v0.2.0 Next Gen (in progress)',
+        '',
+        '## M1 v0.2.0: Next Gen',
+        '**Start:** 2026-02-01',
+        '',
+        '### Phase 29: New work',
+        '**Goal:** Build new things',
+      ].join('\n'),
+      'utf-8'
+    );
+    const info = getMilestoneInfo(tmpDir);
+    expect(info.version).toBe('v0.2.0');
+    expect(info.name).toBe('Next Gen');
+  });
+
+  test('handles 3-part version numbers', () => {
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      [
+        '# Roadmap',
+        '',
+        '## M1 v1.2.3: Some Milestone',
+        '### Phase 1: Work',
+      ].join('\n'),
+      'utf-8'
+    );
+    const info = getMilestoneInfo(tmpDir);
+    expect(info.version).toBe('v1.2.3');
+  });
+
+  test('returns defaults when ROADMAP.md missing', () => {
+    fs.unlinkSync(path.join(tmpDir, '.planning', 'ROADMAP.md'));
+    const info = getMilestoneInfo(tmpDir);
+    expect(info.version).toBe('v1.0');
+    expect(info.name).toBe('milestone');
+  });
+
+  test('falls back to last non-shipped bullet when no in-progress marker', () => {
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      [
+        '# Roadmap',
+        '',
+        '- v0.0.5 Foundation (shipped 2026-01-01)',
+        '- v0.2.0 Active Work',
+        '',
+        '## M1 v0.2.0: Active Work',
+        '### Phase 29: Something',
+      ].join('\n'),
+      'utf-8'
+    );
+    const info = getMilestoneInfo(tmpDir);
+    expect(info.version).toBe('v0.2.0');
+    expect(info.name).toBe('Active Work');
   });
 });

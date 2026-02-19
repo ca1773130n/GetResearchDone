@@ -332,3 +332,86 @@ describe('runPreflightGates', () => {
     expect(result.warnings[0].code).toBe('STALE_ARTIFACTS');
   });
 });
+
+// ─── Multi-milestone: gates ignore shipped sections ──────────────────────────
+
+describe('gates with shipped milestone sections', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  const MULTI_MILESTONE_ROADMAP = [
+    '# Roadmap',
+    '',
+    '<details>',
+    '<summary>v0.0.5 — Shipped</summary>',
+    '',
+    '## M0 v0.0.5: Foundation',
+    '',
+    '### Phase 1: Old Setup',
+    '### Phase 2: Old Build',
+    '',
+    '</details>',
+    '',
+    '## M1 v0.2.0: Active',
+    '',
+    '### Phase 29: New Work',
+    '### Phase 30: Final Work',
+  ].join('\n');
+
+  test('checkOrphanedPhases ignores phases inside <details> blocks', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
+    // Create a directory for Phase 29 (active) — should not be orphaned
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '29-new-work'), { recursive: true });
+    const violations = checkOrphanedPhases(tmpDir);
+    const orphanNums = violations.map((v) => v.context.phase_number);
+    expect(orphanNums).not.toContain('29');
+  });
+
+  test('checkOrphanedPhases does not match shipped phase numbers', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
+    // Phase 1 dir exists from fixture but Phase 1 is inside <details> in new roadmap
+    // The fixture has Phase 1 and Phase 2 dirs — they should now appear orphaned
+    const violations = checkOrphanedPhases(tmpDir);
+    const orphanNums = violations.map((v) => v.context.phase_number);
+    // Phase 1 and 2 are inside <details> so not recognized in active content
+    expect(orphanNums).toContain('01');
+  });
+
+  test('checkPhaseInRoadmap finds active phase', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '29-new-work'), { recursive: true });
+    const violations = checkPhaseInRoadmap(tmpDir, '29');
+    expect(violations).toEqual([]);
+  });
+
+  test('checkPhaseInRoadmap flags shipped phase as not in roadmap', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
+    // Phase 1 exists on disk from fixture but is inside <details>
+    const violations = checkPhaseInRoadmap(tmpDir, '1');
+    expect(violations.length).toBe(1);
+    expect(violations[0].code).toBe('PHASE_NOT_IN_ROADMAP');
+  });
+});

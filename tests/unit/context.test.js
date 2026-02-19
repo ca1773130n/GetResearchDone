@@ -130,6 +130,36 @@ describe('cmdInitExecutePhase', () => {
     expect(result.base_branch).toBe('main');
   });
 
+  test('includes worktree_path with correct tmpdir pattern', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.worktree_path).toBeDefined();
+    expect(result.worktree_path).toContain('grd-worktree-');
+    expect(result.worktree_path).toContain('v1.0');
+    expect(result.worktree_path).toContain('-01');
+    // Should be under the real tmpdir
+    const realTmp = require('fs').realpathSync(os.tmpdir());
+    expect(result.worktree_path.startsWith(realTmp)).toBe(true);
+  });
+
+  test('includes worktree_branch matching branch template', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.worktree_branch).toBeDefined();
+    expect(result.worktree_branch).toContain('v1.0');
+    expect(result.worktree_branch).toContain('01');
+    expect(result.worktree_branch).toContain('test');
+    // Should match the branch_name field
+    expect(result.worktree_branch).toBe(result.branch_name);
+  });
+
+  test('worktree fields are null when phase not found', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '99', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.worktree_path).toBeNull();
+    expect(result.worktree_branch).toBeNull();
+  });
+
   describe('base_branch config variations', () => {
     let customTmpDir;
 

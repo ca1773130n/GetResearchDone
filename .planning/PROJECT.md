@@ -20,15 +20,32 @@ A Claude Code plugin providing:
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
-- 105 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- 112 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - Validation gate system with pre-flight checks preventing phase directory collisions across milestones
 - Phase directory archival on milestone completion (archived to `.planning/milestones/{version}-phases/`)
-- 120+ CLI commands across 14 modular lib/ modules
+- Git worktree isolation for phase execution with temp directory management
+- Phase dependency analysis with parallel group detection (Kahn's algorithm)
+- Parallel phase execution via teammate spawning (Claude Code) with sequential fallback (other backends)
+- PR workflow from worktree branches with automatic push and creation
+- 130+ CLI commands across 17 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.0)
+
+**Shipped:** 2026-02-19
+
+v0.2.0 added worktree-isolated phase execution with parallel teammate spawning:
+- `lib/worktree.js`: git worktree lifecycle management (create, remove, list, stale cleanup) with macOS symlink resolution
+- `lib/deps.js`: phase dependency analysis with Kahn's algorithm, parallel group computation, cycle detection
+- `lib/parallel.js`: parallel execution engine with teammate spawning, shared task coordination, per-phase status tracking
+- PR workflow from worktrees: branch push and PR creation targeting base branch
+- Sequential fallback for non-Claude Code backends with identical artifact output
+- 7 new MCP tools (112 total), 946 LOC integration test suite
+- 1,577 tests passing
 
 ## Previous State (v0.1.6)
 
@@ -97,7 +114,25 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
-## Validated Goals (v0.1.6)
+## Validated Goals (v0.2.0)
+
+- [x] `lib/worktree.js` with create, remove, list, stale cleanup and `fs.realpathSync(os.tmpdir())` for macOS symlink resolution
+- [x] `cmdInitExecutePhase` outputs `worktree_path` and `worktree_branch` fields when branching enabled
+- [x] `grd-tools worktree create/remove/list` CLI commands with structured JSON output
+- [x] Stale worktree detection and cleanup via `worktree remove --stale`
+- [x] `cmdWorktreePushAndPR`: branch push and PR creation with `gh` CLI, executor worktree awareness in command template
+- [x] `depends_on` field parsed from ROADMAP.md phase definitions
+- [x] `grd-tools phase analyze-deps` returns dependency graph with `parallel_groups` array (Kahn's algorithm)
+- [x] Circular dependency detection with cycle path reporting (DFS)
+- [x] `lib/parallel.js` with `cmdInitExecuteParallel`, independence validation, shared task coordination
+- [x] Sequential fallback for non-Claude Code backends with `fallback_note`
+- [x] 7 new MCP tools for worktree and parallel execution (112 total)
+- [x] 946-line E2E integration test suite validating full worktree-parallel pipeline
+- [x] 144 new tests (1,577 total) across 30 suites
+- [x] 4 deferred validations resolved (DEFER-22-01, DEFER-27-01, DEFER-27-02, DEFER-30-01 partially)
+
+<details>
+<summary>Validated Goals (v0.1.6)</summary>
 
 - [x] `lib/gates.js` with 6 gate checks: orphaned-phases, phase-in-roadmap, phase-has-plans, no-stale-artifacts, old-phases-archived, milestone-state-coherence
 - [x] `GATE_REGISTRY` maps 10 commands to gate arrays
@@ -110,7 +145,10 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] `cmdValidateConsistency` refactored to reuse `checkOrphanedPhases` (promoted from warnings to errors)
 - [x] 34 new tests (1,433 total) across 27 suites
 
-## Validated Goals (v0.1.5)
+</details>
+
+<details>
+<summary>Validated Goals (v0.1.5)</summary>
 
 - [x] `lib/long-term-roadmap.js` complete rewrite with 18 functions for flat LT-N format
 - [x] 12 subcommands: list, add, remove, update, refine, link, unlink, display, init, history, parse, validate
@@ -121,7 +159,10 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] LT roadmap integration in agents (grd-roadmapper, grd-product-owner) and commands (new-milestone, complete-milestone, new-project)
 - [x] 1,399 tests passing across 26 suites
 
-## Validated Goals (v0.1.3)
+</details>
+
+<details>
+<summary>Validated Goals (v0.1.3)</summary>
 
 - [x] 5 new MCP tools wired via COMMAND_DESCRIPTORS with correct parameter schemas (102 total tools; now 105 after v0.1.5)
 - [x] MCP tools/list includes all new tools; tools/call executes each with structured JSON responses
@@ -131,7 +172,10 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] execute-phase template has checkout-and-pull logic with 4 graceful edge case handlers
 - [x] 3 new tests verify base_branch behavior; 1,360 total tests passing
 
-## Validated Goals (v0.1.2)
+</details>
+
+<details>
+<summary>Validated Goals (v0.1.2)</summary>
 
 - [x] `grd-tools requirement get REQ-31` returns structured JSON with all fields; falls back to archived milestones
 - [x] `grd-tools requirement list` with composable --phase, --priority, --status, --category, --all filters
@@ -140,6 +184,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] `grd-tools search <query>` searches all .planning/ markdown files recursively
 - [x] `grd-tools requirement update-status` edits traceability matrix with validation
 - [x] 38 new tests across 4 plans, 1,343 total passing
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.1.1)</summary>
@@ -186,19 +232,10 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Current Milestone (v0.2.0)
-
-**Goal:** Git Worktree Parallel Execution
-
-**Target features:**
-- Git worktree creation per phase execution with temp directory isolation
-- Branch creation and PR workflow within worktree directories
-- Parallel planning/execution of independent phases via teammate spawning (Claude Code backend)
-- Graceful fallback for non-Claude Code backends (sequential execution)
-
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-30-01: Full parallel execution with real teammate spawning on Claude Code (requires runtime)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
@@ -227,3 +264,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.4 milestone shipped: 2026-02-17*
 *v0.1.5 milestone shipped: 2026-02-17*
 *v0.1.6 milestone shipped: 2026-02-19*
+*v0.2.0 milestone shipped: 2026-02-19*

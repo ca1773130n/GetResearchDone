@@ -33,43 +33,31 @@ Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_do
 When `parallelization` is false, plans within a wave execute sequentially.
 </step>
 
-<step name="handle_branching">
-Check `branching_strategy` from init:
+<step name="setup_worktree" condition="branching_strategy != none">
+Create an isolated worktree for this phase execution using pre-computed fields from init:
 
-**"none":** Skip, continue on current branch.
-
-**"phase" or "milestone":** Use pre-computed `branch_name` and `base_branch` from init:
-
-1. **Check for uncommitted changes:**
+1. **Check for uncommitted changes on current branch:**
    ```bash
    DIRTY=$(git status --porcelain)
    ```
-   If `DIRTY` is non-empty: warn "Uncommitted changes detected on current branch. Skipping checkout/pull, creating branch from current position." — then skip directly to step 5.
+   If non-empty: warn "Uncommitted changes detected. Stash or commit before worktree creation." Stop.
 
-2. **Check current branch:**
+2. **Create worktree:**
    ```bash
-   CURRENT=$(git rev-parse --abbrev-ref HEAD)
+   WT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree create --phase "${PHASE_NUMBER}" --slug "${PHASE_SLUG}")
    ```
-   If `CURRENT` equals `$BASE_BRANCH`: skip to step 4 (already on base).
+   Parse JSON result for `path` and `branch`. If `error` field present: report error and stop.
+   Store: `WORKTREE_PATH` = result.path, `WORKTREE_BRANCH` = result.branch
 
-3. **Checkout base branch:**
+3. **Verify worktree is ready:**
    ```bash
-   git checkout "$BASE_BRANCH"
-   ```
-   If this fails: warn "Could not checkout $BASE_BRANCH, continuing on current branch." — skip to step 5 (skip pull, go straight to branch creation).
-
-4. **Pull latest from remote:**
-   ```bash
-   git pull origin "$BASE_BRANCH"
-   ```
-   If this fails (offline, no remote, conflicts): warn "Pull failed (offline or conflict), continuing from local $BASE_BRANCH." — continue to step 5 anyway.
-
-5. **Create or switch to phase branch:**
-   ```bash
-   git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+   ls "${WORKTREE_PATH}/.planning" && echo "Worktree ready"
    ```
 
-All subsequent commits go to this branch. User handles merging.
+All executor agents will receive `WORKTREE_PATH` and operate within it.
+The main checkout remains clean on its original branch.
+
+**When `branching_strategy` is `"none"`:** Skip this step entirely. Continue on the current directory with no worktree isolation (backwards compatible).
 </step>
 
 <step name="validate_phase">
@@ -147,6 +135,14 @@ Execute each wave in sequence using Agent Teams coordination.
        If you hit a checkpoint, use SendMessage to report to team lead.
        Wait for team lead's response before continuing.
        </team_coordination>
+
+       <worktree>
+       Working directory: ${WORKTREE_PATH}
+       All file operations (Read, Write, Edit) and Bash commands MUST use this
+       directory as the working root. Use absolute paths prefixed with this directory
+       for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
+       If WORKTREE_PATH is not set (branching_strategy=none), use the normal project root.
+       </worktree>
 
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
@@ -264,6 +260,14 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        Track experiment parameters in commit messages where applicable.
        </objective>
 
+       <worktree>
+       Working directory: ${WORKTREE_PATH}
+       All file operations (Read, Write, Edit) and Bash commands MUST use this
+       directory as the working root. Use absolute paths prefixed with this directory
+       for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
+       If WORKTREE_PATH is not set (branching_strategy=none), use the normal project root.
+       </worktree>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -376,6 +380,49 @@ After all waves:
 ### Issues Encountered
 [Aggregate from SUMMARYs, or "None"]
 ```
+</step>
+
+<step name="push_and_create_pr" condition="branching_strategy != none">
+Push the worktree branch and create a PR:
+
+1. **Collect plan summaries for PR body:**
+   Read each SUMMARY.md in the phase directory. Extract the one-liner from each.
+   Build a PR body:
+   ```
+   ## Phase ${PHASE_NUMBER}: ${PHASE_NAME}
+
+   **Milestone:** ${MILESTONE_VERSION}
+
+   ### Plans Completed
+   ${for each plan: "- **${plan_id}:** ${one_liner}"}
+
+   ### Verification
+   See ${PHASE_DIR}/${PHASE_NUMBER}-VERIFICATION.md
+   ```
+
+2. **Push branch and create PR:**
+   ```bash
+   PR_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree push-pr \
+     --phase "${PHASE_NUMBER}" \
+     --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME} (${MILESTONE_VERSION})" \
+     --body "${PR_BODY}" \
+     --base "${BASE_BRANCH}")
+   ```
+   Parse JSON for `pr_url`, `error`.
+
+   If `error`: report "PR creation failed: ${error}". The branch may still have been pushed.
+   Offer: "Retry PR creation?" or "Continue without PR (branch pushed)?" or "Skip PR entirely?"
+
+   If success: report "PR created: ${pr_url}"
+
+3. **Report PR:**
+   ```
+   ## PR Created
+
+   **URL:** ${pr_url}
+   **Branch:** ${WORKTREE_BRANCH} -> ${BASE_BRANCH}
+   **Phase:** ${PHASE_NUMBER}: ${PHASE_NAME}
+   ```
 </step>
 
 <step name="tracker_sync">
@@ -539,6 +586,18 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs(phase-{X}): complete ph
 ```
 </step>
 
+<step name="cleanup_worktree" condition="branching_strategy != none">
+Remove the worktree after PR creation (or on any failure path):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree remove --phase "${PHASE_NUMBER}"
+```
+
+This is idempotent — if the worktree was already removed (crash, manual cleanup), it returns success with `already_gone: true`.
+
+**IMPORTANT:** This step MUST run even if earlier steps failed. Treat it as a finally block. If the orchestrator encounters any error after worktree creation, it should still attempt cleanup before reporting the error.
+</step>
+
 <step name="offer_next">
 
 **If more phases:**
@@ -574,10 +633,13 @@ Orchestrator: ~10-15% context. Subagents: fresh 200k each. No polling (Task bloc
 - **Dependency chain breaks:** Wave 1 fails -> Wave 2 dependents likely fail -> user chooses attempt or skip
 - **All agents in wave fail:** Systemic issue -> stop, report for investigation
 - **Checkpoint unresolvable:** "Skip this plan?" or "Abort phase execution?" -> record partial progress in STATE.md
+- **Worktree cleanup on failure:** After any failure, always run worktree cleanup (`cleanup_worktree` step) before stopping. Worktree removal is idempotent and safe to call even if the worktree was never created. This prevents stale worktrees from accumulating in tmpdir.
 </failure_handling>
 
 <resumption>
 Re-run `/grd:execute-phase {phase}` -> discover_plans finds completed SUMMARYs -> skips them -> resumes from first incomplete plan -> continues wave execution.
 
 STATE.md tracks: last completed plan, current wave, pending checkpoints.
+
+On resumption, check if a worktree already exists for this phase (via `worktree list`). If it does, reuse it instead of creating a new one. If it doesn't, create a fresh one. The `setup_worktree` step handles this: if `worktree create` returns an `error` with "already exists", parse the existing worktree path from the error response and reuse it.
 </resumption>

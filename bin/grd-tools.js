@@ -54,6 +54,15 @@ const {
 } = require('../lib/phase');
 const { cmdTracker } = require('../lib/tracker');
 const {
+  cmdWorktreeCreate,
+  cmdWorktreeRemove,
+  cmdWorktreeList,
+  cmdWorktreeRemoveStale,
+  cmdWorktreePushAndPR,
+} = require('../lib/worktree');
+const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
+const { cmdInitExecuteParallel } = require('../lib/parallel');
+const {
   cmdInitExecutePhase,
   cmdInitPlanPhase,
   cmdInitNewProject,
@@ -114,7 +123,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree'
     );
   }
 
@@ -153,7 +162,7 @@ function routeCommand(command, args, cwd, raw) {
   ];
   const PHASES_SUBS = ['list'];
   const ROADMAP_SUBS = ['get-phase', 'analyze'];
-  const PHASE_SUBS = ['next-decimal', 'add', 'insert', 'remove', 'complete'];
+  const PHASE_SUBS = ['next-decimal', 'add', 'insert', 'remove', 'complete', 'analyze-deps'];
   const MILESTONE_SUBS = ['complete'];
   const VALIDATE_SUBS = ['consistency'];
   const TODO_SUBS = ['complete'];
@@ -172,8 +181,10 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr'];
   const INIT_WORKFLOWS = [
     'execute-phase',
+    'execute-parallel',
     'plan-phase',
     'new-project',
     'new-milestone',
@@ -384,6 +395,8 @@ function routeCommand(command, args, cwd, raw) {
       } else if (sub === 'complete') {
         validatePhaseArg(args[2]);
         cmdPhaseComplete(cwd, args[2], raw);
+      } else if (sub === 'analyze-deps') {
+        cmdPhaseAnalyzeDeps(cwd, raw);
       }
       break;
     }
@@ -446,6 +459,13 @@ function routeCommand(command, args, cwd, raw) {
           validatePhaseArg(args[2]);
           cmdInitExecutePhase(cwd, args[2], includes, raw);
           break;
+        case 'execute-parallel': {
+          const phases = args.slice(2).filter(a => !a.startsWith('--'));
+          if (phases.length === 0) error('At least one phase number required for init execute-parallel');
+          for (const p of phases) validatePhaseArg(p);
+          cmdInitExecuteParallel(cwd, phases, includes, raw);
+          break;
+        }
         case 'plan-phase':
           validatePhaseArg(args[2]);
           cmdInitPlanPhase(cwd, args[2], includes, raw);
@@ -584,6 +604,38 @@ function routeCommand(command, args, cwd, raw) {
           status = 'In Progress';
         }
         cmdRequirementUpdateStatus(cwd, args[2], status, raw);
+      }
+      break;
+    }
+    case 'worktree': {
+      const sub = args[1];
+      validateSubcommand(sub, WORKTREE_SUBS, 'worktree');
+      if (sub === 'create') {
+        cmdWorktreeCreate(cwd, {
+          phase: flag(args, '--phase', null),
+          milestone: flag(args, '--milestone', null),
+          slug: flag(args, '--slug', null),
+        }, raw);
+      } else if (sub === 'remove') {
+        if (args.includes('--stale')) {
+          cmdWorktreeRemoveStale(cwd, raw);
+        } else {
+          cmdWorktreeRemove(cwd, {
+            phase: flag(args, '--phase', null),
+            path: flag(args, '--path', null),
+            milestone: flag(args, '--milestone', null),
+          }, raw);
+        }
+      } else if (sub === 'list') {
+        cmdWorktreeList(cwd, raw);
+      } else if (sub === 'push-pr') {
+        cmdWorktreePushAndPR(cwd, {
+          phase: flag(args, '--phase', null),
+          milestone: flag(args, '--milestone', null),
+          title: flag(args, '--title', null),
+          body: flag(args, '--body', null),
+          base: flag(args, '--base', null),
+        }, raw);
       }
       break;
     }
