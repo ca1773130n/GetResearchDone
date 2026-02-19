@@ -6,7 +6,7 @@
 
 - **Active phase:** 28 — PR Workflow
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 1 of 1 (complete)
+- **Current Plan:** 2 of 2 (complete)
 - **Progress:** [██████████] 100%
 - **Next:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
 
@@ -22,6 +22,9 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | Worktree steps conditioned on branching_strategy != none for backward compatibility | Phase 28 | Projects without branching configured continue working exactly as before |
+| 2026-02-19 | PR created by orchestrator after all plans complete, not by individual executors | Phase 28 | Orchestrator has full context of plan summaries and verification for PR body |
+| 2026-02-19 | STATE.md updates go to main repo; SUMMARY.md and code go to worktree branch | Phase 28 | STATE.md is shared coordination state; feature code belongs on the PR branch |
 | 2026-02-19 | Read branch from worktree HEAD instead of recomputing from slug to avoid mismatch | Phase 28 | Worktree creation slug may differ from phase directory slug; reading HEAD is robust |
 | 2026-02-19 | gh CLI errors return push_succeeded flag and title/body for retry without recomputation | Phase 28 | Orchestrators need to know push worked even if PR failed; avoids redundant push on retry |
 | 2026-02-19 | Used fs.realpathSync(os.tmpdir()) for macOS symlink resolution in worktree path matching | Phase 27 | macOS resolves /tmp to /private/tmp; git worktree paths use resolved form; must match consistently |
@@ -60,6 +63,7 @@
 | 27 | 01 | 5min | 2 | 2 | +20 tests (1453 total) |
 | 27 | 02 | 2min | 2 | 4 | +3 tests (1456 total) |
 | 28 | 01 | 5min | 2 | 4 | +9 tests (1465 total) |
+| 28 | 02 | 3min | 2 | 2 | +0 tests (1465 total) |
 
 ## Blockers
 
@@ -67,10 +71,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 28-01-PLAN.md (PR creation function with TDD)
-- **Stopped at:** Completed Phase 28 Plan 01 — cmdWorktreePushAndPR implemented with CLI + MCP
+- **Last action:** Completed 28-02-PLAN.md (orchestrator and executor worktree integration)
+- **Stopped at:** Completed Phase 28 Plan 02 — execute-phase.md and grd-executor.md updated with worktree lifecycle
 - **Next action:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
-- **Context needed:** 1,465 tests passing; cmdWorktreePushAndPR in lib/worktree.js; CLI `worktree push-pr`; MCP `grd_worktree_push_pr`; Phase 28 has 1 plan (complete)
+- **Context needed:** 1,465 tests passing; Worktree lifecycle in execute-phase.md (setup/PR/cleanup); Executor worktree rules in grd-executor.md; Phase 28 has 2 plans (both complete)
 
 ---
 
