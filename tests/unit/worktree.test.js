@@ -19,6 +19,7 @@ const {
   cmdWorktreeRemove,
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
+  cmdWorktreePushAndPR,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -471,5 +472,251 @@ describe('cmdWorktreeRemoveStale', () => {
     const result = JSON.parse(stdout);
     expect(result.removed.length).toBe(2);
     expect(result.count).toBe(2);
+  });
+});
+
+// ─── Helper: Test repo with bare remote ───────────────────────────────────────
+
+/**
+ * Create an isolated temp git repo with a bare clone as its remote.
+ * This allows `git push origin <branch>` to actually work in tests.
+ *
+ * @returns {{ repoDir: string, bareDir: string }} Paths to main repo and bare remote
+ */
+function createTestGitRepoWithRemote() {
+  // Create the primary repo first
+  const repoDir = createTestGitRepo();
+
+  // Create a bare clone as the remote
+  const bareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-bare-'));
+  fs.rmSync(bareDir, { recursive: true, force: true });
+  execFileSync('git', ['clone', '--bare', repoDir, bareDir], { stdio: 'pipe' });
+
+  // Point the primary repo's origin to the bare clone
+  try {
+    execFileSync('git', ['remote', 'remove', 'origin'], { cwd: repoDir, stdio: 'pipe' });
+  } catch {
+    // No origin yet — that's fine
+  }
+  execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: repoDir, stdio: 'pipe' });
+
+  return { repoDir, bareDir };
+}
+
+/**
+ * Clean up a test repo with remote (cleans both bare remote and main repo).
+ *
+ * @param {string} repoDir - Path to the main test repo
+ * @param {string} bareDir - Path to the bare remote repo
+ */
+function cleanupTestRepoWithRemote(repoDir, bareDir) {
+  cleanupTestRepo(repoDir);
+  try {
+    fs.rmSync(bareDir, { recursive: true, force: true });
+  } catch {
+    // Ignore
+  }
+}
+
+// ─── cmdWorktreePushAndPR ─────────────────────────────────────────────────────
+
+describe('cmdWorktreePushAndPR', () => {
+  let repoDir, bareDir;
+
+  beforeEach(() => {
+    const repos = createTestGitRepoWithRemote();
+    repoDir = repos.repoDir;
+    bareDir = repos.bareDir;
+  });
+
+  afterEach(() => {
+    cleanupTestRepoWithRemote(repoDir, bareDir);
+  });
+
+  test('returns error when phase is not provided', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toMatch(/phase/i);
+  });
+
+  test('returns error when worktree directory does not exist', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '99', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toMatch(/worktree.*not found/i);
+  });
+
+  test('returns error when git push fails (no remote configured)', () => {
+    // Create a worktree
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+    );
+
+    // Remove the remote so push fails
+    execFileSync('git', ['remote', 'remove', 'origin'], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error.toLowerCase()).toContain('push');
+  });
+
+  test('successfully pushes branch to remote', () => {
+    // Create a worktree
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+    );
+
+    // Make a commit in the worktree so there is something to push
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+
+    // Push should succeed (gh may fail, but push_succeeded should be true)
+    // The result may have an error about gh, but push_succeeded should be true
+    if (result.error) {
+      expect(result.push_succeeded).toBe(true);
+    }
+
+    // Verify branch exists on the bare remote
+    const remoteBranches = execFileSync('git', ['branch', '--list'], {
+      cwd: bareDir,
+      encoding: 'utf-8',
+    });
+    expect(remoteBranches).toContain('grd/v0.2.0/27-worktree-infrastructure');
+  });
+
+  test('returns error when gh CLI fails (returns structured error, does not crash)', () => {
+    // Create a worktree and push (push will work with bare remote)
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+    );
+
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    // gh pr create will fail in test env (no GitHub auth, bare local remote)
+    // The function should handle this gracefully with structured error JSON
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+
+    // Should be valid JSON, not a crash — either success or structured error
+    expect(result).toBeDefined();
+    if (result.error) {
+      // Push should have succeeded even if gh failed
+      expect(result.push_succeeded).toBe(true);
+      expect(result.error.toLowerCase()).toContain('pr');
+    }
+  });
+
+  test('PR title includes phase number and milestone', () => {
+    // Create a worktree and push
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
+    );
+
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '28', milestone: 'v0.2.0' }, false)
+    );
+    const result = JSON.parse(stdout);
+
+    // The title should be in the output (either in .title or generated internally)
+    const title = result.title || '';
+    expect(title).toContain('28');
+    expect(title).toContain('v0.2.0');
+  });
+
+  test('PR body includes plan summary text when provided', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
+    );
+
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const customBody = '## Summary\nImplemented PR workflow with push-pr command.';
+    const { stdout } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '28', milestone: 'v0.2.0', body: customBody }, false)
+    );
+    const result = JSON.parse(stdout);
+
+    // The body used for PR creation should contain the provided text
+    expect(result.body).toContain('PR workflow');
+  });
+
+  test('returns structured JSON with pr_url, branch, title on success', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+    );
+
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+
+    // Should always have branch and title, even if gh fails
+    expect(result).toHaveProperty('branch');
+    expect(result).toHaveProperty('title');
+    expect(result.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
+  });
+
+  test('uses base_branch from config for PR target', () => {
+    // Update config to use a custom base branch
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.base_branch = 'develop';
+    fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
+
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+    );
+
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    const result = JSON.parse(stdout);
+
+    // base should come from config, not hardcoded 'main'
+    expect(result.base).toBe('develop');
   });
 });
