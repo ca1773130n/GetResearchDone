@@ -96,7 +96,10 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
   3. `grd-tools worktree remove` cleans up worktree directory and git worktree registration; handles non-existent worktree gracefully
   4. `grd-tools worktree list` returns all active worktrees as JSON array with path, branch, and phase metadata
   5. Stale worktree detection identifies worktrees from crashed sessions (no lock file, process not running) and `worktree remove --stale` cleans them up
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 27-01-PLAN.md — TDD: Core worktree module (lib/worktree.js + tests)
+- [ ] 27-02-PLAN.md — CLI routing, execute-phase init fields, MCP descriptors
 
 ### Phase 28: PR Workflow from Worktree
 **Goal**: Completed phase work in a worktree automatically produces a PR targeting the base branch
@@ -160,7 +163,7 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. Worktree Infrastructure | v0.2.0 | 0/TBD | Not started | - |
+| 27. Worktree Infrastructure | v0.2.0 | 0/2 | Not started | - |
 | 28. PR Workflow from Worktree | v0.2.0 | 0/TBD | Not started | - |
 | 29. Phase Dependency Analysis | v0.2.0 | 0/TBD | Not started | - |
 | 30. Parallel Execution & Fallback | v0.2.0 | 0/TBD | Not started | - |
