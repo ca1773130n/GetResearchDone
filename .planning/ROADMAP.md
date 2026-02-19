@@ -113,7 +113,10 @@ Plans:
   2. Executor agents receive `worktree_path` from init and all file operations (read, write, edit, bash cwd) target the worktree directory
   3. PR title and body include phase number, milestone version, and plan summary
   4. Worktree is cleaned up after PR creation (success path) and on failure (error path) via Phase 27 lifecycle management
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 28-01-PLAN.md — TDD: PR creation library function (cmdWorktreePushAndPR + CLI + MCP)
+- [ ] 28-02-PLAN.md — Execute-phase worktree lifecycle and executor worktree awareness
 
 ### Phase 29: Phase Dependency Analysis
 **Goal**: Roadmap phases have explicit dependency declarations and tooling can identify parallelizable phase sets
