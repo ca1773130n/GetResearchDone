@@ -76,7 +76,7 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 **Start:** 2026-02-19
 
 - [x] **Phase 27: Worktree Infrastructure** - Worktree creation, lifecycle management, and CLI tooling `implement` ✓ 2026-02-19
-- [ ] **Phase 28: PR Workflow from Worktree** - Branch push and PR creation from worktree directories `implement`
+- [x] **Phase 28: PR Workflow from Worktree** - Branch push and PR creation from worktree directories `implement` (completed 2026-02-19)
 - [ ] **Phase 29: Phase Dependency Analysis** - Dependency graph extraction and parallelizability detection `implement`
 - [ ] **Phase 30: Parallel Execution & Fallback** - Teammate spawning for parallel phases with sequential fallback `implement`
 - [ ] **Phase 31: Integration & Validation** - Full pipeline validation and deferred validation resolution `integrate`
@@ -113,7 +113,7 @@ Plans:
   2. Executor agents receive `worktree_path` from init and all file operations (read, write, edit, bash cwd) target the worktree directory
   3. PR title and body include phase number, milestone version, and plan summary
   4. Worktree is cleaned up after PR creation (success path) and on failure (error path) via Phase 27 lifecycle management
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 28-01-PLAN.md — TDD: PR creation library function (cmdWorktreePushAndPR + CLI + MCP)
 - [ ] 28-02-PLAN.md — Execute-phase worktree lifecycle and executor worktree awareness
@@ -167,7 +167,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 27. Worktree Infrastructure | v0.2.0 | 0/2 | Not started | - |
-| 28. PR Workflow from Worktree | v0.2.0 | 0/TBD | Not started | - |
+| 28. PR Workflow from Worktree | v0.2.0 | Complete    | 2026-02-19 | - |
 | 29. Phase Dependency Analysis | v0.2.0 | 0/TBD | Not started | - |
 | 30. Parallel Execution & Fallback | v0.2.0 | 0/TBD | Not started | - |
 | 31. Integration & Validation | v0.2.0 | 0/TBD | Not started | - |
