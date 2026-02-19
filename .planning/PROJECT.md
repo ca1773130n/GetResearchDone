@@ -186,6 +186,16 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
+## Current Milestone (v0.2.0)
+
+**Goal:** Git Worktree Parallel Execution
+
+**Target features:**
+- Git worktree creation per phase execution with temp directory isolation
+- Branch creation and PR workflow within worktree directories
+- Parallel planning/execution of independent phases via teammate spawning (Claude Code backend)
+- Graceful fallback for non-Claude Code backends (sequential execution)
+
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
