@@ -79,7 +79,7 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 - [x] **Phase 28: PR Workflow from Worktree** - Branch push and PR creation from worktree directories `implement` (completed 2026-02-19)
 - [x] **Phase 29: Phase Dependency Analysis** - Dependency graph extraction and parallelizability detection `implement` (completed 2026-02-19)
 - [x] **Phase 30: Parallel Execution & Fallback** - Teammate spawning for parallel phases with sequential fallback `implement` (completed 2026-02-19)
-- [ ] **Phase 31: Integration & Validation** - Full pipeline validation and deferred validation resolution `integrate`
+- [x] **Phase 31: Integration & Validation** - Full pipeline validation and deferred validation resolution `integrate` (completed 2026-02-19)
 
 ## Phase Details
 
@@ -166,25 +166,27 @@ Plans:
   3. Sequential fallback produces identical artifacts to parallel execution (same PRs, same branch structure) on non-Claude Code backend
   4. All existing 1,433+ tests continue to pass with zero regressions
   5. New features have comprehensive test coverage (target: 40+ new tests across Phases 27-30)
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 31-01-PLAN.md — Cross-module integration tests (worktree + deps + parallel E2E)
-- [ ] 31-02-PLAN.md — Verification report, state update, milestone readiness
+- [x] 31-01-PLAN.md — Cross-module integration tests (worktree + deps + parallel E2E)
+- [x] 31-02-PLAN.md — Verification report, state update, milestone readiness
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. Worktree Infrastructure | v0.2.0 | 0/2 | Not started | - |
-| 28. PR Workflow from Worktree | v0.2.0 | Complete    | 2026-02-19 | - |
-| 29. Phase Dependency Analysis | v0.2.0 | Complete    | 2026-02-19 | - |
-| 30. Parallel Execution & Fallback | v0.2.0 | 0/TBD | Not started | - |
-| 31. Integration & Validation | v0.2.0 | 0/TBD | Not started | - |
+| 27. Worktree Infrastructure | v0.2.0 | 2/2 | Complete | 2026-02-19 |
+| 28. PR Workflow from Worktree | v0.2.0 | 2/2 | Complete | 2026-02-19 |
+| 29. Phase Dependency Analysis | v0.2.0 | 2/2 | Complete | 2026-02-19 |
+| 30. Parallel Execution & Fallback | v0.2.0 | 2/2 | Complete | 2026-02-19 |
+| 31. Integration & Validation | v0.2.0 | 2/2 | Complete | 2026-02-19 |
 
 ## Deferred Validations
 
 | Deferred From | Validation | Must Resolve By | Status |
 |---------------|-----------|-----------------|--------|
 | Phase 8 (DEFER-08-01) | User acceptance testing of TUI dashboard commands | post-v1.0 | Pending (not in scope) |
-| Phase 22 (DEFER-22-01) | End-to-end git branching workflow validation | Phase 31 | Pending |
-| Phase 30 (DEFER-30-01) | Full parallel execution with real teammate spawning on Claude Code | Phase 31 | Pending |
+| Phase 22 (DEFER-22-01) | End-to-end git branching workflow validation | Phase 31 | RESOLVED (Phase 31) |
+| Phase 27 (DEFER-27-01) | Worktree create -> work -> push -> cleanup pipeline | Phase 31 | RESOLVED (Phase 31) |
+| Phase 27 (DEFER-27-02) | Stale worktree cleanup with simulated crash | Phase 31 | RESOLVED (Phase 31) |
+| Phase 30 (DEFER-30-01) | Full parallel execution with real teammate spawning on Claude Code | Phase 31 | PARTIALLY RESOLVED (Phase 31, runtime gap) |
