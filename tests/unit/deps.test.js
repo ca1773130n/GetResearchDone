@@ -17,6 +17,7 @@ const {
   detectCycle,
   cmdPhaseAnalyzeDeps,
 } = require('../../lib/deps');
+const { COMMAND_DESCRIPTORS } = require('../../lib/mcp-server');
 
 // ─── parseDependsOn ──────────────────────────────────────────────────────────
 
@@ -411,5 +412,171 @@ describe('cmdPhaseAnalyzeDeps', () => {
     expect(allPhases).toContain('3');
     // Each phase appears exactly once
     expect(allPhases.length).toBe(3);
+  });
+});
+
+// ─── CLI Integration — phase analyze-deps ────────────────────────────────────
+
+describe('CLI integration — phase analyze-deps', () => {
+  let fixtureDir;
+
+  afterEach(() => {
+    if (fixtureDir) {
+      cleanupFixtureDir(fixtureDir);
+      fixtureDir = null;
+    }
+  });
+
+  function writeCustomRoadmap(dir, content) {
+    const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(roadmapPath, content, 'utf-8');
+  }
+
+  test('CLI outputs valid JSON with expected fields', () => {
+    fixtureDir = createFixtureDir();
+    writeCustomRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '',
+        '## M1 v1.0: Foundation',
+        '',
+        '### Phase 1: Alpha',
+        '**Goal:** Build A',
+        '**Depends on:** Nothing',
+        '',
+        '### Phase 2: Beta',
+        '**Goal:** Build B',
+        '**Depends on:** Phase 1',
+        '',
+        '### Phase 3: Gamma',
+        '**Goal:** Build C',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseAnalyzeDeps(fixtureDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.nodes).toBeInstanceOf(Array);
+    expect(parsed.edges).toBeInstanceOf(Array);
+    expect(parsed.parallel_groups).toBeInstanceOf(Array);
+    expect(typeof parsed.has_cycle).toBe('boolean');
+    expect(parsed.has_cycle).toBe(false);
+  });
+
+  test('parallel groups match expected structure for v0.2.0 layout', () => {
+    fixtureDir = createFixtureDir();
+    writeCustomRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '',
+        '## v0.2.0: Parallel Execution',
+        '',
+        '### Phase 27: Worktree Infrastructure',
+        '**Goal:** Git worktree support',
+        '**Depends on:** Nothing',
+        '',
+        '### Phase 28: PR Workflow',
+        '**Goal:** PR creation from worktrees',
+        '**Depends on:** Phase 27',
+        '',
+        '### Phase 29: Dependency Analysis',
+        '**Goal:** Phase dep graph',
+        '**Depends on:** Nothing',
+        '',
+        '### Phase 30: Parallel Execution',
+        '**Goal:** Spawn parallel teammates',
+        '**Depends on:** Phase 27, Phase 29',
+        '',
+        '### Phase 31: Integration',
+        '**Goal:** Full E2E validation',
+        '**Depends on:** Phase 27, Phase 28, Phase 29, Phase 30',
+      ].join('\n')
+    );
+
+    const { stdout } = captureOutput(() => {
+      cmdPhaseAnalyzeDeps(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.parallel_groups).toEqual([['27', '29'], ['28', '30'], ['31']]);
+  });
+
+  test('JSON output contains all expected phase numbers with no duplicates', () => {
+    fixtureDir = createFixtureDir();
+    writeCustomRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '',
+        '## v1.0: Core',
+        '',
+        '### Phase 10: Setup',
+        '**Goal:** Init',
+        '**Depends on:** Nothing',
+        '',
+        '### Phase 11: Build',
+        '**Goal:** Compile',
+        '**Depends on:** Phase 10',
+        '',
+        '### Phase 12: Test',
+        '**Goal:** Validate',
+        '**Depends on:** Phase 10',
+        '',
+        '### Phase 13: Deploy',
+        '**Goal:** Ship',
+        '**Depends on:** Phase 11, Phase 12',
+      ].join('\n')
+    );
+
+    const { stdout } = captureOutput(() => {
+      cmdPhaseAnalyzeDeps(fixtureDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const allPhases = parsed.parallel_groups.flat();
+    expect(allPhases.sort()).toEqual(['10', '11', '12', '13']);
+    // No duplicates
+    expect(new Set(allPhases).size).toBe(allPhases.length);
+  });
+
+  test('cycle detection returns error in output', () => {
+    fixtureDir = createFixtureDir();
+    writeCustomRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '',
+        '## v1.0: Core',
+        '',
+        '### Phase 1: Alpha',
+        '**Goal:** A',
+        '**Depends on:** Phase 2',
+        '',
+        '### Phase 2: Beta',
+        '**Goal:** B',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseAnalyzeDeps(fixtureDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.has_cycle).toBe(true);
+    expect(parsed.cycle_path).toBeInstanceOf(Array);
+    expect(parsed.cycle_path).toContain('1');
+    expect(parsed.cycle_path).toContain('2');
+  });
+
+  test('MCP descriptor grd_phase_analyze_deps exists with empty params', () => {
+    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_phase_analyze_deps');
+    expect(descriptor).toBeDefined();
+    expect(descriptor.params).toEqual([]);
+    expect(typeof descriptor.execute).toBe('function');
+    expect(descriptor.description).toContain('dependencies');
   });
 });
