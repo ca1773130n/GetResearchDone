@@ -43,13 +43,14 @@ On non-Claude Code backends (no team support), parallel phases fall back to sequ
 
 | REQ | Feature | Priority | Phase | Status |
 |-----|---------|----------|-------|--------|
-| REQ-40 | Git Worktree Phase Isolation | P0 | TBD | Pending |
-| REQ-41 | Git Worktree Phase Isolation | P0 | TBD | Pending |
-| REQ-42 | Git Worktree Phase Isolation | P1 | TBD | Pending |
-| REQ-43 | Parallel Phase Execution | P1 | TBD | Pending |
-| REQ-44 | Parallel Phase Execution | P0 | TBD | Pending |
-| REQ-45 | Parallel Phase Execution | P2 | TBD | Pending |
+| REQ-40 | Git Worktree Phase Isolation | P0 | Phase 27 | Pending |
+| REQ-41 | Git Worktree Phase Isolation | P0 | Phase 28 | Pending |
+| REQ-42 | Git Worktree Phase Isolation | P1 | Phase 27 | Pending |
+| REQ-43 | Parallel Phase Execution | P1 | Phase 29 | Pending |
+| REQ-44 | Parallel Phase Execution | P0 | Phase 30 | Pending |
+| REQ-45 | Parallel Phase Execution | P2 | Phase 30 | Pending |
 
 ---
 
 *Requirements defined: 2026-02-19*
+*Traceability updated: 2026-02-19*
