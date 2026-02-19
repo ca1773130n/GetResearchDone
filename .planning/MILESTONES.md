@@ -163,3 +163,27 @@
 
 ---
 
+
+## v0.1.6 Phase Directory Collision Fix (Shipped: 2026-02-19)
+
+**Delivered:** Milestone-scoped phase directory archival and validation gate system to prevent phase directory collisions across milestones.
+
+**Phases completed:** 1 phase (26), 1 plan, 3 tasks
+**Timeline:** 2026-02-19 (single day)
+**Source:** 1,433 tests (+34 from v0.1.5), 11 files modified (+1,114 LOC), 1 new module (lib/gates.js)
+
+**Key accomplishments:**
+- New `lib/gates.js` module: 6 gate checks (orphaned-phases, phase-in-roadmap, phase-has-plans, stale-artifacts, old-phases-archived, milestone-state-coherence) with declarative registry mapping 10 commands
+- Phase directory archival in `cmdMilestoneComplete`: copies to `.planning/milestones/{version}-phases/`, clears `.planning/phases/`
+- Gate integration in init functions (`cmdInitExecutePhase`, `cmdInitPlanPhase`, `cmdInitNewMilestone`) and phase operations (`cmdPhaseAdd`, `cmdPhaseInsert`, `cmdPhaseComplete`, `cmdMilestoneComplete`)
+- `suggested_start_phase` computed from archived + current phases in `cmdInitNewMilestone`
+- `consistency_warning` in `findPhaseInternal` for stale phase detection
+- YOLO bypass: `autonomous_mode: true` → gates report but don't block
+- `cmdValidateConsistency` refactored to reuse gate checks; orphaned phases promoted to errors
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-22-01: End-to-end git branching workflow validation (integration phase)
+
+---
+

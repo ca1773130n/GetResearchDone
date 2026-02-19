@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-17
+**Updated:** 2026-02-19
 
 ## Vision
 
@@ -22,11 +22,24 @@ A Claude Code plugin providing:
 - Planning artifact search across all .planning/ files
 - 105 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
-- 120+ CLI commands across 13 modular lib/ modules
+- Validation gate system with pre-flight checks preventing phase directory collisions across milestones
+- Phase directory archival on milestone completion (archived to `.planning/milestones/{version}-phases/`)
+- 120+ CLI commands across 14 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.1.6)
+
+**Shipped:** 2026-02-19
+
+v0.1.6 added milestone-scoped phase directory archival and a validation gate system:
+- New `lib/gates.js` module with 6 gate checks and declarative registry mapping 10 commands
+- Phase directory archival in `cmdMilestoneComplete` (copies to `.planning/milestones/{version}-phases/`)
+- Gate integration in init functions and phase operations with JSON failure output
+- `autonomous_mode` config, `consistency_warning` in `findPhaseInternal`, `suggested_start_phase` in milestone init
+- 1,433 tests passing
 
 ## Previous State (v0.1.5)
 
@@ -83,6 +96,19 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - ESLint v10 + Prettier, zero errors
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
+
+## Validated Goals (v0.1.6)
+
+- [x] `lib/gates.js` with 6 gate checks: orphaned-phases, phase-in-roadmap, phase-has-plans, no-stale-artifacts, old-phases-archived, milestone-state-coherence
+- [x] `GATE_REGISTRY` maps 10 commands to gate arrays
+- [x] `runPreflightGates` with YOLO bypass (`autonomous_mode: true` → `passed: true, bypassed: true`)
+- [x] New-project safety: all gates pass when no ROADMAP.md exists
+- [x] Phase directory archival in `cmdMilestoneComplete` to `.planning/milestones/{version}-phases/`
+- [x] Gate integration in `cmdInitExecutePhase`, `cmdInitPlanPhase`, `cmdInitNewMilestone`, `cmdPhaseAdd`, `cmdPhaseInsert`, `cmdPhaseComplete`, `cmdMilestoneComplete`
+- [x] `suggested_start_phase` computed from archived + current phases in `cmdInitNewMilestone`
+- [x] `consistency_warning` in `findPhaseInternal` for stale phase detection
+- [x] `cmdValidateConsistency` refactored to reuse `checkOrphanedPhases` (promoted from warnings to errors)
+- [x] 34 new tests (1,433 total) across 27 suites
 
 ## Validated Goals (v0.1.5)
 
@@ -190,3 +216,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.3 milestone shipped: 2026-02-17*
 *v0.1.4 milestone shipped: 2026-02-17*
 *v0.1.5 milestone shipped: 2026-02-17*
+*v0.1.6 milestone shipped: 2026-02-19*
