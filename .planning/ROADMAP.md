@@ -166,7 +166,10 @@ Plans:
   3. Sequential fallback produces identical artifacts to parallel execution (same PRs, same branch structure) on non-Claude Code backend
   4. All existing 1,433+ tests continue to pass with zero regressions
   5. New features have comprehensive test coverage (target: 40+ new tests across Phases 27-30)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 31-01-PLAN.md — Cross-module integration tests (worktree + deps + parallel E2E)
+- [ ] 31-02-PLAN.md — Verification report, state update, milestone readiness
 
 ## Progress
 
