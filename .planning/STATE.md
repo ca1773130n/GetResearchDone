@@ -8,7 +8,7 @@
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
 - **Current Plan:** 30-02 complete; Phase 30 done, proceed to Phase 31
 - **Progress:** [██████████] 100%
-- **Next:** Phase 31 integration testing (validates DEFER-22-01, DEFER-30-01)
+- **Next:** Phase 30 complete; proceed to Phase 31
 
 ## Deferred Validations
 
