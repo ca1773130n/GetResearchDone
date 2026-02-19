@@ -54,6 +54,12 @@ const {
 } = require('../lib/phase');
 const { cmdTracker } = require('../lib/tracker');
 const {
+  cmdWorktreeCreate,
+  cmdWorktreeRemove,
+  cmdWorktreeList,
+  cmdWorktreeRemoveStale,
+} = require('../lib/worktree');
+const {
   cmdInitExecutePhase,
   cmdInitPlanPhase,
   cmdInitNewProject,
@@ -114,7 +120,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree'
     );
   }
 
@@ -172,6 +178,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'plan-phase',
@@ -584,6 +591,30 @@ function routeCommand(command, args, cwd, raw) {
           status = 'In Progress';
         }
         cmdRequirementUpdateStatus(cwd, args[2], status, raw);
+      }
+      break;
+    }
+    case 'worktree': {
+      const sub = args[1];
+      validateSubcommand(sub, WORKTREE_SUBS, 'worktree');
+      if (sub === 'create') {
+        cmdWorktreeCreate(cwd, {
+          phase: flag(args, '--phase', null),
+          milestone: flag(args, '--milestone', null),
+          slug: flag(args, '--slug', null),
+        }, raw);
+      } else if (sub === 'remove') {
+        if (args.includes('--stale')) {
+          cmdWorktreeRemoveStale(cwd, raw);
+        } else {
+          cmdWorktreeRemove(cwd, {
+            phase: flag(args, '--phase', null),
+            path: flag(args, '--path', null),
+            milestone: flag(args, '--milestone', null),
+          }, raw);
+        }
+      } else if (sub === 'list') {
+        cmdWorktreeList(cwd, raw);
       }
       break;
     }
