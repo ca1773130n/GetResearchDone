@@ -1719,11 +1719,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('list', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('lists all LT milestones', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'list', [], false);
       });
@@ -1743,7 +1750,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns summary text', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'list', [], true);
       });
@@ -1758,13 +1768,25 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('add', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('adds a new LT milestone', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'add', ['--name', 'Enterprise', '--goal', 'Enterprise features'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'add',
+          ['--name', 'Enterprise', '--goal', 'Enterprise features'],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -1791,11 +1813,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('remove', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('removes a planned milestone', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'remove', ['--id', 'LT-3'], false);
       });
@@ -1806,7 +1835,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('refuses to remove completed milestone', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'remove', ['--id', 'LT-1'], false);
       });
@@ -1845,13 +1877,25 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('update', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('updates milestone goal', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'update', ['--id', 'LT-2', '--goal', 'New goal text'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'update',
+          ['--id', 'LT-2', '--goal', 'New goal text'],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -1860,7 +1904,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('updates milestone status', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'update', ['--id', 'LT-3', '--status', 'active'], false);
       });
@@ -1870,7 +1917,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('returns error for invalid status', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'update', ['--id', 'LT-3', '--status', 'badstatus'], false);
       });
@@ -1897,11 +1947,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('refine', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('outputs milestone context for discussion', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'refine', ['--id', 'LT-2'], false);
       });
@@ -1912,7 +1969,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('returns error for non-existent ID', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'refine', ['--id', 'LT-99'], false);
       });
@@ -1928,7 +1988,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns formatted context', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'refine', ['--id', 'LT-2'], true);
       });
@@ -1942,11 +2005,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('link', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('links a version to an LT milestone', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'link', ['--id', 'LT-3', '--version', 'v0.3.0'], false);
       });
@@ -1957,7 +2027,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('returns error if already linked', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'link', ['--id', 'LT-1', '--version', 'v0.0.5'], false);
       });
@@ -1984,11 +2057,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('unlink', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('unlinks a non-shipped version', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'unlink', ['--id', 'LT-2', '--version', 'v0.2.0'], false);
       });
@@ -1998,7 +2078,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('refuses to unlink shipped version', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       fs.writeFileSync(path.join(fixtureDir, '.planning', 'ROADMAP.md'), ROADMAP_MD_FIXTURE);
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'unlink', ['--id', 'LT-1', '--version', 'v0.0.5'], false);
@@ -2012,11 +2095,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('display', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('displays formatted roadmap with status icons', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'display', [], false);
       });
@@ -2029,7 +2119,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns formatted text', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'display', [], true);
       });
@@ -2051,8 +2144,12 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('init', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('auto-groups ROADMAP.md milestones into LT-1', () => {
       fs.writeFileSync(path.join(fixtureDir, '.planning', 'ROADMAP.md'), ROADMAP_MD_FIXTURE);
@@ -2079,13 +2176,25 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('history', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('appends refinement history entry', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Added', '--details', 'Added LT-4'], false);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Added', '--details', 'Added LT-4'],
+          false
+        );
       });
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
@@ -2109,9 +2218,17 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns markdown', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
-        cmdLongTermRoadmap(fixtureDir, 'history', ['--action', 'Test', '--details', 'Details'], true);
+        cmdLongTermRoadmap(
+          fixtureDir,
+          'history',
+          ['--action', 'Test', '--details', 'Details'],
+          true
+        );
       });
       expect(exitCode).toBe(0);
       expect(stdout).toContain('Refinement History');
@@ -2122,11 +2239,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('parse', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('parses LONG-TERM-ROADMAP.md into structured data', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'parse', [], false);
       });
@@ -2137,7 +2261,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns count', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'parse', [], true);
       });
@@ -2168,11 +2295,18 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('validate', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('valid roadmap returns valid=true', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'validate', [], false);
       });
@@ -2191,7 +2325,10 @@ describe('cmdLongTermRoadmap', () => {
     });
 
     test('raw mode returns valid or invalid string', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'validate', [], true);
       });
@@ -2204,8 +2341,12 @@ describe('cmdLongTermRoadmap', () => {
 
   describe('edge cases', () => {
     let fixtureDir;
-    beforeEach(() => { fixtureDir = createFixtureDir(); });
-    afterEach(() => { cleanupFixtureDir(fixtureDir); });
+    beforeEach(() => {
+      fixtureDir = createFixtureDir();
+    });
+    afterEach(() => {
+      cleanupFixtureDir(fixtureDir);
+    });
 
     test('unknown subcommand returns error listing all 12 subcommands', () => {
       const { exitCode, stderr } = captureError(() => {
@@ -2213,11 +2354,16 @@ describe('cmdLongTermRoadmap', () => {
       });
       expect(exitCode).toBe(1);
       expect(stderr).toContain('Unknown subcommand');
-      expect(stderr).toContain('list, add, remove, update, refine, link, unlink, display, init, history, parse, validate');
+      expect(stderr).toContain(
+        'list, add, remove, update, refine, link, unlink, display, init, history, parse, validate'
+      );
     });
 
     test('parse with relative file path resolves from cwd', () => {
-      fs.writeFileSync(path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'), LONG_TERM_ROADMAP_FIXTURE);
+      fs.writeFileSync(
+        path.join(fixtureDir, '.planning', 'LONG-TERM-ROADMAP.md'),
+        LONG_TERM_ROADMAP_FIXTURE
+      );
       const { stdout, exitCode } = captureOutput(() => {
         cmdLongTermRoadmap(fixtureDir, 'parse', ['.planning/LONG-TERM-ROADMAP.md'], false);
       });

@@ -881,10 +881,7 @@ describe('long-term-roadmap commands', () => {
 
   test('remove deletes planned milestone', () => {
     // Add LT-3 first, then remove it
-    runCLI(
-      ['long-term-roadmap', 'add', '--name', 'Temp', '--goal', 'Temporary milestone'],
-      ltDir
-    );
+    runCLI(['long-term-roadmap', 'add', '--name', 'Temp', '--goal', 'Temporary milestone'], ltDir);
     // Write the add result to disk so remove can find it
     const addResult = runCLI(
       ['long-term-roadmap', 'add', '--name', 'Removable', '--goal', 'To be removed'],
@@ -893,10 +890,7 @@ describe('long-term-roadmap commands', () => {
     const addData = parseJSON(addResult.stdout);
     fs.writeFileSync(path.join(ltDir, '.planning', 'LONG-TERM-ROADMAP.md'), addData.content);
 
-    const { stdout, exitCode } = runCLI(
-      ['long-term-roadmap', 'remove', '--id', 'LT-3'],
-      ltDir
-    );
+    const { stdout, exitCode } = runCLI(['long-term-roadmap', 'remove', '--id', 'LT-3'], ltDir);
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data.removed).toBe('LT-3');
@@ -940,7 +934,9 @@ describe('long-term-roadmap commands', () => {
   test('unknown subcommand lists valid subcommands', () => {
     const { exitCode, stderr } = runCLI(['long-term-roadmap', 'nonexistent'], ltDir);
     expect(exitCode).not.toBe(0);
-    expect(stderr).toContain('list, add, remove, update, refine, link, unlink, display, init, history, parse, validate');
+    expect(stderr).toContain(
+      'list, add, remove, update, refine, link, unlink, display, init, history, parse, validate'
+    );
   });
 });
 

@@ -28,20 +28,14 @@ function makeMilestones() {
       name: 'Foundation',
       status: 'completed',
       goal: 'Establish core platform with full test coverage',
-      normal_milestones: [
-        { version: 'v0.0.5' },
-        { version: 'v0.1.0' },
-        { version: 'v0.1.1' },
-      ],
+      normal_milestones: [{ version: 'v0.0.5' }, { version: 'v0.1.0' }, { version: 'v0.1.1' }],
     },
     {
       id: 'LT-2',
       name: 'Growth & Polish',
       status: 'active',
       goal: 'Expand features and improve developer experience',
-      normal_milestones: [
-        { version: 'v0.2.0', note: 'planned' },
-      ],
+      normal_milestones: [{ version: 'v0.2.0', note: 'planned' }],
     },
     {
       id: 'LT-3',

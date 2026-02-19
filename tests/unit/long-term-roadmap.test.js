@@ -170,19 +170,12 @@ describe('parseLongTermRoadmap', () => {
 describe('parseNormalMilestoneList', () => {
   test('parses comma-separated versions', () => {
     const result = parseNormalMilestoneList('v0.0.5, v0.1.0, v0.1.1');
-    expect(result).toEqual([
-      { version: 'v0.0.5' },
-      { version: 'v0.1.0' },
-      { version: 'v0.1.1' },
-    ]);
+    expect(result).toEqual([{ version: 'v0.0.5' }, { version: 'v0.1.0' }, { version: 'v0.1.1' }]);
   });
 
   test('parses versions with notes', () => {
     const result = parseNormalMilestoneList('v0.0.5, v0.2.0 (planned)');
-    expect(result).toEqual([
-      { version: 'v0.0.5' },
-      { version: 'v0.2.0', note: 'planned' },
-    ]);
+    expect(result).toEqual([{ version: 'v0.0.5' }, { version: 'v0.2.0', note: 'planned' }]);
   });
 
   test('returns empty for "(none yet)"', () => {
@@ -261,7 +254,10 @@ describe('validateLongTermRoadmap', () => {
   });
 
   test('missing project in frontmatter fails', () => {
-    const parsed = { frontmatter: {}, milestones: [{ id: 'LT-1', name: 'X', goal: 'Y', status: 'active', normal_milestones: [] }] };
+    const parsed = {
+      frontmatter: {},
+      milestones: [{ id: 'LT-1', name: 'X', goal: 'Y', status: 'active', normal_milestones: [] }],
+    };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /project/i.test(e))).toBe(true);
@@ -310,9 +306,7 @@ describe('validateLongTermRoadmap', () => {
   test('warns when no active milestone', () => {
     const parsed = {
       frontmatter: { project: 'Test' },
-      milestones: [
-        { id: 'LT-1', name: 'A', goal: 'G1', status: 'planned', normal_milestones: [] },
-      ],
+      milestones: [{ id: 'LT-1', name: 'A', goal: 'G1', status: 'planned', normal_milestones: [] }],
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(true);
@@ -531,7 +525,9 @@ describe('removeLtMilestone', () => {
 
   test('refuses to remove completed milestone', () => {
     const result = removeLtMilestone(VALID_ROADMAP_CONTENT, 'LT-1');
-    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('completed') }));
+    expect(result).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('completed') })
+    );
   });
 
   test('refuses if linked milestones are shipped', () => {
@@ -581,7 +577,9 @@ describe('updateLtMilestone', () => {
 
   test('returns error for invalid status', () => {
     const result = updateLtMilestone(VALID_ROADMAP_CONTENT, 'LT-3', { status: 'badstatus' });
-    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('Invalid status') }));
+    expect(result).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('Invalid status') })
+    );
   });
 
   test('returns error for non-existent ID', () => {
@@ -629,7 +627,9 @@ describe('linkNormalMilestone', () => {
 
   test('returns error if already linked', () => {
     const result = linkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-1', 'v0.0.5');
-    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('already linked') }));
+    expect(result).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('already linked') })
+    );
   });
 
   test('returns error for non-existent ID', () => {
@@ -648,13 +648,20 @@ describe('unlinkNormalMilestone', () => {
   });
 
   test('refuses to unlink shipped version', () => {
-    const result = unlinkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-1', 'v0.0.5', ROADMAP_MD_CONTENT);
+    const result = unlinkNormalMilestone(
+      VALID_ROADMAP_CONTENT,
+      'LT-1',
+      'v0.0.5',
+      ROADMAP_MD_CONTENT
+    );
     expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('shipped') }));
   });
 
   test('returns error if version not linked', () => {
     const result = unlinkNormalMilestone(VALID_ROADMAP_CONTENT, 'LT-3', 'v9.9.9');
-    expect(result).toEqual(expect.objectContaining({ error: expect.stringContaining('not linked') }));
+    expect(result).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('not linked') })
+    );
   });
 });
 
