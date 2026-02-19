@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 29 — Dependency Analysis
+- **Active phase:** 30 — Parallel Execution & Fallback
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** Not started
-- **Progress:** [██████████] 100%
-- **Next:** Phase 29 complete; proceed to Phase 30
+- **Current Plan:** 30-01 complete; proceed to 30-02
+- **Progress:** [████████░░] 80%
+- **Next:** 30-02 CLI wiring and MCP integration
 
 ## Deferred Validations
 
@@ -22,6 +22,9 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | Direct edge check (not transitive path) for independence validation | Phase 30 | parallel_groups handle ordering; independence only needs direct edge check, O(edges) |
+| 2026-02-19 | Sequential fallback_note explicitly mentions Claude Code for discoverability | Phase 30 | Users on non-teams backends should know how to enable parallel execution |
+| 2026-02-19 | Status tracker keyed by phase_number with pending initial state | Phase 30 | Foundation for orchestrator to track running/complete/failed states during execution |
 | 2026-02-19 | analyze-deps takes no args (reads ROADMAP.md from cwd), MCP descriptor has empty params matching grd_roadmap_analyze pattern | Phase 29 | Consistency with existing no-arg commands; dependency analysis is project-wide, not per-phase |
 | 2026-02-19 | Extracted analyzeRoadmap from cmdRoadmapAnalyze as pure-return function for reuse by deps module | Phase 29 | Allows lib/deps.js to call analyzeRoadmap without process.exit side effects |
 | 2026-02-19 | Kahn's algorithm for parallel group computation, DFS for cycle detection | Phase 29 | Standard graph algorithms; Kahn's gives natural level grouping for parallel execution |
@@ -57,8 +60,8 @@
 ## Performance Metrics
 
 **Velocity (v0.2.0):**
-- Phases completed: 2 (in progress: 29)
-- Tests: 1,519 (+86 from v0.1.6)
+- Phases completed: 3 (in progress: 30)
+- Tests: 1,545 (+112 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -69,7 +72,7 @@
 | 28 | 02 | 3min | 2 | 2 | +0 tests (1465 total) |
 | 29 | 01 | 4min | 2 | 3 | +27 tests (1514 total) |
 | 29 | 02 | 3min | 2 | 3 | +5 tests (1519 total) |
-| Phase 29 P02 | 20min | 4 tasks | 6 files |
+| 30 | 01 | 3min | 2 | 2 | +25 tests (1545 total) |
 
 ## Blockers
 
@@ -77,10 +80,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 29-02-PLAN.md (CLI wiring and integration tests)
-- **Stopped at:** Completed phase 29 dependency-analysis
-- **Next action:** Phase 29 complete; proceed to Phase 30 (Parallel Execution & Fallback)
-- **Context needed:** 1,519 tests passing; lib/deps.js wired into CLI and MCP; PHASE_SUBS includes analyze-deps; 32 total deps tests
+- **Last action:** Completed 30-01-PLAN.md (parallel execution module with TDD)
+- **Stopped at:** Completed 30-01 parallel execution core module
+- **Next action:** Proceed to 30-02 (CLI wiring, MCP descriptor, integration tests)
+- **Context needed:** 1,545 tests passing; lib/parallel.js exports validateIndependentPhases, buildParallelContext, cmdInitExecuteParallel; needs CLI dispatch wiring in bin/grd-tools.js and MCP descriptor
 
 ---
 
