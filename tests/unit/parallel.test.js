@@ -467,3 +467,192 @@ describe('cmdInitExecuteParallel', () => {
     }
   });
 });
+
+// ─── CLI integration -- init execute-parallel ───────────────────────────────
+
+describe('CLI integration -- init execute-parallel', () => {
+  const { COMMAND_DESCRIPTORS } = require('../../lib/mcp-server');
+  let fixtureDir;
+
+  afterEach(() => {
+    if (fixtureDir) {
+      cleanupFixtureDir(fixtureDir);
+      fixtureDir = null;
+    }
+  });
+
+  function writeRoadmap(dir, content) {
+    const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(roadmapPath, content, 'utf-8');
+  }
+
+  function ensurePhaseDir(dir, phaseNum, phaseName) {
+    const padded = String(phaseNum).padStart(2, '0');
+    const slug = phaseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-${slug}`);
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(phaseDir, `${padded}-01-PLAN.md`),
+      `---\nphase: ${padded}\nplan: 01\n---\n`
+    );
+  }
+
+  function writeConfig(dir, overrides = {}) {
+    const configPath = path.join(dir, '.planning', 'config.json');
+    const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
+  }
+
+  const threePhaseIndependent = [
+    '# Roadmap',
+    '',
+    '## v1.0: Foundation',
+    '',
+    '### Phase 1: Alpha',
+    '**Goal:** Build A',
+    '**Depends on:** Nothing',
+    '',
+    '### Phase 2: Beta',
+    '**Goal:** Build B',
+    '**Depends on:** Nothing',
+    '',
+    '### Phase 3: Gamma',
+    '**Goal:** Build C',
+    '**Depends on:** Nothing',
+  ].join('\n');
+
+  const twoPhaseDependent = [
+    '# Roadmap',
+    '',
+    '## v1.0: Foundation',
+    '',
+    '### Phase 1: Alpha',
+    '**Goal:** Build A',
+    '**Depends on:** Nothing',
+    '',
+    '### Phase 2: Beta',
+    '**Goal:** Build B',
+    '**Depends on:** Phase 1',
+  ].join('\n');
+
+  test('CLI returns valid JSON with expected fields for independent phases', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, threePhaseIndependent.split('\n').slice(0, 11).join('\n'));
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    ensurePhaseDir(fixtureDir, 2, 'Beta');
+    writeConfig(fixtureDir, { use_teams: true, autonomous_mode: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdInitExecuteParallel(fixtureDir, ['1', '2'], new Set(), false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.mode).toBeDefined();
+    expect(parsed.phases).toBeInstanceOf(Array);
+    expect(parsed.phases.length).toBe(2);
+    expect(parsed.status_tracker).toBeDefined();
+    expect(Object.keys(parsed.status_tracker.phases).length).toBe(2);
+    expect(parsed.independence_validated).toBe(true);
+  });
+
+  test('CLI returns error when phases have dependency conflict', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, twoPhaseDependent);
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    ensurePhaseDir(fixtureDir, 2, 'Beta');
+    writeConfig(fixtureDir, { autonomous_mode: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdInitExecuteParallel(fixtureDir, ['1', '2'], new Set(), false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeTruthy();
+    expect(parsed.error).toMatch(/not independent|dependency|conflict/i);
+  });
+
+  test('CLI returns error for non-existent phase', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, threePhaseIndependent);
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    writeConfig(fixtureDir, { autonomous_mode: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdInitExecuteParallel(fixtureDir, ['1', '99'], new Set(), false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeTruthy();
+    expect(parsed.error).toMatch(/99/);
+  });
+
+  test('single phase produces valid context', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, threePhaseIndependent);
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    writeConfig(fixtureDir, { autonomous_mode: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdInitExecuteParallel(fixtureDir, ['1'], new Set(), false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phases).toHaveLength(1);
+    expect(parsed.mode).toBeDefined();
+    expect(parsed.independence_validated).toBe(true);
+  });
+
+  test('MCP descriptor grd_init_execute_parallel exists with correct params', () => {
+    const descriptor = COMMAND_DESCRIPTORS.find(d => d.name === 'grd_init_execute_parallel');
+    expect(descriptor).toBeDefined();
+    expect(descriptor.params).toBeInstanceOf(Array);
+
+    const phasesParam = descriptor.params.find(p => p.name === 'phases');
+    expect(phasesParam).toBeDefined();
+    expect(phasesParam.required).toBe(true);
+
+    const includeParam = descriptor.params.find(p => p.name === 'include');
+    expect(includeParam).toBeDefined();
+    expect(includeParam.required).toBe(false);
+
+    expect(typeof descriptor.execute).toBe('function');
+  });
+
+  test('MCP descriptor execute function is callable without crashing', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, threePhaseIndependent);
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    writeConfig(fixtureDir, { autonomous_mode: true });
+
+    const descriptor = COMMAND_DESCRIPTORS.find(d => d.name === 'grd_init_execute_parallel');
+    expect(descriptor).toBeDefined();
+
+    // Should not throw; may output error JSON for bad phase, but should not crash
+    const { exitCode } = captureOutput(() => {
+      descriptor.execute(fixtureDir, { phases: '1' });
+    });
+    expect(exitCode).toBe(0);
+  });
+
+  test('status_tracker phases all have pending status for 3 independent phases', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(fixtureDir, threePhaseIndependent);
+    ensurePhaseDir(fixtureDir, 1, 'Alpha');
+    ensurePhaseDir(fixtureDir, 2, 'Beta');
+    ensurePhaseDir(fixtureDir, 3, 'Gamma');
+    writeConfig(fixtureDir, { use_teams: true, autonomous_mode: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdInitExecuteParallel(fixtureDir, ['1', '2', '3'], new Set(), false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.status_tracker).toBeDefined();
+    const phases = parsed.status_tracker.phases;
+    const keys = Object.keys(phases);
+    expect(keys.length).toBe(3);
+    for (const key of keys) {
+      expect(phases[key].status).toBe('pending');
+    }
+  });
+});
