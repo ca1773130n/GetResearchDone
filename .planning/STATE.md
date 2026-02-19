@@ -6,7 +6,7 @@
 
 - **Active phase:** 29 — Dependency Analysis
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 2 of 2
+- **Current Plan:** Not started
 - **Progress:** [██████████] 100%
 - **Next:** Phase 29 complete; proceed to Phase 30
 
@@ -69,6 +69,7 @@
 | 28 | 02 | 3min | 2 | 2 | +0 tests (1465 total) |
 | 29 | 01 | 4min | 2 | 3 | +27 tests (1514 total) |
 | 29 | 02 | 3min | 2 | 3 | +5 tests (1519 total) |
+| Phase 29 P02 | 20min | 4 tasks | 6 files |
 
 ## Blockers
 
@@ -77,7 +78,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Completed 29-02-PLAN.md (CLI wiring and integration tests)
-- **Stopped at:** Completed Phase 29 Plan 02 — phase analyze-deps CLI subcommand, MCP descriptor, 5 integration tests
+- **Stopped at:** Completed phase 29 dependency-analysis
 - **Next action:** Phase 29 complete; proceed to Phase 30 (Parallel Execution & Fallback)
 - **Context needed:** 1,519 tests passing; lib/deps.js wired into CLI and MCP; PHASE_SUBS includes analyze-deps; 32 total deps tests
 

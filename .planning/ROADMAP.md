@@ -77,7 +77,7 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 
 - [x] **Phase 27: Worktree Infrastructure** - Worktree creation, lifecycle management, and CLI tooling `implement` ✓ 2026-02-19
 - [x] **Phase 28: PR Workflow from Worktree** - Branch push and PR creation from worktree directories `implement` (completed 2026-02-19)
-- [ ] **Phase 29: Phase Dependency Analysis** - Dependency graph extraction and parallelizability detection `implement`
+- [x] **Phase 29: Phase Dependency Analysis** - Dependency graph extraction and parallelizability detection `implement` (completed 2026-02-19)
 - [ ] **Phase 30: Parallel Execution & Fallback** - Teammate spawning for parallel phases with sequential fallback `implement`
 - [ ] **Phase 31: Integration & Validation** - Full pipeline validation and deferred validation resolution `integrate`
 
@@ -130,7 +130,7 @@ Plans:
   2. `grd-tools phase analyze-deps` returns a JSON dependency graph with nodes (phases) and edges (dependencies)
   3. `analyze-deps` output includes a `parallel_groups` array identifying sets of phases that can execute concurrently (no shared dependencies)
   4. Circular dependency detection reports an error with the cycle path rather than hanging or crashing
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 29-01-PLAN.md — TDD: Core dependency analysis module (lib/deps.js + tests)
 - [ ] 29-02-PLAN.md — CLI routing (phase analyze-deps), MCP descriptor, integration tests
@@ -171,7 +171,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 27. Worktree Infrastructure | v0.2.0 | 0/2 | Not started | - |
 | 28. PR Workflow from Worktree | v0.2.0 | Complete    | 2026-02-19 | - |
-| 29. Phase Dependency Analysis | v0.2.0 | 0/2 | Planned | - |
+| 29. Phase Dependency Analysis | v0.2.0 | Complete    | 2026-02-19 | - |
 | 30. Parallel Execution & Fallback | v0.2.0 | 0/TBD | Not started | - |
 | 31. Integration & Validation | v0.2.0 | 0/TBD | Not started | - |
 
