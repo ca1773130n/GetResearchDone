@@ -60,6 +60,7 @@ const {
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
 } = require('../lib/worktree');
+const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const {
   cmdInitExecutePhase,
   cmdInitPlanPhase,
@@ -160,7 +161,7 @@ function routeCommand(command, args, cwd, raw) {
   ];
   const PHASES_SUBS = ['list'];
   const ROADMAP_SUBS = ['get-phase', 'analyze'];
-  const PHASE_SUBS = ['next-decimal', 'add', 'insert', 'remove', 'complete'];
+  const PHASE_SUBS = ['next-decimal', 'add', 'insert', 'remove', 'complete', 'analyze-deps'];
   const MILESTONE_SUBS = ['complete'];
   const VALIDATE_SUBS = ['consistency'];
   const TODO_SUBS = ['complete'];
@@ -392,6 +393,8 @@ function routeCommand(command, args, cwd, raw) {
       } else if (sub === 'complete') {
         validatePhaseArg(args[2]);
         cmdPhaseComplete(cwd, args[2], raw);
+      } else if (sub === 'analyze-deps') {
+        cmdPhaseAnalyzeDeps(cwd, raw);
       }
       break;
     }
