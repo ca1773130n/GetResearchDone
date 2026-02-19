@@ -6,9 +6,9 @@
 
 - **Active phase:** 29 — Dependency Analysis
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 1 of 2
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Execute 29-02-PLAN.md (CLI wiring and integration)
+- **Current Plan:** 2 of 2
+- **Progress:** [██████████] 100%
+- **Next:** Phase 29 complete; proceed to Phase 30
 
 ## Deferred Validations
 
@@ -22,6 +22,7 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | analyze-deps takes no args (reads ROADMAP.md from cwd), MCP descriptor has empty params matching grd_roadmap_analyze pattern | Phase 29 | Consistency with existing no-arg commands; dependency analysis is project-wide, not per-phase |
 | 2026-02-19 | Extracted analyzeRoadmap from cmdRoadmapAnalyze as pure-return function for reuse by deps module | Phase 29 | Allows lib/deps.js to call analyzeRoadmap without process.exit side effects |
 | 2026-02-19 | Kahn's algorithm for parallel group computation, DFS for cycle detection | Phase 29 | Standard graph algorithms; Kahn's gives natural level grouping for parallel execution |
 | 2026-02-19 | Worktree steps conditioned on branching_strategy != none for backward compatibility | Phase 28 | Projects without branching configured continue working exactly as before |
@@ -57,7 +58,7 @@
 
 **Velocity (v0.2.0):**
 - Phases completed: 2 (in progress: 29)
-- Tests: 1,514 (+81 from v0.1.6)
+- Tests: 1,519 (+86 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -67,6 +68,7 @@
 | 28 | 01 | 5min | 2 | 4 | +9 tests (1465 total) |
 | 28 | 02 | 3min | 2 | 2 | +0 tests (1465 total) |
 | 29 | 01 | 4min | 2 | 3 | +27 tests (1514 total) |
+| 29 | 02 | 3min | 2 | 3 | +5 tests (1519 total) |
 
 ## Blockers
 
@@ -74,10 +76,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 29-01-PLAN.md (dependency analysis core module via TDD)
-- **Stopped at:** Completed Phase 29 Plan 01 — lib/deps.js with parseDependsOn, buildDependencyGraph, computeParallelGroups, detectCycle, cmdPhaseAnalyzeDeps
-- **Next action:** Execute 29-02-PLAN.md (CLI wiring and integration)
-- **Context needed:** 1,514 tests passing; lib/deps.js exports 5 functions; analyzeRoadmap extracted from lib/roadmap.js; Phase 29 has 2 plans (01 complete)
+- **Last action:** Completed 29-02-PLAN.md (CLI wiring and integration tests)
+- **Stopped at:** Completed Phase 29 Plan 02 — phase analyze-deps CLI subcommand, MCP descriptor, 5 integration tests
+- **Next action:** Phase 29 complete; proceed to Phase 30 (Parallel Execution & Fallback)
+- **Context needed:** 1,519 tests passing; lib/deps.js wired into CLI and MCP; PHASE_SUBS includes analyze-deps; 32 total deps tests
 
 ---
 
