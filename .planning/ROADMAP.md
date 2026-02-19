@@ -148,7 +148,10 @@ Plans:
   3. On non-Claude Code backends, multi-phase execution falls back to sequential processing with a log note that parallel execution is available on Claude Code
   4. Shared task coordination tracks per-phase status (pending, running, complete, failed) and reports aggregate pass/fail
   5. A single phase failure does not abort other running parallel phases; all results are collected and reported
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 30-01-PLAN.md — TDD: Core parallel execution module (lib/parallel.js + tests)
+- [ ] 30-02-PLAN.md — CLI routing (init execute-parallel), MCP descriptor, integration tests
 
 ### Phase 31: Integration & Validation
 **Goal**: Full worktree-parallel pipeline validated end-to-end; all deferred validations resolved
