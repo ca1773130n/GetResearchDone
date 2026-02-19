@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 28 — PR Workflow
+- **Active phase:** 29 — Dependency Analysis
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** Not started
-- **Progress:** [██████████] 100%
-- **Next:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
+- **Current Plan:** 1 of 2
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Execute 29-02-PLAN.md (CLI wiring and integration)
 
 ## Deferred Validations
 
@@ -22,6 +22,8 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | Extracted analyzeRoadmap from cmdRoadmapAnalyze as pure-return function for reuse by deps module | Phase 29 | Allows lib/deps.js to call analyzeRoadmap without process.exit side effects |
+| 2026-02-19 | Kahn's algorithm for parallel group computation, DFS for cycle detection | Phase 29 | Standard graph algorithms; Kahn's gives natural level grouping for parallel execution |
 | 2026-02-19 | Worktree steps conditioned on branching_strategy != none for backward compatibility | Phase 28 | Projects without branching configured continue working exactly as before |
 | 2026-02-19 | PR created by orchestrator after all plans complete, not by individual executors | Phase 28 | Orchestrator has full context of plan summaries and verification for PR body |
 | 2026-02-19 | STATE.md updates go to main repo; SUMMARY.md and code go to worktree branch | Phase 28 | STATE.md is shared coordination state; feature code belongs on the PR branch |
@@ -54,8 +56,8 @@
 ## Performance Metrics
 
 **Velocity (v0.2.0):**
-- Phases completed: 1 (in progress: 28)
-- Tests: 1,465 (+32 from v0.1.6)
+- Phases completed: 2 (in progress: 29)
+- Tests: 1,514 (+81 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -64,6 +66,7 @@
 | 27 | 02 | 2min | 2 | 4 | +3 tests (1456 total) |
 | 28 | 01 | 5min | 2 | 4 | +9 tests (1465 total) |
 | 28 | 02 | 3min | 2 | 2 | +0 tests (1465 total) |
+| 29 | 01 | 4min | 2 | 3 | +27 tests (1514 total) |
 
 ## Blockers
 
@@ -71,10 +74,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 28-02-PLAN.md (orchestrator and executor worktree integration)
-- **Stopped at:** Completed Phase 28 Plan 02 — execute-phase.md and grd-executor.md updated with worktree lifecycle
-- **Next action:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
-- **Context needed:** 1,465 tests passing; Worktree lifecycle in execute-phase.md (setup/PR/cleanup); Executor worktree rules in grd-executor.md; Phase 28 has 2 plans (both complete)
+- **Last action:** Completed 29-01-PLAN.md (dependency analysis core module via TDD)
+- **Stopped at:** Completed Phase 29 Plan 01 — lib/deps.js with parseDependsOn, buildDependencyGraph, computeParallelGroups, detectCycle, cmdPhaseAnalyzeDeps
+- **Next action:** Execute 29-02-PLAN.md (CLI wiring and integration)
+- **Context needed:** 1,514 tests passing; lib/deps.js exports 5 functions; analyzeRoadmap extracted from lib/roadmap.js; Phase 29 has 2 plans (01 complete)
 
 ---
 
