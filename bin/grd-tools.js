@@ -61,6 +61,7 @@ const {
   cmdWorktreePushAndPR,
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
+const { cmdInitExecuteParallel } = require('../lib/parallel');
 const {
   cmdInitExecutePhase,
   cmdInitPlanPhase,
@@ -183,6 +184,7 @@ function routeCommand(command, args, cwd, raw) {
   const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr'];
   const INIT_WORKFLOWS = [
     'execute-phase',
+    'execute-parallel',
     'plan-phase',
     'new-project',
     'new-milestone',
@@ -457,6 +459,13 @@ function routeCommand(command, args, cwd, raw) {
           validatePhaseArg(args[2]);
           cmdInitExecutePhase(cwd, args[2], includes, raw);
           break;
+        case 'execute-parallel': {
+          const phases = args.slice(2).filter(a => !a.startsWith('--'));
+          if (phases.length === 0) error('At least one phase number required for init execute-parallel');
+          for (const p of phases) validatePhaseArg(p);
+          cmdInitExecuteParallel(cwd, phases, includes, raw);
+          break;
+        }
         case 'plan-phase':
           validatePhaseArg(args[2]);
           cmdInitPlanPhase(cwd, args[2], includes, raw);
