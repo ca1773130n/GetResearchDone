@@ -4,24 +4,27 @@
 
 ## Current Position
 
-- **Active phase:** 30 — Parallel Execution & Fallback (COMPLETE)
+- **Active phase:** 31 — Integration & Validation
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 30-02 complete; Phase 30 done, proceed to Phase 31
+- **Current Plan:** 31-01 complete; proceed to 31-02
 - **Progress:** [██████████] 100%
-- **Next:** Phase 30 complete; proceed to Phase 31
+- **Next:** Execute 31-02-PLAN.md (evaluation plan with tiered verification)
 
 ## Deferred Validations
 
 | ID | Description | From Phase | Validates At | Status |
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
-| DEFER-22-01 | End-to-end git branching workflow validation | Phase 22 | Phase 31 | PENDING |
-| DEFER-30-01 | Full parallel execution with real teammate spawning on Claude Code | Phase 30 | Phase 31 | PENDING |
+| DEFER-22-01 | End-to-end git branching workflow validation | Phase 22 | Phase 31 | RESOLVED (31-01, test evidence: full worktree lifecycle with push to bare remote) |
+| DEFER-27-01 | Worktree create -> work -> push -> cleanup pipeline | Phase 27 | Phase 31 | RESOLVED (31-01, test evidence: E2E single-phase pipeline test) |
+| DEFER-27-02 | Stale worktree cleanup with simulated crash | Phase 27 | Phase 31 | RESOLVED (31-01, test evidence: selective stale removal after dir deletion) |
+| DEFER-30-01 | Full parallel execution with real teammate spawning on Claude Code | Phase 30 | Phase 31 | PARTIAL (test-level validation via buildParallelContext + concurrent worktrees; real spawning requires Claude Code runtime) |
 
 ## Key Decisions
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | Integration tests use unique milestone (v9.9.9) to avoid worktree path collisions with unit tests | Phase 31 | Jest runs suites concurrently; shared tmpdir paths cause intermittent failures |
 | 2026-02-19 | CLI variadic args (space-separated), MCP comma-separated string for phases input | Phase 30 | Follows established patterns: CLI uses argv, MCP uses string splitting |
 | 2026-02-19 | MCP descriptor grd_init_execute_parallel placed after grd_init_execute_phase | Phase 30 | Logical grouping keeps execution-related init workflows adjacent |
 | 2026-02-19 | Direct edge check (not transitive path) for independence validation | Phase 30 | parallel_groups handle ordering; independence only needs direct edge check, O(edges) |
@@ -62,8 +65,8 @@
 ## Performance Metrics
 
 **Velocity (v0.2.0):**
-- Phases completed: 4 (27, 28, 29, 30)
-- Tests: 1,552 (+119 from v0.1.6)
+- Phases completed: 4 (27, 28, 29, 30) + Phase 31 Plan 01
+- Tests: 1,577 (+144 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
@@ -76,6 +79,7 @@
 | 29 | 02 | 3min | 2 | 3 | +5 tests (1519 total) |
 | 30 | 01 | 3min | 2 | 2 | +25 tests (1545 total) |
 | 30 | 02 | 2min | 2 | 3 | +7 tests (1552 total) |
+| 31 | 01 | 7min | 2 | 1 | +25 tests (1577 total) |
 
 ## Blockers
 
@@ -83,10 +87,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 30-02-PLAN.md (CLI wiring, MCP descriptor, integration tests)
-- **Stopped at:** Completed Phase 30 (both plans)
-- **Next action:** Proceed to Phase 31 integration testing
-- **Context needed:** 1,552 tests passing; lib/parallel.js complete with CLI route (bin/grd-tools.js) and MCP descriptor (lib/mcp-server.js); DEFER-22-01 and DEFER-30-01 await Phase 31
+- **Last action:** Completed 31-01-PLAN.md (cross-module integration tests, 25 E2E tests, 4 deferred validations resolved)
+- **Stopped at:** Completed Phase 31 Plan 01
+- **Next action:** Execute 31-02-PLAN.md (evaluation plan with tiered verification)
+- **Context needed:** 1,577 tests passing; DEFER-22-01, DEFER-27-01, DEFER-27-02 resolved; DEFER-30-01 partially resolved (real teammate spawning still deferred); v0.2.0 pipeline fully integration-tested at test level
 
 ---
 
