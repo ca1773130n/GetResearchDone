@@ -1,11 +1,11 @@
 # State
 
-**Updated:** 2026-02-17
+**Updated:** 2026-02-19
 
 ## Current Position
 
 - **Active phase:** None — milestone complete
-- **Milestone:** v0.1.5 — Long-Term Roadmap Redesign (SHIPPED 2026-02-17)
+- **Milestone:** v0.1.6 — Phase Directory Collision Fix (SHIPPED 2026-02-19)
 - **Progress:** [██████████] 100%
 - **Next:** `/grd:new-milestone` for next milestone
 
@@ -38,6 +38,10 @@ None.
 | 2026-02-17 | Protection rules: can't remove shipped LT milestones, can't unlink shipped versions | Phase 23 | Prevent accidental loss of history |
 | 2026-02-17 | 12 subcommands replacing 4 old ones (mode, generate, promote, tier) | Phase 24 | CRUD operations (list/add/remove/update) + linking (link/unlink) + display + init + history + parse + validate |
 | 2026-02-17 | LT roadmap integration added to agents (roadmapper, product-owner) and commands (new-milestone, complete-milestone, new-project) | Phase 25 | New features must be discoverable through existing workflows |
+| 2026-02-19 | Gate failures use output() (exit 0) not error() (exit 1) | Phase 26 | Agents receive JSON they can interpret, not crash |
+| 2026-02-19 | checkPhaseInRoadmap only flags phases that exist on disk but not in ROADMAP | Phase 26 | Avoids intercepting "phase not found" flow for genuinely nonexistent phases |
+| 2026-02-19 | Phase archival is non-blocking (try/catch) | Phase 26 | Milestone completion should never fail due to archival issues |
+| 2026-02-19 | Promoted orphan detection from warnings to errors in validate-consistency | Phase 26 | Orphaned phases indicate real state corruption, not minor issues |
 
 <details>
 <summary>v0.1.1 Phase Decisions (33 decisions)</summary>
@@ -162,6 +166,11 @@ None.
 - Tests: 1,399 (+39 from v0.1.3)
 - Key: Complete rewrite of long-term-roadmap module, 12 new MCP tools (105 total)
 
+**Velocity (v0.1.6):**
+- Phases completed: 1 (26)
+- Tests: 1,433 (+34 from v0.1.5)
+- Key: Validation gate system (lib/gates.js), phase directory archival
+
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 19 | 01 | 5min | 2 | 5 | +17 tests (1322 total) |
@@ -171,15 +180,16 @@ None.
 | 21 | 01 | 2min | 2 | 2 | +14 tests (1357 total) |
 | 21 | 02 | 1min | 1 | 1 | — |
 | 22 | 01 | 2min | 2 | 4 | +3 tests (1360 total) |
+| 26 | 01 | 15min | 3 | 11 | +34 tests (1433 total) |
 
 ## Session Continuity
 
-- **Last action:** Shipped v0.1.5 — Long-Term Roadmap Redesign (Phases 23-25)
-- **Stopped at:** All phases complete, docs updated, tests passing (1,399)
+- **Last action:** Shipped v0.1.6 — Phase Directory Collision Fix (Phase 26)
+- **Stopped at:** All phases complete, docs updated, tests passing (1,433)
 - **Next action:** `/grd:new-milestone` for next milestone
-- **Context needed:** 1,399 tests passing; flat LT-N milestones with 12 subcommands; 105 MCP tools; agents and commands integrated with LT roadmap
+- **Context needed:** 1,433 tests passing; validation gate system with 6 checks and 10 gated commands; phase directory archival on milestone complete; 105 MCP tools
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-19*

@@ -23,6 +23,7 @@ const {
   normalizePhaseName,
   resolveModelInternal,
   resolveModelForAgent,
+  findPhaseInternal,
   loadConfig,
   output,
   error,
@@ -358,6 +359,16 @@ describe('loadConfig', () => {
     expect(config.code_review_timing).toBe('per_wave');
     expect(config.code_review_severity_gate).toBe('blocker');
   });
+
+  test('reads autonomous_mode from config', () => {
+    const config = loadConfig(fixtureDir);
+    expect(config.autonomous_mode).toBe(false);
+  });
+
+  test('defaults autonomous_mode to false when missing', () => {
+    const config = loadConfig('/tmp/nonexistent-dir-12345');
+    expect(config.autonomous_mode).toBe(false);
+  });
 });
 
 // ─── output / error functions ───────────────────────────────────────────────
@@ -397,6 +408,40 @@ describe('error', () => {
     });
     expect(exitCode).toBe(1);
     expect(stderr).toContain('Error: something went wrong');
+  });
+});
+
+// ─── findPhaseInternal consistency_warning ──────────────────────────────────
+
+describe('findPhaseInternal consistency_warning', () => {
+  let fixtureDir;
+
+  beforeAll(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('returns null consistency_warning when phase is in ROADMAP', () => {
+    const result = findPhaseInternal(fixtureDir, '1');
+    expect(result).not.toBeNull();
+    expect(result.consistency_warning).toBeNull();
+  });
+
+  test('returns consistency_warning when phase is not in ROADMAP', () => {
+    // Create a phase directory not in ROADMAP
+    const fs = require('fs');
+    fs.mkdirSync(
+      require('path').join(fixtureDir, '.planning', 'phases', '99-orphan'),
+      { recursive: true }
+    );
+
+    const result = findPhaseInternal(fixtureDir, '99');
+    expect(result).not.toBeNull();
+    expect(result.consistency_warning).toBeTruthy();
+    expect(result.consistency_warning).toContain('not in ROADMAP.md');
   });
 });
 

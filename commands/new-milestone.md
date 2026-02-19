@@ -48,7 +48,9 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: start milestone v[X.Y]
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init new-milestone)
 ```
 
-Extract: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`.
+Extract: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `suggested_start_phase`.
+
+If `gate_failed` is true, stop and report the gate errors to the user before proceeding.
 
 ## 8. Research Decision
 
@@ -74,7 +76,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: define milestone v[X.Y
 
 ## 10. Create Roadmap
 
-Start phase numbering from last milestone's highest phase number.
+Start phase numbering from `suggested_start_phase` (computed by `init new-milestone` from archived and current phase directories).
 
 ```
 Task(prompt="
@@ -88,7 +90,7 @@ Task(prompt="
 
 <instructions>
 Create roadmap for milestone v[X.Y]:
-1. Start phase numbering from [N]
+1. Start phase numbering from {suggested_start_phase}
 2. Derive phases from THIS MILESTONE's requirements only
 3. Map every requirement to exactly one phase
 4. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)

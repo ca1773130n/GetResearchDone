@@ -377,6 +377,32 @@ describe('cmdMilestoneComplete', () => {
     expect(exitCode).toBe(1);
     expect(stderr).toContain('version required');
   });
+
+  test('archives phase directories to milestones/{version}-phases/', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const archiveDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    expect(fs.existsSync(archiveDir)).toBe(true);
+    // At least one phase dir should be archived
+    const archivedDirs = fs.readdirSync(archiveDir);
+    expect(archivedDirs.length).toBeGreaterThanOrEqual(2);
+    expect(archivedDirs).toContain('01-test');
+    expect(archivedDirs).toContain('02-build');
+  });
+
+  test('.planning/phases/ is empty after milestone complete', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const phasesDir = path.join(tmpDir, '.planning', 'phases');
+    const remaining = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const dirs = remaining.filter((e) => e.isDirectory());
+    expect(dirs.length).toBe(0);
+  });
+
+  test('result includes archived.phases: true and phase_count', () => {
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+    expect(result.archived.phases).toBe(true);
+    expect(result.archived.phase_count).toBeGreaterThanOrEqual(2);
+  });
 });
 
 // ─── cmdValidateConsistency ──────────────────────────────────────────────────

@@ -9,6 +9,7 @@
 - v0.1.3 MCP Completion & Branching Fix - Phases 21-22 (shipped 2026-02-17)
 - v0.1.4 Slash Command Registration & Missing Commands (shipped 2026-02-17)
 - v0.1.5 Long-Term Roadmap Redesign - Phases 23-25 (shipped 2026-02-17)
+- v0.1.6 Phase Directory Collision Fix - Phase 26 (shipped 2026-02-19)
 
 ## Phases
 
@@ -58,6 +59,13 @@ Added /grd:long-term-roadmap and /grd:requirement slash commands, added YAML fro
 <summary>v0.1.5 Long-Term Roadmap Redesign (Phases 23-25) - SHIPPED 2026-02-17</summary>
 
 Phases 23-25 replaced the rigid Now/Next/Later tier system with a flat, ordered LT-N milestone model. Complete rewrite of lib/long-term-roadmap.js (18 new functions), 12 new subcommands (list, add, remove, update, refine, link, unlink, display, init, history, parse, validate), 12 new MCP tools (105 total), protection rules for shipped milestones, comprehensive tutorial, and full integration into agents and commands.
+
+</details>
+
+<details>
+<summary>v0.1.6 Phase Directory Collision Fix (Phase 26) - SHIPPED 2026-02-19</summary>
+
+Phase 26 added milestone-scoped phase directory archival and a validation gate system to prevent phase collisions across milestones. Phase directories are now archived to `.planning/milestones/{version}-phases/` during milestone completion. Pre-flight gates detect orphaned phases, stale artifacts, and milestone state inconsistencies before commands execute.
 
 </details>
 

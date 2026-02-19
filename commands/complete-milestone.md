@@ -58,7 +58,7 @@ Full PROJECT.md evolution review: "What This Is" accuracy, Core Value check, Req
 ARCHIVE=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js milestone complete "v[X.Y]" --name "[Milestone Name]")
 ```
 
-The CLI handles: creating milestones directory, archiving ROADMAP.md and REQUIREMENTS.md, creating/appending MILESTONES.md entry, updating STATE.md.
+The CLI handles: creating milestones directory, archiving ROADMAP.md and REQUIREMENTS.md, **archiving all phase directories** to `.planning/milestones/v[X.Y]-phases/`, creating/appending MILESTONES.md entry, updating STATE.md.
 
 After archival, handle: reorganize ROADMAP.md, full PROJECT.md evolution, delete originals.
 </step>
@@ -138,6 +138,8 @@ Milestone v[X.Y] [Name] complete
 - [ ] PROJECT.md full evolution review completed
 - [ ] ROADMAP.md reorganized with milestone grouping
 - [ ] Archives created
+- [ ] Phase directories archived to .planning/milestones/v[X.Y]-phases/
+- [ ] .planning/phases/ directory is empty
 - [ ] REQUIREMENTS.md deleted (fresh for next milestone)
 - [ ] STATE.md updated
 - [ ] Git tag created
