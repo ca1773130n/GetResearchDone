@@ -21,6 +21,9 @@ const {
   cmdWorktreeRemoveStale,
 } = require('../../lib/worktree');
 
+// Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
+const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -70,7 +73,8 @@ function createTestGitRepo() {
  * @param {string} repoDir - Path to the test repo
  */
 function cleanupTestRepo(repoDir) {
-  if (!repoDir || !repoDir.startsWith(os.tmpdir())) {
+  const resolvedRepo = fs.realpathSync(repoDir);
+  if (!resolvedRepo || !resolvedRepo.startsWith(REAL_TMPDIR)) {
     throw new Error('Refusing to remove directory outside tmpdir: ' + repoDir);
   }
 
@@ -83,10 +87,10 @@ function cleanupTestRepo(repoDir) {
 
   // Clean up any GRD worktree directories in tmpdir
   try {
-    const entries = fs.readdirSync(os.tmpdir());
+    const entries = fs.readdirSync(REAL_TMPDIR);
     for (const entry of entries) {
       if (entry.startsWith('grd-worktree-') && entry.includes('v0')) {
-        const wtPath = path.join(os.tmpdir(), entry);
+        const wtPath = path.join(REAL_TMPDIR, entry);
         try {
           // Try to remove worktree via git first
           execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
@@ -142,7 +146,7 @@ describe('cmdWorktreeCreate', () => {
       cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
     );
     const result = JSON.parse(stdout);
-    const expectedPath = path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27');
+    const expectedPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
     expect(result.path).toBe(expectedPath);
     expect(fs.existsSync(expectedPath)).toBe(true);
   });
@@ -239,7 +243,7 @@ describe('cmdWorktreeRemove', () => {
       cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
     );
 
-    const wtPath = path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
     expect(fs.existsSync(wtPath)).toBe(true);
 
     captureOutput(() =>
@@ -263,7 +267,7 @@ describe('cmdWorktreeRemove', () => {
       cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
     );
 
-    const wtPath = path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreeRemove(repoDir, { path: wtPath }, false)
     );
@@ -403,7 +407,7 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Manually delete the worktree directory (simulating stale state)
-    const wtPath = path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
     fs.rmSync(wtPath, { recursive: true, force: true });
 
     // Now remove stale
@@ -422,7 +426,7 @@ describe('cmdWorktreeRemoveStale', () => {
       cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
     );
 
-    const wtPath = path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
 
     // Lock the worktree
     execFileSync('git', ['worktree', 'lock', wtPath], { cwd: repoDir, stdio: 'pipe' });
@@ -457,8 +461,8 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Delete both directories
-    fs.rmSync(path.join(os.tmpdir(), 'grd-worktree-v0.2.0-27'), { recursive: true, force: true });
-    fs.rmSync(path.join(os.tmpdir(), 'grd-worktree-v0.2.0-28'), { recursive: true, force: true });
+    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27'), { recursive: true, force: true });
+    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28'), { recursive: true, force: true });
 
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreeRemoveStale(repoDir, false)
