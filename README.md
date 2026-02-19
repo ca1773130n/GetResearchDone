@@ -46,7 +46,7 @@ GRD supports a flat, ordered list of long-term milestones for multi-milestone pl
 
 ```
 LONG-TERM-ROADMAP.md
-  ├── LT-1: Foundation & Stability    [completed]  → v0.0.5, v0.1.0, v0.1.1
+  ├── LT-1: Foundation & Stability    [completed]  → v0.0.5 … v0.1.6
   ├── LT-2: Distribution & Polish     [active]     → v0.2.0 (planned)
   ├── LT-3: Advanced Workflows        [planned]    → (none yet)
   └── LT-4: Production Release        [planned]    → v1.0.0 (planned)

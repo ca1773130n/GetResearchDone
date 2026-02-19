@@ -3,6 +3,24 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.1.6] - 2026-02-19
+
+### Added
+- **Validation gate system:** New `lib/gates.js` module with 6 pre-flight checks (orphaned phases, phase-in-roadmap, phase-has-plans, stale artifacts, old-phases-archived, milestone-state-coherence) and declarative gate registry mapping 10 commands
+- **Phase directory archival:** `cmdMilestoneComplete` now archives all phase directories to `.planning/milestones/{version}-phases/` and clears `.planning/phases/`
+- **`suggested_start_phase`:** `cmdInitNewMilestone` scans archived and current phases to recommend next phase number
+- **`consistency_warning`:** `findPhaseInternal` warns when a phase exists on disk but not in ROADMAP.md
+
+### Changed
+- **Gate integration:** Pre-flight gates run before `execute-phase`, `plan-phase`, `new-milestone`, `phase-add`, `phase-insert`, `phase-complete`, `milestone-complete`, `verify-work`, and `iterate`
+- **`autonomous_mode` in config:** YOLO mode now bypasses validation gates (violations still reported with `bypassed: true`)
+- **`cmdValidateConsistency` refactored:** Reuses `checkOrphanedPhases` from gates; orphaned phases promoted from warnings to errors
+
+### Testing
+- 1,433 tests (+34 from v0.1.5)
+- New `tests/unit/gates.test.js` with 20 gate tests
+- Phase archival and consistency_warning tests added
+
 ## [0.1.5] - 2026-02-17
 
 ### Changed
