@@ -48,11 +48,16 @@ const {
 // Resolved tmpdir for macOS symlink handling
 const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
 
+// Use a unique milestone to avoid worktree path collisions with unit tests
+// (worktree.test.js uses v0.2.0, so we use v0.2.0-e2e to get different tmpdir paths)
+const E2E_MILESTONE = 'v9.9.9';
+
 // ---- Helpers ---------------------------------------------------------------
 
 /**
  * Create an isolated temp git repo with .planning/ structure for integration tests.
  * Includes config.json, ROADMAP.md, and phase directories.
+ * Uses E2E_MILESTONE to avoid worktree path collisions with unit tests.
  */
 function createTestGitRepo() {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-'));
@@ -80,7 +85,7 @@ function createTestGitRepo() {
     [
       '# Roadmap',
       '',
-      '## v0.2.0: Git Worktree Parallel Execution',
+      `## ${E2E_MILESTONE}: Git Worktree Parallel Execution`,
       '',
       '### Phase 27: Worktree Infrastructure',
       '**Goal:** Git worktree lifecycle management',
@@ -139,11 +144,11 @@ function cleanupTestRepo(repoDir) {
     execFileSync('git', ['worktree', 'prune'], { cwd: repoDir, stdio: 'pipe' });
   } catch { /* ignore */ }
 
-  // Clean up any GRD worktree directories in tmpdir
+  // Clean up any GRD worktree directories in tmpdir (only E2E milestone to avoid unit test interference)
   try {
     const entries = fs.readdirSync(REAL_TMPDIR);
     for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes('v0')) {
+      if (entry.startsWith('grd-worktree-') && entry.includes(E2E_MILESTONE)) {
         const wtPath = path.join(REAL_TMPDIR, entry);
         try {
           execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
@@ -187,11 +192,11 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
   test('full pipeline: create -> verify on disk -> list -> work -> push -> remove -> verify gone', () => {
     // CREATE
     const { stdout: createOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
     );
     const created = JSON.parse(createOut);
     expect(created.path).toBeDefined();
-    expect(created.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
+    expect(created.branch).toBe(`grd/${E2E_MILESTONE}/27-worktree-infrastructure`);
 
     // VERIFY ON DISK
     expect(fs.existsSync(created.path)).toBe(true);
@@ -208,7 +213,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     expect(listed.count).toBeGreaterThanOrEqual(1);
     const found = listed.worktrees.find(w => w.phase === '27');
     expect(found).toBeDefined();
-    expect(found.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
+    expect(found.branch).toBe(`grd/${E2E_MILESTONE}/27-worktree-infrastructure`);
 
     // SIMULATE WORK: write file, git add, git commit in worktree
     fs.writeFileSync(path.join(created.path, 'feature.js'), 'module.exports = {};\n', 'utf-8');
@@ -217,7 +222,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
 
     // PUSH (PR creation will fail in test env, but push should succeed)
     const { stdout: pushOut } = captureOutput(() =>
-      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: E2E_MILESTONE }, false)
     );
     const pushResult = JSON.parse(pushOut);
     // Push should succeed to the bare remote (PR creation via gh will fail)
@@ -230,11 +235,11 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
       cwd: bareDir,
       encoding: 'utf-8',
     });
-    expect(remoteBranches).toContain('grd/v0.2.0/27-worktree-infrastructure');
+    expect(remoteBranches).toContain(`grd/${E2E_MILESTONE}/27-worktree-infrastructure`);
 
     // REMOVE
     captureOutput(() =>
-      cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+      cmdWorktreeRemove(repoDir, { phase: '27', milestone: E2E_MILESTONE }, false)
     );
 
     // VERIFY GONE FROM DISK
@@ -257,7 +262,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const ctx = JSON.parse(stdout);
 
     // worktree_path should match the format used by worktree.js
-    const expectedPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const expectedPath = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
     expect(ctx.worktree_path).toBe(expectedPath);
   });
 
@@ -272,7 +277,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
 
     // Get the path from worktree.js (by creating a worktree)
     const { stdout: wtOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
     );
     const wt = JSON.parse(wtOut);
 
@@ -291,7 +296,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const ctx = JSON.parse(ctxOut);
 
     const { stdout: wtOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
     );
     const wt = JSON.parse(wtOut);
 
@@ -669,7 +674,7 @@ describe('E2E: Stale worktree cleanup', () => {
   test('create worktree -> delete dir from disk -> removeStale detects and removes -> list empty', () => {
     // Create a worktree
     const { stdout: createOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
     );
     const created = JSON.parse(createOut);
     expect(fs.existsSync(created.path)).toBe(true);
@@ -695,10 +700,10 @@ describe('E2E: Stale worktree cleanup', () => {
   test('two worktrees: delete only one -> removeStale removes only the stale one -> list returns 1', () => {
     // Create two worktrees
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
     );
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
+      cmdWorktreeCreate(repoDir, { phase: '28', milestone: E2E_MILESTONE, slug: 'pr-workflow' }, false)
     );
 
     // Verify both exist
@@ -707,7 +712,7 @@ describe('E2E: Stale worktree cleanup', () => {
     expect(beforeList.count).toBe(2);
 
     // Delete only phase 27's directory from disk
-    const wtPath27 = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath27 = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
     fs.rmSync(wtPath27, { recursive: true, force: true });
 
     // Remove stale
@@ -716,7 +721,7 @@ describe('E2E: Stale worktree cleanup', () => {
     );
     const staleResult = JSON.parse(staleOut);
     expect(staleResult.removed.length).toBe(1);
-    expect(staleResult.removed[0]).toContain('v0.2.0-27');
+    expect(staleResult.removed[0]).toContain(`${E2E_MILESTONE}-27`);
 
     // List should show 1 remaining (phase 28)
     const { stdout: afterListOut } = captureOutput(() => cmdWorktreeList(repoDir, false));
