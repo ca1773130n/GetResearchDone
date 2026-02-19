@@ -58,6 +58,7 @@ const {
   cmdWorktreeRemove,
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
+  cmdWorktreePushAndPR,
 } = require('../lib/worktree');
 const {
   cmdInitExecutePhase,
@@ -178,7 +179,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
-  const WORKTREE_SUBS = ['create', 'remove', 'list'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'plan-phase',
@@ -615,6 +616,14 @@ function routeCommand(command, args, cwd, raw) {
         }
       } else if (sub === 'list') {
         cmdWorktreeList(cwd, raw);
+      } else if (sub === 'push-pr') {
+        cmdWorktreePushAndPR(cwd, {
+          phase: flag(args, '--phase', null),
+          milestone: flag(args, '--milestone', null),
+          title: flag(args, '--title', null),
+          body: flag(args, '--body', null),
+          base: flag(args, '--base', null),
+        }, raw);
       }
       break;
     }
