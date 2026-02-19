@@ -220,56 +220,330 @@ Validates:
 - All milestones have goals
 - Required frontmatter present
 
-## Breakdown Refinement Workflow
+## Iterative Refinement: From LT Milestones to Shipped Code
 
-The real power of the long-term roadmap comes from progressive refinement as your project evolves. Here's the recommended workflow:
+The real power of the long-term roadmap is **progressive refinement** — you start with vague LT milestones and iteratively sharpen them into concrete normal milestones as you learn from research and execution. This section walks through the full cycle step by step.
 
-### 1. Start rough
-
-Create LT milestones with vague goals. That's intentional — you don't know enough yet to be specific.
+### The Refinement Loop
 
 ```
-LT-1: Foundation        → "Get basic pipeline working"
-LT-2: Optimization      → "Make it fast"
-LT-3: Multi-Modal       → "Add image support somehow"
+┌─────────────────────────────────────────────────────┐
+│                  LT Milestone (vague)                │
+│                  "Add image support"                 │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+              ┌─────────────────┐
+              │  1. Research     │  /grd:survey, /grd:deep-dive
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  2. Refine goal  │  /grd:long-term-roadmap refine
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  3. Decompose    │  /grd:new-milestone + link
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  4. Execute      │  /grd:plan-phase, /grd:execute-phase
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  5. Evaluate     │  /grd:complete-milestone
+              └────────┬────────┘
+                       │
+                       ▼
+              ┌─────────────────────────────┐
+              │  LT goal met?               │
+              │  YES → mark LT completed    │
+              │  NO  → loop back to step 1  │
+              └─────────────────────────────┘
 ```
 
-### 2. Research drives refinement
+Each pass through the loop produces a shipped normal milestone. You keep looping until the LT milestone's goal is satisfied.
 
-After running `/grd:survey` or `/grd:deep-dive`, refine upcoming milestones with what you learned:
+### Full Walkthrough: Refining LT-3
+
+Let's walk through a concrete scenario. You have this LT milestone:
+
+```
+LT-3: Multi-Modal Support [planned]
+Goal: "Add image support somehow"
+Normal milestones: (none yet)
+```
+
+Here's how you'd refine it into shipped code, command by command.
+
+---
+
+#### Step 1: Research the landscape
+
+Before making any decisions, survey what's out there:
+
+```
+/grd:survey cross-modal attention mechanisms for image-text fusion
+```
+
+This scans arXiv, GitHub, and benchmarks, producing `.planning/research/LANDSCAPE.md` with a comparison of methods (early fusion, late fusion, cross-attention, etc.). For a specific paper that looks promising:
+
+```
+/grd:deep-dive "Flamingo: a Visual Language Model for Few-Shot Learning"
+```
+
+This creates a deep analysis at `.planning/research/deep-dives/flamingo.md` with method details, limitations, and production considerations.
+
+You now know: cross-attention is the right approach, Flamingo's perceiver resampler is feasible, and MM-Bench is the standard evaluation.
+
+---
+
+#### Step 2: Refine the LT milestone goal
+
+Use what you learned to sharpen the vague goal:
+
+```
+/grd:long-term-roadmap refine --id LT-3
+```
+
+This outputs LT-3's current state for discussion. Claude walks through what's changed and proposes refinements. After the discussion, apply the update:
 
 ```
 /grd:long-term-roadmap update --id LT-3 \
-  --goal "Cross-modal attention fusion per arxiv:2401.xxxxx, targeting 85% accuracy on MM-Bench"
+  --goal "Cross-modal perceiver resampler for image+text fusion, targeting 78% on MM-Bench"
 ```
 
-### 3. Decompose into normal milestones
-
-When an LT milestone becomes concrete enough, break it into normal milestones and link them:
+Optionally rename it if the scope has become clearer:
 
 ```
-# Create normal milestones via /grd:new-milestone, then link:
-/grd:long-term-roadmap link --id LT-2 --version v0.2.0
-/grd:long-term-roadmap link --id LT-2 --version v0.2.1
+/grd:long-term-roadmap update --id LT-3 --name "Cross-Modal Fusion"
 ```
 
-### 4. Track completion
-
-As normal milestones ship, mark the LT milestone as completed:
+Your LT-3 now reads:
 
 ```
-/grd:long-term-roadmap update --id LT-2 --status completed
+LT-3: Cross-Modal Fusion [active]
+Goal: Cross-modal perceiver resampler for image+text fusion, targeting 78% on MM-Bench
+Normal milestones: (none yet)
 ```
 
-### 5. Iterate
+---
 
-After eval results, you might need to adjust the roadmap:
+#### Step 3: Decompose into the first normal milestone
+
+Now that the goal is concrete, decide what the **first** normal milestone should deliver. You don't need to plan all normal milestones upfront — just the next one.
+
+Create the normal milestone:
 
 ```
-# Add an unplanned milestone for iteration
-/grd:long-term-roadmap add --name "Accuracy Recovery" --goal "Recover 3% accuracy loss from quantization"
-/grd:long-term-roadmap link --id LT-5 --version v0.2.2
+/grd:new-milestone
 ```
+
+During the interactive flow, you'll provide:
+- **Version:** `v0.3.0`
+- **Name:** "Image Encoder Integration"
+- **Definition of Done:** Image encoder pipeline, perceiver resampler module, basic cross-attention, passes sanity checks on 100-sample subset
+
+Then link it to the LT milestone:
+
+```
+/grd:long-term-roadmap link --id LT-3 --version v0.3.0
+```
+
+LT-3 now shows:
+
+```
+LT-3: Cross-Modal Fusion [active]
+Goal: Cross-modal perceiver resampler for image+text fusion, targeting 78% on MM-Bench
+Normal milestones: v0.3.0 (planned)
+```
+
+---
+
+#### Step 4: Execute the normal milestone
+
+Work through the normal milestone's phases using standard GRD commands:
+
+```
+/grd:discuss-phase 1      # Discuss implementation approach
+/grd:plan-phase 1         # Create execution plans
+/grd:execute-phase 1      # Execute with atomic commits
+/grd:verify-phase 1       # Verify phase goals met
+```
+
+Repeat for each phase in the milestone. When all phases pass:
+
+```
+/grd:audit-milestone       # Cross-phase integration check
+/grd:complete-milestone    # Tag, archive, update STATE.md
+```
+
+---
+
+#### Step 5: Evaluate — is the LT goal met?
+
+After shipping `v0.3.0`, assess where you stand against the LT-3 goal ("78% on MM-Bench"):
+
+- You have the image encoder and perceiver resampler working
+- Sanity checks pass on the 100-sample subset
+- But you haven't run full MM-Bench evaluation yet, and fine-tuning is needed
+
+**The LT goal is NOT met yet.** You need another normal milestone. Loop back to Step 1.
+
+---
+
+#### Step 6: Research again (second pass)
+
+Your first milestone revealed that the perceiver resampler works but accuracy is low without fine-tuning. Research fine-tuning strategies:
+
+```
+/grd:survey visual instruction tuning for cross-modal models
+```
+
+Update the LANDSCAPE.md with new findings.
+
+---
+
+#### Step 7: Refine and decompose again
+
+```
+/grd:long-term-roadmap refine --id LT-3
+```
+
+The goal is still good, but you now know you need a second milestone for fine-tuning. Create it:
+
+```
+/grd:new-milestone
+```
+
+- **Version:** `v0.3.1`
+- **Name:** "Visual Instruction Tuning"
+- **Definition of Done:** Fine-tuned model achieves 78% on MM-Bench
+
+Link it:
+
+```
+/grd:long-term-roadmap link --id LT-3 --version v0.3.1
+```
+
+LT-3 now shows:
+
+```
+LT-3: Cross-Modal Fusion [active]
+Goal: Cross-modal perceiver resampler for image+text fusion, targeting 78% on MM-Bench
+Normal milestones: v0.3.0, v0.3.1 (planned)
+```
+
+---
+
+#### Step 8: Execute and evaluate again
+
+Execute `v0.3.1` the same way (discuss → plan → execute → verify → audit → complete).
+
+After shipping, run the full MM-Bench evaluation:
+
+```
+/grd:eval-report 3        # Collect evaluation results for the last phase
+```
+
+Result: 79.2% on MM-Bench. **The LT goal IS met.**
+
+---
+
+#### Step 9: Mark the LT milestone completed
+
+```
+/grd:long-term-roadmap update --id LT-3 --status completed
+```
+
+Final state:
+
+```
+LT-3: Cross-Modal Fusion [completed]
+Goal: Cross-modal perceiver resampler for image+text fusion, targeting 78% on MM-Bench
+Normal milestones: v0.3.0, v0.3.1
+```
+
+The next planned LT milestone automatically becomes the focus of your work.
+
+---
+
+### When to Split an LT Milestone
+
+Sometimes during refinement you realize an LT milestone is too large or covers two distinct concerns. Signs:
+
+- The goal has "and" connecting unrelated objectives
+- Normal milestones within it don't build on each other
+- Different team members would own different parts
+
+**How to split:**
+
+```
+# Update the original to cover just the first concern
+/grd:long-term-roadmap update --id LT-3 \
+  --name "Image Fusion" \
+  --goal "Cross-modal perceiver resampler for image+text fusion"
+
+# Add a new LT milestone for the second concern
+/grd:long-term-roadmap add \
+  --name "Video Support" \
+  --goal "Extend fusion pipeline to handle video frames with temporal attention"
+
+# Move any normal milestones that belong to the new LT
+/grd:long-term-roadmap unlink --id LT-3 --version v0.4.0
+/grd:long-term-roadmap link --id LT-5 --version v0.4.0
+```
+
+### When to Add Unplanned Normal Milestones
+
+Eval results sometimes reveal problems you didn't anticipate. When this happens:
+
+```
+# 1. Identify the gap from eval results
+#    e.g., quantization dropped accuracy by 3%
+
+# 2. Add a new LT milestone if needed, or reuse an existing one
+/grd:long-term-roadmap add \
+  --name "Accuracy Recovery" \
+  --goal "Recover 3% accuracy loss from quantization via knowledge distillation"
+
+# 3. Create and link the normal milestone
+/grd:new-milestone
+# Version: v0.3.2, Name: "Knowledge Distillation", DoD: Recover to 78%+ on MM-Bench
+
+/grd:long-term-roadmap link --id LT-5 --version v0.3.2
+
+# 4. Execute normally
+/grd:plan-phase 1
+/grd:execute-phase 1
+# ...
+```
+
+Alternatively, if the gap fits within an existing LT milestone's goal, just add a new normal milestone there:
+
+```
+/grd:new-milestone
+/grd:long-term-roadmap link --id LT-3 --version v0.3.2
+```
+
+### Summary: Commands in the Refinement Loop
+
+| Step | What you do | Command |
+|------|------------|---------|
+| Research | Survey the landscape | `/grd:survey <topic>` |
+| Research | Deep-dive a paper | `/grd:deep-dive <paper>` |
+| Refine | Review LT milestone context | `/grd:long-term-roadmap refine --id LT-N` |
+| Refine | Sharpen the goal | `/grd:long-term-roadmap update --id LT-N --goal "..."` |
+| Decompose | Create a normal milestone | `/grd:new-milestone` |
+| Decompose | Link to LT milestone | `/grd:long-term-roadmap link --id LT-N --version vX.Y.Z` |
+| Execute | Plan and run phases | `/grd:plan-phase N`, `/grd:execute-phase N` |
+| Execute | Ship the milestone | `/grd:complete-milestone` |
+| Evaluate | Check if LT goal is met | `/grd:eval-report N`, `/grd:audit-milestone` |
+| Complete | Mark LT milestone done | `/grd:long-term-roadmap update --id LT-N --status completed` |
+| Iterate | Add more normal milestones | Loop back to Research step |
 
 ## CLI Reference
 

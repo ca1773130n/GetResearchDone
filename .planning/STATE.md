@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-02-19
+**Updated:** 2026-02-20
 
 ## Current Position
 
@@ -28,6 +28,12 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - Total tests: 1,577
 - Total lib/ modules: 17
 
+## Quick Tasks Completed
+
+| # | Date | Description | Summary |
+|---|------|-------------|---------|
+| 1 | 2026-02-20 | Update LT roadmap tutorial with iterative refinement guide | `.planning/quick/1-update-tutorial-of-longterm-roadmap-with/1-SUMMARY.md` |
+
 ## Blockers
 
 None.
@@ -42,4 +48,4 @@ None.
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-19*
+*Last updated: 2026-02-20*
