@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** 27 — Worktree Infrastructure
+- **Active phase:** 28 — PR Workflow
 - **Milestone:** v0.2.0 — Git Worktree Parallel Execution
-- **Current Plan:** 2 of 2 (complete)
+- **Current Plan:** 1 of 1 (complete)
 - **Progress:** [██████████] 100%
-- **Next:** Phase complete — proceed to Phase 28
+- **Next:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
 
 ## Deferred Validations
 
@@ -22,6 +22,8 @@
 
 | Date | Decision | Phase | Rationale |
 |------|----------|-------|-----------|
+| 2026-02-19 | Read branch from worktree HEAD instead of recomputing from slug to avoid mismatch | Phase 28 | Worktree creation slug may differ from phase directory slug; reading HEAD is robust |
+| 2026-02-19 | gh CLI errors return push_succeeded flag and title/body for retry without recomputation | Phase 28 | Orchestrators need to know push worked even if PR failed; avoids redundant push on retry |
 | 2026-02-19 | Used fs.realpathSync(os.tmpdir()) for macOS symlink resolution in worktree path matching | Phase 27 | macOS resolves /tmp to /private/tmp; git worktree paths use resolved form; must match consistently |
 | 2026-02-19 | Worktree removal is idempotent: non-existent returns success with already_gone flag | Phase 27 | Agents should not crash when cleaning up already-removed worktrees |
 | 2026-02-19 | worktree_path uses fs.realpathSync(os.tmpdir()) in context.js consistent with lib/worktree.js | Phase 27 | macOS symlink resolution must be consistent across worktree creation and context computation |
@@ -49,14 +51,15 @@
 ## Performance Metrics
 
 **Velocity (v0.2.0):**
-- Phases completed: 0 (in progress: 27)
-- Tests: 1,456 (+23 from v0.1.6)
+- Phases completed: 1 (in progress: 28)
+- Tests: 1,465 (+32 from v0.1.6)
 
 | Phase | Plan | Duration | Tasks | Files | Test Delta |
 |-------|------|----------|-------|-------|------------|
 | 26 | 01 | 15min | 3 | 11 | +34 tests (1433 total) |
 | 27 | 01 | 5min | 2 | 2 | +20 tests (1453 total) |
 | 27 | 02 | 2min | 2 | 4 | +3 tests (1456 total) |
+| 28 | 01 | 5min | 2 | 4 | +9 tests (1465 total) |
 
 ## Blockers
 
@@ -64,10 +67,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 27-02-PLAN.md (CLI integration and MCP descriptors)
-- **Stopped at:** Completed phase 27 execution — all plans, eval, verification passed
-- **Next action:** Phase 27 complete — proceed to Phase 28 (PR Workflow)
-- **Context needed:** 1,456 tests passing; worktree module fully integrated (lib/worktree.js + CLI + MCP + context); Phase 27 both plans complete
+- **Last action:** Completed 28-01-PLAN.md (PR creation function with TDD)
+- **Stopped at:** Completed Phase 28 Plan 01 — cmdWorktreePushAndPR implemented with CLI + MCP
+- **Next action:** Phase 28 complete — proceed to Phase 29 (Dependency Analysis)
+- **Context needed:** 1,465 tests passing; cmdWorktreePushAndPR in lib/worktree.js; CLI `worktree push-pr`; MCP `grd_worktree_push_pr`; Phase 28 has 1 plan (complete)
 
 ---
 
