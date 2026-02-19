@@ -75,7 +75,7 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 **Milestone Goal:** Enable worktree-isolated phase execution with parallel teammate spawning for independent phases on Claude Code, sequential fallback on other backends.
 **Start:** 2026-02-19
 
-- [ ] **Phase 27: Worktree Infrastructure** - Worktree creation, lifecycle management, and CLI tooling `implement`
+- [x] **Phase 27: Worktree Infrastructure** - Worktree creation, lifecycle management, and CLI tooling `implement` ✓ 2026-02-19
 - [ ] **Phase 28: PR Workflow from Worktree** - Branch push and PR creation from worktree directories `implement`
 - [ ] **Phase 29: Phase Dependency Analysis** - Dependency graph extraction and parallelizability detection `implement`
 - [ ] **Phase 30: Parallel Execution & Fallback** - Teammate spawning for parallel phases with sequential fallback `implement`
