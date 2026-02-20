@@ -3181,7 +3181,7 @@ describe('cmdMigrateDirs', () => {
     ).toBe(true);
   });
 
-  test('moves codebase/ to milestones/{milestone}/codebase/', () => {
+  test('does NOT migrate codebase/ (project-level, stays at root)', () => {
     setupOldLayout({ codebase: true });
 
     const { stdout, exitCode } = captureOutput(() => {
@@ -3189,11 +3189,23 @@ describe('cmdMigrateDirs', () => {
     });
     expect(exitCode).toBe(0);
 
+    const result = parseFirstJson(stdout);
+
+    // codebase/ should NOT appear in moved_directories
+    const codebaseEntry = result.moved_directories.find((d) => d.from === 'codebase');
+    expect(codebaseEntry).toBeUndefined();
+
+    // codebase/ should still be at old root location
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'codebase', 'ARCHITECTURE.md'))
+    ).toBe(true);
+
+    // Should NOT be under milestones/
     expect(
       fs.existsSync(
         path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'codebase', 'ARCHITECTURE.md')
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test('moves todos/ to milestones/{milestone}/todos/', () => {

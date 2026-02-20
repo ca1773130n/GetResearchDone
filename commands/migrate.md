@@ -3,7 +3,7 @@ description: Migrate legacy flat .planning/ layout to milestone-scoped hierarchy
 ---
 
 <purpose>
-Migrate a legacy flat `.planning/` layout (phases/, research/, codebase/, todos/, quick/ at root) to the milestone-scoped hierarchy (`.planning/milestones/{milestone}/...`). Handles both trivial cases (standard dirs) via the deterministic `migrate-dirs` CLI and complex cases (orphan files, flat milestone files, legacy phase dirs) via the `grd-migrator` agent.
+Migrate a legacy flat `.planning/` layout (phases/, research/, todos/, quick/ at root) to the milestone-scoped hierarchy (`.planning/milestones/{milestone}/...`). Note: `codebase/` is project-level and stays at `.planning/codebase/`. Handles both trivial cases (standard dirs) via the deterministic `migrate-dirs` CLI and complex cases (orphan files, flat milestone files, legacy phase dirs) via the `grd-migrator` agent.
 </purpose>
 
 <required_reading>
@@ -28,7 +28,8 @@ Parse JSON for: `milestone`, `planning_exists`.
 Scan `.planning/` for items that need migration:
 
 **Trivial items** (handled by `migrate-dirs` CLI):
-- Old-style root dirs: `phases/`, `research/`, `codebase/`, `todos/`, `quick/`
+- Old-style root dirs: `phases/`, `research/`, `todos/`, `quick/`
+- Note: `codebase/` is project-level and stays at `.planning/codebase/` — not migrated
 
 **Complex items** (need agent):
 - Orphan files at `.planning/` root that aren't standard (not STATE.md, ROADMAP.md, PROJECT.md, BASELINE.md, PRODUCT-QUALITY.md, REQUIREMENTS.md, config.json, TRACKER.md, LONG-TERM-ROADMAP.md)

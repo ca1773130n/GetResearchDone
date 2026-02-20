@@ -256,27 +256,20 @@ describe('researchDir', () => {
 // ─── codebaseDir ──────────────────────────────────────────────────────────────
 
 describe('codebaseDir', () => {
-  let tmpDir;
-
-  afterEach(() => {
-    if (tmpDir) cleanTmpDir(tmpDir);
-    tmpDir = null;
+  test('always returns project-level .planning/codebase/', () => {
+    expect(codebaseDir('/project')).toBe(path.join('/project', '.planning', 'codebase'));
   });
 
-  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
-    expect(codebaseDir('/project', 'v0.2.1')).toBe(path.join('/project', '.planning', 'codebase'));
-  });
-
-  test('with explicit milestone returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(codebaseDir(tmpDir, 'v0.2.1')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'codebase')
+  test('ignores milestone existence — always project-level', () => {
+    const tmpDir = makeTmpDirWithMilestone(
+      '# State\n\n- **Milestone:** v0.2.1 — Test\n',
+      'v0.2.1'
     );
-  });
-
-  test('with milestone omitted falls back when milestone dir does not exist', () => {
-    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(codebaseDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'codebase'));
+    try {
+      expect(codebaseDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'codebase'));
+    } finally {
+      cleanTmpDir(tmpDir);
+    }
   });
 });
 

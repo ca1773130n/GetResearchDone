@@ -450,7 +450,7 @@ describe('cmdInitMapCodebase', () => {
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('mapper_model');
     expect(result).toHaveProperty('commit_docs');
-    expect(result.codebase_dir).toBe('.planning/milestones/anonymous/codebase');
+    expect(result.codebase_dir).toBe('.planning/codebase');
     expect(result.has_maps).toBe(false);
     expect(result.existing_maps).toEqual([]);
   });
