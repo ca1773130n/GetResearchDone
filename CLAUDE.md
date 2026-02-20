@@ -6,7 +6,7 @@ R&D workflow automation for Claude Code. Paper-driven development, tiered evalua
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all tests with coverage (1,577 tests) |
+| `npm test` | Run all tests with coverage (1,631 tests) |
 | `npm run test:unit` | Unit tests only with coverage |
 | `npm run test:integration` | Integration + E2E tests |
 | `npm run test:watch` | Watch mode for development |
@@ -26,7 +26,7 @@ bin/
 ├── grd-mcp-server.js       # MCP server for tool exposure
 ├── grd-manifest.js         # SHA256 file tracking for self-update
 └── postinstall.js          # npm postinstall hook
-lib/                        # 18 modules (pure logic, no I/O side effects in tests)
+lib/                        # 19 modules (pure logic, no I/O side effects in tests)
 ├── backend.js              # Claude Code backend detection + capabilities
 ├── cleanup.js              # Phase-boundary quality analysis
 ├── commands.js             # CLI command routing + argument parsing
@@ -37,6 +37,7 @@ lib/                        # 18 modules (pure logic, no I/O side effects in tes
 ├── long-term-roadmap.js    # LT milestone CRUD + protection rules
 ├── mcp-server.js           # MCP tool registration
 ├── parallel.js             # Parallel execution engine
+├── paths.js                # Milestone-scoped path resolution for .planning/
 ├── phase.js                # Phase lifecycle (add/insert/remove/complete)
 ├── roadmap.js              # ROADMAP.md parsing + manipulation
 ├── scaffold.js             # Directory/file scaffolding
@@ -96,24 +97,34 @@ docs/                       # Tutorials, quickstart, diagrams
 ├── REQUIREMENTS.md         # Requirements with traceability
 ├── config.json             # GRD configuration
 ├── TRACKER.md              # Issue tracker mapping (created at runtime)
-├── research/               # Persistent research knowledge base
-│   ├── LANDSCAPE.md        # SoTA map (methods, benchmarks, trends)
-│   ├── PAPERS.md           # Paper index with summaries
-│   ├── BENCHMARKS.md       # Evaluation metrics and datasets
-│   ├── KNOWHOW.md          # Paper→production gap knowledge
-│   └── deep-dives/         # Individual paper analyses
-│       └── {paper-slug}.md
-├── phases/
-│   └── {NN}-{name}/
-│       ├── {NN}-RESEARCH.md    # Phase research with paper references
-│       ├── {NN}-CONTEXT.md     # User decisions from discuss-phase
-│       ├── {NN}-{MM}-PLAN.md   # Execution plan with verification_level
-│       ├── {NN}-{MM}-SUMMARY.md # Execution results with experiment data
-│       ├── {NN}-{MM}-REVIEW.md # Code review findings (per wave)
-│       ├── {NN}-EVAL.md        # Tiered evaluation plan and results
-│       └── {NN}-VERIFICATION.md # Tiered verification report
-├── codebase/               # Codebase analysis (from map-codebase)
-└── todos/                  # Captured ideas
+└── milestones/
+    ├── {milestone}/                    # e.g., v0.2.1 (active milestone)
+    │   ├── phases/
+    │   │   └── {NN}-{name}/
+    │   │       ├── {NN}-RESEARCH.md    # Phase research with paper references
+    │   │       ├── {NN}-CONTEXT.md     # User decisions from discuss-phase
+    │   │       ├── {NN}-{MM}-PLAN.md   # Execution plan with verification_level
+    │   │       ├── {NN}-{MM}-SUMMARY.md # Execution results with experiment data
+    │   │       ├── {NN}-{MM}-REVIEW.md # Code review findings (per wave)
+    │   │       ├── {NN}-EVAL.md        # Tiered evaluation plan and results
+    │   │       └── {NN}-VERIFICATION.md # Tiered verification report
+    │   ├── research/                   # Milestone-scoped research knowledge base
+    │   │   ├── LANDSCAPE.md            # SoTA map (methods, benchmarks, trends)
+    │   │   ├── PAPERS.md               # Paper index with summaries
+    │   │   ├── BENCHMARKS.md           # Evaluation metrics and datasets
+    │   │   ├── KNOWHOW.md              # Paper-to-production gap knowledge
+    │   │   └── deep-dives/             # Individual paper analyses
+    │   │       └── {paper-slug}.md
+    │   ├── codebase/                   # Codebase analysis (from map-codebase)
+    │   └── todos/                      # Milestone-scoped captured ideas
+    │       ├── pending/
+    │       └── completed/
+    └── anonymous/                      # Operations without a milestone
+        ├── quick/
+        │   └── {N}-{slug}/
+        │       └── {N}-SUMMARY.md
+        ├── research/
+        └── todos/
 ```
 
 ## R&D Workflow

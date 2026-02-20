@@ -289,13 +289,13 @@ Before making any decisions, survey what's out there:
 /grd:survey cross-modal attention mechanisms for image-text fusion
 ```
 
-This scans arXiv, GitHub, and benchmarks, producing `.planning/research/LANDSCAPE.md` with a comparison of methods (early fusion, late fusion, cross-attention, etc.). For a specific paper that looks promising:
+This scans arXiv, GitHub, and benchmarks, producing `.planning/milestones/{milestone}/research/LANDSCAPE.md` with a comparison of methods (early fusion, late fusion, cross-attention, etc.). For a specific paper that looks promising:
 
 ```
 /grd:deep-dive "Flamingo: a Visual Language Model for Few-Shot Learning"
 ```
 
-This creates a deep analysis at `.planning/research/deep-dives/flamingo.md` with method details, limitations, and production considerations.
+This creates a deep analysis at `.planning/milestones/{milestone}/research/deep-dives/flamingo.md` with method details, limitations, and production considerations.
 
 You now know: cross-attention is the right approach, Flamingo's perceiver resampler is feasible, and MM-Bench is the standard evaluation.
 
