@@ -20,6 +20,8 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  runTestGate,
+  cleanupWorktree,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -86,26 +88,32 @@ function cleanupTestRepo(repoDir) {
     // Ignore errors during cleanup
   }
 
-  // Clean up any GRD worktree directories in tmpdir
+  // Clean up worktrees owned by THIS test repo (not all grd-worktree-* dirs)
   try {
-    const entries = fs.readdirSync(REAL_TMPDIR);
-    for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes('v0')) {
-        const wtPath = path.join(REAL_TMPDIR, entry);
-        try {
-          // Try to remove worktree via git first
-          execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
-            cwd: repoDir,
-            stdio: 'pipe',
-          });
-        } catch {
-          // Fall back to direct removal
-        }
-        try {
-          fs.rmSync(wtPath, { recursive: true, force: true });
-        } catch {
-          // Ignore
-        }
+    const wtListOutput = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    const ownedPaths = wtListOutput
+      .split('\n')
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => line.slice('worktree '.length))
+      .filter((p) => p !== resolvedRepo && p.includes('grd-worktree-'));
+
+    for (const wtPath of ownedPaths) {
+      try {
+        execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
+          cwd: repoDir,
+          stdio: 'pipe',
+        });
+      } catch {
+        // Fall back to direct removal
+      }
+      try {
+        fs.rmSync(wtPath, { recursive: true, force: true });
+      } catch {
+        // Ignore
       }
     }
   } catch {
@@ -854,5 +862,95 @@ describe('cmdWorktreePushAndPR', () => {
 
     // base should come from config, not hardcoded 'main'
     expect(result.base).toBe('develop');
+  });
+});
+
+// ─── runTestGate ──────────────────────────────────────────────────────────────
+
+describe('runTestGate', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('returns passed=true when test command succeeds', () => {
+    const result = runTestGate(repoDir, 'node -e "process.exit(0)"');
+    expect(result.passed).toBe(true);
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('returns passed=false with exit code when test command fails', () => {
+    const result = runTestGate(repoDir, 'node -e "process.exit(1)"');
+    expect(result.passed).toBe(false);
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('captures stdout from test command', () => {
+    const result = runTestGate(repoDir, 'node -e "console.log(\'test output\')"');
+    expect(result.passed).toBe(true);
+    expect(result.stdout).toContain('test output');
+  });
+
+  test('captures stderr from failing test command', () => {
+    const result = runTestGate(repoDir, 'node -e "console.error(\'test error\'); process.exit(1)"');
+    expect(result.passed).toBe(false);
+    expect(result.stderr).toContain('test error');
+  });
+
+  test('defaults to npm test when no command specified', () => {
+    // In the test repo there is no package.json, so npm test will fail
+    // but we verify it attempts to run 'npm test' (not crash)
+    const result = runTestGate(repoDir);
+    expect(result.passed).toBe(false);
+    // The error should indicate npm or test failure, not a crash
+    expect(result.exitCode).toBeTruthy();
+  });
+});
+
+// ─── cleanupWorktree ──────────────────────────────────────────────────────────
+
+describe('cleanupWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('removes an existing worktree and returns cleaned=true', () => {
+    // Create a worktree first
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    expect(fs.existsSync(wtPath)).toBe(true);
+
+    const result = cleanupWorktree(repoDir, wtPath);
+    expect(result.cleaned).toBe(true);
+    expect(result.error).toBeNull();
+    expect(fs.existsSync(wtPath)).toBe(false);
+  });
+
+  test('succeeds silently when worktree path does not exist (idempotent)', () => {
+    const fakePath = path.join(repoDir, '.worktrees', 'nonexistent-99');
+    const result = cleanupWorktree(repoDir, fakePath);
+    expect(result.cleaned).toBe(true);
+    expect(result.error).toBeNull();
+  });
+
+  test('never throws even on unexpected errors', () => {
+    // Pass an invalid cwd to trigger git errors
+    const result = cleanupWorktree('/nonexistent-dir-12345', '/also/nonexistent');
+    // Should not throw -- returns error info instead
+    expect(result).toHaveProperty('cleaned');
+    expect(result).toHaveProperty('error');
   });
 });
