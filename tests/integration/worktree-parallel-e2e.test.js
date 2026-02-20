@@ -825,7 +825,14 @@ describe('E2E: Dependency graph integration with parallel context', () => {
       ['30', 'parallel-execution'],
       ['31', 'integration-validation'],
     ]) {
-      const phaseDir = path.join(dir, '.planning', 'phases', `${num}-${slug}`);
+      const phaseDir = path.join(
+        dir,
+        '.planning',
+        'milestones',
+        'anonymous',
+        'phases',
+        `${num}-${slug}`
+      );
       fs.mkdirSync(phaseDir, { recursive: true });
       fs.writeFileSync(
         path.join(phaseDir, `${num}-01-PLAN.md`),
@@ -919,7 +926,14 @@ describe('E2E: Status tracker per-phase tracking', () => {
       lines.push(`**Depends on:** Nothing`);
       lines.push('');
 
-      const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-phase-${padded}`);
+      const phaseDir = path.join(
+        dir,
+        '.planning',
+        'milestones',
+        'anonymous',
+        'phases',
+        `${padded}-phase-${padded}`
+      );
       fs.mkdirSync(phaseDir, { recursive: true });
       fs.writeFileSync(
         path.join(phaseDir, `${padded}-01-PLAN.md`),

@@ -335,7 +335,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout, exitCode } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
@@ -369,7 +373,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);
@@ -397,7 +405,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].exists).toBe(false);
@@ -443,7 +455,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links.length).toBeGreaterThan(0);
@@ -473,7 +489,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -504,7 +524,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(true);
@@ -786,7 +810,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(true);
@@ -819,7 +847,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -852,7 +884,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -884,7 +920,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -930,7 +970,11 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);
@@ -962,7 +1006,11 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);

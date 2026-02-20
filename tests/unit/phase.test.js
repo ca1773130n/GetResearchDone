@@ -128,7 +128,14 @@ describe('cmdPhaseAdd', () => {
 
   test('creates phase directory on disk', () => {
     captureOutput(() => cmdPhaseAdd(tmpDir, 'Integration Testing', false));
-    const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '03-integration-testing');
+    const dirPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '03-integration-testing'
+    );
     expect(fs.existsSync(dirPath)).toBe(true);
   });
 
@@ -172,7 +179,14 @@ describe('cmdPhaseInsert', () => {
 
   test('creates decimal phase directory on disk', () => {
     captureOutput(() => cmdPhaseInsert(tmpDir, '1', 'Hotfix Phase', false));
-    const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.1-hotfix-phase');
+    const dirPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01.1-hotfix-phase'
+    );
     expect(fs.existsSync(dirPath)).toBe(true);
   });
 
@@ -188,10 +202,16 @@ describe('cmdPhaseInsert', () => {
     const result = JSON.parse(stdout);
     expect(result.phase_number).toBe('01.2');
     // Both directories should exist
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.1-first-insert'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.2-second-insert'))).toBe(
-      true
-    );
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.1-first-insert')
+      )
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.2-second-insert')
+      )
+    ).toBe(true);
   });
 
   test('errors when missing arguments', () => {
@@ -227,19 +247,32 @@ describe('cmdPhaseRemove', () => {
 
   test('deletes phase directory from disk', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'))).toBe(false);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'))
+    ).toBe(false);
   });
 
   test('renumbers subsequent phases on disk', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
     // Phase 02-build should now be 01-build
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-build'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '02-build'))).toBe(false);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-build'))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '02-build'))
+    ).toBe(false);
   });
 
   test('renames files inside renumbered directories', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
-    const renamedDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-build');
+    const renamedDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-build'
+    );
     const files = fs.readdirSync(renamedDir);
     // 02-01-PLAN.md should become 01-01-PLAN.md
     expect(files).toContain('01-01-PLAN.md');
@@ -484,7 +517,9 @@ describe('cmdValidateConsistency', () => {
 
   test('detects directory on disk but not in ROADMAP', () => {
     // Create an orphan phase directory
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), {
+      recursive: true,
+    });
     const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     const result = JSON.parse(stdout);
     expect(result.warnings.some((w) => w.includes('99'))).toBe(true);

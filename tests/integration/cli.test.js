@@ -231,7 +231,13 @@ describe('frontmatter commands', () => {
 
   test('frontmatter get --field returns single field', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'get', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--field', 'phase'],
+      [
+        'frontmatter',
+        'get',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--field',
+        'phase',
+      ],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -241,7 +247,13 @@ describe('frontmatter commands', () => {
 
   test('frontmatter validate plan schema returns valid', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'validate', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--schema', 'plan'],
+      [
+        'frontmatter',
+        'validate',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--schema',
+        'plan',
+      ],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -1144,7 +1156,13 @@ describe('mutating frontmatter commands', () => {
 
   test('frontmatter merge merges data into frontmatter', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'merge', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--data', '{"wave": 3}'],
+      [
+        'frontmatter',
+        'merge',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--data',
+        '{"wave": 3}',
+      ],
       mutDir
     );
     expect(exitCode).toBe(0);
@@ -1233,15 +1251,7 @@ describe('mutating todo commands', () => {
     ).toBe(false);
     expect(
       fs.existsSync(
-        path.join(
-          mutDir,
-          '.planning',
-          'milestones',
-          'anonymous',
-          'todos',
-          'completed',
-          'sample.md'
-        )
+        path.join(mutDir, '.planning', 'milestones', 'anonymous', 'todos', 'completed', 'sample.md')
       )
     ).toBe(true);
   });
