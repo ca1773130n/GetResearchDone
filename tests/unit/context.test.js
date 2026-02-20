@@ -152,6 +152,25 @@ describe('cmdInitExecutePhase', () => {
     expect(result.worktree_branch).toBe(result.branch_name);
   });
 
+  test('includes target_branch based on branching_strategy', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    // Default strategy is 'phase' in fixture, so target_branch should be base_branch
+    expect(result.target_branch).toBe('main');
+  });
+
+  test('includes worktree_dir from config', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.worktree_dir).toBeDefined();
+  });
+
+  test('milestone_branch is null when strategy is phase', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.milestone_branch).toBeNull();
+  });
+
   test('worktree fields are null when phase not found', () => {
     const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '99', new Set(), false));
     const result = JSON.parse(stdout);
@@ -203,6 +222,32 @@ describe('cmdInitExecutePhase', () => {
       );
       const result = JSON.parse(stdout);
       expect(result.base_branch).toBe('develop');
+    });
+
+    test('milestone_branch is set and target_branch is milestone branch when strategy is milestone', () => {
+      fs.writeFileSync(
+        path.join(customTmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          branching_strategy: 'milestone',
+          base_branch: 'main',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(customTmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      // milestone_branch should be set
+      expect(result.milestone_branch).toBeDefined();
+      expect(result.milestone_branch).toContain('v1.0');
+      // target_branch should be the milestone branch (not base_branch)
+      expect(result.target_branch).toContain('v1.0');
+      expect(result.target_branch).not.toBe('main');
+      // branch_name should still be the PHASE branch (not milestone branch)
+      expect(result.branch_name).toContain('01');
+      expect(result.branch_name).toContain('test');
     });
   });
 });
