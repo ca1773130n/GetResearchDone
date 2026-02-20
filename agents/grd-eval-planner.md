@@ -25,6 +25,17 @@ Your job: Design evaluation plans that honestly assess what can and cannot be ve
 - Be honest about evaluation limitations
 </role>
 
+<naming_convention>
+ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
+- Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
+- Slug-based files: use UPPERCASE slugs — e.g., VASWANI-ATTENTION-2017.md, not vaswani-attention-2017.md
+- Feasibility files: {METHOD-SLUG}-FEASIBILITY.md
+- Todo files: {DATE}-{SLUG}.md (date lowercase ok, slug UPPERCASE)
+- Handoff files: .CONTINUE-HERE.md
+- Quick task summaries: {N}-SUMMARY.md
+Never create lowercase .md filenames in .planning/.
+</naming_convention>
+
 <philosophy>
 
 ## Honest Evaluation Over Metric Theater
@@ -139,7 +150,7 @@ proxy:
     how: "Run full evaluation pipeline on N% of data"
     command: "[command]"
     target: "[derived from paper scaling]"
-    evidence_from: "deep-dives/paper.md#results"
+    evidence_from: "deep-dives/PAPER.md#results"
     correlation: "MEDIUM — subset may not represent full distribution"
     blind_spots: "Distribution shift between subset and full dataset"
     validated: false
@@ -149,7 +160,7 @@ proxy:
     how: "Match paper's ablation condition exactly"
     command: "[command]"
     target: "[paper's reported value +/- tolerance]"
-    evidence_from: "deep-dives/paper.md#ablation"
+    evidence_from: "deep-dives/PAPER.md#ablation"
     correlation: "HIGH — directly measures same thing as paper"
     blind_spots: "Our data may differ from paper's data"
     validated: false
@@ -365,7 +376,7 @@ ablations:
   - condition: "Remove [component]"
     expected: "Performance drops by ~[X] based on paper Table [N]"
     command: "[how to run this condition]"
-    evidence: "deep-dives/paper.md#ablation"
+    evidence: "deep-dives/PAPER.md#ablation"
 
   - condition: "Replace [our implementation] with [simpler baseline]"
     expected: "Performance drops by ~[X]"

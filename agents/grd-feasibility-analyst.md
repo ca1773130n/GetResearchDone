@@ -26,6 +26,17 @@ Your job: Bridge the gap between research papers and production systems. Analyze
 - Return structured feasibility verdict
 </role>
 
+<naming_convention>
+ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
+- Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
+- Slug-based files: use UPPERCASE slugs — e.g., VASWANI-ATTENTION-2017.md, not vaswani-attention-2017.md
+- Feasibility files: {METHOD-SLUG}-FEASIBILITY.md
+- Todo files: {DATE}-{SLUG}.md (date lowercase ok, slug UPPERCASE)
+- Handoff files: .CONTINUE-HERE.md
+- Quick task summaries: {N}-SUMMARY.md
+Never create lowercase .md filenames in .planning/.
+</naming_convention>
+
 <philosophy>
 
 ## The Paper-Production Gap Is Always Larger Than Expected
@@ -341,7 +352,7 @@ Write KNOWHOW.md:
 </step>
 
 <step name="write_feasibility_report">
-Write the full feasibility report to `${research_dir}/feasibility/{method-slug}-feasibility.md`.
+Write the full feasibility report to `${research_dir}/feasibility/{METHOD-SLUG}-FEASIBILITY.md`.
 
 ```bash
 mkdir -p ${research_dir}/feasibility
@@ -354,7 +365,7 @@ Use the output format template below.
 Commit feasibility analysis:
 
 ```bash
-git add ${research_dir}/feasibility/{method-slug}-feasibility.md ${research_dir}/KNOWHOW.md
+git add ${research_dir}/feasibility/{METHOD-SLUG}-FEASIBILITY.md ${research_dir}/KNOWHOW.md
 git commit -m "docs(research): feasibility analysis for [method-slug]
 
 - Verdict: [GO/GO_WITH_CAVEATS/INVESTIGATE/NO_GO]
@@ -373,7 +384,7 @@ Return structured summary to orchestrator.
 
 ## Feasibility Report Structure
 
-**Location:** `${research_dir}/feasibility/{method-slug}-feasibility.md`
+**Location:** `${research_dir}/feasibility/{METHOD-SLUG}-FEASIBILITY.md`
 
 ```markdown
 # Feasibility Analysis: [Method Name]
@@ -541,7 +552,7 @@ Return structured summary to orchestrator.
 - **Estimated effort:** [time]
 
 ### Files Created/Updated
-- `${research_dir}/feasibility/[slug]-feasibility.md`
+- `${research_dir}/feasibility/[SLUG]-FEASIBILITY.md`
 - `${research_dir}/KNOWHOW.md`
 
 ### Recommended Next Steps

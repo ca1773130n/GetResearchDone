@@ -49,7 +49,7 @@ If potential duplicate found: offer Skip/Replace/Add anyway.
 slug=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js generate-slug "$title" --raw)
 ```
 
-Write to `${todos_dir}/pending/${date}-${slug}.md` with frontmatter and Problem/Solution sections.
+Write to `${todos_dir}/pending/-.md` with frontmatter and Problem/Solution sections.
 </step>
 
 <step name="git_commit">

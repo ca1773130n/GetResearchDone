@@ -3,7 +3,7 @@ description: Save work state to a handoff file for session continuity
 ---
 
 <purpose>
-Create `.continue-here.md` handoff file to preserve complete work state across sessions. Enables seamless resumption with full context restoration.
+Create `.CONTINUE-HERE.md` handoff file to preserve complete work state across sessions. Enables seamless resumption with full context restoration.
 </purpose>
 
 <required_reading>
@@ -45,7 +45,7 @@ Ask user for clarifications if needed.
 </step>
 
 <step name="write">
-Write handoff to `${phase_dir}/.continue-here.md` with sections: current_state, completed_work, remaining_work, decisions_made, blockers, context, next_action.
+Write handoff to `${phase_dir}/.CONTINUE-HERE.md` with sections: current_state, completed_work, remaining_work, decisions_made, blockers, context, next_action.
 
 Use timestamps from:
 ```bash
@@ -55,13 +55,13 @@ timestamp=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js current-timestamp full -
 
 <step name="commit">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "wip: [phase-name] paused at task [X]/[Y]" --files ${phase_dir}/.continue-here.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "wip: [phase-name] paused at task [X]/[Y]" --files ${phase_dir}/.CONTINUE-HERE.md
 ```
 </step>
 
 <step name="confirm">
 ```
-Handoff created: ${phase_dir}/.continue-here.md
+Handoff created: ${phase_dir}/.CONTINUE-HERE.md
 
 Current state:
 - Phase: [XX-name]
@@ -76,7 +76,7 @@ To resume: /grd:resume-work
 </process>
 
 <success_criteria>
-- [ ] .continue-here.md created in correct phase directory
+- [ ] .CONTINUE-HERE.md created in correct phase directory
 - [ ] All sections filled with specific content
 - [ ] Committed as WIP
 - [ ] User knows location and how to resume

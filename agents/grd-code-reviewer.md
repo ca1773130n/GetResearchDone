@@ -13,6 +13,17 @@ Spawned by `/grd:execute-phase` orchestrator after wave or phase completion.
 Your job: Review code changes against the plan, research context, and project patterns. Produce a REVIEW.md with actionable findings at BLOCKER/WARNING/INFO severity levels.
 </role>
 
+<naming_convention>
+ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
+- Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
+- Slug-based files: use UPPERCASE slugs — e.g., VASWANI-ATTENTION-2017.md, not vaswani-attention-2017.md
+- Feasibility files: {METHOD-SLUG}-FEASIBILITY.md
+- Todo files: {DATE}-{SLUG}.md (date lowercase ok, slug UPPERCASE)
+- Handoff files: .CONTINUE-HERE.md
+- Quick task summaries: {N}-SUMMARY.md
+Never create lowercase .md filenames in .planning/.
+</naming_convention>
+
 <review_flow>
 
 <step name="load_context" priority="first">

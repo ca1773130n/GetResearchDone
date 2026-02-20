@@ -1,6 +1,6 @@
 ---
 name: grd-deep-diver
-description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces ${research_dir}/deep-dives/{paper-slug}.md and updates PAPERS.md index.
+description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces ${research_dir}/deep-dives/{PAPER-SLUG}.md and updates PAPERS.md index.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: magenta
 ---
@@ -23,6 +23,17 @@ Your job: Produce a comprehensive deep-dive document that the feasibility-analys
 - Rate adoption recommendation with structured rationale
 - Update PAPERS.md index with this entry
 </role>
+
+<naming_convention>
+ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
+- Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
+- Slug-based files: use UPPERCASE slugs — e.g., VASWANI-ATTENTION-2017.md, not VASWANI-ATTENTION-2017.md
+- Feasibility files: {METHOD-SLUG}-FEASIBILITY.md
+- Todo files: {DATE}-{SLUG}.md (date lowercase ok, slug UPPERCASE)
+- Handoff files: .CONTINUE-HERE.md
+- Quick task summaries: {N}-SUMMARY.md
+Never create lowercase .md filenames in .planning/.
+</naming_convention>
 
 <philosophy>
 
@@ -287,13 +298,13 @@ Generate a paper slug for the filename.
 Convention: `{first-author-lastname}-{key-word-from-title}-{year}`
 
 Examples:
-- "Attention Is All You Need" by Vaswani et al. (2017) → `vaswani-attention-2017`
+- "Attention Is All You Need" by Vaswani et al. (2017) → `VASWANI-ATTENTION-2017`
 - "Denoising Diffusion Probabilistic Models" by Ho et al. (2020) → `ho-ddpm-2020`
 - "Real-ESRGAN" by Wang et al. (2021) → `wang-real-esrgan-2021`
 </step>
 
 <step name="write_deep_dive">
-Write the deep-dive document to `${research_dir}/deep-dives/{paper-slug}.md`.
+Write the deep-dive document to `${research_dir}/deep-dives/{PAPER-SLUG}.md`.
 
 **ALWAYS use Write tool to persist to disk.**
 
@@ -333,7 +344,7 @@ Status values:
 Commit the deep-dive and updated index:
 
 ```bash
-git add ${research_dir}/deep-dives/{paper-slug}.md ${research_dir}/PAPERS.md
+git add ${research_dir}/deep-dives/{PAPER-SLUG}.md ${research_dir}/PAPERS.md
 git commit -m "docs(research): deep dive on [paper-slug]
 
 - Recommendation: [score]/5
@@ -352,7 +363,7 @@ Return structured summary to orchestrator.
 
 ## Deep Dive Document Structure
 
-**Location:** `${research_dir}/deep-dives/{paper-slug}.md`
+**Location:** `${research_dir}/deep-dives/{PAPER-SLUG}.md`
 
 ```markdown
 # Deep Dive: [Paper Title]

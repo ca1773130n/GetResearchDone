@@ -25,6 +25,17 @@ Goal-backward verification of PLANS before execution. Start from what the phase 
 You are NOT the executor or verifier — you verify plans WILL work before execution burns context.
 </role>
 
+<naming_convention>
+ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
+- Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
+- Slug-based files: use UPPERCASE slugs — e.g., VASWANI-ATTENTION-2017.md, not vaswani-attention-2017.md
+- Feasibility files: {METHOD-SLUG}-FEASIBILITY.md
+- Todo files: {DATE}-{SLUG}.md (date lowercase ok, slug UPPERCASE)
+- Handoff files: .CONTINUE-HERE.md
+- Quick task summaries: {N}-SUMMARY.md
+Never create lowercase .md filenames in .planning/.
+</naming_convention>
+
 <upstream_input>
 **CONTEXT.md** (if exists) — User decisions from `/grd:discuss-phase`
 

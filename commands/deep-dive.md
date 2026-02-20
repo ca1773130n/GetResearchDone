@@ -14,7 +14,7 @@ survey's telescope.
 CLAUDE.md rules: @CLAUDE.md
 
 **Research directory structure** (paths resolved via init):
-- `${research_dir}/deep-dives/{paper-slug}.md` — individual paper analysis
+- `${research_dir}/deep-dives/{PAPER-SLUG}.md` — individual paper analysis
 - `${research_dir}/PAPERS.md` — master index of all reviewed papers
 - `${research_dir}/LANDSCAPE.md` — survey landscape (may reference this paper)
 - `.planning/config.json` — GRD configuration
@@ -49,7 +49,7 @@ CLAUDE.md rules: @CLAUDE.md
    ```
 
 3. **Check for existing deep-dive**:
-   - Look for `${research_dir}/deep-dives/{paper-slug}.md`
+   - Look for `${research_dir}/deep-dives/{PAPER-SLUG}.md`
    - If exists: load previous analysis, note it will be updated/extended
    - If not: this is a fresh analysis
 
@@ -208,7 +208,7 @@ and a clear verdict section at the top for quick scanning.
 ## Step 5: WRITE DEEP-DIVE FILE
 
 1. **Write deep-dive document**:
-   - Path: `${research_dir}/deep-dives/{paper-slug}.md`
+   - Path: `${research_dir}/deep-dives/{PAPER-SLUG}.md`
    - Include YAML frontmatter with metadata:
      ```yaml
      ---
@@ -229,7 +229,7 @@ and a clear verdict section at the top for quick scanning.
 
 3. **Update LANDSCAPE.md** (if paper is referenced there):
    - Add verdict annotation next to the method entry
-   - Add `[deep-dive](${research_dir}/deep-dives/{paper-slug}.md)` link
+   - Add `[deep-dive](${research_dir}/deep-dives/{PAPER-SLUG}.md)` link
 
 ---
 
@@ -237,7 +237,7 @@ and a clear verdict section at the top for quick scanning.
 
 1. **Stage files**:
    ```bash
-   git add ${research_dir}/deep-dives/{paper-slug}.md
+   git add ${research_dir}/deep-dives/{PAPER-SLUG}.md
    git add ${research_dir}/PAPERS.md
    git add ${research_dir}/LANDSCAPE.md 2>/dev/null
    ```
@@ -262,7 +262,7 @@ and a clear verdict section at the top for quick scanning.
 
 <output>
 **FILES_WRITTEN:**
-- `${research_dir}/deep-dives/{paper-slug}.md` — full paper analysis
+- `${research_dir}/deep-dives/{PAPER-SLUG}.md` — full paper analysis
 - `${research_dir}/PAPERS.md` — updated paper index
 - `${research_dir}/LANDSCAPE.md` — annotated with verdict (if applicable)
 

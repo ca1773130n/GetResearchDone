@@ -231,7 +231,7 @@ and clear verdict with effort estimate.
 ## Step 5: WRITE FEASIBILITY REPORT
 
 1. **Write detailed report**:
-   - Path: `${research_dir}/deep-dives/{paper-slug}-feasibility.md`
+   - Path: `${research_dir}/deep-dives/{PAPER-SLUG}-FEASIBILITY.md`
    - Include all 9 dimensions from agent analysis
    - Include gap analysis table
    - Include verdict and effort estimate
@@ -246,7 +246,7 @@ and clear verdict with effort estimate.
 
 ```bash
 git add .planning/KNOWHOW.md
-git add ${research_dir}/deep-dives/{paper-slug}-feasibility.md
+git add ${research_dir}/deep-dives/{PAPER-SLUG}-FEASIBILITY.md
 git add ${research_dir}/PAPERS.md 2>/dev/null
 git commit -m "research: feasibility {method_name} — {verdict}, {N}wk effort"
 ```
@@ -266,7 +266,7 @@ git commit -m "research: feasibility {method_name} — {verdict}, {N}wk effort"
 
 <output>
 **FILES_WRITTEN:**
-- `${research_dir}/deep-dives/{paper-slug}-feasibility.md` — full feasibility report
+- `${research_dir}/deep-dives/{PAPER-SLUG}-FEASIBILITY.md` — full feasibility report
 - `.planning/KNOWHOW.md` — updated with production engineering knowledge
 - `${research_dir}/PAPERS.md` — annotated with feasibility status
 
