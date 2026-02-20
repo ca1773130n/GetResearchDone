@@ -19,7 +19,7 @@ last_refined: 2026-02-17
 ## LT-3: Advanced Workflows
 **Status:** active
 **Goal:** Agent Teams enhancements, async I/O optimization, advanced evaluation and iteration capabilities, cross-project knowledge reuse
-**Normal milestones:** v0.3.0 (planned)
+**Normal milestones:** v0.3.0 (planned), v0.2.1
 
 ## LT-4: Production Release
 **Status:** planned
@@ -34,3 +34,4 @@ last_refined: 2026-02-17
 | 2026-02-17 | Migrated to flat format | LT-1 (shipped milestones), LT-2 (v0.2.0), LT-3 (v0.3.0), LT-4 (v1.0.0) |
 | 2026-02-17 | v0.1.5 shipped | Moved v0.1.5 from LT-2 to LT-1 (completed); LT roadmap redesign is foundation work |
 | 2026-02-19 | v0.2.0 shipped | Completed LT-2 (all normal milestones shipped); activated LT-3 |
+| 2026-02-20 | v0.2.1 shipped | Linked to LT-3; hierarchical planning directory, stacked PR support |
