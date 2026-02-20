@@ -4,6 +4,9 @@
  * Tests git worktree lifecycle management: create, remove, list, and stale
  * cleanup. All tests use isolated temp git repos to avoid polluting the
  * real project's worktree state.
+ *
+ * Worktrees are created under {project}/.worktrees/{milestone}-{phase}
+ * (project-local, not in os.tmpdir()).
  */
 
 const fs = require('fs');
@@ -12,14 +15,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { captureOutput, captureError } = require('../helpers/setup');
 
-// The module under test — this will cause all tests to fail (RED) until
-// lib/worktree.js is created
+// The module under test
 const {
   cmdWorktreeCreate,
   cmdWorktreeRemove,
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  ensureGitignoreEntry,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -31,26 +34,34 @@ const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
  * Create an isolated temp git repo with a .planning/ structure sufficient
  * for worktree operations (config.json, ROADMAP.md).
  *
- * @returns {string} Absolute path to the temp repo root
+ * @returns {string} Absolute path to the temp repo root (resolved via realpath)
  */
 function createTestGitRepo() {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-test-'));
+  // Resolve to real path to handle macOS symlinks
+  const resolvedRoot = fs.realpathSync(tmpRoot);
 
   // Initialize a real git repo
-  execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
-  execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
-  execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpRoot, stdio: 'pipe' });
+  execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: resolvedRoot, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.email', 'test@grd.dev'], {
+    cwd: resolvedRoot,
+    stdio: 'pipe',
+  });
+  execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: resolvedRoot, stdio: 'pipe' });
 
   // Create minimal .planning structure
-  const planningDir = path.join(tmpRoot, '.planning');
+  const planningDir = path.join(resolvedRoot, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
   fs.mkdirSync(path.join(planningDir, 'phases', '27-worktree-infrastructure'), { recursive: true });
 
   fs.writeFileSync(
     path.join(planningDir, 'config.json'),
     JSON.stringify({
-      branching_strategy: 'phase',
-      phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+      git: {
+        branching_strategy: 'phase',
+        worktree_dir: '.worktrees/',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+      },
     }),
     'utf-8'
   );
@@ -62,14 +73,16 @@ function createTestGitRepo() {
   );
 
   // Create an initial commit so git worktree operations work
-  execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
-  execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: tmpRoot, stdio: 'pipe' });
+  execFileSync('git', ['add', '.'], { cwd: resolvedRoot, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: resolvedRoot, stdio: 'pipe' });
 
-  return tmpRoot;
+  return resolvedRoot;
 }
 
 /**
  * Clean up a test git repo and any worktrees it may have created.
+ * Worktrees now live inside repoDir/.worktrees/ so they are cleaned up
+ * automatically when the repo directory is removed.
  *
  * @param {string} repoDir - Path to the test repo
  */
@@ -86,14 +99,14 @@ function cleanupTestRepo(repoDir) {
     // Ignore errors during cleanup
   }
 
-  // Clean up any GRD worktree directories in tmpdir
+  // Clean up .worktrees/ inside the repo (worktrees are now project-local)
+  const wtDir = path.join(repoDir, '.worktrees');
   try {
-    const entries = fs.readdirSync(REAL_TMPDIR);
-    for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes('v0')) {
-        const wtPath = path.join(REAL_TMPDIR, entry);
+    if (fs.existsSync(wtDir)) {
+      const entries = fs.readdirSync(wtDir);
+      for (const entry of entries) {
+        const wtPath = path.join(wtDir, entry);
         try {
-          // Try to remove worktree via git first
           execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
             cwd: repoDir,
             stdio: 'pipe',
@@ -146,7 +159,7 @@ describe('cmdWorktreeCreate', () => {
     expect(result).toHaveProperty('created');
   });
 
-  test('creates worktree directory at os.tmpdir()/grd-worktree-{milestone}-{phase}', () => {
+  test('creates worktree directory at {project}/.worktrees/{milestone}-{phase}', () => {
     const { stdout } = captureOutput(() =>
       cmdWorktreeCreate(
         repoDir,
@@ -155,7 +168,7 @@ describe('cmdWorktreeCreate', () => {
       )
     );
     const result = JSON.parse(stdout);
-    const expectedPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const expectedPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     expect(result.path).toBe(expectedPath);
     expect(fs.existsSync(expectedPath)).toBe(true);
   });
@@ -218,7 +231,7 @@ describe('cmdWorktreeCreate', () => {
     const result = JSON.parse(stdout);
     // Should extract milestone from ROADMAP.md (v0.2.0)
     expect(result.milestone).toBeTruthy();
-    expect(result.path).toContain('grd-worktree-');
+    expect(result.path).toContain('.worktrees');
   });
 
   test('created field is a valid ISO timestamp', () => {
@@ -307,6 +320,21 @@ describe('cmdWorktreeCreate', () => {
     expect(result).not.toHaveProperty('start_point');
     expect(fs.existsSync(path.join(result.path, 'other.txt'))).toBe(false);
   });
+
+  test('.gitignore is auto-injected with .worktrees/ on worktree creation', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+
+    const gitignorePath = path.join(repoDir, '.gitignore');
+    expect(fs.existsSync(gitignorePath)).toBe(true);
+    const content = fs.readFileSync(gitignorePath, 'utf-8');
+    expect(content).toContain('.worktrees/');
+  });
 });
 
 // ─── cmdWorktreeRemove ────────────────────────────────────────────────────────
@@ -350,7 +378,7 @@ describe('cmdWorktreeRemove', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     expect(fs.existsSync(wtPath)).toBe(true);
 
     captureOutput(() => cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false));
@@ -376,7 +404,7 @@ describe('cmdWorktreeRemove', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreeRemove(repoDir, { path: wtPath }, false)
     );
@@ -401,7 +429,7 @@ describe('cmdWorktreeRemove', () => {
       cwd: repoDir,
       encoding: 'utf-8',
     });
-    expect(listOutput).not.toContain('grd-worktree-v0.2.0-27');
+    expect(listOutput).not.toContain('v0.2.0-27');
   });
 });
 
@@ -471,7 +499,7 @@ describe('cmdWorktreeList', () => {
     // Should not include the main repo itself
     for (const wt of result.worktrees) {
       expect(wt.path).not.toBe(repoDir);
-      expect(wt.path).toContain('grd-worktree-');
+      expect(wt.path).toContain('.worktrees');
     }
   });
 
@@ -524,7 +552,7 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Manually delete the worktree directory (simulating stale state)
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     fs.rmSync(wtPath, { recursive: true, force: true });
 
     // Now remove stale
@@ -545,7 +573,7 @@ describe('cmdWorktreeRemoveStale', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
 
     // Lock the worktree
     execFileSync('git', ['worktree', 'lock', wtPath], { cwd: repoDir, stdio: 'pipe' });
@@ -582,14 +610,59 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Delete both directories
-    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27'), { recursive: true, force: true });
-    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28'), { recursive: true, force: true });
+    fs.rmSync(path.join(repoDir, '.worktrees', 'v0.2.0-27'), { recursive: true, force: true });
+    fs.rmSync(path.join(repoDir, '.worktrees', 'v0.2.0-28'), { recursive: true, force: true });
 
     const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.removed.length).toBe(2);
     expect(result.count).toBe(2);
+  });
+});
+
+// ─── ensureGitignoreEntry ────────────────────────────────────────────────────
+
+describe('ensureGitignoreEntry', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-gitignore-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('adds entry to existing .gitignore', () => {
+    fs.writeFileSync(path.join(tmpDir, '.gitignore'), 'node_modules/\n', 'utf-8');
+    const added = ensureGitignoreEntry(tmpDir, '.worktrees/');
+    expect(added).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf-8');
+    expect(content).toContain('.worktrees/');
+    expect(content).toContain('node_modules/');
+  });
+
+  test('idempotent: does not add duplicate entry', () => {
+    fs.writeFileSync(path.join(tmpDir, '.gitignore'), '.worktrees/\n', 'utf-8');
+    const added = ensureGitignoreEntry(tmpDir, '.worktrees/');
+    expect(added).toBe(false);
+    const content = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf-8');
+    const matches = content.match(/\.worktrees/g);
+    expect(matches.length).toBe(1);
+  });
+
+  test('creates .gitignore when it does not exist', () => {
+    const added = ensureGitignoreEntry(tmpDir, '.worktrees/');
+    expect(added).toBe(true);
+    const content = fs.readFileSync(path.join(tmpDir, '.gitignore'), 'utf-8');
+    expect(content).toBe('.worktrees/\n');
+  });
+
+  test('handles entry without trailing slash matching one with trailing slash', () => {
+    fs.writeFileSync(path.join(tmpDir, '.gitignore'), '.worktrees/\n', 'utf-8');
+    const added = ensureGitignoreEntry(tmpDir, '.worktrees');
+    expect(added).toBe(false);
   });
 });
 
@@ -614,7 +687,7 @@ function createTestGitRepoWithRemote() {
   try {
     execFileSync('git', ['remote', 'remove', 'origin'], { cwd: repoDir, stdio: 'pipe' });
   } catch {
-    // No origin yet — that's fine
+    // No origin yet -- that's fine
   }
   execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: repoDir, stdio: 'pipe' });
 
@@ -702,7 +775,7 @@ describe('cmdWorktreePushAndPR', () => {
     );
 
     // Make a commit in the worktree so there is something to push
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -714,7 +787,6 @@ describe('cmdWorktreePushAndPR', () => {
     const result = JSON.parse(stdout);
 
     // Push should succeed (gh may fail, but push_succeeded should be true)
-    // The result may have an error about gh, but push_succeeded should be true
     if (result.error) {
       expect(result.push_succeeded).toBe(true);
     }
@@ -728,7 +800,6 @@ describe('cmdWorktreePushAndPR', () => {
   });
 
   test('returns error when gh CLI fails (returns structured error, does not crash)', () => {
-    // Create a worktree and push (push will work with bare remote)
     captureOutput(() =>
       cmdWorktreeCreate(
         repoDir,
@@ -737,35 +808,30 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
 
-    // gh pr create will fail in test env (no GitHub auth, bare local remote)
-    // The function should handle this gracefully with structured error JSON
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
 
-    // Should be valid JSON, not a crash — either success or structured error
     expect(result).toBeDefined();
     if (result.error) {
-      // Push should have succeeded even if gh failed
       expect(result.push_succeeded).toBe(true);
       expect(result.error.toLowerCase()).toContain('pr');
     }
   });
 
   test('PR title includes phase number and milestone', () => {
-    // Create a worktree and push
     captureOutput(() =>
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-28');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -775,7 +841,6 @@ describe('cmdWorktreePushAndPR', () => {
     );
     const result = JSON.parse(stdout);
 
-    // The title should be in the output (either in .title or generated internally)
     const title = result.title || '';
     expect(title).toContain('28');
     expect(title).toContain('v0.2.0');
@@ -786,7 +851,7 @@ describe('cmdWorktreePushAndPR', () => {
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-28');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -797,7 +862,6 @@ describe('cmdWorktreePushAndPR', () => {
     );
     const result = JSON.parse(stdout);
 
-    // The body used for PR creation should contain the provided text
     expect(result.body).toContain('PR workflow');
   });
 
@@ -810,7 +874,7 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -821,7 +885,6 @@ describe('cmdWorktreePushAndPR', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
 
-    // Should always have branch and title, even if gh fails
     expect(result).toHaveProperty('branch');
     expect(result).toHaveProperty('title');
     expect(result.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
@@ -842,7 +905,7 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
