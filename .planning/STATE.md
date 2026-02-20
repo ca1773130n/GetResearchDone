@@ -6,9 +6,9 @@
 
 - **Active phase:** Phase 38 — Core Git Workflow Revision
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
-- **Current Plan:** 1 of 2 in Phase 38 (Plan 01 complete)
-- **Progress:** [          ] 0/4 phases
-- **Next:** Execute Plan 02 of Phase 38
+- **Current Plan:** 2 of 2 in Phase 38 (Plan 02 complete — phase complete)
+- **Progress:** [##        ] 1/4 phases
+- **Next:** Phase 39 (next phase in milestone v0.2.3)
 
 ## Deferred Validations
 
@@ -26,12 +26,14 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **38-01:** Project-local .worktrees/ directory replaces tmpdir-based worktree locations
 - **38-01:** Nested git config section with backward-compatible top-level key precedence
 - **38-01:** createMilestoneBranch and resolveTargetBranch return result objects (no process.exit) for testability
+- **38-02:** branch_name is always the phase branch; target_branch captures strategy distinction for PR targeting
+- **38-02:** milestone_branch field is null when strategy is not 'milestone' to avoid confusion
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 11 (v0.0.5 through v0.2.2)
-- Total tests: 1,650
+- Total tests: 1,655
 - Total lib/ modules: 19
 
 ## Quick Tasks Completed
@@ -46,10 +48,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 38 Plan 01 (config schema, worktree paths, branch helpers)
-- **Stopped at:** Completed 38-01-PLAN.md (3/3 tasks)
-- **Next action:** Execute Plan 02 of Phase 38 (context output updates)
-- **Context needed:** Plan 01 migrated config to nested git section, moved worktrees to .worktrees/, added createMilestoneBranch/resolveTargetBranch. Plan 02 consumes these new shapes.
+- **Last action:** Executed Phase 38 Plan 02 (context output layer updates)
+- **Stopped at:** Completed 38-02-PLAN.md (2/2 tasks) — Phase 38 complete
+- **Next action:** Phase 39 (next phase in milestone v0.2.3)
+- **Context needed:** Phase 38 shipped nested git config, project-local worktrees, milestone branch helpers, and strategy-aware context output (target_branch, milestone_branch, worktree_dir).
 
 ---
 
