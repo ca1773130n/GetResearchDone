@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 36 — Test Updates, Documentation & Integration Validation (IN PROGRESS)
+- **Active phase:** Phase 36 — Test Updates, Documentation & Integration Validation (COMPLETE)
 - **Milestone:** v0.2.1 — Hierarchical Planning Directory
-- **Current Plan:** 36-01 (complete) — 1 of 4 plans
-- **Progress:** [========..] 4/5 phases (Phase 36 in progress)
-- **Next:** 36-02 (migrate test fixtures and update unit tests)
+- **Current Plan:** 36-04 (complete) — 4 of 4 plans
+- **Progress:** [==========] 5/5 phases (all complete)
+- **Next:** Milestone audit and completion for v0.2.1
 
 ## Deferred Validations
 
@@ -16,6 +16,9 @@
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
 | DEFER-30-01 | Full parallel execution with real teammate spawning on Claude Code | Phase 30 | Future | PARTIALLY RESOLVED (v0.2.0, requires Claude Code runtime) |
+| DEFER-34-01 | End-to-end command execution with milestone-scoped paths | Phase 34 | Phase 36 | RESOLVED (36-04: init execute-phase, state load, phase-plan-index all produce milestone-scoped paths) |
+| DEFER-35-01 | Real-world migration on old-style layout | Phase 35 | Phase 36 | RESOLVED (36-04: migrate-dirs moves 4 directory types, idempotent on re-run) |
+| DEFER-35-02 | Milestone completion with new-style layout produces archived.json | Phase 35 | Phase 36 | RESOLVED (36-04: archived.json written, no redundant phase copy) |
 
 ## Key Decisions
 
@@ -56,13 +59,17 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **36-01:** Resolved STATE.md merge conflicts by preserving Phase 35 COMPLETE status and combined key decisions from both branches
 - **36-01:** Resolved ROADMAP.md conflicts by marking both Phase 34 and Phase 35 as Complete
 - **36-01:** CHANGELOG.md old-path references confirmed as historical entries — should NOT be modified
+- **36-04:** CHANGELOG.md historical references preserved (lines 10, 200) per REQ-69 exclusion
+- **36-04:** lib/ module count updated to 19 (paths.js from Phase 32)
+- **36-04:** Fixed 3 worktree-parallel-e2e.test.js failures from Plan 02 fixture migration (Rule 3)
+- **36-04:** Ran prettier on 12 test files to resolve formatting drift from Plans 02/03
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 9 (v0.0.5 through v0.2.0)
 - Total tests: 1,631
-- Total lib/ modules: 18
+- Total lib/ modules: 19
 
 ## Quick Tasks Completed
 
@@ -76,12 +83,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 36-01-PLAN.md (merge Phase 34+35 branches and audit old-path references)
-- **Stopped at:** Completed 36-01-PLAN.md — Phase 34+35 merged, 1,631 tests passing, 74 old-path refs audited
-- **Next action:** Execute 36-02-PLAN.md (migrate test fixtures and update unit tests)
-- **Context needed:** 1,631 tests passing on merged branch; 74 old-path references across 14 test files (36 in unit tests, 38 in golden/integration); 4 in docs (2 historical CHANGELOG, 2 tutorial); CLAUDE.md and fixtures already clean
+- **Last action:** Executed 36-04-PLAN.md (documentation updates and deferred validation resolution)
+- **Stopped at:** Completed 36-04-PLAN.md — Phase 36 complete, all 4 plans done, 1,631 tests passing, 3 deferred validations resolved
+- **Next action:** Milestone audit and completion for v0.2.1
+- **Context needed:** All 5 phases (32-36) complete; 1,631 tests passing; DEFER-34-01, DEFER-35-01, DEFER-35-02 all resolved; CLAUDE.md and docs updated with milestone-scoped paths
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-20T09:06Z*
+*Last updated: 2026-02-20T09:38Z*
