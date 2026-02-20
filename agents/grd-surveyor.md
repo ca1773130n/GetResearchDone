@@ -1,6 +1,6 @@
 ---
 name: grd-surveyor
-description: Surveys state-of-the-art for a research topic. Scans arXiv, GitHub trending repos, Papers with Code benchmarks. Produces/updates .planning/research/LANDSCAPE.md with structured method comparison tables.
+description: Surveys state-of-the-art for a research topic. Scans arXiv, GitHub trending repos, Papers with Code benchmarks. Produces/updates ${research_dir}/LANDSCAPE.md with structured method comparison tables.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
 color: cyan
 ---
@@ -138,7 +138,7 @@ If topic is ambiguous, note the interpretation chosen and flag alternatives.
 Check for existing LANDSCAPE.md:
 
 ```bash
-cat .planning/research/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
 ```
 
 **If exists:**
@@ -149,9 +149,9 @@ cat .planning/research/LANDSCAPE.md 2>/dev/null
 
 **If not exists:**
 - Set `mode = initial`
-- Create `.planning/research/` directory if needed:
+- Create `${research_dir}/` directory if needed:
   ```bash
-  mkdir -p .planning/research
+  mkdir -p ${research_dir}
   ```
 </step>
 
@@ -288,7 +288,7 @@ If `mode = update`, diff with existing LANDSCAPE.md.
 
 ```bash
 # Check what methods are already documented
-grep "^|" .planning/research/LANDSCAPE.md 2>/dev/null | grep -v "^|--" | grep -v "^| Method"
+grep "^|" ${research_dir}/LANDSCAPE.md 2>/dev/null | grep -v "^|--" | grep -v "^| Method"
 ```
 
 Identify:
@@ -302,7 +302,7 @@ Tag new discoveries with `[NEW]` in the notes column.
 </step>
 
 <step name="write_landscape">
-Write LANDSCAPE.md to `.planning/research/LANDSCAPE.md`.
+Write LANDSCAPE.md to `${research_dir}/LANDSCAPE.md`.
 
 **ALWAYS use Write tool to persist to disk.**
 
@@ -315,7 +315,7 @@ If updating, preserve any manual annotations (notes added by human or other agen
 Commit the landscape document:
 
 ```bash
-git add .planning/research/LANDSCAPE.md
+git add ${research_dir}/LANDSCAPE.md
 git commit -m "docs(research): survey landscape for [topic]
 
 - [N] methods catalogued
@@ -335,7 +335,7 @@ Return structured summary to orchestrator.
 
 ## LANDSCAPE.md Structure
 
-**Location:** `.planning/research/LANDSCAPE.md`
+**Location:** `${research_dir}/LANDSCAPE.md`
 
 ```markdown
 # Research Landscape: [Topic]
@@ -468,7 +468,7 @@ Based on this survey, the following methods warrant deep-dive analysis (via `/gr
 - [Updated] [Method] — [what changed]
 
 ### File Created/Updated
-`.planning/research/LANDSCAPE.md`
+`${research_dir}/LANDSCAPE.md`
 
 ### Recommended Next Steps
 - `/grd:deep-dive [top method]` — Detailed analysis of most promising approach
@@ -517,7 +517,7 @@ Based on this survey, the following methods warrant deep-dive analysis (via `/gr
 
 **MAINTAIN the change log.** When updating, append to the change log. Never delete previous entries.
 
-**WRITE TO DISK.** Use the Write tool to create/update `.planning/research/LANDSCAPE.md`. Do not just return the content.
+**WRITE TO DISK.** Use the Write tool to create/update `${research_dir}/LANDSCAPE.md`. Do not just return the content.
 
 </critical_rules>
 
@@ -537,7 +537,7 @@ Survey is complete when:
 - [ ] Top 3 methods recommended for deep dive with rationale
 - [ ] All entries have source citations (URLs or paper references)
 - [ ] All metrics are sourced (not fabricated)
-- [ ] LANDSCAPE.md written to `.planning/research/LANDSCAPE.md`
+- [ ] LANDSCAPE.md written to `${research_dir}/LANDSCAPE.md`
 - [ ] If update mode: diff computed, new discoveries tagged with [NEW]
 - [ ] Change log updated
 - [ ] LANDSCAPE.md committed to git

@@ -13,12 +13,12 @@ suggests iteration via /grd:iterate.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Project structure:**
-- `.planning/phases/{N}-{name}/EVAL.md` — evaluation plan (must exist)
-- `.planning/phases/{N}-{name}/PLAN.md` — phase execution plan
+**Project structure** (paths resolved via init):
+- `${phase_dir}/EVAL.md` — evaluation plan (must exist)
+- `${phase_dir}/PLAN.md` — phase execution plan
 - `.planning/BASELINE.md` — current performance baseline
 - `.planning/BENCHMARKS.md` — historical benchmark data across phases
-- `.planning/research/LANDSCAPE.md` — SOTA references
+- `${research_dir}/LANDSCAPE.md` — SOTA references
 - `.planning/config.json` — GRD configuration
 
 **Agent available:**
@@ -29,13 +29,19 @@ CLAUDE.md rules: @CLAUDE.md
 
 ## Step 0: INITIALIZE — Load Evaluation Context
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init eval-report "$PHASE")
+   ```
+   Parse JSON for: `research_dir`, `phases_dir`, `phase_dir` (resolve from phases_dir + phase number), `landscape_exists`, `baseline_exists`, `autonomous_mode`.
+
 1. **Parse arguments**: Extract phase identifier from `$ARGUMENTS`
-   - If phase number: resolve to `.planning/phases/{N}-{name}/`
+   - If phase number: resolve to `${phases_dir}/{N}-{name}/`
    - If empty: detect current active phase
    - Validate phase directory exists
 
 2. **Load EVAL.md**:
-   - Path: `.planning/phases/{N}-{name}/EVAL.md`
+   - Path: `${phase_dir}/EVAL.md`
    - If missing: STOP, suggest `/grd:eval-plan {N}` first
    - Parse all three tiers: sanity, proxy, deferred
    - Extract metric definitions, targets, measurement commands
@@ -82,6 +88,11 @@ Use Task tool with `subagent_type="grd:grd-eval-reporter"`:
 
 ```
 Execute evaluation protocol and analyze results for phase: {N} — {phase_name}
+
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
 
 EVALUATION PLAN:
 {Full EVAL.md content}
@@ -184,7 +195,7 @@ Return structured results with:
 
 ## Step 4: UPDATE EVAL.md WITH RESULTS
 
-1. **Populate Results section** in `.planning/phases/{N}-{name}/EVAL.md`:
+1. **Populate Results section** in `${phase_dir}/EVAL.md`:
    ```markdown
    ## Results — {YYYY-MM-DD}
 
@@ -240,7 +251,7 @@ Return structured results with:
 ## Step 6: COMMIT
 
 ```bash
-git add .planning/phases/{N}-{name}/EVAL.md
+git add ${phase_dir}/*-EVAL.md
 git add .planning/BENCHMARKS.md
 git commit -m "eval: report phase {N} results — {verdict}"
 ```
@@ -272,7 +283,7 @@ git commit -m "eval: report phase {N} results — {verdict}"
 
 <output>
 **FILES_UPDATED:**
-- `.planning/phases/{N}-{name}/EVAL.md` — results and history populated
+- `${phase_dir}/EVAL.md` — results and history populated
 - `.planning/BENCHMARKS.md` — new benchmark data appended
 
 **DISPLAY**: Results dashboard with per-metric status, ablation findings, and verdict

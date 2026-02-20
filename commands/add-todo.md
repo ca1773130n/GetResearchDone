@@ -18,10 +18,10 @@ Read all files referenced by the invoking prompt's execution_context before star
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init todos)
 ```
 
-Extract from init JSON: `commit_docs`, `date`, `timestamp`, `todo_count`, `todos`, `pending_dir`, `todos_dir_exists`.
+Extract from init JSON: `commit_docs`, `date`, `timestamp`, `todo_count`, `todos`, `pending_dir`, `todos_dir`, `todos_dir_exists`.
 
 ```bash
-mkdir -p .planning/todos/pending .planning/todos/done
+mkdir -p ${todos_dir}/pending ${todos_dir}/done
 ```
 </step>
 
@@ -38,7 +38,7 @@ Infer area from file paths (api, ui, auth, database, testing, docs, planning, to
 
 <step name="check_duplicates">
 ```bash
-grep -l -i "[key words from title]" .planning/todos/pending/*.md 2>/dev/null
+grep -l -i "[key words from title]" ${todos_dir}/pending/*.md 2>/dev/null
 ```
 
 If potential duplicate found: offer Skip/Replace/Add anyway.
@@ -49,18 +49,18 @@ If potential duplicate found: offer Skip/Replace/Add anyway.
 slug=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js generate-slug "$title" --raw)
 ```
 
-Write to `.planning/todos/pending/${date}-${slug}.md` with frontmatter and Problem/Solution sections.
+Write to `${todos_dir}/pending/${date}-${slug}.md` with frontmatter and Problem/Solution sections.
 </step>
 
 <step name="git_commit">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: capture todo - [title]" --files .planning/todos/pending/[filename] .planning/STATE.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: capture todo - [title]" --files ${todos_dir}/pending/[filename] .planning/STATE.md
 ```
 </step>
 
 <step name="confirm">
 ```
-Todo saved: .planning/todos/pending/[filename]
+Todo saved: ${todos_dir}/pending/[filename]
 
   [title]
   Area: [area]

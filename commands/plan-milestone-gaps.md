@@ -180,7 +180,7 @@ For validation-type phases (deferred gaps), include deferred resolution:
 ## 7. Create Phase Directories
 
 ```bash
-mkdir -p ".planning/phases/{NN}-{name}"
+mkdir -p "${phases_dir}/{NN}-{name}"
 ```
 
 ## 8. Commit Roadmap Update

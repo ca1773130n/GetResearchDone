@@ -17,6 +17,14 @@ Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record
 
 <process>
 
+<step name="init_context" priority="first">
+```bash
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init milestone-op)
+```
+
+Parse JSON for: `phases_dir`, `commit_docs`, `milestone_version`, `milestone_name`.
+</step>
+
 <step name="verify_readiness">
 ```bash
 ROADMAP=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js roadmap analyze)
@@ -41,7 +49,7 @@ Calculate milestone statistics: phases, plans, tasks, files modified, LOC, timel
 
 <step name="extract_accomplishments">
 ```bash
-for summary in .planning/phases/*-*/*-SUMMARY.md; do
+for summary in ${phases_dir}/*-*/*-SUMMARY.md; do
   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js summary-extract "$summary" --fields one_liner | jq -r '.one_liner'
 done
 ```
@@ -139,7 +147,7 @@ Milestone v[X.Y] [Name] complete
 - [ ] ROADMAP.md reorganized with milestone grouping
 - [ ] Archives created
 - [ ] Phase directories archived to .planning/milestones/v[X.Y]-phases/
-- [ ] .planning/phases/ directory is empty
+- [ ] ${phases_dir}/ directory is empty
 - [ ] REQUIREMENTS.md deleted (fresh for next milestone)
 - [ ] STATE.md updated
 - [ ] Git tag created

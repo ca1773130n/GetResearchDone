@@ -32,6 +32,8 @@ Exit.
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init phase-op "0")
 ```
 
+Parse JSON for: `roadmap_exists`, `phases_dir`, `commit_docs`.
+
 Check `roadmap_exists` from init JSON. If false:
 ```
 ERROR: No roadmap found (.planning/ROADMAP.md)
@@ -82,7 +84,7 @@ TRACKER_CONFIG=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker get-config 
 ```
 Phase {N} added to current milestone:
 - Description: {description}
-- Directory: .planning/phases/{phase-num}-{slug}/
+- Directory: ${phases_dir}/{phase-num}-{slug}/
 - Duration: 7d (default — edit in ROADMAP.md to adjust)
 - Status: Not planned yet
 {If reschedule ran: "- Jira dates updated: {count} issues rescheduled"}

@@ -152,8 +152,8 @@ ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
 ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js roadmap get-phase "$PHASE_NUM"
 grep -E "^| $PHASE_NUM" .planning/REQUIREMENTS.md 2>/dev/null
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
 ```
 
 Extract phase goal from ROADMAP.md — this is the outcome to verify, not the tasks.
@@ -411,7 +411,7 @@ gaps:
 
 ## Create VERIFICATION.md
 
-Create `.planning/phases/{phase_dir}/{phase}-VERIFICATION.md`:
+Create `${phase_dir}/{phase}-VERIFICATION.md`:
 
 ```markdown
 ---
@@ -572,7 +572,7 @@ Return with:
   - Level 1 (Sanity): {N}/{M}
   - Level 2 (Proxy): {N}/{M} (if applicable)
   - Level 3 (Deferred): {N} items tracked
-**Report:** .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
+**Report:** ${phase_dir}/{phase}-VERIFICATION.md
 
 {If passed:}
 All must-haves verified at designated levels. Phase goal achieved. Ready to proceed.
@@ -685,12 +685,12 @@ After writing VERIFICATION.md, post the results as a comment on the phase issue 
 
 **For GitHub:**
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-VERIFICATION.md" 2>/dev/null || true
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-VERIFICATION.md" 2>/dev/null || true
 ```
 
 **For mcp-atlassian:**
 ```bash
-COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-VERIFICATION.md" --raw 2>/dev/null || true)
+COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-VERIFICATION.md" --raw 2>/dev/null || true)
 ```
 If response has `provider: "mcp-atlassian"`, call MCP tool `add_comment` with `issue_key` and `content` from response.
 

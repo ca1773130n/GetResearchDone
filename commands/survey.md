@@ -5,18 +5,18 @@ argument-hint: <research topic or question>
 
 <purpose>
 Survey state-of-the-art for a research topic. Scans papers, GitHub repos, benchmarks and
-updates .planning/research/LANDSCAPE.md with a structured landscape of methods, results,
+updates the research LANDSCAPE.md with a structured landscape of methods, results,
 and open problems. This is the entry point for any research-driven development workflow.
 </purpose>
 
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Research directory structure:**
-- `.planning/research/LANDSCAPE.md` — master landscape of methods, papers, repos
-- `.planning/research/deep-dives/` — individual paper analyses
-- `.planning/research/PAPERS.md` — index of all reviewed papers
-- `.planning/research/COMPARISON-*.md` — method comparison matrices
+**Research directory structure** (paths resolved via init):
+- `${research_dir}/LANDSCAPE.md` — master landscape of methods, papers, repos
+- `${research_dir}/deep-dives/` — individual paper analyses
+- `${research_dir}/PAPERS.md` — index of all reviewed papers
+- `${research_dir}/COMPARISON-*.md` — method comparison matrices
 - `.planning/config.json` — GRD configuration (research_gates, autonomous_mode)
 
 **Agent available:**
@@ -33,12 +33,14 @@ CLAUDE.md rules: @CLAUDE.md
 
 2. **Run initialization**:
    ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init survey "$TOPIC"
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init survey "$TOPIC")
    ```
+
+   Parse JSON for: `research_dir`, `landscape_exists`, `papers_exists`, `benchmarks_exists`, `knowhow_exists`, `researcher_model`, `autonomous_mode`, `research_gates`.
 
 3. **Ensure research directory exists**:
    ```bash
-   mkdir -p .planning/research/deep-dives
+   mkdir -p ${research_dir}/deep-dives
    ```
 
 4. **Read existing LANDSCAPE.md** (if present):
@@ -80,6 +82,9 @@ Use Task tool with `subagent_type="grd:grd-surveyor"`:
 
 ```
 Survey the state-of-the-art for: {topic}
+
+PATHS:
+research_dir: ${research_dir}
 
 EXISTING LANDSCAPE (diff against this):
 {EXISTING_LANDSCAPE or "No prior survey — this is a fresh scan."}
@@ -168,7 +173,7 @@ If this is the first survey, show "INITIAL SURVEY" instead of diff.
 ## Step 5: WRITE LANDSCAPE.md
 
 1. **Write updated LANDSCAPE.md**:
-   - Path: `.planning/research/LANDSCAPE.md`
+   - Path: `${research_dir}/LANDSCAPE.md`
    - Include survey metadata header with timestamp
    - Preserve any user annotations from previous version (lines starting with `> NOTE:`)
 
@@ -183,8 +188,8 @@ If this is the first survey, show "INITIAL SURVEY" instead of diff.
 
 1. **Stage research files**:
    ```bash
-   git add .planning/research/LANDSCAPE.md
-   git add .planning/research/PAPERS.md 2>/dev/null
+   git add ${research_dir}/LANDSCAPE.md
+   git add ${research_dir}/PAPERS.md 2>/dev/null
    ```
 
 2. **Commit with descriptive message**:
@@ -212,8 +217,8 @@ Based on survey results, suggest next steps:
 
 <output>
 **FILES_WRITTEN:**
-- `.planning/research/LANDSCAPE.md` — full survey landscape (created or updated)
-- `.planning/research/PAPERS.md` — paper index (updated if exists)
+- `${research_dir}/LANDSCAPE.md` — full survey landscape (created or updated)
+- `${research_dir}/PAPERS.md` — paper index (updated if exists)
 
 **DISPLAY**: Survey results summary with diff, recommendations, and next-step routing
 

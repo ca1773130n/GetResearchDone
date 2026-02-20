@@ -175,7 +175,7 @@ TOOLS — Analysis and debugging utilities
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   /grd:map-codebase             Analyze codebase with parallel mapper
-                                agents. Produce .planning/codebase/ docs.
+                                agents. Produce codebase analysis docs.
 
   /grd:debug                    Systematic debugging with persistent
                                 state across context resets.

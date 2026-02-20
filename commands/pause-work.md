@@ -12,11 +12,19 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 <process>
 
+<step name="init_context" priority="first">
+```bash
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init resume)
+```
+
+Parse JSON for: `phases_dir`, `phase_dir`, `phase_number`, `phase_name`, `state_exists`, `commit_docs`.
+</step>
+
 <step name="detect">
-Find current phase directory from most recently modified files:
+Find current phase directory from init context (prefer `phase_dir` from init). If not available, detect from most recently modified files:
 
 ```bash
-ls -lt .planning/phases/*/PLAN.md 2>/dev/null | head -1 | grep -oP 'phases/\K[^/]+'
+ls -lt ${phases_dir}/*-*/*-PLAN.md 2>/dev/null | head -1
 ```
 
 If no active phase detected, ask user which phase they're pausing work on.
@@ -37,7 +45,7 @@ Ask user for clarifications if needed.
 </step>
 
 <step name="write">
-Write handoff to `.planning/phases/XX-name/.continue-here.md` with sections: current_state, completed_work, remaining_work, decisions_made, blockers, context, next_action.
+Write handoff to `${phase_dir}/.continue-here.md` with sections: current_state, completed_work, remaining_work, decisions_made, blockers, context, next_action.
 
 Use timestamps from:
 ```bash
@@ -47,13 +55,13 @@ timestamp=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js current-timestamp full -
 
 <step name="commit">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "wip: [phase-name] paused at task [X]/[Y]" --files .planning/phases/*/.continue-here.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "wip: [phase-name] paused at task [X]/[Y]" --files ${phase_dir}/.continue-here.md
 ```
 </step>
 
 <step name="confirm">
 ```
-Handoff created: .planning/phases/[XX-name]/.continue-here.md
+Handoff created: ${phase_dir}/.continue-here.md
 
 Current state:
 - Phase: [XX-name]

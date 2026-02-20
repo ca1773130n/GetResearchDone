@@ -200,7 +200,7 @@ metrics_passed: 0
 [none yet]
 ```
 
-Write to `.planning/phases/XX-name/{phase}-UAT.md`
+Write to `${phase_dir}/{phase}-UAT.md`
 
 Proceed to `present_test`.
 </step>
@@ -362,7 +362,7 @@ Clear Current Test section:
 
 Commit the UAT file:
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "test({phase}): complete UAT - {passed} passed, {issues} issues, {metrics_passed}/{metrics_checked} metrics" --files ".planning/phases/XX-name/{phase}-UAT.md"
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "test({phase}): complete UAT - {passed} passed, {issues} issues, {metrics_passed}/{metrics_checked} metrics" --files "${phase_dir}/{phase}-UAT.md"
 ```
 
 Present summary:
@@ -458,7 +458,7 @@ Create: .planning/debug/{slug}.md
 Collect root causes from all agents. Update UAT.md gaps with root_cause, artifacts, and missing fields.
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs({phase}): add root causes from diagnosis" --files ".planning/phases/XX-name/{phase}-UAT.md"
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs({phase}): add root causes from diagnosis" --files "${phase_dir}/{phase}-UAT.md"
 ```
 
 Display diagnosis summary, then proceed to `plan_gap_closure`.
@@ -492,7 +492,7 @@ Task(
 **Mode:** gap_closure
 
 **UAT with diagnoses:**
-@.planning/phases/{phase_dir}/{phase}-UAT.md
+@${phase_dir}/{phase}-UAT.md
 
 **Project State:**
 @.planning/STATE.md
@@ -501,6 +501,11 @@ Task(
 @.planning/ROADMAP.md
 
 </planning_context>
+
+<paths>
+research_dir: ${research_dir}
+phase_dir: ${phase_dir}
+</paths>
 
 <downstream_consumer>
 Output consumed by /grd:execute-phase
@@ -548,9 +553,14 @@ Task(
 **Phase Goal:** Close diagnosed gaps from UAT
 
 **Plans to verify:**
-@.planning/phases/{phase_dir}/*-PLAN.md
+@${phase_dir}/*-PLAN.md
 
 </verification_context>
+
+<paths>
+research_dir: ${research_dir}
+phase_dir: ${phase_dir}
+</paths>
 
 <expected_output>
 Return one of:

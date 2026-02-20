@@ -19,7 +19,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init progress --include state,roadmap,project,config)
 ```
 
-Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`.
+Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `phases_dir`, `phase_dir`.
 
 **File contents (from --include):** `state_content`, `roadmap_content`, `project_content`, `config_content`. These are null if files don't exist.
 
@@ -142,9 +142,9 @@ CONTEXT: [Y if has_context | - if not]
 **Step 1: Count plans, summaries, and issues in current phase**
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null | wc -l
+ls -1 ${phase_dir}/*-PLAN.md 2>/dev/null | wc -l
+ls -1 ${phase_dir}/*-SUMMARY.md 2>/dev/null | wc -l
+ls -1 ${phase_dir}/*-UAT.md 2>/dev/null | wc -l
 ```
 
 **Step 2: Route based on counts**

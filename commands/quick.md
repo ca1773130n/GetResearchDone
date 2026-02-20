@@ -4,7 +4,7 @@ argument-hint: <task description>
 ---
 
 <purpose>
-Execute small, ad-hoc tasks with GRD guarantees (atomic commits, STATE.md tracking) while skipping optional agents (research, plan-checker, verifier). Quick mode spawns grd-planner (quick mode) + grd-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
+Execute small, ad-hoc tasks with GRD guarantees (atomic commits, STATE.md tracking) while skipping optional agents (research, plan-checker, verifier). Quick mode spawns grd-planner (quick mode) + grd-executor(s), tracks tasks in `${quick_dir}/`, and updates STATE.md's "Quick Tasks Completed" table.
 </purpose>
 
 <required_reading>
@@ -53,7 +53,7 @@ mkdir -p "${task_dir}"
 **Step 4: Create quick task directory**
 
 ```bash
-QUICK_DIR=".planning/quick/${next_num}-${slug}"
+QUICK_DIR="${quick_dir}/${next_num}-${slug}"
 mkdir -p "$QUICK_DIR"
 ```
 
@@ -159,7 +159,7 @@ Ready for next task: /grd:quick
 <success_criteria>
 - [ ] ROADMAP.md validation passes
 - [ ] User provides task description
-- [ ] Directory created at `.planning/quick/NNN-slug/`
+- [ ] Directory created at `${quick_dir}/NNN-slug/`
 - [ ] `${next_num}-PLAN.md` created by planner
 - [ ] `${next_num}-SUMMARY.md` created by executor
 - [ ] STATE.md updated with quick task row

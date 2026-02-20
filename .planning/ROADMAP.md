@@ -150,11 +150,13 @@ Plans:
 
 **Plans:** 4 plans
 
+**Status:** COMPLETE (2026-02-20)
+
 Plans:
-- [ ] 34-01-PLAN.md — Migrate 11 research-focused command files to init-derived path variables
-- [ ] 34-02-PLAN.md — Migrate 17 remaining command files (phase, codebase, todos, quick paths)
-- [ ] 34-03-PLAN.md — Migrate all 16 agent markdown files to context-injected path variables
-- [ ] 34-04-PLAN.md — Comprehensive verification sweep across all 44 files + fixups
+- [x] 34-01-PLAN.md — Migrate 11 research-focused command files to init-derived path variables
+- [x] 34-02-PLAN.md — Migrate 17 remaining command files (phase, codebase, todos, quick paths)
+- [x] 34-03-PLAN.md — Migrate all 16 agent markdown files to context-injected path variables
+- [x] 34-04-PLAN.md — Comprehensive verification sweep across all 44 files + fixups
 
 **Success Criteria:**
 1. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `commands/*.md` file (paths consumed from init context variables instead)
@@ -223,7 +225,7 @@ Plans:
 |-------|------|--------|--------------|
 | 32 | Centralized Path Resolution Module | Pending | REQ-46, REQ-47, REQ-48, REQ-49, REQ-50, REQ-67 |
 | 33 | lib/ Module Migration | Pending | REQ-51, REQ-52, REQ-53, REQ-54, REQ-55, REQ-56 |
-| 34 | Command & Agent Markdown Migration | Pending | REQ-57, REQ-58 |
+| 34 | Command & Agent Markdown Migration | **Complete** | REQ-57, REQ-58 |
 | 35 | Migration Script & Archive Simplification | Pending | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
 | 36 | Test Updates, Documentation & Integration Validation | Pending | REQ-64, REQ-65, REQ-66, REQ-68, REQ-69 |
 
@@ -233,3 +235,4 @@ Plans:
 |---------------|-----------|-----------------|--------|
 | Phase 8 (DEFER-08-01) | User acceptance testing of TUI dashboard commands | post-v1.0 | Pending (not in scope) |
 | Phase 30 (DEFER-30-01) | Full parallel execution with real teammate spawning on Claude Code | Future | PARTIALLY RESOLVED (v0.2.0, runtime gap) |
+| Phase 34 (DEFER-34-01) | E2E runtime validation that commands resolve init-derived path variables to milestone-scoped directories | Phase 36 | Pending |

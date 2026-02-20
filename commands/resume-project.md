@@ -25,7 +25,7 @@ Instantly restore full project context so "Where were we?" has an immediate, com
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init resume)
 ```
 
-Parse JSON for: `state_exists`, `roadmap_exists`, `project_exists`, `planning_exists`, `has_interrupted_agent`, `interrupted_agent_id`, `commit_docs`.
+Parse JSON for: `state_exists`, `roadmap_exists`, `project_exists`, `planning_exists`, `has_interrupted_agent`, `interrupted_agent_id`, `commit_docs`, `phases_dir`, `todos_dir`.
 
 **If `state_exists` is true:** Proceed to load_state
 **If `state_exists` is false but `roadmap_exists` or `project_exists` is true:** Offer to reconstruct STATE.md
@@ -45,9 +45,9 @@ Extract: Project Reference, Current Position, Progress, Recent Decisions, Pendin
 
 <step name="check_incomplete_work">
 ```bash
-ls .planning/phases/*/.continue-here*.md 2>/dev/null
+ls ${phases_dir}/*/.continue-here*.md 2>/dev/null
 
-for plan in .planning/phases/*/*-PLAN.md; do
+for plan in ${phases_dir}/*/*-PLAN.md; do
   summary="${plan/PLAN/SUMMARY}"
   [ ! -f "$summary" ] && echo "Incomplete: $plan"
 done 2>/dev/null
@@ -91,7 +91,7 @@ Based on user selection, route to appropriate workflow:
 
 - **Execute plan** -> `/grd:execute-phase {phase}`
 - **Plan phase** -> `/grd:plan-phase [phase-number]`
-- **Check todos** -> Read .planning/todos/pending/
+- **Check todos** -> Read ${todos_dir}/pending/
 - **Something else** -> Ask what they need
 
 All routes suggest `/clear` first for fresh context.
