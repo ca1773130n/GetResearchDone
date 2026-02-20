@@ -152,7 +152,9 @@ Plans:
   3. Code review settings (`timing`, `severity_gate`, `auto_fix_warnings`) appear as interview questions and are written to config.json correctly
   4. Confirmation gate toggles (commit_confirmation, file_deletion, phase_completion, target_adjustment, approach_change) appear as interview questions and are written to config.json correctly
   5. Running the full settings interview produces a valid config.json with all new sections populated
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 40-01-PLAN.md — Rewrite settings interview: replace git branching with worktree isolation, add execution/code-review/confirmation-gate questions, update config write and summary display
 
 ### Phase 41: Command & Documentation Updates
 **Goal**: The execute-phase command uses the new completion flow, CLAUDE.md reflects the new git model, and the new-milestone phase scanning bug is fixed
@@ -174,7 +176,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 38. Core Git Workflow Revision | 0/2 | Not started | - |
 | 39. Completion Flow | 0/2 | Not started | - |
-| 40. Settings Interview Revision | 0/TBD | Not started | - |
+| 40. Settings Interview Revision | 0/1 | Not started | - |
 | 41. Command & Documentation Updates | 0/TBD | Not started | - |
 
 ## Deferred Validations
