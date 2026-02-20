@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 35 — Migration Script & Archive Simplification (IN PROGRESS)
+- **Active phase:** Phase 35 — Migration Script & Archive Simplification (COMPLETE)
 - **Milestone:** v0.2.1 — Hierarchical Planning Directory
 - **Current Plan:** 35-03 (complete) — 3 of 3 plans
-- **Progress:** [====......] 4/5 phases (Phase 35 complete)
-- **Next:** Phase 36 (integration testing)
+- **Progress:** [========..] 4/5 phases (Phase 35 complete)
+- **Next:** Phase 36 (Test Updates, Documentation & Integration Validation)
 
 ## Deferred Validations
 
@@ -73,10 +73,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 35-03-PLAN.md (wire migrate-dirs CLI command and full verification)
-- **Stopped at:** Completed 35-03-PLAN.md — Phase 35 fully complete
-- **Next action:** Phase 36 integration testing or milestone completion
-- **Context needed:** 1,631 tests passing (3 new integration tests for migrate-dirs); all Phase 35 requirements REQ-59 through REQ-63 verified; migrate-dirs CLI command wired and working
+- **Last action:** Executed all 3 plans of Phase 35 (migration script, archive simplification, CLI wiring)
+- **Stopped at:** Completed Phase 35 — all 3 plans, code review PASS, verification PASS
+- **Next action:** Proceed to Phase 36 (Test Updates, Documentation & Integration Validation)
+- **Context needed:** 1,631 tests passing (16 new in Phase 35); cmdMigrateDirs moves 5 old-style dirs to milestone hierarchy; cmdMilestoneComplete skips redundant copy + writes archived.json; migrate-dirs CLI command wired; REQ-59 through REQ-63 all satisfied
 
 ---
 

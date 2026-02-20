@@ -178,10 +178,12 @@ Plans:
 
 **Plans:** 3 plans
 
+**Status:** COMPLETE (2026-02-20)
+
 Plans:
-- [ ] 35-01-PLAN.md -- TDD: Implement cmdMigrateDirs migration command (REQ-61, REQ-62, REQ-63)
-- [ ] 35-02-PLAN.md -- TDD: Simplify cmdMilestoneComplete archive logic and add archive marker (REQ-59, REQ-60)
-- [ ] 35-03-PLAN.md -- Wire migrate-dirs to CLI router and full verification sweep
+- [x] 35-01-PLAN.md -- TDD: Implement cmdMigrateDirs migration command (REQ-61, REQ-62, REQ-63)
+- [x] 35-02-PLAN.md -- TDD: Simplify cmdMilestoneComplete archive logic and add archive marker (REQ-59, REQ-60)
+- [x] 35-03-PLAN.md -- Wire migrate-dirs to CLI router and full verification sweep
 
 **Success Criteria:**
 1. `node bin/grd-tools.js migrate-dirs` moves `.planning/phases/`, `.planning/quick/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/` to their correct milestone-scoped locations using `currentMilestone()` from STATE.md
@@ -226,7 +228,7 @@ Plans:
 | 32 | Centralized Path Resolution Module | Pending | REQ-46, REQ-47, REQ-48, REQ-49, REQ-50, REQ-67 |
 | 33 | lib/ Module Migration | Pending | REQ-51, REQ-52, REQ-53, REQ-54, REQ-55, REQ-56 |
 | 34 | Command & Agent Markdown Migration | **Complete** | REQ-57, REQ-58 |
-| 35 | Migration Script & Archive Simplification | Pending | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
+| 35 | Migration Script & Archive Simplification | **Complete** | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
 | 36 | Test Updates, Documentation & Integration Validation | Pending | REQ-64, REQ-65, REQ-66, REQ-68, REQ-69 |
 
 ## Deferred Validations

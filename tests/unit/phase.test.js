@@ -403,6 +403,62 @@ describe('cmdMilestoneComplete', () => {
     expect(result.archived.phases).toBe(true);
     expect(result.archived.phase_count).toBeGreaterThanOrEqual(2);
   });
+
+  test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
+    // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
+    const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');
+    fs.mkdirSync(msDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(msDir, '01-01-PLAN.md'),
+      '---\nphase: 01-test\nplan: 01\nwave: 1\n---\n# Plan\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(msDir, '01-01-SUMMARY.md'),
+      '---\none-liner: "Test summary"\n---\n# Summary\n\n## Task 1\nDone.\n',
+      'utf-8'
+    );
+
+    // Remove old-style phases so only milestone-scoped phases exist
+    const oldPhasesDir = path.join(tmpDir, '.planning', 'phases');
+    fs.rmSync(oldPhasesDir, { recursive: true, force: true });
+    fs.mkdirSync(oldPhasesDir, { recursive: true });
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+
+    // Should indicate phases were already in place
+    expect(result.phases_already_in_place).toBe(true);
+
+    // Should NOT create redundant v1.0-phases/ archive
+    const redundantArchive = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    expect(fs.existsSync(redundantArchive)).toBe(false);
+
+    // Original milestone phase dir should still exist (not deleted)
+    expect(fs.existsSync(msDir)).toBe(true);
+  });
+
+  test('writes archived.json marker in milestone directory on completion', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const markerPath = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'archived.json');
+    expect(fs.existsSync(markerPath)).toBe(true);
+
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+    expect(marker.version).toBe('v1.0');
+    expect(marker).toHaveProperty('archived_date');
+    expect(marker).toHaveProperty('phases');
+  });
+
+  test('archived.json marker is readable and contains expected fields', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const markerPath = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'archived.json');
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+
+    expect(marker.version).toBe('v1.0');
+    expect(typeof marker.archived_date).toBe('string');
+    expect(typeof marker.phases).toBe('number');
+    expect(typeof marker.plans).toBe('number');
+  });
 });
 
 // ─── cmdValidateConsistency ──────────────────────────────────────────────────
