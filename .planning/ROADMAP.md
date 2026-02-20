@@ -94,6 +94,11 @@ Phases 27-31 delivered worktree-isolated phase execution with parallel teammate 
 
 **Verification Level:** sanity
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 32-01-PLAN.md — TDD implementation of lib/paths.js with 9 path resolver functions and comprehensive test suite
+
 **Success Criteria:**
 1. `lib/paths.js` exports all 7+ path resolver functions (`phasesDir`, `phaseDir`, `researchDir`, `codebaseDir`, `todosDir`, `quickDir`, `milestonesDir`) and each returns the correct absolute path under `.planning/milestones/{milestone}/`
 2. `currentMilestone(cwd)` reads STATE.md and returns the active milestone name; returns `"anonymous"` when no milestone is active
