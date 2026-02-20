@@ -258,6 +258,19 @@ describe('buildParallelContext', () => {
     expect(result.phases[1].worktree_path).toBeTruthy();
   });
 
+  test('phases array contains per-phase context with target_branch', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2']);
+    expect(result.phases[0].target_branch).toBeDefined();
+    expect(result.phases[1].target_branch).toBeDefined();
+    // Default strategy is 'phase', so target_branch should be base_branch ('main')
+    expect(result.phases[0].target_branch).toBe('main');
+    expect(result.phases[1].target_branch).toBe('main');
+  });
+
   test('phases array contains per-phase context with phase_number and phase_name', () => {
     fixtureDir = createFixtureDir();
     writeRoadmapAndPhases(fixtureDir);
