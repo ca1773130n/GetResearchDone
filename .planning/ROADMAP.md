@@ -120,12 +120,14 @@ Plans:
 
 **Plans:** 5 plans
 
+**Status:** COMPLETE (2026-02-20)
+
 Plans:
-- [ ] 33-01-PLAN.md — Backward-compatible fallback in paths.js + migrate lib/utils.js, lib/state.js, lib/gates.js
-- [ ] 33-02-PLAN.md — Migrate lib/phase.js (11 hardcoded paths)
-- [ ] 33-03-PLAN.md — Migrate lib/commands.js (16 occurrences) + lib/scaffold.js (4 occurrences)
-- [ ] 33-04-PLAN.md — Migrate lib/context.js (15+ occurrences) + lib/cleanup.js, lib/roadmap.js, lib/tracker.js + init JSON enrichment (REQ-56)
-- [ ] 33-05-PLAN.md — Migrate bin/postinstall.js to new hierarchy + comprehensive verification sweep
+- [x] 33-01-PLAN.md — Backward-compatible fallback in paths.js + migrate lib/utils.js, lib/state.js, lib/gates.js
+- [x] 33-02-PLAN.md — Migrate lib/phase.js (11 hardcoded paths)
+- [x] 33-03-PLAN.md — Migrate lib/commands.js (16 occurrences) + lib/scaffold.js (4 occurrences)
+- [x] 33-04-PLAN.md — Migrate lib/context.js (15+ occurrences) + lib/cleanup.js, lib/roadmap.js, lib/tracker.js + init JSON enrichment (REQ-56)
+- [x] 33-05-PLAN.md — Migrate bin/postinstall.js to new hierarchy + comprehensive verification sweep
 
 **Success Criteria:**
 1. Zero occurrences of hardcoded `.planning/phases/` path construction remain in `lib/phase.js`, `lib/commands.js`, `lib/context.js`, `lib/utils.js`, `lib/scaffold.js`, `lib/cleanup.js`, `lib/gates.js`, `lib/roadmap.js`, `lib/state.js`, `lib/tracker.js`, `lib/verify.js`
