@@ -1292,6 +1292,86 @@ describe('mutating config commands', () => {
   });
 });
 
+// ─── Migrate-dirs Command ───────────────────────────────────────────────────
+
+describe('migrate-dirs command', () => {
+  let migDir;
+
+  beforeEach(() => {
+    migDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-mig-'));
+    const planningDir = path.join(migDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+
+    // Create minimal STATE.md with a milestone
+    fs.writeFileSync(
+      path.join(planningDir, 'STATE.md'),
+      '# State\n\n## Current Position\n\n- **Milestone:** v1.0.0 — Test\n'
+    );
+
+    // Create minimal config.json
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+
+    // Create old-style directories with content
+    const phasesDir = path.join(planningDir, 'phases', '01-test');
+    fs.mkdirSync(phasesDir, { recursive: true });
+    fs.writeFileSync(path.join(phasesDir, '01-01-PLAN.md'), '---\nphase: 01-test\n---\n');
+
+    const researchDir = path.join(planningDir, 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape\n');
+  });
+
+  afterEach(() => {
+    cleanupDir(migDir);
+  });
+
+  test('migrate-dirs command produces valid JSON with moved directories', () => {
+    const { stdout, exitCode } = runCLI(['migrate-dirs'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('milestone', 'v1.0.0');
+    expect(data).toHaveProperty('moved_directories');
+    expect(data).toHaveProperty('skipped');
+    expect(data).toHaveProperty('errors');
+    expect(data.errors).toEqual([]);
+
+    // Verify phases were moved
+    const phasesMoved = data.moved_directories.find((d) => d.from === 'phases');
+    expect(phasesMoved).toBeDefined();
+    expect(phasesMoved.to).toBe(path.join('milestones', 'v1.0.0', 'phases'));
+
+    // Verify target file exists
+    expect(
+      fs.existsSync(
+        path.join(migDir, '.planning', 'milestones', 'v1.0.0', 'phases', '01-test', '01-01-PLAN.md')
+      )
+    ).toBe(true);
+  });
+
+  test('migrate-dirs --raw produces valid JSON', () => {
+    const { stdout, exitCode } = runCLI(['migrate-dirs', '--raw'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('milestone');
+    expect(data).toHaveProperty('moved_directories');
+  });
+
+  test('migrate-dirs is idempotent on second run', () => {
+    // First run migrates
+    runCLI(['migrate-dirs'], migDir);
+
+    // Second run should report already_migrated
+    const { stdout, exitCode } = runCLI(['migrate-dirs'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.already_migrated).toBe(true);
+    expect(data.moved_directories).toEqual([]);
+  });
+});
+
 // ─── Git-dependent Commands ─────────────────────────────────────────────────
 
 describe('git-dependent commands', () => {
