@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-19
+**Updated:** 2026-02-20
 
 ## Vision
 
@@ -23,16 +23,33 @@ A Claude Code plugin providing:
 - 112 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - Validation gate system with pre-flight checks preventing phase directory collisions across milestones
-- Phase directory archival on milestone completion (archived to `.planning/milestones/{version}-phases/`)
+- Milestone-scoped directory hierarchy: all `.planning/` artifacts under `.planning/milestones/{milestone}/`
+- Centralized path resolver (`lib/paths.js`) with backward-compatible fallback
+- `migrate-dirs` command for upgrading old-style `.planning/` layouts to new hierarchy
+- Simplified milestone archival with `archived.json` marker (no redundant phase directory copy)
 - Git worktree isolation for phase execution with temp directory management
 - Phase dependency analysis with parallel group detection (Kahn's algorithm)
 - Parallel phase execution via teammate spawning (Claude Code) with sequential fallback (other backends)
 - PR workflow from worktree branches with automatic push and creation
-- 130+ CLI commands across 17 modular lib/ modules
+- 130+ CLI commands across 19 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.1)
+
+**Shipped:** 2026-02-20
+
+v0.2.1 migrated all `.planning/` subdirectory paths to a strict milestone-scoped hierarchy:
+- `lib/paths.js`: centralized path resolver with 9 functions (`phasesDir`, `phaseDir`, `researchDir`, `codebaseDir`, `todosDir`, `quickDir`, `milestonesDir`, `currentMilestone`, `archivedPhasesDir`) and filesystem-aware backward-compatible fallback
+- All 18 lib/ modules, 44 command files, and 16 agent files migrated to use `paths.js` instead of hardcoded strings
+- All `cmdInit*` functions output milestone-scoped paths (`phases_dir`, `research_dir`, `codebase_dir`, `quick_dir`, `todos_dir`) in JSON
+- `migrate-dirs` CLI command for upgrading existing old-style `.planning/` layouts (idempotent, merge-without-overwrite)
+- Simplified `cmdMilestoneComplete`: phases already in place under `milestones/{version}/phases/`, writes `archived.json` marker, no redundant copy
+- Test fixture directory migrated to `milestones/anonymous/` hierarchy, all golden outputs regenerated
+- 3 deferred validations resolved (DEFER-34-01, DEFER-35-01, DEFER-35-02)
+- 1,631 tests passing (54 new), 19 lib/ modules
 
 ## Previous State (v0.2.0)
 
@@ -114,7 +131,29 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
-## Validated Goals (v0.2.0)
+## Validated Goals (v0.2.1)
+
+- [x] `lib/paths.js` with 9 path resolver functions, `currentMilestone(cwd)` reading STATE.md, `archivedPhasesDir` for legacy data
+- [x] All path functions accept explicit `cwd` and `milestone` params; defaults to `currentMilestone(cwd)`
+- [x] `quickDir` always routes to `milestones/anonymous/quick/` regardless of active milestone
+- [x] Filesystem-aware fallback: checks `milestoneExistsOnDisk` before returning new-style paths
+- [x] Zero hardcoded `.planning/phases/` path constructions in any lib/ module (all use `paths.js`)
+- [x] All 14 `cmdInit*` functions output `phases_dir`, `research_dir`, `codebase_dir`, `quick_dir`, `todos_dir` fields
+- [x] All 44 command markdown files consume paths from init context (no hardcoded directory strings)
+- [x] All 16 agent markdown files consume paths from context-injected variables
+- [x] `grd-tools migrate-dirs` moves 5 directory types to milestone-scoped locations with idempotency
+- [x] `cmdMilestoneComplete` writes `archived.json` marker; no redundant phase directory copy when phases already in place
+- [x] `bin/postinstall.js` creates new hierarchy structure (`milestones/anonymous/quick/`, `milestones/anonymous/research/`, `milestones/anonymous/todos/`)
+- [x] Test fixtures migrated to `milestones/anonymous/phases/` hierarchy
+- [x] All golden outputs regenerated via capture.sh with milestone-scoped paths
+- [x] CLAUDE.md Planning Directory section reflects milestone-scoped hierarchy
+- [x] DEFER-34-01 resolved: init commands produce milestone-scoped paths end-to-end
+- [x] DEFER-35-01 resolved: migrate-dirs works on real old-style layout with idempotency
+- [x] DEFER-35-02 resolved: milestone completion writes archived.json, no redundant copy
+- [x] 1,631 tests passing across 32 suites (54 new tests, zero regressions)
+
+<details>
+<summary>Validated Goals (v0.2.0)</summary>
 
 - [x] `lib/worktree.js` with create, remove, list, stale cleanup and `fs.realpathSync(os.tmpdir())` for macOS symlink resolution
 - [x] `cmdInitExecutePhase` outputs `worktree_path` and `worktree_branch` fields when branching enabled
@@ -130,6 +169,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] 946-line E2E integration test suite validating full worktree-parallel pipeline
 - [x] 144 new tests (1,577 total) across 30 suites
 - [x] 4 deferred validations resolved (DEFER-22-01, DEFER-27-01, DEFER-27-02, DEFER-30-01 partially)
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.1.6)</summary>
@@ -232,37 +273,9 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Current Milestone: v0.2.1 — Hierarchical Planning Directory
+## Current Milestone
 
-**Goal:** Enforce a strict, milestone-scoped directory hierarchy for all `.planning/` artifacts. Every execution output (phases, quick tasks, research, codebase analysis, todos) must live under `.planning/milestones/{milestone_name}/`. No more scattered top-level directories.
-
-**Target structure:**
-```
-.planning/
-├── PROJECT.md, STATE.md, ROADMAP.md, MILESTONES.md, config.json  (project-level)
-├── REQUIREMENTS.md, BASELINE.md, PRODUCT-QUALITY.md              (project-level)
-├── LONG-TERM-ROADMAP.md                                          (project-level)
-├── milestones/
-│   ├── {milestone}/
-│   │   ├── phases/{phase_name}/          ← phase artifacts
-│   │   ├── research/                     ← milestone-scoped research
-│   │   ├── codebase/                     ← milestone-scoped codebase analysis
-│   │   └── todos/                        ← milestone-scoped todos
-│   └── anonymous/
-│       ├── quick/{task_name}/            ← quick tasks without milestone
-│       ├── research/                     ← project-level research (LANDSCAPE.md, etc.)
-│       └── todos/                        ← orphan todos
-```
-
-**Key changes:**
-- Remove `.planning/phases/` — active phases go directly to `.planning/milestones/{current}/phases/`
-- Remove `.planning/quick/` — quick tasks go to `.planning/milestones/anonymous/quick/`
-- Remove `.planning/research/` — research goes to milestone-scoped dir or `anonymous/research/`
-- Remove `.planning/codebase/` — codebase analysis goes to milestone-scoped dir
-- Remove `.planning/todos/` — todos go to milestone-scoped dir or `anonymous/todos/`
-- All lib/ path construction must use a centralized path resolver
-- All command/agent markdown files must reference the new hierarchy
-- All tests must pass with zero regressions
+None active. Use `/grd:new-milestone` to start the next milestone.
 
 ## Open Items
 
@@ -297,3 +310,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.5 milestone shipped: 2026-02-17*
 *v0.1.6 milestone shipped: 2026-02-19*
 *v0.2.0 milestone shipped: 2026-02-19*
+*v0.2.1 milestone shipped: 2026-02-20*

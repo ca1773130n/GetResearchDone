@@ -214,3 +214,13 @@
 
 ---
 
+
+## v0.2.1 Hierarchical Planning Directory (Shipped: 2026-02-20)
+
+**Phases completed:** 5 phases, 17 plans, 12 tasks
+
+**Key accomplishments:**
+- Simplified milestone archive to skip redundant copy when phases already in place, with archived.json marker
+
+---
+
