@@ -6,9 +6,9 @@
 
 - **Active phase:** Phase 38 — Core Git Workflow Revision
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
-- **Current Plan:** None (ready to plan)
+- **Current Plan:** 1 of 2 in Phase 38 (Plan 01 complete)
 - **Progress:** [          ] 0/4 phases
-- **Next:** Plan Phase 38
+- **Next:** Execute Plan 02 of Phase 38
 
 ## Deferred Validations
 
@@ -23,12 +23,15 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 
 - **37-01:** quickDir() now takes optional milestone param, defaulting to currentMilestone(cwd)
 - **37-01:** cmdMigrateDirs quick/ target changed from hardcoded 'anonymous' to milestone variable
+- **38-01:** Project-local .worktrees/ directory replaces tmpdir-based worktree locations
+- **38-01:** Nested git config section with backward-compatible top-level key precedence
+- **38-01:** createMilestoneBranch and resolveTargetBranch return result objects (no process.exit) for testability
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 11 (v0.0.5 through v0.2.2)
-- Total tests: 1,634
+- Total tests: 1,650
 - Total lib/ modules: 19
 
 ## Quick Tasks Completed
@@ -43,10 +46,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created roadmap for v0.2.3
-- **Stopped at:** Roadmap created, ready to plan Phase 38
-- **Next action:** `/grd:plan-phase 38`
-- **Context needed:** v0.2.3 revises git workflow (unified worktree model, project-local .worktrees/, completion options) and settings interview; 4 phases (38-41), 13 requirements (REQ-70 through REQ-82)
+- **Last action:** Executed Phase 38 Plan 01 (config schema, worktree paths, branch helpers)
+- **Stopped at:** Completed 38-01-PLAN.md (3/3 tasks)
+- **Next action:** Execute Plan 02 of Phase 38 (context output updates)
+- **Context needed:** Plan 01 migrated config to nested git section, moved worktrees to .worktrees/, added createMilestoneBranch/resolveTargetBranch. Plan 02 consumes these new shapes.
 
 ---
 
