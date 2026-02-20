@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 37 — quickDir Routing & Migration Skill (COMPLETE)
-- **Milestone:** v0.2.2 — quickDir Routing Fix & Migration Skill
-- **Current Plan:** 37-01 (complete) — 1 of 1 plans
-- **Progress:** [==========] 1/1 phases (all complete)
-- **Next:** Milestone complete for v0.2.2
+- **Active phase:** Not started (defining requirements)
+- **Milestone:** v0.2.3 — Improve Settings & Git Workflow
+- **Current Plan:** None
+- **Progress:** [          ] 0/? phases
+- **Next:** Define requirements and create roadmap
 
 ## Deferred Validations
 
@@ -87,10 +87,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 37-01-PLAN.md (quickDir routing fix, cmdMigrateDirs fix, migration skill + agent)
-- **Stopped at:** Completed 37-01-PLAN.md — Phase 37 complete, 1,634 tests passing
-- **Next action:** Milestone complete for v0.2.2
-- **Context needed:** Phase 37 complete; quickDir uses currentMilestone; cmdMigrateDirs routes quick/ to milestone; /grd:migrate skill and grd-migrator agent created
+- **Last action:** Started milestone v0.2.3
+- **Stopped at:** Defining requirements
+- **Next action:** Define requirements, create roadmap
+- **Context needed:** v0.2.2 complete (1,634 tests); revising git workflow (superpowers-inspired) and settings interview
 
 ---
 

@@ -275,7 +275,15 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 ## Current Milestone
 
-None active. Use `/grd:new-milestone` to start the next milestone.
+**v0.2.3 — Improve Settings & Git Workflow**
+
+**Goal:** Revise the git worktree/branching strategy to be clear and consistent (modeled after superpowers plugin), and update the settings interview to reflect all current features.
+
+**Target features:**
+- Unified git workflow: worktree isolation for every phase execution, project-local `.worktrees/` directory, completion options (merge/PR/keep/discard)
+- Remove confusing branching_strategy/worktree overlap — single coherent model
+- Settings interview revision with all current features properly exposed
+- Config schema consolidation (git section, code review, eval, parallelization)
 
 ## Open Items
 
