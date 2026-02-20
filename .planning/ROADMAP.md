@@ -174,6 +174,13 @@ Plans:
 
 **Verification Level:** proxy
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 35-01-PLAN.md -- TDD: Implement cmdMigrateDirs migration command (REQ-61, REQ-62, REQ-63)
+- [ ] 35-02-PLAN.md -- TDD: Simplify cmdMilestoneComplete archive logic and add archive marker (REQ-59, REQ-60)
+- [ ] 35-03-PLAN.md -- Wire migrate-dirs to CLI router and full verification sweep
+
 **Success Criteria:**
 1. `node bin/grd-tools.js migrate-dirs` moves `.planning/phases/`, `.planning/quick/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/` to their correct milestone-scoped locations using `currentMilestone()` from STATE.md
 2. Running `migrate-dirs` a second time on an already-migrated directory produces no changes and exits successfully (idempotent)
