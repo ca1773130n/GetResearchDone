@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 34 — Command & Agent Markdown Migration (COMPLETE)
+- **Active phase:** Phase 35 — Migration Script & Archive Simplification (IN PROGRESS)
 - **Milestone:** v0.2.1 — Hierarchical Planning Directory
-- **Current Plan:** 34-04 (complete) — 4 of 4 plans
-- **Progress:** [==........] 2/5 phases (Phase 34 complete)
-- **Next:** Phase 35 (physical directory migration) or Phase 36 (integration)
+- **Current Plan:** 35-01 (complete) — 1 of 2 plans
+- **Progress:** [===.......] 3/5 phases (Phase 35 in progress)
+- **Next:** 35-02 (archive simplification)
 
 ## Deferred Validations
 
@@ -44,6 +44,10 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **34-03:** Used ${research_dir}, ${phases_dir}, ${phase_dir}, ${codebase_dir} variable names consistent with orchestrator PATHS blocks from plan 34-02
 - **34-03:** Preserved .planning/ top-level file references (STATE.md, BASELINE.md, etc.) as they are not subdirectory paths targeted by this migration
 - **34-04:** No fixups needed — all 9 grep sweeps returned zero results, confirming Plans 01-03 were thorough
+- **35-01:** cmdMigrateDirs uses currentMilestone() from paths.js for target milestone detection
+- **35-01:** Old directories left empty after migration (not deleted) for backward compat during transition
+- **35-01:** Merge strategy: skip entries that already exist at destination rather than overwrite
+- **35-01:** quick/ always routes to milestones/anonymous/quick/ regardless of active milestone
 
 ## Performance Metrics
 
@@ -64,12 +68,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 34-04-PLAN.md (verification sweep — zero hardcoded paths confirmed)
-- **Stopped at:** Completed 34-04-PLAN.md — Phase 34 fully complete
-- **Next action:** Proceed to Phase 35 (physical directory migration) or Phase 36 (integration)
-- **Context needed:** 1,615 tests passing; all 45 command + 19 agent markdown files use init-derived or context-injected paths; zero hardcoded .planning/ subdirectory paths in commands/ or agents/; REQ-57 and REQ-58 satisfied
+- **Last action:** Executed 35-01-PLAN.md (cmdMigrateDirs implementation with TDD)
+- **Stopped at:** Completed 35-01-PLAN.md -- cmdMigrateDirs implemented and tested
+- **Next action:** Execute 35-02-PLAN.md (archive simplification)
+- **Context needed:** 1,625 tests passing (10 new for cmdMigrateDirs); cmdMigrateDirs moves 5 old-style dirs to milestone hierarchy; REQ-61, REQ-62, REQ-63 satisfied
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-20T07:45Z*
