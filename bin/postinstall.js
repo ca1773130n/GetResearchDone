@@ -18,11 +18,14 @@ const PLANNING_DIR = path.join(process.cwd(), '.planning');
 
 const DIRECTORIES = [
   '.planning',
-  '.planning/phases',
-  '.planning/research',
-  '.planning/research/deep-dives',
-  '.planning/codebase',
-  '.planning/todos',
+  '.planning/milestones',
+  '.planning/milestones/anonymous',
+  '.planning/milestones/anonymous/phases',
+  '.planning/milestones/anonymous/research',
+  '.planning/milestones/anonymous/research/deep-dives',
+  '.planning/milestones/anonymous/codebase',
+  '.planning/milestones/anonymous/todos',
+  '.planning/milestones/anonymous/quick',
 ];
 
 const DEFAULT_CONFIG = {

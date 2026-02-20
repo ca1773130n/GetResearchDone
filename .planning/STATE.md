@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** None (between milestones)
-- **Milestone:** v0.2.0 — Git Worktree Parallel Execution (SHIPPED)
-- **Current Plan:** -
-- **Progress:** v0.2.0 complete
-- **Next:** Start next milestone with `/grd:new-milestone`
+- **Active phase:** Phase 32 — Centralized Path Resolution Module
+- **Milestone:** v0.2.1 — Hierarchical Planning Directory
+- **Current Plan:** 32-01 (complete)
+- **Progress:** [..........] 0/5 phases (32-01 complete, pending phase completion)
+- **Next:** Execute remaining Phase 32 plans or proceed to Phase 33
 
 ## Deferred Validations
 
@@ -21,12 +21,16 @@
 
 See `.planning/MILESTONES.md` for historical decisions per milestone.
 
+- **32-01:** No lib/ dependencies in paths.js — reads STATE.md directly to avoid circular imports
+- **32-01:** currentMilestone returns 'anonymous' as fallback for all failure cases
+- **32-01:** quickDir signature takes only cwd (no milestone param) — always uses 'anonymous'
+
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 9 (v0.0.5 through v0.2.0)
-- Total tests: 1,577
-- Total lib/ modules: 17
+- Total tests: 1,608
+- Total lib/ modules: 18
 
 ## Quick Tasks Completed
 
@@ -40,10 +44,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed v0.2.0 milestone
-- **Stopped at:** Milestone archived, tagged, committed
-- **Next action:** Start next milestone with `/grd:new-milestone`
-- **Context needed:** 1,577 tests passing; 112 MCP tools; 17 lib/ modules
+- **Last action:** Executed 32-01-PLAN.md (centralized path resolution module)
+- **Stopped at:** Completed 32-01-PLAN.md — lib/paths.js implemented with TDD
+- **Next action:** Execute remaining Phase 32 plans or proceed to Phase 33 (migrate modules to paths)
+- **Context needed:** 1,608 tests passing; 18 lib/ modules; lib/paths.js provides 9 path resolution functions; 100% coverage; Phase 33 will migrate existing modules to use paths.js
 
 ---
 

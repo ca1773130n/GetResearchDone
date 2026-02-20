@@ -11,6 +11,7 @@
 - v0.1.5 Long-Term Roadmap Redesign - Phases 23-25 (shipped 2026-02-17)
 - v0.1.6 Phase Directory Collision Fix - Phase 26 (shipped 2026-02-19)
 - v0.2.0 Git Worktree Parallel Execution - Phases 27-31 (shipped 2026-02-19)
+- **v0.2.1 Hierarchical Planning Directory - Phases 32-36 (active)**
 
 ## Phases
 
@@ -76,6 +77,132 @@ Phase 26 added milestone-scoped phase directory archival and a validation gate s
 Phases 27-31 delivered worktree-isolated phase execution with parallel teammate spawning. New modules: lib/worktree.js (lifecycle management), lib/deps.js (dependency analysis with Kahn's algorithm), lib/parallel.js (parallel execution engine). PR workflow from worktrees, sequential fallback for non-Claude Code backends, 7 new MCP tools (112 total), 946-line E2E integration test suite, 144 new tests (1,577 total). See `.planning/milestones/v0.2.0-ROADMAP.md` for details.
 
 </details>
+
+### v0.2.1 Hierarchical Planning Directory (Phases 32-36)
+
+**Goal:** Migrate all `.planning/` subdirectory paths to a strict milestone-scoped hierarchy via a centralized path resolver, eliminating scattered top-level directories.
+
+---
+
+#### Phase 32: Centralized Path Resolution Module
+
+**Goal:** A single `lib/paths.js` module exists that all other modules can import to resolve any `.planning/` subdirectory path, with milestone-scoping and backward compatibility.
+
+**Dependencies:** None (foundation phase)
+
+**Requirements:** REQ-46, REQ-47, REQ-48, REQ-49, REQ-50, REQ-67
+
+**Verification Level:** sanity
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 32-01-PLAN.md — TDD implementation of lib/paths.js with 9 path resolver functions and comprehensive test suite
+
+**Success Criteria:**
+1. `lib/paths.js` exports all 7+ path resolver functions (`phasesDir`, `phaseDir`, `researchDir`, `codebaseDir`, `todosDir`, `quickDir`, `milestonesDir`) and each returns the correct absolute path under `.planning/milestones/{milestone}/`
+2. `currentMilestone(cwd)` reads STATE.md and returns the active milestone name; returns `"anonymous"` when no milestone is active
+3. `archivedPhasesDir(cwd, version)` returns the correct path for legacy archived milestone data (`.planning/milestones/{version}-phases/`)
+4. All path functions accept explicit `cwd` and `milestone` parameters; `milestone` defaults to `currentMilestone(cwd)` when omitted
+5. `tests/unit/paths.test.js` exists with >90% line coverage on `lib/paths.js`
+
+---
+
+#### Phase 33: lib/ Module Migration
+
+**Goal:** Every lib/ module that constructs `.planning/` subdirectory paths uses `paths.js` instead of hardcoded strings, and all init functions output milestone-scoped paths in their JSON responses.
+
+**Dependencies:** Phase 32
+
+**Requirements:** REQ-51, REQ-52, REQ-53, REQ-54, REQ-55, REQ-56
+
+**Verification Level:** proxy
+
+**Plans:** 5 plans
+
+**Status:** COMPLETE (2026-02-20)
+
+Plans:
+- [x] 33-01-PLAN.md — Backward-compatible fallback in paths.js + migrate lib/utils.js, lib/state.js, lib/gates.js
+- [x] 33-02-PLAN.md — Migrate lib/phase.js (11 hardcoded paths)
+- [x] 33-03-PLAN.md — Migrate lib/commands.js (16 occurrences) + lib/scaffold.js (4 occurrences)
+- [x] 33-04-PLAN.md — Migrate lib/context.js (15+ occurrences) + lib/cleanup.js, lib/roadmap.js, lib/tracker.js + init JSON enrichment (REQ-56)
+- [x] 33-05-PLAN.md — Migrate bin/postinstall.js to new hierarchy + comprehensive verification sweep
+
+**Success Criteria:**
+1. Zero occurrences of hardcoded `.planning/phases/` path construction remain in `lib/phase.js`, `lib/commands.js`, `lib/context.js`, `lib/utils.js`, `lib/scaffold.js`, `lib/cleanup.js`, `lib/gates.js`, `lib/roadmap.js`, `lib/state.js`, `lib/tracker.js`, `lib/verify.js`
+2. `grep -r "path.join.*\\.planning.*phases" lib/` returns only `lib/paths.js` (all other modules delegate to it)
+3. All `cmdInit*` functions in `lib/context.js` include `phases_dir`, `research_dir`, `codebase_dir`, `quick_dir`, and `todos_dir` fields in their JSON output, and each points to a milestone-scoped directory
+4. `bin/postinstall.js` `DIRECTORIES` array creates the new hierarchy structure (`.planning/milestones/anonymous/quick/`, `.planning/milestones/anonymous/research/`, `.planning/milestones/anonymous/todos/`)
+5. All 1,577+ existing tests continue to pass (zero regressions confirmed by `npm test`)
+
+---
+
+#### Phase 34: Command & Agent Markdown Migration
+
+**Goal:** All command and agent markdown files reference milestone-scoped paths by consuming them from init context output rather than hardcoding directory strings.
+
+**Dependencies:** Phase 33
+
+**Requirements:** REQ-57, REQ-58
+
+**Verification Level:** sanity
+
+**Success Criteria:**
+1. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `commands/*.md` file (paths consumed from init context variables instead)
+2. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `agents/*.md` file
+3. All 20+ command markdown files and 14+ agent markdown files updated and syntactically valid
+4. `npm test` passes with zero regressions
+
+---
+
+#### Phase 35: Migration Script & Archive Simplification
+
+**Goal:** A `grd-tools migrate-dirs` command exists that moves existing top-level `.planning/` subdirectories to the new hierarchy, milestone completion no longer copies phase directories, and the migration is idempotent.
+
+**Dependencies:** Phase 33
+
+**Requirements:** REQ-59, REQ-60, REQ-61, REQ-62, REQ-63
+
+**Verification Level:** proxy
+
+**Success Criteria:**
+1. `node bin/grd-tools.js migrate-dirs` moves `.planning/phases/`, `.planning/quick/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/` to their correct milestone-scoped locations using `currentMilestone()` from STATE.md
+2. Running `migrate-dirs` a second time on an already-migrated directory produces no changes and exits successfully (idempotent)
+3. `cmdMilestoneComplete` no longer copies phase directories to a separate archive location (phases are already under `.planning/milestones/{version}/phases/`)
+4. Completed milestones are distinguishable from active ones (via rename to `{version}-archived/` or metadata marker)
+5. Migration correctly detects and uses the current milestone from STATE.md for placing active artifacts
+
+---
+
+#### Phase 36: Test Updates, Documentation & Integration Validation
+
+**Goal:** All tests pass against the new directory hierarchy with zero regressions, documentation reflects the new structure, and the full pipeline works end-to-end.
+
+**Dependencies:** Phase 33, Phase 34, Phase 35
+
+**Requirements:** REQ-64, REQ-65, REQ-66, REQ-68, REQ-69
+
+**Verification Level:** proxy
+
+**Success Criteria:**
+1. All unit tests that previously constructed `.planning/phases/` paths now use the new milestone-scoped hierarchy and pass
+2. All integration and golden tests updated to use the new hierarchy and pass
+3. `npm test` reports all 1,577+ tests passing with zero regressions (REQ-66)
+4. CLAUDE.md "Planning Directory" section accurately reflects the new hierarchy with `.planning/milestones/{milestone}/phases/`, `.planning/milestones/{milestone}/research/`, etc.
+5. All `docs/` files referencing old directory structure are updated to reflect the new hierarchy
+
+---
+
+### v0.2.1 Progress
+
+| Phase | Name | Status | Requirements |
+|-------|------|--------|--------------|
+| 32 | Centralized Path Resolution Module | Pending | REQ-46, REQ-47, REQ-48, REQ-49, REQ-50, REQ-67 |
+| 33 | lib/ Module Migration | Pending | REQ-51, REQ-52, REQ-53, REQ-54, REQ-55, REQ-56 |
+| 34 | Command & Agent Markdown Migration | Pending | REQ-57, REQ-58 |
+| 35 | Migration Script & Archive Simplification | Pending | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
+| 36 | Test Updates, Documentation & Integration Validation | Pending | REQ-64, REQ-65, REQ-66, REQ-68, REQ-69 |
 
 ## Deferred Validations
 
