@@ -57,7 +57,9 @@ const E2E_MILESTONE = 'v9.9.9';
  * Uses E2E_MILESTONE to avoid worktree path collisions with unit tests.
  */
 function createTestGitRepo() {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-'));
+  const rawTmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-'));
+  // Resolve to real path to handle macOS /var -> /private/var symlinks
+  const tmpRoot = fs.realpathSync(rawTmpRoot);
 
   execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
   execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -71,8 +73,11 @@ function createTestGitRepo() {
   fs.writeFileSync(
     path.join(planningDir, 'config.json'),
     JSON.stringify({
-      branching_strategy: 'phase',
-      phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+      git: {
+        branching_strategy: 'phase',
+        worktree_dir: '.worktrees/',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+      },
     }),
     'utf-8'
   );
@@ -145,12 +150,13 @@ function cleanupTestRepo(repoDir) {
     /* ignore */
   }
 
-  // Clean up any GRD worktree directories in tmpdir (only E2E milestone to avoid unit test interference)
+  // Clean up .worktrees/ inside the repo (worktrees are now project-local)
   try {
-    const entries = fs.readdirSync(REAL_TMPDIR);
-    for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes(E2E_MILESTONE)) {
-        const wtPath = path.join(REAL_TMPDIR, entry);
+    const wtDir = path.join(repoDir, '.worktrees');
+    if (fs.existsSync(wtDir)) {
+      const entries = fs.readdirSync(wtDir);
+      for (const entry of entries) {
+        const wtPath = path.join(wtDir, entry);
         try {
           execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
             cwd: repoDir,
@@ -272,12 +278,12 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '27', new Set(), false));
     const ctx = JSON.parse(stdout);
 
-    // worktree_path should match the format used by worktree.js
-    const expectedPath = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
+    // worktree_path should match the project-local format used by worktree.js
+    const expectedPath = path.join(repoDir, '.worktrees', `${E2E_MILESTONE}-27`);
     expect(ctx.worktree_path).toBe(expectedPath);
   });
 
-  test('worktree_path uses fs.realpathSync(os.tmpdir()) consistently between context.js and worktree.js', () => {
+  test('worktree_path uses project-local .worktrees/ consistently between context.js and worktree.js', () => {
     const { cmdInitExecutePhase } = require('../../lib/context');
 
     // Get the path from context.js
@@ -296,10 +302,10 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     );
     const wt = JSON.parse(wtOut);
 
-    // Both should use the resolved tmpdir (no macOS symlink mismatch)
+    // Both should use the project-local .worktrees/ directory
     expect(ctx.worktree_path).toBe(wt.path);
-    expect(ctx.worktree_path).toContain(REAL_TMPDIR);
-    expect(wt.path).toContain(REAL_TMPDIR);
+    expect(ctx.worktree_path).toContain('.worktrees');
+    expect(wt.path).toContain('.worktrees');
   });
 
   test('worktree_branch from context.js matches branch from worktree.js create', () => {
@@ -404,8 +410,8 @@ describe('E2E: Parallel execution of independent phases', () => {
     const path1 = ctx.phases[0].worktree_path;
     const path2 = ctx.phases[1].worktree_path;
     expect(path1).not.toBe(path2);
-    expect(path1).toContain('grd-worktree-');
-    expect(path2).toContain('grd-worktree-');
+    expect(path1).toContain('.worktrees');
+    expect(path2).toContain('.worktrees');
   });
 
   test('buildParallelContext returns DIFFERENT worktree_branch for each phase', () => {
@@ -454,7 +460,8 @@ describe('E2E: Parallel execution of independent phases', () => {
 
   test('concurrent worktree creation produces separate paths and branches (real git)', () => {
     // Need a real git repo for worktree operations
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-concurrent-'));
+    const rawTmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-concurrent-'));
+    const tmpRoot = fs.realpathSync(rawTmpRoot);
     execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
     execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
     execFileSync('git', ['config', 'user.name', 'GRD E2E'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -467,8 +474,11 @@ describe('E2E: Parallel execution of independent phases', () => {
     fs.writeFileSync(
       path.join(planningDir, 'config.json'),
       JSON.stringify({
-        branching_strategy: 'phase',
-        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        git: {
+          branching_strategy: 'phase',
+          worktree_dir: '.worktrees/',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        },
       })
     );
     fs.writeFileSync(
@@ -519,18 +529,11 @@ describe('E2E: Parallel execution of independent phases', () => {
       } catch {
         /* ignore */
       }
-      // Clean up GRD worktree dirs
+      // Clean up .worktrees/ inside the repo (project-local)
       try {
-        const entries = fs.readdirSync(REAL_TMPDIR);
-        for (const entry of entries) {
-          if (entry.startsWith('grd-worktree-v1.0-')) {
-            const wtPath = path.join(REAL_TMPDIR, entry);
-            try {
-              fs.rmSync(wtPath, { recursive: true, force: true });
-            } catch {
-              /* ignore */
-            }
-          }
+        const wtDir = path.join(tmpRoot, '.worktrees');
+        if (fs.existsSync(wtDir)) {
+          fs.rmSync(wtDir, { recursive: true, force: true });
         }
       } catch {
         /* ignore */
@@ -757,7 +760,7 @@ describe('E2E: Stale worktree cleanup', () => {
     expect(beforeList.count).toBe(2);
 
     // Delete only phase 27's directory from disk
-    const wtPath27 = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
+    const wtPath27 = path.join(repoDir, '.worktrees', `${E2E_MILESTONE}-27`);
     fs.rmSync(wtPath27, { recursive: true, force: true });
 
     // Remove stale
@@ -900,8 +903,8 @@ describe('E2E: Dependency graph integration with parallel context', () => {
     const phase29 = ctx.phases.find((p) => p.phase_number === '29');
     expect(phase27).toBeDefined();
     expect(phase29).toBeDefined();
-    expect(phase27.worktree_path).toContain('grd-worktree-');
-    expect(phase29.worktree_path).toContain('grd-worktree-');
+    expect(phase27.worktree_path).toContain('.worktrees');
+    expect(phase29.worktree_path).toContain('.worktrees');
     expect(phase27.worktree_path).not.toBe(phase29.worktree_path);
   });
 });

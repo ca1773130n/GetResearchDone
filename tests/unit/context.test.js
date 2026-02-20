@@ -130,16 +130,15 @@ describe('cmdInitExecutePhase', () => {
     expect(result.base_branch).toBe('main');
   });
 
-  test('includes worktree_path with correct tmpdir pattern', () => {
+  test('includes worktree_path with correct project-local pattern', () => {
     const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.worktree_path).toBeDefined();
-    expect(result.worktree_path).toContain('grd-worktree-');
+    expect(result.worktree_path).toContain('.worktrees');
     expect(result.worktree_path).toContain('v1.0');
     expect(result.worktree_path).toContain('-01');
-    // Should be under the real tmpdir
-    const realTmp = require('fs').realpathSync(os.tmpdir());
-    expect(result.worktree_path.startsWith(realTmp)).toBe(true);
+    // Should be under the project directory
+    expect(result.worktree_path.startsWith(tmpDir)).toBe(true);
   });
 
   test('includes worktree_branch matching branch template', () => {

@@ -23,6 +23,8 @@ const {
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
   ensureGitignoreEntry,
+  createMilestoneBranch,
+  resolveTargetBranch,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -917,5 +919,160 @@ describe('cmdWorktreePushAndPR', () => {
 
     // base should come from config, not hardcoded 'main'
     expect(result.base).toBe('develop');
+  });
+
+  test('uses milestone branch as PR target when branching_strategy is milestone', () => {
+    // Update config to use milestone strategy
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        git: {
+          branching_strategy: 'milestone',
+          worktree_dir: '.worktrees/',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        },
+      }),
+      'utf-8'
+    );
+
+    captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+
+    const wtPath = path.join(repoDir, '.worktrees', 'v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    const result = JSON.parse(stdout);
+
+    // base should be the milestone branch, not main
+    expect(result.base).toBe('grd/v0.2.0-git-worktree-parallel-execution');
+  });
+});
+
+// ─── createMilestoneBranch ────────────────────────────────────────────────────
+
+describe('createMilestoneBranch', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('creates milestone branch from base_branch when on base', () => {
+    // Already on main from createTestGitRepo
+    const result = createMilestoneBranch(repoDir, 'v0.2.3', 'improve-settings');
+    expect(result.branch).toBe('grd/v0.2.3-improve-settings');
+    expect(result.created).toBe(true);
+    expect(result.base).toBe('main');
+  });
+
+  test('returns error when not on base_branch', () => {
+    execFileSync('git', ['checkout', '-b', 'other'], { cwd: repoDir, stdio: 'pipe' });
+    const result = createMilestoneBranch(repoDir, 'v0.2.3', 'test');
+    expect(result.error).toContain('Must be on main');
+    expect(result.current_branch).toBe('other');
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+  });
+
+  test('returns already_exists when milestone branch exists', () => {
+    createMilestoneBranch(repoDir, 'v0.2.3', 'exists-test');
+    const result = createMilestoneBranch(repoDir, 'v0.2.3', 'exists-test');
+    expect(result.already_exists).toBe(true);
+    expect(result.branch).toBe('grd/v0.2.3-exists-test');
+  });
+
+  test('uses custom milestone_branch_template from config', () => {
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        git: {
+          branching_strategy: 'milestone',
+          worktree_dir: '.worktrees/',
+          milestone_branch_template: 'ms/{milestone}/{slug}',
+        },
+      }),
+      'utf-8'
+    );
+
+    const result = createMilestoneBranch(repoDir, 'v0.2.3', 'custom-template');
+    expect(result.branch).toBe('ms/v0.2.3/custom-template');
+    expect(result.created).toBe(true);
+  });
+});
+
+// ─── resolveTargetBranch ──────────────────────────────────────────────────────
+
+describe('resolveTargetBranch', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('returns base_branch for phase strategy', () => {
+    // Config already has branching_strategy: 'phase'
+    const target = resolveTargetBranch(repoDir, 'v0.2.0', 'test');
+    expect(target).toBe('main');
+  });
+
+  test('returns milestone branch name for milestone strategy', () => {
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        git: {
+          branching_strategy: 'milestone',
+          worktree_dir: '.worktrees/',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        },
+      }),
+      'utf-8'
+    );
+
+    const target = resolveTargetBranch(repoDir, 'v0.2.0', 'test-slug');
+    expect(target).toBe('grd/v0.2.0-test-slug');
+  });
+
+  test('returns base_branch for none strategy', () => {
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        git: {
+          branching_strategy: 'none',
+          worktree_dir: '.worktrees/',
+          base_branch: 'develop',
+        },
+      }),
+      'utf-8'
+    );
+
+    const target = resolveTargetBranch(repoDir, 'v0.2.0', 'test');
+    expect(target).toBe('develop');
+  });
+
+  test('defaults to main when no strategy or base_branch configured', () => {
+    const target = resolveTargetBranch('/tmp/nonexistent-dir-12345', 'v1.0', 'test');
+    expect(target).toBe('main');
   });
 });
