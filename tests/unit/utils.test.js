@@ -371,6 +371,51 @@ describe('loadConfig', () => {
     const config = loadConfig('/tmp/nonexistent-dir-12345');
     expect(config.autonomous_mode).toBe(false);
   });
+
+  test('reads git config from nested git section', () => {
+    const gitTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-git-nested-'));
+    fs.mkdirSync(path.join(gitTmpDir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(gitTmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        git: {
+          branching_strategy: 'milestone',
+          worktree_dir: '.worktrees/',
+          base_branch: 'develop',
+          phase_branch_template: 'custom/{milestone}/{phase}',
+          milestone_branch_template: 'ms/{milestone}',
+        },
+      })
+    );
+    const config = loadConfig(gitTmpDir);
+    expect(config.branching_strategy).toBe('milestone');
+    expect(config.worktree_dir).toBe('.worktrees/');
+    expect(config.base_branch).toBe('develop');
+    expect(config.phase_branch_template).toBe('custom/{milestone}/{phase}');
+    expect(config.milestone_branch_template).toBe('ms/{milestone}');
+    fs.rmSync(gitTmpDir, { recursive: true, force: true });
+  });
+
+  test('top-level git keys take precedence over nested git section', () => {
+    const gitTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-git-prec-'));
+    fs.mkdirSync(path.join(gitTmpDir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(gitTmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        branching_strategy: 'phase',
+        git: { branching_strategy: 'milestone' },
+      })
+    );
+    const config = loadConfig(gitTmpDir);
+    expect(config.branching_strategy).toBe('phase');
+    fs.rmSync(gitTmpDir, { recursive: true, force: true });
+  });
+
+  test('worktree_dir defaults to .worktrees/ when missing', () => {
+    const config = loadConfig('/tmp/nonexistent-dir-12345');
+    expect(config.worktree_dir).toBe('.worktrees/');
+  });
 });
 
 // ─── output / error functions ───────────────────────────────────────────────

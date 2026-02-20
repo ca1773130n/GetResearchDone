@@ -2,9 +2,13 @@
   "model_profile": "quality",
   "commit_docs": true,
   "search_gitignored": false,
-  "branching_strategy": "phase",
-  "phase_branch_template": "grd/{milestone}/{phase}-{slug}",
-  "milestone_branch_template": "grd/{milestone}-{slug}",
+  "git": {
+    "branching_strategy": "phase",
+    "worktree_dir": ".worktrees/",
+    "base_branch": "main",
+    "phase_branch_template": "grd/{milestone}/{phase}-{slug}",
+    "milestone_branch_template": "grd/{milestone}-{slug}"
+  },
   "workflow": {
     "research": false,
     "plan_check": true,
