@@ -78,9 +78,9 @@ Understand what we're measuring and why.
 # Project context
 cat .planning/PROJECT.md 2>/dev/null
 cat .planning/PRODUCT-QUALITY.md 2>/dev/null
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/codebase/STACK.md 2>/dev/null
-cat .planning/codebase/ARCHITECTURE.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${codebase_dir}/STACK.md 2>/dev/null
+cat ${codebase_dir}/ARCHITECTURE.md 2>/dev/null
 ```
 
 **From PROJECT.md:** What is this project? What domain? What metrics matter?

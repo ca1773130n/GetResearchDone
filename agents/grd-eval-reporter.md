@@ -69,7 +69,7 @@ Every number in the report must be reproducible. This means:
 Read the evaluation plan for this phase.
 
 ```bash
-PHASE_DIR=$(ls -d .planning/phases/*${PHASE}* 2>/dev/null | head -1)
+PHASE_DIR=$(ls -d ${phases_dir}/*${PHASE}* 2>/dev/null | head -1)
 cat "$PHASE_DIR"/*-EVAL.md 2>/dev/null
 ```
 
@@ -92,7 +92,7 @@ Load current baseline for comparison.
 ```bash
 cat .planning/BASELINE.md 2>/dev/null
 cat .planning/PRODUCT-QUALITY.md 2>/dev/null
-cat .planning/research/BENCHMARKS.md 2>/dev/null
+cat ${research_dir}/BENCHMARKS.md 2>/dev/null
 ```
 
 Extract baseline values for each metric being evaluated.
@@ -286,7 +286,7 @@ Use Edit tool to update specific sections:
 Update the global BENCHMARKS.md with new data points.
 
 ```bash
-cat .planning/research/BENCHMARKS.md 2>/dev/null
+cat ${research_dir}/BENCHMARKS.md 2>/dev/null
 ```
 
 **If BENCHMARKS.md exists:** Append new results to appropriate tables.
@@ -318,7 +318,7 @@ Write using Write tool.
 Commit evaluation results:
 
 ```bash
-git add "$PHASE_DIR"/*-EVAL.md .planning/research/BENCHMARKS.md
+git add "$PHASE_DIR"/*-EVAL.md ${research_dir}/BENCHMARKS.md
 git commit -m "results($PHASE): evaluation report
 
 - Sanity: [N/M] passed
@@ -461,7 +461,7 @@ Alternative approaches: [list]
 
 ### Files Updated
 - `[PHASE_DIR]/{phase}-EVAL.md` — Results section added
-- `.planning/research/BENCHMARKS.md` — New data points
+- `${research_dir}/BENCHMARKS.md` — New data points
 ```
 
 ## Report Blocked
@@ -523,12 +523,12 @@ After writing EVAL.md results and committing, post the results as a comment on t
 
 **For GitHub:**
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-EVAL.md" 2>/dev/null || true
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-EVAL.md" 2>/dev/null || true
 ```
 
 **For mcp-atlassian:**
 ```bash
-COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-EVAL.md" --raw 2>/dev/null || true)
+COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-EVAL.md" --raw 2>/dev/null || true)
 ```
 If response has `provider: "mcp-atlassian"`, call MCP tool `add_comment` with `issue_key` and `content` from response.
 

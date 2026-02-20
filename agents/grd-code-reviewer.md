@@ -27,9 +27,9 @@ Load supporting context:
 
 ```bash
 # Research context (if exists)
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-cat .planning/research/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
 
 # Phase eval plan (if exists)
 ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
