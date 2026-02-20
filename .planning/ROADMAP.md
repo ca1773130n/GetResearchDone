@@ -135,7 +135,10 @@ Plans:
   3. "merge" merges the worktree branch into the base branch locally; "pr" pushes and creates a PR; "keep" leaves the worktree intact; "discard" deletes the branch and worktree
   4. Worktree cleanup (remove + prune) runs on merge, pr, and discard paths -- even when an error occurs (finally-block pattern); "keep" leaves the worktree in place
   5. All existing worktree and parallel execution tests pass; new tests cover each of the 4 completion paths plus test-gate failure blocking
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 39-01-PLAN.md — Core completion helpers (runTestGate, mergeWorktree, discardWorktree, keepWorktree, cleanupWorktree) with TDD tests
+- [ ] 39-02-PLAN.md — cmdWorktreeComplete orchestrator with finally-block cleanup, CLI routing, and comprehensive tests for all 4 paths
 
 ### Phase 40: Settings Interview Revision
 **Goal**: The `/grd:settings` interview exposes all current features with clear, non-overlapping questions -- git isolation, execution teams, code review, and confirmation gates
@@ -170,7 +173,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 38. Core Git Workflow Revision | 0/2 | Not started | - |
-| 39. Completion Flow | 0/TBD | Not started | - |
+| 39. Completion Flow | 0/2 | Not started | - |
 | 40. Settings Interview Revision | 0/TBD | Not started | - |
 | 41. Command & Documentation Updates | 0/TBD | Not started | - |
 
