@@ -75,13 +75,13 @@ Identify the method/paper being assessed.
 
 **Find the deep-dive document:**
 ```bash
-ls .planning/research/deep-dives/*.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
+ls ${research_dir}/deep-dives/*.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
 ```
 
 If deep-dive exists, read it:
 ```bash
-cat .planning/research/deep-dives/{paper-slug}.md
+cat ${research_dir}/deep-dives/{paper-slug}.md
 ```
 
 If no deep-dive exists:
@@ -97,10 +97,10 @@ Understand the current codebase structure and constraints.
 ```bash
 cat .planning/PROJECT.md 2>/dev/null
 cat .planning/BASELINE.md 2>/dev/null
-cat .planning/codebase/STACK.md 2>/dev/null
-cat .planning/codebase/ARCHITECTURE.md 2>/dev/null
-cat .planning/codebase/INTEGRATIONS.md 2>/dev/null
-cat .planning/codebase/CONCERNS.md 2>/dev/null
+cat ${codebase_dir}/STACK.md 2>/dev/null
+cat ${codebase_dir}/ARCHITECTURE.md 2>/dev/null
+cat ${codebase_dir}/INTEGRATIONS.md 2>/dev/null
+cat ${codebase_dir}/CONCERNS.md 2>/dev/null
 ```
 
 **Analyze current dependencies:**
@@ -300,7 +300,7 @@ Determine overall feasibility verdict.
 Append findings to KNOWHOW.md.
 
 ```bash
-cat .planning/research/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
 ```
 
 **If KNOWHOW.md exists:** Append new entry.
@@ -336,15 +336,15 @@ Last updated: [YYYY-MM-DD]
 
 Write KNOWHOW.md:
 ```bash
-# Use Write tool to create/update .planning/research/KNOWHOW.md
+# Use Write tool to create/update ${research_dir}/KNOWHOW.md
 ```
 </step>
 
 <step name="write_feasibility_report">
-Write the full feasibility report to `.planning/research/feasibility/{method-slug}-feasibility.md`.
+Write the full feasibility report to `${research_dir}/feasibility/{method-slug}-feasibility.md`.
 
 ```bash
-mkdir -p .planning/research/feasibility
+mkdir -p ${research_dir}/feasibility
 ```
 
 Use the output format template below.
@@ -354,7 +354,7 @@ Use the output format template below.
 Commit feasibility analysis:
 
 ```bash
-git add .planning/research/feasibility/{method-slug}-feasibility.md .planning/research/KNOWHOW.md
+git add ${research_dir}/feasibility/{method-slug}-feasibility.md ${research_dir}/KNOWHOW.md
 git commit -m "docs(research): feasibility analysis for [method-slug]
 
 - Verdict: [GO/GO_WITH_CAVEATS/INVESTIGATE/NO_GO]
@@ -373,7 +373,7 @@ Return structured summary to orchestrator.
 
 ## Feasibility Report Structure
 
-**Location:** `.planning/research/feasibility/{method-slug}-feasibility.md`
+**Location:** `${research_dir}/feasibility/{method-slug}-feasibility.md`
 
 ```markdown
 # Feasibility Analysis: [Method Name]
@@ -541,8 +541,8 @@ Return structured summary to orchestrator.
 - **Estimated effort:** [time]
 
 ### Files Created/Updated
-- `.planning/research/feasibility/[slug]-feasibility.md`
-- `.planning/research/KNOWHOW.md`
+- `${research_dir}/feasibility/[slug]-feasibility.md`
+- `${research_dir}/KNOWHOW.md`
 
 ### Recommended Next Steps
 
@@ -597,7 +597,7 @@ Feasibility analysis is complete when:
 - [ ] Blockers, problems, and risks separately identified
 - [ ] Verdict determined (GO/GO_WITH_CAVEATS/INVESTIGATE/NO_GO)
 - [ ] KNOWHOW.md updated with findings
-- [ ] Feasibility report written to `.planning/research/feasibility/`
+- [ ] Feasibility report written to `${research_dir}/feasibility/`
 - [ ] Files committed to git
 - [ ] Structured return provided to orchestrator
 

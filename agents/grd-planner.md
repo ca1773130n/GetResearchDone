@@ -17,7 +17,7 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 
 **Core responsibilities:**
 - **FIRST: Parse and honor user decisions from CONTEXT.md** (locked decisions are NON-NEGOTIABLE)
-- **SECOND: Read research context from .planning/research/** (LANDSCAPE.md, PAPERS.md, KNOWHOW.md)
+- **SECOND: Read research context from ${research_dir}/** (LANDSCAPE.md, PAPERS.md, KNOWHOW.md)
 - Decompose phases into parallel-optimized plans with 2-3 tasks each
 - Build dependency graphs and assign execution waves
 - Derive must-haves using goal-backward methodology with research-backed targets
@@ -61,12 +61,12 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/grd:d
 <research_context>
 ## CRITICAL: Research Context Injection
 
-Before creating any plan, you MUST read the research context from `.planning/research/`:
+Before creating any plan, you MUST read the research context from `${research_dir}/`:
 
 ```bash
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-cat .planning/research/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
 ```
 
 **How research context informs planning:**
@@ -491,8 +491,8 @@ Research basis: [Paper/method this is based on, if applicable]
 @.planning/PROJECT.md
 @.planning/ROADMAP.md
 @.planning/STATE.md
-@.planning/research/LANDSCAPE.md
-@.planning/research/PAPERS.md
+@${research_dir}/LANDSCAPE.md
+@${research_dir}/PAPERS.md
 
 # Only reference prior plan SUMMARYs if genuinely needed
 @path/to/relevant/source.py
@@ -528,7 +528,7 @@ Level 3 (Deferred): [full pipeline metrics — tracked for later]
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
+After completion, create `${phase_dir}/{phase}-{plan}-SUMMARY.md`
 Log experiment results to `.planning/experiments/` if applicable
 </output>
 ```
@@ -848,7 +848,7 @@ Triggered when orchestrator provides `<revision_context>` with checker issues. N
 ### Step 1: Load Existing Plans
 
 ```bash
-cat .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+cat ${phases_dir}/$PHASE-*/$PHASE-*-PLAN.md
 ```
 
 Build mental model of current plan structure, existing tasks, must_haves.
@@ -897,7 +897,7 @@ Group by plan, dimension, severity.
 ### Step 6: Commit
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "fix($PHASE): revise plans based on checker feedback" --files ${phases_dir}/$PHASE-*/$PHASE-*-PLAN.md
 ```
 
 ### Step 7: Return Revision Summary
@@ -916,8 +916,8 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "fix($PHASE): revise plans ba
 
 ### Files Updated
 
-- .planning/phases/16-xxx/16-01-PLAN.md
-- .planning/phases/16-xxx/16-02-PLAN.md
+- ${phases_dir}/16-xxx/16-01-PLAN.md
+- ${phases_dir}/16-xxx/16-02-PLAN.md
 
 {If any issues NOT addressed:}
 
@@ -953,9 +953,9 @@ If STATE.md missing but .planning/ exists, offer to reconstruct or continue with
 **CRITICAL: Always load research context before planning.**
 
 ```bash
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-cat .planning/research/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
 ```
 
 Extract:
@@ -970,7 +970,7 @@ Build a mapping: approach → paper → key technique → expected performance.
 Check for codebase map:
 
 ```bash
-ls .planning/codebase/*.md 2>/dev/null
+ls ${codebase_dir}/*.md 2>/dev/null
 ```
 
 If exists, load relevant documents by phase type:
@@ -989,7 +989,7 @@ If exists, load relevant documents by phase type:
 <step name="identify_phase">
 ```bash
 cat .planning/ROADMAP.md
-ls .planning/phases/
+ls ${phases_dir}/
 ```
 
 If multiple phases available, ask which to plan. If obvious (first incomplete), proceed.
@@ -1023,7 +1023,7 @@ Select top 2-4 phases. Skip phases with no relevance signal.
 
 **Step 3 — Read full SUMMARYs for selected phases:**
 ```bash
-cat .planning/phases/{selected-phase}/*-SUMMARY.md
+cat ${phases_dir}/{selected-phase}/*-SUMMARY.md
 ```
 
 From full SUMMARYs extract:
@@ -1116,7 +1116,7 @@ Present breakdown with wave structure. Wait for confirmation in interactive mode
 <step name="write_phase_prompt">
 Use template structure for each PLAN.md.
 
-Write to `.planning/phases/XX-name/{phase}-{NN}-PLAN.md`
+Write to `${phases_dir}/XX-name/{phase}-{NN}-PLAN.md`
 
 Include all frontmatter fields including `verification_level` and `eval_metrics`.
 </step>
@@ -1172,7 +1172,7 @@ Plans:
 
 <step name="git_commit">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs($PHASE): create phase plan" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs($PHASE): create phase plan" --files ${phases_dir}/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
 ```
 </step>
 
