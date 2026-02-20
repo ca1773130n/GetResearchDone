@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** None (between milestones)
-- **Milestone:** v0.2.0 — Git Worktree Parallel Execution (SHIPPED)
+- **Active phase:** None (defining requirements)
+- **Milestone:** v0.2.1 — Hierarchical Planning Directory
 - **Current Plan:** -
-- **Progress:** v0.2.0 complete
-- **Next:** Start next milestone with `/grd:new-milestone`
+- **Progress:** Not started
+- **Next:** Define requirements and create roadmap
 
 ## Deferred Validations
 
@@ -40,10 +40,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed v0.2.0 milestone
-- **Stopped at:** Milestone archived, tagged, committed
-- **Next action:** Start next milestone with `/grd:new-milestone`
-- **Context needed:** 1,577 tests passing; 112 MCP tools; 17 lib/ modules
+- **Last action:** Started v0.2.1 milestone
+- **Stopped at:** Defining requirements
+- **Next action:** Create roadmap for v0.2.1
+- **Context needed:** 1,577 tests passing; 112 MCP tools; 18 lib/ modules; all path references need migration
 
 ---
 

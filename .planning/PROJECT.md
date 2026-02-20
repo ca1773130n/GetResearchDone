@@ -232,6 +232,38 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
+## Current Milestone: v0.2.1 — Hierarchical Planning Directory
+
+**Goal:** Enforce a strict, milestone-scoped directory hierarchy for all `.planning/` artifacts. Every execution output (phases, quick tasks, research, codebase analysis, todos) must live under `.planning/milestones/{milestone_name}/`. No more scattered top-level directories.
+
+**Target structure:**
+```
+.planning/
+├── PROJECT.md, STATE.md, ROADMAP.md, MILESTONES.md, config.json  (project-level)
+├── REQUIREMENTS.md, BASELINE.md, PRODUCT-QUALITY.md              (project-level)
+├── LONG-TERM-ROADMAP.md                                          (project-level)
+├── milestones/
+│   ├── {milestone}/
+│   │   ├── phases/{phase_name}/          ← phase artifacts
+│   │   ├── research/                     ← milestone-scoped research
+│   │   ├── codebase/                     ← milestone-scoped codebase analysis
+│   │   └── todos/                        ← milestone-scoped todos
+│   └── anonymous/
+│       ├── quick/{task_name}/            ← quick tasks without milestone
+│       ├── research/                     ← project-level research (LANDSCAPE.md, etc.)
+│       └── todos/                        ← orphan todos
+```
+
+**Key changes:**
+- Remove `.planning/phases/` — active phases go directly to `.planning/milestones/{current}/phases/`
+- Remove `.planning/quick/` — quick tasks go to `.planning/milestones/anonymous/quick/`
+- Remove `.planning/research/` — research goes to milestone-scoped dir or `anonymous/research/`
+- Remove `.planning/codebase/` — codebase analysis goes to milestone-scoped dir
+- Remove `.planning/todos/` — todos go to milestone-scoped dir or `anonymous/todos/`
+- All lib/ path construction must use a centralized path resolver
+- All command/agent markdown files must reference the new hierarchy
+- All tests must pass with zero regressions
+
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
