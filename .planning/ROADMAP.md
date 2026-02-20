@@ -100,7 +100,7 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
 **Start:** 2026-02-21
 
 - [ ] **Phase 38: Core Git Workflow Revision** - Replace branching_strategy with unified worktree model `implement`
-- [ ] **Phase 39: Completion Flow** - Phase execution ends with merge/PR/keep/discard choice `implement`
+- [x] **Phase 39: Completion Flow** - Phase execution ends with merge/PR/keep/discard choice `implement` *(completed 2026-02-21)*
 - [ ] **Phase 40: Settings Interview Revision** - All current features exposed in /grd:settings `implement`
 - [ ] **Phase 41: Command & Documentation Updates** - execute-phase command, CLAUDE.md, and bugfix `implement`
 

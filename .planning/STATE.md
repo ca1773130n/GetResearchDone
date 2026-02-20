@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 38 — Core Git Workflow Revision
+- **Active phase:** Phase 40 — Settings Interview Revision
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
-- **Current Plan:** 2 of 2 in Phase 38 (Plan 02 complete — phase complete)
-- **Progress:** [##        ] 1/4 phases
-- **Next:** Phase 39 (next phase in milestone v0.2.3)
+- **Current Plan:** 0 of ? in Phase 40 (not yet planned)
+- **Progress:** [#####     ] 2/4 phases
+- **Next:** Plan Phase 40
 
 ## Deferred Validations
 
@@ -16,6 +16,7 @@
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
 | DEFER-30-01 | Full parallel execution with real teammate spawning on Claude Code | Phase 30 | Future | PARTIALLY RESOLVED (v0.2.0, requires Claude Code runtime) |
+| DEFER-39-01 | End-to-end execute-phase command consuming cmdWorktreeComplete | Phase 39 | Phase 41 | PENDING |
 
 ## Key Decisions
 
@@ -28,12 +29,14 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **38-01:** createMilestoneBranch and resolveTargetBranch return result objects (no process.exit) for testability
 - **38-02:** branch_name is always the phase branch; target_branch captures strategy distinction for PR targeting
 - **38-02:** milestone_branch field is null when strategy is not 'milestone' to avoid confusion
+- **39-01:** Used execSync instead of execFileSync for runTestGate (shell-style commands need shell interpretation)
+- **39-02:** cmdWorktreeComplete cleanup moved before output() calls (process.exit prevents finally-block execution)
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 11 (v0.0.5 through v0.2.2)
-- Total tests: 1,655
+- Total tests: 1,661
 - Total lib/ modules: 19
 
 ## Quick Tasks Completed
@@ -48,10 +51,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 38 Plan 02 (context output layer updates)
-- **Stopped at:** Completed 38-02-PLAN.md (2/2 tasks) — Phase 38 complete
-- **Next action:** Phase 39 (next phase in milestone v0.2.3)
-- **Context needed:** Phase 38 shipped nested git config, project-local worktrees, milestone branch helpers, and strategy-aware context output (target_branch, milestone_branch, worktree_dir).
+- **Last action:** Executed Phase 39 (completion flow helpers + orchestrator)
+- **Stopped at:** Phase 39 complete — all plans executed, verified, blocker fixed
+- **Next action:** Plan Phase 40 (Settings Interview Revision)
+- **Context needed:** Phase 39 delivered 5 completion helpers (runTestGate, mergeWorktree, discardWorktree, keepWorktree, cleanupWorktree) and cmdWorktreeComplete orchestrator with CLI routing. DEFER-39-01 tracked for Phase 41 integration.
 
 ---
 
