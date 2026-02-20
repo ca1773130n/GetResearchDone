@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 35 — Migration Script & Archive Simplification (COMPLETE)
+- **Active phase:** Phase 36 — Test Updates, Documentation & Integration Validation (IN PROGRESS)
 - **Milestone:** v0.2.1 — Hierarchical Planning Directory
-- **Current Plan:** 35-03 (complete) — 3 of 3 plans
-- **Progress:** [========..] 4/5 phases (Phase 35 complete)
-- **Next:** Phase 36 (Test Updates, Documentation & Integration Validation)
+- **Current Plan:** 36-01 (complete) — 1 of 4 plans
+- **Progress:** [========..] 4/5 phases (Phase 36 in progress)
+- **Next:** 36-02 (migrate test fixtures and update unit tests)
 
 ## Deferred Validations
 
@@ -53,6 +53,9 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **35-02:** Include accomplishments array in archived.json for complete milestone record
 - **35-03:** Placed migrate-dirs case between scaffold and init cases in routeCommand switch
 - **35-03:** Added 3 integration tests: JSON output validation, --raw flag, idempotency
+- **36-01:** Resolved STATE.md merge conflicts by preserving Phase 35 COMPLETE status and combined key decisions from both branches
+- **36-01:** Resolved ROADMAP.md conflicts by marking both Phase 34 and Phase 35 as Complete
+- **36-01:** CHANGELOG.md old-path references confirmed as historical entries — should NOT be modified
 
 ## Performance Metrics
 
@@ -73,12 +76,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed all 3 plans of Phase 35 (migration script, archive simplification, CLI wiring)
-- **Stopped at:** Completed Phase 35 — all 3 plans, code review PASS, verification PASS
-- **Next action:** Proceed to Phase 36 (Test Updates, Documentation & Integration Validation)
-- **Context needed:** 1,631 tests passing (16 new in Phase 35); cmdMigrateDirs moves 5 old-style dirs to milestone hierarchy; cmdMilestoneComplete skips redundant copy + writes archived.json; migrate-dirs CLI command wired; REQ-59 through REQ-63 all satisfied
+- **Last action:** Executed 36-01-PLAN.md (merge Phase 34+35 branches and audit old-path references)
+- **Stopped at:** Completed 36-01-PLAN.md — Phase 34+35 merged, 1,631 tests passing, 74 old-path refs audited
+- **Next action:** Execute 36-02-PLAN.md (migrate test fixtures and update unit tests)
+- **Context needed:** 1,631 tests passing on merged branch; 74 old-path references across 14 test files (36 in unit tests, 38 in golden/integration); 4 in docs (2 historical CHANGELOG, 2 tutorial); CLAUDE.md and fixtures already clean
 
 ---
 
 *State managed by: Claude (grd-executor)*
-*Last updated: 2026-02-20T07:58Z*
+*Last updated: 2026-02-20T09:06Z*
