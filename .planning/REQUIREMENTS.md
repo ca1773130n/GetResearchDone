@@ -103,12 +103,29 @@ Enforce strict, milestone-scoped directory hierarchy for all `.planning/` artifa
 
 ## Traceability
 
-| Requirement | Phase |
-|-------------|-------|
-| REQ-46 — REQ-50 | TBD (path resolution module) |
-| REQ-51 — REQ-56 | TBD (lib/ migration) |
-| REQ-57 — REQ-58 | TBD (markdown migration) |
-| REQ-59 — REQ-60 | TBD (archive simplification) |
-| REQ-61 — REQ-63 | TBD (migration script) |
-| REQ-64 — REQ-67 | TBD (test updates) |
-| REQ-68 — REQ-69 | TBD (documentation) |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-46 | Phase 32 | Pending |
+| REQ-47 | Phase 32 | Pending |
+| REQ-48 | Phase 32 | Pending |
+| REQ-49 | Phase 32 | Pending |
+| REQ-50 | Phase 32 | Pending |
+| REQ-51 | Phase 33 | Pending |
+| REQ-52 | Phase 33 | Pending |
+| REQ-53 | Phase 33 | Pending |
+| REQ-54 | Phase 33 | Pending |
+| REQ-55 | Phase 33 | Pending |
+| REQ-56 | Phase 33 | Pending |
+| REQ-57 | Phase 34 | Pending |
+| REQ-58 | Phase 34 | Pending |
+| REQ-59 | Phase 35 | Pending |
+| REQ-60 | Phase 35 | Pending |
+| REQ-61 | Phase 35 | Pending |
+| REQ-62 | Phase 35 | Pending |
+| REQ-63 | Phase 35 | Pending |
+| REQ-64 | Phase 36 | Pending |
+| REQ-65 | Phase 36 | Pending |
+| REQ-66 | Phase 36 | Pending |
+| REQ-67 | Phase 32 | Pending |
+| REQ-68 | Phase 36 | Pending |
+| REQ-69 | Phase 36 | Pending |
