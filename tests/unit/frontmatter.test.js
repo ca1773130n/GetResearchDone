@@ -192,7 +192,7 @@ describe('cmdFrontmatterGet', () => {
   });
 
   test('returns all frontmatter fields', () => {
-    const planPath = path.join('.planning', 'phases', '01-test', '01-01-PLAN.md');
+    const planPath = path.join('.planning', 'milestones', 'anonymous', 'phases', '01-test', '01-01-PLAN.md');
     const { stdout, exitCode } = captureOutput(() => {
       cmdFrontmatterGet(fixtureDir, planPath, null, false);
     });
@@ -203,7 +203,7 @@ describe('cmdFrontmatterGet', () => {
   });
 
   test('returns single field with --field', () => {
-    const planPath = path.join('.planning', 'phases', '01-test', '01-01-PLAN.md');
+    const planPath = path.join('.planning', 'milestones', 'anonymous', 'phases', '01-test', '01-01-PLAN.md');
     const { stdout, exitCode } = captureOutput(() => {
       cmdFrontmatterGet(fixtureDir, planPath, 'phase', false);
     });
@@ -236,7 +236,7 @@ describe('cmdFrontmatterValidate', () => {
   });
 
   test('valid plan returns valid: true', () => {
-    const planPath = path.join('.planning', 'phases', '01-test', '01-01-PLAN.md');
+    const planPath = path.join('.planning', 'milestones', 'anonymous', 'phases', '01-test', '01-01-PLAN.md');
     const { stdout, exitCode } = captureOutput(() => {
       cmdFrontmatterValidate(fixtureDir, planPath, 'plan', false);
     });
@@ -247,7 +247,7 @@ describe('cmdFrontmatterValidate', () => {
   });
 
   test('valid summary returns valid: true', () => {
-    const summaryPath = path.join('.planning', 'phases', '01-test', '01-01-SUMMARY.md');
+    const summaryPath = path.join('.planning', 'milestones', 'anonymous', 'phases', '01-test', '01-01-SUMMARY.md');
     const { stdout, exitCode } = captureOutput(() => {
       cmdFrontmatterValidate(fixtureDir, summaryPath, 'summary', false);
     });

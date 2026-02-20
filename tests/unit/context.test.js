@@ -391,7 +391,7 @@ describe('cmdInitTodos', () => {
     const result = JSON.parse(stdout);
     expect(result.todo_count).toBeGreaterThanOrEqual(0);
     expect(Array.isArray(result.todos)).toBe(true);
-    expect(result.pending_dir).toBe('.planning/todos/pending');
+    expect(result.pending_dir).toBe('.planning/milestones/anonymous/todos/pending');
   });
 
   test('filters by area when provided', () => {
@@ -450,7 +450,7 @@ describe('cmdInitMapCodebase', () => {
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('mapper_model');
     expect(result).toHaveProperty('commit_docs');
-    expect(result.codebase_dir).toBe('.planning/codebase');
+    expect(result.codebase_dir).toBe('.planning/milestones/anonymous/codebase');
     expect(result.has_maps).toBe(false);
     expect(result.existing_maps).toEqual([]);
   });
@@ -598,7 +598,7 @@ describe('cmdInitQuick', () => {
     expect(result.description).toBe('Fix the bug');
     expect(result).toHaveProperty('planner_model');
     expect(result).toHaveProperty('executor_model');
-    expect(result.quick_dir).toBe('.planning/quick');
+    expect(result.quick_dir).toBe('.planning/milestones/anonymous/quick');
   });
 
   test('returns null slug when no description', () => {

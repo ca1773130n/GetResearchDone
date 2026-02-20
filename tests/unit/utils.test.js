@@ -435,7 +435,7 @@ describe('findPhaseInternal consistency_warning', () => {
   test('returns consistency_warning when phase is not in ROADMAP', () => {
     // Create a phase directory not in ROADMAP
     const fs = require('fs');
-    fs.mkdirSync(require('path').join(fixtureDir, '.planning', 'phases', '99-orphan'), {
+    fs.mkdirSync(require('path').join(fixtureDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), {
       recursive: true,
     });
 

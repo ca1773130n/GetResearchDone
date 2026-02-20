@@ -39,7 +39,7 @@ describe('checkOrphanedPhases', () => {
   });
 
   test('returns violation for extra directory not in ROADMAP', () => {
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), { recursive: true });
     const violations = checkOrphanedPhases(tmpDir);
     expect(violations.length).toBe(1);
     expect(violations[0].code).toBe('ORPHANED_PHASE');
@@ -54,7 +54,7 @@ describe('checkOrphanedPhases', () => {
   });
 
   test('returns empty when phases directory does not exist', () => {
-    fs.rmSync(path.join(tmpDir, '.planning', 'phases'), { recursive: true, force: true });
+    fs.rmSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases'), { recursive: true, force: true });
     const violations = checkOrphanedPhases(tmpDir);
     expect(violations).toEqual([]);
   });
@@ -80,7 +80,7 @@ describe('checkPhaseInRoadmap', () => {
 
   test('returns violation when phase exists on disk but not in ROADMAP', () => {
     // Create a phase directory on disk that is NOT in ROADMAP
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), { recursive: true });
     const violations = checkPhaseInRoadmap(tmpDir, '99');
     expect(violations.length).toBe(1);
     expect(violations[0].code).toBe('PHASE_NOT_IN_ROADMAP');
@@ -124,7 +124,7 @@ describe('checkPhaseHasPlans', () => {
 
   test('returns violation when phase has no plans', () => {
     // Create empty phase directory
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '03-empty'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '03-empty'), { recursive: true });
     // Also add Phase 3 to ROADMAP so it's not an orphan
     const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
     const roadmap = fs.readFileSync(roadmapPath, 'utf-8');
@@ -161,7 +161,7 @@ describe('checkNoStaleArtifacts', () => {
 
   test('returns warning for summary without matching plan', () => {
     // Create a stale summary in phase 1
-    const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     fs.writeFileSync(path.join(phaseDir, '01-99-SUMMARY.md'), '---\none-liner: stale\n---\n');
 
     const violations = checkNoStaleArtifacts(tmpDir, '1');
@@ -284,7 +284,7 @@ describe('runPreflightGates', () => {
   });
 
   test('fails for execute-phase with orphaned phases', () => {
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), { recursive: true });
     const result = runPreflightGates(tmpDir, 'execute-phase', { phase: '1' });
     expect(result.passed).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
@@ -299,7 +299,7 @@ describe('runPreflightGates', () => {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
     // Create orphaned phase
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), { recursive: true });
 
     const result = runPreflightGates(tmpDir, 'execute-phase', { phase: '1' });
     expect(result.passed).toBe(true);
@@ -323,7 +323,7 @@ describe('runPreflightGates', () => {
 
   test('collects warnings separately from errors', () => {
     // Create stale artifact (summary without plan)
-    const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     fs.writeFileSync(path.join(phaseDir, '01-99-SUMMARY.md'), '---\none-liner: stale\n---\n');
 
     const result = runPreflightGates(tmpDir, 'plan-phase', { phase: '1' });
@@ -372,7 +372,7 @@ describe('gates with shipped milestone sections', () => {
       'utf-8'
     );
     // Create a directory for Phase 29 (active) — should not be orphaned
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '29-new-work'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '29-new-work'), { recursive: true });
     const violations = checkOrphanedPhases(tmpDir);
     const orphanNums = violations.map((v) => v.context.phase_number);
     expect(orphanNums).not.toContain('29');
@@ -398,7 +398,7 @@ describe('gates with shipped milestone sections', () => {
       MULTI_MILESTONE_ROADMAP,
       'utf-8'
     );
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '29-new-work'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '29-new-work'), { recursive: true });
     const violations = checkPhaseInRoadmap(tmpDir, '29');
     expect(violations).toEqual([]);
   });

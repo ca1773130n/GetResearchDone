@@ -170,8 +170,8 @@ describe('buildParallelContext', () => {
     );
 
     // Create phase directories with at least one plan
-    const phase1Dir = path.join(dir, '.planning', 'phases', '01-alpha-phase');
-    const phase2Dir = path.join(dir, '.planning', 'phases', '02-beta-phase');
+    const phase1Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '01-alpha-phase');
+    const phase2Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '02-beta-phase');
     fs.mkdirSync(phase1Dir, { recursive: true });
     fs.mkdirSync(phase2Dir, { recursive: true });
     fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');
@@ -318,7 +318,7 @@ describe('cmdInitExecuteParallel', () => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-${slug}`);
+    const phaseDir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', `${padded}-${slug}`);
     fs.mkdirSync(phaseDir, { recursive: true });
     fs.writeFileSync(
       path.join(phaseDir, `${padded}-01-PLAN.md`),
@@ -495,7 +495,7 @@ describe('CLI integration -- init execute-parallel', () => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-${slug}`);
+    const phaseDir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', `${padded}-${slug}`);
     fs.mkdirSync(phaseDir, { recursive: true });
     fs.writeFileSync(
       path.join(phaseDir, `${padded}-01-PLAN.md`),

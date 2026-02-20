@@ -196,8 +196,8 @@ describe('cmdTodoComplete', () => {
     expect(parsed.completed).toBe(true);
 
     // Verify file moved
-    const pendingPath = path.join(fixtureDir, '.planning', 'todos', 'pending', 'sample.md');
-    const completedPath = path.join(fixtureDir, '.planning', 'todos', 'completed', 'sample.md');
+    const pendingPath = path.join(fixtureDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending', 'sample.md');
+    const completedPath = path.join(fixtureDir, '.planning', 'milestones', 'anonymous', 'todos', 'completed', 'sample.md');
     expect(fs.existsSync(pendingPath)).toBe(false);
     expect(fs.existsSync(completedPath)).toBe(true);
   });
@@ -236,7 +236,7 @@ describe('cmdVerifyPathExists', () => {
 
   test('existing directory returns type: directory', () => {
     const { stdout } = captureOutput(() => {
-      cmdVerifyPathExists(fixtureDir, '.planning/phases', false);
+      cmdVerifyPathExists(fixtureDir, '.planning/milestones/anonymous/phases', false);
     });
     const parsed = parseFirstJson(stdout);
     expect(parsed.exists).toBe(true);
@@ -548,7 +548,7 @@ describe('cmdSummaryExtract', () => {
 
   test('extracts frontmatter fields from fixture summary', () => {
     const { stdout, exitCode } = captureOutput(() => {
-      cmdSummaryExtract(fixtureDir, '.planning/phases/01-test/01-01-SUMMARY.md', null, false);
+      cmdSummaryExtract(fixtureDir, '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md', null, false);
     });
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
@@ -563,7 +563,7 @@ describe('cmdSummaryExtract', () => {
     const { stdout } = captureOutput(() => {
       cmdSummaryExtract(
         fixtureDir,
-        '.planning/phases/01-test/01-01-SUMMARY.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
         ['tech_added', 'patterns'],
         false
       );
@@ -1164,7 +1164,7 @@ describe('cmdPhaseDetail', () => {
 
   test('returns empty plans array for phase with no PLAN.md files', () => {
     // Create an empty phase directory
-    const emptyPhaseDir = path.join(fixtureDir, '.planning', 'phases', '03-empty');
+    const emptyPhaseDir = path.join(fixtureDir, '.planning', 'milestones', 'anonymous', 'phases', '03-empty');
     fs.mkdirSync(emptyPhaseDir, { recursive: true });
 
     const { stdout, exitCode } = captureOutput(() => {
@@ -1178,7 +1178,7 @@ describe('cmdPhaseDetail', () => {
 
   test('detects presence of CONTEXT.md, RESEARCH.md, EVAL.md, VERIFICATION.md, REVIEW.md', () => {
     // Create supplementary files in phase 1 directory
-    const phase1Dir = path.join(fixtureDir, '.planning', 'phases', '01-test');
+    const phase1Dir = path.join(fixtureDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     fs.writeFileSync(path.join(phase1Dir, '01-CONTEXT.md'), '# Context\n');
     fs.writeFileSync(path.join(phase1Dir, '01-RESEARCH.md'), '# Research\n');
     fs.writeFileSync(path.join(phase1Dir, '01-EVAL.md'), '# Eval\n');
