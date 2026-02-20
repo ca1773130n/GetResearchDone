@@ -317,26 +317,37 @@ describe('quickDir', () => {
     tmpDir = null;
   });
 
-  test('falls back to old-style when anonymous milestone dir does not exist', () => {
+  test('falls back to old-style when milestone dir does not exist on disk', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'quick'));
   });
 
-  test('returns new-style when anonymous milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'anonymous');
+  test('returns new-style when milestone dir exists on disk', () => {
+    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
     expect(quickDir(tmpDir)).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick')
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick')
     );
   });
 
-  test('falls back to old-style with no STATE.md', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
-    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'quick'));
+  test('accepts an optional milestone parameter', () => {
+    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v1.0');
+    expect(quickDir(tmpDir, 'v1.0')).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick')
+    );
   });
 
-  test('does not accept a milestone parameter (signature is quickDir(cwd))', () => {
-    // quickDir only takes one parameter
-    expect(quickDir.length).toBe(1);
+  test('uses anonymous when currentMilestone returns anonymous', () => {
+    // No STATE.md → currentMilestone returns 'anonymous'
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
+    // anonymous dir does not exist on disk, so falls back
+    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'quick'));
+
+    // Now create the anonymous milestone dir
+    const anonDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous');
+    fs.mkdirSync(anonDir, { recursive: true });
+    expect(quickDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick')
+    );
   });
 });
 

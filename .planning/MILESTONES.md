@@ -217,10 +217,37 @@
 
 ## v0.2.1 Hierarchical Planning Directory (Shipped: 2026-02-20)
 
-**Phases completed:** 5 phases, 17 plans, 12 tasks
+**Phases completed:** 5 phases (32-36), 17 plans
+**Timeline:** 2026-02-20 (single day)
+**Source:** 1,631 tests (+54 from v0.2.0), 1 new module (lib/paths.js)
 
 **Key accomplishments:**
-- Simplified milestone archive to skip redundant copy when phases already in place, with archived.json marker
+- Centralized path resolver `lib/paths.js` with 9 functions and backward-compatible fallback
+- All 18 lib/ modules migrated to use paths.js instead of hardcoded path constructions
+- All 60 command/agent markdown files migrated to init-derived path variables
+- `migrate-dirs` CLI command for upgrading old-style .planning/ layouts
+- Simplified milestone archival with `archived.json` marker (no redundant phase copy)
+- Test fixtures and golden outputs migrated to milestone-scoped hierarchy
+- 3 deferred validations resolved (DEFER-34-01, DEFER-35-01, DEFER-35-02)
+
+**Git range:** v0.2.0..v0.2.1
+
+---
+
+
+## v0.2.2 quickDir Routing Fix & Migration Skill (Shipped: 2026-02-20)
+
+**Phases completed:** 1 phase (37), 1 plan
+**Timeline:** 2026-02-20
+**Source:** 1,634 tests (+3 from v0.2.1), 2 new files (commands/migrate.md, agents/grd-migrator.md)
+
+**Key accomplishments:**
+- Fixed `quickDir()` to accept optional milestone parameter and use `currentMilestone(cwd)` instead of hardcoded 'anonymous'
+- Fixed `cmdMigrateDirs` to route `quick/` to current milestone instead of hardcoded anonymous
+- Created `/grd:migrate` skill for user-facing migration (trivial via CLI, complex via agent)
+- Created `grd-migrator` agent for handling flat milestone files, legacy phase dirs, and orphan docs
+
+**Git range:** v0.2.1..v0.2.2
 
 ---
 

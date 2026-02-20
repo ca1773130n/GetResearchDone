@@ -3211,7 +3211,7 @@ describe('cmdMigrateDirs', () => {
     ).toBe(true);
   });
 
-  test('moves quick/ to milestones/anonymous/quick/ regardless of milestone', () => {
+  test('moves quick/ to milestones/{milestone}/quick/', () => {
     setupOldLayout({ quick: true });
 
     const { stdout, exitCode } = captureOutput(() => {
@@ -3219,17 +3219,17 @@ describe('cmdMigrateDirs', () => {
     });
     expect(exitCode).toBe(0);
 
-    // quick/ should go to anonymous, NOT v1.0
+    // quick/ should go to v1.0 (the fixture's milestone)
     expect(
       fs.existsSync(
-        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick', '1-test', '1-SUMMARY.md')
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick', '1-test', '1-SUMMARY.md')
       )
     ).toBe(true);
 
-    // Should NOT be under v1.0
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick'))).toBe(
-      false
-    );
+    // Should NOT be under anonymous
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick'))
+    ).toBe(false);
   });
 
   test('is idempotent — second run produces no changes', () => {

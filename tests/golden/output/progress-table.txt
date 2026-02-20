@@ -1,3 +1,3 @@
 {
-  "rendered": "# v0.2.1 Hierarchical Planning Directory\n\n**Progress:** [████████░░] 14/17 plans (82%)\n\n| Phase | Name | Plans | Status |\n|-------|------|-------|--------|\n| 32 | centralized path resolution module | 1/1 | Complete |\n| 33 | lib module migration | 5/5 | Complete |\n| 34 | command agent markdown migration | 4/4 | Complete |\n| 35 | migration script and archive simplification | 3/3 | Complete |\n| 36 | test updates documentation and integration validation | 1/4 | In Progress |\n"
+  "rendered": "# v0.0.5 milestone\n\n**Progress:** [░░░░░░░░░░] 0/0 plans (0%)\n\n| Phase | Name | Plans | Status |\n|-------|------|-------|--------|\n"
 }

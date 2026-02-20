@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 36 — Test Updates, Documentation & Integration Validation (COMPLETE)
-- **Milestone:** v0.2.1 — Hierarchical Planning Directory
-- **Current Plan:** 36-04 (complete) — 4 of 4 plans
-- **Progress:** [==========] 5/5 phases (all complete)
-- **Next:** Milestone audit and completion for v0.2.1
+- **Active phase:** Phase 37 — quickDir Routing & Migration Skill (COMPLETE)
+- **Milestone:** v0.2.2 — quickDir Routing Fix & Migration Skill
+- **Current Plan:** 37-01 (complete) — 1 of 1 plans
+- **Progress:** [==========] 1/1 phases (all complete)
+- **Next:** Milestone complete for v0.2.2
 
 ## Deferred Validations
 
@@ -26,7 +26,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 
 - **32-01:** No lib/ dependencies in paths.js — reads STATE.md directly to avoid circular imports
 - **32-01:** currentMilestone returns 'anonymous' as fallback for all failure cases
-- **32-01:** quickDir signature takes only cwd (no milestone param) — always uses 'anonymous'
+- **37-01:** quickDir() now takes optional milestone param, defaulting to currentMilestone(cwd) — consistent with all other dir functions
+- **37-01:** cmdMigrateDirs quick/ target changed from hardcoded 'anonymous' to milestone variable
 - **33-01:** Filesystem-aware fallback checks milestoneExistsOnDisk before returning new-style paths
 - **33-01:** Extracted milestoneExistsOnDisk helper for DRY fallback logic across 6 functions
 - **33-01:** Used path.relative(cwd, ...) for findPhaseInternal directory field
@@ -70,8 +71,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 9 (v0.0.5 through v0.2.0)
-- Total tests: 1,631
+- Milestones shipped: 11 (v0.0.5 through v0.2.2)
+- Total tests: 1,634
 - Total lib/ modules: 19
 
 ## Quick Tasks Completed
@@ -86,10 +87,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 36-04-PLAN.md (documentation updates and deferred validation resolution)
-- **Stopped at:** Completed 36-04-PLAN.md — Phase 36 complete, all 4 plans done, 1,631 tests passing, 3 deferred validations resolved
-- **Next action:** Milestone audit and completion for v0.2.1
-- **Context needed:** All 5 phases (32-36) complete; 1,631 tests passing; DEFER-34-01, DEFER-35-01, DEFER-35-02 all resolved; CLAUDE.md and docs updated with milestone-scoped paths
+- **Last action:** Executed 37-01-PLAN.md (quickDir routing fix, cmdMigrateDirs fix, migration skill + agent)
+- **Stopped at:** Completed 37-01-PLAN.md — Phase 37 complete, 1,634 tests passing
+- **Next action:** Milestone complete for v0.2.2
+- **Context needed:** Phase 37 complete; quickDir uses currentMilestone; cmdMigrateDirs routes quick/ to milestone; /grd:migrate skill and grd-migrator agent created
 
 ---
 
