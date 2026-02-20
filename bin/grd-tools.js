@@ -622,6 +622,7 @@ function routeCommand(command, args, cwd, raw) {
             phase: flag(args, '--phase', null),
             milestone: flag(args, '--milestone', null),
             slug: flag(args, '--slug', null),
+            startPoint: flag(args, '--start-point', null),
           },
           raw
         );

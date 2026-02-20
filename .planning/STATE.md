@@ -59,6 +59,9 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **36-01:** Resolved STATE.md merge conflicts by preserving Phase 35 COMPLETE status and combined key decisions from both branches
 - **36-01:** Resolved ROADMAP.md conflicts by marking both Phase 34 and Phase 35 as Complete
 - **36-01:** CHANGELOG.md old-path references confirmed as historical entries — should NOT be modified
+- **36-03:** Used milestones/anonymous/ for fixture paths since STATE.md milestone field 'M1: Foundation' has no vX.Y version string
+- **36-03:** Regenerated all 74 golden output files (not just 3 targeted) since capture.sh cleans output/ before capture
+- **36-03:** Updated todo assertions to milestone-scoped paths to match migrated fixture directory layout
 - **36-04:** CHANGELOG.md historical references preserved (lines 10, 200) per REQ-69 exclusion
 - **36-04:** lib/ module count updated to 19 (paths.js from Phase 32)
 - **36-04:** Fixed 3 worktree-parallel-e2e.test.js failures from Plan 02 fixture migration (Rule 3)

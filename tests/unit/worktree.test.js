@@ -233,6 +233,80 @@ describe('cmdWorktreeCreate', () => {
     const date = new Date(result.created);
     expect(date.toISOString()).toBe(result.created);
   });
+
+  test('creates worktree from a specific start-point branch', () => {
+    // Create a branch with a commit to use as start point
+    execFileSync('git', ['checkout', '-b', 'grd/v0.2.0/26-predecessor'], {
+      cwd: repoDir,
+      stdio: 'pipe',
+    });
+    fs.writeFileSync(path.join(repoDir, 'predecessor.txt'), 'from phase 26', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'predecessor commit'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Create worktree with start-point
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        {
+          phase: '27',
+          milestone: 'v0.2.0',
+          slug: 'worktree-infrastructure',
+          startPoint: 'grd/v0.2.0/26-predecessor',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('start_point', 'grd/v0.2.0/26-predecessor');
+
+    // Verify the worktree contains the predecessor's file
+    const wtPath = result.path;
+    expect(fs.existsSync(path.join(wtPath, 'predecessor.txt'))).toBe(true);
+    expect(fs.readFileSync(path.join(wtPath, 'predecessor.txt'), 'utf-8')).toBe('from phase 26');
+  });
+
+  test('returns error when start-point does not exist', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        {
+          phase: '27',
+          milestone: 'v0.2.0',
+          slug: 'worktree-infrastructure',
+          startPoint: 'nonexistent-branch',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('not found');
+  });
+
+  test('worktree without start-point does NOT contain predecessor file', () => {
+    // Create a branch with extra content
+    execFileSync('git', ['checkout', '-b', 'other-branch'], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'other.txt'), 'other content', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'other commit'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Create worktree WITHOUT start-point (from main HEAD)
+    const { stdout } = captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('start_point');
+    expect(fs.existsSync(path.join(result.path, 'other.txt'))).toBe(false);
+  });
 });
 
 // ─── cmdWorktreeRemove ────────────────────────────────────────────────────────
