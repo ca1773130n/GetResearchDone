@@ -1,0 +1,22 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "state_exists": true,
+  "roadmap_exists": true,
+  "project_exists": true,
+  "planning_exists": true,
+  "has_interrupted_agent": false,
+  "interrupted_agent_id": null,
+  "commit_docs": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "codebase_dir": ".planning/codebase",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

@@ -1,0 +1,96 @@
+{
+  "milestones": [
+    {
+      "heading": "# v0.2.1 Hierarchical Planning Directory",
+      "version": "v0.2.1"
+    },
+    {
+      "heading": "# v0.2.1 Progress",
+      "version": "v0.2.1"
+    }
+  ],
+  "phases": [
+    {
+      "number": "32",
+      "name": "Centralized Path Resolution Module",
+      "goal": "A single `lib/paths.js` module exists that all other modules can import to resolve any `.planning/` subdirectory path, with milestone-scoping and backward compatibility.",
+      "depends_on": null,
+      "plan_count": 1,
+      "summary_count": 1,
+      "has_context": false,
+      "has_research": false,
+      "disk_status": "complete",
+      "roadmap_complete": false,
+      "duration_days": 7,
+      "start_date": null,
+      "due_date": null
+    },
+    {
+      "number": "33",
+      "name": "lib/ Module Migration",
+      "goal": "Every lib/ module that constructs `.planning/` subdirectory paths uses `paths.js` instead of hardcoded strings, and all init functions output milestone-scoped paths in their JSON responses.",
+      "depends_on": null,
+      "plan_count": 5,
+      "summary_count": 5,
+      "has_context": false,
+      "has_research": false,
+      "disk_status": "complete",
+      "roadmap_complete": false,
+      "duration_days": 7,
+      "start_date": null,
+      "due_date": null
+    },
+    {
+      "number": "34",
+      "name": "Command & Agent Markdown Migration",
+      "goal": "All command and agent markdown files reference milestone-scoped paths by consuming them from init context output rather than hardcoding directory strings.",
+      "depends_on": null,
+      "plan_count": 4,
+      "summary_count": 4,
+      "has_context": false,
+      "has_research": false,
+      "disk_status": "complete",
+      "roadmap_complete": false,
+      "duration_days": 7,
+      "start_date": null,
+      "due_date": null
+    },
+    {
+      "number": "35",
+      "name": "Migration Script & Archive Simplification",
+      "goal": "A `grd-tools migrate-dirs` command exists that moves existing top-level `.planning/` subdirectories to the new hierarchy, milestone completion no longer copies phase directories, and the migration is idempotent.",
+      "depends_on": null,
+      "plan_count": 3,
+      "summary_count": 3,
+      "has_context": false,
+      "has_research": false,
+      "disk_status": "complete",
+      "roadmap_complete": false,
+      "duration_days": 7,
+      "start_date": null,
+      "due_date": null
+    },
+    {
+      "number": "36",
+      "name": "Test Updates, Documentation & Integration Validation",
+      "goal": "All tests pass against the new directory hierarchy with zero regressions, documentation reflects the new structure, and the full pipeline works end-to-end.",
+      "depends_on": null,
+      "plan_count": 4,
+      "summary_count": 1,
+      "has_context": false,
+      "has_research": false,
+      "disk_status": "partial",
+      "roadmap_complete": false,
+      "duration_days": 7,
+      "start_date": null,
+      "due_date": null
+    }
+  ],
+  "phase_count": 5,
+  "completed_phases": 4,
+  "total_plans": 17,
+  "total_summaries": 14,
+  "progress_percent": 82,
+  "current_phase": "36",
+  "next_phase": null
+}

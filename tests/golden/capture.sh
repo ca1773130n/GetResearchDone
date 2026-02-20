@@ -175,10 +175,10 @@ FIXTURE_EOF
   - [ ] 02-01-PLAN.md -- Core build
 FIXTURE_EOF
 
-  # Phase directory with plan and summary
-  mkdir -p "${tmpdir}/.planning/phases/01-test"
+  # Phase directory with plan and summary (milestone-scoped)
+  mkdir -p "${tmpdir}/.planning/milestones/anonymous/phases/01-test"
 
-  cat > "${tmpdir}/.planning/phases/01-test/01-01-PLAN.md" << 'FIXTURE_EOF'
+  cat > "${tmpdir}/.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md" << 'FIXTURE_EOF'
 ---
 phase: 01-test
 plan: 01
@@ -232,7 +232,7 @@ After completion, create 01-01-SUMMARY.md
 </output>
 FIXTURE_EOF
 
-  cat > "${tmpdir}/.planning/phases/01-test/01-01-SUMMARY.md" << 'FIXTURE_EOF'
+  cat > "${tmpdir}/.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md" << 'FIXTURE_EOF'
 ---
 phase: 01-test
 plan: 01
@@ -307,9 +307,9 @@ Ready for Phase 2.
 FIXTURE_EOF
 
   # Phase 2 directory (incomplete -- no summary)
-  mkdir -p "${tmpdir}/.planning/phases/02-build"
+  mkdir -p "${tmpdir}/.planning/milestones/anonymous/phases/02-build"
 
-  cat > "${tmpdir}/.planning/phases/02-build/02-01-PLAN.md" << 'FIXTURE_EOF'
+  cat > "${tmpdir}/.planning/milestones/anonymous/phases/02-build/02-01-PLAN.md" << 'FIXTURE_EOF'
 ---
 phase: 02-build
 plan: 01
@@ -355,11 +355,11 @@ Level 1 (Sanity): Module exists.
 </success_criteria>
 FIXTURE_EOF
 
-  # Todos
-  mkdir -p "${tmpdir}/.planning/todos/pending"
-  mkdir -p "${tmpdir}/.planning/todos/completed"
+  # Todos (milestone-scoped)
+  mkdir -p "${tmpdir}/.planning/milestones/anonymous/todos/pending"
+  mkdir -p "${tmpdir}/.planning/milestones/anonymous/todos/completed"
 
-  cat > "${tmpdir}/.planning/todos/pending/sample.md" << 'FIXTURE_EOF'
+  cat > "${tmpdir}/.planning/milestones/anonymous/todos/pending/sample.md" << 'FIXTURE_EOF'
 # Add logging utility
 
 - **Priority:** low
@@ -426,27 +426,27 @@ capture "verify-path-exists (missing)" "${OUTPUT_DIR}/verify-path-exists-missing
 
 # -- Frontmatter commands --
 capture "frontmatter get" "${OUTPUT_DIR}/frontmatter-get.json" \
-  node "${GRD_TOOLS}" frontmatter get .planning/phases/01-test/01-01-PLAN.md
+  node "${GRD_TOOLS}" frontmatter get .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md
 capture "frontmatter get --field" "${OUTPUT_DIR}/frontmatter-get-field.json" \
-  node "${GRD_TOOLS}" frontmatter get .planning/phases/01-test/01-01-PLAN.md --field phase
+  node "${GRD_TOOLS}" frontmatter get .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md --field phase
 capture "frontmatter validate plan" "${OUTPUT_DIR}/frontmatter-validate.json" \
-  node "${GRD_TOOLS}" frontmatter validate .planning/phases/01-test/01-01-PLAN.md --schema plan
+  node "${GRD_TOOLS}" frontmatter validate .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md --schema plan
 capture "frontmatter validate summary" "${OUTPUT_DIR}/frontmatter-validate-summary.json" \
-  node "${GRD_TOOLS}" frontmatter validate .planning/phases/01-test/01-01-SUMMARY.md --schema summary
+  node "${GRD_TOOLS}" frontmatter validate .planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md --schema summary
 
 # -- Verification suite --
 capture "verify plan-structure" "${OUTPUT_DIR}/verify-plan-structure.json" \
-  node "${GRD_TOOLS}" verify plan-structure .planning/phases/01-test/01-01-PLAN.md
+  node "${GRD_TOOLS}" verify plan-structure .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md
 capture "verify phase-completeness 1" "${OUTPUT_DIR}/verify-phase-completeness.json" \
   node "${GRD_TOOLS}" verify phase-completeness 1
 capture "verify phase-completeness 2" "${OUTPUT_DIR}/verify-phase-completeness-incomplete.json" \
   node "${GRD_TOOLS}" verify phase-completeness 2
 capture "verify references" "${OUTPUT_DIR}/verify-references.json" \
-  node "${GRD_TOOLS}" verify references .planning/phases/01-test/01-01-PLAN.md
+  node "${GRD_TOOLS}" verify references .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md
 capture "verify artifacts" "${OUTPUT_DIR}/verify-artifacts.json" \
-  node "${GRD_TOOLS}" verify artifacts .planning/phases/01-test/01-01-PLAN.md
+  node "${GRD_TOOLS}" verify artifacts .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md
 capture "verify key-links" "${OUTPUT_DIR}/verify-key-links.json" \
-  node "${GRD_TOOLS}" verify key-links .planning/phases/01-test/01-01-PLAN.md
+  node "${GRD_TOOLS}" verify key-links .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md
 
 # -- Roadmap commands --
 capture "roadmap get-phase 1" "${OUTPUT_DIR}/roadmap-get-phase.json" \
@@ -460,9 +460,9 @@ capture "phase-plan-index 1" "${OUTPUT_DIR}/phase-plan-index.json" \
 capture "history-digest" "${OUTPUT_DIR}/history-digest.json" \
   node "${GRD_TOOLS}" history-digest
 capture "summary-extract" "${OUTPUT_DIR}/summary-extract.json" \
-  node "${GRD_TOOLS}" summary-extract .planning/phases/01-test/01-01-SUMMARY.md
+  node "${GRD_TOOLS}" summary-extract .planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md
 capture "summary-extract --fields" "${OUTPUT_DIR}/summary-extract-fields.json" \
-  node "${GRD_TOOLS}" summary-extract .planning/phases/01-test/01-01-SUMMARY.md --fields phase,duration
+  node "${GRD_TOOLS}" summary-extract .planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md --fields phase,duration
 
 # -- Progress --
 capture "progress json" "${OUTPUT_DIR}/progress-json.json" \
@@ -530,7 +530,7 @@ capture "init progress" "${OUTPUT_DIR}/init-progress.json" \
 
 # -- Verify summary --
 capture "verify-summary" "${OUTPUT_DIR}/verify-summary.json" \
-  node "${GRD_TOOLS}" verify-summary .planning/phases/01-test/01-01-SUMMARY.md
+  node "${GRD_TOOLS}" verify-summary .planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md
 
 # Go back to project root for remaining captures
 cd "${PROJECT_ROOT}"
@@ -629,7 +629,7 @@ mkdir -p "${MUTATE_DIR}/.planning"
 create_fixture_dir "${MUTATE_DIR}"
 cd "${MUTATE_DIR}"
 capture "frontmatter set" "${MUTATING_DIR}/frontmatter-set.json" \
-  node "${GRD_TOOLS}" frontmatter set .planning/phases/01-test/01-01-PLAN.md --field wave --value 2
+  node "${GRD_TOOLS}" frontmatter set .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md --field wave --value 2
 rm -rf "${MUTATE_DIR}"
 
 # --- frontmatter merge ---
@@ -638,7 +638,7 @@ mkdir -p "${MUTATE_DIR}/.planning"
 create_fixture_dir "${MUTATE_DIR}"
 cd "${MUTATE_DIR}"
 capture "frontmatter merge" "${MUTATING_DIR}/frontmatter-merge.json" \
-  node "${GRD_TOOLS}" frontmatter merge .planning/phases/01-test/01-01-PLAN.md --data '{"wave": 3}'
+  node "${GRD_TOOLS}" frontmatter merge .planning/milestones/anonymous/phases/01-test/01-01-PLAN.md --data '{"wave": 3}'
 rm -rf "${MUTATE_DIR}"
 
 # --- phase add ---

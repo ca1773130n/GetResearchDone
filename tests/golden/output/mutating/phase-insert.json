@@ -1,0 +1,8 @@
+{
+  "phase_number": "01.1",
+  "after_phase": "1",
+  "name": "Inserted phase after 1",
+  "slug": "inserted-phase-after-1",
+  "directory": ".planning/milestones/anonymous/phases/01.1-inserted-phase-after-1",
+  "schedule_affected": true
+}
