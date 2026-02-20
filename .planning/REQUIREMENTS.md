@@ -78,16 +78,16 @@ Update `commands/execute-phase.md` to use the new completion flow (merge/PR/keep
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-70 | TBD | Planned |
-| REQ-71 | TBD | Planned |
-| REQ-72 | TBD | Planned |
-| REQ-73 | TBD | Planned |
-| REQ-74 | TBD | Planned |
-| REQ-75 | TBD | Planned |
-| REQ-76 | TBD | Planned |
-| REQ-77 | TBD | Planned |
-| REQ-78 | TBD | Planned |
-| REQ-79 | TBD | Planned |
-| REQ-80 | TBD | Planned |
-| REQ-81 | TBD | Planned |
-| REQ-82 | TBD | Planned |
+| REQ-70 | Phase 38 | Planned |
+| REQ-71 | Phase 38 | Planned |
+| REQ-72 | Phase 39 | Planned |
+| REQ-73 | Phase 39 | Planned |
+| REQ-74 | Phase 39 | Planned |
+| REQ-75 | Phase 38 | Planned |
+| REQ-76 | Phase 41 | Planned |
+| REQ-77 | Phase 40 | Planned |
+| REQ-78 | Phase 40 | Planned |
+| REQ-79 | Phase 40 | Planned |
+| REQ-80 | Phase 40 | Planned |
+| REQ-81 | Phase 41 | Planned |
+| REQ-82 | Phase 41 | Planned |
