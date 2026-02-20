@@ -102,11 +102,14 @@ describe('postinstall script', () => {
 
   const EXPECTED_DIRS = [
     '.planning',
-    '.planning/phases',
-    '.planning/research',
-    '.planning/research/deep-dives',
-    '.planning/codebase',
-    '.planning/todos',
+    '.planning/milestones',
+    '.planning/milestones/anonymous',
+    '.planning/milestones/anonymous/phases',
+    '.planning/milestones/anonymous/research',
+    '.planning/milestones/anonymous/research/deep-dives',
+    '.planning/milestones/anonymous/codebase',
+    '.planning/milestones/anonymous/todos',
+    '.planning/milestones/anonymous/quick',
   ];
 
   test('creates all expected directories in empty dir', () => {
