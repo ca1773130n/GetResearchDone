@@ -1,81 +1,236 @@
 # Project Structure
 
-**Analysis Date:** 2026-02-12
+**Analysis Date:** 2026-02-20
 
-## Directory Layout
+## Complete Directory Tree
 
 ```
-GRD/
-├── .claude-plugin/          # Plugin manifest for Claude Code discovery
-│   └── plugin.json          # Version, hooks, description
-├── .planning/               # Runtime state (created on project init)
-│   ├── config.json          # GRD configuration
-│   ├── PROJECT.md           # Product vision, research objectives
-│   ├── ROADMAP.md           # Phase structure
-│   ├── STATE.md             # Living memory
-│   ├── BASELINE.md          # Current performance metrics
-│   ├── PRODUCT-QUALITY.md   # Product-level quality targets
-│   ├── REQUIREMENTS.md      # Requirements with traceability
-│   ├── TRACKER.md           # Issue tracker mapping (runtime)
-│   ├── research/            # Persistent research knowledge base
-│   │   ├── LANDSCAPE.md     # SoTA map
-│   │   ├── PAPERS.md        # Paper index
-│   │   ├── BENCHMARKS.md    # Evaluation metrics
-│   │   ├── KNOWHOW.md       # Paper→production gap knowledge
-│   │   └── deep-dives/      # Individual paper analyses
-│   │       └── {paper-slug}.md
-│   ├── phases/              # Phase execution artifacts
-│   │   └── {NN}-{name}/
-│   │       ├── {NN}-RESEARCH.md      # Phase research with paper refs
-│   │       ├── {NN}-CONTEXT.md       # User decisions from discuss-phase
-│   │       ├── {NN}-{MM}-PLAN.md     # Execution plan
-│   │       ├── {NN}-{MM}-SUMMARY.md  # Execution results
-│   │       ├── {NN}-{MM}-REVIEW.md   # Code review findings
-│   │       ├── {NN}-EVAL.md          # Tiered evaluation plan/results
-│   │       └── {NN}-VERIFICATION.md  # Verification report
-│   ├── codebase/            # Codebase analysis (from map-codebase)
-│   │   ├── STACK.md
-│   │   ├── ARCHITECTURE.md
-│   │   ├── STRUCTURE.md
-│   │   ├── CONVENTIONS.md
-│   │   ├── TESTING.md
-│   │   ├── INTEGRATIONS.md
-│   │   └── CONCERNS.md
-│   ├── todos/               # Captured ideas
-│   │   ├── pending/
-│   │   └── completed/
-│   └── experiments/         # Experiment tracking (runtime)
-│       └── {NN}-{MM}-experiment.yaml
-├── bin/                     # CLI tooling
-│   ├── grd-tools.js         # Deterministic operations (5,632 lines)
-│   └── grd-manifest.js      # SHA256 file tracking for self-update
-├── commands/                # User-facing workflows (40 files)
-│   ├── execute-phase.md
-│   ├── plan-phase.md
-│   ├── new-project.md
-│   ├── survey.md
-│   ├── deep-dive.md
-│   ├── eval-plan.md
-│   ├── eval-report.md
-│   ├── sync.md
-│   └── ... (32 more)
-├── agents/                  # Specialized agents (19 files)
-│   ├── grd-executor.md
-│   ├── grd-planner.md
-│   ├── grd-surveyor.md
-│   ├── grd-deep-diver.md
-│   ├── grd-eval-planner.md
-│   ├── grd-verifier.md
-│   ├── grd-code-reviewer.md
-│   └── ... (12 more)
-├── templates/               # Document templates (26 files)
-│   ├── project.md
-│   ├── roadmap.md
-│   ├── state.md
-│   ├── summary.md
-│   ├── context.md
-│   ├── config.json
-│   ├── research/            # Research templates
+GetResearchDone/                   # npm package root
+├── .claude-plugin/
+│   └── plugin.json                # Claude Code plugin manifest (hooks, version, description)
+├── .planning/                     # Runtime state (created on npm install via postinstall)
+│   ├── config.json                # GRD configuration (gates, tracker, eval, code review, exec)
+│   ├── PROJECT.md                 # Product vision, research objectives
+│   ├── ROADMAP.md                 # Phase structure — source of truth for workflow
+│   ├── STATE.md                   # Living memory (position, decisions, blockers, deferred)
+│   ├── BASELINE.md                # Quantitative performance baselines
+│   ├── PRODUCT-QUALITY.md         # Product-level quality targets and gaps
+│   ├── REQUIREMENTS.md            # Requirements with traceability
+│   ├── LONG-TERM-ROADMAP.md       # Strategic multi-milestone roadmap
+│   ├── MILESTONES.md              # Milestone index
+│   ├── TRACKER.md                 # Issue tracker ID mapping (created at first sync)
+│   ├── milestones/                # Per-milestone scoped directories (v0.2.1+)
+│   │   ├── anonymous/             # Operations without a milestone
+│   │   │   ├── phases/
+│   │   │   ├── research/
+│   │   │   │   └── deep-dives/
+│   │   │   ├── codebase/
+│   │   │   ├── todos/
+│   │   │   │   ├── pending/
+│   │   │   │   └── completed/
+│   │   │   └── quick/
+│   │   └── {version}/             # e.g., v0.2.2 (active milestone)
+│   │       ├── phases/
+│   │       │   └── {NN}-{name}/
+│   │       │       ├── {NN}-RESEARCH.md      # Phase research with paper refs
+│   │       │       ├── {NN}-CONTEXT.md       # User decisions from discuss-phase
+│   │       │       ├── {NN}-{MM}-PLAN.md     # Execution plan with frontmatter
+│   │       │       ├── {NN}-{MM}-SUMMARY.md  # Execution results with metrics
+│   │       │       ├── {NN}-{MM}-REVIEW.md   # Code review findings (per wave)
+│   │       │       ├── {NN}-EVAL.md          # Tiered evaluation plan/results
+│   │       │       └── {NN}-VERIFICATION.md  # Tiered verification report
+│   │       ├── research/                     # Milestone-scoped research knowledge base
+│   │       │   ├── LANDSCAPE.md             # SoTA map (methods, benchmarks, trends)
+│   │       │   ├── PAPERS.md                # Paper index with summaries
+│   │       │   ├── BENCHMARKS.md            # Evaluation metrics and datasets
+│   │       │   ├── KNOWHOW.md               # Paper-to-production gap knowledge
+│   │       │   └── deep-dives/
+│   │       │       └── {paper-slug}.md      # Individual paper analyses
+│   │       ├── codebase/                    # Codebase analysis (from map-codebase)
+│   │       │   ├── ARCHITECTURE.md
+│   │       │   ├── STACK.md
+│   │       │   ├── STRUCTURE.md
+│   │       │   ├── CONVENTIONS.md
+│   │       │   ├── TESTING.md
+│   │       │   ├── INTEGRATIONS.md
+│   │       │   └── CONCERNS.md
+│   │       ├── todos/
+│   │       │   ├── pending/
+│   │       │   └── completed/
+│   │       └── quick/                       # Quick task results
+│   │           └── {N}-{slug}/
+│   │               └── {N}-SUMMARY.md
+│   └── (legacy flat layout for pre-v0.2.1 projects)
+│       ├── phases/                          # Flat phases dir (backward compat)
+│       ├── research/                        # Flat research dir (backward compat)
+│       └── todos/                           # Flat todos dir (backward compat)
+├── bin/                           # CLI binaries (npm package entry points)
+│   ├── grd-tools.js               # Main CLI — thin router to lib/ modules (19716 bytes)
+│   ├── grd-mcp-server.js          # MCP server stdio wire-up
+│   ├── grd-manifest.js            # SHA256 file tracking for self-update
+│   └── postinstall.js             # npm postinstall — creates .planning/ skeleton
+├── lib/                           # Business logic modules (19 modules)
+│   ├── backend.js                 # AI coding CLI detection + capability flags
+│   ├── cleanup.js                 # Phase-boundary quality analysis (ESLint, dead exports, doc drift)
+│   ├── commands.js                # Misc CLI command functions (slug, timestamp, todos, config, etc.)
+│   ├── context.js                 # Workflow init context builders (20 workflows)
+│   ├── deps.js                    # Phase dependency graph + parallel group computation
+│   ├── frontmatter.js             # YAML frontmatter parse/reconstruct/validate
+│   ├── gates.js                   # Pre-flight validation checks
+│   ├── long-term-roadmap.js       # LONG-TERM-ROADMAP.md CRUD
+│   ├── mcp-server.js              # McpServer class + COMMAND_DESCRIPTORS table
+│   ├── parallel.js                # Multi-phase parallel execution context builder
+│   ├── paths.js                   # Centralized .planning/ path resolution
+│   ├── phase.js                   # Phase lifecycle (add/insert/remove/complete)
+│   ├── roadmap.js                 # ROADMAP.md parsing + schedule computation
+│   ├── scaffold.js                # Template selection + file scaffolding
+│   ├── state.js                   # STATE.md read/write/patch
+│   ├── tracker.js                 # GitHub Issues / MCP Atlassian sync
+│   ├── utils.js                   # Shared utilities (config, git, slug, output)
+│   ├── verify.js                  # Plan/phase/commit verification suite
+│   └── worktree.js                # Git worktree lifecycle for phase isolation
+├── commands/                      # 45 skill definitions (markdown prompt files)
+│   ├── execute-phase.md           # Wave-based plan execution orchestrator
+│   ├── plan-phase.md              # Research → Plan → Verify → Eval workflow
+│   ├── new-project.md             # Project initialization with research landscape
+│   ├── new-milestone.md           # Create milestone in ROADMAP.md
+│   ├── survey.md                  # SoTA landscape scan
+│   ├── deep-dive.md               # Paper deep analysis
+│   ├── compare-methods.md         # Method comparison matrix
+│   ├── feasibility.md             # Paper→production gap analysis
+│   ├── discuss-phase.md           # Brainstorming (no-solutions-before-questions)
+│   ├── product-plan.md            # Product-level planning
+│   ├── add-phase.md               # Add phase to roadmap
+│   ├── insert-phase.md            # Insert phase at position
+│   ├── remove-phase.md            # Remove phase
+│   ├── complete-milestone.md      # Archive milestone
+│   ├── quick.md                   # Quick task with GRD guarantees
+│   ├── resume-project.md          # Resume from STATE.md
+│   ├── assess-baseline.md         # Current performance baseline
+│   ├── eval-plan.md               # Design tiered evaluation
+│   ├── eval-report.md             # Collect and analyze eval results
+│   ├── iterate.md                 # Iteration loop on failed metrics
+│   ├── verify-phase.md            # Run phase verification
+│   ├── verify-work.md             # Verify recent work
+│   ├── sync.md                    # Sync GRD state to issue tracker
+│   ├── tracker-setup.md           # Configure tracker integration
+│   ├── long-term-roadmap.md       # Manage LT milestones
+│   ├── plan-milestone-gaps.md     # Create phases to close milestone audit gaps
+│   ├── map-codebase.md            # Spawn codebase mapper subagents
+│   ├── progress.md                # Progress visualization
+│   ├── migrate.md                 # Directory migration skill
+│   ├── settings.md                # Configuration management
+│   ├── help.md                    # Command reference
+│   ├── update.md                  # Self-update check + pull
+│   ├── reapply-patches.md         # Restore local modifications after update
+│   ├── yolo.md                    # Toggle autonomous mode
+│   ├── debug.md                   # Debug workflow issues
+│   ├── health.md                  # Project health check
+│   ├── dashboard.md               # Project dashboard
+│   ├── add-todo.md                # Capture idea as todo
+│   ├── check-todos.md             # Review pending todos
+│   ├── research-phase.md          # Phase research synthesis
+│   ├── audit-milestone.md         # Milestone quality audit
+│   ├── pause-work.md              # Save session state
+│   ├── set-profile.md             # Set model profile
+│   ├── phase-detail.md            # Phase detail view
+│   ├── requirement.md             # Requirement operations
+│   └── list-phase-assumptions.md  # List phase assumptions
+├── agents/                        # 20 subagent definitions (markdown prompt files)
+│   ├── grd-executor.md            # Executes PLAN.md files with atomic commits
+│   ├── grd-planner.md             # Creates executable phase plans
+│   ├── grd-roadmapper.md          # Roadmap creation/modification
+│   ├── grd-verifier.md            # Post-execution verification
+│   ├── grd-code-reviewer.md       # Automatic code review
+│   ├── grd-plan-checker.md        # Plan structure verification
+│   ├── grd-integration-checker.md # Integration readiness check
+│   ├── grd-surveyor.md            # SoTA landscape scanning
+│   ├── grd-deep-diver.md          # Deep paper analysis
+│   ├── grd-phase-researcher.md    # Phase-specific research synthesis
+│   ├── grd-project-researcher.md  # Project-level research synthesis
+│   ├── grd-research-synthesizer.md # Cross-phase synthesis
+│   ├── grd-feasibility-analyst.md # Paper→production gap analysis
+│   ├── grd-eval-planner.md        # Tiered evaluation plan design
+│   ├── grd-eval-reporter.md       # Eval results analysis
+│   ├── grd-baseline-assessor.md   # Current performance baseline
+│   ├── grd-product-owner.md       # Product-level planning
+│   ├── grd-codebase-mapper.md     # Codebase analysis (this agent)
+│   ├── grd-debugger.md            # Debug workflow issues
+│   └── grd-migrator.md            # Directory migration agent
+├── tests/                         # Test suite
+│   ├── unit/                      # Unit tests — one per lib/ module
+│   │   ├── backend.test.js
+│   │   ├── backend-real-env.test.js
+│   │   ├── cleanup.test.js
+│   │   ├── cleanup-noninterference.test.js
+│   │   ├── commands.test.js
+│   │   ├── context.test.js
+│   │   ├── context-backend-compat.test.js
+│   │   ├── coverage-gaps.test.js
+│   │   ├── deps.test.js
+│   │   ├── frontmatter.test.js
+│   │   ├── gates.test.js
+│   │   ├── long-term-roadmap.test.js
+│   │   ├── mcp-server.test.js
+│   │   ├── parallel.test.js
+│   │   ├── paths.test.js
+│   │   ├── phase.test.js
+│   │   ├── postinstall.test.js
+│   │   ├── roadmap.test.js
+│   │   ├── roadmap-roundtrip.test.js
+│   │   ├── scaffold.test.js
+│   │   ├── setup.test.js
+│   │   ├── state.test.js
+│   │   ├── tracker.test.js
+│   │   ├── utils.test.js
+│   │   ├── validation.test.js
+│   │   ├── verify.test.js
+│   │   └── worktree.test.js
+│   ├── integration/               # CLI + E2E workflow tests
+│   │   ├── cli.test.js            # End-to-end CLI invocation tests
+│   │   ├── e2e-workflow.test.js   # Full workflow integration
+│   │   ├── golden.test.js         # Golden output snapshot tests
+│   │   ├── npm-pack.test.js       # npm pack validation
+│   │   └── worktree-parallel-e2e.test.js # Worktree parallel execution
+│   ├── golden/                    # Golden output snapshots
+│   │   ├── capture.sh             # Script to regenerate snapshots
+│   │   ├── README.md              # Golden test documentation
+│   │   └── output/                # Snapshot JSON/text files
+│   │       ├── mutating/          # Snapshots for mutating operations
+│   │       └── *.json / *.txt     # Read-only operation snapshots
+│   ├── fixtures/                  # Shared test fixtures
+│   │   └── planning/              # Minimal .planning/ structure for tests
+│   │       ├── config.json
+│   │       ├── ROADMAP.md
+│   │       ├── STATE.md
+│   │       ├── REQUIREMENTS.md
+│   │       └── milestones/
+│   │           └── anonymous/phases/ + todos/
+│   └── helpers/                   # Test utilities
+│       ├── fixtures.js            # createFixtureDir() / cleanupFixtureDir()
+│       └── setup.js               # captureOutput() / captureError() (process.exit mock)
+├── templates/                     # Document templates (28 files)
+│   ├── project.md                 # PROJECT.md template
+│   ├── roadmap.md                 # ROADMAP.md template
+│   ├── state.md                   # STATE.md template
+│   ├── requirements.md            # REQUIREMENTS.md template
+│   ├── summary.md                 # SUMMARY.md base template
+│   ├── summary-standard.md        # Standard complexity summary
+│   ├── summary-minimal.md         # Minimal complexity summary
+│   ├── summary-complex.md         # Complex summary with decisions
+│   ├── context.md                 # CONTEXT.md (user decisions)
+│   ├── UAT.md                     # User acceptance testing
+│   ├── milestone.md               # Milestone template
+│   ├── milestone-archive.md       # Milestone archive template
+│   ├── config.json                # Default config.json
+│   ├── tracker-mapping.md         # TRACKER.md mapping template
+│   ├── verification-report.md     # VERIFICATION.md template
+│   ├── phase-prompt.md            # Phase prompt template
+│   ├── research.md                # Research phase template
+│   ├── discovery.md               # Discovery template
+│   ├── continue-here.md           # Continuation template
+│   ├── debug-subagent-prompt.md   # Debug subagent template
+│   ├── research/                  # Research document templates
 │   │   ├── landscape.md
 │   │   ├── papers.md
 │   │   ├── benchmarks.md
@@ -83,9 +238,9 @@ GRD/
 │   │   ├── deep-dive.md
 │   │   ├── eval.md
 │   │   └── baseline.md
-│   ├── codebase/            # Codebase analysis templates
-│   │   ├── stack.md
+│   ├── codebase/                  # Codebase analysis templates
 │   │   ├── architecture.md
+│   │   ├── stack.md
 │   │   ├── structure.md
 │   │   ├── conventions.md
 │   │   ├── testing.md
@@ -93,418 +248,269 @@ GRD/
 │   │   └── concerns.md
 │   └── research-project/
 │       └── PRODUCT-QUALITY.md
-├── references/              # Protocol documentation (17 files)
-│   ├── mcp-tracker-protocol.md
-│   ├── tracker-integration.md
-│   ├── verification-patterns.md
-│   ├── research-methodology.md
-│   ├── tdd.md
-│   ├── checkpoints.md
-│   └── ... (11 more)
-├── docs/                    # User documentation
-│   └── quickstart.md
-├── CLAUDE.md                # Main project instructions (8,328 bytes)
-├── README.md                # Public documentation
-├── CHANGELOG.md             # Version history
-├── VERSION                  # Current version (e.g., "0.0.3")
-├── grd-file-manifest.json   # SHA256 manifest for self-update
-└── GRD-*.excalidraw.md      # Architecture diagrams (3 files)
+├── references/                    # Protocol documentation (17 files)
+│   ├── mcp-tracker-protocol.md    # MCP Atlassian prepare/execute/record pattern
+│   ├── tracker-integration.md     # GitHub Issues integration
+│   ├── verification-patterns.md   # Tiered verification methodology
+│   ├── research-methodology.md    # Research workflow patterns
+│   ├── tdd.md                     # Test-driven development protocol
+│   ├── checkpoints.md             # Checkpoint pause/resume protocol
+│   ├── questioning.md             # Deep questioning methodology
+│   ├── continuation-format.md     # Checkpoint continuation format
+│   ├── execute-plan.md            # Plan execution protocol
+│   ├── git-integration.md         # Git workflow patterns
+│   ├── git-planning-commit.md     # Planning doc commit protocol
+│   ├── model-profiles.md          # Agent model selection profiles
+│   ├── model-profile-resolution.md # Model resolution algorithm
+│   ├── phase-argument-parsing.md  # Phase number parsing
+│   ├── decimal-phase-calculation.md # Decimal phase insertion logic
+│   ├── planning-config.md         # Configuration schema
+│   └── ui-brand.md                # UI conventions
+├── docs/                          # User documentation
+│   ├── quickstart.md
+│   ├── CHANGELOG.md
+│   ├── CONTRIBUTING.md
+│   ├── SECURITY.md
+│   ├── long-term-roadmap-tutorial.md
+│   ├── mcp-server.md
+│   ├── GRD-Dataflow.excalidraw.md
+│   ├── GRD-Hierarchy.excalidraw.md
+│   ├── GRD-Workflow.excalidraw.md
+│   └── GRD-Workflow-Jira-Integration.md
+├── CLAUDE.md                      # Main project instructions for Claude Code
+├── README.md                      # Public documentation
+├── VERSION                        # Current version string (e.g., "0.2.2")
+├── grd-file-manifest.json         # SHA256 manifest for self-update
+├── package.json                   # npm metadata + scripts
+├── package-lock.json              # Lock file
+├── jest.config.js                 # Jest config + per-file coverage thresholds
+├── eslint.config.js               # ESLint flat config
+└── .prettierrc                    # Prettier config
 ```
-
-## Key Directories
-
-### `.claude-plugin/`
-**Purpose:** Claude Code plugin discovery and initialization
-
-**Key files:**
-- `plugin.json` — Plugin metadata (name, version, author, SessionStart hooks)
-
-**Auto-discovery:** Claude Code scans for `.claude-plugin/plugin.json` on session start.
-
-### `.planning/` (Runtime State)
-**Purpose:** All project state, plans, research, and execution artifacts
-
-**Created by:** `/grd:new-project` command
-
-**Key files:**
-- `config.json` — GRD configuration (gates, parallelization, tracker, eval, code review)
-- `PROJECT.md` — Product vision, research objectives, quality targets
-- `ROADMAP.md` — Phase structure with success criteria
-- `STATE.md` — Living memory (position, decisions, blockers, deferred validations)
-- `BASELINE.md` — Current quantitative performance metrics
-- `REQUIREMENTS.md` — Requirements with traceability
-- `TRACKER.md` — Issue tracker mapping (created at runtime when syncing)
-
-**Subdirectories:**
-- `research/` — Persistent research knowledge base
-- `phases/` — Phase execution artifacts
-- `codebase/` — Codebase analysis (from `/grd:map-codebase`)
-- `todos/` — Captured ideas (pending/ and completed/)
-- `experiments/` — Experiment tracking YAML files (runtime)
-
-### `bin/`
-**Purpose:** CLI tooling for deterministic operations
-
-**Key files:**
-- `grd-tools.js` — 5,632 lines, 64 commands (state management, phase operations, frontmatter CRUD, tracker integration, workflow initialization)
-- `grd-manifest.js` — SHA256-based file tracking for self-update system
-
-**Invocation:** Called by commands/agents via bash (e.g., `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state load`)
-
-### `commands/`
-**Purpose:** User-facing workflow entry points (40 markdown files, ~10,404 lines total)
-
-**Structure:** Each command is a markdown file with `<purpose>`, `<process>`, and step-by-step instructions.
-
-**Grouped by function:**
-
-**Research commands:**
-- `survey.md` — SoTA landscape scan
-- `deep-dive.md` — Paper deep analysis
-- `compare-methods.md` — Method comparison matrix
-- `feasibility.md` — Paper→production gap analysis
-
-**Planning commands:**
-- `new-project.md` — Initialize R&D project
-- `product-plan.md` — Product-level planning
-- `discuss-phase.md` — Brainstorming with no-solutions-before-questions protocol
-- `plan-phase.md` — Phase planning with research context
-- `new-milestone.md` — Create milestone in roadmap
-- `add-phase.md` / `insert-phase.md` / `remove-phase.md` — Phase lifecycle
-
-**Execution commands:**
-- `execute-phase.md` — Wave-based plan execution
-- `quick.md` — Quick task with GRD guarantees
-- `resume-project.md` — Resume from STATE.md
-
-**Evaluation commands:**
-- `assess-baseline.md` — Current performance baseline
-- `eval-plan.md` — Design tiered evaluation
-- `eval-report.md` — Collect and analyze results
-- `iterate.md` — Iteration loop on failed metrics
-
-**Verification commands:**
-- `verify-phase.md` — Run phase verification
-- `verify-work.md` — Verify recent work
-
-**Integration commands:**
-- `sync.md` — Sync GRD state to issue tracker (roadmap, phase, status, reschedule)
-- `tracker-setup.md` — Configure GitHub Issues or MCP Atlassian integration
-
-**Utility commands:**
-- `progress.md` — Progress visualization
-- `settings.md` — Configuration management
-- `help.md` — Command reference
-- `update.md` / `reapply-patches.md` — Self-update system
-- `yolo.md` — Toggle autonomous mode
-- `debug.md` — Debug workflow issues
-
-### `agents/`
-**Purpose:** Specialized agents spawned by command orchestrators (19 markdown files, ~10,939 lines total)
-
-**Structure:** Each agent is a markdown file with YAML frontmatter (name, description, tools, color) and `<role>` sections.
-
-**Core agents:**
-- `grd-executor.md` — Executes PLAN.md files with atomic commits
-- `grd-planner.md` — Creates executable phase plans with research context
-- `grd-roadmapper.md` — Roadmap creation/modification
-- `grd-verifier.md` — Post-execution verification
-
-**Research agents:**
-- `grd-surveyor.md` — SoTA landscape scanning (arXiv, GitHub, Papers with Code)
-- `grd-deep-diver.md` — Deep paper analysis
-- `grd-phase-researcher.md` — Phase-specific research synthesis
-- `grd-project-researcher.md` — Project-level research synthesis
-- `grd-research-synthesizer.md` — Cross-phase research synthesis
-- `grd-feasibility-analyst.md` — Paper→production gap analysis
-
-**Evaluation agents:**
-- `grd-eval-planner.md` — Designs tiered evaluation plans
-- `grd-eval-reporter.md` — Collects and analyzes eval results
-- `grd-baseline-assessor.md` — Assesses current performance baseline
-
-**Quality agents:**
-- `grd-code-reviewer.md` — Automatic code review (spec compliance + quality)
-- `grd-plan-checker.md` — Plan structure verification
-- `grd-integration-checker.md` — Integration readiness check
-
-**Planning agents:**
-- `grd-product-owner.md` — Product-level planning and quality targets
-- `grd-codebase-mapper.md` — Codebase analysis
-
-**Utility agents:**
-- `grd-debugger.md` — Debug workflow issues
-
-### `templates/`
-**Purpose:** Markdown templates for all GRD documents (26 files)
-
-**Structure:**
-
-**Root-level templates:**
-- `project.md` — PROJECT.md template
-- `roadmap.md` — ROADMAP.md template
-- `state.md` — STATE.md template
-- `requirements.md` — REQUIREMENTS.md template
-- `summary.md` — SUMMARY.md template
-- `summary-standard.md` / `summary-minimal.md` — Summary variants
-- `context.md` — CONTEXT.md template (user decisions)
-- `UAT.md` — User acceptance testing template
-- `milestone.md` — Milestone template
-- `config.json` — Default configuration
-- `tracker-mapping.md` — TRACKER.md template
-
-**Research templates (`research/`):**
-- `landscape.md` — LANDSCAPE.md template
-- `papers.md` — PAPERS.md template
-- `benchmarks.md` — BENCHMARKS.md template
-- `knowhow.md` — KNOWHOW.md template
-- `deep-dive.md` — Deep-dive template
-- `eval.md` — EVAL.md template
-- `baseline.md` — BASELINE.md template
-
-**Codebase templates (`codebase/`):**
-- `stack.md`, `architecture.md`, `structure.md`, `conventions.md`, `testing.md`, `integrations.md`, `concerns.md`
-
-**Research project templates (`research-project/`):**
-- `PRODUCT-QUALITY.md` — Product-level quality targets
-
-**Usage:** CLI tool `template fill` commands substitute placeholders with runtime data.
-
-### `references/`
-**Purpose:** Cross-cutting protocol documentation (17 markdown files)
-
-**Key files:**
-- `mcp-tracker-protocol.md` — MCP Atlassian integration protocol (prepare/execute/record pattern)
-- `tracker-integration.md` — GitHub Issues integration
-- `verification-patterns.md` — Tiered verification methodology
-- `research-methodology.md` — Research workflow patterns
-- `tdd.md` — Test-driven development protocol
-- `checkpoints.md` — Checkpoint pause/resume protocol
-- `questioning.md` — Deep questioning methodology
-- `continuation-format.md` — Checkpoint continuation format
-- `execute-plan.md` — Plan execution protocol
-- `git-integration.md` — Git workflow patterns
-- `git-planning-commit.md` — Planning doc commit protocol
-- `model-profiles.md` / `model-profile-resolution.md` — Agent model selection
-- `phase-argument-parsing.md` — Phase number parsing
-- `decimal-phase-calculation.md` — Decimal phase insertion logic
-- `planning-config.md` — Configuration schema
-- `ui-brand.md` — UI conventions
-
-### `docs/`
-**Purpose:** User documentation
-
-**Key files:**
-- `quickstart.md` — Getting started guide
 
 ## File Naming Conventions
 
-### Command Files
+### lib/ Modules
+**Pattern:** `{feature-area}.js` (lowercase, hyphenated)
+
+**Examples:** `backend.js`, `long-term-roadmap.js`, `mcp-server.js`
+
+**Rule:** One module per concern. Module name matches its primary responsibility.
+
+### Command Files (`commands/`)
 **Pattern:** `{command-name}.md` (lowercase, hyphenated)
 
-**Examples:** `execute-phase.md`, `new-project.md`, `deep-dive.md`
+**Examples:** `execute-phase.md`, `new-project.md`, `plan-milestone-gaps.md`
 
-**Invocation:** `/grd:{command-name}` in Claude Code
+**Invocation in Claude Code:** `/grd:{command-name}`
 
-### Agent Files
-**Pattern:** `grd-{agent-type}.md` (lowercase, hyphenated)
+**Structure inside file:**
+```markdown
+---
+description: ...
+argument-hint: <arg>
+---
 
-**Examples:** `grd-executor.md`, `grd-planner.md`, `grd-surveyor.md`
+<purpose>...</purpose>
+<process>
+<step name="...">...</step>
+</process>
+```
 
-**Naming prefix:** All agents start with `grd-` to distinguish from GSD agents.
+### Agent Files (`agents/`)
+**Pattern:** `grd-{agent-type}.md` (lowercase, hyphenated, always prefixed `grd-`)
 
-### Template Files
+**Examples:** `grd-executor.md`, `grd-planner.md`, `grd-codebase-mapper.md`
+
+**Structure inside file:** YAML frontmatter (name, description, tools, color) + `<role>` section
+
+### Test Files (`tests/`)
+**Pattern:** `{lib-module}.test.js` for unit tests, mirroring `lib/` exactly
+
+| lib/ module | test file |
+|---|---|
+| `lib/state.js` | `tests/unit/state.test.js` |
+| `lib/roadmap.js` | `tests/unit/roadmap.test.js` |
+| `lib/backend.js` | `tests/unit/backend.test.js` |
+
+**Integration tests:** Descriptive names — `cli.test.js`, `e2e-workflow.test.js`, `golden.test.js`
+
+**Supplementary unit tests:** `{module}-{aspect}.test.js` — e.g., `backend-real-env.test.js`, `cleanup-noninterference.test.js`, `context-backend-compat.test.js`, `roadmap-roundtrip.test.js`
+
+### Template Files (`templates/`)
 **Pattern:** `{document-name}.md` (lowercase, hyphenated)
 
-**Examples:** `project.md`, `roadmap.md`, `deep-dive.md`
-
-**Matches output:** Template name corresponds to generated file name (e.g., `project.md` → `PROJECT.md`).
+**Matches output:** `project.md` template → generates `PROJECT.md`; `deep-dive.md` → generates `deep-dives/{slug}.md`
 
 ### Phase Directory Names
-**Pattern:** `{NN}-{slug}/` where:
-- `{NN}` = Zero-padded phase number (e.g., `01`, `02`, `02.1`)
-- `{slug}` = URL-safe phase name slug (lowercase, hyphenated)
+**Pattern:** `{NN}-{slug}/`
+- `{NN}` = Zero-padded phase number (`01`, `02`, `37`)
+- Decimal phases: `{NN}.{D}-{slug}/` (e.g., `37.1-quickdir-fix/`)
+- `{slug}` = kebab-case name derived from phase description
 
-**Examples:**
-- `01-foundation/`
-- `02-model-training/`
-- `02.1-urgent-fix/` (decimal phase)
+**Examples:** `01-security-foundation/`, `37-quickdir-routing-and-migration-skill/`
 
-**Generated by:** `grd-tools.js phase add` / `phase insert`
+**Generated by:** `lib/phase.js cmdPhaseAdd()` and `cmdPhaseInsert()`
 
-### Phase Document Names
-**Pattern within phase directory:**
-- `{NN}-RESEARCH.md` — Phase research
-- `{NN}-CONTEXT.md` — User decisions
-- `{NN}-{MM}-PLAN.md` — Execution plan (e.g., `01-01-PLAN.md`)
-- `{NN}-{MM}-SUMMARY.md` — Execution results (e.g., `01-01-SUMMARY.md`)
-- `{NN}-{MM}-REVIEW.md` — Code review (e.g., `01-01-REVIEW.md`)
-- `{NN}-EVAL.md` — Evaluation plan/results
-- `{NN}-VERIFICATION.md` — Verification report
+### Phase Document Names (inside phase directories)
+| File | Content |
+|---|---|
+| `{NN}-RESEARCH.md` | Phase research with paper references |
+| `{NN}-CONTEXT.md` | User decisions from `/grd:discuss-phase` |
+| `{NN}-{MM}-PLAN.md` | Execution plan (e.g., `37-01-PLAN.md`) |
+| `{NN}-{MM}-SUMMARY.md` | Execution results with metrics |
+| `{NN}-{MM}-REVIEW.md` | Code review findings |
+| `{NN}-EVAL.md` | Tiered evaluation plan and results |
+| `{NN}-VERIFICATION.md` | Tiered verification report |
 
-**Examples:**
-- `.planning/phases/01-foundation/01-RESEARCH.md`
-- `.planning/phases/01-foundation/01-01-PLAN.md`
-- `.planning/phases/01-foundation/01-01-SUMMARY.md`
-- `.planning/phases/01-foundation/01-EVAL.md`
-
-### Research Document Names
-**Pattern:**
-- `LANDSCAPE.md` — SoTA landscape
-- `PAPERS.md` — Paper index
-- `BENCHMARKS.md` — Evaluation metrics
-- `KNOWHOW.md` — Paper→production gaps
-- `deep-dives/{paper-slug}.md` — Individual paper analysis
-
-**Slug generation:** `grd-tools.js generate-slug "{Paper Title}"` → `paper-title`
-
-### Codebase Document Names
+### Codebase Analysis Documents (`codebase/`)
 **Pattern:** `{AREA}.md` (UPPERCASE)
 
-**Examples:** `STACK.md`, `ARCHITECTURE.md`, `STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`
+`STACK.md`, `ARCHITECTURE.md`, `STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`
 
-## Module Organization
+### Research Documents (`research/`)
+**Pattern:** `UPPERCASE.md` for index files, `{paper-slug}.md` for deep-dives
 
-### No Traditional Modules
-GRD is a **document-driven workflow system**, not a traditional code library. Organization is by:
+`LANDSCAPE.md`, `PAPERS.md`, `BENCHMARKS.md`, `KNOWHOW.md`, `deep-dives/{paper-slug}.md`
 
-1. **Document type** (commands, agents, templates, references)
-2. **Workflow phase** (research, planning, execution, evaluation)
-3. **Responsibility** (orchestration, execution, verification, integration)
+## Module Organization Pattern
 
-### Import/Reference Patterns
+GRD has two distinct organizational patterns:
 
-**Commands reference agents:**
-```markdown
-Agent(
-  name="grd-executor",
-  model="${EXECUTOR_MODEL}",
-  context=...
-)
+### Markdown Content Layer (commands/, agents/, templates/, references/)
+Organized by **responsibility + workflow phase**:
+- `commands/` — user-facing workflow entry points (what to do)
+- `agents/` — specialized worker agents (how to do it)
+- `templates/` — document stencils grouped by type (`research/`, `codebase/`, root)
+- `references/` — cross-cutting protocol documentation
+
+### Code Layer (lib/)
+Organized by **concern**:
+- Foundation: `paths.js`, `backend.js`
+- Infrastructure: `utils.js`, `frontmatter.js`, `gates.js`
+- State: `state.js`, `roadmap.js`
+- Domain: `phase.js`, `deps.js`, `parallel.js`, `worktree.js`, `tracker.js`, `long-term-roadmap.js`, `cleanup.js`
+- Verification: `verify.js`, `scaffold.js`
+- Integration: `context.js`, `commands.js`, `mcp-server.js`
+
+## Configuration File Locations
+
+| File | Purpose |
+|---|---|
+| `.planning/config.json` | Runtime GRD configuration — all feature flags |
+| `.claude-plugin/plugin.json` | Claude Code plugin registration + hooks |
+| `jest.config.js` | Jest test runner + per-file coverage thresholds |
+| `eslint.config.js` | ESLint flat config with `no-unused-vars` rule |
+| `.prettierrc` | Prettier formatting options |
+| `.editorconfig` | Editor indentation/encoding defaults |
+| `.gitignore` | Excludes `node_modules/`, `coverage/`, `.planning/milestones/` (runtime state) |
+| `package.json` | npm metadata, bin entries, devDependencies, scripts |
+
+### `.planning/config.json` Schema (key sections)
+```json
+{
+  "model_profile": "balanced|quality|budget",
+  "commit_docs": true,
+  "autonomous_mode": false,
+  "branching_strategy": "none|phase|milestone",
+  "phase_branch_template": "grd/{milestone}/{phase}-{slug}",
+  "parallelization": true,
+  "research_gates": { "survey_approval": false, ... },
+  "confirmation_gates": { "commit_confirmation": false, ... },
+  "eval_config": { "default_metrics": [...], "baseline_tracking": true },
+  "tracker": { "provider": "none|github|mcp-atlassian", ... },
+  "code_review": { "enabled": true, "timing": "per_wave", "severity_gate": "blocker" },
+  "execution": { "use_teams": false, "team_timeout_minutes": 30 },
+  "phase_cleanup": { "enabled": false, "refactoring": false, ... }
+}
 ```
 
-**Agents reference CLI tool:**
-```bash
-INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE}")
-```
+## Generated vs Source Files
 
-**Agents reference templates:**
-```bash
-cat ${CLAUDE_PLUGIN_ROOT}/templates/summary.md
-```
+### Source (committed to git)
+- `bin/` — CLI binaries
+- `lib/` — business logic modules
+- `commands/` — command definitions
+- `agents/` — agent definitions
+- `templates/` — document templates
+- `references/` — protocol documentation
+- `tests/` — test suite
+- `docs/` — user documentation
+- `grd-file-manifest.json` — SHA256 manifest (generated by `bin/grd-manifest.js`, committed)
+- `VERSION` — version string
+- `package.json`, `jest.config.js`, `eslint.config.js`, `.prettierrc`
 
-**Agents reference references:**
-```markdown
-@${CLAUDE_PLUGIN_ROOT}/references/checkpoints.md
-@${CLAUDE_PLUGIN_ROOT}/references/tdd.md
-```
+### Generated/Runtime (not committed or gitignored)
+- `.planning/STATE.md` — written by `grd-tools.js state patch/update/...`
+- `.planning/ROADMAP.md` — written by phase add/complete operations
+- `.planning/milestones/{version}/phases/*/` — written by agents during execution
+- `.planning/milestones/{version}/research/` — written by research agents
+- `.planning/TRACKER.md` — written by tracker sync commands
+- `coverage/` — Jest coverage reports
+- `node_modules/` — npm dependencies
+- Worktree dirs at `os.tmpdir()/grd-worktree-{milestone}-{phase}` — created at runtime
 
-**Cross-document references use `@` syntax:**
-```markdown
-@.planning/PROJECT.md
-@.planning/research/LANDSCAPE.md
-@.planning/phases/01-foundation/01-RESEARCH.md
-```
+## Key Files and Their Roles
 
-### Execution Context Loading
-Commands use `grd-tools.js init {workflow-name}` to load all necessary context in one call:
-
-```bash
-# Loads state, roadmap, requirements, context, research in one JSON response
-INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init plan-phase 1 --include state,roadmap,requirements,context,research)
-```
-
-This centralizes context loading and reduces redundant reads across ~50 command/agent files.
-
-## Configuration Files
-
-### `.claude-plugin/plugin.json`
-**Purpose:** Plugin metadata and hooks
-
-**Schema:**
-- `name`, `version`, `description`, `author`
-- `hooks.SessionStart` — Commands to run on session start
-
-### `.planning/config.json`
-**Purpose:** GRD runtime configuration
-
-**Schema (from `templates/config.json`):**
-- `mode` — interactive | autonomous
-- `depth` — standard | deep
-- `workflow` — research, plan_check, verifier toggles
-- `planning` — commit_docs, search_gitignored
-- `parallelization` — enabled, plan_level, task_level, max_concurrent_agents
-- `gates` — confirmation gates (confirm_project, confirm_phases, etc.)
-- `research_gates` — research-specific gates (before_plan, verification_design, after_eval, feasibility)
-- `autonomous_mode` — YOLO mode toggle
-- `tracker` — provider (none | github | mcp-atlassian), auto_sync, provider-specific configs
-- `eval_config` — default_metrics, baseline_tracking, auto_iterate_on_failure
-- `safety` — always_confirm_destructive, always_confirm_external_services
-- `code_review` — enabled, timing (per_wave | per_phase), severity_gate, auto_fix_warnings
-- `execution` — use_teams, team_timeout_minutes, max_concurrent_teammates
-
-**Operations:** `grd-tools.js config-set`, `grd-tools.js config-ensure-section`
-
-### `grd-file-manifest.json`
-**Purpose:** SHA256 manifest for self-update system
-
-**Schema:**
-- `version`, `timestamp`, `file_count`
-- `files` — Map of relative paths to SHA256 hashes
-
-**Generated by:** `bin/grd-manifest.js generate`
-
-**Used by:** `/grd:update` command to detect local modifications before pulling updates.
-
-### `VERSION`
-**Purpose:** Current version string (e.g., `0.0.3`)
-
-**Format:** Single line, semver format
-
-**Used by:** Self-update system, plugin.json version field
+| File | Role |
+|---|---|
+| `bin/grd-tools.js` | Entry point for all CLI operations; 19716 bytes; routes to lib/ |
+| `bin/grd-mcp-server.js` | MCP stdio wire-up; reads from stdin, writes to stdout |
+| `lib/paths.js` | Single source of truth for .planning/ path resolution |
+| `lib/utils.js` | Foundation utilities; `loadConfig`, `execGit`, `output`, `error` |
+| `lib/backend.js` | Backend detection; model tier → concrete name resolution |
+| `lib/mcp-server.js` | McpServer class + ~80 COMMAND_DESCRIPTORS; 57150 bytes |
+| `lib/commands.js` | Miscellaneous commands; 96029 bytes — largest lib/ module |
+| `lib/context.js` | 20 workflow init functions; 43378 bytes |
+| `lib/phase.js` | Phase lifecycle CRUD; 40828 bytes |
+| `.planning/STATE.md` | Living project memory; always read first in workflow init |
+| `.planning/ROADMAP.md` | Definitive phase structure; parsed by roadmap.js |
+| `.planning/config.json` | All feature flags; read on every command invocation |
+| `.claude-plugin/plugin.json` | Claude Code plugin registration |
+| `jest.config.js` | Per-file coverage thresholds (enforced in CI) |
+| `grd-file-manifest.json` | SHA256 hashes for self-update detection |
 
 ## Adding New Code
 
-### To add a new command:
+### To add a new lib/ module:
+1. Create `lib/{module-name}.js` with `'use strict';` at top
+2. Follow the `cwd`-parameter convention for all functions
+3. Export with `module.exports = { fn1, fn2, ... }`
+4. Import from foundation modules only (`utils.js`, `paths.js`, `frontmatter.js`) — check for circular dep potential
+5. Add unit test at `tests/unit/{module-name}.test.js`
+6. Add coverage threshold to `jest.config.js`
+7. Import in `bin/grd-tools.js` and wire CLI commands
+8. Import in `lib/mcp-server.js` and add to `COMMAND_DESCRIPTORS`
+
+### To add a new CLI command:
+1. Add function `cmdNewCommand(cwd, args, raw)` to the appropriate lib/ module
+2. Export it from that module
+3. Import it in `bin/grd-tools.js`
+4. Add a `case 'new-command':` in the `routeCommand()` switch
+5. Add a `COMMAND_DESCRIPTOR` entry in `lib/mcp-server.js`
+6. Add to the usage string in `bin/grd-tools.js` (line ~128)
+
+### To add a new command skill:
 1. Create `commands/{command-name}.md`
-2. Follow structure: `<purpose>`, `<required_reading>`, `<process>` with numbered steps
-3. Add corresponding `init {command-name}` case in `bin/grd-tools.js` (if complex context loading needed)
-4. Reference in `commands/help.md`
-5. Update `CLAUDE.md` command list
+2. Follow structure: frontmatter (`description`, `argument-hint`) + `<purpose>` + `<process>` with `<step>` elements
+3. Add `cmdInit{CommandName}` in `lib/context.js` if context loading needed
+4. Wire in `bin/grd-tools.js` under `init` subcommand routing
+5. Reference in `commands/help.md`
+6. Update `CLAUDE.md` command list
 
 ### To add a new agent:
 1. Create `agents/grd-{agent-type}.md`
-2. Include YAML frontmatter: name, description, tools, color
+2. Include YAML frontmatter: `name`, `description`, `tools`, `color`
 3. Define `<role>` section with spawning context
-4. Add to MODEL_PROFILES table in `bin/grd-tools.js` (lines 123-145)
+4. Add entry to `MODEL_PROFILES` table in `lib/utils.js`
 5. Update `CLAUDE.md` agent model profiles table
 
-### To add a new template:
-1. Create `templates/{template-name}.md`
-2. Use placeholders: `[YYYY-MM-DD]`, `{PHASE}`, `{PLAN}`, `{NAME}`, etc.
-3. Add `template fill {template-name}` command in `bin/grd-tools.js` (if runtime substitution needed)
-4. Document in `references/` if new protocol introduced
-
-### To add a new CLI tool command:
-1. Define `function cmd{CommandName}(cwd, args, raw)` in `bin/grd-tools.js`
-2. Parse args, perform operation, return JSON result via `output(result, raw, rawValue)`
-3. Add to main `switch (command)` dispatcher (bottom of file)
-4. Document in file header (lines 10-115)
-5. Add tests/examples in comments
-
-### To extend tracker integration:
-1. Update `references/mcp-tracker-protocol.md` with new operation
-2. Add `tracker {operation}` command in `bin/grd-tools.js`
-3. Update `commands/sync.md` with new sync option
-4. Test against both GitHub Issues and MCP Atlassian providers
-
-### To add a new research workflow:
-1. Create command in `commands/` (e.g., `new-research-type.md`)
-2. Create agent in `agents/` (e.g., `grd-research-analyzer.md`)
-3. Create template in `templates/research/` (e.g., `analysis.md`)
-4. Update `references/research-methodology.md` with new pattern
-5. Ensure research output added to `research/` directory
+### To add a new planning document type inside a phase:
+1. Add template in `templates/{doc-name}.md`
+2. Add scaffold command in `lib/scaffold.js cmdScaffold()`
+3. Register scaffold subcommand in `bin/grd-tools.js`
+4. Update relevant command files (`plan-phase.md`, `execute-phase.md`) to reference new doc
 
 ---
 
-*Structure analysis: 2026-02-12*
+*Structure analysis: 2026-02-20*
