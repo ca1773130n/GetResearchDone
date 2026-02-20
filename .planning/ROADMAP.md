@@ -118,7 +118,10 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
   3. Worktrees are created under `.worktrees/` (project-local) instead of `/tmp/grd-worktree-*`; `.worktrees/` is added to `.gitignore` automatically if missing
   4. `cmdInitExecutePhase` outputs the new `git.*` config shape in its JSON when git isolation is enabled
   5. All existing tests pass (zero regressions); new tests cover config migration, `.gitignore` injection, and worktree directory change
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 38-01-PLAN.md — Config schema consolidation, project-local worktree paths, .gitignore injection, milestone branch helpers
+- [ ] 38-02-PLAN.md — Context output updates (cmdInitExecutePhase, buildParallelContext) for new git config shape
 
 ### Phase 39: Completion Flow
 **Goal**: Phase execution with git isolation ends by presenting the user with 4 completion options (merge locally, push and create PR, keep branch, discard work) with a test gate before merge/PR paths
@@ -166,7 +169,7 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Core Git Workflow Revision | 0/TBD | Not started | - |
+| 38. Core Git Workflow Revision | 0/2 | Not started | - |
 | 39. Completion Flow | 0/TBD | Not started | - |
 | 40. Settings Interview Revision | 0/TBD | Not started | - |
 | 41. Command & Documentation Updates | 0/TBD | Not started | - |
