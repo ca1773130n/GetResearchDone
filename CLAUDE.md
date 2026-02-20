@@ -2,7 +2,89 @@
 
 R&D workflow automation for Claude Code. Paper-driven development, tiered evaluation, autonomous iteration loops.
 
-## Architecture
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Run all tests with coverage (1,577 tests) |
+| `npm run test:unit` | Unit tests only with coverage |
+| `npm run test:integration` | Integration + E2E tests |
+| `npm run test:watch` | Watch mode for development |
+| `npm run lint` | ESLint on `bin/` and `lib/` |
+| `npm run lint:fix` | Auto-fix lint issues |
+| `npm run format:check` | Prettier check (CI-safe) |
+| `npm run format` | Prettier auto-format |
+
+Single test file: `npx jest tests/unit/state.test.js`
+Single test name: `npx jest -t "should parse frontmatter"`
+
+## Source Architecture
+
+```
+bin/
+├── grd-tools.js            # Main CLI — all deterministic operations
+├── grd-mcp-server.js       # MCP server for tool exposure
+├── grd-manifest.js         # SHA256 file tracking for self-update
+└── postinstall.js          # npm postinstall hook
+lib/                        # 18 modules (pure logic, no I/O side effects in tests)
+├── backend.js              # Claude Code backend detection + capabilities
+├── cleanup.js              # Phase-boundary quality analysis
+├── commands.js             # CLI command routing + argument parsing
+├── context.js              # Context optimization (plan index, snapshots)
+├── deps.js                 # Dependency management
+├── frontmatter.js          # YAML frontmatter CRUD
+├── gates.js                # Research + confirmation gates
+├── long-term-roadmap.js    # LT milestone CRUD + protection rules
+├── mcp-server.js           # MCP tool registration
+├── parallel.js             # Parallel execution engine
+├── phase.js                # Phase lifecycle (add/insert/remove/complete)
+├── roadmap.js              # ROADMAP.md parsing + manipulation
+├── scaffold.js             # Directory/file scaffolding
+├── state.js                # STATE.md read/write/patch
+├── tracker.js              # GitHub Issues / MCP Atlassian sync
+├── utils.js                # Shared utilities (slug, date, markdown)
+├── verify.js               # Plan/phase/commit verification suite
+└── worktree.js             # Git worktree parallel execution
+commands/                   # 45 skill definitions (markdown with frontmatter)
+agents/                     # 19 subagent definitions (markdown with frontmatter)
+tests/
+├── unit/                   # Unit tests — one per lib/ module
+├── integration/            # CLI + E2E workflow tests
+├── golden/                 # Golden output snapshot tests
+├── fixtures/               # Shared test fixtures
+└── helpers/                # Test utilities
+docs/                       # Tutorials, quickstart, diagrams
+.claude-plugin/plugin.json  # Claude Code plugin manifest
+```
+
+## Key Files
+
+- `bin/grd-tools.js` — Entry point for all CLI operations; commands call this
+- `.planning/config.json` — Project configuration (gates, tracker, eval, execution settings)
+- `.planning/STATE.md` — Living memory; always read this first to understand project state
+- `.planning/ROADMAP.md` — Phase structure; source of truth for what to build
+- `jest.config.js` — Per-file coverage thresholds (enforced in CI)
+- `eslint.config.js` — ESLint flat config with `no-unused-vars` (prefix unused args with `_`)
+
+## Testing
+
+- Tests mirror `lib/` structure: `lib/state.js` → `tests/unit/state.test.js`
+- Per-file coverage thresholds in `jest.config.js` — do not lower them
+- Golden tests (`tests/golden/`) use `capture.sh` to snapshot CLI output
+- Pre-commit hook runs `npm run lint` — commits fail if lint errors exist
+- Integration tests (`tests/integration/`) spawn real CLI processes
+- Test timeout: 15s (configured in `jest.config.js`)
+
+## Code Style
+
+- CommonJS (`require`/`module.exports`), not ESM
+- `'use strict'` at top of every file
+- ESLint flat config with `@eslint/js` recommended rules
+- Prefix unused function args with `_` (e.g., `function handler(_req, res)`)
+- Prettier for formatting (no config file — uses defaults)
+- Node >=18 required
+
+## Planning Directory
 
 ```
 .planning/
