@@ -64,7 +64,7 @@ Check if `autonomous_mode` is true in `.planning/config.json` (or if `--yolo` fl
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init new-project)
 ```
 
-Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `autonomous_mode`.
+Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `autonomous_mode`, `research_dir`, `phases_dir`, `codebase_dir`.
 
 **If `project_exists` is true:** Error — project already initialized. Use `/grd:progress`.
 
@@ -191,7 +191,7 @@ All Active requirements are hypotheses until shipped and validated.
 
 Infer Validated requirements from existing code:
 
-1. Read `.planning/codebase/ARCHITECTURE.md` and `STACK.md`
+1. Read `${codebase_dir}/ARCHITECTURE.md` and `STACK.md`
 2. Identify what the codebase already does
 3. These become the initial Validated set
 
@@ -247,10 +247,10 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: initialize project" --
 **Create research landscape directory and files:**
 
 ```bash
-mkdir -p .planning/research
+mkdir -p ${research_dir}
 ```
 
-Create `.planning/research/LANDSCAPE.md`:
+Create `${research_dir}/LANDSCAPE.md`:
 ```markdown
 # Research Landscape
 
@@ -270,7 +270,7 @@ Create `.planning/research/LANDSCAPE.md`:
 *Initialized: [date]*
 ```
 
-Create `.planning/research/PAPERS.md`:
+Create `${research_dir}/PAPERS.md`:
 ```markdown
 # Paper Registry
 
@@ -284,7 +284,7 @@ Create `.planning/research/PAPERS.md`:
 *Initialized: [date]*
 ```
 
-Create `.planning/research/BENCHMARKS.md`:
+Create `${research_dir}/BENCHMARKS.md`:
 ```markdown
 # Benchmarks & Baselines
 
@@ -301,7 +301,7 @@ Create `.planning/research/BENCHMARKS.md`:
 *Initialized: [date]*
 ```
 
-Create `.planning/research/KNOWHOW.md`:
+Create `${research_dir}/KNOWHOW.md`:
 ```markdown
 # Know-How Registry
 
@@ -321,7 +321,7 @@ Create `.planning/research/KNOWHOW.md`:
 **Commit research landscape:**
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: initialize research landscape" --files .planning/research/LANDSCAPE.md .planning/research/PAPERS.md .planning/research/BENCHMARKS.md .planning/research/KNOWHOW.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: initialize research landscape" --files ${research_dir}/LANDSCAPE.md ${research_dir}/PAPERS.md ${research_dir}/BENCHMARKS.md ${research_dir}/KNOWHOW.md
 ```
 
 ## 5. Workflow Preferences
@@ -529,7 +529,7 @@ Researching [domain] ecosystem...
 
 Create research directory:
 ```bash
-mkdir -p .planning/research
+mkdir -p ${research_dir}
 ```
 
 **Determine milestone context:**
@@ -551,6 +551,11 @@ Spawn 4 parallel grd-project-researcher agents with rich context:
 
 ```
 Task(prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-project-researcher.md for your role and instructions.
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
 
 <research_type>
 Project Research — Stack dimension for [domain].
@@ -585,12 +590,17 @@ Your STACK.md feeds into roadmap creation. Be prescriptive:
 </quality_gate>
 
 <output>
-Write to: .planning/research/STACK.md
+Write to: ${research_dir}/STACK.md
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/STACK.md
 </output>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Stack research")
 
 Task(prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-project-researcher.md for your role and instructions.
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
 
 <research_type>
 Project Research — Features dimension for [domain].
@@ -625,12 +635,17 @@ Your FEATURES.md feeds into requirements definition. Categorize clearly:
 </quality_gate>
 
 <output>
-Write to: .planning/research/FEATURES.md
+Write to: ${research_dir}/FEATURES.md
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/FEATURES.md
 </output>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Features research")
 
 Task(prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-project-researcher.md for your role and instructions.
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
 
 <research_type>
 Project Research — Architecture dimension for [domain].
@@ -665,12 +680,17 @@ Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 </quality_gate>
 
 <output>
-Write to: .planning/research/ARCHITECTURE.md
+Write to: ${research_dir}/ARCHITECTURE.md
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/ARCHITECTURE.md
 </output>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Architecture research")
 
 Task(prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-project-researcher.md for your role and instructions.
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
 
 <research_type>
 Project Research — Pitfalls dimension for [domain].
@@ -705,7 +725,7 @@ Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
 </quality_gate>
 
 <output>
-Write to: .planning/research/PITFALLS.md
+Write to: ${research_dir}/PITFALLS.md
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/PITFALLS.md
 </output>
 ", subagent_type="general-purpose", model="{researcher_model}", description="Pitfalls research")
@@ -721,14 +741,19 @@ Synthesize research outputs into SUMMARY.md.
 
 <research_files>
 Read these files:
-- .planning/research/STACK.md
-- .planning/research/FEATURES.md
-- .planning/research/ARCHITECTURE.md
-- .planning/research/PITFALLS.md
+- ${research_dir}/STACK.md
+- ${research_dir}/FEATURES.md
+- ${research_dir}/ARCHITECTURE.md
+- ${research_dir}/PITFALLS.md
 </research_files>
 
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
+
 <output>
-Write to: .planning/research/SUMMARY.md
+Write to: ${research_dir}/SUMMARY.md
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/SUMMARY.md
 Commit after writing.
 </output>
@@ -747,7 +772,7 @@ Display research complete banner and key findings:
 **Table Stakes:** [from SUMMARY.md]
 **Watch Out For:** [from SUMMARY.md]
 
-Files: `.planning/research/`
+Files: `${research_dir}/`
 ```
 
 **If "Skip research":** Continue to Step 7.
@@ -921,7 +946,7 @@ Task(prompt="
 @.planning/REQUIREMENTS.md
 
 **Research (if exists):**
-@.planning/research/SUMMARY.md
+@${research_dir}/SUMMARY.md
 
 **Config:**
 @.planning/config.json
@@ -1111,11 +1136,11 @@ Present completion with next steps:
 |-------------------|--------------------------------|
 | Project           | `.planning/PROJECT.md`         |
 | Config            | `.planning/config.json`        |
-| Research          | `.planning/research/`          |
-| Research Landscape| `.planning/research/LANDSCAPE.md` |
-| Papers Registry   | `.planning/research/PAPERS.md` |
-| Benchmarks        | `.planning/research/BENCHMARKS.md` |
-| Know-How          | `.planning/research/KNOWHOW.md` |
+| Research          | `${research_dir}/`             |
+| Research Landscape| `${research_dir}/LANDSCAPE.md` |
+| Papers Registry   | `${research_dir}/PAPERS.md`    |
+| Benchmarks        | `${research_dir}/BENCHMARKS.md`|
+| Know-How          | `${research_dir}/KNOWHOW.md`   |
 | Requirements      | `.planning/REQUIREMENTS.md`    |
 | Roadmap           | `.planning/ROADMAP.md`         |
 
@@ -1147,16 +1172,16 @@ Present completion with next steps:
 
 - `.planning/PROJECT.md`
 - `.planning/config.json`
-- `.planning/research/` (if research selected)
+- `${research_dir}/` (if research selected)
   - `STACK.md`
   - `FEATURES.md`
   - `ARCHITECTURE.md`
   - `PITFALLS.md`
   - `SUMMARY.md`
-- `.planning/research/LANDSCAPE.md`
-- `.planning/research/PAPERS.md`
-- `.planning/research/BENCHMARKS.md`
-- `.planning/research/KNOWHOW.md`
+- `${research_dir}/LANDSCAPE.md`
+- `${research_dir}/PAPERS.md`
+- `${research_dir}/BENCHMARKS.md`
+- `${research_dir}/KNOWHOW.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`

@@ -12,11 +12,11 @@ approach to pursue before committing to feasibility analysis or implementation.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Research directory structure:**
-- `.planning/research/LANDSCAPE.md` — source of methods to compare
-- `.planning/research/deep-dives/` — detailed analyses (if available)
-- `.planning/research/COMPARISON-{topic}.md` — output comparison matrix
-- `.planning/research/PAPERS.md` — paper index with verdicts
+**Research directory structure** (paths resolved via init):
+- `${research_dir}/LANDSCAPE.md` — source of methods to compare
+- `${research_dir}/deep-dives/` — detailed analyses (if available)
+- `${research_dir}/COMPARISON-{topic}.md` — output comparison matrix
+- `${research_dir}/PAPERS.md` — paper index with verdicts
 - `.planning/config.json` — GRD configuration
 
 **This workflow does NOT spawn a dedicated agent.** It synthesizes existing research
@@ -28,8 +28,14 @@ performs the analysis using structured reasoning.
 
 ## Step 0: INITIALIZE — Load Research Context
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init survey "compare-methods")
+   ```
+   Parse JSON for: `research_dir`, `landscape_exists`, `deep_dives`, `autonomous_mode`, `research_gates`.
+
 1. **Check LANDSCAPE.md exists**:
-   - Path: `.planning/research/LANDSCAPE.md`
+   - Path: `${research_dir}/LANDSCAPE.md`
    - If missing: STOP and suggest `/grd:survey {topic}` first
    - If present: parse methods table
 
@@ -39,7 +45,7 @@ performs the analysis using structured reasoning.
    - Count total methods available
 
 3. **Load deep-dives** (if any exist):
-   - Scan `.planning/research/deep-dives/` for completed analyses
+   - Scan `${research_dir}/deep-dives/` for completed analyses
    - Map deep-dive verdicts to method names
    - Note which methods have deep-dives and which do not
 
@@ -197,7 +203,7 @@ RECOMMENDATION MATRIX:
 
 1. **Determine topic slug** from LANDSCAPE.md header or user topic
 2. **Write comparison matrix**:
-   - Path: `.planning/research/COMPARISON-{topic-slug}.md`
+   - Path: `${research_dir}/COMPARISON-{topic-slug}.md`
    - Include all matrices from Step 3
    - Include recommendation from Step 4
    - Include metadata: date, methods compared, data sources
@@ -212,7 +218,7 @@ RECOMMENDATION MATRIX:
 - In autonomous mode: commit automatically
 
 ```bash
-git add .planning/research/COMPARISON-{topic-slug}.md
+git add ${research_dir}/COMPARISON-{topic-slug}.md
 git commit -m "research: compare {N} methods for {topic} — recommend {winner}"
 ```
 
@@ -232,7 +238,7 @@ git commit -m "research: compare {N} methods for {topic} — recommend {winner}"
 
 <output>
 **FILES_WRITTEN:**
-- `.planning/research/COMPARISON-{topic}.md` — full comparison matrix
+- `${research_dir}/COMPARISON-{topic}.md` — full comparison matrix
 
 **DISPLAY**: Comparison summary to console with winner, runner-up, and gaps
 

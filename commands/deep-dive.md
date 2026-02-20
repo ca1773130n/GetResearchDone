@@ -13,10 +13,10 @@ survey's telescope.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Research directory structure:**
-- `.planning/research/deep-dives/{paper-slug}.md` — individual paper analysis
-- `.planning/research/PAPERS.md` — master index of all reviewed papers
-- `.planning/research/LANDSCAPE.md` — survey landscape (may reference this paper)
+**Research directory structure** (paths resolved via init):
+- `${research_dir}/deep-dives/{paper-slug}.md` — individual paper analysis
+- `${research_dir}/PAPERS.md` — master index of all reviewed papers
+- `${research_dir}/LANDSCAPE.md` — survey landscape (may reference this paper)
 - `.planning/config.json` — GRD configuration
 
 **Agent available:**
@@ -26,6 +26,12 @@ CLAUDE.md rules: @CLAUDE.md
 <process>
 
 ## Step 0: INITIALIZE — Parse Paper Reference
+
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init deep-dive "$PAPER_REF")
+   ```
+   Parse JSON for: `research_dir`, `landscape_exists`, `papers_exists`, `deep_dives`, `researcher_model`, `autonomous_mode`, `research_gates`.
 
 1. **Parse arguments**: Extract paper reference from `$ARGUMENTS`
    - If arXiv URL (e.g., `arxiv.org/abs/2301.12345`): extract ID, fetch metadata
@@ -43,13 +49,13 @@ CLAUDE.md rules: @CLAUDE.md
    ```
 
 3. **Check for existing deep-dive**:
-   - Look for `.planning/research/deep-dives/{paper-slug}.md`
+   - Look for `${research_dir}/deep-dives/{paper-slug}.md`
    - If exists: load previous analysis, note it will be updated/extended
    - If not: this is a fresh analysis
 
 4. **Ensure directory exists**:
    ```bash
-   mkdir -p .planning/research/deep-dives
+   mkdir -p ${research_dir}/deep-dives
    ```
 
 5. **Load context from LANDSCAPE.md** (if available):
@@ -90,6 +96,10 @@ Use Task tool with `subagent_type="grd:grd-deep-diver"`:
 
 ```
 Deep-dive analysis of paper: {PAPER_TITLE}
+
+PATHS:
+research_dir: ${research_dir}
+
 URL: {PAPER_URL}
 Authors: {PAPER_AUTHORS}, {PAPER_YEAR}
 
@@ -198,7 +208,7 @@ and a clear verdict section at the top for quick scanning.
 ## Step 5: WRITE DEEP-DIVE FILE
 
 1. **Write deep-dive document**:
-   - Path: `.planning/research/deep-dives/{paper-slug}.md`
+   - Path: `${research_dir}/deep-dives/{paper-slug}.md`
    - Include YAML frontmatter with metadata:
      ```yaml
      ---
@@ -219,7 +229,7 @@ and a clear verdict section at the top for quick scanning.
 
 3. **Update LANDSCAPE.md** (if paper is referenced there):
    - Add verdict annotation next to the method entry
-   - Add `[deep-dive](.planning/research/deep-dives/{paper-slug}.md)` link
+   - Add `[deep-dive](${research_dir}/deep-dives/{paper-slug}.md)` link
 
 ---
 
@@ -227,9 +237,9 @@ and a clear verdict section at the top for quick scanning.
 
 1. **Stage files**:
    ```bash
-   git add .planning/research/deep-dives/{paper-slug}.md
-   git add .planning/research/PAPERS.md
-   git add .planning/research/LANDSCAPE.md 2>/dev/null
+   git add ${research_dir}/deep-dives/{paper-slug}.md
+   git add ${research_dir}/PAPERS.md
+   git add ${research_dir}/LANDSCAPE.md 2>/dev/null
    ```
 
 2. **Commit**:
@@ -252,9 +262,9 @@ and a clear verdict section at the top for quick scanning.
 
 <output>
 **FILES_WRITTEN:**
-- `.planning/research/deep-dives/{paper-slug}.md` — full paper analysis
-- `.planning/research/PAPERS.md` — updated paper index
-- `.planning/research/LANDSCAPE.md` — annotated with verdict (if applicable)
+- `${research_dir}/deep-dives/{paper-slug}.md` — full paper analysis
+- `${research_dir}/PAPERS.md` — updated paper index
+- `${research_dir}/LANDSCAPE.md` — annotated with verdict (if applicable)
 
 **DISPLAY**: Verdict summary with strengths, concerns, and next-step routing
 
