@@ -148,6 +148,14 @@ Plans:
 
 **Verification Level:** sanity
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 34-01-PLAN.md — Migrate 11 research-focused command files to init-derived path variables
+- [ ] 34-02-PLAN.md — Migrate 17 remaining command files (phase, codebase, todos, quick paths)
+- [ ] 34-03-PLAN.md — Migrate all 16 agent markdown files to context-injected path variables
+- [ ] 34-04-PLAN.md — Comprehensive verification sweep across all 44 files + fixups
+
 **Success Criteria:**
 1. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `commands/*.md` file (paths consumed from init context variables instead)
 2. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `agents/*.md` file
