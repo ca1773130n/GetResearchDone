@@ -220,7 +220,7 @@ describe('verify-path-exists', () => {
 describe('frontmatter commands', () => {
   test('frontmatter get returns plan frontmatter', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['frontmatter', 'get', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -231,7 +231,7 @@ describe('frontmatter commands', () => {
 
   test('frontmatter get --field returns single field', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md', '--field', 'phase'],
+      ['frontmatter', 'get', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--field', 'phase'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -241,7 +241,7 @@ describe('frontmatter commands', () => {
 
   test('frontmatter validate plan schema returns valid', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'validate', '.planning/phases/01-test/01-01-PLAN.md', '--schema', 'plan'],
+      ['frontmatter', 'validate', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--schema', 'plan'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -255,7 +255,7 @@ describe('frontmatter commands', () => {
 describe('verify commands', () => {
   test('verify plan-structure succeeds on valid plan', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'plan-structure', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'plan-structure', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -282,7 +282,7 @@ describe('verify commands', () => {
 
   test('verify references checks plan references', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'references', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'references', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -294,7 +294,7 @@ describe('verify commands', () => {
 
   test('verify artifacts reports on plan artifacts', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'artifacts', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'artifacts', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     // Command runs and produces JSON (may error if no must_haves parsed)
@@ -304,7 +304,7 @@ describe('verify commands', () => {
 
   test('verify key-links reports on plan key links', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'key-links', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'key-links', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     // Command runs and produces JSON (may error if no key_links parsed)
@@ -355,7 +355,7 @@ describe('index and digest commands', () => {
 
   test('summary-extract returns extracted fields', () => {
     const { stdout, exitCode } = runCLI(
-      ['summary-extract', '.planning/phases/01-test/01-01-SUMMARY.md'],
+      ['summary-extract', '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -370,7 +370,7 @@ describe('index and digest commands', () => {
     const { stdout, exitCode } = runCLI(
       [
         'summary-extract',
-        '.planning/phases/01-test/01-01-SUMMARY.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
         '--fields',
         'path,tech_added',
       ],
@@ -599,7 +599,7 @@ describe('init workflows', () => {
 describe('verify-summary', () => {
   test('verify-summary returns validation results', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify-summary', '.planning/phases/01-test/01-01-SUMMARY.md'],
+      ['verify-summary', '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md'],
       fixtureDir
     );
     // May pass or fail depending on git state, but produces valid JSON
@@ -1129,7 +1129,7 @@ describe('mutating frontmatter commands', () => {
       [
         'frontmatter',
         'set',
-        '.planning/phases/01-test/01-01-PLAN.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
         '--field',
         'wave',
         '--value',
@@ -1144,7 +1144,7 @@ describe('mutating frontmatter commands', () => {
 
   test('frontmatter merge merges data into frontmatter', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'merge', '.planning/phases/01-test/01-01-PLAN.md', '--data', '{"wave": 3}'],
+      ['frontmatter', 'merge', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md', '--data', '{"wave": 3}'],
       mutDir
     );
     expect(exitCode).toBe(0);
@@ -1225,13 +1225,25 @@ describe('mutating todo commands', () => {
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data).toHaveProperty('completed');
-    // Verify file moved
-    expect(fs.existsSync(path.join(mutDir, '.planning', 'todos', 'pending', 'sample.md'))).toBe(
-      false
-    );
-    expect(fs.existsSync(path.join(mutDir, '.planning', 'todos', 'completed', 'sample.md'))).toBe(
-      true
-    );
+    // Verify file moved (milestone-scoped paths)
+    expect(
+      fs.existsSync(
+        path.join(mutDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending', 'sample.md')
+      )
+    ).toBe(false);
+    expect(
+      fs.existsSync(
+        path.join(
+          mutDir,
+          '.planning',
+          'milestones',
+          'anonymous',
+          'todos',
+          'completed',
+          'sample.md'
+        )
+      )
+    ).toBe(true);
   });
 });
 
