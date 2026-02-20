@@ -18,6 +18,13 @@ Standalone research command. For most workflows, use `/grd:plan-phase` which int
 Resolve model for:
 - `grd-phase-researcher`
 
+## Step 0.5: Run Initialization
+
+```bash
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init plan-phase "$PHASE")
+```
+Parse JSON for: `phases_dir`, `phase_dir`, `research_dir`, `researcher_model`.
+
 ## Step 1: Normalize and Validate Phase
 
 @${CLAUDE_PLUGIN_ROOT}/references/phase-argument-parsing.md
@@ -31,7 +38,7 @@ If `found` is false: Error and exit.
 ## Step 2: Check Existing Research
 
 ```bash
-ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null
+ls ${phases_dir}/${PHASE}-*/RESEARCH.md 2>/dev/null
 ```
 
 If exists: Offer update/view/skip options.
@@ -42,7 +49,7 @@ If exists: Offer update/view/skip options.
 # Phase section from roadmap (already loaded in PHASE_INFO)
 echo "$PHASE_INFO" | jq -r '.section'
 cat .planning/REQUIREMENTS.md 2>/dev/null
-cat .planning/phases/${PHASE}-*/*-CONTEXT.md 2>/dev/null
+cat ${phases_dir}/${PHASE}-*/*-CONTEXT.md 2>/dev/null
 # Decisions from state-snapshot (structured JSON)
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state-snapshot | jq '.decisions'
 ```
@@ -51,7 +58,12 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state-snapshot | jq '.decisions'
 
 ```
 Task(
-  prompt="<objective>
+  prompt="PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
+
+<objective>
 Research implementation approach for Phase {phase}: {name}
 </objective>
 
@@ -63,7 +75,7 @@ Phase context: {context_md}
 </context>
 
 <output>
-Write to: .planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
+Write to: ${phase_dir}/${PHASE}-RESEARCH.md
 </output>",
   subagent_type="grd:grd-phase-researcher",
   model="{researcher_model}"
