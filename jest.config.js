@@ -65,6 +65,11 @@ module.exports = {
       functions: 80,
       branches: 60,
     },
+    './lib/paths.js': {
+      lines: 90,
+      functions: 100,
+      branches: 85,
+    },
   },
   testTimeout: 15000,
 };
