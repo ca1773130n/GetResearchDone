@@ -59,6 +59,7 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  cmdWorktreeComplete,
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
@@ -182,7 +183,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
-  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr', 'complete'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'execute-parallel',
@@ -651,6 +652,20 @@ function routeCommand(command, args, cwd, raw) {
             title: flag(args, '--title', null),
             body: flag(args, '--body', null),
             base: flag(args, '--base', null),
+          },
+          raw
+        );
+      } else if (sub === 'complete') {
+        cmdWorktreeComplete(
+          cwd,
+          {
+            action: flag(args, '--action', null),
+            phase: flag(args, '--phase', null),
+            milestone: flag(args, '--milestone', null),
+            testCmd: flag(args, '--test-cmd', null),
+            base: flag(args, '--base', null),
+            title: flag(args, '--title', null),
+            body: flag(args, '--body', null),
           },
           raw
         );

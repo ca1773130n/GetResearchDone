@@ -20,6 +20,7 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  cmdWorktreeComplete,
   runTestGate,
   cleanupWorktree,
   mergeWorktree,
@@ -1154,5 +1155,269 @@ describe('keepWorktree', () => {
     const result = keepWorktree('/nonexistent/path');
     expect(result.kept).toBe(true);
     expect(result.exists).toBe(false);
+  });
+});
+
+// ─── cmdWorktreeComplete ──────────────────────────────────────────────────────
+
+describe('cmdWorktreeComplete', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  // -- Validation --
+
+  test('returns error when action is missing', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { phase: '27' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('action is required');
+  });
+
+  test('returns error when action is invalid', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { action: 'invalid', phase: '27' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('action is required');
+  });
+
+  test('returns error when phase is missing', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { action: 'keep' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('phase is required');
+  });
+
+  test('returns error when worktree does not exist (merge/pr/discard)', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { action: 'merge', phase: '99', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('Worktree not found');
+  });
+
+  // -- KEEP path --
+
+  test('keep: leaves worktree intact and returns action=keep', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { action: 'keep', phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.action).toBe('keep');
+    expect(result.kept).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(true);
+  });
+
+  // -- DISCARD path --
+
+  test('discard: removes worktree and deletes branch without test gate', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(repoDir, { action: 'discard', phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.action).toBe('discard');
+    expect(result.discarded).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(false);
+  });
+
+  // -- MERGE path --
+
+  test('merge: runs test gate, merges branch, cleans up worktree', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    // Make a commit in the worktree
+    fs.writeFileSync(path.join(wtPath, 'feature.txt'), 'new feature', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'add feature'], { cwd: wtPath, stdio: 'pipe' });
+
+    // Use a trivially passing test command
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(
+        repoDir,
+        {
+          action: 'merge',
+          phase: '27',
+          milestone: 'v0.2.0',
+          testCmd: 'node -e "process.exit(0)"',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.action).toBe('merge');
+    expect(result.merged).toBe(true);
+    expect(result.test_passed).toBe(true);
+
+    // Verify merge brought the file into main
+    expect(fs.existsSync(path.join(repoDir, 'feature.txt'))).toBe(true);
+
+    // Verify worktree is cleaned up
+    expect(fs.existsSync(wtPath)).toBe(false);
+  });
+
+  test('merge: blocks when test gate fails', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(
+        repoDir,
+        {
+          action: 'merge',
+          phase: '27',
+          milestone: 'v0.2.0',
+          testCmd: 'node -e "console.error(\'fail\'); process.exit(1)"',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toContain('Test gate failed');
+    expect(result.test_exit_code).toBe(1);
+
+    // Worktree should still exist (tests failed, no merge attempted)
+    expect(fs.existsSync(wtPath)).toBe(true);
+  });
+
+  // -- PR path --
+
+  test('pr: blocks when test gate fails', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(
+        repoDir,
+        {
+          action: 'pr',
+          phase: '27',
+          milestone: 'v0.2.0',
+          testCmd: 'node -e "process.exit(1)"',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toContain('Test gate failed');
+
+    // Worktree still exists
+    expect(fs.existsSync(wtPath)).toBe(true);
+  });
+
+  test('pr: returns error when push fails (no remote)', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'feature.txt'), 'pr feature', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'add feature'], { cwd: wtPath, stdio: 'pipe' });
+
+    // No remote configured, so push will fail
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(
+        repoDir,
+        {
+          action: 'pr',
+          phase: '27',
+          milestone: 'v0.2.0',
+          testCmd: 'node -e "process.exit(0)"',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toBeDefined();
+    expect(result.test_passed).toBe(true);
+  });
+});
+
+// ─── cmdWorktreeComplete with remote ──────────────────────────────────────────
+
+describe('cmdWorktreeComplete with remote', () => {
+  let repoDir, bareDir;
+
+  beforeEach(() => {
+    const repos = createTestGitRepoWithRemote();
+    repoDir = repos.repoDir;
+    bareDir = repos.bareDir;
+  });
+
+  afterEach(() => {
+    cleanupTestRepoWithRemote(repoDir, bareDir);
+  });
+
+  test('pr: pushes branch and attempts PR creation (gh may fail in test)', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'feature.txt'), 'pr feature', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'add feature'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeComplete(
+        repoDir,
+        {
+          action: 'pr',
+          phase: '27',
+          milestone: 'v0.2.0',
+          testCmd: 'node -e "process.exit(0)"',
+        },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+
+    // Push should succeed; gh may fail (no GitHub auth in test env)
+    expect(result.action).toBe('pr');
+    expect(result.test_passed).toBe(true);
+    if (result.error) {
+      // Push succeeded but gh failed
+      expect(result.push_succeeded).toBe(true);
+    }
+
+    // Verify the worktree is cleaned up even when gh fails
+    expect(fs.existsSync(wtPath)).toBe(false);
   });
 });
