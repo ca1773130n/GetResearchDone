@@ -200,6 +200,14 @@ Plans:
 
 **Verification Level:** proxy
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 36-01-PLAN.md — Merge Phase 34+35 branches to main and audit remaining old-path references
+- [ ] 36-02-PLAN.md — Migrate test fixtures and update unit tests to milestone-scoped paths
+- [ ] 36-03-PLAN.md — Update golden tests, capture.sh, and integration tests
+- [ ] 36-04-PLAN.md — Update CLAUDE.md and docs, resolve deferred validations (DEFER-34-01, DEFER-35-01, DEFER-35-02)
+
 **Success Criteria:**
 1. All unit tests that previously constructed `.planning/phases/` paths now use the new milestone-scoped hierarchy and pass
 2. All integration and golden tests updated to use the new hierarchy and pass
