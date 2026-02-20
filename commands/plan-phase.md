@@ -23,7 +23,7 @@ Load all context in one call (include file contents to avoid redundant reads):
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init plan-phase "$PHASE" --include state,roadmap,requirements,context,research,verification,uat)
 ```
 
-Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`, `autonomous_mode`.
+Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`, `autonomous_mode`, `research_dir`, `phases_dir`, `codebase_dir`.
 
 **File contents (from --include):** `state_content`, `roadmap_content`, `requirements_content`, `context_content`, `research_content`, `verification_content`, `uat_content`. These are null if files don't exist.
 
@@ -31,17 +31,17 @@ Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_
 
 ## 1.5. Load Research Landscape Context
 
-**Before any planning, load research context from `.planning/research/`:**
+**Before any planning, load research context from `${research_dir}/`:**
 
 ```bash
-LANDSCAPE=$(cat .planning/research/LANDSCAPE.md 2>/dev/null)
-KNOWHOW=$(cat .planning/research/KNOWHOW.md 2>/dev/null)
-BENCHMARKS=$(cat .planning/research/BENCHMARKS.md 2>/dev/null)
+LANDSCAPE=$(cat ${research_dir}/LANDSCAPE.md 2>/dev/null)
+KNOWHOW=$(cat ${research_dir}/KNOWHOW.md 2>/dev/null)
+BENCHMARKS=$(cat ${research_dir}/BENCHMARKS.md 2>/dev/null)
 ```
 
 Also check for relevant deep-dive files:
 ```bash
-ls .planning/research/deep-dives/*.md 2>/dev/null
+ls ${research_dir}/deep-dives/*.md 2>/dev/null
 ```
 
 Store as `research_landscape_context` — this will be passed to the planner agent.
@@ -54,7 +54,7 @@ Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`-
 
 **If `phase_found` is false:** Validate phase exists in ROADMAP.md. If valid, create the directory using `phase_slug` and `padded_phase` from init:
 ```bash
-mkdir -p ".planning/phases/${padded_phase}-${phase_slug}"
+mkdir -p "${phases_dir}/${padded_phase}-${phase_slug}"
 ```
 
 **Existing artifacts from init:** `has_research`, `has_plans`, `plan_count`.
@@ -103,6 +103,12 @@ STATE_SNAP=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state-snapshot)
 Research prompt:
 
 ```markdown
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
+codebase_dir: ${codebase_dir}
+
 <objective>
 Research how to implement Phase {phase_number}: {phase_name}
 Answer: "What do I need to know to PLAN this phase well?"
@@ -182,6 +188,12 @@ Display banner:
 Planner prompt:
 
 ```markdown
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
+codebase_dir: ${codebase_dir}
+
 <planning_context>
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure}
@@ -362,6 +374,12 @@ Display banner:
 ```
 Task(
   prompt="
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
+codebase_dir: ${codebase_dir}
+
 <eval_context>
 **Phase:** {phase_number}: {phase_name}
 **Phase Goal:** {goal from ROADMAP}
@@ -470,8 +488,8 @@ Eval Plan: {Created | Skipped}
 ---
 
 **Also available:**
-- cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- cat .planning/phases/{phase-dir}/*-EVAL.md — review eval plan
+- cat ${phase_dir}/*-PLAN.md — review plans
+- cat ${phase_dir}/*-EVAL.md — review eval plan
 - /grd:plan-phase {X} --research — re-research first
 
 ---

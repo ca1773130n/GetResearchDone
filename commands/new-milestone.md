@@ -48,7 +48,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: start milestone v[X.Y]
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init new-milestone)
 ```
 
-Extract: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `suggested_start_phase`.
+Extract: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `suggested_start_phase`, `research_dir`.
 
 If `gate_failed` is true, stop and report the gate errors to the user before proceeding.
 
@@ -83,7 +83,7 @@ Task(prompt="
 <planning_context>
 @.planning/PROJECT.md
 @.planning/REQUIREMENTS.md
-@.planning/research/SUMMARY.md (if exists)
+@${research_dir}/SUMMARY.md (if exists)
 @.planning/config.json
 @.planning/MILESTONES.md
 </planning_context>

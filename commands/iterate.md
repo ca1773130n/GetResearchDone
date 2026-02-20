@@ -14,12 +14,12 @@ next-approach rationale.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Project structure:**
-- `.planning/phases/{N}-{name}/EVAL.md` — evaluation results with targets
-- `.planning/phases/{N}-{name}/PLAN.md` — current phase plan
+**Project structure** (paths resolved via init):
+- `${phase_dir}/EVAL.md` — evaluation results with targets
+- `${phase_dir}/PLAN.md` — current phase plan
 - `.planning/KNOWHOW.md` — accumulated engineering knowledge
 - `.planning/ROADMAP.md` — project roadmap
-- `.planning/research/LANDSCAPE.md` — research landscape
+- `${research_dir}/LANDSCAPE.md` — research landscape
 - `.planning/BENCHMARKS.md` — historical benchmark data
 - `.planning/config.json` — GRD configuration (autonomous_mode)
 
@@ -31,8 +31,14 @@ existing data and delegates to other GRD workflows as needed.
 
 ## Step 0: INITIALIZE — Load Evaluation State
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init iterate "$PHASE")
+   ```
+   Parse JSON for: `research_dir`, `phases_dir`, `phase_dir` (resolve from phases_dir + phase number), `landscape_exists`, `knowhow_exists`, `baseline_exists`, `autonomous_mode`.
+
 1. **Parse arguments**: Extract phase identifier from `$ARGUMENTS`
-   - If phase number: resolve to `.planning/phases/{N}-{name}/`
+   - If phase number: resolve to `${phases_dir}/{N}-{name}/`
    - If empty: detect phase with most recent EVAL.md results below target
    - Validate phase directory and EVAL.md exist
 
@@ -251,8 +257,8 @@ This section is critical — it prevents repeating the same mistakes.
 ## Step 6: COMMIT
 
 ```bash
-git add .planning/phases/{N}-{name}/EVAL.md
-git add .planning/phases/{N}-{name}/PLAN.md 2>/dev/null
+git add ${phase_dir}/*-EVAL.md
+git add ${phase_dir}/*-PLAN.md 2>/dev/null
 git add .planning/KNOWHOW.md
 git add .planning/ROADMAP.md 2>/dev/null
 git commit -m "iterate: phase {N} iter #{iteration} — {option_chosen}"
@@ -292,8 +298,8 @@ git commit -m "iterate: phase {N} iter #{iteration} — {option_chosen}"
 
 <output>
 **FILES_UPDATED:**
-- `.planning/phases/{N}-{name}/EVAL.md` — history section updated
-- `.planning/phases/{N}-{name}/PLAN.md` — updated if approach adjusted
+- `${phase_dir}/EVAL.md` — history section updated
+- `${phase_dir}/PLAN.md` — updated if approach adjusted
 - `.planning/KNOWHOW.md` — failure analysis and learnings appended
 - `.planning/ROADMAP.md` — updated if targets/status changed
 

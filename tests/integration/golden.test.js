@@ -93,11 +93,17 @@ const GOLDEN_COMMANDS = {
   'find-phase.json': { args: ['find-phase', '1'], exactKeys: true },
   // Golden captured "file not found" because fixture path didn't exist in real project
   'frontmatter-get.json': {
-    args: ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md'],
+    args: ['frontmatter', 'get', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
     exactKeys: false,
   },
   'frontmatter-get-field.json': {
-    args: ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md', '--field', 'phase'],
+    args: [
+      'frontmatter',
+      'get',
+      '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+      '--field',
+      'phase',
+    ],
     exactKeys: false,
   },
   'state-load.json': { args: ['state'], exactKeys: true },

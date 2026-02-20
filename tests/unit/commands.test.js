@@ -38,6 +38,7 @@ const {
   cmdRequirementTraceability,
   cmdSearch,
   cmdRequirementUpdateStatus,
+  cmdMigrateDirs,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -195,8 +196,24 @@ describe('cmdTodoComplete', () => {
     expect(parsed.completed).toBe(true);
 
     // Verify file moved
-    const pendingPath = path.join(fixtureDir, '.planning', 'todos', 'pending', 'sample.md');
-    const completedPath = path.join(fixtureDir, '.planning', 'todos', 'completed', 'sample.md');
+    const pendingPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending',
+      'sample.md'
+    );
+    const completedPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'completed',
+      'sample.md'
+    );
     expect(fs.existsSync(pendingPath)).toBe(false);
     expect(fs.existsSync(completedPath)).toBe(true);
   });
@@ -235,7 +252,7 @@ describe('cmdVerifyPathExists', () => {
 
   test('existing directory returns type: directory', () => {
     const { stdout } = captureOutput(() => {
-      cmdVerifyPathExists(fixtureDir, '.planning/phases', false);
+      cmdVerifyPathExists(fixtureDir, '.planning/milestones/anonymous/phases', false);
     });
     const parsed = parseFirstJson(stdout);
     expect(parsed.exists).toBe(true);
@@ -547,7 +564,12 @@ describe('cmdSummaryExtract', () => {
 
   test('extracts frontmatter fields from fixture summary', () => {
     const { stdout, exitCode } = captureOutput(() => {
-      cmdSummaryExtract(fixtureDir, '.planning/phases/01-test/01-01-SUMMARY.md', null, false);
+      cmdSummaryExtract(
+        fixtureDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
+        null,
+        false
+      );
     });
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
@@ -562,7 +584,7 @@ describe('cmdSummaryExtract', () => {
     const { stdout } = captureOutput(() => {
       cmdSummaryExtract(
         fixtureDir,
-        '.planning/phases/01-test/01-01-SUMMARY.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
         ['tech_added', 'patterns'],
         false
       );
@@ -1163,7 +1185,14 @@ describe('cmdPhaseDetail', () => {
 
   test('returns empty plans array for phase with no PLAN.md files', () => {
     // Create an empty phase directory
-    const emptyPhaseDir = path.join(fixtureDir, '.planning', 'phases', '03-empty');
+    const emptyPhaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '03-empty'
+    );
     fs.mkdirSync(emptyPhaseDir, { recursive: true });
 
     const { stdout, exitCode } = captureOutput(() => {
@@ -1177,7 +1206,14 @@ describe('cmdPhaseDetail', () => {
 
   test('detects presence of CONTEXT.md, RESEARCH.md, EVAL.md, VERIFICATION.md, REVIEW.md', () => {
     // Create supplementary files in phase 1 directory
-    const phase1Dir = path.join(fixtureDir, '.planning', 'phases', '01-test');
+    const phase1Dir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
     fs.writeFileSync(path.join(phase1Dir, '01-CONTEXT.md'), '# Context\n');
     fs.writeFileSync(path.join(phase1Dir, '01-RESEARCH.md'), '# Research\n');
     fs.writeFileSync(path.join(phase1Dir, '01-EVAL.md'), '# Eval\n');
@@ -3028,5 +3064,275 @@ describe('cmdRequirementUpdateStatus', () => {
     expect(getExit).toBe(0);
     const result = parseFirstJson(stdout);
     expect(result.status).toBe('Done');
+  });
+});
+
+// ─── cmdMigrateDirs ──────────────────────────────────────────────────────────
+
+describe('cmdMigrateDirs', () => {
+  const os = require('os');
+  let tmpDir;
+
+  /**
+   * Helper: create an old-style .planning/ layout with STATE.md containing
+   * a milestone field and optional directories with sample files.
+   */
+  function setupOldLayout(opts = {}) {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-migrate-'));
+    const planningDir = path.join(tmpDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+
+    // Write STATE.md with optional milestone
+    const milestone = opts.milestone !== undefined ? opts.milestone : 'v1.0';
+    const milestoneField = milestone ? `- **Milestone:** ${milestone} — Test Milestone` : '';
+    fs.writeFileSync(
+      path.join(planningDir, 'STATE.md'),
+      `# State\n\n## Current Position\n\n${milestoneField}\n`,
+      'utf-8'
+    );
+
+    // Write config.json (minimal)
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' }),
+      'utf-8'
+    );
+
+    // Create old-style directories with sample content
+    if (opts.phases) {
+      const phaseDir = path.join(planningDir, 'phases', '01-test');
+      fs.mkdirSync(phaseDir, { recursive: true });
+      fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan 01', 'utf-8');
+    }
+
+    if (opts.research) {
+      const researchDir = path.join(planningDir, 'research');
+      fs.mkdirSync(researchDir, { recursive: true });
+      fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape', 'utf-8');
+    }
+
+    if (opts.codebase) {
+      const codebaseDir = path.join(planningDir, 'codebase');
+      fs.mkdirSync(codebaseDir, { recursive: true });
+      fs.writeFileSync(path.join(codebaseDir, 'ARCHITECTURE.md'), '# Architecture', 'utf-8');
+    }
+
+    if (opts.todos) {
+      const pendingDir = path.join(planningDir, 'todos', 'pending');
+      fs.mkdirSync(pendingDir, { recursive: true });
+      fs.writeFileSync(path.join(pendingDir, 'sample.md'), '# Todo', 'utf-8');
+    }
+
+    if (opts.quick) {
+      const quickDir = path.join(planningDir, 'quick', '1-test');
+      fs.mkdirSync(quickDir, { recursive: true });
+      fs.writeFileSync(path.join(quickDir, '1-SUMMARY.md'), '# Quick Summary', 'utf-8');
+    }
+
+    return tmpDir;
+  }
+
+  afterEach(() => {
+    if (tmpDir && fs.existsSync(tmpDir)) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('moves phases/ to milestones/{milestone}/phases/', () => {
+    setupOldLayout({ phases: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    const result = parseFirstJson(stdout);
+
+    // Verify file moved to new location
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test', '01-01-PLAN.md')
+      )
+    ).toBe(true);
+
+    // Old location should be empty or not exist
+    const oldPhases = path.join(tmpDir, '.planning', 'phases');
+    const oldContents = fs.existsSync(oldPhases) ? fs.readdirSync(oldPhases) : [];
+    expect(oldContents).toHaveLength(0);
+
+    // Result should include moved_directories with phases entry
+    expect(result.moved_directories).toBeDefined();
+    const phasesEntry = result.moved_directories.find((d) => d.from === 'phases');
+    expect(phasesEntry).toBeDefined();
+  });
+
+  test('moves research/ to milestones/{milestone}/research/', () => {
+    setupOldLayout({ research: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'research', 'LANDSCAPE.md')
+      )
+    ).toBe(true);
+  });
+
+  test('moves codebase/ to milestones/{milestone}/codebase/', () => {
+    setupOldLayout({ codebase: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'codebase', 'ARCHITECTURE.md')
+      )
+    ).toBe(true);
+  });
+
+  test('moves todos/ to milestones/{milestone}/todos/', () => {
+    setupOldLayout({ todos: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'todos', 'pending', 'sample.md')
+      )
+    ).toBe(true);
+  });
+
+  test('moves quick/ to milestones/anonymous/quick/ regardless of milestone', () => {
+    setupOldLayout({ quick: true });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    // quick/ should go to anonymous, NOT v1.0
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick', '1-test', '1-SUMMARY.md')
+      )
+    ).toBe(true);
+
+    // Should NOT be under v1.0
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick'))).toBe(
+      false
+    );
+  });
+
+  test('is idempotent — second run produces no changes', () => {
+    setupOldLayout({ phases: true, research: true });
+
+    // First run
+    captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+
+    // Second run
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    const result = parseFirstJson(stdout);
+    expect(result.moved_directories).toHaveLength(0);
+    expect(result.already_migrated).toBe(true);
+  });
+
+  test('skips directories that do not exist at old location', () => {
+    // Create .planning/ with only STATE.md and config.json (no subdirs)
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-migrate-'));
+    const planningDir = path.join(tmpDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planningDir, 'STATE.md'),
+      '# State\n\n## Current Position\n\n- **Milestone:** v1.0 — Test\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(planningDir, 'config.json'), '{}', 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    const result = parseFirstJson(stdout);
+    expect(result.moved_directories).toHaveLength(0);
+  });
+
+  test('uses anonymous milestone when STATE.md has no milestone', () => {
+    setupOldLayout({ phases: true, milestone: '' });
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    const result = parseFirstJson(stdout);
+    expect(result.milestone).toBe('anonymous');
+
+    expect(
+      fs.existsSync(
+        path.join(
+          tmpDir,
+          '.planning',
+          'milestones',
+          'anonymous',
+          'phases',
+          '01-test',
+          '01-01-PLAN.md'
+        )
+      )
+    ).toBe(true);
+  });
+
+  test('creates milestone directory structure if needed', () => {
+    setupOldLayout({ phases: true });
+
+    // Ensure milestones/ does not pre-exist
+    const milestonesDir = path.join(tmpDir, '.planning', 'milestones');
+    expect(fs.existsSync(milestonesDir)).toBe(false);
+
+    const { exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    // milestones/v1.0/ should now exist
+    expect(fs.existsSync(path.join(milestonesDir, 'v1.0'))).toBe(true);
+  });
+
+  test('merges into existing milestone directory without overwriting', () => {
+    setupOldLayout({ research: true });
+
+    // Pre-create milestone research dir with an existing file
+    const existingDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'research');
+    fs.mkdirSync(existingDir, { recursive: true });
+    fs.writeFileSync(path.join(existingDir, 'PAPERS.md'), '# Papers', 'utf-8');
+
+    const { exitCode } = captureOutput(() => {
+      cmdMigrateDirs(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+
+    // Both files should exist
+    expect(fs.existsSync(path.join(existingDir, 'PAPERS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(existingDir, 'LANDSCAPE.md'))).toBe(true);
+
+    // Original PAPERS.md content should be preserved (not overwritten)
+    const papersContent = fs.readFileSync(path.join(existingDir, 'PAPERS.md'), 'utf-8');
+    expect(papersContent).toBe('# Papers');
   });
 });

@@ -1,0 +1,16 @@
+{
+  "passed": false,
+  "checks": {
+    "summary_exists": false,
+    "files_created": {
+      "checked": 0,
+      "found": 0,
+      "missing": []
+    },
+    "commits_exist": false,
+    "self_check": "not_found"
+  },
+  "errors": [
+    "SUMMARY.md not found"
+  ]
+}

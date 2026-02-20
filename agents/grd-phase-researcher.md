@@ -12,7 +12,7 @@ Spawned by `/grd:plan-phase` (integrated) or `/grd:research-phase` (standalone).
 
 **Core responsibilities:**
 - Investigate the phase's technical domain using research literature
-- Read .planning/research/ directory (LANDSCAPE.md, PAPERS.md, KNOWHOW.md) for project-level context
+- Read ${research_dir}/ directory (LANDSCAPE.md, PAPERS.md, KNOWHOW.md) for project-level context
 - Identify standard stack, patterns, and pitfalls with paper references
 - Provide paper-backed recommendations — every recommendation cites evidence
 - Design experiment approaches for validating the chosen method
@@ -34,7 +34,7 @@ Spawned by `/grd:plan-phase` (integrated) or `/grd:research-phase` (standalone).
 
 If CONTEXT.md exists, it constrains your research scope. Don't explore alternatives to locked decisions.
 
-**Research directory** (CRITICAL) — `.planning/research/`
+**Research directory** (CRITICAL) — `${research_dir}/`
 
 | File | How You Use It |
 |------|----------------|
@@ -120,16 +120,16 @@ When researching "best approach for X": find what the literature and community a
 
 | Priority | Tool | Use For | Trust Level |
 |----------|------|---------|-------------|
-| 1st | .planning/research/ files | Project-level research context | HIGH (curated) |
+| 1st | ${research_dir}/ files | Project-level research context | HIGH (curated) |
 | 2nd | Context7 | Library APIs, features, configuration, versions | HIGH |
 | 3rd | mcp__research__* | Paper search, citation lookup, method comparison | HIGH-MEDIUM |
 | 4th | WebFetch | Official docs/READMEs, paper PDFs, changelogs | HIGH-MEDIUM |
 | 5th | WebSearch | Ecosystem discovery, community patterns, pitfalls | Needs verification |
 
 **Research context flow:**
-1. Read `.planning/research/LANDSCAPE.md` for domain landscape
-2. Read `.planning/research/PAPERS.md` for key paper references
-3. Read `.planning/research/KNOWHOW.md` for production knowledge
+1. Read `${research_dir}/LANDSCAPE.md` for domain landscape
+2. Read `${research_dir}/PAPERS.md` for key paper references
+3. Read `${research_dir}/KNOWHOW.md` for production knowledge
 4. Then investigate phase-specific details
 
 **Context7 flow:**
@@ -176,7 +176,7 @@ Priority: Published Papers > Context7 > Official Docs > Official GitHub > Verifi
 
 ## RESEARCH.md Structure
 
-**Location:** `.planning/phases/XX-name/{phase}-RESEARCH.md`
+**Location:** `${phase_dir}/{phase}-RESEARCH.md`
 
 ```markdown
 # Phase [X]: [Name] - Research
@@ -425,9 +425,9 @@ cat "$phase_dir"/*-CONTEXT.md 2>/dev/null
 
 **CRITICAL: Read research directory:**
 ```bash
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-cat .planning/research/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
 ```
 
 ## Step 2: Identify Research Domains

@@ -13,14 +13,14 @@ the strategic layer above individual phase planning.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Project structure:**
+**Project structure** (paths resolved via init):
 - `.planning/PROJECT.md` — project definition and goals
 - `.planning/ROADMAP.md` — phase-level roadmap (output of this workflow)
 - `.planning/BASELINE.md` — current system baseline
 - `.planning/KNOWHOW.md` — production engineering knowledge
-- `.planning/research/LANDSCAPE.md` — research landscape
-- `.planning/research/COMPARISON-*.md` — method comparisons
-- `.planning/research/deep-dives/` — paper analyses
+- `${research_dir}/LANDSCAPE.md` — research landscape
+- `${research_dir}/COMPARISON-*.md` — method comparisons
+- `${research_dir}/deep-dives/` — paper analyses
 - `.planning/config.json` — GRD configuration
 
 **Agent available:**
@@ -31,6 +31,12 @@ CLAUDE.md rules: @CLAUDE.md
 
 ## Step 0: INITIALIZE — Gather All Context
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init product-plan)
+   ```
+   Parse JSON for: `research_dir`, `phases_dir`, `landscape_exists`, `papers_exists`, `knowhow_exists`, `baseline_exists`, `autonomous_mode`, `research_gates`.
+
 1. **Parse arguments**: Extract product goals from `$ARGUMENTS`
    - If file path: read goals document
    - If text description: use as product goal input
@@ -40,8 +46,8 @@ CLAUDE.md rules: @CLAUDE.md
    - `.planning/PROJECT.md` — existing project definition
    - `.planning/BASELINE.md` — current state metrics
    - `.planning/KNOWHOW.md` — production knowledge learned
-   - `.planning/research/LANDSCAPE.md` — research landscape
-   - `.planning/research/COMPARISON-*.md` — method comparison results
+   - `${research_dir}/LANDSCAPE.md` — research landscape
+   - `${research_dir}/COMPARISON-*.md` — method comparison results
    - Available deep-dives — paper verdicts and feasibility results
    - `.planning/ROADMAP.md` — existing roadmap (if updating)
 
@@ -88,6 +94,11 @@ Use Task tool with `subagent_type="grd:grd-product-owner"`:
 
 ```
 Create product-level plan for: {product_goal}
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
+phases_dir: ${phases_dir}
 
 CURRENT STATE (BASELINE):
 {BASELINE.md content, or "Not assessed — will need /grd:assess-baseline"}
@@ -250,7 +261,7 @@ Return complete product plan as structured markdown ready for ROADMAP.md
 3. **Create phase directories**:
    ```bash
    for each phase:
-     mkdir -p .planning/phases/{N}-{phase-name}/
+     mkdir -p ${phases_dir}/{N}-{phase-name}/
    ```
 
 ---
@@ -260,7 +271,7 @@ Return complete product plan as structured markdown ready for ROADMAP.md
 ```bash
 git add .planning/ROADMAP.md
 git add .planning/PROJECT.md 2>/dev/null
-git add .planning/phases/
+git add ${phases_dir}/
 git commit -m "product: plan {N} phases — {primary_approach}, {total_effort}wk"
 ```
 
@@ -282,7 +293,7 @@ git commit -m "product: plan {N} phases — {primary_approach}, {total_effort}wk
 **FILES_WRITTEN:**
 - `.planning/ROADMAP.md` — product roadmap with phased plan
 - `.planning/PROJECT.md` — updated with vision and goals (if exists)
-- `.planning/phases/{N}-{name}/` — phase directories created
+- `${phases_dir}/{N}-{name}/` — phase directories created
 
 **DISPLAY**: Product plan summary with phases, targets, risks, and context gaps
 

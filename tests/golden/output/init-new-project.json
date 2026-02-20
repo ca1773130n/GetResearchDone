@@ -1,0 +1,27 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "researcher_model": "opus",
+  "synthesizer_model": "sonnet",
+  "roadmapper_model": "opus",
+  "commit_docs": true,
+  "project_exists": true,
+  "has_codebase_map": true,
+  "planning_exists": true,
+  "has_existing_code": true,
+  "has_package_file": true,
+  "is_brownfield": true,
+  "needs_codebase_map": false,
+  "has_git": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "codebase_dir": ".planning/codebase",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

@@ -1,0 +1,8 @@
+{
+  "phase_number": 3,
+  "padded": "03",
+  "name": "New testing phase",
+  "slug": "new-testing-phase",
+  "directory": ".planning/milestones/anonymous/phases/03-new-testing-phase",
+  "schedule_affected": true
+}

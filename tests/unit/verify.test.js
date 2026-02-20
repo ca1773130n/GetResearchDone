@@ -35,7 +35,7 @@ describe('cmdVerifyPlanStructure', () => {
   });
 
   test('validates a well-formed plan', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { stdout, exitCode } = captureOutput(() => {
       cmdVerifyPlanStructure(fixtureDir, planPath, false);
     });
@@ -68,7 +68,7 @@ describe('cmdVerifyPlanStructure', () => {
   });
 
   test('detects tasks with proper sub-elements', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { stdout } = captureOutput(() => {
       cmdVerifyPlanStructure(fixtureDir, planPath, false);
     });
@@ -138,7 +138,11 @@ describe('cmdVerifyReferences', () => {
   test('plan with valid @-references passes', () => {
     // The 01-01-PLAN.md has @.planning/ROADMAP.md which exists in fixture
     const { stdout, exitCode } = captureOutput(() => {
-      cmdVerifyReferences(fixtureDir, '.planning/phases/01-test/01-01-PLAN.md', false);
+      cmdVerifyReferences(
+        fixtureDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      );
     });
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);
@@ -339,7 +343,12 @@ describe('cmdVerifySummary', () => {
 
   test('validates an existing summary file', () => {
     const { stdout, exitCode } = captureOutput(() => {
-      cmdVerifySummary(fixtureDir, '.planning/phases/01-test/01-01-SUMMARY.md', 0, false);
+      cmdVerifySummary(
+        fixtureDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
+        0,
+        false
+      );
     });
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout);

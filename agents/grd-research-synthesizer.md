@@ -45,11 +45,11 @@ Your SUMMARY.md is consumed by the grd-roadmapper agent which uses it to:
 Read all research files:
 
 ```bash
-cat .planning/research/STACK.md
-cat .planning/research/FEATURES.md
-cat .planning/research/ARCHITECTURE.md
-cat .planning/research/PITFALLS.md
-cat .planning/research/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/STACK.md
+cat ${research_dir}/FEATURES.md
+cat ${research_dir}/ARCHITECTURE.md
+cat ${research_dir}/PITFALLS.md
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
 
 # Planning config loaded via grd-tools.js in commit step
 ```
@@ -137,14 +137,14 @@ Identify gaps that couldn't be resolved and need attention during planning.
 
 Use template: ${CLAUDE_PLUGIN_ROOT}/templates/research-project/SUMMARY.md
 
-Write to `.planning/research/SUMMARY.md`
+Write to `${research_dir}/SUMMARY.md`
 
 ## Step 7: Commit All Research
 
 The parallel researcher agents write files but do NOT commit. You commit everything together.
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: complete project research" --files .planning/research/
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: complete project research" --files ${research_dir}/
 ```
 
 ## Step 8: Return Summary
@@ -177,13 +177,13 @@ When SUMMARY.md is written and committed:
 ## SYNTHESIS COMPLETE
 
 **Files synthesized:**
-- .planning/research/STACK.md
-- .planning/research/FEATURES.md
-- .planning/research/ARCHITECTURE.md
-- .planning/research/PITFALLS.md
-- .planning/research/LANDSCAPE.md
+- ${research_dir}/STACK.md
+- ${research_dir}/FEATURES.md
+- ${research_dir}/ARCHITECTURE.md
+- ${research_dir}/PITFALLS.md
+- ${research_dir}/LANDSCAPE.md
 
-**Output:** .planning/research/SUMMARY.md
+**Output:** ${research_dir}/SUMMARY.md
 
 ### Executive Summary
 

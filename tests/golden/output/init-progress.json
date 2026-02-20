@@ -1,0 +1,85 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "executor_model": "opus",
+  "planner_model": "opus",
+  "commit_docs": true,
+  "milestone_version": "v0.2.1",
+  "milestone_name": "Hierarchical Planning Directory",
+  "phases": [
+    {
+      "number": "32",
+      "name": "centralized-path-resolution-module",
+      "directory": ".planning/phases/32-centralized-path-resolution-module",
+      "status": "complete",
+      "plan_count": 1,
+      "summary_count": 1,
+      "has_research": false
+    },
+    {
+      "number": "33",
+      "name": "lib-module-migration",
+      "directory": ".planning/phases/33-lib-module-migration",
+      "status": "complete",
+      "plan_count": 5,
+      "summary_count": 5,
+      "has_research": false
+    },
+    {
+      "number": "34",
+      "name": "command-agent-markdown-migration",
+      "directory": ".planning/phases/34-command-agent-markdown-migration",
+      "status": "complete",
+      "plan_count": 4,
+      "summary_count": 4,
+      "has_research": false
+    },
+    {
+      "number": "35",
+      "name": "migration-script-and-archive-simplification",
+      "directory": ".planning/phases/35-migration-script-and-archive-simplification",
+      "status": "complete",
+      "plan_count": 3,
+      "summary_count": 3,
+      "has_research": false
+    },
+    {
+      "number": "36",
+      "name": "test-updates-documentation-and-integration-validation",
+      "directory": ".planning/phases/36-test-updates-documentation-and-integration-validation",
+      "status": "in_progress",
+      "plan_count": 4,
+      "summary_count": 1,
+      "has_research": false
+    }
+  ],
+  "phase_count": 5,
+  "completed_count": 4,
+  "in_progress_count": 1,
+  "current_phase": {
+    "number": "36",
+    "name": "test-updates-documentation-and-integration-validation",
+    "directory": ".planning/phases/36-test-updates-documentation-and-integration-validation",
+    "status": "in_progress",
+    "plan_count": 4,
+    "summary_count": 1,
+    "has_research": false
+  },
+  "next_phase": null,
+  "paused_at": null,
+  "has_work_in_progress": true,
+  "project_exists": true,
+  "roadmap_exists": true,
+  "state_exists": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "codebase_dir": ".planning/codebase",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

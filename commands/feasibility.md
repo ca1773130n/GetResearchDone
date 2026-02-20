@@ -13,9 +13,9 @@ with production engineering knowledge.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Research directory structure:**
-- `.planning/research/LANDSCAPE.md` — survey landscape
-- `.planning/research/deep-dives/` — paper analyses (may have relevant deep-dive)
+**Research directory structure** (paths resolved via init):
+- `${research_dir}/LANDSCAPE.md` — survey landscape
+- `${research_dir}/deep-dives/` — paper analyses (may have relevant deep-dive)
 - `.planning/KNOWHOW.md` — accumulated production engineering knowledge
 - `.planning/BASELINE.md` — current system baseline (if assessed)
 - `.planning/config.json` — GRD configuration
@@ -28,6 +28,12 @@ CLAUDE.md rules: @CLAUDE.md
 
 ## Step 0: INITIALIZE — Load Method Context
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init feasibility "$APPROACH")
+   ```
+   Parse JSON for: `research_dir`, `landscape_exists`, `deep_dives`, `knowhow_exists`, `baseline_exists`, `autonomous_mode`, `research_gates`.
+
 1. **Parse arguments**: Extract method/paper reference from `$ARGUMENTS`
    - If paper title or URL: resolve to method name
    - If method name: look up in LANDSCAPE.md
@@ -35,7 +41,7 @@ CLAUDE.md rules: @CLAUDE.md
 
 2. **Gather existing research context**:
    - Load LANDSCAPE.md entry for this method
-   - Load deep-dive analysis if available (`.planning/research/deep-dives/{slug}.md`)
+   - Load deep-dive analysis if available (`${research_dir}/deep-dives/{slug}.md`)
    - Load BASELINE.md if available (current system capabilities)
    - Load existing KNOWHOW.md entries (prior production knowledge)
 
@@ -78,6 +84,10 @@ Use Task tool with `subagent_type="grd:grd-feasibility-analyst"`:
 
 ```
 Analyze paper-to-production feasibility for: {method_name}
+
+PATHS:
+research_dir: ${research_dir}
+codebase_dir: ${codebase_dir}
 
 PAPER CONTEXT:
 {Deep-dive content if available, otherwise LANDSCAPE.md entry}
@@ -221,7 +231,7 @@ and clear verdict with effort estimate.
 ## Step 5: WRITE FEASIBILITY REPORT
 
 1. **Write detailed report**:
-   - Path: `.planning/research/deep-dives/{paper-slug}-feasibility.md`
+   - Path: `${research_dir}/deep-dives/{paper-slug}-feasibility.md`
    - Include all 9 dimensions from agent analysis
    - Include gap analysis table
    - Include verdict and effort estimate
@@ -236,8 +246,8 @@ and clear verdict with effort estimate.
 
 ```bash
 git add .planning/KNOWHOW.md
-git add .planning/research/deep-dives/{paper-slug}-feasibility.md
-git add .planning/research/PAPERS.md 2>/dev/null
+git add ${research_dir}/deep-dives/{paper-slug}-feasibility.md
+git add ${research_dir}/PAPERS.md 2>/dev/null
 git commit -m "research: feasibility {method_name} — {verdict}, {N}wk effort"
 ```
 
@@ -256,9 +266,9 @@ git commit -m "research: feasibility {method_name} — {verdict}, {N}wk effort"
 
 <output>
 **FILES_WRITTEN:**
-- `.planning/research/deep-dives/{paper-slug}-feasibility.md` — full feasibility report
+- `${research_dir}/deep-dives/{paper-slug}-feasibility.md` — full feasibility report
 - `.planning/KNOWHOW.md` — updated with production engineering knowledge
-- `.planning/research/PAPERS.md` — annotated with feasibility status
+- `${research_dir}/PAPERS.md` — annotated with feasibility status
 
 **DISPLAY**: Feasibility verdict with gaps, blockers, effort estimate, and routing
 

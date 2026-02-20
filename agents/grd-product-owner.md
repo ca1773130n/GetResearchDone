@@ -83,17 +83,17 @@ cat .planning/BASELINE.md 2>/dev/null
 cat .planning/PRODUCT-QUALITY.md 2>/dev/null
 
 # Research landscape
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-cat .planning/research/KNOWHOW.md 2>/dev/null
-cat .planning/research/BENCHMARKS.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+cat ${research_dir}/KNOWHOW.md 2>/dev/null
+cat ${research_dir}/BENCHMARKS.md 2>/dev/null
 
 # Codebase understanding
-cat .planning/codebase/STACK.md 2>/dev/null
-cat .planning/codebase/ARCHITECTURE.md 2>/dev/null
+cat ${codebase_dir}/STACK.md 2>/dev/null
+cat ${codebase_dir}/ARCHITECTURE.md 2>/dev/null
 
 # All phase evaluations (scan for deferred validations)
-ls .planning/phases/*/*.md 2>/dev/null
+ls ${phases_dir}/*/*.md 2>/dev/null
 ```
 
 Build a mental model of:
@@ -215,9 +215,9 @@ Scan all EVAL.md files for deferred validations.
 
 ```bash
 # Find all deferred validations across phases
-grep -r "DEFER-" .planning/phases/*/  2>/dev/null
-grep -r "validates_at" .planning/phases/*/ 2>/dev/null
-grep -r "deferred" .planning/phases/*/  2>/dev/null
+grep -r "DEFER-" ${phases_dir}/*/  2>/dev/null
+grep -r "validates_at" ${phases_dir}/*/ 2>/dev/null
+grep -r "deferred" ${phases_dir}/*/  2>/dev/null
 ```
 
 **Build deferred validation tracker:**

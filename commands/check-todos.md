@@ -17,7 +17,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init todos)
 ```
 
-Extract from init JSON: `todo_count`, `todos`, `pending_dir`.
+Extract from init JSON: `todo_count`, `todos`, `pending_dir`, `todos_dir`.
 
 If `todo_count` is 0:
 ```
@@ -71,7 +71,7 @@ Wait for user to reply with a number. Load selected todo, display full context.
 <step name="git_commit">
 If todo was moved to done/:
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: start work on todo - [title]" --files .planning/todos/done/[filename] .planning/STATE.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: start work on todo - [title]" --files ${todos_dir}/done/[filename] .planning/STATE.md
 ```
 </step>
 

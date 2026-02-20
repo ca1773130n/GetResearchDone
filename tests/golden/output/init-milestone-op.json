@@ -1,0 +1,29 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "commit_docs": true,
+  "milestone_version": "v0.2.1",
+  "milestone_name": "Hierarchical Planning Directory",
+  "milestone_slug": "hierarchical-planning-directory",
+  "phase_count": 5,
+  "completed_phases": 5,
+  "all_phases_complete": true,
+  "archived_milestones": [],
+  "archive_count": 0,
+  "project_exists": true,
+  "roadmap_exists": true,
+  "state_exists": true,
+  "archive_exists": false,
+  "phases_dir_exists": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "codebase_dir": ".planning/codebase",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

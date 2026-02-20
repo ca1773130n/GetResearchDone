@@ -127,7 +127,7 @@ When spawned with a `<worktree>` block in your prompt, you are operating in an i
 3. **Read/Write/Edit tools:** Use absolute paths: `${WORKTREE_PATH}/lib/worktree.js` not `lib/worktree.js`.
 4. **Git commits happen in the worktree.** The worktree has its own branch. Commits go to that branch automatically.
 5. **State updates (.planning/STATE.md):** These should be written to the MAIN repo (not the worktree), because STATE.md is shared state. Use the original project root (without WORKTREE_PATH prefix) for STATE.md operations.
-6. **SUMMARY.md:** Write to the worktree's .planning/phases/ directory (within WORKTREE_PATH). The orchestrator handles merging.
+6. **SUMMARY.md:** Write to the worktree's ${phases_dir}/ directory (within WORKTREE_PATH). The orchestrator handles merging.
 
 **When NO `<worktree>` block is present:** Operate normally in the current working directory (backwards compatible).
 </worktree_execution>
@@ -374,7 +374,7 @@ git commit -m "{type}({phase}-{plan}): {concise task description}
 </task_commit_protocol>
 
 <summary_creation>
-After all tasks complete, create `{phase}-{plan}-SUMMARY.md` at `.planning/phases/XX-name/`.
+After all tasks complete, create `{phase}-{plan}-SUMMARY.md` at `${phase_dir}/`.
 
 **Use template:** @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
 
@@ -524,7 +524,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state add-blocker "Blocker descripti
 
 <final_commit>
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/experiments/${PHASE}-${PLAN}-*.yaml
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs({phase}-{plan}): complete [plan-name] plan" --files ${phase_dir}/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/experiments/${PHASE}-${PLAN}-*.yaml
 ```
 
 Separate from per-task commits — captures execution results only.
@@ -580,12 +580,12 @@ After writing SUMMARY.md, post it as a comment on the phase issue (non-blocking)
 
 **For GitHub:**
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-${PLAN}-SUMMARY.md" 2>/dev/null || true
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-${PLAN}-SUMMARY.md" 2>/dev/null || true
 ```
 
 **For mcp-atlassian:**
 ```bash
-COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" ".planning/phases/${PHASE_DIR}/${PHASE}-${PLAN}-SUMMARY.md" --raw 2>/dev/null || true)
+COMMENT_INFO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker add-comment "${PHASE}" "${phase_dir}/${PHASE}-${PLAN}-SUMMARY.md" --raw 2>/dev/null || true)
 ```
 If response has `provider: "mcp-atlassian"`, call MCP tool `add_comment` with `issue_key` and `content` from response.
 

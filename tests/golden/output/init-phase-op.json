@@ -1,0 +1,29 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "commit_docs": true,
+  "phase_found": false,
+  "phase_dir": null,
+  "phase_number": null,
+  "phase_name": null,
+  "phase_slug": null,
+  "padded_phase": null,
+  "has_research": false,
+  "has_context": false,
+  "has_plans": false,
+  "has_verification": false,
+  "plan_count": 0,
+  "roadmap_exists": true,
+  "planning_exists": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "codebase_dir": ".planning/codebase",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

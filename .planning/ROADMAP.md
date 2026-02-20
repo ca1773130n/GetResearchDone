@@ -150,11 +150,13 @@ Plans:
 
 **Plans:** 4 plans
 
+**Status:** COMPLETE (2026-02-20)
+
 Plans:
-- [ ] 34-01-PLAN.md — Migrate 11 research-focused command files to init-derived path variables
-- [ ] 34-02-PLAN.md — Migrate 17 remaining command files (phase, codebase, todos, quick paths)
-- [ ] 34-03-PLAN.md — Migrate all 16 agent markdown files to context-injected path variables
-- [ ] 34-04-PLAN.md — Comprehensive verification sweep across all 44 files + fixups
+- [x] 34-01-PLAN.md — Migrate 11 research-focused command files to init-derived path variables
+- [x] 34-02-PLAN.md — Migrate 17 remaining command files (phase, codebase, todos, quick paths)
+- [x] 34-03-PLAN.md — Migrate all 16 agent markdown files to context-injected path variables
+- [x] 34-04-PLAN.md — Comprehensive verification sweep across all 44 files + fixups
 
 **Success Criteria:**
 1. Zero occurrences of hardcoded `.planning/phases/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/`, `.planning/quick/` in any `commands/*.md` file (paths consumed from init context variables instead)
@@ -173,6 +175,15 @@ Plans:
 **Requirements:** REQ-59, REQ-60, REQ-61, REQ-62, REQ-63
 
 **Verification Level:** proxy
+
+**Plans:** 3 plans
+
+**Status:** COMPLETE (2026-02-20)
+
+Plans:
+- [x] 35-01-PLAN.md -- TDD: Implement cmdMigrateDirs migration command (REQ-61, REQ-62, REQ-63)
+- [x] 35-02-PLAN.md -- TDD: Simplify cmdMilestoneComplete archive logic and add archive marker (REQ-59, REQ-60)
+- [x] 35-03-PLAN.md -- Wire migrate-dirs to CLI router and full verification sweep
 
 **Success Criteria:**
 1. `node bin/grd-tools.js migrate-dirs` moves `.planning/phases/`, `.planning/quick/`, `.planning/research/`, `.planning/codebase/`, `.planning/todos/` to their correct milestone-scoped locations using `currentMilestone()` from STATE.md
@@ -193,6 +204,14 @@ Plans:
 
 **Verification Level:** proxy
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 36-01-PLAN.md — Merge Phase 34+35 branches to main and audit remaining old-path references
+- [ ] 36-02-PLAN.md — Migrate test fixtures and update unit tests to milestone-scoped paths
+- [ ] 36-03-PLAN.md — Update golden tests, capture.sh, and integration tests
+- [ ] 36-04-PLAN.md — Update CLAUDE.md and docs, resolve deferred validations (DEFER-34-01, DEFER-35-01, DEFER-35-02)
+
 **Success Criteria:**
 1. All unit tests that previously constructed `.planning/phases/` paths now use the new milestone-scoped hierarchy and pass
 2. All integration and golden tests updated to use the new hierarchy and pass
@@ -208,8 +227,8 @@ Plans:
 |-------|------|--------|--------------|
 | 32 | Centralized Path Resolution Module | Pending | REQ-46, REQ-47, REQ-48, REQ-49, REQ-50, REQ-67 |
 | 33 | lib/ Module Migration | Pending | REQ-51, REQ-52, REQ-53, REQ-54, REQ-55, REQ-56 |
-| 34 | Command & Agent Markdown Migration | Pending | REQ-57, REQ-58 |
-| 35 | Migration Script & Archive Simplification | Pending | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
+| 34 | Command & Agent Markdown Migration | **Complete** | REQ-57, REQ-58 |
+| 35 | Migration Script & Archive Simplification | **Complete** | REQ-59, REQ-60, REQ-61, REQ-62, REQ-63 |
 | 36 | Test Updates, Documentation & Integration Validation | Pending | REQ-64, REQ-65, REQ-66, REQ-68, REQ-69 |
 
 ## Deferred Validations
@@ -218,3 +237,4 @@ Plans:
 |---------------|-----------|-----------------|--------|
 | Phase 8 (DEFER-08-01) | User acceptance testing of TUI dashboard commands | post-v1.0 | Pending (not in scope) |
 | Phase 30 (DEFER-30-01) | Full parallel execution with real teammate spawning on Claude Code | Future | PARTIALLY RESOLVED (v0.2.0, runtime gap) |
+| Phase 34 (DEFER-34-01) | E2E runtime validation that commands resolve init-derived path variables to milestone-scoped directories | Phase 36 | Pending |

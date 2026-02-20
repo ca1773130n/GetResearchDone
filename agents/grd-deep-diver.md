@@ -1,6 +1,6 @@
 ---
 name: grd-deep-diver
-description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces .planning/research/deep-dives/{paper-slug}.md and updates PAPERS.md index.
+description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces ${research_dir}/deep-dives/{paper-slug}.md and updates PAPERS.md index.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: magenta
 ---
@@ -277,7 +277,7 @@ Rate adoption recommendation on 1-5 scale.
 Ensure deep-dives directory exists:
 
 ```bash
-mkdir -p .planning/research/deep-dives
+mkdir -p ${research_dir}/deep-dives
 ```
 </step>
 
@@ -293,7 +293,7 @@ Examples:
 </step>
 
 <step name="write_deep_dive">
-Write the deep-dive document to `.planning/research/deep-dives/{paper-slug}.md`.
+Write the deep-dive document to `${research_dir}/deep-dives/{paper-slug}.md`.
 
 **ALWAYS use Write tool to persist to disk.**
 
@@ -301,10 +301,10 @@ Use the output format template below.
 </step>
 
 <step name="update_papers_index">
-Update `.planning/research/PAPERS.md` index.
+Update `${research_dir}/PAPERS.md` index.
 
 ```bash
-cat .planning/research/PAPERS.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
 ```
 
 **If PAPERS.md exists:** Append new entry to the index table.
@@ -333,7 +333,7 @@ Status values:
 Commit the deep-dive and updated index:
 
 ```bash
-git add .planning/research/deep-dives/{paper-slug}.md .planning/research/PAPERS.md
+git add ${research_dir}/deep-dives/{paper-slug}.md ${research_dir}/PAPERS.md
 git commit -m "docs(research): deep dive on [paper-slug]
 
 - Recommendation: [score]/5
@@ -352,7 +352,7 @@ Return structured summary to orchestrator.
 
 ## Deep Dive Document Structure
 
-**Location:** `.planning/research/deep-dives/{paper-slug}.md`
+**Location:** `${research_dir}/deep-dives/{paper-slug}.md`
 
 ```markdown
 # Deep Dive: [Paper Title]
@@ -596,8 +596,8 @@ PyTorch >= [version]
 [2-3 sentences on whether to pursue this approach]
 
 ### Files Created/Updated
-- `.planning/research/deep-dives/[slug].md`
-- `.planning/research/PAPERS.md`
+- `${research_dir}/deep-dives/[slug].md`
+- `${research_dir}/PAPERS.md`
 
 ### Recommended Next Steps
 - `/grd:feasibility [method]` — Assess paper-to-production gap
@@ -666,7 +666,7 @@ Deep dive is complete when:
 - [ ] Production considerations assessed (scale, speed, deps, license)
 - [ ] Recommendation scored 1-5 with breakdown and rationale
 - [ ] Best-suited and not-suited use cases identified
-- [ ] Deep dive document written to `.planning/research/deep-dives/{slug}.md`
+- [ ] Deep dive document written to `${research_dir}/deep-dives/{slug}.md`
 - [ ] PAPERS.md updated with new entry
 - [ ] Files committed to git
 - [ ] Structured return provided to orchestrator

@@ -64,7 +64,11 @@ describe('cmdTemplateSelect', () => {
   test('returns template info for a plan with few tasks', () => {
     // 01-01-PLAN.md has 1 task, few files, no decisions => minimal
     const { stdout, exitCode } = captureOutput(() => {
-      cmdTemplateSelect(fixtureDir, '.planning/phases/01-test/01-01-PLAN.md', false);
+      cmdTemplateSelect(
+        fixtureDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      );
     });
     expect(exitCode).toBe(0);
     // cmdTemplateSelect has try/catch that may catch exit sentinel
@@ -257,7 +261,14 @@ describe('cmdScaffold', () => {
     expect(parsed.created).toBe(true);
 
     // Verify deep-dives subdirectory was created
-    const deepDivesPath = path.join(fixtureDir, '.planning', 'research', 'deep-dives');
+    const deepDivesPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'research',
+      'deep-dives'
+    );
     expect(fs.existsSync(deepDivesPath)).toBe(true);
   });
 

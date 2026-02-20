@@ -128,7 +128,14 @@ describe('cmdPhaseAdd', () => {
 
   test('creates phase directory on disk', () => {
     captureOutput(() => cmdPhaseAdd(tmpDir, 'Integration Testing', false));
-    const dirPath = path.join(tmpDir, '.planning', 'phases', '03-integration-testing');
+    const dirPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '03-integration-testing'
+    );
     expect(fs.existsSync(dirPath)).toBe(true);
   });
 
@@ -172,7 +179,14 @@ describe('cmdPhaseInsert', () => {
 
   test('creates decimal phase directory on disk', () => {
     captureOutput(() => cmdPhaseInsert(tmpDir, '1', 'Hotfix Phase', false));
-    const dirPath = path.join(tmpDir, '.planning', 'phases', '01.1-hotfix-phase');
+    const dirPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01.1-hotfix-phase'
+    );
     expect(fs.existsSync(dirPath)).toBe(true);
   });
 
@@ -188,10 +202,16 @@ describe('cmdPhaseInsert', () => {
     const result = JSON.parse(stdout);
     expect(result.phase_number).toBe('01.2');
     // Both directories should exist
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'phases', '01.1-first-insert'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'phases', '01.2-second-insert'))).toBe(
-      true
-    );
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.1-first-insert')
+      )
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01.2-second-insert')
+      )
+    ).toBe(true);
   });
 
   test('errors when missing arguments', () => {
@@ -227,19 +247,32 @@ describe('cmdPhaseRemove', () => {
 
   test('deletes phase directory from disk', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'phases', '01-test'))).toBe(false);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'))
+    ).toBe(false);
   });
 
   test('renumbers subsequent phases on disk', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
     // Phase 02-build should now be 01-build
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'phases', '01-build'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.planning', 'phases', '02-build'))).toBe(false);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-build'))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '02-build'))
+    ).toBe(false);
   });
 
   test('renames files inside renumbered directories', () => {
     captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
-    const renamedDir = path.join(tmpDir, '.planning', 'phases', '01-build');
+    const renamedDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-build'
+    );
     const files = fs.readdirSync(renamedDir);
     // 02-01-PLAN.md should become 01-01-PLAN.md
     expect(files).toContain('01-01-PLAN.md');
@@ -389,9 +422,9 @@ describe('cmdMilestoneComplete', () => {
     expect(archivedDirs).toContain('02-build');
   });
 
-  test('.planning/phases/ is empty after milestone complete', () => {
+  test('.planning/milestones/anonymous/phases/ is empty after milestone complete', () => {
     captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
-    const phasesDir = path.join(tmpDir, '.planning', 'phases');
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
     const remaining = fs.readdirSync(phasesDir, { withFileTypes: true });
     const dirs = remaining.filter((e) => e.isDirectory());
     expect(dirs.length).toBe(0);
@@ -402,6 +435,62 @@ describe('cmdMilestoneComplete', () => {
     const result = JSON.parse(stdout);
     expect(result.archived.phases).toBe(true);
     expect(result.archived.phase_count).toBeGreaterThanOrEqual(2);
+  });
+
+  test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
+    // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
+    const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');
+    fs.mkdirSync(msDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(msDir, '01-01-PLAN.md'),
+      '---\nphase: 01-test\nplan: 01\nwave: 1\n---\n# Plan\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(msDir, '01-01-SUMMARY.md'),
+      '---\none-liner: "Test summary"\n---\n# Summary\n\n## Task 1\nDone.\n',
+      'utf-8'
+    );
+
+    // Remove old-style phases so only milestone-scoped phases exist
+    const oldPhasesDir = path.join(tmpDir, '.planning', 'phases');
+    fs.rmSync(oldPhasesDir, { recursive: true, force: true });
+    fs.mkdirSync(oldPhasesDir, { recursive: true });
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+
+    // Should indicate phases were already in place
+    expect(result.phases_already_in_place).toBe(true);
+
+    // Should NOT create redundant v1.0-phases/ archive
+    const redundantArchive = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    expect(fs.existsSync(redundantArchive)).toBe(false);
+
+    // Original milestone phase dir should still exist (not deleted)
+    expect(fs.existsSync(msDir)).toBe(true);
+  });
+
+  test('writes archived.json marker in milestone directory on completion', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const markerPath = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'archived.json');
+    expect(fs.existsSync(markerPath)).toBe(true);
+
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+    expect(marker.version).toBe('v1.0');
+    expect(marker).toHaveProperty('archived_date');
+    expect(marker).toHaveProperty('phases');
+  });
+
+  test('archived.json marker is readable and contains expected fields', () => {
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const markerPath = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'archived.json');
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+
+    expect(marker.version).toBe('v1.0');
+    expect(typeof marker.archived_date).toBe('string');
+    expect(typeof marker.phases).toBe('number');
+    expect(typeof marker.plans).toBe('number');
   });
 });
 
@@ -428,7 +517,9 @@ describe('cmdValidateConsistency', () => {
 
   test('detects directory on disk but not in ROADMAP', () => {
     // Create an orphan phase directory
-    fs.mkdirSync(path.join(tmpDir, '.planning', 'phases', '99-orphan'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), {
+      recursive: true,
+    });
     const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     const result = JSON.parse(stdout);
     expect(result.warnings.some((w) => w.includes('99'))).toBe(true);
@@ -436,7 +527,7 @@ describe('cmdValidateConsistency', () => {
 
   test('detects missing frontmatter wave field in plans', () => {
     // Create a plan without wave in frontmatter
-    const planDir = path.join(tmpDir, '.planning', 'phases', '02-build');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '02-build');
     const planPath = path.join(planDir, '02-01-PLAN.md');
     // Read existing plan and strip the wave field
     const content = fs.readFileSync(planPath, 'utf-8');

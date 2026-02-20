@@ -44,7 +44,7 @@ Present removal summary and confirm:
 Removing Phase {target}: {Name}
 
 This will:
-- Delete: .planning/phases/{target}-{slug}/
+- Delete: ${phase_dir}/
 - Renumber all subsequent phases
 - Update: ROADMAP.md, STATE.md
 
@@ -71,7 +71,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "chore: remove phase {target}
 Phase {target} ({original-name}) removed.
 
 Changes:
-- Deleted: .planning/phases/{target}-{slug}/
+- Deleted: ${phase_dir}/
 - Renumbered: {N} directories and {M} files
 - Updated: ROADMAP.md, STATE.md
 - Committed

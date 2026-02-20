@@ -3,11 +3,11 @@ description: Analyze codebase architecture with parallel mapper agents
 ---
 
 <purpose>
-Orchestrate parallel codebase mapper agents to analyze codebase and produce structured documents in .planning/codebase/
+Orchestrate parallel codebase mapper agents to analyze codebase and produce structured documents in the codebase directory
 
 Each agent has fresh context, explores a specific focus area, and writes documents directly. The orchestrator only receives confirmation + line counts, then writes a summary.
 
-Output: .planning/codebase/ folder with 7 structured documents about the codebase state.
+Output: ${codebase_dir}/ folder with 7 structured documents about the codebase state.
 </purpose>
 
 <process>
@@ -27,7 +27,7 @@ If doesn't exist: Continue to create_structure.
 
 <step name="create_structure">
 ```bash
-mkdir -p .planning/codebase
+mkdir -p ${codebase_dir}
 ```
 
 Expected: STACK.md, INTEGRATIONS.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md
@@ -42,12 +42,18 @@ Spawn 4 parallel grd-codebase-mapper agents:
 **Agent 4: Concerns Focus** — CONCERNS.md
 
 Each uses `subagent_type="grd:grd-codebase-mapper"`, `model="{mapper_model}"`, `run_in_background=true`.
+
+Each agent prompt includes:
+```
+PATHS:
+codebase_dir: ${codebase_dir}
+```
 </step>
 
 <step name="verify_output">
 ```bash
-ls -la .planning/codebase/
-wc -l .planning/codebase/*.md
+ls -la ${codebase_dir}/
+wc -l ${codebase_dir}/*.md
 ```
 
 All 7 documents exist, no empty documents.
@@ -55,7 +61,7 @@ All 7 documents exist, no empty documents.
 
 <step name="scan_for_secrets">
 ```bash
-grep -E '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[A-Z0-9]{16}|-----BEGIN.*PRIVATE KEY)' .planning/codebase/*.md 2>/dev/null && SECRETS_FOUND=true || SECRETS_FOUND=false
+grep -E '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[A-Z0-9]{16}|-----BEGIN.*PRIVATE KEY)' ${codebase_dir}/*.md 2>/dev/null && SECRETS_FOUND=true || SECRETS_FOUND=false
 ```
 
 If SECRETS_FOUND: Alert and pause before commit.
@@ -63,7 +69,7 @@ If SECRETS_FOUND: Alert and pause before commit.
 
 <step name="commit_codebase_map">
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: map existing codebase" --files .planning/codebase/*.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: map existing codebase" --files ${codebase_dir}/*.md
 ```
 </step>
 
@@ -71,7 +77,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: map existing codebase"
 ```
 Codebase mapping complete.
 
-Created .planning/codebase/:
+Created ${codebase_dir}/:
 - STACK.md, ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, INTEGRATIONS.md, CONCERNS.md
 
 ---
@@ -91,7 +97,7 @@ Created .planning/codebase/:
 </process>
 
 <success_criteria>
-- .planning/codebase/ directory created
+- ${codebase_dir}/ directory created
 - 4 parallel grd-codebase-mapper agents spawned
 - All 7 codebase documents exist
 - Clear completion summary with line counts

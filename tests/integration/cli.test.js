@@ -220,7 +220,7 @@ describe('verify-path-exists', () => {
 describe('frontmatter commands', () => {
   test('frontmatter get returns plan frontmatter', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['frontmatter', 'get', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -231,7 +231,13 @@ describe('frontmatter commands', () => {
 
   test('frontmatter get --field returns single field', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'get', '.planning/phases/01-test/01-01-PLAN.md', '--field', 'phase'],
+      [
+        'frontmatter',
+        'get',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--field',
+        'phase',
+      ],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -241,7 +247,13 @@ describe('frontmatter commands', () => {
 
   test('frontmatter validate plan schema returns valid', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'validate', '.planning/phases/01-test/01-01-PLAN.md', '--schema', 'plan'],
+      [
+        'frontmatter',
+        'validate',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--schema',
+        'plan',
+      ],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -255,7 +267,7 @@ describe('frontmatter commands', () => {
 describe('verify commands', () => {
   test('verify plan-structure succeeds on valid plan', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'plan-structure', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'plan-structure', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -282,7 +294,7 @@ describe('verify commands', () => {
 
   test('verify references checks plan references', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'references', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'references', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -294,7 +306,7 @@ describe('verify commands', () => {
 
   test('verify artifacts reports on plan artifacts', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'artifacts', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'artifacts', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     // Command runs and produces JSON (may error if no must_haves parsed)
@@ -304,7 +316,7 @@ describe('verify commands', () => {
 
   test('verify key-links reports on plan key links', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify', 'key-links', '.planning/phases/01-test/01-01-PLAN.md'],
+      ['verify', 'key-links', '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md'],
       fixtureDir
     );
     // Command runs and produces JSON (may error if no key_links parsed)
@@ -355,7 +367,7 @@ describe('index and digest commands', () => {
 
   test('summary-extract returns extracted fields', () => {
     const { stdout, exitCode } = runCLI(
-      ['summary-extract', '.planning/phases/01-test/01-01-SUMMARY.md'],
+      ['summary-extract', '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md'],
       fixtureDir
     );
     expect(exitCode).toBe(0);
@@ -370,7 +382,7 @@ describe('index and digest commands', () => {
     const { stdout, exitCode } = runCLI(
       [
         'summary-extract',
-        '.planning/phases/01-test/01-01-SUMMARY.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md',
         '--fields',
         'path,tech_added',
       ],
@@ -599,7 +611,7 @@ describe('init workflows', () => {
 describe('verify-summary', () => {
   test('verify-summary returns validation results', () => {
     const { stdout, exitCode } = runCLI(
-      ['verify-summary', '.planning/phases/01-test/01-01-SUMMARY.md'],
+      ['verify-summary', '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md'],
       fixtureDir
     );
     // May pass or fail depending on git state, but produces valid JSON
@@ -1129,7 +1141,7 @@ describe('mutating frontmatter commands', () => {
       [
         'frontmatter',
         'set',
-        '.planning/phases/01-test/01-01-PLAN.md',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
         '--field',
         'wave',
         '--value',
@@ -1144,7 +1156,13 @@ describe('mutating frontmatter commands', () => {
 
   test('frontmatter merge merges data into frontmatter', () => {
     const { stdout, exitCode } = runCLI(
-      ['frontmatter', 'merge', '.planning/phases/01-test/01-01-PLAN.md', '--data', '{"wave": 3}'],
+      [
+        'frontmatter',
+        'merge',
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        '--data',
+        '{"wave": 3}',
+      ],
       mutDir
     );
     expect(exitCode).toBe(0);
@@ -1225,13 +1243,17 @@ describe('mutating todo commands', () => {
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data).toHaveProperty('completed');
-    // Verify file moved
-    expect(fs.existsSync(path.join(mutDir, '.planning', 'todos', 'pending', 'sample.md'))).toBe(
-      false
-    );
-    expect(fs.existsSync(path.join(mutDir, '.planning', 'todos', 'completed', 'sample.md'))).toBe(
-      true
-    );
+    // Verify file moved (milestone-scoped paths)
+    expect(
+      fs.existsSync(
+        path.join(mutDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending', 'sample.md')
+      )
+    ).toBe(false);
+    expect(
+      fs.existsSync(
+        path.join(mutDir, '.planning', 'milestones', 'anonymous', 'todos', 'completed', 'sample.md')
+      )
+    ).toBe(true);
   });
 });
 
@@ -1289,6 +1311,86 @@ describe('mutating config commands', () => {
       fs.readFileSync(path.join(mutDir, '.planning', 'config.json'), 'utf-8')
     );
     expect(config.autonomous_mode).toBe(true);
+  });
+});
+
+// ─── Migrate-dirs Command ───────────────────────────────────────────────────
+
+describe('migrate-dirs command', () => {
+  let migDir;
+
+  beforeEach(() => {
+    migDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-mig-'));
+    const planningDir = path.join(migDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+
+    // Create minimal STATE.md with a milestone
+    fs.writeFileSync(
+      path.join(planningDir, 'STATE.md'),
+      '# State\n\n## Current Position\n\n- **Milestone:** v1.0.0 — Test\n'
+    );
+
+    // Create minimal config.json
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+
+    // Create old-style directories with content
+    const phasesDir = path.join(planningDir, 'phases', '01-test');
+    fs.mkdirSync(phasesDir, { recursive: true });
+    fs.writeFileSync(path.join(phasesDir, '01-01-PLAN.md'), '---\nphase: 01-test\n---\n');
+
+    const researchDir = path.join(planningDir, 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape\n');
+  });
+
+  afterEach(() => {
+    cleanupDir(migDir);
+  });
+
+  test('migrate-dirs command produces valid JSON with moved directories', () => {
+    const { stdout, exitCode } = runCLI(['migrate-dirs'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('milestone', 'v1.0.0');
+    expect(data).toHaveProperty('moved_directories');
+    expect(data).toHaveProperty('skipped');
+    expect(data).toHaveProperty('errors');
+    expect(data.errors).toEqual([]);
+
+    // Verify phases were moved
+    const phasesMoved = data.moved_directories.find((d) => d.from === 'phases');
+    expect(phasesMoved).toBeDefined();
+    expect(phasesMoved.to).toBe(path.join('milestones', 'v1.0.0', 'phases'));
+
+    // Verify target file exists
+    expect(
+      fs.existsSync(
+        path.join(migDir, '.planning', 'milestones', 'v1.0.0', 'phases', '01-test', '01-01-PLAN.md')
+      )
+    ).toBe(true);
+  });
+
+  test('migrate-dirs --raw produces valid JSON', () => {
+    const { stdout, exitCode } = runCLI(['migrate-dirs', '--raw'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('milestone');
+    expect(data).toHaveProperty('moved_directories');
+  });
+
+  test('migrate-dirs is idempotent on second run', () => {
+    // First run migrates
+    runCLI(['migrate-dirs'], migDir);
+
+    // Second run should report already_migrated
+    const { stdout, exitCode } = runCLI(['migrate-dirs'], migDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.already_migrated).toBe(true);
+    expect(data.moved_directories).toEqual([]);
   });
 });
 

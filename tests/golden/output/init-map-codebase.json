@@ -1,0 +1,31 @@
+{
+  "backend": "claude",
+  "backend_capabilities": {
+    "subagents": true,
+    "parallel": true,
+    "teams": true,
+    "hooks": true,
+    "mcp": true
+  },
+  "mapper_model": "sonnet",
+  "commit_docs": true,
+  "search_gitignored": false,
+  "parallelization": true,
+  "codebase_dir": ".planning/codebase",
+  "existing_maps": [
+    "ARCHITECTURE.md",
+    "CONCERNS.md",
+    "CONVENTIONS.md",
+    "INTEGRATIONS.md",
+    "STACK.md",
+    "STRUCTURE.md",
+    "TESTING.md"
+  ],
+  "has_maps": true,
+  "planning_exists": true,
+  "codebase_dir_exists": true,
+  "phases_dir": ".planning/phases",
+  "research_dir": ".planning/research",
+  "quick_dir": ".planning/quick",
+  "todos_dir": ".planning/todos"
+}

@@ -105,6 +105,7 @@ const {
   cmdRequirementTraceability,
   cmdRequirementUpdateStatus,
   cmdSearch,
+  cmdMigrateDirs,
 } = require('../lib/commands');
 
 /** Extract --flag value from args, returns value or fallback */
@@ -123,7 +124,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree, migrate-dirs'
     );
   }
 
@@ -450,6 +451,9 @@ function routeCommand(command, args, cwd, raw) {
       );
       break;
     }
+    case 'migrate-dirs':
+      cmdMigrateDirs(cwd, raw);
+      break;
     case 'init': {
       const wf = args[1],
         includes = parseIncludeFlag(args);

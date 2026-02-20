@@ -200,7 +200,7 @@ Load all relevant context for evaluation design.
 
 **Read phase context:**
 ```bash
-PHASE_DIR=$(ls -d .planning/phases/*${PHASE}* 2>/dev/null | head -1)
+PHASE_DIR=$(ls -d ${phases_dir}/*${PHASE}* 2>/dev/null | head -1)
 cat "$PHASE_DIR"/*-RESEARCH.md 2>/dev/null
 cat "$PHASE_DIR"/*-PLAN.md 2>/dev/null
 cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
@@ -208,9 +208,9 @@ cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
 
 **Read research context:**
 ```bash
-cat .planning/research/LANDSCAPE.md 2>/dev/null
-cat .planning/research/PAPERS.md 2>/dev/null
-ls .planning/research/deep-dives/*.md 2>/dev/null
+cat ${research_dir}/LANDSCAPE.md 2>/dev/null
+cat ${research_dir}/PAPERS.md 2>/dev/null
+ls ${research_dir}/deep-dives/*.md 2>/dev/null
 ```
 
 **Read baseline and targets:**
@@ -223,7 +223,7 @@ cat .planning/PROJECT.md 2>/dev/null
 **Read any existing evaluation:**
 ```bash
 cat "$PHASE_DIR"/*-EVAL.md 2>/dev/null
-cat .planning/research/BENCHMARKS.md 2>/dev/null
+cat ${research_dir}/BENCHMARKS.md 2>/dev/null
 ```
 
 **Identify what papers/methods this phase implements:**
@@ -378,7 +378,7 @@ ablations:
 Write EVAL.md to the phase directory.
 
 ```bash
-PHASE_DIR=$(ls -d .planning/phases/*${PHASE}* 2>/dev/null | head -1)
+PHASE_DIR=$(ls -d ${phases_dir}/*${PHASE}* 2>/dev/null | head -1)
 ```
 
 **ALWAYS use Write tool to persist to disk.**
@@ -410,7 +410,7 @@ Return structured summary to orchestrator.
 
 ## EVAL.md Structure
 
-**Location:** `.planning/phases/XX-name/{phase}-EVAL.md`
+**Location:** `${phase_dir}/{phase}-EVAL.md`
 
 ```markdown
 # Evaluation Plan: Phase [X] — [Name]

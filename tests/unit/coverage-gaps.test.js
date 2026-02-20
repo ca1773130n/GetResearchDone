@@ -309,7 +309,7 @@ describe('cmdVerifyArtifacts detailed paths', () => {
 
   test('verifies artifacts with contains check (pattern found)', () => {
     // Create a plan with artifacts that reference existing files
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -335,7 +335,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout, exitCode } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
@@ -345,7 +349,7 @@ describe('cmdVerifyArtifacts detailed paths', () => {
   });
 
   test('verifies artifacts with contains check (pattern missing)', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -369,7 +373,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);
@@ -377,7 +385,7 @@ describe('cmdVerifyArtifacts detailed paths', () => {
   });
 
   test('verifies artifacts when file does not exist', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -397,7 +405,11 @@ describe('cmdVerifyArtifacts detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].exists).toBe(false);
@@ -417,7 +429,7 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
   });
 
   test('verifies key links with pattern found in source', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -443,7 +455,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links.length).toBeGreaterThan(0);
@@ -452,7 +468,7 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
   });
 
   test('verifies key links when source file missing', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -473,7 +489,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -481,7 +501,7 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
   });
 
   test('verifies key links without pattern (reference check)', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -504,7 +524,11 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(true);
@@ -580,7 +604,7 @@ describe('cmdFrontmatterSet', () => {
   });
 
   test('sets a string field on a frontmatter file', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { stdout, exitCode } = captureOutput(() =>
       cmdFrontmatterSet(tmpDir, planPath, 'wave', '2', false)
     );
@@ -591,7 +615,7 @@ describe('cmdFrontmatterSet', () => {
   });
 
   test('sets a JSON value field', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { stdout } = captureOutput(() =>
       cmdFrontmatterSet(tmpDir, planPath, 'tags', '["a","b"]', false)
     );
@@ -628,7 +652,7 @@ describe('cmdFrontmatterMerge', () => {
   });
 
   test('merges JSON data into frontmatter', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const data = JSON.stringify({ wave: 3, autonomous: false });
     const { stdout, exitCode } = captureOutput(() =>
       cmdFrontmatterMerge(tmpDir, planPath, data, false)
@@ -649,7 +673,7 @@ describe('cmdFrontmatterMerge', () => {
   });
 
   test('errors when data is invalid JSON', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { exitCode } = captureError(() =>
       cmdFrontmatterMerge(tmpDir, planPath, '{invalid json', false)
     );
@@ -674,7 +698,7 @@ describe('cmdFrontmatterValidate', () => {
   });
 
   test('validates a plan frontmatter', () => {
-    const planPath = '.planning/phases/01-test/01-01-PLAN.md';
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
     const { stdout, exitCode } = captureOutput(() =>
       cmdFrontmatterValidate(tmpDir, planPath, 'plan', false)
     );
@@ -685,7 +709,7 @@ describe('cmdFrontmatterValidate', () => {
   });
 
   test('validates a summary frontmatter', () => {
-    const summaryPath = '.planning/phases/01-test/01-01-SUMMARY.md';
+    const summaryPath = '.planning/milestones/anonymous/phases/01-test/01-01-SUMMARY.md';
     const { stdout } = captureOutput(() =>
       cmdFrontmatterValidate(tmpDir, summaryPath, 'summary', false)
     );
@@ -760,7 +784,7 @@ describe('cmdVerifyKeyLinks additional paths', () => {
   });
 
   test('pattern found in target (not source)', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -786,7 +810,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(true);
@@ -794,7 +822,7 @@ describe('cmdVerifyKeyLinks additional paths', () => {
   });
 
   test('pattern not found in source or target', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -819,7 +847,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -827,7 +859,7 @@ describe('cmdVerifyKeyLinks additional paths', () => {
   });
 
   test('invalid regex pattern', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -852,7 +884,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -860,7 +896,7 @@ describe('cmdVerifyKeyLinks additional paths', () => {
   });
 
   test('target not referenced in source (no pattern)', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -884,7 +920,11 @@ describe('cmdVerifyKeyLinks additional paths', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyKeyLinks(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyKeyLinks(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.links[0].verified).toBe(false);
@@ -906,7 +946,7 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
   });
 
   test('fails when min_lines check fails', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -930,7 +970,11 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);
@@ -938,7 +982,7 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
   });
 
   test('fails when exports pattern missing', () => {
-    const planDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const planDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const planPath = path.join(planDir, '01-01-PLAN.md');
     const content = fs.readFileSync(planPath, 'utf-8');
 
@@ -962,7 +1006,11 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
     fs.writeFileSync(planPath, newContent);
 
     const { stdout } = captureOutput(() =>
-      cmdVerifyArtifacts(tmpDir, '.planning/phases/01-test/01-01-PLAN.md', false)
+      cmdVerifyArtifacts(
+        tmpDir,
+        '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md',
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.artifacts[0].passed).toBe(false);
@@ -978,7 +1026,7 @@ describe('context include branches with existing files', () => {
   beforeEach(() => {
     tmpDir = createFixtureDir();
     // Create CONTEXT.md, RESEARCH.md, VERIFICATION.md, UAT.md in phase dir
-    const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-test');
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     fs.writeFileSync(path.join(phaseDir, '01-CONTEXT.md'), '# Context\nDecisions here\n');
     fs.writeFileSync(path.join(phaseDir, '01-RESEARCH.md'), '# Research\nFindings here\n');
     fs.writeFileSync(path.join(phaseDir, '01-VERIFICATION.md'), '# Verification\nResults here\n');
@@ -1027,7 +1075,7 @@ describe('research workflow include branches with files', () => {
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
-    const researchDir = path.join(tmpDir, '.planning', 'research');
+    const researchDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'research');
     fs.mkdirSync(researchDir, { recursive: true });
     fs.mkdirSync(path.join(researchDir, 'deep-dives'), { recursive: true });
     fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape\nMethods here\n');

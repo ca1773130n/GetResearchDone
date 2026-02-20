@@ -14,14 +14,14 @@ dataset specifications.
 <context>
 CLAUDE.md rules: @CLAUDE.md
 
-**Project structure:**
-- `.planning/phases/{N}-{name}/` — phase directory
-- `.planning/phases/{N}-{name}/EVAL.md` — evaluation plan (output of this workflow)
-- `.planning/phases/{N}-{name}/PLAN.md` — phase execution plan
+**Project structure** (paths resolved via init):
+- `${phase_dir}/` — phase directory
+- `${phase_dir}/EVAL.md` — evaluation plan (output of this workflow)
+- `${phase_dir}/PLAN.md` — phase execution plan
 - `.planning/BASELINE.md` — current performance baseline
 - `.planning/ROADMAP.md` — project roadmap with phase listing
-- `.planning/research/LANDSCAPE.md` — benchmark references
-- `.planning/research/deep-dives/` — paper-reported metrics
+- `${research_dir}/LANDSCAPE.md` — benchmark references
+- `${research_dir}/deep-dives/` — paper-reported metrics
 - `.planning/config.json` — GRD configuration (research_gates)
 
 **Agent available:**
@@ -35,15 +35,21 @@ CLAUDE.md rules: @CLAUDE.md
 
 ## Step 0: INITIALIZE — Identify Phase and Load Context
 
+0. **Run initialization**:
+   ```bash
+   INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init eval-plan "$PHASE")
+   ```
+   Parse JSON for: `research_dir`, `phases_dir`, `phase_dir` (resolve from phases_dir + phase number), `landscape_exists`, `baseline_exists`, `autonomous_mode`, `research_gates`.
+
 1. **Parse arguments**: Extract phase identifier from `$ARGUMENTS`
-   - If phase number (e.g., "3"): resolve to `.planning/phases/{N}-{name}/`
+   - If phase number (e.g., "3"): resolve to `${phases_dir}/{N}-{name}/`
    - If phase name: match against ROADMAP.md
    - If empty: detect current active phase from ROADMAP.md (status: in-progress)
    - If no active phase: ASK user which phase to design evaluation for
 
 2. **Validate phase exists**:
    ```bash
-   ls .planning/phases/{N}-{name}/
+   ls ${phase_dir}/
    ```
    - If directory missing: STOP, suggest `/grd:plan-phase` first
 
@@ -90,6 +96,11 @@ Use Task tool with `subagent_type="grd:grd-eval-planner"`:
 
 ```
 Design tiered evaluation plan for phase: {N} — {phase_name}
+
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
 
 PHASE PLAN:
 {PLAN.md content — goals, tasks, success criteria}
@@ -247,7 +258,7 @@ Wait for user response.
 ## Step 6: WRITE EVAL.md
 
 1. **Write evaluation plan**:
-   - Path: `.planning/phases/{N}-{name}/EVAL.md`
+   - Path: `${phase_dir}/{N}-EVAL.md`
    - Include YAML frontmatter:
      ```yaml
      ---
@@ -268,7 +279,7 @@ Wait for user response.
 ## Step 7: COMMIT
 
 ```bash
-git add .planning/phases/{N}-{name}/EVAL.md
+git add ${phase_dir}/*-EVAL.md
 git commit -m "eval: design evaluation plan for phase {N} — {phase_name}"
 ```
 
@@ -287,7 +298,7 @@ git commit -m "eval: design evaluation plan for phase {N} — {phase_name}"
 
 <output>
 **FILES_WRITTEN:**
-- `.planning/phases/{N}-{name}/EVAL.md` — tiered evaluation plan
+- `${phase_dir}/{N}-EVAL.md` — tiered evaluation plan
 
 **DISPLAY**: Eval plan summary with tiers, key targets, and next-step routing
 
