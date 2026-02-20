@@ -131,7 +131,11 @@ describe('cmdWorktreeCreate', () => {
 
   test('creates a worktree and returns JSON with required fields', () => {
     const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
@@ -144,7 +148,11 @@ describe('cmdWorktreeCreate', () => {
 
   test('creates worktree directory at os.tmpdir()/grd-worktree-{milestone}-{phase}', () => {
     const { stdout } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const result = JSON.parse(stdout);
     const expectedPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
@@ -154,7 +162,11 @@ describe('cmdWorktreeCreate', () => {
 
   test('branch name follows pattern grd/{milestone}/{phase}-{slug}', () => {
     const { stdout } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
@@ -163,12 +175,20 @@ describe('cmdWorktreeCreate', () => {
   test('returns error JSON if worktree already exists', () => {
     // Create first worktree
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     // Try to create again
     const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
@@ -203,7 +223,11 @@ describe('cmdWorktreeCreate', () => {
 
   test('created field is a valid ISO timestamp', () => {
     const { stdout } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const result = JSON.parse(stdout);
     const date = new Date(result.created);
@@ -227,7 +251,11 @@ describe('cmdWorktreeRemove', () => {
   test('removes an existing worktree by phase identifier', () => {
     // Create a worktree first
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const { stdout, exitCode } = captureOutput(() =>
@@ -241,15 +269,17 @@ describe('cmdWorktreeRemove', () => {
 
   test('worktree directory is removed from disk after removal', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
     expect(fs.existsSync(wtPath)).toBe(true);
 
-    captureOutput(() =>
-      cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
-    );
+    captureOutput(() => cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false));
     expect(fs.existsSync(wtPath)).toBe(false);
   });
 
@@ -265,7 +295,11 @@ describe('cmdWorktreeRemove', () => {
 
   test('removes worktree by direct path', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
@@ -279,12 +313,14 @@ describe('cmdWorktreeRemove', () => {
 
   test('calls git worktree prune after removal', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
-    captureOutput(() =>
-      cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
-    );
+    captureOutput(() => cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false));
 
     // Verify worktree is pruned from git's perspective
     const listOutput = execFileSync('git', ['worktree', 'list', '--porcelain'], {
@@ -309,9 +345,7 @@ describe('cmdWorktreeList', () => {
   });
 
   test('returns empty array when no GRD worktrees exist', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeList(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeList(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('worktrees');
@@ -322,15 +356,17 @@ describe('cmdWorktreeList', () => {
   test('lists active GRD worktrees with required fields', () => {
     // Create two worktrees
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     captureOutput(() =>
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
     );
 
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeList(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeList(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.worktrees.length).toBe(2);
@@ -348,12 +384,14 @@ describe('cmdWorktreeList', () => {
 
   test('filters out the main worktree (only GRD-created worktrees)', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
-    const { stdout } = captureOutput(() =>
-      cmdWorktreeList(repoDir, false)
-    );
+    const { stdout } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const result = JSON.parse(stdout);
 
     // Should not include the main repo itself
@@ -365,12 +403,14 @@ describe('cmdWorktreeList', () => {
 
   test('extracts phase and milestone from worktree directory name', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
-    const { stdout } = captureOutput(() =>
-      cmdWorktreeList(repoDir, false)
-    );
+    const { stdout } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const result = JSON.parse(stdout);
     expect(result.worktrees[0].phase).toBe('27');
     expect(result.worktrees[0].milestone).toBe('v0.2.0');
@@ -391,9 +431,7 @@ describe('cmdWorktreeRemoveStale', () => {
   });
 
   test('returns empty removal list when no stale worktrees exist', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('removed');
@@ -404,7 +442,11 @@ describe('cmdWorktreeRemoveStale', () => {
   test('removes stale worktrees whose disk directory was deleted', () => {
     // Create a worktree
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     // Manually delete the worktree directory (simulating stale state)
@@ -412,9 +454,7 @@ describe('cmdWorktreeRemoveStale', () => {
     fs.rmSync(wtPath, { recursive: true, force: true });
 
     // Now remove stale
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.removed.length).toBeGreaterThanOrEqual(1);
@@ -424,7 +464,11 @@ describe('cmdWorktreeRemoveStale', () => {
   test('does NOT remove locked worktrees', () => {
     // Create a worktree
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
@@ -436,9 +480,7 @@ describe('cmdWorktreeRemoveStale', () => {
     fs.rmSync(wtPath, { recursive: true, force: true });
 
     // Remove stale should NOT touch locked ones
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.removed).toEqual([]);
@@ -455,7 +497,11 @@ describe('cmdWorktreeRemoveStale', () => {
   test('removes multiple stale worktrees in one call', () => {
     // Create two worktrees
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
     captureOutput(() =>
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
@@ -465,9 +511,7 @@ describe('cmdWorktreeRemoveStale', () => {
     fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27'), { recursive: true, force: true });
     fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28'), { recursive: true, force: true });
 
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.removed.length).toBe(2);
@@ -534,9 +578,7 @@ describe('cmdWorktreePushAndPR', () => {
   });
 
   test('returns error when phase is not provided', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreePushAndPR(repoDir, {}, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdWorktreePushAndPR(repoDir, {}, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('error');
@@ -556,7 +598,11 @@ describe('cmdWorktreePushAndPR', () => {
   test('returns error when git push fails (no remote configured)', () => {
     // Create a worktree
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     // Remove the remote so push fails
@@ -574,7 +620,11 @@ describe('cmdWorktreePushAndPR', () => {
   test('successfully pushes branch to remote', () => {
     // Create a worktree
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     // Make a commit in the worktree so there is something to push
@@ -606,7 +656,11 @@ describe('cmdWorktreePushAndPR', () => {
   test('returns error when gh CLI fails (returns structured error, does not crash)', () => {
     // Create a worktree and push (push will work with bare remote)
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
@@ -675,7 +729,11 @@ describe('cmdWorktreePushAndPR', () => {
 
   test('returns structured JSON with pr_url, branch, title on success', () => {
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
@@ -703,7 +761,11 @@ describe('cmdWorktreePushAndPR', () => {
     fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
 
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
     );
 
     const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');

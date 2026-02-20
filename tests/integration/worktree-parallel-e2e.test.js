@@ -34,10 +34,7 @@ const {
   cmdWorktreePushAndPR,
 } = require('../../lib/worktree');
 
-const {
-  buildDependencyGraph,
-  computeParallelGroups,
-} = require('../../lib/deps');
+const { buildDependencyGraph, computeParallelGroups } = require('../../lib/deps');
 
 const {
   validateIndependentPhases,
@@ -125,7 +122,9 @@ function createTestGitRepoWithRemote() {
 
   try {
     execFileSync('git', ['remote', 'remove', 'origin'], { cwd: repoDir, stdio: 'pipe' });
-  } catch { /* no origin yet */ }
+  } catch {
+    /* no origin yet */
+  }
   execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: repoDir, stdio: 'pipe' });
 
   return { repoDir, bareDir };
@@ -142,7 +141,9 @@ function cleanupTestRepo(repoDir) {
 
   try {
     execFileSync('git', ['worktree', 'prune'], { cwd: repoDir, stdio: 'pipe' });
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   // Clean up any GRD worktree directories in tmpdir (only E2E milestone to avoid unit test interference)
   try {
@@ -155,13 +156,19 @@ function cleanupTestRepo(repoDir) {
             cwd: repoDir,
             stdio: 'pipe',
           });
-        } catch { /* fall through */ }
+        } catch {
+          /* fall through */
+        }
         try {
           fs.rmSync(wtPath, { recursive: true, force: true });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   fs.rmSync(repoDir, { recursive: true, force: true });
 }
@@ -170,7 +177,9 @@ function cleanupTestRepoWithRemote(repoDir, bareDir) {
   cleanupTestRepo(repoDir);
   try {
     fs.rmSync(bareDir, { recursive: true, force: true });
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 // ---- Test Suites -----------------------------------------------------------
@@ -192,7 +201,11 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
   test('full pipeline: create -> verify on disk -> list -> work -> push -> remove -> verify gone', () => {
     // CREATE
     const { stdout: createOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const created = JSON.parse(createOut);
     expect(created.path).toBeDefined();
@@ -211,7 +224,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const { stdout: listOut } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const listed = JSON.parse(listOut);
     expect(listed.count).toBeGreaterThanOrEqual(1);
-    const found = listed.worktrees.find(w => w.phase === '27');
+    const found = listed.worktrees.find((w) => w.phase === '27');
     expect(found).toBeDefined();
     expect(found.branch).toBe(`grd/${E2E_MILESTONE}/27-worktree-infrastructure`);
 
@@ -248,7 +261,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     // VERIFY GONE FROM GIT WORKTREE LIST
     const { stdout: finalListOut } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const finalList = JSON.parse(finalListOut);
-    const stillExists = finalList.worktrees.find(w => w.phase === '27');
+    const stillExists = finalList.worktrees.find((w) => w.phase === '27');
     expect(stillExists).toBeUndefined();
   });
 
@@ -256,9 +269,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     // Import cmdInitExecutePhase
     const { cmdInitExecutePhase } = require('../../lib/context');
 
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(repoDir, '27', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '27', new Set(), false));
     const ctx = JSON.parse(stdout);
 
     // worktree_path should match the format used by worktree.js
@@ -277,7 +288,11 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
 
     // Get the path from worktree.js (by creating a worktree)
     const { stdout: wtOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const wt = JSON.parse(wtOut);
 
@@ -296,7 +311,11 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const ctx = JSON.parse(ctxOut);
 
     const { stdout: wtOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const wt = JSON.parse(wtOut);
 
@@ -497,17 +516,25 @@ describe('E2E: Parallel execution of independent phases', () => {
       // Cleanup
       try {
         execFileSync('git', ['worktree', 'prune'], { cwd: tmpRoot, stdio: 'pipe' });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       // Clean up GRD worktree dirs
       try {
         const entries = fs.readdirSync(REAL_TMPDIR);
         for (const entry of entries) {
           if (entry.startsWith('grd-worktree-v1.0-')) {
             const wtPath = path.join(REAL_TMPDIR, entry);
-            try { fs.rmSync(wtPath, { recursive: true, force: true }); } catch { /* ignore */ }
+            try {
+              fs.rmSync(wtPath, { recursive: true, force: true });
+            } catch {
+              /* ignore */
+            }
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
@@ -595,7 +622,14 @@ describe('E2E: Sequential fallback equivalence', () => {
     expect(parCtx.phases).toHaveLength(2);
 
     // Each phase has the same structural keys
-    const requiredKeys = ['phase_number', 'phase_name', 'worktree_path', 'worktree_branch', 'plans', 'plan_count'];
+    const requiredKeys = [
+      'phase_number',
+      'phase_name',
+      'worktree_path',
+      'worktree_branch',
+      'plans',
+      'plan_count',
+    ];
     for (let i = 0; i < 2; i++) {
       for (const key of requiredKeys) {
         expect(seqCtx.phases[i]).toHaveProperty(key);
@@ -654,8 +688,9 @@ describe('E2E: Sequential fallback equivalence', () => {
 
     // But phase_count, status_tracker structure match
     expect(seqCtx.phase_count).toBe(parCtx.phase_count);
-    expect(Object.keys(seqCtx.status_tracker.phases).length)
-      .toBe(Object.keys(parCtx.status_tracker.phases).length);
+    expect(Object.keys(seqCtx.status_tracker.phases).length).toBe(
+      Object.keys(parCtx.status_tracker.phases).length
+    );
   });
 });
 
@@ -674,7 +709,11 @@ describe('E2E: Stale worktree cleanup', () => {
   test('create worktree -> delete dir from disk -> removeStale detects and removes -> list empty', () => {
     // Create a worktree
     const { stdout: createOut } = captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' },
+        false
+      )
     );
     const created = JSON.parse(createOut);
     expect(fs.existsSync(created.path)).toBe(true);
@@ -684,9 +723,7 @@ describe('E2E: Stale worktree cleanup', () => {
     expect(fs.existsSync(created.path)).toBe(false);
 
     // Remove stale worktrees
-    const { stdout: staleOut } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout: staleOut } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     const staleResult = JSON.parse(staleOut);
     expect(staleResult.removed.length).toBeGreaterThanOrEqual(1);
     expect(staleResult.count).toBeGreaterThanOrEqual(1);
@@ -700,10 +737,18 @@ describe('E2E: Stale worktree cleanup', () => {
   test('two worktrees: delete only one -> removeStale removes only the stale one -> list returns 1', () => {
     // Create two worktrees
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: E2E_MILESTONE, slug: 'worktree-infrastructure' },
+        false
+      )
     );
     captureOutput(() =>
-      cmdWorktreeCreate(repoDir, { phase: '28', milestone: E2E_MILESTONE, slug: 'pr-workflow' }, false)
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '28', milestone: E2E_MILESTONE, slug: 'pr-workflow' },
+        false
+      )
     );
 
     // Verify both exist
@@ -716,9 +761,7 @@ describe('E2E: Stale worktree cleanup', () => {
     fs.rmSync(wtPath27, { recursive: true, force: true });
 
     // Remove stale
-    const { stdout: staleOut } = captureOutput(() =>
-      cmdWorktreeRemoveStale(repoDir, false)
-    );
+    const { stdout: staleOut } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     const staleResult = JSON.parse(staleOut);
     expect(staleResult.removed.length).toBe(1);
     expect(staleResult.removed[0]).toContain(`${E2E_MILESTONE}-27`);
@@ -784,7 +827,10 @@ describe('E2E: Dependency graph integration with parallel context', () => {
     ]) {
       const phaseDir = path.join(dir, '.planning', 'phases', `${num}-${slug}`);
       fs.mkdirSync(phaseDir, { recursive: true });
-      fs.writeFileSync(path.join(phaseDir, `${num}-01-PLAN.md`), `---\nphase: ${num}\nplan: 01\n---\n`);
+      fs.writeFileSync(
+        path.join(phaseDir, `${num}-01-PLAN.md`),
+        `---\nphase: ${num}\nplan: 01\n---\n`
+      );
     }
   }
 
@@ -843,8 +889,8 @@ describe('E2E: Dependency graph integration with parallel context', () => {
     const ctx = buildParallelContext(fixtureDir, ['27', '29']);
     expect(ctx.phases).toHaveLength(2);
 
-    const phase27 = ctx.phases.find(p => p.phase_number === '27');
-    const phase29 = ctx.phases.find(p => p.phase_number === '29');
+    const phase27 = ctx.phases.find((p) => p.phase_number === '27');
+    const phase29 = ctx.phases.find((p) => p.phase_number === '29');
     expect(phase27).toBeDefined();
     expect(phase29).toBeDefined();
     expect(phase27.worktree_path).toContain('grd-worktree-');
@@ -875,7 +921,10 @@ describe('E2E: Status tracker per-phase tracking', () => {
 
       const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-phase-${padded}`);
       fs.mkdirSync(phaseDir, { recursive: true });
-      fs.writeFileSync(path.join(phaseDir, `${padded}-01-PLAN.md`), `---\nphase: ${padded}\nplan: 01\n---\n`);
+      fs.writeFileSync(
+        path.join(phaseDir, `${padded}-01-PLAN.md`),
+        `---\nphase: ${padded}\nplan: 01\n---\n`
+      );
     }
     fs.writeFileSync(path.join(dir, '.planning', 'ROADMAP.md'), lines.join('\n'), 'utf-8');
   }
@@ -909,7 +958,7 @@ describe('E2E: Status tracker per-phase tracking', () => {
 
     const ctx = buildParallelContext(fixtureDir, ['1', '2', '3', '4']);
     const trackerKeys = Object.keys(ctx.status_tracker.phases).sort();
-    const phaseNumbers = ctx.phases.map(p => p.phase_number).sort();
+    const phaseNumbers = ctx.phases.map((p) => p.phase_number).sort();
 
     expect(trackerKeys).toEqual(phaseNumbers);
   });

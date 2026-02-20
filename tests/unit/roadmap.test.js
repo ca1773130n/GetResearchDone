@@ -299,7 +299,7 @@ describe('cmdRoadmapAnalyze', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phase2 = parsed.phases.find(p => p.number === '2');
+    const phase2 = parsed.phases.find((p) => p.number === '2');
     expect(phase2.depends_on).toBe('Phase 1');
     cleanupFixtureDir(tmpDir);
   });
@@ -349,7 +349,11 @@ describe('multi-milestone shipped sections', () => {
   ].join('\n');
 
   test('computeSchedule only finds active milestone phases', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const schedule = computeSchedule(tmpDir);
     const phaseNumbers = schedule.phases.map((p) => p.number);
     expect(phaseNumbers).toContain('29');
@@ -359,7 +363,11 @@ describe('multi-milestone shipped sections', () => {
   });
 
   test('computeSchedule finds active milestone version', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const schedule = computeSchedule(tmpDir);
     const versions = schedule.milestones.map((m) => m.version);
     expect(versions).toContain('v0.2.0');
@@ -367,7 +375,11 @@ describe('multi-milestone shipped sections', () => {
   });
 
   test('cmdRoadmapGetPhase finds active phase, not shipped', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const { stdout } = captureOutput(() => {
       cmdRoadmapGetPhase(tmpDir, '29', false);
     });
@@ -377,7 +389,11 @@ describe('multi-milestone shipped sections', () => {
   });
 
   test('cmdRoadmapGetPhase does not find shipped phase', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const { stdout } = captureOutput(() => {
       cmdRoadmapGetPhase(tmpDir, '1', false);
     });
@@ -386,7 +402,11 @@ describe('multi-milestone shipped sections', () => {
   });
 
   test('cmdRoadmapAnalyze only reports active phases', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const { stdout } = captureOutput(() => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
@@ -399,7 +419,11 @@ describe('multi-milestone shipped sections', () => {
   });
 
   test('cmdRoadmapAnalyze only reports active milestones', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), MULTI_MILESTONE_ROADMAP, 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      MULTI_MILESTONE_ROADMAP,
+      'utf-8'
+    );
     const { stdout } = captureOutput(() => {
       cmdRoadmapAnalyze(tmpDir, false);
     });

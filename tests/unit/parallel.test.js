@@ -314,7 +314,10 @@ describe('cmdInitExecuteParallel', () => {
 
   function ensurePhaseDir(dir, phaseNum, phaseName) {
     const padded = String(phaseNum).padStart(2, '0');
-    const slug = phaseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = phaseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
     const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-${slug}`);
     fs.mkdirSync(phaseDir, { recursive: true });
     fs.writeFileSync(
@@ -488,7 +491,10 @@ describe('CLI integration -- init execute-parallel', () => {
 
   function ensurePhaseDir(dir, phaseNum, phaseName) {
     const padded = String(phaseNum).padStart(2, '0');
-    const slug = phaseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = phaseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
     const phaseDir = path.join(dir, '.planning', 'phases', `${padded}-${slug}`);
     fs.mkdirSync(phaseDir, { recursive: true });
     fs.writeFileSync(
@@ -603,15 +609,15 @@ describe('CLI integration -- init execute-parallel', () => {
   });
 
   test('MCP descriptor grd_init_execute_parallel exists with correct params', () => {
-    const descriptor = COMMAND_DESCRIPTORS.find(d => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_init_execute_parallel');
     expect(descriptor).toBeDefined();
     expect(descriptor.params).toBeInstanceOf(Array);
 
-    const phasesParam = descriptor.params.find(p => p.name === 'phases');
+    const phasesParam = descriptor.params.find((p) => p.name === 'phases');
     expect(phasesParam).toBeDefined();
     expect(phasesParam.required).toBe(true);
 
-    const includeParam = descriptor.params.find(p => p.name === 'include');
+    const includeParam = descriptor.params.find((p) => p.name === 'include');
     expect(includeParam).toBeDefined();
     expect(includeParam.required).toBe(false);
 
@@ -624,7 +630,7 @@ describe('CLI integration -- init execute-parallel', () => {
     ensurePhaseDir(fixtureDir, 1, 'Alpha');
     writeConfig(fixtureDir, { autonomous_mode: true });
 
-    const descriptor = COMMAND_DESCRIPTORS.find(d => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_init_execute_parallel');
     expect(descriptor).toBeDefined();
 
     // Should not throw; may output error JSON for bad phase, but should not crash

@@ -821,12 +821,7 @@ describe('getMilestoneInfo', () => {
     const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
       roadmapPath,
-      [
-        '# Roadmap',
-        '',
-        '## M1 v1.2.3: Some Milestone',
-        '### Phase 1: Work',
-      ].join('\n'),
+      ['# Roadmap', '', '## M1 v1.2.3: Some Milestone', '### Phase 1: Work'].join('\n'),
       'utf-8'
     );
     const info = getMilestoneInfo(tmpDir);
