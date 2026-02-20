@@ -1,10 +1,4 @@
 {
-  "directories": [
-    "32-centralized-path-resolution-module",
-    "33-lib-module-migration",
-    "34-command-agent-markdown-migration",
-    "35-migration-script-and-archive-simplification",
-    "36-test-updates-documentation-and-integration-validation"
-  ],
-  "count": 5
+  "directories": [],
+  "count": 0
 }

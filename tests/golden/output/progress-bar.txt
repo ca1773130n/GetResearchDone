@@ -1,6 +1,6 @@
 {
-  "bar": "[████████████████░░░░] 14/17 plans (82%)",
-  "percent": 82,
-  "completed": 14,
-  "total": 17
+  "bar": "[░░░░░░░░░░░░░░░░░░░░] 0/0 plans (0%)",
+  "percent": 0,
+  "completed": 0,
+  "total": 0
 }
