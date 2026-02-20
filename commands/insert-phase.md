@@ -35,6 +35,8 @@ Exit.
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init phase-op "${after_phase}")
 ```
 
+Parse JSON for: `roadmap_exists`, `phases_dir`, `commit_docs`.
+
 Check `roadmap_exists` from init JSON. If false: Error and exit.
 </step>
 
@@ -80,7 +82,7 @@ TRACKER_CONFIG=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js tracker get-config 
 ```
 Phase {decimal_phase} inserted after Phase {after_phase}:
 - Description: {description}
-- Directory: .planning/phases/{decimal-phase}-{slug}/
+- Directory: ${phases_dir}/{decimal-phase}-{slug}/
 - Duration: 3d (default for insertions — edit in ROADMAP.md to adjust)
 - Status: Not planned yet
 - Marker: (INSERTED) - indicates urgent work

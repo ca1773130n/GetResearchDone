@@ -24,7 +24,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -151,6 +151,13 @@ Execute each wave in sequence using Agent Teams coordination.
        @${CLAUDE_PLUGIN_ROOT}/references/tdd.md
        </execution_context>
 
+       <paths>
+       research_dir: ${research_dir}
+       phases_dir: ${phases_dir}
+       phase_dir: ${phase_dir}
+       codebase_dir: ${codebase_dir}
+       </paths>
+
        <files_to_read>
        Read these files at execution start using the Read tool:
        - Plan: ${phase_dir}/${plan_file}
@@ -204,6 +211,12 @@ Execute each wave in sequence using Agent Teams coordination.
        Review wave ${WAVE} of phase ${PHASE_NUMBER}.
        Plans reviewed: ${PLAN_IDS_IN_WAVE}
        Phase directory: ${PHASE_DIR}
+
+       PATHS:
+       research_dir: ${research_dir}
+       phases_dir: ${phases_dir}
+       phase_dir: ${phase_dir}
+       codebase_dir: ${codebase_dir}
 
        Read each plan's PLAN.md and SUMMARY.md.
        Produce ${PHASE_NUMBER}-${WAVE}-REVIEW.md in ${PHASE_DIR}.
@@ -274,6 +287,13 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        @${CLAUDE_PLUGIN_ROOT}/references/checkpoints.md
        @${CLAUDE_PLUGIN_ROOT}/references/tdd.md
        </execution_context>
+
+       <paths>
+       research_dir: ${research_dir}
+       phases_dir: ${phases_dir}
+       phase_dir: ${phase_dir}
+       codebase_dir: ${codebase_dir}
+       </paths>
 
        <files_to_read>
        Read these files at execution start using the Read tool:
@@ -456,6 +476,12 @@ Task(
     Plans: ${ALL_PLAN_IDS}
     Phase directory: ${PHASE_DIR}
 
+    PATHS:
+    research_dir: ${research_dir}
+    phases_dir: ${phases_dir}
+    phase_dir: ${phase_dir}
+    codebase_dir: ${codebase_dir}
+
     Read each plan's PLAN.md and SUMMARY.md.
     Produce ${PHASE_NUMBER}-REVIEW.md in ${PHASE_DIR}.
   "
@@ -536,7 +562,13 @@ Task(
   prompt="Verify phase {phase_number} goal achievement.
 Phase directory: {phase_dir}
 Phase goal: {goal from ROADMAP.md}
-Check must_haves against actual codebase. Create VERIFICATION.md.",
+Check must_haves against actual codebase. Create VERIFICATION.md.
+
+PATHS:
+research_dir: ${research_dir}
+phases_dir: ${phases_dir}
+phase_dir: ${phase_dir}
+codebase_dir: ${codebase_dir}",
   subagent_type="grd:grd-verifier",
   model="{verifier_model}"
 )
@@ -582,7 +614,7 @@ Gap closure cycle: `/grd:plan-phase {X} --gaps` reads VERIFICATION.md -> creates
 Mark phase complete in ROADMAP.md (date, status).
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md ${phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
 ```
 </step>
 

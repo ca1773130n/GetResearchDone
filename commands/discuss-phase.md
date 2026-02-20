@@ -142,7 +142,7 @@ Structure with: Phase Boundary, Implementation Decisions, Approach Selections (i
 Present summary and next steps:
 
 ```
-Created: .planning/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
+Created: ${phase_dir}/${PADDED_PHASE}-CONTEXT.md
 
 ## Decisions Captured
 
