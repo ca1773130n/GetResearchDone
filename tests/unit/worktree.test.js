@@ -22,6 +22,9 @@ const {
   cmdWorktreePushAndPR,
   runTestGate,
   cleanupWorktree,
+  mergeWorktree,
+  discardWorktree,
+  keepWorktree,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -952,5 +955,204 @@ describe('cleanupWorktree', () => {
     // Should not throw -- returns error info instead
     expect(result).toHaveProperty('cleaned');
     expect(result).toHaveProperty('error');
+  });
+});
+
+// ─── mergeWorktree ────────────────────────────────────────────────────────────
+
+describe('mergeWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('merges worktree branch into base branch', () => {
+    // Create a worktree and make a commit
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, 'new-file.txt'), 'from worktree', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'worktree commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    // Read the branch name
+    const branchResult = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: wtPath,
+      encoding: 'utf-8',
+    }).trim();
+
+    // Remove worktree first (git won't merge while worktree exists for the branch)
+    cleanupWorktree(repoDir, wtPath);
+
+    const result = mergeWorktree(repoDir, { branch: branchResult, baseBranch: 'main' });
+    expect(result.merged).toBe(true);
+    expect(result.branch).toBe(branchResult);
+    expect(result.base).toBe('main');
+
+    // Verify the merge actually brought the file into main
+    expect(fs.existsSync(path.join(repoDir, 'new-file.txt'))).toBe(true);
+  });
+
+  test('returns error when merge has conflicts', () => {
+    // Create a worktree and modify an existing file
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    // Create conflicting content on both branches
+    fs.writeFileSync(path.join(wtPath, '.planning', 'ROADMAP.md'), 'worktree version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'worktree change'], { cwd: wtPath, stdio: 'pipe' });
+
+    // In main repo: modify the same file differently
+    fs.writeFileSync(path.join(repoDir, '.planning', 'ROADMAP.md'), 'main version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'main change'], { cwd: repoDir, stdio: 'pipe' });
+
+    const branchResult = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: wtPath,
+      encoding: 'utf-8',
+    }).trim();
+
+    cleanupWorktree(repoDir, wtPath);
+
+    const result = mergeWorktree(repoDir, { branch: branchResult, baseBranch: 'main' });
+    expect(result.merged).toBe(false);
+    expect(result.error).toContain('Merge failed');
+  });
+
+  test('returns error when branch and baseBranch are missing', () => {
+    const result = mergeWorktree(repoDir, {});
+    expect(result.merged).toBe(false);
+    expect(result.error).toContain('required');
+  });
+
+  test('aborts merge on failure leaving repo in clean state', () => {
+    // Create conflict scenario
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    fs.writeFileSync(path.join(wtPath, '.planning', 'ROADMAP.md'), 'worktree version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'worktree change'], { cwd: wtPath, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, '.planning', 'ROADMAP.md'), 'main version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'main change'], { cwd: repoDir, stdio: 'pipe' });
+
+    const branchResult = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: wtPath,
+      encoding: 'utf-8',
+    }).trim();
+    cleanupWorktree(repoDir, wtPath);
+
+    mergeWorktree(repoDir, { branch: branchResult, baseBranch: 'main' });
+
+    // Verify repo is in clean state (no merge in progress)
+    const statusResult = execFileSync('git', ['status', '--porcelain'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    // After merge --abort, status should be clean or only have untracked files
+    expect(statusResult).not.toContain('UU '); // No unmerged files
+  });
+});
+
+// ─── discardWorktree ──────────────────────────────────────────────────────────
+
+describe('discardWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('removes worktree and deletes the local branch', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const branch = 'grd/v0.2.0/27-test';
+
+    const result = discardWorktree(repoDir, wtPath, branch);
+    expect(result.discarded).toBe(true);
+    expect(result.branch_deleted).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(false);
+
+    // Verify branch is gone
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(branches).not.toContain('grd/v0.2.0/27-test');
+  });
+
+  test('succeeds even when worktree directory is already gone', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    // Manually remove directory first
+    fs.rmSync(wtPath, { recursive: true, force: true });
+
+    const result = discardWorktree(repoDir, wtPath, 'grd/v0.2.0/27-test');
+    expect(result.discarded).toBe(true);
+  });
+
+  test('discards with null branch (only cleans up worktree)', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const result = discardWorktree(repoDir, wtPath, null);
+    expect(result.discarded).toBe(true);
+    expect(result.branch_deleted).toBe(false);
+    expect(fs.existsSync(wtPath)).toBe(false);
+  });
+});
+
+// ─── keepWorktree ─────────────────────────────────────────────────────────────
+
+describe('keepWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('returns kept=true and leaves worktree intact', () => {
+    captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', milestone: 'v0.2.0', slug: 'test' }, false)
+    );
+    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+
+    const result = keepWorktree(wtPath);
+    expect(result.kept).toBe(true);
+    expect(result.path).toBe(wtPath);
+    expect(result.exists).toBe(true);
+    // Verify worktree is still there
+    expect(fs.existsSync(wtPath)).toBe(true);
+  });
+
+  test('returns exists=false when path does not exist', () => {
+    const result = keepWorktree('/nonexistent/path');
+    expect(result.kept).toBe(true);
+    expect(result.exists).toBe(false);
   });
 });
