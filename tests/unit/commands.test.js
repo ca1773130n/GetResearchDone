@@ -3049,9 +3049,7 @@ describe('cmdMigrateDirs', () => {
 
     // Write STATE.md with optional milestone
     const milestone = opts.milestone !== undefined ? opts.milestone : 'v1.0';
-    const milestoneField = milestone
-      ? `- **Milestone:** ${milestone} — Test Milestone`
-      : '';
+    const milestoneField = milestone ? `- **Milestone:** ${milestone} — Test Milestone` : '';
     fs.writeFileSync(
       path.join(planningDir, 'STATE.md'),
       `# State\n\n## Current Position\n\n${milestoneField}\n`,
@@ -3069,51 +3067,31 @@ describe('cmdMigrateDirs', () => {
     if (opts.phases) {
       const phaseDir = path.join(planningDir, 'phases', '01-test');
       fs.mkdirSync(phaseDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(phaseDir, '01-01-PLAN.md'),
-        '# Plan 01',
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan 01', 'utf-8');
     }
 
     if (opts.research) {
       const researchDir = path.join(planningDir, 'research');
       fs.mkdirSync(researchDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(researchDir, 'LANDSCAPE.md'),
-        '# Landscape',
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape', 'utf-8');
     }
 
     if (opts.codebase) {
       const codebaseDir = path.join(planningDir, 'codebase');
       fs.mkdirSync(codebaseDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(codebaseDir, 'ARCHITECTURE.md'),
-        '# Architecture',
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(codebaseDir, 'ARCHITECTURE.md'), '# Architecture', 'utf-8');
     }
 
     if (opts.todos) {
       const pendingDir = path.join(planningDir, 'todos', 'pending');
       fs.mkdirSync(pendingDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(pendingDir, 'sample.md'),
-        '# Todo',
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(pendingDir, 'sample.md'), '# Todo', 'utf-8');
     }
 
     if (opts.quick) {
       const quickDir = path.join(planningDir, 'quick', '1-test');
       fs.mkdirSync(quickDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(quickDir, '1-SUMMARY.md'),
-        '# Quick Summary',
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(quickDir, '1-SUMMARY.md'), '# Quick Summary', 'utf-8');
     }
 
     return tmpDir;
@@ -3138,30 +3116,18 @@ describe('cmdMigrateDirs', () => {
     // Verify file moved to new location
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          '.planning',
-          'milestones',
-          'v1.0',
-          'phases',
-          '01-test',
-          '01-01-PLAN.md'
-        )
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test', '01-01-PLAN.md')
       )
     ).toBe(true);
 
     // Old location should be empty or not exist
     const oldPhases = path.join(tmpDir, '.planning', 'phases');
-    const oldContents = fs.existsSync(oldPhases)
-      ? fs.readdirSync(oldPhases)
-      : [];
+    const oldContents = fs.existsSync(oldPhases) ? fs.readdirSync(oldPhases) : [];
     expect(oldContents).toHaveLength(0);
 
     // Result should include moved_directories with phases entry
     expect(result.moved_directories).toBeDefined();
-    const phasesEntry = result.moved_directories.find(
-      (d) => d.from === 'phases'
-    );
+    const phasesEntry = result.moved_directories.find((d) => d.from === 'phases');
     expect(phasesEntry).toBeDefined();
   });
 
@@ -3175,14 +3141,7 @@ describe('cmdMigrateDirs', () => {
 
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          '.planning',
-          'milestones',
-          'v1.0',
-          'research',
-          'LANDSCAPE.md'
-        )
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'research', 'LANDSCAPE.md')
       )
     ).toBe(true);
   });
@@ -3197,14 +3156,7 @@ describe('cmdMigrateDirs', () => {
 
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          '.planning',
-          'milestones',
-          'v1.0',
-          'codebase',
-          'ARCHITECTURE.md'
-        )
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'codebase', 'ARCHITECTURE.md')
       )
     ).toBe(true);
   });
@@ -3219,15 +3171,7 @@ describe('cmdMigrateDirs', () => {
 
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          '.planning',
-          'milestones',
-          'v1.0',
-          'todos',
-          'pending',
-          'sample.md'
-        )
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'todos', 'pending', 'sample.md')
       )
     ).toBe(true);
   });
@@ -3243,24 +3187,14 @@ describe('cmdMigrateDirs', () => {
     // quick/ should go to anonymous, NOT v1.0
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          '.planning',
-          'milestones',
-          'anonymous',
-          'quick',
-          '1-test',
-          '1-SUMMARY.md'
-        )
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick', '1-test', '1-SUMMARY.md')
       )
     ).toBe(true);
 
     // Should NOT be under v1.0
-    expect(
-      fs.existsSync(
-        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick')
-      )
-    ).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick'))).toBe(
+      false
+    );
   });
 
   test('is idempotent — second run produces no changes', () => {
@@ -3292,11 +3226,7 @@ describe('cmdMigrateDirs', () => {
       '# State\n\n## Current Position\n\n- **Milestone:** v1.0 — Test\n',
       'utf-8'
     );
-    fs.writeFileSync(
-      path.join(planningDir, 'config.json'),
-      '{}',
-      'utf-8'
-    );
+    fs.writeFileSync(path.join(planningDir, 'config.json'), '{}', 'utf-8');
 
     const { stdout, exitCode } = captureOutput(() => {
       cmdMigrateDirs(tmpDir, false);
@@ -3346,28 +3276,16 @@ describe('cmdMigrateDirs', () => {
     expect(exitCode).toBe(0);
 
     // milestones/v1.0/ should now exist
-    expect(
-      fs.existsSync(path.join(milestonesDir, 'v1.0'))
-    ).toBe(true);
+    expect(fs.existsSync(path.join(milestonesDir, 'v1.0'))).toBe(true);
   });
 
   test('merges into existing milestone directory without overwriting', () => {
     setupOldLayout({ research: true });
 
     // Pre-create milestone research dir with an existing file
-    const existingDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'v1.0',
-      'research'
-    );
+    const existingDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'research');
     fs.mkdirSync(existingDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(existingDir, 'PAPERS.md'),
-      '# Papers',
-      'utf-8'
-    );
+    fs.writeFileSync(path.join(existingDir, 'PAPERS.md'), '# Papers', 'utf-8');
 
     const { exitCode } = captureOutput(() => {
       cmdMigrateDirs(tmpDir, false);
@@ -3375,18 +3293,11 @@ describe('cmdMigrateDirs', () => {
     expect(exitCode).toBe(0);
 
     // Both files should exist
-    expect(
-      fs.existsSync(path.join(existingDir, 'PAPERS.md'))
-    ).toBe(true);
-    expect(
-      fs.existsSync(path.join(existingDir, 'LANDSCAPE.md'))
-    ).toBe(true);
+    expect(fs.existsSync(path.join(existingDir, 'PAPERS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(existingDir, 'LANDSCAPE.md'))).toBe(true);
 
     // Original PAPERS.md content should be preserved (not overwritten)
-    const papersContent = fs.readFileSync(
-      path.join(existingDir, 'PAPERS.md'),
-      'utf-8'
-    );
+    const papersContent = fs.readFileSync(path.join(existingDir, 'PAPERS.md'), 'utf-8');
     expect(papersContent).toBe('# Papers');
   });
 });
