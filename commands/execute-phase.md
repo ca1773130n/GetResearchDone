@@ -24,7 +24,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`, `isolation_mode`, `main_repo_path`, `native_worktree_available`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -33,8 +33,22 @@ Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_do
 When `parallelization` is false, plans within a wave execute sequentially.
 </step>
 
-<step name="setup_worktree" condition="branching_strategy != none">
-Create an isolated worktree for this phase execution using pre-computed fields from init:
+<step name="setup_isolation" condition="branching_strategy != none">
+Set up isolation for this phase execution based on `isolation_mode` from init JSON.
+
+**Mode A: native (isolation_mode='native')**
+
+Native worktree isolation is available (Claude Code manages worktrees automatically). Do NOT create a worktree manually.
+
+- Record: `ISOLATION_MODE=native`
+- Record: `MAIN_REPO_PATH` from init JSON (for STATE.md writes)
+- Note: Each executor agent will be spawned with `isolation: "worktree"` parameter on the Task call
+- The branch name will be captured from each executor's Task result
+- No `WORKTREE_PATH` is pre-computed — Claude Code handles worktree creation transparently
+
+**Mode B: manual (isolation_mode='manual')**
+
+GRD manages the worktree explicitly (v0.2.5 behavior). Preserve existing worktree creation:
 
 1. **Check for uncommitted changes on current branch:**
    ```bash
@@ -54,10 +68,12 @@ Create an isolated worktree for this phase execution using pre-computed fields f
    ls "${WORKTREE_PATH}/.planning" && echo "Worktree ready"
    ```
 
-All executor agents will receive `WORKTREE_PATH` and operate within it.
-The main checkout remains clean on its original branch.
+- Record: `ISOLATION_MODE=manual`, `WORKTREE_PATH`, `WORKTREE_BRANCH`
+- Record: `MAIN_REPO_PATH` as the current working directory
+- All executor agents will receive `WORKTREE_PATH` and operate within it.
+- The main checkout remains clean on its original branch.
 
-**When `branching_strategy` is `"none"`:** Skip this step entirely. Continue on the current directory with no worktree isolation (backwards compatible).
+**When `branching_strategy` is `"none"`:** Skip this step entirely. Continue on the current directory with no worktree isolation (backwards compatible). No `ISOLATION_MODE` is set.
 </step>
 
 <step name="validate_phase">
@@ -116,6 +132,77 @@ Execute each wave in sequence using Agent Teams coordination.
 
 2. **Spawn executor teammates** (up to `max_concurrent_teammates`):
 
+   **When ISOLATION_MODE=native:** Add `isolation: "worktree"` parameter to the Task call. Use `<native_isolation>` block instead of `<worktree>`:
+
+   ```
+   Task(
+     subagent_type="grd:grd-executor",
+     model="{executor_model}",
+     team_name="grd-phase-${PHASE_NUMBER}-${PHASE_SLUG}",
+     name="executor-${PLAN_ID}",
+     isolation: "worktree",
+     prompt="
+       <objective>
+       Execute plan ${plan_number} of phase ${phase_number}-${phase_name}.
+       Commit each task atomically. Create SUMMARY.md. Update STATE.md.
+       Track experiment parameters in commit messages where applicable.
+       </objective>
+
+       <team_coordination>
+       You are part of team: grd-phase-${PHASE_NUMBER}-${PHASE_SLUG}
+       Team lead: orchestrator
+       If you hit a checkpoint, use SendMessage to report to team lead.
+       Wait for team lead's response before continuing.
+       </team_coordination>
+
+       <native_isolation>
+       Isolation mode: native
+       You are running in a Claude Code-managed worktree. Your working directory
+       IS the worktree — operate naturally. No path prefixing needed.
+       Main repo path: ${MAIN_REPO_PATH}
+       STATE.md updates must use this main repo path (not your working directory).
+       </native_isolation>
+
+       <execution_context>
+       @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
+       @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
+       @${CLAUDE_PLUGIN_ROOT}/references/checkpoints.md
+       @${CLAUDE_PLUGIN_ROOT}/references/tdd.md
+       </execution_context>
+
+       <paths>
+       research_dir: ${research_dir}
+       phases_dir: ${phases_dir}
+       phase_dir: ${phase_dir}
+       codebase_dir: ${codebase_dir}
+       </paths>
+
+       <files_to_read>
+       Read these files at execution start using the Read tool:
+       - Plan: ${phase_dir}/${plan_file}
+       - State: .planning/STATE.md
+       - Config: .planning/config.json (if exists)
+       </files_to_read>
+
+       <experiment_tracking>
+       When committing tasks that involve experiment parameters (hyperparameters, model configs, dataset splits, etc.):
+       - Include key parameters in commit message body
+       - Format: param: value on separate lines
+       </experiment_tracking>
+
+       <success_criteria>
+       - [ ] All tasks executed
+       - [ ] Each task committed individually
+       - [ ] Experiment parameters tracked in commits
+       - [ ] SUMMARY.md created in plan directory
+       - [ ] STATE.md updated with position and decisions
+       </success_criteria>
+     "
+   )
+   ```
+
+   **When ISOLATION_MODE=manual:** Keep existing `<worktree>` block (v0.2.5 behavior):
+
    ```
    Task(
      subagent_type="grd:grd-executor",
@@ -141,7 +228,6 @@ Execute each wave in sequence using Agent Teams coordination.
        All file operations (Read, Write, Edit) and Bash commands MUST use this
        directory as the working root. Use absolute paths prefixed with this directory
        for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
-       If WORKTREE_PATH is not set (branching_strategy=none), use the normal project root.
        </worktree>
 
        <execution_context>
@@ -181,6 +267,8 @@ Execute each wave in sequence using Agent Teams coordination.
      "
    )
    ```
+
+   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call.
 
 3. **Create and assign tasks:**
 
@@ -266,6 +354,69 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    Pass paths only — executors read files themselves with their fresh 200k context.
    This keeps orchestrator context lean (~10-15%).
 
+   **When ISOLATION_MODE=native:** Add `isolation: "worktree"` parameter to the Task call. Use the `<native_isolation>` block instead of `<worktree>`:
+
+   ```
+   Task(
+     subagent_type="grd:grd-executor",
+     model="{executor_model}",
+     isolation: "worktree",
+     prompt="
+       <objective>
+       Execute plan {plan_number} of phase {phase_number}-{phase_name}.
+       Commit each task atomically. Create SUMMARY.md. Update STATE.md.
+       Track experiment parameters in commit messages where applicable.
+       </objective>
+
+       <native_isolation>
+       Isolation mode: native
+       You are running in a Claude Code-managed worktree. Your working directory
+       IS the worktree — operate naturally. No path prefixing needed.
+       Main repo path: ${MAIN_REPO_PATH}
+       STATE.md updates must use this main repo path (not your working directory).
+       </native_isolation>
+
+       <execution_context>
+       @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
+       @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
+       @${CLAUDE_PLUGIN_ROOT}/references/checkpoints.md
+       @${CLAUDE_PLUGIN_ROOT}/references/tdd.md
+       </execution_context>
+
+       <paths>
+       research_dir: ${research_dir}
+       phases_dir: ${phases_dir}
+       phase_dir: ${phase_dir}
+       codebase_dir: ${codebase_dir}
+       </paths>
+
+       <files_to_read>
+       Read these files at execution start using the Read tool:
+       - Plan: {phase_dir}/{plan_file}
+       - State: .planning/STATE.md
+       - Config: .planning/config.json (if exists)
+       </files_to_read>
+
+       <experiment_tracking>
+       When committing tasks that involve experiment parameters (hyperparameters, model configs, dataset splits, etc.):
+       - Include key parameters in commit message body
+       - Format: `param: value` on separate lines
+       - Example: `feat(03-02): train baseline model\n\nlr: 0.001\nbatch_size: 32\nepochs: 50`
+       </experiment_tracking>
+
+       <success_criteria>
+       - [ ] All tasks executed
+       - [ ] Each task committed individually
+       - [ ] Experiment parameters tracked in commits
+       - [ ] SUMMARY.md created in plan directory
+       - [ ] STATE.md updated with position and decisions
+       </success_criteria>
+     "
+   )
+   ```
+
+   **When ISOLATION_MODE=manual:** Keep existing `<worktree>` block (v0.2.5 behavior):
+
    ```
    Task(
      subagent_type="grd:grd-executor",
@@ -282,7 +433,6 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        All file operations (Read, Write, Edit) and Bash commands MUST use this
        directory as the working root. Use absolute paths prefixed with this directory
        for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
-       If WORKTREE_PATH is not set (branching_strategy=none), use the normal project root.
        </worktree>
 
        <execution_context>
@@ -323,6 +473,8 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
      "
    )
    ```
+
+   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call. The executor operates in the normal working directory.
 
 3. **Wait for all agents in wave to complete.**
 
@@ -448,7 +600,40 @@ After all waves:
 </step>
 
 <step name="completion_flow" condition="branching_strategy != none">
-Present the user with 4 completion options for the worktree:
+Present the user with 4 completion options for the worktree.
+
+**When ISOLATION_MODE=native:**
+
+After all executor agents complete, determine the worktree branch name and path:
+
+1. **Find the worktree:** Run `git worktree list` in the main repo (`${MAIN_REPO_PATH}`) and look for the phase branch. The branch may follow Claude Code's naming convention rather than GRD's template.
+2. **Capture branch name:** Parse the branch from `git worktree list` output, or run `git rev-parse --abbrev-ref HEAD` within the worktree directory.
+3. **Capture worktree path:** Parse from `git worktree list` output. Store as `WORKTREE_PATH` for use in completion commands.
+
+Present the 4 completion options:
+
+```
+## Phase Complete -- Choose Completion Action
+
+All plans executed in worktree. Choose how to finish:
+
+1. **Merge locally** -- Run tests, merge branch into base, delete worktree
+2. **Push and create PR** -- Run tests, push branch, create PR, delete worktree
+3. **Keep branch** -- Leave worktree and branch intact for later
+4. **Discard work** -- Delete worktree and branch (destructive!)
+```
+
+For each completion option, use the worktree commands with explicit branch name:
+- **Merge:** `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree merge --phase "${PHASE_NUMBER}" --branch "${BRANCH_NAME}"` (uses the explicit branch parameter from Plan 02 to handle non-GRD branch names)
+- **PR:** `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree push-pr --phase "${PHASE_NUMBER}"` (reads branch from worktree HEAD automatically)
+- **Keep:** Note the branch name and worktree path for the user
+- **Discard:** `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree remove --phase "${PHASE_NUMBER}"`
+
+The test gate should run in the worktree directory. Use the worktree path obtained from step 1.
+
+**When ISOLATION_MODE=manual:**
+
+Preserve existing v0.2.5 completion flow exactly:
 
 ```
 ## Phase Complete -- Choose Completion Action
@@ -473,7 +658,7 @@ COMPLETE_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree complete 
   [--body "${PR_BODY}"])
 ```
 
-Parse JSON result:
+**For both modes, parse JSON result:**
 
 **If `blocked: true`** (test gate failed on merge/pr):
 ```
@@ -716,5 +901,7 @@ Re-run `/grd:execute-phase {phase}` -> discover_plans finds completed SUMMARYs -
 
 STATE.md tracks: last completed plan, current wave, pending checkpoints.
 
-On resumption, check if a worktree already exists for this phase (via `worktree list`). If it does, reuse it instead of creating a new one. If it doesn't, create a fresh one. The `setup_worktree` step handles this: if `worktree create` returns an `error` with "already exists", parse the existing worktree path from the error response and reuse it.
+**When resuming with manual isolation:** Check if a worktree already exists for this phase (via `worktree list`). If it does, reuse it instead of creating a new one. If it doesn't, create a fresh one. The `setup_isolation` step handles this: if `worktree create` returns an `error` with "already exists", parse the existing worktree path from the error response and reuse it.
+
+**When resuming with native isolation:** Check `git worktree list` in the main repo for an existing worktree on the phase branch. If found, reuse it — Claude Code will recognize the existing worktree when spawning executor agents with `isolation: "worktree"`. If not found, native isolation will create a new one automatically on the next executor spawn.
 </resumption>
