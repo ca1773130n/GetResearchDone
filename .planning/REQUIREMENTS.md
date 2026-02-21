@@ -51,7 +51,7 @@ During testbed exercise, capture friction points and missing capabilities as new
 
 ### REQ-119: Autopilot command for multi-phase autonomous execution
 **Priority:** P1 | **Status:** Open
-Create `/grd:autopilot` command that plans and executes a range of phases without human intervention. Each phase runs in a fresh Task agent (natural context isolation) — the agent plans, executes, writes a handoff summary, then terminates. Only the compact summary is passed to the next phase's agent, not the full conversation. This solves the context window bloat problem that occurs when running many phases sequentially (where `/clear` cannot be triggered programmatically). The orchestrator stays lightweight, never accumulating implementation-level context. Includes `lib/autopilot.js` module, `commands/autopilot.md` skill, MCP tool, graceful failure handling with resume capability.
+Create `/grd:autopilot` command that plans and executes a range of phases without human intervention. Each phase spawns TWO separate fresh agents — one for planning, one for execution — because both operations are token-heavy and cannot share a single context window. Agents communicate through disk artifacts (plans, summaries, STATE.md), not conversation context. The orchestrator stays lightweight: spawn plan agent, wait for plan files on disk, spawn execute agent, wait for summary on disk, advance to next phase. Includes `lib/autopilot.js` module, `commands/autopilot.md` skill, MCP tool, graceful failure handling with resume from failed step (plan or execute).
 
 ## Traceability Matrix
 

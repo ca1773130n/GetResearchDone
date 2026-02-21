@@ -195,24 +195,29 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 **Plans**: TBD
 
 ### Phase 52: Autopilot Command
-**Goal**: Create `/grd:autopilot` command that plans and executes a range of phases autonomously, spawning each phase as a fresh Task agent to naturally isolate context — solving the context window bloat problem without needing `/clear`
+**Goal**: Create `/grd:autopilot` command that plans and executes a range of phases autonomously, spawning separate fresh Task agents for planning and execution of each phase — solving context window bloat since both planning and execution are token-heavy operations that cannot share a single context
 **Type**: implement
 **Depends on**: Phase 49
 **Requirements**: REQ-119
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
   1. `/grd:autopilot [start]-[end]` command exists (e.g., `/grd:autopilot 48-52`) that orchestrates planning and execution of multiple phases
-  2. Each phase is delegated to a fresh Task agent — the agent plans the phase, executes it, writes a compact handoff summary, then terminates (natural context isolation)
-  3. Between phases, only the handoff summary (what was built, files changed, critical context) is passed to the next agent — not the full conversation history
-  4. The orchestrator stays lightweight: it reads phase metadata from ROADMAP.md, manages the loop, and logs progress to STATE.md — never accumulating implementation-level context
-  5. `lib/autopilot.js` module with `cmdAutopilot` function, corresponding `commands/autopilot.md` skill, MCP tool registration
-  6. Tested with at least 3 consecutive phases on the testbed, verifying each agent gets a clean context window
-  7. Graceful handling: phase failure stops the loop and reports which phase failed and why, with the option to resume from the failed phase
+  2. Each phase spawns TWO separate fresh agents: one for planning (`/grd:plan-phase N`), one for execution (`/grd:execute-phase N`) — both are token-heavy and must not share a context window
+  3. The orchestrator loop per phase: spawn plan agent -> plan agent writes plans to disk and terminates -> spawn execute agent -> execute agent reads plans from disk, executes, writes SUMMARY.md, terminates -> read SUMMARY.md -> next phase
+  4. Agents communicate exclusively through files on disk (plans, summaries, STATE.md) — not through conversation context. This is the natural handoff mechanism since GRD already writes structured artifacts.
+  5. The orchestrator stays lightweight: it reads phase metadata from ROADMAP.md, spawns agents, checks for success/failure in the written artifacts, logs progress to STATE.md — never accumulating planning or implementation context
+  6. `lib/autopilot.js` module with `cmdAutopilot` and `cmdInitAutopilot` functions, corresponding `commands/autopilot.md` skill, MCP tool registration
+  7. Tested with at least 3 consecutive phases on the testbed, verifying plan and execute agents each get clean context windows
+  8. Graceful handling: agent failure stops the loop and reports which phase and which step (plan or execute) failed, with the option to resume from the failed step
 **Architecture Notes**:
-  - The key insight from the `/clear` problem: Task agents naturally get fresh context windows. This is architecturally correct — each phase runs in its own agent with only a structured handoff, not accumulated conversation.
-  - The orchestrator (autopilot command) reads ROADMAP.md for phase order and dependencies, spawns `plan-phase` then `execute-phase` for each, captures the SUMMARY.md output, and feeds only that summary to the next phase's agent.
-  - This avoids: context compaction artifacts, accumulated drift, stale context from previous phases.
-  - For Claude Code backend: uses Task tool with fresh agents. For other backends: falls back to sequential `--print` mode invocations.
+  - Planning and execution are SEPARATE agents because both consume substantial context:
+    - Plan agent: reads research, ROADMAP.md, requirements, codebase analysis → produces plan files
+    - Execute agent: reads plan files, writes code, runs tests → produces SUMMARY.md
+  - The orchestrator per phase is: `plan-agent(N)` → [disk: plans] → `execute-agent(N)` → [disk: summary] → next phase
+  - Disk artifacts ARE the handoff mechanism — no context carries between agents. GRD already writes structured plans, summaries, and state to `.planning/`, so this is a natural fit.
+  - The orchestrator itself never reads plan contents or code — it only checks: did the agent succeed? Are the expected files on disk? Then proceeds.
+  - For Claude Code backend: uses Task tool to spawn fresh agents. For other backends: falls back to sequential `--print` mode invocations.
+  - Optional ceremony/verification agents (code review, verification) can also be separate spawns if configured.
 **Plans**: TBD
 
 ### Phase 53: Integration & Regression Testing
