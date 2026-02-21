@@ -131,7 +131,7 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 **Milestone Goal:** GRD uses itself to improve itself -- dogfooding the full R&D workflow to fix bugs, reduce complexity and tech debt, and discover new features.
 **Start:** 2026-02-22
 
-- [ ] **Phase 48: Dogfooding Infrastructure** - Set up testbed project and local CLI testing harness `implement`
+- [x] **Phase 48: Dogfooding Infrastructure** - Set up testbed project and local CLI testing harness `implement`
 - [ ] **Phase 49: Bug Discovery & Fixes** - Fix currentMilestone bug and exercise workflows to find more `evaluate`
 - [ ] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
 - [ ] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
@@ -151,7 +151,11 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
   2. Running `node ../../bin/grd-tools.js state load` from testbed returns valid JSON — proves local CLI works against testbed
   3. At least one GRD workflow cycle (init, state, phase ops) completes on testbed without errors
   4. All discovered issues are filed as bugs against GRD source code (bin/, lib/), not testbed
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 48-01-PLAN.md -- Initialize testbed as GRD project with .planning/ structure
+- [x] 48-02-PLAN.md -- Create local CLI testing harness (test-grd.sh + CLAUDE.md)
+- [x] 48-03-PLAN.md -- End-to-end workflow validation on testbed with bug catalog
 
 ### Phase 49: Bug Discovery & Fixes
 **Goal**: Fix bugs in GRD source code (lib/, bin/) discovered by running workflows on testbed — starting with currentMilestone() parsing bug, then systematic workflow exercise
@@ -243,7 +247,7 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Dogfooding Infrastructure | v0.2.7 | 0/TBD | Not started | - |
+| 48. Dogfooding Infrastructure | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 49. Bug Discovery & Fixes | v0.2.7 | 0/TBD | Not started | - |
 | 50. Complexity & Tech Debt Reduction | v0.2.7 | 0/TBD | Not started | - |
 | 51. Test Coverage & Feature Discovery | v0.2.7 | 0/TBD | Not started | - |
