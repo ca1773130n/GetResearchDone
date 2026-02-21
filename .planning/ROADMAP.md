@@ -115,7 +115,7 @@ Phase 42 borrowed best features from competing frameworks (Spec Kit, Agent OS, B
 **Milestone Goal:** Add graceful WebMCP integration across execute-phase, verify-phase, and eval-planner workflows, plus fix code reviewer false blocker on VERIFICATION.md.
 
 - [x] **Phase 43: MCP Detection & Code Reviewer Fix** - Foundation: MCP availability detection exposed in init JSON; code reviewer VERIFICATION.md false blocker fix `implement` ✅ 2026-02-21
-- [ ] **Phase 44: WebMCP Workflow Integration** - Execute-phase sanity checks, verify-phase tool calls, and eval-planner WebMCP definitions `implement`
+- [x] **Phase 44: WebMCP Workflow Integration** - Execute-phase sanity checks, verify-phase tool calls, and eval-planner WebMCP definitions `implement` ✅ 2026-02-21
 
 ## Phase Details
 

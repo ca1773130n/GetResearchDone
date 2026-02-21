@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 - **Current plan:** Plan 1 of 1 (complete)
 - **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
 - **Status:** Executing
-- **Progress:** [█████-----] 50%
+- **Progress:** [██████████] 100%
 - **Next:** Continue Phase 44 execution (plans 2+)
 
 ## Deferred Validations
@@ -51,7 +51,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Completed 44-01-PLAN.md (WebMCP sanity checks in execute-phase)
-- **Stopped at:** Completed 44-01-PLAN.md
+- **Stopped at:** Completed phase 44 execution
 - **Next action:** Continue Phase 44 execution (remaining plans)
 - **Context needed:** Phase 44 adds WebMCP sanity checks to execute-phase (REQ-97, done), tool calls to verify-phase (REQ-98), and tool definitions to eval-planner (REQ-99).
 
