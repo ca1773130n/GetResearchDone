@@ -800,7 +800,7 @@ describe('backend-aware context init', () => {
     expect(result.executor_model).toContain('gpt-5.3-codex');
   });
 
-  test('all 14 cmdInit* functions include backend (spot check)', () => {
+  test('all 14 cmdInit* functions include backend and principles_exists (spot check)', () => {
     // Representative sample covering all categories: core, operation, R&D
     const functions = [
       // Core workflow
@@ -837,5 +837,144 @@ describe('backend-aware context init', () => {
       expect(result.backend_capabilities).toHaveProperty('hooks');
       expect(result.backend_capabilities).toHaveProperty('mcp');
     }
+  });
+});
+
+// ─── PRINCIPLES.md integration ───────────────────────────────────────────────
+
+describe('PRINCIPLES.md integration', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Create PRINCIPLES.md in the fixture
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'PRINCIPLES.md'),
+      '# Principles\n\n- Always write tests first\n- Keep functions pure\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase returns principles_exists: true when file exists', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(true);
+  });
+
+  test('cmdInitPlanPhase returns principles_exists: true when file exists', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(true);
+  });
+
+  test('cmdInitNewProject returns principles_exists: true when file exists', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitNewProject(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(true);
+  });
+
+  test('cmdInitQuick returns principles_exists: true when file exists', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitQuick(tmpDir, 'test task', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(true);
+  });
+
+  test('cmdInitExecutePhase includes principles_content when --include principles', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(['principles']), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_content).toBeDefined();
+    expect(result.principles_content).toContain('Always write tests first');
+  });
+
+  test('cmdInitPlanPhase includes principles_content when --include principles', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['principles']), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_content).toBeDefined();
+    expect(result.principles_content).toContain('Keep functions pure');
+  });
+});
+
+describe('PRINCIPLES.md absent', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Ensure no PRINCIPLES.md exists (fixture doesn't create one by default)
+    const principlesPath = path.join(tmpDir, '.planning', 'PRINCIPLES.md');
+    if (fs.existsSync(principlesPath)) {
+      fs.unlinkSync(principlesPath);
+    }
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase returns principles_exists: false when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(false);
+  });
+
+  test('cmdInitPlanPhase returns principles_exists: false when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(false);
+  });
+
+  test('cmdInitNewProject returns principles_exists: false when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitNewProject(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(false);
+  });
+
+  test('cmdInitQuick returns principles_exists: false when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitQuick(tmpDir, 'test task', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_exists).toBe(false);
+  });
+
+  test('cmdInitExecutePhase does not include principles_content when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(['principles']), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // safeReadFile returns null for missing files
+    expect(result.principles_content).toBeNull();
+  });
+
+  test('cmdInitPlanPhase does not include principles_content when file absent', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['principles']), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.principles_content).toBeNull();
   });
 });
