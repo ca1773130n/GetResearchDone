@@ -150,8 +150,8 @@ describe('lib/backend.js', () => {
       }
     });
 
-    test('each entry has subagents, parallel, teams, hooks, mcp keys', () => {
-      const requiredKeys = ['subagents', 'parallel', 'teams', 'hooks', 'mcp'];
+    test('each entry has subagents, parallel, teams, hooks, mcp, native_worktree_isolation keys', () => {
+      const requiredKeys = ['subagents', 'parallel', 'teams', 'hooks', 'mcp', 'native_worktree_isolation'];
       for (const backend of VALID_BACKENDS) {
         for (const key of requiredKeys) {
           expect(BACKEND_CAPABILITIES[backend]).toHaveProperty(key);
@@ -166,6 +166,7 @@ describe('lib/backend.js', () => {
         teams: true,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: true,
       });
     });
 
@@ -176,6 +177,7 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: false,
         mcp: true,
+        native_worktree_isolation: false,
       });
     });
 
@@ -186,6 +188,7 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: false,
       });
     });
 
@@ -196,7 +199,26 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: false,
       });
+    });
+
+    // ─── native_worktree_isolation capability ──────────────────────────────
+
+    test('claude has native_worktree_isolation: true', () => {
+      expect(BACKEND_CAPABILITIES.claude.native_worktree_isolation).toBe(true);
+    });
+
+    test('codex has native_worktree_isolation: false', () => {
+      expect(BACKEND_CAPABILITIES.codex.native_worktree_isolation).toBe(false);
+    });
+
+    test('gemini has native_worktree_isolation: false', () => {
+      expect(BACKEND_CAPABILITIES.gemini.native_worktree_isolation).toBe(false);
+    });
+
+    test('opencode has native_worktree_isolation: false', () => {
+      expect(BACKEND_CAPABILITIES.opencode.native_worktree_isolation).toBe(false);
     });
   });
 
@@ -459,6 +481,7 @@ describe('lib/backend.js', () => {
         teams: true,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: true,
       });
     });
 
@@ -469,6 +492,7 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: false,
         mcp: true,
+        native_worktree_isolation: false,
       });
     });
 
@@ -479,6 +503,7 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: false,
       });
     });
 
@@ -489,7 +514,16 @@ describe('lib/backend.js', () => {
         teams: false,
         hooks: true,
         mcp: true,
+        native_worktree_isolation: false,
       });
+    });
+
+    test('getBackendCapabilities("claude").native_worktree_isolation returns true', () => {
+      expect(getBackendCapabilities('claude').native_worktree_isolation).toBe(true);
+    });
+
+    test('getBackendCapabilities("codex").native_worktree_isolation returns false', () => {
+      expect(getBackendCapabilities('codex').native_worktree_isolation).toBe(false);
     });
 
     test('returns claude capabilities for unknown backend (safe default)', () => {
