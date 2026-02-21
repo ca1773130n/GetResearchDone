@@ -321,13 +321,50 @@ describe('Real-environment backend detection (DEFER-09-01)', () => {
 
   describe('getBackendCapabilities cross-verification', () => {
     test.each([
-      ['claude', { subagents: true, parallel: true, teams: true, hooks: true, mcp: true }],
-      ['codex', { subagents: true, parallel: true, teams: false, hooks: false, mcp: true }],
+      [
+        'claude',
+        {
+          subagents: true,
+          parallel: true,
+          teams: true,
+          hooks: true,
+          mcp: true,
+          native_worktree_isolation: true,
+        },
+      ],
+      [
+        'codex',
+        {
+          subagents: true,
+          parallel: true,
+          teams: false,
+          hooks: false,
+          mcp: true,
+          native_worktree_isolation: false,
+        },
+      ],
       [
         'gemini',
-        { subagents: 'experimental', parallel: false, teams: false, hooks: true, mcp: true },
+        {
+          subagents: 'experimental',
+          parallel: false,
+          teams: false,
+          hooks: true,
+          mcp: true,
+          native_worktree_isolation: false,
+        },
       ],
-      ['opencode', { subagents: true, parallel: true, teams: false, hooks: true, mcp: true }],
+      [
+        'opencode',
+        {
+          subagents: true,
+          parallel: true,
+          teams: false,
+          hooks: true,
+          mcp: true,
+          native_worktree_isolation: false,
+        },
+      ],
     ])('detected %s backend returns correct capabilities', (backend, expectedCaps) => {
       cleanupTempDir(tmpDir);
       tmpDir = createTempDir({ config: { backend } });
