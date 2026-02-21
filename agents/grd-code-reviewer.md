@@ -47,6 +47,17 @@ ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
 ```
 </step>
 
+<step name="artifact_exclusions" priority="high">
+## Artifact Exclusions
+
+The following files are created by LATER workflow steps and MUST NOT be flagged as missing during code review:
+
+- **VERIFICATION.md** -- Created by `grd-verifier` during the `verify_phase_goal` step, which runs AFTER code review. Missing VERIFICATION.md is NEVER a blocker or warning.
+- **EVAL-RESULTS.md** -- Created by the eval report step, which runs AFTER code review.
+
+**Rule:** When checking plan alignment or artifact existence, skip any artifact path matching `*-VERIFICATION.md` or `*VERIFICATION.md` or `*-EVAL-RESULTS.md`. Do not report these as findings at any severity level.
+</step>
+
 <step name="stage_1_spec_compliance">
 ## Stage 1: Spec Compliance
 
@@ -58,6 +69,7 @@ For each plan in scope:
 - Read PLAN.md tasks list
 - Read SUMMARY.md completed tasks and commits
 - Cross-reference: every plan task should have a corresponding commit
+- **Exclude post-review artifacts:** Do NOT flag VERIFICATION.md, EVAL-RESULTS.md, or REVIEW.md files as missing. These are created by workflow steps that run after code review.
 - Check: deviations documented in SUMMARY.md match actual git diff
 
 ```bash
