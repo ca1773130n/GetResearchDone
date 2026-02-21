@@ -135,7 +135,8 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 - [ ] **Phase 49: Bug Discovery & Fixes** - Fix currentMilestone bug and exercise workflows to find more `evaluate`
 - [ ] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
 - [ ] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
-- [ ] **Phase 52: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
+- [ ] **Phase 52: Autopilot Command** - Plan and execute multiple phases autonomously with context isolation between each `implement`
+- [ ] **Phase 53: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
 
 ## Phase Details
 
@@ -193,21 +194,44 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
   4. Per-file coverage thresholds in `jest.config.js` are updated to enforce the new 85% floor
 **Plans**: TBD
 
-### Phase 52: Integration & Regression Testing
-**Goal**: All GRD source code changes from phases 48-51 work together without regressions; full GRD workflow runs clean when exercised on testbed
+### Phase 52: Autopilot Command
+**Goal**: Create `/grd:autopilot` command that plans and executes a range of phases autonomously, spawning each phase as a fresh Task agent to naturally isolate context — solving the context window bloat problem without needing `/clear`
+**Type**: implement
+**Depends on**: Phase 49
+**Requirements**: REQ-119
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `/grd:autopilot [start]-[end]` command exists (e.g., `/grd:autopilot 48-52`) that orchestrates planning and execution of multiple phases
+  2. Each phase is delegated to a fresh Task agent — the agent plans the phase, executes it, writes a compact handoff summary, then terminates (natural context isolation)
+  3. Between phases, only the handoff summary (what was built, files changed, critical context) is passed to the next agent — not the full conversation history
+  4. The orchestrator stays lightweight: it reads phase metadata from ROADMAP.md, manages the loop, and logs progress to STATE.md — never accumulating implementation-level context
+  5. `lib/autopilot.js` module with `cmdAutopilot` function, corresponding `commands/autopilot.md` skill, MCP tool registration
+  6. Tested with at least 3 consecutive phases on the testbed, verifying each agent gets a clean context window
+  7. Graceful handling: phase failure stops the loop and reports which phase failed and why, with the option to resume from the failed phase
+**Architecture Notes**:
+  - The key insight from the `/clear` problem: Task agents naturally get fresh context windows. This is architecturally correct — each phase runs in its own agent with only a structured handoff, not accumulated conversation.
+  - The orchestrator (autopilot command) reads ROADMAP.md for phase order and dependencies, spawns `plan-phase` then `execute-phase` for each, captures the SUMMARY.md output, and feeds only that summary to the next phase's agent.
+  - This avoids: context compaction artifacts, accumulated drift, stale context from previous phases.
+  - For Claude Code backend: uses Task tool with fresh agents. For other backends: falls back to sequential `--print` mode invocations.
+**Plans**: TBD
+
+### Phase 53: Integration & Regression Testing
+**Goal**: All GRD source code changes from phases 48-52 work together without regressions; full GRD workflow runs clean when exercised on testbed
 **Type**: integrate
-**Depends on**: Phase 51
+**Depends on**: Phase 52
 **Requirements**: -
 **Verification Level**: deferred->full
 **Success Criteria** (what must be TRUE):
-  1. Full test suite passes (target: 1,850+ tests, reflecting new tests from phases 48-51)
+  1. Full test suite passes (target: 1,900+ tests, reflecting new tests from phases 48-52)
   2. `node bin/grd-tools.js validate consistency` reports zero errors on GRD's own `.planning/` directory
   3. End-to-end workflow on testbed completes: `new-project` -> `plan-phase` -> `execute-phase` -> `complete-milestone` without errors
-  4. All bug fixes from Phase 49 verified via regression tests that fail without the fix and pass with it
-  5. No lint errors (`npm run lint` exits 0) and no formatting issues (`npm run format:check` exits 0)
+  4. Autopilot command tested end-to-end: `/grd:autopilot` runs 3+ phases on testbed with clean context isolation verified
+  5. All bug fixes from Phase 49 verified via regression tests that fail without the fix and pass with it
+  6. No lint errors (`npm run lint` exits 0) and no formatting issues (`npm run format:check` exits 0)
 **Deferred Validations Collected**:
   - DEFER-48-01: Full testbed lifecycle validation with real agent execution (if deferred from Phase 48)
   - DEFER-49-01: Comprehensive workflow coverage on testbed (if bugs discovered late in Phase 49 are deferred)
+  - DEFER-52-01: Autopilot multi-backend fallback validation (if non-Claude-Code backends not tested)
 **Plans**: TBD
 
 ## Progress
@@ -218,4 +242,5 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 | 49. Bug Discovery & Fixes | v0.2.7 | 0/TBD | Not started | - |
 | 50. Complexity & Tech Debt Reduction | v0.2.7 | 0/TBD | Not started | - |
 | 51. Test Coverage & Feature Discovery | v0.2.7 | 0/TBD | Not started | - |
-| 52. Integration & Regression Testing | v0.2.7 | 0/TBD | Not started | - |
+| 52. Autopilot Command | v0.2.7 | 0/TBD | Not started | - |
+| 53. Integration & Regression Testing | v0.2.7 | 0/TBD | Not started | - |

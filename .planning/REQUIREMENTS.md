@@ -49,6 +49,10 @@ Identify modules with coverage below 85%. Add targeted tests for uncovered branc
 **Priority:** P1 | **Status:** Open
 During testbed exercise, capture friction points and missing capabilities as new feature requirements. Implement the highest-value features within this milestone. Examples might include: better error messages, workflow shortcuts, missing validation, UX improvements.
 
+### REQ-119: Autopilot command for multi-phase autonomous execution
+**Priority:** P1 | **Status:** Open
+Create `/grd:autopilot` command that plans and executes a range of phases without human intervention. Each phase runs in a fresh Task agent (natural context isolation) — the agent plans, executes, writes a handoff summary, then terminates. Only the compact summary is passed to the next phase's agent, not the full conversation. This solves the context window bloat problem that occurs when running many phases sequentially (where `/clear` cannot be triggered programmatically). The orchestrator stays lightweight, never accumulating implementation-level context. Includes `lib/autopilot.js` module, `commands/autopilot.md` skill, MCP tool, graceful failure handling with resume capability.
+
 ## Traceability Matrix
 
 | Requirement | Phase | Status |
@@ -62,3 +66,4 @@ During testbed exercise, capture friction points and missing capabilities as new
 | REQ-116 | Phase 50 | Open |
 | REQ-117 | Phase 51 | Open |
 | REQ-118 | Phase 51 | Open |
+| REQ-119 | Phase 52 | Open |
