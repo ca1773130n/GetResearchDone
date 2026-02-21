@@ -1156,6 +1156,80 @@ describe('webmcp_available integration', () => {
   });
 });
 
+// ─── native_worktree_available integration ──────────────────────────────────
+
+describe('native_worktree_available integration', () => {
+  let tmpDir;
+  const savedEnv = {};
+  const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+  const envVarsToClean = [
+    ...claudeCodeVars,
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+  ];
+
+  beforeEach(() => {
+    for (const key of envVarsToClean) {
+      savedEnv[key] = process.env[key];
+    }
+    for (const key of envVarsToClean) {
+      delete process.env[key];
+    }
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    for (const key of envVarsToClean) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase includes native_worktree_available boolean field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(typeof result.native_worktree_available).toBe('boolean');
+  });
+
+  test('native_worktree_available is true when backend is claude (default)', () => {
+    // No config override and no backend env vars -> claude -> true
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('claude');
+    expect(result.native_worktree_available).toBe(true);
+  });
+
+  test('native_worktree_available is false when backend is codex', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        backend: 'codex',
+        branching_strategy: 'phase',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('codex');
+    expect(result.native_worktree_available).toBe(false);
+  });
+});
+
 describe('standards absent', () => {
   let tmpDir;
 
