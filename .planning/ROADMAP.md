@@ -173,6 +173,11 @@ Plans:
   2. New test cases validate the native isolation path: (a) `cmdInitExecutePhase` returns `native_worktree_available: true` for Claude Code backend; (b) executor context includes `isolation_mode: "native"` and `main_repo_path`; (c) parallel context skips worktree pre-computation when native isolation available
   3. New test cases validate the manual isolation path is unchanged: (a) `cmdInitExecutePhase` returns `native_worktree_available: false` for non-Claude-Code backends; (b) executor context includes `isolation_mode: "manual"` with worktree path; (c) parallel context pre-computes worktree paths as before
   4. Hook registration tests verify `WorktreeCreate` and `WorktreeRemove` handlers are registered in plugin.json and behave correctly (no-op when GRD inactive, branch rename when active)
+**Plans:** 3 plans
+Plans:
+- [ ] 47-01-PLAN.md — Native/manual isolation unit tests for context, parallel, and backend modules
+- [ ] 47-02-PLAN.md — Hook registration and handler edge-case tests for worktree and plugin.json
+- [ ] 47-03-PLAN.md — Cross-module integration tests for native/manual isolation end-to-end
 
 ## Progress
 
@@ -180,7 +185,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 45. Foundation & Detection | 3/3 | Complete | 2026-02-21 |
 | 46. Hybrid Worktree Execution | 0/3 | Planned | - |
-| 47. Integration & Regression Testing | 0/? | Not started | - |
+| 47. Integration & Regression Testing | 0/3 | Planned | - |
 
 ## Deferred Validations
 
