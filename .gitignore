@@ -21,6 +21,7 @@ Thumbs.db
 
 # GRD-specific
 grd-local-patches/
+.worktrees/
 
 # Build/coverage artifacts
 coverage/

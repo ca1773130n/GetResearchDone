@@ -15,6 +15,7 @@ const { captureOutput, captureError } = require('../helpers/setup');
 // The module under test — this will cause all tests to fail (RED) until
 // lib/worktree.js is created
 const {
+  worktreePath,
   cmdWorktreeCreate,
   cmdWorktreeRemove,
   cmdWorktreeList,
@@ -73,6 +74,7 @@ function createTestGitRepo() {
 
 /**
  * Clean up a test git repo and any worktrees it may have created.
+ * Worktrees are now project-local in .worktrees/, so cleanup is simpler.
  *
  * @param {string} repoDir - Path to the test repo
  */
@@ -89,25 +91,27 @@ function cleanupTestRepo(repoDir) {
     // Ignore errors during cleanup
   }
 
-  // Clean up any GRD worktree directories in tmpdir
+  // Clean up .worktrees/ directory within the repo (project-local worktrees)
+  const worktreesDir = path.join(resolvedRepo, '.worktrees');
   try {
-    const entries = fs.readdirSync(REAL_TMPDIR);
-    for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes('v0')) {
-        const wtPath = path.join(REAL_TMPDIR, entry);
-        try {
-          // Try to remove worktree via git first
-          execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
-            cwd: repoDir,
-            stdio: 'pipe',
-          });
-        } catch {
-          // Fall back to direct removal
-        }
-        try {
-          fs.rmSync(wtPath, { recursive: true, force: true });
-        } catch {
-          // Ignore
+    if (fs.existsSync(worktreesDir)) {
+      const entries = fs.readdirSync(worktreesDir);
+      for (const entry of entries) {
+        if (entry.startsWith('grd-worktree-')) {
+          const wtPath = path.join(worktreesDir, entry);
+          try {
+            execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
+              cwd: repoDir,
+              stdio: 'pipe',
+            });
+          } catch {
+            // Fall back to direct removal
+          }
+          try {
+            fs.rmSync(wtPath, { recursive: true, force: true });
+          } catch {
+            // Ignore
+          }
         }
       }
     }
@@ -149,7 +153,7 @@ describe('cmdWorktreeCreate', () => {
     expect(result).toHaveProperty('created');
   });
 
-  test('creates worktree directory at os.tmpdir()/grd-worktree-{milestone}-{phase}', () => {
+  test('creates worktree directory at {cwd}/.worktrees/grd-worktree-{milestone}-{phase}', () => {
     const { stdout } = captureOutput(() =>
       cmdWorktreeCreate(
         repoDir,
@@ -158,7 +162,7 @@ describe('cmdWorktreeCreate', () => {
       )
     );
     const result = JSON.parse(stdout);
-    const expectedPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const expectedPath = worktreePath(repoDir, 'v0.2.0', '27');
     expect(result.path).toBe(expectedPath);
     expect(fs.existsSync(expectedPath)).toBe(true);
   });
@@ -353,7 +357,7 @@ describe('cmdWorktreeRemove', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     expect(fs.existsSync(wtPath)).toBe(true);
 
     captureOutput(() => cmdWorktreeRemove(repoDir, { phase: '27', milestone: 'v0.2.0' }, false));
@@ -379,7 +383,7 @@ describe('cmdWorktreeRemove', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreeRemove(repoDir, { path: wtPath }, false)
     );
@@ -527,7 +531,7 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Manually delete the worktree directory (simulating stale state)
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     fs.rmSync(wtPath, { recursive: true, force: true });
 
     // Now remove stale
@@ -548,7 +552,7 @@ describe('cmdWorktreeRemoveStale', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
 
     // Lock the worktree
     execFileSync('git', ['worktree', 'lock', wtPath], { cwd: repoDir, stdio: 'pipe' });
@@ -585,8 +589,8 @@ describe('cmdWorktreeRemoveStale', () => {
     );
 
     // Delete both directories
-    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27'), { recursive: true, force: true });
-    fs.rmSync(path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28'), { recursive: true, force: true });
+    fs.rmSync(worktreePath(repoDir, 'v0.2.0', '27'), { recursive: true, force: true });
+    fs.rmSync(worktreePath(repoDir, 'v0.2.0', '28'), { recursive: true, force: true });
 
     const { stdout, exitCode } = captureOutput(() => cmdWorktreeRemoveStale(repoDir, false));
     expect(exitCode).toBe(0);
@@ -705,7 +709,7 @@ describe('cmdWorktreePushAndPR', () => {
     );
 
     // Make a commit in the worktree so there is something to push
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -740,7 +744,7 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -768,7 +772,7 @@ describe('cmdWorktreePushAndPR', () => {
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '28');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -789,7 +793,7 @@ describe('cmdWorktreePushAndPR', () => {
       cmdWorktreeCreate(repoDir, { phase: '28', milestone: 'v0.2.0', slug: 'pr-workflow' }, false)
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-28');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '28');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -813,7 +817,7 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
@@ -845,7 +849,7 @@ describe('cmdWorktreePushAndPR', () => {
       )
     );
 
-    const wtPath = path.join(REAL_TMPDIR, 'grd-worktree-v0.2.0-27');
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
     fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
     execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });

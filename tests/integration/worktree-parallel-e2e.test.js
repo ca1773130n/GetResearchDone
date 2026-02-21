@@ -27,6 +27,7 @@ const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
 // Modules under test
 const {
+  worktreePath,
   cmdWorktreeCreate,
   cmdWorktreeRemove,
   cmdWorktreeList,
@@ -145,24 +146,27 @@ function cleanupTestRepo(repoDir) {
     /* ignore */
   }
 
-  // Clean up any GRD worktree directories in tmpdir (only E2E milestone to avoid unit test interference)
+  // Clean up .worktrees/ directory within the repo (project-local worktrees)
+  const worktreesDir = path.join(resolvedRepo, '.worktrees');
   try {
-    const entries = fs.readdirSync(REAL_TMPDIR);
-    for (const entry of entries) {
-      if (entry.startsWith('grd-worktree-') && entry.includes(E2E_MILESTONE)) {
-        const wtPath = path.join(REAL_TMPDIR, entry);
-        try {
-          execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
-            cwd: repoDir,
-            stdio: 'pipe',
-          });
-        } catch {
-          /* fall through */
-        }
-        try {
-          fs.rmSync(wtPath, { recursive: true, force: true });
-        } catch {
-          /* ignore */
+    if (fs.existsSync(worktreesDir)) {
+      const entries = fs.readdirSync(worktreesDir);
+      for (const entry of entries) {
+        if (entry.startsWith('grd-worktree-')) {
+          const wtPath = path.join(worktreesDir, entry);
+          try {
+            execFileSync('git', ['worktree', 'remove', wtPath, '--force'], {
+              cwd: repoDir,
+              stdio: 'pipe',
+            });
+          } catch {
+            /* fall through */
+          }
+          try {
+            fs.rmSync(wtPath, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
         }
       }
     }
@@ -272,8 +276,8 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '27', new Set(), false));
     const ctx = JSON.parse(stdout);
 
-    // worktree_path should match the format used by worktree.js
-    const expectedPath = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
+    // worktree_path should match the format used by worktree.js (project-local .worktrees/)
+    const expectedPath = worktreePath(repoDir, E2E_MILESTONE, '27');
     expect(ctx.worktree_path).toBe(expectedPath);
   });
 
@@ -296,10 +300,10 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     );
     const wt = JSON.parse(wtOut);
 
-    // Both should use the resolved tmpdir (no macOS symlink mismatch)
+    // Both should use project-local .worktrees/ (no macOS symlink mismatch)
     expect(ctx.worktree_path).toBe(wt.path);
-    expect(ctx.worktree_path).toContain(REAL_TMPDIR);
-    expect(wt.path).toContain(REAL_TMPDIR);
+    expect(ctx.worktree_path).toContain('.worktrees');
+    expect(wt.path).toContain('.worktrees');
   });
 
   test('worktree_branch from context.js matches branch from worktree.js create', () => {
@@ -519,18 +523,11 @@ describe('E2E: Parallel execution of independent phases', () => {
       } catch {
         /* ignore */
       }
-      // Clean up GRD worktree dirs
+      // Clean up .worktrees/ directory within the repo
+      const worktreesCleanup = path.join(fs.realpathSync(tmpRoot), '.worktrees');
       try {
-        const entries = fs.readdirSync(REAL_TMPDIR);
-        for (const entry of entries) {
-          if (entry.startsWith('grd-worktree-v1.0-')) {
-            const wtPath = path.join(REAL_TMPDIR, entry);
-            try {
-              fs.rmSync(wtPath, { recursive: true, force: true });
-            } catch {
-              /* ignore */
-            }
-          }
+        if (fs.existsSync(worktreesCleanup)) {
+          fs.rmSync(worktreesCleanup, { recursive: true, force: true });
         }
       } catch {
         /* ignore */
@@ -757,7 +754,7 @@ describe('E2E: Stale worktree cleanup', () => {
     expect(beforeList.count).toBe(2);
 
     // Delete only phase 27's directory from disk
-    const wtPath27 = path.join(REAL_TMPDIR, `grd-worktree-${E2E_MILESTONE}-27`);
+    const wtPath27 = worktreePath(repoDir, E2E_MILESTONE, '27');
     fs.rmSync(wtPath27, { recursive: true, force: true });
 
     // Remove stale
