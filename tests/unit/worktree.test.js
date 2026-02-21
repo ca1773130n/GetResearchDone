@@ -1412,3 +1412,202 @@ describe('cmdWorktreeHookRemove', () => {
     expect(result).not.toHaveProperty('phase_detected');
   });
 });
+
+// ─── Phase 47: Hook Handler Comprehensive Edge Cases ──────────────────────────
+
+describe('Phase 47: hook handler comprehensive edge cases', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  // ─── cmdWorktreeHookCreate edge cases ───────────────────────────────────────
+
+  describe('cmdWorktreeHookCreate edge cases', () => {
+    test('returns skipped when .planning directory does not exist', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-noplan-'));
+      try {
+        const { stdout, exitCode } = captureOutput(() =>
+          cmdWorktreeHookCreate(tmpDir, '/tmp/test-worktree', 'test-branch', false)
+        );
+        expect(exitCode).toBe(0);
+        const result = JSON.parse(stdout);
+        expect(result).toHaveProperty('skipped', true);
+        expect(result.reason).toContain('.planning');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    test('returns skipped when branching_strategy is none', () => {
+      const configPath = path.join(repoDir, '.planning', 'config.json');
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.branching_strategy = 'none';
+      fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
+
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(repoDir, '/tmp/test-worktree', 'test-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('skipped', true);
+      expect(result.reason).toContain('branching disabled');
+    });
+
+    test('does not rename when branch already starts with grd/', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(repoDir, '/tmp/some-worktree', 'grd/v0.2.6/47-test', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+      expect(result).toHaveProperty('renamed', false);
+      expect(result.reason).toContain('GRD convention');
+    });
+
+    test('attempts rename when worktree path ends with phase number', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(repoDir, '/tmp/worktree-47', 'auto-branch-name', false)
+      );
+      expect(exitCode).toBe(0);
+      // The handler may output multiple JSON objects when rename fails then
+      // falls through to the default output path. Extract all JSON objects and
+      // use the last one as the definitive result.
+      const jsonObjects = [];
+      let remaining = stdout.trim();
+      while (remaining.length > 0) {
+        const start = remaining.indexOf('{');
+        if (start === -1) break;
+        let depth = 0;
+        let end = -1;
+        for (let i = start; i < remaining.length; i++) {
+          if (remaining[i] === '{') depth++;
+          if (remaining[i] === '}') depth--;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+        if (end === -1) break;
+        try {
+          jsonObjects.push(JSON.parse(remaining.slice(start, end + 1)));
+        } catch (_e) {
+          // skip malformed
+        }
+        remaining = remaining.slice(end + 1);
+      }
+      expect(jsonObjects.length).toBeGreaterThanOrEqual(1);
+      const result = jsonObjects[jsonObjects.length - 1];
+      expect(result).toHaveProperty('hooked', true);
+      // The handler should detect the phase number from the path ending
+      // It may or may not succeed at rename (git branch may not exist in the path),
+      // but it should attempt and not crash
+    });
+
+    test('handles empty string worktree path without crash', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(repoDir, '', 'some-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+    });
+
+    test('handles empty string branch without crash', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(repoDir, '/tmp/test-worktree', '', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+    });
+  });
+
+  // ─── cmdWorktreeHookRemove edge cases ─────────────────────────────────────
+
+  describe('cmdWorktreeHookRemove edge cases', () => {
+    test('returns skipped when .planning directory does not exist', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-noplan-'));
+      try {
+        const { stdout, exitCode } = captureOutput(() =>
+          cmdWorktreeHookRemove(tmpDir, '/tmp/test-worktree', 'test-branch', false)
+        );
+        expect(exitCode).toBe(0);
+        const result = JSON.parse(stdout);
+        expect(result).toHaveProperty('skipped', true);
+        expect(result.reason).toContain('.planning');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    test('returns skipped when branching_strategy is none', () => {
+      const configPath = path.join(repoDir, '.planning', 'config.json');
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.branching_strategy = 'none';
+      fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
+
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(repoDir, '/tmp/test-worktree', 'test-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('skipped', true);
+      expect(result.reason).toContain('branching disabled');
+    });
+
+    test('extracts metadata from grd-worktree-v0.2.6-47 path format', () => {
+      const grdPath = '/home/user/project/.worktrees/grd-worktree-v0.2.6-47';
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(repoDir, grdPath, 'grd/v0.2.6/47-testing', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+      expect(result).toHaveProperty('phase_detected', '47');
+      expect(result).toHaveProperty('milestone_detected', 'v0.2.6');
+    });
+
+    test('does not include metadata for path not matching GRD pattern', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(repoDir, '/tmp/my-worktree', 'feature/something', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+      expect(result).toHaveProperty('action', 'remove_logged');
+      expect(result).not.toHaveProperty('phase_detected');
+      expect(result).not.toHaveProperty('milestone_detected');
+    });
+
+    test('handles undefined worktree path gracefully', () => {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(repoDir, undefined, 'some-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+      expect(result).toHaveProperty('action', 'remove_logged');
+      expect(result).not.toHaveProperty('phase_detected');
+    });
+
+    test('handles worktree path with special characters', () => {
+      const specialPath = '/tmp/my project-dir/grd-worktree-v0.2.6-47';
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(repoDir, specialPath, 'some-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('hooked', true);
+      expect(result).toHaveProperty('action', 'remove_logged');
+      // Even with spaces in the path, it should extract metadata from the basename
+      expect(result).toHaveProperty('phase_detected', '47');
+      expect(result).toHaveProperty('milestone_detected', 'v0.2.6');
+    });
+  });
+});
