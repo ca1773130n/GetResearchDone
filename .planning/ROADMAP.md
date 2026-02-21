@@ -168,7 +168,10 @@ Plans:
   3. `cmdInitNewMilestone` scans `milestones/{version}/phases/` directories (new-style) in addition to old-style `*-phases/` directories for `suggested_start_phase`
   4. The bugfix correctly computes `suggested_start_phase` when phases exist only in new-style milestone directories (test with fixture having only `milestones/v0.2.1/phases/36-*`)
   5. All tests pass; golden outputs updated if affected by command template changes
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 41-01-PLAN.md — Fix cmdInitNewMilestone to scan new-style milestone directories + tests
+- [ ] 41-02-PLAN.md — Update execute-phase.md with 4-option completion flow + CLAUDE.md git docs
 
 ## Progress
 
@@ -177,7 +180,7 @@ Plans:
 | 38. Core Git Workflow Revision | 0/2 | Not started | - |
 | 39. Completion Flow | 0/2 | Not started | - |
 | 40. Settings Interview Revision | 0/1 | Not started | - |
-| 41. Command & Documentation Updates | 0/TBD | Not started | - |
+| 41. Command & Documentation Updates | 0/2 | Not started | - |
 
 ## Deferred Validations
 

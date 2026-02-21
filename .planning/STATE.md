@@ -4,11 +4,11 @@
 
 ## Current Position
 
-- **Active phase:** Phase 39 — Completion Flow
+- **Active phase:** Phase 40 — Settings Interview Revision
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
-- **Current Plan:** 2 of 2 in Phase 39 (Plan 02 complete — phase complete)
-- **Progress:** [██░░░░░░░░] 20%
-- **Next:** Phase 39 complete. Next: Phase 40
+- **Current Plan:** 1 of 1 in Phase 40 (Plan 01 complete — phase complete)
+- **Progress:** [#####     ] 2/4 phases
+- **Next:** Phase 40 complete. Next: Phase 41
 
 ## Deferred Validations
 
@@ -34,6 +34,9 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **39-02:** Used worktreePath() for cmdWorktreeComplete path resolution (matches cmdWorktreeCreate, not config.worktree_dir)
 - **39-02:** PR creation logic duplicated from cmdWorktreePushAndPR to avoid nested output()/process.exit
 - **39-02:** Merge path cleans up worktree BEFORE merge (git requires branch not in active worktree)
+- **40-01:** Worktree isolation replaces 3-way branching: Yes/No question instead of none/phase/milestone
+- **40-01:** Confirmation gates use multi-select pattern (same as research gates)
+- **40-01:** Code review "Disabled" maps to enabled:false rather than a separate field
 
 ## Performance Metrics
 
@@ -55,10 +58,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 39 Plan 02 (cmdWorktreeComplete orchestrator)
-- **Stopped at:** Completed 40-01-PLAN.md
-- **Next action:** Phase 40
-- **Context needed:** Phase 39 shipped the full worktree completion flow: 5 helper functions (Plan 01) + cmdWorktreeComplete orchestrator with 4 paths and CLI routing (Plan 02). 60 worktree tests, 1661 total tests.
+- **Last action:** Executed Phase 40 Plan 01 (settings interview revision)
+- **Stopped at:** Completed 40-01-PLAN.md (3/3 tasks) -- Phase 40 fully complete
+- **Next action:** Phase 41
+- **Context needed:** Phase 40 rewrote /grd:settings from 8 to 13+ questions with conditional sub-options. Added worktree isolation (replacing branching), execution teams, code review settings, and confirmation gates. Config write step produces all new sections.
 
 ---
 
