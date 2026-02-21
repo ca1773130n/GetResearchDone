@@ -1,9 +1,9 @@
 ---
-description: Configure GRD workflow agents, model profile, research gates, and autonomous mode
+description: Configure GRD workflow agents, model profile, git isolation, execution teams, code review, confirmation gates, research gates, and autonomous mode
 ---
 
 <purpose>
-Interactive configuration of GRD workflow agents (research, plan_check, verifier), model profile selection, research gates, and autonomous mode via multi-question prompt. Updates .planning/config.json with user preferences.
+Interactive configuration of all GRD settings via multi-question prompt: workflow agents (research, plan_check, verifier), model profile, git worktree isolation, execution teams, code review (timing, severity, auto-fix), confirmation gates, research gates, autonomous mode, and tracker integration. Updates .planning/config.json with user preferences.
 </purpose>
 
 <required_reading>
@@ -247,7 +247,26 @@ Merge new settings into existing config.json:
     "verifier": true/false
   },
   "git": {
-    "branching_strategy": "none" | "phase" | "milestone"
+    "branching_strategy": "none" | "phase",
+    "worktree_dir": ".worktrees/" | custom_path,
+    "default_completion_action": "ask" | "merge" | "pr" | "keep"
+  },
+  "execution": {
+    "use_teams": true/false,
+    "max_concurrent_teammates": 2|4|6
+  },
+  "code_review": {
+    "enabled": timing !== "disabled",
+    "timing": "per_wave" | "per_phase",
+    "severity_gate": "blocker" | "critical" | "warning",
+    "auto_fix_warnings": true/false
+  },
+  "confirmation_gates": {
+    "commit_confirmation": true/false,
+    "file_deletion": true/false,
+    "phase_completion": true/false,
+    "target_adjustment": true/false,
+    "approach_change": true/false
   },
   "research_gates": {
     "verification_design": true/false,
@@ -259,6 +278,44 @@ Merge new settings into existing config.json:
   }
 }
 ```
+
+**Mapping rules:**
+
+Git Isolation:
+- "Yes" -> `branching_strategy: "phase"`, write `worktree_dir` and `default_completion_action`
+- "No" -> `branching_strategy: "none"` (omit worktree_dir and default_completion_action)
+
+Worktree Directory:
+- ".worktrees/ (Default)" -> `worktree_dir: ".worktrees/"`
+- "Custom" -> `worktree_dir: <user-provided path>`
+
+Completion Action:
+- "Ask each time (Default)" -> `default_completion_action: "ask"`
+- "Merge locally" -> `default_completion_action: "merge"`
+- "Create PR" -> `default_completion_action: "pr"`
+- "Keep branch" -> `default_completion_action: "keep"`
+
+Execution Teams:
+- "Yes" -> `use_teams: true`, write `max_concurrent_teammates` from follow-up
+- "No" -> `use_teams: false`
+
+Code Review Timing:
+- "Per Wave (Default)" -> `timing: "per_wave"`, `enabled: true`
+- "Per Phase" -> `timing: "per_phase"`, `enabled: true`
+- "Disabled" -> `enabled: false`
+
+Review Severity Gate:
+- "Blocker (Default)" -> `severity_gate: "blocker"`
+- "Critical" -> `severity_gate: "critical"`
+- "Warning" -> `severity_gate: "warning"`
+
+Confirmation Gates (multi-select — each selected label maps to `true`):
+- "Commit Confirmation" -> `commit_confirmation: true`
+- "File Deletion" -> `file_deletion: true`
+- "Phase Completion" -> `phase_completion: true`
+- "Target Adjustment" -> `target_adjustment: true`
+- "Approach Change" -> `approach_change: true`
+- Unselected gates default to `false`
 
 Write updated config to `.planning/config.json`.
 </step>
@@ -277,11 +334,23 @@ Display:
 | Plan Researcher      | {On/Off} |
 | Plan Checker         | {On/Off} |
 | Execution Verifier   | {On/Off} |
-| Git Branching        | {None/Per Phase/Per Milestone} |
+| Git Isolation        | {On/Off} |
+| Worktree Directory   | {path or N/A} |
+| Completion Action    | {ask/merge/pr/keep or N/A} |
+| Agent Teams          | {On/Off} |
+| Max Teammates        | {N or N/A} |
+| Code Review          | {Per Wave/Per Phase/Off} |
+| Severity Gate        | {blocker/critical/warning} |
+| Auto-fix Warnings    | {On/Off} |
 | Autonomous Mode      | {On/Off} |
 | Gate: Eval Design    | {On/Off} |
 | Gate: Method Select  | {On/Off} |
 | Gate: Baseline Review| {On/Off} |
+| Gate: Commit Confirm | {On/Off} |
+| Gate: File Deletion  | {On/Off} |
+| Gate: Phase Complete | {On/Off} |
+| Gate: Target Adjust  | {On/Off} |
+| Gate: Approach Change| {On/Off} |
 | Tracker              | {None/GitHub/Jira} |
 
 These settings apply to future /grd:plan-phase and /grd:execute-phase runs.
@@ -298,8 +367,10 @@ Quick commands:
 </process>
 
 <success_criteria>
-- [ ] Current config read
-- [ ] User presented with 8 settings (profile + 3 workflow toggles + git branching + autonomous mode + research gates + tracker)
-- [ ] Config updated with all sections including research_gates and autonomous_mode
+- [ ] Current config read with all sections (workflow, git, execution, code_review, confirmation_gates, research_gates, tracker)
+- [ ] User presented with 13+ questions (profile + 3 workflow toggles + git isolation + autonomous mode + execution teams + 3 code review + confirmation gates + research gates + tracker)
+- [ ] Conditional sub-options asked for worktree (directory + completion action) and teams (max teammates)
+- [ ] Config updated with all sections: git (branching_strategy, worktree_dir, default_completion_action), execution (use_teams, max_concurrent_teammates), code_review (enabled, timing, severity_gate, auto_fix_warnings), confirmation_gates (5 toggles), research_gates, tracker
+- [ ] All settings displayed in confirmation summary table
 - [ ] Changes confirmed to user
 </success_criteria>
