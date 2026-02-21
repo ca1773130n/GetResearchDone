@@ -730,3 +730,119 @@ describe('CLI integration -- init execute-parallel', () => {
     }
   });
 });
+
+// ─── Phase 47: buildParallelContext native vs manual isolation ───────────────
+
+describe('Phase 47: buildParallelContext native vs manual isolation', () => {
+  let fixtureDir;
+
+  afterEach(() => {
+    if (fixtureDir) {
+      cleanupFixtureDir(fixtureDir);
+      fixtureDir = null;
+    }
+  });
+
+  function writeRoadmapAndPhases(dir) {
+    const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      [
+        '# Roadmap',
+        '',
+        '## v1.0: Foundation',
+        '',
+        '### Phase 1: Alpha Phase',
+        '**Goal:** Build A',
+        '**Depends on:** Nothing',
+        '',
+        '### Phase 2: Beta Phase',
+        '**Goal:** Build B',
+        '**Depends on:** Nothing',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const phase1Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-alpha-phase'
+    );
+    const phase2Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '02-beta-phase'
+    );
+    fs.mkdirSync(phase1Dir, { recursive: true });
+    fs.mkdirSync(phase2Dir, { recursive: true });
+    fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');
+    fs.writeFileSync(path.join(phase2Dir, '02-01-PLAN.md'), '---\nphase: 02\nplan: 01\n---\n');
+  }
+
+  function writeConfig(dir, overrides = {}) {
+    const configPath = path.join(dir, '.planning', 'config.json');
+    const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
+  }
+
+  test('nativeWorktreeAvailable=true -> every phase has worktree_path=null and native_isolation=true', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2'], { nativeWorktreeAvailable: true });
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).toBeNull();
+      expect(phase.native_isolation).toBe(true);
+    }
+  });
+
+  test('nativeWorktreeAvailable=false -> every phase has non-null worktree_path and native_isolation=false', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2'], { nativeWorktreeAvailable: false });
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).not.toBeNull();
+      expect(typeof phase.worktree_path).toBe('string');
+      expect(phase.native_isolation).toBe(false);
+    }
+  });
+
+  test('no options object -> backward-compatible: worktree_path is set, native_isolation is false', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2']);
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).not.toBeNull();
+      expect(typeof phase.worktree_path).toBe('string');
+      expect(phase.native_isolation).toBe(false);
+    }
+  });
+
+  test('nativeWorktreeAvailable=true still returns worktree_branch for every phase', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2'], { nativeWorktreeAvailable: true });
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_branch).toBeDefined();
+      expect(typeof phase.worktree_branch).toBe('string');
+      expect(phase.worktree_branch.length).toBeGreaterThan(0);
+    }
+  });
+});

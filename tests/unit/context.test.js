@@ -1357,3 +1357,168 @@ describe('standards absent', () => {
     expect(result.standards_exists).toBe(false);
   });
 });
+
+// ─── Phase 47: native vs manual isolation matrix ──────────────────────────
+
+describe('Phase 47: native vs manual isolation matrix', () => {
+  let tmpDir;
+  const savedEnv = {};
+  const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+  const envVarsToClean = [
+    ...claudeCodeVars,
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+  ];
+
+  beforeEach(() => {
+    for (const key of envVarsToClean) {
+      savedEnv[key] = process.env[key];
+    }
+    for (const key of envVarsToClean) {
+      delete process.env[key];
+    }
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    for (const key of envVarsToClean) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+    cleanupFixtureDir(tmpDir);
+  });
+
+  function writeConfigForBackend(dir, backend, branchingStrategy) {
+    fs.writeFileSync(
+      path.join(dir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        backend: backend,
+        branching_strategy: branchingStrategy,
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+  }
+
+  // claude + phase -> isolation_mode='native', native_worktree_available=true, main_repo_path is string
+  test('claude + phase -> isolation_mode=native, native_worktree_available=true, main_repo_path is string', () => {
+    writeConfigForBackend(tmpDir, 'claude', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('claude');
+    expect(result.isolation_mode).toBe('native');
+    expect(result.native_worktree_available).toBe(true);
+    expect(typeof result.main_repo_path).toBe('string');
+    expect(result.main_repo_path.length).toBeGreaterThan(0);
+  });
+
+  // claude + none -> isolation_mode='none', native_worktree_available=true, main_repo_path=null
+  test('claude + none -> isolation_mode=none, native_worktree_available=true, main_repo_path=null', () => {
+    writeConfigForBackend(tmpDir, 'claude', 'none');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('claude');
+    expect(result.isolation_mode).toBe('none');
+    expect(result.native_worktree_available).toBe(true);
+    expect(result.main_repo_path).toBeNull();
+  });
+
+  // codex + phase -> isolation_mode='manual', native_worktree_available=false, main_repo_path is string
+  test('codex + phase -> isolation_mode=manual, native_worktree_available=false, main_repo_path is string', () => {
+    writeConfigForBackend(tmpDir, 'codex', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('codex');
+    expect(result.isolation_mode).toBe('manual');
+    expect(result.native_worktree_available).toBe(false);
+    expect(typeof result.main_repo_path).toBe('string');
+    expect(result.main_repo_path.length).toBeGreaterThan(0);
+  });
+
+  // codex + none -> isolation_mode='none', native_worktree_available=false, main_repo_path=null
+  test('codex + none -> isolation_mode=none, native_worktree_available=false, main_repo_path=null', () => {
+    writeConfigForBackend(tmpDir, 'codex', 'none');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('codex');
+    expect(result.isolation_mode).toBe('none');
+    expect(result.native_worktree_available).toBe(false);
+    expect(result.main_repo_path).toBeNull();
+  });
+
+  // gemini + phase -> isolation_mode='manual', native_worktree_available=false
+  test('gemini + phase -> isolation_mode=manual, native_worktree_available=false', () => {
+    writeConfigForBackend(tmpDir, 'gemini', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('gemini');
+    expect(result.isolation_mode).toBe('manual');
+    expect(result.native_worktree_available).toBe(false);
+    expect(typeof result.main_repo_path).toBe('string');
+  });
+
+  // opencode + phase -> isolation_mode='manual', native_worktree_available=false
+  test('opencode + phase -> isolation_mode=manual, native_worktree_available=false', () => {
+    writeConfigForBackend(tmpDir, 'opencode', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('opencode');
+    expect(result.isolation_mode).toBe('manual');
+    expect(result.native_worktree_available).toBe(false);
+    expect(typeof result.main_repo_path).toBe('string');
+  });
+
+  // worktree_path is present and non-null when isolation_mode is manual (codex+phase)
+  test('worktree_path is present and non-null when isolation_mode is manual', () => {
+    writeConfigForBackend(tmpDir, 'codex', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.isolation_mode).toBe('manual');
+    expect(result.worktree_path).toBeDefined();
+    expect(result.worktree_path).not.toBeNull();
+    expect(typeof result.worktree_path).toBe('string');
+  });
+
+  // worktree_branch is present and non-null when branching_strategy is phase
+  test('worktree_branch is present and non-null when branching_strategy is phase', () => {
+    writeConfigForBackend(tmpDir, 'claude', 'phase');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.worktree_branch).toBeDefined();
+    expect(result.worktree_branch).not.toBeNull();
+    expect(typeof result.worktree_branch).toBe('string');
+    expect(result.worktree_branch).toContain('v1.0');
+  });
+
+  // worktree_branch is null when branching_strategy is none
+  test('worktree_branch is null when branching_strategy is none', () => {
+    writeConfigForBackend(tmpDir, 'claude', 'none');
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.worktree_branch).toBeNull();
+  });
+});

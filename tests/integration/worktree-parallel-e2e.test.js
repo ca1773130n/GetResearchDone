@@ -43,6 +43,9 @@ const {
   cmdInitExecuteParallel,
 } = require('../../lib/parallel');
 
+const { cmdInitExecutePhase } = require('../../lib/context');
+const { getBackendCapabilities } = require('../../lib/backend');
+
 // Resolved tmpdir for macOS symlink handling
 const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
 
@@ -1002,5 +1005,263 @@ describe('E2E: Status tracker per-phase tracking', () => {
     // Transition second to failed
     tracker.phases[secondKey].status = 'failed';
     expect(tracker.phases[secondKey].status).toBe('failed');
+  });
+});
+
+// ---- Phase 47: Native vs Manual Isolation Integration ----------------------
+
+/**
+ * Phase 47 integration tests: Cross-module validation of native (claude) and
+ * manual (codex) worktree isolation pipelines end-to-end.
+ *
+ * Validates that context.js, parallel.js, backend.js, and worktree.js all
+ * agree on isolation semantics for both Claude Code (native) and non-Claude-Code
+ * (manual) backends.
+ */
+
+// Helper: create a git repo with configurable backend for Phase 47 tests
+function createPhase47GitRepo(backendOverrides = {}) {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-p47-'));
+
+  execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
+  execFileSync('git', ['config', 'user.name', 'GRD E2E P47'], { cwd: tmpRoot, stdio: 'pipe' });
+
+  const planningDir = path.join(tmpRoot, '.planning');
+  fs.mkdirSync(planningDir, { recursive: true });
+  fs.mkdirSync(path.join(planningDir, 'phases', '01-alpha-phase'), { recursive: true });
+  fs.mkdirSync(path.join(planningDir, 'phases', '02-beta-phase'), { recursive: true });
+
+  const config = {
+    branching_strategy: 'phase',
+    phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+    milestone_branch_template: 'grd/{milestone}-{slug}',
+    ...backendOverrides,
+  };
+  fs.writeFileSync(path.join(planningDir, 'config.json'), JSON.stringify(config), 'utf-8');
+
+  fs.writeFileSync(
+    path.join(planningDir, 'ROADMAP.md'),
+    [
+      '# Roadmap',
+      '',
+      '## v1.0: Test Isolation',
+      '',
+      '### Phase 1: Alpha Phase',
+      '**Goal:** Build A',
+      '**Depends on:** Nothing',
+      '',
+      '### Phase 2: Beta Phase',
+      '**Goal:** Build B',
+      '**Depends on:** Nothing',
+    ].join('\n'),
+    'utf-8'
+  );
+
+  fs.writeFileSync(
+    path.join(planningDir, 'phases', '01-alpha-phase', '01-01-PLAN.md'),
+    '---\nphase: 01\nplan: 01\n---\n'
+  );
+  fs.writeFileSync(
+    path.join(planningDir, 'phases', '02-beta-phase', '02-01-PLAN.md'),
+    '---\nphase: 02\nplan: 01\n---\n'
+  );
+
+  execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
+  execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: tmpRoot, stdio: 'pipe' });
+
+  return tmpRoot;
+}
+
+describe('Phase 47: Native vs Manual Isolation Integration', () => {
+  // ---- Test group 1: native isolation end-to-end (claude backend) ----
+
+  describe('native isolation end-to-end (claude backend)', () => {
+    let repoDir;
+
+    beforeEach(() => {
+      repoDir = createPhase47GitRepo({ backend: 'claude' });
+    });
+
+    afterEach(() => {
+      cleanupTestRepo(repoDir);
+    });
+
+    test('cmdInitExecutePhase reports native isolation for claude backend', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(repoDir, '1', new Set(), false)
+      );
+      const ctx = JSON.parse(stdout);
+
+      expect(ctx.backend).toBe('claude');
+      expect(ctx.native_worktree_available).toBe(true);
+      expect(ctx.isolation_mode).toBe('native');
+      expect(ctx.main_repo_path).toBeTruthy();
+      expect(typeof ctx.main_repo_path).toBe('string');
+    });
+
+    test('buildParallelContext with nativeWorktreeAvailable=true produces null worktree_path', () => {
+      const ctx = buildParallelContext(repoDir, ['1', '2'], {
+        nativeWorktreeAvailable: true,
+      });
+
+      expect(ctx.phases).toHaveLength(2);
+      for (const phase of ctx.phases) {
+        expect(phase.worktree_path).toBeNull();
+        expect(phase.native_isolation).toBe(true);
+        // Branch naming is NOT skipped even in native mode
+        expect(typeof phase.worktree_branch).toBe('string');
+        expect(phase.worktree_branch.length).toBeGreaterThan(0);
+      }
+    });
+
+    test('cmdInitExecuteParallel wires native isolation from capabilities into parallel context', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdInitExecuteParallel(repoDir, ['1', '2'], new Set(), false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+
+      expect(parsed.independence_validated).toBe(true);
+      for (const phase of parsed.phases) {
+        expect(phase.native_isolation).toBe(true);
+        expect(phase.worktree_path).toBeNull();
+      }
+    });
+  });
+
+  // ---- Test group 2: manual isolation end-to-end (codex backend) ----
+
+  describe('manual isolation end-to-end (codex backend)', () => {
+    let repoDir;
+
+    beforeEach(() => {
+      repoDir = createPhase47GitRepo({ backend: 'codex' });
+    });
+
+    afterEach(() => {
+      cleanupTestRepo(repoDir);
+    });
+
+    test('cmdInitExecutePhase reports manual isolation for codex backend', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(repoDir, '1', new Set(), false)
+      );
+      const ctx = JSON.parse(stdout);
+
+      expect(ctx.backend).toBe('codex');
+      expect(ctx.native_worktree_available).toBe(false);
+      expect(ctx.isolation_mode).toBe('manual');
+      expect(ctx.main_repo_path).toBeTruthy();
+      expect(typeof ctx.main_repo_path).toBe('string');
+    });
+
+    test('buildParallelContext with nativeWorktreeAvailable=false pre-computes worktree_path', () => {
+      const ctx = buildParallelContext(repoDir, ['1', '2'], {
+        nativeWorktreeAvailable: false,
+      });
+
+      expect(ctx.phases).toHaveLength(2);
+      for (const phase of ctx.phases) {
+        expect(phase.worktree_path).toBeTruthy();
+        expect(typeof phase.worktree_path).toBe('string');
+        expect(phase.worktree_path).toContain('.worktrees/grd-worktree-');
+        expect(phase.native_isolation).toBe(false);
+      }
+    });
+
+    test('cmdInitExecuteParallel wires manual isolation from capabilities into parallel context', () => {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdInitExecuteParallel(repoDir, ['1', '2'], new Set(), false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+
+      expect(parsed.independence_validated).toBe(true);
+      for (const phase of parsed.phases) {
+        expect(phase.native_isolation).toBe(false);
+        expect(phase.worktree_path).toBeTruthy();
+        expect(phase.worktree_path).toContain('.worktrees/grd-worktree-');
+      }
+    });
+  });
+
+  // ---- Test group 3: isolation mode consistency across modules ----
+
+  describe('isolation mode consistency across modules', () => {
+    let repoDir;
+
+    afterEach(() => {
+      if (repoDir) {
+        cleanupTestRepo(repoDir);
+        repoDir = null;
+      }
+    });
+
+    test('branching_strategy=none produces isolation_mode=none regardless of backend', () => {
+      repoDir = createPhase47GitRepo({
+        backend: 'claude',
+        branching_strategy: 'none',
+      });
+
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(repoDir, '1', new Set(), false)
+      );
+      const ctx = JSON.parse(stdout);
+
+      expect(ctx.isolation_mode).toBe('none');
+      expect(ctx.main_repo_path).toBeNull();
+    });
+
+    test('all four backends have correct native_worktree_isolation capability', () => {
+      const expectedValues = {
+        claude: true,
+        codex: false,
+        gemini: false,
+        opencode: false,
+      };
+
+      for (const [backend, expected] of Object.entries(expectedValues)) {
+        const caps = getBackendCapabilities(backend);
+        expect(caps.native_worktree_isolation).toBe(expected);
+      }
+    });
+
+    test('native and manual paths agree between cmdInitExecutePhase and buildParallelContext', () => {
+      // Claude backend: cmdInitExecutePhase says native_worktree_available=true,
+      // buildParallelContext with nativeWorktreeAvailable=true sets worktree_path=null
+      repoDir = createPhase47GitRepo({ backend: 'claude' });
+
+      const { stdout: claudeOut } = captureOutput(() =>
+        cmdInitExecutePhase(repoDir, '1', new Set(), false)
+      );
+      const claudeCtx = JSON.parse(claudeOut);
+      expect(claudeCtx.native_worktree_available).toBe(true);
+
+      const claudeParallel = buildParallelContext(repoDir, ['1'], {
+        nativeWorktreeAvailable: claudeCtx.native_worktree_available,
+      });
+      expect(claudeParallel.phases[0].native_isolation).toBe(true);
+      expect(claudeParallel.phases[0].worktree_path).toBeNull();
+
+      cleanupTestRepo(repoDir);
+
+      // Codex backend: cmdInitExecutePhase says native_worktree_available=false,
+      // buildParallelContext with nativeWorktreeAvailable=false sets worktree_path to a string
+      repoDir = createPhase47GitRepo({ backend: 'codex' });
+
+      const { stdout: codexOut } = captureOutput(() =>
+        cmdInitExecutePhase(repoDir, '1', new Set(), false)
+      );
+      const codexCtx = JSON.parse(codexOut);
+      expect(codexCtx.native_worktree_available).toBe(false);
+
+      const codexParallel = buildParallelContext(repoDir, ['1'], {
+        nativeWorktreeAvailable: codexCtx.native_worktree_available,
+      });
+      expect(codexParallel.phases[0].native_isolation).toBe(false);
+      expect(codexParallel.phases[0].worktree_path).toBeTruthy();
+      expect(codexParallel.phases[0].worktree_path).toContain('.worktrees/grd-worktree-');
+    });
   });
 });
