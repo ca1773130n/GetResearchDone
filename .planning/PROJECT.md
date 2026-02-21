@@ -3,6 +3,25 @@
 **Created:** 2026-02-12
 **Updated:** 2026-02-22
 
+## Current Milestone: v0.2.7 Self-Evolution
+
+**Goal:** GRD uses itself to improve itself — dogfooding the full R&D workflow to fix bugs, reduce complexity and tech debt, and invent new features.
+
+**Approach:**
+- Use GRD's own commands (tested via local `bin/grd-tools.js`, not the cached plugin) to drive development
+- Testbed project (`testbed/` — copy of multi-bootstrap) exercises GRD workflows as a real user would
+- Create long-term milestones, phases, requirements that mimic real agentic dev workflows
+- Fix discovered bugs and glitches from dogfooding
+- Reduce module complexity and eliminate tech debt
+- Invent new features driven by real usage friction
+
+**Target features:**
+- Dogfooding infrastructure: testbed project with full GRD lifecycle
+- Bug fixes discovered through self-use
+- Complexity reduction across lib/ modules
+- Tech debt cleanup (dead code, inconsistent patterns, missing edge cases)
+- New features driven by dogfooding friction
+
 ## Vision
 
 GRD (Get Research Done) is a production-ready R&D workflow automation plugin for Claude Code that transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering.

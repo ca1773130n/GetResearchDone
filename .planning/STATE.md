@@ -7,16 +7,22 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** Between milestones — v0.2.6 shipped
+**Current focus:** v0.2.7 Self-Evolution — GRD dogfooding itself
 
 ## Current Position
 
-- **Active phase:** None
+- **Active phase:** None (defining requirements)
 - **Current plan:** None
-- **Milestone:** v0.2.6 shipped
-- **Status:** Milestone complete
-- **Progress:** [##########] 100%
-- **Next:** Start next milestone via `/grd:new-milestone`
+- **Milestone:** v0.2.7 Self-Evolution
+- **Status:** Not started (defining requirements)
+- **Progress:** [----------] 0%
+- **Next:** Define requirements and create roadmap
+
+## Testbed
+
+- **Location:** `testbed/` (copy of multi-bootstrap Flutter monorepo)
+- **Purpose:** Exercise GRD workflows as a real user would — create milestones, phases, plans, execute, evaluate
+- **Testing approach:** Use local `bin/grd-tools.js` (not cached plugin) to test changes
 
 ## Deferred Validations
 
@@ -48,10 +54,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed milestone v0.2.6
-- **Stopped at:** Milestone archived, PROJECT.md evolved, ROADMAP.md reorganized
-- **Next action:** Start next milestone via `/grd:new-milestone`
-- **Context needed:** v0.2.6 shipped with 3 phases (45-47), 9 plans, 1,779 tests. Native worktree isolation working. All DEFER-46 items resolved live.
+- **Last action:** Started milestone v0.2.7
+- **Stopped at:** Defining requirements
+- **Next action:** Create REQUIREMENTS.md and ROADMAP.md
+- **Context needed:** v0.2.7 is about self-evolution — using GRD on itself with a testbed project
 
 ---
 
