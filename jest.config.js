@@ -63,6 +63,11 @@ module.exports = {
     './lib/mcp-server.js': {
       lines: 80,
       functions: 80,
+      branches: 58,
+    },
+    './lib/autopilot.js': {
+      lines: 80,
+      functions: 85,
       branches: 60,
     },
     './lib/paths.js': {

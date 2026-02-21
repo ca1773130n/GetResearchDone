@@ -65,6 +65,7 @@ const {
   cmdWorktreeHookRemove,
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
+const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
 const {
   cmdInitExecutePhase,
@@ -210,6 +211,7 @@ function routeCommand(command, args, cwd, raw) {
     'assess-baseline',
     'product-plan',
     'iterate',
+    'autopilot',
   ];
 
   switch (command) {
@@ -524,6 +526,9 @@ function routeCommand(command, args, cwd, raw) {
         case 'iterate':
           cmdInitResearchWorkflow(cwd, wf, args.slice(2).join(' '), includes, raw);
           break;
+        case 'autopilot':
+          cmdInitAutopilot(cwd, raw);
+          break;
       }
       break;
     }
@@ -683,6 +688,9 @@ function routeCommand(command, args, cwd, raw) {
       }
       break;
     }
+    case 'autopilot':
+      cmdAutopilot(cwd, args.slice(1), raw);
+      break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
       break;
