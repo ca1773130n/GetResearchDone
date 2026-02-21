@@ -15,6 +15,7 @@
 - v0.2.2 quickDir Routing Fix & Migration Skill - Phase 37 (shipped 2026-02-20)
 - v0.2.3 Improve Settings & Git Workflow - Phases 38-41 (shipped 2026-02-21)
 - v0.2.4 Layered Integration - Phase 42 (shipped 2026-02-21)
+- v0.2.5 WebMCP Support & Bugfixes - Phases 43-44 (in progress)
 
 ## Phases
 
@@ -105,9 +106,59 @@ Phases 38-41 unified the git workflow model with project-local worktrees, 4-opti
 <details>
 <summary>v0.2.4 Layered Integration (Phase 42) - SHIPPED 2026-02-21</summary>
 
-Phase 42 borrowed best features from competing frameworks (Spec Kit, Agent OS, BMAD, Claude Flow) and integrated them as independent layers: Constitution (PRINCIPLES.md for project principles), Standards Discovery (/grd:discover for extracting codebase patterns), Scale-Adaptive Ceremony (light/standard/full levels controlling agent invocations), and Command Consolidation (45→39 commands). 48 new tests, 1,679 total passing. See `.planning/milestones/v0.2.4-ROADMAP.md` for details.
+Phase 42 borrowed best features from competing frameworks (Spec Kit, Agent OS, BMAD, Claude Flow) and integrated them as independent layers: Constitution (PRINCIPLES.md for project principles), Standards Discovery (/grd:discover for extracting codebase patterns), Scale-Adaptive Ceremony (light/standard/full levels controlling agent invocations), and Command Consolidation (45->39 commands). 48 new tests, 1,679 total passing. See `.planning/milestones/v0.2.4-ROADMAP.md` for details.
 
 </details>
+
+### v0.2.5 WebMCP Support & Bugfixes (In Progress)
+
+**Milestone Goal:** Add graceful WebMCP integration across execute-phase, verify-phase, and eval-planner workflows, plus fix code reviewer false blocker on VERIFICATION.md.
+
+- [ ] **Phase 43: MCP Detection & Code Reviewer Fix** - Foundation: MCP availability detection exposed in init JSON; code reviewer VERIFICATION.md false blocker fix `implement`
+- [ ] **Phase 44: WebMCP Workflow Integration** - Execute-phase sanity checks, verify-phase tool calls, and eval-planner WebMCP definitions `implement`
+
+## Phase Details
+
+### Phase 43: MCP Detection & Code Reviewer Fix
+**Goal**: All init workflows expose MCP availability status and the code reviewer no longer falsely blocks on missing VERIFICATION.md
+**Type**: implement
+**Depends on**: Nothing (first phase of milestone)
+**Requirements**: REQ-96, REQ-100
+**Verification Level**: sanity
+**Success Criteria** (what must be TRUE):
+  1. `cmdInitExecutePhase` JSON output includes a `webmcp_available` boolean field reflecting whether Chrome DevTools MCP is configured
+  2. When Chrome DevTools MCP is not available, all WebMCP-dependent features in init output indicate "skipped" with a clear reason
+  3. The grd-code-reviewer agent prompt explicitly excludes VERIFICATION.md from its must_haves artifact validation
+  4. Code review of a phase that has not yet run verify-phase does not produce a blocker for missing VERIFICATION.md
+**Plans**: TBD
+
+Plans:
+- [ ] 43-01: MCP availability detection in init workflows (REQ-96) + code reviewer VERIFICATION.md exclusion fix (REQ-100)
+
+### Phase 44: WebMCP Workflow Integration
+**Goal**: Execute-phase runs WebMCP sanity checks after each plan, verify-phase discovers and calls WebMCP tools, and eval-planner generates `useWebMcpTool()` definitions for frontend phases
+**Type**: implement
+**Depends on**: Phase 43
+**Requirements**: REQ-97, REQ-98, REQ-99
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. After each plan execution in execute-phase, three WebMCP health checks run (`hive_get_health_status`, `hive_check_console_errors`, `hive_get_page_info`) when MCP is available; all three are skipped gracefully when MCP is unavailable
+  2. First WebMCP check failure triggers a retry; second consecutive failure halts execution with a clear error message identifying which check failed
+  3. The grd-verifier agent calls `hive_list_registered_tools` to discover available WebMCP tools and includes tool call results in VERIFICATION.md
+  4. The grd-eval-planner agent outputs `useWebMcpTool()` call definitions in EVAL.md when the phase modifies frontend views
+  5. All three agent/command template modifications (execute-phase.md, grd-verifier.md, grd-eval-planner.md) include conditional guards that check `webmcp_available` before attempting any MCP tool calls
+**Plans**: TBD
+
+Plans:
+- [ ] 44-01: Execute-phase WebMCP sanity checks with retry/halt logic (REQ-97)
+- [ ] 44-02: Verify-phase WebMCP tool discovery and invocation (REQ-98) + eval-planner WebMCP definitions (REQ-99)
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 43. MCP Detection & Code Reviewer Fix | 0/1 | Not started | - |
+| 44. WebMCP Workflow Integration | 0/2 | Not started | - |
 
 ## Deferred Validations
 

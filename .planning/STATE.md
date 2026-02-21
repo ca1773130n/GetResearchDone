@@ -2,12 +2,20 @@
 
 **Updated:** 2026-02-21
 
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-02-21)
+
+**Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+**Current focus:** Phase 43 — MCP Detection & Code Reviewer Fix
+
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
+- **Active phase:** Phase 43 of 44 (MCP Detection & Code Reviewer Fix)
 - **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
+- **Status:** Ready to plan
 - **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Define requirements, create roadmap
+- **Next:** Plan Phase 43
 
 ## Deferred Validations
 
@@ -31,7 +39,7 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - Milestones shipped: 13 (v0.0.5 through v0.2.4)
 - Total tests: 1,679
 - Total lib/ modules: 19
-- Total commands: 39 (down from 45)
+- Total commands: 39
 
 ## Blockers
 
@@ -39,10 +47,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Started v0.2.5 milestone
-- **Stopped at:** Defining requirements
-- **Next action:** Create requirements and roadmap
-- **Context needed:** v0.2.5 adds WebMCP integration (execute-phase sanity checks, verify-phase tool calls, eval-planner tool definitions) and fixes code reviewer false blocker on VERIFICATION.md
+- **Last action:** Created ROADMAP.md for v0.2.5 (Phases 43-44)
+- **Stopped at:** Roadmap created, ready for Phase 43 planning
+- **Next action:** `/grd:plan-phase 43`
+- **Context needed:** Phase 43 adds MCP availability detection (REQ-96) to init JSON and fixes code reviewer false blocker on VERIFICATION.md (REQ-100). Phase 44 adds WebMCP sanity checks to execute-phase (REQ-97), tool calls to verify-phase (REQ-98), and tool definitions to eval-planner (REQ-99).
 
 ---
 
