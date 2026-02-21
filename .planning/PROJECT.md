@@ -34,11 +34,25 @@ A Claude Code plugin providing:
 - Scale-adaptive ceremony (light/standard/full) controlling which agents run per phase
 - Constitution layer (PRINCIPLES.md) for project-level principles shaping agent behavior
 - Standards discovery (/grd:discover) for extracting and enforcing codebase patterns
+- WebMCP integration: optional Chrome DevTools MCP health checks in execute-phase, tool discovery in verify-phase, tool definition generation in eval-planner
 - 39 commands (consolidated from 45) across 19 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.5)
+
+**Shipped:** 2026-02-21
+
+v0.2.5 added graceful WebMCP integration across the execution, verification, and evaluation workflows:
+- MCP availability detection: `detectWebMcp()` in lib/backend.js with config/env-var/MCP-server cascade, exposed via `webmcp_available` in all init JSON outputs
+- Execute-phase WebMCP sanity checks: steps 4b/6b call `hive_get_health_status`, `hive_check_console_errors`, `hive_get_page_info` after each plan, with retry-once-then-halt logic
+- Verifier WebMCP tool discovery: Step 5b uses `hive_list_registered_tools` to discover and invoke tools, results in VERIFICATION.md
+- Eval planner WebMCP tool definitions: `design_webmcp_tools` step generates `useWebMcpTool()` definitions for frontend phases
+- Code reviewer fix: `artifact_exclusions` step prevents false VERIFICATION.md blockers
+- All WebMCP features guarded by `webmcp_available` conditional — graceful skip when MCP unavailable
+- 1,694 tests passing (15 new), 19 lib/ modules
 
 ## Previous State (v0.2.4)
 
@@ -325,21 +339,25 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Current Milestone
+## Validated Goals (v0.2.5)
 
-**v0.2.5 — WebMCP Support & Bugfixes**
-
-Target features:
-- Per-plan WebMCP sanity checks during execute-phase (health, console errors, page rendering) with retry/halt logic
-- WebMCP tool calls in verify-phase (discover registered tools, call them, record results in VERIFICATION.md)
-- Eval planner generates `useWebMcpTool()` definitions for frontend-touching phases
-- Fix code reviewer false blocker on VERIFICATION.md (created by verifier, not reviewer)
-- Graceful MCP availability detection — all WebMCP features skip when Chrome DevTools MCP is not configured
+- [x] `detectWebMcp()` in lib/backend.js with config/env-var/MCP-server detection cascade
+- [x] `webmcp_available` and `webmcp_skip_reason` in all init JSON outputs (execute-phase, plan-phase, verify-work)
+- [x] Execute-phase steps 4b (standard) and 6b (teams) with three health checks and retry-once-then-halt logic
+- [x] All WebMCP checks guarded by `webmcp_available` — graceful skip when MCP unavailable
+- [x] grd-verifier Step 5b with `hive_list_registered_tools` discovery, generic checks, page-specific tool matching
+- [x] VERIFICATION.md output includes WebMCP Verification section with tool discovery and health check result tables
+- [x] grd-eval-planner `design_webmcp_tools` step with frontend detection heuristic
+- [x] EVAL.md output includes WebMCP Tool Definitions section with `useWebMcpTool()` call syntax
+- [x] grd-code-reviewer `artifact_exclusions` step excludes VERIFICATION.md from must_haves checks
+- [x] 1,694 tests passing across 32 suites (15 new tests, zero regressions)
 
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
 - DEFER-30-01: Full parallel execution with real teammate spawning on Claude Code (requires runtime)
+- DEFER-43-01/02: Live MCP detection and code reviewer validation (requires Chrome DevTools MCP)
+- DEFER-44-01/02/03: Live WebMCP workflow validation (requires Chrome DevTools MCP + frontend phase)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
@@ -373,3 +391,4 @@ Target features:
 *v0.2.2 milestone shipped: 2026-02-20*
 *v0.2.3 milestone shipped: 2026-02-21*
 *v0.2.4 milestone shipped: 2026-02-21*
+*v0.2.5 milestone shipped: 2026-02-21*

@@ -1,5 +1,30 @@
 # Milestones
 
+## v0.2.5 WebMCP Support & Bugfixes (Shipped: 2026-02-21)
+
+**Phases completed:** 2 phases (43-44), 3 plans, 4 tasks
+**Timeline:** 2026-02-21 (single day)
+**Source:** 19 lib/ modules, 1,694 tests
+
+**Key accomplishments:**
+- MCP availability detection: `detectWebMcp()` with config/env-var/MCP-server cascade, exposed in all init JSON outputs
+- Execute-phase WebMCP sanity checks (steps 4b/6b): three health checks with retry-once-then-halt logic after each plan execution
+- Verifier WebMCP tool discovery (Step 5b): `hive_list_registered_tools` discovery, generic + page-specific tool invocation, results in VERIFICATION.md
+- Eval planner WebMCP tool definitions: `design_webmcp_tools` step generates `useWebMcpTool()` call definitions for frontend phases
+- Code reviewer fix: `artifact_exclusions` step prevents false VERIFICATION.md blocker findings
+- All WebMCP features guarded by `webmcp_available` conditional — graceful skip when MCP unavailable
+
+**Key decisions:**
+- 44-01: WebMCP sanity checks inserted as sub-steps (4b/6b) to preserve existing step numbering
+- 44-01: Teams flow step 6b cross-references standard flow step 4b rather than duplicating full logic
+- 44-02: Step 5b placed between tiered verification and experiment verification in grd-verifier
+
+**Deferred:**
+- DEFER-43-01/02: Live MCP detection and code reviewer validation (requires Chrome DevTools MCP)
+- DEFER-44-01/02/03: Live WebMCP workflow validation (requires Chrome DevTools MCP + frontend phase)
+
+---
+
 ## v0.0.5 Production-Ready R&D Workflow Automation (Shipped: 2026-02-15)
 
 **Phases completed:** 8 phases, 23 plans, 57 decisions
@@ -308,6 +333,16 @@
 **Git range:** v0.2.3..v0.2.4
 
 **What's next:** TBD — run `/grd:new-milestone` to start
+
+---
+
+
+## v0.2.5 WebMCP Support & Bugfixes (Shipped: 2026-02-21)
+
+**Phases completed:** 2 phases, 3 plans, 5 tasks
+
+**Key accomplishments:**
+- (none recorded)
 
 ---
 

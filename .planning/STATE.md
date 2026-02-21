@@ -14,7 +14,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 - **Active phase:** Phase 44 of 44 (WebMCP Workflow Integration)
 - **Current plan:** Plan 1 of 1 (complete)
 - **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
-- **Status:** Executing
+- **Status:** v0.2.5 milestone complete
 - **Progress:** [██████████] 100%
 - **Next:** Continue Phase 44 execution (plans 2+)
 
@@ -24,6 +24,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 |----|-------------|-----------|-------------|--------|
 | DEFER-08-01 | User acceptance testing of TUI dashboard commands | Phase 8 | post-v1.0 | PENDING |
 | DEFER-30-01 | Full parallel execution with real teammate spawning on Claude Code | Phase 30 | Future | PARTIALLY RESOLVED (v0.2.0, requires Claude Code runtime) |
+| DEFER-43-01 | Live code-reviewer does not block on missing VERIFICATION.md | Phase 43 | Live run with code_review=true | PENDING (requires live agent run) |
+| DEFER-43-02 | detectWebMcp() returns available:true with real MCP env | Phase 43 | Live Chrome DevTools MCP env | PENDING (requires live MCP environment) |
+| DEFER-44-01 | execute-phase WebMCP health checks fire correctly at runtime | Phase 44 | Live execute-phase with MCP | PENDING (requires live MCP environment) |
+| DEFER-44-02 | grd-verifier populates VERIFICATION.md WebMCP section | Phase 44 | Live verify-phase with MCP | PENDING (requires live MCP environment) |
+| DEFER-44-03 | grd-eval-planner generates useWebMcpTool() for frontend phases | Phase 44 | Live eval-plan on frontend phase | PENDING (requires frontend phase + MCP) |
 
 ## Key Decisions
 
