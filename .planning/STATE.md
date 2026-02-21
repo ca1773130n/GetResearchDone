@@ -7,7 +7,7 @@
 - **Active phase:** Phase 40 — Settings Interview Revision
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
 - **Current Plan:** 1 of 1 in Phase 40 (Plan 01 complete — phase complete)
-- **Progress:** [#####     ] 2/4 phases
+- **Progress:** [████░░░░░░] 43%
 - **Next:** Phase 40 complete. Next: Phase 41
 
 ## Deferred Validations
@@ -51,6 +51,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 |---|------|-------------|---------|
 | 1 | 2026-02-20 | Update LT roadmap tutorial with iterative refinement guide | `.planning/quick/1-update-tutorial-of-longterm-roadmap-with/1-SUMMARY.md` |
 | Phase 40 P01 | 3min | 3 tasks | 1 files |
+| Phase 41 P01 | 5min | 2 tasks | 2 files |
+| Phase 41 P02 | 5min | 2 tasks | 2 files |
 
 ## Blockers
 
@@ -59,7 +61,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 40 Plan 01 (settings interview revision)
-- **Stopped at:** Completed 40-01-PLAN.md (3/3 tasks) -- Phase 40 fully complete
+- **Stopped at:** Completed phase 41 (command-documentation-updates)
 - **Next action:** Phase 41
 - **Context needed:** Phase 40 rewrote /grd:settings from 8 to 13+ questions with conditional sub-options. Added worktree isolation (replacing branching), execution teams, code review settings, and confirmation gates. Config write step produces all new sections.
 
