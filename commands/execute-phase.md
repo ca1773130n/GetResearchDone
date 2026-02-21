@@ -24,7 +24,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `milestone_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -42,20 +42,14 @@ Create an isolated worktree for this phase execution using pre-computed fields f
    ```
    If non-empty: warn "Uncommitted changes detected. Stash or commit before worktree creation." Stop.
 
-2. **Ensure milestone branch exists:**
+2. **Create worktree:**
    ```bash
-   MS_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree ensure-milestone-branch --milestone "${MILESTONE_VERSION}")
-   ```
-   Parse JSON for `branch`, `already_existed`. The milestone branch (`MILESTONE_BRANCH` from init JSON) is the parent for all phase branches in this milestone.
-
-3. **Create worktree from milestone branch:**
-   ```bash
-   WT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree create --phase "${PHASE_NUMBER}" --slug "${PHASE_SLUG}" --start-point "${MILESTONE_BRANCH}")
+   WT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree create --phase "${PHASE_NUMBER}" --slug "${PHASE_SLUG}")
    ```
    Parse JSON result for `path` and `branch`. If `error` field present: report error and stop.
    Store: `WORKTREE_PATH` = result.path, `WORKTREE_BRANCH` = result.branch
 
-4. **Verify worktree is ready:**
+3. **Verify worktree is ready:**
    ```bash
    ls "${WORKTREE_PATH}/.planning" && echo "Worktree ready"
    ```
@@ -408,39 +402,58 @@ After all waves:
 ```
 </step>
 
-<step name="merge_to_milestone" condition="branching_strategy != none">
-Merge the phase branch into the milestone branch (local merge, no PR):
+<step name="completion_flow" condition="branching_strategy != none">
+Present the user with 4 completion options for the worktree:
 
-1. **Merge phase branch into milestone branch:**
-   ```bash
-   MERGE_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree merge \
-     --phase "${PHASE_NUMBER}" \
-     --slug "${PHASE_SLUG}" \
-     --delete-branch)
-   ```
-   Parse JSON for `merged`, `error`.
+```
+## Phase Complete -- Choose Completion Action
 
-   If `error` contains "Merge conflict":
-   ```
-   ## Merge Conflict
+All plans executed in worktree. Choose how to finish:
 
-   **Phase branch:** ${WORKTREE_BRANCH}
-   **Milestone branch:** ${MILESTONE_BRANCH}
+1. **Merge locally** -- Run tests, merge branch into base, delete worktree
+2. **Push and create PR** -- Run tests, push branch, create PR, delete worktree
+3. **Keep branch** -- Leave worktree and branch intact for later
+4. **Discard work** -- Delete worktree and branch (destructive!)
+```
 
-   The phase branch could not be automatically merged into the milestone branch.
-   Resolve the conflict manually:
-   1. `git checkout ${MILESTONE_BRANCH}`
-   2. `git merge ${WORKTREE_BRANCH}`
-   3. Resolve conflicts, then `git commit`
-   ```
+Based on user's choice, call the worktree complete command:
 
-   If `merged: true`:
-   ```
-   ## Phase Merged
+```bash
+COMPLETE_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree complete \
+  --action "${ACTION}" \
+  --phase "${PHASE_NUMBER}" \
+  [--test-cmd "${TEST_CMD}"] \
+  [--base "${BASE_BRANCH}"] \
+  [--title "Phase ${PHASE_NUMBER}: ${PHASE_NAME} (${MILESTONE_VERSION})"] \
+  [--body "${PR_BODY}"])
+```
 
-   **Phase ${PHASE_NUMBER}: ${PHASE_NAME}** merged into milestone branch `${MILESTONE_BRANCH}`
-   Phase branch deleted.
-   ```
+Parse JSON result:
+
+**If `blocked: true`** (test gate failed on merge/pr):
+```
+## Test Gate Failed
+
+Tests must pass before merge/PR. Fix failures and retry.
+
+Exit code: ${test_exit_code}
+${test_stdout}
+${test_stderr}
+
+Options:
+- Fix tests in the worktree and retry completion
+- Choose "keep" to preserve the branch for manual fixing
+- Choose "discard" to abandon this work
+```
+
+**If `error`** (merge conflict, push failure, etc.):
+Report the error with actionable guidance.
+
+**If success** (action-specific):
+- `merge`: "Phase ${PHASE_NUMBER} merged into ${BASE_BRANCH}. Branch deleted."
+- `pr`: "PR created: ${pr_url}. Branch: ${branch} -> ${base}."
+- `keep`: "Worktree and branch preserved at ${path}."
+- `discard`: "Worktree and branch deleted."
 </step>
 
 <step name="tracker_sync">
@@ -616,18 +629,6 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs(phase-{X}): complete ph
 ```
 </step>
 
-<step name="cleanup_worktree" condition="branching_strategy != none">
-Remove the worktree after PR creation (or on any failure path):
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree remove --phase "${PHASE_NUMBER}"
-```
-
-This is idempotent — if the worktree was already removed (crash, manual cleanup), it returns success with `already_gone: true`.
-
-**IMPORTANT:** This step MUST run even if earlier steps failed. Treat it as a finally block. If the orchestrator encounters any error after worktree creation, it should still attempt cleanup before reporting the error.
-</step>
-
 <step name="offer_next">
 
 **If more phases:**
@@ -663,7 +664,6 @@ Orchestrator: ~10-15% context. Subagents: fresh 200k each. No polling (Task bloc
 - **Dependency chain breaks:** Wave 1 fails -> Wave 2 dependents likely fail -> user chooses attempt or skip
 - **All agents in wave fail:** Systemic issue -> stop, report for investigation
 - **Checkpoint unresolvable:** "Skip this plan?" or "Abort phase execution?" -> record partial progress in STATE.md
-- **Worktree cleanup on failure:** After any failure, always run worktree cleanup (`cleanup_worktree` step) before stopping. Worktree removal is idempotent and safe to call even if the worktree was never created. This prevents stale worktrees from accumulating in tmpdir.
 </failure_handling>
 
 <resumption>
