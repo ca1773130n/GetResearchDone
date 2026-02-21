@@ -24,7 +24,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -199,6 +199,10 @@ Execute each wave in sequence using Agent Teams coordination.
 
 6. **Spot-check results** (same as standard `execute_waves` step 4).
 
+6b. **WebMCP sanity checks (if `webmcp_available=true` from init):**
+
+    Apply the same WebMCP sanity check logic described in the standard `execute_waves` step 4b. Skip when `webmcp_available` is false (log: "WebMCP not available — skipping health checks (reason: {webmcp_skip_reason})"). When enabled, run three health checks (`hive_get_health_status`, `hive_check_console_errors`, `hive_get_page_info`) for each completed plan in this wave. Retry failed checks once; halt on second consecutive failure.
+
 7. **Code review (if `code_review_timing="per_wave"` and `code_review_enabled=true`):**
 
    ```
@@ -343,6 +347,47 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    {If more waves: what this enables for next wave}
    ---
    ```
+
+4b. **WebMCP sanity checks (if `webmcp_available=true` from init):**
+
+    **Skip condition:** If `webmcp_available` is `false` in the INIT JSON, skip this step entirely. Log: "WebMCP not available — skipping health checks (reason: {webmcp_skip_reason})"
+
+    **When enabled, run three health checks for each completed plan in this wave:**
+
+    ```
+    ## WebMCP Health Check — Plan {PLAN_ID}
+
+    Check 1: hive_get_health_status
+    → Verify backend is responding. Expected: status field indicates healthy.
+
+    Check 2: hive_check_console_errors
+    → Verify no new JavaScript errors. Expected: no new errors since plan execution started.
+
+    Check 3: hive_get_page_info
+    → Verify app is rendering. Expected: page has content and is interactive.
+    ```
+
+    **Retry logic:**
+    - If ANY check fails, log which check failed and the error
+    - Retry the FAILED check(s) once (not all three — only the ones that failed)
+    - If the retry also fails, HALT execution with:
+      ```
+      ## WebMCP Health Check FAILED
+
+      **Plan:** {PLAN_ID}
+      **Failed check:** {check_name} (e.g., hive_check_console_errors)
+      **Error:** {error_details}
+      **Attempts:** 2/2
+
+      Execution halted. The web application is in an unhealthy state after plan {PLAN_ID}.
+
+      Options:
+      - Fix the issue and re-run: `/grd:execute-phase {PHASE}`
+      - Skip WebMCP checks: set `webmcp.enabled: false` in `.planning/config.json`
+      ```
+    - If all checks pass (including any retried ones): continue to step 5
+
+    **Important:** These checks call Chrome DevTools MCP tools directly via the orchestrator's tool access (not via a subagent). The orchestrator already has access to MCP tools from its tool list.
 
 5. **Handle failures:**
 
