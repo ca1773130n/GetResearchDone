@@ -1373,4 +1373,42 @@ describe('cmdWorktreeHookRemove', () => {
     expect(result).toHaveProperty('branch', 'some-branch');
     expect(result).toHaveProperty('action', 'remove_logged');
   });
+
+  test('extracts phase and milestone from GRD-pattern worktree path', () => {
+    const grdPath = '/home/user/project/.worktrees/grd-worktree-v0.2.6-46';
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, grdPath, 'grd/v0.2.6/46-hybrid', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    expect(result).toHaveProperty('phase_detected', '46');
+    expect(result).toHaveProperty('milestone_detected', 'v0.2.6');
+  });
+
+  test('does not include metadata for non-GRD worktree path', () => {
+    const nonGrdPath = '/tmp/random-worktree';
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, nonGrdPath, 'feature/something', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    expect(result).not.toHaveProperty('phase_detected');
+    expect(result).not.toHaveProperty('milestone_detected');
+  });
+
+  test('handles null worktree path gracefully', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, null, 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    // Should not crash, and should not have metadata
+    expect(result).not.toHaveProperty('phase_detected');
+  });
 });
