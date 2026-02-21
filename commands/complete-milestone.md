@@ -4,7 +4,7 @@ argument-hint: [--name milestone-name]
 ---
 
 <purpose>
-Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs full PROJECT.md evolution review, reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
+Mark a shipped version as complete. First runs an automated milestone audit (cross-phase integration checks, requirements coverage, tech debt aggregation), then creates historical record in MILESTONES.md, performs full PROJECT.md evolution review, reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
 </purpose>
 
 <required_reading>
@@ -23,6 +23,47 @@ INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init milestone-op)
 ```
 
 Parse JSON for: `phases_dir`, `commit_docs`, `milestone_version`, `milestone_name`.
+</step>
+
+<step name="audit_milestone">
+**Run milestone audit as first step of completion.**
+
+This step replaces the standalone `/grd:audit-milestone` command by integrating it directly.
+
+1. Determine milestone scope from init context
+2. Read all phase VERIFICATION.md files
+3. Spawn integration checker for cross-phase wiring:
+
+```
+Task(
+  prompt="Check cross-phase integration and E2E flows.
+Phases: {phase_dirs}
+Phase exports: {from SUMMARYs}
+API routes: {routes created}
+Verify cross-phase wiring and E2E user flows.",
+  subagent_type="grd:grd-integration-checker",
+  model="{integration_checker_model}"
+)
+```
+
+4. Aggregate results: phase-level gaps/tech debt + integration checker report
+5. Check requirements coverage: satisfied | partial | unsatisfied
+
+**Route by audit result:**
+
+- **If passed:** Continue to `verify_readiness` step
+- **If gaps_found:**
+  Present gap summary. Offer:
+  - "Continue anyway" — proceed to verify_readiness
+  - "Fix first" — offer `/grd:plan-milestone-gaps`, stop completion
+- **If tech_debt:**
+  Present tech debt summary. Offer:
+  - "Accept debt" — proceed to verify_readiness
+  - "Plan cleanup" — offer cleanup phase, stop completion
+
+<if mode="yolo">
+Auto-approve: if passed or tech_debt_only, proceed. If gaps_found, still proceed but log gaps.
+</if>
 </step>
 
 <step name="verify_readiness">
@@ -168,6 +209,7 @@ Milestone v[X.Y] [Name] complete
 </process>
 
 <success_criteria>
+- [ ] Milestone audit completed (integration checks, requirements coverage)
 - [ ] MILESTONES.md entry created
 - [ ] PROJECT.md full evolution review completed
 - [ ] ROADMAP.md reorganized with milestone grouping

@@ -153,14 +153,11 @@ LIFECYCLE — Session and milestone management
   /grd:resume-work              Resume work from previous session with
                                 full context restoration.
 
-  /grd:complete-milestone       Archive completed milestone and
-                                prepare for next version.
+  /grd:complete-milestone       Audit, archive, and tag a completed
+                                milestone. Runs integration checks first.
 
   /grd:new-milestone            Start a new milestone cycle. Update
                                 PROJECT.md and route to requirements.
-
-  /grd:audit-milestone          Audit milestone completion against
-                                original intent before archiving.
 
 
 INTEGRATION — Issue tracker sync
