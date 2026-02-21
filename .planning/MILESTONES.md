@@ -346,3 +346,38 @@
 
 ---
 
+
+
+
+## v0.2.6 Native Worktree Isolation (Shipped: 2026-02-22)
+
+**Delivered:** Hybrid worktree isolation using Claude Code's native `isolation: worktree` while preserving custom worktree lifecycle for non-Claude-Code backends.
+
+**Phases completed:** 3 phases (45-47), 9 plans, 47 new tests
+**Timeline:** 2026-02-21 to 2026-02-22 (2 days)
+**Source:** 1,779 tests (+85 from v0.2.5), 19 lib/ modules, 1 bug fix
+
+**Key accomplishments:**
+- Native worktree isolation capability detection: `native_worktree_isolation` flag in `BACKEND_CAPABILITIES`, `native_worktree_available` boolean in all init JSON outputs
+- WorktreeCreate/WorktreeRemove hook registration with best-effort branch rename to GRD convention and lifecycle tracking
+- Agent frontmatter audit: 20 agents with unique, descriptive names and descriptions for `claude agents` CLI display
+- Hybrid execute-phase orchestrator: native `isolation: "worktree"` on Claude Code, manual worktree creation on other backends
+- Executor dual-mode operation: `isolation_mode` context variable controls native vs manual behavior; `main_repo_path` for shared STATE.md writes
+- Parallel execution adaptation: `buildParallelContext` skips worktree pre-computation when native isolation available
+- 4-option completion flow adapted for native worktree branches (merge/PR/keep/discard)
+- Bug fix: `detectBackend(cwd)` missing `cwd` argument in `cmdInitExecuteParallel` (lib/parallel.js)
+- All 3 deferred validations (DEFER-46-01/02/03) resolved via live Claude Code native worktree test
+
+**Key decisions:**
+- 45-01: native_worktree_isolation is true only for claude backend; reports capability not policy
+- 46-01: isolation_mode derived from branching_strategy + backend capabilities, not a separate config field
+- 46-03: Native mode uses `<native_isolation>` block instead of `<worktree>` block in executor prompts
+- 46-03: Manual mode preserved verbatim from v0.2.5 in both orchestrator and executor
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-30-01: Full parallel execution with real teammate spawning (partially resolved)
+- DEFER-43/44: Live WebMCP workflow validation (requires Chrome DevTools MCP)
+
+---
+

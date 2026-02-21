@@ -35,11 +35,29 @@ A Claude Code plugin providing:
 - Constitution layer (PRINCIPLES.md) for project-level principles shaping agent behavior
 - Standards discovery (/grd:discover) for extracting and enforcing codebase patterns
 - WebMCP integration: optional Chrome DevTools MCP health checks in execute-phase, tool discovery in verify-phase, tool definition generation in eval-planner
+- Native worktree isolation: hybrid strategy using Claude Code's `isolation: worktree` on Claude Code backend, retaining custom worktree lifecycle for other backends
+- WorktreeCreate/WorktreeRemove hooks for GRD-specific worktree setup (branch naming, lifecycle tracking)
 - 39 commands (consolidated from 45) across 19 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.6)
+
+**Shipped:** 2026-02-22
+
+v0.2.6 adopted Claude Code's native `isolation: worktree` via hybrid strategy:
+- Native worktree isolation capability detection: `native_worktree_isolation` in BACKEND_CAPABILITIES, `native_worktree_available` in init JSON
+- WorktreeCreate/WorktreeRemove hook registration with best-effort branch rename and lifecycle tracking
+- Agent frontmatter audit: 20 agents with unique names/descriptions for `claude agents` CLI
+- Hybrid execute-phase: native `isolation: "worktree"` on Claude Code, manual worktree on other backends
+- Executor dual-mode: `isolation_mode` context controls native vs manual; `main_repo_path` for shared STATE.md writes
+- Parallel execution: `buildParallelContext` skips worktree pre-computation when native isolation available
+- 4-option completion flow adapted for native worktree branches
+- Bug fix: `detectBackend(cwd)` missing `cwd` in `cmdInitExecuteParallel`
+- All 3 deferred validations (DEFER-46-01/02/03) resolved via live native worktree test
+- 1,779 tests passing (85 new), 19 lib/ modules
 
 ## Previous State (v0.2.5)
 
@@ -339,7 +357,21 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Validated Goals (v0.2.5)
+## Validated Goals (v0.2.6)
+
+- [x] `native_worktree_isolation` flag in BACKEND_CAPABILITIES for Claude Code backend; `native_worktree_available` in all init JSON outputs
+- [x] WorktreeCreate/WorktreeRemove hooks registered in plugin.json with branch rename and lifecycle tracking
+- [x] 20 agent definitions audited with unique, descriptive names and descriptions for `claude agents` CLI
+- [x] Hybrid execute-phase: native `isolation: "worktree"` on Claude Code, manual worktree on other backends
+- [x] Executor dual-mode: `isolation_mode` context variable (native/manual/none), `main_repo_path` for shared STATE.md writes
+- [x] `buildParallelContext` skips worktree pre-computation when native isolation available; backward-compatible options pattern
+- [x] 4-option completion flow adapted for native worktree branches (merge/PR/keep/discard)
+- [x] Bug fix: `detectBackend(cwd)` in cmdInitExecuteParallel (lib/parallel.js)
+- [x] All 3 deferred validations (DEFER-46-01/02/03) resolved via live Claude Code native worktree test
+- [x] 1,779 tests passing across 33 suites (85 new tests, zero regressions)
+
+<details>
+<summary>Validated Goals (v0.2.5)</summary>
 
 - [x] `detectWebMcp()` in lib/backend.js with config/env-var/MCP-server detection cascade
 - [x] `webmcp_available` and `webmcp_skip_reason` in all init JSON outputs (execute-phase, plan-phase, verify-work)
@@ -352,26 +384,12 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] grd-code-reviewer `artifact_exclusions` step excludes VERIFICATION.md from must_haves checks
 - [x] 1,694 tests passing across 32 suites (15 new tests, zero regressions)
 
-## Current Milestone: v0.2.6 — Native Worktree Isolation
-
-**Goal:** Adopt Claude Code's native `isolation: worktree` feature via hybrid strategy — use native isolation when running on Claude Code, retain GRD's custom worktree implementation for non-Claude-Code backends and advanced workflows (milestone branches, stacked PRs, 4-option completion flow).
-
-**Target features:**
-- Detect Claude Code native worktree isolation capability via backend detection
-- Use native `isolation: worktree` for executor agent spawning on Claude Code backend
-- Register `WorktreeCreate`/`WorktreeRemove` hooks for GRD-specific worktree setup (branch naming, .planning/ config)
-- Simplify executor agent when native isolation active (remove `<worktree>` block complexity)
-- Adapt execute-phase orchestrator to skip manual worktree creation/cleanup when native isolation available
-- Handle shared state (STATE.md) correctly when executor runs in native worktree isolation
-- Retain full custom worktree lifecycle for non-Claude-Code backends (Codex, Gemini, OpenCode)
-- Audit all 20 agent definitions for clean `claude agents` CLI display
-
-**Triggered by:** Claude Code v2.1.50 adding `isolation: worktree` agent definition support, `WorktreeCreate`/`WorktreeRemove` hook events, and `claude agents` CLI command.
+</details>
 
 ## Open Items
 
 - DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
-- DEFER-30-01: Full parallel execution with real teammate spawning on Claude Code (requires runtime)
+- DEFER-30-01: Full parallel execution with real teammate spawning on Claude Code (partially resolved)
 - DEFER-43-01/02: Live MCP detection and code reviewer validation (requires Chrome DevTools MCP)
 - DEFER-44-01/02/03: Live WebMCP workflow validation (requires Chrome DevTools MCP + frontend phase)
 - TypeScript migration (evaluated and deferred)
@@ -408,3 +426,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.2.3 milestone shipped: 2026-02-21*
 *v0.2.4 milestone shipped: 2026-02-21*
 *v0.2.5 milestone shipped: 2026-02-21*
+*v0.2.6 milestone shipped: 2026-02-22*

@@ -1,0 +1,16 @@
+{
+  "version": "v0.2.6",
+  "name": "Native Worktree Isolation - Phases 45-47",
+  "archived_date": "2026-02-22",
+  "phases": 3,
+  "plans": 9,
+  "tasks": 47,
+  "accomplishments": [
+    "Native worktree isolation capability detection (native_worktree_isolation flag in BACKEND_CAPABILITIES, native_worktree_available in init JSON)",
+    "WorktreeCreate/WorktreeRemove hook registration with branch rename and lifecycle tracking",
+    "Agent frontmatter audit for clean claude agents CLI display (20 agents, unique names/descriptions)",
+    "Hybrid execute-phase: native isolation on Claude Code, manual worktree on other backends",
+    "Executor dual-mode operation (native/manual) with shared STATE.md writes via main_repo_path",
+    "47 new tests across 5 files, detectBackend(cwd) bug fix, all deferred validations resolved live"
+  ]
+}
