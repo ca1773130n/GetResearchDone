@@ -327,7 +327,14 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 ## Current Milestone
 
-*No active milestone. Run `/grd:new-milestone` to start the next one.*
+**v0.2.5 — WebMCP Support & Bugfixes**
+
+Target features:
+- Per-plan WebMCP sanity checks during execute-phase (health, console errors, page rendering) with retry/halt logic
+- WebMCP tool calls in verify-phase (discover registered tools, call them, record results in VERIFICATION.md)
+- Eval planner generates `useWebMcpTool()` definitions for frontend-touching phases
+- Fix code reviewer false blocker on VERIFICATION.md (created by verifier, not reviewer)
+- Graceful MCP availability detection — all WebMCP features skip when Chrome DevTools MCP is not configured
 
 ## Open Items
 

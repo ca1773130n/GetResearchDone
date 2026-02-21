@@ -4,10 +4,10 @@
 
 ## Current Position
 
-- **Active phase:** None — milestone complete
-- **Milestone:** v0.2.4 — Layered Integration (shipped)
-- **Progress:** [██████████] 100%
-- **Next:** Run `/grd:new-milestone` to start next version
+- **Active phase:** Not started (defining requirements)
+- **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements, create roadmap
 
 ## Deferred Validations
 
@@ -39,10 +39,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed v0.2.4 Layered Integration milestone
-- **Stopped at:** Milestone archived, tagged, pushed
-- **Next action:** `/grd:new-milestone`
-- **Context needed:** v0.2.4 added 4 layers (constitution, standards, ceremony, command consolidation) borrowed from competing frameworks. Commands reduced from 45 to 39.
+- **Last action:** Started v0.2.5 milestone
+- **Stopped at:** Defining requirements
+- **Next action:** Create requirements and roadmap
+- **Context needed:** v0.2.5 adds WebMCP integration (execute-phase sanity checks, verify-phase tool calls, eval-planner tool definitions) and fixes code reviewer false blocker on VERIFICATION.md
 
 ---
 
