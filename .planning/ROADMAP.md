@@ -134,6 +134,11 @@ Phases 43-44 added graceful WebMCP integration across execute-phase, verify-phas
 **Depends on**: Nothing (first phase of milestone)
 **Requirements**: REQ-101, REQ-107, REQ-108
 **Verification Level**: sanity
+**Plans:** 3 plans
+Plans:
+- [ ] 45-01-PLAN.md — Backend capability detection (native_worktree_isolation flag + init JSON)
+- [ ] 45-02-PLAN.md — WorktreeCreate/WorktreeRemove hook registration and handlers
+- [ ] 45-03-PLAN.md — Agent frontmatter audit for claude agents CLI
 **Success Criteria** (what must be TRUE):
   1. `BACKEND_CAPABILITIES['claude']` includes `native_worktree_isolation: true` and `cmdInitExecutePhase` JSON output includes a `native_worktree_available` boolean field that is `true` when backend is `'claude'` and `false` for all other backends
   2. `plugin.json` registers `WorktreeCreate` and `WorktreeRemove` hooks; `WorktreeCreate` hook handler optionally renames the branch to GRD's convention and logs the creation; both hooks are no-op when GRD is inactive or manual worktree mode is in use
@@ -168,7 +173,7 @@ Phases 43-44 added graceful WebMCP integration across execute-phase, verify-phas
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 45. Foundation & Detection | 0/? | Not started | - |
+| 45. Foundation & Detection | 0/3 | Planned | - |
 | 46. Hybrid Worktree Execution | 0/? | Not started | - |
 | 47. Integration & Regression Testing | 0/? | Not started | - |
 
