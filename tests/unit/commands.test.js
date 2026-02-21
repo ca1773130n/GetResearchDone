@@ -3346,3 +3346,33 @@ describe('cmdMigrateDirs', () => {
     expect(papersContent).toBe('# Papers');
   });
 });
+
+// ─── ceremony config defaults ──────────────────────────────────────────────
+
+describe('ceremony config defaults', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Remove existing config so ensure-section creates fresh
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('newly created config includes ceremony section', () => {
+    const { stdout } = captureOutput(() => cmdConfigEnsureSection(tmpDir, false));
+    const result = parseFirstJson(stdout);
+    expect(result.created).toBe(true);
+
+    const config = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.planning', 'config.json'), 'utf-8')
+    );
+    expect(config.ceremony).toBeDefined();
+    expect(config.ceremony.default_level).toBe('auto');
+    expect(config.ceremony.phase_overrides).toEqual({});
+  });
+});
