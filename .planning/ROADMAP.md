@@ -147,11 +147,11 @@ Plans:
   3. The grd-verifier agent calls `hive_list_registered_tools` to discover available WebMCP tools and includes tool call results in VERIFICATION.md
   4. The grd-eval-planner agent outputs `useWebMcpTool()` call definitions in EVAL.md when the phase modifies frontend views
   5. All three agent/command template modifications (execute-phase.md, grd-verifier.md, grd-eval-planner.md) include conditional guards that check `webmcp_available` before attempting any MCP tool calls
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 44-01: Execute-phase WebMCP sanity checks with retry/halt logic (REQ-97)
-- [ ] 44-02: Verify-phase WebMCP tool discovery and invocation (REQ-98) + eval-planner WebMCP definitions (REQ-99)
+- [ ] 44-01-PLAN.md — Execute-phase WebMCP sanity checks with retry/halt logic (REQ-97)
+- [ ] 44-02-PLAN.md — Verify-phase WebMCP tool discovery and invocation (REQ-98) + eval-planner WebMCP definitions (REQ-99)
 
 ## Progress
 
