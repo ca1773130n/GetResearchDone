@@ -859,4 +859,36 @@ describe('lib/backend.js', () => {
       expect(result.source).toBe('mcp-config');
     });
   });
+
+  // ─── Phase 47: BACKEND_CAPABILITIES native_worktree_isolation per backend ──
+
+  describe('BACKEND_CAPABILITIES native_worktree_isolation per backend', () => {
+    test('BACKEND_CAPABILITIES.claude.native_worktree_isolation is true', () => {
+      expect(BACKEND_CAPABILITIES.claude.native_worktree_isolation).toBe(true);
+    });
+
+    test('BACKEND_CAPABILITIES.codex.native_worktree_isolation is false', () => {
+      expect(BACKEND_CAPABILITIES.codex.native_worktree_isolation).toBe(false);
+    });
+
+    test('BACKEND_CAPABILITIES.gemini.native_worktree_isolation is false', () => {
+      expect(BACKEND_CAPABILITIES.gemini.native_worktree_isolation).toBe(false);
+    });
+
+    test('BACKEND_CAPABILITIES.opencode.native_worktree_isolation is false', () => {
+      expect(BACKEND_CAPABILITIES.opencode.native_worktree_isolation).toBe(false);
+    });
+
+    test('getBackendCapabilities("claude").native_worktree_isolation returns true', () => {
+      expect(getBackendCapabilities('claude').native_worktree_isolation).toBe(true);
+    });
+
+    test('getBackendCapabilities("codex").native_worktree_isolation returns false', () => {
+      expect(getBackendCapabilities('codex').native_worktree_isolation).toBe(false);
+    });
+
+    test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (returns true)', () => {
+      expect(getBackendCapabilities('unknown-backend').native_worktree_isolation).toBe(true);
+    });
+  });
 });
