@@ -1,92 +1,38 @@
-# Requirements — v0.2.4 Layered Integration
+# Requirements — v0.2.5 WebMCP Support & Bugfixes
 
-**Milestone:** v0.2.4
+**Milestone:** v0.2.5
 **Created:** 2026-02-21
 
-## Constitution Layer
+## WebMCP Integration
 
-### REQ-83: PRINCIPLES.md support in init workflows
-All init functions (execute-phase, plan-phase, new-project, quick) detect `.planning/PRINCIPLES.md` and expose `principles_exists` in their JSON output. The `--include principles` flag loads file contents into the init response.
+### REQ-96: MCP availability detection
+Detect whether Chrome DevTools MCP is configured and available. All WebMCP features gracefully skip when MCP is not available — same feature-detection pattern as other optional integrations. Detection result exposed in init JSON output.
 - **Priority:** P0
 - **Category:** Core
-- **Phase:** 42
+- **Phase:** TBD
 
-### REQ-84: /grd:principles command
-Interactive command for creating and editing PRINCIPLES.md with 5 categories: Coding Philosophy, Testing Requirements, Architecture Constraints, Documentation Standards, Communication Style.
-- **Priority:** P1
-- **Category:** Command
-- **Phase:** 42
-
-## Standards Layer
-
-### REQ-85: standardsDir in path resolver
-`lib/paths.js` gains a `standardsDir()` function following the same milestone-scoped pattern as `todosDir`, `quickDir`, and `researchDir`.
-- **Priority:** P0
-- **Category:** Core
-- **Phase:** 42
-
-### REQ-86: Standards detection in init workflows
-All init functions detect `.planning/standards/index.yml` and expose `standards_exists` and `standards_dir` in their JSON output.
-- **Priority:** P1
-- **Category:** Core
-- **Phase:** 42
-
-### REQ-87: /grd:discover command
-Interactive codebase standards discovery command that scans representative files, extracts patterns, presents them for user confirmation, and writes to `.planning/standards/`.
-- **Priority:** P1
-- **Category:** Command
-- **Phase:** 42
-
-## Scale-Adaptive Ceremony
-
-### REQ-88: Ceremony level auto-inference
-`inferCeremonyLevel()` function that determines light/standard/full based on: user override > per-phase override > auto-inference (plan count, research references, eval targets in roadmap).
-- **Priority:** P0
-- **Category:** Core
-- **Phase:** 42
-
-### REQ-89: Ceremony config defaults
-Default config includes `ceremony: { default_level: 'auto', phase_overrides: {} }` section.
-- **Priority:** P1
-- **Category:** Core
-- **Phase:** 42
-
-## Command Consolidation
-
-### REQ-90: Merge dashboard/health into progress
-`/grd:progress` absorbs dashboard (full TUI view), health (blockers, velocity), and phase-detail (phase N drill-down) as modes.
+### REQ-97: Per-plan WebMCP sanity checks in execute-phase
+After each plan's executor agent completes (in the `execute_waves` step of `execute-phase.md`), call generic WebMCP tools via Chrome DevTools MCP: `hive_get_health_status` (backend responding), `hive_check_console_errors` (no new JS errors), `hive_get_page_info` (app rendering). First failure → retry. Second failure → halt execution with clear error.
 - **Priority:** P0
 - **Category:** Command
-- **Phase:** 42
+- **Phase:** TBD
 
-### REQ-91: Merge yolo/set-profile into settings
-`/grd:settings` gains subcommands: `yolo [on|off]`, `profile <p>`, `ceremony <l>`.
+### REQ-98: WebMCP tool calls in verify-phase
+The grd-verifier agent reads EVAL.md, discovers registered WebMCP tools via `hive_list_registered_tools`, calls both generic and page-specific tools, and includes results in VERIFICATION.md.
 - **Priority:** P0
-- **Category:** Command
-- **Phase:** 42
+- **Category:** Agent
+- **Phase:** TBD
 
-### REQ-92: Merge research-phase/eval-plan into plan-phase
-`/grd:plan-phase` gains `--research-only` and `--eval-only` flags.
-- **Priority:** P0
-- **Category:** Command
-- **Phase:** 42
-
-### REQ-93: Merge audit-milestone into complete-milestone
-Milestone audit becomes automatic first step of `/grd:complete-milestone`.
+### REQ-99: Eval planner generates WebMCP tool definitions
+When planning eval for a phase that modifies frontend views, the grd-eval-planner agent outputs `useWebMcpTool()` call definitions specifying what page-specific tools the verifier should expect to find.
 - **Priority:** P1
-- **Category:** Command
-- **Phase:** 42
+- **Category:** Agent
+- **Phase:** TBD
 
-### REQ-94: Remove phase-detail command
-Standalone `/grd:phase-detail` removed; functionality absorbed by `/grd:progress phase <N>`.
-- **Priority:** P1
-- **Category:** Command
-- **Phase:** 42
+## Bugfix
 
-## Documentation
-
-### REQ-95: CLAUDE.md updates
-CLAUDE.md reflects all new features: PRINCIPLES.md, standards directory, ceremony levels, updated command count (39), new/removed commands, ceremony config.
+### REQ-100: Fix code reviewer VERIFICATION.md false blocker
+The code reviewer agent should not flag missing VERIFICATION.md as a blocker during code review. VERIFICATION.md is created by the grd-verifier agent in the subsequent verify-phase step, not during or before code review. The reviewer's must_haves validation should exclude VERIFICATION.md from its checks.
 - **Priority:** P0
-- **Category:** Docs
-- **Phase:** 42
+- **Category:** Agent
+- **Phase:** TBD
