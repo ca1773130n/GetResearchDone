@@ -71,6 +71,7 @@ const {
   detectModels,
   getCachedModels,
   clearModelCache,
+  detectWebMcp,
 } = require('../../lib/backend');
 
 describe('lib/backend.js', () => {
@@ -662,6 +663,166 @@ describe('lib/backend.js', () => {
 
     test('backward compatible: undefined cwd uses defaults', () => {
       expect(resolveBackendModel('opencode', 'opus')).toBe('anthropic/claude-opus-4-5');
+    });
+  });
+
+  // ─── detectWebMcp(cwd) ──────────────────────────────────────────────────
+
+  describe('detectWebMcp(cwd)', () => {
+    let savedEnv;
+    let tmpDir;
+    let readFileSyncSpy;
+
+    beforeEach(() => {
+      savedEnv = { ...process.env };
+      // Clear WebMCP-related env vars
+      delete process.env.CHROME_DEVTOOLS_MCP;
+      delete process.env.WEBMCP_AVAILABLE;
+      tmpDir = createTempDir();
+    });
+
+    afterEach(() => {
+      process.env = savedEnv;
+      cleanupTempDir(tmpDir);
+      if (readFileSyncSpy) {
+        readFileSyncSpy.mockRestore();
+        readFileSyncSpy = null;
+      }
+    });
+
+    test('returns available: false with reason when nothing detected', () => {
+      // Mock ~/.claude.json to not exist (ensure clean detection)
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('default');
+      expect(result.reason).toBe(
+        'Chrome DevTools MCP not detected in config, environment, or MCP server settings'
+      );
+    });
+
+    test('returns available: true, source: "config" when webmcp.enabled is true', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { webmcp: { enabled: true } } });
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('config');
+    });
+
+    test('returns available: false, source: "config" when webmcp.enabled is false', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { webmcp: { enabled: false } } });
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('config');
+      expect(result.reason).toBe('Disabled via config');
+    });
+
+    test('returns available: true, source: "env" when CHROME_DEVTOOLS_MCP=true', () => {
+      // Mock ~/.claude.json to not exist
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      process.env.CHROME_DEVTOOLS_MCP = 'true';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('env');
+    });
+
+    test('returns available: true, source: "env" when WEBMCP_AVAILABLE=1', () => {
+      // Mock ~/.claude.json to not exist
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      process.env.WEBMCP_AVAILABLE = '1';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('env');
+    });
+
+    test('returns available: false with reason when env var is "false"', () => {
+      // Mock ~/.claude.json to not exist
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      process.env.CHROME_DEVTOOLS_MCP = 'false';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('env');
+      expect(result.reason).toBe('Disabled via environment variable');
+    });
+
+    test('returns available: true, source: "mcp-config" when ~/.claude.json has matching server', () => {
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          return JSON.stringify({
+            mcpServers: {
+              'chrome-devtools': { command: 'npx', args: ['@anthropic/mcp-chrome'] },
+            },
+          });
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('mcp-config');
+    });
+
+    test('config override takes priority over env var', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { webmcp: { enabled: false } } });
+      process.env.CHROME_DEVTOOLS_MCP = 'true';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('config');
+    });
+
+    test('handles missing .planning directory gracefully', () => {
+      const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-webmcp-empty-'));
+      // Mock ~/.claude.json to not exist
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      try {
+        const result = detectWebMcp(emptyDir);
+        expect(result.available).toBe(false);
+        expect(result.source).toBe('default');
+      } finally {
+        cleanupTempDir(emptyDir);
+      }
+    });
+
+    test('matches playwright server name in ~/.claude.json', () => {
+      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          return JSON.stringify({
+            mcpServers: {
+              'playwright-browser': { command: 'npx', args: ['playwright-mcp'] },
+            },
+          });
+        }
+        return jest.requireActual('fs').readFileSync(filePath, ...args);
+      });
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('mcp-config');
     });
   });
 });
