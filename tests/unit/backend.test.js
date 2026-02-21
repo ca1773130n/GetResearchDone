@@ -151,7 +151,14 @@ describe('lib/backend.js', () => {
     });
 
     test('each entry has subagents, parallel, teams, hooks, mcp, native_worktree_isolation keys', () => {
-      const requiredKeys = ['subagents', 'parallel', 'teams', 'hooks', 'mcp', 'native_worktree_isolation'];
+      const requiredKeys = [
+        'subagents',
+        'parallel',
+        'teams',
+        'hooks',
+        'mcp',
+        'native_worktree_isolation',
+      ];
       for (const backend of VALID_BACKENDS) {
         for (const key of requiredKeys) {
           expect(BACKEND_CAPABILITIES[backend]).toHaveProperty(key);

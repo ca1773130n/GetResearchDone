@@ -19,6 +19,8 @@ const {
   validateFilePath,
   validateGitRef,
   safeReadFile,
+  safeReadJSON,
+  extractMarkdownSection,
   parseIncludeFlag,
   normalizePhaseName,
   resolveModelInternal,
@@ -863,5 +865,79 @@ describe('getMilestoneInfo', () => {
     const info = getMilestoneInfo(tmpDir);
     expect(info.version).toBe('v0.2.0');
     expect(info.name).toBe('Active Work');
+  });
+});
+
+// ─── safeReadJSON ─────────────────────────────────────────────────────────────
+
+describe('safeReadJSON', () => {
+  const fs = require('fs');
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns parsed object for valid JSON file', () => {
+    const filePath = path.join(tmpDir, 'test.json');
+    fs.writeFileSync(filePath, '{"key":"value","num":42}', 'utf-8');
+    const result = safeReadJSON(filePath);
+    expect(result).toEqual({ key: 'value', num: 42 });
+  });
+
+  test('returns null for non-existent file', () => {
+    const result = safeReadJSON(path.join(tmpDir, 'missing.json'));
+    expect(result).toBeNull();
+  });
+
+  test('returns custom default for non-existent file', () => {
+    const result = safeReadJSON(path.join(tmpDir, 'missing.json'), {});
+    expect(result).toEqual({});
+  });
+
+  test('returns null for malformed JSON', () => {
+    const filePath = path.join(tmpDir, 'bad.json');
+    fs.writeFileSync(filePath, '{invalid json', 'utf-8');
+    const result = safeReadJSON(filePath);
+    expect(result).toBeNull();
+  });
+});
+
+// ─── extractMarkdownSection ───────────────────────────────────────────────────
+
+describe('extractMarkdownSection', () => {
+  test('extracts ## section content correctly', () => {
+    const md = '## Overview\nSome content here.\n\n## Details\nMore details.\n';
+    const result = extractMarkdownSection(md, 'Overview');
+    expect(result).toContain('Some content here.');
+  });
+
+  test('extracts ### section content with level=3', () => {
+    const md = '### Setup\nSetup instructions.\n\n### Usage\nUsage guide.\n';
+    const result = extractMarkdownSection(md, 'Setup', 3);
+    expect(result).toContain('Setup instructions.');
+  });
+
+  test('returns null for missing section', () => {
+    const md = '## Overview\nSome content.\n';
+    const result = extractMarkdownSection(md, 'NonExistent');
+    expect(result).toBeNull();
+  });
+
+  test('case-insensitive heading match', () => {
+    const md = '## OVERVIEW\nContent here.\n\n## Next\nMore.\n';
+    const result = extractMarkdownSection(md, 'overview');
+    expect(result).toContain('Content here.');
+  });
+
+  test('stops at next heading of same level', () => {
+    const md = '## First\nFirst content.\n\n## Second\nSecond content.\n';
+    const result = extractMarkdownSection(md, 'First');
+    expect(result).toContain('First content.');
+    expect(result).not.toContain('Second content.');
   });
 });

@@ -133,7 +133,7 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 
 - [x] **Phase 48: Dogfooding Infrastructure** - Set up testbed project and local CLI testing harness `implement`
 - [x] **Phase 49: Bug Discovery & Fixes** - Fix currentMilestone bug and exercise workflows to find more `evaluate`
-- [ ] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
+- [x] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
 - [ ] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
 - [ ] **Phase 52: Autopilot Command** - Plan and execute multiple phases autonomously with context isolation between each `implement`
 - [ ] **Phase 53: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
@@ -186,8 +186,12 @@ Plans:
   2. At least 3 duplicate code patterns are identified and consolidated into shared utility functions in `lib/utils.js` or appropriate modules
   3. All unused exports identified by static analysis are removed; `exports` objects contain only actively-consumed symbols
   4. Total lib/ LOC decreases by at least 100 lines (net, after adding any new shared utilities)
-  5. Full test suite (1,779+ tests) passes with zero regressions after all changes
-**Plans**: TBD
+  5. Full test suite (1,842+ tests) passes with zero regressions after all changes
+**Plans**: 3 plans
+Plans:
+- [x] 50-01-PLAN.md -- Remove 6 dead exports, decompose cmdTracker (634 lines) into handler-per-subcommand
+- [x] 50-02-PLAN.md -- Decompose cmdDashboard (405 lines), add safeReadJSON/extractMarkdownSection utilities, consolidate safe-read patterns
+- [x] 50-03-PLAN.md -- Consolidate cmdInit* boilerplate, tighten remaining code, generate complexity audit report, verify 100-line LOC reduction
 
 ### Phase 51: Test Coverage & Feature Discovery
 **Goal**: All lib/ modules achieve 85%+ line coverage, and at least 2 new features driven by real dogfooding friction are implemented and tested
@@ -253,7 +257,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 48. Dogfooding Infrastructure | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 49. Bug Discovery & Fixes | v0.2.7 | 3/3 | Complete | 2026-02-22 |
-| 50. Complexity & Tech Debt Reduction | v0.2.7 | 0/TBD | Not started | - |
+| 50. Complexity & Tech Debt Reduction | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 51. Test Coverage & Feature Discovery | v0.2.7 | 0/TBD | Not started | - |
 | 52. Autopilot Command | v0.2.7 | 0/TBD | Not started | - |
 | 53. Integration & Regression Testing | v0.2.7 | 0/TBD | Not started | - |

@@ -1200,16 +1200,15 @@ describe('cmdWorktreeMerge', () => {
     execFileSync('git', ['checkout', customBranch], { cwd: repoDir, stdio: 'pipe' });
     fs.writeFileSync(path.join(repoDir, 'custom-work.txt'), 'custom branch work', 'utf-8');
     execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
-    execFileSync('git', ['commit', '-m', 'feat: custom branch work'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: custom branch work'], {
+      cwd: repoDir,
+      stdio: 'pipe',
+    });
     execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
 
     // Merge using explicit branch name
     const { stdout, exitCode } = captureOutput(() =>
-      cmdWorktreeMerge(
-        repoDir,
-        { phase: '27', milestone: 'v0.2.0', branch: customBranch },
-        false
-      )
+      cmdWorktreeMerge(repoDir, { phase: '27', milestone: 'v0.2.0', branch: customBranch }, false)
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);

@@ -1088,9 +1088,7 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
     });
 
     test('cmdInitExecutePhase reports native isolation for claude backend', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(repoDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '1', new Set(), false));
       const ctx = JSON.parse(stdout);
 
       expect(ctx.backend).toBe('claude');
@@ -1144,9 +1142,7 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
     });
 
     test('cmdInitExecutePhase reports manual isolation for codex backend', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(repoDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '1', new Set(), false));
       const ctx = JSON.parse(stdout);
 
       expect(ctx.backend).toBe('codex');
@@ -1204,9 +1200,7 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
         branching_strategy: 'none',
       });
 
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(repoDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(repoDir, '1', new Set(), false));
       const ctx = JSON.parse(stdout);
 
       expect(ctx.isolation_mode).toBe('none');

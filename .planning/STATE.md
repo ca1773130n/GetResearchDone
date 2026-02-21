@@ -7,16 +7,16 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.2.7 Self-Evolution -- Phase 50 Complexity & Tech Debt Reduction
+**Current focus:** v0.2.7 Self-Evolution -- Phase 51 Test Coverage & Feature Discovery
 
 ## Current Position
 
-- **Active phase:** Phase 50 of 52 (Complexity & Tech Debt Reduction)
-- **Current plan:** None (ready to plan)
+- **Active phase:** Phase 51 of 52 (Test Coverage & Feature Discovery)
+- **Current plan:** None (not yet planned)
 - **Milestone:** v0.2.7 Self-Evolution
-- **Status:** Phase 49 complete, ready to plan Phase 50
-- **Progress:** [####------] 40%
-- **Next:** `/grd:plan-phase 50`
+- **Status:** Phase 50 complete, Phase 51 next
+- **Progress:** [######----] 60%
+- **Next:** `/grd:plan-phase 51`
 
 ## Testbed
 
@@ -42,9 +42,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 15 (v0.0.5 through v0.2.6)
-- Total tests: 1,840
+- Total tests: 1,853
 - Total lib/ modules: 19
 - Total commands: 39
+- Total lib/ LOC: 16,538
 
 ## Known Bugs
 
@@ -61,10 +62,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 49 (3/3 plans complete, 5 bugs resolved, 61 new tests, 1,840 total)
-- **Stopped at:** Phase 49 execution complete
-- **Next action:** Plan Phase 50 (`/grd:plan-phase 50`)
-- **Context needed:** Phase 50 targets complexity/tech debt reduction in top 3 lib/ modules. See ROADMAP.md Phase 50 success criteria.
+- **Last action:** Executed Phase 50 (3 plans complete: dead export removal + cmdTracker decomposition, cmdDashboard decomposition + shared utilities, code tightening + audit report)
+- **Stopped at:** Phase 50 execution complete
+- **Next action:** Plan Phase 51 (`/grd:plan-phase 51`)
+- **Context needed:** Phase 50 reduced lib/ LOC from 16,592 to 16,538 (-54 net, -106 in modified files). Decomposed cmdTracker (12 handlers) and cmdDashboard (6 helpers). Removed 6 dead exports + 2 dead functions. Added safeReadJSON + extractMarkdownSection utilities. 1,853 tests pass. Phase 51 focuses on test coverage 85%+ and dogfooding-driven features.
 
 ---
 

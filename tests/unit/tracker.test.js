@@ -460,4 +460,48 @@ describe('cmdTracker', () => {
     const result = JSON.parse(stdout);
     expect(result.error).toContain('mcp-atlassian');
   });
+
+  test('unknown subcommand produces error with available list', () => {
+    const { stderr, exitCode } = captureError(() =>
+      cmdTracker(tmpDir, 'nonexistent-cmd', [], false)
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Unknown tracker subcommand: 'nonexistent-cmd'");
+    expect(stderr).toContain('get-config');
+    expect(stderr).toContain('sync-roadmap');
+    expect(stderr).toContain('schedule');
+  });
+
+  test('handler dispatch covers all 12 subcommands', () => {
+    const subcommands = [
+      'get-config',
+      'sync-roadmap',
+      'sync-phase',
+      'update-status',
+      'add-comment',
+      'sync-status',
+      'prepare-roadmap-sync',
+      'prepare-phase-sync',
+      'record-mapping',
+      'record-status',
+      'schedule',
+      'prepare-reschedule',
+    ];
+    for (const sub of subcommands) {
+      // Each subcommand should NOT produce "Unknown tracker subcommand" error
+      let caught = false;
+      try {
+        captureOutput(() => cmdTracker(tmpDir, sub, [], false));
+      } catch {
+        // Some subcommands may error() on missing args — that's fine, it means they dispatched
+        caught = true;
+      }
+      // If it didn't throw, it dispatched successfully
+      // If it did throw, it should NOT be about unknown subcommand
+      if (caught) {
+        const { stderr } = captureError(() => cmdTracker(tmpDir, sub, [], false));
+        expect(stderr).not.toContain('Unknown tracker subcommand');
+      }
+    }
+  });
 });

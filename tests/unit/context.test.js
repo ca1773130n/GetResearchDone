@@ -993,27 +993,21 @@ describe('ceremony level detection', () => {
   });
 
   test('cmdInitExecutePhase includes ceremony_level field', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.ceremony_level).toBeDefined();
     expect(['light', 'standard', 'full']).toContain(result.ceremony_level);
   });
 
   test('cmdInitPlanPhase includes ceremony_level field', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.ceremony_level).toBeDefined();
     expect(['light', 'standard', 'full']).toContain(result.ceremony_level);
   });
 
   test('phase with 1 plan infers light ceremony', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     // fixture has 1 plan for phase 1 -> should infer light
     expect(result.ceremony_level).toBe('light');
@@ -1046,34 +1040,26 @@ describe('standards integration', () => {
   });
 
   test('cmdInitExecutePhase includes standards_exists true', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.standards_exists).toBe(true);
     expect(result.standards_dir).toBeDefined();
   });
 
   test('cmdInitPlanPhase includes standards_exists true', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.standards_exists).toBe(true);
   });
 
   test('cmdInitQuick includes standards_exists true', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitQuick(tmpDir, 'test-task', false)
-    );
+    const { stdout } = captureOutput(() => cmdInitQuick(tmpDir, 'test-task', false));
     const result = JSON.parse(stdout);
     expect(result.standards_exists).toBe(true);
   });
 
   test('cmdInitNewProject includes standards_exists true', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitNewProject(tmpDir, false)
-    );
+    const { stdout } = captureOutput(() => cmdInitNewProject(tmpDir, false));
     const result = JSON.parse(stdout);
     expect(result.standards_exists).toBe(true);
   });
@@ -1102,9 +1088,7 @@ describe('webmcp_available integration', () => {
   });
 
   test('cmdInitExecutePhase includes webmcp_skip_reason when not available', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     // Fixture has no webmcp config, so should be false with a reason
     expect(result.webmcp_available).toBe(false);
@@ -1122,9 +1106,7 @@ describe('webmcp_available integration', () => {
   });
 
   test('cmdInitVerifyWork includes webmcp_available boolean field', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdInitVerifyWork(tmpDir, '1', false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdInitVerifyWork(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(typeof result.webmcp_available).toBe('boolean');
@@ -1202,9 +1184,7 @@ describe('native_worktree_available integration', () => {
 
   test('native_worktree_available is true when backend is claude (default)', () => {
     // No config override and no backend env vars -> claude -> true
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('claude');
     expect(result.native_worktree_available).toBe(true);
@@ -1221,9 +1201,7 @@ describe('native_worktree_available integration', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('codex');
     expect(result.native_worktree_available).toBe(false);
@@ -1267,9 +1245,7 @@ describe('isolation_mode and main_repo_path integration', () => {
 
   test('isolation_mode is native when backend is claude and branching_strategy is phase', () => {
     // Default fixture: backend=claude (default), branching_strategy=phase
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('claude');
     expect(result.isolation_mode).toBe('native');
@@ -1286,9 +1262,7 @@ describe('isolation_mode and main_repo_path integration', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('codex');
     expect(result.isolation_mode).toBe('manual');
@@ -1304,17 +1278,13 @@ describe('isolation_mode and main_repo_path integration', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.isolation_mode).toBe('none');
   });
 
   test('main_repo_path is a non-null string when branching_strategy is phase', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(typeof result.main_repo_path).toBe('string');
     expect(result.main_repo_path.length).toBeGreaterThan(0);
@@ -1330,9 +1300,7 @@ describe('isolation_mode and main_repo_path integration', () => {
         milestone_branch_template: 'grd/{milestone}-{slug}',
       })
     );
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.main_repo_path).toBeNull();
   });
@@ -1350,9 +1318,7 @@ describe('standards absent', () => {
   });
 
   test('cmdInitExecutePhase sets standards_exists false when no index.yml', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.standards_exists).toBe(false);
   });
@@ -1409,9 +1375,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // claude + phase -> isolation_mode='native', native_worktree_available=true, main_repo_path is string
   test('claude + phase -> isolation_mode=native, native_worktree_available=true, main_repo_path is string', () => {
     writeConfigForBackend(tmpDir, 'claude', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('claude');
     expect(result.isolation_mode).toBe('native');
@@ -1423,9 +1387,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // claude + none -> isolation_mode='none', native_worktree_available=true, main_repo_path=null
   test('claude + none -> isolation_mode=none, native_worktree_available=true, main_repo_path=null', () => {
     writeConfigForBackend(tmpDir, 'claude', 'none');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('claude');
     expect(result.isolation_mode).toBe('none');
@@ -1436,9 +1398,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // codex + phase -> isolation_mode='manual', native_worktree_available=false, main_repo_path is string
   test('codex + phase -> isolation_mode=manual, native_worktree_available=false, main_repo_path is string', () => {
     writeConfigForBackend(tmpDir, 'codex', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('codex');
     expect(result.isolation_mode).toBe('manual');
@@ -1450,9 +1410,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // codex + none -> isolation_mode='none', native_worktree_available=false, main_repo_path=null
   test('codex + none -> isolation_mode=none, native_worktree_available=false, main_repo_path=null', () => {
     writeConfigForBackend(tmpDir, 'codex', 'none');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('codex');
     expect(result.isolation_mode).toBe('none');
@@ -1463,9 +1421,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // gemini + phase -> isolation_mode='manual', native_worktree_available=false
   test('gemini + phase -> isolation_mode=manual, native_worktree_available=false', () => {
     writeConfigForBackend(tmpDir, 'gemini', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('gemini');
     expect(result.isolation_mode).toBe('manual');
@@ -1476,9 +1432,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // opencode + phase -> isolation_mode='manual', native_worktree_available=false
   test('opencode + phase -> isolation_mode=manual, native_worktree_available=false', () => {
     writeConfigForBackend(tmpDir, 'opencode', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.backend).toBe('opencode');
     expect(result.isolation_mode).toBe('manual');
@@ -1489,9 +1443,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // worktree_path is present and non-null when isolation_mode is manual (codex+phase)
   test('worktree_path is present and non-null when isolation_mode is manual', () => {
     writeConfigForBackend(tmpDir, 'codex', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.isolation_mode).toBe('manual');
     expect(result.worktree_path).toBeDefined();
@@ -1502,9 +1454,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // worktree_branch is present and non-null when branching_strategy is phase
   test('worktree_branch is present and non-null when branching_strategy is phase', () => {
     writeConfigForBackend(tmpDir, 'claude', 'phase');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.worktree_branch).toBeDefined();
     expect(result.worktree_branch).not.toBeNull();
@@ -1515,9 +1465,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
   // worktree_branch is null when branching_strategy is none
   test('worktree_branch is null when branching_strategy is none', () => {
     writeConfigForBackend(tmpDir, 'claude', 'none');
-    const { stdout } = captureOutput(() =>
-      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result.worktree_branch).toBeNull();
   });

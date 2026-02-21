@@ -907,10 +907,7 @@ describe('BUG-48-005: cmdStatePatch underscore-to-space mapping', () => {
   test('maps Current_plan underscore to Current plan in STATE.md', () => {
     const statePath = path.join(tmpDir, '.planning', 'STATE.md');
     let content = fs.readFileSync(statePath, 'utf-8');
-    content = content.replace(
-      '- **Current plan:** 01-01',
-      '- **Current plan:** 01-01'
-    );
+    content = content.replace('- **Current plan:** 01-01', '- **Current plan:** 01-01');
     fs.writeFileSync(statePath, content, 'utf-8');
 
     const { stdout, exitCode } = captureOutput(() => {
