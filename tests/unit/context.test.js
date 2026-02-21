@@ -1019,3 +1019,82 @@ describe('ceremony level detection', () => {
     expect(result.ceremony_level).toBe('light');
   });
 });
+
+// ─── standards integration ───────────────────────────────────────────────────
+
+describe('standards integration', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Create standards directory with index at the path that standardsDir resolves to
+    const { standardsDir } = require('../../lib/paths');
+    const stdDir = standardsDir(tmpDir);
+    fs.mkdirSync(path.join(stdDir, 'api'), { recursive: true });
+    fs.writeFileSync(
+      path.join(stdDir, 'index.yml'),
+      'api:\n  response-format:\n    description: API response envelope\n    tags: [api, response]\n'
+    );
+    fs.writeFileSync(
+      path.join(stdDir, 'api', 'response-format.md'),
+      '---\narea: api\ntags: [response-format]\n---\n# API Response Envelope\nAll endpoints return {data, error, meta}.\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase includes standards_exists true', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.standards_exists).toBe(true);
+    expect(result.standards_dir).toBeDefined();
+  });
+
+  test('cmdInitPlanPhase includes standards_exists true', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.standards_exists).toBe(true);
+  });
+
+  test('cmdInitQuick includes standards_exists true', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitQuick(tmpDir, 'test-task', false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.standards_exists).toBe(true);
+  });
+
+  test('cmdInitNewProject includes standards_exists true', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitNewProject(tmpDir, false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.standards_exists).toBe(true);
+  });
+});
+
+describe('standards absent', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase sets standards_exists false when no index.yml', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.standards_exists).toBe(false);
+  });
+});
