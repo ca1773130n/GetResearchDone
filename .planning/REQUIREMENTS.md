@@ -1,48 +1,86 @@
-# Requirements — v0.2.5 WebMCP Support & Bugfixes
+# Requirements — v0.2.6 Native Worktree Isolation
 
-**Milestone:** v0.2.5
-**Created:** 2026-02-21
+**Milestone:** v0.2.6
+**Created:** 2026-02-22
 
-## WebMCP Integration
+## Backend Detection
 
-### REQ-96: MCP availability detection
-Detect whether Chrome DevTools MCP is configured and available. All WebMCP features gracefully skip when MCP is not available — same feature-detection pattern as other optional integrations. Detection result exposed in init JSON output.
+### REQ-101: Native worktree isolation capability detection
+Add `native_worktree_isolation: true` to Claude Code's `BACKEND_CAPABILITIES` in `lib/backend.js`. Expose `native_worktree_available` boolean in all relevant init JSON outputs (`execute-phase`, `execute-parallel`). Detection based on backend being `'claude'`. When native isolation is available, orchestrators can choose native path over manual worktree management.
 - **Priority:** P0
 - **Category:** Core
-- **Phase:** 43
+- **Phase:** 45
 
-### REQ-97: Per-plan WebMCP sanity checks in execute-phase
-After each plan's executor agent completes (in the `execute_waves` step of `execute-phase.md`), call generic WebMCP tools via Chrome DevTools MCP: `hive_get_health_status` (backend responding), `hive_check_console_errors` (no new JS errors), `hive_get_page_info` (app rendering). First failure → retry. Second failure → halt execution with clear error.
+## Execute-Phase Orchestrator
+
+### REQ-102: Execute-phase native worktree strategy
+When native worktree isolation is available and branching is enabled, execute-phase spawns executor agents with `isolation: "worktree"` parameter instead of manually creating worktrees via `grd-tools.js worktree create`. The orchestrator captures the returned worktree path and branch from each executor's Task result for the completion flow. When native isolation is unavailable (non-Claude-Code backends), existing manual worktree creation flow is preserved identically.
 - **Priority:** P0
 - **Category:** Command
-- **Phase:** 44
+- **Phase:** 46
 
-### REQ-98: WebMCP tool calls in verify-phase
-The grd-verifier agent reads EVAL.md, discovers registered WebMCP tools via `hive_list_registered_tools`, calls both generic and page-specific tools, and includes results in VERIFICATION.md.
+### REQ-103: Executor dual-mode operation
+Executor agent supports two isolation modes: (a) **native** — operates naturally in its working directory, no `<worktree>` block or path-prefixing needed; (b) **manual** — existing behavior with `<worktree>` block and explicit path prefixing for all file/bash operations. Mode determined by `isolation_mode` context variable injected by the orchestrator. Both modes produce identical artifacts (SUMMARY.md, commits, STATE.md updates).
 - **Priority:** P0
 - **Category:** Agent
-- **Phase:** 44
+- **Phase:** 46
 
-### REQ-99: Eval planner generates WebMCP tool definitions
-When planning eval for a phase that modifies frontend views, the grd-eval-planner agent outputs `useWebMcpTool()` call definitions specifying what page-specific tools the verifier should expect to find.
+### REQ-104: Shared state writes during native isolation
+When executor runs in native worktree isolation, STATE.md updates must reach the main repository (not the worktree copy). Provide `main_repo_path` context variable to executor. Executor uses this path for STATE.md writes regardless of isolation mode. SUMMARY.md written to worktree's phase directory (main repo in manual mode, worktree root in native mode — merge handles propagation).
+- **Priority:** P0
+- **Category:** Command
+- **Phase:** 46
+
+## Parallel Execution
+
+### REQ-105: Parallel execution with native isolation
+`lib/parallel.js` adapted for native isolation: when available, `buildParallelContext` skips pre-computing `worktree_path` per phase. Each teammate spawned with `isolation: "worktree"` on Claude Code. Phase status tracking updated to use worktree path/branch returned from each teammate's Task result. Sequential fallback for non-Claude-Code backends unchanged.
 - **Priority:** P1
-- **Category:** Agent
-- **Phase:** 44
+- **Category:** Core
+- **Phase:** 46
 
-## Bugfix
+## Completion Flow
 
-### REQ-100: Fix code reviewer VERIFICATION.md false blocker
-The code reviewer agent should not flag missing VERIFICATION.md as a blocker during code review. VERIFICATION.md is created by the grd-verifier agent in the subsequent verify-phase step, not during or before code review. The reviewer's must_haves validation should exclude VERIFICATION.md from its checks.
+### REQ-106: Completion flow for native worktrees
+After native isolation execution, 4-option completion flow (merge/PR/keep/discard) works using the branch returned by Claude Code's Task result. Test gate runs in the returned worktree path. GRD's merge and push-PR logic adapted to accept any branch name (not restricted to GRD template patterns). Manual worktree completion flow unchanged.
 - **Priority:** P0
+- **Category:** Command
+- **Phase:** 46
+
+## Hook Integration
+
+### REQ-107: WorktreeCreate/WorktreeRemove hook registration
+Register `WorktreeCreate` and `WorktreeRemove` hooks in `plugin.json`. WorktreeCreate hook optionally renames the branch to GRD's convention (`grd/{milestone}/{phase}-{slug}`) and logs the worktree creation for tracking. WorktreeRemove hook cleans up GRD-specific tracking state. Hooks are no-op when GRD is not active or when manual worktree mode is in use.
+- **Priority:** P1
+- **Category:** Plugin
+- **Phase:** 45
+
+## Agent Audit
+
+### REQ-108: Agent frontmatter audit for `claude agents` CLI
+All 20 agent definitions in `agents/` audited for clean, descriptive `name` and `description` fields in YAML frontmatter. No conflicting names with built-in Claude Code agents. Descriptions should be concise and meaningful when displayed in the `claude agents` listing.
+- **Priority:** P2
 - **Category:** Agent
-- **Phase:** 43
+- **Phase:** 45
+
+## Regression Safety
+
+### REQ-109: Non-Claude-Code backend regression safety
+All existing custom worktree lifecycle code (`lib/worktree.js`, `lib/parallel.js`, `lib/commands.js`) continues to function identically for non-Claude-Code backends (Codex CLI, Gemini CLI, OpenCode). Test suite expanded to validate both paths: native isolation (mocked for CI) and manual worktree. Zero regressions on existing worktree tests.
+- **Priority:** P0
+- **Category:** Test
+- **Phase:** 47
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-96 | Phase 43 | Pending |
-| REQ-97 | Phase 44 | Pending |
-| REQ-98 | Phase 44 | Pending |
-| REQ-99 | Phase 44 | Pending |
-| REQ-100 | Phase 43 | Pending |
+| REQ-101 | Phase 45 | Planned |
+| REQ-102 | Phase 46 | Planned |
+| REQ-103 | Phase 46 | Planned |
+| REQ-104 | Phase 46 | Planned |
+| REQ-105 | Phase 46 | Planned |
+| REQ-106 | Phase 46 | Planned |
+| REQ-107 | Phase 45 | Planned |
+| REQ-108 | Phase 45 | Planned |
+| REQ-109 | Phase 47 | Planned |
