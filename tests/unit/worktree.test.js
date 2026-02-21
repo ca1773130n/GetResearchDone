@@ -24,6 +24,8 @@ const {
   milestoneBranch,
   cmdWorktreeEnsureMilestoneBranch,
   cmdWorktreeMerge,
+  cmdWorktreeHookCreate,
+  cmdWorktreeHookRemove,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -1159,5 +1161,126 @@ describe('cmdWorktreeMerge', () => {
       encoding: 'utf-8',
     }).trim();
     expect(afterBranch).toBe('main');
+  });
+});
+
+// ─── Worktree Hook Handlers ──────────────────────────────────────────────────
+
+describe('cmdWorktreeHookCreate', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('skips when no .planning directory', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-noplanning-'));
+    try {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookCreate(tmpDir, '/tmp/some-worktree', 'some-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('skipped', true);
+      expect(result.reason).toContain('.planning');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('skips when branching_strategy is none', () => {
+    // Override config to disable branching
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.branching_strategy = 'none';
+    fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/some-worktree', 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('skipped', true);
+    expect(result.reason).toContain('branching disabled');
+  });
+
+  test('logs creation when GRD is active', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/some-worktree', 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('worktree_path', '/tmp/some-worktree');
+    expect(result).toHaveProperty('branch', 'some-branch');
+  });
+
+  test('does not rename branch already following GRD convention', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/some-worktree', 'grd/v0.2.0/27-test', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('renamed', false);
+    expect(result.reason).toContain('GRD convention');
+  });
+});
+
+describe('cmdWorktreeHookRemove', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('skips when no .planning directory', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-wt-noplanning-'));
+    try {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdWorktreeHookRemove(tmpDir, '/tmp/some-worktree', 'some-branch', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('skipped', true);
+      expect(result.reason).toContain('.planning');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('skips when branching_strategy is none', () => {
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.branching_strategy = 'none';
+    fs.writeFileSync(configPath, JSON.stringify(config), 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, '/tmp/some-worktree', 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('skipped', true);
+    expect(result.reason).toContain('branching disabled');
+  });
+
+  test('logs removal when GRD is active', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, '/tmp/some-worktree', 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('worktree_path', '/tmp/some-worktree');
+    expect(result).toHaveProperty('branch', 'some-branch');
+    expect(result).toHaveProperty('action', 'remove_logged');
   });
 });
