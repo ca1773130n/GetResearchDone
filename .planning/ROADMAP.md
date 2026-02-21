@@ -15,7 +15,8 @@
 - v0.2.2 quickDir Routing Fix & Migration Skill - Phase 37 (shipped 2026-02-20)
 - v0.2.3 Improve Settings & Git Workflow - Phases 38-41 (shipped 2026-02-21)
 - v0.2.4 Layered Integration - Phase 42 (shipped 2026-02-21)
-- v0.2.5 WebMCP Support & Bugfixes - Phases 43-44 (in progress)
+- v0.2.5 WebMCP Support & Bugfixes - Phases 43-44 (shipped 2026-02-21)
+- v0.2.6 Native Worktree Isolation - Phases 45-47 (in progress)
 
 ## Phases
 
@@ -110,55 +111,66 @@ Phase 42 borrowed best features from competing frameworks (Spec Kit, Agent OS, B
 
 </details>
 
-### v0.2.5 WebMCP Support & Bugfixes (In Progress)
+<details>
+<summary>v0.2.5 WebMCP Support & Bugfixes (Phases 43-44) - SHIPPED 2026-02-21</summary>
 
-**Milestone Goal:** Add graceful WebMCP integration across execute-phase, verify-phase, and eval-planner workflows, plus fix code reviewer false blocker on VERIFICATION.md.
+Phases 43-44 added graceful WebMCP integration across execute-phase, verify-phase, and eval-planner workflows. MCP availability detection with `detectWebMcp()` in lib/backend.js, execute-phase WebMCP sanity checks (steps 4b/6b), verifier WebMCP tool discovery (Step 5b), eval-planner WebMCP tool definitions, and code reviewer false blocker fix. All WebMCP features guarded by `webmcp_available` conditional. 1,694 tests passing (15 new). See `.planning/milestones/v0.2.5/` for details.
 
-- [x] **Phase 43: MCP Detection & Code Reviewer Fix** - Foundation: MCP availability detection exposed in init JSON; code reviewer VERIFICATION.md false blocker fix `implement` ✅ 2026-02-21
-- [x] **Phase 44: WebMCP Workflow Integration** - Execute-phase sanity checks, verify-phase tool calls, and eval-planner WebMCP definitions `implement` ✅ 2026-02-21
+</details>
+
+### v0.2.6 Native Worktree Isolation (In Progress)
+
+**Milestone Goal:** Adopt Claude Code's native `isolation: worktree` feature via hybrid strategy -- use native isolation when running on Claude Code, retain GRD's custom worktree implementation for non-Claude-Code backends and advanced workflows.
+
+- [ ] **Phase 45: Foundation & Detection** - Backend capability detection, hook registration, agent frontmatter audit `implement`
+- [ ] **Phase 46: Hybrid Worktree Execution** - Execute-phase native strategy, executor dual-mode, shared state handling, parallel execution adaptation, completion flow `implement` (depends on Phase 45)
+- [ ] **Phase 47: Integration & Regression Testing** - Comprehensive testing of both native and manual paths with zero regressions `implement` (depends on Phase 46)
 
 ## Phase Details
 
-### Phase 43: MCP Detection & Code Reviewer Fix
-**Goal**: All init workflows expose MCP availability status and the code reviewer no longer falsely blocks on missing VERIFICATION.md
+### Phase 45: Foundation & Detection
+**Goal**: Native worktree isolation capability is detectable, hooks are registered for worktree lifecycle events, and all agent definitions display cleanly in `claude agents` CLI
 **Type**: implement
 **Depends on**: Nothing (first phase of milestone)
-**Requirements**: REQ-96, REQ-100
+**Requirements**: REQ-101, REQ-107, REQ-108
 **Verification Level**: sanity
 **Success Criteria** (what must be TRUE):
-  1. `cmdInitExecutePhase` JSON output includes a `webmcp_available` boolean field reflecting whether Chrome DevTools MCP is configured
-  2. When Chrome DevTools MCP is not available, all WebMCP-dependent features in init output indicate "skipped" with a clear reason
-  3. The grd-code-reviewer agent prompt explicitly excludes VERIFICATION.md from its must_haves artifact validation
-  4. Code review of a phase that has not yet run verify-phase does not produce a blocker for missing VERIFICATION.md
-**Plans**: 1 plan
+  1. `BACKEND_CAPABILITIES['claude']` includes `native_worktree_isolation: true` and `cmdInitExecutePhase` JSON output includes a `native_worktree_available` boolean field that is `true` when backend is `'claude'` and `false` for all other backends
+  2. `plugin.json` registers `WorktreeCreate` and `WorktreeRemove` hooks; `WorktreeCreate` hook handler optionally renames the branch to GRD's convention and logs the creation; both hooks are no-op when GRD is inactive or manual worktree mode is in use
+  3. All 20 agent definitions in `agents/` have non-conflicting, descriptive `name` and `description` fields in their YAML frontmatter; `claude agents` listing (or equivalent validation) shows clean output with no duplicate or generic names
 
-Plans:
-- [ ] 43-01-PLAN.md — MCP availability detection in init workflows (REQ-96) + code reviewer VERIFICATION.md exclusion fix (REQ-100)
-
-### Phase 44: WebMCP Workflow Integration
-**Goal**: Execute-phase runs WebMCP sanity checks after each plan, verify-phase discovers and calls WebMCP tools, and eval-planner generates `useWebMcpTool()` definitions for frontend phases
+### Phase 46: Hybrid Worktree Execution
+**Goal**: Execute-phase uses native `isolation: worktree` on Claude Code backend while preserving identical behavior on non-Claude-Code backends, with correct shared state handling and 4-option completion flow working for both paths
 **Type**: implement
-**Depends on**: Phase 43
-**Requirements**: REQ-97, REQ-98, REQ-99
+**Depends on**: Phase 45
+**Requirements**: REQ-102, REQ-103, REQ-104, REQ-105, REQ-106
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
-  1. After each plan execution in execute-phase, three WebMCP health checks run (`hive_get_health_status`, `hive_check_console_errors`, `hive_get_page_info`) when MCP is available; all three are skipped gracefully when MCP is unavailable
-  2. First WebMCP check failure triggers a retry; second consecutive failure halts execution with a clear error message identifying which check failed
-  3. The grd-verifier agent calls `hive_list_registered_tools` to discover available WebMCP tools and includes tool call results in VERIFICATION.md
-  4. The grd-eval-planner agent outputs `useWebMcpTool()` call definitions in EVAL.md when the phase modifies frontend views
-  5. All three agent/command template modifications (execute-phase.md, grd-verifier.md, grd-eval-planner.md) include conditional guards that check `webmcp_available` before attempting any MCP tool calls
-**Plans**: 2 plans
+  1. When native worktree isolation is available and branching is enabled, `execute-phase` spawns executor agents with `isolation: "worktree"` parameter instead of calling `grd-tools.js worktree create`; when native isolation is unavailable, the existing manual worktree creation flow runs identically to v0.2.5 behavior
+  2. The executor agent operates in two modes controlled by `isolation_mode` context variable: (a) **native** mode omits the `<worktree>` block and path-prefixing entirely, operating naturally in its working directory; (b) **manual** mode preserves existing behavior with explicit worktree path prefixing; both modes produce identical artifacts (SUMMARY.md, commits, STATE.md updates)
+  3. STATE.md updates from executor always reach the main repository via `main_repo_path` context variable, regardless of isolation mode; SUMMARY.md is written to the correct phase directory in both modes
+  4. `lib/parallel.js` `buildParallelContext` skips pre-computing `worktree_path` per phase when native isolation is available; each teammate spawned with `isolation: "worktree"` on Claude Code; sequential fallback for non-Claude-Code backends is unchanged
+  5. After native isolation execution, the 4-option completion flow (merge/PR/keep/discard) works using the branch returned by Claude Code's Task result; test gate runs correctly; GRD's merge and push-PR logic accepts any branch name without restriction to GRD template patterns
 
-Plans:
-- [ ] 44-01-PLAN.md — Execute-phase WebMCP sanity checks with retry/halt logic (REQ-97)
-- [ ] 44-02-PLAN.md — Verify-phase WebMCP tool discovery and invocation (REQ-98) + eval-planner WebMCP definitions (REQ-99)
+### Phase 47: Integration & Regression Testing
+**Goal**: Both native and manual worktree paths are comprehensively tested with zero regressions on existing worktree test suite
+**Type**: implement
+**Depends on**: Phase 46
+**Requirements**: REQ-109
+**Verification Level**: sanity
+**Success Criteria** (what must be TRUE):
+  1. All existing worktree tests in `tests/unit/worktree.test.js`, `tests/unit/parallel.test.js`, and `tests/integration/worktree-parallel-e2e.test.js` continue to pass without modification (zero regressions)
+  2. New test cases validate the native isolation path: (a) `cmdInitExecutePhase` returns `native_worktree_available: true` for Claude Code backend; (b) executor context includes `isolation_mode: "native"` and `main_repo_path`; (c) parallel context skips worktree pre-computation when native isolation available
+  3. New test cases validate the manual isolation path is unchanged: (a) `cmdInitExecutePhase` returns `native_worktree_available: false` for non-Claude-Code backends; (b) executor context includes `isolation_mode: "manual"` with worktree path; (c) parallel context pre-computes worktree paths as before
+  4. Hook registration tests verify `WorktreeCreate` and `WorktreeRemove` handlers are registered in plugin.json and behave correctly (no-op when GRD inactive, branch rename when active)
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 43. MCP Detection & Code Reviewer Fix | 0/1 | Not started | - |
-| 44. WebMCP Workflow Integration | 0/2 | Not started | - |
+| 45. Foundation & Detection | 0/? | Not started | - |
+| 46. Hybrid Worktree Execution | 0/? | Not started | - |
+| 47. Integration & Regression Testing | 0/? | Not started | - |
 
 ## Deferred Validations
 
