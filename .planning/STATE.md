@@ -7,21 +7,21 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.2.7 Self-Evolution — GRD dogfooding itself
+**Current focus:** v0.2.7 Self-Evolution -- Phase 48 Dogfooding Infrastructure
 
 ## Current Position
 
-- **Active phase:** None (defining requirements)
-- **Current plan:** None
+- **Active phase:** Phase 48 of 52 (Dogfooding Infrastructure)
+- **Current plan:** None (ready to plan)
 - **Milestone:** v0.2.7 Self-Evolution
-- **Status:** Not started (defining requirements)
+- **Status:** Ready to plan Phase 48
 - **Progress:** [----------] 0%
-- **Next:** Define requirements and create roadmap
+- **Next:** `/grd:plan-phase 48`
 
 ## Testbed
 
 - **Location:** `testbed/` (copy of multi-bootstrap Flutter monorepo)
-- **Purpose:** Exercise GRD workflows as a real user would — create milestones, phases, plans, execute, evaluate
+- **Purpose:** Exercise GRD workflows as a real user would -- create milestones, phases, plans, execute, evaluate
 - **Testing approach:** Use local `bin/grd-tools.js` (not cached plugin) to test changes
 
 ## Deferred Validations
@@ -36,10 +36,6 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 | DEFER-44-02 | grd-verifier populates VERIFICATION.md WebMCP section | Phase 44 | Live verify-phase with MCP | PENDING (requires live MCP environment) |
 | DEFER-44-03 | grd-eval-planner generates useWebMcpTool() for frontend phases | Phase 44 | Live eval-plan on frontend phase | PENDING (requires frontend phase + MCP) |
 
-## Key Decisions
-
-See `.planning/MILESTONES.md` for historical decisions per milestone.
-
 ## Performance Metrics
 
 **Cumulative:**
@@ -48,16 +44,20 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - Total lib/ modules: 19
 - Total commands: 39
 
+## Known Bugs
+
+- `currentMilestone()` in `lib/paths.js` returns `"v0.0.5"` instead of active milestone when STATE.md format is "v0.2.7 Self-Evolution" (REQ-112)
+
 ## Blockers
 
 None.
 
 ## Session Continuity
 
-- **Last action:** Started milestone v0.2.7
-- **Stopped at:** Defining requirements
-- **Next action:** Create REQUIREMENTS.md and ROADMAP.md
-- **Context needed:** v0.2.7 is about self-evolution — using GRD on itself with a testbed project
+- **Last action:** Created ROADMAP.md for v0.2.7 (5 phases: 48-52)
+- **Stopped at:** Roadmap creation complete
+- **Next action:** Plan Phase 48 (`/grd:plan-phase 48`)
+- **Context needed:** v0.2.7 is about self-evolution -- using GRD on itself with a testbed project
 
 ---
 

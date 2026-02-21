@@ -7,7 +7,7 @@
 
 ### REQ-110: Testbed project with full GRD lifecycle
 **Priority:** P0 | **Status:** Open
-Initialize the testbed (multi-bootstrap copy) as a GRD project. Run `new-project`, create long-term milestones, normal milestones, phases, and plans — exercising the full user workflow. The testbed must mimic how a real user would adopt GRD for their agentic dev workflow.
+Initialize the testbed (multi-bootstrap copy) as a GRD project. Run `new-project`, create long-term milestones, normal milestones, phases, and plans -- exercising the full user workflow. The testbed must mimic how a real user would adopt GRD for their agentic dev workflow.
 
 ### REQ-111: Local CLI testing harness
 **Priority:** P0 | **Status:** Open
@@ -27,7 +27,7 @@ Exercise the full GRD workflow on the testbed project. Catalog all bugs, glitche
 
 ### REQ-114: Module complexity audit and reduction
 **Priority:** P2 | **Status:** Open
-Audit all 19 lib/ modules for cyclomatic complexity, function count, and LOC. Identify the top 3 most complex modules. Reduce their complexity through extraction, simplification, or decomposition — without changing external behavior.
+Audit all 19 lib/ modules for cyclomatic complexity, function count, and LOC. Identify the top 3 most complex modules. Reduce their complexity through extraction, simplification, or decomposition -- without changing external behavior.
 
 ### REQ-115: Consolidate duplicate patterns
 **Priority:** P2 | **Status:** Open
@@ -37,7 +37,7 @@ Identify duplicate or near-duplicate code patterns across lib/ modules (repeated
 
 ### REQ-116: Dead code elimination
 **Priority:** P2 | **Status:** Open
-Identify and remove unused exports, unreachable branches, and obsolete code paths across lib/ modules. Validate removal via test suite — no test should break.
+Identify and remove unused exports, unreachable branches, and obsolete code paths across lib/ modules. Validate removal via test suite -- no test should break.
 
 ### REQ-117: Test coverage improvement
 **Priority:** P2 | **Status:** Open
@@ -53,12 +53,12 @@ During testbed exercise, capture friction points and missing capabilities as new
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-110 | TBD | Open |
-| REQ-111 | TBD | Open |
-| REQ-112 | TBD | Open |
-| REQ-113 | TBD | Open |
-| REQ-114 | TBD | Open |
-| REQ-115 | TBD | Open |
-| REQ-116 | TBD | Open |
-| REQ-117 | TBD | Open |
-| REQ-118 | TBD | Open |
+| REQ-110 | Phase 48 | Open |
+| REQ-111 | Phase 48 | Open |
+| REQ-112 | Phase 49 | Open |
+| REQ-113 | Phase 49 | Open |
+| REQ-114 | Phase 50 | Open |
+| REQ-115 | Phase 50 | Open |
+| REQ-116 | Phase 50 | Open |
+| REQ-117 | Phase 51 | Open |
+| REQ-118 | Phase 51 | Open |
