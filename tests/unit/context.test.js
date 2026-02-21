@@ -574,6 +574,68 @@ describe('cmdInitNewMilestone', () => {
     expect(result.roadmap_exists).toBe(true);
     expect(result.state_exists).toBe(true);
   });
+
+  test('scans new-style milestone directories for suggested_start_phase', () => {
+    const newTmpDir = createFixtureDir();
+    try {
+      // Create new-style milestone directory: milestones/v0.2.1/phases/36-some-phase/
+      fs.mkdirSync(
+        path.join(newTmpDir, '.planning', 'milestones', 'v0.2.1', 'phases', '36-some-phase'),
+        { recursive: true }
+      );
+      const { stdout, exitCode } = captureOutput(() => cmdInitNewMilestone(newTmpDir, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.highest_archived_phase).toBeGreaterThanOrEqual(36);
+      expect(result.suggested_start_phase).toBeGreaterThanOrEqual(37);
+    } finally {
+      cleanupFixtureDir(newTmpDir);
+    }
+  });
+
+  test('combines old-style and new-style directories for highest phase', () => {
+    const newTmpDir = createFixtureDir();
+    try {
+      // Create old-style: milestones/v0.1.0-phases/10-old-phase/
+      fs.mkdirSync(
+        path.join(newTmpDir, '.planning', 'milestones', 'v0.1.0-phases', '10-old-phase'),
+        { recursive: true }
+      );
+      // Create new-style: milestones/v0.2.1/phases/36-new-phase/
+      fs.mkdirSync(
+        path.join(newTmpDir, '.planning', 'milestones', 'v0.2.1', 'phases', '36-new-phase'),
+        { recursive: true }
+      );
+      const { stdout, exitCode } = captureOutput(() => cmdInitNewMilestone(newTmpDir, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      // Should pick the highest from either style (36 from new-style)
+      expect(result.highest_archived_phase).toBeGreaterThanOrEqual(36);
+      expect(result.suggested_start_phase).toBeGreaterThanOrEqual(37);
+    } finally {
+      cleanupFixtureDir(newTmpDir);
+    }
+  });
+
+  test('new-style directory scanning skips non-version directories', () => {
+    const newTmpDir = createFixtureDir();
+    try {
+      // Create non-version directory with phases subdir (should be skipped)
+      fs.mkdirSync(
+        path.join(newTmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-decoy'),
+        { recursive: true }
+      );
+      // anonymous already exists in fixture and does NOT start with 'v', so 99-decoy should not be counted
+      const { stdout, exitCode } = captureOutput(() => cmdInitNewMilestone(newTmpDir, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      // The anonymous dir should not be scanned as new-style (no 'v' prefix)
+      // highest_archived_phase should not include 99
+      expect(result.highest_archived_phase).toBeLessThan(99);
+    } finally {
+      cleanupFixtureDir(newTmpDir);
+    }
+  });
 });
 
 // ─── cmdInitQuick ────────────────────────────────────────────────────────────
