@@ -7,15 +7,16 @@
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** Phase 43 — MCP Detection & Code Reviewer Fix
+**Current focus:** Phase 44 — WebMCP Workflow Integration
 
 ## Current Position
 
-- **Active phase:** Phase 43 of 44 (MCP Detection & Code Reviewer Fix)
+- **Active phase:** Phase 44 of 44 (WebMCP Workflow Integration)
+- **Current plan:** Plan 1 of 1 (complete)
 - **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
-- **Status:** Ready to plan
-- **Progress:** [██████████] 100%
-- **Next:** Plan Phase 43
+- **Status:** Executing
+- **Progress:** [█████-----] 50%
+- **Next:** Continue Phase 44 execution (plans 2+)
 
 ## Deferred Validations
 
@@ -32,6 +33,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **42-01:** PRINCIPLES.md is optional, not required for GRD to function
 - **42-02:** CLI routes for removed commands retained in grd-tools.js for backward compatibility
 - **42-02:** Standards stored in `.planning/standards/` with `index.yml` catalog (milestone-scoped)
+- **44-01:** WebMCP sanity checks inserted as sub-steps (4b/6b) to preserve existing step numbering in execute-phase.md
+- **44-01:** Teams flow step 6b cross-references standard flow step 4b rather than duplicating full logic
 
 ## Performance Metrics
 
@@ -47,10 +50,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created ROADMAP.md for v0.2.5 (Phases 43-44)
-- **Stopped at:** Completed 43-01-PLAN.md
-- **Next action:** `/grd:plan-phase 43`
-- **Context needed:** Phase 43 adds MCP availability detection (REQ-96) to init JSON and fixes code reviewer false blocker on VERIFICATION.md (REQ-100). Phase 44 adds WebMCP sanity checks to execute-phase (REQ-97), tool calls to verify-phase (REQ-98), and tool definitions to eval-planner (REQ-99).
+- **Last action:** Completed 44-01-PLAN.md (WebMCP sanity checks in execute-phase)
+- **Stopped at:** Completed 44-01-PLAN.md
+- **Next action:** Continue Phase 44 execution (remaining plans)
+- **Context needed:** Phase 44 adds WebMCP sanity checks to execute-phase (REQ-97, done), tool calls to verify-phase (REQ-98), and tool definitions to eval-planner (REQ-99).
 
 ---
 
