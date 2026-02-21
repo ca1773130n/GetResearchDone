@@ -170,6 +170,7 @@ cat ${research_dir}/PAPERS.md 2>/dev/null
 Extract phase goal from ROADMAP.md — this is the outcome to verify, not the tasks.
 Extract verification_level from PLAN.md frontmatter — determines which tier to apply.
 Extract research context — to verify results match paper expectations.
+Extract `webmcp_available` and `webmcp_skip_reason` from the init JSON passed by the orchestrator (from `cmdInitVerifyWork` output). These control whether Step 5b (WebMCP Verification) runs.
 
 ## Step 2: Establish Must-Haves and Determine Verification Tier (Initial Mode Only)
 
@@ -323,6 +324,42 @@ For each deferred item:
 2. If yes → run the deferred verification at full scale
 3. Record result alongside original phase reference
 4. Update deferred validation status
+
+## Step 5b: WebMCP Verification (if webmcp_available)
+
+**Skip condition:** If `webmcp_available` is not `true` (from init JSON or EVAL.md context), skip this step entirely. Include a note in VERIFICATION.md: "WebMCP verification skipped — MCP not available ({webmcp_skip_reason})."
+
+**When enabled:**
+
+**5b-1. Discover registered tools:**
+
+Call `hive_list_registered_tools` to get the list of all registered WebMCP tools for the current application.
+
+Parse the response to identify:
+- **Generic tools:** `hive_get_health_status`, `hive_check_console_errors`, `hive_get_page_info` (always expected)
+- **Page-specific tools:** Any tools beyond the generic set (these may be defined in EVAL.md via `useWebMcpTool()` definitions from grd-eval-planner)
+
+**5b-2. Call generic health checks:**
+
+```
+hive_get_health_status → Verify backend responding
+hive_check_console_errors → Verify no JS errors
+hive_get_page_info → Verify app rendering
+```
+
+Record each result with status (PASS/FAIL) and details.
+
+**5b-3. Call page-specific tools (if found):**
+
+If EVAL.md contains `useWebMcpTool()` definitions, match them against the discovered tool list:
+- For each defined tool that exists in the registered list: call it and record the result
+- For each defined tool that does NOT exist in the registered list: record as "NOT REGISTERED — tool not found"
+
+If no page-specific tools are defined in EVAL.md, note: "No page-specific tools defined in EVAL.md."
+
+**5b-4. Record results for VERIFICATION.md:**
+
+Store results in a structured format for inclusion in the WebMCP Verification section of the output.
 
 ## Step 6: Experiment Verification
 
@@ -541,6 +578,37 @@ human_verification:
 | Magnitude plausible | PASS | Within expected range |
 | No degenerate outputs | PASS | Predictions distributed normally |
 | Training stable | PASS | No loss explosions |
+
+## WebMCP Verification
+
+{If webmcp_available:}
+
+### Tool Discovery
+
+| Tool | Type | Registered | Status |
+|------|------|------------|--------|
+| hive_get_health_status | generic | Yes | PASS/FAIL |
+| hive_check_console_errors | generic | Yes | PASS/FAIL |
+| hive_get_page_info | generic | Yes | PASS/FAIL |
+| {page_specific_tool} | page-specific | Yes/No | PASS/FAIL/NOT REGISTERED |
+
+### Health Check Results
+
+| Check | Status | Details |
+|-------|--------|---------|
+| Backend health | PASS | {response summary} |
+| Console errors | PASS | No new errors |
+| Page rendering | PASS | {page info summary} |
+
+### Page-Specific Tool Results
+
+| Tool | Expected (from EVAL.md) | Result | Notes |
+|------|------------------------|--------|-------|
+| {tool} | {expected behavior} | {actual result} | |
+
+{If webmcp NOT available:}
+
+WebMCP verification skipped — MCP not available ({reason}).
 
 ## Requirements Coverage
 
