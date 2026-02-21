@@ -1,6 +1,6 @@
 ---
 name: grd-roadmapper
-description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, coverage validation, and issue tracker integration (GitHub/Jira). Spawned by /grd:new-project orchestrator.
+description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria, coverage validation, and tracker integration. Spawned by new-project.
 tools: Read, Write, Bash, Glob, Grep
 color: purple
 ---

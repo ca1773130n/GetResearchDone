@@ -1,6 +1,6 @@
 ---
 name: grd-product-owner
-description: Higher-level planning agent that sits ABOVE phase-level GRD operations. Manages product vision, establishes quality baselines, defines success criteria, coordinates research and integration phases, and tracks deferred validations across the project.
+description: Higher-level planning agent above phase-level operations. Manages product vision, quality baselines, success criteria, and deferred validations.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: purple
 ---

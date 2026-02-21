@@ -122,7 +122,7 @@ Phases 43-44 added graceful WebMCP integration across execute-phase, verify-phas
 
 **Milestone Goal:** Adopt Claude Code's native `isolation: worktree` feature via hybrid strategy -- use native isolation when running on Claude Code, retain GRD's custom worktree implementation for non-Claude-Code backends and advanced workflows.
 
-- [ ] **Phase 45: Foundation & Detection** - Backend capability detection, hook registration, agent frontmatter audit `implement`
+- [x] **Phase 45: Foundation & Detection** - Backend capability detection, hook registration, agent frontmatter audit `implement` (completed 2026-02-21)
 - [ ] **Phase 46: Hybrid Worktree Execution** - Execute-phase native strategy, executor dual-mode, shared state handling, parallel execution adaptation, completion flow `implement` (depends on Phase 45)
 - [ ] **Phase 47: Integration & Regression Testing** - Comprehensive testing of both native and manual paths with zero regressions `implement` (depends on Phase 46)
 
@@ -136,9 +136,9 @@ Phases 43-44 added graceful WebMCP integration across execute-phase, verify-phas
 **Verification Level**: sanity
 **Plans:** 3 plans
 Plans:
-- [ ] 45-01-PLAN.md — Backend capability detection (native_worktree_isolation flag + init JSON)
-- [ ] 45-02-PLAN.md — WorktreeCreate/WorktreeRemove hook registration and handlers
-- [ ] 45-03-PLAN.md — Agent frontmatter audit for claude agents CLI
+- [x] 45-01-PLAN.md — Backend capability detection (native_worktree_isolation flag + init JSON)
+- [x] 45-02-PLAN.md — WorktreeCreate/WorktreeRemove hook registration and handlers
+- [x] 45-03-PLAN.md — Agent frontmatter audit for claude agents CLI
 **Success Criteria** (what must be TRUE):
   1. `BACKEND_CAPABILITIES['claude']` includes `native_worktree_isolation: true` and `cmdInitExecutePhase` JSON output includes a `native_worktree_available` boolean field that is `true` when backend is `'claude'` and `false` for all other backends
   2. `plugin.json` registers `WorktreeCreate` and `WorktreeRemove` hooks; `WorktreeCreate` hook handler optionally renames the branch to GRD's convention and logs the creation; both hooks are no-op when GRD is inactive or manual worktree mode is in use

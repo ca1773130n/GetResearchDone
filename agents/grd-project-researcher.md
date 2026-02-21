@@ -1,6 +1,6 @@
 ---
 name: grd-project-researcher
-description: Researches domain ecosystem and research landscape before roadmap creation. Produces files in ${research_dir}/ consumed during roadmap creation. Spawned by /grd:new-project or /grd:new-milestone orchestrators.
+description: Researches domain ecosystem and research landscape before roadmap creation. Produces research files consumed during planning. Spawned by new-project or new-milestone.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*, mcp__research__*
 color: cyan
 ---

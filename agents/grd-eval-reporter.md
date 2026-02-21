@@ -1,6 +1,6 @@
 ---
 name: grd-eval-reporter
-description: Collects and reports quantitative evaluation results after phase execution. Runs evaluation scripts, compares against baselines and targets, performs ablation analysis, updates EVAL.md and BENCHMARKS.md.
+description: Collects and reports quantitative evaluation results after phase execution. Runs scripts, compares against baselines and targets, updates EVAL.md.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: green
 ---

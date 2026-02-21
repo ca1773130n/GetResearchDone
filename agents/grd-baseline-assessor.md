@@ -1,6 +1,6 @@
 ---
 name: grd-baseline-assessor
-description: Assesses current code/model quality and establishes performance baselines. Discovers evaluation scripts, runs benchmarks, collects metrics, and records results in BASELINE.md for gap analysis against product targets.
+description: Assesses current quality and establishes performance baselines. Runs benchmarks, collects metrics, and records results in BASELINE.md for gap analysis.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: cyan
 ---

@@ -61,6 +61,8 @@ const {
   cmdWorktreePushAndPR,
   cmdWorktreeEnsureMilestoneBranch,
   cmdWorktreeMerge,
+  cmdWorktreeHookCreate,
+  cmdWorktreeHookRemove,
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
@@ -679,6 +681,12 @@ function routeCommand(command, args, cwd, raw) {
       }
       break;
     }
+    case 'worktree-hook-create':
+      cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
+      break;
+    case 'worktree-hook-remove':
+      cmdWorktreeHookRemove(cwd, args[1], args[2], raw);
+      break;
     default:
       error(`Unknown command: ${command}`);
   }

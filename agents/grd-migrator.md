@@ -1,6 +1,6 @@
 ---
 name: grd-migrator
-description: Migrates complex .planning/ layout items that the deterministic migrate-dirs CLI cannot handle — flat milestone files, legacy phase dirs, orphan docs. Spawned by /grd:migrate when complex items are detected.
+description: Migrates complex .planning/ layout items that the deterministic CLI cannot handle. Moves flat milestone files, legacy phase dirs, and orphan docs.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: magenta
 ---
