@@ -1,11 +1,40 @@
 ---
-description: Create executable phase plans with research, verification, and eval planning
-argument-hint: <phase number>
+description: Create executable phase plans with research, verification, and eval planning. Use --research-only or --eval-only for focused modes.
+argument-hint: <phase number> [--research-only | --eval-only]
 ---
 
 <purpose>
 Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research, verification, and eval planning. Default flow: Research (if needed) -> Plan -> Verify -> Eval Plan -> Done. Orchestrates grd-phase-researcher, grd-planner, grd-plan-checker, and grd-eval-planner agents with a revision loop (max 3 iterations). Loads research landscape context before planning.
+
+Supports focused modes via flags:
+- `--research-only` — Run only the researcher agent (replaces standalone `/grd:research-phase`)
+- `--eval-only` — Run only the eval planner agent (replaces standalone `/grd:eval-plan`)
 </purpose>
+
+<modes>
+
+## Focused Modes
+
+### `--research-only`
+
+Run only the phase researcher agent. Skips planner, plan-checker, and eval-planner entirely.
+Produces `{NN}-RESEARCH.md` in the phase directory. Equivalent to the former `/grd:research-phase` command.
+
+After completion, offers: Plan phase / Dig deeper / Review research / Done.
+
+### `--eval-only`
+
+Run only the eval planner agent. Skips researcher, planner, and plan-checker entirely.
+Produces `{NN}-EVAL.md` in the phase directory. Equivalent to the former `/grd:eval-plan` command.
+Requires that PLAN.md files already exist for the phase (so the eval planner has context).
+
+After completion, offers: Execute phase / Review eval plan / Done.
+
+### Default (no flag)
+
+Full orchestrated flow: Research -> Plan -> Verify -> Eval Plan -> Done.
+
+</modes>
 
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
@@ -48,7 +77,11 @@ Store as `research_landscape_context` — this will be passed to the planner age
 
 ## 2. Parse and Normalize Arguments
 
-Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`--research`, `--skip-research`, `--gaps`, `--skip-verify`).
+Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`--research`, `--skip-research`, `--gaps`, `--skip-verify`, `--research-only`, `--eval-only`).
+
+**Focused mode routing:**
+- If `--research-only`: After initialization (steps 1-4), jump to step 5 (Handle Research, forced). After researcher returns, skip to step 14 (Present Final Status) with research-only summary. Do NOT run planner, checker, or eval-planner.
+- If `--eval-only`: After initialization (steps 1-4), skip research/planner/checker and jump directly to step 13 (Eval Planning Step). After eval-planner returns, skip to step 14 (Present Final Status) with eval-only summary. Requires PLAN.md files to exist (error if missing).
 
 **If no phase number:** Detect next unplanned phase from roadmap.
 
@@ -149,7 +182,7 @@ Task(
 
 ### Handle Researcher Return
 
-- **`## RESEARCH COMPLETE`:** Display confirmation, continue to step 6
+- **`## RESEARCH COMPLETE`:** Display confirmation. **If `--research-only`:** skip to step 14 with research-only summary (offer: Plan phase / Dig deeper / Review / Done). **Otherwise:** continue to step 6.
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 ## 6. Check Existing Plans
@@ -360,7 +393,9 @@ Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
 
 **After plan creation/verification, spawn grd-eval-planner to create EVAL.md:**
 
-**Skip if:** `--skip-eval` flag is present.
+**Skip if:** `--skip-eval` flag is present (and not `--eval-only`).
+
+**If `--eval-only`:** Validate that PLAN.md files exist for this phase. If missing, error: "No plans found for phase {X}. Run `/grd:plan-phase {X}` first." Load plan content and baseline/landscape context, then proceed to spawn the eval planner below.
 
 Display banner:
 ```
@@ -460,6 +495,61 @@ Route to `<offer_next>`.
 <offer_next>
 Output this markdown directly (not as a code block):
 
+**If `--research-only` mode:**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► PHASE {X} RESEARCHED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Phase {X}: {Name}** — Research complete
+
+---
+
+## Next Up
+
+**Plan Phase {X}** — create execution plans using this research
+
+/grd:plan-phase {X}
+
+---
+
+**Also available:**
+- cat ${phase_dir}/*-RESEARCH.md — review research
+- /grd:plan-phase {X} --research-only — re-research
+- /grd:deep-dive \<paper\> — dig deeper into a specific paper
+
+---
+
+**If `--eval-only` mode:**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► PHASE {X} EVAL PLANNED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Phase {X}: {Name}** — Eval plan created
+
+Tier 1 (Sanity): {N} checks
+Tier 2 (Proxy): {N} metrics
+Tier 3 (Deferred): {N} evaluations
+
+---
+
+## Next Up
+
+**Execute Phase {X}** — run all plans
+
+/grd:execute-phase {X}
+
+---
+
+**Also available:**
+- cat ${phase_dir}/*-EVAL.md — review eval plan
+- /grd:assess-baseline — establish baseline first
+
+---
+
+**If default (full) mode:**
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GRD ► PHASE {X} PLANNED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -490,7 +580,8 @@ Eval Plan: {Created | Skipped}
 **Also available:**
 - cat ${phase_dir}/*-PLAN.md — review plans
 - cat ${phase_dir}/*-EVAL.md — review eval plan
-- /grd:plan-phase {X} --research — re-research first
+- /grd:plan-phase {X} --research-only — re-research
+- /grd:plan-phase {X} --eval-only — redesign eval plan
 
 ---
 </offer_next>
@@ -501,16 +592,18 @@ Eval Plan: {Created | Skipped}
 - [ ] Phase directory created if needed
 - [ ] Research landscape context loaded (LANDSCAPE.md, KNOWHOW.md, deep-dives)
 - [ ] CONTEXT.md loaded early (step 4) and passed to ALL agents
-- [ ] Research completed (unless --skip-research or --gaps or exists)
-- [ ] grd-phase-researcher spawned with CONTEXT.md and research landscape
-- [ ] Existing plans checked
-- [ ] grd-planner spawned with CONTEXT.md + RESEARCH.md + research landscape
-- [ ] Plans created (PLANNING COMPLETE or CHECKPOINT handled)
-- [ ] grd-plan-checker spawned with CONTEXT.md
-- [ ] Verification passed OR user override OR max iterations with user decision
-- [ ] grd-eval-planner spawned to create EVAL.md with tiered verification
-- [ ] Research gate honored (verification_design review if enabled, skipped in YOLO mode)
-- [ ] GitHub issues created/updated (if gh available)
+- [ ] **Full mode:** Research completed (unless --skip-research or --gaps or exists)
+- [ ] **Full mode:** grd-phase-researcher spawned with CONTEXT.md and research landscape
+- [ ] **Full mode:** Existing plans checked
+- [ ] **Full mode:** grd-planner spawned with CONTEXT.md + RESEARCH.md + research landscape
+- [ ] **Full mode:** Plans created (PLANNING COMPLETE or CHECKPOINT handled)
+- [ ] **Full mode:** grd-plan-checker spawned with CONTEXT.md
+- [ ] **Full mode:** Verification passed OR user override OR max iterations with user decision
+- [ ] **Full mode:** grd-eval-planner spawned to create EVAL.md with tiered verification
+- [ ] **Full mode:** Research gate honored (verification_design review if enabled, skipped in YOLO mode)
+- [ ] **Full mode:** GitHub issues created/updated (if gh available)
+- [ ] **--research-only:** Only grd-phase-researcher spawned; planner/checker/eval-planner skipped
+- [ ] **--eval-only:** Only grd-eval-planner spawned; researcher/planner/checker skipped; PLAN.md must exist
 - [ ] User sees status between agent spawns
 - [ ] User knows next steps
 </success_criteria>

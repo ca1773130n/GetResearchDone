@@ -67,6 +67,8 @@ PLANNING — Strategic and tactical planning
 
   /grd:plan-phase <N>           Create detailed execution plan for a
                                 phase with research context injection.
+                                Flags: --research-only (research only),
+                                       --eval-only (eval plan only).
 
   /grd:discuss-phase <N>        Gather phase context through adaptive
                                 questioning before planning.
@@ -84,9 +86,6 @@ EXECUTION — Build and implement
 
 EVALUATION — Measure, verify, and iterate
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  /grd:eval-plan <N>            Design tiered evaluation plan —
-                                sanity / proxy / deferred metrics.
 
   /grd:eval-report <N>          Run evaluations and report results.
                                 Compare against baselines and targets.
@@ -113,17 +112,20 @@ NAVIGATION — Project status and configuration
 
   /grd:progress                 Check project progress with research
                                 metrics and route to next action.
+    progress dashboard          Full TUI tree view of milestones, phases,
+                                and plans with progress bars.
+    progress health             Project health: blockers, velocity, stale
+                                phases, risk register.
+    progress phase <N>          Detailed drill-down for a single phase
+                                with plans, metrics, and artifacts.
 
   /grd:help [command]           Show this help (or detailed command help).
 
-  /grd:settings                 Configure workflow toggles, model profile,
-                                research gates, and YOLO mode.
-
-  /grd:set-profile <profile>    Switch model profile for GRD agents.
-                                Options: quality / balanced / budget.
-
-  /grd:yolo [on|off|status]     Toggle autonomous/headless mode. Agent
-                                makes all decisions without human input.
+  /grd:settings                 Configure all workflow settings interactively.
+                                Subcommands for quick toggles:
+                                  settings yolo [on|off] — autonomous mode
+                                  settings profile <p>   — model profile
+                                  settings ceremony <l>  — ceremony level
 
 
 PROJECT MANAGEMENT — Phase and task operations
@@ -259,7 +261,8 @@ TOOLING — grd-tools.js CLI reference
   ─────────────────────────────                │
                                                ▼
     ┌──────────┐     ┌──────────┐     ┌──────────────┐
-    │eval-plan │────►│eval-report│────►│   iterate?   │
+    │plan-phase│────►│eval-report│────►│   iterate?   │
+    │--eval-only     │            │     │              │
     └──────────┘     └──────────┘     └──────┬───────┘
                                              │
                           ┌──────────────────┤
@@ -305,7 +308,7 @@ QUICK START
     /grd:quick "implement feature X"
 
   Autonomous batch run:
-    /grd:yolo on
+    /grd:settings yolo on
     /grd:execute-phase 1
     /grd:eval-report 1
 

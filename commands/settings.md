@@ -1,9 +1,16 @@
 ---
 description: Configure GRD workflow agents, model profile, git isolation, execution teams, code review, confirmation gates, research gates, and autonomous mode
+argument-hint: "[yolo | profile | ceremony]"
 ---
 
 <purpose>
 Interactive configuration of all GRD settings via multi-question prompt: workflow agents (research, plan_check, verifier), model profile, git worktree isolation, execution teams, code review (timing, severity, auto-fix), confirmation gates, research gates, autonomous mode, and tracker integration. Updates .planning/config.json with user preferences.
+
+Supports quick toggle subcommands:
+- `/grd:settings yolo [on|off|status]` — toggle autonomous mode (same as former /grd:yolo)
+- `/grd:settings profile [quality|balanced|budget]` — switch model profile (same as former /grd:set-profile)
+- `/grd:settings ceremony [full|standard|minimal]` — set default ceremony level
+- `/grd:settings` (no args) — full interactive settings flow
 </purpose>
 
 <required_reading>
@@ -11,6 +18,350 @@ Read all files referenced by the invoking prompt's execution_context before star
 </required_reading>
 
 <process>
+
+<step name="check_subcommand">
+Parse `$ARGUMENTS` to check if the first argument matches a quick toggle subcommand.
+
+```
+FIRST_ARG = first word of $ARGUMENTS
+REMAINING_ARGS = rest of $ARGUMENTS after first word
+
+if FIRST_ARG == "yolo":
+  → jump to <subcommand_yolo> with REMAINING_ARGS
+elif FIRST_ARG == "profile":
+  → jump to <subcommand_profile> with REMAINING_ARGS
+elif FIRST_ARG == "ceremony":
+  → jump to <subcommand_ceremony> with REMAINING_ARGS
+else:
+  → continue to full settings flow (ensure_and_load_config)
+```
+</step>
+
+<subcommand_yolo>
+## Subcommand: yolo [on | off | status]
+
+Toggle autonomous/headless mode (YOLO mode). When enabled, the agent makes all decisions
+without human input — research gates are bypassed, confirmation prompts are auto-approved,
+interview questions are self-answered using available context, and decisions are logged
+but not paused for approval.
+
+CRITICAL: YOLO mode follows the same workflows but makes decisions itself rather than
+asking the human. All decisions MUST be logged for post-hoc review.
+
+### Step Y0: Parse arguments and load config
+
+1. **Parse arguments**:
+   - `on`: enable YOLO mode
+   - `off`: disable YOLO mode
+   - `status`: show current mode without changing
+   - Empty: toggle (if on, turn off; if off, turn on)
+
+2. **Load config**:
+   - Read `.planning/config.json`
+   - If missing: create with defaults (YOLO off)
+   - Parse current `autonomous_mode`, `research_gates`, `confirmation_gates`
+
+3. **Determine action**:
+   ```
+   CURRENT_MODE: {on | off}
+   REQUESTED_ACTION: {enable | disable | status | toggle}
+   TARGET_MODE: {on | off}
+   ```
+
+### Step Y1: Status display (always shown)
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  GRD >>> YOLO MODE                                          ║
+║                                                             ║
+║  Current: {ON — autonomous | OFF — interactive}             ║
+║                                                             ║
+║  Research gates:                                            ║
+║    survey_approval:       {on/off}                          ║
+║    deep_dive_approval:    {on/off}                          ║
+║    comparison_approval:   {on/off}                          ║
+║    feasibility_approval:  {on/off}                          ║
+║    verification_design:   {on/off}                          ║
+║    product_plan_approval: {on/off}                          ║
+║    phase_plan_approval:   {on/off}                          ║
+║    execution_approval:    {on/off}                          ║
+║                                                             ║
+║  Confirmation gates:                                        ║
+║    commit_confirmation:   {on/off}                          ║
+║    file_deletion:         {on/off}                          ║
+║    phase_completion:      {on/off}                          ║
+║    target_adjustment:     {on/off}                          ║
+║    approach_change:       {on/off}                          ║
+║                                                             ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+If action is `status`: stop here, display only.
+
+### Step Y2: Enable YOLO mode (if target = on)
+
+1. **Save pre-YOLO gate state** for restoration:
+   - Store current `research_gates` as `_saved_research_gates`
+   - Store current `confirmation_gates` as `_saved_confirmation_gates`
+
+2. **Set autonomous mode**:
+   ```json
+   {
+     "autonomous_mode": true,
+     "research_gates": {
+       "survey_approval": false,
+       "deep_dive_approval": false,
+       "comparison_approval": false,
+       "feasibility_approval": false,
+       "verification_design": false,
+       "product_plan_approval": false,
+       "phase_plan_approval": false,
+       "execution_approval": false
+     },
+     "confirmation_gates": {
+       "commit_confirmation": false,
+       "file_deletion": false,
+       "phase_completion": false,
+       "target_adjustment": false,
+       "approach_change": false
+     }
+   }
+   ```
+
+3. **Initialize decision log**:
+   - Create `.planning/yolo-decisions.log` if not exists
+   - Append session start entry:
+     ```
+     === YOLO SESSION START: {YYYY-MM-DD HH:MM:SS} ===
+     Previous gates saved. All gates disabled.
+     ```
+
+4. **Display activation**:
+   ```
+   ╔══════════════════════════════════════════════════════════════╗
+   ║                                                             ║
+   ║    ██    ██  ██████  ██       ██████                        ║
+   ║     ██  ██  ██    ██ ██      ██    ██                       ║
+   ║      ████   ██    ██ ██      ██    ██                       ║
+   ║       ██    ██    ██ ██      ██    ██                       ║
+   ║       ██     ██████  ███████  ██████                        ║
+   ║                                                             ║
+   ║  AUTONOMOUS MODE: ENABLED                                   ║
+   ║                                                             ║
+   ║  All research gates:      DISABLED                          ║
+   ║  All confirmation gates:  DISABLED                          ║
+   ║  Decision logging:        ENABLED                           ║
+   ║  Decision log:            .planning/yolo-decisions.log      ║
+   ║                                                             ║
+   ║  The agent will:                                            ║
+   ║    - Make all decisions without asking                      ║
+   ║    - Self-answer interview questions from context           ║
+   ║    - Auto-approve all gates                                 ║
+   ║    - Log every decision for post-hoc review                 ║
+   ║                                                             ║
+   ║  To disable: /grd:settings yolo off                        ║
+   ║                                                             ║
+   ╚══════════════════════════════════════════════════════════════╝
+   ```
+
+### Step Y3: Disable YOLO mode (if target = off)
+
+1. **Restore saved gate states**:
+   - Read `_saved_research_gates` from config
+   - Read `_saved_confirmation_gates` from config
+   - If no saved state: use defaults
+
+2. **Set interactive mode**:
+   ```json
+   {
+     "autonomous_mode": false,
+     "research_gates": { ...restored_or_defaults... },
+     "confirmation_gates": { ...restored_or_defaults... }
+   }
+   ```
+
+3. **Close decision log session**:
+   - Append to `.planning/yolo-decisions.log`:
+     ```
+     === YOLO SESSION END: {YYYY-MM-DD HH:MM:SS} ===
+     Decisions made this session: {count}
+     Gates restored to previous state.
+     ===
+     ```
+
+4. **Display deactivation**:
+   ```
+   ╔══════════════════════════════════════════════════════════════╗
+   ║  GRD >>> YOLO MODE DISABLED                                 ║
+   ║                                                             ║
+   ║  AUTONOMOUS MODE: OFF                                       ║
+   ║                                                             ║
+   ║  Research gates:      RESTORED to previous state            ║
+   ║  Confirmation gates:  RESTORED to previous state            ║
+   ║                                                             ║
+   ║  Decisions made during YOLO session: {count}                ║
+   ║  Review log: .planning/yolo-decisions.log                   ║
+   ║                                                             ║
+   ║  The agent will now pause at gates for human approval.      ║
+   ║                                                             ║
+   ╚══════════════════════════════════════════════════════════════╝
+   ```
+
+### Step Y4: Write config and optional commit
+
+1. **Update `.planning/config.json`**:
+   - Merge new settings into existing config
+   - Preserve all non-gate settings
+   - Write atomically (write temp file, rename)
+
+2. **Validate config after write**:
+   - Re-read and parse to confirm valid JSON
+   - Verify autonomous_mode matches target
+
+3. **Optional commit** (if changes were made):
+   ```bash
+   git add .planning/config.json
+   git add .planning/yolo-decisions.log 2>/dev/null
+   git commit -m "config: {enable|disable} YOLO autonomous mode"
+   ```
+
+**DONE — exit command after subcommand completes.**
+</subcommand_yolo>
+
+<yolo_decision_logging_protocol>
+When YOLO mode is active, ALL other GRD workflows MUST log decisions to
+`.planning/yolo-decisions.log` using this format:
+
+```
+[{YYYY-MM-DD HH:MM:SS}] WORKFLOW={workflow_name} DECISION={decision_type}
+  Context: {brief context for the decision}
+  Options: {what options were available}
+  Chosen: {what was chosen}
+  Rationale: {why this option was selected}
+  Confidence: {HIGH|MEDIUM|LOW}
+```
+
+Decision types to log:
+- GATE_BYPASS: a research or confirmation gate was auto-approved
+- SELF_ANSWER: an interview question was answered from context
+- APPROACH_SELECT: an approach/method was selected
+- TARGET_SET: a target or threshold was decided
+- SCOPE_DECISION: scope was expanded or narrowed
+- ERROR_RECOVERY: an error was handled automatically
+- ITERATION_DECISION: iterate/skip/adjust was decided
+</yolo_decision_logging_protocol>
+
+<subcommand_profile>
+## Subcommand: profile [quality | balanced | budget]
+
+Switch the model profile used by GRD agents. Controls which Claude model each agent uses, balancing quality vs token spend.
+
+### Step P0: Validate argument
+
+```
+if REMAINING_ARGS not in ["quality", "balanced", "budget"]:
+  Error: Invalid profile "REMAINING_ARGS"
+  Valid profiles: quality, balanced, budget
+  EXIT
+```
+
+### Step P1: Ensure and load config
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-ensure-section
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state load)
+```
+
+### Step P2: Update config
+
+Update `model_profile` field in `.planning/config.json`:
+```json
+{
+  "model_profile": "REMAINING_ARGS"
+}
+```
+
+### Step P3: Display confirmation
+
+```
+Model profile set to: {profile}
+
+Agents will now use:
+
+[Show table from MODEL_PROFILES in grd-tools.js for selected profile]
+
+Example:
+| Agent | Model |
+|-------|-------|
+| grd-planner | opus |
+| grd-executor | sonnet |
+| grd-verifier | haiku |
+| ... | ... |
+
+Next spawned agents will use the new profile.
+```
+
+Map profile names:
+- quality: use "quality" column from MODEL_PROFILES
+- balanced: use "balanced" column from MODEL_PROFILES
+- budget: use "budget" column from MODEL_PROFILES
+
+**DONE — exit command after subcommand completes.**
+</subcommand_profile>
+
+<subcommand_ceremony>
+## Subcommand: ceremony [full | standard | minimal]
+
+Set the default ceremony level for GRD workflows.
+
+### Step C0: Validate argument
+
+```
+if REMAINING_ARGS not in ["full", "standard", "minimal"]:
+  Error: Invalid ceremony level "REMAINING_ARGS"
+  Valid levels: full, standard, minimal
+  EXIT
+```
+
+### Step C1: Ensure and load config
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-ensure-section
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state load)
+```
+
+### Step C2: Update config
+
+Update `ceremony` field in `.planning/config.json`:
+```json
+{
+  "ceremony": "REMAINING_ARGS"
+}
+```
+
+Ceremony level effects:
+- **full**: All agents spawned, all gates active, full documentation
+- **standard**: Default agents, standard gates, normal documentation
+- **minimal**: Skip optional agents, minimal gates, lean documentation
+
+### Step C3: Display confirmation
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► CEREMONY LEVEL: {LEVEL}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| Aspect          | Setting |
+|-----------------|---------|
+| Optional Agents | {all/default/skip} |
+| Gate Checks     | {all/standard/minimal} |
+| Documentation   | {full/normal/lean} |
+
+This applies to future /grd:plan-phase and /grd:execute-phase runs.
+```
+
+**DONE — exit command after subcommand completes.**
+</subcommand_ceremony>
 
 <step name="ensure_and_load_config">
 ```bash
@@ -356,8 +707,9 @@ Display:
 These settings apply to future /grd:plan-phase and /grd:execute-phase runs.
 
 Quick commands:
-- /grd:set-profile <profile> — switch model profile
-- /grd:yolo — toggle autonomous mode
+- /grd:settings profile <profile> — switch model profile
+- /grd:settings yolo — toggle autonomous mode
+- /grd:settings ceremony <level> — set ceremony level
 - /grd:plan-phase --research — force research
 - /grd:plan-phase --skip-research — skip research
 - /grd:plan-phase --skip-verify — skip plan check
