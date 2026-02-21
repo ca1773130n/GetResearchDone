@@ -26,6 +26,7 @@ const {
   todosDir,
   quickDir,
   archivedPhasesDir,
+  standardsDir,
 } = require('../../lib/paths');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -336,6 +337,47 @@ describe('quickDir', () => {
     expect(quickDir(tmpDir)).toBe(
       path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick')
     );
+  });
+});
+
+// ─── standardsDir ─────────────────────────────────────────────────────────────
+
+describe('standardsDir', () => {
+  let tmpDir;
+
+  afterEach(() => {
+    if (tmpDir) cleanTmpDir(tmpDir);
+    tmpDir = null;
+  });
+
+  test('with explicit milestone returns new-style when milestone dir exists', () => {
+    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
+    expect(standardsDir(tmpDir, 'v0.2.1')).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'standards')
+    );
+  });
+
+  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
+    expect(standardsDir('/project', 'v0.2.1')).toBe(
+      path.join('/project', '.planning', 'standards')
+    );
+  });
+
+  test('with milestone omitted uses currentMilestone and falls back when dir does not exist', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
+    expect(standardsDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'standards'));
+  });
+
+  test('with milestone omitted uses currentMilestone and returns new-style when dir exists', () => {
+    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
+    expect(standardsDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'standards')
+    );
+  });
+
+  test('with null milestone defaults to currentMilestone', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0 — Null Test\n');
+    expect(standardsDir(tmpDir, null)).toBe(path.join(tmpDir, '.planning', 'standards'));
   });
 });
 
