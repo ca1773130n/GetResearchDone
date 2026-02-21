@@ -1,6 +1,6 @@
 ---
 name: grd-deep-diver
-description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces ${research_dir}/deep-dives/{PAPER-SLUG}.md and updates PAPERS.md index.
+description: Deep analysis of a specific research paper. Analyzes method, code, limitations, and production considerations. Produces deep-dive analysis and updates PAPERS.md.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: magenta
 ---
