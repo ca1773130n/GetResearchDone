@@ -44,6 +44,11 @@
     ],
     "baseline_tracking": true
   },
+  "execution": {
+    "use_teams": true,
+    "team_timeout_minutes": 30,
+    "max_concurrent_teammates": 3
+  },
   "code_review": {
     "enabled": true,
     "timing": "per_wave",
