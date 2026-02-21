@@ -307,6 +307,46 @@ describe('buildParallelContext', () => {
     const result = buildParallelContext(fixtureDir, ['99']);
     expect(result.error).toBeTruthy();
   });
+
+  test('when nativeWorktreeAvailable=true, phase contexts have worktree_path=null and native_isolation=true', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2'], { nativeWorktreeAvailable: true });
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).toBeNull();
+      expect(phase.native_isolation).toBe(true);
+    }
+  });
+
+  test('when nativeWorktreeAvailable=false, phase contexts have worktree_path set to a valid path', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2'], { nativeWorktreeAvailable: false });
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).toBeTruthy();
+      expect(typeof phase.worktree_path).toBe('string');
+      expect(phase.native_isolation).toBe(false);
+    }
+  });
+
+  test('default options (no options arg) preserves existing behavior with worktree_path set', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['1', '2']);
+    expect(result.phases).toHaveLength(2);
+    for (const phase of result.phases) {
+      expect(phase.worktree_path).toBeTruthy();
+      expect(phase.native_isolation).toBe(false);
+    }
+  });
 });
 
 // ─── cmdInitExecuteParallel ─────────────────────────────────────────────────
