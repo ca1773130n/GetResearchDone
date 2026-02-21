@@ -836,6 +836,39 @@ describe('cmdWorktreePushAndPR', () => {
     expect(result.branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
   });
 
+  test('reads branch from worktree HEAD, not from GRD template', () => {
+    // Create a worktree
+    captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+
+    const wtPath = worktreePath(repoDir, 'v0.2.0', '27');
+
+    // Rename the branch in the worktree to a non-GRD name
+    execFileSync('git', ['branch', '-m', 'feature/arbitrary-name'], {
+      cwd: wtPath,
+      stdio: 'pipe',
+    });
+
+    // Make a commit so there is something to push
+    fs.writeFileSync(path.join(wtPath, 'test.txt'), 'hello', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: wtPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'test commit'], { cwd: wtPath, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreePushAndPR(repoDir, { phase: '27', milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+
+    // Branch should be the renamed one, not the GRD template
+    expect(result.branch).toBe('feature/arbitrary-name');
+  });
+
   test('uses base_branch from config for PR target', () => {
     // Update config to use a custom base branch
     const configPath = path.join(repoDir, '.planning', 'config.json');
@@ -1137,6 +1170,63 @@ describe('cmdWorktreeMerge', () => {
     expect(branches).toContain('grd/v0.2.0/27-worktree-infrastructure');
   });
 
+  test('merges with explicit options.branch instead of computed branch', () => {
+    // Create milestone branch
+    const { stdout: msOut } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false)
+    );
+    const msBranch = JSON.parse(msOut).branch;
+
+    // Create a custom-named branch (not following GRD convention)
+    const customBranch = 'feature/custom-phase-27';
+    execFileSync('git', ['branch', customBranch, msBranch], { cwd: repoDir, stdio: 'pipe' });
+
+    // Make a commit on the custom branch
+    execFileSync('git', ['checkout', customBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'custom-work.txt'), 'custom branch work', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: custom branch work'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Merge using explicit branch name
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', branch: customBranch },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    expect(result.phase_branch).toBe(customBranch);
+    expect(result.milestone_branch).toBe(msBranch);
+
+    // Verify the commit is on the milestone branch
+    const log = execFileSync('git', ['log', '--oneline', msBranch], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('custom branch work');
+  });
+
+  test('without options.branch computes branch from template (regression)', () => {
+    setupBranches(repoDir);
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    // The phase_branch should be the computed GRD convention branch
+    expect(result.phase_branch).toBe('grd/v0.2.0/27-worktree-infrastructure');
+  });
+
   test('restores original branch after merge', () => {
     setupBranches(repoDir);
 
@@ -1282,5 +1372,43 @@ describe('cmdWorktreeHookRemove', () => {
     expect(result).toHaveProperty('worktree_path', '/tmp/some-worktree');
     expect(result).toHaveProperty('branch', 'some-branch');
     expect(result).toHaveProperty('action', 'remove_logged');
+  });
+
+  test('extracts phase and milestone from GRD-pattern worktree path', () => {
+    const grdPath = '/home/user/project/.worktrees/grd-worktree-v0.2.6-46';
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, grdPath, 'grd/v0.2.6/46-hybrid', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    expect(result).toHaveProperty('phase_detected', '46');
+    expect(result).toHaveProperty('milestone_detected', 'v0.2.6');
+  });
+
+  test('does not include metadata for non-GRD worktree path', () => {
+    const nonGrdPath = '/tmp/random-worktree';
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, nonGrdPath, 'feature/something', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    expect(result).not.toHaveProperty('phase_detected');
+    expect(result).not.toHaveProperty('milestone_detected');
+  });
+
+  test('handles null worktree path gracefully', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, null, 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('hooked', true);
+    expect(result).toHaveProperty('action', 'remove_logged');
+    // Should not crash, and should not have metadata
+    expect(result).not.toHaveProperty('phase_detected');
   });
 });

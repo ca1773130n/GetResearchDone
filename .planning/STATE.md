@@ -14,16 +14,16 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 - **Active phase:** Phase 46 — Hybrid Worktree Execution
 - **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.2.6 — Native Worktree Isolation
-- **Status:** Phase 46 complete — ready for Phase 47
-- **Progress:** [█████████░] 89%
-- **Next:** Plan and execute Phase 47 (Integration & Regression Testing)
+- **Status:** Phase 46 complete, merged to main
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:plan-phase 47`
 
 ## Milestone Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | 45 | Foundation & Detection | Complete (3/3 plans, merged 2026-02-21) |
-| 46 | Hybrid Worktree Execution | Complete (3/3 plans) |
+| 46 | Hybrid Worktree Execution | Complete (3/3 plans, merged 2026-02-21) |
 | 47 | Integration & Regression Testing | Not started |
 
 ## Deferred Validations
@@ -37,6 +37,9 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 | DEFER-44-01 | execute-phase WebMCP health checks fire correctly at runtime | Phase 44 | Live execute-phase with MCP | PENDING (requires live MCP environment) |
 | DEFER-44-02 | grd-verifier populates VERIFICATION.md WebMCP section | Phase 44 | Live verify-phase with MCP | PENDING (requires live MCP environment) |
 | DEFER-44-03 | grd-eval-planner generates useWebMcpTool() for frontend phases | Phase 44 | Live eval-plan on frontend phase | PENDING (requires frontend phase + MCP) |
+| DEFER-46-01 | Native Task spawning with isolation:'worktree' produces correct worktree | Phase 46 | Phase 47 integration | PENDING (requires Claude Code runtime) |
+| DEFER-46-02 | STATE.md writes route to main_repo_path (not worktree) in native mode | Phase 46 | Phase 47 integration | PENDING (requires native isolation live test) |
+| DEFER-46-03 | Completion flow discovers native worktree branch via git worktree list | Phase 46 | Phase 47 integration | PENDING (requires native isolation live test) |
 
 ## Key Decisions
 

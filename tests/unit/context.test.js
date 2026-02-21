@@ -1230,6 +1230,114 @@ describe('native_worktree_available integration', () => {
   });
 });
 
+// ─── isolation_mode and main_repo_path integration ──────────────────────────
+
+describe('isolation_mode and main_repo_path integration', () => {
+  let tmpDir;
+  const savedEnv = {};
+  const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+  const envVarsToClean = [
+    ...claudeCodeVars,
+    'CODEX_HOME',
+    'CODEX_THREAD_ID',
+    'GEMINI_CLI_HOME',
+    'OPENCODE',
+  ];
+
+  beforeEach(() => {
+    for (const key of envVarsToClean) {
+      savedEnv[key] = process.env[key];
+    }
+    for (const key of envVarsToClean) {
+      delete process.env[key];
+    }
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    for (const key of envVarsToClean) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('isolation_mode is native when backend is claude and branching_strategy is phase', () => {
+    // Default fixture: backend=claude (default), branching_strategy=phase
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('claude');
+    expect(result.isolation_mode).toBe('native');
+  });
+
+  test('isolation_mode is manual when backend is codex and branching_strategy is phase', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        backend: 'codex',
+        branching_strategy: 'phase',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.backend).toBe('codex');
+    expect(result.isolation_mode).toBe('manual');
+  });
+
+  test('isolation_mode is none when branching_strategy is none regardless of backend', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        branching_strategy: 'none',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.isolation_mode).toBe('none');
+  });
+
+  test('main_repo_path is a non-null string when branching_strategy is phase', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(typeof result.main_repo_path).toBe('string');
+    expect(result.main_repo_path.length).toBeGreaterThan(0);
+  });
+
+  test('main_repo_path is null when branching_strategy is none', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        branching_strategy: 'none',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+      })
+    );
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.main_repo_path).toBeNull();
+  });
+});
+
 describe('standards absent', () => {
   let tmpDir;
 
