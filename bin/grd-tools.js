@@ -674,6 +674,8 @@ function routeCommand(command, args, cwd, raw) {
             phase: flag(args, '--phase', null),
             milestone: flag(args, '--milestone', null),
             slug: flag(args, '--slug', null),
+            base: flag(args, '--base', null),
+            branch: flag(args, '--branch', null),
             deleteBranch: args.includes('--delete-branch'),
           },
           raw

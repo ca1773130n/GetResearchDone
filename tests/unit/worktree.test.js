@@ -1036,7 +1036,7 @@ describe('cmdWorktreeMerge', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.merged).toBe(true);
-    expect(result.milestone_branch).toBe(msBranch);
+    expect(result.target_branch).toBe(msBranch);
     expect(result.phase).toBe('27');
 
     // Verify the commit is on the milestone branch
@@ -1066,11 +1066,19 @@ describe('cmdWorktreeMerge', () => {
     expect(log).toContain('Merge phase 27');
   });
 
-  test('error when milestone branch missing', () => {
+  test('falls back to config base_branch when milestone branch missing', () => {
     // Create only the phase branch (no milestone branch)
     const phaseBranch = 'grd/v0.2.0/27-worktree-infrastructure';
     execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
 
+    // Make a commit on the phase branch
+    execFileSync('git', ['checkout', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'fallback-work.txt'), 'fallback test', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: fallback work'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Without milestone branch, merge should fall back to config.base_branch (main)
     const { stdout, exitCode } = captureOutput(() =>
       cmdWorktreeMerge(
         repoDir,
@@ -1080,9 +1088,16 @@ describe('cmdWorktreeMerge', () => {
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Milestone branch');
-    expect(result.error).toContain('not found');
+    expect(result.merged).toBe(true);
+    expect(result.target_branch).toBe('main');
+    expect(result.phase_branch).toBe(phaseBranch);
+
+    // Verify the commit is on main
+    const log = execFileSync('git', ['log', '--oneline', 'main'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('fallback work');
   });
 
   test('error when phase branch missing', () => {
@@ -1119,7 +1134,7 @@ describe('cmdWorktreeMerge', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('error', 'Merge conflict');
-    expect(result.milestone_branch).toBe(msBranch);
+    expect(result.target_branch).toBe(msBranch);
     expect(result.phase_branch).toBe(phaseBranch);
 
     // Verify we're back on the original branch (main) and not in a merge state
@@ -1200,7 +1215,7 @@ describe('cmdWorktreeMerge', () => {
     const result = JSON.parse(stdout);
     expect(result.merged).toBe(true);
     expect(result.phase_branch).toBe(customBranch);
-    expect(result.milestone_branch).toBe(msBranch);
+    expect(result.target_branch).toBe(msBranch);
 
     // Verify the commit is on the milestone branch
     const log = execFileSync('git', ['log', '--oneline', msBranch], {
@@ -1251,6 +1266,75 @@ describe('cmdWorktreeMerge', () => {
       encoding: 'utf-8',
     }).trim();
     expect(afterBranch).toBe('main');
+  });
+
+  test('merges phase branch directly into base branch with --base (no milestone branch needed)', () => {
+    // Create a phase branch directly from main (no milestone branch)
+    const phaseBranch = 'grd/v0.2.0/27-worktree-infrastructure';
+    execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+
+    // Make a commit on the phase branch
+    execFileSync('git', ['checkout', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'phase-work.txt'), 'phase 27 work', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: phase 27 work'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Merge with --base main (no milestone branch exists or needed)
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure', base: 'main' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    expect(result.target_branch).toBe('main');
+    expect(result.phase_branch).toBe(phaseBranch);
+
+    // Verify the commit is on main
+    const log = execFileSync('git', ['log', '--oneline', 'main'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('phase 27 work');
+  });
+
+  test('uses config.base_branch as target when no --base and no milestone branch', () => {
+    // Write config with base_branch
+    const planningDir = path.join(repoDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ base_branch: 'main' }),
+      'utf-8'
+    );
+
+    // Create a phase branch directly from main
+    const phaseBranch = 'grd/v0.2.0/27-worktree-infrastructure';
+    execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+
+    // Make a commit on the phase branch
+    execFileSync('git', ['checkout', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'phase-work.txt'), 'phase work', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: phase work'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Merge without --base — should use config.base_branch
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    expect(result.target_branch).toBe('main');
   });
 });
 
