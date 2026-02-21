@@ -46,7 +46,7 @@ lib/                        # 19 modules (pure logic, no I/O side effects in tes
 ├── utils.js                # Shared utilities (slug, date, markdown)
 ├── verify.js               # Plan/phase/commit verification suite
 └── worktree.js             # Git worktree parallel execution
-commands/                   # 45 skill definitions (markdown with frontmatter)
+commands/                   # 39 skill definitions (markdown with frontmatter)
 agents/                     # 19 subagent definitions (markdown with frontmatter)
 tests/
 ├── unit/                   # Unit tests — one per lib/ module
@@ -94,9 +94,14 @@ docs/                       # Tutorials, quickstart, diagrams
 ├── STATE.md                # Living memory with baselines, deferred validations
 ├── BASELINE.md             # Current quantitative performance metrics
 ├── PRODUCT-QUALITY.md      # Product-level quality targets and gaps
+├── PRINCIPLES.md           # Project principles that shape agent behavior (optional)
 ├── REQUIREMENTS.md         # Requirements with traceability
 ├── config.json             # GRD configuration
 ├── TRACKER.md              # Issue tracker mapping (created at runtime)
+├── standards/              # Discovered codebase standards (from /grd:discover)
+│   ├── index.yml           # Standard catalog with area/tag metadata
+│   └── {area}/             # Standards grouped by area (api, database, etc.)
+│       └── {pattern}.md    # Individual standard definition
 └── milestones/
     ├── {milestone}/                    # e.g., v0.2.1 (active milestone)
     │   ├── phases/
@@ -149,9 +154,26 @@ R&D phases use three verification levels:
 
 Deferred validations are tracked in STATE.md and automatically collected at integration phases.
 
+## Scale-Adaptive Ceremony
+
+Three ceremony levels control which agents run during planning and execution:
+
+| Level | When | Agents Used |
+|-------|------|-------------|
+| Light | Small scope, ≤1 plan | planner (quick mode) + executor |
+| Standard | Normal phase, 2-4 plans | researcher + planner + checker + executor + verifier |
+| Full | Complex R&D, 5+ plans, experiments | All agents, all gates, review, eval, verification |
+
+Auto-inferred from phase signals (plan count, research refs, eval targets). Override via:
+- Config: `ceremony.default_level` or `ceremony.phase_overrides`
+- CLI: `/grd:plan-phase N --ceremony light`
+- Quick toggle: `/grd:settings ceremony <level>`
+
+Ceremony controls WHICH agents are skipped, not WHICH model they use. When an agent runs, it runs at full quality.
+
 ## Autonomous Mode (YOLO)
 
-Toggle with `/grd:yolo`. When enabled:
+Toggle with `/grd:settings yolo`. When enabled:
 - All research gates → disabled
 - All confirmation gates → disabled
 - Agent makes its own decisions using available context
@@ -182,15 +204,20 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `/grd:product-plan` — Product-level planning
 - `/grd:long-term-roadmap [list|add|remove|update|refine|link|unlink|display|init]` — Manage LT milestones
 - `/grd:discuss-phase <N>` — Brainstorming with no-solutions-before-questions protocol
-- `/grd:plan-phase <N>` — Phase planning with research context
+- `/grd:plan-phase <N>` — Phase planning with research context (flags: `--research-only`, `--eval-only`)
 - `/grd:execute-phase <N>` — Phase execution (supports Agent Teams)
 - `/grd:plan-milestone-gaps` — Create phases to close gaps from milestone audit
 
 ### Evaluation
 - `/grd:assess-baseline` — Current performance baseline
-- `/grd:eval-plan <N>` — Design tiered evaluation
 - `/grd:eval-report <N>` — Collect and analyze results
 - `/grd:iterate <N>` — Iteration loop on failed metrics
+
+### Project Configuration
+- `/grd:settings` — Configure workflow settings (subcommands: `yolo`, `profile`, `ceremony`)
+- `/grd:principles` — Create/edit PRINCIPLES.md project principles
+- `/grd:discover [area]` — Discover and extract codebase standards
+- `/grd:progress` — Project progress (modes: `dashboard`, `health`, `phase <N>`)
 
 ### Integration
 - `/grd:sync [roadmap | phase <N> | status | reschedule]` — Sync GRD state to issue tracker
@@ -216,6 +243,7 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `autonomous_mode` — YOLO mode toggle
 - `tracker` — Issue tracker integration (GitHub Issues / MCP Atlassian)
 - `eval_config` — Default metrics and baseline tracking
+- `ceremony` — Scale-adaptive ceremony (default_level: auto/light/standard/full, phase_overrides)
 - `code_review` — Auto code review (enabled, timing, severity gate)
 - `execution` — Agent Teams toggle, timeout, concurrency limits
 - `git` — Worktree isolation (enabled, worktree_dir, base_branch, branch_template)
