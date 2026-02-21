@@ -251,3 +251,27 @@
 
 ---
 
+
+## v0.2.3 Improve Settings & Git Workflow (Shipped: 2026-02-21)
+
+**Delivered:** Unified git workflow model with project-local worktrees, 4-option completion flow, revised settings interview, and milestone phase scanning bugfix.
+
+**Phases completed:** 38-41 (7 plans total)
+**Timeline:** 2026-02-20 to 2026-02-21 (2 days)
+**Source:** 1,653 tests (+22 from v0.2.2), 39 files changed (+5,814 LOC)
+
+**Key accomplishments:**
+- Consolidated git config into nested `git` section with `enabled`, `worktree_dir`, `base_branch`, `branch_template`; backward-compatible loadConfig
+- Project-local `.worktrees/` directory replacing `/tmp/grd-worktree-*`; auto-added to `.gitignore`
+- 4-option worktree completion flow: merge locally, push and create PR, keep branch, discard work
+- Test gate blocking merge/PR on test failure; finally-block cleanup on all paths
+- Settings interview revision covering worktree isolation, execution, code review, and confirmation gates
+- `cmdInitNewMilestone` bugfix: scans new-style `milestones/{version}/phases/` directories
+- CLAUDE.md Git Isolation section documenting the full worktree model
+
+**Git range:** v0.2.2..v0.2.3
+
+**What's next:** TBD — run `/grd:new-milestone` to start
+
+---
+

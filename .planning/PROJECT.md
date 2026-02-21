@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-20
+**Updated:** 2026-02-21
 
 ## Vision
 
@@ -27,15 +27,30 @@ A Claude Code plugin providing:
 - Centralized path resolver (`lib/paths.js`) with backward-compatible fallback
 - `migrate-dirs` command for upgrading old-style `.planning/` layouts to new hierarchy
 - Simplified milestone archival with `archived.json` marker (no redundant phase directory copy)
-- Git worktree isolation for phase execution with temp directory management
+- Git worktree isolation for phase execution with project-local `.worktrees/` directory
 - Phase dependency analysis with parallel group detection (Kahn's algorithm)
 - Parallel phase execution via teammate spawning (Claude Code) with sequential fallback (other backends)
-- PR workflow from worktree branches with automatic push and creation
+- 4-option worktree completion flow (merge locally, push and create PR, keep branch, discard work) with test gate
 - 130+ CLI commands across 19 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.3)
+
+**Shipped:** 2026-02-21
+
+v0.2.3 unified the git workflow model and added a 4-option worktree completion flow:
+- Consolidated git config into nested `git` section (`enabled`, `worktree_dir`, `base_branch`, `branch_template`); backward-compatible `loadConfig`
+- Project-local `.worktrees/` directory (auto-added to `.gitignore`) replacing `/tmp/grd-worktree-*`
+- `lib/worktree.js`: 5 new functions (`runTestGate`, `mergeWorktree`, `discardWorktree`, `keepWorktree`, `cleanupWorktree`) with finally-block cleanup
+- `cmdWorktreeComplete` orchestrator: 4 completion paths (merge/PR/keep/discard) with test gate blocking merge/PR on failure
+- Settings interview revision: worktree isolation, execution settings, code review, confirmation gates
+- `cmdInitNewMilestone` bugfix: scans new-style `milestones/{version}/phases/` directories for `suggested_start_phase`
+- `execute-phase.md` updated with `completion_flow` step and `branching_strategy != none` conditions
+- CLAUDE.md Git Isolation section documenting the worktree model
+- 1,653 tests passing (22 new), 19 lib/ modules
 
 ## Previous State (v0.2.1)
 
@@ -131,7 +146,26 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
-## Validated Goals (v0.2.1)
+## Validated Goals (v0.2.3)
+
+- [x] Config `git` section with `enabled`, `worktree_dir`, `base_branch`, `branch_template`; legacy top-level keys read for backward compat
+- [x] Worktrees created under `.worktrees/` (project-local); `.worktrees/` auto-added to `.gitignore`
+- [x] `cmdInitExecutePhase` outputs `worktree_dir`, `branch_template`, `target_branch` fields
+- [x] `runTestGate` runs test suite and blocks merge/PR on failure
+- [x] `mergeWorktree` merges branch to base with worktree cleanup
+- [x] `discardWorktree` deletes branch and worktree
+- [x] `keepWorktree` preserves worktree and branch intact
+- [x] `cleanupWorktree` finally-block cleanup (idempotent)
+- [x] `cmdWorktreeComplete` orchestrates 4 completion paths with structured JSON output
+- [x] Settings interview covers worktree isolation, execution, code review, and confirmation gates
+- [x] `cmdInitNewMilestone` scans new-style `milestones/{version}/phases/` directories
+- [x] `execute-phase.md` uses `completion_flow` step with `worktree complete --action`
+- [x] CLAUDE.md documents Git Isolation model with 4 completion options
+- [x] 1,653 tests passing across 32 suites (22 new tests, zero regressions)
+
+<details>
+<summary>Validated Goals (v0.2.1)</summary>
+
 
 - [x] `lib/paths.js` with 9 path resolver functions, `currentMilestone(cwd)` reading STATE.md, `archivedPhasesDir` for legacy data
 - [x] All path functions accept explicit `cwd` and `milestone` params; defaults to `currentMilestone(cwd)`
@@ -151,6 +185,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] DEFER-35-01 resolved: migrate-dirs works on real old-style layout with idempotency
 - [x] DEFER-35-02 resolved: milestone completion writes archived.json, no redundant copy
 - [x] 1,631 tests passing across 32 suites (54 new tests, zero regressions)
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.2.0)</summary>
@@ -275,15 +311,7 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 ## Current Milestone
 
-**v0.2.3 — Improve Settings & Git Workflow**
-
-**Goal:** Revise the git worktree/branching strategy to be clear and consistent (modeled after superpowers plugin), and update the settings interview to reflect all current features.
-
-**Target features:**
-- Unified git workflow: worktree isolation for every phase execution, project-local `.worktrees/` directory, completion options (merge/PR/keep/discard)
-- Remove confusing branching_strategy/worktree overlap — single coherent model
-- Settings interview revision with all current features properly exposed
-- Config schema consolidation (git section, code review, eval, parallelization)
+*No active milestone. Run `/grd:new-milestone` to start the next one.*
 
 ## Open Items
 
@@ -319,3 +347,5 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.1.6 milestone shipped: 2026-02-19*
 *v0.2.0 milestone shipped: 2026-02-19*
 *v0.2.1 milestone shipped: 2026-02-20*
+*v0.2.2 milestone shipped: 2026-02-20*
+*v0.2.3 milestone shipped: 2026-02-21*
