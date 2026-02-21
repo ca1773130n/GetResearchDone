@@ -8,19 +8,17 @@
 **Goal:** GRD uses itself to improve itself — dogfooding the full R&D workflow to fix bugs, reduce complexity and tech debt, and invent new features.
 
 **Approach:**
-- Use GRD's own commands (tested via local `bin/grd-tools.js`, not the cached plugin) to drive development
-- Testbed project (`testbed/` — copy of multi-bootstrap) exercises GRD workflows as a real user would
-- Create long-term milestones, phases, requirements that mimic real agentic dev workflows
-- Fix discovered bugs and glitches from dogfooding
-- Reduce module complexity and eliminate tech debt
-- Invent new features driven by real usage friction
+- Testbed project (`testbed/` — copy of multi-bootstrap) is the test subject — GRD workflows run ON it to expose issues
+- All code changes target GRD's own codebase (`bin/`, `lib/`, `commands/`, `agents/`) — never the testbed
+- Use local `bin/grd-tools.js` (not the cached plugin) to test changes against the testbed
+- Bugs, glitches, and friction discovered by running GRD on the testbed drive fixes in GRD source code
 
 **Target features:**
-- Dogfooding infrastructure: testbed project with full GRD lifecycle
-- Bug fixes discovered through self-use
-- Complexity reduction across lib/ modules
-- Tech debt cleanup (dead code, inconsistent patterns, missing edge cases)
-- New features driven by dogfooding friction
+- Dogfooding infrastructure: testbed as a GRD workflow test subject
+- Bug fixes in GRD source discovered through running workflows on testbed
+- Complexity reduction across GRD's lib/ modules
+- Tech debt cleanup in GRD codebase (dead code, inconsistent patterns, missing edge cases)
+- New GRD features driven by real usage friction
 
 ## Vision
 

@@ -140,30 +140,30 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 ## Phase Details
 
 ### Phase 48: Dogfooding Infrastructure
-**Goal**: Testbed project exercises the full GRD lifecycle (new-project, milestones, phases, plans) via local CLI, proving the workflow works end-to-end for a real user
+**Goal**: Set up testbed as a GRD workflow test subject and establish local CLI testing harness, so subsequent phases can run GRD workflows on testbed to expose bugs in GRD source code
 **Type**: implement
 **Depends on**: Nothing (first phase of milestone)
 **Requirements**: REQ-110, REQ-111
 **Verification Level**: sanity
 **Success Criteria** (what must be TRUE):
-  1. `testbed/` directory contains a complete GRD project with `.planning/PROJECT.md`, `ROADMAP.md`, `STATE.md`, and `config.json`
-  2. Running `node bin/grd-tools.js state load` from the testbed directory returns valid JSON with correct milestone and phase data
-  3. At least one full cycle (new-project -> roadmap -> plan-phase -> execute-phase) completes without errors using local CLI
-  4. A test script or documented procedure validates local CLI commands against the testbed (not the cached plugin)
+  1. `testbed/` initialized as GRD project (`.planning/` with PROJECT.md, ROADMAP.md, STATE.md, config.json)
+  2. Running `node ../../bin/grd-tools.js state load` from testbed returns valid JSON — proves local CLI works against testbed
+  3. At least one GRD workflow cycle (init, state, phase ops) completes on testbed without errors
+  4. All discovered issues are filed as bugs against GRD source code (bin/, lib/), not testbed
 **Plans**: TBD
 
 ### Phase 49: Bug Discovery & Fixes
-**Goal**: The `currentMilestone()` function returns the correct active milestone version, and all GRD workflows exercised on the testbed produce correct results without crashes or data corruption
+**Goal**: Fix bugs in GRD source code (lib/, bin/) discovered by running workflows on testbed — starting with currentMilestone() parsing bug, then systematic workflow exercise
 **Type**: evaluate
 **Depends on**: Phase 48
 **Requirements**: REQ-112, REQ-113
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
-  1. `currentMilestone(cwd)` returns `"v0.2.7"` (not `"v0.0.5"`) when STATE.md contains "v0.2.7 Self-Evolution" as the active milestone
-  2. `currentMilestone(cwd)` correctly parses milestone versions from STATE.md lines containing milestone names with spaces (e.g., "v0.2.7 Self-Evolution", "v0.1.0 Setup")
-  3. All `cmdInit*` functions output the correct `current_milestone` field matching the active milestone in STATE.md
-  4. A bug catalog document lists all issues discovered during testbed exercise, with each bug having a test that reproduces it and a fix that passes
-  5. Zero workflow commands (state, phase, roadmap, milestone operations) crash or produce invalid output when run on the testbed
+  1. `currentMilestone(cwd)` in `lib/paths.js` returns `"v0.2.7"` (not `"v0.0.5"`) — fix in GRD source, test against testbed
+  2. All `cmdInit*` functions in GRD source output correct `current_milestone` field
+  3. Bug catalog documents each GRD source code issue found via testbed exercise, with reproduction test and fix
+  4. All fixes are in GRD's `lib/` and `bin/` — zero changes to testbed to work around GRD bugs
+  5. GRD test suite (tests/unit/, tests/integration/) validates every fix
 **Plans**: TBD
 
 ### Phase 50: Complexity & Tech Debt Reduction
@@ -194,7 +194,7 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 **Plans**: TBD
 
 ### Phase 52: Integration & Regression Testing
-**Goal**: All milestone changes work together without regressions, deferred validations are resolved, and the full GRD workflow runs clean on both the testbed and GRD's own project
+**Goal**: All GRD source code changes from phases 48-51 work together without regressions; full GRD workflow runs clean when exercised on testbed
 **Type**: integrate
 **Depends on**: Phase 51
 **Requirements**: -

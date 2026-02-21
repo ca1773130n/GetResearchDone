@@ -21,8 +21,9 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Testbed
 
 - **Location:** `testbed/` (copy of multi-bootstrap Flutter monorepo)
-- **Purpose:** Exercise GRD workflows as a real user would -- create milestones, phases, plans, execute, evaluate
-- **Testing approach:** Use local `bin/grd-tools.js` (not cached plugin) to test changes
+- **Role:** Test subject only — GRD workflows run ON it to expose bugs and friction in GRD source code
+- **All fixes target:** GRD's own codebase (`bin/`, `lib/`, `commands/`, `agents/`) — never the testbed itself
+- **Testing approach:** Use local `bin/grd-tools.js` (not cached plugin) to run GRD commands against testbed
 
 ## Deferred Validations
 
