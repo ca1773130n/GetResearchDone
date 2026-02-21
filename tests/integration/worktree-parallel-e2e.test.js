@@ -44,7 +44,7 @@ const {
 } = require('../../lib/parallel');
 
 const { cmdInitExecutePhase } = require('../../lib/context');
-const { getBackendCapabilities, BACKEND_CAPABILITIES } = require('../../lib/backend');
+const { getBackendCapabilities } = require('../../lib/backend');
 
 // Resolved tmpdir for macOS symlink handling
 const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
