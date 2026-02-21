@@ -1,9 +1,19 @@
 ---
 description: Check project progress and route to the next action
+argument-hint: "[dashboard | health | phase <N>]"
 ---
 
 <purpose>
-Check project progress, summarize recent work and what's ahead, then intelligently route to the next action — either executing an existing plan or creating the next one. Provides situational awareness before continuing work.
+Unified project status command. Default mode checks progress, summarizes recent work, and
+routes to the next action. Sub-modes provide dashboard overview, health diagnostics, and
+phase drill-down — replacing the former /grd:dashboard, /grd:health, and /grd:phase-detail
+commands.
+
+Modes:
+  (no args)         Smart progress + routing (default)
+  dashboard | full  TUI tree view of milestones, phases, plans
+  health            Blockers, velocity, stale phases, risk register
+  phase <N>         Detailed drill-down for a single phase
 </purpose>
 
 <required_reading>
@@ -11,6 +21,169 @@ Read all files referenced by the invoking prompt's execution_context before star
 </required_reading>
 
 <process>
+
+<step name="parse_mode">
+**Parse arguments to determine mode:**
+
+Check `$ARGUMENTS`:
+- Empty or not provided: **default mode** (progress + routing)
+- `dashboard` or `full`: **dashboard mode**
+- `health`: **health mode**
+- `phase <N>` (where N is a number): **phase-detail mode** with phase number N
+
+Store the mode for routing in the next step.
+</step>
+
+<!-- ================================================================== -->
+<!-- MODE: DASHBOARD                                                     -->
+<!-- ================================================================== -->
+
+<step name="mode_dashboard" condition="mode is dashboard or full">
+**Full graphical TUI overview of milestones, phases, and plans.**
+
+Load the dashboard data:
+
+```bash
+DASHBOARD=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dashboard --raw)
+```
+
+This returns JSON with:
+- `milestones[]` — each with phases, progress_percent, start/target dates
+- `summary` — total_milestones, total_phases, total_plans, total_summaries, active_blockers, pending_deferred, total_decisions
+
+Render the TUI tree view (or use pre-formatted output):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dashboard
+```
+
+This renders:
+- Milestone headings with date ranges
+- Per-milestone progress bars
+- Phase list with status symbols (checkmark=complete, diamond=in-progress, circle=planned, arrow=active)
+- Plan counts per phase
+- Summary footer with totals
+
+Present the output to the user, then offer navigation:
+
+- `/grd:progress health` — project health indicators
+- `/grd:progress phase <N>` — drill down into a specific phase
+- `/grd:execute-phase <N>` — execute the next incomplete phase
+- `/grd:progress` — smart routing view
+
+**Done.** Do not continue to default mode steps.
+</step>
+
+<!-- ================================================================== -->
+<!-- MODE: HEALTH                                                        -->
+<!-- ================================================================== -->
+
+<step name="mode_health" condition="mode is health">
+**Project health indicators — blockers, velocity, stale phases, risk register.**
+
+Load the health data:
+
+```bash
+HEALTH=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js health --raw)
+```
+
+This returns JSON with:
+- `blockers` — count and items list
+- `deferred_validations` — total, pending, resolved counts with item details
+- `velocity` — total_plans, total_duration_min, avg_duration_min, recent_5_avg_min
+- `stale_phases` — phases with plans but no summaries
+- `risks` — risk register entries with probability, impact, and phase
+- `baseline` — baseline assessment status (null if no BASELINE.md)
+
+Render the health indicators (or use pre-formatted output):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js health
+```
+
+This renders:
+- Blockers section (None with checkmark, or list of active blockers)
+- Deferred validations with pending/resolved counts and item details
+- Velocity metrics (average plan duration, recent trend)
+- Stale phases list (warning indicator)
+- Risk register table
+
+Present the output to the user.
+
+**Highlight warnings** that need attention:
+- **Active blockers** — suggest resolving or escalating
+- **Pending deferred validations** — note which phase will validate them
+- **Stale phases** — phases with plans but no progress, suggest `/grd:execute-phase <N>`
+- **High-impact risks** — risks with Critical impact that are not yet mitigated
+- **Velocity trend** — if recent_5_avg is significantly higher than overall avg, note slowdown
+
+Offer navigation:
+
+- `/grd:progress dashboard` — full project overview
+- `/grd:progress phase <N>` — drill into a specific phase
+- `/grd:execute-phase <N>` — address stale phases
+- `/grd:progress` — smart routing view
+
+**Done.** Do not continue to default mode steps.
+</step>
+
+<!-- ================================================================== -->
+<!-- MODE: PHASE DETAIL                                                  -->
+<!-- ================================================================== -->
+
+<step name="mode_phase_detail" condition="mode is phase N">
+**Detailed drill-down view for a single phase.**
+
+If no phase number was provided, show usage:
+```
+Usage: /grd:progress phase <N>
+Example: /grd:progress phase 4
+```
+Exit.
+
+Load the phase detail data:
+
+```bash
+PHASE_DETAIL=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js phase-detail ${PHASE_NUM} --raw)
+```
+
+This returns JSON with:
+- `phase_number`, `phase_name`, `directory`
+- `plans[]` — each with id, wave, type, status, duration, tasks, files, objective
+- `decisions[]` — key decisions made in this phase
+- `artifacts[]` — files created
+- `has_eval`, `has_verification`, `has_review`, `has_context`, `has_research` — supplementary file flags
+- `summary_stats` — total_plans, completed, total_duration, total_tasks, total_files
+
+Check for error: if `error` field exists in response, the phase was not found.
+
+Render the detailed phase view (or use pre-formatted output):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js phase-detail ${PHASE_NUM}
+```
+
+This renders:
+- Phase header with status and plan count
+- Plans table with wave, status symbol, duration, tasks, files, objective
+- Totals row
+- Decisions list
+- Artifact status indicators (Context, Research, Eval, Verification, Review)
+
+Present the output to the user, then offer navigation:
+
+- `/grd:progress dashboard` — return to full project view
+- `/grd:execute-phase <N>` — execute this phase (if plans exist but incomplete)
+- `/grd:plan-phase <N>` — create plans for this phase (if no plans exist)
+- `/grd:progress phase <N+1>` — view next phase
+- `/grd:progress health` — project health check
+
+**Done.** Do not continue to default mode steps.
+</step>
+
+<!-- ================================================================== -->
+<!-- MODE: DEFAULT (progress + smart routing)                            -->
+<!-- ================================================================== -->
 
 <step name="init_context">
 **Load progress context (with file contents to avoid redundant reads):**
@@ -291,10 +464,12 @@ Ready to plan the next milestone.
 
 <success_criteria>
 
-- [ ] Rich context provided (recent work, decisions, issues)
-- [ ] Current position clear with visual progress
-- [ ] What's next clearly explained
-- [ ] Smart routing: /grd:execute-phase if plans exist, /grd:plan-phase if not
-- [ ] User confirms before any action
-- [ ] Seamless handoff to appropriate grd command
+- [ ] Correct mode selected from arguments (default / dashboard / health / phase N)
+- [ ] Dashboard mode: TUI tree view with milestones, phases, plans rendered
+- [ ] Health mode: blockers, velocity, stale phases, risks displayed with warnings
+- [ ] Phase detail mode: plans table, decisions, artifact status for requested phase
+- [ ] Default mode: rich context provided (recent work, decisions, issues)
+- [ ] Default mode: current position clear with visual progress
+- [ ] Default mode: smart routing to next action
+- [ ] Navigation options reference /grd:progress sub-modes (not removed commands)
 </success_criteria>

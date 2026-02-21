@@ -14,7 +14,7 @@ A Claude Code plugin providing:
 - Tiered verification (sanity/proxy/deferred) for research phases
 - Autonomous mode for unattended operation
 - Issue tracker integration (GitHub Issues, Jira via MCP Atlassian)
-- TUI dashboard for project visibility (dashboard, phase-detail, health)
+- TUI dashboard for project visibility (progress dashboard, progress health, progress phase N)
 - Multi-backend support (Claude Code, Codex CLI, Gemini CLI, OpenCode) with dynamic model detection
 - Long-term roadmap planning (flat LT-N milestones) with CRUD operations and protection rules
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
@@ -31,11 +31,27 @@ A Claude Code plugin providing:
 - Phase dependency analysis with parallel group detection (Kahn's algorithm)
 - Parallel phase execution via teammate spawning (Claude Code) with sequential fallback (other backends)
 - 4-option worktree completion flow (merge locally, push and create PR, keep branch, discard work) with test gate
-- 130+ CLI commands across 19 modular lib/ modules
+- Scale-adaptive ceremony (light/standard/full) controlling which agents run per phase
+- Constitution layer (PRINCIPLES.md) for project-level principles shaping agent behavior
+- Standards discovery (/grd:discover) for extracting and enforcing codebase patterns
+- 39 commands (consolidated from 45) across 19 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.4)
+
+**Shipped:** 2026-02-21
+
+v0.2.4 borrowed best features from competing frameworks (Spec Kit, Agent OS, BMAD, Claude Flow) and integrated them as independent layers:
+- Constitution layer: PRINCIPLES.md for project-level principles that shape all agent behavior
+- Standards discovery: `/grd:discover` for extracting codebase patterns, `.planning/standards/` with `index.yml` catalog
+- Scale-adaptive ceremony: light/standard/full levels auto-inferred from phase signals, controlling which agents run
+- Command consolidation: 45→39 commands (dashboard/health→progress, yolo/set-profile→settings, research-phase/eval-plan→plan-phase, audit→complete-milestone, phase-detail removed)
+- `inferCeremonyLevel()` in lib/context.js with user override, per-phase override, and auto-inference
+- `standardsDir()` in lib/paths.js for milestone-scoped standards paths
+- 1,679 tests passing (48 new), 19 lib/ modules
 
 ## Previous State (v0.2.3)
 
@@ -349,3 +365,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.2.1 milestone shipped: 2026-02-20*
 *v0.2.2 milestone shipped: 2026-02-20*
 *v0.2.3 milestone shipped: 2026-02-21*
+*v0.2.4 milestone shipped: 2026-02-21*

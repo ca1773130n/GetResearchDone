@@ -271,6 +271,42 @@
 
 **Git range:** v0.2.2..v0.2.3
 
+**What's next:** v0.2.4 Layered Integration
+
+---
+
+
+## v0.2.4 Layered Integration (Shipped: 2026-02-21)
+
+**Delivered:** Borrowed best features from competing frameworks (Spec Kit, Agent OS, BMAD, Claude Flow) as independent layers: constitution, standards discovery, scale-adaptive ceremony, and command consolidation.
+
+**Phases completed:** 1 phase (42), 2 plans, 14 implementation tasks
+**Timeline:** 2026-02-21 (single day)
+**Source:** 1,679 tests (+26 from v0.2.3), 6 files deleted, 2 files created, 10+ files modified
+
+**Key accomplishments:**
+- Constitution layer: PRINCIPLES.md support in all init workflows + `/grd:principles` command
+- Standards discovery: `standardsDir()` in path resolver, standards detection in init, `/grd:discover` command
+- Scale-adaptive ceremony: `inferCeremonyLevel()` auto-inference (light/standard/full), ceremony config defaults, ceremony controls which agents run (not which model)
+- Command consolidation: 8 commands merged into parent commands, 2 new commands added (net -6, 45→39)
+- CLAUDE.md updated with all new features
+
+**Commands removed (8):**
+- dashboard → `progress dashboard`
+- health → `progress health`
+- phase-detail → `progress phase <N>`
+- yolo → `settings yolo`
+- set-profile → `settings profile`
+- research-phase → `plan-phase --research-only`
+- eval-plan → `plan-phase --eval-only`
+- audit-milestone → `complete-milestone` (first step)
+
+**Commands added (2):**
+- `/grd:principles` — Create/edit project principles
+- `/grd:discover [area]` — Discover codebase standards
+
+**Git range:** v0.2.3..v0.2.4
+
 **What's next:** TBD — run `/grd:new-milestone` to start
 
 ---
