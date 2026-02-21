@@ -7,7 +7,7 @@
 - **Active phase:** Phase 39 — Completion Flow
 - **Milestone:** v0.2.3 — Improve Settings & Git Workflow
 - **Current Plan:** 2 of 2 in Phase 39 (Plan 02 complete — phase complete)
-- **Progress:** [##        ] 1/4 phases
+- **Progress:** [██░░░░░░░░] 20%
 - **Next:** Phase 39 complete. Next: Phase 40
 
 ## Deferred Validations
@@ -47,6 +47,7 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 | # | Date | Description | Summary |
 |---|------|-------------|---------|
 | 1 | 2026-02-20 | Update LT roadmap tutorial with iterative refinement guide | `.planning/quick/1-update-tutorial-of-longterm-roadmap-with/1-SUMMARY.md` |
+| Phase 40 P01 | 3min | 3 tasks | 1 files |
 
 ## Blockers
 
@@ -55,7 +56,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 39 Plan 02 (cmdWorktreeComplete orchestrator)
-- **Stopped at:** Completed 39-02-PLAN.md (2/2 tasks) -- Phase 39 fully complete
+- **Stopped at:** Completed 40-01-PLAN.md
 - **Next action:** Phase 40
 - **Context needed:** Phase 39 shipped the full worktree completion flow: 5 helper functions (Plan 01) + cmdWorktreeComplete orchestrator with 4 paths and CLI routing (Plan 02). 60 worktree tests, 1661 total tests.
 
