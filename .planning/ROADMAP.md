@@ -102,7 +102,7 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
 - [ ] **Phase 38: Core Git Workflow Revision** - Replace branching_strategy with unified worktree model `implement`
 - [ ] **Phase 39: Completion Flow** - Phase execution ends with merge/PR/keep/discard choice `implement`
 - [ ] **Phase 40: Settings Interview Revision** - All current features exposed in /grd:settings `implement`
-- [ ] **Phase 41: Command & Documentation Updates** - execute-phase command, CLAUDE.md, and bugfix `implement`
+- [x] **Phase 41: Command & Documentation Updates** - execute-phase command, CLAUDE.md, and bugfix `implement` ✓ 2026-02-21
 
 ## Phase Details
 
@@ -170,8 +170,8 @@ Plans:
   5. All tests pass; golden outputs updated if affected by command template changes
 **Plans:** 2 plans
 Plans:
-- [ ] 41-01-PLAN.md — Fix cmdInitNewMilestone to scan new-style milestone directories + tests
-- [ ] 41-02-PLAN.md — Update execute-phase.md with 4-option completion flow + CLAUDE.md git docs
+- [x] 41-01-PLAN.md — Fix cmdInitNewMilestone to scan new-style milestone directories + tests
+- [x] 41-02-PLAN.md — Update execute-phase.md with 4-option completion flow + CLAUDE.md git docs
 
 ## Progress
 
@@ -180,7 +180,7 @@ Plans:
 | 38. Core Git Workflow Revision | 0/2 | Not started | - |
 | 39. Completion Flow | 0/2 | Not started | - |
 | 40. Settings Interview Revision | 0/1 | Not started | - |
-| 41. Command & Documentation Updates | 0/2 | Not started | - |
+| 41. Command & Documentation Updates | 2/2 | Complete | 2026-02-21 |
 
 ## Deferred Validations
 
