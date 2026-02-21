@@ -25,12 +25,25 @@ cat .planning/config.json
 ```
 
 Parse current values:
-- `workflow.research` — spawn researcher during plan-phase
-- `workflow.plan_check` — spawn plan checker during plan-phase
-- `workflow.verifier` — spawn verifier during execute-phase
-- `model_profile` — which model each agent uses (default: `balanced`)
+- `workflow.research` — spawn researcher during plan-phase (default: `true`)
+- `workflow.plan_check` — spawn plan checker during plan-phase (default: `true`)
+- `workflow.verifier` — spawn verifier during execute-phase (default: `true`)
+- `model_profile` — which model each agent uses (default: `"balanced"`)
 - `git.branching_strategy` — branching approach (default: `"none"`)
+- `git.worktree_dir` — worktree directory location (default: `".worktrees/"`)
+- `git.default_completion_action` — action after phase execution (default: `"ask"`)
 - `autonomous_mode` — YOLO mode, skip all gates (default: `false`)
+- `execution.use_teams` — parallel teammate execution (default: `false`)
+- `execution.max_concurrent_teammates` — max teammates when teams enabled (default: `4`)
+- `code_review.enabled` — whether auto code review is on (default: `true`)
+- `code_review.timing` — review timing: per_wave or per_phase (default: `"per_wave"`)
+- `code_review.severity_gate` — minimum severity to block (default: `"blocker"`)
+- `code_review.auto_fix_warnings` — auto-fix warning-level findings (default: `false`)
+- `confirmation_gates.commit_confirmation` — confirm before git commit (default: `false`)
+- `confirmation_gates.file_deletion` — confirm before deleting files (default: `false`)
+- `confirmation_gates.phase_completion` — confirm before marking phase complete (default: `false`)
+- `confirmation_gates.target_adjustment` — confirm before adjusting eval targets (default: `false`)
+- `confirmation_gates.approach_change` — confirm before changing approach (default: `false`)
 - `research_gates.verification_design` — pause for EVAL.md review (default: `false`)
 - `research_gates.method_selection` — pause for method choice review (default: `false`)
 - `research_gates.baseline_review` — pause for baseline review (default: `false`)
@@ -97,6 +110,56 @@ AskUserQuestion([
     ]
   },
   {
+    question: "Use Agent Teams for parallel plan execution?",
+    header: "Execution Teams",
+    multiSelect: false,
+    options: [
+      { label: "No (Default)", description: "Execute plans sequentially in a single agent" },
+      { label: "Yes", description: "Spawn parallel teammate agents for each wave" }
+    ]
+  },
+  {
+    question: "Automatic code review timing?",
+    header: "Code Review",
+    multiSelect: false,
+    options: [
+      { label: "Per Wave (Default)", description: "Review after each execution wave completes" },
+      { label: "Per Phase", description: "Review once after entire phase execution" },
+      { label: "Disabled", description: "No automatic code review" }
+    ]
+  },
+  {
+    question: "Minimum severity to block execution?",
+    header: "Review Severity Gate",
+    multiSelect: false,
+    options: [
+      { label: "Blocker (Default)", description: "Only blockers halt execution" },
+      { label: "Critical", description: "Blockers and critical issues halt execution" },
+      { label: "Warning", description: "All non-info issues halt execution" }
+    ]
+  },
+  {
+    question: "Auto-fix warnings found during code review?",
+    header: "Auto-fix Warnings",
+    multiSelect: false,
+    options: [
+      { label: "No (Default)", description: "Report warnings but do not auto-fix" },
+      { label: "Yes", description: "Automatically fix warning-level review findings" }
+    ]
+  },
+  {
+    question: "Confirmation gates — pause for human approval at these points?",
+    header: "Confirmation Gates",
+    multiSelect: true,
+    options: [
+      { label: "Commit Confirmation", description: "Confirm before each git commit" },
+      { label: "File Deletion", description: "Confirm before deleting files" },
+      { label: "Phase Completion", description: "Confirm before marking phase complete" },
+      { label: "Target Adjustment", description: "Confirm before adjusting evaluation targets" },
+      { label: "Approach Change", description: "Confirm before changing implementation approach" }
+    ]
+  },
+  {
     question: "Research gates — pause for human review at these checkpoints?",
     header: "Research Gates",
     multiSelect: true,
@@ -149,6 +212,25 @@ AskUserQuestion([
 ```
 
 If "Custom" is selected for Worktree Directory, prompt the user for the custom directory path (free-text input).
+
+**Conditional: Execution Teams sub-options (if user selected "Yes" for Execution Teams)**
+
+If user selected "Yes" for Execution Teams, ask follow-up question:
+
+```
+AskUserQuestion([
+  {
+    question: "Maximum concurrent teammates?",
+    header: "Team Size",
+    multiSelect: false,
+    options: [
+      { label: "2", description: "Conservative — lower resource usage" },
+      { label: "4 (Default)", description: "Balanced concurrency" },
+      { label: "6", description: "Higher parallelism for large phases" }
+    ]
+  }
+])
+```
 </step>
 
 <step name="update_config">
