@@ -3196,9 +3196,7 @@ describe('cmdMigrateDirs', () => {
     expect(codebaseEntry).toBeUndefined();
 
     // codebase/ should still be at old root location
-    expect(
-      fs.existsSync(path.join(tmpDir, '.planning', 'codebase', 'ARCHITECTURE.md'))
-    ).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'codebase', 'ARCHITECTURE.md'))).toBe(true);
 
     // Should NOT be under milestones/
     expect(
@@ -3239,9 +3237,9 @@ describe('cmdMigrateDirs', () => {
     ).toBe(true);
 
     // Should NOT be under anonymous
-    expect(
-      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick'))
-    ).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick'))).toBe(
+      false
+    );
   });
 
   test('is idempotent — second run produces no changes', () => {

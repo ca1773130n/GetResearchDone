@@ -261,10 +261,7 @@ describe('codebaseDir', () => {
   });
 
   test('ignores milestone existence — always project-level', () => {
-    const tmpDir = makeTmpDirWithMilestone(
-      '# State\n\n- **Milestone:** v0.2.1 — Test\n',
-      'v0.2.1'
-    );
+    const tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
     try {
       expect(codebaseDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'codebase'));
     } finally {
@@ -317,9 +314,7 @@ describe('quickDir', () => {
 
   test('returns new-style when milestone dir exists on disk', () => {
     tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(quickDir(tmpDir)).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick')
-    );
+    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick'));
   });
 
   test('accepts an optional milestone parameter', () => {
