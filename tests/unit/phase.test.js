@@ -7,7 +7,9 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { captureOutput, captureError } = require('../helpers/setup');
 const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
@@ -824,5 +826,134 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
     // No quality or cleanup fields
     expect(result).not.toHaveProperty('quality_report');
     expect(result).not.toHaveProperty('cleanup_plan_generated');
+  });
+});
+
+// ─── cmdMilestoneComplete git merge ──────────────────────────────────────────
+
+describe('cmdMilestoneComplete git merge', () => {
+  const REAL_TMPDIR = fs.realpathSync(os.tmpdir());
+
+  /**
+   * Create an isolated temp git repo with .planning/ fixture that supports
+   * git merge testing for milestone complete.
+   */
+  function createGitFixtureDir() {
+    const tmpDir = createFixtureDir();
+
+    // Initialize git repo
+    execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: tmpDir, stdio: 'pipe' });
+
+    return tmpDir;
+  }
+
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createGitFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('merges milestone branch into main on milestone complete', () => {
+    // Create a milestone branch with a commit
+    const msBranch = 'grd/v1.0-test-milestone';
+    execFileSync('git', ['branch', msBranch], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', msBranch], { cwd: tmpDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(tmpDir, 'milestone-work.txt'), 'milestone work', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'milestone work'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: tmpDir, stdio: 'pipe' });
+
+    // Update config to use the matching template
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.milestone_branch_template = 'grd/{milestone}-test-milestone';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdMilestoneComplete(tmpDir, 'v1.0', {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('git_merge');
+    expect(result.git_merge.merged).toBe(true);
+    expect(result.git_merge.branch_deleted).toBe(true);
+
+    // Verify the milestone work is now on main
+    const log = execFileSync('git', ['log', '--oneline', 'main'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('milestone work');
+  });
+
+  test('skips when milestone branch does not exist', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdMilestoneComplete(tmpDir, 'v1.0', {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('git_merge');
+    expect(result.git_merge.skipped).toBe(true);
+    expect(result.git_merge.reason).toContain('not found');
+  });
+
+  test('skips when branching_strategy is none', () => {
+    // Set branching_strategy to none
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.branching_strategy = 'none';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdMilestoneComplete(tmpDir, 'v1.0', {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).not.toHaveProperty('git_merge');
+  });
+
+  test('handles merge conflict gracefully', () => {
+    // Create milestone branch with a commit
+    const msBranch = 'grd/v1.0-test-milestone';
+    execFileSync('git', ['branch', msBranch], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', msBranch], { cwd: tmpDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(tmpDir, 'conflict.txt'), 'milestone version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'milestone commit'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: tmpDir, stdio: 'pipe' });
+
+    // Create conflicting commit on main
+    fs.writeFileSync(path.join(tmpDir, 'conflict.txt'), 'main version', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'main commit'], { cwd: tmpDir, stdio: 'pipe' });
+
+    // Update config template
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.milestone_branch_template = 'grd/{milestone}-test-milestone';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdMilestoneComplete(tmpDir, 'v1.0', {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('git_merge');
+    expect(result.git_merge.error).toBe('Merge conflict');
+
+    // Verify we're not stuck in a merge state
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    });
+    expect(status).not.toContain('UU'); // No unmerged files
   });
 });

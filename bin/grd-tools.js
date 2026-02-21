@@ -59,6 +59,8 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  cmdWorktreeEnsureMilestoneBranch,
+  cmdWorktreeMerge,
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
@@ -182,7 +184,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
-  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr', 'ensure-milestone-branch', 'merge'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'execute-parallel',
@@ -651,6 +653,26 @@ function routeCommand(command, args, cwd, raw) {
             title: flag(args, '--title', null),
             body: flag(args, '--body', null),
             base: flag(args, '--base', null),
+          },
+          raw
+        );
+      } else if (sub === 'ensure-milestone-branch') {
+        cmdWorktreeEnsureMilestoneBranch(
+          cwd,
+          {
+            milestone: flag(args, '--milestone', null),
+            baseBranch: flag(args, '--base-branch', null),
+          },
+          raw
+        );
+      } else if (sub === 'merge') {
+        cmdWorktreeMerge(
+          cwd,
+          {
+            phase: flag(args, '--phase', null),
+            milestone: flag(args, '--milestone', null),
+            slug: flag(args, '--slug', null),
+            deleteBranch: args.includes('--delete-branch'),
           },
           raw
         );

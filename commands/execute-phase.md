@@ -24,7 +24,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `milestone_branch`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -42,14 +42,20 @@ Create an isolated worktree for this phase execution using pre-computed fields f
    ```
    If non-empty: warn "Uncommitted changes detected. Stash or commit before worktree creation." Stop.
 
-2. **Create worktree:**
+2. **Ensure milestone branch exists:**
    ```bash
-   WT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree create --phase "${PHASE_NUMBER}" --slug "${PHASE_SLUG}")
+   MS_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree ensure-milestone-branch --milestone "${MILESTONE_VERSION}")
+   ```
+   Parse JSON for `branch`, `already_existed`. The milestone branch (`MILESTONE_BRANCH` from init JSON) is the parent for all phase branches in this milestone.
+
+3. **Create worktree from milestone branch:**
+   ```bash
+   WT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree create --phase "${PHASE_NUMBER}" --slug "${PHASE_SLUG}" --start-point "${MILESTONE_BRANCH}")
    ```
    Parse JSON result for `path` and `branch`. If `error` field present: report error and stop.
    Store: `WORKTREE_PATH` = result.path, `WORKTREE_BRANCH` = result.branch
 
-3. **Verify worktree is ready:**
+4. **Verify worktree is ready:**
    ```bash
    ls "${WORKTREE_PATH}/.planning" && echo "Worktree ready"
    ```
@@ -402,46 +408,38 @@ After all waves:
 ```
 </step>
 
-<step name="push_and_create_pr" condition="branching_strategy != none">
-Push the worktree branch and create a PR:
+<step name="merge_to_milestone" condition="branching_strategy != none">
+Merge the phase branch into the milestone branch (local merge, no PR):
 
-1. **Collect plan summaries for PR body:**
-   Read each SUMMARY.md in the phase directory. Extract the one-liner from each.
-   Build a PR body:
-   ```
-   ## Phase ${PHASE_NUMBER}: ${PHASE_NAME}
-
-   **Milestone:** ${MILESTONE_VERSION}
-
-   ### Plans Completed
-   ${for each plan: "- **${plan_id}:** ${one_liner}"}
-
-   ### Verification
-   See ${PHASE_DIR}/${PHASE_NUMBER}-VERIFICATION.md
-   ```
-
-2. **Push branch and create PR:**
+1. **Merge phase branch into milestone branch:**
    ```bash
-   PR_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree push-pr \
+   MERGE_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js worktree merge \
      --phase "${PHASE_NUMBER}" \
-     --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME} (${MILESTONE_VERSION})" \
-     --body "${PR_BODY}" \
-     --base "${BASE_BRANCH}")
+     --slug "${PHASE_SLUG}" \
+     --delete-branch)
    ```
-   Parse JSON for `pr_url`, `error`.
+   Parse JSON for `merged`, `error`.
 
-   If `error`: report "PR creation failed: ${error}". The branch may still have been pushed.
-   Offer: "Retry PR creation?" or "Continue without PR (branch pushed)?" or "Skip PR entirely?"
-
-   If success: report "PR created: ${pr_url}"
-
-3. **Report PR:**
+   If `error` contains "Merge conflict":
    ```
-   ## PR Created
+   ## Merge Conflict
 
-   **URL:** ${pr_url}
-   **Branch:** ${WORKTREE_BRANCH} -> ${BASE_BRANCH}
-   **Phase:** ${PHASE_NUMBER}: ${PHASE_NAME}
+   **Phase branch:** ${WORKTREE_BRANCH}
+   **Milestone branch:** ${MILESTONE_BRANCH}
+
+   The phase branch could not be automatically merged into the milestone branch.
+   Resolve the conflict manually:
+   1. `git checkout ${MILESTONE_BRANCH}`
+   2. `git merge ${WORKTREE_BRANCH}`
+   3. Resolve conflicts, then `git commit`
+   ```
+
+   If `merged: true`:
+   ```
+   ## Phase Merged
+
+   **Phase ${PHASE_NUMBER}: ${PHASE_NAME}** merged into milestone branch `${MILESTONE_BRANCH}`
+   Phase branch deleted.
    ```
 </step>
 

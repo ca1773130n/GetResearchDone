@@ -20,6 +20,9 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
+  milestoneBranch,
+  cmdWorktreeEnsureMilestoneBranch,
+  cmdWorktreeMerge,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -854,5 +857,303 @@ describe('cmdWorktreePushAndPR', () => {
 
     // base should come from config, not hardcoded 'main'
     expect(result.base).toBe('develop');
+  });
+});
+
+// ─── cmdWorktreeEnsureMilestoneBranch ─────────────────────────────────────────
+
+describe('cmdWorktreeEnsureMilestoneBranch', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('creates milestone branch from main', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('branch');
+    expect(result.already_existed).toBe(false);
+    expect(result.base_branch).toBe('main');
+
+    // Verify branch was actually created in git
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(branches).toContain(result.branch);
+  });
+
+  test('returns already_existed: true when branch exists', () => {
+    // Create the branch first
+    captureOutput(() => cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false));
+
+    // Try again
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.already_existed).toBe(true);
+  });
+
+  test('branch name follows config template', () => {
+    const { stdout } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false)
+    );
+    const result = JSON.parse(stdout);
+    // Default template is 'grd/{milestone}-{slug}', milestone name from ROADMAP is
+    // "Git Worktree Parallel Execution"
+    expect(result.branch).toContain('v0.2.0');
+  });
+
+  test('error when base branch does not exist', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(
+        repoDir,
+        { milestone: 'v0.2.0', baseBranch: 'nonexistent-branch' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('not found');
+  });
+
+  test('uses custom base branch from options', () => {
+    // Create a develop branch
+    execFileSync('git', ['branch', 'develop'], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(
+        repoDir,
+        { milestone: 'v0.2.0', baseBranch: 'develop' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.already_existed).toBe(false);
+    expect(result.base_branch).toBe('develop');
+  });
+});
+
+// ─── cmdWorktreeMerge ─────────────────────────────────────────────────────────
+
+describe('cmdWorktreeMerge', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  /**
+   * Helper: set up milestone + phase branches with a commit on the phase branch.
+   * Returns the milestone and phase branch names.
+   */
+  function setupBranches(repoPath) {
+    // Create milestone branch
+    const { stdout: msOut } = captureOutput(() =>
+      cmdWorktreeEnsureMilestoneBranch(repoPath, { milestone: 'v0.2.0' }, false)
+    );
+    const msBranch = JSON.parse(msOut).branch;
+
+    // Create phase branch from milestone branch
+    const phaseBranch = 'grd/v0.2.0/27-worktree-infrastructure';
+    execFileSync('git', ['branch', phaseBranch, msBranch], { cwd: repoPath, stdio: 'pipe' });
+
+    // Make a commit on the phase branch
+    execFileSync('git', ['checkout', phaseBranch], { cwd: repoPath, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoPath, 'phase-work.txt'), 'phase 27 work', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'feat: phase 27 work'], { cwd: repoPath, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoPath, stdio: 'pipe' });
+
+    return { msBranch, phaseBranch };
+  }
+
+  test('merges phase branch into milestone branch', () => {
+    const { msBranch } = setupBranches(repoDir);
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    expect(result.milestone_branch).toBe(msBranch);
+    expect(result.phase).toBe('27');
+
+    // Verify the commit is on the milestone branch
+    const log = execFileSync('git', ['log', '--oneline', msBranch], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('phase 27 work');
+  });
+
+  test('creates merge commit (non-fast-forward)', () => {
+    const { msBranch } = setupBranches(repoDir);
+
+    captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+
+    // Verify it's a merge commit (has 2 parents)
+    const log = execFileSync('git', ['log', '--oneline', '--merges', msBranch, '-1'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(log).toContain('Merge phase 27');
+  });
+
+  test('error when milestone branch missing', () => {
+    // Create only the phase branch (no milestone branch)
+    const phaseBranch = 'grd/v0.2.0/27-worktree-infrastructure';
+    execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Milestone branch');
+    expect(result.error).toContain('not found');
+  });
+
+  test('error when phase branch missing', () => {
+    // Create only the milestone branch (no phase branch)
+    captureOutput(() => cmdWorktreeEnsureMilestoneBranch(repoDir, { milestone: 'v0.2.0' }, false));
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(repoDir, { phase: '99', milestone: 'v0.2.0', slug: 'nonexistent' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Phase branch');
+    expect(result.error).toContain('not found');
+  });
+
+  test('reports merge conflict and aborts cleanly', () => {
+    const { msBranch, phaseBranch } = setupBranches(repoDir);
+
+    // Create a conflicting commit on the milestone branch
+    execFileSync('git', ['checkout', msBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'phase-work.txt'), 'conflicting content', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'conflicting commit'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('error', 'Merge conflict');
+    expect(result.milestone_branch).toBe(msBranch);
+    expect(result.phase_branch).toBe(phaseBranch);
+
+    // Verify we're back on the original branch (main) and not in a merge state
+    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    }).trim();
+    expect(currentBranch).toBe('main');
+  });
+
+  test('deletes phase branch with --delete-branch', () => {
+    setupBranches(repoDir);
+
+    captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure', deleteBranch: true },
+        false
+      )
+    );
+
+    // Verify phase branch is deleted
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(branches).not.toContain('grd/v0.2.0/27-worktree-infrastructure');
+  });
+
+  test('preserves phase branch without flag', () => {
+    setupBranches(repoDir);
+
+    const { stdout } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+    const result = JSON.parse(stdout);
+    expect(result.branch_deleted).toBe(false);
+
+    // Verify phase branch still exists
+    const branches = execFileSync('git', ['branch', '--list'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    });
+    expect(branches).toContain('grd/v0.2.0/27-worktree-infrastructure');
+  });
+
+  test('restores original branch after merge', () => {
+    setupBranches(repoDir);
+
+    // Verify we start on main
+    const beforeBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    }).trim();
+    expect(beforeBranch).toBe('main');
+
+    captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', milestone: 'v0.2.0', slug: 'worktree-infrastructure' },
+        false
+      )
+    );
+
+    // Verify we're back on main
+    const afterBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+    }).trim();
+    expect(afterBranch).toBe('main');
   });
 });

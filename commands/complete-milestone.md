@@ -72,7 +72,33 @@ After archival, handle: reorganize ROADMAP.md, full PROJECT.md evolution, delete
 </step>
 
 <step name="handle_branches">
-Check branching strategy and offer merge options. Handle squash merge, merge with history, delete without merging, or keep branches.
+The `milestone complete` CLI command automatically merges the milestone branch into the base branch (e.g., main) when `branching_strategy` is not `"none"`.
+
+Check the `git_merge` field from the `ARCHIVE` result:
+
+**If `git_merge.merged: true`:**
+```
+Milestone branch `${git_merge.milestone_branch}` merged into `${git_merge.base_branch}` and deleted.
+```
+
+**If `git_merge.error`:**
+```
+## Merge Conflict
+
+The milestone branch could not be automatically merged into ${git_merge.base_branch}.
+Resolve manually:
+1. `git checkout ${git_merge.base_branch}`
+2. `git merge ${git_merge.milestone_branch}`
+3. Resolve conflicts, then `git commit`
+4. `git branch -d ${git_merge.milestone_branch}`
+```
+
+**If `git_merge.skipped`:**
+```
+Milestone branch merge skipped: ${git_merge.reason}
+```
+
+**If no `git_merge` field:** Branching strategy is `"none"`, no branch handling needed.
 </step>
 
 <step name="bump_versions">
