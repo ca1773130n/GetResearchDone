@@ -1079,6 +1079,83 @@ describe('standards integration', () => {
   });
 });
 
+// ─── webmcp_available integration ─────────────────────────────────────────────
+
+describe('webmcp_available integration', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase includes webmcp_available boolean field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(typeof result.webmcp_available).toBe('boolean');
+  });
+
+  test('cmdInitExecutePhase includes webmcp_skip_reason when not available', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    // Fixture has no webmcp config, so should be false with a reason
+    expect(result.webmcp_available).toBe(false);
+    expect(typeof result.webmcp_skip_reason).toBe('string');
+    expect(result.webmcp_skip_reason.length).toBeGreaterThan(0);
+  });
+
+  test('cmdInitPlanPhase includes webmcp_available boolean field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(typeof result.webmcp_available).toBe('boolean');
+  });
+
+  test('cmdInitVerifyWork includes webmcp_available boolean field', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitVerifyWork(tmpDir, '1', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(typeof result.webmcp_available).toBe('boolean');
+  });
+
+  test('webmcp_skip_reason is null when webmcp is available', () => {
+    // Create fixture with webmcp enabled
+    const webmcpTmpDir = createFixtureDir();
+    try {
+      fs.writeFileSync(
+        path.join(webmcpTmpDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          branching_strategy: 'phase',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+          webmcp: { enabled: true },
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(webmcpTmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.webmcp_available).toBe(true);
+      expect(result.webmcp_skip_reason).toBeNull();
+    } finally {
+      cleanupFixtureDir(webmcpTmpDir);
+    }
+  });
+});
+
 describe('standards absent', () => {
   let tmpDir;
 
