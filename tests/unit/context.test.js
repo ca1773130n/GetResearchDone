@@ -978,3 +978,44 @@ describe('PRINCIPLES.md absent', () => {
     expect(result.principles_content).toBeNull();
   });
 });
+
+// ─── ceremony level detection ────────────────────────────────────────────────
+
+describe('ceremony level detection', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdInitExecutePhase includes ceremony_level field', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.ceremony_level).toBeDefined();
+    expect(['light', 'standard', 'full']).toContain(result.ceremony_level);
+  });
+
+  test('cmdInitPlanPhase includes ceremony_level field', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.ceremony_level).toBeDefined();
+    expect(['light', 'standard', 'full']).toContain(result.ceremony_level);
+  });
+
+  test('phase with 1 plan infers light ceremony', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    // fixture has 1 plan for phase 1 -> should infer light
+    expect(result.ceremony_level).toBe('light');
+  });
+});
