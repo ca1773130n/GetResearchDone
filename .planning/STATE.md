@@ -11,19 +11,19 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-- **Active phase:** Phase 45 — Foundation & Detection
+- **Active phase:** Phase 46 — Hybrid Worktree Execution
 - **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.2.6 — Native Worktree Isolation
-- **Status:** Phase 45 complete, merged to main
-- **Progress:** [██████████] 100%
-- **Next:** `/grd:plan-phase 46`
+- **Status:** Phase 46 complete — ready for Phase 47
+- **Progress:** [█████████░] 89%
+- **Next:** Plan and execute Phase 47 (Integration & Regression Testing)
 
 ## Milestone Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | 45 | Foundation & Detection | Complete (3/3 plans, merged 2026-02-21) |
-| 46 | Hybrid Worktree Execution | Not started |
+| 46 | Hybrid Worktree Execution | Complete (3/3 plans) |
 | 47 | Integration & Regression Testing | Not started |
 
 ## Deferred Validations
@@ -54,6 +54,15 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **45-03:** Agent descriptions trimmed to under 200 chars (not 160) to balance conciseness with informativeness
 - **45-03:** Template variable references in agent descriptions replaced with generic phrasing for CLI display clarity
 - **45-01:** native_worktree_isolation is true only for claude backend; native_worktree_available reports capability not policy
+- **46-01:** isolation_mode derived from branching_strategy + backend capabilities, not a separate config field
+- **46-01:** main_repo_path uses fs.realpathSync(cwd) for macOS symlink consistency with worktree.js
+- **46-01:** buildParallelContext uses options object pattern for nativeWorktreeAvailable (backward-compatible extension)
+- **46-02:** options.branch overrides computed worktreeBranch in cmdWorktreeMerge (backward compatible)
+- **46-02:** cmdWorktreePushAndPR already reads branch from worktree HEAD — no change needed
+- **46-02:** parseWorktreeName reused for hook remove metadata extraction
+- **46-03:** Native mode uses <native_isolation> block instead of <worktree> block in executor prompts
+- **46-03:** Native mode completion flow discovers worktree via git worktree list, uses --branch for merge
+- **46-03:** Manual mode preserved verbatim from v0.2.5 in both orchestrator and executor
 
 ## Performance Metrics
 
@@ -69,10 +78,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Merged phase 45 to main (all 3 plans, 20/20 must-haves verified)
-- **Stopped at:** Phase 45 complete, ready for phase 46
-- **Next action:** `/grd:plan-phase 46`
-- **Context needed:** Phase 45 delivered: native_worktree_isolation capability detection in backend.js, native_worktree_available field in cmdInitExecutePhase init JSON, WorktreeCreate/WorktreeRemove hooks in plugin.json with handlers in lib/worktree.js, all 20 agent frontmatter audited for claude agents CLI. 2 deferred validations (DEFER-45-01, DEFER-45-02) for phases 46-47.
+- **Last action:** Completed 46-03-PLAN.md (orchestrator & executor hybrid integration)
+- **Stopped at:** Completed 46-03-PLAN.md — Phase 46 fully complete
+- **Next action:** Plan Phase 47 (Integration & Regression Testing)
+- **Context needed:** Phase 46 complete: execute-phase.md has tri-modal isolation (native/manual/none), grd-executor.md has dual-mode isolation handling, native mode uses isolation:'worktree' Task parameter and <native_isolation> block, completion flow discovers worktree via git worktree list and uses --branch for merge. All changes are markdown template updates, no lib code changes in Plan 03.
 
 ---
 
