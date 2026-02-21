@@ -150,6 +150,11 @@ Plans:
 **Depends on**: Phase 45
 **Requirements**: REQ-102, REQ-103, REQ-104, REQ-105, REQ-106
 **Verification Level**: proxy
+**Plans:** 3 plans
+Plans:
+- [ ] 46-01-PLAN.md — Context injection (isolation_mode, main_repo_path) and parallel execution adaptation
+- [ ] 46-02-PLAN.md — Completion flow: flexible branch handling in merge/PR and extended hook remove
+- [ ] 46-03-PLAN.md — Orchestrator hybrid strategy and executor dual-mode templates
 **Success Criteria** (what must be TRUE):
   1. When native worktree isolation is available and branching is enabled, `execute-phase` spawns executor agents with `isolation: "worktree"` parameter instead of calling `grd-tools.js worktree create`; when native isolation is unavailable, the existing manual worktree creation flow runs identically to v0.2.5 behavior
   2. The executor agent operates in two modes controlled by `isolation_mode` context variable: (a) **native** mode omits the `<worktree>` block and path-prefixing entirely, operating naturally in its working directory; (b) **manual** mode preserves existing behavior with explicit worktree path prefixing; both modes produce identical artifacts (SUMMARY.md, commits, STATE.md updates)
@@ -173,8 +178,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 45. Foundation & Detection | 0/3 | Planned | - |
-| 46. Hybrid Worktree Execution | 0/? | Not started | - |
+| 45. Foundation & Detection | 3/3 | Complete | 2026-02-21 |
+| 46. Hybrid Worktree Execution | 0/3 | Planned | - |
 | 47. Integration & Regression Testing | 0/? | Not started | - |
 
 ## Deferred Validations
