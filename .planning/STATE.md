@@ -12,17 +12,17 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 - **Active phase:** Phase 45 — Foundation & Detection
-- **Current plan:** N/A (phase not yet planned)
+- **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.2.6 — Native Worktree Isolation
-- **Status:** Roadmap created, ready for planning
+- **Status:** Phase 45 complete, merged to main
 - **Progress:** [██████████] 100%
-- **Next:** `/grd:plan-phase 45`
+- **Next:** `/grd:plan-phase 46`
 
 ## Milestone Phases
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 45 | Foundation & Detection | Not started |
+| 45 | Foundation & Detection | Complete (3/3 plans, merged 2026-02-21) |
 | 46 | Hybrid Worktree Execution | Not started |
 | 47 | Integration & Regression Testing | Not started |
 
@@ -48,6 +48,12 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **42-02:** Standards stored in `.planning/standards/` with `index.yml` catalog (milestone-scoped)
 - **44-01:** WebMCP sanity checks inserted as sub-steps (4b/6b) to preserve existing step numbering in execute-phase.md
 - **44-01:** Teams flow step 6b cross-references standard flow step 4b rather than duplicating full logic
+- **45-02:** Hook commands (worktree-hook-create, worktree-hook-remove) are top-level CLI routes, not worktree subcommands
+- **45-02:** Branch rename in WorktreeCreate hook is best-effort — failures logged but never block Claude Code
+- **45-02:** WorktreeRemove handler intentionally minimal — Phase 46 extends with state cleanup
+- **45-03:** Agent descriptions trimmed to under 200 chars (not 160) to balance conciseness with informativeness
+- **45-03:** Template variable references in agent descriptions replaced with generic phrasing for CLI display clarity
+- **45-01:** native_worktree_isolation is true only for claude backend; native_worktree_available reports capability not policy
 
 ## Performance Metrics
 
@@ -63,10 +69,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created roadmap for v0.2.6 — Native Worktree Isolation
-- **Stopped at:** Completed phase 45 execution (all 3 plans)
-- **Next action:** `/grd:plan-phase 45` to plan Foundation & Detection
-- **Context needed:** Claude Code v2.1.50 added native `isolation: worktree` in agent definitions, `WorktreeCreate`/`WorktreeRemove` hook events, and `claude agents` CLI. GRD adopts hybrid approach: native isolation on Claude Code, custom worktree on other backends. Phase 45 covers detection + hooks + agent audit. Phase 46 is the core hybrid execution work. Phase 47 is regression testing.
+- **Last action:** Merged phase 45 to main (all 3 plans, 20/20 must-haves verified)
+- **Stopped at:** Phase 45 complete, ready for phase 46
+- **Next action:** `/grd:plan-phase 46`
+- **Context needed:** Phase 45 delivered: native_worktree_isolation capability detection in backend.js, native_worktree_available field in cmdInitExecutePhase init JSON, WorktreeCreate/WorktreeRemove hooks in plugin.json with handlers in lib/worktree.js, all 20 agent frontmatter audited for claude agents CLI. 2 deferred validations (DEFER-45-01, DEFER-45-02) for phases 46-47.
 
 ---
 
