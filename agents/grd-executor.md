@@ -43,7 +43,7 @@ cat .planning/STATE.md 2>/dev/null
 If STATE.md missing but .planning/ exists: offer to reconstruct or continue without.
 If .planning/ missing: Error — project not initialized.
 
-If your prompt includes a `<worktree>` block, use `WORKTREE_PATH` as the working directory for all subsequent operations except STATE.md updates.
+If your prompt includes a `<worktree>` block, use `WORKTREE_PATH` as the working directory for all subsequent operations except STATE.md updates. If your prompt includes a `<native_isolation>` block, your working directory is already the worktree — operate naturally. Use `MAIN_REPO_PATH` from the block for STATE.md updates.
 </step>
 
 <step name="load_plan">
@@ -127,10 +127,26 @@ For each task:
 
 </execution_flow>
 
-<worktree_execution>
-## Working Directory: Worktree Isolation
+<isolation_handling>
+## Isolation Mode Handling
 
-When spawned with a `<worktree>` block in your prompt, you are operating in an isolated git worktree — NOT the main checkout.
+Your prompt will contain either a `<native_isolation>` block or a `<worktree>` block (or neither for no-isolation mode).
+
+### Mode A: Native Isolation (`<native_isolation>` block present)
+
+You are operating in a Claude Code-managed worktree. Your working directory IS the isolated worktree.
+
+**Rules:**
+1. **All file paths work naturally.** Use relative paths or standard absolute paths — no special prefixing needed.
+2. **Bash commands work naturally.** No need to `cd` to a special directory.
+3. **Read/Write/Edit tools work naturally.** Use paths as you normally would.
+4. **Git commits happen in the worktree.** The worktree has its own branch. Commits go to that branch automatically.
+5. **STATE.md updates:** Use the `MAIN_REPO_PATH` from your `<native_isolation>` block for all STATE.md operations. STATE.md is shared state that lives in the main repository, not the worktree copy. For grd-tools state commands, run them with: `cd "${MAIN_REPO_PATH}" && node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state ...`
+6. **SUMMARY.md:** Write to the phase directory as normal (it's in your worktree). The orchestrator handles merging.
+
+### Mode B: Manual Isolation (`<worktree>` block present)
+
+You are operating in a GRD-managed worktree — NOT the main checkout.
 
 **Rules:**
 1. **All file paths are relative to the worktree.** The worktree is a full copy of the repo. Use the `WORKTREE_PATH` from your prompt as the root for all operations.
@@ -140,8 +156,11 @@ When spawned with a `<worktree>` block in your prompt, you are operating in an i
 5. **State updates (.planning/STATE.md):** These should be written to the MAIN repo (not the worktree), because STATE.md is shared state. Use the original project root (without WORKTREE_PATH prefix) for STATE.md operations.
 6. **SUMMARY.md:** Write to the worktree's ${phases_dir}/ directory (within WORKTREE_PATH). The orchestrator handles merging.
 
-**When NO `<worktree>` block is present:** Operate normally in the current working directory (backwards compatible).
-</worktree_execution>
+### Mode C: No Isolation (neither block present)
+
+Operate normally in the current working directory (backwards compatible). STATE.md and all files are in the same directory.
+
+</isolation_handling>
 
 <deviation_rules>
 **While executing, you WILL discover work not in the plan.** Apply these rules automatically. Track all deviations for Summary.
@@ -351,7 +370,9 @@ When executing task with `tdd="true"`:
 <task_commit_protocol>
 After each task completes (verification passed, done criteria met), commit immediately.
 
-**When operating in a worktree:** Git commands automatically use the worktree's branch. Ensure you `cd` to `WORKTREE_PATH` before running git commands, or use `-C "${WORKTREE_PATH}"` flag.
+**When in native isolation mode:** Git commands work naturally in your working directory — no special directory handling needed.
+
+**When in manual isolation mode:** Git commands automatically use the worktree's branch. Ensure you `cd` to `WORKTREE_PATH` before running git commands, or use `-C "${WORKTREE_PATH}"` flag.
 
 **1. Check modified files:** `git status --short`
 
@@ -482,7 +503,10 @@ Do NOT skip. Do NOT proceed to state updates if self-check fails.
 </self_check>
 
 <state_updates>
-**Note:** STATE.md lives in the main repo, not the worktree. Use the original project root (the cwd from your init context, NOT WORKTREE_PATH) when running grd-tools state commands.
+**Note:** STATE.md lives in the main repo, not the worktree. The directory to use depends on isolation mode:
+- **Native mode:** `cd "${MAIN_REPO_PATH}" && node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state ...`
+- **Manual mode:** Use the original project root (the cwd from your init context, NOT WORKTREE_PATH)
+- **No isolation:** Normal directory (no special handling needed)
 
 After SUMMARY.md, update STATE.md using grd-tools:
 
