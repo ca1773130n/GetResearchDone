@@ -99,9 +99,9 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
 **Milestone Goal:** Revise the git worktree/branching strategy to be clear and consistent (modeled after superpowers plugin), and update the settings interview to reflect all current features.
 **Start:** 2026-02-21
 
-- [ ] **Phase 38: Core Git Workflow Revision** - Replace branching_strategy with unified worktree model `implement`
-- [ ] **Phase 39: Completion Flow** - Phase execution ends with merge/PR/keep/discard choice `implement`
-- [ ] **Phase 40: Settings Interview Revision** - All current features exposed in /grd:settings `implement`
+- [x] **Phase 38: Core Git Workflow Revision** - Replace branching_strategy with unified worktree model `implement` ✓ 2026-02-20
+- [x] **Phase 39: Completion Flow** - Phase execution ends with merge/PR/keep/discard choice `implement` ✓ 2026-02-20
+- [x] **Phase 40: Settings Interview Revision** - All current features exposed in /grd:settings `implement` ✓ 2026-02-21
 - [x] **Phase 41: Command & Documentation Updates** - execute-phase command, CLAUDE.md, and bugfix `implement` ✓ 2026-02-21
 
 ## Phase Details
@@ -120,8 +120,8 @@ Phase 37 fixed quickDir() routing bug (hardcoded anonymous instead of current mi
   5. All existing tests pass (zero regressions); new tests cover config migration, `.gitignore` injection, and worktree directory change
 **Plans:** 2 plans
 Plans:
-- [ ] 38-01-PLAN.md — Config schema consolidation, project-local worktree paths, .gitignore injection, milestone branch helpers
-- [ ] 38-02-PLAN.md — Context output updates (cmdInitExecutePhase, buildParallelContext) for new git config shape
+- [x] 38-01-PLAN.md — Config schema consolidation, project-local worktree paths, .gitignore injection, milestone branch helpers
+- [x] 38-02-PLAN.md — Context output updates (cmdInitExecutePhase, buildParallelContext) for new git config shape
 
 ### Phase 39: Completion Flow
 **Goal**: Phase execution with git isolation ends by presenting the user with 4 completion options (merge locally, push and create PR, keep branch, discard work) with a test gate before merge/PR paths
@@ -137,8 +137,8 @@ Plans:
   5. All existing worktree and parallel execution tests pass; new tests cover each of the 4 completion paths plus test-gate failure blocking
 **Plans:** 2 plans
 Plans:
-- [ ] 39-01-PLAN.md — Core completion helpers (runTestGate, mergeWorktree, discardWorktree, keepWorktree, cleanupWorktree) with TDD tests
-- [ ] 39-02-PLAN.md — cmdWorktreeComplete orchestrator with finally-block cleanup, CLI routing, and comprehensive tests for all 4 paths
+- [x] 39-01-PLAN.md — Core completion helpers (runTestGate, mergeWorktree, discardWorktree, keepWorktree, cleanupWorktree) with TDD tests
+- [x] 39-02-PLAN.md — cmdWorktreeComplete orchestrator with finally-block cleanup, CLI routing, and comprehensive tests for all 4 paths
 
 ### Phase 40: Settings Interview Revision
 **Goal**: The `/grd:settings` interview exposes all current features with clear, non-overlapping questions -- git isolation, execution teams, code review, and confirmation gates
@@ -154,7 +154,7 @@ Plans:
   5. Running the full settings interview produces a valid config.json with all new sections populated
 **Plans:** 1 plan
 Plans:
-- [ ] 40-01-PLAN.md — Rewrite settings interview: replace git branching with worktree isolation, add execution/code-review/confirmation-gate questions, update config write and summary display
+- [x] 40-01-PLAN.md — Rewrite settings interview: replace git branching with worktree isolation, add execution/code-review/confirmation-gate questions, update config write and summary display
 
 ### Phase 41: Command & Documentation Updates
 **Goal**: The execute-phase command uses the new completion flow, CLAUDE.md reflects the new git model, and the new-milestone phase scanning bug is fixed
@@ -177,9 +177,9 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 38. Core Git Workflow Revision | 0/2 | Not started | - |
-| 39. Completion Flow | 0/2 | Not started | - |
-| 40. Settings Interview Revision | 0/1 | Not started | - |
+| 38. Core Git Workflow Revision | 2/2 | Complete | 2026-02-20 |
+| 39. Completion Flow | 2/2 | Complete | 2026-02-20 |
+| 40. Settings Interview Revision | 1/1 | Complete | 2026-02-21 |
 | 41. Command & Documentation Updates | 2/2 | Complete | 2026-02-21 |
 
 ## Deferred Validations
