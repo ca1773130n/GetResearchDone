@@ -130,10 +130,10 @@ Phase 42 borrowed best features from competing frameworks (Spec Kit, Agent OS, B
   2. When Chrome DevTools MCP is not available, all WebMCP-dependent features in init output indicate "skipped" with a clear reason
   3. The grd-code-reviewer agent prompt explicitly excludes VERIFICATION.md from its must_haves artifact validation
   4. Code review of a phase that has not yet run verify-phase does not produce a blocker for missing VERIFICATION.md
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 43-01: MCP availability detection in init workflows (REQ-96) + code reviewer VERIFICATION.md exclusion fix (REQ-100)
+- [ ] 43-01-PLAN.md — MCP availability detection in init workflows (REQ-96) + code reviewer VERIFICATION.md exclusion fix (REQ-100)
 
 ### Phase 44: WebMCP Workflow Integration
 **Goal**: Execute-phase runs WebMCP sanity checks after each plan, verify-phase discovers and calls WebMCP tools, and eval-planner generates `useWebMcpTool()` definitions for frontend phases
