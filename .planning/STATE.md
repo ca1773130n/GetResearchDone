@@ -7,16 +7,16 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.2.7 Self-Evolution -- Phase 49 Bug Discovery & Fixes
+**Current focus:** v0.2.7 Self-Evolution -- Phase 50 Complexity & Tech Debt Reduction
 
 ## Current Position
 
-- **Active phase:** Phase 49 of 52 (Bug Discovery & Fixes)
+- **Active phase:** Phase 50 of 52 (Complexity & Tech Debt Reduction)
 - **Current plan:** None (ready to plan)
 - **Milestone:** v0.2.7 Self-Evolution
-- **Status:** Phase 48 complete (3/3 plans), Phase 49 ready to plan
-- **Progress:** [##--------] 20%
-- **Next:** `/grd:plan-phase 49`
+- **Status:** Phase 49 complete, ready to plan Phase 50
+- **Progress:** [####------] 40%
+- **Next:** `/grd:plan-phase 50`
 
 ## Testbed
 
@@ -42,17 +42,18 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 15 (v0.0.5 through v0.2.6)
-- Total tests: 1,779
+- Total tests: 1,840
 - Total lib/ modules: 19
 - Total commands: 39
 
 ## Known Bugs
 
-- `currentMilestone()` in `lib/paths.js` returns `"v0.0.5"` instead of active milestone when STATE.md format is "v0.2.7 Self-Evolution" (REQ-112)
-- `roadmap get-phase` goal regex mismatch: returns `null` for `**Goal**:` format (BUG-48-002)
-- `state-snapshot` field name mismatch: looks for "Current Phase" but STATE.md uses "Active phase" (BUG-48-003)
-- `phase-plan-index` returns `objective: null` and empty `files_modified` for valid plans (BUG-48-004)
-- `state patch` no underscore-to-space field name mapping (BUG-48-005)
+None. All 5 bugs from Phase 48 dogfooding resolved in Phase 49:
+- BUG-48-001: NOT REPRODUCING (regex correct, edge case tests added)
+- BUG-48-002: FIXED in Plan 49-01 (goal regex handles both formats)
+- BUG-48-003: FIXED in Plan 49-01 (Active phase field parsing)
+- BUG-48-004: FIXED in Plan 49-02 (objective from XML tag, files_modified underscore key)
+- BUG-48-005: FIXED in Plan 49-02 (underscore-to-space mapping)
 
 ## Blockers
 
@@ -60,10 +61,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 48 (3/3 plans complete, 5 bugs cataloged)
-- **Stopped at:** Phase 48 execution complete, merged locally
-- **Next action:** Plan Phase 49 (`/grd:plan-phase 49`)
-- **Context needed:** Phase 49 fixes bugs from BUG-CATALOG.md (BUG-48-001 through BUG-48-005), starting with currentMilestone() parsing (REQ-112)
+- **Last action:** Executed Phase 49 (3/3 plans complete, 5 bugs resolved, 61 new tests, 1,840 total)
+- **Stopped at:** Phase 49 execution complete
+- **Next action:** Plan Phase 50 (`/grd:plan-phase 50`)
+- **Context needed:** Phase 50 targets complexity/tech debt reduction in top 3 lib/ modules. See ROADMAP.md Phase 50 success criteria.
 
 ---
 

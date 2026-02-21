@@ -547,6 +547,26 @@ describe('cmdPhasePlanIndex', () => {
     });
     expect(exitCode).toBe(1);
   });
+
+  test('BUG-48-004: extracts objective from <objective> tag in plan body', () => {
+    const { stdout } = captureOutput(() => {
+      cmdPhasePlanIndex(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const plan = parsed.plans.find((p) => p.id === '01-01');
+    expect(plan).toBeDefined();
+    expect(plan.objective).toBe('Create project structure.');
+  });
+
+  test('BUG-48-004: extracts files_modified from underscore key in frontmatter', () => {
+    const { stdout } = captureOutput(() => {
+      cmdPhasePlanIndex(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const plan = parsed.plans.find((p) => p.id === '01-01');
+    expect(plan).toBeDefined();
+    expect(plan.files_modified).toEqual(['src/index.js']);
+  });
 });
 
 // ─── cmdSummaryExtract ──────────────────────────────────────────────────────

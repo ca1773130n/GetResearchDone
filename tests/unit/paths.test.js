@@ -122,6 +122,38 @@ describe('currentMilestone', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** some-text-no-version\n');
     expect(currentMilestone(tmpDir)).toBe('anonymous');
   });
+
+  test('BUG-48-001: handles space-separated name without dash', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.7 Self-Evolution\n');
+    expect(currentMilestone(tmpDir)).toBe('v0.2.7');
+  });
+
+  test('BUG-48-001: handles v0.0.5 format with long name', () => {
+    tmpDir = makeTmpDir(
+      '# State\n\n- **Milestone:** v0.0.5 Production-Ready R&D Workflow Automation\n'
+    );
+    expect(currentMilestone(tmpDir)).toBe('v0.0.5');
+  });
+
+  test('BUG-48-001: returns Milestone field version even when other version strings exist', () => {
+    const content = [
+      '# State',
+      '',
+      '## Milestones',
+      '- v0.0.5 shipped',
+      '- v0.1.0 shipped',
+      '',
+      '## Current Position',
+      '- **Milestone:** v0.2.7 Self-Evolution',
+    ].join('\n');
+    tmpDir = makeTmpDir(content);
+    expect(currentMilestone(tmpDir)).toBe('v0.2.7');
+  });
+
+  test('BUG-48-001: handles v1.0.0 Initial Release format', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0.0 Initial Release\n');
+    expect(currentMilestone(tmpDir)).toBe('v1.0.0');
+  });
 });
 
 // ─── milestonesDir ────────────────────────────────────────────────────────────

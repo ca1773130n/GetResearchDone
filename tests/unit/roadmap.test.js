@@ -433,3 +433,98 @@ describe('multi-milestone shipped sections', () => {
     expect(versions).not.toContain('v0.0.5');
   });
 });
+
+// ─── BUG-48-002: Goal regex handles both **Goal:** and **Goal**: ────────────
+
+describe('BUG-48-002: goal regex both formats', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('cmdRoadmapGetPhase extracts goal with colon outside bold (**Goal**:)', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: First',
+      '**Goal**: Build the foundation',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapGetPhase(tmpDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found).toBe(true);
+    expect(parsed.goal).toBe('Build the foundation');
+  });
+
+  test('cmdRoadmapGetPhase extracts goal with colon inside bold (**Goal:**)', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: First',
+      '**Goal:** Build the foundation',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapGetPhase(tmpDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found).toBe(true);
+    expect(parsed.goal).toBe('Build the foundation');
+  });
+
+  test('cmdRoadmapGetPhase returns null goal when no goal line', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: First',
+      '**Type:** implement',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapGetPhase(tmpDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found).toBe(true);
+    expect(parsed.goal).toBeNull();
+  });
+
+  test('cmdRoadmapAnalyze extracts goal with colon outside bold', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: First',
+      '**Goal**: Build the foundation',
+      '',
+      '### Phase 2: Second',
+      '**Goal:** Ship it',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase2 = parsed.phases.find((p) => p.number === '2');
+    expect(phase1.goal).toBe('Build the foundation');
+    expect(phase2.goal).toBe('Ship it');
+  });
+});

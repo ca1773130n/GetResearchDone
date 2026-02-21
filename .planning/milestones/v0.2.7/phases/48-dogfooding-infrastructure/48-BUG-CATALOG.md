@@ -12,6 +12,7 @@ Bugs discovered by running GRD CLI against testbed/. All bugs are in GRD source 
 - **Requirement:** REQ-112
 - **Reproduction:** From GRD root: `node bin/grd-tools.js init plan-phase 48` -- check `current_milestone` field
 - **Note:** Did NOT reproduce on testbed (testbed STATE.md format "v1.0.0 Initial Release" returned correct `milestone_version: "v1.0.0"`). Bug may be format-dependent.
+- **Resolution:** NOT REPRODUCING. Investigated in Plan 49-03: regex `(v[\d.]+)` correctly extracts versions from "v0.2.7 Self-Evolution" and similar formats. Verified against both GRD and testbed STATE.md. 4 additional edge case tests added to tests/unit/paths.test.js.
 
 ## Discovered Bugs
 
@@ -29,7 +30,8 @@ Bugs discovered by running GRD CLI against testbed/. All bugs are in GRD source 
   node bin/grd-tools.js roadmap get-phase 48
   # Returns: "goal": null
   ```
-- **Fix:** Change regex to `/\*\*Goal\*?\*?:?\*?\*?\s*:?\s*([^\n]+)/i` or simpler: handle both `**Goal:**` and `**Goal**:` formats
+- **Fix:** Change regex to `/\*\*Goal:?\*\*:?\s*([^\n]+)/i` to handle both `**Goal:**` and `**Goal**:` formats
+- **Resolution:** FIXED in Plan 49-01. Both `cmdRoadmapGetPhase()` and `analyzeRoadmap()` regexes updated. 4 regression tests added to tests/unit/roadmap.test.js.
 
 ### BUG-48-003: state-snapshot returns current_phase:null due to field name mismatch
 - **Source:** lib/state.js, cmdStateSnapshot() line ~585
@@ -42,6 +44,7 @@ Bugs discovered by running GRD CLI against testbed/. All bugs are in GRD source 
   # Returns: "current_phase": null, "current_phase_name": null, "total_phases": null
   ```
 - **Note:** Both GRD's own STATE.md and testbed STATE.md use "Active phase" format, so this bug affects all projects
+- **Resolution:** FIXED in Plan 49-01. `cmdStateSnapshot()` now tries "Active phase" first, falls back to "Current Phase". Parses "Phase N of M (Name)" format to extract phase number, name, and total. Also added "Current plan" (lowercase) support. 4 regression tests added to tests/unit/state.test.js.
 
 ### BUG-48-004: phase-plan-index returns objective:null and empty files_modified
 - **Source:** lib/context.js, cmdPhasePlanIndex()
@@ -53,6 +56,7 @@ Bugs discovered by running GRD CLI against testbed/. All bugs are in GRD source 
   cd testbed && node ../bin/grd-tools.js phase-plan-index 1
   # Returns plans with "objective": null, "files_modified": []
   ```
+- **Resolution:** FIXED in Plan 49-02. `cmdPhasePlanIndex()` now: (1) extracts objective from `<objective>` XML tag in body when not in frontmatter, searching body only (after `---` block) to avoid matching `<objective>` references in frontmatter strings; (2) checks `fm.files_modified` (underscore) in addition to `fm['files-modified']` (hyphen). 2 regression tests added to tests/unit/commands.test.js.
 
 ### BUG-48-005: state patch requires exact field name with spaces (no underscore mapping)
 - **Source:** lib/state.js, cmdStatePatch() line ~152
@@ -66,16 +70,17 @@ Bugs discovered by running GRD CLI against testbed/. All bugs are in GRD source 
   cd testbed && node ../bin/grd-tools.js state patch --"Current plan" "1-01"
   # Returns: "updated": ["Current plan"]
   ```
+- **Resolution:** FIXED in Plan 49-02. Both `cmdStatePatch()` and `cmdStateUpdate()` now try underscore-to-space mapping when exact field name match fails. `--current_plan` maps to `**Current plan:**`, `--Active_phase` maps to `**Active phase:**`. 4 regression tests added to tests/unit/state.test.js.
 
 ## Summary
 
-| Bug ID | Severity | Source | Status |
-|--------|----------|--------|--------|
-| BUG-48-001 | High | lib/paths.js | Pre-existing (REQ-112), did not reproduce on testbed |
-| BUG-48-002 | Low | lib/roadmap.js | New -- goal regex mismatch |
-| BUG-48-003 | Medium | lib/state.js | New -- field name mismatch in snapshot parser |
-| BUG-48-004 | Low | lib/context.js | New -- plan index extraction incomplete |
-| BUG-48-005 | Low | lib/state.js | New -- no underscore-to-space field name mapping |
+| Bug ID | Severity | Source | Status | Fixed In |
+|--------|----------|--------|--------|----------|
+| BUG-48-001 | High | lib/paths.js | NOT REPRODUCING -- regex correct, 4 edge case tests added | Plan 49-03 |
+| BUG-48-002 | Low | lib/roadmap.js | FIXED -- goal regex handles both formats | Plan 49-01 |
+| BUG-48-003 | Medium | lib/state.js | FIXED -- Active phase field parsing + Phase N of M format | Plan 49-01 |
+| BUG-48-004 | Low | lib/commands.js | FIXED -- objective from XML tag, files_modified underscore key | Plan 49-02 |
+| BUG-48-005 | Low | lib/state.js | FIXED -- underscore-to-space mapping in patch and update | Plan 49-02 |
 
 ---
 

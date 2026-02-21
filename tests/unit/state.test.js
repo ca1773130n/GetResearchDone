@@ -308,6 +308,24 @@ describe('cmdStateUpdate', () => {
     });
     expect(exitCode).toBe(1);
   });
+
+  test('BUG-48-005: maps underscore field names to space-separated fields', () => {
+    const { stdout } = captureOutput(() => {
+      cmdStateUpdate(fixtureDir, 'Active_phase', '5 (05-release)');
+    });
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.updated).toBe(true);
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).toContain('**Active phase:** 5 (05-release)');
+  });
+
+  test('BUG-48-005: reports not found for non-existent underscore fields', () => {
+    const { stdout } = captureOutput(() => {
+      cmdStateUpdate(fixtureDir, 'totally_fake_field', 'value');
+    });
+    const parsed = parseFirstJson(stdout);
+    expect(parsed.updated).toBe(false);
+  });
 });
 
 // ─── cmdStateAdvancePlan ────────────────────────────────────────────────────
@@ -738,5 +756,187 @@ describe('cmdStateSnapshot', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed).toHaveProperty('error');
+  });
+});
+
+// ─── BUG-48-003: cmdStateSnapshot parses Active phase format ────────────────
+
+describe('BUG-48-003: cmdStateSnapshot Active phase field', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('extracts current_phase from Active phase field', () => {
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const content = [
+      '# State',
+      '',
+      '## Current Position',
+      '',
+      '- **Active phase:** Phase 49 of 52 (Bug Discovery & Fixes)',
+      '- **Current plan:** None (ready to execute)',
+      '- **Status:** Phase 49 planned',
+      '- **Progress:** [##--------] 20%',
+      '',
+      '## Blockers',
+      '',
+      'None.',
+    ].join('\n');
+    fs.writeFileSync(statePath, content, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateSnapshot(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.current_phase).toBe('49');
+    expect(parsed.current_phase_name).toBe('Bug Discovery & Fixes');
+    expect(parsed.total_phases).toBe(52);
+  });
+
+  test('extracts current_phase from legacy Current Phase field', () => {
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const content = [
+      '# State',
+      '',
+      '## Current Position',
+      '',
+      '- **Current Phase:** 5',
+      '- **Current Phase Name:** Build Phase',
+      '- **Total Phases:** 10',
+      '- **Current Plan:** 01',
+      '- **Status:** In Progress',
+      '',
+      '## Blockers',
+      '',
+      'None.',
+    ].join('\n');
+    fs.writeFileSync(statePath, content, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateSnapshot(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.current_phase).toBe('5');
+    expect(parsed.current_phase_name).toBe('Build Phase');
+    expect(parsed.total_phases).toBe(10);
+  });
+
+  test('returns null fields when Active phase is missing', () => {
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const content = [
+      '# State',
+      '',
+      '## Current Position',
+      '',
+      '- **Status:** Idle',
+      '',
+      '## Blockers',
+      '',
+      'None.',
+    ].join('\n');
+    fs.writeFileSync(statePath, content, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateSnapshot(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.current_phase).toBeNull();
+    expect(parsed.current_phase_name).toBeNull();
+    expect(parsed.total_phases).toBeNull();
+  });
+
+  test('extracts Current plan with lowercase p', () => {
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const content = [
+      '# State',
+      '',
+      '## Current Position',
+      '',
+      '- **Active phase:** Phase 3 of 5 (Deploy)',
+      '- **Current plan:** 03-02',
+      '- **Status:** Executing',
+      '',
+      '## Blockers',
+      '',
+      'None.',
+    ].join('\n');
+    fs.writeFileSync(statePath, content, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateSnapshot(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.current_plan).toBe('03-02');
+  });
+});
+
+// ─── BUG-48-005: cmdStatePatch underscore-to-space field name mapping ────────
+
+describe('BUG-48-005: cmdStatePatch underscore-to-space mapping', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('maps underscore field names to space-separated STATE.md fields', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStatePatch(tmpDir, { Active_phase: '2 (02-build)' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.updated).toContain('Active_phase');
+    const content = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).toContain('**Active phase:** 2 (02-build)');
+  });
+
+  test('maps Current_plan underscore to Current plan in STATE.md', () => {
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    let content = fs.readFileSync(statePath, 'utf-8');
+    content = content.replace(
+      '- **Current plan:** 01-01',
+      '- **Current plan:** 01-01'
+    );
+    fs.writeFileSync(statePath, content, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStatePatch(tmpDir, { Current_plan: '01-02' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.updated).toContain('Current_plan');
+    const updatedContent = fs.readFileSync(statePath, 'utf-8');
+    expect(updatedContent).toContain('**Current plan:** 01-02');
+  });
+
+  test('original space-separated names still work', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStatePatch(tmpDir, { 'Active phase': '5 (05-release)' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.updated).toContain('Active phase');
+  });
+
+  test('reports failed for non-existent underscore fields', () => {
+    const { stdout } = captureOutput(() => {
+      cmdStatePatch(tmpDir, { totally_fake_field: 'value' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.failed).toContain('totally_fake_field');
   });
 });
