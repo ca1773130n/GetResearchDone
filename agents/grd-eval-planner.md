@@ -283,6 +283,8 @@ Can we compute this metric right now, with current code?
 ```
 
 **Be honest about each classification.** If something is technically computable but meaningless without integration, classify it as DEFERRED, not PROXY.
+
+**WebMCP as additional verification dimension:** When `webmcp_available` is `true` and the phase modifies frontend views, WebMCP health checks provide an additional verification dimension (live browser validation). These complement — but do not replace — the tiered verification levels above. WebMCP checks are designed in the `design_webmcp_tools` step and consumed by the grd-verifier at runtime.
 </step>
 
 <step name="design_sanity_checks">
@@ -383,6 +385,59 @@ ablations:
     command: "[how to run]"
     purpose: "Verify our implementation adds value over baseline"
 ```
+</step>
+
+<step name="design_webmcp_tools" condition="webmcp_available=true AND phase modifies frontend views">
+Design WebMCP tool definitions for frontend-facing phases.
+
+**Skip condition:** If `webmcp_available` is not `true` (from init JSON context) OR the phase does not modify frontend views (no HTML, JSX, TSX, Vue, Svelte, CSS, or frontend route files in the plan's files_modified), skip this step entirely.
+
+**Frontend detection heuristic:**
+Check plan `files_modified` for patterns indicating frontend work:
+- File extensions: `.html`, `.jsx`, `.tsx`, `.vue`, `.svelte`, `.css`, `.scss`
+- Path patterns: `src/pages/`, `src/views/`, `src/components/`, `app/`, `pages/`, `routes/`
+- Keywords in plan objectives: "UI", "frontend", "page", "view", "component", "dashboard", "layout"
+
+**When enabled, generate `useWebMcpTool()` definitions:**
+
+**Generic checks (ALWAYS include when WebMCP is enabled):**
+
+```yaml
+webmcp_tools:
+  generic:
+    - name: hive_get_health_status
+      purpose: "Verify backend is responding after frontend changes"
+      expected: "status: healthy"
+
+    - name: hive_check_console_errors
+      purpose: "Verify no new JavaScript errors from frontend changes"
+      expected: "No new errors since phase start"
+
+    - name: hive_get_page_info
+      purpose: "Verify app renders correctly after changes"
+      expected: "Page loads with expected content"
+```
+
+**Page-specific tools (generate based on what the phase modifies):**
+
+For each frontend view/page modified by the phase, define a page-specific tool:
+
+```yaml
+  page_specific:
+    - name: "{tool_name}"
+      purpose: "{what this tool checks on the specific page}"
+      page: "{URL path or page identifier}"
+      expected: "{expected behavior/content}"
+      useWebMcpTool_call: |
+        useWebMcpTool("{tool_name}", {
+          url: "{page_url}",
+          checks: ["{check_1}", "{check_2}"]
+        })
+```
+
+Generate tool names following the convention: `hive_check_{page_slug}_{aspect}` (e.g., `hive_check_dashboard_layout`, `hive_check_settings_form_validation`).
+
+**If the phase modifies frontend but no specific pages can be identified** (e.g., shared CSS, base layout), only include generic checks and note: "Page-specific tools not applicable — changes affect shared layout/styling."
 </step>
 
 <step name="write_eval_md">
@@ -528,6 +583,49 @@ Return structured summary to orchestrator.
 {If no ablations applicable:}
 
 **No ablation plan** — This phase implements a single component/method with no sub-components to isolate.
+
+## WebMCP Tool Definitions
+
+{If webmcp_available AND frontend phase:}
+
+**Purpose:** Define WebMCP tools the grd-verifier should use to validate frontend health after phase execution.
+
+### Generic Checks
+
+| Tool | Purpose | Expected |
+|------|---------|----------|
+| hive_get_health_status | Backend health | status: healthy |
+| hive_check_console_errors | No JS errors | No new errors |
+| hive_get_page_info | App renders | Page loads with content |
+
+### Page-Specific Tools
+
+| Tool | Page | Purpose | Expected |
+|------|------|---------|----------|
+| {tool_name} | {page} | {purpose} | {expected} |
+
+### useWebMcpTool() Definitions
+
+```js
+// Generic health checks
+useWebMcpTool("hive_get_health_status", {})
+useWebMcpTool("hive_check_console_errors", { since: "phase_start" })
+useWebMcpTool("hive_get_page_info", {})
+
+// Page-specific checks
+useWebMcpTool("{tool_name}", {
+  url: "{page_url}",
+  checks: ["{check_1}", "{check_2}"]
+})
+```
+
+{If webmcp NOT available:}
+
+WebMCP tool definitions skipped — MCP not available.
+
+{If not a frontend phase:}
+
+WebMCP tool definitions skipped — phase does not modify frontend views.
 
 ## Baselines
 
