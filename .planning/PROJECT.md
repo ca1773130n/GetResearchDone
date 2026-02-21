@@ -1,7 +1,7 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-21
+**Updated:** 2026-02-22
 
 ## Vision
 
@@ -351,6 +351,22 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] EVAL.md output includes WebMCP Tool Definitions section with `useWebMcpTool()` call syntax
 - [x] grd-code-reviewer `artifact_exclusions` step excludes VERIFICATION.md from must_haves checks
 - [x] 1,694 tests passing across 32 suites (15 new tests, zero regressions)
+
+## Current Milestone: v0.2.6 — Native Worktree Isolation
+
+**Goal:** Adopt Claude Code's native `isolation: worktree` feature via hybrid strategy — use native isolation when running on Claude Code, retain GRD's custom worktree implementation for non-Claude-Code backends and advanced workflows (milestone branches, stacked PRs, 4-option completion flow).
+
+**Target features:**
+- Detect Claude Code native worktree isolation capability via backend detection
+- Use native `isolation: worktree` for executor agent spawning on Claude Code backend
+- Register `WorktreeCreate`/`WorktreeRemove` hooks for GRD-specific worktree setup (branch naming, .planning/ config)
+- Simplify executor agent when native isolation active (remove `<worktree>` block complexity)
+- Adapt execute-phase orchestrator to skip manual worktree creation/cleanup when native isolation available
+- Handle shared state (STATE.md) correctly when executor runs in native worktree isolation
+- Retain full custom worktree lifecycle for non-Claude-Code backends (Codex, Gemini, OpenCode)
+- Audit all 20 agent definitions for clean `claude agents` CLI display
+
+**Triggered by:** Claude Code v2.1.50 adding `isolation: worktree` agent definition support, `WorktreeCreate`/`WorktreeRemove` hook events, and `claude agents` CLI command.
 
 ## Open Items
 

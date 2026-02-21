@@ -1,22 +1,22 @@
 # State
 
-**Updated:** 2026-02-21
+**Updated:** 2026-02-22
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-21)
+See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** Phase 44 — WebMCP Workflow Integration
+**Current focus:** v0.2.6 — Native Worktree Isolation (defining requirements)
 
 ## Current Position
 
-- **Active phase:** Phase 44 of 44 (WebMCP Workflow Integration)
-- **Current plan:** Plan 1 of 1 (complete)
-- **Milestone:** v0.2.5 — WebMCP Support & Bugfixes
-- **Status:** v0.2.5 milestone complete
-- **Progress:** [██████████] 100%
-- **Next:** Continue Phase 44 execution (plans 2+)
+- **Active phase:** Not started (defining requirements)
+- **Current plan:** N/A
+- **Milestone:** v0.2.6 — Native Worktree Isolation
+- **Status:** Defining requirements
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements, create roadmap
 
 ## Deferred Validations
 
@@ -44,8 +44,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 13 (v0.0.5 through v0.2.4)
-- Total tests: 1,679
+- Milestones shipped: 14 (v0.0.5 through v0.2.5)
+- Total tests: 1,694
 - Total lib/ modules: 19
 - Total commands: 39
 
@@ -55,10 +55,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 44-01-PLAN.md (WebMCP sanity checks in execute-phase)
-- **Stopped at:** Completed phase 44 execution
-- **Next action:** Continue Phase 44 execution (remaining plans)
-- **Context needed:** Phase 44 adds WebMCP sanity checks to execute-phase (REQ-97, done), tool calls to verify-phase (REQ-98), and tool definitions to eval-planner (REQ-99).
+- **Last action:** Started v0.2.6 milestone — Native Worktree Isolation
+- **Stopped at:** Defining requirements
+- **Next action:** Create REQUIREMENTS.md, spawn roadmapper
+- **Context needed:** Claude Code v2.1.50 added native `isolation: worktree` in agent definitions, `WorktreeCreate`/`WorktreeRemove` hook events, and `claude agents` CLI. GRD adopts hybrid approach: native isolation on Claude Code, custom worktree on other backends.
 
 ---
 
