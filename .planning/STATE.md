@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-02-21
+**Updated:** 2026-02-22
 
 ## Project Reference
 
@@ -11,12 +11,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-- **Active phase:** Phase 46 — Hybrid Worktree Execution
+- **Active phase:** Phase 47 — Integration & Regression Testing
 - **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.2.6 — Native Worktree Isolation
-- **Status:** Phase 46 complete, merged to main
-- **Progress:** [██████████] 100%
-- **Next:** `/grd:plan-phase 47`
+- **Status:** Phase 47 all plans complete
+- **Progress:** [##########] 100%
+- **Next:** Phase 47 verification and merge
 
 ## Milestone Phases
 
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 |-------|------|--------|
 | 45 | Foundation & Detection | Complete (3/3 plans, merged 2026-02-21) |
 | 46 | Hybrid Worktree Execution | Complete (3/3 plans, merged 2026-02-21) |
-| 47 | Integration & Regression Testing | Not started |
+| 47 | Integration & Regression Testing | In progress (3/3 plans complete) |
 
 ## Deferred Validations
 
@@ -66,6 +66,8 @@ See `.planning/MILESTONES.md` for historical decisions per milestone.
 - **46-03:** Native mode uses <native_isolation> block instead of <worktree> block in executor prompts
 - **46-03:** Native mode completion flow discovers worktree via git worktree list, uses --branch for merge
 - **46-03:** Manual mode preserved verbatim from v0.2.5 in both orchestrator and executor
+- **47-01:** 20 new unit tests validate all 4 backends x 2 branching strategies for isolation_mode, native_worktree_available, and main_repo_path
+- **47-03:** Fixed detectBackend() missing cwd in cmdInitExecuteParallel -- was ignoring project config.json backend override
 
 ## Performance Metrics
 
@@ -81,12 +83,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 46-03-PLAN.md (orchestrator & executor hybrid integration)
-- **Stopped at:** Completed 46-03-PLAN.md — Phase 46 fully complete
-- **Next action:** Plan Phase 47 (Integration & Regression Testing)
-- **Context needed:** Phase 46 complete: execute-phase.md has tri-modal isolation (native/manual/none), grd-executor.md has dual-mode isolation handling, native mode uses isolation:'worktree' Task parameter and <native_isolation> block, completion flow discovers worktree via git worktree list and uses --branch for merge. All changes are markdown template updates, no lib code changes in Plan 03.
+- **Last action:** Completed 47-03-PLAN.md (cross-module native/manual isolation integration tests)
+- **Stopped at:** Completed 47-03-PLAN.md — Phase 47 all 3 plans complete
+- **Next action:** Phase 47 verification and merge
+- **Context needed:** Phase 47 complete: 9 new integration tests validate native (claude) and manual (codex) isolation E2E, bug fix in cmdInitExecuteParallel (detectBackend missing cwd), all 34 integration tests pass with zero regressions on existing 25 tests.
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-02-21*
+*Last updated: 2026-02-22*
