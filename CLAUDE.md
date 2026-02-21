@@ -218,8 +218,19 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `eval_config` — Default metrics and baseline tracking
 - `code_review` — Auto code review (enabled, timing, severity gate)
 - `execution` — Agent Teams toggle, timeout, concurrency limits
+- `git` — Worktree isolation (enabled, worktree_dir, base_branch, branch_template)
 - `phase_cleanup` — Phase-boundary quality analysis (complexity, dead exports, file size, doc drift, test coverage gaps, export consistency, doc staleness, config schema drift)
 - Standard GSD settings (parallelization, gates, safety)
+
+## Git Isolation
+
+When `git.enabled` is `true` in `.planning/config.json`, phase execution runs in an isolated git worktree:
+- Worktree created in project-local `.worktrees/` directory (added to `.gitignore` automatically)
+- Branch naming follows `git.branch_template` (default: `grd/{milestone}/{phase}-{slug}`)
+- Base branch configurable via `git.base_branch` (default: `main`)
+- After execution, 4 completion options: merge locally, push and create PR, keep branch, discard work
+- Merge and PR paths run test gate before proceeding; test failures block the action
+- Internally, the init JSON uses `branching_strategy` field (values: `"none"`, `"phase"`, etc.) derived from `git.enabled`
 
 ## CLI Tooling (`grd-tools.js`)
 
