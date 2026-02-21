@@ -79,13 +79,12 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Git branching strategy?",
-    header: "Branching",
+    question: "Use worktree isolation for phase execution?",
+    header: "Git Isolation",
     multiSelect: false,
     options: [
-      { label: "None (Recommended)", description: "Commit directly to current branch" },
-      { label: "Per Phase", description: "Create branch for each phase (grd/phase-{N}-{name})" },
-      { label: "Per Milestone", description: "Create branch for entire milestone (grd/{version}-{name})" }
+      { label: "Yes", description: "Each phase runs in a separate git worktree (recommended for active development)" },
+      { label: "No (Default)", description: "Execute directly on current branch, no isolation" }
     ]
   },
   {
@@ -119,6 +118,37 @@ AskUserQuestion([
   }
 ])
 ```
+
+**Conditional: Worktree sub-options (if user selected "Yes" for Git Isolation)**
+
+If user selected "Yes" for Git Isolation, ask follow-up questions:
+
+```
+AskUserQuestion([
+  {
+    question: "Worktree directory location?",
+    header: "Worktree Directory",
+    multiSelect: false,
+    options: [
+      { label: ".worktrees/ (Default)", description: "Project-local .worktrees/ directory" },
+      { label: "Custom", description: "Specify a custom directory path" }
+    ]
+  },
+  {
+    question: "Default action when phase execution completes?",
+    header: "Completion Action",
+    multiSelect: false,
+    options: [
+      { label: "Ask each time (Default)", description: "Present merge/PR/keep/discard options after execution" },
+      { label: "Merge locally", description: "Auto-merge worktree branch into base branch" },
+      { label: "Create PR", description: "Auto-push and create pull request" },
+      { label: "Keep branch", description: "Leave worktree in place for manual review" }
+    ]
+  }
+])
+```
+
+If "Custom" is selected for Worktree Directory, prompt the user for the custom directory path (free-text input).
 </step>
 
 <step name="update_config">
