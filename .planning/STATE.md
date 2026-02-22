@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 - **Active phase:** 57
 - **Current plan:** Plan 03 of 03
 - **Milestone:** v0.2.8 Self-Evolving Loop
-- **Status:** Milestone complete
+- **Status:** v0.2.8 milestone complete
 - **Progress:** [██████████] 100%
 - **Next:** Phase 57 complete — milestone wrap-up
 

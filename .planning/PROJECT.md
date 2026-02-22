@@ -3,18 +3,9 @@
 **Created:** 2026-02-12
 **Updated:** 2026-02-22
 
-## Current Milestone: v0.2.8 Self-Evolving Loop
+## Latest Milestone: v0.2.8 Self-Evolving Loop — SHIPPED 2026-02-22
 
 **Previous:** v0.2.7 Self-Evolution (shipped 2026-02-22)
-
-### v0.2.8 Goals
-
-- **`/grd:evolve` command:** Autonomous self-improvement loop that discovers work items, plans, executes, reviews, and carries over remaining items
-- **Work item discovery:** Analyze codebase for improvements in productivity, quality, usability, consistency, stability, and new features
-- **Priority selection:** Select N priority items per iteration, create phase plans, execute with sonnet-tier models
-- **Iteration handoff:** Pass remaining/new bugfix work items to next evolve iteration via disk-based state
-- **Markdown splitting:** Auto-split large markdown files (>25K tokens) into indexed partials
-- **Evolution notes:** Keep takeaways, decisions, and evolution history in planning docs
 
 ## Vision
 
@@ -33,7 +24,7 @@ A Claude Code plugin providing:
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
-- 112 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- 118 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - Validation gate system with pre-flight checks preventing phase directory collisions across milestones
 - Milestone-scoped directory hierarchy: all `.planning/` artifacts under `.planning/milestones/{milestone}/`
@@ -52,11 +43,35 @@ A Claude Code plugin providing:
 - WorktreeCreate/WorktreeRemove hooks for GRD-specific worktree setup (branch naming, lifecycle tracking)
 - Autopilot command (`/grd:autopilot`) for multi-phase autonomous execution with fresh agents per phase and disk-based handoff
 - Dogfooding-driven features: `coverage-report` and `health-check` commands
-- 39 commands (consolidated from 45) across 20 modular lib/ modules
+- Self-evolving loop (`/grd:evolve`): autonomous self-improvement — discovers work items across 6 dimensions (productivity, quality, usability, consistency, stability, new features), selects priorities, plans, executes, reviews, and carries remaining items to the next iteration
+- Evolve state persistence (`EVOLVE-STATE.json`): cross-milestone iteration tracking with merge-dedup, scored priority selection, and iteration history
+- Evolution notes (`EVOLUTION.md`): iteration-over-iteration takeaways, decisions, and patterns discovered
+- Sonnet-tier model ceiling: all evolve operations use sonnet/moderate model at most (no opus agents)
+- Markdown splitting infrastructure (`lib/markdown-split.js`): auto-split large markdown files (>25K tokens) into indexed partials with transparent reader reassembly
+- 40 commands across 22 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.8)
+
+**Shipped:** 2026-02-22
+
+v0.2.8 closed the self-evolving loop — GRD can now autonomously discover, plan, execute, and review its own improvements:
+- `/grd:evolve` command: full autonomous self-improvement loop (discover -> select -> plan -> execute -> review -> persist state)
+- Work item discovery engine: analyzes codebase across 6 dimensions (productivity, quality, usability, consistency, stability, new features) using pure fs analysis (no LLM calls)
+- Priority selection with scoring heuristic: quality=10, stability=9, consistency=7, productivity=6, usability=5, new-features=3
+- Iteration handoff: EVOLVE-STATE.json persists remaining items, bugfix items, and iteration history across invocations
+- Merge deduplication: existing-wins strategy when combining previous state with new discoveries
+- Evolution notes: EVOLUTION.md tracks iteration-over-iteration takeaways, decisions, and patterns
+- Sonnet-tier model ceiling: all evolve subagent spawns enforced to sonnet/moderate (REQ-59)
+- Markdown splitting: `lib/markdown-split.js` with split/reassemble/index operations, MCP tool, CLI command
+- New module: `lib/evolve.js` (discovery, state management, orchestration — 99.14% line coverage)
+- New module: `lib/markdown-split.js` (split, reassemble, index — 97%+ coverage)
+- 6 new evolve MCP tools + markdown-split MCP tool (118 total)
+- E2E integration tests: 310 items discovered on GRD codebase across 5 dimensions (dogfooding validation)
+- 2,184 tests passing (201 new), 22 lib/ modules
 
 ## Previous State (v0.2.7)
 
@@ -224,7 +239,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - GitHub Actions CI (Node 18/20/22), release workflow
 - Security hardened: zero execSync shell interpolation, input validation, git whitelist
 
-## Validated Goals (v0.2.3)
+<details>
+<summary>Validated Goals (v0.2.3)</summary>
 
 - [x] Config `git` section with `enabled`, `worktree_dir`, `base_branch`, `branch_template`; legacy top-level keys read for backward compat
 - [x] Worktrees created under `.worktrees/` (project-local); `.worktrees/` auto-added to `.gitignore`
@@ -240,6 +256,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] `execute-phase.md` uses `completion_flow` step with `worktree complete --action`
 - [x] CLAUDE.md documents Git Isolation model with 4 completion options
 - [x] 1,653 tests passing across 32 suites (22 new tests, zero regressions)
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.2.1)</summary>
@@ -387,7 +405,28 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Validated Goals (v0.2.7)
+## Validated Goals (v0.2.8)
+
+- [x] `/grd:evolve` registered as GRD slash command orchestrating discover -> select -> plan -> execute -> review -> persist state
+- [x] `lib/evolve.js` with discovery engine (`analyzeCodebaseForItems`, `runDiscovery`), state management (`createInitialState`, `writeEvolveState`, `readEvolveState`), and orchestrator (`runEvolve`)
+- [x] Work item discovery across 6 dimensions (productivity, quality, usability, consistency, stability, new features) using pure filesystem analysis
+- [x] `mergeWorkItems` with existing-wins dedup strategy; `selectPriorityItems` with dimension-weighted scoring
+- [x] `advanceIteration` carries remaining pending items and bugfix items to next iteration; records history entry
+- [x] `writeEvolutionNotes` appends EVOLUTION.md with iteration number, items attempted, outcomes, decisions, patterns, takeaways
+- [x] Sonnet-tier model ceiling: all `spawnClaude` calls use SONNET_MODEL constant — no opus agents in evolve flow (REQ-59)
+- [x] `lib/markdown-split.js` with `splitMarkdown`, `reassembleFromIndex`, `isIndexFile` operations and round-trip fidelity
+- [x] `safeReadMarkdown` in utils.js transparently handles split-format files via lazy require
+- [x] 6 evolve MCP tools (discover, state, advance, reset, init, run) + markdown-split tool registered in mcp-server.js
+- [x] `commands/evolve.md` with valid frontmatter and slash command registration
+- [x] EVOLVE-STATE.json at project root for cross-milestone persistence
+- [x] E2E integration tests: discovery quality, full iteration mechanics, iteration handoff, GRD codebase discovery (310 items, 5 dimensions)
+- [x] All per-file coverage thresholds met: evolve.js 99.14% lines, markdown-split.js 97%+ lines
+- [x] 2,184 tests passing across 37 suites (201 new, zero regressions)
+- [x] DEFER-55-01 resolved: 310 actionable items across 5 dimensions on real GRD codebase
+- [x] DEFER-56-01 partially resolved: orchestration mechanics validated via dry-run (live model execution out of automated test scope)
+
+<details>
+<summary>Validated Goals (v0.2.7)</summary>
 
 - [x] Testbed project (`testbed/`) initialized as GRD project with full `.planning/` structure
 - [x] Local CLI testing harness validates changes against testbed before committing
@@ -402,6 +441,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] `/grd:autopilot [start]-[end]` orchestrates plan+execute agents per phase with disk-based handoff
 - [x] Full regression suite: 1,983 tests passing across 34 suites (204 new, zero regressions)
 - [x] DEFER-48-01 resolved: full testbed lifecycle validation with 10 CLI commands
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.2.6)</summary>
@@ -441,6 +482,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - DEFER-30-01: Full parallel execution with real teammate spawning on Claude Code (partially resolved)
 - DEFER-43-01/02: Live MCP detection and code reviewer validation (requires Chrome DevTools MCP)
 - DEFER-44-01/02/03: Live WebMCP workflow validation (requires Chrome DevTools MCP + frontend phase)
+- DEFER-54-01: Markdown splitting on real-world large files (cannot validate — no GRD files exceed 25K token threshold)
+- DEFER-56-01: Full evolve loop with live sonnet-tier models producing meaningful improvements (partially resolved — orchestration validated)
 - TypeScript migration (evaluated and deferred)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
@@ -477,3 +520,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.2.5 milestone shipped: 2026-02-21*
 *v0.2.6 milestone shipped: 2026-02-22*
 *v0.2.7 milestone shipped: 2026-02-22*
+*v0.2.8 milestone shipped: 2026-02-22*

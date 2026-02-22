@@ -414,3 +414,30 @@
 
 ---
 
+
+## v0.2.8 Self-Evolving Loop - Phases 54-57 (Shipped: 2026-02-22)
+
+**Phases completed:** 4 phases (54-57), 10 plans
+**Timeline:** 2026-02-22 (single day)
+**Source:** 22 lib/ modules, 2,184 tests
+
+**Key accomplishments:**
+- `/grd:evolve` autonomous self-improvement loop: discover -> select -> plan -> execute -> review -> persist state, all on sonnet-tier models
+- Work item discovery engine analyzing codebase across 6 dimensions (productivity, quality, usability, consistency, stability, new features) using pure fs analysis
+- Evolve state management with merge-dedup (existing-wins), scored priority selection, iteration handoff, and EVOLUTION.md notes
+- Markdown splitting infrastructure: auto-split large markdown files into indexed partials with transparent reader reassembly
+- 6 new evolve MCP tools + markdown-split tool (118 total)
+- E2E integration validation: 310 items discovered on GRD codebase across 5 dimensions (dogfooding)
+
+**Key decisions:**
+- Phase 54: reassembleFromIndex joins with empty string for exact round-trip fidelity; safeReadMarkdown uses lazy require
+- Phase 55: EVOLVE-STATE.json at project root for cross-milestone persistence; merge uses existing-wins strategy; discovery uses pure fs (no LLM)
+- Phase 56: Orchestrator functions in lib/evolve.js (not new file); all spawnClaude calls use SONNET_MODEL constant
+- Phase 57: 6 unique evolve MCP tools (grd_evolve_init is single enhanced entry, not two); grd_evolve_run validated via descriptor structure
+
+**Deferred:**
+- DEFER-54-01: Markdown splitting on real-world large files (no GRD files exceed 25K token threshold)
+- DEFER-56-01: Full evolve loop with live sonnet-tier models producing meaningful improvements (partially resolved)
+
+---
+
