@@ -972,6 +972,7 @@ describe('lib/autopilot', () => {
       const callArgs = spawnSyncSpy.mock.calls[0][1];
       expect(callArgs).toEqual(['-p', 'Run something', '--verbose']);
     });
+
   });
 
   // ── Edge cases: cmdAutopilot flag parsing ──
