@@ -11,10 +11,21 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Mock spawnClaude before any require of lib/evolve.js (which destructures it at load time)
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaude: jest.fn(actual.spawnClaude),
+  };
+});
+const autopilotModule = require('../../lib/autopilot');
+
 const {
   EVOLVE_STATE_FILENAME,
   WORK_ITEM_DIMENSIONS,
   DEFAULT_ITEMS_PER_ITERATION,
+  SONNET_MODEL,
   createWorkItem,
   evolveStatePath,
   readEvolveState,
@@ -26,6 +37,12 @@ const {
   scoreWorkItem,
   selectPriorityItems,
   runDiscovery,
+  buildPlanPrompt,
+  buildExecutePrompt,
+  buildReviewPrompt,
+  writeEvolutionNotes,
+  runEvolve,
+  cmdEvolve,
   cmdEvolveDiscover,
   cmdEvolveState,
   cmdEvolveAdvance,
@@ -933,3 +950,412 @@ describe('cmdInitEvolve', () => {
     expect(parsed).toHaveProperty('config');
   });
 });
+
+// ─── Orchestrator Tests (Phase 56 Plan 02) ─────────────────────────────────
+
+// ─── SONNET_MODEL ───────────────────────────────────────────────────────────
+
+describe('SONNET_MODEL', () => {
+  test('should equal sonnet', () => {
+    expect(SONNET_MODEL).toBe('sonnet');
+  });
+
+  test('should be a non-empty string', () => {
+    expect(typeof SONNET_MODEL).toBe('string');
+    expect(SONNET_MODEL.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── buildPlanPrompt ────────────────────────────────────────────────────────
+
+describe('buildPlanPrompt', () => {
+  const item = createWorkItem('quality', 'fix-lint', 'Fix Linting', 'Fix all lint errors', {
+    effort: 'small',
+  });
+
+  test('should return a non-empty string', () => {
+    const prompt = buildPlanPrompt(item);
+    expect(typeof prompt).toBe('string');
+    expect(prompt.length).toBeGreaterThan(0);
+  });
+
+  test('should include work item title and description', () => {
+    const prompt = buildPlanPrompt(item);
+    expect(prompt).toContain('Fix Linting');
+    expect(prompt).toContain('Fix all lint errors');
+  });
+
+  test('should include dimension and effort', () => {
+    const prompt = buildPlanPrompt(item);
+    expect(prompt).toContain('quality');
+    expect(prompt).toContain('small');
+  });
+
+  test('should instruct not to implement', () => {
+    const prompt = buildPlanPrompt(item);
+    expect(prompt).toMatch(/not implement|only plan/i);
+  });
+});
+
+// ─── buildExecutePrompt ─────────────────────────────────────────────────────
+
+describe('buildExecutePrompt', () => {
+  const item = createWorkItem('stability', 'fix-crash', 'Fix Crash', 'App crashes on start');
+
+  test('should return a non-empty string', () => {
+    const prompt = buildExecutePrompt(item);
+    expect(typeof prompt).toBe('string');
+    expect(prompt.length).toBeGreaterThan(0);
+  });
+
+  test('should include the specific work item', () => {
+    const prompt = buildExecutePrompt(item);
+    expect(prompt).toContain('Fix Crash');
+    expect(prompt).toContain('App crashes on start');
+  });
+
+  test('should mention test verification', () => {
+    const prompt = buildExecutePrompt(item);
+    expect(prompt).toMatch(/npm test|test/i);
+  });
+});
+
+// ─── buildReviewPrompt ──────────────────────────────────────────────────────
+
+describe('buildReviewPrompt', () => {
+  const item = createWorkItem('quality', 'add-tests', 'Add Tests', 'Increase test coverage');
+
+  test('should return a non-empty string', () => {
+    const prompt = buildReviewPrompt(item);
+    expect(typeof prompt).toBe('string');
+    expect(prompt.length).toBeGreaterThan(0);
+  });
+
+  test('should include review/verify language', () => {
+    const prompt = buildReviewPrompt(item);
+    expect(prompt).toMatch(/review|verify/i);
+  });
+
+  test('should include work item title', () => {
+    const prompt = buildReviewPrompt(item);
+    expect(prompt).toContain('Add Tests');
+  });
+});
+
+// ─── writeEvolutionNotes ────────────────────────────────────────────────────
+
+describe('writeEvolutionNotes', () => {
+  test('should create EVOLUTION.md on first iteration', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 1,
+      items: [{ title: 'Fix lint', category: 'quality' }],
+      outcomes: [{ item: 'Fix lint', status: 'pass' }],
+      decisions: ['Used eslint auto-fix'],
+      patterns: ['Lint errors cluster in test files'],
+      takeaways: ['Run lint before commit'],
+    });
+
+    const filePath = path.join(tmpDir, '.planning', 'EVOLUTION.md');
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('# Evolution Notes');
+    expect(content).toContain('## Iteration 1');
+    expect(content).toContain('Fix lint');
+    expect(content).toContain('pass');
+    expect(content).toContain('Used eslint auto-fix');
+    expect(content).toContain('Lint errors cluster in test files');
+    expect(content).toContain('Run lint before commit');
+  });
+
+  test('should append subsequent iterations', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 1,
+      items: [{ title: 'Task A' }],
+      outcomes: [{ item: 'Task A', status: 'pass' }],
+      decisions: [],
+      patterns: [],
+      takeaways: [],
+    });
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 2,
+      items: [{ title: 'Task B' }],
+      outcomes: [{ item: 'Task B', status: 'fail' }],
+      decisions: ['Reverted approach'],
+      patterns: [],
+      takeaways: [],
+    });
+
+    const content = fs.readFileSync(
+      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
+      'utf-8'
+    );
+    expect(content).toContain('## Iteration 1');
+    expect(content).toContain('## Iteration 2');
+    expect(content).toContain('Task A');
+    expect(content).toContain('Task B');
+    expect(content).toContain('fail');
+  });
+
+  test('should handle empty optional fields', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 1,
+      items: [],
+      outcomes: [],
+      decisions: [],
+      patterns: [],
+      takeaways: [],
+    });
+
+    const content = fs.readFileSync(
+      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
+      'utf-8'
+    );
+    expect(content).toContain('## Iteration 1');
+    // Empty sections should show "None"
+    expect(content).toContain('None');
+  });
+
+  test('should create .planning directory if it does not exist', () => {
+    const tmpDir = createTmpDir();
+    // Do not create .planning
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 1,
+      items: [],
+      outcomes: [],
+      decisions: [],
+      patterns: [],
+      takeaways: [],
+    });
+
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'EVOLUTION.md'))).toBe(true);
+  });
+
+  test('should include iteration number in section headers', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+    writeEvolutionNotes(tmpDir, {
+      iteration: 7,
+      items: [{ title: 'X' }],
+      outcomes: [{ item: 'X', status: 'pass' }],
+      decisions: [],
+      patterns: [],
+      takeaways: [],
+    });
+
+    const content = fs.readFileSync(
+      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
+      'utf-8'
+    );
+    expect(content).toContain('## Iteration 7');
+  });
+});
+
+// ─── runEvolve ──────────────────────────────────────────────────────────────
+
+describe('runEvolve', () => {
+  beforeEach(() => {
+    autopilotModule.spawnClaude.mockReset();
+    autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+  });
+
+  test('dry-run mode returns items without spawning', async () => {
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { dryRun: true });
+
+    expect(result.iterations_completed).toBe(1);
+    expect(result.results[0].status).toBe('dry-run');
+    expect(result.results[0].selected.length).toBeGreaterThan(0);
+    expect(autopilotModule.spawnClaude).not.toHaveBeenCalled();
+  });
+
+  test('single iteration completes and writes evolution notes', async () => {
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { iterations: 1 });
+
+    expect(result.iterations_completed).toBe(1);
+    expect(result.results[0].status).toBe('completed');
+    expect(result.results[0].items_attempted).toBeGreaterThan(0);
+
+    // Evolution notes should be written
+    const notesPath = path.join(fixture, '.planning', 'EVOLUTION.md');
+    expect(fs.existsSync(notesPath)).toBe(true);
+    const notes = fs.readFileSync(notesPath, 'utf-8');
+    expect(notes).toContain('## Iteration');
+  });
+
+  test('model ceiling is respected (spawnClaude called with model: sonnet)', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1 });
+
+    // Every spawnClaude call should use SONNET_MODEL
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[2]).toHaveProperty('model', SONNET_MODEL);
+    }
+  });
+
+  test('failed items are recorded with correct status', async () => {
+    // Make execute step fail
+    autopilotModule.spawnClaude
+      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // plan: pass
+      .mockReturnValueOnce({ exitCode: 1, timedOut: false }) // execute: fail
+      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // plan: pass (next item)
+      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // execute: pass
+      .mockReturnValueOnce({ exitCode: 0, timedOut: false }); // review: pass
+
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { iterations: 1, itemsPerIteration: 2 });
+
+    expect(result.results[0].items_failed).toBeGreaterThanOrEqual(1);
+  });
+
+  test('remaining items persisted to state file after iteration', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1 });
+
+    const state = readEvolveState(fixture);
+    expect(state).not.toBeNull();
+    expect(state.iteration).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(state.remaining)).toBe(true);
+  });
+
+  test('timeout is passed through to spawnClaude', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1, timeout: 10 });
+
+    // Timeout should be converted to ms (10 * 60 * 1000 = 600000)
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[2]).toHaveProperty('timeout', 600000);
+    }
+  });
+
+  test('maxTurns is passed through to spawnClaude', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1, maxTurns: 5 });
+
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[2]).toHaveProperty('maxTurns', 5);
+    }
+  });
+
+  test('returns evolution_notes_path', async () => {
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { dryRun: true });
+
+    expect(result.evolution_notes_path).toBe(path.join('.planning', 'EVOLUTION.md'));
+  });
+});
+
+// ─── cmdEvolve ──────────────────────────────────────────────────────────────
+
+describe('cmdEvolve', () => {
+  beforeEach(() => {
+    autopilotModule.spawnClaude.mockReset();
+    autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+  });
+
+  test('parses --dry-run flag correctly', async () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--dry-run'], false)
+    );
+
+    const result = JSON.parse(stdout);
+    expect(result.results[0].status).toBe('dry-run');
+    expect(autopilotModule.spawnClaude).not.toHaveBeenCalled();
+  });
+
+  test('parses --iterations flag correctly', async () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--iterations', '1', '--dry-run'], false)
+    );
+
+    const result = JSON.parse(stdout);
+    expect(result.iterations_completed).toBe(1);
+  });
+
+  test('parses --items flag correctly', async () => {
+    const fixture = createDiscoveryFixture();
+    // Create pre-existing state so itemsPerIteration override takes effect
+    const state = createInitialState('v1.0', 10);
+    state.remaining = [
+      createWorkItem('quality', 'a', 'A', 'desc'),
+      createWorkItem('stability', 'b', 'B', 'desc'),
+      createWorkItem('consistency', 'c', 'C', 'desc'),
+    ];
+    writeEvolveState(fixture, state);
+
+    const { stdout } = await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--items', '1', '--dry-run'], false)
+    );
+
+    const result = JSON.parse(stdout);
+    expect(result.results[0].selected.length).toBeLessThanOrEqual(1);
+  });
+
+  test('delegates to runEvolve', async () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--dry-run'], false)
+    );
+
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('iterations_completed');
+    expect(result).toHaveProperty('results');
+    expect(result).toHaveProperty('evolution_notes_path');
+  });
+});
+
+/**
+ * Capture stdout/stderr from an async cmd* function that calls output()/error().
+ */
+async function captureAsyncOutput(fn) {
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+    exitCode = code;
+    const err = new Error('__TEST_EXIT__');
+    err.__EXIT__ = true;
+    err.code = code;
+    throw err;
+  });
+
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+    stdout += data;
+    return true;
+  });
+
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    stderr += data;
+    return true;
+  });
+
+  try {
+    await fn();
+  } catch (e) {
+    if (!(e && e.__EXIT__)) {
+      throw e;
+    }
+  } finally {
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+
+  return { stdout, stderr, exitCode };
+}
