@@ -144,7 +144,7 @@ Phases 48-53 dogfooded GRD on itself: testbed infrastructure, 5 bug fixes (curre
 
 **Verification Level:** proxy
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 54-01-PLAN.md -- TDD: Core markdown splitting module (lib/markdown-split.js)
@@ -246,7 +246,6 @@ Plans:
 
 | Phase | Status | Plans |
 |-------|--------|-------|
-| 54 - Markdown Splitting Infrastructure | PENDING | 0 |
-| 55 - Evolve Core Engine | PENDING | 0 |
+| 54 - Markdown Splitting Infrastructure | PENDING | Complete    | 2026-02-22 | 55 - Evolve Core Engine | PENDING | 0 |
 | 56 - Evolve Orchestrator | PLANNED | 2 |
 | 57 - Integration & Validation | PENDING | 0 |
