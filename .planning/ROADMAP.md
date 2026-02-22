@@ -188,6 +188,12 @@ Plans:
 
 **Verification Level:** proxy
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 56-01-PLAN.md -- Orchestrator engine + skill definition (lib/evolve.js orchestrator functions + commands/evolve.md)
+- [ ] 56-02-PLAN.md -- CLI wiring + MCP registration + TDD tests (bin/grd-tools.js + lib/mcp-server.js + tests + coverage)
+
 **Success Criteria:**
 1. `/grd:evolve` is a registered GRD slash command (skill) that orchestrates: discover -> select -> plan -> execute -> review -> persist state, in a single invocation
 2. All subagent spawns within the evolve flow enforce sonnet-tier model ceiling -- no opus-class models are used for any step (discovery, planning, execution, review)
@@ -235,5 +241,5 @@ Plans:
 |-------|--------|-------|
 | 54 - Markdown Splitting Infrastructure | PLANNED | 2 |
 | 55 - Evolve Core Engine | PENDING | 0 |
-| 56 - Evolve Orchestrator | PENDING | 0 |
+| 56 - Evolve Orchestrator | PENDING | 2 |
 | 57 - Integration & Validation | PENDING | 3 |
