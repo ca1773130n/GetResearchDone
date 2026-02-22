@@ -66,6 +66,13 @@ const {
 } = require('../lib/worktree');
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot');
+const {
+  cmdEvolveDiscover,
+  cmdEvolveState,
+  cmdEvolveAdvance,
+  cmdEvolveReset,
+  cmdInitEvolve,
+} = require('../lib/evolve');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
 const {
   cmdInitExecutePhase,
@@ -214,6 +221,7 @@ function routeCommand(command, args, cwd, raw) {
     'product-plan',
     'iterate',
     'autopilot',
+    'evolve',
   ];
 
   switch (command) {
@@ -539,6 +547,9 @@ function routeCommand(command, args, cwd, raw) {
         case 'autopilot':
           cmdInitAutopilot(cwd, raw);
           break;
+        case 'evolve':
+          cmdInitEvolve(cwd, raw);
+          break;
       }
       break;
     }
@@ -695,6 +706,21 @@ function routeCommand(command, args, cwd, raw) {
           },
           raw
         );
+      }
+      break;
+    }
+    case 'evolve': {
+      const sub = args[1];
+      validateSubcommand(sub, ['discover', 'state', 'advance', 'reset'], 'evolve');
+      switch (sub) {
+        case 'discover':
+          return cmdEvolveDiscover(cwd, args.slice(2), raw);
+        case 'state':
+          return cmdEvolveState(cwd, args.slice(2), raw);
+        case 'advance':
+          return cmdEvolveAdvance(cwd, args.slice(2), raw);
+        case 'reset':
+          return cmdEvolveReset(cwd, args.slice(2), raw);
       }
       break;
     }
