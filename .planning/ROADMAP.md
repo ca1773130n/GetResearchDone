@@ -144,6 +144,12 @@ Phases 48-53 dogfooded GRD on itself: testbed infrastructure, 5 bug fixes (curre
 
 **Verification Level:** proxy
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 54-01-PLAN.md -- TDD: Core markdown splitting module (lib/markdown-split.js)
+- [ ] 54-02-PLAN.md -- Reader integration, CLI command, MCP tool
+
 **Success Criteria:**
 1. Markdown files exceeding the token threshold (~25,000 tokens) are detected and split into numbered partials (e.g., `STATE-part1.md`, `STATE-part2.md`) with deterministic boundary selection at heading breaks
 2. The original file is rewritten as an index containing links to each partial, preserving the original filename as the entry point
@@ -227,7 +233,7 @@ Plans:
 
 | Phase | Status | Plans |
 |-------|--------|-------|
-| 54 - Markdown Splitting Infrastructure | PENDING | 0 |
+| 54 - Markdown Splitting Infrastructure | PLANNED | 2 |
 | 55 - Evolve Core Engine | PENDING | 0 |
 | 56 - Evolve Orchestrator | PENDING | 0 |
 | 57 - Integration & Validation | PENDING | 3 |
