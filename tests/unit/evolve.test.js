@@ -11,13 +11,29 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Default mock discovery items — returned by spawnClaudeAsync as valid Claude output.
+// These replace the old hardcoded GRD-specific fallback (analyzeCodebaseForItems).
+const MOCK_DISCOVERY_ITEMS = [
+  { dimension: 'quality', slug: 'todo-alpha-L6', title: 'TODO marker in alpha.js', description: 'lib/alpha.js line 6 has a TODO comment that should be resolved.', effort: 'small' },
+  { dimension: 'usability', slug: 'jsdoc-beta-doOther', title: 'Missing JSDoc on doOther', description: 'lib/beta.js function doOther lacks JSDoc documentation.', effort: 'small' },
+  { dimension: 'stability', slug: 'empty-catch-gamma-L5', title: 'Empty catch block in gamma.js', description: 'lib/gamma.js line 5 has an empty catch block that swallows errors.', effort: 'small' },
+  { dimension: 'consistency', slug: 'process-exit-gamma-L10', title: 'Process.exit call in gamma.js', description: 'lib/gamma.js line 10 calls process.exit() — should throw instead.', effort: 'medium' },
+  { dimension: 'productivity', slug: 'long-func-alpha-doSomething', title: 'Long function doSomething', description: 'lib/alpha.js function doSomething could be refactored for clarity.', effort: 'medium' },
+  { dimension: 'improve-features', slug: 'improve-output-alpha-L8', title: 'Improve output in alpha.js', description: 'lib/alpha.js line 8 output could include human-readable format.', effort: 'small' },
+  { dimension: 'new-features', slug: 'add-dry-run-alpha', title: 'Add dry-run to alpha', description: 'lib/alpha.js doSomething could support a --dry-run flag.', effort: 'medium' },
+];
+
 // Mock spawnClaude before any require of lib/evolve.js (which destructures it at load time)
 jest.mock('../../lib/autopilot', () => {
   const actual = jest.requireActual('../../lib/autopilot');
   return {
     ...actual,
     spawnClaude: jest.fn(actual.spawnClaude),
-    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
+    spawnClaudeAsync: jest.fn().mockResolvedValue({
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    }),
   };
 });
 const autopilotModule = require('../../lib/autopilot');
@@ -622,36 +638,38 @@ describe('parseDiscoveryOutput', () => {
 // ─── discoverWithClaude ─────────────────────────────────────────────────────
 
 describe('discoverWithClaude', () => {
-  test('falls back to hardcoded discovery when Claude subprocess fails', async () => {
-    // spawnClaudeAsync is mocked to return exitCode: 1
+  test('returns empty array when Claude subprocess fails after retries', async () => {
+    // Override default mock for both retry attempts
+    const failResult = { exitCode: 1, timedOut: false, stdout: '' };
+    autopilotModule.spawnClaudeAsync
+      .mockResolvedValueOnce(failResult)
+      .mockResolvedValueOnce(failResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    // Should get items from hardcoded discovery fallback
-    expect(items.length).toBeGreaterThan(0);
-    expect(items[0]).toHaveProperty('dimension');
-    expect(items[0]).toHaveProperty('slug');
+    // No hardcoded fallback — returns empty on failure
+    expect(items).toEqual([]);
   });
 
-  test('falls back when Claude returns empty stdout', async () => {
-    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
-      exitCode: 0,
-      timedOut: false,
-      stdout: '',
-    });
+  test('returns empty array when Claude returns empty stdout after retries', async () => {
+    // Both attempts return empty stdout
+    const emptyResult = { exitCode: 0, timedOut: false, stdout: '' };
+    autopilotModule.spawnClaudeAsync
+      .mockResolvedValueOnce(emptyResult)
+      .mockResolvedValueOnce(emptyResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    expect(items.length).toBeGreaterThan(0);
+    expect(items).toEqual([]);
   });
 
-  test('falls back when Claude returns unparseable output', async () => {
-    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
-      exitCode: 0,
-      timedOut: false,
-      stdout: 'not json',
-    });
+  test('returns empty array when Claude returns unparseable output after retries', async () => {
+    // Both attempts return unparseable output
+    const badResult = { exitCode: 0, timedOut: false, stdout: 'not json' };
+    autopilotModule.spawnClaudeAsync
+      .mockResolvedValueOnce(badResult)
+      .mockResolvedValueOnce(badResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    expect(items.length).toBeGreaterThan(0);
+    expect(items).toEqual([]);
   });
 
   test('uses Claude output when valid JSON is returned', async () => {
@@ -820,15 +838,15 @@ describe('runDiscovery', () => {
   test('deduplicates items with same id across fresh and previous', async () => {
     const fixture = createDiscoveryFixture();
 
-    // Discover items once to know what ids exist
-    const freshItems = analyzeCodebaseForItems(fixture);
-    expect(freshItems.length).toBeGreaterThan(0);
+    // Use mock discovery items (from MOCK_DISCOVERY_ITEMS) to know what ids exist
+    const mockItem = MOCK_DISCOVERY_ITEMS[0];
+    const freshItemCount = MOCK_DISCOVERY_ITEMS.length;
 
     // Create previous state with one of the same ids
     const previousState = createInitialState('v1.0', 100);
     const duplicateItem = createWorkItem(
-      freshItems[0].dimension,
-      freshItems[0].slug,
+      mockItem.dimension,
+      mockItem.slug,
       'Previous Version',
       'From before',
       { source: 'carryover', status: 'pending' }
@@ -838,7 +856,7 @@ describe('runDiscovery', () => {
     const result = await runDiscovery(fixture, previousState);
     // Merged count should be at most freshItems + 1 (previous) - 1 (dedup) = freshItems
     // Actually existing-wins means previous takes priority, so fresh duplicate is dropped
-    expect(result.merged_count).toBe(freshItems.length);
+    expect(result.merged_count).toBe(freshItemCount);
   });
 
   test('returns correct counts', async () => {
@@ -1701,6 +1719,10 @@ describe('runEvolve', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    autopilotModule.spawnClaudeAsync.mockReset();
+    autopilotModule.spawnClaudeAsync.mockResolvedValue({
+      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
   });
 
   test('single iteration completes and writes evolution notes', async () => {
@@ -1771,6 +1793,10 @@ describe('cmdEvolve', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    autopilotModule.spawnClaudeAsync.mockReset();
+    autopilotModule.spawnClaudeAsync.mockResolvedValue({
+      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
   });
 
   test('parses --dry-run flag correctly', async () => {
@@ -1830,6 +1856,10 @@ describe('runEvolve (grouped)', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    autopilotModule.spawnClaudeAsync.mockReset();
+    autopilotModule.spawnClaudeAsync.mockResolvedValue({
+      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
   });
 
   test('dry-run returns groups with priority and item counts', async () => {
@@ -1863,16 +1893,15 @@ describe('runEvolve (grouped)', () => {
     expect(callCount % 2).toBe(0);
   });
 
-  test('unlimited iterations (iterations=0) processes all groups', async () => {
+  test('multiple iterations run sequentially', async () => {
     const fixture = createDiscoveryFixture();
-    // Use pickPct=100 so all groups are selected in one iteration,
-    // leaving remaining_groups empty and terminating the unlimited loop.
-    const result = await runEvolve(fixture, { iterations: 0, pickPct: 100 });
+    const result = await runEvolve(fixture, { iterations: 2, pickPct: 100 });
 
-    expect(result.iterations_completed).toBeGreaterThanOrEqual(1);
-    const lastResult = result.results[result.results.length - 1];
-    expect(lastResult.status).toBe('completed');
-    expect(lastResult.remaining_groups).toBe(0);
+    expect(result.iterations_completed).toBe(2);
+    expect(result.results).toHaveLength(2);
+    for (const r of result.results) {
+      expect(r.status).toBe('completed');
+    }
   });
 
   test('state file uses new group format', async () => {
@@ -1888,9 +1917,15 @@ describe('runEvolve (grouped)', () => {
   });
 
   test('failed group is recorded', async () => {
-    autopilotModule.spawnClaude
-      .mockReturnValueOnce({ exitCode: 1, timedOut: false }) // execute: fail group 1
-      .mockReturnValue({ exitCode: 0, timedOut: false }); // everything else passes
+    // spawnClaudeAsync is used for both discovery and execution.
+    // Call 1: discovery (returns valid items from default mock)
+    // Call 2: execute group 1 (should fail)
+    // Remaining calls: pass
+    const defaultResult = { exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS) };
+    autopilotModule.spawnClaudeAsync
+      .mockResolvedValueOnce(defaultResult) // discovery: succeed
+      .mockResolvedValueOnce({ exitCode: 1, timedOut: false }) // execute group 1: fail
+      .mockResolvedValue({ exitCode: 0, timedOut: false }); // everything else passes
 
     const fixture = createDiscoveryFixture();
     const result = await runEvolve(fixture, { iterations: 1, pickPct: 100 });
@@ -2236,6 +2271,10 @@ describe('runEvolve (worktree isolation)', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    autopilotModule.spawnClaudeAsync.mockReset();
+    autopilotModule.spawnClaudeAsync.mockResolvedValue({
+      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
     worktreeModule.createEvolveWorktree.mockReset();
     worktreeModule.removeEvolveWorktree.mockReset();
     worktreeModule.pushAndCreatePR.mockReset();
@@ -2358,6 +2397,10 @@ describe('cmdEvolve (--no-worktree flag)', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    autopilotModule.spawnClaudeAsync.mockReset();
+    autopilotModule.spawnClaudeAsync.mockResolvedValue({
+      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
     worktreeModule.createEvolveWorktree.mockReset();
   });
 
