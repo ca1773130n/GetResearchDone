@@ -13,10 +13,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 - **Active phase:** 56
-- **Current plan:** Plan 01 of 01
+- **Current plan:** Plan 02 of 02
 - **Milestone:** v0.2.8 Self-Evolving Loop
-- **Status:** Phase 56 Plan 01 complete
-- **Progress:** 0/4 phases complete (Phase 56 Plan 01 done)
+- **Status:** Phase 56 Plan 02 complete
+- **Progress:** 0/4 phases complete (Phase 56 Plan 02 done)
 - **Next:** Complete Phase 56, then Phase 57 (Integration & Validation)
 
 ## Phase Summary
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 |-------|------|-------------|--------------|--------|
 | 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 02/02 done) |
 | 55 | Evolve Core Engine | REQ-55, REQ-56, REQ-57 | proxy | PENDING |
-| 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | IN PROGRESS (Plan 01/01 done) |
+| 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | IN PROGRESS (Plan 02/02 done) |
 | 57 | Integration & Validation | (integration) | deferred | PENDING |
 
 ## Deferred Validations
@@ -47,13 +47,15 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.7)
-- Total tests: 2,132
+- Total tests: 2,161
 - Total lib/ modules: 22 (including autopilot.js, evolve.js, markdown-split.js)
 - Total commands: 40
 - Total lib/ LOC: ~17,334
 
 ## Decisions
 
+- [Phase 56] evolve run wired as CLI subcommand (evolve run --dry-run) consistent with discover/state/advance/reset pattern
+- [Phase 56] grd_evolve_run MCP tool registered with 5 parameters (iterations, items, timeout, max_turns, dry_run)
 - [Phase 56] All spawnClaude calls use SONNET_MODEL constant ('sonnet') — never opus (REQ-59 model ceiling)
 - [Phase 56] Evolution notes append to .planning/EVOLUTION.md with iteration-over-iteration history
 - [Phase 56] Orchestrator functions added to existing lib/evolve.js (not a new file) to keep evolve module self-contained
@@ -78,10 +80,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 56 Plan 01 (evolve orchestrator engine + skill definition)
-- **Stopped at:** Completed 56-01-PLAN.md (7 orchestrator exports + commands/evolve.md)
+- **Last action:** Executed Phase 56 Plan 02 (CLI wiring + MCP tools + TDD tests)
+- **Stopped at:** Completed 56-02-PLAN.md (evolve run CLI + grd_evolve_run MCP + 92 tests)
 - **Next action:** Complete Phase 56, then Phase 57 (Integration & Validation)
-- **Context needed:** Phase 56 Plan 01 done. lib/evolve.js has 26 exports (19 from Phase 55 + 7 orchestrator). commands/evolve.md registered. SONNET_MODEL enforces sonnet ceiling. 63 evolve tests passing.
+- **Context needed:** Phase 56 Plan 02 done. evolve run CLI wired. 6 evolve MCP tools registered. 92 evolve tests passing. evolve.js at 92.3% line coverage. 2,161 total tests.
 
 ---
 
