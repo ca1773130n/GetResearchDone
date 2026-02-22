@@ -29,4 +29,6 @@ When git isolation is enabled (config `branching_strategy` is not `'none'`), all
 
 All operations enforce a sonnet model ceiling — no opus-class models are used.
 
+IMPORTANT: This command is long-running (spawns multiple Claude subprocesses). You MUST run it in the background using `run_in_background: true` on the Bash tool to avoid hitting the Bash tool's default timeout. Use `TaskOutput` with `block: false` to check progress periodically.
+
 Report the JSON results. If any groups failed, explain what happened. Suggest running again for continued improvement.
