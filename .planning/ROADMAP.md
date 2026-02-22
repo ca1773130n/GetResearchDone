@@ -17,7 +17,7 @@
 - v0.2.4 Layered Integration - Phase 42 (shipped 2026-02-21)
 - v0.2.5 WebMCP Support & Bugfixes - Phases 43-44 (shipped 2026-02-21)
 - v0.2.6 Native Worktree Isolation - Phases 45-47 (shipped 2026-02-22)
-- v0.2.7 Self-Evolution - Phases 48-52 (in progress)
+- v0.2.7 Self-Evolution - Phases 48-53 (shipped 2026-02-22)
 
 ## Phases
 
@@ -126,17 +126,18 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 
 </details>
 
-### v0.2.7 Self-Evolution (In Progress)
+### v0.2.7 Self-Evolution (Complete)
 
 **Milestone Goal:** GRD uses itself to improve itself -- dogfooding the full R&D workflow to fix bugs, reduce complexity and tech debt, and discover new features.
 **Start:** 2026-02-22
+**Shipped:** 2026-02-22
 
 - [x] **Phase 48: Dogfooding Infrastructure** - Set up testbed project and local CLI testing harness `implement`
 - [x] **Phase 49: Bug Discovery & Fixes** - Fix currentMilestone bug and exercise workflows to find more `evaluate`
 - [x] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
 - [x] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
 - [x] **Phase 52: Autopilot Command** - Plan and execute multiple phases autonomously with context isolation between each `implement`
-- [ ] **Phase 53: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
+- [x] **Phase 53: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
 
 ## Phase Details
 
@@ -258,7 +259,11 @@ Plans:
   - DEFER-48-01: Full testbed lifecycle validation with real agent execution (if deferred from Phase 48)
   - DEFER-49-01: Comprehensive workflow coverage on testbed (if bugs discovered late in Phase 49 are deferred)
   - DEFER-52-01: Autopilot multi-backend fallback validation (if non-Claude-Code backends not tested)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 53-01-PLAN.md -- Full regression suite, bug-fix verification, cross-feature integration tests
+- [x] 53-02-PLAN.md -- E2E workflow on testbed, autopilot E2E, deferred validation resolution
+- [x] 53-03-PLAN.md -- Final verification of all 6 success criteria and ROADMAP/STATE update
 
 ## Progress
 
@@ -269,4 +274,4 @@ Plans:
 | 50. Complexity & Tech Debt Reduction | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 51. Test Coverage & Feature Discovery | v0.2.7 | 4/4 | Complete | 2026-02-22 |
 | 52. Autopilot Command | v0.2.7 | 3/3 | Complete | 2026-02-22 |
-| 53. Integration & Regression Testing | v0.2.7 | 0/TBD | Not started | - |
+| 53. Integration & Regression Testing | v0.2.7 | 3/3 | Complete | 2026-02-22 |

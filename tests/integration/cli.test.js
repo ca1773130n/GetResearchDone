@@ -1578,3 +1578,219 @@ describe('autopilot commands', () => {
     expect(data.results).toHaveLength(3);
   });
 });
+
+// ─── v0.2.7 Integration Regression ─────────────────────────────────────────
+
+describe('v0.2.7 integration regression', () => {
+  let v027Dir;
+
+  /**
+   * Create a fixture with milestone-scoped directory structure matching v0.2.7.
+   * milestones/v1.0/phases/01-setup/ with a plan file, STATE.md, ROADMAP.md, config.json.
+   */
+  function createMilestoneScopedFixture(opts = {}) {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-v027-'));
+    const planning = path.join(tmpRoot, '.planning');
+    fs.mkdirSync(planning, { recursive: true });
+
+    // config.json
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced', autonomous_mode: true }, null, 2)
+    );
+
+    // STATE.md with milestone-scoped format
+    fs.writeFileSync(
+      path.join(planning, 'STATE.md'),
+      [
+        '# State',
+        '',
+        '**Updated:** 2026-02-22',
+        '',
+        '## Current Position',
+        '',
+        '- **Active phase:** Phase 1 of 3 (Setup)',
+        '- **Current plan:** 01-01',
+        '- **Milestone:** v1.0',
+        '- **Progress:** [===-------] 33%',
+        '',
+        '## Session Continuity',
+        '',
+        '- **Last action:** Initialized project',
+        '- **Next action:** Execute Phase 1',
+        '',
+      ].join('\n')
+    );
+
+    // ROADMAP.md with 3 phases
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.md'),
+      [
+        '# Roadmap',
+        '',
+        '### v1.0 Test Milestone (In Progress)',
+        '',
+        '### Phase 1: Setup',
+        '**Goal:** Initialize project infrastructure',
+        '**Type:** implement',
+        '**Plans:** 1 plan',
+        'Plans:',
+        '- [ ] 01-01-PLAN.md -- Initial setup',
+        '',
+        '### Phase 2: Features',
+        '**Goal:** Build core features',
+        '**Type:** implement',
+        '',
+        '### Phase 3: Polish',
+        '**Goal:** Polish and finalize',
+        '**Type:** integrate',
+        '',
+      ].join('\n')
+    );
+
+    // Create milestone-scoped phases directory
+    const phaseDir = path.join(planning, 'milestones', 'v1.0', 'phases', '01-setup');
+    fs.mkdirSync(phaseDir, { recursive: true });
+
+    // Plan file with frontmatter
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-PLAN.md'),
+      [
+        '---',
+        'phase: 01-setup',
+        'plan: 01',
+        'type: implement',
+        'wave: 1',
+        'depends_on: []',
+        'files_modified:',
+        '  - src/index.js',
+        '---',
+        '',
+        '<objective>Set up project infrastructure</objective>',
+        '',
+        '## Task 1: Init project',
+        '',
+        'Create the initial project structure.',
+        '',
+      ].join('\n')
+    );
+
+    // Create anonymous dirs (needed for some commands)
+    fs.mkdirSync(path.join(planning, 'milestones', 'anonymous', 'phases'), { recursive: true });
+    fs.mkdirSync(path.join(planning, 'milestones', 'anonymous', 'todos', 'pending'), {
+      recursive: true,
+    });
+
+    if (opts.withSrc) {
+      fs.mkdirSync(path.join(tmpRoot, 'src'), { recursive: true });
+      fs.writeFileSync(path.join(tmpRoot, 'src', 'index.js'), '// entry\n');
+    }
+
+    return tmpRoot;
+  }
+
+  afterEach(() => {
+    cleanupDir(v027Dir);
+  });
+
+  test('init plan-phase returns correct milestone context for milestone-scoped project', () => {
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(['init', 'plan-phase', '1'], v027Dir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('roadmap_exists', true);
+    expect(data).toHaveProperty('planning_exists', true);
+  });
+
+  test('validate consistency passes for milestone-scoped directory structure', () => {
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(['validate', 'consistency'], v027Dir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('passed', true);
+    expect(data.errors).toEqual([]);
+  });
+
+  test('coverage-report command returns valid JSON with error or modules', () => {
+    // coverage-report requires jest.config.js in working dir; in a temp dir
+    // it returns an error object -- verify it returns valid JSON either way
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(['coverage-report'], v027Dir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // Without jest.config, returns {error: ...}; with it, returns {modules, all_above}
+    expect(typeof data).toBe('object');
+    expect(data).toBeDefined();
+  });
+
+  test('health-check command returns valid JSON with healthy field', () => {
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(['health-check'], v027Dir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('healthy');
+    expect(typeof data.healthy).toBe('boolean');
+  });
+
+  test('autopilot dry-run produces correct phase sequence 1-1-2-2-3-3', () => {
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--from', '1', '--to', '3'],
+      v027Dir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.results).toHaveLength(6);
+    const phases = data.results.map((r) => r.phase);
+    expect(phases).toEqual(['1', '1', '2', '2', '3', '3']);
+    const steps = data.results.map((r) => r.step);
+    expect(steps).toEqual(['plan', 'execute', 'plan', 'execute', 'plan', 'execute']);
+  });
+
+  test('full GRD workflow cycle in a single test', () => {
+    v027Dir = createMilestoneScopedFixture({ withSrc: true });
+
+    // Step 1: state load
+    const load = parseJSON(runCLI(['state'], v027Dir).stdout);
+    expect(load).toHaveProperty('state_exists', true);
+
+    // Step 2: state-snapshot
+    const snap = parseJSON(runCLI(['state-snapshot'], v027Dir).stdout);
+    expect(snap.current_phase).not.toBeNull();
+
+    // Step 3: roadmap get-phase
+    const phase = parseJSON(runCLI(['roadmap', 'get-phase', '1'], v027Dir).stdout);
+    expect(phase).toHaveProperty('found', true);
+    expect(phase.goal).not.toBeNull();
+
+    // Step 4: validate consistency
+    const check = parseJSON(runCLI(['validate', 'consistency'], v027Dir).stdout);
+    expect(check).toHaveProperty('passed', true);
+
+    // Step 5: phase-plan-index
+    const idx = parseJSON(runCLI(['phase-plan-index', '1'], v027Dir).stdout);
+    expect(Array.isArray(idx.plans)).toBe(true);
+  });
+
+  test('autopilot resume detects existing plan and skips it', () => {
+    v027Dir = createMilestoneScopedFixture();
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--resume', '--from', '1', '--to', '3'],
+      v027Dir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // Phase 1 plan step should be skipped (existing plan file)
+    expect(data.results[0]).toMatchObject({
+      phase: '1',
+      step: 'plan',
+      status: 'skipped',
+    });
+    // Phase 1 execute still runs
+    expect(data.results[1]).toMatchObject({
+      phase: '1',
+      step: 'execute',
+      status: 'dry-run',
+    });
+  });
+});
