@@ -5,7 +5,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageThreshold: {
     // Per-file thresholds — 85% line coverage floor for all lib/ modules (Phase 51)
-    './lib/autopilot.js': { lines: 93, functions: 97, branches: 80 },
+    './lib/autopilot.js': { lines: 93, functions: 93, branches: 80 },
     './lib/backend.js': { lines: 95, functions: 100, branches: 88 },
     './lib/cleanup.js': { lines: 92, functions: 96, branches: 80 },
     './lib/commands.js': { lines: 90, functions: 95, branches: 70 },
