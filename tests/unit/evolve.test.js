@@ -26,6 +26,11 @@ const {
   scoreWorkItem,
   selectPriorityItems,
   runDiscovery,
+  cmdEvolveDiscover,
+  cmdEvolveState,
+  cmdEvolveAdvance,
+  cmdEvolveReset,
+  cmdInitEvolve,
 } = require('../../lib/evolve');
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
@@ -675,5 +680,256 @@ describe('runDiscovery', () => {
 
     const result = runDiscovery(fixture, previousState);
     expect(result.selected.length).toBeLessThanOrEqual(2);
+  });
+});
+
+// ─── Output Capture Helper ─────────────────────────────────────────────────
+
+/**
+ * Capture stdout/stderr from a sync cmd* function that calls output()/error().
+ * These functions call process.exit, so we intercept it.
+ */
+function captureOutput(fn) {
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+    exitCode = code;
+    const err = new Error('__TEST_EXIT__');
+    err.__EXIT__ = true;
+    err.code = code;
+    throw err;
+  });
+
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+    stdout += data;
+    return true;
+  });
+
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    stderr += data;
+    return true;
+  });
+
+  try {
+    fn();
+  } catch (e) {
+    if (!(e && e.__EXIT__)) {
+      throw e;
+    }
+  } finally {
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+
+  return { stdout, stderr, exitCode };
+}
+
+// ─── CLI Command Functions ─────────────────────────────────────────────────
+
+describe('cmdEvolveState', () => {
+  test('returns exists:false when no state file', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveState(tmpDir, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.exists).toBe(false);
+    expect(result.state).toBeNull();
+  });
+
+  test('returns exists:true with state when file exists', () => {
+    const tmpDir = createTmpDir();
+    const state = createInitialState('v1.0');
+    writeEvolveState(tmpDir, state);
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveState(tmpDir, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.exists).toBe(true);
+    expect(result.state.iteration).toBe(1);
+    expect(result.state.milestone).toBe('v1.0');
+  });
+
+  test('raw mode returns "No evolve state found" when no state', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const { stdout } = captureOutput(() => cmdEvolveState(tmpDir, [], true));
+    expect(stdout).toBe('No evolve state found');
+  });
+});
+
+describe('cmdEvolveDiscover', () => {
+  test('returns structured discovery result', () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveDiscover(fixture, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('selected');
+    expect(result).toHaveProperty('remaining');
+    expect(result).toHaveProperty('all_discovered_count');
+    expect(result).toHaveProperty('merged_count');
+    expect(result).toHaveProperty('items_per_iteration');
+    expect(Array.isArray(result.selected)).toBe(true);
+  });
+
+  test('raw mode returns selected count string', () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = captureOutput(() => cmdEvolveDiscover(fixture, [], true));
+    expect(stdout).toMatch(/\d+ items selected/);
+  });
+
+  test('respects --count flag', () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = captureOutput(() =>
+      cmdEvolveDiscover(fixture, ['--count', '2'], false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.items_per_iteration).toBe(2);
+  });
+});
+
+describe('cmdEvolveAdvance', () => {
+  test('errors when no state exists', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const { stderr, exitCode } = captureOutput(() => cmdEvolveAdvance(tmpDir, [], false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('No evolve state found');
+  });
+
+  test('advances iteration when state exists', () => {
+    const tmpDir = createTmpDir();
+    const state = createInitialState('v1.0');
+    state.selected = [
+      createWorkItem('quality', 'test-item', 'Test', 'Desc', { status: 'selected' }),
+    ];
+    writeEvolveState(tmpDir, state);
+
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveAdvance(tmpDir, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.iteration).toBe(2);
+    expect(result.history).toHaveLength(1);
+  });
+
+  test('raw mode returns iteration string', () => {
+    const tmpDir = createTmpDir();
+    const state = createInitialState('v1.0');
+    writeEvolveState(tmpDir, state);
+
+    const { stdout } = captureOutput(() => cmdEvolveAdvance(tmpDir, [], true));
+    expect(stdout).toBe('iteration 2');
+  });
+});
+
+describe('cmdEvolveReset', () => {
+  test('resets when state file exists', () => {
+    const tmpDir = createTmpDir();
+    const state = createInitialState('v1.0');
+    writeEvolveState(tmpDir, state);
+
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveReset(tmpDir, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.reset).toBe(true);
+
+    // Verify file is gone
+    expect(readEvolveState(tmpDir)).toBeNull();
+  });
+
+  test('succeeds even when no state file', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const { stdout, exitCode } = captureOutput(() => cmdEvolveReset(tmpDir, [], false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.reset).toBe(true);
+  });
+
+  test('raw mode returns reset message', () => {
+    const tmpDir = createTmpDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const { stdout } = captureOutput(() => cmdEvolveReset(tmpDir, [], true));
+    expect(stdout).toBe('Evolve state reset');
+  });
+});
+
+describe('cmdInitEvolve', () => {
+  test('returns pre-flight context', () => {
+    const tmpDir = createTmpDir();
+    // Create minimal .planning with config and ROADMAP
+    const planningDir = path.join(tmpDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced', autonomous_mode: false })
+    );
+    fs.writeFileSync(
+      path.join(planningDir, 'ROADMAP.md'),
+      '# Roadmap\n\n- v1.0 Test Milestone (in progress)\n\n## Phase 1 — Setup\n'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdInitEvolve(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('capabilities');
+    expect(result).toHaveProperty('config');
+    expect(result).toHaveProperty('evolve_state');
+    expect(result).toHaveProperty('models');
+    expect(result).toHaveProperty('milestone');
+    expect(result.config.model_profile).toBe('balanced');
+    expect(result.evolve_state.exists).toBe(false);
+    expect(result.evolve_state.iteration).toBe(0);
+  });
+
+  test('includes existing evolve state info', () => {
+    const tmpDir = createTmpDir();
+    const planningDir = path.join(tmpDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'quality' })
+    );
+    fs.writeFileSync(
+      path.join(planningDir, 'ROADMAP.md'),
+      '# Roadmap\n\n- v2.0 Next (in progress)\n'
+    );
+
+    const state = createInitialState('v2.0', 3);
+    state.remaining = [
+      createWorkItem('quality', 'a', 'A', 'desc'),
+      createWorkItem('quality', 'b', 'B', 'desc'),
+    ];
+    state.bugfix = [createWorkItem('stability', 'bug1', 'Bug', 'desc', { source: 'bugfix' })];
+    writeEvolveState(tmpDir, state);
+
+    const { stdout, exitCode } = captureOutput(() => cmdInitEvolve(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.evolve_state.exists).toBe(true);
+    expect(result.evolve_state.iteration).toBe(1);
+    expect(result.evolve_state.remaining_count).toBe(2);
+    expect(result.evolve_state.bugfix_count).toBe(1);
+    expect(result.config.items_per_iteration).toBe(3);
+  });
+
+  test('raw mode returns JSON string', () => {
+    const tmpDir = createTmpDir();
+    const planningDir = path.join(tmpDir, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(planningDir, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+    fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), '# Roadmap\n');
+
+    const { stdout } = captureOutput(() => cmdInitEvolve(tmpDir, true));
+    // Raw mode outputs JSON.stringify of the result
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('backend');
+    expect(parsed).toHaveProperty('config');
   });
 });
