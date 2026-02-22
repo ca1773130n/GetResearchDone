@@ -1190,7 +1190,7 @@ describe('lib/autopilot', () => {
 
       spawnClaude('/test', 'Run something');
       const callArgs = spawnSyncSpy.mock.calls[0][1];
-      expect(callArgs).toEqual(['-p', 'Run something', '--verbose']);
+      expect(callArgs).toEqual(['-p', 'Run something', '--verbose', '--dangerously-skip-permissions']);
     });
 
     it('strips CLAUDECODE env var so nested claude can launch', () => {
