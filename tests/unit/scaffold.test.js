@@ -305,4 +305,126 @@ describe('cmdScaffold', () => {
     const baselinePath = path.join(fixtureDir, '.planning', 'BASELINE.md');
     expect(fs.existsSync(baselinePath)).toBe(true);
   });
+
+  test('scaffold baseline returns already_exists when BASELINE.md exists', () => {
+    // Create first
+    captureOutput(() => {
+      cmdScaffold(fixtureDir, 'baseline', { phase: null, name: null }, false);
+    });
+    // Second call
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdScaffold(fixtureDir, 'baseline', { phase: null, name: null }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.created).toBe(false);
+    expect(parsed.reason).toBe('already_exists');
+  });
+
+  test('scaffold uat creates UAT.md in phase directory', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdScaffold(fixtureDir, 'uat', { phase: '1', name: 'Test' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.created).toBe(true);
+    expect(parsed.path).toContain('UAT.md');
+
+    const fullPath = path.join(fixtureDir, parsed.path);
+    expect(fs.existsSync(fullPath)).toBe(true);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    expect(content).toContain('User Acceptance Testing');
+  });
+
+  test('scaffold verification creates VERIFICATION.md in phase directory', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdScaffold(fixtureDir, 'verification', { phase: '1', name: 'Test' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.created).toBe(true);
+    expect(parsed.path).toContain('VERIFICATION.md');
+
+    const fullPath = path.join(fixtureDir, parsed.path);
+    expect(fs.existsSync(fullPath)).toBe(true);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    expect(content).toContain('Verification');
+  });
+
+  test('scaffold eval creates EVAL.md in phase directory', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdScaffold(fixtureDir, 'eval', { phase: '1', name: 'Test' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.created).toBe(true);
+    expect(parsed.path).toContain('EVAL.md');
+
+    const fullPath = path.join(fixtureDir, parsed.path);
+    expect(fs.existsSync(fullPath)).toBe(true);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    expect(content).toContain('Evaluation Plan');
+  });
+
+  test('scaffold errors when phase directory not found', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdScaffold(fixtureDir, 'context', { phase: '99' }, false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Phase 99 directory not found');
+  });
+
+  test('scaffold phase-dir errors when phase and name missing', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdScaffold(fixtureDir, 'phase-dir', { phase: null, name: null }, false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase and name required');
+  });
+});
+
+// ─── cmdTemplateFill additional tests ───────────────────────────────────────
+
+describe('cmdTemplateFill additional', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('errors when no template type given', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdTemplateFill(fixtureDir, null, { phase: '1' }, false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('template type required');
+  });
+
+  test('errors when no --phase given', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdTemplateFill(fixtureDir, 'summary', {}, false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('--phase required');
+  });
+
+  test('fills verification template with correct frontmatter', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdTemplateFill(fixtureDir, 'verification', { phase: '1', name: 'Test Phase' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.created).toBe(true);
+    expect(parsed.template).toBe('verification');
+    expect(parsed.path).toContain('VERIFICATION.md');
+
+    const fullPath = path.join(fixtureDir, parsed.path);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    expect(content).toContain('Observable Truths');
+    expect(content).toContain('status: pending');
+  });
 });

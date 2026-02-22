@@ -134,7 +134,7 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 - [x] **Phase 48: Dogfooding Infrastructure** - Set up testbed project and local CLI testing harness `implement`
 - [x] **Phase 49: Bug Discovery & Fixes** - Fix currentMilestone bug and exercise workflows to find more `evaluate`
 - [x] **Phase 50: Complexity & Tech Debt Reduction** - Audit modules, consolidate patterns, eliminate dead code `implement`
-- [ ] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
+- [x] **Phase 51: Test Coverage & Feature Discovery** - Improve coverage to 85%+ and implement dogfooding-driven features `implement`
 - [ ] **Phase 52: Autopilot Command** - Plan and execute multiple phases autonomously with context isolation between each `implement`
 - [ ] **Phase 53: Integration & Regression Testing** - Full regression suite, deferred validation resolution `integrate`
 
@@ -204,7 +204,12 @@ Plans:
   2. At least 2 new features are implemented based on friction points discovered during testbed exercise (documented with rationale)
   3. Each new feature has at least 3 unit tests covering normal path, edge case, and error handling
   4. Per-file coverage thresholds in `jest.config.js` are updated to enforce the new 85% floor
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [x] 51-01-PLAN.md -- Coverage for tracker.js (43%->86.77%) and scaffold.js (82%->92.62%) with comprehensive handler tests
+- [x] 51-02-PLAN.md -- Coverage for phase.js (84%->93.69%), parallel.js (84%->87.14%), worktree.js (85%->85.94%) with edge case tests
+- [x] 51-03-PLAN.md -- Two new features: coverage-report and health-check commands (driven by dogfooding friction)
+- [x] 51-04-PLAN.md -- Update jest.config.js thresholds to 85% floor for all 20 modules, final verification
 
 ### Phase 52: Autopilot Command
 **Goal**: Create `/grd:autopilot` command that plans and executes a range of phases autonomously, spawning separate fresh Task agents for planning and execution of each phase — solving context window bloat since both planning and execution are token-heavy operations that cannot share a single context
@@ -258,6 +263,6 @@ Plans:
 | 48. Dogfooding Infrastructure | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 49. Bug Discovery & Fixes | v0.2.7 | 3/3 | Complete | 2026-02-22 |
 | 50. Complexity & Tech Debt Reduction | v0.2.7 | 3/3 | Complete | 2026-02-22 |
-| 51. Test Coverage & Feature Discovery | v0.2.7 | 0/TBD | Not started | - |
+| 51. Test Coverage & Feature Discovery | v0.2.7 | 0/4 | Planned | - |
 | 52. Autopilot Command | v0.2.7 | 0/TBD | Not started | - |
 | 53. Integration & Regression Testing | v0.2.7 | 0/TBD | Not started | - |

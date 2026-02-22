@@ -845,4 +845,125 @@ describe('Phase 47: buildParallelContext native vs manual isolation', () => {
       expect(phase.worktree_branch.length).toBeGreaterThan(0);
     }
   });
+
+  test('returns error when phase not found', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const result = buildParallelContext(fixtureDir, ['999']);
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Phase 999 not found');
+  });
+});
+
+// ─── cmdInitExecuteParallel error paths ──────────────────────────────────────
+
+describe('cmdInitExecuteParallel error paths', () => {
+  let fixtureDir;
+
+  function writeRoadmapAndPhases(dir) {
+    fs.writeFileSync(
+      path.join(dir, '.planning', 'ROADMAP.md'),
+      [
+        '# Roadmap',
+        '',
+        '### Phase 1: Test Phase -- Setup',
+        '- **Type:** implement',
+        '- **Depends on:** Nothing',
+        '',
+        '### Phase 2: Build Phase -- Core',
+        '- **Type:** implement',
+        '- **Depends on:** Nothing',
+      ].join('\n'),
+      'utf-8'
+    );
+  }
+
+  function writeConfig(dir, overrides = {}) {
+    const configPath = path.join(dir, '.planning', 'config.json');
+    const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    fs.writeFileSync(configPath, JSON.stringify({ ...existing, ...overrides }, null, 2), 'utf-8');
+  }
+
+  afterEach(() => {
+    if (fixtureDir) cleanupFixtureDir(fixtureDir);
+    fixtureDir = null;
+  });
+
+  test('returns error when no phase numbers provided', () => {
+    fixtureDir = createFixtureDir();
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecuteParallel(fixtureDir, [], new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('At least one phase number');
+  });
+
+  test('returns error when null phases provided', () => {
+    fixtureDir = createFixtureDir();
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecuteParallel(fixtureDir, null, new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('At least one phase number');
+  });
+
+  test('returns error when phases not found in roadmap', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecuteParallel(fixtureDir, ['999'], new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('not found in roadmap');
+  });
+
+  test('returns error when phases have dependency conflicts', () => {
+    fixtureDir = createFixtureDir();
+    // Write roadmap where Phase 2 depends on Phase 1
+    const roadmapContent = [
+      '# Roadmap',
+      '',
+      '### Phase 1: Setup',
+      '**Type:** implement',
+      '**Depends on:** Nothing',
+      '',
+      '### Phase 2: Build',
+      '**Type:** implement',
+      '**Depends on:** Phase 1',
+    ].join('\n');
+    fs.writeFileSync(path.join(fixtureDir, '.planning', 'ROADMAP.md'), roadmapContent, 'utf-8');
+    writeConfig(fixtureDir, { use_teams: true });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecuteParallel(fixtureDir, ['1', '2'], new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('not independent');
+  });
+
+  test('returns context with buildParallelContext error when phase dir missing', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmapAndPhases(fixtureDir);
+    writeConfig(fixtureDir, { use_teams: true });
+
+    // Delete phase dirs so buildParallelContext returns error
+    const phasesDir = path.join(fixtureDir, '.planning', 'milestones', 'anonymous', 'phases');
+    fs.rmSync(path.join(phasesDir, '01-test'), { recursive: true, force: true });
+    fs.rmSync(path.join(phasesDir, '02-build'), { recursive: true, force: true });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecuteParallel(fixtureDir, ['1', '2'], new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toBeDefined();
+  });
 });

@@ -111,6 +111,8 @@ const {
   cmdRequirementUpdateStatus,
   cmdSearch,
   cmdMigrateDirs,
+  cmdCoverageReport,
+  cmdHealthCheck,
 } = require('../lib/commands');
 
 /** Extract --flag value from args, returns value or fallback */
@@ -129,7 +131,7 @@ function main() {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree, migrate-dirs'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree, migrate-dirs, coverage-report, health-check'
     );
   }
 
@@ -696,6 +698,12 @@ function routeCommand(command, args, cwd, raw) {
       break;
     case 'worktree-hook-remove':
       cmdWorktreeHookRemove(cwd, args[1], args[2], raw);
+      break;
+    case 'coverage-report':
+      cmdCoverageReport(cwd, { threshold: parseInt(flag(args, '--threshold', '85'), 10) }, raw);
+      break;
+    case 'health-check':
+      cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw);
       break;
     default:
       error(`Unknown command: ${command}`);

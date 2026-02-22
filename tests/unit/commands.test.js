@@ -39,6 +39,8 @@ const {
   cmdSearch,
   cmdRequirementUpdateStatus,
   cmdMigrateDirs,
+  cmdCoverageReport,
+  cmdHealthCheck,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -3394,5 +3396,435 @@ describe('ceremony config defaults', () => {
     expect(config.ceremony).toBeDefined();
     expect(config.ceremony.default_level).toBe('auto');
     expect(config.ceremony.phase_overrides).toEqual({});
+  });
+});
+
+// ─── cmdCoverageReport ──────────────────────────────────────────────────────
+
+describe('cmdCoverageReport', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('reports all modules above threshold when coverage is high', () => {
+    // Write a mock coverage-summary.json
+    const coverageDir = path.join(tmpDir, 'coverage');
+    fs.mkdirSync(coverageDir, { recursive: true });
+    const summaryData = {
+      total: {
+        lines: { pct: 90 },
+        branches: { pct: 85 },
+        functions: { pct: 100 },
+        statements: { pct: 90 },
+      },
+      [path.join(tmpDir, 'lib', 'utils.js')]: {
+        lines: { pct: 92 },
+        branches: { pct: 88 },
+        functions: { pct: 100 },
+        statements: { pct: 91 },
+      },
+      [path.join(tmpDir, 'lib', 'state.js')]: {
+        lines: { pct: 90 },
+        branches: { pct: 85 },
+        functions: { pct: 95 },
+        statements: { pct: 89 },
+      },
+    };
+    fs.writeFileSync(
+      path.join(coverageDir, 'coverage-summary.json'),
+      JSON.stringify(summaryData),
+      'utf-8'
+    );
+
+    // Mock execFileSync to throw (jest exits non-zero) but coverage file already exists
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = () => {
+      throw new Error('jest exited');
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdCoverageReport(tmpDir, { threshold: 85 }, false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.all_above).toBe(true);
+      expect(result.below_threshold_count).toBe(0);
+      expect(result.total_modules).toBe(2);
+      expect(result.threshold).toBe(85);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('identifies modules below threshold', () => {
+    const coverageDir = path.join(tmpDir, 'coverage');
+    fs.mkdirSync(coverageDir, { recursive: true });
+    const summaryData = {
+      total: {
+        lines: { pct: 70 },
+        branches: { pct: 60 },
+        functions: { pct: 80 },
+        statements: { pct: 70 },
+      },
+      [path.join(tmpDir, 'lib', 'tracker.js')]: {
+        lines: { pct: 43 },
+        branches: { pct: 30 },
+        functions: { pct: 50 },
+        statements: { pct: 42 },
+      },
+      [path.join(tmpDir, 'lib', 'state.js')]: {
+        lines: { pct: 95 },
+        branches: { pct: 90 },
+        functions: { pct: 100 },
+        statements: { pct: 94 },
+      },
+    };
+    fs.writeFileSync(
+      path.join(coverageDir, 'coverage-summary.json'),
+      JSON.stringify(summaryData),
+      'utf-8'
+    );
+
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = () => {
+      throw new Error('jest exited');
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdCoverageReport(tmpDir, { threshold: 85 }, false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.all_above).toBe(false);
+      expect(result.below_threshold_count).toBe(1);
+      expect(result.below_threshold[0].module).toBe('lib/tracker.js');
+      expect(result.below_threshold[0].gap).toBe(42);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('returns error when coverage file is missing', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = () => {
+      throw new Error('jest failed completely');
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdCoverageReport(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.error).toContain('Failed to generate coverage report');
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('uses custom threshold', () => {
+    const coverageDir = path.join(tmpDir, 'coverage');
+    fs.mkdirSync(coverageDir, { recursive: true });
+    const summaryData = {
+      total: {
+        lines: { pct: 88 },
+        branches: { pct: 80 },
+        functions: { pct: 90 },
+        statements: { pct: 87 },
+      },
+      [path.join(tmpDir, 'lib', 'utils.js')]: {
+        lines: { pct: 88 },
+        branches: { pct: 80 },
+        functions: { pct: 90 },
+        statements: { pct: 87 },
+      },
+    };
+    fs.writeFileSync(
+      path.join(coverageDir, 'coverage-summary.json'),
+      JSON.stringify(summaryData),
+      'utf-8'
+    );
+
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = () => {
+      throw new Error('jest exited');
+    };
+
+    try {
+      // With threshold 85, module is above
+      const { stdout: stdout1 } = captureOutput(() =>
+        cmdCoverageReport(tmpDir, { threshold: 85 }, false)
+      );
+      const result1 = JSON.parse(stdout1);
+      expect(result1.all_above).toBe(true);
+
+      // With threshold 90, module is below
+      const { stdout: stdout2 } = captureOutput(() =>
+        cmdCoverageReport(tmpDir, { threshold: 90 }, false)
+      );
+      const result2 = JSON.parse(stdout2);
+      expect(result2.all_above).toBe(false);
+      expect(result2.below_threshold_count).toBe(1);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('skips non-lib entries in coverage data', () => {
+    const coverageDir = path.join(tmpDir, 'coverage');
+    fs.mkdirSync(coverageDir, { recursive: true });
+    const summaryData = {
+      total: {
+        lines: { pct: 90 },
+        branches: { pct: 85 },
+        functions: { pct: 100 },
+        statements: { pct: 90 },
+      },
+      [path.join(tmpDir, 'lib', 'utils.js')]: {
+        lines: { pct: 92 },
+        branches: { pct: 88 },
+        functions: { pct: 100 },
+        statements: { pct: 91 },
+      },
+      [path.join(tmpDir, 'bin', 'grd-tools.js')]: {
+        lines: { pct: 50 },
+        branches: { pct: 40 },
+        functions: { pct: 60 },
+        statements: { pct: 50 },
+      },
+    };
+    fs.writeFileSync(
+      path.join(coverageDir, 'coverage-summary.json'),
+      JSON.stringify(summaryData),
+      'utf-8'
+    );
+
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = () => {
+      throw new Error('jest exited');
+    };
+
+    try {
+      const { stdout } = captureOutput(() => cmdCoverageReport(tmpDir, { threshold: 85 }, false));
+      const result = JSON.parse(stdout);
+      // Only lib/ files should be included
+      expect(result.total_modules).toBe(1);
+      expect(result.modules[0].module).toBe('lib/utils.js');
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+});
+
+// ─── cmdHealthCheck ─────────────────────────────────────────────────────────
+
+describe('cmdHealthCheck', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('reports healthy when all checks pass', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    let callIndex = 0;
+    child_process.execFileSync = (cmd, args) => {
+      callIndex++;
+      if (args && args[0] === 'jest') {
+        return 'Tests:  100 passed, 100 total';
+      }
+      if (args && args[0] === 'eslint') {
+        return JSON.stringify([
+          { filePath: 'lib/utils.js', errorCount: 0, warningCount: 0, messages: [] },
+        ]);
+      }
+      if (args && args[0] === 'prettier') {
+        return 'All files matched';
+      }
+      if (cmd === 'node' && args[0] === 'bin/grd-tools.js') {
+        return JSON.stringify({ passed: true, errors: [], warning_count: 0 });
+      }
+      return '';
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdHealthCheck(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.healthy).toBe(true);
+      expect(result.tests.status).toBe('pass');
+      expect(result.tests.pass).toBe(100);
+      expect(result.lint.status).toBe('pass');
+      expect(result.format.status).toBe('pass');
+      expect(result.consistency.status).toBe('pass');
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('reports test failures with counts', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = (cmd, args) => {
+      if (args && args[0] === 'jest') {
+        const err = new Error('Tests failed');
+        err.stdout = 'Tests:  3 failed, 97 passed, 100 total';
+        throw err;
+      }
+      if (args && args[0] === 'eslint') {
+        return JSON.stringify([
+          { filePath: 'lib/utils.js', errorCount: 0, warningCount: 0, messages: [] },
+        ]);
+      }
+      if (args && args[0] === 'prettier') return '';
+      if (cmd === 'node') return JSON.stringify({ passed: true, errors: [], warning_count: 0 });
+      return '';
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdHealthCheck(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.healthy).toBe(false);
+      expect(result.tests.status).toBe('fail');
+      expect(result.tests.fail).toBe(3);
+      expect(result.tests.pass).toBe(97);
+      expect(result.tests.total).toBe(100);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('reports lint errors', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = (cmd, args) => {
+      if (args && args[0] === 'jest') return 'Tests:  50 passed, 50 total';
+      if (args && args[0] === 'eslint') {
+        const err = new Error('Lint failed');
+        err.stdout = JSON.stringify([
+          { filePath: 'lib/a.js', errorCount: 2, warningCount: 1, messages: [] },
+          { filePath: 'lib/b.js', errorCount: 0, warningCount: 3, messages: [] },
+        ]);
+        throw err;
+      }
+      if (args && args[0] === 'prettier') return '';
+      if (cmd === 'node') return JSON.stringify({ passed: true, errors: [], warning_count: 0 });
+      return '';
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdHealthCheck(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.healthy).toBe(false);
+      expect(result.lint.status).toBe('fail');
+      expect(result.lint.errors).toBe(2);
+      expect(result.lint.warnings).toBe(4);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('fix mode passes --fix to lint and --write to prettier', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    const calls = [];
+    child_process.execFileSync = (cmd, args) => {
+      calls.push({ cmd, args: [...args] });
+      if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
+      if (args && args[0] === 'eslint') {
+        return JSON.stringify([
+          { filePath: 'lib/a.js', errorCount: 0, warningCount: 0, messages: [] },
+        ]);
+      }
+      if (args && args[0] === 'prettier') return '';
+      if (cmd === 'node') return JSON.stringify({ passed: true, errors: [], warning_count: 0 });
+      return '';
+    };
+
+    try {
+      captureOutput(() => cmdHealthCheck(tmpDir, { fix: true }, false));
+
+      // Verify --fix was passed to eslint
+      const eslintCall = calls.find((c) => c.args[0] === 'eslint');
+      expect(eslintCall.args).toContain('--fix');
+
+      // Verify --write was passed to prettier (before --check)
+      const prettierWriteCall = calls.find(
+        (c) => c.args[0] === 'prettier' && c.args.includes('--write')
+      );
+      expect(prettierWriteCall).toBeDefined();
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('handles lint parse error gracefully', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = (cmd, args) => {
+      if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
+      if (args && args[0] === 'eslint') {
+        const err = new Error('Lint crashed');
+        err.stdout = 'not valid json';
+        throw err;
+      }
+      if (args && args[0] === 'prettier') return '';
+      if (cmd === 'node') return JSON.stringify({ passed: true, errors: [], warning_count: 0 });
+      return '';
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdHealthCheck(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.lint.status).toBe('error');
+      expect(result.lint.errors).toBe(-1);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
+  });
+
+  test('handles consistency check error', () => {
+    const child_process = require('child_process');
+    const origExecFileSync = child_process.execFileSync;
+    child_process.execFileSync = (cmd, args) => {
+      if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
+      if (args && args[0] === 'eslint') {
+        return JSON.stringify([
+          { filePath: 'lib/a.js', errorCount: 0, warningCount: 0, messages: [] },
+        ]);
+      }
+      if (args && args[0] === 'prettier') return '';
+      if (cmd === 'node') throw new Error('validate consistency crashed');
+      return '';
+    };
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdHealthCheck(tmpDir, {}, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.consistency.status).toBe('error');
+      expect(result.consistency.passed).toBe(false);
+    } finally {
+      child_process.execFileSync = origExecFileSync;
+    }
   });
 });

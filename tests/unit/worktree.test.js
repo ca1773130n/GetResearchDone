@@ -1694,3 +1694,222 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
     });
   });
 });
+
+// ─── cmdWorktreeMerge edge cases ─────────────────────────────────────────────
+
+describe('cmdWorktreeMerge additional edge cases', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('errors when phase is not provided', () => {
+    const { stderr, exitCode } = captureError(() => cmdWorktreeMerge(repoDir, {}, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase is required');
+  });
+
+  test('errors when target branch does not exist', () => {
+    // Create a phase branch
+    const phaseBranch = 'grd/v0.2.0/27-test';
+    execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(
+        repoDir,
+        { phase: '27', base: 'nonexistent-branch', branch: phaseBranch },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('not found');
+  });
+
+  test('merges into explicit base branch', () => {
+    // Create a separate base branch
+    execFileSync('git', ['branch', 'develop'], { cwd: repoDir, stdio: 'pipe' });
+
+    // Create phase branch with a commit
+    const phaseBranch = 'grd/v0.2.0/27-test';
+    execFileSync('git', ['branch', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', phaseBranch], { cwd: repoDir, stdio: 'pipe' });
+    fs.writeFileSync(path.join(repoDir, 'merge-test.txt'), 'test', 'utf-8');
+    execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'merge test'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['checkout', 'main'], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeMerge(repoDir, { phase: '27', base: 'develop', branch: phaseBranch }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.merged).toBe(true);
+    expect(result.target_branch).toBe('develop');
+  });
+});
+
+// ─── cmdWorktreeHookCreate edge cases ────────────────────────────────────────
+
+describe('cmdWorktreeHookCreate rename paths', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('logs creation without rename when no phase info extractable', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/random-worktree', 'some-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.hooked).toBe(true);
+    expect(result.renamed).toBe(false);
+  });
+
+  test('skips rename when branch already follows GRD convention', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/worktree', 'grd/v0.2.0/27-test', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.hooked).toBe(true);
+    expect(result.renamed).toBe(false);
+    expect(result.reason).toContain('GRD convention');
+  });
+
+  test('skips when no .planning directory', () => {
+    // Remove .planning
+    fs.rmSync(path.join(repoDir, '.planning'), { recursive: true, force: true });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookCreate(repoDir, '/tmp/worktree', 'branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toContain('no .planning');
+  });
+});
+
+// ─── cmdWorktreeCreate error branches ─────────────────────────────────────────
+
+describe('cmdWorktreeCreate error branches', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('errors when phase is missing', () => {
+    const { stderr, exitCode } = captureError(() => cmdWorktreeCreate(repoDir, {}, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase is required');
+  });
+
+  test('returns error when worktree already exists', () => {
+    // Create a worktree first
+    captureOutput(() => cmdWorktreeCreate(repoDir, { phase: '27', slug: 'infra' }, false));
+    // Attempt to create again
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', slug: 'infra' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('already exists');
+  });
+
+  test('returns error for invalid start point', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(
+        repoDir,
+        { phase: '27', slug: 'infra', startPoint: 'nonexistent-ref' },
+        false
+      )
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('not found');
+  });
+});
+
+// ─── cmdWorktreeHookRemove ────────────────────────────────────────────────────
+
+describe('cmdWorktreeHookRemove', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('skips when no .planning directory', () => {
+    fs.rmSync(path.join(repoDir, '.planning'), { recursive: true, force: true });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, '/tmp/worktree', 'branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toContain('no .planning');
+  });
+
+  test('skips when branching disabled', () => {
+    fs.writeFileSync(
+      path.join(repoDir, '.planning', 'config.json'),
+      JSON.stringify({ branching_strategy: 'none' }),
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, '/tmp/worktree', 'branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toContain('branching disabled');
+  });
+
+  test('logs removal with branch info', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, '/tmp/worktree-27', 'grd/v0.2.0/27-infra', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.hooked).toBe(true);
+    expect(result.action).toBe('remove_logged');
+    expect(result.worktree_path).toBe('/tmp/worktree-27');
+    expect(result.branch).toBe('grd/v0.2.0/27-infra');
+  });
+
+  test('extracts phase metadata from worktree path', () => {
+    // Create a worktree path that ends in a phase number
+    const wtPath = path.join(repoDir, '.worktrees', 'phase-27');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeHookRemove(repoDir, wtPath, 'test-branch', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.hooked).toBe(true);
+    expect(result.action).toBe('remove_logged');
+  });
+});

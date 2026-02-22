@@ -21,6 +21,7 @@ const {
   cmdPhaseComplete,
   cmdMilestoneComplete,
   cmdValidateConsistency,
+  cmdVersionBump,
 } = require('../../lib/phase');
 
 // ─── cmdPhasesList ───────────────────────────────────────────────────────────
@@ -955,5 +956,226 @@ describe('cmdMilestoneComplete git merge', () => {
       encoding: 'utf-8',
     });
     expect(status).not.toContain('UU'); // No unmerged files
+  });
+});
+
+// ─── cmdVersionBump ──────────────────────────────────────────────────────────
+
+describe('cmdVersionBump', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('updates VERSION, package.json, and plugin.json', () => {
+    // Create the files
+    fs.writeFileSync(path.join(tmpDir, 'VERSION'), '0.1.0\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test', version: '0.1.0' }, null, 2) + '\n',
+      'utf-8'
+    );
+    const pluginDir = path.join(tmpDir, '.claude-plugin');
+    fs.mkdirSync(pluginDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pluginDir, 'plugin.json'),
+      JSON.stringify({ name: 'test', version: '0.1.0' }, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdVersionBump(tmpDir, 'v1.2.3', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.version).toBe('1.2.3');
+    expect(result.files_updated).toContain('VERSION');
+    expect(result.files_updated).toContain('package.json');
+    expect(result.files_updated).toContain('.claude-plugin/plugin.json');
+    expect(result.count).toBe(3);
+
+    // Verify files on disk
+    expect(fs.readFileSync(path.join(tmpDir, 'VERSION'), 'utf-8')).toBe('1.2.3\n');
+    const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf-8'));
+    expect(pkg.version).toBe('1.2.3');
+    const plugin = JSON.parse(fs.readFileSync(path.join(pluginDir, 'plugin.json'), 'utf-8'));
+    expect(plugin.version).toBe('1.2.3');
+  });
+
+  test('strips v prefix from version', () => {
+    fs.writeFileSync(path.join(tmpDir, 'VERSION'), '0.0.0\n', 'utf-8');
+    const { stdout, exitCode } = captureOutput(() => cmdVersionBump(tmpDir, 'v2.0.0', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.version).toBe('2.0.0');
+    expect(fs.readFileSync(path.join(tmpDir, 'VERSION'), 'utf-8')).toBe('2.0.0\n');
+  });
+
+  test('updates only existing files', () => {
+    // Only VERSION exists
+    fs.writeFileSync(path.join(tmpDir, 'VERSION'), '0.0.0\n', 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => cmdVersionBump(tmpDir, '3.0.0', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.files_updated).toEqual(['VERSION']);
+    expect(result.count).toBe(1);
+  });
+
+  test('errors when no version given', () => {
+    const { stderr, exitCode } = captureError(() => cmdVersionBump(tmpDir, null, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('version required');
+  });
+});
+
+// ─── cmdPhaseRemove decimal renumbering ──────────────────────────────────────
+
+describe('cmdPhaseRemove decimal renumbering', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+    // Create decimal phase directories in the fixture phases dir
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const dirs = [
+      { dir: '06.1-feature-a', files: ['06.1-01-PLAN.md'] },
+      { dir: '06.2-feature-b', files: ['06.2-01-PLAN.md'] },
+      { dir: '06.3-feature-c', files: ['06.3-01-PLAN.md'] },
+    ];
+    for (const d of dirs) {
+      const fullDir = path.join(phasesDir, d.dir);
+      fs.mkdirSync(fullDir, { recursive: true });
+      for (const f of d.files) {
+        fs.writeFileSync(
+          path.join(fullDir, f),
+          `---\nphase: "${d.dir}"\nplan: "01"\n---\n# Plan\n`,
+          'utf-8'
+        );
+      }
+    }
+    // Write a ROADMAP that includes these phases
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
+    const appendPhases = [
+      '',
+      '### Phase 6.1: Feature A -- First sub-phase',
+      '- [ ] 06.1-01-PLAN.md -- plan A',
+      '',
+      '### Phase 6.2: Feature B -- Second sub-phase',
+      '- [ ] 06.2-01-PLAN.md -- plan B',
+      '',
+      '### Phase 6.3: Feature C -- Third sub-phase',
+      '- [ ] 06.3-01-PLAN.md -- plan C',
+    ].join('\n');
+    fs.writeFileSync(roadmapPath, roadmapContent + appendPhases, 'utf-8');
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('removes decimal phase and renumbers siblings', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+
+    // Remove phase 6.2
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseRemove(tmpDir, '6.2', {}, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.removed).toBe('6.2');
+    expect(result.directory_deleted).toBe('06.2-feature-b');
+
+    // 06.2-feature-b should be deleted
+    expect(fs.existsSync(path.join(phasesDir, '06.2-feature-b'))).toBe(false);
+
+    // 06.3-feature-c should be renamed to 06.2-feature-c
+    expect(fs.existsSync(path.join(phasesDir, '06.2-feature-c'))).toBe(true);
+
+    // Files inside should have updated prefixes
+    const newDirFiles = fs.readdirSync(path.join(phasesDir, '06.2-feature-c'));
+    expect(newDirFiles.some((f) => f.includes('06.2-'))).toBe(true);
+    expect(newDirFiles.every((f) => !f.includes('06.3-'))).toBe(true);
+  });
+
+  test('removes last decimal without needing renumbering', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+
+    // Remove phase 6.3 (last decimal)
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseRemove(tmpDir, '6.3', {}, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.removed).toBe('6.3');
+    expect(result.directory_deleted).toBe('06.3-feature-c');
+
+    // 06.3-feature-c should be deleted
+    expect(fs.existsSync(path.join(phasesDir, '06.3-feature-c'))).toBe(false);
+    // 06.1 and 06.2 should remain unchanged
+    expect(fs.existsSync(path.join(phasesDir, '06.1-feature-a'))).toBe(true);
+    expect(fs.existsSync(path.join(phasesDir, '06.2-feature-b'))).toBe(true);
+  });
+});
+
+// ─── cmdValidateConsistency edge cases ───────────────────────────────────────
+
+describe('cmdValidateConsistency edge cases', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('detects plan gap warning', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const phaseDir = path.join(phasesDir, '05-test-gap');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    // Create plan 01 and 03 (skipping 02)
+    fs.writeFileSync(path.join(phaseDir, '05-01-PLAN.md'), '---\nwave: 1\n---\n# Plan 1', 'utf-8');
+    fs.writeFileSync(path.join(phaseDir, '05-03-PLAN.md'), '---\nwave: 1\n---\n# Plan 3', 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.warnings.some((w) => w.includes('Gap in plan numbering'))).toBe(true);
+  });
+
+  test('detects orphan summary warning', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const phaseDir = path.join(phasesDir, '05-test-orphan');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    // Create only a SUMMARY without matching PLAN
+    fs.writeFileSync(
+      path.join(phaseDir, '05-02-SUMMARY.md'),
+      '---\nphase: "05"\nplan: "02"\n---\n# Summary',
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.warnings.some((w) => w.includes('has no matching PLAN.md'))).toBe(true);
+  });
+
+  test('detects missing wave frontmatter', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const phaseDir = path.join(phasesDir, '05-test-nowave');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    // Plan without wave field
+    fs.writeFileSync(
+      path.join(phaseDir, '05-01-PLAN.md'),
+      '---\ntype: execute\n---\n# Plan (no wave)',
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.warnings.some((w) => w.includes("missing 'wave'"))).toBe(true);
   });
 });

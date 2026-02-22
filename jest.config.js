@@ -4,77 +4,27 @@ module.exports = {
   collectCoverageFrom: ['lib/**/*.js'],
   coverageDirectory: 'coverage',
   coverageThreshold: {
-    // Per-file thresholds for tested modules (raised as coverage grows)
-    './lib/utils.js': {
-      lines: 85,
-      functions: 90,
-      branches: 65,
-    },
-    './lib/frontmatter.js': {
-      lines: 65,
-      functions: 80,
-      branches: 55,
-    },
-    './lib/roadmap.js': {
-      lines: 80,
-      functions: 80,
-      branches: 60,
-    },
-    './lib/state.js': {
-      lines: 83,
-      functions: 85,
-      branches: 65,
-    },
-    './lib/verify.js': {
-      lines: 75,
-      functions: 90,
-      branches: 50,
-    },
-    './lib/phase.js': {
-      lines: 80,
-      functions: 85,
-      branches: 60,
-    },
-    './lib/tracker.js': {
-      lines: 30,
-      functions: 35,
-      branches: 30,
-    },
-    './lib/context.js': {
-      lines: 70,
-      functions: 60,
-      branches: 60,
-    },
-    './lib/scaffold.js': {
-      lines: 75,
-      functions: 100,
-      branches: 55,
-    },
-    './lib/commands.js': {
-      lines: 80,
-      functions: 90,
-      branches: 60,
-    },
-    './lib/backend.js': {
-      lines: 90,
-      functions: 100,
-      branches: 90,
-    },
-    './lib/mcp-server.js': {
-      lines: 80,
-      functions: 80,
-      branches: 58,
-    },
-    './lib/autopilot.js': {
-      lines: 80,
-      functions: 85,
-      branches: 60,
-    },
-    './lib/paths.js': {
-      lines: 90,
-      functions: 100,
-      branches: 85,
-    },
+    // Per-file thresholds — 85% line coverage floor for all lib/ modules (Phase 51)
+    './lib/autopilot.js': { lines: 93, functions: 97, branches: 80 },
+    './lib/backend.js': { lines: 95, functions: 100, branches: 88 },
+    './lib/cleanup.js': { lines: 92, functions: 96, branches: 80 },
+    './lib/commands.js': { lines: 88, functions: 95, branches: 70 },
+    './lib/context.js': { lines: 87, functions: 83, branches: 77 },
+    './lib/deps.js': { lines: 94, functions: 100, branches: 87 },
+    './lib/frontmatter.js': { lines: 89, functions: 100, branches: 78 },
+    './lib/gates.js': { lines: 98, functions: 100, branches: 82 },
+    './lib/long-term-roadmap.js': { lines: 97, functions: 100, branches: 83 },
+    './lib/mcp-server.js': { lines: 87, functions: 86, branches: 55 },
+    './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
+    './lib/paths.js': { lines: 95, functions: 100, branches: 95 },
+    './lib/phase.js': { lines: 91, functions: 94, branches: 70 },
+    './lib/roadmap.js': { lines: 91, functions: 94, branches: 83 },
+    './lib/scaffold.js': { lines: 90, functions: 100, branches: 70 },
+    './lib/state.js': { lines: 85, functions: 88, branches: 77 },
+    './lib/tracker.js': { lines: 85, functions: 89, branches: 70 },
+    './lib/utils.js': { lines: 92, functions: 95, branches: 85 },
+    './lib/verify.js': { lines: 85, functions: 100, branches: 70 },
+    './lib/worktree.js': { lines: 85, functions: 100, branches: 73 },
   },
   testTimeout: 15000,
 };

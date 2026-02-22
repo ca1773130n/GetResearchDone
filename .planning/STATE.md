@@ -7,16 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.2.7 Self-Evolution -- Phase 51 Test Coverage & Feature Discovery
+**Current focus:** v0.2.7 Self-Evolution -- Phase 52 Autopilot Command next
+**Previous:** Phase 51 Test Coverage & Feature Discovery (COMPLETE)
 
 ## Current Position
 
-- **Active phase:** Phase 51 of 52 (Test Coverage & Feature Discovery)
-- **Current plan:** None (not yet planned)
+- **Active phase:** Phase 52 of 53 (Autopilot Command)
+- **Current plan:** 52-01 (planned, not yet executed)
 - **Milestone:** v0.2.7 Self-Evolution
-- **Status:** Phase 50 complete, Phase 51 next
-- **Progress:** [######----] 60%
-- **Next:** `/grd:plan-phase 51`
+- **Status:** Phase 51 complete (4 plans, 98 tests added), Phase 52 ready
+- **Progress:** [######----] 70%
+- **Next:** `/grd:execute-phase 52`
 
 ## Testbed
 
@@ -62,10 +63,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 50 (3 plans complete: dead export removal + cmdTracker decomposition, cmdDashboard decomposition + shared utilities, code tightening + audit report)
-- **Stopped at:** Phase 50 execution complete
-- **Next action:** Plan Phase 51 (`/grd:plan-phase 51`)
-- **Context needed:** Phase 50 reduced lib/ LOC from 16,592 to 16,538 (-54 net, -106 in modified files). Decomposed cmdTracker (12 handlers) and cmdDashboard (6 helpers). Removed 6 dead exports + 2 dead functions. Added safeReadJSON + extractMarkdownSection utilities. 1,853 tests pass. Phase 51 focuses on test coverage 85%+ and dogfooding-driven features.
+- **Last action:** Planned Phase 51 (4 plans: tracker/scaffold coverage, phase/parallel/worktree coverage, 2 new features, threshold enforcement)
+- **Stopped at:** Phase 51 planning complete
+- **Next action:** Execute Phase 51 (`/grd:execute-phase 51`)
+- **Context needed:** Phase 51 has 4 plans across 3 waves. Wave 1 (Plans 01+02): raise 5 modules from below 85% to 85%+ line coverage (tracker.js 43%->85%, scaffold.js 82%->85%, phase.js 84%->85%, parallel.js 84%->85%, worktree.js 85%->85%). Wave 2 (Plan 03): implement coverage-report and health-check CLI commands as dogfooding-driven features. Wave 3 (Plan 04): update jest.config.js thresholds to enforce 85% floor for all 19 modules. Current baseline: 1,853 tests.
 
 ---
 
