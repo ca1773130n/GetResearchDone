@@ -15,6 +15,7 @@ module.exports = {
     './lib/frontmatter.js': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.js': { lines: 98, functions: 100, branches: 82 },
     './lib/long-term-roadmap.js': { lines: 97, functions: 100, branches: 83 },
+    './lib/markdown-split.js': { lines: 95, functions: 100, branches: 90 },
     './lib/mcp-server.js': { lines: 87, functions: 85, branches: 55 },
     './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
     './lib/paths.js': { lines: 95, functions: 100, branches: 95 },
