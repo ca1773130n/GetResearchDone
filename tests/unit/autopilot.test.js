@@ -247,14 +247,14 @@ describe('lib/autopilot', () => {
 
     it('returns false when phase dir does not exist', () => {
       tmpDir = createAutopilotFixture();
-      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(false);
+      expect(isPhasePlanned(tmpDir, '48')).toBe(false);
     });
 
     it('returns false when phase dir exists but has no plans', () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
-      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(false);
+      expect(isPhasePlanned(tmpDir, '48')).toBe(false);
     });
 
     it('returns true when phase has a PLAN.md file', () => {
@@ -266,7 +266,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(true);
+      expect(isPhasePlanned(tmpDir, '48')).toBe(true);
     });
   });
 
@@ -284,7 +284,7 @@ describe('lib/autopilot', () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
-      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
+      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
     });
 
     it('returns false when plans exist but no summaries', () => {
@@ -296,7 +296,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
+      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
     });
 
     it('returns true when all plans have matching summaries', () => {
@@ -311,7 +311,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(true);
+      expect(isPhaseExecuted(tmpDir, '48')).toBe(true);
     });
 
     it('returns false when some plans are incomplete', () => {
@@ -327,7 +327,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
+      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
     });
   });
 
@@ -700,7 +700,7 @@ describe('lib/autopilot', () => {
       expect(result.results[1].reason).toContain('already executed');
     });
 
-    it('stops on plan failure', async () => {
+    it('continues past plan failure', async () => {
       tmpDir = createAutopilotFixture();
       // Plan step uses spawn (async)
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
@@ -709,22 +709,26 @@ describe('lib/autopilot', () => {
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
       expect(result.phases_completed).toBe(0);
-      expect(result.stopped_at).toContain('Phase 48');
-      expect(result.stopped_at).toContain('plan failed');
+      expect(result.stopped_at).toBeNull();
+      const failed = result.results.filter((r) => r.status === 'failed');
+      expect(failed.length).toBeGreaterThan(0);
     });
 
-    it('continues when plan verification fails (no PLAN.md after spawn)', async () => {
+    it('trusts exit code 0 without file verification', async () => {
       tmpDir = createAutopilotFixture();
-      // Spawn succeeds but doesn't create files
+      // Spawn succeeds (exit 0) — no file check needed
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         return createMockChild(0);
+      });
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
       });
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.stopped_at).toBeNull();
       const planResult = result.results.find((r) => r.step === 'plan');
-      expect(planResult.status).toBe('failed');
-      expect(planResult.reason).toContain('no PLAN.md');
+      expect(planResult.status).toBe('completed');
     });
 
     it('completes successfully when spawn creates expected files', async () => {
@@ -778,7 +782,10 @@ describe('lib/autopilot', () => {
       });
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48', skipPlan: true });
-      expect(result.stopped_at).toContain('timeout');
+      expect(result.stopped_at).toBeNull();
+      const execResult = result.results.find((r) => r.step === 'execute');
+      expect(execResult.status).toBe('failed');
+      expect(execResult.reason).toBe('timeout');
     });
 
     it('respects --from and --to in the loop', async () => {
@@ -942,7 +949,7 @@ describe('lib/autopilot', () => {
       fs.mkdirSync(phaseDir, { recursive: true });
       fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
 
-      expect(isPhasePlanned(phasesBase(tmpDir), '1')).toBe(true);
+      expect(isPhasePlanned(tmpDir, '1')).toBe(true);
     });
 
     it('isPhaseExecuted finds summaries in milestone-scoped directory', () => {
@@ -963,7 +970,7 @@ describe('lib/autopilot', () => {
       fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
       fs.writeFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), '# Summary');
 
-      expect(isPhaseExecuted(phasesBase(tmpDir), '1')).toBe(true);
+      expect(isPhaseExecuted(tmpDir, '1')).toBe(true);
     });
   });
 
@@ -989,7 +996,7 @@ describe('lib/autopilot', () => {
       }
     });
 
-    it('stops when execute verification fails (no SUMMARY.md after successful spawn)', async () => {
+    it('trusts exit code 0 for execution without file verification', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -999,33 +1006,22 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      // Plan step (async) — create PLAN.md
+      // Plan step (async) — exit 0
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
-        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
-        fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
         return createMockChild(0);
       });
 
-      // Execute step (sync) — do NOT create SUMMARY.md
+      // Execute step (sync) — exit 0, no SUMMARY.md created
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
         status: 0,
         error: null,
       });
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
-      expect(result.phases_completed).toBe(0);
+      expect(result.phases_completed).toBe(1);
       expect(result.stopped_at).toBeNull();
       expect(result.results[0]).toMatchObject({ step: 'plan', status: 'completed' });
-      const execResult = result.results.find((r) => r.step === 'execute');
-      expect(execResult).toMatchObject({
-        status: 'failed',
-        reason: 'no SUMMARY.md files found after execution',
-      });
-
-      // Verify status marker was written
-      const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-48-execute.json');
-      const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
-      expect(marker.status).toBe('failed');
+      expect(result.results[1]).toMatchObject({ step: 'execute', status: 'completed' });
     });
 
     it('runAutopilot with 3 phases completes all when files are created', async () => {
