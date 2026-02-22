@@ -17,6 +17,15 @@ const fs = require('fs');
 const path = require('path');
 const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
+// Mock spawnClaudeAsync to prevent actual Claude subprocess calls during tests
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
+  };
+});
+
 const {
   McpServer,
   buildToolDefinitions,
@@ -1160,8 +1169,8 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
   });
 
   // Evolve commands
-  test('grd_evolve_discover execute lambda', () => {
-    const r = callTool('grd_evolve_discover', { count: 3 });
+  test('grd_evolve_discover execute lambda', async () => {
+    const r = await callTool('grd_evolve_discover', { count: 3 });
     expect(r.result || r.error).toBeDefined();
   });
 
@@ -1706,8 +1715,8 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   // ── Invocation: grd_evolve_discover ──
 
-  test('grd_evolve_discover returns structured JSON (not error)', () => {
-    const response = evolveServer.handleMessage({
+  test('grd_evolve_discover returns structured JSON (not error)', async () => {
+    const response = await evolveServer.handleMessage({
       jsonrpc: '2.0',
       id: 'evolve-discover-1',
       method: 'tools/call',

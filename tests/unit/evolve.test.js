@@ -17,6 +17,7 @@ jest.mock('../../lib/autopilot', () => {
   return {
     ...actual,
     spawnClaude: jest.fn(actual.spawnClaude),
+    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
   };
 });
 const autopilotModule = require('../../lib/autopilot');
@@ -48,6 +49,8 @@ const {
   mergeWorkItems,
   advanceIteration,
   analyzeCodebaseForItems,
+  discoverWithClaude,
+  parseDiscoveryOutput,
   scoreWorkItem,
   selectPriorityItems,
   groupDiscoveredItems,
@@ -281,12 +284,8 @@ describe('mergeWorkItems', () => {
   });
 
   test('duplicate ids deduplicate (existing wins)', () => {
-    const existing = [
-      createWorkItem('quality', 'shared-slug', 'Existing Title', 'Existing desc'),
-    ];
-    const discovered = [
-      createWorkItem('quality', 'shared-slug', 'New Title', 'New desc'),
-    ];
+    const existing = [createWorkItem('quality', 'shared-slug', 'Existing Title', 'Existing desc')];
+    const discovered = [createWorkItem('quality', 'shared-slug', 'New Title', 'New desc')];
     const result = mergeWorkItems(existing, discovered);
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe('Existing Title');
@@ -335,9 +334,7 @@ describe('advanceIteration', () => {
       createWorkItem('productivity', 'rem-1', 'Remaining 1', 'Desc', { status: 'pending' }),
       createWorkItem('stability', 'rem-done', 'Remaining Done', 'Desc', { status: 'completed' }),
     ];
-    state.bugfix = [
-      createWorkItem('quality', 'bug-1', 'Bug 1', 'Desc', { source: 'bugfix' }),
-    ];
+    state.bugfix = [createWorkItem('quality', 'bug-1', 'Bug 1', 'Desc', { source: 'bugfix' })];
     state.completed = [
       createWorkItem('usability', 'comp-1', 'Completed 1', 'Desc', { status: 'completed' }),
     ];
@@ -547,6 +544,138 @@ describe('analyzeCodebaseForItems', () => {
   });
 });
 
+// ─── parseDiscoveryOutput ───────────────────────────────────────────────────
+
+describe('parseDiscoveryOutput', () => {
+  test('parses valid JSON array into work items', () => {
+    const raw = JSON.stringify([
+      {
+        dimension: 'quality',
+        slug: 'add-tests',
+        title: 'Add Tests',
+        description: 'Missing tests in lib/',
+        effort: 'small',
+      },
+      {
+        dimension: 'stability',
+        slug: 'fix-error',
+        title: 'Fix Error',
+        description: 'Empty catch in main.js:42',
+        effort: 'large',
+      },
+    ]);
+    const items = parseDiscoveryOutput(raw);
+    expect(items).toHaveLength(2);
+    expect(items[0].id).toBe('quality/add-tests');
+    expect(items[0].effort).toBe('small');
+    expect(items[1].id).toBe('stability/fix-error');
+    expect(items[1].effort).toBe('large');
+  });
+
+  test('handles markdown-fenced JSON', () => {
+    const raw =
+      '```json\n[{"dimension":"quality","slug":"t","title":"T","description":"D","effort":"medium"}]\n```';
+    const items = parseDiscoveryOutput(raw);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('quality/t');
+  });
+
+  test('returns empty array on invalid JSON', () => {
+    expect(parseDiscoveryOutput('not json')).toEqual([]);
+    expect(parseDiscoveryOutput('')).toEqual([]);
+  });
+
+  test('returns empty array when JSON is not an array', () => {
+    expect(parseDiscoveryOutput('{"foo": "bar"}')).toEqual([]);
+  });
+
+  test('skips items with invalid dimensions', () => {
+    const raw = JSON.stringify([
+      { dimension: 'invalid-dim', slug: 'x', title: 'X', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'y', title: 'Y', description: 'D', effort: 'small' },
+    ]);
+    const items = parseDiscoveryOutput(raw);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('quality/y');
+  });
+
+  test('skips items missing required fields', () => {
+    const raw = JSON.stringify([
+      { dimension: 'quality', slug: 'a' },
+      { dimension: 'quality', slug: 'b', title: 'B', description: 'D' },
+    ]);
+    const items = parseDiscoveryOutput(raw);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('quality/b');
+  });
+
+  test('defaults effort to medium for invalid values', () => {
+    const raw = JSON.stringify([
+      { dimension: 'quality', slug: 'q', title: 'Q', description: 'D', effort: 'huge' },
+    ]);
+    const items = parseDiscoveryOutput(raw);
+    expect(items).toHaveLength(1);
+    expect(items[0].effort).toBe('medium');
+  });
+});
+
+// ─── discoverWithClaude ─────────────────────────────────────────────────────
+
+describe('discoverWithClaude', () => {
+  test('falls back to hardcoded discovery when Claude subprocess fails', async () => {
+    // spawnClaudeAsync is mocked to return exitCode: 1
+    const fixture = createDiscoveryFixture();
+    const items = await discoverWithClaude(fixture);
+    // Should get items from hardcoded discovery fallback
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0]).toHaveProperty('dimension');
+    expect(items[0]).toHaveProperty('slug');
+  });
+
+  test('falls back when Claude returns empty stdout', async () => {
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+      exitCode: 0,
+      timedOut: false,
+      stdout: '',
+    });
+    const fixture = createDiscoveryFixture();
+    const items = await discoverWithClaude(fixture);
+    expect(items.length).toBeGreaterThan(0);
+  });
+
+  test('falls back when Claude returns unparseable output', async () => {
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+      exitCode: 0,
+      timedOut: false,
+      stdout: 'not json',
+    });
+    const fixture = createDiscoveryFixture();
+    const items = await discoverWithClaude(fixture);
+    expect(items.length).toBeGreaterThan(0);
+  });
+
+  test('uses Claude output when valid JSON is returned', async () => {
+    const claudeOutput = JSON.stringify([
+      {
+        dimension: 'quality',
+        slug: 'claude-found',
+        title: 'Claude Found',
+        description: 'Found by Claude',
+        effort: 'small',
+      },
+    ]);
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+      exitCode: 0,
+      timedOut: false,
+      stdout: claudeOutput,
+    });
+    const fixture = createDiscoveryFixture();
+    const items = await discoverWithClaude(fixture);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('quality/claude-found');
+  });
+});
+
 // ─── scoreWorkItem ──────────────────────────────────────────────────────────
 
 describe('scoreWorkItem', () => {
@@ -599,10 +728,22 @@ describe('scoreWorkItem', () => {
 describe('selectPriorityItems', () => {
   function makeItems() {
     return [
-      createWorkItem('new-features', 'low', 'Low', 'Low priority', { effort: 'large', source: 'carryover' }),
-      createWorkItem('quality', 'high', 'High', 'High priority', { effort: 'small', source: 'bugfix' }),
-      createWorkItem('productivity', 'mid', 'Mid', 'Mid priority', { effort: 'medium', source: 'discovery' }),
-      createWorkItem('stability', 'med-high', 'MedHigh', 'MedHigh priority', { effort: 'medium', source: 'discovery' }),
+      createWorkItem('new-features', 'low', 'Low', 'Low priority', {
+        effort: 'large',
+        source: 'carryover',
+      }),
+      createWorkItem('quality', 'high', 'High', 'High priority', {
+        effort: 'small',
+        source: 'bugfix',
+      }),
+      createWorkItem('productivity', 'mid', 'Mid', 'Mid priority', {
+        effort: 'medium',
+        source: 'discovery',
+      }),
+      createWorkItem('stability', 'med-high', 'MedHigh', 'MedHigh priority', {
+        effort: 'medium',
+        source: 'discovery',
+      }),
     ];
   }
 
@@ -650,15 +791,15 @@ describe('selectPriorityItems', () => {
 // ─── runDiscovery ───────────────────────────────────────────────────────────
 
 describe('runDiscovery', () => {
-  test('without previous state: discovers fresh items and selects top N', () => {
+  test('without previous state: discovers fresh items and selects top N', async () => {
     const fixture = createDiscoveryFixture();
-    const result = runDiscovery(fixture, null);
+    const result = await runDiscovery(fixture, null);
     expect(result.all_discovered_count).toBeGreaterThan(0);
     expect(result.selected.length).toBeLessThanOrEqual(DEFAULT_ITEMS_PER_ITERATION);
     expect(result.selected.length + result.remaining.length).toBe(result.merged_count);
   });
 
-  test('with previous state: merges remaining items from previous state', () => {
+  test('with previous state: merges remaining items from previous state', async () => {
     const fixture = createDiscoveryFixture();
     const previousState = createInitialState('v1.0', 5);
     const carryover = createWorkItem('quality', 'carryover-item', 'Carryover', 'From last time', {
@@ -667,7 +808,7 @@ describe('runDiscovery', () => {
     });
     previousState.remaining = [carryover];
 
-    const result = runDiscovery(fixture, previousState);
+    const result = await runDiscovery(fixture, previousState);
     // Merged count should include carryover + fresh items
     expect(result.merged_count).toBeGreaterThan(result.all_discovered_count);
     // The carryover item should appear somewhere in selected or remaining
@@ -676,7 +817,7 @@ describe('runDiscovery', () => {
     expect(carryoverFound).toBe(true);
   });
 
-  test('deduplicates items with same id across fresh and previous', () => {
+  test('deduplicates items with same id across fresh and previous', async () => {
     const fixture = createDiscoveryFixture();
 
     // Discover items once to know what ids exist
@@ -694,27 +835,27 @@ describe('runDiscovery', () => {
     );
     previousState.remaining = [duplicateItem];
 
-    const result = runDiscovery(fixture, previousState);
+    const result = await runDiscovery(fixture, previousState);
     // Merged count should be at most freshItems + 1 (previous) - 1 (dedup) = freshItems
     // Actually existing-wins means previous takes priority, so fresh duplicate is dropped
     expect(result.merged_count).toBe(freshItems.length);
   });
 
-  test('returns correct counts', () => {
+  test('returns correct counts', async () => {
     const fixture = createDiscoveryFixture();
-    const result = runDiscovery(fixture, null);
+    const result = await runDiscovery(fixture, null);
     expect(typeof result.all_discovered_count).toBe('number');
     expect(typeof result.merged_count).toBe('number');
     expect(result.all_discovered_count).toBeGreaterThanOrEqual(0);
     expect(result.merged_count).toBeGreaterThanOrEqual(result.all_discovered_count);
   });
 
-  test('respects items_per_iteration from previous state', () => {
+  test('respects items_per_iteration from previous state', async () => {
     const fixture = createDiscoveryFixture();
     const previousState = createInitialState('v1.0', 2);
     previousState.remaining = [];
 
-    const result = runDiscovery(fixture, previousState);
+    const result = await runDiscovery(fixture, previousState);
     expect(result.selected.length).toBeLessThanOrEqual(2);
   });
 });
@@ -763,6 +904,47 @@ function captureOutput(fn) {
   return { stdout, stderr, exitCode };
 }
 
+/**
+ * Async variant of captureOutput for async cmd* functions.
+ */
+async function captureOutputAsync(fn) {
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+    exitCode = code;
+    const err = new Error('__TEST_EXIT__');
+    err.__EXIT__ = true;
+    err.code = code;
+    throw err;
+  });
+
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+    stdout += data;
+    return true;
+  });
+
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    stderr += data;
+    return true;
+  });
+
+  try {
+    await fn();
+  } catch (e) {
+    if (!(e && e.__EXIT__)) {
+      throw e;
+    }
+  } finally {
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+
+  return { stdout, stderr, exitCode };
+}
+
 // ─── CLI Command Functions ─────────────────────────────────────────────────
 
 describe('cmdEvolveState', () => {
@@ -797,9 +979,11 @@ describe('cmdEvolveState', () => {
 });
 
 describe('cmdEvolveDiscover', () => {
-  test('returns grouped discovery result', () => {
+  test('returns grouped discovery result', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout, exitCode } = captureOutput(() => cmdEvolveDiscover(fixture, [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdEvolveDiscover(fixture, [], false)
+    );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('groups');
@@ -810,15 +994,15 @@ describe('cmdEvolveDiscover', () => {
     expect(Array.isArray(result.groups)).toBe(true);
   });
 
-  test('raw mode returns groups count string', () => {
+  test('raw mode returns groups count string', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout } = captureOutput(() => cmdEvolveDiscover(fixture, [], true));
+    const { stdout } = await captureOutputAsync(() => cmdEvolveDiscover(fixture, [], true));
     expect(stdout).toMatch(/\d+ groups \(\d+ items\)/);
   });
 
-  test('respects --pick-pct flag', () => {
+  test('respects --pick-pct flag', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout } = captureOutput(() =>
+    const { stdout } = await captureOutputAsync(() =>
       cmdEvolveDiscover(fixture, ['--pick-pct', '50'], false)
     );
     const result = JSON.parse(stdout);
@@ -1012,9 +1196,7 @@ describe('groupDiscoveredItems', () => {
   });
 
   test('unmatched items go to dimension/miscellaneous groups', () => {
-    const items = [
-      createWorkItem('quality', 'something-random', 'Random', 'Desc'),
-    ];
+    const items = [createWorkItem('quality', 'something-random', 'Random', 'Desc')];
     const groups = groupDiscoveredItems(items);
     const misc = groups.find((g) => g.theme === 'miscellaneous' && g.dimension === 'quality');
     expect(misc).toBeDefined();
@@ -1022,9 +1204,7 @@ describe('groupDiscoveredItems', () => {
   });
 
   test('group id is dimension/theme', () => {
-    const items = [
-      createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch', 'Desc'),
-    ];
+    const items = [createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch', 'Desc')];
     const groups = groupDiscoveredItems(items);
     expect(groups[0].id).toBe('stability/empty-catch-blocks');
   });
@@ -1050,8 +1230,14 @@ describe('groupDiscoveredItems', () => {
 
   test('group priority is weighted aggregate: sum(scores)/count', () => {
     const items = [
-      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'small', source: 'bugfix' }),
-      createWorkItem('quality', 'improve-coverage-b', 'B', 'D', { effort: 'large', source: 'carryover' }),
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', {
+        effort: 'small',
+        source: 'bugfix',
+      }),
+      createWorkItem('quality', 'improve-coverage-b', 'B', 'D', {
+        effort: 'large',
+        source: 'carryover',
+      }),
     ];
     const groups = groupDiscoveredItems(items);
     const group = groups.find((g) => g.theme === 'test-coverage');
@@ -1062,7 +1248,10 @@ describe('groupDiscoveredItems', () => {
   test('groups are sorted by priority descending', () => {
     const items = [
       createWorkItem('new-features', 'mcp-tool-foo', 'MCP foo', 'D', { effort: 'large' }),
-      createWorkItem('quality', 'improve-coverage-a', 'Cov A', 'D', { effort: 'small', source: 'bugfix' }),
+      createWorkItem('quality', 'improve-coverage-a', 'Cov A', 'D', {
+        effort: 'small',
+        source: 'bugfix',
+      }),
     ];
     const groups = groupDiscoveredItems(items);
     for (let i = 0; i < groups.length - 1; i++) {
@@ -1091,7 +1280,10 @@ describe('groupDiscoveredItems', () => {
 describe('selectPriorityGroups', () => {
   function makeGroups() {
     const items = [
-      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'small', source: 'bugfix' }),
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', {
+        effort: 'small',
+        source: 'bugfix',
+      }),
       createWorkItem('quality', 'improve-coverage-b', 'B', 'D'),
       createWorkItem('stability', 'fix-empty-catch-x-L1', 'X', 'D'),
       createWorkItem('new-features', 'mcp-tool-foo', 'Foo', 'D', { effort: 'large' }),
@@ -1203,9 +1395,7 @@ describe('buildGroupReviewPrompt', () => {
     theme: 'empty-catch-blocks',
     dimension: 'stability',
     title: 'Empty Catch Blocks (stability)',
-    items: [
-      createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch L10', 'Desc'),
-    ],
+    items: [createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch L10', 'Desc')],
     priority: 7,
     effort: 'small',
     status: 'selected',
@@ -1231,30 +1421,32 @@ describe('buildGroupReviewPrompt', () => {
 // ─── runGroupDiscovery ──────────────────────────────────────────────────────
 
 describe('runGroupDiscovery', () => {
-  test('returns groups sorted by priority', () => {
+  test('returns groups sorted by priority', async () => {
     const fixture = createDiscoveryFixture();
-    const result = runGroupDiscovery(fixture, null, 15);
+    const result = await runGroupDiscovery(fixture, null, 15);
     expect(result.groups.length).toBeGreaterThan(0);
     for (let i = 0; i < result.groups.length - 1; i++) {
       expect(result.groups[i].priority).toBeGreaterThanOrEqual(result.groups[i + 1].priority);
     }
   });
 
-  test('returns selected and remaining groups based on pick_pct', () => {
+  test('returns selected and remaining groups based on pick_pct', async () => {
     const fixture = createDiscoveryFixture();
-    const result = runGroupDiscovery(fixture, null, 50);
+    const result = await runGroupDiscovery(fixture, null, 50);
     expect(result.selected_groups.length).toBeGreaterThan(0);
-    expect(result.selected_groups.length + result.remaining_groups.length).toBe(result.groups.length);
+    expect(result.selected_groups.length + result.remaining_groups.length).toBe(
+      result.groups.length
+    );
   });
 
-  test('returns total items count and groups count', () => {
+  test('returns total items count and groups count', async () => {
     const fixture = createDiscoveryFixture();
-    const result = runGroupDiscovery(fixture, null, 15);
+    const result = await runGroupDiscovery(fixture, null, 15);
     expect(result.all_items_count).toBeGreaterThan(0);
     expect(result.groups_count).toBe(result.groups.length);
   });
 
-  test('with previous state remaining_groups: merges new discovery', () => {
+  test('with previous state remaining_groups: merges new discovery', async () => {
     const fixture = createDiscoveryFixture();
     // Use an item whose slug matches a known theme pattern so we can find it
     const prevGroup = {
@@ -1275,28 +1467,27 @@ describe('runGroupDiscovery', () => {
       completed_groups: [],
       failed_groups: [],
     };
-    const result = runGroupDiscovery(fixture, previousState, 15);
+    const result = await runGroupDiscovery(fixture, previousState, 15);
     // The carryover item should be merged into the re-grouped pool
-    const allItems = [...result.selected_groups, ...result.remaining_groups]
-      .flatMap((g) => g.items);
+    const allItems = [...result.selected_groups, ...result.remaining_groups].flatMap(
+      (g) => g.items
+    );
     const found = allItems.some((i) => i.id === 'quality/improve-coverage-carryover');
     expect(found).toBe(true);
   });
 
-  test('backward compat: old state with flat remaining items auto-regroups', () => {
+  test('backward compat: old state with flat remaining items auto-regroups', async () => {
     const fixture = createDiscoveryFixture();
     const oldState = {
       iteration: 1,
       items_per_iteration: 5,
-      remaining: [
-        createWorkItem('quality', 'improve-coverage-old', 'Old Coverage', 'D'),
-      ],
+      remaining: [createWorkItem('quality', 'improve-coverage-old', 'Old Coverage', 'D')],
       selected: [],
       completed: [],
       failed: [],
       bugfix: [],
     };
-    const result = runGroupDiscovery(fixture, oldState, 15);
+    const result = await runGroupDiscovery(fixture, oldState, 15);
     expect(result.groups_count).toBeGreaterThan(0);
   });
 });
@@ -1443,10 +1634,7 @@ describe('writeEvolutionNotes', () => {
       takeaways: [],
     });
 
-    const content = fs.readFileSync(
-      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
-      'utf-8'
-    );
+    const content = fs.readFileSync(path.join(tmpDir, '.planning', 'EVOLUTION.md'), 'utf-8');
     expect(content).toContain('## Iteration 1');
     expect(content).toContain('## Iteration 2');
     expect(content).toContain('Task A');
@@ -1467,10 +1655,7 @@ describe('writeEvolutionNotes', () => {
       takeaways: [],
     });
 
-    const content = fs.readFileSync(
-      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
-      'utf-8'
-    );
+    const content = fs.readFileSync(path.join(tmpDir, '.planning', 'EVOLUTION.md'), 'utf-8');
     expect(content).toContain('## Iteration 1');
     // Empty sections should show "None"
     expect(content).toContain('None');
@@ -1505,10 +1690,7 @@ describe('writeEvolutionNotes', () => {
       takeaways: [],
     });
 
-    const content = fs.readFileSync(
-      path.join(tmpDir, '.planning', 'EVOLUTION.md'),
-      'utf-8'
-    );
+    const content = fs.readFileSync(path.join(tmpDir, '.planning', 'EVOLUTION.md'), 'utf-8');
     expect(content).toContain('## Iteration 7');
   });
 });
@@ -1593,9 +1775,7 @@ describe('cmdEvolve', () => {
 
   test('parses --dry-run flag correctly', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout } = await captureAsyncOutput(() =>
-      cmdEvolve(fixture, ['--dry-run'], false)
-    );
+    const { stdout } = await captureAsyncOutput(() => cmdEvolve(fixture, ['--dry-run'], false));
 
     const result = JSON.parse(stdout);
     expect(result.results[0].status).toBe('dry-run');
@@ -1625,9 +1805,7 @@ describe('cmdEvolve', () => {
 
   test('dry-run returns grouped output', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout } = await captureAsyncOutput(() =>
-      cmdEvolve(fixture, ['--dry-run'], false)
-    );
+    const { stdout } = await captureAsyncOutput(() => cmdEvolve(fixture, ['--dry-run'], false));
 
     const result = JSON.parse(stdout);
     expect(result.results[0].status).toBe('dry-run');
@@ -1637,9 +1815,7 @@ describe('cmdEvolve', () => {
 
   test('delegates to runEvolve', async () => {
     const fixture = createDiscoveryFixture();
-    const { stdout } = await captureAsyncOutput(() =>
-      cmdEvolve(fixture, ['--dry-run'], false)
-    );
+    const { stdout } = await captureAsyncOutput(() => cmdEvolve(fixture, ['--dry-run'], false));
 
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('iterations_completed');
@@ -1713,8 +1889,8 @@ describe('runEvolve (grouped)', () => {
 
   test('failed group is recorded', async () => {
     autopilotModule.spawnClaude
-      .mockReturnValueOnce({ exitCode: 1, timedOut: false })  // execute: fail group 1
-      .mockReturnValue({ exitCode: 0, timedOut: false });      // everything else passes
+      .mockReturnValueOnce({ exitCode: 1, timedOut: false }) // execute: fail group 1
+      .mockReturnValue({ exitCode: 0, timedOut: false }); // everything else passes
 
     const fixture = createDiscoveryFixture();
     const result = await runEvolve(fixture, { iterations: 1, pickPct: 100 });
@@ -1816,7 +1992,12 @@ describe('discoverQualityItems — TODO/FIXME/HACK marker detection', () => {
 
     fs.writeFileSync(
       path.join(libDir, 'marked.js'),
-      ["'use strict';", '// TODO: refactor this', 'function fn() {}', 'module.exports = { fn };'].join('\n')
+      [
+        "'use strict';",
+        '// TODO: refactor this',
+        'function fn() {}',
+        'module.exports = { fn };',
+      ].join('\n')
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
@@ -1944,13 +2125,9 @@ describe('discoverConsistencyItems — module header detection', () => {
 
     fs.writeFileSync(
       path.join(libDir, 'noheader.js'),
-      [
-        "'use strict';",
-        '',
-        'function fn() { return 1; }',
-        '',
-        'module.exports = { fn };',
-      ].join('\n')
+      ["'use strict';", '', 'function fn() { return 1; }', '', 'module.exports = { fn };'].join(
+        '\n'
+      )
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
@@ -2036,7 +2213,7 @@ describe('discoverNewFeatureItems — cmdInit MCP binding detection', () => {
 });
 
 describe('runDiscovery — bugfix items in previous state', () => {
-  test('merges bugfix items from previous state into the discovery pool', () => {
+  test('merges bugfix items from previous state into the discovery pool', async () => {
     const fixture = createDiscoveryFixture();
     const previousState = createInitialState('v1.0', 10);
     previousState.remaining = [];
@@ -2047,7 +2224,7 @@ describe('runDiscovery — bugfix items in previous state', () => {
       }),
     ];
 
-    const result = runDiscovery(fixture, previousState);
+    const result = await runDiscovery(fixture, previousState);
     const allItems = [...result.selected, ...result.remaining];
     expect(allItems.some((i) => i.id === 'quality/critical-bug')).toBe(true);
   });
@@ -2193,9 +2370,7 @@ describe('cmdEvolve (--no-worktree flag)', () => {
       JSON.stringify({ branching_strategy: 'phase' })
     );
 
-    await captureAsyncOutput(() =>
-      cmdEvolve(fixture, ['--dry-run', '--no-worktree'], false)
-    );
+    await captureAsyncOutput(() => cmdEvolve(fixture, ['--dry-run', '--no-worktree'], false));
 
     expect(worktreeModule.createEvolveWorktree).not.toHaveBeenCalled();
   });

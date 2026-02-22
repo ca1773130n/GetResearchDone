@@ -17,6 +17,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Mock spawnClaudeAsync to prevent actual Claude subprocess calls during tests
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
+  };
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function createTmpDir(prefix = 'grd-evolve-e2e-') {
@@ -160,8 +169,8 @@ describe('E2E: Work item discovery quality', () => {
     }
   });
 
-  test('runDiscovery handles empty prior state gracefully', () => {
-    const result = runDiscovery(tmpDir);
+  test('runDiscovery handles empty prior state gracefully', async () => {
+    const result = await runDiscovery(tmpDir);
 
     expect(result).toHaveProperty('selected');
     expect(result).toHaveProperty('remaining');
@@ -170,8 +179,8 @@ describe('E2E: Work item discovery quality', () => {
     expect(result.all_discovered_count).toBeGreaterThan(0);
   });
 
-  test('runDiscovery deduplicates on repeated calls', () => {
-    const first = runDiscovery(tmpDir);
+  test('runDiscovery deduplicates on repeated calls', async () => {
+    const first = await runDiscovery(tmpDir);
 
     // Simulate second discovery with first result as prior state
     const priorState = {
@@ -185,13 +194,10 @@ describe('E2E: Work item discovery quality', () => {
       history: [],
     };
 
-    const second = runDiscovery(tmpDir, priorState);
+    const second = await runDiscovery(tmpDir, priorState);
 
     // Merged count should not exceed total unique items
-    const allIds = [
-      ...second.selected.map((i) => i.id),
-      ...second.remaining.map((i) => i.id),
-    ];
+    const allIds = [...second.selected.map((i) => i.id), ...second.remaining.map((i) => i.id)];
     const uniqueIds = new Set(allIds);
     expect(uniqueIds.size).toBe(allIds.length);
   });
@@ -221,9 +227,9 @@ describe('E2E: Full evolve iteration mechanics', () => {
     cleanupDir(tmpDir);
   });
 
-  test('individual evolve steps complete without errors', () => {
+  test('individual evolve steps complete without errors', async () => {
     // Step 1: Discover
-    const discovery = runDiscovery(tmpDir);
+    const discovery = await runDiscovery(tmpDir);
     expect(discovery.selected.length).toBeGreaterThan(0);
 
     // Step 2: Select priority items
@@ -422,33 +428,29 @@ describe('E2E: Discovery on GRD codebase itself', () => {
   // Resolve the GRD project root
   const grdRoot = path.resolve(__dirname, '..', '..');
 
-  test(
-    'discovers categorized actionable items from GRD codebase',
-    () => {
-      const items = analyzeCodebaseForItems(grdRoot);
+  test('discovers categorized actionable items from GRD codebase', () => {
+    const items = analyzeCodebaseForItems(grdRoot);
 
-      // GRD codebase should have improvement opportunities
-      expect(Array.isArray(items)).toBe(true);
-      expect(items.length).toBeGreaterThan(0);
+    // GRD codebase should have improvement opportunities
+    expect(Array.isArray(items)).toBe(true);
+    expect(items.length).toBeGreaterThan(0);
 
-      // Should cover at least 3 of 6 dimensions (GRD has 22 modules)
-      const dimensions = new Set(items.map((i) => i.dimension));
-      expect(dimensions.size).toBeGreaterThanOrEqual(3);
+    // Should cover at least 3 of 6 dimensions (GRD has 22 modules)
+    const dimensions = new Set(items.map((i) => i.dimension));
+    expect(dimensions.size).toBeGreaterThanOrEqual(3);
 
-      // All dimensions should be valid
-      for (const dim of dimensions) {
-        expect(WORK_ITEM_DIMENSIONS).toContain(dim);
-      }
+    // All dimensions should be valid
+    for (const dim of dimensions) {
+      expect(WORK_ITEM_DIMENSIONS).toContain(dim);
+    }
 
-      // Each item should have real, non-empty descriptions
-      for (const item of items) {
-        expect(typeof item.description).toBe('string');
-        expect(item.description.length).toBeGreaterThan(0);
-        expect(item.description).not.toBe('undefined');
-        expect(typeof item.id).toBe('string');
-        expect(item.id.length).toBeGreaterThan(0);
-      }
-    },
-    30000
-  );
+    // Each item should have real, non-empty descriptions
+    for (const item of items) {
+      expect(typeof item.description).toBe('string');
+      expect(item.description.length).toBeGreaterThan(0);
+      expect(item.description).not.toBe('undefined');
+      expect(typeof item.id).toBe('string');
+      expect(item.id.length).toBeGreaterThan(0);
+    }
+  }, 30000);
 });

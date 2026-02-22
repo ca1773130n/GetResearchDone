@@ -48,7 +48,12 @@ process.stdin.on('data', (chunk) => {
 
     // Notifications return null — no response needed
     if (response !== null && response !== undefined) {
-      process.stdout.write(JSON.stringify(response) + '\n');
+      // Handle both sync responses and async (Promise) responses
+      Promise.resolve(response).then((r) => {
+        if (r !== null && r !== undefined) {
+          process.stdout.write(JSON.stringify(r) + '\n');
+        }
+      });
     }
   }
 });
@@ -60,9 +65,12 @@ process.stdin.on('end', () => {
     try {
       const message = JSON.parse(remaining);
       const response = server.handleMessage(message);
-      if (response !== null && response !== undefined) {
-        process.stdout.write(JSON.stringify(response) + '\n');
-      }
+
+      Promise.resolve(response).then((r) => {
+        if (r !== null && r !== undefined) {
+          process.stdout.write(JSON.stringify(r) + '\n');
+        }
+      });
     } catch {
       const errorResponse = {
         jsonrpc: '2.0',
