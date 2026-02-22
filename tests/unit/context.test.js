@@ -1470,3 +1470,564 @@ describe('Phase 47: native vs manual isolation matrix', () => {
     expect(result.worktree_branch).toBeNull();
   });
 });
+
+// ─── inferCeremonyLevel overrides ─────────────────────────────────────────────
+
+describe('inferCeremonyLevel overrides', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('ceremony.default_level auto falls back to inference', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        branching_strategy: 'phase',
+        phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+        milestone_branch_template: 'grd/{milestone}-{slug}',
+        ceremony: { default_level: 'auto' },
+      })
+    );
+    const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    // Phase 1 has 1 plan → inferred as light
+    expect(result.ceremony_level).toBe('light');
+  });
+
+});
+
+// ─── gate failure paths ───────────────────────────────────────────────────────
+
+describe('gate failure paths', () => {
+  let failTmpDir;
+
+  beforeAll(() => {
+    failTmpDir = createFixtureDir();
+    // Create orphan phase dir NOT in ROADMAP → triggers gate failure
+    fs.mkdirSync(
+      path.join(failTmpDir, '.planning', 'milestones', 'anonymous', 'phases', '03-orphan'),
+      { recursive: true }
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(failTmpDir);
+  });
+
+  test('cmdInitExecutePhase returns gate_failed when orphaned phase exists', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitExecutePhase(failTmpDir, '3', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.gate_failed).toBe(true);
+    expect(Array.isArray(result.gate_errors)).toBe(true);
+    expect(result.gate_errors.length).toBeGreaterThan(0);
+  });
+
+  test('cmdInitPlanPhase returns gate_failed when orphaned phase exists', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(failTmpDir, '3', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.gate_failed).toBe(true);
+    expect(Array.isArray(result.gate_errors)).toBe(true);
+    expect(result.gate_errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('cmdInitNewMilestone gate failure', () => {
+  let gateTmpDir;
+
+  beforeAll(() => {
+    gateTmpDir = createFixtureDir();
+    // Write STATE.md with "milestone complete" text to trigger old-phases-archived gate
+    fs.writeFileSync(
+      path.join(gateTmpDir, '.planning', 'STATE.md'),
+      '# State\n\n**Updated:** 2026-01-15\n\n## Current Position\n\nMilestone Complete — Phase 2 done\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(gateTmpDir);
+  });
+
+  test('returns gate_failed when old phases not archived after milestone complete', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdInitNewMilestone(gateTmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.gate_failed).toBe(true);
+    expect(Array.isArray(result.gate_errors)).toBe(true);
+    expect(result.gate_errors.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── plan-phase gate warnings (stale artifacts) ───────────────────────────────
+
+describe('plan-phase gate warnings', () => {
+  let warnTmpDir;
+
+  beforeAll(() => {
+    warnTmpDir = createFixtureDir();
+    // Add stale artifact: summary without matching plan in phase 2
+    fs.writeFileSync(
+      path.join(
+        warnTmpDir,
+        '.planning',
+        'milestones',
+        'anonymous',
+        'phases',
+        '02-build',
+        '02-99-SUMMARY.md'
+      ),
+      '# Summary\n\nOrphan summary with no matching plan.\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(warnTmpDir);
+  });
+
+  test('cmdInitPlanPhase includes gate_warnings when stale artifacts exist', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdInitPlanPhase(warnTmpDir, '2', new Set(), false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // Gate passes but has warnings
+    expect(result.gate_failed).toBeUndefined();
+    expect(Array.isArray(result.gate_warnings)).toBe(true);
+    expect(result.gate_warnings.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── execute-phase include handlers ──────────────────────────────────────────
+
+describe('execute-phase include handlers', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Create CONTEXT.md in phase 1 directory
+    fs.writeFileSync(
+      path.join(
+        tmpDir,
+        '.planning',
+        'milestones',
+        'anonymous',
+        'phases',
+        '01-test',
+        '01-CONTEXT.md'
+      ),
+      '# Context\n\nTest context for execute phase 1\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('includes config_content when config in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(['config']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.config_content).toBeDefined();
+    expect(result.config_content).not.toBeNull();
+  });
+
+  test('includes roadmap_content when roadmap in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(['roadmap']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.roadmap_content).toBeDefined();
+    expect(result.roadmap_content).toContain('Phase 1');
+  });
+
+  test('includes context_content when context in includes and CONTEXT.md exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '1', new Set(['context']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.context_content).toBeDefined();
+    expect(result.context_content).toContain('execute phase 1');
+  });
+
+  test('does not set context_content when no CONTEXT.md in phase', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitExecutePhase(tmpDir, '2', new Set(['context']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.context_content).toBeUndefined();
+  });
+});
+
+// ─── plan-phase include handlers ─────────────────────────────────────────────
+
+describe('plan-phase include handlers', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, '01-CONTEXT.md'),
+      '# Context\n\nPlan phase context content\n'
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, '01-RESEARCH.md'),
+      '# Research\n\nPlan phase research content\n'
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, '01-VERIFICATION.md'),
+      '# Verification\n\nPlan phase verification content\n'
+    );
+    fs.writeFileSync(path.join(phaseDir, '01-UAT.md'), '# UAT\n\nPlan phase UAT content\n');
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('includes state_content when state in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['state']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.state_content).toBeDefined();
+    expect(result.state_content).toContain('Current Position');
+  });
+
+  test('includes roadmap_content when roadmap in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['roadmap']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.roadmap_content).toBeDefined();
+    expect(result.roadmap_content).toContain('Phase 1');
+  });
+
+  test('includes requirements_content when requirements in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['requirements']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.requirements_content).toBeDefined();
+  });
+
+  test('includes context_content when context in includes and CONTEXT.md exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['context']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.context_content).toBeDefined();
+    expect(result.context_content).toContain('Plan phase context content');
+  });
+
+  test('includes research_content when research in includes and RESEARCH.md exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['research']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.research_content).toBeDefined();
+    expect(result.research_content).toContain('Plan phase research content');
+  });
+
+  test('includes verification_content when verification in includes and file exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['verification']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.verification_content).toBeDefined();
+    expect(result.verification_content).toContain('Plan phase verification content');
+  });
+
+  test('includes uat_content when uat in includes and UAT.md exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(['uat']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.uat_content).toBeDefined();
+    expect(result.uat_content).toContain('Plan phase UAT content');
+  });
+});
+
+// ─── cmdInitQuick next_num increment ─────────────────────────────────────────
+
+describe('cmdInitQuick next_num increment', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    const quickDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick');
+    fs.mkdirSync(quickDir, { recursive: true });
+    fs.mkdirSync(path.join(quickDir, '1-first-task'));
+    fs.mkdirSync(path.join(quickDir, '2-second-task'));
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns next_num = 3 when existing tasks are numbered 1 and 2', () => {
+    const { stdout } = captureOutput(() => cmdInitQuick(tmpDir, 'new task', false));
+    const result = JSON.parse(stdout);
+    expect(result.next_num).toBe(3);
+  });
+});
+
+// ─── cmdInitMilestoneOp archive scanning ─────────────────────────────────────
+
+describe('cmdInitMilestoneOp archive scanning', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    const archiveDir = path.join(tmpDir, '.planning', 'archive');
+    fs.mkdirSync(path.join(archiveDir, 'v0.9'), { recursive: true });
+    fs.mkdirSync(path.join(archiveDir, 'v0.8'));
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('includes archived milestones list when archive dir exists', () => {
+    const { stdout } = captureOutput(() => cmdInitMilestoneOp(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result.archive_count).toBe(2);
+    expect(result.archived_milestones).toContain('v0.9');
+    expect(result.archived_milestones).toContain('v0.8');
+    expect(result.archive_exists).toBe(true);
+  });
+});
+
+// ─── cmdInitProgress paused state and additional includes ────────────────────
+
+describe('cmdInitProgress paused state and additional includes', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Update STATE.md to include a Paused At marker
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'STATE.md'),
+      '# State\n\n**Updated:** 2026-01-15\n\n## Current Position\n\n**Paused At:** Phase 1, Plan 2\n'
+    );
+    // Create PROJECT.md for project include test
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'PROJECT.md'),
+      '# Project\n\nTest project description.\n'
+    );
+    // Create a pending phase (no plan/summary/research files) to exercise nextPhase assignment
+    fs.mkdirSync(
+      path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '03-pending'),
+      { recursive: true }
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('detects paused_at when STATE.md has Paused At marker', () => {
+    const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.paused_at).toBe('Phase 1, Plan 2');
+  });
+
+  test('includes roadmap_content when roadmap in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitProgress(tmpDir, new Set(['roadmap']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.roadmap_content).toBeDefined();
+    expect(result.roadmap_content).toContain('Phase 1');
+  });
+
+  test('includes project_content when project in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitProgress(tmpDir, new Set(['project']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.project_content).toBeDefined();
+    expect(result.project_content).toContain('Test project description');
+  });
+
+  test('includes config_content when config in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitProgress(tmpDir, new Set(['config']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.config_content).toBeDefined();
+    expect(result.config_content).not.toBeNull();
+  });
+});
+
+// ─── cmdInitResearchWorkflow includes ────────────────────────────────────────
+
+describe('cmdInitResearchWorkflow includes', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    const researchDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape\n\nSoTA overview.\n');
+    fs.writeFileSync(path.join(researchDir, 'PAPERS.md'), '# Papers\n\nPaper list.\n');
+
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'KNOWHOW.md'),
+      '# Knowhow\n\nKnowledge base.\n'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'BASELINE.md'),
+      '# Baseline\n\nBaseline metrics.\n'
+    );
+
+    const deepDivesDir = path.join(researchDir, 'deep-dives');
+    fs.mkdirSync(deepDivesDir, { recursive: true });
+    fs.writeFileSync(path.join(deepDivesDir, 'some-paper.md'), '# Paper\n\nDeep dive.\n');
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('includes landscape_content when landscape in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['landscape']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.landscape_content).toBeDefined();
+    expect(result.landscape_content).toContain('SoTA overview');
+  });
+
+  test('includes papers_content when papers in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['papers']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.papers_content).toBeDefined();
+    expect(result.papers_content).toContain('Paper list');
+  });
+
+  test('includes knowhow_content when knowhow in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['knowhow']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.knowhow_content).toBeDefined();
+    expect(result.knowhow_content).toContain('Knowledge base');
+  });
+
+  test('includes baseline_content when baseline in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['baseline']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.baseline_content).toBeDefined();
+    expect(result.baseline_content).toContain('Baseline metrics');
+  });
+
+  test('includes state_content when state in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['state']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.state_content).toBeDefined();
+  });
+
+  test('includes roadmap_content when roadmap in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['roadmap']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.roadmap_content).toBeDefined();
+    expect(result.roadmap_content).toContain('Phase 1');
+  });
+
+  test('includes config_content when config in includes', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'survey', null, new Set(['config']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.config_content).toBeDefined();
+    expect(result.config_content).not.toBeNull();
+  });
+
+  test('lists deep-dives when workflow is deep-dive and dir exists', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'deep-dive', null, new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+    expect(result.deep_dives).toContain('some-paper.md');
+  });
+
+  test('lists deep-dives when workflow is compare-methods', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'compare-methods', null, new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+    expect(result.deep_dives.length).toBeGreaterThan(0);
+  });
+
+  test('lists deep-dives when workflow is feasibility', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitResearchWorkflow(tmpDir, 'feasibility', null, new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+  });
+});
+
+// ─── cmdInitPlanMilestoneGaps with audit file ────────────────────────────────
+
+describe('cmdInitPlanMilestoneGaps with audit file', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+    // Create milestone audit file with frontmatter gaps
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'v1.0-MILESTONE-AUDIT.md'),
+      '---\ngaps:\n  - Test coverage below target\n  - Missing integration tests\n---\n\n# Milestone Audit\n\nGaps identified.\n'
+    );
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('finds and reports audit file', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanMilestoneGaps(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result.audit_file).toBe('v1.0-MILESTONE-AUDIT.md');
+  });
+
+  test('parses audit gaps from frontmatter when present', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanMilestoneGaps(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result.audit_gaps).toBeDefined();
+    expect(Array.isArray(result.audit_gaps)).toBe(true);
+    expect(result.audit_gaps.length).toBeGreaterThan(0);
+  });
+});

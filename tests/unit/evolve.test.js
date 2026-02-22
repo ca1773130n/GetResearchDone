@@ -21,6 +21,18 @@ jest.mock('../../lib/autopilot', () => {
 });
 const autopilotModule = require('../../lib/autopilot');
 
+// Mock worktree helpers for evolve worktree isolation tests
+jest.mock('../../lib/worktree', () => {
+  const actual = jest.requireActual('../../lib/worktree');
+  return {
+    ...actual,
+    createEvolveWorktree: jest.fn(actual.createEvolveWorktree),
+    removeEvolveWorktree: jest.fn(actual.removeEvolveWorktree),
+    pushAndCreatePR: jest.fn(actual.pushAndCreatePR),
+  };
+});
+const worktreeModule = require('../../lib/worktree');
+
 const {
   EVOLVE_STATE_FILENAME,
   WORK_ITEM_DIMENSIONS,
@@ -2038,6 +2050,154 @@ describe('runDiscovery — bugfix items in previous state', () => {
     const result = runDiscovery(fixture, previousState);
     const allItems = [...result.selected, ...result.remaining];
     expect(allItems.some((i) => i.id === 'quality/critical-bug')).toBe(true);
+  });
+});
+
+// ─── runEvolve (worktree isolation) ──────────────────────────────────────────
+
+describe('runEvolve (worktree isolation)', () => {
+  beforeEach(() => {
+    autopilotModule.spawnClaude.mockReset();
+    autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    worktreeModule.createEvolveWorktree.mockReset();
+    worktreeModule.removeEvolveWorktree.mockReset();
+    worktreeModule.pushAndCreatePR.mockReset();
+  });
+
+  test('creates worktree before execution when useWorktree=true', async () => {
+    const fixture = createDiscoveryFixture();
+    worktreeModule.createEvolveWorktree.mockReturnValue({
+      path: '/tmp/fake-wt',
+      branch: 'grd/evolve/20260223-120000',
+      baseBranch: 'main',
+      created: new Date().toISOString(),
+    });
+    worktreeModule.removeEvolveWorktree.mockReturnValue({ removed: true });
+
+    const result = await runEvolve(fixture, { iterations: 1, useWorktree: true });
+
+    expect(worktreeModule.createEvolveWorktree).toHaveBeenCalledWith(fixture);
+    expect(result.worktree).toBeDefined();
+    expect(result.worktree.branch).toBe('grd/evolve/20260223-120000');
+  });
+
+  test('passes worktree path to spawnClaude for execution', async () => {
+    const fixture = createDiscoveryFixture();
+    const wtPath = '/tmp/fake-wt-exec';
+    worktreeModule.createEvolveWorktree.mockReturnValue({
+      path: wtPath,
+      branch: 'grd/evolve/20260223-120000',
+      baseBranch: 'main',
+      created: new Date().toISOString(),
+    });
+    worktreeModule.removeEvolveWorktree.mockReturnValue({ removed: true });
+
+    await runEvolve(fixture, { iterations: 1, useWorktree: true });
+
+    // Every spawnClaude call should use the worktree path, not the original cwd
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[0]).toBe(wtPath);
+    }
+  });
+
+  test('does NOT create worktree for dry-run', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { dryRun: true, useWorktree: true });
+
+    expect(worktreeModule.createEvolveWorktree).not.toHaveBeenCalled();
+  });
+
+  test('discovery uses original cwd, not worktree path', async () => {
+    const fixture = createDiscoveryFixture();
+    worktreeModule.createEvolveWorktree.mockReturnValue({
+      path: '/tmp/fake-wt-disc',
+      branch: 'grd/evolve/20260223-120000',
+      baseBranch: 'main',
+      created: new Date().toISOString(),
+    });
+    worktreeModule.removeEvolveWorktree.mockReturnValue({ removed: true });
+
+    const result = await runEvolve(fixture, { iterations: 1, useWorktree: true });
+
+    // Discovery found items from the fixture (original cwd), not from /tmp/fake-wt-disc
+    expect(result.results[0].groups_attempted).toBeGreaterThan(0);
+  });
+
+  test('cleans up worktree after iterations complete', async () => {
+    const fixture = createDiscoveryFixture();
+    const wtPath = '/tmp/fake-wt-cleanup';
+    worktreeModule.createEvolveWorktree.mockReturnValue({
+      path: wtPath,
+      branch: 'grd/evolve/20260223-120000',
+      baseBranch: 'main',
+      created: new Date().toISOString(),
+    });
+    worktreeModule.removeEvolveWorktree.mockReturnValue({ removed: true });
+
+    await runEvolve(fixture, { iterations: 1, useWorktree: true });
+
+    expect(worktreeModule.removeEvolveWorktree).toHaveBeenCalledWith(fixture, wtPath);
+  });
+
+  test('--no-worktree (useWorktree=false) skips isolation', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1, useWorktree: false });
+
+    expect(worktreeModule.createEvolveWorktree).not.toHaveBeenCalled();
+    // spawnClaude should receive original cwd
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[0]).toBe(fixture);
+    }
+  });
+
+  test('graceful fallback if worktree creation fails', async () => {
+    const fixture = createDiscoveryFixture();
+    worktreeModule.createEvolveWorktree.mockReturnValue({
+      error: 'Not a git repository',
+    });
+
+    const result = await runEvolve(fixture, { iterations: 1, useWorktree: true });
+
+    // Should complete without worktree
+    expect(result.iterations_completed).toBe(1);
+    expect(result.worktree).toBeUndefined();
+    // spawnClaude should fall back to original cwd
+    for (const call of autopilotModule.spawnClaude.mock.calls) {
+      expect(call[0]).toBe(fixture);
+    }
+  });
+
+  test('auto-detects worktree from config branching_strategy', async () => {
+    const fixture = createDiscoveryFixture();
+    // Default config has branching_strategy: 'none', so no worktree
+    await runEvolve(fixture, { iterations: 1 }); // useWorktree omitted
+    expect(worktreeModule.createEvolveWorktree).not.toHaveBeenCalled();
+  });
+});
+
+// ─── cmdEvolve (--no-worktree flag) ─────────────────────────────────────────
+
+describe('cmdEvolve (--no-worktree flag)', () => {
+  beforeEach(() => {
+    autopilotModule.spawnClaude.mockReset();
+    autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+    worktreeModule.createEvolveWorktree.mockReset();
+  });
+
+  test('--no-worktree prevents worktree creation', async () => {
+    const fixture = createDiscoveryFixture();
+    // Even if config enables branching, --no-worktree should override
+    fs.mkdirSync(path.join(fixture, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(fixture, '.planning', 'config.json'),
+      JSON.stringify({ branching_strategy: 'phase' })
+    );
+
+    await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--dry-run', '--no-worktree'], false)
+    );
+
+    expect(worktreeModule.createEvolveWorktree).not.toHaveBeenCalled();
   });
 });
 

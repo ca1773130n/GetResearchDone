@@ -1,6 +1,6 @@
 ---
 description: Run autonomous self-improvement loop with sonnet-tier models
-argument-hint: "[--iterations N] [--pick-pct N] [--dry-run]"
+argument-hint: "[--iterations N] [--pick-pct N] [--dry-run] [--no-worktree]"
 ---
 
 Run the evolve command to discover improvements and execute them autonomously:
@@ -21,8 +21,11 @@ Flags:
 - `--iterations N` — Number of iterations (0 = unlimited, runs until all groups done)
 - `--pick-pct N` — Percentage of total groups to pick per iteration (default: 15, min 1 group)
 - `--dry-run` — Discover and group only, don't execute
+- `--no-worktree` — Disable git worktree isolation (by default, enabled when `branching_strategy !== 'none'`)
 - `--timeout N` — Timeout per subprocess in minutes
 - `--max-turns N` — Max turns per subprocess
+
+When git isolation is enabled (config `branching_strategy` is not `'none'`), all execution runs in a dedicated worktree. A PR is created automatically after completion. Use `--no-worktree` to disable.
 
 All operations enforce a sonnet model ceiling — no opus-class models are used.
 

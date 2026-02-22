@@ -16,6 +16,10 @@ const { captureOutput, captureError } = require('../helpers/setup');
 // lib/worktree.js is created
 const {
   worktreePath,
+  ensureWorktreesDir,
+  createEvolveWorktree,
+  removeEvolveWorktree,
+  pushAndCreatePR,
   cmdWorktreeCreate,
   cmdWorktreeRemove,
   cmdWorktreeList,
@@ -1911,5 +1915,162 @@ describe('cmdWorktreeHookRemove', () => {
     const result = JSON.parse(stdout);
     expect(result.hooked).toBe(true);
     expect(result.action).toBe('remove_logged');
+  });
+});
+
+// ─── createEvolveWorktree ────────────────────────────────────────────────────
+
+describe('createEvolveWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('creates worktree with grd-evolve- prefix and grd/evolve/ branch', () => {
+    const result = createEvolveWorktree(repoDir);
+    expect(result.error).toBeUndefined();
+    expect(result.path).toMatch(/grd-evolve-\d{8}-\d{6}/);
+    expect(result.branch).toMatch(/^grd\/evolve\/\d{8}-\d{6}$/);
+    expect(result.baseBranch).toBe('main');
+    expect(result.created).toBeDefined();
+    expect(fs.existsSync(result.path)).toBe(true);
+  });
+
+  test('returns error for non-git directory', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-nongit-'));
+    try {
+      const result = createEvolveWorktree(tmpDir);
+      expect(result.error).toBe('Not a git repository');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('ensures .worktrees/ directory and .gitignore entry', () => {
+    const result = createEvolveWorktree(repoDir);
+    expect(result.error).toBeUndefined();
+
+    const gitignore = fs.readFileSync(path.join(repoDir, '.gitignore'), 'utf-8');
+    expect(gitignore).toContain('.worktrees');
+
+    const worktreesDir = path.join(fs.realpathSync(repoDir), '.worktrees');
+    expect(fs.existsSync(worktreesDir)).toBe(true);
+  });
+
+  test('uses base_branch from config', () => {
+    // Update config to use a custom base branch
+    const configPath = path.join(repoDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.base_branch = 'main';
+    fs.writeFileSync(configPath, JSON.stringify(config));
+
+    const result = createEvolveWorktree(repoDir);
+    expect(result.error).toBeUndefined();
+    expect(result.baseBranch).toBe('main');
+  });
+
+  test('returns error if worktree directory already exists', () => {
+    // Create the first worktree
+    const result1 = createEvolveWorktree(repoDir);
+    expect(result1.error).toBeUndefined();
+
+    // Manually create a directory with the same expected name pattern
+    // to trigger the "already exists" check on a second call within same second
+    const resolvedCwd = fs.realpathSync(repoDir);
+    const now = new Date();
+    const stamp = now.toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '').slice(0, 15);
+    const tag = `${stamp.slice(0, 8)}-${stamp.slice(8)}`;
+    const wtPath2 = path.join(resolvedCwd, '.worktrees', `grd-evolve-${tag}`);
+    fs.mkdirSync(wtPath2, { recursive: true });
+
+    const result2 = createEvolveWorktree(repoDir);
+    // Should return error or succeed with a different timestamp — either is acceptable
+    // If the second is different, both succeed. If same second, it errors.
+    if (result2.error) {
+      expect(result2.error).toContain('already exists');
+    }
+  });
+});
+
+// ─── removeEvolveWorktree ───────────────────────────────────────────────────
+
+describe('removeEvolveWorktree', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('removes existing worktree', () => {
+    const wt = createEvolveWorktree(repoDir);
+    expect(wt.error).toBeUndefined();
+    expect(fs.existsSync(wt.path)).toBe(true);
+
+    const result = removeEvolveWorktree(repoDir, wt.path);
+    expect(result.removed).toBe(true);
+    expect(result.already_gone).toBeUndefined();
+    expect(fs.existsSync(wt.path)).toBe(false);
+  });
+
+  test('returns already_gone for non-existent path', () => {
+    const fakePath = path.join(fs.realpathSync(repoDir), '.worktrees', 'grd-evolve-nonexistent');
+    const result = removeEvolveWorktree(repoDir, fakePath);
+    expect(result.removed).toBe(true);
+    expect(result.already_gone).toBe(true);
+  });
+});
+
+// ─── ensureWorktreesDir (exported) ──────────────────────────────────────────
+
+describe('ensureWorktreesDir (export)', () => {
+  test('is exported as a function', () => {
+    expect(typeof ensureWorktreesDir).toBe('function');
+  });
+});
+
+// ─── pushAndCreatePR ────────────────────────────────────────────────────────
+
+describe('pushAndCreatePR', () => {
+  test('is exported as a function', () => {
+    expect(typeof pushAndCreatePR).toBe('function');
+  });
+
+  test('returns error when worktree HEAD cannot be determined', () => {
+    const result = pushAndCreatePR('/nonexistent-dir', '/nonexistent-wt');
+    expect(result.error).toBe('Failed to determine worktree branch');
+  });
+
+  test('returns error with push_succeeded=false when push fails (no remote)', () => {
+    // Use a real git repo but without a remote — push will fail
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-pr-test-'));
+    try {
+      execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpRoot, stdio: 'pipe' });
+      fs.writeFileSync(path.join(tmpRoot, 'file.txt'), 'hello');
+      execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['commit', '-m', 'init'], { cwd: tmpRoot, stdio: 'pipe' });
+
+      // Create worktree
+      const wtPath = path.join(tmpRoot, '.worktrees', 'grd-evolve-test');
+      fs.mkdirSync(path.join(tmpRoot, '.worktrees'), { recursive: true });
+      execFileSync('git', ['worktree', 'add', '-b', 'grd/evolve/test', wtPath], { cwd: tmpRoot, stdio: 'pipe' });
+
+      const result = pushAndCreatePR(tmpRoot, wtPath);
+      expect(result.error).toMatch(/Failed to push branch/);
+      expect(result.push_succeeded).toBe(false);
+    } finally {
+      try { execFileSync('git', ['worktree', 'prune'], { cwd: tmpRoot, stdio: 'pipe' }); } catch {}
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
   });
 });

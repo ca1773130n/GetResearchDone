@@ -41,6 +41,7 @@ const {
   cmdMigrateDirs,
   cmdCoverageReport,
   cmdHealthCheck,
+  cmdSetup,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -3826,5 +3827,97 @@ describe('cmdHealthCheck', () => {
     } finally {
       child_process.execFileSync = origExecFileSync;
     }
+  });
+});
+
+// ─── cmdSetup ────────────────────────────────────────────────────────────────
+
+describe('cmdSetup', () => {
+  test('returns plugin path info in JSON mode', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSetup('/any/dir', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('package_root');
+    expect(parsed).toHaveProperty('plugin_json');
+    expect(parsed).toHaveProperty('instructions');
+    expect(parsed.plugin_json).toContain('.claude-plugin');
+    expect(parsed.plugin_json).toContain('plugin.json');
+  });
+
+  test('raw mode returns human-readable setup text', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdSetup('/any/dir', true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('GRD plugin configured');
+    expect(stdout).toContain('Package root:');
+    expect(stdout).toContain('Plugin config:');
+  });
+});
+
+// ─── cmdTodoComplete — additional edge cases ─────────────────────────────────
+
+describe('cmdTodoComplete — null filename', () => {
+  test('errors when no filename provided', () => {
+    const fixtureDir = createFixtureDir();
+    try {
+      const { exitCode } = captureError(() => {
+        cmdTodoComplete(fixtureDir, null, false);
+      });
+      expect(exitCode).toBe(1);
+    } finally {
+      cleanupFixtureDir(fixtureDir);
+    }
+  });
+});
+
+// ─── cmdVerifyPathExists — null path ─────────────────────────────────────────
+
+describe('cmdVerifyPathExists — null path', () => {
+  test('errors when no path provided', () => {
+    const fixtureDir = createFixtureDir();
+    try {
+      const { exitCode } = captureError(() => {
+        cmdVerifyPathExists(fixtureDir, null, false);
+      });
+      expect(exitCode).toBe(1);
+    } finally {
+      cleanupFixtureDir(fixtureDir);
+    }
+  });
+});
+
+// ─── cmdPhaseDetail — non-raw error paths ────────────────────────────────────
+// Note: in non-raw (display) mode, cmdPhaseDetail writes error text to stdout
+// and exits with code 0 — not 1. This is by design: display-mode errors are
+// formatted for human consumption. Raw mode would use process.exit(1) instead.
+
+describe('cmdPhaseDetail — non-raw error paths', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('no phase argument in non-raw mode writes error text to stdout', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '', false);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('required');
+  });
+
+  test('nonexistent phase in non-raw mode writes error text to stdout', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDetail(fixtureDir, '999', false);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('999');
   });
 });
