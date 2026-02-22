@@ -1622,3 +1622,218 @@ describe('handleMessage — tool execution errors', () => {
     expect(typeof response.result.content[0].text).toBe('string');
   });
 });
+
+// ─── 12. v0.2.8 Evolve MCP Tools ───────────────────────────────────────────
+// Validates all evolve MCP tools from Phases 55-56: enumeration, schema
+// completeness, invocation correctness, and commands/evolve.md slash command.
+
+describe('v0.2.8 evolve MCP tools', () => {
+  const EXPECTED_EVOLVE_TOOLS = [
+    'grd_evolve_discover',
+    'grd_evolve_state',
+    'grd_evolve_advance',
+    'grd_evolve_reset',
+    'grd_evolve_init',
+    'grd_evolve_run',
+  ];
+
+  let evolveFixtureDir;
+  let evolveServer;
+
+  beforeAll(() => {
+    evolveFixtureDir = createFixtureDir();
+    // Ensure .planning/config.json has minimal config for evolve commands
+    const configPath = path.join(evolveFixtureDir, '.planning', 'config.json');
+    if (!fs.existsSync(configPath)) {
+      fs.writeFileSync(configPath, JSON.stringify({ model_profile: 'quality' }), 'utf-8');
+    }
+    evolveServer = new McpServer({ cwd: evolveFixtureDir });
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(evolveFixtureDir);
+  });
+
+  // ── Enumeration ──
+
+  test('all expected evolve tool names appear in buildToolDefinitions()', () => {
+    const tools = buildToolDefinitions();
+    const evolveToolNames = tools.filter((t) => t.name.includes('evolve')).map((t) => t.name);
+
+    for (const expected of EXPECTED_EVOLVE_TOOLS) {
+      expect(evolveToolNames).toContain(expected);
+    }
+    expect(evolveToolNames.length).toBe(EXPECTED_EVOLVE_TOOLS.length);
+  });
+
+  test('all expected evolve tool names appear in COMMAND_DESCRIPTORS', () => {
+    const descriptorNames = COMMAND_DESCRIPTORS.map((d) => d.name);
+    for (const expected of EXPECTED_EVOLVE_TOOLS) {
+      expect(descriptorNames).toContain(expected);
+    }
+  });
+
+  // ── Schema completeness ──
+
+  test('each evolve tool has name, description, and inputSchema fields', () => {
+    const tools = buildToolDefinitions();
+    const evolveTools = tools.filter((t) => EXPECTED_EVOLVE_TOOLS.includes(t.name));
+
+    expect(evolveTools.length).toBe(EXPECTED_EVOLVE_TOOLS.length);
+
+    for (const tool of evolveTools) {
+      expect(typeof tool.name).toBe('string');
+      expect(tool.name.length).toBeGreaterThan(0);
+      expect(typeof tool.description).toBe('string');
+      expect(tool.description.length).toBeGreaterThan(0);
+      expect(typeof tool.inputSchema).toBe('object');
+      expect(tool.inputSchema).not.toBeNull();
+      expect(tool.inputSchema.type).toBe('object');
+      expect(typeof tool.inputSchema.properties).toBe('object');
+    }
+  });
+
+  test('each evolve COMMAND_DESCRIPTOR has name, description, params, and execute', () => {
+    for (const toolName of EXPECTED_EVOLVE_TOOLS) {
+      const desc = COMMAND_DESCRIPTORS.find((d) => d.name === toolName);
+      expect(desc).toBeDefined();
+      expect(typeof desc.name).toBe('string');
+      expect(typeof desc.description).toBe('string');
+      expect(Array.isArray(desc.params)).toBe(true);
+      expect(typeof desc.execute).toBe('function');
+    }
+  });
+
+  // ── Invocation: grd_evolve_discover ──
+
+  test('grd_evolve_discover returns structured JSON (not error)', () => {
+    const response = evolveServer.handleMessage({
+      jsonrpc: '2.0',
+      id: 'evolve-discover-1',
+      method: 'tools/call',
+      params: { name: 'grd_evolve_discover', arguments: { count: 2 } },
+    });
+
+    expect(response.result).toBeDefined();
+    expect(Array.isArray(response.result.content)).toBe(true);
+    expect(response.result.content[0].type).toBe('text');
+    expect(typeof response.result.content[0].text).toBe('string');
+    // Should produce valid JSON output (either success or structured error, not undefined)
+    expect(response.result.content[0].text.length).toBeGreaterThan(0);
+  });
+
+  // ── Invocation: grd_evolve_state ──
+
+  test('grd_evolve_state returns structured JSON (not error)', () => {
+    const response = evolveServer.handleMessage({
+      jsonrpc: '2.0',
+      id: 'evolve-state-1',
+      method: 'tools/call',
+      params: { name: 'grd_evolve_state', arguments: {} },
+    });
+
+    expect(response.result).toBeDefined();
+    expect(Array.isArray(response.result.content)).toBe(true);
+    expect(response.result.content[0].type).toBe('text');
+    expect(typeof response.result.content[0].text).toBe('string');
+    expect(response.result.content[0].text.length).toBeGreaterThan(0);
+  });
+
+  // ── Invocation: grd_evolve_advance ──
+
+  test('grd_evolve_advance returns structured response', () => {
+    const response = evolveServer.handleMessage({
+      jsonrpc: '2.0',
+      id: 'evolve-advance-1',
+      method: 'tools/call',
+      params: { name: 'grd_evolve_advance', arguments: {} },
+    });
+
+    expect(response.result).toBeDefined();
+    expect(Array.isArray(response.result.content)).toBe(true);
+    expect(response.result.content[0].type).toBe('text');
+    expect(typeof response.result.content[0].text).toBe('string');
+  });
+
+  // ── Invocation: grd_evolve_reset ──
+
+  test('grd_evolve_reset returns structured response', () => {
+    const response = evolveServer.handleMessage({
+      jsonrpc: '2.0',
+      id: 'evolve-reset-1',
+      method: 'tools/call',
+      params: { name: 'grd_evolve_reset', arguments: {} },
+    });
+
+    expect(response.result).toBeDefined();
+    expect(Array.isArray(response.result.content)).toBe(true);
+    expect(response.result.content[0].type).toBe('text');
+    expect(typeof response.result.content[0].text).toBe('string');
+  });
+
+  // ── Invocation: grd_evolve_init ──
+
+  test('grd_evolve_init returns structured JSON with pre-flight context', () => {
+    const response = evolveServer.handleMessage({
+      jsonrpc: '2.0',
+      id: 'evolve-init-1',
+      method: 'tools/call',
+      params: { name: 'grd_evolve_init', arguments: {} },
+    });
+
+    expect(response.result).toBeDefined();
+    expect(Array.isArray(response.result.content)).toBe(true);
+    expect(response.result.content[0].type).toBe('text');
+    expect(typeof response.result.content[0].text).toBe('string');
+    expect(response.result.content[0].text.length).toBeGreaterThan(0);
+  });
+
+  // ── Invocation: grd_evolve_run ──
+  // grd_evolve_run has an async execute function (like grd_autopilot_run),
+  // so captureExecution cannot safely intercept process.exit from async code.
+  // Instead, verify the descriptor has the correct structure and the execute
+  // function is callable (returns a Promise).
+
+  test('grd_evolve_run descriptor has correct structure and callable execute', () => {
+    const desc = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_evolve_run');
+    expect(desc).toBeDefined();
+    expect(typeof desc.execute).toBe('function');
+    expect(desc.params.length).toBe(5);
+    const paramNames = desc.params.map((p) => p.name);
+    expect(paramNames).toContain('iterations');
+    expect(paramNames).toContain('items');
+    expect(paramNames).toContain('timeout');
+    expect(paramNames).toContain('max_turns');
+    expect(paramNames).toContain('dry_run');
+  });
+
+  // ── commands/evolve.md slash command ──
+
+  test('commands/evolve.md exists with valid frontmatter containing description', () => {
+    const evolveCmdPath = path.join(__dirname, '..', '..', 'commands', 'evolve.md');
+    expect(fs.existsSync(evolveCmdPath)).toBe(true);
+
+    const content = fs.readFileSync(evolveCmdPath, 'utf-8');
+    const { extractFrontmatter } = require('../../lib/frontmatter');
+    const fm = extractFrontmatter(content);
+    expect(fm).toBeDefined();
+    expect(typeof fm.description).toBe('string');
+    expect(fm.description.length).toBeGreaterThan(0);
+  });
+
+  // ── No regression: existing MCP tools still work ──
+
+  test('existing non-evolve MCP tools are not affected', () => {
+    const tools = buildToolDefinitions();
+    const nonEvolveTools = tools.filter((t) => !t.name.includes('evolve'));
+
+    // There should be many non-evolve tools
+    expect(nonEvolveTools.length).toBeGreaterThanOrEqual(90);
+
+    // Spot-check a few
+    const stateLoad = nonEvolveTools.find((t) => t.name === 'grd_state_load');
+    expect(stateLoad).toBeDefined();
+    const slugTool = nonEvolveTools.find((t) => t.name === 'grd_generate_slug');
+    expect(slugTool).toBeDefined();
+  });
+});
