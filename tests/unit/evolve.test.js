@@ -94,7 +94,7 @@ afterEach(() => {
 
 describe('WORK_ITEM_DIMENSIONS', () => {
   test('contains exactly 6 dimensions', () => {
-    expect(WORK_ITEM_DIMENSIONS).toHaveLength(6);
+    expect(WORK_ITEM_DIMENSIONS).toHaveLength(7);
   });
 
   test('all dimensions are lowercase kebab-case strings', () => {
@@ -550,10 +550,10 @@ describe('analyzeCodebaseForItems', () => {
 // ─── scoreWorkItem ──────────────────────────────────────────────────────────
 
 describe('scoreWorkItem', () => {
-  test('quality dimension scores higher than new-features dimension', () => {
+  test('improve-features dimension scores higher than quality dimension', () => {
+    const improveItem = createWorkItem('improve-features', 'i', 'I', 'I');
     const qualityItem = createWorkItem('quality', 'q', 'Q', 'Q');
-    const newFeatItem = createWorkItem('new-features', 'n', 'N', 'N');
-    expect(scoreWorkItem(qualityItem)).toBeGreaterThan(scoreWorkItem(newFeatItem));
+    expect(scoreWorkItem(improveItem)).toBeGreaterThan(scoreWorkItem(qualityItem));
   });
 
   test('small effort scores higher than large effort (same dimension)', () => {
