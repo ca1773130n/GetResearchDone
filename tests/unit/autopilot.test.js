@@ -491,7 +491,7 @@ describe('lib/autopilot', () => {
       expect(spawnSpy).toHaveBeenCalledWith(
         'claude',
         expect.arrayContaining(['-p', 'Run something', '--verbose']),
-        expect.objectContaining({ cwd: '/test', stdio: 'pipe' })
+        expect.objectContaining({ cwd: '/test', stdio: ['ignore', 'inherit', 'inherit'] })
       );
     });
 
