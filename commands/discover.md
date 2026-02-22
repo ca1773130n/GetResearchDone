@@ -143,7 +143,7 @@ AREA_SLUG=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js generate-slug "$AREA" --
 
 Create the directory:
 ```bash
-mkdir -p .planning/standards/${AREA_SLUG}
+mkdir -p ${standards_dir}/${AREA_SLUG}
 ```
 
 For each confirmed pattern, generate a slug and write a markdown file:

@@ -69,8 +69,17 @@ function createTestGitRepo() {
 
   const planningDir = path.join(tmpRoot, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
-  fs.mkdirSync(path.join(planningDir, 'phases', '27-worktree-infrastructure'), { recursive: true });
-  fs.mkdirSync(path.join(planningDir, 'phases', '28-pr-workflow'), { recursive: true });
+
+  // STATE.md with milestone so paths resolve correctly
+  fs.writeFileSync(
+    path.join(planningDir, 'STATE.md'),
+    `# State\n\n**Milestone:** ${E2E_MILESTONE}\n`,
+    'utf-8'
+  );
+
+  const phasesBase = path.join(planningDir, 'milestones', E2E_MILESTONE, 'phases');
+  fs.mkdirSync(path.join(phasesBase, '27-worktree-infrastructure'), { recursive: true });
+  fs.mkdirSync(path.join(phasesBase, '28-pr-workflow'), { recursive: true });
 
   fs.writeFileSync(
     path.join(planningDir, 'config.json'),
@@ -101,11 +110,11 @@ function createTestGitRepo() {
 
   // Add plan files so findPhaseInternal can find them
   fs.writeFileSync(
-    path.join(planningDir, 'phases', '27-worktree-infrastructure', '27-01-PLAN.md'),
+    path.join(phasesBase, '27-worktree-infrastructure', '27-01-PLAN.md'),
     '---\nphase: 27\nplan: 01\n---\n'
   );
   fs.writeFileSync(
-    path.join(planningDir, 'phases', '28-pr-workflow', '28-01-PLAN.md'),
+    path.join(phasesBase, '28-pr-workflow', '28-01-PLAN.md'),
     '---\nphase: 28\nplan: 01\n---\n'
   );
 
@@ -361,8 +370,8 @@ describe('E2E: Parallel execution of independent phases', () => {
       'utf-8'
     );
 
-    const phase1Dir = path.join(dir, '.planning', 'phases', '01-alpha-phase');
-    const phase2Dir = path.join(dir, '.planning', 'phases', '02-beta-phase');
+    const phase1Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '01-alpha-phase');
+    const phase2Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '02-beta-phase');
     fs.mkdirSync(phase1Dir, { recursive: true });
     fs.mkdirSync(phase2Dir, { recursive: true });
     fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');
@@ -571,8 +580,8 @@ describe('E2E: Sequential fallback equivalence', () => {
       'utf-8'
     );
 
-    const phase1Dir = path.join(dir, '.planning', 'phases', '01-alpha-phase');
-    const phase2Dir = path.join(dir, '.planning', 'phases', '02-beta-phase');
+    const phase1Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '01-alpha-phase');
+    const phase2Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '02-beta-phase');
     fs.mkdirSync(phase1Dir, { recursive: true });
     fs.mkdirSync(phase2Dir, { recursive: true });
     fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');
@@ -1029,8 +1038,13 @@ function createPhase47GitRepo(backendOverrides = {}) {
 
   const planningDir = path.join(tmpRoot, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
-  fs.mkdirSync(path.join(planningDir, 'phases', '01-alpha-phase'), { recursive: true });
-  fs.mkdirSync(path.join(planningDir, 'phases', '02-beta-phase'), { recursive: true });
+
+  // STATE.md with milestone
+  fs.writeFileSync(path.join(planningDir, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n', 'utf-8');
+
+  const phasesBase = path.join(planningDir, 'milestones', 'v1.0', 'phases');
+  fs.mkdirSync(path.join(phasesBase, '01-alpha-phase'), { recursive: true });
+  fs.mkdirSync(path.join(phasesBase, '02-beta-phase'), { recursive: true });
 
   const config = {
     branching_strategy: 'phase',
@@ -1059,11 +1073,11 @@ function createPhase47GitRepo(backendOverrides = {}) {
   );
 
   fs.writeFileSync(
-    path.join(planningDir, 'phases', '01-alpha-phase', '01-01-PLAN.md'),
+    path.join(phasesBase, '01-alpha-phase', '01-01-PLAN.md'),
     '---\nphase: 01\nplan: 01\n---\n'
   );
   fs.writeFileSync(
-    path.join(planningDir, 'phases', '02-beta-phase', '02-01-PLAN.md'),
+    path.join(phasesBase, '02-beta-phase', '02-01-PLAN.md'),
     '---\nphase: 02\nplan: 01\n---\n'
   );
 

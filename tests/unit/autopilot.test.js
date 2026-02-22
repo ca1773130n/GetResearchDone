@@ -60,8 +60,8 @@ function createAutopilotFixture(opts = {}) {
   }
   fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmap);
 
-  // Create phases dir
-  const phasesDir = path.join(planning, 'phases');
+  // Create milestone-scoped phases dir
+  const phasesDir = path.join(planning, 'milestones', 'v1.0', 'phases');
   fs.mkdirSync(phasesDir, { recursive: true });
 
   // Create phase dirs with optional plans/summaries
@@ -524,7 +524,7 @@ describe('lib/autopilot', () => {
       let callCount = 0;
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
         callCount++;
-        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         if (callCount === 1) {
           // Plan step — create PLAN.md
           fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
@@ -782,7 +782,7 @@ describe('lib/autopilot', () => {
       let callCount = 0;
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
         callCount++;
-        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         if (callCount === 1) {
           // Plan step — create PLAN.md so plan verification passes
           fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
@@ -825,7 +825,7 @@ describe('lib/autopilot', () => {
         callCount++;
         const phaseIndex = Math.floor((callCount - 1) / 2);
         const isPlan = callCount % 2 === 1;
-        const phaseDir = path.join(tmpDir, '.planning', 'phases', dirs[phaseIndex]);
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[phaseIndex]);
 
         if (isPlan) {
           fs.writeFileSync(path.join(phaseDir, `${nums[phaseIndex]}-01-PLAN.md`), '# Plan');
@@ -1109,7 +1109,7 @@ describe('lib/autopilot', () => {
 
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
         // Create plan file so we don't fail
-        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
         fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
         return { status: 0, error: null };
@@ -1135,7 +1135,7 @@ describe('lib/autopilot', () => {
       });
 
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
-        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
         fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
         return { status: 0, error: null };

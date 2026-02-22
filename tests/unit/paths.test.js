@@ -2,10 +2,10 @@
  * Unit tests for lib/paths.js
  *
  * Tests centralized path resolution: currentMilestone, milestonesDir, phasesDir,
- * phaseDir, researchDir, codebaseDir, todosDir, quickDir, archivedPhasesDir.
+ * phaseDir, researchDir, codebaseDir, todosDir, quickDir, archivedPhasesDir,
+ * standardsDir.
  *
- * Tests both the new-style paths (when milestone directory exists) and the
- * backward-compatible fallback (when milestone directory does not exist).
+ * All directory functions always return milestone-scoped paths — no fallback.
  *
  * Uses isolated temp directories with controlled STATE.md content.
  */
@@ -45,17 +45,6 @@ function makeTmpDir(stateContent) {
   return tmpDir;
 }
 
-/**
- * Create a temp directory with STATE.md AND the milestone directory on disk,
- * so that the fallback logic resolves to new-style paths.
- */
-function makeTmpDirWithMilestone(stateContent, milestone) {
-  const tmpDir = makeTmpDir(stateContent);
-  const milestoneRoot = path.join(tmpDir, '.planning', 'milestones', milestone);
-  fs.mkdirSync(milestoneRoot, { recursive: true });
-  return tmpDir;
-}
-
 function cleanTmpDir(dir) {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -84,7 +73,6 @@ describe('currentMilestone', () => {
 
   test('returns anonymous when STATE.md does not exist', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
-    // No .planning/ directory at all
     expect(currentMilestone(tmpDir)).toBe('anonymous');
   });
 
@@ -179,38 +167,38 @@ describe('phasesDir', () => {
     tmpDir = null;
   });
 
-  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
-    // /project does not exist on disk, so fallback kicks in
-    expect(phasesDir('/project', 'v0.2.1')).toBe(path.join('/project', '.planning', 'phases'));
-  });
-
-  test('with explicit milestone returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(phasesDir(tmpDir, 'v0.2.1')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases')
+  test('with explicit milestone always returns milestone-scoped path', () => {
+    expect(phasesDir('/project', 'v0.2.1')).toBe(
+      path.join('/project', '.planning', 'milestones', 'v0.2.1', 'phases')
     );
   });
 
-  test('with milestone omitted falls back when milestone dir does not exist', () => {
+  test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(phasesDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'phases'));
-  });
-
-  test('with milestone omitted returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
     expect(phasesDir(tmpDir)).toBe(
       path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases')
     );
   });
 
-  test('with null milestone falls back when milestone dir does not exist', () => {
+  test('with null milestone reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0 — Null Test\n');
-    expect(phasesDir(tmpDir, null)).toBe(path.join(tmpDir, '.planning', 'phases'));
+    expect(phasesDir(tmpDir, null)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases')
+    );
   });
 
-  test('with anonymous milestone falls back when milestone dir does not exist', () => {
-    // /project does not exist on disk, so fallback kicks in
-    expect(phasesDir('/project', 'anonymous')).toBe(path.join('/project', '.planning', 'phases'));
+  test('with anonymous milestone returns anonymous-scoped path', () => {
+    expect(phasesDir('/project', 'anonymous')).toBe(
+      path.join('/project', '.planning', 'milestones', 'anonymous', 'phases')
+    );
+  });
+
+  test('does not require milestone dir to exist on disk', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
+    // No milestone dir on disk — still returns milestone-scoped path
+    expect(phasesDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases')
+    );
   });
 });
 
@@ -224,17 +212,10 @@ describe('phaseDir', () => {
     tmpDir = null;
   });
 
-  test('with all args falls back to old-style when milestone dir does not exist', () => {
+  test('with all args returns milestone-scoped path', () => {
     expect(phaseDir('/project', 'v0.2.1', '32-centralized-path-resolution-module')).toBe(
-      path.join('/project', '.planning', 'phases', '32-centralized-path-resolution-module')
-    );
-  });
-
-  test('with all args returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(phaseDir(tmpDir, 'v0.2.1', '32-centralized-path-resolution-module')).toBe(
       path.join(
-        tmpDir,
+        '/project',
         '.planning',
         'milestones',
         'v0.2.1',
@@ -244,17 +225,17 @@ describe('phaseDir', () => {
     );
   });
 
-  test('with milestone omitted falls back when milestone dir does not exist', () => {
+  test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     expect(phaseDir(tmpDir, undefined, '01-setup')).toBe(
-      path.join(tmpDir, '.planning', 'phases', '01-setup')
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases', '01-setup')
     );
   });
 
-  test('with null milestone falls back when milestone dir does not exist', () => {
+  test('with null milestone reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     expect(phaseDir(tmpDir, null, '01-setup')).toBe(
-      path.join(tmpDir, '.planning', 'phases', '01-setup')
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases', '01-setup')
     );
   });
 });
@@ -269,20 +250,17 @@ describe('researchDir', () => {
     tmpDir = null;
   });
 
-  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
-    expect(researchDir('/project', 'v0.2.1')).toBe(path.join('/project', '.planning', 'research'));
-  });
-
-  test('with explicit milestone returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(researchDir(tmpDir, 'v0.2.1')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'research')
+  test('with explicit milestone returns milestone-scoped path', () => {
+    expect(researchDir('/project', 'v0.2.1')).toBe(
+      path.join('/project', '.planning', 'milestones', 'v0.2.1', 'research')
     );
   });
 
-  test('with milestone omitted falls back when milestone dir does not exist', () => {
+  test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(researchDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'research'));
+    expect(researchDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'research')
+    );
   });
 });
 
@@ -294,7 +272,7 @@ describe('codebaseDir', () => {
   });
 
   test('ignores milestone existence — always project-level', () => {
-    const tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
+    const tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     try {
       expect(codebaseDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'codebase'));
     } finally {
@@ -313,20 +291,17 @@ describe('todosDir', () => {
     tmpDir = null;
   });
 
-  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
-    expect(todosDir('/project', 'v0.2.1')).toBe(path.join('/project', '.planning', 'todos'));
-  });
-
-  test('with explicit milestone returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(todosDir(tmpDir, 'v0.2.1')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'todos')
+  test('with explicit milestone returns milestone-scoped path', () => {
+    expect(todosDir('/project', 'v0.2.1')).toBe(
+      path.join('/project', '.planning', 'milestones', 'v0.2.1', 'todos')
     );
   });
 
-  test('with milestone omitted falls back when milestone dir does not exist', () => {
+  test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(todosDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'todos'));
+    expect(todosDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'todos')
+    );
   });
 });
 
@@ -340,32 +315,21 @@ describe('quickDir', () => {
     tmpDir = null;
   });
 
-  test('falls back to old-style when milestone dir does not exist on disk', () => {
+  test('returns milestone-scoped path even when milestone dir does not exist', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'quick'));
-  });
-
-  test('returns new-style when milestone dir exists on disk', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick'));
+    expect(quickDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick')
+    );
   });
 
   test('accepts an optional milestone parameter', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v1.0');
-    expect(quickDir(tmpDir, 'v1.0')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'quick')
+    expect(quickDir('/project', 'v1.0')).toBe(
+      path.join('/project', '.planning', 'milestones', 'v1.0', 'quick')
     );
   });
 
   test('uses anonymous when currentMilestone returns anonymous', () => {
-    // No STATE.md → currentMilestone returns 'anonymous'
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
-    // anonymous dir does not exist on disk, so falls back
-    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'quick'));
-
-    // Now create the anonymous milestone dir
-    const anonDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous');
-    fs.mkdirSync(anonDir, { recursive: true });
     expect(quickDir(tmpDir)).toBe(
       path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'quick')
     );
@@ -382,26 +346,14 @@ describe('standardsDir', () => {
     tmpDir = null;
   });
 
-  test('with explicit milestone returns new-style when milestone dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
-    expect(standardsDir(tmpDir, 'v0.2.1')).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'standards')
-    );
-  });
-
-  test('with explicit milestone falls back to old-style when milestone dir does not exist', () => {
+  test('with explicit milestone returns milestone-scoped path', () => {
     expect(standardsDir('/project', 'v0.2.1')).toBe(
-      path.join('/project', '.planning', 'standards')
+      path.join('/project', '.planning', 'milestones', 'v0.2.1', 'standards')
     );
   });
 
-  test('with milestone omitted uses currentMilestone and falls back when dir does not exist', () => {
+  test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(standardsDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'standards'));
-  });
-
-  test('with milestone omitted uses currentMilestone and returns new-style when dir exists', () => {
-    tmpDir = makeTmpDirWithMilestone('# State\n\n- **Milestone:** v0.2.1 — Test\n', 'v0.2.1');
     expect(standardsDir(tmpDir)).toBe(
       path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'standards')
     );
@@ -409,7 +361,9 @@ describe('standardsDir', () => {
 
   test('with null milestone defaults to currentMilestone', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0 — Null Test\n');
-    expect(standardsDir(tmpDir, null)).toBe(path.join(tmpDir, '.planning', 'standards'));
+    expect(standardsDir(tmpDir, null)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'standards')
+    );
   });
 });
 

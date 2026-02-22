@@ -393,7 +393,7 @@ describe('analyzeChangelogDrift', () => {
     // Create a SUMMARY.md with newer timestamp
     const summaryPath = writeFile(
       tmpDir,
-      '.planning/phases/01-init/01-01-SUMMARY.md',
+      '.planning/milestones/anonymous/phases/01-init/01-01-SUMMARY.md',
       '# Summary\n'
     );
     const newTime = new Date('2025-06-01T00:00:00Z');
@@ -411,7 +411,7 @@ describe('analyzeChangelogDrift', () => {
     // Create SUMMARY.md with old timestamp
     const summaryPath = writeFile(
       tmpDir,
-      '.planning/phases/01-init/01-01-SUMMARY.md',
+      '.planning/milestones/anonymous/phases/01-init/01-01-SUMMARY.md',
       '# Summary\n'
     );
     const oldTime = new Date('2025-01-01T00:00:00Z');
@@ -740,7 +740,7 @@ describe('generateCleanupPlan', () => {
   function createPhaseDir(phaseNum, slug, existingPlans = []) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
-    const dirPath = path.join(tmpDir, '.planning', 'phases', dirName);
+    const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);
     fs.mkdirSync(dirPath, { recursive: true });
     for (const plan of existingPlans) {
       const planFile = `${padded}-${String(plan).padStart(2, '0')}-PLAN.md`;
@@ -1445,7 +1445,7 @@ describe('generateCleanupPlan new task groupings', () => {
   function createPhaseDir(phaseNum, slug, existingPlans = []) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
-    const dirPath = path.join(tmpDir, '.planning', 'phases', dirName);
+    const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);
     fs.mkdirSync(dirPath, { recursive: true });
     for (const plan of existingPlans) {
       const planFile = `${padded}-${String(plan).padStart(2, '0')}-PLAN.md`;

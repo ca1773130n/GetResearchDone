@@ -59,7 +59,7 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
 **If "Research first":** Spawn 4 parallel grd-project-researcher agents (Stack, Features, Architecture, Pitfalls), then synthesizer. Use subsequent milestone context (focus on NEW features, not existing system).
 
 ```bash
-mkdir -p .planning/research
+mkdir -p ${research_dir}
 ```
 
 **If "Skip research":** Continue to Step 9.

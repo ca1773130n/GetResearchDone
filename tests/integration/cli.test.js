@@ -1473,8 +1473,8 @@ describe('autopilot commands', () => {
       '### Phase 3: Polish\n\n**Goal:** Polish everything\n\n';
     fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmap);
 
-    // Create phases dir
-    const phasesDir = path.join(planning, 'phases');
+    // Create milestone-scoped phases dir
+    const phasesDir = path.join(planning, 'milestones', 'v1.0', 'phases');
     fs.mkdirSync(phasesDir, { recursive: true });
 
     // Optionally create plan file for phase 1 (for resume tests)
