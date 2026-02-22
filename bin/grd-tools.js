@@ -394,7 +394,15 @@ function routeCommand(command, args, cwd, raw) {
       if (sub === 'next-decimal') {
         validatePhaseArg(args[2]);
         cmdPhaseNextDecimal(cwd, args[2], raw);
-      } else if (sub === 'add') cmdPhaseAdd(cwd, args.slice(2).join(' '), raw);
+      } else if (sub === 'add') {
+        const ctxIdx = args.indexOf('--context');
+        let context;
+        if (ctxIdx !== -1) {
+          context = args.slice(ctxIdx + 1).join(' ');
+          args.splice(ctxIdx);
+        }
+        cmdPhaseAdd(cwd, args.slice(2).join(' '), raw, context);
+      }
       else if (sub === 'insert') {
         validatePhaseArg(args[2]);
         cmdPhaseInsert(cwd, args[2], args.slice(3).join(' '), raw);

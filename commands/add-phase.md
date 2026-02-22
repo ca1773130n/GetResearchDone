@@ -25,6 +25,8 @@ Usage: /grd:add-phase <description>
 Example: /grd:add-phase Add authentication system
 ```
 Exit.
+
+If the user provided substantial context beyond a short name (multi-line text, goals, constraints, decisions, or background), capture it as `context` text for the `--context` flag. Short single-phrase descriptions do not need context capture.
 </step>
 
 <step name="init_context">
@@ -43,6 +45,12 @@ Exit.
 </step>
 
 <step name="add_phase">
+If `context` was captured:
+```bash
+RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js phase add "${description}" --context "${context}")
+```
+
+Otherwise:
 ```bash
 RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js phase add "${description}")
 ```
@@ -108,6 +116,7 @@ Phase {N} added to current milestone:
 <success_criteria>
 - [ ] `grd-tools phase add` executed successfully
 - [ ] Phase directory created
+- [ ] CONTEXT.md created if substantial context was provided
 - [ ] Roadmap updated with new phase entry
 - [ ] STATE.md updated with roadmap evolution note
 - [ ] User informed of next steps

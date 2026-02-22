@@ -154,6 +154,92 @@ describe('cmdPhaseAdd', () => {
     expect(exitCode).toBe(1);
     expect(stderr).toContain('description required');
   });
+
+  test('uses description as Goal text instead of placeholder', () => {
+    captureOutput(() => cmdPhaseAdd(tmpDir, 'Integration Testing', false));
+    const roadmap = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    expect(roadmap).toContain('**Goal:** Integration Testing');
+    expect(roadmap).not.toContain('[To be planned]');
+  });
+
+  test('counts phases using h2 headings (## Phase)', () => {
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    // Write a roadmap that uses ## Phase headings instead of ###
+    fs.writeFileSync(
+      roadmapPath,
+      `# Roadmap\n\n## Phase 1: Setup\n\n**Goal:** Setup\n\n## Phase 2: Build\n\n**Goal:** Build\n`,
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseAdd(tmpDir, 'After H2 Phases', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.phase_number).toBe(3);
+  });
+
+  test('counts shipped phases inside <details> blocks for numbering', () => {
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    const content = fs.readFileSync(roadmapPath, 'utf-8');
+    // Wrap Phase 1 in <details> (shipped) and keep Phase 2 active
+    const shipped = `<details><summary>Shipped</summary>\n\n### Phase 1: Test Phase -- Setup and configuration\n- Completed\n\n</details>\n`;
+    const updated = content.replace(
+      /### Phase 1:.*?(?=### Phase 2)/s,
+      shipped
+    );
+    fs.writeFileSync(roadmapPath, updated, 'utf-8');
+
+    // Remove Phase 1 directory from disk (simulates archived/shipped milestone cleanup)
+    const phase1Dir = path.join(
+      tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'
+    );
+    if (fs.existsSync(phase1Dir)) {
+      fs.rmSync(phase1Dir, { recursive: true });
+    }
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseAdd(tmpDir, 'After Shipped', false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // Should be Phase 3 because Phase 1 (shipped) is still counted in full content
+    expect(result.phase_number).toBe(3);
+  });
+
+  test('creates CONTEXT.md when context is provided', () => {
+    captureOutput(() =>
+      cmdPhaseAdd(tmpDir, 'With Context', false, 'This is detailed context for the phase.')
+    );
+    const contextPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '03-with-context',
+      '03-CONTEXT.md'
+    );
+    expect(fs.existsSync(contextPath)).toBe(true);
+    const content = fs.readFileSync(contextPath, 'utf-8');
+    expect(content).toContain('phase: "03"');
+    expect(content).toContain('name: "With Context"');
+    expect(content).toContain('This is detailed context for the phase.');
+  });
+
+  test('does not create CONTEXT.md when context is not provided', () => {
+    captureOutput(() => cmdPhaseAdd(tmpDir, 'No Context', false));
+    const contextPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '03-no-context',
+      '03-CONTEXT.md'
+    );
+    expect(fs.existsSync(contextPath)).toBe(false);
+  });
 });
 
 // ─── cmdPhaseInsert ──────────────────────────────────────────────────────────
