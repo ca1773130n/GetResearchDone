@@ -638,38 +638,29 @@ describe('parseDiscoveryOutput', () => {
 // ─── discoverWithClaude ─────────────────────────────────────────────────────
 
 describe('discoverWithClaude', () => {
-  test('returns empty array when Claude subprocess fails after retries', async () => {
-    // Override default mock for both retry attempts
+  test('falls back to hardcoded discovery when Claude subprocess fails', async () => {
     const failResult = { exitCode: 1, timedOut: false, stdout: '' };
-    autopilotModule.spawnClaudeAsync
-      .mockResolvedValueOnce(failResult)
-      .mockResolvedValueOnce(failResult);
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce(failResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    // No hardcoded fallback — returns empty on failure
-    expect(items).toEqual([]);
+    // Falls back to analyzeCodebaseForItems
+    expect(items.length).toBeGreaterThan(0);
   });
 
-  test('returns empty array when Claude returns empty stdout after retries', async () => {
-    // Both attempts return empty stdout
+  test('falls back to hardcoded discovery when Claude returns empty stdout', async () => {
     const emptyResult = { exitCode: 0, timedOut: false, stdout: '' };
-    autopilotModule.spawnClaudeAsync
-      .mockResolvedValueOnce(emptyResult)
-      .mockResolvedValueOnce(emptyResult);
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce(emptyResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    expect(items).toEqual([]);
+    expect(items.length).toBeGreaterThan(0);
   });
 
-  test('returns empty array when Claude returns unparseable output after retries', async () => {
-    // Both attempts return unparseable output
+  test('falls back to hardcoded discovery when Claude returns unparseable output', async () => {
     const badResult = { exitCode: 0, timedOut: false, stdout: 'not json' };
-    autopilotModule.spawnClaudeAsync
-      .mockResolvedValueOnce(badResult)
-      .mockResolvedValueOnce(badResult);
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce(badResult);
     const fixture = createDiscoveryFixture();
     const items = await discoverWithClaude(fixture);
-    expect(items).toEqual([]);
+    expect(items.length).toBeGreaterThan(0);
   });
 
   test('uses Claude output when valid JSON is returned', async () => {
