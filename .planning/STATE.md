@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 - **Active phase:** 57
-- **Current plan:** Plan 01 of 03
+- **Current plan:** Plan 02 of 03
 - **Milestone:** v0.2.8 Self-Evolving Loop
 - **Status:** Executing
-- **Progress:** [████████░░] 80%
-- **Next:** Phase 57 Plan 02 (MCP tool registration validation)
+- **Progress:** [█████████░] 90%
+- **Next:** Phase 57 Plan 03
 
 ## Phase Summary
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 | 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 02/02 done) |
 | 55 | Evolve Core Engine | REQ-55, REQ-56, REQ-57 | proxy | PENDING |
 | 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | IN PROGRESS (Plan 02/02 done) |
-| 57 | Integration & Validation | (integration) | deferred | IN PROGRESS (Plan 01/03 done) |
+| 57 | Integration & Validation | (integration) | deferred | IN PROGRESS (Plan 02/03 done) |
 
 ## Deferred Validations
 
@@ -47,13 +47,15 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.7)
-- Total tests: 2,161
+- Total tests: 2,173
 - Total lib/ modules: 22 (including autopilot.js, evolve.js, markdown-split.js)
 - Total commands: 40
 - Total lib/ LOC: ~17,334
 
 ## Decisions
 
+- [Phase 57] grd_evolve_run invocation test skipped (async execute, same as grd_autopilot_run); descriptor structure validated instead
+- [Phase 57] 6 unique evolve MCP tools counted (grd_evolve_init is single enhanced entry, not two)
 - [Phase 56] evolve run wired as CLI subcommand (evolve run --dry-run) consistent with discover/state/advance/reset pattern
 - [Phase 56] grd_evolve_run MCP tool registered with 5 parameters (iterations, items, timeout, max_turns, dry_run)
 - [Phase 56] All spawnClaude calls use SONNET_MODEL constant ('sonnet') — never opus (REQ-59 model ceiling)
@@ -80,10 +82,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Validated Phase 57 Plan 01 (coverage threshold validation for evolve.js)
-- **Stopped at:** Completed 57-01-PLAN.md (coverage validated, no code changes needed, 2,161 tests passing)
-- **Next action:** Phase 57 Plan 02 (MCP tool registration validation)
-- **Context needed:** Phase 57 Plan 01 done. evolve.js at 92.3% lines, all thresholds passing. 2,161 total tests. No code changes required -- Phase 56 already set thresholds and tests correctly.
+- **Last action:** Executed Phase 57 Plan 02 (MCP tool registration validation)
+- **Stopped at:** Completed 57-02-PLAN.md (12 evolve MCP tool tests added, 219 mcp-server tests passing, 87% line coverage)
+- **Next action:** Phase 57 Plan 03
+- **Context needed:** Phase 57 Plan 02 done. 6 evolve MCP tools validated (discover, state, advance, reset, init, run). commands/evolve.md validated. 2,173 total tests. mcp-server.js at 87% lines.
 
 ---
 
