@@ -12,18 +12,18 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-- **Active phase:** 55
-- **Current plan:** Plan 03 of 03 complete
+- **Active phase:** 54
+- **Current plan:** Plan 01 of 02 complete
 - **Milestone:** v0.2.8 Self-Evolving Loop
-- **Status:** Phase 55 complete (all 3 plans executed)
+- **Status:** Phase 54 Plan 01 complete (core markdown splitting module)
 - **Progress:** 0/4 phases complete
-- **Next:** Complete Phase 55, then execute Phase 54 or 56
+- **Next:** Execute Phase 54 Plan 02 (reader integration), then Phase 56
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Verification | Status |
 |-------|------|-------------|--------------|--------|
-| 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | PENDING |
+| 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 01/02 done) |
 | 55 | Evolve Core Engine | REQ-55, REQ-56, REQ-57 | proxy | PENDING |
 | 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | PENDING |
 | 57 | Integration & Validation | (integration) | deferred | PENDING |
@@ -47,8 +47,8 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.7)
-- Total tests: 2,069
-- Total lib/ modules: 21 (including autopilot.js, evolve.js)
+- Total tests: 2,110
+- Total lib/ modules: 22 (including autopilot.js, evolve.js, markdown-split.js)
 - Total commands: 39
 - Total lib/ LOC: ~17,334
 
@@ -59,6 +59,8 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 - [Phase 55] Discovery uses pure fs analysis (no LLM, no subprocesses) for determinism
 - [Phase 55] Scoring: quality=10, stability=9, consistency=7, productivity=6, usability=5, new-features=3
 - [Phase 55] cmdInitEvolve lives in lib/evolve.js (not lib/context.js) to keep evolve module self-contained
+- [Phase 54] reassembleFromIndex joins partials with empty string (not \n\n) to preserve exact round-trip fidelity
+- [Phase 54] PARTIAL_SUFFIX_PATTERN removed from implementation (defined in plan but unused by any function)
 
 ## Known Bugs
 
@@ -70,10 +72,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 55 Plan 03 (CLI entry points, MCP tools, workflow init)
-- **Stopped at:** Completed 55-03-PLAN.md (all 3 plans of Phase 55 executed)
-- **Next action:** Complete Phase 55, then proceed to Phase 54 or 56
-- **Context needed:** lib/evolve.js provides state layer (7 functions) + discovery engine (4 functions) + CLI entry points (5 functions). Phase 56 consumes `init evolve` for orchestrator. Phase 54 (markdown splitting) is a parallel track.
+- **Last action:** Executed Phase 54 Plan 01 (core markdown splitting module)
+- **Stopped at:** Completed 54-01-PLAN.md (lib/markdown-split.js + 41 tests)
+- **Next action:** Execute Phase 54 Plan 02 (reader integration + CLI command)
+- **Context needed:** lib/markdown-split.js exports 6 functions + 2 constants. Plan 02 wires readMarkdownWithPartials into existing readers and adds a `split` CLI command. Phase 56 (evolve orchestrator) is a parallel track.
 
 ---
 
