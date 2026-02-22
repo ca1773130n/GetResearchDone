@@ -700,8 +700,6 @@ describe('cmdStateRecordSession', () => {
 
   test('returns recorded=false when no session fields exist', () => {
     // Remove session fields from STATE.md to trigger the "no fields found" path
-    const statePath = path.join(fixtureDir, '.planning', 'STATE.md');
-    let content = fs.readFileSync(statePath, 'utf-8');
     // The default fixture has "Last action" but not "Last session" / "Stopped At"
     // cmdStateRecordSession looks for "Last session" and "Stopped At", neither exists
     const { stdout } = captureOutput(() => {
@@ -756,6 +754,54 @@ describe('cmdStateSnapshot', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed).toHaveProperty('error');
+  });
+
+  test('parses decisions, blockers, and session sections', () => {
+    const tmpDir = createFixtureDir();
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const stateContent = [
+      '# STATE',
+      '',
+      '- **Current Phase:** 2',
+      '- **Current Phase Name:** implement',
+      '- **Total Phases:** 3',
+      '- **Current Plan:** 01',
+      '- **Total Plans in Phase:** 2',
+      '- **Status:** In Progress',
+      '- **Progress:** 50%',
+      '',
+      '## Decisions Made',
+      '',
+      '| Phase | Decision | Rationale |',
+      '|-------|----------|-----------|',
+      '| 1 | Use lazy require | Avoid circular deps |',
+      '',
+      '## Blockers',
+      '',
+      '- Waiting on upstream API',
+      '- Need design review',
+      '',
+      '## Session',
+      '',
+      '**Last Date:** 2026-02-22',
+      '**Stopped At:** Task 2 coverage fix',
+      '**Resume File:** handoff.md',
+    ].join('\n');
+    fs.writeFileSync(statePath, stateContent, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateSnapshot(tmpDir, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.decisions).toHaveLength(1);
+    expect(parsed.decisions[0].summary).toBe('Use lazy require');
+    expect(parsed.blockers).toHaveLength(2);
+    expect(parsed.blockers[0]).toContain('upstream API');
+    expect(parsed.session.last_date).toBe('2026-02-22');
+    expect(parsed.session.stopped_at).toBe('Task 2 coverage fix');
+    expect(parsed.session.resume_file).toBe('handoff.md');
+    cleanupFixtureDir(tmpDir);
   });
 });
 

@@ -367,7 +367,6 @@ describe('readMarkdownWithPartials', () => {
 
   test('round-trip: result matches original pre-split content', () => {
     const tmpDir = createTmpDir();
-    const original = '# Part One\n\nContent A.\n\n## Part Two\n\nContent B.';
     const indexPath = path.join(tmpDir, 'DOC.md');
     const indexContent =
       '<!-- GRD-INDEX -->\n# DOC (Split Index)\n\n## Partials\n\n' +
@@ -380,6 +379,43 @@ describe('readMarkdownWithPartials', () => {
     const result = readMarkdownWithPartials(indexPath);
     expect(result).toContain('Content A.');
     expect(result).toContain('Content B.');
+  });
+});
+
+// ─── safeReadMarkdown integration ────────────────────────────────────────────
+
+describe('safeReadMarkdown integration', () => {
+  test('safeReadMarkdown is exported from utils.js', () => {
+    const { safeReadMarkdown } = require('../../lib/utils');
+    expect(typeof safeReadMarkdown).toBe('function');
+  });
+
+  test('safeReadMarkdown returns content for regular files', () => {
+    const { safeReadMarkdown } = require('../../lib/utils');
+    const tmpDir = createTmpDir();
+    const filePath = path.join(tmpDir, 'regular.md');
+    fs.writeFileSync(filePath, '# Hello\n\nWorld');
+    expect(safeReadMarkdown(filePath)).toBe('# Hello\n\nWorld');
+  });
+
+  test('safeReadMarkdown returns null for missing files', () => {
+    const { safeReadMarkdown } = require('../../lib/utils');
+    expect(safeReadMarkdown(path.join(os.tmpdir(), 'nonexistent-' + Date.now() + '.md'))).toBeNull();
+  });
+
+  test('safeReadMarkdown reassembles from index files', () => {
+    const { safeReadMarkdown } = require('../../lib/utils');
+    const tmpDir = createTmpDir();
+    // Create a large synthetic file, split it, write to disk, read back via safeReadMarkdown
+    const content = Array.from(
+      { length: 20 },
+      (_, i) => `## Section ${i}\n\n${'paragraph '.repeat(200)}`
+    ).join('\n\n');
+    const result = splitMarkdown(content, { threshold: 1000, basename: 'TEST' });
+    fs.writeFileSync(path.join(tmpDir, 'TEST.md'), result.index_content);
+    result.parts.forEach((p) => fs.writeFileSync(path.join(tmpDir, p.filename), p.content));
+    const reassembled = safeReadMarkdown(path.join(tmpDir, 'TEST.md'));
+    expect(reassembled.trim()).toBe(content.trim());
   });
 });
 

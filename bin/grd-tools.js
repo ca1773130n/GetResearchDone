@@ -3,8 +3,11 @@
  * GRD Tools — Thin CLI router. All business logic lives in lib/ modules.
  * Usage: node grd-tools.js <command> [args] [--raw]
  */
+const fs = require('fs');
+const path = require('path');
 const {
   parseIncludeFlag,
+  output,
   error,
   validatePhaseArg,
   validateFileArg,
@@ -74,6 +77,7 @@ const {
   cmdInitEvolve,
 } = require('../lib/evolve');
 const { cmdInitExecuteParallel } = require('../lib/parallel');
+const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-split');
 const {
   cmdInitExecutePhase,
   cmdInitPlanPhase,
@@ -741,6 +745,75 @@ function routeCommand(command, args, cwd, raw) {
     case 'health-check':
       cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw);
       break;
+    case 'markdown-split': {
+      const sub = args[1];
+      validateSubcommand(sub, ['split', 'check'], 'markdown-split');
+      switch (sub) {
+        case 'split': {
+          const filePath = args[2];
+          if (!filePath) error('file path required for markdown-split split');
+          const absPath = path.resolve(cwd, filePath);
+          if (!fs.existsSync(absPath)) error(`File not found: ${absPath}`);
+
+          const thresholdIdx = args.indexOf('--threshold');
+          const threshold =
+            thresholdIdx !== -1 ? parseInt(args[thresholdIdx + 1], 10) : undefined;
+
+          const content = fs.readFileSync(absPath, 'utf-8');
+          const basename = path.basename(absPath, '.md');
+          const dir = path.dirname(absPath);
+          const result = splitMarkdown(content, { threshold, basename });
+
+          if (!result.split_performed) {
+            output({ split_performed: false, reason: result.reason, file: absPath }, raw);
+            break;
+          }
+
+          // Write index file (overwrite original)
+          fs.writeFileSync(absPath, result.index_content, 'utf-8');
+
+          // Write partial files
+          const partials = [];
+          for (const part of result.parts) {
+            const partPath = path.join(dir, part.filename);
+            fs.writeFileSync(partPath, part.content, 'utf-8');
+            partials.push(partPath);
+          }
+
+          output(
+            {
+              split_performed: true,
+              index_file: absPath,
+              partials,
+              part_count: result.parts.length,
+            },
+            raw
+          );
+          break;
+        }
+        case 'check': {
+          const filePath = args[2];
+          if (!filePath) error('file path required for markdown-split check');
+          const absPath = path.resolve(cwd, filePath);
+          if (!fs.existsSync(absPath)) error(`File not found: ${absPath}`);
+
+          const content = fs.readFileSync(absPath, 'utf-8');
+          const tokens = estimateTokens(content);
+          const is_index = isIndexFile(content);
+          output(
+            {
+              file: absPath,
+              is_index,
+              estimated_tokens: tokens,
+              exceeds_threshold: tokens > 25000,
+            },
+            raw
+          );
+          break;
+        }
+      }
+      break;
+    }
     default:
       error(`Unknown command: ${command}`);
   }

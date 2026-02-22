@@ -1126,6 +1126,107 @@ describe('handleMessage — bulk tool execute lambda coverage', () => {
     const r = callTool('grd_search', { query: 'test' });
     expect(r.result || r.error).toBeDefined();
   });
+
+  // Worktree commands
+  test('grd_worktree_create execute lambda', () => {
+    const r = callTool('grd_worktree_create', { phase: '99' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_worktree_remove execute lambda', () => {
+    const r = callTool('grd_worktree_remove', { phase: '99' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_worktree_remove stale execute lambda', () => {
+    const r = callTool('grd_worktree_remove', { stale: true });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_worktree_list execute lambda', () => {
+    const r = callTool('grd_worktree_list');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_worktree_push_pr execute lambda', () => {
+    const r = callTool('grd_worktree_push_pr', { phase: '99' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  // Autopilot commands (skip grd_autopilot_run — async + process.exit crashes jest worker)
+  test('grd_autopilot_init execute lambda', () => {
+    const r = callTool('grd_autopilot_init');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  // Evolve commands
+  test('grd_evolve_discover execute lambda', () => {
+    const r = callTool('grd_evolve_discover', { count: 3 });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_evolve_state execute lambda', () => {
+    const r = callTool('grd_evolve_state');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_evolve_advance execute lambda', () => {
+    const r = callTool('grd_evolve_advance');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_evolve_reset execute lambda', () => {
+    const r = callTool('grd_evolve_reset');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_evolve_init execute lambda', () => {
+    const r = callTool('grd_evolve_init');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  // Markdown splitting commands
+  test('grd_markdown_check execute lambda', () => {
+    const mdPath = path.join(fixtureDir, 'check-test.md');
+    fs.writeFileSync(mdPath, '# Test\n\nSome content.\n', 'utf-8');
+    const r = callTool('grd_markdown_check', { file: mdPath });
+    expect(r.result).toBeDefined();
+    const data = JSON.parse(r.result.content[0].text);
+    expect(data.is_index).toBe(false);
+    expect(typeof data.estimated_tokens).toBe('number');
+  });
+
+  test('grd_markdown_check on missing file returns error', () => {
+    const r = callTool('grd_markdown_check', { file: '/tmp/no-such-file-xyz.md' });
+    expect(r.error).toBeDefined();
+    expect(r.error.code).toBe(-32603);
+  });
+
+  test('grd_markdown_split on small file skips split', () => {
+    const mdPath = path.join(fixtureDir, 'small-split.md');
+    fs.writeFileSync(mdPath, '# Small\n\nBelow threshold.\n', 'utf-8');
+    const r = callTool('grd_markdown_split', { file: mdPath });
+    expect(r.result).toBeDefined();
+    const data = JSON.parse(r.result.content[0].text);
+    expect(data.split_performed).toBe(false);
+  });
+
+  test('grd_markdown_split on missing file returns error', () => {
+    const r = callTool('grd_markdown_split', { file: '/tmp/no-such-file-xyz.md' });
+    expect(r.error).toBeDefined();
+    expect(r.error.code).toBe(-32603);
+  });
+
+  // Coverage & Health commands
+  test('grd_coverage_report execute lambda', () => {
+    const r = callTool('grd_coverage_report', { threshold: 80 });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_health_check execute lambda', () => {
+    const r = callTool('grd_health_check', { fix: false });
+    expect(r.result || r.error).toBeDefined();
+  });
 });
 
 // ─── 7. handleMessage — Error Paths ────────────────────────────────────────
