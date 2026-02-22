@@ -3,22 +3,9 @@
 **Created:** 2026-02-12
 **Updated:** 2026-02-22
 
-## Current Milestone: v0.2.7 Self-Evolution
+## Current Milestone: None (ready for `/grd:new-milestone`)
 
-**Goal:** GRD uses itself to improve itself — dogfooding the full R&D workflow to fix bugs, reduce complexity and tech debt, and invent new features.
-
-**Approach:**
-- Testbed project (`testbed/` — copy of multi-bootstrap) is the test subject — GRD workflows run ON it to expose issues
-- All code changes target GRD's own codebase (`bin/`, `lib/`, `commands/`, `agents/`) — never the testbed
-- Use local `bin/grd-tools.js` (not the cached plugin) to test changes against the testbed
-- Bugs, glitches, and friction discovered by running GRD on the testbed drive fixes in GRD source code
-
-**Target features:**
-- Dogfooding infrastructure: testbed as a GRD workflow test subject
-- Bug fixes in GRD source discovered through running workflows on testbed
-- Complexity reduction across GRD's lib/ modules
-- Tech debt cleanup in GRD codebase (dead code, inconsistent patterns, missing edge cases)
-- New GRD features driven by real usage friction
+**Previous:** v0.2.7 Self-Evolution (shipped 2026-02-22)
 
 ## Vision
 
@@ -54,11 +41,28 @@ A Claude Code plugin providing:
 - WebMCP integration: optional Chrome DevTools MCP health checks in execute-phase, tool discovery in verify-phase, tool definition generation in eval-planner
 - Native worktree isolation: hybrid strategy using Claude Code's `isolation: worktree` on Claude Code backend, retaining custom worktree lifecycle for other backends
 - WorktreeCreate/WorktreeRemove hooks for GRD-specific worktree setup (branch naming, lifecycle tracking)
-- 39 commands (consolidated from 45) across 19 modular lib/ modules
+- Autopilot command (`/grd:autopilot`) for multi-phase autonomous execution with fresh agents per phase and disk-based handoff
+- Dogfooding-driven features: `coverage-report` and `health-check` commands
+- 39 commands (consolidated from 45) across 20 modular lib/ modules
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.2.7)
+
+**Shipped:** 2026-02-22
+
+v0.2.7 dogfooded GRD on itself — using the full R&D workflow to fix bugs, reduce complexity, and discover new features:
+- Dogfooding infrastructure: testbed project as GRD workflow test subject with local CLI testing harness
+- 5 bugs fixed via dogfooding: currentMilestone parsing, goal regex, state-snapshot fields, plan-index extraction, underscore mapping
+- Complexity reduction: cmdTracker decomposed (634→12 handlers), cmdDashboard decomposed (405→6 helpers), 6 dead exports removed
+- Shared utilities: `safeReadJSON()`, `extractMarkdownSection()`, consolidated 10+ safe-read patterns
+- Test coverage: all 20 lib/ modules at 85%+ line coverage, per-file thresholds enforced
+- 2 new features: `coverage-report` and `health-check` commands (driven by dogfooding friction)
+- `/grd:autopilot` command: multi-phase autonomous execution with fresh Task agents, disk-based handoff, graceful failure with resume
+- New module: `lib/autopilot.js` with `cmdAutopilot`, `cmdInitAutopilot`, MCP tool registration
+- 1,983 tests passing (204 new), 20 lib/ modules
 
 ## Previous State (v0.2.6)
 
@@ -374,7 +378,24 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 
 </details>
 
-## Validated Goals (v0.2.6)
+## Validated Goals (v0.2.7)
+
+- [x] Testbed project (`testbed/`) initialized as GRD project with full `.planning/` structure
+- [x] Local CLI testing harness validates changes against testbed before committing
+- [x] 5 bugs fixed with reproduction tests: BUG-48-001 through BUG-48-005
+- [x] `currentMilestone(cwd)` correctly parses "v0.2.7 Self-Evolution" format
+- [x] Complexity audit report with before/after measurements for top 3 modules
+- [x] 6 dead exports removed, cmdTracker decomposed (12 handlers), cmdDashboard decomposed (6 helpers)
+- [x] `safeReadJSON()` and `extractMarkdownSection()` shared utilities, 10+ safe-read patterns consolidated
+- [x] All 20 lib/ modules at 85%+ line coverage with per-file thresholds in jest.config.js
+- [x] 2 new features: `coverage-report` and `health-check` commands (dogfooding-driven)
+- [x] `lib/autopilot.js` with `cmdAutopilot` and `cmdInitAutopilot`, MCP tool registration
+- [x] `/grd:autopilot [start]-[end]` orchestrates plan+execute agents per phase with disk-based handoff
+- [x] Full regression suite: 1,983 tests passing across 34 suites (204 new, zero regressions)
+- [x] DEFER-48-01 resolved: full testbed lifecycle validation with 10 CLI commands
+
+<details>
+<summary>Validated Goals (v0.2.6)</summary>
 
 - [x] `native_worktree_isolation` flag in BACKEND_CAPABILITIES for Claude Code backend; `native_worktree_available` in all init JSON outputs
 - [x] WorktreeCreate/WorktreeRemove hooks registered in plugin.json with branch rename and lifecycle tracking
@@ -386,6 +407,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - [x] Bug fix: `detectBackend(cwd)` in cmdInitExecuteParallel (lib/parallel.js)
 - [x] All 3 deferred validations (DEFER-46-01/02/03) resolved via live Claude Code native worktree test
 - [x] 1,779 tests passing across 33 suites (85 new tests, zero regressions)
+
+</details>
 
 <details>
 <summary>Validated Goals (v0.2.5)</summary>
@@ -444,3 +467,4 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.2.4 milestone shipped: 2026-02-21*
 *v0.2.5 milestone shipped: 2026-02-21*
 *v0.2.6 milestone shipped: 2026-02-22*
+*v0.2.7 milestone shipped: 2026-02-22*

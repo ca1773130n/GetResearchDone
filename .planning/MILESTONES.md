@@ -381,3 +381,36 @@
 
 ---
 
+
+## v0.2.7 Self-Evolution (Shipped: 2026-02-22)
+
+**Delivered:** GRD dogfoods itself — testbed infrastructure, bug fixes, complexity reduction, coverage improvements, autopilot command, and full integration testing.
+
+**Phases completed:** 6 phases (48-53), 19 plans
+**Timeline:** 2026-02-22 (single day)
+**Source:** 1,983 tests (+204 from v0.2.6), 20 lib/ modules (+1 autopilot.js), 90%+ stmt coverage
+
+**Key accomplishments:**
+- Dogfooding infrastructure: testbed project (`testbed/`) as GRD workflow test subject with local CLI testing harness
+- 5 bugs fixed via dogfooding: currentMilestone parsing, goal regex, state-snapshot field names, plan-index extraction, state patch underscore mapping
+- Complexity reduction: decomposed cmdTracker (634 lines → 12 handlers), cmdDashboard (405 lines → 6 helpers), removed 6 dead exports, 2 dead functions
+- Shared utilities: `safeReadJSON()`, `extractMarkdownSection()` in lib/utils.js, consolidated 10+ safe-read patterns
+- Test coverage: all 20 lib/ modules at 85%+ line coverage, per-file thresholds enforced in jest.config.js
+- 2 new features from dogfooding friction: `coverage-report` and `health-check` commands
+- `/grd:autopilot` command: multi-phase autonomous execution with fresh Task agents per phase, disk-based handoff, graceful failure handling with resume
+- New module: `lib/autopilot.js` with `cmdAutopilot` and `cmdInitAutopilot`, MCP tool registration
+- Full integration testing: regression suite, E2E testbed workflow, autopilot E2E, all deferred validations resolved
+
+**Key decisions:**
+- 48-03: Testbed acts as test subject only — all fixes target GRD source, never the testbed
+- 50-01: Handler-per-subcommand pattern for cmdTracker decomposition
+- 52-01: Separate plan and execute agents (both token-heavy, cannot share context window)
+- 52-01: Disk artifacts are the handoff mechanism — no context carries between agents
+
+**Deferred:**
+- DEFER-08-01: User acceptance testing of TUI dashboard commands (post-v1.0)
+- DEFER-30-01: Full parallel execution with real teammate spawning (partially resolved)
+- DEFER-43/44: Live WebMCP workflow validation (requires Chrome DevTools MCP)
+
+---
+
