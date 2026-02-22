@@ -246,7 +246,7 @@ Plans:
 
 | Phase | Status | Plans |
 |-------|--------|-------|
-| 54 - Markdown Splitting Infrastructure | PLANNED | 2 |
-| 55 - Evolve Core Engine | PLANNED | 3 |
-| 56 - Evolve Orchestrator | PENDING | 2 |
-| 57 - Integration & Validation | PENDING | 3 |
+| 54 - Markdown Splitting Infrastructure | PENDING | 0 |
+| 55 - Evolve Core Engine | PENDING | 0 |
+| 56 - Evolve Orchestrator | PLANNED | 2 |
+| 57 - Integration & Validation | PENDING | 0 |
