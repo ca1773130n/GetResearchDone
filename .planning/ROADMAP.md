@@ -176,6 +176,13 @@ Plans:
 4. Iteration state is persisted to a structured JSON/markdown file on disk containing: selected items, remaining items, newly-discovered bugfix items, and iteration metadata (timestamp, iteration number, items completed/remaining)
 5. The state file format supports handoff -- the next evolve iteration reads the previous state, inherits remaining items, and increments the iteration counter
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 55-01-PLAN.md -- Evolve state layer TDD (state format, I/O, merge, iteration tracking)
+- [ ] 55-02-PLAN.md -- Discovery engine + priority selection (codebase analysis, scoring, selection)
+- [ ] 55-03-PLAN.md -- CLI wiring + MCP registration + init context (bin/grd-tools.js, mcp-server.js, context.js)
+
 ---
 
 ### Phase 56: Evolve Orchestrator
@@ -240,6 +247,6 @@ Plans:
 | Phase | Status | Plans |
 |-------|--------|-------|
 | 54 - Markdown Splitting Infrastructure | PLANNED | 2 |
-| 55 - Evolve Core Engine | PENDING | 0 |
+| 55 - Evolve Core Engine | PLANNED | 3 |
 | 56 - Evolve Orchestrator | PENDING | 2 |
 | 57 - Integration & Validation | PENDING | 3 |
