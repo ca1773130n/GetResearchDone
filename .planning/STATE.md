@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 - **Active phase:** 54
-- **Current plan:** Plan 01 of 02 complete
+- **Current plan:** Plan 02 of 02 complete
 - **Milestone:** v0.2.8 Self-Evolving Loop
-- **Status:** Phase 54 Plan 01 complete (core markdown splitting module)
-- **Progress:** 0/4 phases complete
-- **Next:** Execute Phase 54 Plan 02 (reader integration), then Phase 56
+- **Status:** Phase 54 complete (all plans executed)
+- **Progress:** 0/4 phases complete (Phase 54 plans done, pending phase completion)
+- **Next:** Complete Phase 54, then execute Phase 56
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Verification | Status |
 |-------|------|-------------|--------------|--------|
-| 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 01/02 done) |
+| 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 02/02 done) |
 | 55 | Evolve Core Engine | REQ-55, REQ-56, REQ-57 | proxy | PENDING |
 | 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | PENDING |
 | 57 | Integration & Validation | (integration) | deferred | PENDING |
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.7)
-- Total tests: 2,110
+- Total tests: 2,132
 - Total lib/ modules: 22 (including autopilot.js, evolve.js, markdown-split.js)
 - Total commands: 39
 - Total lib/ LOC: ~17,334
@@ -61,6 +61,9 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 - [Phase 55] cmdInitEvolve lives in lib/evolve.js (not lib/context.js) to keep evolve module self-contained
 - [Phase 54] reassembleFromIndex joins partials with empty string (not \n\n) to preserve exact round-trip fidelity
 - [Phase 54] PARTIAL_SUFFIX_PATTERN removed from implementation (defined in plan but unused by any function)
+- [Phase 54] safeReadMarkdown uses lazy require to avoid circular dependency between utils.js and markdown-split.js
+- [Phase 54] MCP execute lambdas use process.stdout.write + process.exit pattern for captureExecution compatibility
+- [Phase 54] paths.js deferred from transparent reader integration to avoid circular dependency chain
 
 ## Known Bugs
 
@@ -72,10 +75,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 54 Plan 01 (core markdown splitting module)
-- **Stopped at:** Completed 54-01-PLAN.md (lib/markdown-split.js + 41 tests)
-- **Next action:** Execute Phase 54 Plan 02 (reader integration + CLI command)
-- **Context needed:** lib/markdown-split.js exports 6 functions + 2 constants. Plan 02 wires readMarkdownWithPartials into existing readers and adds a `split` CLI command. Phase 56 (evolve orchestrator) is a parallel track.
+- **Last action:** Executed Phase 54 Plan 02 (transparent reader integration + CLI + MCP tools)
+- **Stopped at:** Completed 54-02-PLAN.md (safeReadMarkdown wired into 4 modules, CLI split|check, MCP tools)
+- **Next action:** Complete Phase 54, then execute Phase 56 (Evolve Orchestrator)
+- **Context needed:** Phase 54 both plans executed. safeReadMarkdown wired into state.js, roadmap.js, context.js, tracker.js. CLI `markdown-split split|check` and MCP tools grd_markdown_split, grd_markdown_check registered. paths.js deferred. 2132 tests passing.
 
 ---
 
