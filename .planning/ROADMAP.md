@@ -236,9 +236,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 57-01-PLAN.md -- Test coverage enforcement and regression validation for new modules
-- [ ] 57-02-PLAN.md -- MCP tool registration validation for new commands
-- [ ] 57-03-PLAN.md -- End-to-end integration tests, deferred validation collection
+- [ ] 57-01-PLAN.md -- Coverage threshold enforcement and regression validation for evolve.js after Phase 56 expansion
+- [ ] 57-02-PLAN.md -- MCP tool registration validation for all evolve commands (Phases 55-56)
+- [ ] 57-03-PLAN.md -- End-to-end integration tests for evolve loop, iteration handoff, and deferred validation collection
 
 ---
 
