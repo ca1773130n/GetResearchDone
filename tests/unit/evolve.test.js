@@ -3,7 +3,8 @@
  *
  * Tests the evolve iteration state layer: work item creation, state path
  * resolution, initial state creation, disk I/O (read/write), merge/deduplication,
- * and iteration advancement logic.
+ * iteration advancement logic, discovery engine, scoring heuristic, and
+ * priority selection algorithm.
  */
 
 const fs = require('fs');
@@ -21,6 +22,10 @@ const {
   createInitialState,
   mergeWorkItems,
   advanceIteration,
+  analyzeCodebaseForItems,
+  scoreWorkItem,
+  selectPriorityItems,
+  runDiscovery,
 } = require('../../lib/evolve');
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
@@ -342,5 +347,333 @@ describe('advanceIteration', () => {
     expect(next.completed).toEqual([]);
     expect(next.failed).toEqual([]);
     expect(next.bugfix).toEqual([]);
+  });
+});
+
+// ─── Discovery Engine ──────────────────────────────────────────────────────
+
+/**
+ * Create a fixture directory with controlled lib/ files for deterministic
+ * discovery testing.
+ */
+function createDiscoveryFixture() {
+  const tmpDir = createTmpDir();
+
+  // Create lib/ directory
+  const libDir = path.join(tmpDir, 'lib');
+  fs.mkdirSync(libDir, { recursive: true });
+
+  // File with a TODO comment (quality discovery)
+  fs.writeFileSync(
+    path.join(libDir, 'alpha.js'),
+    [
+      "'use strict';",
+      '/**',
+      ' * Alpha module',
+      ' */',
+      '',
+      '// TODO: refactor this function',
+      'function doSomething() {',
+      '  return 42;',
+      '}',
+      '',
+      'module.exports = { doSomething };',
+      '',
+    ].join('\n')
+  );
+
+  // File without JSDoc on exported function (usability discovery)
+  fs.writeFileSync(
+    path.join(libDir, 'beta.js'),
+    [
+      "'use strict';",
+      '/**',
+      ' * Beta module',
+      ' */',
+      '',
+      'function helperNoDoc(x) {',
+      '  return x * 2;',
+      '}',
+      '',
+      'module.exports = { helperNoDoc };',
+      '',
+    ].join('\n')
+  );
+
+  // File with an empty catch block (stability discovery)
+  fs.writeFileSync(
+    path.join(libDir, 'gamma.js'),
+    [
+      "'use strict';",
+      '/**',
+      ' * Gamma module',
+      ' */',
+      '',
+      '/**',
+      ' * Safely parse JSON',
+      ' * @param {string} str - JSON string',
+      ' * @returns {Object|null}',
+      ' */',
+      'function safeParse(str) {',
+      '  try {',
+      '    return JSON.parse(str);',
+      '  } catch {}',
+      '}',
+      '',
+      'module.exports = { safeParse };',
+      '',
+    ].join('\n')
+  );
+
+  // File with process.exit (consistency discovery)
+  fs.writeFileSync(
+    path.join(libDir, 'delta.js'),
+    [
+      "'use strict';",
+      '/**',
+      ' * Delta module',
+      ' */',
+      '',
+      '/**',
+      ' * Fatal error handler',
+      ' * @param {string} msg - Error message',
+      ' */',
+      'function fatal(msg) {',
+      '  console.error(msg);',
+      '  process.exit(1);',
+      '}',
+      '',
+      'module.exports = { fatal };',
+      '',
+    ].join('\n')
+  );
+
+  // Create tests/unit/ with only one test (for alpha, missing for beta/gamma/delta)
+  const testDir = path.join(tmpDir, 'tests', 'unit');
+  fs.mkdirSync(testDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(testDir, 'alpha.test.js'),
+    "test('placeholder', () => { expect(1).toBe(1); });\n"
+  );
+
+  return tmpDir;
+}
+
+describe('analyzeCodebaseForItems', () => {
+  test('returns array of work items (not empty on project with lib/ files)', () => {
+    const fixture = createDiscoveryFixture();
+    const items = analyzeCodebaseForItems(fixture);
+    expect(Array.isArray(items)).toBe(true);
+    expect(items.length).toBeGreaterThan(0);
+  });
+
+  test('each item has required fields', () => {
+    const fixture = createDiscoveryFixture();
+    const items = analyzeCodebaseForItems(fixture);
+
+    for (const item of items) {
+      expect(item).toHaveProperty('id');
+      expect(item).toHaveProperty('dimension');
+      expect(item).toHaveProperty('slug');
+      expect(item).toHaveProperty('title');
+      expect(item).toHaveProperty('description');
+      expect(item).toHaveProperty('effort');
+      expect(item).toHaveProperty('source');
+      expect(item).toHaveProperty('status');
+    }
+  });
+
+  test('items span multiple dimensions', () => {
+    const fixture = createDiscoveryFixture();
+    const items = analyzeCodebaseForItems(fixture);
+    const dimensions = new Set(items.map((i) => i.dimension));
+    expect(dimensions.size).toBeGreaterThanOrEqual(2);
+  });
+
+  test('returns empty array for cwd with no lib/ directory', () => {
+    const emptyDir = createTmpDir();
+    const items = analyzeCodebaseForItems(emptyDir);
+    expect(Array.isArray(items)).toBe(true);
+    expect(items).toHaveLength(0);
+  });
+
+  test('all returned item dimensions are valid', () => {
+    const fixture = createDiscoveryFixture();
+    const items = analyzeCodebaseForItems(fixture);
+    for (const item of items) {
+      expect(WORK_ITEM_DIMENSIONS).toContain(item.dimension);
+    }
+  });
+});
+
+// ─── scoreWorkItem ──────────────────────────────────────────────────────────
+
+describe('scoreWorkItem', () => {
+  test('quality dimension scores higher than new-features dimension', () => {
+    const qualityItem = createWorkItem('quality', 'q', 'Q', 'Q');
+    const newFeatItem = createWorkItem('new-features', 'n', 'N', 'N');
+    expect(scoreWorkItem(qualityItem)).toBeGreaterThan(scoreWorkItem(newFeatItem));
+  });
+
+  test('small effort scores higher than large effort (same dimension)', () => {
+    const small = createWorkItem('quality', 's', 'S', 'S', { effort: 'small' });
+    const large = createWorkItem('quality', 'l', 'L', 'L', { effort: 'large' });
+    expect(scoreWorkItem(small)).toBeGreaterThan(scoreWorkItem(large));
+  });
+
+  test('bugfix source scores higher than discovery source (same dimension, same effort)', () => {
+    const bugfix = createWorkItem('quality', 'b', 'B', 'B', { source: 'bugfix' });
+    const discovery = createWorkItem('quality', 'd', 'D', 'D', { source: 'discovery' });
+    expect(scoreWorkItem(bugfix)).toBeGreaterThan(scoreWorkItem(discovery));
+  });
+
+  test('score is always a positive number', () => {
+    for (const dim of WORK_ITEM_DIMENSIONS) {
+      for (const effort of ['small', 'medium', 'large']) {
+        for (const source of ['bugfix', 'discovery', 'carryover']) {
+          const item = createWorkItem(dim, 'test', 'T', 'T', { effort, source });
+          const score = scoreWorkItem(item);
+          expect(typeof score).toBe('number');
+          expect(score).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  test('consistent scoring: same item always produces same score', () => {
+    const item = createWorkItem('stability', 'consistent', 'C', 'C', {
+      effort: 'medium',
+      source: 'discovery',
+    });
+    const score1 = scoreWorkItem(item);
+    const score2 = scoreWorkItem(item);
+    const score3 = scoreWorkItem(item);
+    expect(score1).toBe(score2);
+    expect(score2).toBe(score3);
+  });
+});
+
+// ─── selectPriorityItems ────────────────────────────────────────────────────
+
+describe('selectPriorityItems', () => {
+  function makeItems() {
+    return [
+      createWorkItem('new-features', 'low', 'Low', 'Low priority', { effort: 'large', source: 'carryover' }),
+      createWorkItem('quality', 'high', 'High', 'High priority', { effort: 'small', source: 'bugfix' }),
+      createWorkItem('productivity', 'mid', 'Mid', 'Mid priority', { effort: 'medium', source: 'discovery' }),
+      createWorkItem('stability', 'med-high', 'MedHigh', 'MedHigh priority', { effort: 'medium', source: 'discovery' }),
+    ];
+  }
+
+  test('selects exactly N items when N <= total', () => {
+    const items = makeItems();
+    const result = selectPriorityItems(items, 2);
+    expect(result.selected).toHaveLength(2);
+    expect(result.remaining).toHaveLength(2);
+  });
+
+  test('selects all items when N > total', () => {
+    const items = makeItems();
+    const result = selectPriorityItems(items, 10);
+    expect(result.selected).toHaveLength(4);
+    expect(result.remaining).toHaveLength(0);
+  });
+
+  test('selected items have status=selected', () => {
+    const items = makeItems();
+    const result = selectPriorityItems(items, 2);
+    for (const item of result.selected) {
+      expect(item.status).toBe('selected');
+    }
+  });
+
+  test('remaining items retain original status', () => {
+    const items = makeItems();
+    const result = selectPriorityItems(items, 2);
+    for (const item of result.remaining) {
+      expect(item.status).toBe('pending');
+    }
+  });
+
+  test('items are sorted by score descending (first selected has highest score)', () => {
+    const items = makeItems();
+    const result = selectPriorityItems(items, 4);
+    for (let i = 0; i < result.selected.length - 1; i++) {
+      const scoreA = scoreWorkItem(result.selected[i]);
+      const scoreB = scoreWorkItem(result.selected[i + 1]);
+      expect(scoreA).toBeGreaterThanOrEqual(scoreB);
+    }
+  });
+});
+
+// ─── runDiscovery ───────────────────────────────────────────────────────────
+
+describe('runDiscovery', () => {
+  test('without previous state: discovers fresh items and selects top N', () => {
+    const fixture = createDiscoveryFixture();
+    const result = runDiscovery(fixture, null);
+    expect(result.all_discovered_count).toBeGreaterThan(0);
+    expect(result.selected.length).toBeLessThanOrEqual(DEFAULT_ITEMS_PER_ITERATION);
+    expect(result.selected.length + result.remaining.length).toBe(result.merged_count);
+  });
+
+  test('with previous state: merges remaining items from previous state', () => {
+    const fixture = createDiscoveryFixture();
+    const previousState = createInitialState('v1.0', 5);
+    const carryover = createWorkItem('quality', 'carryover-item', 'Carryover', 'From last time', {
+      source: 'carryover',
+      status: 'pending',
+    });
+    previousState.remaining = [carryover];
+
+    const result = runDiscovery(fixture, previousState);
+    // Merged count should include carryover + fresh items
+    expect(result.merged_count).toBeGreaterThan(result.all_discovered_count);
+    // The carryover item should appear somewhere in selected or remaining
+    const allItems = [...result.selected, ...result.remaining];
+    const carryoverFound = allItems.some((i) => i.id === 'quality/carryover-item');
+    expect(carryoverFound).toBe(true);
+  });
+
+  test('deduplicates items with same id across fresh and previous', () => {
+    const fixture = createDiscoveryFixture();
+
+    // Discover items once to know what ids exist
+    const freshItems = analyzeCodebaseForItems(fixture);
+    expect(freshItems.length).toBeGreaterThan(0);
+
+    // Create previous state with one of the same ids
+    const previousState = createInitialState('v1.0', 100);
+    const duplicateItem = createWorkItem(
+      freshItems[0].dimension,
+      freshItems[0].slug,
+      'Previous Version',
+      'From before',
+      { source: 'carryover', status: 'pending' }
+    );
+    previousState.remaining = [duplicateItem];
+
+    const result = runDiscovery(fixture, previousState);
+    // Merged count should be at most freshItems + 1 (previous) - 1 (dedup) = freshItems
+    // Actually existing-wins means previous takes priority, so fresh duplicate is dropped
+    expect(result.merged_count).toBe(freshItems.length);
+  });
+
+  test('returns correct counts', () => {
+    const fixture = createDiscoveryFixture();
+    const result = runDiscovery(fixture, null);
+    expect(typeof result.all_discovered_count).toBe('number');
+    expect(typeof result.merged_count).toBe('number');
+    expect(result.all_discovered_count).toBeGreaterThanOrEqual(0);
+    expect(result.merged_count).toBeGreaterThanOrEqual(result.all_discovered_count);
+  });
+
+  test('respects items_per_iteration from previous state', () => {
+    const fixture = createDiscoveryFixture();
+    const previousState = createInitialState('v1.0', 2);
+    previousState.remaining = [];
+
+    const result = runDiscovery(fixture, previousState);
+    expect(result.selected.length).toBeLessThanOrEqual(2);
   });
 });
