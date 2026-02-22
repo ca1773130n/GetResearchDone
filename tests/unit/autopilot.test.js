@@ -1193,6 +1193,27 @@ describe('lib/autopilot', () => {
       expect(callArgs).toEqual(['-p', 'Run something', '--verbose']);
     });
 
+    it('strips CLAUDECODE env var so nested claude can launch', () => {
+      const origEnv = process.env.CLAUDECODE;
+      process.env.CLAUDECODE = '1';
+      try {
+        spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+          status: 0,
+          error: null,
+        });
+
+        spawnClaude('/test', 'Run something');
+        const passedEnv = spawnSyncSpy.mock.calls[0][2].env;
+        expect(passedEnv).not.toHaveProperty('CLAUDECODE');
+      } finally {
+        if (origEnv === undefined) {
+          delete process.env.CLAUDECODE;
+        } else {
+          process.env.CLAUDECODE = origEnv;
+        }
+      }
+    });
+
   });
 
   // ── Edge cases: cmdAutopilot flag parsing ──
