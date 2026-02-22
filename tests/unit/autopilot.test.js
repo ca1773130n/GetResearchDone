@@ -31,6 +31,11 @@ const {
   DEFAULT_TIMEOUT_MINUTES,
 } = require('../../lib/autopilot');
 
+/** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
+function phasesBase(tmpDir) {
+  return path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases');
+}
+
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
 
 /** Create a minimal fixture dir with ROADMAP.md and phase directories */
@@ -242,14 +247,14 @@ describe('lib/autopilot', () => {
 
     it('returns false when phase dir does not exist', () => {
       tmpDir = createAutopilotFixture();
-      expect(isPhasePlanned(tmpDir, '48')).toBe(false);
+      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(false);
     });
 
     it('returns false when phase dir exists but has no plans', () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
-      expect(isPhasePlanned(tmpDir, '48')).toBe(false);
+      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(false);
     });
 
     it('returns true when phase has a PLAN.md file', () => {
@@ -261,7 +266,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhasePlanned(tmpDir, '48')).toBe(true);
+      expect(isPhasePlanned(phasesBase(tmpDir), '48')).toBe(true);
     });
   });
 
@@ -279,7 +284,7 @@ describe('lib/autopilot', () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
-      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
+      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
     });
 
     it('returns false when plans exist but no summaries', () => {
@@ -291,7 +296,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
+      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
     });
 
     it('returns true when all plans have matching summaries', () => {
@@ -306,7 +311,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(tmpDir, '48')).toBe(true);
+      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(true);
     });
 
     it('returns false when some plans are incomplete', () => {
@@ -322,7 +327,7 @@ describe('lib/autopilot', () => {
           },
         ],
       });
-      expect(isPhaseExecuted(tmpDir, '48')).toBe(false);
+      expect(isPhaseExecuted(phasesBase(tmpDir), '48')).toBe(false);
     });
   });
 
@@ -937,7 +942,7 @@ describe('lib/autopilot', () => {
       fs.mkdirSync(phaseDir, { recursive: true });
       fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
 
-      expect(isPhasePlanned(tmpDir, '1')).toBe(true);
+      expect(isPhasePlanned(phasesBase(tmpDir), '1')).toBe(true);
     });
 
     it('isPhaseExecuted finds summaries in milestone-scoped directory', () => {
@@ -958,7 +963,7 @@ describe('lib/autopilot', () => {
       fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
       fs.writeFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), '# Summary');
 
-      expect(isPhaseExecuted(tmpDir, '1')).toBe(true);
+      expect(isPhaseExecuted(phasesBase(tmpDir), '1')).toBe(true);
     });
   });
 
