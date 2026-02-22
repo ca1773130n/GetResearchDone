@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** No active milestone — ready for `/grd:new-milestone`
+**Current focus:** v0.2.8 Self-Evolving Loop — `/grd:evolve` command, markdown splitting, evolution tracking
 **Previous:** v0.2.7 Self-Evolution (shipped 2026-02-22)
 
 ## Current Position
 
-- **Active phase:** None
+- **Active phase:** None (defining requirements)
 - **Current plan:** None
-- **Milestone:** None (v0.2.7 shipped)
-- **Status:** Between milestones
-- **Progress:** N/A
-- **Next:** `/grd:new-milestone`
+- **Milestone:** v0.2.8 Self-Evolving Loop
+- **Status:** Defining requirements
+- **Progress:** 0%
+- **Next:** Define requirements and create roadmap
 
 ## Deferred Validations
 
@@ -50,10 +50,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed milestone v0.2.7 Self-Evolution
-- **Stopped at:** Milestone archived, between milestones
-- **Next action:** Start next milestone (`/grd:new-milestone`)
-- **Context needed:** v0.2.7 shipped with 6 phases, 19 plans, 204 new tests. Dogfooding, bug fixes, complexity reduction, coverage improvement, autopilot command, integration testing all delivered.
+- **Last action:** Started milestone v0.2.8 Self-Evolving Loop
+- **Stopped at:** Defining requirements
+- **Next action:** Define requirements, create roadmap
+- **Context needed:** v0.2.8 adds `/grd:evolve` command for autonomous self-improvement loops with sonnet-tier models, markdown splitting for large files, and evolution tracking.
 
 ---
 

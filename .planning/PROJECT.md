@@ -3,9 +3,18 @@
 **Created:** 2026-02-12
 **Updated:** 2026-02-22
 
-## Current Milestone: None (ready for `/grd:new-milestone`)
+## Current Milestone: v0.2.8 Self-Evolving Loop
 
 **Previous:** v0.2.7 Self-Evolution (shipped 2026-02-22)
+
+### v0.2.8 Goals
+
+- **`/grd:evolve` command:** Autonomous self-improvement loop that discovers work items, plans, executes, reviews, and carries over remaining items
+- **Work item discovery:** Analyze codebase for improvements in productivity, quality, usability, consistency, stability, and new features
+- **Priority selection:** Select N priority items per iteration, create phase plans, execute with sonnet-tier models
+- **Iteration handoff:** Pass remaining/new bugfix work items to next evolve iteration via disk-based state
+- **Markdown splitting:** Auto-split large markdown files (>25K tokens) into indexed partials
+- **Evolution notes:** Keep takeaways, decisions, and evolution history in planning docs
 
 ## Vision
 
