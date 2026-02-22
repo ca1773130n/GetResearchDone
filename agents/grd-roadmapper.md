@@ -482,6 +482,7 @@ Orchestrator provides:
 - BASELINE.md content (if exists - quantitative baselines)
 - research/LANDSCAPE.md content (if exists - competing approaches)
 - config.json (depth setting, tracker config)
+- Existing phase CONTEXT.md files (if continuing/extending an existing milestone)
 
 Parse and confirm understanding before proceeding.
 
@@ -526,8 +527,9 @@ Apply phase identification methodology:
 2. Identify dependencies between groups
 3. Create phases that complete coherent capabilities
 4. Intersperse research phases: survey → implement → evaluate → iterate
-5. Check depth setting for compression guidance
-6. Assign verification levels to each phase
+5. If extending an existing milestone with additional phases, check for existing CONTEXT.md files in prior phases to maintain consistency with established decisions
+6. Check depth setting for compression guidance
+7. Assign verification levels to each phase
 
 ## Step 5: Check for Integration Phase
 

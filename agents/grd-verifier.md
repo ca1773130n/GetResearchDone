@@ -161,6 +161,7 @@ Set `is_re_verification = false`, proceed with Step 1.
 ```bash
 ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
 ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js roadmap get-phase "$PHASE_NUM"
 grep -E "^| $PHASE_NUM" .planning/REQUIREMENTS.md 2>/dev/null
 cat ${research_dir}/LANDSCAPE.md 2>/dev/null
@@ -189,9 +190,10 @@ If found, extract and use.
 If no must_haves in frontmatter:
 1. **State the goal** from ROADMAP.md
 2. **Derive truths** with quantitative targets from research
-3. **Derive artifacts** — concrete file paths
-4. **Derive key links** — connections
-5. **Document derived must-haves** before proceeding
+3. **Cross-check truths against CONTEXT.md locked decisions** — if CONTEXT.md exists, ensure derived truths align with locked decisions and do not include deferred ideas
+4. **Derive artifacts** — concrete file paths
+5. **Derive key links** — connections
+6. **Document derived must-haves** before proceeding
 
 **For each truth/artifact, determine verification tier:**
 

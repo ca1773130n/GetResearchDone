@@ -50,6 +50,7 @@ existing data and delegates to other GRD workflows as needed.
 
 3. **Load supporting context**:
    - PLAN.md — current approach being used
+   - CONTEXT.md — user decisions and constraints for this phase
    - KNOWHOW.md — any prior failure learnings
    - LANDSCAPE.md — alternative methods available
    - BENCHMARKS.md — trend data across iterations

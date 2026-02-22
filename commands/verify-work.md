@@ -438,6 +438,10 @@ reproduction: Test {test_num} in UAT
 timeline: Discovered during UAT
 </symptoms>
 
+<phase_context>
+@${phase_dir}/*-CONTEXT.md
+</phase_context>
+
 <mode>
 symptoms_prefilled: true
 goal: find_root_cause_only
@@ -500,6 +504,9 @@ Task(
 **Roadmap:**
 @.planning/ROADMAP.md
 
+**Phase Context:**
+@${phase_dir}/*-CONTEXT.md
+
 </planning_context>
 
 <paths>
@@ -554,6 +561,9 @@ Task(
 
 **Plans to verify:**
 @${phase_dir}/*-PLAN.md
+
+**Phase Context:**
+@${phase_dir}/*-CONTEXT.md
 
 </verification_context>
 

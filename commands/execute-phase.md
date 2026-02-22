@@ -21,10 +21,10 @@ Read STATE.md before any operation to load project context.
 Load all context in one call:
 
 ```bash
-INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}")
+INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}" --include context)
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`, `isolation_mode`, `main_repo_path`, `native_worktree_available`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`, `isolation_mode`, `main_repo_path`, `native_worktree_available`, `context_content`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -163,6 +163,10 @@ Execute each wave in sequence using Agent Teams coordination.
        STATE.md updates must use this main repo path (not your working directory).
        </native_isolation>
 
+       <phase_context>
+       ${context_content or "No CONTEXT.md found for this phase."}
+       </phase_context>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -230,6 +234,10 @@ Execute each wave in sequence using Agent Teams coordination.
        for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
        </worktree>
 
+       <phase_context>
+       ${context_content or "No CONTEXT.md found for this phase."}
+       </phase_context>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -268,7 +276,7 @@ Execute each wave in sequence using Agent Teams coordination.
    )
    ```
 
-   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call.
+   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call. Include `<phase_context>` block in all modes.
 
 3. **Create and assign tasks:**
 
@@ -309,6 +317,10 @@ Execute each wave in sequence using Agent Teams coordination.
        phases_dir: ${phases_dir}
        phase_dir: ${phase_dir}
        codebase_dir: ${codebase_dir}
+
+       <phase_context>
+       ${context_content or "No CONTEXT.md found for this phase."}
+       </phase_context>
 
        Read each plan's PLAN.md and SUMMARY.md.
        Produce ${PHASE_NUMBER}-${WAVE}-REVIEW.md in ${PHASE_DIR}.
@@ -376,6 +388,10 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        STATE.md updates must use this main repo path (not your working directory).
        </native_isolation>
 
+       <phase_context>
+       ${context_content or "No CONTEXT.md found for this phase."}
+       </phase_context>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -435,6 +451,10 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        for all file operations. For Bash commands, use: cd "${WORKTREE_PATH}" && ...
        </worktree>
 
+       <phase_context>
+       ${context_content or "No CONTEXT.md found for this phase."}
+       </phase_context>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -474,7 +494,7 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    )
    ```
 
-   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call. The executor operates in the normal working directory.
+   **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call. Include `<phase_context>` block in all modes. The executor operates in the normal working directory.
 
 3. **Wait for all agents in wave to complete.**
 
@@ -723,6 +743,10 @@ Task(
     phase_dir: ${phase_dir}
     codebase_dir: ${codebase_dir}
 
+    <phase_context>
+    ${context_content or "No CONTEXT.md found for this phase."}
+    </phase_context>
+
     Read each plan's PLAN.md and SUMMARY.md.
     Produce ${PHASE_NUMBER}-REVIEW.md in ${PHASE_DIR}.
   "
@@ -809,7 +833,11 @@ PATHS:
 research_dir: ${research_dir}
 phases_dir: ${phases_dir}
 phase_dir: ${phase_dir}
-codebase_dir: ${codebase_dir}",
+codebase_dir: ${codebase_dir}
+
+<phase_context>
+${context_content or 'No CONTEXT.md found for this phase.'}
+</phase_context>",
   subagent_type="grd:grd-verifier",
   model="{verifier_model}"
 )

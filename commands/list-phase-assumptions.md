@@ -55,6 +55,12 @@ Continue to analyze_phase.
 </step>
 
 <step name="analyze_phase">
+**First, check if CONTEXT.md exists for this phase:**
+```bash
+cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
+```
+If CONTEXT.md exists, incorporate its locked decisions, discretion areas, and deferred ideas into your assumption analysis. Note which assumptions align with or contradict the existing context.
+
 Based on roadmap description and project context, identify assumptions across seven areas:
 
 **1. Technical Approach:**

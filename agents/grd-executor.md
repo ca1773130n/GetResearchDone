@@ -51,6 +51,11 @@ Read the plan file provided in your prompt context.
 
 Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on, verification_level, eval_metrics), objective, context (@-references), tasks with types, verification/success criteria, output spec.
 
+**If `<phase_context>` is provided in your prompt:** Read it carefully.
+- **Decisions** = Non-negotiable — implementation must honor these exactly
+- **Claude's Discretion** = Freedom areas — use your judgment
+- **Deferred Ideas** = Out of scope — do not implement
+
 **If plan references CONTEXT.md:** Honor user's vision throughout execution.
 **If plan has eval_metrics:** Set up experiment tracking before executing tasks.
 **If plan references research papers:** Keep paper techniques in mind during implementation.

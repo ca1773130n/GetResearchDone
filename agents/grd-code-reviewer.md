@@ -42,6 +42,9 @@ cat ${research_dir}/LANDSCAPE.md 2>/dev/null
 cat ${research_dir}/PAPERS.md 2>/dev/null
 cat ${research_dir}/KNOWHOW.md 2>/dev/null
 
+# Phase context (user decisions)
+cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
+
 # Phase eval plan (if exists)
 ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
 ```
@@ -97,7 +100,18 @@ grep -rn "paper\|arxiv\|reference\|based on\|inspired by" ${FILES_MODIFIED}
 **WARNING:** Key parameter differs from paper without documented justification.
 **INFO:** Implementation simplifies paper method with documented rationale.
 
-### 1.3 KNOWHOW.md Pitfall Avoidance
+### 1.3 Context Decision Compliance
+
+If CONTEXT.md exists for this phase (loaded from `<phase_context>` block or read from phase directory):
+- Verify locked decisions are honored in implementation
+- Check that deferred ideas were NOT implemented
+- Confirm discretion areas were handled reasonably
+
+**BLOCKER:** Implementation contradicts a locked decision from CONTEXT.md.
+**WARNING:** Deferred idea was implemented (scope creep).
+**INFO:** Discretion area handled well.
+
+### 1.4 KNOWHOW.md Pitfall Avoidance
 
 If KNOWHOW.md exists, check known failure modes:
 - Read KNOWHOW.md for pitfalls related to this plan's domain
@@ -108,7 +122,7 @@ If KNOWHOW.md exists, check known failure modes:
 **WARNING:** Known pitfall not explicitly addressed (may work, but risky).
 **INFO:** Pitfall addressed differently than KNOWHOW.md suggests.
 
-### 1.4 EVAL.md Criteria Coverage
+### 1.5 EVAL.md Criteria Coverage
 
 If EVAL.md exists for this phase:
 - Check that evaluation metrics can actually be computed from the implementation
