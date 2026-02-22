@@ -142,6 +142,41 @@ describe('currentMilestone', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0.0 Initial Release\n');
     expect(currentMilestone(tmpDir)).toBe('v1.0.0');
   });
+
+  test('infers milestone from disk when STATE.md has no Milestone field', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    const msDir = path.join(tmpDir, '.planning', 'milestones', 'v2.0');
+    fs.mkdirSync(msDir, { recursive: true });
+    expect(currentMilestone(tmpDir)).toBe('v2.0');
+  });
+
+  test('infers milestone from disk when STATE.md does not exist', () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
+    const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.5');
+    fs.mkdirSync(msDir, { recursive: true });
+    expect(currentMilestone(tmpDir)).toBe('v1.5');
+  });
+
+  test('returns anonymous when multiple active milestones exist on disk', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v2.0'), { recursive: true });
+    expect(currentMilestone(tmpDir)).toBe('anonymous');
+  });
+
+  test('ignores archived milestone dirs (ending in -phases) during disk inference', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v2.0'), { recursive: true });
+    expect(currentMilestone(tmpDir)).toBe('v2.0');
+  });
+
+  test('ignores anonymous dir during disk inference', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v3.0'), { recursive: true });
+    expect(currentMilestone(tmpDir)).toBe('v3.0');
+  });
 });
 
 // ─── milestonesDir ────────────────────────────────────────────────────────────
