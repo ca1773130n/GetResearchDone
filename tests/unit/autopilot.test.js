@@ -708,7 +708,7 @@ describe('lib/autopilot', () => {
       expect(result.stopped_at).toContain('plan failed');
     });
 
-    it('stops when plan verification fails (no PLAN.md after spawn)', async () => {
+    it('continues when plan verification fails (no PLAN.md after spawn)', async () => {
       tmpDir = createAutopilotFixture();
       // Spawn succeeds but doesn't create files
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
@@ -716,7 +716,10 @@ describe('lib/autopilot', () => {
       });
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
-      expect(result.stopped_at).toContain('plan verification failed');
+      expect(result.stopped_at).toBeNull();
+      const planResult = result.results.find((r) => r.step === 'plan');
+      expect(planResult.status).toBe('failed');
+      expect(planResult.reason).toContain('no PLAN.md');
     });
 
     it('completes successfully when spawn creates expected files', async () => {
@@ -1006,11 +1009,10 @@ describe('lib/autopilot', () => {
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.phases_completed).toBe(0);
-      expect(result.stopped_at).toContain('execute verification failed');
-      expect(result.results).toHaveLength(2);
+      expect(result.stopped_at).toBeNull();
       expect(result.results[0]).toMatchObject({ step: 'plan', status: 'completed' });
-      expect(result.results[1]).toMatchObject({
-        step: 'execute',
+      const execResult = result.results.find((r) => r.step === 'execute');
+      expect(execResult).toMatchObject({
         status: 'failed',
         reason: 'no SUMMARY.md files found after execution',
       });
