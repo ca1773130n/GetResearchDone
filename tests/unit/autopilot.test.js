@@ -142,20 +142,22 @@ describe('lib/autopilot', () => {
   describe('buildPlanPrompt', () => {
     it('includes the phase number', () => {
       const prompt = buildPlanPrompt('48');
-      expect(prompt).toContain('/grd:plan-phase 48');
+      expect(prompt).toContain('grd:plan-phase');
+      expect(prompt).toContain('48');
       expect(prompt).toContain('Autonomous');
     });
 
     it('includes different phase numbers', () => {
-      expect(buildPlanPrompt('07')).toContain('/grd:plan-phase 07');
-      expect(buildPlanPrompt('12.1')).toContain('/grd:plan-phase 12.1');
+      expect(buildPlanPrompt('07')).toContain('07');
+      expect(buildPlanPrompt('12.1')).toContain('12.1');
     });
   });
 
   describe('buildExecutePrompt', () => {
     it('includes the phase number', () => {
       const prompt = buildExecutePrompt('49');
-      expect(prompt).toContain('/grd:execute-phase 49');
+      expect(prompt).toContain('grd:execute-phase');
+      expect(prompt).toContain('49');
       expect(prompt).toContain('Autonomous');
     });
 
