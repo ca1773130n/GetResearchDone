@@ -177,6 +177,32 @@ describe('currentMilestone', () => {
     fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v3.0'), { recursive: true });
     expect(currentMilestone(tmpDir)).toBe('v3.0');
   });
+
+  test('infers milestone from ROADMAP.md when STATE.md has no Milestone field', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v0.4.0'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v0.3.0-phases'), { recursive: true });
+    const roadmap = '# Roadmap\n\n- v0.3.0 Foundation (shipped)\n- v0.4.0 Verification (in progress)\n';
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    expect(currentMilestone(tmpDir)).toBe('v0.4.0');
+  });
+
+  test('infers from ROADMAP.md even with multiple active milestone dirs', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v1.0'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v2.0'), { recursive: true });
+    const roadmap = '# Roadmap\n\n- v1.0 Alpha (shipped)\n- v2.0 Beta (in progress)\n';
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    expect(currentMilestone(tmpDir)).toBe('v2.0');
+  });
+
+  test('uses last non-shipped ROADMAP.md bullet when no (in progress) marker', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v0.5'), { recursive: true });
+    const roadmap = '# Roadmap\n\n- v0.4 Foundation (shipped)\n- v0.5 Next\n';
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    expect(currentMilestone(tmpDir)).toBe('v0.5');
+  });
 });
 
 // ─── milestonesDir ────────────────────────────────────────────────────────────
