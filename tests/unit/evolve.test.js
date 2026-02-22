@@ -785,32 +785,32 @@ describe('cmdEvolveState', () => {
 });
 
 describe('cmdEvolveDiscover', () => {
-  test('returns structured discovery result', () => {
+  test('returns grouped discovery result', () => {
     const fixture = createDiscoveryFixture();
     const { stdout, exitCode } = captureOutput(() => cmdEvolveDiscover(fixture, [], false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    expect(result).toHaveProperty('selected');
-    expect(result).toHaveProperty('remaining');
-    expect(result).toHaveProperty('all_discovered_count');
-    expect(result).toHaveProperty('merged_count');
-    expect(result).toHaveProperty('items_per_iteration');
-    expect(Array.isArray(result.selected)).toBe(true);
+    expect(result).toHaveProperty('groups');
+    expect(result).toHaveProperty('total_items');
+    expect(result).toHaveProperty('total_groups');
+    expect(result).toHaveProperty('selected_count');
+    expect(result).toHaveProperty('pick_pct');
+    expect(Array.isArray(result.groups)).toBe(true);
   });
 
-  test('raw mode returns selected count string', () => {
+  test('raw mode returns groups count string', () => {
     const fixture = createDiscoveryFixture();
     const { stdout } = captureOutput(() => cmdEvolveDiscover(fixture, [], true));
-    expect(stdout).toMatch(/\d+ items selected/);
+    expect(stdout).toMatch(/\d+ groups \(\d+ items\)/);
   });
 
-  test('respects --count flag', () => {
+  test('respects --pick-pct flag', () => {
     const fixture = createDiscoveryFixture();
     const { stdout } = captureOutput(() =>
-      cmdEvolveDiscover(fixture, ['--count', '2'], false)
+      cmdEvolveDiscover(fixture, ['--pick-pct', '50'], false)
     );
     const result = JSON.parse(stdout);
-    expect(result.items_per_iteration).toBe(2);
+    expect(result.pick_pct).toBe(50);
   });
 });
 
@@ -923,11 +923,15 @@ describe('cmdInitEvolve', () => {
     );
 
     const state = createInitialState('v2.0', 3);
-    state.remaining = [
-      createWorkItem('quality', 'a', 'A', 'desc'),
-      createWorkItem('quality', 'b', 'B', 'desc'),
+    state.pick_pct = 25;
+    state.remaining_groups = [
+      { id: 'quality/test-coverage', items: [], status: 'pending' },
+      { id: 'quality/code-markers', items: [], status: 'pending' },
     ];
-    state.bugfix = [createWorkItem('stability', 'bug1', 'Bug', 'desc', { source: 'bugfix' })];
+    state.completed_groups = [{ id: 'quality/jsdoc-gaps', items: [], status: 'completed' }];
+    state.failed_groups = [];
+    state.groups_count = 3;
+    state.all_items_count = 15;
     writeEvolveState(tmpDir, state);
 
     const { stdout, exitCode } = captureOutput(() => cmdInitEvolve(tmpDir, false));
@@ -935,9 +939,10 @@ describe('cmdInitEvolve', () => {
     const result = JSON.parse(stdout);
     expect(result.evolve_state.exists).toBe(true);
     expect(result.evolve_state.iteration).toBe(1);
-    expect(result.evolve_state.remaining_count).toBe(2);
-    expect(result.evolve_state.bugfix_count).toBe(1);
-    expect(result.config.items_per_iteration).toBe(3);
+    expect(result.evolve_state.remaining_groups_count).toBe(2);
+    expect(result.evolve_state.completed_groups_count).toBe(1);
+    expect(result.evolve_state.groups_count).toBe(3);
+    expect(result.config.pick_pct).toBe(25);
   });
 
   test('raw mode returns JSON string', () => {
@@ -1593,6 +1598,17 @@ describe('cmdEvolve', () => {
 
     const result = JSON.parse(stdout);
     expect(result.iterations_completed).toBe(1);
+  });
+
+  test('parses --pick-pct flag correctly', async () => {
+    const fixture = createDiscoveryFixture();
+    const { stdout } = await captureAsyncOutput(() =>
+      cmdEvolve(fixture, ['--pick-pct', '50', '--dry-run'], false)
+    );
+
+    const result = JSON.parse(stdout);
+    expect(result.results[0].status).toBe('dry-run');
+    expect(result.results[0].groups_per_iteration).toBeGreaterThanOrEqual(1);
   });
 
   test('dry-run returns grouped output', async () => {
