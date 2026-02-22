@@ -2675,13 +2675,21 @@ describe('cmdRequirementGet', () => {
     expect(parsed.id).toBe('REQ-999');
   });
 
-  test('raw=true produces JSON output', () => {
+  test('raw=false produces JSON output', () => {
     const { stdout, exitCode } = captureOutput(() => {
-      cmdRequirementGet(fixtureDir, 'REQ-01', true);
+      cmdRequirementGet(fixtureDir, 'REQ-01', false);
     });
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.id).toBe('REQ-01');
+  });
+
+  test('raw=true produces human-readable text output', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdRequirementGet(fixtureDir, 'REQ-01', true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('REQ-01');
   });
 });
 
@@ -3082,7 +3090,7 @@ describe('cmdRequirementUpdateStatus', () => {
     expect(updateExit).toBe(0);
 
     const { stdout, exitCode: getExit } = captureOutput(() => {
-      cmdRequirementGet(fixtureDir, 'REQ-02', true);
+      cmdRequirementGet(fixtureDir, 'REQ-02', false);
     });
     expect(getExit).toBe(0);
     const result = parseFirstJson(stdout);
