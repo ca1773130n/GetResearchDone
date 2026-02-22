@@ -2,9 +2,11 @@
  * Unit tests for lib/autopilot.js
  *
  * Tests autopilot orchestration: phase range resolution, plan/execute detection,
- * prompt building, status markers, state updates, spawn wrapper, and the main loop.
+ * prompt building, status markers, state updates, spawn wrapper, and the main loop
+ * with dependency-aware parallel planning.
  */
 
+const EventEmitter = require('events');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -21,6 +23,8 @@ const {
   writeStatusMarker,
   updateStateProgress,
   spawnClaude,
+  spawnClaudeAsync,
+  buildWaves,
   runAutopilot,
   cmdAutopilot,
   cmdInitAutopilot,
@@ -56,7 +60,11 @@ function createAutopilotFixture(opts = {}) {
 
   let roadmap = '# Roadmap\n\n## v1.0 Test Milestone\n\n';
   for (const p of phases) {
-    roadmap += `### Phase ${p.num}: ${p.name}\n\n**Goal:** Build ${p.name}\n\n`;
+    roadmap += `### Phase ${p.num}: ${p.name}\n\n**Goal:** Build ${p.name}\n`;
+    if (p.depends_on) {
+      roadmap += `**Depends on:** ${p.depends_on}\n`;
+    }
+    roadmap += '\n';
   }
   fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmap);
 
@@ -78,6 +86,52 @@ function createAutopilotFixture(opts = {}) {
   }
 
   return tmpRoot;
+}
+
+/** Create a mock child process EventEmitter for spawn tests */
+function createMockChild(exitCode = 0) {
+  const child = new EventEmitter();
+  child.kill = jest.fn(() => {
+    // When killed, emit close with null code
+    process.nextTick(() => child.emit('close', null));
+  });
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  // Schedule close event on next tick
+  process.nextTick(() => child.emit('close', exitCode));
+  return child;
+}
+
+/** Capture stdout from an async function (handles process.exit) */
+async function captureOutputAsync(fn) {
+  let captured = '';
+  const EXIT_SENTINEL = '__GRD_TEST_EXIT__';
+
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+    const err = new Error(EXIT_SENTINEL);
+    err.__EXIT__ = true;
+    err.code = code;
+    throw err;
+  });
+
+  const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+    captured += data;
+    return true;
+  });
+
+  try {
+    await fn();
+  } catch (e) {
+    if (!(e && e.__EXIT__)) {
+      writeSpy.mockRestore();
+      exitSpy.mockRestore();
+      throw e;
+    }
+  } finally {
+    writeSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+  return { stdout: captured };
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -413,11 +467,153 @@ describe('lib/autopilot', () => {
     });
   });
 
+  // ── spawnClaudeAsync ──
+
+  describe('spawnClaudeAsync', () => {
+    let spawnSpy;
+
+    afterEach(() => {
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = null;
+      }
+    });
+
+    it('calls spawn with correct arguments and stdio pipe', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0);
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something');
+      expect(result.exitCode).toBe(0);
+      expect(result.timedOut).toBe(false);
+
+      expect(spawnSpy).toHaveBeenCalledWith(
+        'claude',
+        expect.arrayContaining(['-p', 'Run something', '--verbose']),
+        expect.objectContaining({ cwd: '/test', stdio: 'pipe' })
+      );
+    });
+
+    it('passes max-turns and model flags', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0);
+      });
+
+      await spawnClaudeAsync('/test', 'Run something', { maxTurns: 50, model: 'opus' });
+      const callArgs = spawnSpy.mock.calls[0][1];
+      expect(callArgs).toContain('--max-turns');
+      expect(callArgs).toContain('50');
+      expect(callArgs).toContain('--model');
+      expect(callArgs).toContain('opus');
+    });
+
+    it('returns non-zero exit code on failure', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(1);
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something');
+      expect(result.exitCode).toBe(1);
+      expect(result.timedOut).toBe(false);
+    });
+
+    it('handles timeout by killing child process', async () => {
+      jest.useFakeTimers();
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn(() => {
+          // Emit close after kill
+          process.nextTick(() => child.emit('close', null));
+        });
+        // Never emits close naturally — simulates a hanging process
+        return child;
+      });
+
+      const promise = spawnClaudeAsync('/test', 'Run something', { timeout: 5000 });
+      jest.advanceTimersByTime(5000);
+      const result = await promise;
+
+      expect(result.exitCode).toBe(124);
+      expect(result.timedOut).toBe(true);
+      jest.useRealTimers();
+    });
+
+    it('handles spawn error', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+        process.nextTick(() => child.emit('error', new Error('spawn ENOENT')));
+        return child;
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something');
+      expect(result.exitCode).toBe(1);
+      expect(result.timedOut).toBe(false);
+    });
+  });
+
+  // ── buildWaves ──
+
+  describe('buildWaves', () => {
+    it('puts all phases in single wave when no dependencies', () => {
+      const phases = [
+        { number: '48', name: 'A', depends_on: null },
+        { number: '49', name: 'B', depends_on: null },
+        { number: '50', name: 'C', depends_on: null },
+      ];
+      const waves = buildWaves(phases);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['48', '49', '50']);
+    });
+
+    it('separates phases into multiple waves based on dependencies', () => {
+      const phases = [
+        { number: '48', name: 'A', depends_on: null },
+        { number: '49', name: 'B', depends_on: null },
+        { number: '50', name: 'C', depends_on: 'Phase 48, Phase 49' },
+      ];
+      const waves = buildWaves(phases);
+      expect(waves).toHaveLength(2);
+      expect(waves[0]).toEqual(['48', '49']);
+      expect(waves[1]).toEqual(['50']);
+    });
+
+    it('handles chain dependencies across 3 waves', () => {
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: 'Phase 1' },
+        { number: '3', name: 'C', depends_on: 'Phase 2' },
+      ];
+      const waves = buildWaves(phases);
+      expect(waves).toHaveLength(3);
+      expect(waves[0]).toEqual(['1']);
+      expect(waves[1]).toEqual(['2']);
+      expect(waves[2]).toEqual(['3']);
+    });
+
+    it('handles empty phases array', () => {
+      const waves = buildWaves([]);
+      expect(waves).toEqual([]);
+    });
+
+    it('handles "Nothing" depends_on', () => {
+      const phases = [
+        { number: '1', name: 'A', depends_on: 'Nothing' },
+        { number: '2', name: 'B', depends_on: 'Nothing' },
+      ];
+      const waves = buildWaves(phases);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2']);
+    });
+  });
+
   // ── runAutopilot ──
 
   describe('runAutopilot', () => {
     let tmpDir;
     let spawnSyncSpy;
+    let spawnSpy;
 
     afterEach(() => {
       if (tmpDir) {
@@ -428,44 +624,55 @@ describe('lib/autopilot', () => {
         spawnSyncSpy.mockRestore();
         spawnSyncSpy = null;
       }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = null;
+      }
     });
 
-    it('returns error when no ROADMAP.md', () => {
+    it('returns error when no ROADMAP.md', async () => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
       fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), '# State\n');
 
-      const result = runAutopilot(tmpDir);
+      const result = await runAutopilot(tmpDir);
       expect(result.phases_attempted).toBe(0);
       expect(result.stopped_at).toBeTruthy();
     });
 
-    it('dry-run mode shows phases without executing', () => {
+    it('dry-run mode shows phases without executing', async () => {
       tmpDir = createAutopilotFixture();
-      const result = runAutopilot(tmpDir, { dryRun: true });
+      const result = await runAutopilot(tmpDir, { dryRun: true });
       expect(result.phases_completed).toBe(3);
       expect(result.results.length).toBeGreaterThan(0);
       expect(result.results[0].status).toBe('dry-run');
       expect(result.results[0].prompt).toBeTruthy();
     });
 
-    it('skip-plan only runs execute steps in dry-run', () => {
+    it('dry-run includes waves in output', async () => {
       tmpDir = createAutopilotFixture();
-      const result = runAutopilot(tmpDir, { dryRun: true, skipPlan: true });
+      const result = await runAutopilot(tmpDir, { dryRun: true });
+      expect(result.waves).toBeDefined();
+      expect(result.waves.length).toBeGreaterThan(0);
+    });
+
+    it('skip-plan only runs execute steps in dry-run', async () => {
+      tmpDir = createAutopilotFixture();
+      const result = await runAutopilot(tmpDir, { dryRun: true, skipPlan: true });
       const steps = result.results.map((r) => r.step);
       expect(steps).not.toContain('plan');
       expect(steps).toContain('execute');
     });
 
-    it('skip-execute only runs plan steps in dry-run', () => {
+    it('skip-execute only runs plan steps in dry-run', async () => {
       tmpDir = createAutopilotFixture();
-      const result = runAutopilot(tmpDir, { dryRun: true, skipExecute: true });
+      const result = await runAutopilot(tmpDir, { dryRun: true, skipExecute: true });
       const steps = result.results.map((r) => r.step);
       expect(steps).toContain('plan');
       expect(steps).not.toContain('execute');
     });
 
-    it('resume skips already planned/executed phases', () => {
+    it('resume skips already planned/executed phases', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -478,7 +685,7 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      const result = runAutopilot(tmpDir, { dryRun: true, resume: true, from: '48', to: '48' });
+      const result = await runAutopilot(tmpDir, { dryRun: true, resume: true, from: '48', to: '48' });
       expect(result.results).toHaveLength(2);
       expect(result.results[0].status).toBe('skipped');
       expect(result.results[0].reason).toContain('already planned');
@@ -486,32 +693,31 @@ describe('lib/autopilot', () => {
       expect(result.results[1].reason).toContain('already executed');
     });
 
-    it('stops on plan failure', () => {
+    it('stops on plan failure', async () => {
       tmpDir = createAutopilotFixture();
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
-        status: 1,
-        error: null,
+      // Plan step uses spawn (async)
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(1);
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '50' });
+      const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
       expect(result.phases_completed).toBe(0);
       expect(result.stopped_at).toContain('Phase 48');
       expect(result.stopped_at).toContain('plan failed');
     });
 
-    it('stops when plan verification fails (no PLAN.md after spawn)', () => {
+    it('stops when plan verification fails (no PLAN.md after spawn)', async () => {
       tmpDir = createAutopilotFixture();
       // Spawn succeeds but doesn't create files
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
-        status: 0,
-        error: null,
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0);
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '48' });
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.stopped_at).toContain('plan verification failed');
     });
 
-    it('completes successfully when spawn creates expected files', () => {
+    it('completes successfully when spawn creates expected files', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -521,21 +727,21 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      let callCount = 0;
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
-        callCount++;
+      // Plan step (async spawn) — create PLAN.md
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
-        if (callCount === 1) {
-          // Plan step — create PLAN.md
-          fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
-        } else if (callCount === 2) {
-          // Execute step — create SUMMARY.md
-          fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
-        }
+        fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        return createMockChild(0);
+      });
+
+      // Execute step (sync spawnSync) — create SUMMARY.md
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
+        fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
         return { status: 0, error: null };
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '48' });
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.phases_completed).toBe(1);
       expect(result.stopped_at).toBeNull();
       expect(result.results).toHaveLength(2);
@@ -543,7 +749,7 @@ describe('lib/autopilot', () => {
       expect(result.results[1]).toMatchObject({ step: 'execute', status: 'completed' });
     });
 
-    it('handles timeout during execution', () => {
+    it('handles timeout during execution', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -561,13 +767,13 @@ describe('lib/autopilot', () => {
         error: timeoutError,
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '48', skipPlan: true });
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48', skipPlan: true });
       expect(result.stopped_at).toContain('timeout');
     });
 
-    it('respects --from and --to in the loop', () => {
+    it('respects --from and --to in the loop', async () => {
       tmpDir = createAutopilotFixture();
-      const result = runAutopilot(tmpDir, { dryRun: true, from: '49', to: '49' });
+      const result = await runAutopilot(tmpDir, { dryRun: true, from: '49', to: '49' });
       expect(result.phases_attempted).toBe(1);
       const phases = [...new Set(result.results.map((r) => r.phase))];
       expect(phases).toEqual(['49']);
@@ -591,27 +797,26 @@ describe('lib/autopilot', () => {
       }
     });
 
-    it('outputs JSON result', () => {
+    it('outputs JSON result', async () => {
       tmpDir = createAutopilotFixture();
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run', '--from', '48', '--to', '48'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--from', '48', '--to', '48'], false)
+      );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
       expect(result.results).toHaveLength(2);
     });
 
-    it('parses --timeout flag', () => {
+    it('parses --timeout flag', async () => {
       tmpDir = createAutopilotFixture();
-      // dry-run so no actual spawning
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run', '--timeout', '60', '--from', '48', '--to', '48'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--timeout', '60', '--from', '48', '--to', '48'], false)
+      );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
     });
 
-    it('parses --resume and --skip-plan flags', () => {
+    it('parses --resume and --skip-plan flags', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -624,9 +829,9 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run', '--resume', '--from', '48', '--to', '48'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--resume', '--from', '48', '--to', '48'], false)
+      );
       const result = JSON.parse(stdout);
       expect(result.results[0].status).toBe('skipped');
     });
@@ -752,11 +957,12 @@ describe('lib/autopilot', () => {
     });
   });
 
-  // ── runAutopilot execute verification failure (lines 310-318) ──
+  // ── runAutopilot execute verification failure ──
 
   describe('runAutopilot execute verification', () => {
     let tmpDir;
     let spawnSyncSpy;
+    let spawnSpy;
 
     afterEach(() => {
       if (tmpDir) {
@@ -767,9 +973,13 @@ describe('lib/autopilot', () => {
         spawnSyncSpy.mockRestore();
         spawnSyncSpy = null;
       }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = null;
+      }
     });
 
-    it('stops when execute verification fails (no SUMMARY.md after successful spawn)', () => {
+    it('stops when execute verification fails (no SUMMARY.md after successful spawn)', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -779,19 +989,20 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      let callCount = 0;
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
-        callCount++;
+      // Plan step (async) — create PLAN.md
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
-        if (callCount === 1) {
-          // Plan step — create PLAN.md so plan verification passes
-          fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
-        }
-        // Execute step (callCount === 2) — deliberately do NOT create SUMMARY.md
-        return { status: 0, error: null };
+        fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        return createMockChild(0);
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '48' });
+      // Execute step (sync) — do NOT create SUMMARY.md
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.phases_completed).toBe(0);
       expect(result.stopped_at).toContain('execute verification failed');
       expect(result.results).toHaveLength(2);
@@ -808,7 +1019,7 @@ describe('lib/autopilot', () => {
       expect(marker.status).toBe('failed');
     });
 
-    it('runAutopilot with 3 phases completes all when files are created', () => {
+    it('runAutopilot with 3 phases completes all when files are created', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           { dir: '48-first-feature', files: {} },
@@ -817,29 +1028,38 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      let callCount = 0;
       const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
       const nums = ['48', '49', '50'];
 
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
-        callCount++;
-        const phaseIndex = Math.floor((callCount - 1) / 2);
-        const isPlan = callCount % 2 === 1;
-        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[phaseIndex]);
+      // Plan step (async spawn) — create PLAN.md for whichever phase is being planned
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+        // Extract phase number from prompt
+        const prompt = args[1]; // -p <prompt>
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`plan-phase ${nums[i]}`)) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-PLAN.md`), '# Plan');
+          }
+        }
+        return createMockChild(0);
+      });
 
-        if (isPlan) {
-          fs.writeFileSync(path.join(phaseDir, `${nums[phaseIndex]}-01-PLAN.md`), '# Plan');
-        } else {
-          fs.writeFileSync(path.join(phaseDir, `${nums[phaseIndex]}-01-SUMMARY.md`), '# Summary');
+      // Execute step (sync spawnSync) — create SUMMARY.md
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+        const prompt = args[1];
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`execute-phase ${nums[i]}`)) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-SUMMARY.md`), '# Summary');
+          }
         }
         return { status: 0, error: null };
       });
 
-      const result = runAutopilot(tmpDir, { from: '48', to: '50' });
+      const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
       expect(result.phases_completed).toBe(3);
       expect(result.stopped_at).toBeNull();
       expect(result.results).toHaveLength(6);
-      // All results should be completed
       result.results.forEach((r) => {
         expect(r.status).toBe('completed');
       });
@@ -987,45 +1207,45 @@ describe('lib/autopilot', () => {
       }
     });
 
-    it('parses --max-turns flag correctly', () => {
+    it('parses --max-turns flag correctly', async () => {
       tmpDir = createAutopilotFixture();
-      const { stdout } = captureOutput(() => {
+      const { stdout } = await captureOutputAsync(() =>
         cmdAutopilot(
           tmpDir,
           ['--dry-run', '--max-turns', '100', '--from', '48', '--to', '48'],
           false
-        );
-      });
+        )
+      );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
       expect(result.phases_completed).toBe(1);
     });
 
-    it('parses --model flag correctly', () => {
+    it('parses --model flag correctly', async () => {
       tmpDir = createAutopilotFixture();
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run', '--model', 'opus', '--from', '48', '--to', '48'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--model', 'opus', '--from', '48', '--to', '48'], false)
+      );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
     });
 
-    it('parses --skip-execute flag correctly', () => {
+    it('parses --skip-execute flag correctly', async () => {
       tmpDir = createAutopilotFixture();
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run', '--skip-execute', '--from', '48', '--to', '48'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--skip-execute', '--from', '48', '--to', '48'], false)
+      );
       const result = JSON.parse(stdout);
       const steps = result.results.map((r) => r.step);
       expect(steps).toContain('plan');
       expect(steps).not.toContain('execute');
     });
 
-    it('processes all phases when no --from/--to flags given', () => {
+    it('processes all phases when no --from/--to flags given', async () => {
       tmpDir = createAutopilotFixture();
-      const { stdout } = captureOutput(() => {
-        cmdAutopilot(tmpDir, ['--dry-run'], false);
-      });
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run'], false)
+      );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(3);
       expect(result.phases_completed).toBe(3);
@@ -1074,6 +1294,7 @@ describe('lib/autopilot', () => {
   describe('runAutopilot edge cases', () => {
     let tmpDir;
     let spawnSyncSpy;
+    let spawnSpy;
 
     afterEach(() => {
       if (tmpDir) {
@@ -1084,11 +1305,15 @@ describe('lib/autopilot', () => {
         spawnSyncSpy.mockRestore();
         spawnSyncSpy = null;
       }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = null;
+      }
     });
 
-    it('both skipPlan and skipExecute produces empty results but counts phases', () => {
+    it('both skipPlan and skipExecute produces empty results but counts phases', async () => {
       tmpDir = createAutopilotFixture();
-      const result = runAutopilot(tmpDir, {
+      const result = await runAutopilot(tmpDir, {
         dryRun: true,
         skipPlan: true,
         skipExecute: true,
@@ -1098,7 +1323,7 @@ describe('lib/autopilot', () => {
       expect(result.stopped_at).toBeNull();
     });
 
-    it('passes custom timeout to spawnClaude (converted to ms)', () => {
+    it('passes custom timeout to spawnClaude (converted to ms)', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -1108,16 +1333,22 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
-        // Create plan file so we don't fail
+      // Plan step (async)
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        return createMockChild(0);
+      });
+
+      // Execute step (sync)
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
         return { status: 0, error: null };
       });
 
-      runAutopilot(tmpDir, { from: '48', to: '48', timeout: 60 });
-      // timeout is 60 minutes * 60 * 1000 = 3,600,000ms
+      await runAutopilot(tmpDir, { from: '48', to: '48', timeout: 60 });
+      // timeout is 60 minutes * 60 * 1000 = 3,600,000ms — checked on the sync spawnSync call
       expect(spawnSyncSpy).toHaveBeenCalledWith(
         'claude',
         expect.any(Array),
@@ -1125,7 +1356,7 @@ describe('lib/autopilot', () => {
       );
     });
 
-    it('passes model override through to spawnClaude', () => {
+    it('passes model override through to spawnClaude', async () => {
       tmpDir = createAutopilotFixture({
         phaseDirs: [
           {
@@ -1135,14 +1366,21 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+      // Plan step (async)
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        return createMockChild(0);
+      });
+
+      // Execute step (sync)
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
         fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
         return { status: 0, error: null };
       });
 
-      runAutopilot(tmpDir, { from: '48', to: '48', model: 'haiku' });
+      await runAutopilot(tmpDir, { from: '48', to: '48', model: 'haiku' });
       const callArgs = spawnSyncSpy.mock.calls[0][1];
       expect(callArgs).toContain('--model');
       expect(callArgs).toContain('haiku');
@@ -1183,6 +1421,141 @@ describe('lib/autopilot', () => {
       expect(fs.existsSync(path.join(dir, 'phase-1-plan.json'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'phase-12.1-plan.json'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'phase-99-plan.json'))).toBe(true);
+    });
+  });
+
+  // ── Parallel planning ──
+
+  describe('parallel planning', () => {
+    let tmpDir;
+    let spawnSpy;
+    let spawnSyncSpy;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = null;
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = null;
+      }
+    });
+
+    it('plans independent phases in parallel (multiple spawn calls before resolution)', async () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [
+          { dir: '48-first-feature', files: {} },
+          { dir: '49-second-feature', files: {} },
+          { dir: '50-third-feature', files: {} },
+        ],
+      });
+
+      const spawnCallTimes = [];
+      const resolvers = [];
+
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+        spawnCallTimes.push(Date.now());
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+
+        // Extract phase number and create plan files
+        const prompt = args[1];
+        const nums = ['48', '49', '50'];
+        const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`plan-phase ${nums[i]}`)) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-PLAN.md`), '# Plan');
+          }
+        }
+
+        // Delay resolution to prove parallelism
+        resolvers.push(() => child.emit('close', 0));
+        return child;
+      });
+
+      // Execute step (sync)
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+        const prompt = args[1];
+        const nums = ['48', '49', '50'];
+        const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`execute-phase ${nums[i]}`)) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-SUMMARY.md`), '# Summary');
+          }
+        }
+        return { status: 0, error: null };
+      });
+
+      const promise = runAutopilot(tmpDir, { from: '48', to: '50' });
+
+      // Wait for spawn calls to be made (async, so use nextTick)
+      await new Promise((r) => setImmediate(r));
+
+      // All 3 phases should have been spawned before any resolved
+      expect(spawnSpy).toHaveBeenCalledTimes(3);
+
+      // Now resolve all
+      resolvers.forEach((r) => r());
+
+      const result = await promise;
+      expect(result.phases_completed).toBe(3);
+      expect(result.stopped_at).toBeNull();
+    });
+
+    it('respects dependency waves — dependent phases wait for earlier wave', async () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '48', name: 'First Feature' },
+          { num: '49', name: 'Second Feature' },
+          { num: '50', name: 'Third Feature', depends_on: 'Phase 48' },
+        ],
+        phaseDirs: [
+          { dir: '48-first-feature', files: {} },
+          { dir: '49-second-feature', files: {} },
+          { dir: '50-third-feature', files: {} },
+        ],
+      });
+
+      const spawnOrder = [];
+      const nums = ['48', '49', '50'];
+      const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
+
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+        const prompt = args[1];
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`plan-phase ${nums[i]}`)) {
+            spawnOrder.push(nums[i]);
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-PLAN.md`), '# Plan');
+          }
+        }
+        return createMockChild(0);
+      });
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+        const prompt = args[1];
+        for (let i = 0; i < nums.length; i++) {
+          if (prompt.includes(`execute-phase ${nums[i]}`)) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', dirs[i]);
+            fs.writeFileSync(path.join(phaseDir, `${nums[i]}-01-SUMMARY.md`), '# Summary');
+          }
+        }
+        return { status: 0, error: null };
+      });
+
+      const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
+
+      expect(result.phases_completed).toBe(3);
+      expect(result.waves).toHaveLength(2);
+      expect(result.waves[0]).toEqual(['48', '49']);
+      expect(result.waves[1]).toEqual(['50']);
     });
   });
 

@@ -1542,10 +1542,10 @@ describe('autopilot commands', () => {
       step: 'plan',
       status: 'skipped',
     });
-    // Phase 1 execute should still be dry-run
+    // Wave-based: after phase 1 plan skip, next is phase 2 plan (all plans in wave first)
     expect(data.results[1]).toMatchObject({
-      phase: '1',
-      step: 'execute',
+      phase: '2',
+      step: 'plan',
       status: 'dry-run',
     });
   });
@@ -1732,7 +1732,7 @@ describe('v0.2.7 integration regression', () => {
     expect(typeof data.healthy).toBe('boolean');
   });
 
-  test('autopilot dry-run produces correct phase sequence 1-1-2-2-3-3', () => {
+  test('autopilot dry-run produces correct wave-based sequence', () => {
     v027Dir = createMilestoneScopedFixture();
     const { stdout, exitCode } = runCLI(
       ['autopilot', '--dry-run', '--from', '1', '--to', '3'],
@@ -1741,10 +1741,11 @@ describe('v0.2.7 integration regression', () => {
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data.results).toHaveLength(6);
+    // Wave-based: all plans in wave first, then all executes
     const phases = data.results.map((r) => r.phase);
-    expect(phases).toEqual(['1', '1', '2', '2', '3', '3']);
+    expect(phases).toEqual(['1', '2', '3', '1', '2', '3']);
     const steps = data.results.map((r) => r.step);
-    expect(steps).toEqual(['plan', 'execute', 'plan', 'execute', 'plan', 'execute']);
+    expect(steps).toEqual(['plan', 'plan', 'plan', 'execute', 'execute', 'execute']);
   });
 
   test('full GRD workflow cycle in a single test', () => {
@@ -1786,10 +1787,10 @@ describe('v0.2.7 integration regression', () => {
       step: 'plan',
       status: 'skipped',
     });
-    // Phase 1 execute still runs
+    // Wave-based: after phase 1 plan skip, next is phase 2 plan (all plans in wave first)
     expect(data.results[1]).toMatchObject({
-      phase: '1',
-      step: 'execute',
+      phase: '2',
+      step: 'plan',
       status: 'dry-run',
     });
   });

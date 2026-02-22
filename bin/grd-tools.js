@@ -699,7 +699,9 @@ function routeCommand(command, args, cwd, raw) {
       break;
     }
     case 'autopilot':
-      cmdAutopilot(cwd, args.slice(1), raw);
+      cmdAutopilot(cwd, args.slice(1), raw).catch((err) => {
+        error(err.message);
+      });
       break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
