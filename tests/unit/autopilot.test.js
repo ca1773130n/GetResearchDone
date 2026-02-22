@@ -1588,8 +1588,8 @@ describe('lib/autopilot', () => {
   // ── DEFAULT_TIMEOUT_MINUTES ──
 
   describe('DEFAULT_TIMEOUT_MINUTES', () => {
-    it('is 30 minutes', () => {
-      expect(DEFAULT_TIMEOUT_MINUTES).toBe(30);
+    it('is undefined (no timeout by default)', () => {
+      expect(DEFAULT_TIMEOUT_MINUTES).toBeUndefined();
     });
   });
 });
