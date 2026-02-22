@@ -25,6 +25,8 @@ const {
   EVOLVE_STATE_FILENAME,
   WORK_ITEM_DIMENSIONS,
   DEFAULT_ITEMS_PER_ITERATION,
+  DEFAULT_PICK_PCT,
+  THEME_PATTERNS,
   SONNET_MODEL,
   createWorkItem,
   evolveStatePath,
@@ -36,10 +38,15 @@ const {
   analyzeCodebaseForItems,
   scoreWorkItem,
   selectPriorityItems,
+  groupDiscoveredItems,
+  selectPriorityGroups,
   runDiscovery,
+  runGroupDiscovery,
   buildPlanPrompt,
   buildExecutePrompt,
   buildReviewPrompt,
+  buildGroupExecutePrompt,
+  buildGroupReviewPrompt,
   writeEvolutionNotes,
   runEvolve,
   cmdEvolve,
@@ -951,6 +958,332 @@ describe('cmdInitEvolve', () => {
   });
 });
 
+// ─── THEME_PATTERNS constant ────────────────────────────────────────────────
+
+describe('THEME_PATTERNS', () => {
+  test('is an array of objects with pattern and theme fields', () => {
+    expect(Array.isArray(THEME_PATTERNS)).toBe(true);
+    for (const entry of THEME_PATTERNS) {
+      expect(entry).toHaveProperty('pattern');
+      expect(entry).toHaveProperty('theme');
+      expect(entry.pattern).toBeInstanceOf(RegExp);
+      expect(typeof entry.theme).toBe('string');
+    }
+  });
+
+  test('has at least 10 patterns', () => {
+    expect(THEME_PATTERNS.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+// ─── groupDiscoveredItems ───────────────────────────────────────────────────
+
+describe('groupDiscoveredItems', () => {
+  test('groups items by matching slug pattern into themes', () => {
+    const items = [
+      createWorkItem('quality', 'improve-coverage-state', 'Cover state', 'Desc'),
+      createWorkItem('quality', 'improve-coverage-phase', 'Cover phase', 'Desc'),
+      createWorkItem('usability', 'add-jsdoc-utils-fn1', 'JSDoc fn1', 'Desc'),
+    ];
+    const groups = groupDiscoveredItems(items);
+    const coverageGroup = groups.find((g) => g.theme === 'test-coverage');
+    expect(coverageGroup).toBeDefined();
+    expect(coverageGroup.items).toHaveLength(2);
+    const jsdocGroup = groups.find((g) => g.theme === 'jsdoc-gaps');
+    expect(jsdocGroup).toBeDefined();
+    expect(jsdocGroup.items).toHaveLength(1);
+  });
+
+  test('unmatched items go to dimension/miscellaneous groups', () => {
+    const items = [
+      createWorkItem('quality', 'something-random', 'Random', 'Desc'),
+    ];
+    const groups = groupDiscoveredItems(items);
+    const misc = groups.find((g) => g.theme === 'miscellaneous' && g.dimension === 'quality');
+    expect(misc).toBeDefined();
+    expect(misc.items).toHaveLength(1);
+  });
+
+  test('group id is dimension/theme', () => {
+    const items = [
+      createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch', 'Desc'),
+    ];
+    const groups = groupDiscoveredItems(items);
+    expect(groups[0].id).toBe('stability/empty-catch-blocks');
+  });
+
+  test('group effort derived from item count', () => {
+    const small = [createWorkItem('quality', 'improve-coverage-a', 'A', 'D')];
+    const medium = [];
+    for (let i = 0; i < 5; i++) {
+      medium.push(createWorkItem('quality', `improve-coverage-m${i}`, `M${i}`, 'D'));
+    }
+    const large = [];
+    for (let i = 0; i < 10; i++) {
+      large.push(createWorkItem('quality', `improve-coverage-l${i}`, `L${i}`, 'D'));
+    }
+
+    const smallGroups = groupDiscoveredItems(small);
+    expect(smallGroups[0].effort).toBe('small');
+    const medGroups = groupDiscoveredItems(medium);
+    expect(medGroups[0].effort).toBe('medium');
+    const lgGroups = groupDiscoveredItems(large);
+    expect(lgGroups[0].effort).toBe('large');
+  });
+
+  test('group priority is weighted aggregate: sum(scores)/count', () => {
+    const items = [
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'small', source: 'bugfix' }),
+      createWorkItem('quality', 'improve-coverage-b', 'B', 'D', { effort: 'large', source: 'carryover' }),
+    ];
+    const groups = groupDiscoveredItems(items);
+    const group = groups.find((g) => g.theme === 'test-coverage');
+    const expectedPriority = (scoreWorkItem(items[0]) + scoreWorkItem(items[1])) / 2;
+    expect(group.priority).toBe(expectedPriority);
+  });
+
+  test('groups are sorted by priority descending', () => {
+    const items = [
+      createWorkItem('new-features', 'mcp-tool-foo', 'MCP foo', 'D', { effort: 'large' }),
+      createWorkItem('quality', 'improve-coverage-a', 'Cov A', 'D', { effort: 'small', source: 'bugfix' }),
+    ];
+    const groups = groupDiscoveredItems(items);
+    for (let i = 0; i < groups.length - 1; i++) {
+      expect(groups[i].priority).toBeGreaterThanOrEqual(groups[i + 1].priority);
+    }
+  });
+
+  test('returns empty array for empty input', () => {
+    expect(groupDiscoveredItems([])).toEqual([]);
+  });
+
+  test('all groups have status pending', () => {
+    const items = [
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D'),
+      createWorkItem('stability', 'fix-empty-catch-b-L5', 'B', 'D'),
+    ];
+    const groups = groupDiscoveredItems(items);
+    for (const g of groups) {
+      expect(g.status).toBe('pending');
+    }
+  });
+});
+
+// ─── selectPriorityGroups ───────────────────────────────────────────────────
+
+describe('selectPriorityGroups', () => {
+  function makeGroups() {
+    const items = [
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'small', source: 'bugfix' }),
+      createWorkItem('quality', 'improve-coverage-b', 'B', 'D'),
+      createWorkItem('stability', 'fix-empty-catch-x-L1', 'X', 'D'),
+      createWorkItem('new-features', 'mcp-tool-foo', 'Foo', 'D', { effort: 'large' }),
+      createWorkItem('usability', 'add-jsdoc-utils-fn', 'JSDoc', 'D'),
+      createWorkItem('consistency', 'add-module-header-a', 'Header A', 'D'),
+      createWorkItem('consistency', 'add-module-header-b', 'Header B', 'D'),
+    ];
+    return groupDiscoveredItems(items);
+  }
+
+  test('selects correct number based on percentage (ceil, min 1)', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 20);
+    expect(result.selected.length).toBe(1);
+    expect(result.remaining.length).toBe(groups.length - 1);
+  });
+
+  test('minimum 1 group even at low percentage', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 1);
+    expect(result.selected.length).toBe(1);
+  });
+
+  test('100% selects all groups', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 100);
+    expect(result.selected.length).toBe(groups.length);
+    expect(result.remaining.length).toBe(0);
+  });
+
+  test('selected groups have status=selected', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 50);
+    for (const g of result.selected) {
+      expect(g.status).toBe('selected');
+    }
+  });
+
+  test('remaining groups retain status=pending', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 20);
+    for (const g of result.remaining) {
+      expect(g.status).toBe('pending');
+    }
+  });
+
+  test('selected groups are highest priority (already sorted input)', () => {
+    const groups = makeGroups();
+    const result = selectPriorityGroups(groups, 40);
+    if (result.selected.length > 0 && result.remaining.length > 0) {
+      const lowestSelected = result.selected[result.selected.length - 1].priority;
+      const highestRemaining = result.remaining[0].priority;
+      expect(lowestSelected).toBeGreaterThanOrEqual(highestRemaining);
+    }
+  });
+
+  test('empty input returns empty selected and remaining', () => {
+    const result = selectPriorityGroups([], 15);
+    expect(result.selected).toEqual([]);
+    expect(result.remaining).toEqual([]);
+  });
+});
+
+// ─── buildGroupExecutePrompt ────────────────────────────────────────────────
+
+describe('buildGroupExecutePrompt', () => {
+  const group = {
+    id: 'quality/test-coverage',
+    theme: 'test-coverage',
+    dimension: 'quality',
+    title: 'Test Coverage (quality)',
+    items: [
+      createWorkItem('quality', 'improve-coverage-state', 'Cover state.js', 'state.js at 62%'),
+      createWorkItem('quality', 'improve-coverage-phase', 'Cover phase.js', 'phase.js at 71%'),
+    ],
+    priority: 8.5,
+    effort: 'medium',
+    status: 'selected',
+  };
+
+  test('includes all item titles in the prompt', () => {
+    const prompt = buildGroupExecutePrompt(group);
+    expect(prompt).toContain('Cover state.js');
+    expect(prompt).toContain('Cover phase.js');
+  });
+
+  test('includes the group theme', () => {
+    const prompt = buildGroupExecutePrompt(group);
+    expect(prompt).toContain('test-coverage');
+  });
+
+  test('includes test verification instruction', () => {
+    const prompt = buildGroupExecutePrompt(group);
+    expect(prompt).toMatch(/npm test/i);
+  });
+
+  test('returns non-empty string', () => {
+    const prompt = buildGroupExecutePrompt(group);
+    expect(typeof prompt).toBe('string');
+    expect(prompt.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── buildGroupReviewPrompt ─────────────────────────────────────────────────
+
+describe('buildGroupReviewPrompt', () => {
+  const group = {
+    id: 'stability/empty-catch-blocks',
+    theme: 'empty-catch-blocks',
+    dimension: 'stability',
+    title: 'Empty Catch Blocks (stability)',
+    items: [
+      createWorkItem('stability', 'fix-empty-catch-utils-L10', 'Fix catch L10', 'Desc'),
+    ],
+    priority: 7,
+    effort: 'small',
+    status: 'selected',
+  };
+
+  test('includes review/verify language', () => {
+    const prompt = buildGroupReviewPrompt(group);
+    expect(prompt).toMatch(/review|verify/i);
+  });
+
+  test('includes group title', () => {
+    const prompt = buildGroupReviewPrompt(group);
+    expect(prompt).toContain('Empty Catch Blocks');
+  });
+
+  test('includes npm test and npm run lint', () => {
+    const prompt = buildGroupReviewPrompt(group);
+    expect(prompt).toMatch(/npm test/);
+    expect(prompt).toMatch(/npm run lint/);
+  });
+});
+
+// ─── runGroupDiscovery ──────────────────────────────────────────────────────
+
+describe('runGroupDiscovery', () => {
+  test('returns groups sorted by priority', () => {
+    const fixture = createDiscoveryFixture();
+    const result = runGroupDiscovery(fixture, null, 15);
+    expect(result.groups.length).toBeGreaterThan(0);
+    for (let i = 0; i < result.groups.length - 1; i++) {
+      expect(result.groups[i].priority).toBeGreaterThanOrEqual(result.groups[i + 1].priority);
+    }
+  });
+
+  test('returns selected and remaining groups based on pick_pct', () => {
+    const fixture = createDiscoveryFixture();
+    const result = runGroupDiscovery(fixture, null, 50);
+    expect(result.selected_groups.length).toBeGreaterThan(0);
+    expect(result.selected_groups.length + result.remaining_groups.length).toBe(result.groups.length);
+  });
+
+  test('returns total items count and groups count', () => {
+    const fixture = createDiscoveryFixture();
+    const result = runGroupDiscovery(fixture, null, 15);
+    expect(result.all_items_count).toBeGreaterThan(0);
+    expect(result.groups_count).toBe(result.groups.length);
+  });
+
+  test('with previous state remaining_groups: merges new discovery', () => {
+    const fixture = createDiscoveryFixture();
+    // Use an item whose slug matches a known theme pattern so we can find it
+    const prevGroup = {
+      id: 'quality/test-coverage',
+      theme: 'test-coverage',
+      dimension: 'quality',
+      title: 'Test Coverage',
+      items: [createWorkItem('quality', 'improve-coverage-carryover', 'Carry', 'D')],
+      priority: 5,
+      effort: 'small',
+      status: 'pending',
+    };
+    const previousState = {
+      iteration: 1,
+      pick_pct: 15,
+      remaining_groups: [prevGroup],
+      selected_groups: [],
+      completed_groups: [],
+      failed_groups: [],
+    };
+    const result = runGroupDiscovery(fixture, previousState, 15);
+    // The carryover item should be merged into the re-grouped pool
+    const allItems = [...result.selected_groups, ...result.remaining_groups]
+      .flatMap((g) => g.items);
+    const found = allItems.some((i) => i.id === 'quality/improve-coverage-carryover');
+    expect(found).toBe(true);
+  });
+
+  test('backward compat: old state with flat remaining items auto-regroups', () => {
+    const fixture = createDiscoveryFixture();
+    const oldState = {
+      iteration: 1,
+      items_per_iteration: 5,
+      remaining: [
+        createWorkItem('quality', 'improve-coverage-old', 'Old Coverage', 'D'),
+      ],
+      selected: [],
+      completed: [],
+      failed: [],
+      bugfix: [],
+    };
+    const result = runGroupDiscovery(fixture, oldState, 15);
+    expect(result.groups_count).toBeGreaterThan(0);
+  });
+});
+
 // ─── Orchestrator Tests (Phase 56 Plan 02) ─────────────────────────────────
 
 // ─── SONNET_MODEL ───────────────────────────────────────────────────────────
@@ -1316,6 +1649,336 @@ describe('cmdEvolve', () => {
     expect(result).toHaveProperty('iterations_completed');
     expect(result).toHaveProperty('results');
     expect(result).toHaveProperty('evolution_notes_path');
+  });
+});
+
+// ─── Extended Discovery Coverage ────────────────────────────────────────────
+
+describe('discoverProductivityItems — long function detection', () => {
+  test('detects functions longer than 80 lines', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    // Build a function with 82 comment lines → funcLength ~85 > 80
+    const lines = ["'use strict';", '/**', ' * Long module', ' */', ''];
+    lines.push('function veryLongFunction() {');
+    for (let i = 0; i < 82; i++) lines.push(`  // line ${i}`);
+    lines.push('  return true;');
+    lines.push('}');
+    lines.push('');
+    lines.push('module.exports = { veryLongFunction };');
+    lines.push('');
+    fs.writeFileSync(path.join(libDir, 'longfunc.js'), lines.join('\n'));
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find(
+      (i) => i.dimension === 'productivity' && i.id.includes('split-longfunc')
+    );
+    expect(found).toBeDefined();
+    expect(found.title).toContain('veryLongFunction');
+    expect(found.description).toContain('lines long');
+  });
+});
+
+describe('discoverQualityItems — jest.config.js threshold detection', () => {
+  test('detects coverage thresholds below 90% in jest.config.js', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+    const testDir = path.join(tmpDir, 'tests', 'unit');
+    fs.mkdirSync(testDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'lowcov.js'),
+      ["'use strict';", '/** Module */', 'function fn() {}', 'module.exports = { fn };'].join('\n')
+    );
+    fs.writeFileSync(path.join(testDir, 'lowcov.test.js'), "test('x', () => {});\n");
+    fs.writeFileSync(
+      path.join(tmpDir, 'jest.config.js'),
+      [
+        'module.exports = {',
+        '  coverageThreshold: {',
+        "    './lib/lowcov.js': { lines: 80, functions: 90, branches: 70 },",
+        '  },',
+        '};',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'quality/improve-coverage-lowcov');
+    expect(found).toBeDefined();
+    expect(found.description).toContain('80%');
+  });
+
+  test('does not flag coverage thresholds already at 90% or above', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'goodcov.js'),
+      ["'use strict';", '/** Module */', 'function fn() {}', 'module.exports = { fn };'].join('\n')
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'jest.config.js'),
+      [
+        'module.exports = {',
+        '  coverageThreshold: {',
+        "    './lib/goodcov.js': { lines: 95, functions: 100, branches: 90 },",
+        '  },',
+        '};',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'quality/improve-coverage-goodcov');
+    expect(found).toBeUndefined();
+  });
+});
+
+describe('discoverQualityItems — TODO/FIXME/HACK marker detection', () => {
+  test('detects TODO in a line comment', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'marked.js'),
+      ["'use strict';", '// TODO: refactor this', 'function fn() {}', 'module.exports = { fn };'].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find(
+      (i) => i.dimension === 'quality' && i.id.includes('resolve-todo-marked')
+    );
+    expect(found).toBeDefined();
+    expect(found.title).toContain('TODO');
+  });
+
+  test('does not flag TODO inside a regex literal (false-positive prevention)', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'nofalse.js'),
+      [
+        "'use strict';",
+        '/** Module */',
+        'const pat = /\\b(TODO|FIXME|HACK)\\b/g;',
+        'function fn() { return pat; }',
+        'module.exports = { fn };',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find(
+      (i) => i.dimension === 'quality' && i.id.includes('resolve-todo-nofalse')
+    );
+    expect(found).toBeUndefined();
+  });
+});
+
+describe('discoverUsabilityItems — command description detection', () => {
+  test('detects commands without description in frontmatter', () => {
+    const tmpDir = createTmpDir();
+    const cmdDir = path.join(tmpDir, 'commands');
+    fs.mkdirSync(cmdDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(cmdDir, 'my-command.md'),
+      '---\nname: my-command\n---\n# My Command\n'
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'usability/add-description-my-command');
+    expect(found).toBeDefined();
+    expect(found.description).toContain('missing a description');
+  });
+
+  test('detects commands with empty description in frontmatter', () => {
+    const tmpDir = createTmpDir();
+    const cmdDir = path.join(tmpDir, 'commands');
+    fs.mkdirSync(cmdDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(cmdDir, 'empty-desc.md'),
+      '---\nname: empty-desc\ndescription:\n---\n# Empty Desc\n'
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'usability/add-description-empty-desc');
+    expect(found).toBeDefined();
+  });
+
+  test('does not flag commands that already have a description', () => {
+    const tmpDir = createTmpDir();
+    const cmdDir = path.join(tmpDir, 'commands');
+    fs.mkdirSync(cmdDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(cmdDir, 'good-command.md'),
+      '---\nname: good-command\ndescription: Does something useful\n---\n# Good Command\n'
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'usability/add-description-good-command');
+    expect(found).toBeUndefined();
+  });
+});
+
+describe('discoverUsabilityItems — JSDoc detection for exported functions', () => {
+  test('detects exported functions with no JSDoc within 6 preceding lines', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    // The module JSDoc header is at lines 1-4; the function starts at line 11.
+    // The 6 lines immediately before the function contain only constants, not /**.
+    fs.writeFileSync(
+      path.join(libDir, 'undoc.js'),
+      [
+        "'use strict';",
+        '/**',
+        ' * Module header',
+        ' */',
+        '',
+        'const A = 1;',
+        'const B = 2;',
+        'const C = 3;',
+        'const D = 4;',
+        '',
+        'function undocumentedExport() {',
+        '  return A + B + C + D;',
+        '}',
+        '',
+        'module.exports = { undocumentedExport };',
+        '',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'usability/add-jsdoc-undoc-undocumentedExport');
+    expect(found).toBeDefined();
+    expect(found.description).toContain('undocumentedExport');
+  });
+});
+
+describe('discoverConsistencyItems — module header detection', () => {
+  test('detects lib files missing JSDoc module header in first 5 lines', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'noheader.js'),
+      [
+        "'use strict';",
+        '',
+        'function fn() { return 1; }',
+        '',
+        'module.exports = { fn };',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.id === 'consistency/add-module-header-noheader');
+    expect(found).toBeDefined();
+    expect(found.description).toContain('missing the standard JSDoc module header');
+  });
+});
+
+describe('discoverStabilityItems — hardcoded .planning/ path detection', () => {
+  test('detects hardcoded .planning/ paths in lib files', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'hardcoded.js'),
+      [
+        "'use strict';",
+        '/**',
+        ' * Module',
+        ' */',
+        '',
+        "const STATE_FILE = '.planning/STATE.md';",
+        'function getState() { return STATE_FILE; }',
+        'module.exports = { getState };',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find(
+      (i) => i.dimension === 'stability' && i.id.includes('use-paths-module-hardcoded')
+    );
+    expect(found).toBeDefined();
+    expect(found.description).toContain('.planning/');
+  });
+});
+
+describe('discoverNewFeatureItems — cmdInit MCP binding detection', () => {
+  test('detects cmdInit functions in context.js without MCP tool bindings', () => {
+    const tmpDir = createTmpDir();
+    const libDir = path.join(tmpDir, 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(libDir, 'context.js'),
+      [
+        "'use strict';",
+        '/**',
+        ' * Context module',
+        ' */',
+        '',
+        'function cmdInitOrphan(cwd, raw) {',
+        '  return { orphan: true };',
+        '}',
+        '',
+        'module.exports = { cmdInitOrphan };',
+      ].join('\n')
+    );
+
+    // mcp-server.js does NOT reference cmdInitOrphan
+    fs.writeFileSync(
+      path.join(libDir, 'mcp-server.js'),
+      [
+        "'use strict';",
+        '/**',
+        ' * MCP server',
+        ' */',
+        '',
+        'function registerTools(server) {',
+        "  server.tool('other', {}, () => {});",
+        '}',
+        '',
+        'module.exports = { registerTools };',
+      ].join('\n')
+    );
+
+    const items = analyzeCodebaseForItems(tmpDir);
+    const found = items.find((i) => i.dimension === 'new-features' && i.id.includes('orphan'));
+    expect(found).toBeDefined();
+    expect(found.description).toContain('cmdInitOrphan');
+  });
+});
+
+describe('runDiscovery — bugfix items in previous state', () => {
+  test('merges bugfix items from previous state into the discovery pool', () => {
+    const fixture = createDiscoveryFixture();
+    const previousState = createInitialState('v1.0', 10);
+    previousState.remaining = [];
+    previousState.bugfix = [
+      createWorkItem('quality', 'critical-bug', 'Critical Bug Fix', 'A serious bug', {
+        source: 'bugfix',
+        status: 'pending',
+      }),
+    ];
+
+    const result = runDiscovery(fixture, previousState);
+    const allItems = [...result.selected, ...result.remaining];
+    expect(allItems.some((i) => i.id === 'quality/critical-bug')).toBe(true);
   });
 });
 
