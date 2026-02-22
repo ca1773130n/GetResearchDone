@@ -18,6 +18,7 @@
 - v0.2.5 WebMCP Support & Bugfixes - Phases 43-44 (shipped 2026-02-21)
 - v0.2.6 Native Worktree Isolation - Phases 45-47 (shipped 2026-02-22)
 - v0.2.7 Self-Evolution - Phases 48-53 (shipped 2026-02-22)
+- v0.2.8 Self-Evolving Loop - Phases 54-57
 
 ## Phases
 
@@ -132,3 +133,94 @@ Phases 45-47 adopted Claude Code's native `isolation: worktree` via hybrid strat
 Phases 48-53 dogfooded GRD on itself: testbed infrastructure, 5 bug fixes (currentMilestone parsing, goal regex, state-snapshot fields, plan-index extraction, underscore mapping), complexity reduction (cmdTracker/cmdDashboard decomposition, 6 dead exports removed), test coverage to 85%+ across all 20 modules, `/grd:autopilot` command for multi-phase autonomous execution, and full integration testing. New module: lib/autopilot.js. 204 new tests, 1,983 total passing. See `.planning/milestones/v0.2.7-ROADMAP.md` for details.
 
 </details>
+
+### Phase 54: Markdown Splitting Infrastructure
+
+**Goal:** Large markdown files are automatically split into indexed partials and all GRD readers transparently handle both single-file and split formats.
+
+**Dependencies:** None (foundation for evolve workflow)
+
+**Requirements:** REQ-60, REQ-61
+
+**Verification Level:** proxy
+
+**Success Criteria:**
+1. Markdown files exceeding the token threshold (~25,000 tokens) are detected and split into numbered partials (e.g., `STATE-part1.md`, `STATE-part2.md`) with deterministic boundary selection at heading breaks
+2. The original file is rewritten as an index containing links to each partial, preserving the original filename as the entry point
+3. `state.js`, `roadmap.js`, and `utils.js` reader functions transparently reassemble content from partials when an index file is encountered -- callers see no difference from a single-file read
+4. Round-trip integrity: splitting a file and then reading it back produces identical logical content to the original unsplit file
+5. Files below the threshold are left untouched; the split operation is idempotent (re-running on already-split files produces no changes)
+
+---
+
+### Phase 55: Evolve Core Engine
+
+**Goal:** Work item discovery, priority selection, and iteration state management form a reliable engine that can identify improvements and carry state across iterations.
+
+**Dependencies:** Phase 54 (evolution docs may grow large)
+
+**Requirements:** REQ-55, REQ-56, REQ-57
+
+**Verification Level:** proxy
+
+**Success Criteria:**
+1. Work item discovery analyzes the codebase and produces a categorized list of improvement items across six dimensions: productivity, quality, usability, consistency, stability, and new features
+2. Discovery loads work items from a previous evolve iteration's state file (if present) and merges them with freshly discovered items, deduplicating by identity
+3. Priority selection picks N items (configurable, default 5) from the merged list using a scoring heuristic, and generates sequential phase plans for each selected item
+4. Iteration state is persisted to a structured JSON/markdown file on disk containing: selected items, remaining items, newly-discovered bugfix items, and iteration metadata (timestamp, iteration number, items completed/remaining)
+5. The state file format supports handoff -- the next evolve iteration reads the previous state, inherits remaining items, and increments the iteration counter
+
+---
+
+### Phase 56: Evolve Orchestrator
+
+**Goal:** The `/grd:evolve` command ties together discovery, planning, execution, review, and evolution notes into a single autonomous self-improvement loop that runs entirely on sonnet-tier models.
+
+**Dependencies:** Phase 55
+
+**Requirements:** REQ-54, REQ-58, REQ-59
+
+**Verification Level:** proxy
+
+**Success Criteria:**
+1. `/grd:evolve` is a registered GRD slash command (skill) that orchestrates: discover -> select -> plan -> execute -> review -> persist state, in a single invocation
+2. All subagent spawns within the evolve flow enforce sonnet-tier model ceiling -- no opus-class models are used for any step (discovery, planning, execution, review)
+3. Evolution notes (EVOLUTION.md or equivalent) are written/appended after each iteration with: iteration number, items attempted, outcomes (pass/fail per item), decisions made, patterns discovered, and takeaways
+4. The command accepts parameters for iteration count and items-per-iteration, with sensible defaults (1 iteration, 5 items)
+5. After execution completes, remaining and newly-discovered bugfix items are written to the iteration state file for the next invocation
+
+---
+
+### Phase 57: Integration & Validation
+
+**Goal:** End-to-end evolve loop runs successfully on a real codebase, all components work together, and the test suite covers the new modules without regressions.
+
+**Dependencies:** Phase 54, Phase 55, Phase 56
+
+**Requirements:** (integration -- validates all prior phases)
+
+**Verification Level:** deferred
+
+**Success Criteria:**
+1. A full evolve iteration (discover -> select -> plan -> execute -> review -> persist) completes without errors on the GRD codebase itself (dogfooding)
+2. Markdown splitting correctly handles files generated or grown during evolve iterations
+3. Iteration handoff works: running `/grd:evolve` twice produces a second iteration that inherits remaining items from the first
+4. All new lib/ modules maintain 85%+ line coverage with per-file thresholds enforced in jest.config.js
+5. Full regression suite passes: all existing tests (1,983+) continue to pass with zero regressions
+6. MCP tool registration for new commands (evolve, markdown-split) is functional and returns structured JSON
+
+**Deferred Validations Collected:**
+- DEFER-54-01: Markdown splitting produces correct partials for real-world large files (STATE.md, ROADMAP.md at scale)
+- DEFER-55-01: Work item discovery quality assessment on a non-trivial codebase (are discovered items actionable?)
+- DEFER-56-01: Full evolve loop with sonnet-tier models produces meaningful improvements (not just cosmetic changes)
+
+---
+
+## Progress
+
+| Phase | Status | Plans |
+|-------|--------|-------|
+| 54 - Markdown Splitting Infrastructure | PENDING | 0 |
+| 55 - Evolve Core Engine | PENDING | 0 |
+| 56 - Evolve Orchestrator | PENDING | 0 |
+| 57 - Integration & Validation | PENDING | 0 |
