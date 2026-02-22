@@ -70,6 +70,7 @@ const {
 const { cmdPhaseAnalyzeDeps } = require('../lib/deps');
 const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot');
 const {
+  cmdEvolve,
   cmdEvolveDiscover,
   cmdEvolveState,
   cmdEvolveAdvance,
@@ -715,8 +716,13 @@ function routeCommand(command, args, cwd, raw) {
     }
     case 'evolve': {
       const sub = args[1];
-      validateSubcommand(sub, ['discover', 'state', 'advance', 'reset'], 'evolve');
+      validateSubcommand(sub, ['run', 'discover', 'state', 'advance', 'reset'], 'evolve');
       switch (sub) {
+        case 'run':
+          cmdEvolve(cwd, args.slice(2), raw).catch((err) => {
+            error(err.message);
+          });
+          return;
         case 'discover':
           return cmdEvolveDiscover(cwd, args.slice(2), raw);
         case 'state':
