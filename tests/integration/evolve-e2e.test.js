@@ -280,15 +280,14 @@ describe('E2E: Full evolve iteration mechanics', () => {
 
     const result = await runEvolve(tmpDir, {
       iterations: 1,
-      itemsPerIteration: 2,
       dryRun: true,
     });
 
     expect(result.iterations_completed).toBe(1);
     expect(result.results).toHaveLength(1);
     expect(result.results[0].status).toBe('dry-run');
-    expect(result.results[0].selected.length).toBeGreaterThan(0);
-    expect(result.results[0].remaining_count).toBeGreaterThanOrEqual(0);
+    expect(result.results[0].groups.length).toBeGreaterThan(0);
+    expect(result.results[0].total_groups).toBeGreaterThanOrEqual(0);
   });
 });
 

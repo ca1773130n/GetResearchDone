@@ -1496,22 +1496,12 @@ describe('writeEvolutionNotes', () => {
   });
 });
 
-// ─── runEvolve ──────────────────────────────────────────────────────────────
+// ─── runEvolve (legacy format replaced by grouped tests below) ──────────────
 
 describe('runEvolve', () => {
   beforeEach(() => {
     autopilotModule.spawnClaude.mockReset();
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
-  });
-
-  test('dry-run mode returns items without spawning', async () => {
-    const fixture = createDiscoveryFixture();
-    const result = await runEvolve(fixture, { dryRun: true });
-
-    expect(result.iterations_completed).toBe(1);
-    expect(result.results[0].status).toBe('dry-run');
-    expect(result.results[0].selected.length).toBeGreaterThan(0);
-    expect(autopilotModule.spawnClaude).not.toHaveBeenCalled();
   });
 
   test('single iteration completes and writes evolution notes', async () => {
@@ -1520,7 +1510,7 @@ describe('runEvolve', () => {
 
     expect(result.iterations_completed).toBe(1);
     expect(result.results[0].status).toBe('completed');
-    expect(result.results[0].items_attempted).toBeGreaterThan(0);
+    expect(result.results[0].groups_attempted).toBeGreaterThan(0);
 
     // Evolution notes should be written
     const notesPath = path.join(fixture, '.planning', 'EVOLUTION.md');
@@ -1537,31 +1527,6 @@ describe('runEvolve', () => {
     for (const call of autopilotModule.spawnClaude.mock.calls) {
       expect(call[2]).toHaveProperty('model', SONNET_MODEL);
     }
-  });
-
-  test('failed items are recorded with correct status', async () => {
-    // Make execute step fail
-    autopilotModule.spawnClaude
-      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // plan: pass
-      .mockReturnValueOnce({ exitCode: 1, timedOut: false }) // execute: fail
-      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // plan: pass (next item)
-      .mockReturnValueOnce({ exitCode: 0, timedOut: false }) // execute: pass
-      .mockReturnValueOnce({ exitCode: 0, timedOut: false }); // review: pass
-
-    const fixture = createDiscoveryFixture();
-    const result = await runEvolve(fixture, { iterations: 1, itemsPerIteration: 2 });
-
-    expect(result.results[0].items_failed).toBeGreaterThanOrEqual(1);
-  });
-
-  test('remaining items persisted to state file after iteration', async () => {
-    const fixture = createDiscoveryFixture();
-    await runEvolve(fixture, { iterations: 1 });
-
-    const state = readEvolveState(fixture);
-    expect(state).not.toBeNull();
-    expect(state.iteration).toBeGreaterThanOrEqual(1);
-    expect(Array.isArray(state.remaining)).toBe(true);
   });
 
   test('timeout is passed through to spawnClaude', async () => {
@@ -1588,6 +1553,16 @@ describe('runEvolve', () => {
     const result = await runEvolve(fixture, { dryRun: true });
 
     expect(result.evolution_notes_path).toBe(path.join('.planning', 'EVOLUTION.md'));
+  });
+
+  test('remaining groups persisted to state file after iteration', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1 });
+
+    const state = readEvolveState(fixture);
+    expect(state).not.toBeNull();
+    expect(state.iteration).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(state.remaining_groups)).toBe(true);
   });
 });
 
@@ -1620,23 +1595,16 @@ describe('cmdEvolve', () => {
     expect(result.iterations_completed).toBe(1);
   });
 
-  test('parses --items flag correctly', async () => {
+  test('dry-run returns grouped output', async () => {
     const fixture = createDiscoveryFixture();
-    // Create pre-existing state so itemsPerIteration override takes effect
-    const state = createInitialState('v1.0', 10);
-    state.remaining = [
-      createWorkItem('quality', 'a', 'A', 'desc'),
-      createWorkItem('stability', 'b', 'B', 'desc'),
-      createWorkItem('consistency', 'c', 'C', 'desc'),
-    ];
-    writeEvolveState(fixture, state);
-
     const { stdout } = await captureAsyncOutput(() =>
-      cmdEvolve(fixture, ['--items', '1', '--dry-run'], false)
+      cmdEvolve(fixture, ['--dry-run'], false)
     );
 
     const result = JSON.parse(stdout);
-    expect(result.results[0].selected.length).toBeLessThanOrEqual(1);
+    expect(result.results[0].status).toBe('dry-run');
+    expect(result.results[0]).toHaveProperty('groups');
+    expect(result.results[0]).toHaveProperty('total_groups');
   });
 
   test('delegates to runEvolve', async () => {
@@ -1649,6 +1617,81 @@ describe('cmdEvolve', () => {
     expect(result).toHaveProperty('iterations_completed');
     expect(result).toHaveProperty('results');
     expect(result).toHaveProperty('evolution_notes_path');
+  });
+});
+
+// ─── runEvolve (grouped) ────────────────────────────────────────────────────
+
+describe('runEvolve (grouped)', () => {
+  beforeEach(() => {
+    autopilotModule.spawnClaude.mockReset();
+    autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
+  });
+
+  test('dry-run returns groups with priority and item counts', async () => {
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { dryRun: true });
+
+    expect(result.iterations_completed).toBe(1);
+    expect(result.results[0].status).toBe('dry-run');
+    expect(result.results[0]).toHaveProperty('groups');
+    expect(result.results[0]).toHaveProperty('total_items');
+    expect(result.results[0]).toHaveProperty('total_groups');
+    expect(result.results[0]).toHaveProperty('groups_per_iteration');
+    expect(result.results[0]).toHaveProperty('estimated_iterations');
+    expect(autopilotModule.spawnClaude).not.toHaveBeenCalled();
+  });
+
+  test('uses --pick-pct instead of --items', async () => {
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { dryRun: true, pickPct: 50 });
+
+    const groupsSelected = result.results[0].groups_per_iteration;
+    expect(groupsSelected).toBeGreaterThanOrEqual(1);
+  });
+
+  test('execution spawns 2 calls per group (execute + review), not 3 per item', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1, pickPct: 100 });
+
+    const callCount = autopilotModule.spawnClaude.mock.calls.length;
+    // Each group = 2 calls (execute + review)
+    expect(callCount % 2).toBe(0);
+  });
+
+  test('unlimited iterations (iterations=0) processes all groups', async () => {
+    const fixture = createDiscoveryFixture();
+    // Use pickPct=100 so all groups are selected in one iteration,
+    // leaving remaining_groups empty and terminating the unlimited loop.
+    const result = await runEvolve(fixture, { iterations: 0, pickPct: 100 });
+
+    expect(result.iterations_completed).toBeGreaterThanOrEqual(1);
+    const lastResult = result.results[result.results.length - 1];
+    expect(lastResult.status).toBe('completed');
+    expect(lastResult.remaining_groups).toBe(0);
+  });
+
+  test('state file uses new group format', async () => {
+    const fixture = createDiscoveryFixture();
+    await runEvolve(fixture, { iterations: 1 });
+
+    const state = readEvolveState(fixture);
+    expect(state).toHaveProperty('pick_pct');
+    expect(state).toHaveProperty('selected_groups');
+    expect(state).toHaveProperty('remaining_groups');
+    expect(state).toHaveProperty('groups_count');
+    expect(state).toHaveProperty('all_items_count');
+  });
+
+  test('failed group is recorded', async () => {
+    autopilotModule.spawnClaude
+      .mockReturnValueOnce({ exitCode: 1, timedOut: false })  // execute: fail group 1
+      .mockReturnValue({ exitCode: 0, timedOut: false });      // everything else passes
+
+    const fixture = createDiscoveryFixture();
+    const result = await runEvolve(fixture, { iterations: 1, pickPct: 100 });
+
+    expect(result.results[0].groups_failed).toBeGreaterThanOrEqual(1);
   });
 });
 
