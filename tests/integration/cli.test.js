@@ -1442,3 +1442,139 @@ describe('git-dependent commands', () => {
     expect(data).toHaveProperty('total');
   });
 });
+
+// ─── Autopilot Commands ──────────────────────────────────────────────────────
+
+describe('autopilot commands', () => {
+  let apDir;
+
+  function createAutopilotIntegrationFixture(opts = {}) {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-autopilot-'));
+    const planning = path.join(tmpRoot, '.planning');
+    fs.mkdirSync(planning, { recursive: true });
+
+    // STATE.md
+    fs.writeFileSync(
+      path.join(planning, 'STATE.md'),
+      '# State\n\n**Milestone:** v1.0\n**Current Phase:** Phase 1\n'
+    );
+
+    // config.json
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced', autonomous_mode: true }, null, 2)
+    );
+
+    // ROADMAP.md with 3 phases
+    let roadmap =
+      '# Roadmap\n\n## v1.0 Test Milestone\n\n' +
+      '### Phase 1: Setup\n\n**Goal:** Build setup\n\n' +
+      '### Phase 2: Features\n\n**Goal:** Build features\n\n' +
+      '### Phase 3: Polish\n\n**Goal:** Polish everything\n\n';
+    fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmap);
+
+    // Create phases dir
+    const phasesDir = path.join(planning, 'phases');
+    fs.mkdirSync(phasesDir, { recursive: true });
+
+    // Optionally create plan file for phase 1 (for resume tests)
+    if (opts.withPlan) {
+      const phaseDir = path.join(phasesDir, '01-setup');
+      fs.mkdirSync(phaseDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(phaseDir, '01-01-PLAN.md'),
+        '---\nphase: 01-setup\nplan: 01\n---\n# Plan\n'
+      );
+    }
+
+    return tmpRoot;
+  }
+
+  afterEach(() => {
+    cleanupDir(apDir);
+  });
+
+  test('autopilot --dry-run outputs valid JSON for 3 phases', () => {
+    apDir = createAutopilotIntegrationFixture();
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--from', '1', '--to', '3'],
+      apDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.phases_attempted).toBe(3);
+    expect(data.phases_completed).toBe(3);
+    expect(data.stopped_at).toBeNull();
+    expect(data.results).toHaveLength(6);
+    // Each phase has both plan and execute steps
+    const planSteps = data.results.filter((r) => r.step === 'plan');
+    const execSteps = data.results.filter((r) => r.step === 'execute');
+    expect(planSteps).toHaveLength(3);
+    expect(execSteps).toHaveLength(3);
+  });
+
+  test('autopilot --dry-run --skip-plan outputs only execute steps', () => {
+    apDir = createAutopilotIntegrationFixture();
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--skip-plan', '--from', '1', '--to', '3'],
+      apDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.phases_completed).toBe(3);
+    const steps = data.results.map((r) => r.step);
+    expect(steps).not.toContain('plan');
+    expect(steps).toContain('execute');
+    expect(data.results).toHaveLength(3);
+  });
+
+  test('autopilot --dry-run --resume skips planned phase', () => {
+    apDir = createAutopilotIntegrationFixture({ withPlan: true });
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--resume', '--from', '1', '--to', '3'],
+      apDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // Phase 1 plan should be skipped (already planned)
+    expect(data.results[0]).toMatchObject({
+      phase: '1',
+      step: 'plan',
+      status: 'skipped',
+    });
+    // Phase 1 execute should still be dry-run
+    expect(data.results[1]).toMatchObject({
+      phase: '1',
+      step: 'execute',
+      status: 'dry-run',
+    });
+  });
+
+  test('init autopilot returns phase context', () => {
+    apDir = createAutopilotIntegrationFixture();
+    const { stdout, exitCode } = runCLI(['init', 'autopilot'], apDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('total_phases', 3);
+    expect(data).toHaveProperty('phase_range');
+    expect(data.phase_range.first).toBe('1');
+    expect(data.phase_range.last).toBe('3');
+    expect(data).toHaveProperty('phases');
+    expect(data.phases).toHaveLength(3);
+  });
+
+  test('autopilot --dry-run --skip-execute outputs only plan steps', () => {
+    apDir = createAutopilotIntegrationFixture();
+    const { stdout, exitCode } = runCLI(
+      ['autopilot', '--dry-run', '--skip-execute', '--from', '1', '--to', '3'],
+      apDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.phases_completed).toBe(3);
+    const steps = data.results.map((r) => r.step);
+    expect(steps).toContain('plan');
+    expect(steps).not.toContain('execute');
+    expect(data.results).toHaveLength(3);
+  });
+});

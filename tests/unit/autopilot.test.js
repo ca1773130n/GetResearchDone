@@ -697,6 +697,494 @@ describe('lib/autopilot', () => {
     });
   });
 
+  // ── Milestone-scoped path tests ──
+
+  describe('milestone-scoped paths', () => {
+    let tmpDir;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+    });
+
+    it('isPhasePlanned finds plans in milestone-scoped directory', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      fs.writeFileSync(
+        path.join(planning, 'ROADMAP.md'),
+        '# Roadmap\n\n## v1.0 Test\n\n### Phase 1: Setup\n\n**Goal:** Build setup\n\n'
+      );
+      // Create milestone-scoped phase dir
+      const phaseDir = path.join(planning, 'milestones', 'v1.0', 'phases', '01-setup');
+      fs.mkdirSync(phaseDir, { recursive: true });
+      fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
+
+      expect(isPhasePlanned(tmpDir, '1')).toBe(true);
+    });
+
+    it('isPhaseExecuted finds summaries in milestone-scoped directory', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      fs.writeFileSync(
+        path.join(planning, 'ROADMAP.md'),
+        '# Roadmap\n\n## v1.0 Test\n\n### Phase 1: Setup\n\n**Goal:** Build setup\n\n'
+      );
+      const phaseDir = path.join(planning, 'milestones', 'v1.0', 'phases', '01-setup');
+      fs.mkdirSync(phaseDir, { recursive: true });
+      fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
+      fs.writeFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), '# Summary');
+
+      expect(isPhaseExecuted(tmpDir, '1')).toBe(true);
+    });
+  });
+
+  // ── runAutopilot execute verification failure (lines 310-318) ──
+
+  describe('runAutopilot execute verification', () => {
+    let tmpDir;
+    let spawnSyncSpy;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = null;
+      }
+    });
+
+    it('stops when execute verification fails (no SUMMARY.md after successful spawn)', () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [
+          {
+            dir: '48-first-feature',
+            files: {},
+          },
+        ],
+      });
+
+      let callCount = 0;
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        callCount++;
+        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        if (callCount === 1) {
+          // Plan step — create PLAN.md so plan verification passes
+          fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        }
+        // Execute step (callCount === 2) — deliberately do NOT create SUMMARY.md
+        return { status: 0, error: null };
+      });
+
+      const result = runAutopilot(tmpDir, { from: '48', to: '48' });
+      expect(result.phases_completed).toBe(0);
+      expect(result.stopped_at).toContain('execute verification failed');
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0]).toMatchObject({ step: 'plan', status: 'completed' });
+      expect(result.results[1]).toMatchObject({
+        step: 'execute',
+        status: 'failed',
+        reason: 'no SUMMARY.md files found after execution',
+      });
+
+      // Verify status marker was written
+      const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-48-execute.json');
+      const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+      expect(marker.status).toBe('failed');
+    });
+
+    it('runAutopilot with 3 phases completes all when files are created', () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [
+          { dir: '48-first-feature', files: {} },
+          { dir: '49-second-feature', files: {} },
+          { dir: '50-third-feature', files: {} },
+        ],
+      });
+
+      let callCount = 0;
+      const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
+      const nums = ['48', '49', '50'];
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        callCount++;
+        const phaseIndex = Math.floor((callCount - 1) / 2);
+        const isPlan = callCount % 2 === 1;
+        const phaseDir = path.join(tmpDir, '.planning', 'phases', dirs[phaseIndex]);
+
+        if (isPlan) {
+          fs.writeFileSync(path.join(phaseDir, `${nums[phaseIndex]}-01-PLAN.md`), '# Plan');
+        } else {
+          fs.writeFileSync(path.join(phaseDir, `${nums[phaseIndex]}-01-SUMMARY.md`), '# Summary');
+        }
+        return { status: 0, error: null };
+      });
+
+      const result = runAutopilot(tmpDir, { from: '48', to: '50' });
+      expect(result.phases_completed).toBe(3);
+      expect(result.stopped_at).toBeNull();
+      expect(result.results).toHaveLength(6);
+      // All results should be completed
+      result.results.forEach((r) => {
+        expect(r.status).toBe('completed');
+      });
+    });
+  });
+
+  // ── Edge cases: resolvePhaseRange ──
+
+  describe('resolvePhaseRange edge cases', () => {
+    let tmpDir;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+    });
+
+    it('returns error for ROADMAP with no phase headings', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      // ROADMAP with milestone heading but no Phase headings
+      fs.writeFileSync(
+        path.join(planning, 'ROADMAP.md'),
+        '# Roadmap\n\n## v1.0 Test Milestone\n\nJust some text, no phases.\n'
+      );
+
+      const result = resolvePhaseRange(tmpDir, null, null);
+      expect(result.error).toContain('No phases found');
+      expect(result.phases).toHaveLength(0);
+    });
+
+    it('handles decimal phase numbers with from filter', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '12', name: 'Base' },
+          { num: '12.1', name: 'Inserted' },
+          { num: '13', name: 'Next' },
+        ],
+      });
+
+      const result = resolvePhaseRange(tmpDir, '12.1', null);
+      expect(result.error).toBeNull();
+      expect(result.phases).toHaveLength(2);
+      expect(result.phases[0].number).toBe('12.1');
+      expect(result.phases[1].number).toBe('13');
+    });
+
+    it('handles decimal phase numbers with to filter', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '12', name: 'Base' },
+          { num: '12.1', name: 'Inserted' },
+          { num: '13', name: 'Next' },
+        ],
+      });
+
+      const result = resolvePhaseRange(tmpDir, null, '12');
+      expect(result.error).toBeNull();
+      expect(result.phases).toHaveLength(1);
+      expect(result.phases[0].number).toBe('12');
+    });
+
+    it('handles single decimal phase range (from === to)', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '12', name: 'Base' },
+          { num: '12.1', name: 'Inserted' },
+          { num: '13', name: 'Next' },
+        ],
+      });
+
+      const result = resolvePhaseRange(tmpDir, '12.1', '12.1');
+      expect(result.error).toBeNull();
+      expect(result.phases).toHaveLength(1);
+      expect(result.phases[0].number).toBe('12.1');
+    });
+  });
+
+  // ── Edge cases: spawnClaude ──
+
+  describe('spawnClaude edge cases', () => {
+    let spawnSyncSpy;
+
+    afterEach(() => {
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = null;
+      }
+    });
+
+    it('returns exit code 1 when status is null (process killed)', () => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: null,
+        error: new Error('SIGKILL'),
+      });
+
+      const result = spawnClaude('/test', 'Run something');
+      expect(result.exitCode).toBe(1);
+      expect(result.timedOut).toBe(false);
+    });
+
+    it('passes custom timeout through to spawnSync', () => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      spawnClaude('/test', 'Run something', { timeout: 5000 });
+      expect(spawnSyncSpy).toHaveBeenCalledWith(
+        'claude',
+        expect.any(Array),
+        expect.objectContaining({ timeout: 5000 })
+      );
+    });
+
+    it('uses default args when no maxTurns or model provided', () => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      spawnClaude('/test', 'Run something');
+      const callArgs = spawnSyncSpy.mock.calls[0][1];
+      expect(callArgs).toEqual(['-p', 'Run something', '--verbose']);
+    });
+  });
+
+  // ── Edge cases: cmdAutopilot flag parsing ──
+
+  describe('cmdAutopilot flag parsing edge cases', () => {
+    let tmpDir;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+    });
+
+    it('parses --max-turns flag correctly', () => {
+      tmpDir = createAutopilotFixture();
+      const { stdout } = captureOutput(() => {
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--max-turns', '100', '--from', '48', '--to', '48'],
+          false
+        );
+      });
+      const result = JSON.parse(stdout);
+      expect(result.phases_attempted).toBe(1);
+      expect(result.phases_completed).toBe(1);
+    });
+
+    it('parses --model flag correctly', () => {
+      tmpDir = createAutopilotFixture();
+      const { stdout } = captureOutput(() => {
+        cmdAutopilot(tmpDir, ['--dry-run', '--model', 'opus', '--from', '48', '--to', '48'], false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.phases_attempted).toBe(1);
+    });
+
+    it('parses --skip-execute flag correctly', () => {
+      tmpDir = createAutopilotFixture();
+      const { stdout } = captureOutput(() => {
+        cmdAutopilot(tmpDir, ['--dry-run', '--skip-execute', '--from', '48', '--to', '48'], false);
+      });
+      const result = JSON.parse(stdout);
+      const steps = result.results.map((r) => r.step);
+      expect(steps).toContain('plan');
+      expect(steps).not.toContain('execute');
+    });
+
+    it('processes all phases when no --from/--to flags given', () => {
+      tmpDir = createAutopilotFixture();
+      const { stdout } = captureOutput(() => {
+        cmdAutopilot(tmpDir, ['--dry-run'], false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.phases_attempted).toBe(3);
+      expect(result.phases_completed).toBe(3);
+      expect(result.results).toHaveLength(6);
+    });
+  });
+
+  // ── Edge cases: updateStateProgress ──
+
+  describe('updateStateProgress edge cases', () => {
+    let tmpDir;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+    });
+
+    it('is a no-op when STATE.md has no Current Phase field', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      const content = '# State\n\nSome text without Current Phase field.\n';
+      fs.writeFileSync(path.join(planning, 'STATE.md'), content);
+
+      updateStateProgress(tmpDir, '49', 'planning');
+
+      const updated = fs.readFileSync(path.join(planning, 'STATE.md'), 'utf-8');
+      expect(updated).toBe(content); // unchanged
+    });
+
+    it('overwrites previous update when called twice', () => {
+      tmpDir = createAutopilotFixture();
+      updateStateProgress(tmpDir, '48', 'planning');
+      updateStateProgress(tmpDir, '49', 'executing');
+
+      const content = fs.readFileSync(path.join(tmpDir, '.planning', 'STATE.md'), 'utf-8');
+      expect(content).toContain('Phase 49 (autopilot: executing)');
+      expect(content).not.toContain('Phase 48 (autopilot: planning)');
+    });
+  });
+
+  // ── Edge cases: runAutopilot ──
+
+  describe('runAutopilot edge cases', () => {
+    let tmpDir;
+    let spawnSyncSpy;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = null;
+      }
+    });
+
+    it('both skipPlan and skipExecute produces empty results but counts phases', () => {
+      tmpDir = createAutopilotFixture();
+      const result = runAutopilot(tmpDir, {
+        dryRun: true,
+        skipPlan: true,
+        skipExecute: true,
+      });
+      expect(result.phases_completed).toBe(3);
+      expect(result.results).toHaveLength(0);
+      expect(result.stopped_at).toBeNull();
+    });
+
+    it('passes custom timeout to spawnClaude (converted to ms)', () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [
+          {
+            dir: '48-first-feature',
+            files: {},
+          },
+        ],
+      });
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        // Create plan file so we don't fail
+        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
+        return { status: 0, error: null };
+      });
+
+      runAutopilot(tmpDir, { from: '48', to: '48', timeout: 60 });
+      // timeout is 60 minutes * 60 * 1000 = 3,600,000ms
+      expect(spawnSyncSpy).toHaveBeenCalledWith(
+        'claude',
+        expect.any(Array),
+        expect.objectContaining({ timeout: 3600000 })
+      );
+    });
+
+    it('passes model override through to spawnClaude', () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [
+          {
+            dir: '48-first-feature',
+            files: {},
+          },
+        ],
+      });
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        const phaseDir = path.join(tmpDir, '.planning', 'phases', '48-first-feature');
+        fs.writeFileSync(path.join(phaseDir, '48-01-PLAN.md'), '# Plan');
+        fs.writeFileSync(path.join(phaseDir, '48-01-SUMMARY.md'), '# Summary');
+        return { status: 0, error: null };
+      });
+
+      runAutopilot(tmpDir, { from: '48', to: '48', model: 'haiku' });
+      const callArgs = spawnSyncSpy.mock.calls[0][1];
+      expect(callArgs).toContain('--model');
+      expect(callArgs).toContain('haiku');
+    });
+  });
+
+  // ── Edge cases: writeStatusMarker ──
+
+  describe('writeStatusMarker edge cases', () => {
+    let tmpDir;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = null;
+      }
+    });
+
+    it('creates separate files for different step names', () => {
+      tmpDir = createAutopilotFixture();
+      writeStatusMarker(tmpDir, '48', 'plan', 'started');
+      writeStatusMarker(tmpDir, '48', 'execute', 'completed');
+      writeStatusMarker(tmpDir, '48', 'review', 'started');
+
+      const dir = path.join(tmpDir, '.planning', 'autopilot');
+      expect(fs.existsSync(path.join(dir, 'phase-48-plan.json'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'phase-48-execute.json'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'phase-48-review.json'))).toBe(true);
+    });
+
+    it('creates correct filenames for different phase numbers', () => {
+      tmpDir = createAutopilotFixture();
+      writeStatusMarker(tmpDir, '1', 'plan', 'started');
+      writeStatusMarker(tmpDir, '12.1', 'plan', 'started');
+      writeStatusMarker(tmpDir, '99', 'plan', 'started');
+
+      const dir = path.join(tmpDir, '.planning', 'autopilot');
+      expect(fs.existsSync(path.join(dir, 'phase-1-plan.json'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'phase-12.1-plan.json'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'phase-99-plan.json'))).toBe(true);
+    });
+  });
+
   // ── DEFAULT_TIMEOUT_MINUTES ──
 
   describe('DEFAULT_TIMEOUT_MINUTES', () => {
