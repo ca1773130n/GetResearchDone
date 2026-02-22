@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 - **Active phase:** 56
-- **Current plan:** Plan 00 of 02
+- **Current plan:** Plan 01 of 01
 - **Milestone:** v0.2.8 Self-Evolving Loop
-- **Status:** Ready to plan
-- **Progress:** 0/4 phases complete (Phase 54 plans done, pending phase completion)
-- **Next:** Complete Phase 54, then execute Phase 56
+- **Status:** Phase 56 Plan 01 complete
+- **Progress:** 0/4 phases complete (Phase 56 Plan 01 done)
+- **Next:** Complete Phase 56, then Phase 57 (Integration & Validation)
 
 ## Phase Summary
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 |-------|------|-------------|--------------|--------|
 | 54 | Markdown Splitting Infrastructure | REQ-60, REQ-61 | proxy | IN PROGRESS (Plan 02/02 done) |
 | 55 | Evolve Core Engine | REQ-55, REQ-56, REQ-57 | proxy | PENDING |
-| 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | PENDING |
+| 56 | Evolve Orchestrator | REQ-54, REQ-58, REQ-59 | proxy | IN PROGRESS (Plan 01/01 done) |
 | 57 | Integration & Validation | (integration) | deferred | PENDING |
 
 ## Deferred Validations
@@ -49,11 +49,14 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 - Milestones shipped: 17 (v0.0.5 through v0.2.7)
 - Total tests: 2,132
 - Total lib/ modules: 22 (including autopilot.js, evolve.js, markdown-split.js)
-- Total commands: 39
+- Total commands: 40
 - Total lib/ LOC: ~17,334
 
 ## Decisions
 
+- [Phase 56] All spawnClaude calls use SONNET_MODEL constant ('sonnet') — never opus (REQ-59 model ceiling)
+- [Phase 56] Evolution notes append to .planning/EVOLUTION.md with iteration-over-iteration history
+- [Phase 56] Orchestrator functions added to existing lib/evolve.js (not a new file) to keep evolve module self-contained
 - [Phase 55] Evolve state file at .planning/EVOLVE-STATE.json (project-root, not milestone-scoped) for cross-milestone persistence
 - [Phase 55] Merge deduplication uses existing-wins strategy (existing items take priority over discovered duplicates)
 - [Phase 55] Discovery uses pure fs analysis (no LLM, no subprocesses) for determinism
@@ -75,10 +78,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 54 Plan 02 (transparent reader integration + CLI + MCP tools)
-- **Stopped at:** Completed 54-02-PLAN.md (safeReadMarkdown wired into 4 modules, CLI split|check, MCP tools)
-- **Next action:** Complete Phase 54, then execute Phase 56 (Evolve Orchestrator)
-- **Context needed:** Phase 54 both plans executed. safeReadMarkdown wired into state.js, roadmap.js, context.js, tracker.js. CLI `markdown-split split|check` and MCP tools grd_markdown_split, grd_markdown_check registered. paths.js deferred. 2132 tests passing.
+- **Last action:** Executed Phase 56 Plan 01 (evolve orchestrator engine + skill definition)
+- **Stopped at:** Completed 56-01-PLAN.md (7 orchestrator exports + commands/evolve.md)
+- **Next action:** Complete Phase 56, then Phase 57 (Integration & Validation)
+- **Context needed:** Phase 56 Plan 01 done. lib/evolve.js has 26 exports (19 from Phase 55 + 7 orchestrator). commands/evolve.md registered. SONNET_MODEL enforces sonnet ceiling. 63 evolve tests passing.
 
 ---
 
