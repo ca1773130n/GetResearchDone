@@ -740,37 +740,25 @@ async function routeCommand(command, args, cwd, raw) {
       validateSubcommand(sub, ['run', 'discover', 'state', 'advance', 'reset'], 'evolve');
       switch (sub) {
         case 'run':
-          cmdEvolve(cwd, args.slice(2), raw).catch((err) => {
-            error(err.message);
-          });
+          await cmdEvolve(cwd, args.slice(2), raw);
           return;
         case 'discover':
-          cmdEvolveDiscover(cwd, args.slice(2), raw).catch((err) => {
-            error(err.message);
-          });
+          await cmdEvolveDiscover(cwd, args.slice(2), raw);
           return;
         case 'state':
-          Promise.resolve(cmdEvolveState(cwd, args.slice(2), raw)).catch((err) => {
-            error(err.message);
-          });
+          cmdEvolveState(cwd, args.slice(2), raw);
           return;
         case 'advance':
-          Promise.resolve(cmdEvolveAdvance(cwd, args.slice(2), raw)).catch((err) => {
-            error(err.message);
-          });
+          cmdEvolveAdvance(cwd, args.slice(2), raw);
           return;
         case 'reset':
-          Promise.resolve(cmdEvolveReset(cwd, args.slice(2), raw)).catch((err) => {
-            error(err.message);
-          });
+          cmdEvolveReset(cwd, args.slice(2), raw);
           return;
       }
       break;
     }
     case 'autopilot':
-      cmdAutopilot(cwd, args.slice(1), raw).catch((err) => {
-        error(err.message);
-      });
+      await cmdAutopilot(cwd, args.slice(1), raw);
       break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
