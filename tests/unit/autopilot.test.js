@@ -29,6 +29,8 @@ const {
   cmdAutopilot,
   cmdInitAutopilot,
   DEFAULT_TIMEOUT_MINUTES,
+  HEARTBEAT_INTERVAL_MS,
+  startHeartbeat,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -140,6 +142,16 @@ async function captureOutputAsync(fn) {
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
+
+// ─── DEFAULT_TIMEOUT_MINUTES ─────────────────────────────────────────────────
+
+describe('DEFAULT_TIMEOUT_MINUTES', () => {
+  it('is a positive number (not undefined) to prevent hung subprocesses', () => {
+    expect(DEFAULT_TIMEOUT_MINUTES).toBeDefined();
+    expect(typeof DEFAULT_TIMEOUT_MINUTES).toBe('number');
+    expect(DEFAULT_TIMEOUT_MINUTES).toBeGreaterThan(0);
+  });
+});
 
 describe('lib/autopilot', () => {
   // ── buildPlanPrompt / buildExecutePrompt ──
@@ -558,6 +570,36 @@ describe('lib/autopilot', () => {
       expect(result.exitCode).toBe(1);
       expect(result.timedOut).toBe(false);
     });
+
+    it('captures stderr AND forwards to parent when captureStderr is true', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        // Emit stderr data then close in same tick so data is processed before resolve
+        process.nextTick(() => {
+          child.stderr.emit('data', Buffer.from('error output'));
+          child.emit('close', 0);
+        });
+        return child;
+      });
+
+      const stderrLines = [];
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+        stderrLines.push(String(data));
+        return true;
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something', { captureStderr: true });
+
+      stderrSpy.mockRestore();
+
+      // Should capture in result
+      expect(result.stderr).toBe('error output');
+      // Should also forward to parent stderr for real-time visibility
+      expect(stderrLines.some((line) => line.includes('error output'))).toBe(true);
+    });
   });
 
   // ── buildWaves ──
@@ -851,6 +893,17 @@ describe('lib/autopilot', () => {
       );
       const result = JSON.parse(stdout);
       expect(result.results[0].status).toBe('skipped');
+    });
+
+    it('raw mode outputs human-readable summary, not JSON string', async () => {
+      tmpDir = createAutopilotFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(tmpDir, ['--dry-run', '--from', '48', '--to', '48'], true)
+      );
+      // Should not be raw JSON string
+      expect(() => JSON.parse(stdout)).toThrow();
+      // Should contain readable phase counts
+      expect(stdout).toMatch(/\d+\/\d+ phases/);
     });
   });
 
@@ -1588,8 +1641,52 @@ describe('lib/autopilot', () => {
   // ── DEFAULT_TIMEOUT_MINUTES ──
 
   describe('DEFAULT_TIMEOUT_MINUTES', () => {
-    it('is undefined (no timeout by default)', () => {
-      expect(DEFAULT_TIMEOUT_MINUTES).toBeUndefined();
+    it('is a positive number to enforce a fallback timeout', () => {
+      expect(typeof DEFAULT_TIMEOUT_MINUTES).toBe('number');
+      expect(DEFAULT_TIMEOUT_MINUTES).toBeGreaterThan(0);
+    });
+  });
+
+  // ── Progress Heartbeat ──
+
+  describe('HEARTBEAT_INTERVAL_MS', () => {
+    it('is a positive number (default 30 seconds)', () => {
+      expect(typeof HEARTBEAT_INTERVAL_MS).toBe('number');
+      expect(HEARTBEAT_INTERVAL_MS).toBeGreaterThan(0);
+    });
+  });
+
+  describe('startHeartbeat', () => {
+    it('returns a timer that writes message to stderr at each interval', () => {
+      jest.useFakeTimers();
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      const timer = startHeartbeat('[test] still running...');
+      // No writes before the interval fires
+      expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('[test] still running'));
+
+      // Advance past one interval
+      jest.advanceTimersByTime(HEARTBEAT_INTERVAL_MS + 100);
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[test] still running'));
+
+      clearInterval(timer);
+      stderrSpy.mockRestore();
+      jest.useRealTimers();
+    });
+
+    it('stops writing after clearInterval', () => {
+      jest.useFakeTimers();
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      const timer = startHeartbeat('[test] heartbeat');
+      clearInterval(timer);
+
+      // Advance past interval — should NOT fire since we cleared it
+      jest.advanceTimersByTime(HEARTBEAT_INTERVAL_MS * 3);
+      expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('[test] heartbeat'));
+
+      stderrSpy.mockRestore();
+      jest.useRealTimers();
     });
   });
 });

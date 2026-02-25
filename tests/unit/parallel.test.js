@@ -13,6 +13,9 @@ const {
   validateIndependentPhases,
   buildParallelContext,
   cmdInitExecuteParallel,
+  formatProgressBar,
+  streamPhaseProgress,
+  cmdParallelProgress,
 } = require('../../lib/parallel');
 
 // ─── validateIndependentPhases ──────────────────────────────────────────────
@@ -965,5 +968,117 @@ describe('cmdInitExecuteParallel error paths', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toBeDefined();
+  });
+});
+
+// ─── formatProgressBar ──────────────────────────────────────────────────────
+
+describe('formatProgressBar', () => {
+  test('renders empty bar at 0%', () => {
+    const bar = formatProgressBar(0, 10);
+    expect(bar).toMatch(/^\[_+\]\s+0%$/);
+  });
+
+  test('renders full bar at 100%', () => {
+    const bar = formatProgressBar(10, 10);
+    expect(bar).toMatch(/^\[#+\] 100%$/);
+  });
+
+  test('renders partial bar mid-progress', () => {
+    const bar = formatProgressBar(5, 10);
+    expect(bar).toContain('#');
+    expect(bar).toContain('_');
+    expect(bar).toContain('50%');
+  });
+
+  test('renders empty bar when total is 0', () => {
+    const bar = formatProgressBar(0, 0);
+    expect(bar).toContain('0%');
+    expect(bar).not.toContain('#');
+  });
+
+  test('respects custom width', () => {
+    const bar = formatProgressBar(2, 4, 10);
+    // 50% of 10 = 5 filled
+    expect(bar).toContain('[#####_____]');
+  });
+
+  test('clamps progress above 100%', () => {
+    const bar = formatProgressBar(15, 10);
+    expect(bar).toContain('100%');
+  });
+});
+
+// ─── streamPhaseProgress ────────────────────────────────────────────────────
+
+describe('streamPhaseProgress', () => {
+  test('writes formatted progress to stderr', () => {
+    const stderrWrites = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrWrites.push(data);
+      return true;
+    });
+    streamPhaseProgress('3', 2, 5);
+    spy.mockRestore();
+    expect(stderrWrites.length).toBeGreaterThan(0);
+    const output = stderrWrites.join('');
+    expect(output).toContain('Phase 03');
+    expect(output).toContain('2 of 5');
+  });
+
+  test('includes optional status label', () => {
+    const stderrWrites = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrWrites.push(data);
+      return true;
+    });
+    streamPhaseProgress('1', 1, 3, 'complete');
+    spy.mockRestore();
+    const output = stderrWrites.join('');
+    expect(output).toContain('complete');
+  });
+});
+
+// ─── cmdParallelProgress ────────────────────────────────────────────────────
+
+describe('cmdParallelProgress', () => {
+  test('writes to stderr in default mode', () => {
+    const stderrWrites = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrWrites.push(data);
+      return true;
+    });
+    cmdParallelProgress(['--phase', '2', '--plan', '1', '--total-plans', '3'], false);
+    spy.mockRestore();
+    expect(stderrWrites.join('')).toContain('Phase 02');
+  });
+
+  test('outputs JSON in raw mode', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdParallelProgress(['--phase', '2', '--plan', '2', '--total-plans', '4'], true)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.phase).toBe('2');
+    expect(result.plan).toBe(2);
+    expect(result.total_plans).toBe(4);
+    expect(result.bar).toBeDefined();
+  });
+
+  test('returns error when required args missing', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdParallelProgress([], true)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('Usage');
+  });
+
+  test('includes optional status in raw output', () => {
+    const { stdout } = captureOutput(() =>
+      cmdParallelProgress(['--phase', '1', '--plan', '1', '--total-plans', '2', '--status', 'done'], true)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.status).toBe('done');
   });
 });

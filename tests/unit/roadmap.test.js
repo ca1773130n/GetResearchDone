@@ -278,6 +278,24 @@ describe('cmdRoadmapAnalyze', () => {
     expect(parsed.error).toContain('not found');
   });
 
+  test('logs to stderr when phase directory scan fails with non-ENOENT error', () => {
+    const localDir = createFixtureDir();
+    // Replace the phases directory with a regular file to trigger ENOTDIR
+    const phasesDir = path.join(localDir, '.planning', 'milestones', 'anonymous', 'phases');
+    fs.rmSync(phasesDir, { recursive: true });
+    fs.writeFileSync(phasesDir, 'not a directory');
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    try {
+      captureOutput(() => cmdRoadmapAnalyze(localDir, false));
+      const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
+      expect(stderrOutput).toContain('[roadmap]');
+    } finally {
+      stderrSpy.mockRestore();
+      cleanupFixtureDir(localDir);
+    }
+  });
+
   test('parses depends_on with colon outside bold markers', () => {
     const tmpDir = createFixtureDir();
     const roadmap = [
@@ -526,5 +544,61 @@ describe('BUG-48-002: goal regex both formats', () => {
     const phase2 = parsed.phases.find((p) => p.number === '2');
     expect(phase1.goal).toBe('Build the foundation');
     expect(phase2.goal).toBe('Ship it');
+  });
+
+  test('phases include line number of their heading in ROADMAP.md', () => {
+    const tmpDir = createFixtureDir();
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: Alpha',
+      '**Goal:** First goal',
+      '',
+      '### Phase 2: Beta',
+      '**Goal:** Second goal',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase2 = parsed.phases.find((p) => p.number === '2');
+    expect(phase1).toHaveProperty('line');
+    expect(typeof phase1.line).toBe('number');
+    expect(phase1.line).toBeGreaterThan(0);
+    // Phase 2 heading is on a later line than Phase 1
+    expect(phase2.line).toBeGreaterThan(phase1.line);
+  });
+
+  test('phases with missing goal include a warning', () => {
+    const tmpDir = createFixtureDir();
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: No Goal Here',
+      '',
+      '### Phase 2: Has Goal',
+      '**Goal:** Properly specified',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => {
+      cmdRoadmapAnalyze(tmpDir, false);
+    });
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase2 = parsed.phases.find((p) => p.number === '2');
+    expect(phase1.warnings).toBeInstanceOf(Array);
+    expect(phase1.warnings.length).toBeGreaterThan(0);
+    expect(phase1.warnings[0]).toMatch(/goal/i);
+    expect(phase1.warnings[0]).toContain(String(phase1.line));
+    // Phase with goal should have no warnings
+    expect(phase2.warnings).toEqual([]);
   });
 });

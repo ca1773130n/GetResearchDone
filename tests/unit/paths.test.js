@@ -270,6 +270,12 @@ describe('phasesDir', () => {
       path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases')
     );
   });
+
+  test('throws when milestone would escape .planning directory', () => {
+    expect(() => phasesDir('/project', '../etc')).toThrow(
+      /Invalid milestone.*path would escape/
+    );
+  });
 });
 
 // ─── phaseDir ─────────────────────────────────────────────────────────────────
@@ -306,6 +312,12 @@ describe('phaseDir', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     expect(phaseDir(tmpDir, null, '01-setup')).toBe(
       path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'phases', '01-setup')
+    );
+  });
+
+  test('throws when phaseDirName would escape phases directory', () => {
+    expect(() => phaseDir('/project', 'v0.2.1', '../../etc')).toThrow(
+      /Invalid phase directory.*path would escape/
     );
   });
 });
@@ -455,6 +467,12 @@ describe('archivedPhasesDir', () => {
   test('works with any version string', () => {
     expect(archivedPhasesDir('/project', 'v10.20.30')).toBe(
       path.join('/project', '.planning', 'milestones', 'v10.20.30-phases')
+    );
+  });
+
+  test('throws when version would escape .planning directory', () => {
+    expect(() => archivedPhasesDir('/project', '../etc')).toThrow(
+      /Invalid version.*path would escape/
     );
   });
 });

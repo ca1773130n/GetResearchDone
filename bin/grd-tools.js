@@ -13,6 +13,7 @@ const {
   validateFileArg,
   validateSubcommand,
   validateGitRef,
+  findClosestCommand,
 } = require('../lib/utils');
 const {
   cmdFrontmatterGet,
@@ -77,7 +78,7 @@ const {
   cmdEvolveReset,
   cmdInitEvolve,
 } = require('../lib/evolve');
-const { cmdInitExecuteParallel } = require('../lib/parallel');
+const { cmdInitExecuteParallel, cmdParallelProgress } = require('../lib/parallel');
 const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-split');
 const {
   cmdInitExecutePhase,
@@ -133,7 +134,7 @@ function flag(args, name, fallback) {
   return i !== -1 ? args[i + 1] : fallback;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const rawIndex = args.indexOf('--raw');
   const raw = rawIndex !== -1;
@@ -148,15 +149,14 @@ function main() {
   }
 
   try {
-    routeCommand(command, args, cwd, raw);
+    await routeCommand(command, args, cwd, raw);
   } catch (e) {
-    if (e && e.message) error(e.message);
-    else throw e;
+    error(e instanceof Error ? e.stack : String(e));
   }
 }
 
 /** Validate and route CLI commands */
-function routeCommand(command, args, cwd, raw) {
+async function routeCommand(command, args, cwd, raw) {
   const STATE_SUBS = [
     'load',
     'get',
@@ -201,7 +201,7 @@ function routeCommand(command, args, cwd, raw) {
     'record-status',
   ];
   const REQUIREMENT_SUBS = ['get', 'list', 'traceability', 'update-status'];
-  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr', 'ensure-milestone-branch', 'merge'];
+  const WORKTREE_SUBS = ['create', 'remove', 'list', 'push-pr', 'ensure-milestone-branch', 'merge', 'hook'];
   const INIT_WORKFLOWS = [
     'execute-phase',
     'execute-parallel',
@@ -421,10 +421,15 @@ function routeCommand(command, args, cwd, raw) {
         cmdPhaseInsert(cwd, args[2], args.slice(3).join(' '), raw);
       } else if (sub === 'remove') {
         validatePhaseArg(args[2]);
-        cmdPhaseRemove(cwd, args[2], { force: args.includes('--force') }, raw);
+        cmdPhaseRemove(
+          cwd,
+          args[2],
+          { force: args.includes('--force'), dryRun: args.includes('--dry-run') },
+          raw
+        );
       } else if (sub === 'complete') {
         validatePhaseArg(args[2]);
-        cmdPhaseComplete(cwd, args[2], raw);
+        cmdPhaseComplete(cwd, args[2], raw, { dryRun: args.includes('--dry-run') });
       } else if (sub === 'analyze-deps') {
         cmdPhaseAnalyzeDeps(cwd, raw);
       }
@@ -435,10 +440,14 @@ function routeCommand(command, args, cwd, raw) {
       validateSubcommand(sub, MILESTONE_SUBS, 'milestone');
       if (sub === 'complete') {
         const ni = args.indexOf('--name');
+        const version = args.slice(2).find((a) => !a.startsWith('--')) || null;
         cmdMilestoneComplete(
           cwd,
-          args[2],
-          { name: ni !== -1 ? args.slice(ni + 1).join(' ') : null },
+          version,
+          {
+            name: ni !== -1 ? args[ni + 1] : null,
+            dryRun: args.includes('--dry-run'),
+          },
           raw
         );
       }
@@ -537,7 +546,7 @@ function routeCommand(command, args, cwd, raw) {
           cmdInitMapCodebase(cwd, raw);
           break;
         case 'progress':
-          cmdInitProgress(cwd, includes, raw);
+          cmdInitProgress(cwd, includes, raw, args.includes('--refresh'));
           break;
         case 'survey':
         case 'deep-dive':
@@ -562,9 +571,12 @@ function routeCommand(command, args, cwd, raw) {
       validatePhaseArg(args[1]);
       cmdPhasePlanIndex(cwd, args[1], raw);
       break;
-    case 'state-snapshot':
-      cmdStateSnapshot(cwd, raw);
+    case 'state-snapshot': {
+      const sinceIdx = args.indexOf('--since');
+      const snapshotOptions = sinceIdx !== -1 ? { since: args[sinceIdx + 1] } : {};
+      cmdStateSnapshot(cwd, raw, snapshotOptions);
       break;
+    }
     case 'summary-extract': {
       validateFileArg(args[1], cwd);
       const fi = args.indexOf('--fields');
@@ -573,7 +585,7 @@ function routeCommand(command, args, cwd, raw) {
     }
     case 'tracker': {
       validateSubcommand(args[1], TRACKER_SUBS, 'tracker');
-      cmdTracker(cwd, args[1], args.slice(2), raw);
+      await cmdTracker(cwd, args[1], args.slice(2), raw);
       break;
     }
     case 'dashboard':
@@ -711,6 +723,15 @@ function routeCommand(command, args, cwd, raw) {
           },
           raw
         );
+      } else if (sub === 'hook') {
+        const hookSub = args[2];
+        if (hookSub === 'create') {
+          cmdWorktreeHookCreate(cwd, args[3], args[4], raw);
+        } else if (hookSub === 'remove') {
+          cmdWorktreeHookRemove(cwd, args[3], args[4], raw);
+        } else {
+          error(`Unknown worktree hook subcommand: ${hookSub}. Use 'create' or 'remove'.`);
+        }
       }
       break;
     }
@@ -724,13 +745,25 @@ function routeCommand(command, args, cwd, raw) {
           });
           return;
         case 'discover':
-          return cmdEvolveDiscover(cwd, args.slice(2), raw);
+          cmdEvolveDiscover(cwd, args.slice(2), raw).catch((err) => {
+            error(err.message);
+          });
+          return;
         case 'state':
-          return cmdEvolveState(cwd, args.slice(2), raw);
+          Promise.resolve(cmdEvolveState(cwd, args.slice(2), raw)).catch((err) => {
+            error(err.message);
+          });
+          return;
         case 'advance':
-          return cmdEvolveAdvance(cwd, args.slice(2), raw);
+          Promise.resolve(cmdEvolveAdvance(cwd, args.slice(2), raw)).catch((err) => {
+            error(err.message);
+          });
+          return;
         case 'reset':
-          return cmdEvolveReset(cwd, args.slice(2), raw);
+          Promise.resolve(cmdEvolveReset(cwd, args.slice(2), raw)).catch((err) => {
+            error(err.message);
+          });
+          return;
       }
       break;
     }
@@ -820,9 +853,30 @@ function routeCommand(command, args, cwd, raw) {
       }
       break;
     }
-    default:
-      error(`Unknown command: ${command}`);
+    case 'parallel-progress':
+      cmdParallelProgress(args.slice(1), raw);
+      break;
+    default: {
+      const TOP_LEVEL_COMMANDS = [
+        'state', 'resolve-model', 'find-phase', 'commit', 'verify-summary',
+        'template', 'frontmatter', 'verify', 'generate-slug', 'current-timestamp',
+        'list-todos', 'verify-path-exists', 'config-ensure-section', 'config-set',
+        'history-digest', 'phases', 'roadmap', 'phase', 'milestone', 'version',
+        'validate', 'progress', 'todo', 'scaffold', 'migrate-dirs', 'init',
+        'phase-plan-index', 'state-snapshot', 'summary-extract', 'tracker',
+        'dashboard', 'phase-detail', 'health', 'detect-backend', 'long-term-roadmap',
+        'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
+        'evolve', 'autopilot', 'worktree-hook-create', 'worktree-hook-remove',
+        'coverage-report', 'health-check', 'markdown-split', 'parallel-progress',
+      ];
+      const suggestion = findClosestCommand(command, TOP_LEVEL_COMMANDS);
+      const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
+      error(`Unknown command: "${command}".${hint}`);
+    }
   }
 }
 
-main();
+main().catch((err) => {
+  process.stderr.write(`[grd] fatal error: ${err.message}\n`);
+  process.exit(1);
+});

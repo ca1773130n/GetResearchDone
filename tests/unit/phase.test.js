@@ -22,6 +22,8 @@ const {
   cmdMilestoneComplete,
   cmdValidateConsistency,
   cmdVersionBump,
+  cmdPhaseBatchComplete,
+  atomicWriteFile,
 } = require('../../lib/phase');
 
 // ─── cmdPhasesList ───────────────────────────────────────────────────────────
@@ -153,6 +155,13 @@ describe('cmdPhaseAdd', () => {
     const { stderr, exitCode } = captureError(() => cmdPhaseAdd(tmpDir, null, false));
     expect(exitCode).toBe(1);
     expect(stderr).toContain('description required');
+  });
+
+  test('errors when description exceeds 60 characters', () => {
+    const longDesc = 'A'.repeat(61);
+    const { stderr, exitCode } = captureError(() => cmdPhaseAdd(tmpDir, longDesc, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/description.*(too long|exceeds|60)/i);
   });
 
   test('uses description as Goal text instead of placeholder', () => {
@@ -386,6 +395,52 @@ describe('cmdPhaseRemove', () => {
     const { stderr, exitCode } = captureError(() => cmdPhaseRemove(tmpDir, null, {}, false));
     expect(exitCode).toBe(1);
     expect(stderr).toContain('phase number required');
+  });
+
+  test('cleans up matching .worktrees/ directories on remove', () => {
+    // Create a fake worktree directory matching phase 1 (normalized: 01)
+    const wtDir = path.join(tmpDir, '.worktrees', 'grd-worktree-v1.0-01');
+    fs.mkdirSync(wtDir, { recursive: true });
+    // Write a dummy file inside so it's non-empty
+    fs.writeFileSync(path.join(wtDir, 'dummy.txt'), 'test');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseRemove(tmpDir, '1', { force: true }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.cleaned_worktrees).toEqual(['grd-worktree-v1.0-01']);
+    // Worktree directory should be gone
+    expect(fs.existsSync(wtDir)).toBe(false);
+  });
+
+  test('does not include cleaned_worktrees when no worktrees match', () => {
+    // No .worktrees/ dir exists in the fixture by default
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseRemove(tmpDir, '1', { force: true }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.cleaned_worktrees).toBeUndefined();
+  });
+
+  test('aborts without mutating phase dirs when ROADMAP.md is unreadable', () => {
+    // Replace ROADMAP.md with a directory to trigger EISDIR on readFileSync
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.unlinkSync(roadmapPath);
+    fs.mkdirSync(roadmapPath);
+
+    const { stderr, exitCode } = captureError(() =>
+      cmdPhaseRemove(tmpDir, '1', { force: true }, false)
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('ROADMAP');
+    // Phase directories must NOT have been deleted (abort happened before mutations)
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test')
+      )
+    ).toBe(true);
   });
 });
 
@@ -1263,5 +1318,355 @@ describe('cmdValidateConsistency edge cases', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.warnings.some((w) => w.includes("missing 'wave'"))).toBe(true);
+  });
+});
+
+// ─── --dry-run: cmdPhaseRemove ────────────────────────────────────────────────
+
+describe('cmdPhaseRemove --dry-run', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns dry_run:true with preview of what would be removed', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.dry_run).toBe(true);
+    expect(result.would_remove).toBeTruthy();
+  });
+
+  test('does not delete the phase directory when dry-run', () => {
+    captureOutput(() => cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false));
+    expect(
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'))
+    ).toBe(true);
+  });
+
+  test('does not modify ROADMAP.md when dry-run', () => {
+    const before = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    captureOutput(() => cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false));
+    const after = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    expect(after).toBe(before);
+  });
+
+  test('lists phases that would be renumbered in dry-run output', () => {
+    const { stdout } = captureOutput(() =>
+      cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false)
+    );
+    const result = JSON.parse(stdout);
+    // Phase 2 would be renumbered to 1
+    expect(result.would_renumber).toBeInstanceOf(Array);
+  });
+});
+
+// ─── --dry-run: cmdPhaseComplete ─────────────────────────────────────────────
+
+describe('cmdPhaseComplete --dry-run', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns dry_run:true with preview info', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseComplete(tmpDir, '1', false, { dryRun: true })
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.dry_run).toBe(true);
+    expect(result.would_complete_phase).toBeTruthy();
+  });
+
+  test('does not modify ROADMAP.md when dry-run', () => {
+    const before = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    captureOutput(() => cmdPhaseComplete(tmpDir, '1', false, { dryRun: true }));
+    const after = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
+    expect(after).toBe(before);
+  });
+});
+
+// ─── --dry-run: cmdMilestoneComplete ─────────────────────────────────────────
+
+describe('cmdMilestoneComplete --dry-run', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns dry_run:true with preview info', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdMilestoneComplete(tmpDir, 'v1.0', { dryRun: true }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.dry_run).toBe(true);
+    expect(result.would_archive_version).toBe('v1.0');
+  });
+
+  test('does not archive phases when dry-run', () => {
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const archiveDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', { dryRun: true }, false));
+    // Archive should not have been created
+    expect(fs.existsSync(archiveDir)).toBe(false);
+    // Phases dir should still exist
+    expect(fs.existsSync(phasesDir)).toBe(true);
+  });
+});
+
+// ─── cmdValidateConsistency --fix ────────────────────────────────────────────
+
+describe('cmdValidateConsistency --fix', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('accepts options parameter without error', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdValidateConsistency(tmpDir, false, {})
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.passed).toBe(true);
+  });
+
+  test('removes orphaned summaries when fix is true', () => {
+    // Create a summary without a matching plan
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const orphanSummary = path.join(phaseDir, '01-99-SUMMARY.md');
+    fs.writeFileSync(orphanSummary, '---\nphase: 01\nplan: 99\n---\n');
+
+    const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false, { fix: true }));
+    const result = JSON.parse(stdout);
+
+    expect(result.fixed).toBeDefined();
+    expect(Array.isArray(result.fixed)).toBe(true);
+    expect(fs.existsSync(orphanSummary)).toBe(false);
+  });
+
+  test('reports what would be fixed in dry run (no fix option)', () => {
+    // Create an orphaned summary
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const orphanSummary = path.join(phaseDir, '01-98-SUMMARY.md');
+    fs.writeFileSync(orphanSummary, '---\nphase: 01\nplan: 98\n---\n');
+
+    const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false, {}));
+    const result = JSON.parse(stdout);
+
+    // Without fix option, should warn but not remove
+    expect(result.warnings.some((w) => w.includes('01-98'))).toBe(true);
+    expect(fs.existsSync(orphanSummary)).toBe(true);
+  });
+});
+
+// ─── cmdPhaseBatchComplete ────────────────────────────────────────────────────
+
+describe('cmdPhaseBatchComplete', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('is exported as a function', () => {
+    expect(typeof cmdPhaseBatchComplete).toBe('function');
+  });
+
+  test('returns error when phases list is empty', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseBatchComplete(tmpDir, [], {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toBeDefined();
+  });
+
+  test('returns results array with one entry per phase', () => {
+    // Phase 1 has a completed summary, so it can be completed
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseBatchComplete(tmpDir, ['1'], {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.results).toBeDefined();
+    expect(Array.isArray(result.results)).toBe(true);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].phase).toBe('1');
+  });
+
+  test('processes multiple phases and returns results for each', () => {
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdPhaseBatchComplete(tmpDir, ['1', '2'], {}, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.results).toHaveLength(2);
+    expect(result.results.map((r) => r.phase)).toEqual(['1', '2']);
+  });
+
+  test('includes total_phases and completed_count in result', () => {
+    const { stdout } = captureOutput(() =>
+      cmdPhaseBatchComplete(tmpDir, ['1'], {}, false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('total_phases');
+    expect(result).toHaveProperty('completed_count');
+    expect(result.total_phases).toBe(1);
+  });
+});
+
+// ─── Stability: swallowed errors in cmdPhaseRemove renumber path ─────────────
+
+describe('cmdPhaseRemove — error logging in renumber path', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('logs to stderr when readdirSync fails unexpectedly during renumbering', () => {
+    const stderrLines = [];
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data) => {
+        stderrLines.push(String(data));
+        return true;
+      });
+
+    let callCount = 0;
+    const origFsReaddirSync = fs.readdirSync.bind(fs);
+    const readdirSpy = jest.spyOn(fs, 'readdirSync').mockImplementation(function (...args) {
+      callCount++;
+      // First 2 calls succeed (find targetDir, check summaries in target dir)
+      // Third call is for renumbering — fail it with EPERM
+      if (callCount === 3) {
+        const err = new Error('EPERM: operation not permitted');
+        err.code = 'EPERM';
+        throw err;
+      }
+      return origFsReaddirSync(...args);
+    });
+
+    captureOutput(() => cmdPhaseRemove(tmpDir, '1', { force: true }, false));
+
+    readdirSpy.mockRestore();
+    stderrSpy.mockRestore();
+
+    // After fix: a warning is logged for unexpected renumber errors
+    expect(stderrLines.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Stability: phase numbering gap detection in cmdPhaseAdd ─────────────────
+
+describe('cmdPhaseAdd — phase numbering gap detection', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('warns when existing phases have a numbering gap', () => {
+    // Create roadmap with phases 1, 2, 4 (missing 3)
+    const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      `# Roadmap\n\n## M1 v1.0: Test\n\n### Phase 1: Setup\n\n**Goal:** Setup\n\n### Phase 2: Build\n\n**Goal:** Build\n\n### Phase 4: Deploy\n\n**Goal:** Deploy\n`,
+      'utf-8'
+    );
+
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseAdd(tmpDir, 'New Phase', false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // After fix: result includes a warnings field about the gap
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings.some((w) => /gap|missing|sequen/i.test(w))).toBe(true);
+  });
+});
+
+// ─── atomicWriteFile ──────────────────────────────────────────────────────────
+
+describe('atomicWriteFile', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-phase-atomic-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('writes content atomically and the original file contains new content', () => {
+    const filePath = path.join(tmpDir, 'test.md');
+    atomicWriteFile(filePath, 'hello world');
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe('hello world');
+  });
+
+  test('no .tmp file remains after successful write', () => {
+    const filePath = path.join(tmpDir, 'test.md');
+    atomicWriteFile(filePath, 'content');
+    expect(fs.existsSync(filePath + '.tmp')).toBe(false);
+  });
+
+  test('throws on write failure and leaves original file untouched', () => {
+    const filePath = path.join(tmpDir, 'original.md');
+    fs.writeFileSync(filePath, 'original content', 'utf-8');
+    // Point to a nonexistent directory to force a write failure
+    const badPath = path.join(tmpDir, 'nonexistent', 'target.md');
+    expect(() => atomicWriteFile(badPath, 'new content')).toThrow();
+    // Original file should be unchanged
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe('original content');
   });
 });

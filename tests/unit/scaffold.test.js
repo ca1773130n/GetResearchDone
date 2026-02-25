@@ -115,6 +115,34 @@ describe('cmdTemplateSelect', () => {
     expect(parsed.type).toBe('complex');
     expect(parsed.hasDecisions).toBe(true);
   });
+
+  test('fallback for missing file includes error_type file_not_found', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdTemplateSelect(fixtureDir, 'no-such-file.md', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.template).toContain('standard');
+    expect(parsed.error_type).toBe('file_not_found');
+  });
+
+  test('fallback for unreadable file includes error_type read_error', () => {
+    const unreadable = path.join(fixtureDir, 'unreadable.md');
+    fs.writeFileSync(unreadable, 'some content', 'utf-8');
+    fs.chmodSync(unreadable, 0o000);
+
+    try {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdTemplateSelect(fixtureDir, 'unreadable.md', false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.template).toContain('standard');
+      expect(parsed.error_type).toBe('read_error');
+    } finally {
+      fs.chmodSync(unreadable, 0o644);
+    }
+  });
 });
 
 // ─── cmdTemplateFill ────────────────────────────────────────────────────────

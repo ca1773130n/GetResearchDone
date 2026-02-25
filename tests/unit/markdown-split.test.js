@@ -490,3 +490,45 @@ describe('round-trip integration', () => {
     expect(reassembled).toBe(original);
   });
 });
+
+// ─── readMarkdownWithPartials — missing partial error handling ───────────────
+
+describe('readMarkdownWithPartials — missing partial error handling', () => {
+  test('returns null (does not throw) when a partial file is missing', () => {
+    const tmpDir = createTmpDir();
+    // Write an index file referencing a non-existent partial
+    const indexContent = `${INDEX_MARKER}\n\n## Part 1\n\n[PLAN-part-001.md](./PLAN-part-001.md)\n`;
+    const indexPath = path.join(tmpDir, 'PLAN.md');
+    fs.writeFileSync(indexPath, indexContent);
+    // Do NOT write the partial file — it is intentionally missing
+
+    // Currently this throws; after the fix it should return null
+    let result;
+    expect(() => {
+      result = readMarkdownWithPartials(indexPath);
+    }).not.toThrow();
+    expect(result).toBeNull();
+  });
+
+  test('logs error to stderr when a partial file is missing', () => {
+    const tmpDir = createTmpDir();
+    const indexContent = `${INDEX_MARKER}\n\n## Part 1\n\n[PLAN-part-001.md](./PLAN-part-001.md)\n`;
+    const indexPath = path.join(tmpDir, 'PLAN.md');
+    fs.writeFileSync(indexPath, indexContent);
+
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+      stderrLines.push(msg);
+    });
+    try {
+      readMarkdownWithPartials(indexPath);
+    } catch (_e) {
+      // ignore — we're testing that it doesn't throw but checking stderr
+    } finally {
+      stderrSpy.mockRestore();
+    }
+
+    expect(stderrLines.length).toBeGreaterThan(0);
+    expect(stderrLines.join('')).toMatch(/missing|partial|PLAN-part-001/i);
+  });
+});

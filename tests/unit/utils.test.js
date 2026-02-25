@@ -26,7 +26,10 @@ const {
   resolveModelInternal,
   resolveModelForAgent,
   findPhaseInternal,
+  clearPhaseCache,
   stripShippedSections,
+  levenshteinDistance,
+  findClosestCommand,
   getMilestoneInfo,
   loadConfig,
   output,
@@ -372,6 +375,61 @@ describe('loadConfig', () => {
   test('defaults autonomous_mode to false when missing', () => {
     const config = loadConfig('/tmp/nonexistent-dir-12345');
     expect(config.autonomous_mode).toBe(false);
+  });
+
+  test('warns to stderr about unrecognized top-level config keys', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-config-schema-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced', reseach_gates: true })
+      );
+      const { captureError } = require('../helpers/setup');
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toContain('reseach_gates');
+      expect(stderr).toContain('Unrecognized');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('does not warn for recognized nested section keys', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-config-known-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'balanced', git: { base_branch: 'main' }, tracker: { provider: 'none' } })
+      );
+      const { captureError } = require('../helpers/setup');
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toBe('');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('warns to stderr for invalid model_profile value', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-config-validate-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ model_profile: 'superduper' })
+      );
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toContain('model_profile');
+      expect(stderr).toContain('superduper');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -939,5 +997,108 @@ describe('extractMarkdownSection', () => {
     const result = extractMarkdownSection(md, 'First');
     expect(result).toContain('First content.');
     expect(result).not.toContain('Second content.');
+  });
+});
+
+// ─── levenshteinDistance ─────────────────────────────────────────────────────
+
+describe('levenshteinDistance', () => {
+  test('identical strings have distance 0', () => {
+    expect(levenshteinDistance('progress', 'progress')).toBe(0);
+  });
+
+  test('single character insertion has distance 1', () => {
+    expect(levenshteinDistance('progres', 'progress')).toBe(1);
+  });
+
+  test('single character deletion has distance 1', () => {
+    expect(levenshteinDistance('progress', 'progres')).toBe(1);
+  });
+
+  test('single character substitution has distance 1', () => {
+    expect(levenshteinDistance('phasee', 'phase')).toBe(1);
+  });
+
+  test('empty string vs non-empty returns string length', () => {
+    expect(levenshteinDistance('', 'abc')).toBe(3);
+    expect(levenshteinDistance('abc', '')).toBe(3);
+  });
+
+  test('both empty strings have distance 0', () => {
+    expect(levenshteinDistance('', '')).toBe(0);
+  });
+
+  test('completely different strings of same length', () => {
+    expect(levenshteinDistance('abc', 'xyz')).toBe(3);
+  });
+});
+
+// ─── findClosestCommand ───────────────────────────────────────────────────────
+
+describe('findClosestCommand', () => {
+  const commands = ['state', 'progress', 'phase', 'milestone', 'roadmap', 'scaffold', 'validate'];
+
+  test('returns closest command for one-char typo', () => {
+    expect(findClosestCommand('progres', commands)).toBe('progress');
+  });
+
+  test('returns closest command for transposition typo', () => {
+    expect(findClosestCommand('phasee', commands)).toBe('phase');
+  });
+
+  test('returns null when input is too different from all commands', () => {
+    expect(findClosestCommand('zzzzzzz', commands)).toBeNull();
+  });
+
+  test('returns null for empty commands list', () => {
+    expect(findClosestCommand('progress', [])).toBeNull();
+  });
+
+  test('is case-insensitive', () => {
+    expect(findClosestCommand('PROGRES', commands)).toBe('progress');
+  });
+
+  test('returns null for null input', () => {
+    expect(findClosestCommand(null, commands)).toBeNull();
+  });
+});
+
+// ─── clearPhaseCache ─────────────────────────────────────────────────────────
+
+describe('clearPhaseCache', () => {
+  let fixtureDir;
+
+  beforeAll(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('is exported as a function', () => {
+    expect(typeof clearPhaseCache).toBe('function');
+  });
+
+  test('can be called without throwing', () => {
+    expect(() => clearPhaseCache()).not.toThrow();
+  });
+
+  test('findPhaseInternal returns consistent results after clearing cache', () => {
+    clearPhaseCache();
+    const result1 = findPhaseInternal(fixtureDir, '1');
+    const result2 = findPhaseInternal(fixtureDir, '1');
+    expect(result1).not.toBeNull();
+    expect(result2).not.toBeNull();
+    expect(result1.phaseNumber).toBe(result2.phaseNumber);
+    expect(result1.directory).toBe(result2.directory);
+  });
+
+  test('findPhaseInternal returns same result whether cached or not', () => {
+    clearPhaseCache();
+    const fresh = findPhaseInternal(fixtureDir, '1');
+    // Second call uses cache
+    const cached = findPhaseInternal(fixtureDir, '1');
+    expect(fresh).toEqual(cached);
   });
 });

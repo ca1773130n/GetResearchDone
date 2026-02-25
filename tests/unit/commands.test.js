@@ -100,6 +100,17 @@ describe('cmdGenerateSlug', () => {
     });
     expect(exitCode).toBe(1);
   });
+
+  test('truncates slug to 60 characters for very long input', () => {
+    const longText = 'word '.repeat(30); // 150 chars after slug generation
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdGenerateSlug(longText, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.slug.length).toBeLessThanOrEqual(60);
+    expect(parsed.slug).not.toMatch(/^-|-$/); // no leading/trailing dashes
+  });
 });
 
 // ─── cmdCurrentTimestamp ────────────────────────────────────────────────────
@@ -174,6 +185,31 @@ describe('cmdListTodos', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.count).toBe(0);
     expect(parsed.todos).toEqual([]);
+  });
+
+  test('logs non-ENOENT error to stderr when reading a todo file fails', () => {
+    const localFixture = createFixtureDir();
+    const pendingDir = path.join(
+      localFixture,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending'
+    );
+    // Create a directory named like a .md file — readFileSync will throw EISDIR (not ENOENT)
+    const badEntry = path.join(pendingDir, 'bad-todo.md');
+    fs.mkdirSync(badEntry, { recursive: true });
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    try {
+      captureOutput(() => cmdListTodos(localFixture, null, false));
+      const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
+      expect(stderrOutput).toContain('[todos]');
+    } finally {
+      stderrSpy.mockRestore();
+      cleanupFixtureDir(localFixture);
+    }
   });
 });
 
@@ -314,6 +350,16 @@ describe('cmdConfigEnsureSection', () => {
     expect(config).toHaveProperty('model_profile');
     expect(config).toHaveProperty('workflow');
     expect(config).toHaveProperty('tracker');
+  });
+
+  test('creates config with mcp_atlassian key instead of obsolete jira key', () => {
+    fs.unlinkSync(path.join(fixtureDir, '.planning', 'config.json'));
+    captureOutput(() => { cmdConfigEnsureSection(fixtureDir, false); });
+    const config = JSON.parse(
+      fs.readFileSync(path.join(fixtureDir, '.planning', 'config.json'), 'utf-8')
+    );
+    expect(config.tracker).not.toHaveProperty('jira');
+    expect(config.tracker).toHaveProperty('mcp_atlassian');
   });
 });
 
@@ -675,6 +721,43 @@ describe('cmdProgressRender', () => {
     expect(parsed.bar).toContain('[');
     expect(parsed.bar).toContain(']');
   });
+
+  test('"json" format raw mode returns non-empty human-readable summary', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdProgressRender(fixtureDir, 'json', true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout.length).toBeGreaterThan(0);
+    expect(stdout).toContain('%');
+  });
+
+  test('"json" format includes active_blockers field', () => {
+    const { stdout } = captureOutput(() => {
+      cmdProgressRender(fixtureDir, 'json', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('active_blockers');
+    expect(typeof parsed.active_blockers).toBe('number');
+    expect(parsed).toHaveProperty('blocker_items');
+    expect(Array.isArray(parsed.blocker_items)).toBe(true);
+  });
+
+  test('"table" format shows BLOCKED warning when STATE.md has active blockers', () => {
+    const statePath = path.join(fixtureDir, '.planning', 'STATE.md');
+    let state = fs.readFileSync(statePath, 'utf-8');
+    state = state.replace(
+      '## Blockers\n\nNone.',
+      '## Blockers\n\n- API rate limit exceeded\n- Missing test data'
+    );
+    fs.writeFileSync(statePath, state);
+
+    const { stdout } = captureOutput(() => {
+      cmdProgressRender(fixtureDir, 'table', true);
+    });
+    expect(stdout).toContain('BLOCKED');
+    expect(stdout).toContain('API rate limit exceeded');
+    expect(stdout).toContain('Missing test data');
+  });
 });
 
 // ─── cmdDashboard ──────────────────────────────────────────────────────────
@@ -811,6 +894,23 @@ describe('cmdDashboard', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.summary.active_blockers).toBe(2);
     expect(parsed.summary.pending_deferred).toBe(1);
+  });
+
+  test('non-raw mode surfaces blocker details in TUI when active blockers exist', () => {
+    const statePath = path.join(fixtureDir, '.planning', 'STATE.md');
+    let state = fs.readFileSync(statePath, 'utf-8');
+    state = state.replace(
+      '## Blockers\n\nNone.',
+      '## Blockers\n\n- Dependency upgrade blocked by security audit\n- CI pipeline broken'
+    );
+    fs.writeFileSync(statePath, state);
+
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, false);
+    });
+    expect(stdout).toContain('ACTIVE BLOCKERS');
+    expect(stdout).toContain('Dependency upgrade blocked by security audit');
+    expect(stdout).toContain('CI pipeline broken');
   });
 
   test('non-raw mode produces TUI text output containing milestone name', () => {
@@ -3927,5 +4027,141 @@ describe('cmdPhaseDetail — non-raw error paths', () => {
     });
     expect(exitCode).toBe(0);
     expect(stdout).toContain('999');
+  });
+});
+
+// ─── cmdCommit — commit_failed reason ────────────────────────────────────────
+
+describe('cmdCommit — commit_failed for non-empty-commit errors', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    const os = require('os');
+    const { execFileSync } = require('child_process');
+    repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-commit-fail-test-'));
+    execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: repoDir, stdio: 'pipe' });
+    // Create initial commit so HEAD exists
+    fs.writeFileSync(path.join(repoDir, 'initial.txt'), 'init');
+    execFileSync('git', ['add', 'initial.txt'], { cwd: repoDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: repoDir, stdio: 'pipe' });
+    // Create .planning/ with commit_docs: true
+    fs.mkdirSync(path.join(repoDir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repoDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true })
+    );
+    // Create a file to stage
+    fs.writeFileSync(path.join(repoDir, '.planning', 'STATE.md'), '# State\n');
+    // Install a pre-commit hook that always rejects
+    const hooksDir = path.join(repoDir, '.git', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(hooksDir, 'pre-commit'),
+      '#!/bin/sh\necho "pre-commit hook rejected" >&2\nexit 1\n'
+    );
+    fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755);
+  });
+
+  afterEach(() => {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  test('returns commit_failed reason when git commit fails due to pre-commit hook', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdCommit(repoDir, 'test commit', ['.planning/'], false, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.committed).toBe(false);
+    expect(parsed.reason).toBe('commit_failed');
+    expect(parsed.error).toBeDefined();
+  });
+});
+
+// ─── cmdDashboard filter option ──────────────────────────────────────────────
+
+describe('cmdDashboard filter option', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('filter:incomplete returns only phases without all summaries', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true, { filter: 'incomplete' });
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    for (const ms of parsed.milestones) {
+      for (const phase of ms.phases) {
+        expect(phase.status).not.toBe('complete');
+      }
+    }
+  });
+
+  test('filter:incomplete excludes phase 1 (which has summary) from results', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true, { filter: 'incomplete' });
+    });
+    const parsed = JSON.parse(stdout);
+    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
+    const phase1 = allPhases.find((p) => p.number === '1');
+    expect(phase1).toBeUndefined();
+  });
+
+  test('filter:incomplete includes phase 2 (which has no summary)', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true, { filter: 'incomplete' });
+    });
+    const parsed = JSON.parse(stdout);
+    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
+    const phase2 = allPhases.find((p) => p.number === '2');
+    expect(phase2).toBeDefined();
+  });
+
+  test('no filter returns all phases (backwards compatible)', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true);
+    });
+    const parsed = JSON.parse(stdout);
+    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
+    expect(allPhases.length).toBe(2);
+  });
+
+  test('empty options object does not filter', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDashboard(fixtureDir, true, {});
+    });
+    const parsed = JSON.parse(stdout);
+    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
+    expect(allPhases.length).toBe(2);
+  });
+
+  // ─── Stability: cmdDashboard non-raw mode writes output and returns ──────────
+
+  test('non-raw TUI mode writes output to stdout and returns normally', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDashboard(fixtureDir, false, {});
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout.length).toBeGreaterThan(0);
+  });
+
+  test('non-raw mode when ROADMAP.md missing writes message and returns', () => {
+    const tmpDir2 = createFixtureDir();
+    fs.unlinkSync(path.join(tmpDir2, '.planning', 'ROADMAP.md'));
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDashboard(tmpDir2, false, {});
+    });
+    cleanupFixtureDir(tmpDir2);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('No ROADMAP.md found');
   });
 });

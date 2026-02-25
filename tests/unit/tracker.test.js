@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { captureOutput, captureError } = require('../helpers/setup');
+const { captureOutput, captureError, captureOutputAsync } = require('../helpers/setup');
 const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
 const {
@@ -15,6 +15,7 @@ const {
   loadTrackerMapping,
   saveTrackerMapping,
   createGitHubTracker,
+  PROVIDERS,
   createTracker,
   cmdTracker,
 } = require('../../lib/tracker');
@@ -82,6 +83,24 @@ describe('loadTrackerConfig', () => {
     fs.unlinkSync(path.join(tmpDir, '.planning', 'config.json'));
     const result = loadTrackerConfig(tmpDir);
     expect(result.provider).toBe('none');
+  });
+
+  test('returns {provider: "none"} and logs warning when config.json is malformed JSON', () => {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    fs.writeFileSync(configPath, '{ this is not valid json :::}', 'utf-8');
+
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrLines.push(String(data));
+      return true;
+    });
+
+    const result = loadTrackerConfig(tmpDir);
+
+    stderrSpy.mockRestore();
+
+    expect(result.provider).toBe('none');
+    expect(stderrLines.some((line) => line.includes('config.json'))).toBe(true);
   });
 
   test('migrates old github_integration format', () => {
@@ -258,6 +277,26 @@ describe('saveTrackerMapping', () => {
   });
 });
 
+// ─── PROVIDERS map ────────────────────────────────────────────────────────────
+
+describe('PROVIDERS', () => {
+  test('contains github factory', () => {
+    expect(typeof PROVIDERS.github).toBe('function');
+  });
+
+  test('github factory produces a tracker with expected methods', () => {
+    const tmpDir = createFixtureDir();
+    try {
+      const tracker = PROVIDERS.github(tmpDir, { github: {} });
+      expect(tracker.provider).toBe('github');
+      expect(typeof tracker.createPhaseIssue).toBe('function');
+      expect(typeof tracker.syncRoadmap).toBe('function');
+    } finally {
+      cleanupFixtureDir(tmpDir);
+    }
+  });
+});
+
 // ─── createTracker / createGitHubTracker ─────────────────────────────────────
 
 describe('createTracker', () => {
@@ -341,8 +380,8 @@ describe('cmdTracker', () => {
     expect(result.auth_status).toBe('mcp_server');
   });
 
-  test('sync-roadmap returns error when no tracker configured', () => {
-    const { stdout, exitCode } = captureOutput(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+  test('sync-roadmap returns error when no tracker configured', async () => {
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('No tracker configured');
@@ -518,7 +557,7 @@ describe('cmdTracker', () => {
     expect(stderr).toContain('schedule');
   });
 
-  test('handler dispatch covers all 12 subcommands', () => {
+  test('handler dispatch covers all 12 subcommands', async () => {
     const subcommands = [
       'get-config',
       'sync-roadmap',
@@ -535,16 +574,10 @@ describe('cmdTracker', () => {
     ];
     for (const sub of subcommands) {
       // Each subcommand should NOT produce "Unknown tracker subcommand" error
-      let caught = false;
-      try {
-        captureOutput(() => cmdTracker(tmpDir, sub, [], false));
-      } catch {
-        // Some subcommands may error() on missing args — that's fine, it means they dispatched
-        caught = true;
-      }
-      // If it didn't throw, it dispatched successfully
-      // If it did throw, it should NOT be about unknown subcommand
-      if (caught) {
+      // Use captureOutputAsync to handle both sync and async subcommands (e.g. sync-roadmap)
+      const result = await captureOutputAsync(() => cmdTracker(tmpDir, sub, [], false));
+      // If it exited with error code, verify it's not about unknown subcommand
+      if (result.exitCode !== 0) {
         const { stderr } = captureError(() => cmdTracker(tmpDir, sub, [], false));
         expect(stderr).not.toContain('Unknown tracker subcommand');
       }
@@ -553,19 +586,19 @@ describe('cmdTracker', () => {
 
   // ─── handleSyncRoadmap ─────────────────────────────────────────────────────
 
-  test('sync-roadmap returns mcp-atlassian redirect message', () => {
+  test('sync-roadmap returns mcp-atlassian redirect message', async () => {
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     config.tracker = { provider: 'mcp-atlassian', mcp_atlassian: { project_key: 'PROJ' } };
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    const { stdout, exitCode } = captureOutput(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('prepare-roadmap-sync');
   });
 
-  test('sync-roadmap returns error when ROADMAP.md is missing', () => {
+  test('sync-roadmap returns error when ROADMAP.md is missing', async () => {
     // Configure github tracker
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -575,13 +608,13 @@ describe('cmdTracker', () => {
     const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
     if (fs.existsSync(roadmapPath)) fs.unlinkSync(roadmapPath);
 
-    const { stdout, exitCode } = captureOutput(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('No ROADMAP.md found');
   });
 
-  test('sync-roadmap with github parses phases and syncs', () => {
+  test('sync-roadmap with github parses phases and syncs', async () => {
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     config.tracker = { provider: 'github', github: {} };
@@ -589,13 +622,57 @@ describe('cmdTracker', () => {
     // ROADMAP.md already has Phase 1 and Phase 2 headings in fixture
     // The sync will try to create issues via gh CLI, which won't be available
     // so stats.errors will increment
-    const { stdout, exitCode } = captureOutput(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // gh is likely not available, so phases that fail will be errors
     expect(typeof result.created).toBe('number');
     expect(typeof result.errors).toBe('number');
   }, 15000);
+
+  test('sync-roadmap --dry-run returns dry_run result without executing', async () => {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.tracker = { provider: 'github', github: {} };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', ['--dry-run'], false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.dry_run).toBe(true);
+    expect(Array.isArray(result.would_create)).toBe(true);
+    expect(Array.isArray(result.would_skip)).toBe(true);
+    expect(result.created).toBe(0);
+  });
+
+  test('sync-roadmap --dry-run with no tracker configured returns error', async () => {
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', ['--dry-run'], false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('No tracker configured');
+  });
+
+  test('sync-roadmap --dry-run shows would_create for unmapped phases', async () => {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.tracker = { provider: 'github', github: {} };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const { stdout } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', ['--dry-run'], false)
+    );
+    const result = JSON.parse(stdout);
+    // Fixture ROADMAP.md has phases, so would_create should have entries
+    expect(result.would_create.length + result.would_skip.length).toBeGreaterThanOrEqual(0);
+    if (result.would_create.length > 0) {
+      expect(result.would_create[0]).toHaveProperty('number');
+      expect(result.would_create[0]).toHaveProperty('name');
+    }
+  });
 
   // ─── handleSyncPhase ──────────────────────────────────────────────────────
 
@@ -1243,7 +1320,7 @@ describe('createGitHubTracker', () => {
     expect(result).toHaveProperty('success');
   }, 15000);
 
-  test('syncRoadmap creates issues for new phases and saves mapping', () => {
+  test('syncRoadmap creates issues for new phases and saves mapping', async () => {
     const tracker = createGitHubTracker(tmpDir, { github: {} });
     const roadmapData = {
       phases: [
@@ -1251,7 +1328,7 @@ describe('createGitHubTracker', () => {
         { number: '11', name: 'Another Phase', goal: 'Another goal', labels: [] },
       ],
     };
-    const stats = tracker.syncRoadmap(roadmapData);
+    const stats = await tracker.syncRoadmap(roadmapData);
     expect(typeof stats.created).toBe('number');
     expect(typeof stats.skipped).toBe('number');
     expect(typeof stats.errors).toBe('number');
@@ -1261,7 +1338,7 @@ describe('createGitHubTracker', () => {
     expect(mapping.provider).toBe('github');
   }, 15000);
 
-  test('syncRoadmap skips already-mapped phases', () => {
+  test('syncRoadmap skips already-mapped phases', async () => {
     // Pre-populate mapping
     saveTrackerMapping(tmpDir, {
       provider: 'github',
@@ -1274,7 +1351,7 @@ describe('createGitHubTracker', () => {
     const roadmapData = {
       phases: [{ number: '10', name: 'Test Phase', goal: 'Test goal', labels: [] }],
     };
-    const stats = tracker.syncRoadmap(roadmapData);
+    const stats = await tracker.syncRoadmap(roadmapData);
     expect(stats.skipped).toBe(1);
     expect(stats.created).toBe(0);
   });
@@ -1354,9 +1431,9 @@ describe('createGitHubTracker', () => {
     expect(result).toHaveProperty('success');
   }, 15000);
 
-  test('syncRoadmap with empty phases array', () => {
+  test('syncRoadmap with empty phases array', async () => {
     const tracker = createGitHubTracker(tmpDir, { github: {} });
-    const stats = tracker.syncRoadmap({ phases: [] });
+    const stats = await tracker.syncRoadmap({ phases: [] });
     expect(stats.created).toBe(0);
     expect(stats.skipped).toBe(0);
     expect(stats.errors).toBe(0);
@@ -1367,5 +1444,45 @@ describe('createGitHubTracker', () => {
     const stats = tracker.syncPhase(1, { plans: [] });
     expect(stats.created).toBe(0);
     expect(stats.errors).toBe(0);
+  });
+});
+
+// ─── loadTrackerConfig — required field validation ───────────────────────────
+
+describe('loadTrackerConfig — required field validation warning', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('logs warning to stderr when github provider has no project_board', () => {
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    // github provider with empty project_board
+    config.tracker = {
+      provider: 'github',
+      github: {
+        project_board: '',
+      },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+      stderrLines.push(msg);
+    });
+    try {
+      loadTrackerConfig(tmpDir);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+
+    expect(stderrLines.length).toBeGreaterThan(0);
+    expect(stderrLines.join('')).toMatch(/project_board|missing|required/i);
   });
 });

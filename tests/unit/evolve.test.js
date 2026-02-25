@@ -78,6 +78,7 @@ const {
   buildReviewPrompt,
   buildGroupExecutePrompt,
   buildGroupReviewPrompt,
+  writeDiscoveriesToTodos,
   writeEvolutionNotes,
   runEvolve,
   cmdEvolve,
@@ -633,6 +634,43 @@ describe('parseDiscoveryOutput', () => {
     expect(items).toHaveLength(1);
     expect(items[0].effort).toBe('medium');
   });
+
+  test('emits stderr warning when >50% items have off-theme slugs', () => {
+    // 3 off-theme slugs out of 4 total (75%) — should trigger warning
+    const raw = JSON.stringify([
+      { dimension: 'quality', slug: 'improve-coverage-a', title: 'A', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'completely-random-1', title: 'B', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'completely-random-2', title: 'C', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'completely-random-3', title: 'D', description: 'D', effort: 'small' },
+    ]);
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrLines.push(String(data));
+      return true;
+    });
+    const items = parseDiscoveryOutput(raw);
+    stderrSpy.mockRestore();
+    expect(items).toHaveLength(4);
+    expect(stderrLines.some((l) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(true);
+  });
+
+  test('does not warn when <=50% items are off-theme', () => {
+    // 1 off-theme slug out of 4 total (25%) — should NOT trigger warning
+    const raw = JSON.stringify([
+      { dimension: 'quality', slug: 'improve-coverage-a', title: 'A', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'improve-coverage-b', title: 'B', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'improve-coverage-c', title: 'C', description: 'D', effort: 'small' },
+      { dimension: 'quality', slug: 'completely-random', title: 'D', description: 'D', effort: 'small' },
+    ]);
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrLines.push(String(data));
+      return true;
+    });
+    parseDiscoveryOutput(raw);
+    stderrSpy.mockRestore();
+    expect(stderrLines.some((l) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(false);
+  });
 });
 
 // ─── discoverWithClaude ─────────────────────────────────────────────────────
@@ -682,6 +720,26 @@ describe('discoverWithClaude', () => {
     const items = await discoverWithClaude(fixture);
     expect(items).toHaveLength(1);
     expect(items[0].id).toBe('quality/claude-found');
+  });
+
+  test('emits distinct timeout warning when Claude discovery times out', async () => {
+    const timedOutResult = { exitCode: 1, timedOut: true, stdout: '' };
+    autopilotModule.spawnClaudeAsync.mockResolvedValueOnce(timedOutResult);
+    const fixture = createDiscoveryFixture();
+
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+      stderrLines.push(msg);
+    });
+    try {
+      await discoverWithClaude(fixture);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+
+    const combined = stderrLines.join('');
+    // Should contain a human-readable timeout indicator, not just "timedOut=true"
+    expect(combined).toMatch(/WARNING.*timeout|timed out|TIMEOUT/i);
   });
 });
 
@@ -1281,6 +1339,24 @@ describe('groupDiscoveredItems', () => {
     for (const g of groups) {
       expect(g.status).toBe('pending');
     }
+  });
+
+  test('custom dimensionWeights override default scoring', () => {
+    // With custom weights: quality=100 (high), stability=1 (low)
+    const items = [
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'medium', source: 'discovery' }),
+      createWorkItem('stability', 'fix-empty-catch-b-L5', 'B', 'D', { effort: 'medium', source: 'discovery' }),
+    ];
+    const defaultGroups = groupDiscoveredItems(items);
+    const customGroups = groupDiscoveredItems(items, { quality: 100, stability: 1 });
+
+    const defaultQuality = defaultGroups.find((g) => g.dimension === 'quality');
+    const customQuality = customGroups.find((g) => g.dimension === 'quality');
+    expect(customQuality.priority).toBeGreaterThan(defaultQuality.priority);
+
+    const defaultStability = defaultGroups.find((g) => g.dimension === 'stability');
+    const customStability = customGroups.find((g) => g.dimension === 'stability');
+    expect(customStability.priority).toBeLessThan(defaultStability.priority);
   });
 });
 
@@ -2450,3 +2526,147 @@ async function captureAsyncOutput(fn) {
 
   return { stdout, stderr, exitCode };
 }
+
+// ─── analyzeCodebaseForItems — stderr logging on discoverer failure ───────────
+
+describe('analyzeCodebaseForItems — logs to stderr on unexpected discoverer errors', () => {
+  test('logs to stderr when lib/ is a file (ENOTDIR) instead of silently dropping errors', () => {
+    let stderrOutput = '';
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrOutput += data;
+      return true;
+    });
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-discover-err-test-'));
+    try {
+      // lib is a FILE not a dir — causes ENOTDIR (not ENOENT), should log to stderr
+      fs.writeFileSync(path.join(tmpDir, 'lib'), 'not a directory');
+      const items = analyzeCodebaseForItems(tmpDir);
+      expect(Array.isArray(items)).toBe(true);
+      // After the fix, unexpected errors (ENOTDIR) must produce stderr output
+      expect(stderrOutput).toMatch(/\[evolve\]/);
+    } finally {
+      stderrSpy.mockRestore();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── discoverImproveFeatureItems — agents/ directory with .md files ───────────
+
+describe('discoverImproveFeatureItems — agents/ directory traversal', () => {
+  test('detects agents lacking tool restrictions when agents/ dir exists', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-agents-test-'));
+    try {
+      const agentsDir = path.join(tmpDir, 'agents');
+      fs.mkdirSync(agentsDir, { recursive: true });
+      // Agent without tool restrictions in frontmatter
+      fs.writeFileSync(
+        path.join(agentsDir, 'my-agent.md'),
+        '---\nname: my-agent\ndescription: Does things\n---\n\nAgent content here.\n'
+      );
+      const items = analyzeCodebaseForItems(tmpDir);
+      expect(Array.isArray(items)).toBe(true);
+      const agentItem = items.find((i) => i.id && i.id.includes('my-agent'));
+      expect(agentItem).toBeDefined();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── writeDiscoveriesToTodos ─────────────────────────────────────────────────
+
+describe('writeDiscoveriesToTodos', () => {
+  test('creates todo files for each group in anonymous/todos/pending/', () => {
+    const tmpDir = createTmpDir();
+    const groups = [
+      {
+        id: 'quality/fix-empty-catch',
+        theme: 'empty-catch-blocks',
+        items: [
+          { title: 'Empty catch in foo.js', description: 'lib/foo.js has an empty catch block' },
+        ],
+      },
+      {
+        id: 'usability/add-jsdoc',
+        theme: 'jsdoc-gaps',
+        items: [
+          { title: 'Missing JSDoc on bar()', description: 'lib/bar.js is missing JSDoc' },
+        ],
+      },
+    ];
+
+    const created = writeDiscoveriesToTodos(tmpDir, groups);
+    expect(created).toBe(2);
+
+    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const files = fs.readdirSync(pendingDir);
+    expect(files.length).toBe(2);
+    expect(files.some((f) => f.startsWith('evolve-'))).toBe(true);
+
+    // Check file content has required frontmatter
+    const content = fs.readFileSync(path.join(pendingDir, files[0]), 'utf-8');
+    expect(content).toMatch(/^title:/m);
+    expect(content).toMatch(/^created:/m);
+    expect(content).toMatch(/^area:/m);
+    expect(content).toMatch(/^source: evolve-discovery$/m);
+  });
+
+  test('skips groups that already have a todo file (idempotent)', () => {
+    const tmpDir = createTmpDir();
+    const groups = [
+      {
+        id: 'quality/fix-empty-catch',
+        theme: 'empty-catch-blocks',
+        items: [{ title: 'Item', description: 'desc' }],
+      },
+    ];
+
+    const firstRun = writeDiscoveriesToTodos(tmpDir, groups);
+    expect(firstRun).toBe(1);
+
+    const secondRun = writeDiscoveriesToTodos(tmpDir, groups);
+    expect(secondRun).toBe(0);
+
+    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const files = fs.readdirSync(pendingDir);
+    expect(files.length).toBe(1);
+  });
+
+  test('returns 0 for empty groups array', () => {
+    const tmpDir = createTmpDir();
+    const created = writeDiscoveriesToTodos(tmpDir, []);
+    expect(created).toBe(0);
+  });
+
+  test('returns 0 for null/undefined groups', () => {
+    const tmpDir = createTmpDir();
+    expect(writeDiscoveriesToTodos(tmpDir, null)).toBe(0);
+    expect(writeDiscoveriesToTodos(tmpDir, undefined)).toBe(0);
+  });
+
+  test('todo content includes item list', () => {
+    const tmpDir = createTmpDir();
+    const groups = [
+      {
+        id: 'stability/fix-errors',
+        theme: 'error-handling',
+        items: [
+          { title: 'Error in alpha', description: 'Alpha has unhandled error' },
+          { title: 'Error in beta', description: 'Beta has unhandled error' },
+        ],
+      },
+    ];
+
+    writeDiscoveriesToTodos(tmpDir, groups);
+
+    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const files = fs.readdirSync(pendingDir);
+    const content = fs.readFileSync(path.join(pendingDir, files[0]), 'utf-8');
+
+    expect(content).toContain('Error in alpha');
+    expect(content).toContain('Error in beta');
+    expect(content).toContain('2 item');
+  });
+});
