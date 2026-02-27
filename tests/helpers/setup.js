@@ -93,4 +93,46 @@ function captureError(fn) {
   return { stderr: captured, exitCode: exitCode ?? 1 };
 }
 
-module.exports = { captureOutput, captureError, EXIT_SENTINEL };
+/**
+ * Capture stdout output and exit code from an async function.
+ * Like captureOutput but awaits the function's returned Promise.
+ *
+ * @param {Function} fn - Async function to execute (returns a Promise)
+ * @returns {Promise<{ stdout: string, exitCode: number }>}
+ */
+async function captureOutputAsync(fn) {
+  let captured = '';
+  let exitCode = null;
+
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+    if (exitCode === null) exitCode = code;
+    const err = new Error(EXIT_SENTINEL);
+    err.__EXIT__ = true;
+    err.code = code;
+    throw err;
+  });
+
+  const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+    captured += data;
+    return true;
+  });
+
+  try {
+    await fn();
+  } catch (e) {
+    if (e && e.__EXIT__) {
+      // Expected sentinel — process.exit was called
+    } else {
+      writeSpy.mockRestore();
+      exitSpy.mockRestore();
+      throw e;
+    }
+  } finally {
+    writeSpy.mockRestore();
+    exitSpy.mockRestore();
+  }
+
+  return { stdout: captured, exitCode: exitCode ?? 0 };
+}
+
+module.exports = { captureOutput, captureError, captureOutputAsync, EXIT_SENTINEL };

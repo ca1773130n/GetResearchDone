@@ -1795,3 +1795,37 @@ describe('v0.2.7 integration regression', () => {
     });
   });
 });
+
+// ─── milestone complete CLI arg parsing ──────────────────────────────────────
+
+describe('milestone complete CLI arg parsing', () => {
+  let mutDir;
+
+  beforeEach(() => {
+    mutDir = createTestDir();
+  });
+
+  afterEach(() => {
+    cleanupDir(mutDir);
+  });
+
+  test('treats flags at position 2 as flags, not as version', () => {
+    // When only --dry-run is passed (no version positional), should error
+    const { stderr, exitCode } = runCLI(['milestone', 'complete', '--dry-run'], mutDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('version required');
+  });
+
+  test('--name takes only the next single argument, not trailing flags', () => {
+    // With v1.0 --name "My Release" --dry-run, dryRun should be true
+    // (not consumed into the name value)
+    const { stdout, exitCode } = runCLI(
+      ['milestone', 'complete', 'v1.0', '--name', 'My Release', '--dry-run'],
+      mutDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+    expect(data.would_archive_version).toBe('v1.0');
+  });
+});

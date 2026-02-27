@@ -28,6 +28,10 @@ const {
   analyzeDocStaleness,
   analyzeConfigSchemaDrift,
   generateCleanupPlan,
+  resetCleanupCache,
+  loadQualityHistory,
+  saveQualityMetrics,
+  computeTrends,
 } = require('../../lib/cleanup');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -179,6 +183,25 @@ describe('analyzeComplexity', () => {
     const result = analyzeComplexity(tmpDir, ['medium.js'], { threshold: 3 });
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0].complexity).toBeGreaterThan(3);
+  });
+
+  test('logs to stderr when ESLint fails to run (no stdout)', () => {
+    // Write a real file with an absolute path so it passes the existsSync filter
+    // but execFileSync fails because the cwd does not exist
+    const absFile = path.join(os.tmpdir(), 'grd-complexity-stderr-test.js');
+    fs.writeFileSync(absFile, 'function x() { return 1; }\n');
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    try {
+      const result = analyzeComplexity('/nonexistent-cwd-xyz-98765', [absFile]);
+      expect(result).toEqual([]);
+      const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
+      expect(stderrOutput).toContain('[cleanup]');
+    } finally {
+      stderrSpy.mockRestore();
+      try {
+        fs.unlinkSync(absFile);
+      } catch {}
+    }
   });
 });
 
@@ -1572,5 +1595,145 @@ describe('generateCleanupPlan new task groupings', () => {
     expect(content).toContain('Resolve code quality issues');
     expect(content).not.toContain('Close test coverage gaps');
     expect(content).not.toContain('Fix consistency and schema issues');
+  });
+});
+
+// ─── resetCleanupCache ────────────────────────────────────────────────────────
+
+describe('resetCleanupCache', () => {
+  test('is exported as a function', () => {
+    expect(typeof resetCleanupCache).toBe('function');
+  });
+
+  test('can be called without throwing', () => {
+    expect(() => resetCleanupCache()).not.toThrow();
+  });
+});
+
+// ─── analyzeComplexity onProgress callback ────────────────────────────────────
+
+describe('analyzeComplexity onProgress callback', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('does not call onProgress when file list is empty', () => {
+    const calls = [];
+    analyzeComplexity(tmpDir, [], { onProgress: (info) => calls.push(info) });
+    expect(calls).toHaveLength(0);
+  });
+
+  test('does not call onProgress when all files are non-existent', () => {
+    const calls = [];
+    analyzeComplexity(tmpDir, ['does-not-exist.js'], {
+      onProgress: (info) => calls.push(info),
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  test('calls onProgress with started event before analysis', () => {
+    writeFile(tmpDir, 'prog.js', 'function foo(a) { return a; }\n');
+    const calls = [];
+    analyzeComplexity(tmpDir, ['prog.js'], { onProgress: (info) => calls.push(info) });
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+    expect(calls[0].event).toBe('started');
+    expect(calls[0].file_count).toBe(1);
+  });
+
+  test('calls onProgress with completed event after analysis', () => {
+    writeFile(tmpDir, 'prog2.js', 'function bar(b) { return b + 1; }\n');
+    const calls = [];
+    analyzeComplexity(tmpDir, ['prog2.js'], { onProgress: (info) => calls.push(info) });
+    const completedCall = calls.find((c) => c.event === 'completed');
+    expect(completedCall).toBeDefined();
+    expect(completedCall).toHaveProperty('violation_count');
+  });
+
+  test('works without onProgress option (backwards compatible)', () => {
+    writeFile(tmpDir, 'prog3.js', 'function baz(c) { return c; }\n');
+    expect(() => analyzeComplexity(tmpDir, ['prog3.js'])).not.toThrow();
+  });
+});
+
+// ─── loadQualityHistory / saveQualityMetrics / computeTrends ─────────────────
+
+describe('quality history and trends', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+  });
+
+  afterEach(() => {
+    removeTempDir(tmpDir);
+  });
+
+  test('loadQualityHistory returns empty object when file missing', () => {
+    const history = loadQualityHistory(tmpDir);
+    expect(history).toEqual({});
+  });
+
+  test('loadQualityHistory returns empty object on parse error', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', '.quality-history.json'), 'not-json', 'utf-8');
+    const history = loadQualityHistory(tmpDir);
+    expect(history).toEqual({});
+  });
+
+  test('saveQualityMetrics persists phase summary', () => {
+    const summary = { total_issues: 3, dead_exports: 1 };
+    saveQualityMetrics(tmpDir, '2', summary);
+    const history = loadQualityHistory(tmpDir);
+    expect(history['2']).toEqual(summary);
+  });
+
+  test('saveQualityMetrics accumulates multiple phases', () => {
+    saveQualityMetrics(tmpDir, '1', { total_issues: 5 });
+    saveQualityMetrics(tmpDir, '2', { total_issues: 3 });
+    const history = loadQualityHistory(tmpDir);
+    expect(history['1'].total_issues).toBe(5);
+    expect(history['2'].total_issues).toBe(3);
+  });
+
+  test('computeTrends returns deltas for numeric fields', () => {
+    const current = { total_issues: 3, dead_exports: 2 };
+    const previous = { total_issues: 5, dead_exports: 2 };
+    const trends = computeTrends(current, previous, '1');
+    expect(trends.total_issues.delta).toBe(-2);
+    expect(trends.total_issues.label).toContain('from Phase 1');
+    expect(trends.dead_exports.delta).toBe(0);
+  });
+
+  test('computeTrends skips non-numeric fields', () => {
+    const current = { total_issues: 3, status: 'ok' };
+    const previous = { total_issues: 5, status: 'warn' };
+    const trends = computeTrends(current, previous, '1');
+    expect(trends.total_issues).toBeDefined();
+    expect(trends.status).toBeUndefined();
+  });
+
+  test('computeTrends uses up arrow for improvements', () => {
+    const trends = computeTrends({ score: 90 }, { score: 80 }, '1');
+    expect(trends.score.label).toContain('\u2191');
+  });
+
+  test('computeTrends uses down arrow for regressions', () => {
+    const trends = computeTrends({ score: 70 }, { score: 80 }, '1');
+    expect(trends.score.label).toContain('\u2193');
+  });
+
+  test('runQualityAnalysis returns trends field', () => {
+    // Save a baseline for phase 1
+    saveQualityMetrics(tmpDir, '1', { total_issues: 10 });
+    writeConfig(tmpDir, { phase_cleanup: { enabled: true } });
+    writeFile(tmpDir, 'lib/simple.js', 'function x() { return 1; }\nmodule.exports = { x };\n');
+    const result = runQualityAnalysis(tmpDir, '2');
+    expect(result).toHaveProperty('trends');
   });
 });

@@ -6,6 +6,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
@@ -18,6 +19,7 @@ const {
   checkMilestoneStateCoherence,
   GATE_REGISTRY,
   runPreflightGates,
+  resetGatesCache,
 } = require('../../lib/gates');
 
 // ─── checkOrphanedPhases ────────────────────────────────────────────────────
@@ -62,6 +64,37 @@ describe('checkOrphanedPhases', () => {
     });
     const violations = checkOrphanedPhases(tmpDir);
     expect(violations).toEqual([]);
+  });
+
+  test('logs non-ENOENT error to stderr when phases dir read fails unexpectedly', () => {
+    const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-gates-eisdir-'));
+    try {
+      const planningDir = path.join(tmpDir2, '.planning');
+      const milestonesDir = path.join(planningDir, 'milestones');
+      const anonymousDir = path.join(milestonesDir, 'anonymous');
+      fs.mkdirSync(anonymousDir, { recursive: true });
+      // Create phases as a FILE instead of directory → EISDIR when readdirSync is called
+      fs.writeFileSync(path.join(anonymousDir, 'phases'), 'not a dir');
+      fs.writeFileSync(
+        path.join(planningDir, 'ROADMAP.md'),
+        '# Roadmap\n### Phase 1: Test\n'
+      );
+
+      const stderrLines = [];
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+        stderrLines.push(String(data));
+        return true;
+      });
+
+      const violations = checkOrphanedPhases(tmpDir2);
+
+      stderrSpy.mockRestore();
+
+      expect(violations).toEqual([]);
+      expect(stderrLines.some((line) => line.length > 0)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir2, { recursive: true, force: true });
+    }
   });
 });
 
@@ -344,6 +377,17 @@ describe('runPreflightGates', () => {
     expect(result.warnings.length).toBeGreaterThan(0);
     expect(result.warnings[0].code).toBe('STALE_ARTIFACTS');
   });
+
+  test('skipGates: true bypasses all checks and sets bypassed flag', () => {
+    // Create orphaned phase that would normally fail
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '99-orphan'), {
+      recursive: true,
+    });
+    const result = runPreflightGates(tmpDir, 'execute-phase', { phase: '1', skipGates: true });
+    expect(result.passed).toBe(true);
+    expect(result.bypassed).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
 });
 
 // ─── Multi-milestone: gates ignore shipped sections ──────────────────────────
@@ -432,5 +476,17 @@ describe('gates with shipped milestone sections', () => {
     const violations = checkPhaseInRoadmap(tmpDir, '1');
     expect(violations.length).toBe(1);
     expect(violations[0].code).toBe('PHASE_NOT_IN_ROADMAP');
+  });
+});
+
+// ─── resetGatesCache ──────────────────────────────────────────────────────────
+
+describe('resetGatesCache', () => {
+  test('is exported as a function', () => {
+    expect(typeof resetGatesCache).toBe('function');
+  });
+
+  test('can be called without throwing', () => {
+    expect(() => resetGatesCache()).not.toThrow();
   });
 });

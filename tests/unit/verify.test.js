@@ -59,6 +59,48 @@ describe('cmdVerifyPlanStructure', () => {
     expect(parsed.errors.length).toBeGreaterThan(0);
   });
 
+  test('includes found frontmatter fields context when fields are missing', () => {
+    const badPlanPath = path.join(fixtureDir, 'bad-plan-ctx.md');
+    fs.writeFileSync(badPlanPath, '---\nphase: test\nplan: 01\n---\n\n<tasks></tasks>\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyPlanStructure(fixtureDir, 'bad-plan-ctx.md', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.valid).toBe(false);
+    // Should include a "Found frontmatter fields" context message
+    const foundMsg = parsed.errors.find((e) => e.startsWith('Found frontmatter fields:'));
+    expect(foundMsg).toBeDefined();
+    expect(foundMsg).toContain('phase');
+    expect(foundMsg).toContain('plan');
+  });
+
+  test('includes found_sections in output', () => {
+    const planPath = '.planning/milestones/anonymous/phases/01-test/01-01-PLAN.md';
+    const { stdout } = captureOutput(() => {
+      cmdVerifyPlanStructure(fixtureDir, planPath, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveProperty('found_sections');
+    expect(Array.isArray(parsed.found_sections)).toBe(true);
+  });
+
+  test('found_sections captures markdown headings from content', () => {
+    const planWithSections = path.join(fixtureDir, 'plan-with-sections.md');
+    fs.writeFileSync(
+      planWithSections,
+      '---\nphase: 1\nplan: 01\ntype: execute\nwave: 1\ndepends_on: []\nfiles_modified: []\nautonomous: true\nmust_haves:\n  truths: []\n---\n\n## Objective\n\nDo things.\n\n## Tasks\n\n<task>\n<name>T1</name>\n<action>Do it.</action>\n</task>\n',
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyPlanStructure(fixtureDir, 'plan-with-sections.md', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.found_sections).toContain('## Objective');
+    expect(parsed.found_sections).toContain('## Tasks');
+  });
+
   test('reports error for file not found', () => {
     const { stdout } = captureOutput(() => {
       cmdVerifyPlanStructure(fixtureDir, 'nonexistent.md', false);
@@ -247,6 +289,34 @@ describe('cmdVerifyArtifacts', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed).toHaveProperty('error');
+  });
+
+  test('missing artifact includes plan_file, must_haves_field, and remediation', () => {
+    const planContent = [
+      '---',
+      'phase: test',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/nonexistent.js"',
+      '        provides: "Missing module"',
+      '---',
+      '',
+      'Body.',
+    ].join('\n');
+    const planPath = path.join(fixtureDir, 'rich-error-plan.md');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyArtifacts(fixtureDir, 'rich-error-plan.md', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.all_passed).toBe(false);
+    const failed = parsed.artifacts.find((a) => !a.passed);
+    expect(failed).toBeDefined();
+    expect(failed.plan_file).toBe('rich-error-plan.md');
+    expect(failed.must_haves_field).toBe('must_haves.artifacts');
+    expect(typeof failed.remediation).toBe('string');
+    expect(failed.remediation).toContain('src/nonexistent.js');
   });
 });
 

@@ -98,6 +98,13 @@ describe('stateExtractField', () => {
     expect(value).toBeNull();
   });
 
+  test('does not throw for field names with regex special characters', () => {
+    const content = '- **phase.count:** 5\n';
+    expect(() => stateExtractField(content, 'phase.count')).not.toThrow();
+    const value = stateExtractField(content, 'phase.count');
+    expect(value).toBe('5');
+  });
+
   test('extracts Progress field with special characters', () => {
     const value = stateExtractField(sample, 'Progress');
     expect(value).toContain('50%');
@@ -172,6 +179,14 @@ describe('cmdStateLoad', () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain('model_profile=');
     expect(stdout).toContain('state_exists=true');
+  });
+
+  test('raw mode includes STATE.md content so agents do not need a second CLI call', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdStateLoad(fixtureDir, true);
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('# State');
   });
 });
 
@@ -805,6 +820,149 @@ describe('cmdStateSnapshot', () => {
   });
 });
 
+// ─── cmdStateSnapshot --since diff mode ─────────────────────────────────────
+
+describe('cmdStateSnapshot --since diff mode', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('saves snapshot file on normal (no --since) call', () => {
+    const stateContent = [
+      '# STATE',
+      '- **Current Phase:** 1',
+      '- **Status:** In Progress',
+    ].join('\n');
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    fs.writeFileSync(statePath, stateContent, 'utf-8');
+
+    captureOutput(() => cmdStateSnapshot(tmpDir, false));
+
+    const snapshotsDir = path.join(tmpDir, '.planning', '.snapshots');
+    expect(fs.existsSync(snapshotsDir)).toBe(true);
+    const files = fs.readdirSync(snapshotsDir);
+    expect(files.length).toBeGreaterThan(0);
+  });
+
+  test('returns diff when --since matches saved snapshot', () => {
+    const stateContent = [
+      '# STATE',
+      '- **Current Phase:** 1',
+      '- **Status:** In Progress',
+    ].join('\n');
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    fs.writeFileSync(statePath, stateContent, 'utf-8');
+
+    // Save baseline snapshot with a known past timestamp
+    const snapshotsDir = path.join(tmpDir, '.planning', '.snapshots');
+    fs.mkdirSync(snapshotsDir, { recursive: true });
+    const baselineTs = '2020-01-01T00:00:00.000Z';
+    const baseline = { current_phase: '0', status: 'Not Started', decisions: [], blockers: [] };
+    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
+
+    // Request diff since the baseline timestamp
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdStateSnapshot(tmpDir, false, { since: baselineTs })
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('since', baselineTs);
+    expect(result).toHaveProperty('changed_fields');
+    expect(result).toHaveProperty('new_decisions');
+    expect(result).toHaveProperty('new_blockers');
+    expect(result).toHaveProperty('resolved_blockers');
+    expect(result).toHaveProperty('has_changes');
+  });
+
+  test('returns error with full_snapshot when no baseline snapshot found', () => {
+    const stateContent = [
+      '# STATE',
+      '- **Current Phase:** 1',
+      '- **Status:** In Progress',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), stateContent, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdStateSnapshot(tmpDir, false, { since: '2020-01-01T00:00:00.000Z' })
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toContain('No snapshot found');
+    expect(result.full_snapshot).toBeDefined();
+  });
+
+  test('detects changed scalar fields in diff', () => {
+    const stateContent = [
+      '# STATE',
+      '- **Current Phase:** 2',
+      '- **Status:** In Progress',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), stateContent, 'utf-8');
+
+    const snapshotsDir = path.join(tmpDir, '.planning', '.snapshots');
+    fs.mkdirSync(snapshotsDir, { recursive: true });
+    const baselineTs = '2020-01-01T00:00:00.000Z';
+    const baseline = { current_phase: '1', status: 'Not Started', decisions: [], blockers: [] };
+    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
+
+    const { stdout } = captureOutput(() =>
+      cmdStateSnapshot(tmpDir, false, { since: baselineTs })
+    );
+    const result = JSON.parse(stdout);
+    expect(result.has_changes).toBe(true);
+    expect(result.changed_fields).toHaveProperty('status');
+  });
+
+  test('detects new decisions and resolved/new blockers in diff', () => {
+    const stateContent = [
+      '# STATE',
+      '- **Current Phase:** 2',
+      '- **Status:** In Progress',
+      '',
+      '## Decisions Made',
+      '',
+      '| Phase | Decision | Rationale |',
+      '|-------|----------|-----------|',
+      '| 2 | Use cache | For speed |',
+      '',
+      '## Blockers',
+      '',
+      '- New blocker added',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), stateContent, 'utf-8');
+
+    const snapshotsDir = path.join(tmpDir, '.planning', '.snapshots');
+    fs.mkdirSync(snapshotsDir, { recursive: true });
+    const baselineTs = '2020-06-01T00:00:00.000Z';
+    const baseline = {
+      current_phase: '1',
+      status: 'Not Started',
+      decisions: [{ phase: '1', summary: 'Old decision', rationale: 'old' }],
+      blockers: ['Old blocker resolved'],
+    };
+    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
+
+    const { stdout } = captureOutput(() =>
+      cmdStateSnapshot(tmpDir, false, { since: baselineTs })
+    );
+    const result = JSON.parse(stdout);
+    expect(result.has_changes).toBe(true);
+    // new_decisions = decisions in current that aren't in baseline
+    expect(Array.isArray(result.new_decisions)).toBe(true);
+    // resolved_blockers = blockers in baseline not in current
+    expect(Array.isArray(result.resolved_blockers)).toBe(true);
+    expect(result.resolved_blockers).toContain('Old blocker resolved');
+    // new_blockers = blockers in current not in baseline
+    expect(Array.isArray(result.new_blockers)).toBe(true);
+  });
+});
+
 // ─── BUG-48-003: cmdStateSnapshot parses Active phase format ────────────────
 
 describe('BUG-48-003: cmdStateSnapshot Active phase field', () => {
@@ -981,5 +1139,73 @@ describe('BUG-48-005: cmdStatePatch underscore-to-space mapping', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.failed).toContain('totally_fake_field');
+  });
+});
+
+// ─── cmdStatePatch audit trail ───────────────────────────────────────────────
+
+describe('cmdStatePatch audit trail', () => {
+  let fixtureDir;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('appends audit section to STATE.md when audit option is true', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false, { audit: true });
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).toContain('## Audit Log');
+  });
+
+  test('audit entry includes timestamp', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false, { audit: true });
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    // Should contain a date in the audit entry
+    expect(content).toMatch(/\d{4}-\d{2}-\d{2}/);
+  });
+
+  test('audit entry includes the changed field name', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false, { audit: true });
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).toContain('Updated');
+  });
+
+  test('does not append audit when audit option is false', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false, { audit: false });
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).not.toContain('## Audit Log');
+  });
+
+  test('does not append audit without options parameter (backwards compatible)', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false);
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    expect(content).not.toContain('## Audit Log');
+  });
+
+  test('accumulates multiple audit entries', () => {
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-25' }, false, { audit: true });
+    });
+    captureOutput(() => {
+      cmdStatePatch(fixtureDir, { Updated: '2026-02-26' }, false, { audit: true });
+    });
+    const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
+    // Both patches should appear in the audit log
+    const auditSection = content.split('## Audit Log')[1] || '';
+    expect(auditSection.split('\n').filter((l) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(2);
   });
 });

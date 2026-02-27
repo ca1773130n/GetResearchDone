@@ -440,6 +440,21 @@ describe('cmdWorktreeList', () => {
     expect(result).toHaveProperty('count', 0);
   });
 
+  test('returns empty worktrees array when cwd cannot be resolved by realpathSync', () => {
+    const spy = jest.spyOn(fs, 'realpathSync').mockImplementationOnce(() => {
+      throw Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' });
+    });
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdWorktreeList(repoDir, false));
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.worktrees).toEqual([]);
+      expect(result.count).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test('lists active GRD worktrees with required fields', () => {
     // Create two worktrees
     captureOutput(() =>
@@ -1613,6 +1628,51 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
       const result = JSON.parse(stdout);
       expect(result).toHaveProperty('hooked', true);
     });
+
+    test('writes stderr warning when branch rename fails', () => {
+      // Path ending with phase number triggers rename attempt; non-existent
+      // path causes git branch rename to fail → rename_failed: true in output
+      // Note: captureOutput's process.exit mock causes the catch block to fire
+      // too (process.exit throws __GRD_TEST_EXIT__), so stdout may have multiple
+      // JSON objects. We collect all and verify rename_failed appears in one.
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+      try {
+        const { stdout, exitCode } = captureOutput(() =>
+          cmdWorktreeHookCreate(repoDir, '/tmp/grd-nonexistent-27', 'auto-branch-name', false)
+        );
+        expect(exitCode).toBe(0);
+        // Collect all JSON objects from concatenated stdout
+        const jsonObjects = [];
+        let remaining = stdout.trim();
+        while (remaining.length > 0) {
+          const start = remaining.indexOf('{');
+          if (start === -1) break;
+          let depth = 0;
+          let end = -1;
+          for (let i = start; i < remaining.length; i++) {
+            if (remaining[i] === '{') depth++;
+            if (remaining[i] === '}') depth--;
+            if (depth === 0) {
+              end = i;
+              break;
+            }
+          }
+          if (end === -1) break;
+          try {
+            jsonObjects.push(JSON.parse(remaining.slice(start, end + 1)));
+          } catch {}
+          remaining = remaining.slice(end + 1);
+        }
+        expect(jsonObjects.some((r) => r.rename_failed === true)).toBe(true);
+        // After the fix a specific warning for branch rename failure is written
+        // to stderr (distinct from the catch-block's "could not determine phase
+        // metadata" message which fires due to the process.exit mock).
+        const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
+        expect(stderrOutput).toContain('branch rename');
+      } finally {
+        stderrSpy.mockRestore();
+      }
+    });
   });
 
   // ─── cmdWorktreeHookRemove edge cases ─────────────────────────────────────
@@ -1849,6 +1909,36 @@ describe('cmdWorktreeCreate error branches', () => {
     const result = JSON.parse(stdout);
     expect(result.error).toContain('not found');
   });
+
+  test('returns clear error when branch already exists', () => {
+    // Pre-create the branch that cmdWorktreeCreate would use
+    execFileSync('git', ['branch', 'grd/v0.2.0/27-infra'], { cwd: repoDir, stdio: 'pipe' });
+
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', slug: 'infra' }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.error).toMatch(/already exists/i);
+    expect(result.branch).toBe('grd/v0.2.0/27-infra');
+  });
+
+  test('force option skips branch conflict check', () => {
+    // Pre-create the branch
+    execFileSync('git', ['branch', 'grd/v0.2.0/27-infra'], { cwd: repoDir, stdio: 'pipe' });
+
+    // With force, the worktree add will fail via git (branch exists without -b workaround),
+    // but the branch pre-check should be skipped — error comes from git, not our check
+    const { stdout, exitCode } = captureOutput(() =>
+      cmdWorktreeCreate(repoDir, { phase: '27', slug: 'infra', force: true }, false)
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // The error (if any) should NOT be the "already exists" pre-check message
+    if (result.error) {
+      expect(result.error).not.toMatch(/Use --force/);
+    }
+  });
 });
 
 // ─── cmdWorktreeHookRemove ────────────────────────────────────────────────────
@@ -2035,6 +2125,59 @@ describe('ensureWorktreesDir (export)', () => {
   test('is exported as a function', () => {
     expect(typeof ensureWorktreesDir).toBe('function');
   });
+
+  test('throws when .gitignore exists but is unreadable (non-ENOENT), preserving its content', () => {
+    const tmpRoot = fs.mkdtempSync(path.join(REAL_TMPDIR, 'grd-gitignore-perm-test-'));
+    try {
+      execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpRoot, stdio: 'pipe' });
+      // Make .gitignore a directory — readFileSync throws EISDIR (not ENOENT)
+      fs.mkdirSync(path.join(tmpRoot, '.gitignore'), { recursive: true });
+      // Should throw because EISDIR is not ENOENT
+      expect(() => ensureWorktreesDir(tmpRoot)).toThrow();
+      // The .gitignore directory must still be a directory (not overwritten)
+      expect(fs.statSync(path.join(tmpRoot, '.gitignore')).isDirectory()).toBe(true);
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('returns false and logs stderr when .gitignore is not writable', () => {
+    // Skip if running as root (chmod restrictions don't apply to root)
+    if (process.getuid && process.getuid() === 0) return;
+
+    const tmpRoot = fs.mkdtempSync(path.join(REAL_TMPDIR, 'grd-gitignore-write-test-'));
+    const gitignorePath = path.join(tmpRoot, '.gitignore');
+    try {
+      execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
+      // Create .gitignore WITHOUT '.worktrees' so the write branch is taken
+      fs.writeFileSync(gitignorePath, '# existing\n');
+      // Pre-create .worktrees/ so mkdirSync inside ensureWorktreesDir is a no-op
+      fs.mkdirSync(path.join(tmpRoot, '.worktrees'), { recursive: true });
+      // Make .gitignore read-only to force writeFileSync to fail
+      fs.chmodSync(gitignorePath, 0o444);
+
+      const stderrLines = [];
+      const spy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+        stderrLines.push(typeof msg === 'string' ? msg : String(msg));
+        return true;
+      });
+      let result;
+      try {
+        result = ensureWorktreesDir(tmpRoot);
+      } finally {
+        spy.mockRestore();
+        try { fs.chmodSync(gitignorePath, 0o644); } catch { /* ignore */ }
+      }
+
+      expect(result).toBe(false);
+      expect(stderrLines.some((l) => l.includes('could not update .gitignore'))).toBe(true);
+    } finally {
+      try { fs.chmodSync(gitignorePath, 0o644); } catch { /* ignore */ }
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 // ─── pushAndCreatePR ────────────────────────────────────────────────────────
@@ -2072,5 +2215,42 @@ describe('pushAndCreatePR', () => {
       try { execFileSync('git', ['worktree', 'prune'], { cwd: tmpRoot, stdio: 'pipe' }); } catch {}
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
+  });
+});
+
+// ─── cmdWorktreeRemove — git error logging ────────────────────────────────────
+
+describe('cmdWorktreeRemove — git error logging', () => {
+  let repoDir;
+
+  beforeEach(() => {
+    repoDir = createTestGitRepo();
+  });
+
+  afterEach(() => {
+    cleanupTestRepo(repoDir);
+  });
+
+  test('logs to stderr when git worktree remove fails for a non-registered path', () => {
+    // Create a directory that looks like a worktree path but is NOT a registered git worktree
+    const fakePath = path.join(repoDir, '.worktrees', 'grd-worktree-v0.2.0-55');
+    fs.mkdirSync(fakePath, { recursive: true });
+    fs.writeFileSync(path.join(fakePath, 'file.txt'), 'hello');
+
+    const stderrLines = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+      stderrLines.push(msg);
+    });
+
+    try {
+      // Should not throw; should log the git error to stderr
+      captureOutput(() => cmdWorktreeRemove(repoDir, { path: fakePath }, false));
+    } finally {
+      stderrSpy.mockRestore();
+    }
+
+    // After fix: stderr should have a message about the git failure
+    expect(stderrLines.length).toBeGreaterThan(0);
+    expect(stderrLines.join('')).toMatch(/worktree|remove|git|failed/i);
   });
 });

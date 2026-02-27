@@ -21,6 +21,7 @@ const {
   cmdFrontmatterMerge,
   cmdFrontmatterValidate,
   FRONTMATTER_SCHEMAS,
+  getPhaseRoadmapMetadata,
 } = require('../../lib/frontmatter');
 
 // ─── extractFrontmatter ─────────────────────────────────────────────────────
@@ -70,6 +71,13 @@ describe('extractFrontmatter', () => {
     const content = '---\nname: "quoted value"\n---\n';
     const fm = extractFrontmatter(content);
     expect(fm.name).toBe('quoted value');
+  });
+
+  test('does not crash when array item has no parent context', () => {
+    // A frontmatter block starting directly with an array item (no parent key)
+    // is malformed YAML; extractFrontmatter should not crash
+    const content = '---\n- orphan-item\nkey: value\n---\n';
+    expect(() => extractFrontmatter(content)).not.toThrow();
   });
 });
 
@@ -557,5 +565,97 @@ describe('FRONTMATTER_SCHEMAS', () => {
     expect(verifySchema.required).toContain('verified');
     expect(verifySchema.required).toContain('status');
     expect(verifySchema.required).toContain('score');
+  });
+});
+
+// ─── getPhaseRoadmapMetadata ──────────────────────────────────────────────────
+
+describe('getPhaseRoadmapMetadata', () => {
+  const fsTmp = require('fs');
+  const osTmp = require('os');
+  const pathTmp = require('path');
+
+  function makeTmpDir() {
+    return fsTmp.mkdtempSync(pathTmp.join(osTmp.tmpdir(), 'grd-fm-test-'));
+  }
+
+  function removeTmpDir(dir) {
+    if (dir && dir.startsWith(osTmp.tmpdir())) {
+      fsTmp.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('is exported as a function', () => {
+    expect(typeof getPhaseRoadmapMetadata).toBe('function');
+  });
+
+  test('returns empty object when ROADMAP.md does not exist', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      const result = getPhaseRoadmapMetadata(tmpDir, '1');
+      expect(result).toEqual({});
+    } finally {
+      removeTmpDir(tmpDir);
+    }
+  });
+
+  test('extracts verification_level from ROADMAP.md phase section', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      fsTmp.mkdirSync(pathTmp.join(tmpDir, '.planning'), { recursive: true });
+      fsTmp.writeFileSync(
+        pathTmp.join(tmpDir, '.planning', 'ROADMAP.md'),
+        `# Roadmap\n\n## M1 v1.0: Test\n\n### Phase 1: Init\n- **Verification level:** proxy\n- **Duration:** 1d\n`
+      );
+      const result = getPhaseRoadmapMetadata(tmpDir, '1');
+      expect(result.verification_level).toBe('proxy');
+    } finally {
+      removeTmpDir(tmpDir);
+    }
+  });
+
+  test('extracts eval_targets from ROADMAP.md phase section', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      fsTmp.mkdirSync(pathTmp.join(tmpDir, '.planning'), { recursive: true });
+      fsTmp.writeFileSync(
+        pathTmp.join(tmpDir, '.planning', 'ROADMAP.md'),
+        `# Roadmap\n\n## M1 v1.0: Test\n\n### Phase 1: Init\n- **Eval targets:** accuracy > 0.9\n- **Duration:** 1d\n`
+      );
+      const result = getPhaseRoadmapMetadata(tmpDir, '1');
+      expect(result.eval_targets).toBe('accuracy > 0.9');
+    } finally {
+      removeTmpDir(tmpDir);
+    }
+  });
+
+  test('returns empty object when phase is not found in ROADMAP.md', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      fsTmp.mkdirSync(pathTmp.join(tmpDir, '.planning'), { recursive: true });
+      fsTmp.writeFileSync(
+        pathTmp.join(tmpDir, '.planning', 'ROADMAP.md'),
+        `# Roadmap\n\n## M1 v1.0: Test\n\n### Phase 1: Init\n- **Duration:** 1d\n`
+      );
+      const result = getPhaseRoadmapMetadata(tmpDir, '99');
+      expect(result).toEqual({});
+    } finally {
+      removeTmpDir(tmpDir);
+    }
+  });
+
+  test('returns empty object when no recognized metadata fields in phase section', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      fsTmp.mkdirSync(pathTmp.join(tmpDir, '.planning'), { recursive: true });
+      fsTmp.writeFileSync(
+        pathTmp.join(tmpDir, '.planning', 'ROADMAP.md'),
+        `# Roadmap\n\n## M1 v1.0: Test\n\n### Phase 1: Init\n- **Duration:** 2d\n`
+      );
+      const result = getPhaseRoadmapMetadata(tmpDir, '1');
+      expect(result).toEqual({});
+    } finally {
+      removeTmpDir(tmpDir);
+    }
   });
 });
