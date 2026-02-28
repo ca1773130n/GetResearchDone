@@ -144,3 +144,23 @@ Phases 54-57 closed the self-evolving loop: markdown splitting infrastructure (l
 ## Progress
 
 All milestones shipped. No active phases.
+
+### Phase 1: test feature
+
+**Goal:** test feature
+**Depends on:** Phase 0
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 1 to break down)
+
+### Phase 2: test feature
+
+**Goal:** test feature
+**Depends on:** Phase 1
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 2 to break down)

@@ -3934,20 +3934,20 @@ describe('cmdPhaseDetail — non-raw error paths', () => {
     cleanupFixtureDir(fixtureDir);
   });
 
-  test('no phase argument in non-raw mode writes error text to stdout', () => {
-    const { stdout, exitCode } = captureOutput(() => {
+  test('no phase argument in non-raw mode writes error text to stderr', () => {
+    const { stderr, exitCode } = captureError(() => {
       cmdPhaseDetail(fixtureDir, '', false);
     });
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain('required');
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('required');
   });
 
-  test('nonexistent phase in non-raw mode writes error text to stdout', () => {
-    const { stdout, exitCode } = captureOutput(() => {
+  test('nonexistent phase in non-raw mode writes error text to stderr', () => {
+    const { stderr, exitCode } = captureError(() => {
       cmdPhaseDetail(fixtureDir, '999', false);
     });
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain('999');
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('999');
   });
 });
 
@@ -4075,14 +4075,14 @@ describe('cmdDashboard filter option', () => {
     expect(stdout.length).toBeGreaterThan(0);
   });
 
-  test('non-raw mode when ROADMAP.md missing writes message and returns', () => {
+  test('non-raw mode when ROADMAP.md missing writes message to stderr and exits 1', () => {
     const tmpDir2 = createFixtureDir();
     fs.unlinkSync(path.join(tmpDir2, '.planning', 'ROADMAP.md'));
-    const { stdout, exitCode } = captureOutput(() => {
+    const { stderr, exitCode } = captureError(() => {
       cmdDashboard(tmpDir2, false, {});
     });
     cleanupFixtureDir(tmpDir2);
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain('No ROADMAP.md found');
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('No ROADMAP.md found');
   });
 });

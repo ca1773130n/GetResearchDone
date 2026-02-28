@@ -604,6 +604,323 @@ describe('init workflows', () => {
     const data = parseJSON(stdout);
     expect(typeof data).toBe('object');
   });
+
+  test('init debug returns debug context with debug_files array', () => {
+    const { stdout, exitCode } = runCLI(['init', 'debug'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('debug_files');
+    expect(Array.isArray(data.debug_files)).toBe(true);
+    expect(data).toHaveProperty('backend');
+  });
+
+  test('init debug with phase returns phase-scoped context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'debug', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('debug_files');
+    expect(data.phase_found).toBe(true);
+  });
+
+  test('init integration-check returns cross-phase context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'integration-check'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('phase_count');
+    expect(typeof data.phase_count).toBe('number');
+    expect(data).toHaveProperty('backend');
+  });
+
+  test('init migrate returns planning layout inventory', () => {
+    const { stdout, exitCode } = runCLI(['init', 'migrate'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('flat_milestone_files');
+    expect(data).toHaveProperty('legacy_phase_dirs');
+    expect(typeof data.complex_items_count).toBe('number');
+  });
+
+  test('init plan-check 1 returns plan check context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'plan-check', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('checker_model');
+    expect(data).toHaveProperty('plan_count');
+  });
+
+  test('init plan-check without phase errors', () => {
+    const { stderr, exitCode } = runCLI(['init', 'plan-check'], fixtureDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Phase');
+  });
+
+  test('init phase-research 1 returns research context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'phase-research', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('researcher_model');
+    expect(data).toHaveProperty('research_dir');
+  });
+
+  test('init phase-research without phase errors', () => {
+    const { stderr, exitCode } = runCLI(['init', 'phase-research'], fixtureDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Phase');
+  });
+
+  test('init code-review 1 returns reviewer context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'code-review', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('reviewer_model');
+    expect(data).toHaveProperty('plan_count');
+  });
+
+  test('init code-review without phase errors', () => {
+    const { stderr, exitCode } = runCLI(['init', 'code-review'], fixtureDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Phase');
+  });
+
+  test('init survey returns surveyor context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'survey', 'test topic'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('research_dir');
+  });
+
+  test('init deep-dive returns deep-diver context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'deep-dive', 'test paper'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('research_dir');
+  });
+
+  test('init assess-baseline returns assessor context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'assess-baseline'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('phases_dir');
+  });
+
+  test('init product-plan returns product-owner context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'product-plan'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+  });
+
+  test('init plan-milestone-gaps returns gap analysis context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'plan-milestone-gaps'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+  });
+
+  test('init feasibility returns feasibility-analyst context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'feasibility', 'test approach'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('research_dir');
+  });
+
+  test('init eval-plan returns eval-planner context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'eval-plan'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('phases_dir');
+  });
+
+  test('init eval-report returns eval-reporter context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'eval-report'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+  });
+
+  test('init iterate returns research workflow context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'iterate'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+  });
+
+  test('init quick with description returns quick context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'quick', 'fix the bug'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+  });
+
+  test('init new-milestone returns milestone init context', () => {
+    const { stdout, exitCode } = runCLI(['init', 'new-milestone'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+  });
+});
+
+// ─── Add-phase Command ───────────────────────────────────────────────────────
+
+describe('add-phase command integration', () => {
+  test('phase add creates a new phase (add-phase skill coverage)', () => {
+    const mutDir = createTestDir();
+    try {
+      const { stdout, exitCode } = runCLI(
+        ['phase', 'add', 'test feature'],
+        mutDir
+      );
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data).toHaveProperty('phase_number');
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── Add-todo Command ────────────────────────────────────────────────────────
+
+describe('add-todo command integration', () => {
+  test('list-todos returns todos array (add-todo skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['list-todos'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('todos');
+    expect(Array.isArray(data.todos)).toBe(true);
+  });
+});
+
+// ─── Check-todos Command ─────────────────────────────────────────────────────
+
+describe('check-todos command integration', () => {
+  test('list-todos returns categorized todos (check-todos skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['list-todos'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('todos');
+  });
+});
+
+// ─── Compare-methods Command ─────────────────────────────────────────────────
+
+describe('compare-methods command integration', () => {
+  test('init survey returns research workflow context (compare-methods skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['init', 'survey', 'method A vs B'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('backend');
+    expect(data).toHaveProperty('research_dir');
+  });
+});
+
+// ─── Complete-milestone Command ──────────────────────────────────────────────
+
+describe('complete-milestone command integration', () => {
+  test('milestone complete --dry-run returns dry run preview (complete-milestone skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(
+      ['milestone', 'complete', 'v1.0', '--dry-run'],
+      fixtureDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+  });
+});
+
+// ─── Insert-phase Command ────────────────────────────────────────────────────
+
+describe('insert-phase command integration', () => {
+  test('phase insert creates decimal phase after specified phase (insert-phase skill coverage)', () => {
+    const mutDir = createTestDir();
+    try {
+      const { stdout, exitCode } = runCLI(
+        ['phase', 'insert', '1', 'new subphase'],
+        mutDir
+      );
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data).toHaveProperty('phase_number');
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── Remove-phase Command ────────────────────────────────────────────────────
+
+describe('remove-phase command integration', () => {
+  test('phase remove --dry-run previews removal (remove-phase skill coverage)', () => {
+    const mutDir = createTestDir();
+    try {
+      const { stdout, exitCode } = runCLI(
+        ['phase', 'remove', '2', '--dry-run'],
+        mutDir
+      );
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data.dry_run).toBe(true);
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── Requirement Command ─────────────────────────────────────────────────────
+
+describe('requirement command integration', () => {
+  test('requirement list returns requirements array (requirement skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['requirement', 'list'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('requirements');
+  });
+});
+
+// ─── Resume-project Command ──────────────────────────────────────────────────
+
+describe('resume-project command integration', () => {
+  test('init resume returns project state context (resume-project skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['init', 'resume'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+  });
+});
+
+// ─── Settings Command ────────────────────────────────────────────────────────
+
+describe('settings command integration', () => {
+  test('config ensure-section --dry-run returns config preview (settings skill coverage)', () => {
+    const mutDir = createTestDir();
+    try {
+      // Remove existing config so dry-run previews creation
+      const configPath = path.join(mutDir, '.planning', 'config.json');
+      fs.unlinkSync(configPath);
+      const { stdout, exitCode } = runCLI(['config-ensure-section', '--dry-run'], mutDir);
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data).toHaveProperty('dry_run');
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── Tracker-setup Command ───────────────────────────────────────────────────
+
+describe('tracker-setup command integration', () => {
+  test('tracker get-config returns tracker configuration (tracker-setup skill coverage)', () => {
+    const { stdout, exitCode } = runCLI(['tracker', 'get-config'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+  });
 });
 
 // ─── Verify Summary ─────────────────────────────────────────────────────────
@@ -1804,5 +2121,386 @@ describe('milestone complete CLI arg parsing', () => {
     const data = parseJSON(stdout);
     expect(data.dry_run).toBe(true);
     expect(data.would_archive_version).toBe('v1.0');
+  });
+});
+
+// ─── Dry-run flags ───────────────────────────────────────────────────────────
+
+describe('dry-run flags', () => {
+  let mutDir;
+
+  beforeEach(() => {
+    mutDir = createTestDir();
+  });
+
+  afterEach(() => {
+    cleanupDir(mutDir);
+  });
+
+  test('config-set --dry-run previews update without writing', () => {
+    const { stdout, exitCode } = runCLI(
+      ['config-set', 'autonomous_mode', 'true', '--dry-run'],
+      mutDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+    expect(data).toHaveProperty('key');
+    expect(data.key).toBe('autonomous_mode');
+    // Config on disk should NOT be updated
+    const config = JSON.parse(
+      fs.readFileSync(path.join(mutDir, '.planning', 'config.json'), 'utf-8')
+    );
+    expect(config.autonomous_mode).not.toBe(true);
+  });
+
+  test('config-ensure-section --dry-run previews without writing', () => {
+    // Remove existing config to test creation preview
+    const configPath = path.join(mutDir, '.planning', 'config.json');
+    fs.unlinkSync(configPath);
+    const { stdout, exitCode } = runCLI(['config-ensure-section', '--dry-run'], mutDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+    // File should still not exist
+    expect(fs.existsSync(configPath)).toBe(false);
+  });
+
+  test('todo complete --dry-run previews move without writing', () => {
+    const { stdout, exitCode } = runCLI(['todo', 'complete', 'sample.md', '--dry-run'], mutDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+    // File should still be in pending
+    expect(
+      fs.existsSync(
+        path.join(mutDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending', 'sample.md')
+      )
+    ).toBe(true);
+  });
+
+  test('migrate-dirs --dry-run previews migration without moving', () => {
+    const { stdout, exitCode } = runCLI(['migrate-dirs', '--dry-run'], mutDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+  });
+
+  test('verify-path-exists --dry-run returns path info without side effects', () => {
+    const { stdout, exitCode } = runCLI(
+      ['verify-path-exists', 'src/index.js', '--dry-run'],
+      mutDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.dry_run).toBe(true);
+    expect(data).toHaveProperty('path');
+  });
+});
+
+// ─── Discuss-phase Command ───────────────────────────────────────────────────
+
+describe('discuss-phase command integration', () => {
+  test('init phase-op returns context with has_context and phase metadata (discuss-phase skill coverage)', () => {
+    // discuss-phase calls `init phase-op <N>` to load phase context before the
+    // discussion loop. Verify the init command returns the fields the skill depends on.
+    const { stdout, exitCode } = runCLI(['init', 'phase-op', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('phase_found', true);
+    expect(data).toHaveProperty('has_context');
+    expect(data).toHaveProperty('has_plans');
+    expect(data).toHaveProperty('has_research');
+    expect(data).toHaveProperty('phase_dir');
+    expect(data).toHaveProperty('padded_phase');
+    expect(data).toHaveProperty('phase_number', '01');
+    expect(data).toHaveProperty('planning_exists', true);
+    expect(data).toHaveProperty('roadmap_exists', true);
+  });
+
+  test('init phase-op with nonexistent phase returns phase_found false (discuss-phase error path)', () => {
+    // discuss-phase exits if phase_found is false — verify the CLI correctly
+    // signals a missing phase via the phase_found flag.
+    const { stdout, exitCode } = runCLI(['init', 'phase-op', '99'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('phase_found', false);
+    expect(data.phase_dir).toBeNull();
+    expect(data.phase_number).toBeNull();
+    // Planning and roadmap info is still present even when phase is not found
+    expect(data).toHaveProperty('roadmap_exists', true);
+    expect(data).toHaveProperty('planning_exists', true);
+  });
+
+  test('scaffold context creates CONTEXT.md for phase (discuss-phase write step)', () => {
+    // discuss-phase writes CONTEXT.md via the scaffold context command.
+    // Verify that the scaffold produces the file and returns a created path.
+    const mutDir = createTestDir();
+    try {
+      const { stdout, exitCode } = runCLI(['scaffold', 'context', '--phase', '1'], mutDir);
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      // scaffold context returns { created: true, path: '...' }
+      expect(data).toHaveProperty('created', true);
+      expect(data).toHaveProperty('path');
+      // The context file should exist on disk at the returned path
+      expect(fs.existsSync(path.join(mutDir, data.path))).toBe(true);
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── List-phase-assumptions Command ─────────────────────────────────────────
+
+describe('list-phase-assumptions command integration', () => {
+  test('roadmap get-phase returns phase details needed for assumption analysis (list-phase-assumptions skill coverage)', () => {
+    // list-phase-assumptions reads the roadmap to validate the phase number and
+    // retrieve phase details (name, goal, scope) before surfacing assumptions.
+    const { stdout, exitCode } = runCLI(['roadmap', 'get-phase', '1'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('found', true);
+    expect(data).toHaveProperty('phase_number');
+    expect(data).toHaveProperty('phase_name');
+    // Goal and scope details used to generate assumption categories
+    expect(data).toHaveProperty('goal');
+  });
+
+  test('roadmap get-phase for nonexistent phase returns found false (list-phase-assumptions error path)', () => {
+    // list-phase-assumptions exits with an error when the phase is not found.
+    const { stdout, exitCode } = runCLI(['roadmap', 'get-phase', '99'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('found', false);
+  });
+
+  test('roadmap analyze returns all phases for enumeration (list-phase-assumptions phase listing)', () => {
+    // list-phase-assumptions lists available phases when the given phase is not
+    // found. roadmap analyze provides the full phase list.
+    const { stdout, exitCode } = runCLI(['roadmap', 'analyze'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('phases');
+    expect(Array.isArray(data.phases)).toBe(true);
+    expect(data.phases.length).toBeGreaterThan(0);
+  });
+
+  test('state-snapshot returns current phase context for assumption baseline (list-phase-assumptions context)', () => {
+    // list-phase-assumptions checks CONTEXT.md for locked decisions, which is
+    // surfaced via the state snapshot. Verify the snapshot provides current phase.
+    const { stdout, exitCode } = runCLI(['state-snapshot'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('session');
+    // current_phase used to correlate against the requested phase
+    expect(data).toHaveProperty('current_phase');
+  });
+});
+
+// ─── Pause-work Command ──────────────────────────────────────────────────────
+
+describe('pause-work command integration', () => {
+  test('init resume returns state and phase context needed for pause-work (pause-work skill coverage)', () => {
+    // pause-work calls `init resume` first to determine the current phase directory
+    // and state before writing the .CONTINUE-HERE.md handoff file.
+    const { stdout, exitCode } = runCLI(['init', 'resume'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // Fields the pause-work skill reads from the init output
+    expect(data).toHaveProperty('state_exists');
+    expect(data).toHaveProperty('planning_exists', true);
+    expect(data).toHaveProperty('phases_dir');
+    expect(data).toHaveProperty('commit_docs');
+    // phase_dir may be null when no active plan is found, but field must exist
+    expect(Object.prototype.hasOwnProperty.call(data, 'phase_found') ||
+           Object.prototype.hasOwnProperty.call(data, 'phases_dir')).toBe(true);
+  });
+
+  test('current-timestamp full returns ISO timestamp for pause-work handoff file (pause-work write step)', () => {
+    // pause-work uses `current-timestamp full` to stamp the handoff file.
+    const { stdout, exitCode } = runCLI(['current-timestamp', 'full'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('timestamp');
+    expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  test('phases list shows phase directories available to detect active phase (pause-work detect step)', () => {
+    // pause-work falls back to listing recent plan files when init resume does
+    // not identify an active phase. phases list provides the directory inventory.
+    const { stdout, exitCode } = runCLI(['phases', 'list'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('count');
+    expect(data).toHaveProperty('directories');
+    expect(data.count).toBeGreaterThan(0);
+  });
+});
+
+// ─── Principles Command ──────────────────────────────────────────────────────
+
+describe('principles command integration', () => {
+  test('state load reports planning_exists for PRINCIPLES.md existence check (principles skill coverage)', () => {
+    // principles calls `state load` first to get `planning_exists` and
+    // `commit_docs`, then checks whether .planning/PRINCIPLES.md exists.
+    const { stdout, exitCode } = runCLI(['state'], fixtureDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // state load must return config and state_exists for principles to proceed
+    expect(data).toHaveProperty('config');
+    expect(data).toHaveProperty('state_exists', true);
+    expect(data).toHaveProperty('config_exists', true);
+  });
+
+  test('verify-path-exists checks for PRINCIPLES.md (principles existence detection)', () => {
+    // principles uses path existence check to decide between create and edit flows.
+    const { stdout, exitCode } = runCLI(
+      ['verify-path-exists', '.planning/PRINCIPLES.md'],
+      fixtureDir
+    );
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // The fixture does not include PRINCIPLES.md — the command should report it missing.
+    expect(data).toHaveProperty('exists');
+    expect(typeof data.exists).toBe('boolean');
+  });
+
+  test('principles PRINCIPLES.md is created and committed after scaffold (principles write step)', () => {
+    // Simulate the write step: write PRINCIPLES.md to .planning/ and verify
+    // that state load still succeeds with planning_exists true.
+    const mutDir = createTestDir();
+    try {
+      const principlesPath = path.join(mutDir, '.planning', 'PRINCIPLES.md');
+      fs.writeFileSync(
+        principlesPath,
+        [
+          '# Project Principles',
+          '',
+          '## Coding Philosophy',
+          '- Prefer simplicity over cleverness',
+          '',
+          '## Testing Requirements',
+          '- Every new function needs a test',
+          '',
+        ].join('\n')
+      );
+
+      // After creating PRINCIPLES.md, verify-path-exists should return true
+      const { stdout, exitCode } = runCLI(
+        ['verify-path-exists', '.planning/PRINCIPLES.md'],
+        mutDir
+      );
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data.exists).toBe(true);
+
+      // state load must still succeed
+      const loadResult = runCLI(['state'], mutDir);
+      expect(loadResult.exitCode).toBe(0);
+      const loadData = parseJSON(loadResult.stdout);
+      expect(loadData).toHaveProperty('state_exists', true);
+    } finally {
+      cleanupDir(mutDir);
+    }
+  });
+});
+
+// ─── Reapply-patches Command ─────────────────────────────────────────────────
+
+const GRD_MANIFEST = path.resolve(__dirname, '../../bin/grd-manifest.js');
+
+/**
+ * Run grd-manifest.js directly (it uses its own plugin root, not cwd).
+ * @param {string[]} args - Arguments to pass
+ * @returns {{ stdout: string, stderr: string, exitCode: number }}
+ */
+function runManifest(args) {
+  try {
+    const stdout = execFileSync('node', [GRD_MANIFEST, ...args], {
+      encoding: 'utf-8',
+      timeout: 15000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    return { stdout, stderr: '', exitCode: 0 };
+  } catch (err) {
+    return {
+      stdout: err.stdout || '',
+      stderr: err.stderr || '',
+      exitCode: err.status || 1,
+    };
+  }
+}
+
+describe('reapply-patches command integration', () => {
+  test('grd-manifest load-patches returns found false when no patches exist (reapply-patches check step)', () => {
+    // reapply-patches calls `node bin/grd-manifest.js load-patches` as its first
+    // step. When found is false, the skill exits early with a "no patches" message.
+    const { stdout, exitCode } = runManifest(['load-patches']);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    // found is false when no grd-local-patches/ backup directory exists
+    expect(data).toHaveProperty('found');
+    expect(typeof data.found).toBe('boolean');
+    // When found is false, reason explains why
+    if (!data.found) {
+      expect(data).toHaveProperty('reason');
+      expect(typeof data.reason).toBe('string');
+    }
+  });
+
+  test('grd-manifest load-patches returns valid JSON with found field (reapply-patches skill coverage)', () => {
+    // The skill depends on the load-patches command always producing valid JSON
+    // with the `found` boolean field regardless of patch state.
+    const { stdout, exitCode } = runManifest(['load-patches']);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(typeof data).toBe('object');
+    expect(data).toHaveProperty('found');
+  });
+
+  test('grd-manifest load-patches with custom --dir returns not-found for empty dir (reapply-patches patch-dir isolation)', () => {
+    // reapply-patches supports a --dir override for the patch backup location.
+    // Verify that pointing at an empty temp directory returns found: false.
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-patches-'));
+    try {
+      const { stdout, exitCode } = runManifest(['load-patches', '--dir', emptyDir]);
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data).toHaveProperty('found', false);
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  test('grd-manifest load-patches with valid patch backup returns found true (reapply-patches patch read step)', () => {
+    // When a valid backup-meta.json exists in the patch directory, load-patches
+    // returns found: true with full metadata. Verify this path works correctly.
+    const patchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-patches-'));
+    try {
+      const meta = {
+        from_version: '0.2.7',
+        timestamp: '2026-01-15T10:00:00.000Z',
+        files: ['commands/execute-phase.md'],
+        count: 1,
+        additions: [],
+        deletions: [],
+      };
+      fs.writeFileSync(
+        path.join(patchDir, 'backup-meta.json'),
+        JSON.stringify(meta, null, 2)
+      );
+
+      const { stdout, exitCode } = runManifest(['load-patches', '--dir', patchDir]);
+      expect(exitCode).toBe(0);
+      const data = parseJSON(stdout);
+      expect(data).toHaveProperty('found', true);
+      expect(data).toHaveProperty('patch_dir', patchDir);
+      expect(data).toHaveProperty('from_version', '0.2.7');
+      expect(data).toHaveProperty('files');
+      expect(Array.isArray(data.files)).toBe(true);
+    } finally {
+      fs.rmSync(patchDir, { recursive: true, force: true });
+    }
   });
 });

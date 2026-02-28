@@ -26,6 +26,36 @@ const {
   cmdInitProgress,
   cmdInitResearchWorkflow,
   cmdInitPlanMilestoneGaps,
+  cmdInitDebug,
+  cmdInitIntegrationCheck,
+  cmdInitMigrate,
+  cmdInitPlanCheck,
+  cmdInitPhaseResearch,
+  cmdInitCodeReview,
+  cmdInitAssessBaseline,
+  cmdInitDeepDive,
+  cmdInitEvalPlan,
+  cmdInitEvalReport,
+  cmdInitFeasibility,
+  cmdInitProductOwner,
+  cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer,
+  cmdInitRoadmapper,
+  cmdInitSurveyor,
+  cmdInitVerifier,
+  cmdInitBaselineAssessor,
+  cmdInitCodeReviewer,
+  cmdInitCodebaseMapper,
+  cmdInitDebugger,
+  cmdInitDeepDiver,
+  cmdInitEvalPlanner,
+  cmdInitEvalReporter,
+  cmdInitExecutor,
+  cmdInitFeasibilityAnalyst,
+  cmdInitIntegrationChecker,
+  cmdInitMigrator,
+  cmdInitPhaseResearcher,
+  cmdInitPlanChecker,
   _progressCachePath,
   _computeProgressMtimeKey,
 } = require('../../lib/context');
@@ -2165,5 +2195,837 @@ describe('cmdInitPlanMilestoneGaps with audit file', () => {
     expect(result.audit_gaps).toBeDefined();
     expect(Array.isArray(result.audit_gaps)).toBe(true);
     expect(result.audit_gaps.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── cmdInitDebug ─────────────────────────────────────────────────────────────
+
+describe('cmdInitDebug', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns debug context with debug_files array', () => {
+    const { stdout } = captureOutput(() => cmdInitDebug(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('debug_files');
+    expect(Array.isArray(result.debug_files)).toBe(true);
+    expect(result).toHaveProperty('backend');
+  });
+
+  test('returns phase-scoped context when phase provided', () => {
+    const { stdout } = captureOutput(() => cmdInitDebug(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(true);
+    expect(result.phase_number).toBe('01');
+  });
+
+  test('reports phase_found false for nonexistent phase', () => {
+    const { stdout } = captureOutput(() => cmdInitDebug(tmpDir, '99', false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+  });
+
+  test('includes active_debug_file when debug files exist', () => {
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'DEBUG-test.md'), '# Debug\n');
+    const { stdout } = captureOutput(() => cmdInitDebug(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.debug_files).toContain('DEBUG-test.md');
+    expect(result.active_debug_file).toBeTruthy();
+  });
+});
+
+// ─── cmdInitIntegrationCheck ──────────────────────────────────────────────────
+
+describe('cmdInitIntegrationCheck', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns cross-phase context with phase_count', () => {
+    const { stdout } = captureOutput(() => cmdInitIntegrationCheck(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('phase_count');
+    expect(typeof result.phase_count).toBe('number');
+    expect(result.phase_count).toBeGreaterThan(0);
+  });
+
+  test('includes milestone info', () => {
+    const { stdout } = captureOutput(() => cmdInitIntegrationCheck(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('milestone_version');
+    expect(result).toHaveProperty('milestone_name');
+  });
+
+  test('scopes to phase when provided', () => {
+    const { stdout } = captureOutput(() => cmdInitIntegrationCheck(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(true);
+  });
+});
+
+// ─── cmdInitMigrate ───────────────────────────────────────────────────────────
+
+describe('cmdInitMigrate', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns migration layout inventory', () => {
+    const { stdout } = captureOutput(() => cmdInitMigrate(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('flat_milestone_files');
+    expect(result).toHaveProperty('legacy_phase_dirs');
+    expect(typeof result.complex_items_count).toBe('number');
+  });
+
+  test('detects flat milestone files', () => {
+    const { stdout } = captureOutput(() => cmdInitMigrate(tmpDir, false));
+    const result = JSON.parse(stdout);
+    // v0.9-REQUIREMENTS.md is a flat milestone file in fixture
+    expect(result.flat_milestone_files.some((f) => f.includes('v0.9-REQUIREMENTS.md'))).toBe(true);
+  });
+
+  test('includes paths', () => {
+    const { stdout } = captureOutput(() => cmdInitMigrate(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('planning_dir');
+    expect(result).toHaveProperty('milestones_dir');
+    expect(result).toHaveProperty('phases_dir');
+  });
+});
+
+// ─── cmdInitPlanCheck ────────────────────────────────────────────────────────
+
+describe('cmdInitPlanCheck', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns plan check context for existing phase', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanCheck(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('checker_model');
+    expect(result.phase_found).toBe(true);
+    expect(typeof result.plan_count).toBe('number');
+  });
+
+  test('errors when no phase argument provided', () => {
+    const { stderr, exitCode } = captureError(() => cmdInitPlanCheck(tmpDir, null, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase required');
+  });
+
+  test('returns phase_found false for nonexistent phase', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanCheck(tmpDir, '99', false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+  });
+});
+
+// ─── cmdInitPhaseResearch ────────────────────────────────────────────────────
+
+describe('cmdInitPhaseResearch', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns research context for existing phase', () => {
+    const { stdout } = captureOutput(() => cmdInitPhaseResearch(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('researcher_model');
+    expect(result).toHaveProperty('research_dir');
+    expect(result.phase_found).toBe(true);
+  });
+
+  test('errors when no phase argument provided', () => {
+    const { stderr, exitCode } = captureError(() =>
+      cmdInitPhaseResearch(tmpDir, null, new Set(), false)
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase required');
+  });
+
+  test('includes file contents when requested via includes', () => {
+    const researchDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(path.join(researchDir, 'LANDSCAPE.md'), '# Landscape\n');
+    const { stdout } = captureOutput(() =>
+      cmdInitPhaseResearch(tmpDir, '1', new Set(['landscape']), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result.landscape_content).toBeDefined();
+  });
+});
+
+// ─── cmdInitCodeReview ────────────────────────────────────────────────────────
+
+describe('cmdInitCodeReview', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns reviewer context for existing phase', () => {
+    const { stdout } = captureOutput(() => cmdInitCodeReview(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('reviewer_model');
+    expect(result.phase_found).toBe(true);
+    expect(typeof result.plan_count).toBe('number');
+  });
+
+  test('errors when no phase argument provided', () => {
+    const { stderr, exitCode } = captureError(() => cmdInitCodeReview(tmpDir, null, false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('phase required');
+  });
+
+  test('includes code review config flags', () => {
+    const { stdout } = captureOutput(() => cmdInitCodeReview(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('code_review_enabled');
+    expect(result).toHaveProperty('code_review_timing');
+  });
+});
+
+// ─── cmdInitAssessBaseline ────────────────────────────────────────────────────
+
+describe('cmdInitAssessBaseline', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns baseline assessor context with required fields', () => {
+    const { stdout } = captureOutput(() => cmdInitAssessBaseline(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('assessor_model');
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('research_dir');
+  });
+
+  test('reports file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitAssessBaseline(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('baseline_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+    expect(result).toHaveProperty('roadmap_exists');
+    expect(result).toHaveProperty('state_exists');
+  });
+});
+
+// ─── cmdInitDeepDive ──────────────────────────────────────────────────────────
+
+describe('cmdInitDeepDive', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns deep-diver context with topic', () => {
+    const { stdout } = captureOutput(() => cmdInitDeepDive(tmpDir, 'attention is all you need', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('deep_diver_model');
+    expect(result.topic).toBe('attention is all you need');
+    expect(result).toHaveProperty('research_dir');
+    expect(result).toHaveProperty('deep_dives_dir');
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+    expect(typeof result.deep_dives_count).toBe('number');
+  });
+
+  test('returns deep-diver context without topic', () => {
+    const { stdout } = captureOutput(() => cmdInitDeepDive(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.topic).toBeNull();
+  });
+
+  test('lists deep-dive files when directory exists', () => {
+    const researchDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'research');
+    const deepDivesDir = path.join(researchDir, 'deep-dives');
+    fs.mkdirSync(deepDivesDir, { recursive: true });
+    fs.writeFileSync(path.join(deepDivesDir, 'paper-a.md'), '# Paper A\n');
+    const { stdout } = captureOutput(() => cmdInitDeepDive(tmpDir, 'paper', false));
+    const result = JSON.parse(stdout);
+    expect(result.deep_dives_count).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─── cmdInitEvalPlan ──────────────────────────────────────────────────────────
+
+describe('cmdInitEvalPlan', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns eval-planner context with phase', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalPlan(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('eval_planner_model');
+    expect(result.phase_found).toBe(true);
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('research_dir');
+  });
+
+  test('returns eval-planner context without phase', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalPlan(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+    expect(result.phase_dir).toBeNull();
+  });
+
+  test('includes eval config and file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalPlan(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('eval_config');
+    expect(result).toHaveProperty('baseline_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+    expect(result).toHaveProperty('roadmap_exists');
+  });
+});
+
+// ─── cmdInitEvalReport ────────────────────────────────────────────────────────
+
+describe('cmdInitEvalReport', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns eval-reporter context with phase', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalReport(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('eval_reporter_model');
+    expect(result.phase_found).toBe(true);
+    expect(Array.isArray(result.plans)).toBe(true);
+    expect(Array.isArray(result.summaries)).toBe(true);
+  });
+
+  test('returns eval-reporter context without phase', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalReport(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+    expect(result.plans).toEqual([]);
+    expect(result.summaries).toEqual([]);
+  });
+
+  test('includes file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalReport(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('baseline_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('research_dir');
+  });
+});
+
+// ─── cmdInitFeasibility ───────────────────────────────────────────────────────
+
+describe('cmdInitFeasibility', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns feasibility context with topic', () => {
+    const { stdout } = captureOutput(() => cmdInitFeasibility(tmpDir, 'LoRA fine-tuning', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('feasibility_model');
+    expect(result.topic).toBe('LoRA fine-tuning');
+    expect(result).toHaveProperty('research_dir');
+    expect(result).toHaveProperty('deep_dives_dir');
+    expect(result).toHaveProperty('phases_dir');
+  });
+
+  test('returns feasibility context without topic', () => {
+    const { stdout } = captureOutput(() => cmdInitFeasibility(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.topic).toBeNull();
+  });
+
+  test('includes research file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitFeasibility(tmpDir, 'topic', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('landscape_exists');
+    expect(result).toHaveProperty('papers_exists');
+    expect(result).toHaveProperty('knowhow_exists');
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+    expect(typeof result.deep_dives_count).toBe('number');
+  });
+});
+
+// ─── cmdInitProductOwner ──────────────────────────────────────────────────────
+
+describe('cmdInitProductOwner', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns product-owner context with required fields', () => {
+    const { stdout } = captureOutput(() => cmdInitProductOwner(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('product_owner_model');
+    expect(result).toHaveProperty('milestone_version');
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('milestones_dir');
+  });
+
+  test('includes project file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitProductOwner(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('project_exists');
+    expect(result).toHaveProperty('roadmap_exists');
+    expect(result).toHaveProperty('state_exists');
+    expect(result).toHaveProperty('requirements_exists');
+    expect(result).toHaveProperty('product_quality_exists');
+  });
+});
+
+// ─── cmdInitProjectResearcher ─────────────────────────────────────────────────
+
+describe('cmdInitProjectResearcher', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns project-researcher context with topic', () => {
+    const { stdout } = captureOutput(() => cmdInitProjectResearcher(tmpDir, 'neural compression', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('researcher_model');
+    expect(result.topic).toBe('neural compression');
+    expect(result).toHaveProperty('milestone_version');
+    expect(result).toHaveProperty('research_dir');
+    expect(result).toHaveProperty('milestones_dir');
+  });
+
+  test('returns project-researcher context without topic', () => {
+    const { stdout } = captureOutput(() => cmdInitProjectResearcher(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.topic).toBeNull();
+  });
+
+  test('includes file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitProjectResearcher(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('project_exists');
+    expect(result).toHaveProperty('landscape_exists');
+    expect(result).toHaveProperty('papers_exists');
+    expect(result).toHaveProperty('roadmap_exists');
+  });
+});
+
+// ─── cmdInitResearchSynthesizer ───────────────────────────────────────────────
+
+describe('cmdInitResearchSynthesizer', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns research-synthesizer context with required fields', () => {
+    const { stdout } = captureOutput(() => cmdInitResearchSynthesizer(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('synthesizer_model');
+    expect(result).toHaveProperty('research_dir');
+    expect(result).toHaveProperty('deep_dives_dir');
+    expect(Array.isArray(result.deep_dives)).toBe(true);
+    expect(typeof result.deep_dives_count).toBe('number');
+  });
+
+  test('includes research file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitResearchSynthesizer(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('landscape_exists');
+    expect(result).toHaveProperty('papers_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+  });
+});
+
+// ─── cmdInitRoadmapper ────────────────────────────────────────────────────────
+
+describe('cmdInitRoadmapper', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns roadmapper context with required fields', () => {
+    const { stdout } = captureOutput(() => cmdInitRoadmapper(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('roadmapper_model');
+    expect(result).toHaveProperty('milestone_version');
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('milestones_dir');
+  });
+
+  test('includes file existence and config flags', () => {
+    const { stdout } = captureOutput(() => cmdInitRoadmapper(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('project_exists');
+    expect(result).toHaveProperty('roadmap_exists');
+    expect(result).toHaveProperty('requirements_exists');
+    expect(result).toHaveProperty('state_exists');
+    expect(result).toHaveProperty('ceremony');
+    expect(result).toHaveProperty('tracker');
+  });
+});
+
+// ─── cmdInitSurveyor ──────────────────────────────────────────────────────────
+
+describe('cmdInitSurveyor', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns surveyor context with topic', () => {
+    const { stdout } = captureOutput(() => cmdInitSurveyor(tmpDir, 'diffusion models', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('surveyor_model');
+    expect(result.topic).toBe('diffusion models');
+    expect(result).toHaveProperty('research_dir');
+    expect(result).toHaveProperty('milestones_dir');
+  });
+
+  test('returns surveyor context without topic', () => {
+    const { stdout } = captureOutput(() => cmdInitSurveyor(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.topic).toBeNull();
+  });
+
+  test('includes research file existence flags', () => {
+    const { stdout } = captureOutput(() => cmdInitSurveyor(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('landscape_exists');
+    expect(result).toHaveProperty('papers_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+    expect(result).toHaveProperty('project_exists');
+  });
+});
+
+// ─── cmdInitVerifier ──────────────────────────────────────────────────────────
+
+describe('cmdInitVerifier', () => {
+  let tmpDir;
+
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns verifier context with phase', () => {
+    const { stdout } = captureOutput(() => cmdInitVerifier(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('verifier_model');
+    expect(result.phase_found).toBe(true);
+    expect(Array.isArray(result.plans)).toBe(true);
+    expect(Array.isArray(result.summaries)).toBe(true);
+  });
+
+  test('returns verifier context without phase', () => {
+    const { stdout } = captureOutput(() => cmdInitVerifier(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+    expect(result.plans).toEqual([]);
+    expect(result.summaries).toEqual([]);
+  });
+
+  test('includes file existence and config flags', () => {
+    const { stdout } = captureOutput(() => cmdInitVerifier(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('baseline_exists');
+    expect(result).toHaveProperty('benchmarks_exists');
+    expect(result).toHaveProperty('eval_config');
+    expect(result).toHaveProperty('phases_dir');
+    expect(result).toHaveProperty('research_dir');
+  });
+});
+
+// ─── Agent-named alias functions ─────────────────────────────────────────────
+
+describe('cmdInitBaselineAssessor', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitAssessBaseline and returns same structure', () => {
+    const { stdout } = captureOutput(() => cmdInitBaselineAssessor(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('assessor_model');
+    expect(result).toHaveProperty('baseline_exists');
+  });
+});
+
+describe('cmdInitCodeReviewer', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitCodeReview and returns reviewer context', () => {
+    const { stdout } = captureOutput(() => cmdInitCodeReviewer(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('reviewer_model');
+  });
+});
+
+describe('cmdInitCodebaseMapper', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitMapCodebase and returns mapper context', () => {
+    const { stdout } = captureOutput(() => cmdInitCodebaseMapper(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('mapper_model');
+  });
+});
+
+describe('cmdInitDebugger', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitDebug and returns debug context', () => {
+    const { stdout } = captureOutput(() => cmdInitDebugger(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('debug_files');
+  });
+});
+
+describe('cmdInitDeepDiver', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitDeepDive and returns deep-diver context', () => {
+    const { stdout } = captureOutput(() => cmdInitDeepDiver(tmpDir, 'test topic', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('deep_diver_model');
+    expect(result.topic).toBe('test topic');
+  });
+});
+
+describe('cmdInitEvalPlanner', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitEvalPlan and returns eval-planner context', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalPlanner(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('eval_planner_model');
+  });
+});
+
+describe('cmdInitEvalReporter', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitEvalReport and returns eval-reporter context', () => {
+    const { stdout } = captureOutput(() => cmdInitEvalReporter(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('eval_reporter_model');
+  });
+});
+
+describe('cmdInitExecutor', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('returns executor context with phase info', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutor(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('executor_model');
+    expect(result.phase_found).toBe(true);
+    expect(result).toHaveProperty('plan_count');
+  });
+
+  test('errors when phase is missing', () => {
+    const { exitCode } = captureError(() => cmdInitExecutor(tmpDir, null, new Set(), false));
+    expect(exitCode).toBe(1);
+  });
+
+  test('includes state content when requested', () => {
+    const { stdout } = captureOutput(() => cmdInitExecutor(tmpDir, '1', new Set(['state']), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('state_content');
+  });
+});
+
+describe('cmdInitFeasibilityAnalyst', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitFeasibility and returns feasibility context', () => {
+    const { stdout } = captureOutput(() => cmdInitFeasibilityAnalyst(tmpDir, 'ViT', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('feasibility_model');
+  });
+});
+
+describe('cmdInitIntegrationChecker', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitIntegrationCheck and returns integration context', () => {
+    const { stdout } = captureOutput(() => cmdInitIntegrationChecker(tmpDir, null, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('phase_count');
+    expect(result).toHaveProperty('summary_count');
+  });
+});
+
+describe('cmdInitMigrator', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitMigrate and returns migrator context', () => {
+    const { stdout } = captureOutput(() => cmdInitMigrator(tmpDir, false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('planning_dir');
+    expect(result).toHaveProperty('milestones_dir');
+  });
+});
+
+describe('cmdInitPhaseResearcher', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitPhaseResearch and returns researcher context', () => {
+    const { stdout } = captureOutput(() => cmdInitPhaseResearcher(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('researcher_model');
+  });
+});
+
+describe('cmdInitPlanChecker', () => {
+  let tmpDir;
+  beforeAll(() => { tmpDir = createFixtureDir(); });
+  afterAll(() => { cleanupFixtureDir(tmpDir); });
+
+  test('delegates to cmdInitPlanCheck and returns plan-checker context', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanChecker(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('backend');
+    expect(result).toHaveProperty('checker_model');
   });
 });

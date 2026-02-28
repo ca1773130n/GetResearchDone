@@ -95,6 +95,23 @@ const {
   cmdInitProgress,
   cmdInitResearchWorkflow,
   cmdInitPlanMilestoneGaps,
+  cmdInitDebug,
+  cmdInitIntegrationCheck,
+  cmdInitMigrate,
+  cmdInitPlanCheck,
+  cmdInitPhaseResearch,
+  cmdInitCodeReview,
+  cmdInitAssessBaseline,
+  cmdInitDeepDive,
+  cmdInitEvalPlan,
+  cmdInitEvalReport,
+  cmdInitFeasibility,
+  cmdInitProductOwner,
+  cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer,
+  cmdInitRoadmapper,
+  cmdInitSurveyor,
+  cmdInitVerifier,
 } = require('../lib/context');
 const {
   cmdGenerateSlug,
@@ -134,6 +151,36 @@ function flag(args, name, fallback) {
   return i !== -1 ? args[i + 1] : fallback;
 }
 
+/**
+ * Descriptor-based dispatch table for simple top-level commands.
+ * Each entry maps a command string to a handler function.
+ * routeCommand() checks this table first before falling through to the switch.
+ */
+const ROUTE_DESCRIPTORS = [
+  { command: 'generate-slug', handler: (args, _cwd, raw) => cmdGenerateSlug(args[1], raw) },
+  { command: 'current-timestamp', handler: (args, _cwd, raw) => cmdCurrentTimestamp(args[1] || 'full', raw) },
+  { command: 'list-todos', handler: (args, cwd, raw) => cmdListTodos(cwd, args[1], raw) },
+  { command: 'verify-path-exists', handler: (args, cwd, raw) => cmdVerifyPathExists(cwd, args[1], raw, args.includes('--dry-run')) },
+  { command: 'config-ensure-section', handler: (args, cwd, raw) => cmdConfigEnsureSection(cwd, raw, args.includes('--dry-run')) },
+  { command: 'config-set', handler: (args, cwd, raw) => cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run')) },
+  { command: 'history-digest', handler: (_args, cwd, raw) => cmdHistoryDigest(cwd, raw) },
+  { command: 'progress', handler: (args, cwd, raw) => cmdProgressRender(cwd, args[1] || 'json', raw) },
+  { command: 'migrate-dirs', handler: (args, cwd, raw) => cmdMigrateDirs(cwd, raw, args.includes('--dry-run')) },
+  { command: 'dashboard', handler: (_args, cwd, raw) => cmdDashboard(cwd, raw) },
+  { command: 'health', handler: (_args, cwd, raw) => cmdHealth(cwd, raw) },
+  { command: 'detect-backend', handler: (_args, cwd, raw) => cmdDetectBackend(cwd, raw) },
+  { command: 'quality-analysis', handler: (args, cwd, raw) => cmdQualityAnalysis(cwd, args.slice(1), raw) },
+  { command: 'setup', handler: (_args, cwd, raw) => cmdSetup(cwd, raw) },
+  { command: 'parallel-progress', handler: (args, _cwd, raw) => cmdParallelProgress(args.slice(1), raw) },
+  { command: 'resolve-model', handler: (args, cwd, raw) => cmdResolveModel(cwd, args[1], raw) },
+  { command: 'find-phase', handler: (args, cwd, raw) => cmdFindPhase(cwd, args[1], raw) },
+  { command: 'coverage-report', handler: (args, cwd, raw) => cmdCoverageReport(cwd, { threshold: parseInt(flag(args, '--threshold', '85'), 10) }, raw) },
+  { command: 'health-check', handler: (args, cwd, raw) => cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw) },
+  { command: 'phase-detail', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseDetail(cwd, args[1], raw); } },
+  { command: 'phase-plan-index', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhasePlanIndex(cwd, args[1], raw); } },
+  { command: 'search', handler: (args, cwd, raw) => { if (!args[1]) error('Search query is required'); return cmdSearch(cwd, args[1], raw); } },
+];
+
 async function main() {
   const args = process.argv.slice(2);
   const rawIndex = args.indexOf('--raw');
@@ -157,6 +204,12 @@ async function main() {
 
 /** Validate and route CLI commands */
 async function routeCommand(command, args, cwd, raw) {
+  // Descriptor-based dispatch: check ROUTE_DESCRIPTORS before falling through to switch
+  const descriptor = ROUTE_DESCRIPTORS.find(d => d.command === command);
+  if (descriptor) {
+    return descriptor.handler(args, cwd, raw);
+  }
+
   const STATE_SUBS = [
     'load',
     'get',
@@ -227,6 +280,16 @@ async function routeCommand(command, args, cwd, raw) {
     'iterate',
     'autopilot',
     'evolve',
+    'debug',
+    'integration-check',
+    'migrate',
+    'plan-check',
+    'phase-research',
+    'code-review',
+    'project-researcher',
+    'research-synthesizer',
+    'roadmapper',
+    'verifier',
   ];
 
   switch (command) {
@@ -371,13 +434,13 @@ async function routeCommand(command, args, cwd, raw) {
       cmdListTodos(cwd, args[1], raw);
       break;
     case 'verify-path-exists':
-      cmdVerifyPathExists(cwd, args[1], raw);
+      cmdVerifyPathExists(cwd, args[1], raw, args.includes('--dry-run'));
       break;
     case 'config-ensure-section':
-      cmdConfigEnsureSection(cwd, raw);
+      cmdConfigEnsureSection(cwd, raw, args.includes('--dry-run'));
       break;
     case 'config-set':
-      cmdConfigSet(cwd, args[1], args[2], raw);
+      cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run'));
       break;
     case 'history-digest':
       cmdHistoryDigest(cwd, raw);
@@ -472,7 +535,7 @@ async function routeCommand(command, args, cwd, raw) {
       break;
     case 'todo': {
       validateSubcommand(args[1], TODO_SUBS, 'todo');
-      cmdTodoComplete(cwd, args[2], raw);
+      cmdTodoComplete(cwd, args[2], raw, args.includes('--dry-run'));
       break;
     }
     case 'scaffold': {
@@ -490,7 +553,7 @@ async function routeCommand(command, args, cwd, raw) {
       break;
     }
     case 'migrate-dirs':
-      cmdMigrateDirs(cwd, raw);
+      cmdMigrateDirs(cwd, raw, args.includes('--dry-run'));
       break;
     case 'init': {
       const wf = args[1],
@@ -549,20 +612,67 @@ async function routeCommand(command, args, cwd, raw) {
           cmdInitProgress(cwd, includes, raw, args.includes('--refresh'));
           break;
         case 'survey':
+          cmdInitSurveyor(cwd, args.slice(2).join(' ') || null, raw);
+          break;
         case 'deep-dive':
+          cmdInitDeepDive(cwd, args.slice(2).join(' ') || null, raw);
+          break;
         case 'feasibility':
+          cmdInitFeasibility(cwd, args.slice(2).join(' ') || null, raw);
+          break;
         case 'eval-plan':
+          cmdInitEvalPlan(cwd, args[2] || null, raw);
+          break;
         case 'eval-report':
+          cmdInitEvalReport(cwd, args[2] || null, raw);
+          break;
         case 'assess-baseline':
+          cmdInitAssessBaseline(cwd, raw);
+          break;
         case 'product-plan':
+          cmdInitProductOwner(cwd, raw);
+          break;
         case 'iterate':
-          cmdInitResearchWorkflow(cwd, wf, args.slice(2).join(' '), includes, raw);
+          cmdInitResearchWorkflow(cwd, 'iterate', args.slice(2).join(' '), includes, raw);
+          break;
+        case 'project-researcher':
+          cmdInitProjectResearcher(cwd, args.slice(2).join(' ') || null, raw);
+          break;
+        case 'research-synthesizer':
+          cmdInitResearchSynthesizer(cwd, raw);
+          break;
+        case 'roadmapper':
+          cmdInitRoadmapper(cwd, raw);
+          break;
+        case 'verifier':
+          cmdInitVerifier(cwd, args[2] || null, raw);
           break;
         case 'autopilot':
           cmdInitAutopilot(cwd, raw);
           break;
         case 'evolve':
           cmdInitEvolve(cwd, raw);
+          break;
+        case 'debug':
+          cmdInitDebug(cwd, args[2] || null, raw);
+          break;
+        case 'integration-check':
+          cmdInitIntegrationCheck(cwd, args[2] || null, raw);
+          break;
+        case 'migrate':
+          cmdInitMigrate(cwd, raw);
+          break;
+        case 'plan-check':
+          validatePhaseArg(args[2]);
+          cmdInitPlanCheck(cwd, args[2], raw);
+          break;
+        case 'phase-research':
+          validatePhaseArg(args[2]);
+          cmdInitPhaseResearch(cwd, args[2], includes, raw);
+          break;
+        case 'code-review':
+          validatePhaseArg(args[2]);
+          cmdInitCodeReview(cwd, args[2], raw);
           break;
       }
       break;
@@ -655,7 +765,7 @@ async function routeCommand(command, args, cwd, raw) {
         if (args[3] === 'In' && args[4] === 'Progress') {
           status = 'In Progress';
         }
-        cmdRequirementUpdateStatus(cwd, args[2], status, raw);
+        cmdRequirementUpdateStatus(cwd, args[2], status, raw, args.includes('--dry-run'));
       }
       break;
     }

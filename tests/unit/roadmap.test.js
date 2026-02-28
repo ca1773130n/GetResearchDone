@@ -602,3 +602,137 @@ describe('BUG-48-002: goal regex both formats', () => {
     expect(phase2.warnings).toEqual([]);
   });
 });
+
+// ─── Branch coverage additions ───────────────────────────────────────────────
+
+describe('cmdRoadmapGetPhase edge cases', () => {
+  test('returns found:false error when ROADMAP.md does not exist', () => {
+    const tmpDir = fs.mkdtempSync(require('os').tmpdir() + '/grd-roadmap-');
+    try {
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdRoadmapGetPhase(tmpDir, '1', false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.found).toBe(false);
+      expect(parsed.error).toMatch(/not found/i);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('cmdPhaseNextDecimal with existing decimal phases', () => {
+  test('returns next decimal after existing ones', () => {
+    const tmpDir = fs.mkdtempSync(require('os').tmpdir() + '/grd-decimal-');
+    try {
+      const phasesDir = require('path').join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+      fs.mkdirSync(phasesDir, { recursive: true });
+      fs.mkdirSync(require('path').join(phasesDir, '01-base'));
+      fs.mkdirSync(require('path').join(phasesDir, '01.1-sub'));
+      fs.mkdirSync(require('path').join(phasesDir, '01.2-sub2'));
+      const { stdout, exitCode } = captureOutput(() => {
+        cmdPhaseNextDecimal(tmpDir, '01', false);
+      });
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.next).toBe('01.3');
+      expect(parsed.existing).toHaveLength(2);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('computeSchedule with mcp_atlassian default_duration_days', () => {
+  test('uses default_duration_days from config when set', () => {
+    const tmpDir = createFixtureDir();
+    try {
+      // Write config with mcp_atlassian.default_duration_days
+      const configPath = require('path').join(tmpDir, '.planning', 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        tracker: { mcp_atlassian: { default_duration_days: 14 } }
+      }), 'utf-8');
+      const schedule = computeSchedule(tmpDir);
+      // Should still produce a valid schedule object
+      expect(schedule).toHaveProperty('phases');
+      expect(schedule).toHaveProperty('milestones');
+    } finally {
+      cleanupFixtureDir(tmpDir);
+    }
+  });
+});
+
+describe('analyzeRoadmap phase disk statuses', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(require('os').tmpdir() + '/grd-analyze-');
+    fs.mkdirSync(require('path').join(tmpDir, '.planning'), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('phase with only research file gets researched status', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: Research Phase',
+      '**Goal:** Do research',
+      '',
+    ].join('\n');
+    fs.writeFileSync(require('path').join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const phasesDir = require('path').join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases');
+    fs.mkdirSync(phasesDir, { recursive: true });
+    const phaseDir = require('path').join(phasesDir, '01-research-phase');
+    fs.mkdirSync(phaseDir);
+    fs.writeFileSync(require('path').join(phaseDir, '01-RESEARCH.md'), '# Research');
+    const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    expect(phase1.disk_status).toBe('researched');
+  });
+
+  test('phase with only context file gets discussed status', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: Context Phase',
+      '**Goal:** Discuss context',
+      '',
+    ].join('\n');
+    fs.writeFileSync(require('path').join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const phasesDir = require('path').join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases');
+    fs.mkdirSync(phasesDir, { recursive: true });
+    const phaseDir = require('path').join(phasesDir, '01-context-phase');
+    fs.mkdirSync(phaseDir);
+    fs.writeFileSync(require('path').join(phaseDir, '01-CONTEXT.md'), '# Context');
+    const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    expect(phase1.disk_status).toBe('discussed');
+  });
+
+  test('phase with no start_date milestone gets null dates', () => {
+    const roadmap = [
+      '# Project Roadmap',
+      '## Milestone v1.0: Test',
+      '',
+      '### Phase 1: Undated Phase',
+      '**Goal:** No date',
+      '',
+    ].join('\n');
+    fs.writeFileSync(require('path').join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    const phase1 = parsed.phases.find((p) => p.number === '1');
+    expect(phase1.start_date).toBeNull();
+    expect(phase1.due_date).toBeNull();
+  });
+});

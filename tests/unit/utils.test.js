@@ -34,6 +34,11 @@ const {
   loadConfig,
   output,
   error,
+  debugLog,
+  createRunCache,
+  findPhaseDir,
+  parsePhaseNumber,
+  walkJsFiles,
 } = require('../../lib/utils');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -470,6 +475,48 @@ describe('error', () => {
     });
     expect(exitCode).toBe(1);
     expect(stderr).toContain('Error: something went wrong');
+  });
+});
+
+describe('debugLog', () => {
+  const origEnv = process.env.GRD_DEBUG;
+
+  afterEach(() => {
+    if (origEnv === undefined) {
+      delete process.env.GRD_DEBUG;
+    } else {
+      process.env.GRD_DEBUG = origEnv;
+    }
+  });
+
+  test('is a no-op when GRD_DEBUG is not set', () => {
+    delete process.env.GRD_DEBUG;
+    const writes = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    debugLog('test message');
+    process.stderr.write = origWrite;
+    expect(writes).toHaveLength(0);
+  });
+
+  test('writes to stderr when GRD_DEBUG=1', () => {
+    process.env.GRD_DEBUG = '1';
+    const writes = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    debugLog('hello world');
+    process.stderr.write = origWrite;
+    expect(writes.some((w) => w.includes('[grd:debug]') && w.includes('hello world'))).toBe(true);
+  });
+
+  test('includes JSON-serialized data when provided', () => {
+    process.env.GRD_DEBUG = '1';
+    const writes = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    debugLog('msg', { key: 'val' });
+    process.stderr.write = origWrite;
+    expect(writes.some((w) => w.includes('"key"') && w.includes('"val"'))).toBe(true);
   });
 });
 
@@ -1100,5 +1147,188 @@ describe('clearPhaseCache', () => {
     // Second call uses cache
     const cached = findPhaseInternal(fixtureDir, '1');
     expect(fresh).toEqual(cached);
+  });
+});
+
+// ─── createRunCache ──────────────────────────────────────────────────────────
+
+describe('createRunCache', () => {
+  test('returns an object with init, reset, and get methods', () => {
+    const cache = createRunCache();
+    expect(typeof cache.init).toBe('function');
+    expect(typeof cache.reset).toBe('function');
+    expect(typeof cache.get).toBe('function');
+  });
+
+  test('calls reader directly when cache is inactive', () => {
+    const cache = createRunCache();
+    let calls = 0;
+    const reader = (k) => { calls++; return `value:${k}`; };
+    const result = cache.get('key1', reader);
+    expect(result).toBe('value:key1');
+    expect(calls).toBe(1);
+    // Calling again still goes directly to reader
+    cache.get('key1', reader);
+    expect(calls).toBe(2);
+  });
+
+  test('caches values after init()', () => {
+    const cache = createRunCache();
+    cache.init();
+    let calls = 0;
+    const reader = (k) => { calls++; return `value:${k}`; };
+    cache.get('key1', reader);
+    cache.get('key1', reader);
+    expect(calls).toBe(1); // reader called only once
+  });
+
+  test('reset() deactivates cache and clears values', () => {
+    const cache = createRunCache();
+    cache.init();
+    let calls = 0;
+    const reader = (k) => { calls++; return `value:${k}`; };
+    cache.get('key1', reader);
+    expect(calls).toBe(1);
+    cache.reset();
+    // After reset, falls back to direct reader calls
+    cache.get('key1', reader);
+    expect(calls).toBe(2);
+  });
+});
+
+// ─── findPhaseDir ────────────────────────────────────────────────────────────
+
+describe('findPhaseDir', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-findphasedir-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('returns matching directory name with dash suffix', () => {
+    fs.mkdirSync(path.join(tmpDir, '01-my-phase'));
+    const result = findPhaseDir(tmpDir, '01');
+    expect(result).toBe('01-my-phase');
+  });
+
+  test('returns matching directory name with exact name', () => {
+    fs.mkdirSync(path.join(tmpDir, '01'));
+    const result = findPhaseDir(tmpDir, '01');
+    expect(result).toBe('01');
+  });
+
+  test('returns null when no matching directory exists', () => {
+    fs.mkdirSync(path.join(tmpDir, '02-other-phase'));
+    const result = findPhaseDir(tmpDir, '01');
+    expect(result).toBeNull();
+  });
+
+  test('returns null when phasesDir does not exist', () => {
+    const result = findPhaseDir('/tmp/nonexistent-phases-dir-xyz', '01');
+    expect(result).toBeNull();
+  });
+
+  test('normalizes phase arg before matching', () => {
+    fs.mkdirSync(path.join(tmpDir, '01-feature'));
+    // '1' should normalize to '01' and match '01-feature'
+    const result = findPhaseDir(tmpDir, '1');
+    expect(result).toBe('01-feature');
+  });
+});
+
+// ─── parsePhaseNumber ────────────────────────────────────────────────────────
+
+describe('parsePhaseNumber', () => {
+  test('returns null for falsy input', () => {
+    expect(parsePhaseNumber(null)).toBeNull();
+    expect(parsePhaseNumber('')).toBeNull();
+    expect(parsePhaseNumber(undefined)).toBeNull();
+  });
+
+  test('extracts integer phase number from directory name', () => {
+    expect(parsePhaseNumber('01-feature-name')).toBe('01');
+    expect(parsePhaseNumber('5-something')).toBe('5');
+  });
+
+  test('extracts decimal phase number', () => {
+    expect(parsePhaseNumber('01.2-sub-phase')).toBe('01.2');
+    expect(parsePhaseNumber('3.14-something')).toBe('3.14');
+  });
+
+  test('extracts from plain number string', () => {
+    expect(parsePhaseNumber('1')).toBe('1');
+    expect(parsePhaseNumber('42')).toBe('42');
+  });
+
+  test('returns null for non-numeric string', () => {
+    expect(parsePhaseNumber('abc-phase')).toBeNull();
+  });
+});
+
+// ─── walkJsFiles ─────────────────────────────────────────────────────────────
+
+describe('walkJsFiles', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-walkjs-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('returns relative paths to .js files', () => {
+    fs.writeFileSync(path.join(tmpDir, 'a.js'), '');
+    fs.writeFileSync(path.join(tmpDir, 'b.js'), '');
+    const results = walkJsFiles(tmpDir);
+    expect(results).toContain('a.js');
+    expect(results).toContain('b.js');
+  });
+
+  test('recurses into subdirectories', () => {
+    fs.mkdirSync(path.join(tmpDir, 'sub'));
+    fs.writeFileSync(path.join(tmpDir, 'sub', 'c.js'), '');
+    const results = walkJsFiles(tmpDir);
+    expect(results).toContain(path.join('sub', 'c.js'));
+  });
+
+  test('skips node_modules, .git, and .planning directories', () => {
+    ['node_modules', '.git', '.planning'].forEach((dir) => {
+      fs.mkdirSync(path.join(tmpDir, dir));
+      fs.writeFileSync(path.join(tmpDir, dir, 'skip.js'), '');
+    });
+    const results = walkJsFiles(tmpDir);
+    expect(results).not.toContain(path.join('node_modules', 'skip.js'));
+    expect(results).not.toContain(path.join('.git', 'skip.js'));
+    expect(results).not.toContain(path.join('.planning', 'skip.js'));
+  });
+
+  test('skips paths matching excludePatterns', () => {
+    fs.mkdirSync(path.join(tmpDir, 'excluded'));
+    fs.writeFileSync(path.join(tmpDir, 'excluded', 'out.js'), '');
+    fs.writeFileSync(path.join(tmpDir, 'keep.js'), '');
+    const results = walkJsFiles(tmpDir, ['excluded']);
+    expect(results).not.toContain(path.join('excluded', 'out.js'));
+    expect(results).toContain('keep.js');
+  });
+
+  test('does not include non-.js files', () => {
+    fs.writeFileSync(path.join(tmpDir, 'readme.md'), '');
+    fs.writeFileSync(path.join(tmpDir, 'data.json'), '');
+    fs.writeFileSync(path.join(tmpDir, 'script.js'), '');
+    const results = walkJsFiles(tmpDir);
+    expect(results).not.toContain('readme.md');
+    expect(results).not.toContain('data.json');
+    expect(results).toContain('script.js');
+  });
+
+  test('returns empty array for non-existent directory', () => {
+    const results = walkJsFiles('/tmp/nonexistent-walk-dir-xyz');
+    expect(results).toEqual([]);
   });
 });
