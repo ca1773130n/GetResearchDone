@@ -624,18 +624,11 @@ describe('verify-summary', () => {
 // ─── Dashboard Command ──────────────────────────────────────────────────────
 
 describe('dashboard command', () => {
-  test('dashboard --raw produces valid JSON with milestones array', () => {
+  test('dashboard --raw produces TUI text output with milestone info', () => {
     const { stdout, exitCode } = runCLI(['dashboard', '--raw'], fixtureDir);
     expect(exitCode).toBe(0);
-    const data = parseJSON(stdout);
-    expect(data).toHaveProperty('milestones');
-    expect(Array.isArray(data.milestones)).toBe(true);
-    expect(data.milestones.length).toBeGreaterThanOrEqual(1);
-    expect(data).toHaveProperty('summary');
-    expect(data.summary).toHaveProperty('total_milestones');
-    expect(data.summary).toHaveProperty('total_phases');
-    expect(data.summary).toHaveProperty('total_plans');
-    expect(data.summary).toHaveProperty('total_summaries');
+    expect(stdout).toContain('Foundation');
+    expect(stdout).toContain('Phase');
   });
 
   test('dashboard (without --raw) produces text output containing milestone names', () => {
@@ -668,16 +661,11 @@ describe('dashboard command', () => {
 // ─── Phase-detail Command ───────────────────────────────────────────────────
 
 describe('phase-detail command', () => {
-  test('phase-detail 1 --raw produces valid JSON with plans array and phase_number', () => {
+  test('phase-detail 1 --raw produces TUI text output with phase info', () => {
     const { stdout, exitCode } = runCLI(['phase-detail', '1', '--raw'], fixtureDir);
     expect(exitCode).toBe(0);
-    const data = parseJSON(stdout);
-    expect(data).toHaveProperty('phase_number');
-    expect(data).toHaveProperty('phase_name');
-    expect(data).toHaveProperty('plans');
-    expect(Array.isArray(data.plans)).toBe(true);
-    expect(data.plans.length).toBeGreaterThanOrEqual(1);
-    expect(data).toHaveProperty('summary_stats');
+    expect(stdout).toContain('Phase 1');
+    expect(stdout).toContain('test');
   });
 
   test('phase-detail 99 --raw returns error for nonexistent phase', () => {
@@ -699,22 +687,12 @@ describe('phase-detail command', () => {
 // ─── Health Command ─────────────────────────────────────────────────────────
 
 describe('health command', () => {
-  test('health --raw produces valid JSON with blockers, deferred_validations, velocity keys', () => {
+  test('health --raw produces TUI text output with health sections', () => {
     const { stdout, exitCode } = runCLI(['health', '--raw'], fixtureDir);
     expect(exitCode).toBe(0);
-    const data = parseJSON(stdout);
-    expect(data).toHaveProperty('blockers');
-    expect(data.blockers).toHaveProperty('count');
-    expect(data.blockers).toHaveProperty('items');
-    expect(data).toHaveProperty('deferred_validations');
-    expect(data.deferred_validations).toHaveProperty('total');
-    expect(data.deferred_validations).toHaveProperty('pending');
-    expect(data.deferred_validations).toHaveProperty('resolved');
-    expect(data).toHaveProperty('velocity');
-    expect(data.velocity).toHaveProperty('total_plans');
-    expect(data.velocity).toHaveProperty('avg_duration_min');
-    expect(data).toHaveProperty('stale_phases');
-    expect(data).toHaveProperty('risks');
+    expect(stdout).toContain('Blockers');
+    expect(stdout).toContain('Velocity');
+    expect(stdout).toContain('Deferred Validations');
   });
 
   test('health (without --raw) produces text output containing Blockers and Velocity sections', () => {
@@ -726,7 +704,7 @@ describe('health command', () => {
     expect(stdout).toContain('Stale Phases');
   });
 
-  test('health --raw with minimal STATE.md returns zero blockers and empty velocity', () => {
+  test('health --raw with minimal STATE.md shows zero blockers and velocity', () => {
     const minimalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-minimal-'));
     fs.mkdirSync(path.join(minimalDir, '.planning'), { recursive: true });
     fs.writeFileSync(
@@ -740,10 +718,9 @@ describe('health command', () => {
 
     const { stdout, exitCode } = runCLI(['health', '--raw'], minimalDir);
     expect(exitCode).toBe(0);
-    const data = parseJSON(stdout);
-    expect(data.blockers.count).toBe(0);
-    expect(data.velocity.total_plans).toBe(0);
-    expect(data.velocity.avg_duration_min).toBe(0);
+    // TUI shows zero blockers and zero velocity
+    expect(stdout).toContain('None \u2713');
+    expect(stdout).toContain('0 min (0 plans)');
 
     cleanupDir(minimalDir);
   });

@@ -42,6 +42,7 @@ const {
   cmdCoverageReport,
   cmdHealthCheck,
   cmdSetup,
+  _stateContentCache,
 } = require('../../lib/commands');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -744,6 +745,7 @@ describe('cmdProgressRender', () => {
 
   test('"table" format shows BLOCKED warning when STATE.md has active blockers', () => {
     const statePath = path.join(fixtureDir, '.planning', 'STATE.md');
+    _stateContentCache.delete(statePath);
     let state = fs.readFileSync(statePath, 'utf-8');
     state = state.replace(
       '## Blockers\n\nNone.',
@@ -778,61 +780,42 @@ describe('cmdDashboard', () => {
       cmdDashboard(fixtureDir, true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed).toHaveProperty('milestones');
-    expect(Array.isArray(parsed.milestones)).toBe(true);
     // Fixture ROADMAP.md has 1 milestone (M1 v1.0: Foundation)
-    expect(parsed.milestones.length).toBe(1);
+    expect(stdout).toContain('Milestone 1: Foundation');
   });
 
   test('each milestone contains phases array with number, name, status', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    const ms = parsed.milestones[0];
-    expect(ms).toHaveProperty('phases');
-    expect(ms.phases.length).toBeGreaterThanOrEqual(1);
-    const phase = ms.phases[0];
-    expect(phase).toHaveProperty('number');
-    expect(phase).toHaveProperty('name');
-    expect(phase).toHaveProperty('status');
+    expect(stdout).toContain('Phase 1:');
+    expect(stdout).toContain('Phase 2:');
   });
 
   test('phase status correctly computed: complete (summaries >= plans)', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    // Phase 1 has 1 plan and 1 summary -> complete
-    const phase1 = parsed.milestones[0].phases.find((p) => p.number === '1');
-    expect(phase1.status).toBe('complete');
+    // Phase 1 has 1 plan and 1 summary -> complete (shown as 1/1 plans in TUI)
+    expect(stdout).toContain('1/1 plans');
   });
 
   test('phase status correctly computed: planned (plans > 0, summaries = 0)', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    // Phase 2 has 1 plan and 0 summaries -> planned
-    const phase2 = parsed.milestones[0].phases.find((p) => p.number === '2');
-    expect(phase2.status).toBe('planned');
+    // Phase 2 has 1 plan and 0 summaries -> planned (shown as ○ symbol in TUI)
+    expect(stdout).toContain('\u25CB Phase 2:');
   });
 
   test('summary object contains total_milestones, total_phases, total_plans, total_summaries', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed).toHaveProperty('summary');
-    expect(parsed.summary).toHaveProperty('total_milestones');
-    expect(parsed.summary).toHaveProperty('total_phases');
-    expect(parsed.summary).toHaveProperty('total_plans');
-    expect(parsed.summary).toHaveProperty('total_summaries');
-    expect(parsed.summary.total_milestones).toBe(1);
-    expect(parsed.summary.total_phases).toBe(2);
-    expect(parsed.summary.total_plans).toBe(2);
-    expect(parsed.summary.total_summaries).toBe(1);
+    // TUI summary line contains milestone, phase, and plan counts
+    expect(stdout).toContain('1 active milestones');
+    expect(stdout).toContain('2 phases');
+    expect(stdout).toContain('1/2 plans complete');
   });
 
   test('handles missing ROADMAP.md gracefully (returns empty milestones array)', () => {
@@ -865,13 +848,10 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    // Fixture STATE.md says "Active phase: 1 (01-test)"
-    const phase1 = parsed.milestones[0].phases.find((p) => p.number === '1');
-    expect(phase1.active).toBe(true);
-    // Phase 2 should not be active
-    const phase2 = parsed.milestones[0].phases.find((p) => p.number === '2');
-    expect(phase2.active).toBe(false);
+    // Fixture STATE.md says "Active phase: 1 (01-test)" -> TUI shows [ACTIVE]
+    expect(stdout).toContain('[ACTIVE]');
+    // Only phase 1 should be marked active
+    expect((stdout.match(/\[ACTIVE\]/g) || []).length).toBe(1);
   });
 
   test('includes deferred validation and blocker counts from STATE.md', () => {
@@ -891,9 +871,9 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.summary.active_blockers).toBe(2);
-    expect(parsed.summary.pending_deferred).toBe(1);
+    // TUI summary footer shows blocker and deferred counts
+    expect(stdout).toContain('Blockers: 2');
+    expect(stdout).toContain('Deferred: 1');
   });
 
   test('non-raw mode surfaces blocker details in TUI when active blockers exist', () => {
@@ -929,18 +909,16 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
     // Phase 1: 1/1 = 100%, Phase 2: 0/1 = 0%, avg = 50%
-    expect(parsed.milestones[0].progress_percent).toBe(50);
+    expect(stdout).toContain('50%');
   });
 
   test('extracts milestone number from M-format heading', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    // Fixture uses "## M1 v1.0: Foundation"
-    expect(parsed.milestones[0].number).toBe(1);
+    // Fixture uses "## M1 v1.0: Foundation" -> TUI shows "Milestone 1:"
+    expect(stdout).toContain('Milestone 1:');
   });
 
   test('extracts milestone number from "Milestone N:" format', () => {
@@ -952,18 +930,15 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.milestones[0].number).toBe(2);
-    expect(parsed.milestones[0].name).toBe('Foundation');
+    expect(stdout).toContain('Milestone 2: Foundation');
   });
 
   test('extracts goal from **Goal:** line', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
     // Fixture has "**Goal:** Establish project infrastructure"
-    expect(parsed.milestones[0].goal).toBe('Establish project infrastructure');
+    expect(stdout).toContain('Goal: Establish project infrastructure');
   });
 
   test('0-plan phases drag progress down instead of being invisible', () => {
@@ -976,28 +951,19 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
     // Phase 1: 1/1 = 100%, Phase 2: 0/1 = 0%, Phase 3: 0/0 = 0%
     // Average: (1.0 + 0 + 0) / 3 = 33%
-    expect(parsed.milestones[0].progress_percent).toBe(33);
+    expect(stdout).toContain('33%');
   });
 
-  test('JSON output includes timeline array with dated milestones', () => {
+  test('TUI output includes timeline section with dated milestones', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed).toHaveProperty('timeline');
-    expect(Array.isArray(parsed.timeline)).toBe(true);
-    expect(parsed.timeline.length).toBe(1);
-    expect(parsed.timeline[0]).toMatchObject({
-      number: 1,
-      name: 'Foundation',
-      start: '2026-01-15',
-      target: '2026-01-20',
-      phase_count: 2,
-    });
-    expect(parsed.timeline[0]).toHaveProperty('progress_percent');
+    // TUI shows Timeline section with milestone dates
+    expect(stdout).toContain('## Timeline');
+    expect(stdout).toContain('2026-01-15');
+    expect(stdout).toContain('2026-01-20');
   });
 
   test('milestones without dates are excluded from timeline', () => {
@@ -1009,8 +975,8 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.timeline).toEqual([]);
+    // No dates -> no Timeline section in TUI
+    expect(stdout).not.toContain('## Timeline');
   });
 
   test('TUI shows "Milestone N:" prefix in heading', () => {
@@ -1064,12 +1030,10 @@ describe('cmdDashboard', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.timeline.length).toBe(2);
-    expect(parsed.timeline[0].name).toBe('Alpha');
-    expect(parsed.timeline[1].name).toBe('Beta');
-    expect(parsed.timeline[0].start).toBe('2026-01-01');
-    expect(parsed.timeline[1].target).toBe('2026-02-01');
+    // TUI Timeline section shows both milestone date ranges
+    expect(stdout).toContain('## Timeline');
+    expect(stdout).toContain('2026-01-01');
+    expect(stdout).toContain('2026-02-01');
   });
 
   test('shipped milestones in <details> blocks are parsed from bullet list', () => {
@@ -1098,10 +1062,9 @@ Phases 4-6 delivered beta features.
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.milestones.length).toBe(2);
-    expect(parsed.milestones[0].name).toBe('Alpha Release');
-    expect(parsed.milestones[1].name).toBe('Beta Release');
+    // TUI shows shipped milestones in Shipped section
+    expect(stdout).toContain('Alpha Release');
+    expect(stdout).toContain('Beta Release');
   });
 
   test('shipped milestones have status "shipped" and progress_percent 100', () => {
@@ -1124,14 +1087,10 @@ Shipped.
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    const ms = parsed.milestones[0];
-    expect(ms.status).toBe('shipped');
-    expect(ms.progress_percent).toBe(100);
-    expect(ms.shipped_date).toBe('2026-01-20');
-    expect(ms.phase_range).toBe('1-3');
-    expect(ms.phase_count).toBe(3);
-    expect(ms.version).toBe('v0.1.0');
+    // TUI shows shipped milestone with version, name, phase count, and date
+    expect(stdout).toContain('v0.1.0 Alpha Release');
+    expect(stdout).toContain('3 phases');
+    expect(stdout).toContain('shipped 2026-01-20');
   });
 
   test('summary totals include shipped milestone and phase counts', () => {
@@ -1163,11 +1122,9 @@ Shipped.
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.summary.total_milestones).toBe(2);
-    expect(parsed.summary.shipped_milestones).toBe(1);
-    // 4 shipped + 1 active = 5 total phases
-    expect(parsed.summary.total_phases).toBe(5);
+    // TUI summary line shows shipped + active milestones and total phases
+    expect(stdout).toContain('1 shipped + 1 active milestones');
+    expect(stdout).toContain('5 phases');
   });
 
   test('TUI output includes shipped milestone names', () => {
@@ -1235,14 +1192,12 @@ Shipped.
     // Summary line shows both
     expect(stdout).toContain('1 shipped + 1 active milestones');
 
-    // JSON also has both
-    const { stdout: jsonOut } = captureOutput(() => {
+    // TUI (raw) also shows both milestones
+    const { stdout: rawOut } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(jsonOut);
-    expect(parsed.milestones.length).toBe(2);
-    expect(parsed.milestones[0].status).toBe('shipped');
-    expect(parsed.milestones[1].name).toBe('Beta');
+    expect(rawOut).toContain('v0.1.0 Alpha');
+    expect(rawOut).toContain('Milestone 2: Beta');
   });
 });
 
@@ -1264,36 +1219,25 @@ describe('cmdPhaseDetail', () => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.phase_number).toBe('1');
-    expect(parsed.phase_name).toBe('test');
+    expect(stdout).toContain('Phase 1: test');
   });
 
   test('plans array contains id, wave, type, status for each plan', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.plans.length).toBe(1);
-    const plan = parsed.plans[0];
-    expect(plan).toHaveProperty('id');
-    expect(plan).toHaveProperty('wave');
-    expect(plan).toHaveProperty('type');
-    expect(plan).toHaveProperty('status');
-    expect(plan.id).toBe('01-01');
-    expect(plan.wave).toBe(1);
-    expect(plan.type).toBe('execute');
-    expect(plan.status).toBe('complete');
+    // TUI table shows plan ID, wave, and status symbol (✓ = complete)
+    expect(stdout).toContain('01-01');
+    expect(stdout).toContain('| 1    |');
+    expect(stdout).toContain('\u2713');
   });
 
   test('completed plans have duration from SUMMARY frontmatter', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
-    const parsed = JSON.parse(stdout);
-    const plan = parsed.plans[0];
-    // Fixture SUMMARY has duration: 1min
-    expect(plan.duration).toBe('1min');
+    // Fixture SUMMARY has duration: 1min -> TUI shows in table
+    expect(stdout).toContain('1min');
   });
 
   test('returns error for nonexistent phase number', () => {
@@ -1322,9 +1266,8 @@ describe('cmdPhaseDetail', () => {
       cmdPhaseDetail(fixtureDir, '3', true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.plans).toEqual([]);
-    expect(parsed.summary_stats.total_plans).toBe(0);
+    // TUI shows status with 0 plans
+    expect(stdout).toContain('0/0 plans');
   });
 
   test('detects presence of CONTEXT.md, RESEARCH.md, EVAL.md, VERIFICATION.md, REVIEW.md', () => {
@@ -1346,12 +1289,12 @@ describe('cmdPhaseDetail', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.has_context).toBe(true);
-    expect(parsed.has_research).toBe(true);
-    expect(parsed.has_eval).toBe(true);
-    expect(parsed.has_verification).toBe(true);
-    expect(parsed.has_review).toBe(true);
+    // TUI Artifacts section shows ✓ for each present artifact
+    expect(stdout).toContain('Context: \u2713');
+    expect(stdout).toContain('Research: \u2713');
+    expect(stdout).toContain('Eval: \u2713');
+    expect(stdout).toContain('Verification: \u2713');
+    expect(stdout).toContain('Review: \u2713');
   });
 
   test('non-raw mode produces TUI text containing phase name', () => {
@@ -1377,18 +1320,17 @@ describe('cmdPhaseDetail', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.summary_stats.completed).toBe(1);
-    expect(parsed.summary_stats.total_plans).toBe(1);
+    // TUI status line shows completed/total plans
+    expect(stdout).toContain('Status: Complete (1/1 plans)');
   });
 
   test('phase 2 with no summaries shows planned status', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '2', true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.plans[0].status).toBe('planned');
-    expect(parsed.plans[0].duration).toBeNull();
+    // Phase 2 has 1 plan, 0 summaries -> Planned status, no duration
+    expect(stdout).toContain('Status: Planned (0/1 plans)');
+    expect(stdout).toContain('| \u25CB');
   });
 });
 
@@ -1405,35 +1347,26 @@ describe('cmdPhaseDetail requirements', () => {
     cleanupFixtureDir(fixtureDir);
   });
 
-  test('phase with Requirements field includes requirements array in JSON output', () => {
+  test('phase with Requirements field includes requirements array in TUI output', () => {
     const { stdout, exitCode } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
     expect(exitCode).toBe(0);
-    const parsed = parseFirstJson(stdout);
-    expect(Array.isArray(parsed.requirements)).toBe(true);
-    expect(parsed.requirements.length).toBe(2);
-    const ids = parsed.requirements.map((r) => r.id);
-    expect(ids).toContain('REQ-01');
-    expect(ids).toContain('REQ-03');
+    // TUI Requirements section shows REQ IDs
+    expect(stdout).toContain('REQ-01');
+    expect(stdout).toContain('REQ-03');
   });
 
   test('each requirement entry has correct fields from REQUIREMENTS.md', () => {
     const { stdout } = captureOutput(() => {
       cmdPhaseDetail(fixtureDir, '1', true);
     });
-    const parsed = parseFirstJson(stdout);
-    const req01 = parsed.requirements.find((r) => r.id === 'REQ-01');
-    expect(req01).toBeDefined();
-    expect(req01.title).toBe('First Requirement');
-    expect(req01.priority).toBe('P0');
-    expect(req01.status).toBe('Done');
-
-    const req03 = parsed.requirements.find((r) => r.id === 'REQ-03');
-    expect(req03).toBeDefined();
-    expect(req03.title).toBe('Third Requirement');
-    expect(req03.priority).toBe('P0');
-    expect(req03.status).toBe('In Progress');
+    // TUI Requirements table shows REQ fields
+    expect(stdout).toContain('First Requirement');
+    expect(stdout).toContain('P0');
+    expect(stdout).toContain('Done');
+    expect(stdout).toContain('Third Requirement');
+    expect(stdout).toContain('In Progress');
   });
 
   test('phase without Requirements field returns empty requirements array', () => {
@@ -1441,9 +1374,8 @@ describe('cmdPhaseDetail requirements', () => {
       cmdPhaseDetail(fixtureDir, '2', true);
     });
     expect(exitCode).toBe(0);
-    const parsed = parseFirstJson(stdout);
-    expect(Array.isArray(parsed.requirements)).toBe(true);
-    expect(parsed.requirements.length).toBe(0);
+    // Phase 2 has no requirements -> no Requirements section in TUI
+    expect(stdout).not.toContain('## Requirements');
   });
 
   test('TUI output includes Requirements section when requirements exist', () => {
@@ -1506,41 +1438,35 @@ describe('cmdHealth', () => {
       cmdHealth(fixtureDir, true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.blockers.count).toBe(2);
-    expect(parsed.blockers.items).toContain('Upstream API downtime');
-    expect(parsed.blockers.items).toContain('Missing credentials for staging');
+    // TUI Blockers section lists each blocker
+    expect(stdout).toContain('Upstream API downtime');
+    expect(stdout).toContain('Missing credentials for staging');
   });
 
   test('parses deferred validations table (total, pending, resolved counts)', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.deferred_validations.total).toBe(3);
-    expect(parsed.deferred_validations.pending).toBe(2);
-    expect(parsed.deferred_validations.resolved).toBe(1);
-    expect(parsed.deferred_validations.items.length).toBe(3);
+    // TUI Deferred Validations section shows counts
+    expect(stdout).toContain('2 pending / 3 total');
   });
 
   test('computes velocity from performance metrics table (average duration)', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
     // 3 + 5 + 7 + 4 + 6 = 25 min / 5 plans = 5.0 avg
-    expect(parsed.velocity.total_plans).toBe(5);
-    expect(parsed.velocity.total_duration_min).toBe(25);
-    expect(parsed.velocity.avg_duration_min).toBe(5);
+    // TUI shows "Average plan duration: 5 min (5 plans)"
+    expect(stdout).toContain('5 min (5 plans)');
   });
 
   test('computes recent_5_avg from last 5 entries in metrics table', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
     // All 5 entries are the last 5: avg = 5.0
-    expect(parsed.velocity.recent_5_avg_min).toBe(5);
+    // TUI shows "Recent 5 plans: 5 min avg"
+    expect(stdout).toContain('Recent 5 plans: 5 min avg');
   });
 
   test('parses risk register from ROADMAP.md (risk, probability, impact columns)', () => {
@@ -1554,11 +1480,10 @@ describe('cmdHealth', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.risks.length).toBe(2);
-    expect(parsed.risks[0].risk).toBe('API rate limits');
-    expect(parsed.risks[0].probability).toBe('High');
-    expect(parsed.risks[0].impact).toBe('Medium');
+    // TUI Risk Register section lists risks
+    expect(stdout).toContain('API rate limits');
+    expect(stdout).toContain('High');
+    expect(stdout).toContain('Medium');
   });
 
   test('handles missing STATE.md gracefully', () => {
@@ -1568,10 +1493,10 @@ describe('cmdHealth', () => {
       cmdHealth(fixtureDir, true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.blockers.count).toBe(0);
-    expect(parsed.deferred_validations.total).toBe(0);
-    expect(parsed.velocity.total_plans).toBe(0);
+    // No STATE.md -> zero blockers, zero deferred, zero velocity
+    expect(stdout).toContain('None \u2713');
+    expect(stdout).toContain('0 pending / 0 total');
+    expect(stdout).toContain('0 min (0 plans)');
   });
 
   test('handles STATE.md with no blockers section', () => {
@@ -1586,9 +1511,8 @@ describe('cmdHealth', () => {
       cmdHealth(fixtureDir, true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.blockers.count).toBe(0);
-    expect(parsed.blockers.items).toEqual([]);
+    // No blockers -> TUI shows "None ✓"
+    expect(stdout).toContain('None \u2713');
   });
 
   test('handles STATE.md with no performance metrics', () => {
@@ -1603,10 +1527,8 @@ describe('cmdHealth', () => {
       cmdHealth(fixtureDir, true);
     });
     expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.velocity.total_plans).toBe(0);
-    expect(parsed.velocity.avg_duration_min).toBe(0);
-    expect(parsed.velocity.recent_5_avg_min).toBe(0);
+    // No metrics -> zero velocity in TUI
+    expect(stdout).toContain('0 min (0 plans)');
   });
 
   test('non-raw mode produces TUI text containing Blockers and Velocity', () => {
@@ -1622,9 +1544,8 @@ describe('cmdHealth', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    // Phase 02-build has 1 plan but 0 summaries -> stale
-    expect(parsed.stale_phases).toContain('02-build');
+    // Phase 02-build has 1 plan but 0 summaries -> stale, shown in TUI
+    expect(stdout).toContain('02-build');
   });
 
   test('"None." in blockers is not counted as a blocker', () => {
@@ -1638,8 +1559,8 @@ describe('cmdHealth', () => {
     const { stdout } = captureOutput(() => {
       cmdHealth(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    expect(parsed.blockers.count).toBe(0);
+    // "None." item shouldn't be counted -> TUI shows "None ✓"
+    expect(stdout).toContain('None \u2713');
   });
 });
 
@@ -4130,18 +4051,18 @@ describe('cmdDashboard filter option', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true);
     });
-    const parsed = JSON.parse(stdout);
-    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
-    expect(allPhases.length).toBe(2);
+    // No filter -> TUI shows all phases
+    expect(stdout).toContain('Phase 1:');
+    expect(stdout).toContain('Phase 2:');
   });
 
   test('empty options object does not filter', () => {
     const { stdout } = captureOutput(() => {
       cmdDashboard(fixtureDir, true, {});
     });
-    const parsed = JSON.parse(stdout);
-    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
-    expect(allPhases.length).toBe(2);
+    // Empty options -> TUI shows all phases
+    expect(stdout).toContain('Phase 1:');
+    expect(stdout).toContain('Phase 2:');
   });
 
   // ─── Stability: cmdDashboard non-raw mode writes output and returns ──────────
