@@ -39,3 +39,4 @@ tmp/
 # Claude Code local settings
 .claude/
 testbed/
+.planning/monitor/

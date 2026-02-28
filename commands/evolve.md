@@ -12,14 +12,17 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run $ARGUMENTS
 The evolve loop:
 1. Discovers improvement opportunities across the codebase (productivity, quality, usability, consistency, stability, new features)
 2. Groups items by theme (test-coverage, jsdoc-gaps, code-markers, etc.) into WorkItemGroups
-3. Selects top priority groups using `--pick-pct` (default 15% of total groups per iteration)
-4. For each group: executes and reviews the improvement using sonnet-tier models (2 calls per group)
-5. Writes evolution notes to `.planning/EVOLUTION.md`
-6. Persists remaining groups to the evolve state file for the next iteration
+3. Selects top priority groups using `--pick-pct` (default 50% of total groups per iteration)
+4. Batch-executes ALL selected groups in a single subprocess call (1 call for all items)
+5. Runs a single review/verification pass after all execution is done (1 call per iteration)
+6. Writes evolution notes to `.planning/EVOLUTION.md`
+7. Persists remaining groups to the evolve state file for the next iteration
+
+This means each iteration uses only 2 subprocess calls total (execute + review), regardless of how many groups are selected.
 
 Flags:
 - `--iterations N` — Number of iterations (0 = unlimited, runs until all groups done)
-- `--pick-pct N` — Percentage of total groups to pick per iteration (default: 15, min 1 group)
+- `--pick-pct N` — Percentage of total groups to pick per iteration (default: 50, min 1 group)
 - `--dry-run` — Discover and group only, don't execute
 - `--no-worktree` — Disable git worktree isolation (by default, enabled when `branching_strategy !== 'none'`)
 - `--timeout N` — Timeout per subprocess in minutes
