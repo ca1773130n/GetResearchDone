@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-03-01
+**Updated:** 2026-03-02
 
 ## Project Reference
 
@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 - **Active phase:** Phase 58 (TypeScript Toolchain & Build Pipeline)
-- **Current plan:** --
+- **Current plan:** Plan 03 complete (3/3 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Ready to plan
-- **Progress:** [░░░░░░░░░░] 0% (0/8 phases)
-- **Next:** Run /grd:plan-phase 58 to break down toolchain setup
+- **Status:** Phase 58 complete
+- **Progress:** [==--------] 12% (1/8 phases)
+- **Next:** Phase 59 (Foundation Layer & Shared Types)
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|-------------|--------|
-| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | Not started |
+| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | Complete (3/3 plans) |
 | 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Not started |
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Not started |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Not started |
@@ -54,14 +54,23 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.8)
-- Total tests: 2,184
+- Total tests: 2,676
 - Total lib/ modules: 23 (including autopilot.js, evolve.js, markdown-split.js, requirements.js)
 - Total commands: 40
 - Total lib/ LOC: ~17,334
 
 ## Decisions
 
-(v0.3.0 decisions will be recorded here)
+- **[58-01]** Dual tsconfig pattern: tsconfig.json for type-checking (noEmit:true), tsconfig.build.json for dist/ output (noEmit:false)
+- **[58-01]** allowJs:true with checkJs:false enables incremental .js-to-.ts migration without breaking existing code
+- **[58-01]** ES2022 target matching existing eslint ecmaVersion 2022
+- **[58-02]** typescript-eslint unified package for flat config API (v8+ recommended approach)
+- **[58-02]** Dual rule pattern: base no-unused-vars off for .ts, replaced by @typescript-eslint/no-unused-vars
+- **[58-02]** no-require-imports disabled for CommonJS compatibility during migration
+- **[58-02]** projectService:true for type-aware linting (v8+ recommended over project option)
+- **[58-03]** ts-jest transform only for .ts files -- .js files remain untransformed via native CommonJS require()
+- **[58-03]** Exclude .d.ts from coverage collection (type declarations, not executable code)
+- **[58-03]** Per-file coverage thresholds extended for .ts modules alongside existing .js thresholds
 
 ## Known Bugs
 
@@ -73,12 +82,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created v0.3.0 roadmap (8 phases, 58-65)
-- **Stopped at:** Roadmap created, ready for phase planning
-- **Next action:** Run /grd:plan-phase 58 to plan TypeScript toolchain setup
-- **Context needed:** tsconfig.json, ts-jest, @typescript-eslint, build pipeline to dist/
+- **Last action:** Executed 58-03-PLAN.md (ts-jest integration)
+- **Stopped at:** Completed 58-03-PLAN.md -- Phase 58 fully complete (TypeScript toolchain: tsc + eslint + ts-jest)
+- **Next action:** Plan or execute Phase 59 (Foundation Layer & Shared Types)
+- **Context needed:** lib/sample.ts patterns, tsconfig.json, shared type definitions
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-02T16:57Z*
