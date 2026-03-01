@@ -429,7 +429,7 @@ async function runAutopilot(
   const results: PhaseStepResult[] = [];
   let phasesAttempted: number = 0;
   let phasesCompleted: number = 0;
-  let stoppedAt: string | null = null;
+  const stoppedAt: string | null = null;
 
   const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
