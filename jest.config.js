@@ -1,10 +1,16 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  testMatch: ['**/tests/**/*.test.js'],
-  collectCoverageFrom: ['lib/**/*.js'],
+  testMatch: ['**/tests/**/*.test.js', '**/tests/**/*.test.ts'],
+  collectCoverageFrom: ['lib/**/*.js', 'lib/**/*.ts', '!lib/**/*.d.ts'],
   coverageDirectory: 'coverage',
+  // Only .ts files are transformed (via ts-jest). .js files have no transform
+  // entry, so Jest loads them natively via Node's CommonJS require() — identical
+  // to the pre-TypeScript behavior. This preserves all existing JS test behavior.
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
   coverageThreshold: {
-    // Per-file thresholds — 85% line coverage floor for all lib/ modules (Phase 51)
+    // === Existing per-file thresholds (DO NOT MODIFY) ===
     './lib/autopilot.js': { lines: 93, functions: 93, branches: 80 },
     './lib/backend.js': { lines: 95, functions: 100, branches: 88 },
     './lib/cleanup.js': { lines: 92, functions: 96, branches: 80 },
@@ -27,6 +33,9 @@ module.exports = {
     './lib/utils.js': { lines: 92, functions: 95, branches: 85 },
     './lib/verify.js': { lines: 85, functions: 100, branches: 70 },
     './lib/worktree.js': { lines: 84, functions: 100, branches: 73 },
+
+    // === TypeScript modules (added during migration) ===
+    './lib/sample.ts': { lines: 90, functions: 100, branches: 80 },
   },
   testTimeout: 15000,
 };
