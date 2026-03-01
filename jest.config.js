@@ -12,7 +12,7 @@ module.exports = {
   coverageThreshold: {
     // === Existing per-file thresholds (DO NOT MODIFY) ===
     './lib/autopilot.js': { lines: 93, functions: 93, branches: 80 },
-    './lib/backend.js': { lines: 95, functions: 100, branches: 88 },
+    './lib/backend.ts': { lines: 95, functions: 100, branches: 88 },
     './lib/cleanup.js': { lines: 92, functions: 96, branches: 80 },
     './lib/commands.js': { lines: 90, functions: 95, branches: 70 },
     './lib/context.js': { lines: 87, functions: 83, branches: 77 },
