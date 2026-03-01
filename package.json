@@ -38,6 +38,8 @@
     "lint:fix": "eslint --fix bin/ lib/",
     "format": "prettier --write bin/ lib/ tests/ jest.config.js",
     "format:check": "prettier --check bin/ lib/ tests/ jest.config.js",
+    "build": "tsc -p tsconfig.build.json",
+    "build:check": "tsc --noEmit",
     "postinstall": "node bin/postinstall.js"
   },
   "devDependencies": {
