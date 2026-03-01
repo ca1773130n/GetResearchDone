@@ -1,11 +1,24 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-02-22
+**Updated:** 2026-03-01
 
-## Latest Milestone: v0.2.8 Self-Evolving Loop — SHIPPED 2026-02-22
+## Current Milestone: v0.3.0 TypeScript Migration & Refactoring
 
-**Previous:** v0.2.7 Self-Evolution (shipped 2026-02-22)
+**Previous:** v0.2.8 Self-Evolving Loop (shipped 2026-02-22)
+
+**Goal:** Migrate the entire codebase from CommonJS JavaScript to TypeScript, add type safety across all 23 lib/ modules, bin/ entry points, and tests. Restructure oversized modules (commands.js, context.js, evolve.js) during migration.
+
+**Target features:**
+- TypeScript toolchain setup (tsconfig, build pipeline, ts-jest)
+- Full migration of all 23 lib/ modules to .ts with proper type definitions
+- Migration of bin/ entry points to TypeScript
+- Migration of all test files to TypeScript
+- Restructure commands.js (~2,848 lines) into focused command modules
+- Restructure context.js (~2,546 lines) into domain-grouped init modules
+- Restructure evolve.js (~2,567 lines) into discovery/state/orchestration modules
+- Strict type checking with no `any` escape hatches in core modules
+- Preserve all existing functionality (zero breaking changes to CLI/MCP interface)
 
 ## Vision
 
