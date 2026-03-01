@@ -58,24 +58,24 @@ const {
   milestonesDir: (cwd: string) => string;
 };
 
-const { buildInitContext } = require('./base') as {
+const { buildInitContext } = require('./base.ts') as {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
 };
 
 // Import sibling module functions for agent aliases
-const { cmdInitCodeReview, cmdInitPhaseResearch } = require('./execute') as {
+const { cmdInitCodeReview, cmdInitPhaseResearch } = require('./execute.ts') as {
   cmdInitCodeReview: (cwd: string, phase: string, raw: boolean) => void;
   cmdInitPhaseResearch: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
 };
 
-const { cmdInitMapCodebase } = require('./project') as {
+const { cmdInitMapCodebase } = require('./project.ts') as {
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
 };
 
 const {
   cmdInitAssessBaseline, cmdInitDeepDive, cmdInitEvalPlan,
   cmdInitEvalReport, cmdInitFeasibility, cmdInitIntegrationCheck: _unused1,
-} = require('./research') as {
+} = require('./research.ts') as {
   cmdInitAssessBaseline: (cwd: string, raw: boolean) => void;
   cmdInitDeepDive: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitEvalPlan: (cwd: string, phase: string | null, raw: boolean) => void;

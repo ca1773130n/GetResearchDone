@@ -15,27 +15,27 @@
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 
-const _base = require('./base');
+const _base = require('./base.ts');
 
 // ─── Execute & Plan ──────────────────────────────────────────────────────────
 
-const _execute = require('./execute');
+const _execute = require('./execute.ts');
 
 // ─── Project Lifecycle ───────────────────────────────────────────────────────
 
-const _project = require('./project');
+const _project = require('./project.ts');
 
 // ─── R&D Research ────────────────────────────────────────────────────────────
 
-const _research = require('./research');
+const _research = require('./research.ts');
 
 // ─── Agents & Operation Workflows ────────────────────────────────────────────
 
-const _agents = require('./agents');
+const _agents = require('./agents.ts');
 
 // ─── Progress & Cache ────────────────────────────────────────────────────────
 
-const _progress = require('./progress');
+const _progress = require('./progress.ts');
 
 // ─── Barrel Export ───────────────────────────────────────────────────────────
 

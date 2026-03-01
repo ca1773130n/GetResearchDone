@@ -74,7 +74,7 @@ const {
   standardsDir: (cwd: string) => string;
 };
 
-const { inferCeremonyLevel } = require('./base') as {
+const { inferCeremonyLevel } = require('./base.ts') as {
   inferCeremonyLevel: (config: GrdConfig, phaseInfo: PhaseInfo | null, cwd: string) => string;
 };
 

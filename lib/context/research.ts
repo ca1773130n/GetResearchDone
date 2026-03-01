@@ -59,7 +59,7 @@ const {
   milestonesDir: (cwd: string) => string;
 };
 
-const { buildInitContext } = require('./base') as {
+const { buildInitContext } = require('./base.ts') as {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
 };
 
