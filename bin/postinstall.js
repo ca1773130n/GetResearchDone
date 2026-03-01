@@ -1,67 +1,18 @@
 #!/usr/bin/env node
 /**
- * GRD Post-install Script
+ * GRD Post-install Script -- CommonJS re-export proxy
  *
- * Creates the .planning/ directory structure and default config.json
- * when not already present. Idempotent: does nothing if .planning/ exists.
+ * This file exists solely for runtime compatibility: plain Node.js
+ * `require('./postinstall')` resolves to .js before .ts. The canonical
+ * implementation lives in postinstall.ts; this proxy re-exports it.
  *
- * This script MUST never fail — postinstall failures block npm install.
- * All errors are caught and printed to stderr; exit code is always 0.
+ * Will be removed when Phase 65 establishes a runtime TS resolution
+ * strategy (ts-node, dist/ build, or Node.js --experimental-strip-types).
+ *
+ * @see DEFER-59-01 in STATE.md
  */
-
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-
-const PLANNING_DIR = path.join(process.cwd(), '.planning');
-
-const DIRECTORIES = [
-  '.planning',
-  '.planning/milestones',
-  '.planning/milestones/anonymous',
-  '.planning/milestones/anonymous/phases',
-  '.planning/milestones/anonymous/research',
-  '.planning/milestones/anonymous/research/deep-dives',
-  '.planning/milestones/anonymous/codebase',
-  '.planning/milestones/anonymous/todos',
-  '.planning/milestones/anonymous/quick',
-];
-
-const DEFAULT_CONFIG = {
-  model_profile: 'balanced',
-  commit_docs: true,
-  autonomous_mode: false,
-  research_gates: {},
-  confirmation_gates: {},
-  eval_config: {
-    default_metrics: ['test_coverage_pct', 'lint_error_count'],
-    baseline_tracking: true,
-  },
-};
-
-try {
-  // Idempotency: if .planning/ already exists, exit silently
-  if (fs.existsSync(PLANNING_DIR)) {
-    process.exit(0);
-  }
-
-  // Create all directories
-  const cwd = process.cwd();
-  for (const dir of DIRECTORIES) {
-    const fullPath = path.join(cwd, dir);
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
-
-  // Create default config.json
-  const configPath = path.join(PLANNING_DIR, 'config.json');
-  if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
-  }
-
-  console.log('GRD: Created .planning/ directory structure');
-} catch (err) {
-  // Never fail postinstall — print warning and exit cleanly
-  process.stderr.write(`GRD postinstall warning: ${err.message}\n`);
-  process.exit(0);
-}
+// Node 24+ supports require('.ts') with --experimental-strip-types,
+// but without that flag we need this proxy for extensionless require().
+require('./postinstall.ts');
