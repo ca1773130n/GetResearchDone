@@ -2,8 +2,6 @@
 
 'use strict';
 
-export {};
-
 const { output, error } = require('../utils') as {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;

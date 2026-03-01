@@ -4,8 +4,6 @@
 
 import type { FrontmatterObject } from '../types';
 
-export {};
-
 const fs = require('fs');
 const path = require('path');
 

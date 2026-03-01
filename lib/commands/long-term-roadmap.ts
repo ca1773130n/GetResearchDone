@@ -2,8 +2,6 @@
 
 'use strict';
 
-export {};
-
 const fs = require('fs');
 const path = require('path');
 const { safeReadFile, output, error } = require('../utils') as {
@@ -32,7 +30,7 @@ const {
   getLtMilestoneById: (content: string, id: string) => LtMilestoneEntry | null;
   initFromRoadmap: (roadmapContent: string, projectName: string) => string;
 };
-const { readCachedRoadmap } = require('./phase-info') as {
+const { readCachedRoadmap } = require('./phase-info.ts') as {
   readCachedRoadmap: (roadmapPath: string) => string | null;
 };
 

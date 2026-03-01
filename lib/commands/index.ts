@@ -2,8 +2,6 @@
 
 'use strict';
 
-export {};
-
 // ─── Slug & Timestamp ────────────────────────────────────────────────────────
 const _slugTimestamp = require('./slug-timestamp.ts') as {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
@@ -38,7 +36,7 @@ const _phaseInfo = require('./phase-info.ts') as {
 };
 
 // ─── Progress ────────────────────────────────────────────────────────────────
-const _progress = require('./progress.ts') as {
+const _cmdProgress = require('./progress.ts') as {
   cmdProgressRender: (cwd: string, format: string, raw: boolean) => void;
 };
 
@@ -111,7 +109,7 @@ module.exports = {
   _stateContentCache: _phaseInfo._stateContentCache,
 
   // progress
-  cmdProgressRender: _progress.cmdProgressRender,
+  cmdProgressRender: _cmdProgress.cmdProgressRender,
 
   // dashboard
   buildDashboardData: _dashboard.buildDashboardData,

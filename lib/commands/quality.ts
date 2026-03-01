@@ -2,8 +2,6 @@
 
 'use strict';
 
-export {};
-
 const fs = require('fs');
 const path = require('path');
 const { output, error } = require('../utils') as {
