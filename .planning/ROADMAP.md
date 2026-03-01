@@ -204,14 +204,14 @@ Plans:
   3. All command functions (`cmd*`) have explicit parameter types and return types
   4. STATE.md field types, ROADMAP.md phase structure types, and frontmatter object types are defined and used (not just `string`)
   5. All unit tests for these 11 modules pass with coverage thresholds met or exceeded
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 60-01-PLAN.md -- Data parsing layer: frontmatter.ts + markdown-split.ts migration
 - [ ] 60-02-PLAN.md -- State management layer: state.ts + roadmap.ts migration
 - [ ] 60-03-PLAN.md -- Validation & quality layer: cleanup.ts + gates.ts + requirements.ts migration
 - [ ] 60-04-PLAN.md -- Domain utilities: deps.ts + verify.ts + scaffold.ts migration
-- [ ] 60-05-PLAN.md -- Phase lifecycle: phase.ts migration + full Phase 60 validation
+- [x] 60-05-PLAN.md -- Phase lifecycle: phase.ts migration + full Phase 60 validation (completed 2026-03-01)
 
 ### Phase 61: Integration & Autonomous Layer Migration
 
@@ -319,7 +319,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 58. TypeScript Toolchain | v0.3.0 | 0/0 | Not started | - |
 | 59. Foundation Layer & Shared Types | v0.3.0 | Complete    | 2026-03-01 | - |
-| 60. Data & Domain Layer Migration | v0.3.0 | 0/0 | Not started | - |
+| 60. Data & Domain Layer Migration | v0.3.0 | Complete    | 2026-03-01 | - |
 | 61. Integration & Autonomous Layer | v0.3.0 | 0/0 | Not started | - |
 | 62. Oversized Module Decomposition | v0.3.0 | 0/0 | Not started | - |
 | 63. Entry Points & MCP Server | v0.3.0 | 0/0 | Not started | - |
