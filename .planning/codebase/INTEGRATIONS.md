@@ -1,23 +1,26 @@
 # External Integrations
 
-**Analysis Date:** 2026-02-20
+**Analysis Date:** 2026-03-01
 
 ## Claude Code Plugin System
 
 **Integration type:** Native Claude Code plugin
 - Plugin manifest: `.claude-plugin/plugin.json`
-- Plugin name: `grd`, version `0.2.2`
-- `SessionStart` hook verifies `.planning` directory exists on every session start (5s timeout)
+- Plugin name: `grd`, version `0.2.8`
+- Three registered hooks (up from one):
+  - `SessionStart` — verifies `.planning` directory exists on every session start (5s timeout)
+  - `WorktreeCreate` — runs `worktree-hook-create "$WORKTREE_PATH" "$WORKTREE_BRANCH"` when Claude Code creates a worktree (10s timeout)
+  - `WorktreeRemove` — runs `worktree-hook-remove "$WORKTREE_PATH" "$WORKTREE_BRANCH"` when Claude Code removes a worktree (10s timeout)
 - Plugin root resolved via `CLAUDE_PLUGIN_ROOT` environment variable injected by Claude Code
 - All `bin/grd-tools.js` invocations from commands reference `${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js`
 
-**Agent definitions** (`agents/`, 19 files):
+**Agent definitions** (`agents/`, 20 files):
 - Each `.md` file defines a subagent with YAML frontmatter
-- Agents: `grd-planner`, `grd-executor`, `grd-surveyor`, `grd-deep-diver`, `grd-eval-planner`, `grd-product-owner`, `grd-code-reviewer`, `grd-verifier`, `grd-codebase-mapper`, `grd-roadmapper`, `grd-phase-researcher`, `grd-project-researcher`, `grd-research-synthesizer`, `grd-debugger`, `grd-feasibility-analyst`, `grd-eval-reporter`, `grd-baseline-assessor`, `grd-plan-checker`, `grd-integration-checker`
+- Agents: `grd-planner`, `grd-executor`, `grd-surveyor`, `grd-deep-diver`, `grd-eval-planner`, `grd-product-owner`, `grd-code-reviewer`, `grd-verifier`, `grd-codebase-mapper`, `grd-roadmapper`, `grd-phase-researcher`, `grd-project-researcher`, `grd-research-synthesizer`, `grd-debugger`, `grd-feasibility-analyst`, `grd-eval-reporter`, `grd-baseline-assessor`, `grd-plan-checker`, `grd-integration-checker`, `grd-migrator`
 
-**Command definitions** (`commands/`, 45 files):
+**Command definitions** (`commands/`, 42 files):
 - Each `.md` file is a slash command exposed to Claude Code
-- Examples: `execute-phase.md`, `plan-phase.md`, `new-project.md`, `survey.md`, `deep-dive.md`, `eval-plan.md`
+- New commands added since v0.2.2: `autopilot.md`, `evolve.md`, `migrate.md`, `pause-work.md`, `requirement.md`, `list-phase-assumptions.md`
 
 ## MCP Server
 
@@ -32,10 +35,11 @@
 - Methods supported: `initialize`, `notifications/initialized`, `tools/list`, `tools/call`
 - Tool execution: captures stdout/stderr/process.exit from `cmd*` functions via `captureExecution()`
 - Tool count: ~90 tools auto-generated from `COMMAND_DESCRIPTORS` table in `lib/mcp-server.js`
+- New tools added: `grd_autopilot`, `grd_evolve`, `grd_evolve_discover`, `grd_evolve_state`, `grd_evolve_advance`, `grd_evolve_reset`, `grd_requirement_get`, `grd_requirement_list`, `grd_requirement_traceability`, `grd_requirement_update_status`, `grd_markdown_split`, `grd_worktree_hook_create`, `grd_worktree_hook_remove`
 
 **MCP tool namespacing:**
 - All tools prefixed with `grd_` (e.g., `grd_state_load`, `grd_phase_add`, `grd_tracker_sync_roadmap`)
-- Categories: state, frontmatter, roadmap, phases, milestone, scaffold, verify, tracker, worktree, progress, todos, init-workflows, long-term-roadmap, quality analysis, requirements, search, dashboard
+- Categories: state, frontmatter, roadmap, phases, milestone, scaffold, verify, tracker, worktree, progress, todos, init-workflows, long-term-roadmap, quality analysis, requirements, search, dashboard, autopilot, evolve, markdown-split
 
 ## Multi-Backend AI CLI Support
 
@@ -47,8 +51,8 @@
 
 **Detection waterfall** (highest to lowest priority):
 1. Config override: `.planning/config.json` `backend` field
-2. Environment variables: `CLAUDE_CODE_*` prefix to claude; `CODEX_HOME`/`CODEX_THREAD_ID` to codex; `GEMINI_CLI_HOME` to gemini; `OPENCODE` to opencode
-3. Filesystem clues: `.claude-plugin/plugin.json` to claude; `.codex/config.toml` to codex; `.gemini/settings.json` to gemini; `opencode.json` to opencode
+2. Environment variables: `CLAUDE_CODE_*` prefix → claude; `CODEX_HOME`/`CODEX_THREAD_ID` → codex; `GEMINI_CLI_HOME` → gemini; `OPENCODE` → opencode
+3. Filesystem clues: `.claude-plugin/plugin.json` → claude; `.codex/config.toml` → codex; `.gemini/settings.json` → gemini; `opencode.json` → opencode
 4. Default: `claude`
 
 **Model tier mapping** (abstract to backend-specific):
@@ -69,8 +73,35 @@
 | teams | true | false | false | false |
 | hooks | true | false | true | true |
 | mcp | true | true | true | true |
+| native_worktree_isolation | true | false | false | false |
+
+`native_worktree_isolation` — new capability flag (Phase 47): `true` only for claude backend. Controls whether `cmdInitExecutePhase` sets `isolation_mode` to `'native'` (uses `WorktreeCreate`/`WorktreeRemove` hooks) vs `'manual'` (GRD-managed worktrees). Exposed as `native_worktree_available` in init context bundles.
 
 **Dynamic model detection:** OpenCode only — runs `opencode models` CLI via `child_process.execFileSync`, caches result for 5 minutes. Override via `config.backend_models` in `.planning/config.json`.
+
+## Autopilot — `claude` CLI Subprocess Integration
+
+**Module:** `lib/autopilot.js` (Phase 52)
+- Spawns `claude -p` subprocesses via `child_process.spawnSync` (synchronous) and `child_process.spawn` (async)
+- CLI invoked: `claude -p <prompt> --verbose --dangerously-skip-permissions [--max-turns N] [--model M]`
+- `CLAUDECODE` env var deleted from subprocess environment to avoid nested detection loops
+- Parallel planning: independent phases (same dependency wave) planned concurrently via `spawnClaudeAsync`
+- Sequential execution: phases in a wave executed one at a time via `spawnClaude`
+- Status tracking: writes JSON marker files to `.planning/autopilot/phase-{N}-{step}.json`
+- Log file: `.planning/autopilot/autopilot.log`
+- Heartbeat: 30-second stderr pulse for long-running sessions
+- Timeout: configurable per invocation (default 120 minutes)
+
+## Evolve Loop — Self-Improvement Integration
+
+**Module:** `lib/evolve.js` (Phase 55)
+- State file: `.planning/EVOLVE-STATE.json` (project root level, not milestone-scoped)
+- Imports `spawnClaudeAsync` from `lib/autopilot.js` to spawn improvement iterations
+- Imports `createEvolveWorktree`, `removeEvolveWorktree`, `pushAndCreatePR` from `lib/worktree.js`
+- Work item dimensions: `improve-features`, `new-features`, `productivity`, `quality`, `usability`, `consistency`, `stability`
+- Discovery engine: scans `lib/*.js` for TODO/FIXME markers, empty catches, long functions, JSDoc gaps, etc.
+- Scoring heuristic: assigns priority scores to work items based on dimension and effort
+- Default model: `sonnet` tier for evolve iterations
 
 ## Issue Tracker Integrations
 
@@ -150,9 +181,12 @@
 
 **Worktree isolation** (`lib/worktree.js`):
 - Each phase can execute in an isolated git worktree
-- Worktree path: `os.tmpdir()/grd-worktree-{milestone}-{phase}` (resolves macOS `/tmp` to `/private/tmp` symlink)
+- Worktree path: `{cwd}/.worktrees/grd-worktree-{milestone}-{phase}` (project-local, resolves macOS symlinks via `fs.realpathSync`)
+- Note: changed from `os.tmpdir()` to project-local `.worktrees/` to avoid OS temp directory cleanup issues
+- `.worktrees/` auto-added to `.gitignore` on first use
 - Operations: create, remove, list, remove-stale, push-and-create-PR
 - PR creation invokes `gh` CLI (`cmdWorktreePushAndPR`)
+- Worktree hook handlers: `cmdWorktreeHookCreate`, `cmdWorktreeHookRemove` — called by Claude Code `WorktreeCreate`/`WorktreeRemove` hook events
 
 **Commit operations** (`lib/commands.js` `cmdCommit`):
 - Stages specified files (defaults to `.planning/`)
@@ -178,15 +212,19 @@
 - Parsed by `lib/frontmatter.js` (`extractFrontmatter`, `updateFrontmatter`)
 - Schema validation in `lib/verify.js`
 - Key fields: `status`, `phase`, `plan`, `verification_level`, `must_haves`
+- Large markdown files can be auto-split by `lib/markdown-split.js` at 25,000-token threshold; index files carry `<!-- GRD-INDEX -->` marker
 
 **JSON:**
 - `.planning/config.json` — project configuration (read by `lib/utils.js` `loadConfig`)
 - `.planning/TRACKER.md` — tracker ID mapping (parsed as Markdown table in `lib/tracker.js`)
+- `.planning/EVOLVE-STATE.json` — evolve loop iteration state (read/written by `lib/evolve.js`)
+- `.planning/autopilot/*.json` — autopilot phase status markers (written by `lib/autopilot.js`)
 - All CLI output — JSON by default; `--raw` flag for plain text
 
 **Markdown documents (structured, no frontmatter):**
 - `.planning/STATE.md` — living project memory, parsed by `lib/state.js`
 - `.planning/ROADMAP.md` — phase structure, parsed by `lib/roadmap.js`
+- `.planning/REQUIREMENTS.md` — requirements with traceability matrix, parsed by `lib/requirements.js`
 - `.planning/milestones/*/LONG-TERM-ROADMAP.md` — parsed by `lib/long-term-roadmap.js`
 
 ## Inter-Process Communication
@@ -207,26 +245,36 @@
 - Commands in `commands/*.md` invoke `node "${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js" <subcommand> [args]`
 - MCP tools called by agents directly via MCP protocol
 
+**Autopilot subprocess pattern:**
+- `lib/autopilot.js` spawns `claude -p <prompt>` subprocesses for each plan/execute step
+- Parallel plan spawns: `child_process.spawn` (async, Promise-based) — multiple phases per wave
+- Sequential execute spawns: `child_process.spawnSync` (blocking) — one phase at a time
+- Output streamed to parent process stdout/stderr in real time
+
 **Subagent spawning:**
 - Agents in `agents/*.md` spawned by Claude Code's agent system
 - `lib/context.js` `cmdInit*` functions assemble context bundles before spawning
 - Model selection via `lib/backend.js` `resolveBackendModel()` using `model_profile` config
-- Model profiles defined in `lib/utils.js` `MODEL_PROFILES` table (19 agent types, 3 tiers each)
+- Model profiles defined in `lib/utils.js` `MODEL_PROFILES` table (multiple agent types, 3 tiers each)
 
 ## Environment Variables
 
 **Used by GRD:**
 - `CLAUDE_PLUGIN_ROOT` — injected by Claude Code, used in all `bin/` script references from commands
+- `WORKTREE_PATH` — injected by Claude Code `WorktreeCreate`/`WorktreeRemove` hook events
+- `WORKTREE_BRANCH` — injected by Claude Code `WorktreeCreate`/`WorktreeRemove` hook events
 - `CLAUDE_CODE_*` prefix — backend detection (any var with this prefix indicates claude backend)
 - `CODEX_HOME`, `CODEX_THREAD_ID` — codex backend detection
 - `GEMINI_CLI_HOME` — gemini backend detection
 - `OPENCODE` — opencode backend detection
+- `CLAUDECODE` — deleted from autopilot subprocess env to prevent nested detection
 
 **Not required for core functionality:**
 - No API keys, tokens, or secrets needed for base GRD operation
 - GitHub Issues: requires authenticated `gh` CLI session (`gh auth login`)
 - MCP Atlassian: auth handled by external MCP Atlassian server process
+- Autopilot/Evolve: requires `claude` CLI to be installed and accessible in `$PATH`
 
 ---
 
-*Integration audit: 2026-02-20*
+*Integration audit: 2026-03-01*

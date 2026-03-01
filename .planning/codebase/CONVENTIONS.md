@@ -1,6 +1,6 @@
 # Code Conventions
 
-**Analysis Date:** 2026-02-20
+**Analysis Date:** 2026-03-01
 
 ## Module System
 
@@ -50,7 +50,7 @@ Every `lib/` module opens with a JSDoc block stating purpose and dependencies:
  */
 ```
 
-**`'use strict'`**: Only `lib/paths.js` and `bin/postinstall.js` include it. It is NOT a universal convention across the codebase.
+**`'use strict'`**: Present in 21 of 23 `lib/` modules. The two exceptions are `lib/backend.js` and `lib/mcp-server.js`. All new modules added since Phase 51 (`lib/autopilot.js`, `lib/evolve.js`, `lib/markdown-split.js`, `lib/requirements.js`) include `'use strict'`. Only `bin/postinstall.js` includes it in `bin/`.
 
 ---
 
@@ -64,16 +64,29 @@ cmdPhaseAdd(cwd, name, raw)
 cmdVerifyPlanStructure(file, cwd, raw)
 cmdRoadmapGetPhase(cwd, phaseNum, raw)
 cmdLongTermRoadmap(cwd, args, raw)
+cmdAutopilot(cwd, args, raw)          // lib/autopilot.js
+cmdEvolve(cwd, args, raw)             // lib/evolve.js
+cmdRequirementGet(cwd, reqId, raw)    // lib/requirements.js
 ```
 
 **Internal/helper functions — plain camelCase, no prefix:**
 ```js
-stateExtractField(content, fieldName)   // internal to lib/state.js
-stateReplaceField(content, fieldName, newValue)
-normalizePhaseName(phase)               // lib/utils.js
-formatScheduleDate(date)                // internal to lib/roadmap.js
-addDays(date, days)
-findCodeFiles(dir, maxDepth, found, depth)
+stateExtractField(content, fieldName)      // internal to lib/state.js
+normalizePhaseName(phase)                  // lib/utils.js
+formatScheduleDate(date)                   // internal to lib/roadmap.js
+resolvePhaseRange(cwd, from, to)           // lib/autopilot.js
+buildPlanPrompt(phaseNum)                  // lib/autopilot.js
+spawnClaude(cwd, prompt, opts)             // lib/autopilot.js
+spawnClaudeAsync(cwd, prompt, opts)        // lib/autopilot.js — returns Promise
+createWorkItem(dimension, slug, ...)       // lib/evolve.js
+splitMarkdown(content, filePath, opts)     // lib/markdown-split.js
+```
+
+**Private helpers — underscore prefix:**
+```js
+_buildSpawnConfig(prompt, opts)            // lib/autopilot.js — internal, not exported
+_libFileCache                              // lib/evolve.js — module-level Map cache
+_reqContentCache                           // lib/requirements.js — module-level Map cache
 ```
 
 **Constants — SCREAMING_SNAKE_CASE:**
@@ -85,23 +98,45 @@ const MODEL_PROFILES = { ... };
 const CODE_EXTENSIONS = new Set(['.ts', '.js', '.py', ...]);
 const FIXTURE_SOURCE = path.join(__dirname, '..', 'fixtures', 'planning');
 const EXIT_SENTINEL = '__GRD_TEST_EXIT__';
+const DEFAULT_TIMEOUT_MINUTES = 120;           // lib/autopilot.js
+const HEARTBEAT_INTERVAL_MS = 30000;           // lib/autopilot.js
+const EVOLVE_STATE_FILENAME = 'EVOLVE-STATE.json'; // lib/evolve.js
+const WORK_ITEM_DIMENSIONS = [...];            // lib/evolve.js
+const INDEX_MARKER = '<!-- GRD-INDEX -->';     // lib/markdown-split.js
+const DEFAULT_TOKEN_THRESHOLD = 25000;         // lib/markdown-split.js
 ```
 
 ---
 
 ## JSDoc Convention
 
-Every exported function and most internal helpers carry JSDoc with `@param` and `@returns`:
+Every exported function and most internal helpers carry JSDoc with `@param` and `@returns`. New modules use `@typedef` for complex object shapes:
 
 ```js
 /**
- * Extract a **Field:** value from STATE.md markdown content.
- * @param {string} content - STATE.md content
- * @param {string} fieldName - Field name to extract (matched case-insensitively)
- * @returns {string|null} Trimmed field value, or null if not found
+ * Create a work item object with deterministic id and sensible defaults.
+ *
+ * Work item structure:
+ * @typedef {Object} WorkItem
+ * @property {string} id - Deterministic identifier: `${dimension}/${slug}`
+ * @property {string} dimension - One of WORK_ITEM_DIMENSIONS
+ * @property {string} slug - Kebab-case identifier
+ * @property {string} title - Human-readable title
+ * @property {string} description - What needs to change and why
+ * @property {string} effort - 'small' | 'medium' | 'large'
+ * @property {string} source - 'discovery' | 'bugfix' | 'carryover'
+ * @property {string} status - 'pending' | 'selected' | 'completed' | 'failed'
+ * @property {number} iteration_added - Iteration number when first discovered
+ *
+ * @param {string} dimension - One of WORK_ITEM_DIMENSIONS
+ * @param {string} slug - Kebab-case identifier for the work item
+ * @returns {WorkItem}
+ * @throws {Error} If dimension is not in WORK_ITEM_DIMENSIONS
  */
-function stateExtractField(content, fieldName) { ... }
+function createWorkItem(dimension, slug, title, description, opts = {}) { ... }
+```
 
+```js
 /**
  * CLI command: Load full project state including config, STATE.md, and existence checks.
  * @param {string} cwd - Project working directory
@@ -135,6 +170,8 @@ Test files use the same pattern:
 
 // ─── cmdStateLoad ───────────────────────────────────────────────────────────
 ```
+
+New modules follow this strictly — `lib/autopilot.js` sections include `─── Default Constants ───`, `─── Pure Helper Functions ───`, `─── Spawn Helpers ───`, etc.
 
 ---
 
@@ -234,6 +271,60 @@ if (!stateContent) {
 
 ---
 
+## Module-Level Caching Pattern
+
+New modules (`lib/evolve.js`, `lib/requirements.js`) use module-level `Map` caches to avoid redundant file I/O within a process invocation. Cache variables use a leading underscore and are not exported:
+
+```js
+// lib/evolve.js
+const _libFileCache = new Map();
+
+function readLibFileCached(filePath) {
+  if (!_libFileCache.has(filePath)) {
+    _libFileCache.set(filePath, safeReadFile(filePath));
+  }
+  return _libFileCache.get(filePath);
+}
+
+// lib/requirements.js
+const _reqContentCache = new Map();
+
+function readCachedRequirements(reqFilePath) {
+  if (!_reqContentCache.has(reqFilePath)) {
+    const content = safeReadFile(reqFilePath);
+    if (content !== null) _reqContentCache.set(reqFilePath, content);
+    return content;
+  }
+  return _reqContentCache.get(reqFilePath);
+}
+```
+
+These caches are process-scoped — cleared on each CLI invocation automatically.
+
+---
+
+## Async Function Pattern
+
+`lib/autopilot.js` introduces async spawn helpers. These return Promises and follow the same JSDoc conventions:
+
+```js
+/**
+ * Spawn a `claude -p` subprocess asynchronously (non-blocking).
+ * Used for parallel planning where multiple processes run concurrently.
+ * @param {string} cwd - Working directory
+ * @param {string} prompt - Prompt text to pass via -p
+ * @param {Object} [opts={}] - Options
+ * @param {number} [opts.timeout] - Timeout in milliseconds
+ * @param {string} [opts.model] - Model override
+ * @returns {Promise<{exitCode: number, timedOut: boolean, stdout: string}>}
+ */
+function spawnClaudeAsync(cwd, prompt, opts = {}) { ... }
+```
+
+Async functions are the exception — all other `lib/` code is synchronous. The async path only exists in `lib/autopilot.js` and `lib/evolve.js` (which calls `spawnClaudeAsync`).
+
+---
+
 ## Unused Variable Convention
 
 ESLint enforces `no-unused-vars`. Prefix unused function args with `_`:
@@ -329,11 +420,13 @@ All path operations use `path.join()` — never string concatenation.
 
 Standard file structure (all `lib/` modules follow this):
 1. File-level JSDoc block
-2. `require()` statements (built-ins first, then local `lib/` imports)
-3. Module-level constants (SCREAMING_SNAKE_CASE)
-4. Internal helpers (not exported)
-5. Exported `cmd*` functions, grouped by feature area with section separators
-6. `module.exports = { ... }` at the bottom
+2. `'use strict';` (all modules except `lib/backend.js` and `lib/mcp-server.js`)
+3. `require()` statements (built-ins first, then local `lib/` imports)
+4. Module-level constants (SCREAMING_SNAKE_CASE)
+5. Module-level caches (underscore-prefixed `Map` or similar, not exported)
+6. Internal helpers (not exported)
+7. Exported `cmd*` functions, grouped by feature area with section separators
+8. `module.exports = { ... }` at the bottom
 
 ---
 
@@ -343,10 +436,13 @@ Standard file structure (all `lib/` modules follow this):
 |-------|-----------|---------|
 | Local variables | camelCase | `configPath`, `stateRaw` |
 | Module-level constants | SCREAMING_SNAKE_CASE | `MODEL_PROFILES`, `GIT_BLOCKED_FLAGS` |
+| Module-level caches | underscore + camelCase | `_libFileCache`, `_reqContentCache` |
+| Private helpers | underscore prefix | `_buildSpawnConfig` |
 | Config keys | snake_case | `model_profile`, `commit_docs` |
 | CLI flags | kebab-case | `--stopped-at`, `--phase`, `--raw` |
 | File names | kebab-case | `grd-tools.js`, `long-term-roadmap.js` |
 | CLI commands | kebab-case | `advance-plan`, `get-phase`, `record-metric` |
+| Work item IDs | `dimension/slug` | `quality/fix-linting`, `stability/fix-crash` |
 
 ---
 
@@ -377,4 +473,4 @@ Lint scope: `bin/` and `lib/` only. Run with `npm run lint`.
 
 ---
 
-*Convention analysis: 2026-02-20*
+*Convention analysis: 2026-03-01*
