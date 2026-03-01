@@ -2,7 +2,6 @@
 
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const { safeReadFile, output, error } = require('../utils') as {
   safeReadFile: (p: string) => string | null;

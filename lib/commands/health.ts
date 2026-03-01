@@ -7,12 +7,11 @@ const path = require('path');
 const child_process = require('child_process');
 
 const {
-  safeReadFile, loadConfig, output, error,
+  safeReadFile, loadConfig, output,
 } = require('../utils') as {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-  error: (message: string) => never;
 };
 const {
   phasesDir: getPhasesDirPath, planningDir: getPlanningDir,

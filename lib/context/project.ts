@@ -11,14 +11,14 @@
 
 import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities, PreflightResult } from '../types';
 
-const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, output, error } = require('../utils') as {
+const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, output } = require('../utils') as {
   fs: typeof import('fs'); path: typeof import('path');
   safeReadFile: (p: string) => string | null; loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   resolveModelInternal: (cwd: string, agent: string) => string; pathExistsInternal: (cwd: string, target: string) => boolean;
   generateSlugInternal: (text: string) => string | null; getMilestoneInfo: (cwd: string) => MilestoneInfo;
   findCodeFiles: (dir: string, maxDepth: number, found: string[], depth: number) => string[];
-  output: (result: unknown, raw: boolean, rawValue?: unknown) => never; error: (msg: string) => never;
+  output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 };
 const { detectBackend, getBackendCapabilities } = require('../backend') as {
   detectBackend: (cwd: string) => string; getBackendCapabilities: (b: string) => BackendCapabilities;

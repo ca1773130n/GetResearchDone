@@ -20,7 +20,6 @@ import type {
   PhaseInfo,
   MilestoneInfo,
   BackendCapabilities,
-  ExecGitResult,
 } from '../types';
 
 const {
@@ -74,14 +73,13 @@ const { cmdInitMapCodebase } = require('./project.ts') as {
 
 const {
   cmdInitAssessBaseline, cmdInitDeepDive, cmdInitEvalPlan,
-  cmdInitEvalReport, cmdInitFeasibility, cmdInitIntegrationCheck: _unused1,
+  cmdInitEvalReport, cmdInitFeasibility,
 } = require('./research.ts') as {
   cmdInitAssessBaseline: (cwd: string, raw: boolean) => void;
   cmdInitDeepDive: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitEvalPlan: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitEvalReport: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitFeasibility: (cwd: string, topic: string, raw: boolean) => void;
-  cmdInitIntegrationCheck: (cwd: string, phase: string | null, raw: boolean) => void;
 };
 
 // ─── Debug Init ──────────────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ import type {
 const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveModelForAgent, output, error,
+  getMilestoneInfo, resolveModelForAgent, output,
 } = require('../utils') as {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -36,7 +36,6 @@ const {
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-  error: (msg: string) => never;
 };
 
 const { detectBackend, getBackendCapabilities } = require('../backend') as {

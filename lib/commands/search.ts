@@ -15,10 +15,9 @@ const {
   error: (message: string) => never;
 };
 const {
-  currentMilestone, phasesDir: getPhasesDirPath, planningDir: getPlanningDir,
+  currentMilestone, planningDir: getPlanningDir,
 } = require('../paths') as {
   currentMilestone: (cwd: string) => string;
-  phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
 };
 

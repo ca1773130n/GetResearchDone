@@ -5,10 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { output, error, loadConfig } = require('../utils') as {
+const { output, error } = require('../utils') as {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-  loadConfig: (cwd: string) => Record<string, unknown>;
 };
 const { planningDir: getPlanningDir } = require('../paths') as {
   planningDir: (cwd: string) => string;

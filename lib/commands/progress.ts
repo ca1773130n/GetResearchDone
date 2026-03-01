@@ -6,9 +6,8 @@ import type { MilestoneInfo } from '../types';
 
 const fs = require('fs');
 const path = require('path');
-const { output, error, getMilestoneInfo } = require('../utils') as {
+const { output, getMilestoneInfo } = require('../utils') as {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-  error: (message: string) => never;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 };
 const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir } = require('../paths') as {
