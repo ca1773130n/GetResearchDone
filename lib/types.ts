@@ -331,4 +331,33 @@ export interface TraceabilityEntry {
   status: string;
 }
 
+// ─── Dependency Graph Types (from deps.ts) ───────────────────────────────────
+
+/**
+ * A node in the phase dependency graph.
+ * Used by deps.ts, parallel.js, autopilot.js.
+ */
+export interface DependencyNode {
+  id: string;
+  name: string;
+}
+
+/**
+ * A directed edge in the phase dependency graph.
+ * Used by deps.ts, parallel.js, autopilot.js.
+ */
+export interface DependencyEdge {
+  from: string;
+  to: string;
+}
+
+/**
+ * Phase dependency graph with nodes and directed edges.
+ * Used by deps.ts, parallel.js, autopilot.js.
+ */
+export interface DependencyGraph {
+  nodes: DependencyNode[];
+  edges: DependencyEdge[];
+}
+
 module.exports = {};
