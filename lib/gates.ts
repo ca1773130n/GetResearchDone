@@ -9,7 +9,7 @@
 
 'use strict';
 
-import type { RunCache, GrdConfig } from './types';
+import type { RunCache, GrdConfig, GateViolation, PreflightResult } from './types';
 
 const fs = require('fs');
 const path = require('path');
@@ -25,15 +25,6 @@ const { phasesDir: getPhasesDirPath } = require('./paths');
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
-/** A gate check violation with code, severity, message, fix hint, and context. */
-interface GateViolation {
-  code: string;
-  severity: 'error' | 'warning';
-  message: string;
-  fix: string;
-  context: Record<string, unknown>;
-}
-
 /** Options passed to gate checks and runPreflightGates. */
 interface GateOptions {
   phase?: string;
@@ -43,15 +34,6 @@ interface GateOptions {
 
 /** A gate check function signature. */
 type GateCheckFn = (cwd: string, opts: GateOptions) => GateViolation[];
-
-/** Result returned by runPreflightGates. */
-interface PreflightResult {
-  passed: boolean;
-  bypassed: boolean;
-  errors: GateViolation[];
-  warnings: GateViolation[];
-  command: string;
-}
 
 /** Registry mapping command names to gate check names. */
 type GateRegistryMap = Record<string, string[]>;

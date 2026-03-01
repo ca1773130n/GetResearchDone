@@ -8,6 +8,8 @@
 
 'use strict';
 
+import type { Requirement, TraceabilityEntry } from './types';
+
 const fs = require('fs');
 const path = require('path');
 
@@ -15,29 +17,6 @@ const { safeReadFile, output, error } = require('./utils');
 const { milestonesDir: getMilestonesDirPath } = require('./paths');
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
-
-/** A parsed requirement from REQUIREMENTS.md. */
-interface Requirement {
-  id: string;
-  title: string;
-  priority: string | null;
-  category: string | null;
-  deferred_from: string | null;
-  resolves: string | null;
-  description: string | null;
-  status?: string;
-  phase?: string;
-  milestone?: string;
-}
-
-/** A traceability matrix entry parsed from REQUIREMENTS.md. */
-interface TraceabilityEntry {
-  req: string;
-  feature: string;
-  priority: string;
-  phase: string;
-  status: string;
-}
 
 /** Filters for requirement list command. */
 interface RequirementFilters {

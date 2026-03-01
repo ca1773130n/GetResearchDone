@@ -11,7 +11,7 @@
 
 'use strict';
 
-import type { RunCache } from './types';
+import type { RunCache, CleanupConfig, QualityAnalysisSummary } from './types';
 
 const fs = require('fs');
 const path = require('path');
@@ -20,18 +20,6 @@ const { planningDir: getPlanningDir, phasesDir: getPhasesDirPath } = require('./
 const { safeReadFile, safeReadJSON, createRunCache, walkJsFiles } = require('./utils');
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
-
-/** Configuration for the phase_cleanup section of config.json. */
-interface CleanupConfig {
-  enabled: boolean;
-  refactoring: boolean;
-  doc_sync: boolean;
-  test_coverage: boolean;
-  export_consistency: boolean;
-  doc_staleness: boolean;
-  config_schema: boolean;
-  cleanup_threshold: number;
-}
 
 /** A complexity violation found by ESLint analysis. */
 interface ComplexityViolation {
@@ -129,20 +117,6 @@ interface QualityAnalysisDetails {
   config_schema?: ConfigSchemaDriftIssue[];
 }
 
-/** Quality analysis summary counts. */
-interface QualityAnalysisSummary {
-  total_issues: number;
-  complexity_violations: number;
-  dead_exports: number;
-  oversized_files: number;
-  doc_drift_issues?: number;
-  test_coverage_gaps?: number;
-  stale_imports?: number;
-  doc_staleness_issues?: number;
-  config_schema_issues?: number;
-  [key: string]: number | undefined;
-}
-
 /** Trend information for a single metric. */
 interface TrendEntry {
   delta: number;
@@ -184,15 +158,6 @@ interface DeadExportOptions {
 /** File size analysis thresholds. */
 interface FileSizeThresholds {
   maxLines?: number;
-}
-
-/** Gate violation from gates module (referenced in GATE_REGISTRY context). */
-interface GateViolation {
-  code: string;
-  severity: string;
-  message: string;
-  fix: string;
-  context: Record<string, unknown>;
 }
 
 /** A documented CLI command extracted from CLAUDE.md. */
