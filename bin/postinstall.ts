@@ -11,8 +11,8 @@
 
 'use strict';
 
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs') as typeof import('fs');
+const path = require('path') as typeof import('path');
 
 const PLANNING_DIR: string = path.join(process.cwd(), '.planning');
 
