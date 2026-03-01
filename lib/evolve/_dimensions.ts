@@ -19,7 +19,7 @@ const path = require('path');
 const { safeReadFile } = require('../utils') as {
   safeReadFile: (filePath: string) => string | null;
 };
-const { createWorkItem, readLibFileCached } = require('./state') as {
+const { createWorkItem, readLibFileCached } = require('./state.ts') as {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -281,7 +281,7 @@ function _discoverDimension(name: string, finder: (cwd: string) => WorkItem[], c
  * Analyze the codebase and produce categorized work items across all 7 dimensions.
  */
 function analyzeCodebaseForItems(cwd: string): WorkItem[] {
-  const { discoverImproveFeatureItems, discoverNewFeatureItems } = require('./_dimensions-features') as {
+  const { discoverImproveFeatureItems, discoverNewFeatureItems } = require('./_dimensions-features.ts') as {
     discoverImproveFeatureItems: (cwd: string) => WorkItem[];
     discoverNewFeatureItems: (cwd: string) => WorkItem[];
   };

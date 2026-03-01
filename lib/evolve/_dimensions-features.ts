@@ -19,7 +19,7 @@ const path = require('path');
 const { safeReadFile } = require('../utils') as {
   safeReadFile: (filePath: string) => string | null;
 };
-const { createWorkItem, readLibFileCached } = require('./state') as {
+const { createWorkItem, readLibFileCached } = require('./state.ts') as {
   createWorkItem: (
     dimension: string,
     slug: string,

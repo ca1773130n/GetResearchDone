@@ -12,7 +12,6 @@
 import type {
   WorkItem,
   WorkItemOptions,
-  WorkItemEffort,
   EvolveState,
   EvolveGroupState,
   HistoryEntry,
