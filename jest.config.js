@@ -30,7 +30,7 @@ module.exports = {
     './lib/scaffold.js': { lines: 90, functions: 100, branches: 70 },
     './lib/state.js': { lines: 85, functions: 88, branches: 77 },
     './lib/tracker.js': { lines: 85, functions: 89, branches: 70 },
-    './lib/utils.js': { lines: 92, functions: 95, branches: 85 },
+    './lib/utils.ts': { lines: 92, functions: 95, branches: 85 },
     './lib/verify.js': { lines: 85, functions: 100, branches: 70 },
     './lib/worktree.js': { lines: 84, functions: 100, branches: 73 },
 
