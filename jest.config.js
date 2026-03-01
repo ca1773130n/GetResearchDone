@@ -20,7 +20,7 @@ module.exports = {
     './lib/evolve.js': { lines: 85, functions: 94, branches: 70 },
     './lib/frontmatter.ts': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.ts': { lines: 98, functions: 100, branches: 82 },
-    './lib/long-term-roadmap.js': { lines: 97, functions: 100, branches: 83 },
+    './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },
     './lib/markdown-split.ts': { lines: 95, functions: 100, branches: 90 },
     './lib/mcp-server.js': { lines: 90, functions: 85, branches: 55 },
     './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
