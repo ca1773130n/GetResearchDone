@@ -24,7 +24,7 @@ module.exports = {
     './lib/markdown-split.js': { lines: 95, functions: 100, branches: 90 },
     './lib/mcp-server.js': { lines: 90, functions: 85, branches: 55 },
     './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
-    './lib/paths.js': { lines: 95, functions: 100, branches: 95 },
+    './lib/paths.ts': { lines: 95, functions: 100, branches: 95 },
     './lib/phase.js': { lines: 91, functions: 94, branches: 70 },
     './lib/roadmap.js': { lines: 91, functions: 94, branches: 83 },
     './lib/scaffold.js': { lines: 90, functions: 100, branches: 70 },
