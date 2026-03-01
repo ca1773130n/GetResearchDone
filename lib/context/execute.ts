@@ -297,7 +297,8 @@ function cmdInitExecutePhase(
     result.principles_content = safeReadMarkdown(path.join(cwd, '.planning', 'PRINCIPLES.md'));
   }
   if (includes.has('context') && phaseInfo?.directory) {
-    result.context_content = _readPhaseFile(cwd, phaseInfo.directory, '-CONTEXT.md');
+    const ctx = _readPhaseFile(cwd, phaseInfo.directory, '-CONTEXT.md');
+    if (ctx) result.context_content = ctx;
   }
 
   output(result, raw, `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, milestone: ${result.milestone_version}`);
@@ -394,16 +395,20 @@ function cmdInitPlanPhase(
     result.requirements_content = safeReadMarkdown(path.join(cwd, '.planning', 'REQUIREMENTS.md'));
   }
   if (includes.has('context') && phaseInfo?.directory) {
-    result.context_content = _readPhaseFile(cwd, phaseInfo.directory, '-CONTEXT.md');
+    const ctx = _readPhaseFile(cwd, phaseInfo.directory, '-CONTEXT.md');
+    if (ctx) result.context_content = ctx;
   }
   if (includes.has('research') && phaseInfo?.directory) {
-    result.research_content = _readPhaseFile(cwd, phaseInfo.directory, '-RESEARCH.md');
+    const res = _readPhaseFile(cwd, phaseInfo.directory, '-RESEARCH.md');
+    if (res) result.research_content = res;
   }
   if (includes.has('verification') && phaseInfo?.directory) {
-    result.verification_content = _readPhaseFile(cwd, phaseInfo.directory, '-VERIFICATION.md');
+    const ver = _readPhaseFile(cwd, phaseInfo.directory, '-VERIFICATION.md');
+    if (ver) result.verification_content = ver;
   }
   if (includes.has('uat') && phaseInfo?.directory) {
-    result.uat_content = _readPhaseFile(cwd, phaseInfo.directory, '-UAT.md');
+    const uat = _readPhaseFile(cwd, phaseInfo.directory, '-UAT.md');
+    if (uat) result.uat_content = uat;
   }
   if (includes.has('principles')) {
     result.principles_content = safeReadMarkdown(path.join(cwd, '.planning', 'PRINCIPLES.md'));
