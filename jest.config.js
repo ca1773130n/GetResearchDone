@@ -25,7 +25,7 @@ module.exports = {
     './lib/mcp-server.js': { lines: 90, functions: 85, branches: 55 },
     './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
     './lib/paths.ts': { lines: 95, functions: 100, branches: 95 },
-    './lib/phase.js': { lines: 91, functions: 94, branches: 70 },
+    './lib/phase.ts': { lines: 91, functions: 94, branches: 70 },
     './lib/roadmap.ts': { lines: 91, functions: 94, branches: 83 },
     './lib/scaffold.ts': { lines: 90, functions: 100, branches: 70 },
     './lib/state.ts': { lines: 85, functions: 88, branches: 77 },
