@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-03-01
+**Updated:** 2026-03-02
 
 ## Project Reference
 
@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 - **Active phase:** Phase 58 (TypeScript Toolchain & Build Pipeline)
-- **Current plan:** --
+- **Current plan:** Plan 01 complete (1/3 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Ready to plan
+- **Status:** In progress
 - **Progress:** [░░░░░░░░░░] 0% (0/8 phases)
-- **Next:** Run /grd:plan-phase 58 to break down toolchain setup
+- **Next:** Execute 58-02-PLAN.md (ESLint TypeScript integration)
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|-------------|--------|
-| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | Not started |
+| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | In progress (1/3 plans) |
 | 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Not started |
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Not started |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Not started |
@@ -61,7 +61,9 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Decisions
 
-(v0.3.0 decisions will be recorded here)
+- **[58-01]** Dual tsconfig pattern: tsconfig.json for type-checking (noEmit:true), tsconfig.build.json for dist/ output (noEmit:false)
+- **[58-01]** allowJs:true with checkJs:false enables incremental .js-to-.ts migration without breaking existing code
+- **[58-01]** ES2022 target matching existing eslint ecmaVersion 2022
 
 ## Known Bugs
 
@@ -73,12 +75,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created v0.3.0 roadmap (8 phases, 58-65)
-- **Stopped at:** Roadmap created, ready for phase planning
-- **Next action:** Run /grd:plan-phase 58 to plan TypeScript toolchain setup
-- **Context needed:** tsconfig.json, ts-jest, @typescript-eslint, build pipeline to dist/
+- **Last action:** Executed 58-01-PLAN.md (TypeScript toolchain setup)
+- **Stopped at:** Completed 58-01-PLAN.md -- TypeScript installed, tsconfig configured, build pipeline working
+- **Next action:** Execute 58-02-PLAN.md (ESLint TypeScript integration)
+- **Context needed:** @typescript-eslint, eslint flat config migration, ts-jest setup
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-02*
