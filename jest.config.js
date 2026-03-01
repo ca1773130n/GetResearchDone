@@ -17,7 +17,7 @@ module.exports = {
     './lib/commands.js': { lines: 90, functions: 95, branches: 70 },
     './lib/context.js': { lines: 87, functions: 83, branches: 77 },
     './lib/deps.ts': { lines: 94, functions: 100, branches: 87 },
-    './lib/evolve.js': { lines: 85, functions: 94, branches: 70 },
+    './lib/evolve.ts': { lines: 85, functions: 94, branches: 70 },
     './lib/frontmatter.ts': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.ts': { lines: 98, functions: 100, branches: 82 },
     './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },
