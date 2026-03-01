@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 - **Active phase:** Phase 58 (TypeScript Toolchain & Build Pipeline)
-- **Current plan:** Plan 02 complete (2/3 plans)
+- **Current plan:** Plan 03 complete (3/3 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** In progress
-- **Progress:** [░░░░░░░░░░] 0% (0/8 phases)
-- **Next:** Execute 58-03-PLAN.md (ts-jest integration)
+- **Status:** Phase 58 complete
+- **Progress:** [==--------] 12% (1/8 phases)
+- **Next:** Phase 59 (Foundation Layer & Shared Types)
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|-------------|--------|
-| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | In progress (2/3 plans) |
+| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | Complete (3/3 plans) |
 | 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Not started |
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Not started |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Not started |
@@ -54,7 +54,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.8)
-- Total tests: 2,184
+- Total tests: 2,676
 - Total lib/ modules: 23 (including autopilot.js, evolve.js, markdown-split.js, requirements.js)
 - Total commands: 40
 - Total lib/ LOC: ~17,334
@@ -68,6 +68,9 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[58-02]** Dual rule pattern: base no-unused-vars off for .ts, replaced by @typescript-eslint/no-unused-vars
 - **[58-02]** no-require-imports disabled for CommonJS compatibility during migration
 - **[58-02]** projectService:true for type-aware linting (v8+ recommended over project option)
+- **[58-03]** ts-jest transform only for .ts files -- .js files remain untransformed via native CommonJS require()
+- **[58-03]** Exclude .d.ts from coverage collection (type declarations, not executable code)
+- **[58-03]** Per-file coverage thresholds extended for .ts modules alongside existing .js thresholds
 
 ## Known Bugs
 
@@ -79,12 +82,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 58-02-PLAN.md (ESLint TypeScript integration)
-- **Stopped at:** Completed 58-02-PLAN.md -- ESLint extended with @typescript-eslint for JS+TS linting
-- **Next action:** Execute 58-03-PLAN.md (ts-jest integration)
-- **Context needed:** ts-jest setup, Jest TypeScript transform configuration
+- **Last action:** Executed 58-03-PLAN.md (ts-jest integration)
+- **Stopped at:** Completed 58-03-PLAN.md -- Phase 58 fully complete (TypeScript toolchain: tsc + eslint + ts-jest)
+- **Next action:** Plan or execute Phase 59 (Foundation Layer & Shared Types)
+- **Context needed:** lib/sample.ts patterns, tsconfig.json, shared type definitions
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T16:50Z*
+*Last updated: 2026-03-02T16:57Z*
