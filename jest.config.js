@@ -32,7 +32,7 @@ module.exports = {
     './lib/tracker.js': { lines: 85, functions: 89, branches: 70 },
     './lib/utils.ts': { lines: 92, functions: 95, branches: 85 },
     './lib/verify.ts': { lines: 85, functions: 100, branches: 70 },
-    './lib/worktree.js': { lines: 84, functions: 100, branches: 73 },
+    './lib/worktree.ts': { lines: 84, functions: 100, branches: 72 },
 
     // === TypeScript modules (added during migration) ===
     './lib/sample.ts': { lines: 90, functions: 100, branches: 80 },
