@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-- **Active phase:** Phase 61 (Integration & Autonomous Layer Migration)
+- **Active phase:** Phase 62 (Oversized Module Decomposition & Migration)
 - **Current plan:** Plan 05 complete (5/5 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Phase 61 complete, ready for Phase 62
-- **Progress:** [=====-----] 50% (4/8 phases)
-- **Next:** Plan and execute Phase 62
+- **Status:** Milestone complete
+- **Progress:** [======----] 62% (5/8 phases)
+- **Next:** Execute Phase 63 (Entry Points & MCP Server Migration)
 
 ## Phase Summary
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 | 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Complete (3/3 plans) |
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Complete (5/5 plans) |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Complete (5/5 plans) |
-| 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Not started |
+| 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Complete (5/5 plans) |
 | 63 | Entry Points & MCP Server Migration | REQ-70 | Not started |
 | 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Not started |
 | 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | Not started |
@@ -121,6 +121,30 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[61-05]** ScoreFactors interface removed (lint: unused -- scoreWorkItem returns number directly)
 - **[61-05]** IterationContext interface encapsulates _runIterationStep parameters for type safety
 - **[61-05]** Dirent filter callbacks typed inline as { isFile: () => boolean; name: string } for fs.readdirSync
+- **[62-02]** export {} used in sub-modules without import type to force module scope (prevents TS2451 redeclaration errors)
+- **[62-02]** Module-level caches (_roadmapContentCache, _stateContentCache) placed in phase-info.ts and exported for sibling modules
+- **[62-02]** Array.from() used instead of spread for Set-to-Array conversion (avoids downlevelIteration requirement)
+- **[62-02]** Local domain interfaces per sub-module (PlanIndexEntry, LtMilestoneEntry, QualityReport, etc.) -- single-consumer types stay local
+- **[62-02]** flag() helper duplicated in long-term-roadmap.ts and quality.ts rather than shared (different signatures, minimal code)
+- [Phase 62]: Split 7 dimension discoverers across _dimensions.ts (5 core) and _dimensions-features.ts (2 feature) to keep each under 600 lines
+- [Phase 62]: Extracted prompt templates to _prompts.ts to keep orchestrator.ts under 600 lines
+- [Phase 62]: Added explicit .ts extensions to all internal require paths for Node.js CJS resolution
+- [Phase 62]: Scoring constants (DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS) kept in state.ts alongside other constants rather than in scoring.ts to avoid circular dependencies
+- [Phase 62]: Removed unused imports (WorkItemEffort in state.ts, output/error in orchestrator.ts) to satisfy ESLint
+- **[62-03]** context/base.ts contains only inferCeremonyLevel and buildInitContext as shared foundation for all cmdInit* sub-modules
+- **[62-03]** CJS barrel pattern in index.ts (const _mod = require('./mod.ts'); module.exports = {...}) because sub-modules use module.exports not ES exports
+- **[62-03]** Double unknown cast (as unknown as Record<string, unknown>) for GrdConfig/PhaseInfo/MilestoneInfo accessing untyped runtime properties
+- **[62-03]** Explicit .ts extensions required for all intra-context/ require paths (Node CJS resolution)
+- **[62-03]** _readPhaseFile helper with null-guard preserves original undefined-when-missing behavior for include handlers
+- **[62-04]** Dashboard parsers extracted to _dashboard-parsers.ts to keep dashboard.ts under 600 lines (471 vs 758 without extraction)
+- **[62-04]** Barrel index.ts uses CJS require-as pattern (not ES re-exports) to match sub-module module.exports convention
+- **[62-04]** export {} added to commands/index.ts to force module scope (prevents TS2451 with context/index.ts _progress variable)
+- **[62-04]** nextHeading.index nullability fixed with ?? 0 fallback in _dashboard-parsers.ts (String.match RegExpMatchArray has optional index)
+
+- **[62-05]** moduleDetection: "force" in tsconfig.json replaces export {} as TS module scope mechanism -- Node.js v24 native strip-types classifies export {} as ESM marker
+- **[62-05]** Renamed _progress to _cmdProgress in commands/index.ts to avoid TS2451 after export {} removal
+- **[62-05]** Explicit .ts extensions required for intra-directory requires under Node.js v24 CJS resolution (progress.ts, long-term-roadmap.ts)
+- **[62-05]** npm-pack integration test failures (2) are pre-existing Node v24 limitation: type stripping unsupported under node_modules (DEFER-59-01)
 
 ## Known Bugs
 
@@ -132,12 +156,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 61-05-PLAN.md (Evolve Self-Evolution Engine TypeScript Migration)
-- **Stopped at:** Completed 61-05-PLAN.md -- lib/evolve.ts (39 exports, 18 local interfaces + 3 type aliases) fully typed, zero any types, all 170 tests pass unchanged. Phase 61 complete (5/5 plans, 6 modules migrated, 100 exports total)
-- **Next action:** Execute Phase 62 (Oversized Module Decomposition & Migration)
-- **Context needed:** Phase 62 planning, commands.js decomposition, context.js split, mcp-server.js migration
+- **Last action:** Executed 62-05-PLAN.md (Final Verification and Jest Coverage Threshold Update)
+- **Stopped at:** Completed 62-05-PLAN.md -- Phase 62 complete
+- **Next action:** Execute Phase 63 (Entry Points & MCP Server Migration)
+- **Context needed:** bin/grd-tools.js and bin/grd-mcp-server.js migration to TypeScript
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T21:22Z*
+*Last updated: 2026-03-02T23:05Z*
