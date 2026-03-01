@@ -11,7 +11,7 @@ module.exports = {
   },
   coverageThreshold: {
     // === Existing per-file thresholds (DO NOT MODIFY) ===
-    './lib/autopilot.js': { lines: 93, functions: 93, branches: 80 },
+    './lib/autopilot.ts': { lines: 93, functions: 93, branches: 80 },
     './lib/backend.ts': { lines: 95, functions: 100, branches: 88 },
     './lib/cleanup.ts': { lines: 92, functions: 96, branches: 80 },
     './lib/commands.js': { lines: 90, functions: 95, branches: 70 },
@@ -23,7 +23,7 @@ module.exports = {
     './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },
     './lib/markdown-split.ts': { lines: 95, functions: 100, branches: 90 },
     './lib/mcp-server.js': { lines: 90, functions: 85, branches: 55 },
-    './lib/parallel.js': { lines: 85, functions: 100, branches: 80 },
+    './lib/parallel.ts': { lines: 85, functions: 100, branches: 80 },
     './lib/paths.ts': { lines: 95, functions: 100, branches: 95 },
     './lib/phase.ts': { lines: 91, functions: 94, branches: 70 },
     './lib/roadmap.ts': { lines: 91, functions: 94, branches: 83 },
