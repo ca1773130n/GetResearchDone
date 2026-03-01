@@ -240,4 +240,95 @@ export type AgentModelProfiles = Record<
   Record<ModelProfileName, ModelTier>
 >;
 
+// ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
+
+/**
+ * A gate check violation with code, severity, message, fix hint, and context.
+ * Used by gates.ts, context.js, parallel.js, phase.js.
+ */
+export interface GateViolation {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  fix: string;
+  context: Record<string, unknown>;
+}
+
+/**
+ * Result returned by runPreflightGates().
+ * Used by gates.ts, context.js, parallel.js.
+ */
+export interface PreflightResult {
+  passed: boolean;
+  bypassed: boolean;
+  errors: GateViolation[];
+  warnings: GateViolation[];
+  command: string;
+}
+
+// ─── Cleanup Types (from cleanup.ts) ─────────────────────────────────────────
+
+/**
+ * Configuration for the phase_cleanup section of config.json.
+ * Used by cleanup.ts, phase.js, commands.js.
+ */
+export interface CleanupConfig {
+  enabled: boolean;
+  refactoring: boolean;
+  doc_sync: boolean;
+  test_coverage: boolean;
+  export_consistency: boolean;
+  doc_staleness: boolean;
+  config_schema: boolean;
+  cleanup_threshold: number;
+}
+
+/**
+ * Quality analysis summary counts from runQualityAnalysis.
+ * Used by cleanup.ts, phase.js.
+ */
+export interface QualityAnalysisSummary {
+  total_issues: number;
+  complexity_violations: number;
+  dead_exports: number;
+  oversized_files: number;
+  doc_drift_issues?: number;
+  test_coverage_gaps?: number;
+  stale_imports?: number;
+  doc_staleness_issues?: number;
+  config_schema_issues?: number;
+  [key: string]: number | undefined;
+}
+
+// ─── Requirement Types (from requirements.ts) ────────────────────────────────
+
+/**
+ * A parsed requirement from REQUIREMENTS.md.
+ * Used by requirements.ts, commands.js, mcp-server.js, scaffold.js, phase.js.
+ */
+export interface Requirement {
+  id: string;
+  title: string;
+  priority: string | null;
+  category: string | null;
+  deferred_from: string | null;
+  resolves: string | null;
+  description: string | null;
+  status?: string;
+  phase?: string;
+  milestone?: string;
+}
+
+/**
+ * A traceability matrix entry parsed from REQUIREMENTS.md.
+ * Used by requirements.ts, commands.js.
+ */
+export interface TraceabilityEntry {
+  req: string;
+  feature: string;
+  priority: string;
+  phase: string;
+  status: string;
+}
+
 module.exports = {};
