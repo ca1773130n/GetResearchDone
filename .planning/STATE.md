@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 - **Active phase:** Phase 58 (TypeScript Toolchain & Build Pipeline)
-- **Current plan:** Plan 01 complete (1/3 plans)
+- **Current plan:** Plan 02 complete (2/3 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
 - **Status:** In progress
 - **Progress:** [░░░░░░░░░░] 0% (0/8 phases)
-- **Next:** Execute 58-02-PLAN.md (ESLint TypeScript integration)
+- **Next:** Execute 58-03-PLAN.md (ts-jest integration)
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|-------------|--------|
-| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | In progress (1/3 plans) |
+| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | In progress (2/3 plans) |
 | 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Not started |
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Not started |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Not started |
@@ -64,6 +64,10 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[58-01]** Dual tsconfig pattern: tsconfig.json for type-checking (noEmit:true), tsconfig.build.json for dist/ output (noEmit:false)
 - **[58-01]** allowJs:true with checkJs:false enables incremental .js-to-.ts migration without breaking existing code
 - **[58-01]** ES2022 target matching existing eslint ecmaVersion 2022
+- **[58-02]** typescript-eslint unified package for flat config API (v8+ recommended approach)
+- **[58-02]** Dual rule pattern: base no-unused-vars off for .ts, replaced by @typescript-eslint/no-unused-vars
+- **[58-02]** no-require-imports disabled for CommonJS compatibility during migration
+- **[58-02]** projectService:true for type-aware linting (v8+ recommended over project option)
 
 ## Known Bugs
 
@@ -75,12 +79,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 58-01-PLAN.md (TypeScript toolchain setup)
-- **Stopped at:** Completed 58-01-PLAN.md -- TypeScript installed, tsconfig configured, build pipeline working
-- **Next action:** Execute 58-02-PLAN.md (ESLint TypeScript integration)
-- **Context needed:** @typescript-eslint, eslint flat config migration, ts-jest setup
+- **Last action:** Executed 58-02-PLAN.md (ESLint TypeScript integration)
+- **Stopped at:** Completed 58-02-PLAN.md -- ESLint extended with @typescript-eslint for JS+TS linting
+- **Next action:** Execute 58-03-PLAN.md (ts-jest integration)
+- **Context needed:** ts-jest setup, Jest TypeScript transform configuration
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02*
+*Last updated: 2026-03-02T16:50Z*
