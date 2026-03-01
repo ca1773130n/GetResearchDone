@@ -248,10 +248,14 @@ Plans:
   5. No individual sub-module exceeds 600 lines
   6. All imports from other lib/ modules that reference commands/context/evolve continue to resolve via the barrel exports (zero breakage)
   7. All unit tests for commands, context, and evolve pass with coverage thresholds met or exceeded
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 62 to break down)
+- [ ] 62-01-PLAN.md — Decompose evolve.ts into evolve/ sub-modules (types, state, discovery, scoring, orchestrator, cli)
+- [ ] 62-02-PLAN.md — Decompose & migrate commands.js Part 1 (slug-timestamp, todo, config, phase-info, progress, LT-roadmap, quality)
+- [ ] 62-03-PLAN.md — Decompose & migrate context.js into context/ sub-modules (base, execute, project, research, agents, progress)
+- [ ] 62-04-PLAN.md — Decompose & migrate commands.js Part 2 (dashboard, health, search + barrel + CJS proxy)
+- [ ] 62-05-PLAN.md — jest.config.js threshold updates + full test suite verification
 
 ### Phase 63: Entry Points & MCP Server Migration
 
