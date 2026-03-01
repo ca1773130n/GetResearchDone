@@ -144,7 +144,7 @@ function parseDashboardPhases(
     const restContent = roadmapContent.slice(sectionStart + pMatch[0].length);
     const nextHeading = restContent.match(/\n###?\s/);
     const sectionText = nextHeading
-      ? roadmapContent.slice(sectionStart, sectionStart + pMatch[0].length + nextHeading.index)
+      ? roadmapContent.slice(sectionStart, sectionStart + pMatch[0].length + (nextHeading.index ?? 0))
       : roadmapContent.slice(sectionStart);
     const durationMatch = sectionText.match(/\*\*Duration:\*\*\s*(\d+)d/);
     const duration = durationMatch ? durationMatch[1] + 'd' : null;
