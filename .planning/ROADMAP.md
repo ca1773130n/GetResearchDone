@@ -161,10 +161,13 @@ Phases 54-57 closed the self-evolving loop: markdown splitting infrastructure (l
   3. ESLint with `@typescript-eslint/parser` and `@typescript-eslint/eslint-plugin` reports zero errors on the sample .ts file
   4. `tsc` produces CommonJS .js output in `dist/` with source maps
   5. Existing JS tests continue to pass unmodified (zero regressions)
-**Plans:** 0 plans
+**Plans:** 3 plans (3 complete)
+**Status:** Complete (2026-03-02)
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 58 to break down)
+- [x] 58-01: TypeScript compilation infrastructure (tsconfig, build scripts, sample module)
+- [x] 58-02: ESLint TypeScript support (@typescript-eslint parser/plugin)
+- [x] 58-03: ts-jest configuration for TypeScript test files
 
 ### Phase 59: Foundation Layer & Shared Types
 

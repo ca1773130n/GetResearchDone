@@ -15,9 +15,9 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **Active phase:** Phase 58 (TypeScript Toolchain & Build Pipeline)
 - **Current plan:** Plan 03 complete (3/3 plans)
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Phase 58 complete
+- **Status:** Phase 58 complete, ready for Phase 59
 - **Progress:** [==--------] 12% (1/8 phases)
-- **Next:** Phase 59 (Foundation Layer & Shared Types)
+- **Next:** Run /grd:plan-phase 59 to plan Foundation Layer & Shared Types
 
 ## Phase Summary
 
