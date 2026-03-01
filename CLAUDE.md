@@ -76,6 +76,16 @@ docs/                       # Tutorials, quickstart, diagrams
 - Integration tests (`tests/integration/`) spawn real CLI processes
 - Test timeout: 15s (configured in `jest.config.js`)
 
+## Shell Safety (zsh)
+
+zsh escapes `!` inside strings, breaking `!=` and `!==` in inline shell scripts.
+
+**Rules for ad-hoc Bash commands:**
+- NEVER use `node -e` or `python3 -c` with `!=` or `!==` operators
+- NEVER pipe `--raw` JSON through inline one-liner scripts
+- Instead: use `grd-tools.js` pre-formatted output directly, or write a temp `.js` file, or use `===`/`==` with inverted logic (e.g., `status === "shipped"` + filter instead of `status !== "shipped"`)
+- Prefer `grd-tools.js` subcommands over ad-hoc JSON parsing — the CLI already provides formatted output for all queries
+
 ## Code Style
 
 - CommonJS (`require`/`module.exports`), not ESM
