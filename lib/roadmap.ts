@@ -9,7 +9,8 @@
 
 'use strict';
 
-import type { RoadmapPhase } from './types';
+// Type-only import to establish module scope (no runtime effect)
+import type {} from './types';
 
 const fs = require('fs');
 const path = require('path');

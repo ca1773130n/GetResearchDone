@@ -9,7 +9,7 @@
 
 'use strict';
 
-import type { GrdConfig, StateFields } from './types';
+import type { GrdConfig } from './types';
 
 const fs = require('fs');
 const path = require('path');

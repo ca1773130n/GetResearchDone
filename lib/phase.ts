@@ -116,22 +116,6 @@ interface CleanupPlanResult {
   issues_addressed: number;
 }
 
-/** Options for cmdPhaseAdd. */
-interface PhaseAddOptions {
-  type?: string;
-  depends_on?: string;
-  duration?: string;
-  requirements?: string;
-  verification_level?: string;
-  goal?: string;
-  raw?: boolean;
-}
-
-/** Options for cmdPhaseInsert. */
-interface PhaseInsertOptions extends PhaseAddOptions {
-  after?: string;
-}
-
 /** Options for cmdPhaseRemove. */
 interface PhaseRemoveOptions {
   force?: boolean;

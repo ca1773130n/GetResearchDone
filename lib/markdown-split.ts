@@ -107,7 +107,7 @@ function findSplitBoundaries(content: string, targetPartCount: number): number[]
     }
   }
 
-  let candidateOffsets = headingOffsets;
+  const candidateOffsets = headingOffsets;
 
   // Fall back to blank-line boundaries if no headings found
   if (candidateOffsets.length === 0) {
