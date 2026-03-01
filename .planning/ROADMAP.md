@@ -183,10 +183,12 @@ Plans:
   3. All existing JS modules that import from paths/backend/utils continue to work via the compiled output (CommonJS interop validated)
   4. All exported functions in the three foundation modules have explicit return type annotations
   5. Unit tests for paths, backend, and utils pass with identical coverage thresholds against the .ts sources
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 59 to break down)
+- [ ] 59-01-PLAN.md -- Core shared types (lib/types.ts) + paths.ts migration
+- [ ] 59-02-PLAN.md -- backend.ts migration with typed constants
+- [ ] 59-03-PLAN.md -- utils.ts migration (largest foundation module)
 
 ### Phase 60: Data & Domain Layer Migration
 
@@ -312,7 +314,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 58. TypeScript Toolchain | v0.3.0 | 0/0 | Not started | - |
-| 59. Foundation Layer & Shared Types | v0.3.0 | 0/0 | Not started | - |
+| 59. Foundation Layer & Shared Types | v0.3.0 | 0/3 | Not started | - |
 | 60. Data & Domain Layer Migration | v0.3.0 | 0/0 | Not started | - |
 | 61. Integration & Autonomous Layer | v0.3.0 | 0/0 | Not started | - |
 | 62. Oversized Module Decomposition | v0.3.0 | 0/0 | Not started | - |
