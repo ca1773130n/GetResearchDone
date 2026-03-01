@@ -119,23 +119,23 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-62 | TBD | PENDING |
-| REQ-63 | TBD | PENDING |
-| REQ-64 | TBD | PENDING |
-| REQ-65 | TBD | PENDING |
-| REQ-66 | TBD | PENDING |
-| REQ-67 | TBD | PENDING |
-| REQ-68 | TBD | PENDING |
-| REQ-69 | TBD | PENDING |
-| REQ-70 | TBD | PENDING |
-| REQ-71 | TBD | PENDING |
-| REQ-72 | TBD | PENDING |
-| REQ-73 | TBD | PENDING |
-| REQ-74 | TBD | PENDING |
-| REQ-75 | TBD | PENDING |
-| REQ-76 | TBD | PENDING |
-| REQ-77 | TBD | PENDING |
-| REQ-78 | TBD | PENDING |
-| REQ-79 | TBD | PENDING |
-| REQ-80 | TBD | PENDING |
-| REQ-81 | TBD | PENDING |
+| REQ-62 | Phase 58 | PENDING |
+| REQ-63 | Phase 58 | PENDING |
+| REQ-64 | Phase 65 | PENDING |
+| REQ-65 | Phase 59 | PENDING |
+| REQ-66 | Phase 60 | PENDING |
+| REQ-67 | Phase 60 | PENDING |
+| REQ-68 | Phase 61 | PENDING |
+| REQ-69 | Phase 61 | PENDING |
+| REQ-70 | Phase 63 | PENDING |
+| REQ-71 | Phase 62 | PENDING |
+| REQ-72 | Phase 62 | PENDING |
+| REQ-73 | Phase 62 | PENDING |
+| REQ-74 | Phase 62 | PENDING |
+| REQ-75 | Phase 64 | PENDING |
+| REQ-76 | Phase 64 | PENDING |
+| REQ-77 | Phase 64 | PENDING |
+| REQ-78 | Phase 65 | PENDING |
+| REQ-79 | Phase 59 | PENDING |
+| REQ-80 | Phase 65 | PENDING |
+| REQ-81 | Phase 65 | PENDING |
