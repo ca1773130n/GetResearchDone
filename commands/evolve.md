@@ -1,6 +1,6 @@
 ---
 description: Run autonomous self-improvement loop with sonnet-tier models
-argument-hint: "[--iterations N] [--pick-pct N] [--dry-run] [--no-worktree]"
+argument-hint: "[--iterations N] [--pick-pct N] [--dry-run] [--no-worktree] [--infinite]"
 ---
 
 Run the evolve command to discover improvements and execute them autonomously:
@@ -35,3 +35,45 @@ All operations enforce a sonnet model ceiling — no opus-class models are used.
 IMPORTANT: This command is long-running (spawns multiple Claude subprocesses). You MUST run it in the background using `run_in_background: true` on the Bash tool to avoid hitting the Bash tool's default timeout. Use `TaskOutput` with `block: false` to check progress periodically.
 
 Report the JSON results. If any groups failed, explain what happened. Suggest running again for continued improvement.
+
+## Infinite Mode
+
+To run a fully autonomous development loop (discover -> autoplan -> autopilot -> repeat):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run --infinite $ARGUMENTS
+```
+
+The infinite evolve loop:
+1. Discovers improvements across the codebase
+2. Creates a milestone from discoveries using autoplan
+3. Executes all phases in that milestone using autopilot
+4. Repeats until: max cycles reached, time budget exhausted, or no discoveries remain
+
+### Infinite Mode Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--infinite` | Enable infinite evolve mode | false |
+| `--max-cycles N` | Maximum discover-plan-execute cycles | 10 |
+| `--time-budget N` | Total time budget in minutes (0 = unlimited) | 0 |
+| `--max-milestones N` | Max milestones per autopilot run per cycle | 1 |
+| `--pick-pct N` | Discovery pick percentage per cycle | 50 |
+| `--dry-run` | Preview each step without executing | false |
+| `--timeout N` | Per-subprocess timeout in minutes | -- |
+| `--max-turns N` | Max turns per subprocess | -- |
+
+### Infinite Mode Examples
+
+```bash
+# Preview what infinite evolve would do
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run --infinite --dry-run
+
+# Run 3 cycles with 60-minute time budget
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run --infinite --max-cycles 3 --time-budget 60
+
+# Run with custom pick percentage
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run --infinite --pick-pct 30
+```
+
+IMPORTANT: Infinite mode is extremely long-running. You MUST run it in the background using `run_in_background: true`. Monitor progress via the log file at `.planning/autopilot/infinite-evolve.log`.
