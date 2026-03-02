@@ -157,6 +157,11 @@ const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMulti
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
 };
 
+const { cmdAutoplan, cmdInitAutoplan } = require('../lib/autoplan') as {
+  cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitAutoplan: (cwd: string, raw: boolean) => void;
+};
+
 const {
   cmdEvolve,
   cmdEvolveDiscover,
@@ -436,6 +441,7 @@ const INIT_WORKFLOWS: readonly string[] = [
   'iterate',
   'autopilot',
   'multi-milestone-autopilot',
+  'autoplan',
   'evolve',
   'debug',
   'integration-check',
@@ -843,6 +849,9 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         case 'multi-milestone-autopilot':
           cmdInitMultiMilestoneAutopilot(cwd, raw);
           break;
+        case 'autoplan':
+          cmdInitAutoplan(cwd, raw);
+          break;
         case 'evolve':
           cmdInitEvolve(cwd, raw);
           break;
@@ -1066,6 +1075,9 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
     case 'multi-milestone-autopilot':
       await cmdMultiMilestoneAutopilot(cwd, args.slice(1), raw);
       break;
+    case 'autoplan':
+      await cmdAutoplan(cwd, args.slice(1), raw);
+      break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
       break;
@@ -1160,7 +1172,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         'phase-plan-index', 'state-snapshot', 'summary-extract', 'tracker',
         'dashboard', 'phase-detail', 'health', 'detect-backend', 'long-term-roadmap',
         'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
-        'evolve', 'autopilot', 'multi-milestone-autopilot', 'worktree-hook-create', 'worktree-hook-remove',
+        'evolve', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'worktree-hook-create', 'worktree-hook-remove',
         'coverage-report', 'health-check', 'markdown-split', 'parallel-progress',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
