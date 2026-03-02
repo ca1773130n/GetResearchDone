@@ -31,9 +31,9 @@ const EVOLVE_STATE_FILENAME: string = 'EVOLVE-STATE.json';
 const SONNET_MODEL: string = 'sonnet';
 
 const WORK_ITEM_DIMENSIONS: string[] = [
+  'product-ideation',
   'improve-features',
   'new-features',
-  'product-ideation',
   'productivity',
   'quality',
   'usability',
@@ -46,6 +46,16 @@ const DEFAULT_ITEMS_PER_ITERATION: number = 5;
 const DEFAULT_PICK_PCT: number = 50;
 
 const THEME_PATTERNS: ThemePattern[] = [
+  // Product ideation patterns
+  { pattern: /^new-cmd-/, theme: 'new-commands' },
+  { pattern: /^new-workflow-/, theme: 'new-workflows' },
+  { pattern: /^new-integration-/, theme: 'new-integrations' },
+  { pattern: /^ux-improve-/, theme: 'ux-improvements' },
+  { pattern: /^dx-enhance-/, theme: 'dx-enhancements' },
+  { pattern: /^new-analysis-/, theme: 'new-analysis' },
+  { pattern: /^new-automation-/, theme: 'new-automation' },
+  { pattern: /^product-/, theme: 'product-features' },
+  // Existing code-quality patterns (unchanged)
   { pattern: /^split-/, theme: 'long-function-refactors' },
   { pattern: /^improve-coverage-/, theme: 'test-coverage' },
   { pattern: /^add-jsdoc-/, theme: 'jsdoc-gaps' },
@@ -68,14 +78,13 @@ const THEME_PATTERNS: ThemePattern[] = [
   { pattern: /^improve-output-/, theme: 'output-improvements' },
   { pattern: /^add-fallback-/, theme: 'error-recovery' },
   { pattern: /^consolidate-/, theme: 'api-consolidation' },
-  { pattern: /^product-/, theme: 'product-ideation' },
 ];
 
 /** Dimension weights for priority scoring */
 const DIMENSION_WEIGHTS: Record<string, number> = {
+  'product-ideation': 11,
   'improve-features': 10,
   'new-features': 9,
-  'product-ideation': 10,
   stability: 9,
   consistency: 7,
   productivity: 6,
