@@ -220,3 +220,15 @@ export interface HandleIterationReturn {
   newState: EvolveGroupState;
   iterResult: IterationResult;
 }
+
+// ── Product Ideation Types ───────────────────────────────────────────────────
+
+/** Structured context gathered from project planning files for product ideation. */
+export interface ProductIdeationContext {
+  projectVision: string | null;
+  longTermGoals: string | null;
+  existingCommands: string[];
+  existingAgents: string[];
+  recentPhases: string | null;
+  productQuality: string | null;
+}
