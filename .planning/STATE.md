@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-- **Active phase:** Phase 63 (Entry Points & MCP Server Migration)
+- **Active phase:** Phase 64 (Test Suite Migration)
 - **Current plan:** 04
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Phase complete
-- **Progress:** [=========-] 75% (6/8 phases)
-- **Next:** Execute Phase 64 (Test Suite Migration)
+- **Status:** In progress
+- **Progress:** [=========+] 87% (7/8 phases)
+- **Next:** Execute Phase 65 (Integration Validation & Documentation)
 
 ## Phase Summary
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Complete (5/5 plans) |
 | 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Complete (5/5 plans) |
 | 63 | Entry Points & MCP Server Migration | REQ-70 | Complete (4/4 plans) |
-| 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Not started |
+| 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Complete (4/4 plans) |
 | 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | Not started |
 
 ## Deferred Validations
@@ -159,6 +159,22 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - [Phase 63]: McpServerConstructor/McpServerInstance interfaces locally in grd-mcp-server.ts for typed import (consistent with require-as pattern)
 - [Phase 63-04]: Local JsonRpcMessage/JsonRpcResponse interfaces redefined in grd-mcp-server.ts (mcp-server.ts uses module.exports not ES exports, so typeof import fails)
 
+- **[64-01]** process.exit mock typed as (code?: string | number | null) to match full Node.js process.exit signature
+- **[64-01]** CJS proxies kept for setup.js and fixtures.js to bridge unmigrated .test.js files during incremental migration
+- **[64-01]** jest.config.js unchanged from Phase 58-03 -- already configured for .ts test files
+- **[64-02]** jest.SpyInstance cast for process.stderr.write mocks to avoid TS2345 overload mismatch
+- **[64-02]** Record<string, unknown> for JSON.parse callback parameters (find/map/filter) instead of any
+- **[64-02]** Explicit any for deeply-nested JSON objects (pkg, schedule) where Record<string, unknown> would require excessive casting
+- **[64-02]** postinstall.test.ts header kept as bin/postinstall.js (bin files are CJS proxies, not migrated sources)
+- **[64-03]** Used `any` type for test lambda parameters (.filter/.map/.find callbacks) to minimize noise while maintaining type safety on critical paths
+- **[64-03]** Used `(err as any).code` pattern for Error properties not in base type (code, stdout, __EXIT__)
+- **[64-03]** Used empty string `''` instead of null for fixtureDir cleanup to avoid union type complexity
+- **[64-03]** Removed sample.ts scaffolding from 64-01 (no longer needed after real migrations proved successful)
+- **[64-04]** Used `any` type for callback parameters on JSON-parsed arrays (.find/.map/.filter) to minimize noise while maintaining type safety on critical paths
+- **[64-04]** Used `as string[]` for fs.readdirSync results where TypeScript could not infer the string type from the require'd fs module
+- **[64-04]** Used empty string `''` instead of null for nullable fixture directory cleanup to avoid union type complexity (consistent with 64-03 pattern)
+- **[64-04]** Deleted CJS proxy helpers (setup.js, fixtures.js) since all test files are now .ts and ts-jest handles .ts resolution directly
+
 ## Known Bugs
 
 None.
@@ -169,12 +185,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 63-04-PLAN.md (MCP Server Migration & Full Integration Verification)
-- **Stopped at:** Completed 63-04-PLAN.md -- Phase 63 complete
-- **Next action:** Execute Phase 64 (Test Suite Migration)
-- **Context needed:** All bin/ and lib/ .ts files in place; 5 CJS proxies; 123 MCP tools; next focus is test suite migration
+- **Last action:** Executed 64-04-PLAN.md (Integration & E2E Test Migration)
+- **Stopped at:** Completed 64-04-PLAN.md -- Phase 64 complete (4/4 plans)
+- **Next action:** Execute Phase 65 (Integration Validation & Documentation)
+- **Context needed:** All 37 test files (31 unit + 6 integration/E2E) migrated .js-to-.ts; CJS proxy helpers deleted; 2,646 tests passing; tsc clean; lint clean; zero .test.js files remain in tests/
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T23:56Z*
+*Last updated: 2026-03-02T02:40Z*
