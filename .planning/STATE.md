@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-03-02
+**Updated:** 2026-03-03
 
 ## Project Reference
 
@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-- **Active phase:** Phase 66 (Extend Autopilot for Multi-Milestone Automation)
-- **Current plan:** 03 of 03
+- **Active phase:** Phase 67 (Autoplan Command and Evolve Infinite Autopilot Mode)
+- **Current plan:** 4 of 4
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
 - **Status:** Milestone complete
-- **Progress:** [██████████] 97%
-- **Next:** Phase 66 complete -- all 3 plans executed
+- **Progress:** [██████████] 100%
+- **Next:** Complete phase 67 verification
 
 ## Phase Summary
 
@@ -32,6 +32,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 | 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Complete (4/4 plans) |
 | 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | In progress (2/4 plans) |
 | 66 | Extend Autopilot for Multi-Milestone Automation | -- | Complete (3/3 plans) |
+| 67 | Autoplan Command and Evolve Infinite Autopilot Mode | -- | In progress (4/4 plans) |
 
 ## Deferred Validations
 
@@ -58,7 +59,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Cumulative:**
 - Milestones shipped: 17 (v0.0.5 through v0.2.8)
-- Total tests: 2,727
+- Total tests: 2,730
 - Total lib/ modules: 23 (including autopilot.js, evolve.js, markdown-split.js, requirements.js)
 - Total commands: 40
 - Total lib/ LOC: ~17,334
@@ -185,6 +186,20 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - [Phase 66]: MCP tool names use grd_multi_milestone_autopilot_run/init (underscore convention matching existing tools)
 - [Phase 66]: Coverage thresholds maintained without adjustment (lines 93.27%, functions 97.82%, branches 82.35% all exceed configured thresholds)
 
+- **[67-01]** AutoplanOptions.groups uses simplified inline type (not WorkGroup directly) to decouple CLI callers from evolve/types
+- **[67-01]** runAutoplan uses synchronous spawnClaude (not async) because milestone artifacts must exist before returning
+- **[67-01]** CJS proxy lib/autoplan.js added for extensionless require() resolution (consistent with DEFER-59-01 pattern)
+- **[67-01]** Milestone name derivation uses highest-priority group theme with 'Improvements' fallback
+- **[67-02]** Autoplan MCP tools (grd_autoplan_run/init) placed between multi-milestone-autopilot and evolve sections following command hierarchy
+- **[67-02]** MCP param naming uses underscores (dry_run, pick_pct, max_turns) matching existing tool conventions
+
+- **[67-03]** runInfiniteEvolve uses runMultiMilestoneAutopilot (not runAutopilot) to handle newly-created milestones regardless of current milestone state
+- **[67-03]** Failed autoplan/autopilot steps continue to next cycle rather than aborting the entire loop
+- **[67-03]** Dry run exits after one cycle to preview what would happen without executing
+- **[67-03]** timeoutMs variable removed from runInfiniteEvolve -- autoplan/autopilot accept timeout in minutes and convert internally
+- **[67-04]** Isolated mock strategy for autoplan.test.ts (no requireActual spread) -- avoids subprocess side effects from utils/autopilot
+- **[67-04]** runInfiniteEvolve tests use real runGroupDiscovery via mocked spawnClaudeAsync to validate integration path
+
 ## Known Bugs
 
 None.
@@ -195,17 +210,18 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 66-03-PLAN.md (comprehensive test coverage for multi-milestone autopilot)
-- **Stopped at:** Completed 66-03-PLAN.md -- 48 new tests, 133 autopilot tests total, 2727 full suite
-- **Next action:** Phase 66 fully complete (all 3 plans executed)
-- **Context needed:** All multi-milestone autopilot functions tested: isMilestoneComplete, resolveNextMilestone, buildNewMilestonePrompt, buildMilestoneCompletePrompt, runMultiMilestoneAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot
+- **Last action:** Executed 67-04-PLAN.md (comprehensive test coverage)
+- **Stopped at:** Completed 67-04-PLAN.md -- 37 autoplan tests, 14 runInfiniteEvolve tests, 2,730 total tests passing
+- **Next action:** Complete phase 67 verification
+- **Context needed:** All 4 plans complete; autoplan.ts at 100% coverage; evolve/orchestrator.ts runInfiniteEvolve fully tested
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 - Phase 66 added: Extend autopilot for multi-milestone automation
+- Phase 67 added: Autoplan command and evolve infinite autopilot mode
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-03T15:37Z*
+*Last updated: 2026-03-02T17:24Z*
