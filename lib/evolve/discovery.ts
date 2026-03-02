@@ -98,11 +98,16 @@ function buildCodebaseDigest(cwd: string): string {
   for (const dir of dirs) {
     const dirPath: string = path.join(cwd, dir);
     try {
-      const files: string[] = fs
+      const entries: Array<{ isFile: () => boolean; name: string }> = fs
         .readdirSync(dirPath, { withFileTypes: true })
-        .filter(
-          (e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js')
-        )
+        .filter((e: { isFile: () => boolean }) => e.isFile());
+      const names: Set<string> = new Set(entries.map((e: { name: string }) => e.name));
+      const files: string[] = entries
+        .filter((e: { name: string }) => {
+          const n: string = e.name;
+          if (n.endsWith('.js') && names.has(n.replace(/\.js$/, '.ts'))) return false;
+          return n.endsWith('.js') || n.endsWith('.ts');
+        })
         .map((e: { name: string }) => {
           const content: string | null = safeReadFile(path.join(dirPath, e.name));
           const lineCount: number = content ? content.split('\n').length : 0;

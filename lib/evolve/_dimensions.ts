@@ -30,6 +30,44 @@ const { createWorkItem, readLibFileCached } = require('./state') as {
   readLibFileCached: (filePath: string) => string | null;
 };
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Strip .js or .ts extension from a filename for slug generation.
+ */
+function stripExt(filename: string): string {
+  return filename.replace(/\.[jt]s$/, '');
+}
+
+/**
+ * List source files in a directory, preferring .ts over .js CJS proxies.
+ * Returns filenames (not full paths) that represent real source files.
+ */
+function listSourceFiles(dirPath: string, ext?: string): string[] {
+  const entries: Array<{ isFile: () => boolean; name: string }> = fs
+    .readdirSync(dirPath, { withFileTypes: true })
+    .filter((e: { isFile: () => boolean }) => e.isFile());
+
+  const names: Set<string> = new Set(entries.map((e: { name: string }) => e.name));
+  const result: string[] = [];
+
+  for (const e of entries) {
+    const name: string = e.name;
+    if (ext) {
+      if (!name.endsWith(ext)) continue;
+      result.push(name);
+      continue;
+    }
+    // Prefer .ts when both .ts and .js exist (skip the .js proxy)
+    if (name.endsWith('.js') && names.has(name.replace(/\.js$/, '.ts'))) continue;
+    if (name.endsWith('.js') || name.endsWith('.ts')) {
+      result.push(name);
+    }
+  }
+
+  return result;
+}
+
 // ─── Dimension Discoverers ──────────────────────────────────────────────────
 
 /**
@@ -41,10 +79,7 @@ function discoverProductivityItems(cwd: string): WorkItem[] {
   const libDir: string = path.join(cwd, 'lib');
 
   try {
-    const libFiles: string[] = fs
-      .readdirSync(libDir, { withFileTypes: true })
-      .filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js'))
-      .map((e: { name: string }) => e.name);
+    const libFiles: string[] = listSourceFiles(libDir);
 
     for (const file of libFiles) {
       const content: string | null = readLibFileCached(path.join(libDir, file));
@@ -77,7 +112,7 @@ function discoverProductivityItems(cwd: string): WorkItem[] {
           items.push(
             createWorkItem(
               'productivity',
-              `split-${path.basename(file, '.js')}-${funcName}`,
+              `split-${stripExt(file)}-${funcName}`,
               `Split long function ${funcName} in ${file}`,
               `Function ${funcName} in lib/${file} is ${funcLength} lines long (threshold: 80). Consider splitting into smaller helper functions for readability and maintainability.`,
               { effort: 'medium' }
@@ -103,16 +138,19 @@ function discoverQualityItems(cwd: string): WorkItem[] {
   const testDir: string = path.join(cwd, 'tests', 'unit');
 
   try {
-    const libFiles: string[] = fs
-      .readdirSync(libDir, { withFileTypes: true })
-      .filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js'))
-      .map((e: { name: string }) => e.name);
+    const libFiles: string[] = listSourceFiles(libDir);
 
     for (const file of libFiles) {
-      const testFileName: string = file.replace('.js', '.test.js');
+      const base: string = stripExt(file);
+      const testFileName: string = `${base}.test.ts`;
+      const testFileNameJs: string = `${base}.test.js`;
       const testPath: string = path.join(testDir, testFileName);
-      try { fs.statSync(testPath); } catch {
-        items.push(createWorkItem('quality', `add-tests-${path.basename(file, '.js')}`, `Add test file for ${file}`, `lib/${file} has no corresponding test file at tests/unit/${testFileName}. Add unit tests to ensure code correctness.`, { effort: 'medium' }));
+      const testPathJs: string = path.join(testDir, testFileNameJs);
+      let hasTest: boolean = false;
+      try { fs.statSync(testPath); hasTest = true; } catch { /* */ }
+      if (!hasTest) { try { fs.statSync(testPathJs); hasTest = true; } catch { /* */ } }
+      if (!hasTest) {
+        items.push(createWorkItem('quality', `add-tests-${base}`, `Add test file for ${file}`, `lib/${file} has no corresponding test file at tests/unit/${testFileName}. Add unit tests to ensure code correctness.`, { effort: 'medium' }));
       }
 
       const content: string | null = readLibFileCached(path.join(libDir, file));
@@ -124,7 +162,7 @@ function discoverQualityItems(cwd: string): WorkItem[] {
         const tag: string = todoMatch[1];
         const desc: string = todoMatch[2].trim().substring(0, 80);
         const lineNum: number = content.substring(0, todoMatch.index).split('\n').length;
-        const slug: string = `resolve-${tag.toLowerCase()}-${path.basename(file, '.js')}-L${lineNum}`;
+        const slug: string = `resolve-${tag.toLowerCase()}-${base}-L${lineNum}`;
         items.push(createWorkItem('quality', slug, `Resolve ${tag} in ${file} line ${lineNum}`, `${tag} comment found in lib/${file} at line ${lineNum}: "${desc}". Review and resolve this marker.`, { effort: 'small' }));
       }
     }
@@ -174,7 +212,7 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
 
   const libDir: string = path.join(cwd, 'lib');
   try {
-    const libFiles: string[] = fs.readdirSync(libDir, { withFileTypes: true }).filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js')).map((e: { name: string }) => e.name);
+    const libFiles: string[] = listSourceFiles(libDir);
     for (const file of libFiles) {
       const content: string | null = readLibFileCached(path.join(libDir, file));
       if (!content) continue;
@@ -189,7 +227,7 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
         const startCheck: number = Math.max(0, beforeLines.length - 6);
         const contextLines: string = beforeLines.slice(startCheck).join('\n');
         if (!contextLines.includes('/**')) {
-          items.push(createWorkItem('usability', `add-jsdoc-${path.basename(file, '.js')}-${name}`, `Add JSDoc to ${name} in ${file}`, `Exported function ${name} in lib/${file} lacks JSDoc documentation. Add parameter and return type annotations.`, { effort: 'small' }));
+          items.push(createWorkItem('usability', `add-jsdoc-${stripExt(file)}-${name}`, `Add JSDoc to ${name} in ${file}`, `Exported function ${name} in lib/${file} lacks JSDoc documentation. Add parameter and return type annotations.`, { effort: 'small' }));
         }
       }
     }
@@ -208,16 +246,16 @@ function discoverConsistencyItems(cwd: string): WorkItem[] {
   const libDir: string = path.join(cwd, 'lib');
 
   try {
-    const libFiles: string[] = fs.readdirSync(libDir, { withFileTypes: true }).filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js')).map((e: { name: string }) => e.name);
+    const libFiles: string[] = listSourceFiles(libDir);
     for (const file of libFiles) {
       const content: string | null = readLibFileCached(path.join(libDir, file));
       if (!content) continue;
       if (content.includes('process.exit(')) {
-        items.push(createWorkItem('consistency', `remove-process-exit-${path.basename(file, '.js')}`, `Replace process.exit calls in ${file}`, `lib/${file} uses process.exit() directly. Use the error() utility function instead for consistent error handling.`, { effort: 'small' }));
+        items.push(createWorkItem('consistency', `remove-process-exit-${stripExt(file)}`, `Replace process.exit calls in ${file}`, `lib/${file} uses process.exit() directly. Use the error() utility function instead for consistent error handling.`, { effort: 'small' }));
       }
       const firstLines: string = content.split('\n').slice(0, 5).join('\n');
       if (!firstLines.includes('/**')) {
-        items.push(createWorkItem('consistency', `add-module-header-${path.basename(file, '.js')}`, `Add module JSDoc header to ${file}`, `lib/${file} is missing the standard JSDoc module header comment at the top of the file.`, { effort: 'small' }));
+        items.push(createWorkItem('consistency', `add-module-header-${stripExt(file)}`, `Add module JSDoc header to ${file}`, `lib/${file} is missing the standard JSDoc module header comment at the top of the file.`, { effort: 'small' }));
       }
     }
   } catch (err) {
@@ -235,22 +273,23 @@ function discoverStabilityItems(cwd: string): WorkItem[] {
   const libDir: string = path.join(cwd, 'lib');
 
   try {
-    const libFiles: string[] = fs.readdirSync(libDir, { withFileTypes: true }).filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.js')).map((e: { name: string }) => e.name);
+    const libFiles: string[] = listSourceFiles(libDir);
     for (const file of libFiles) {
+      const base: string = stripExt(file);
       const content: string | null = readLibFileCached(path.join(libDir, file));
       if (!content) continue;
       const emptyCatchPattern = /catch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
       let catchMatch: RegExpExecArray | null;
       while ((catchMatch = emptyCatchPattern.exec(content)) !== null) {
         const lineNum: number = content.substring(0, catchMatch.index).split('\n').length;
-        items.push(createWorkItem('stability', `fix-empty-catch-${path.basename(file, '.js')}-L${lineNum}`, `Handle error in empty catch block in ${file} line ${lineNum}`, `lib/${file} has an empty catch block at line ${lineNum} that silently swallows errors. Add error logging or explicit comment explaining why the error is intentionally ignored.`, { effort: 'small' }));
+        items.push(createWorkItem('stability', `fix-empty-catch-${base}-L${lineNum}`, `Handle error in empty catch block in ${file} line ${lineNum}`, `lib/${file} has an empty catch block at line ${lineNum} that silently swallows errors. Add error logging or explicit comment explaining why the error is intentionally ignored.`, { effort: 'small' }));
       }
-      if (file !== 'paths.js' && file !== 'evolve.js') {
+      if (base !== 'paths' && base !== 'evolve') {
         const hardcodedPathPattern = /['"]\.planning\//g;
         let pathMatch: RegExpExecArray | null;
         while ((pathMatch = hardcodedPathPattern.exec(content)) !== null) {
           const lineNum: number = content.substring(0, pathMatch.index).split('\n').length;
-          items.push(createWorkItem('stability', `use-paths-module-${path.basename(file, '.js')}-L${lineNum}`, `Use paths module instead of hardcoded path in ${file}`, `lib/${file} has a hardcoded ".planning/" path at line ${lineNum}. Use lib/paths.js functions for path resolution to ensure consistency across environments.`, { effort: 'small' }));
+          items.push(createWorkItem('stability', `use-paths-module-${base}-L${lineNum}`, `Use paths module instead of hardcoded path in ${file}`, `lib/${file} has a hardcoded ".planning/" path at line ${lineNum}. Use lib/paths module functions for path resolution to ensure consistency across environments.`, { effort: 'small' }));
         }
       }
     }
@@ -307,6 +346,8 @@ function analyzeCodebaseForItems(cwd: string): WorkItem[] {
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
+  listSourceFiles,
+  stripExt,
   discoverProductivityItems,
   discoverQualityItems,
   discoverUsabilityItems,
