@@ -26,7 +26,12 @@ const FIXTURE_SOURCE = path.resolve(__dirname, '../fixtures/planning');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function runCLI(args, cwd) {
+interface CLIResult {
+  stdout: string;
+  exitCode: number;
+}
+
+function runCLI(args: string[], cwd: string): CLIResult {
   try {
     const stdout = execFileSync('node', [GRD_TOOLS, ...args], {
       cwd,
@@ -35,12 +40,13 @@ function runCLI(args, cwd) {
       env: { ...process.env, NODE_NO_WARNINGS: '1' },
     });
     return { stdout, exitCode: 0 };
-  } catch (err) {
-    return { stdout: err.stdout || '', exitCode: err.status || 1 };
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; status?: number };
+    return { stdout: e.stdout || '', exitCode: e.status || 1 };
   }
 }
 
-function createTestDir() {
+function createTestDir(): string {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-golden-'));
   const dest = path.join(tmpRoot, '.planning');
   fs.cpSync(FIXTURE_SOURCE, dest, { recursive: true });
@@ -49,7 +55,7 @@ function createTestDir() {
   return tmpRoot;
 }
 
-function cleanupDir(dir) {
+function cleanupDir(dir: string): void {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -58,7 +64,7 @@ function cleanupDir(dir) {
 /**
  * Normalize a value for comparison by replacing dynamic content.
  */
-function normalizeValue(val) {
+function normalizeValue(val: any): any {
   if (val === null || val === undefined) return val;
   if (typeof val !== 'string') return val;
   // ISO timestamp
@@ -114,7 +120,7 @@ const GOLDEN_COMMANDS = {
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
-let fixtureDir;
+let fixtureDir: string;
 
 beforeAll(() => {
   fixtureDir = createTestDir();
@@ -126,10 +132,9 @@ afterAll(() => {
 
 describe('golden snapshot comparisons', () => {
   // Get list of surviving golden files
-  const goldenFiles = fs
-    .readdirSync(GOLDEN_DIR)
-    .filter((f) => f.endsWith('.json') || f.endsWith('.txt'))
-    .filter((f) => f !== '.gitkeep');
+  const goldenFiles = (fs.readdirSync(GOLDEN_DIR) as string[])
+    .filter((f: string) => f.endsWith('.json') || f.endsWith('.txt'))
+    .filter((f: string) => f !== '.gitkeep');
 
   test('at least 12 golden files exist for comparison', () => {
     expect(goldenFiles.length).toBeGreaterThanOrEqual(12);
@@ -197,7 +202,7 @@ describe('golden snapshot comparisons', () => {
 
 describe('golden output structural integrity', () => {
   test('all golden JSON files contain valid JSON', () => {
-    const jsonFiles = fs.readdirSync(GOLDEN_DIR).filter((f) => f.endsWith('.json'));
+    const jsonFiles = (fs.readdirSync(GOLDEN_DIR) as string[]).filter((f: string) => f.endsWith('.json'));
     for (const file of jsonFiles) {
       const content = fs.readFileSync(path.join(GOLDEN_DIR, file), 'utf-8');
       expect(() => JSON.parse(content)).not.toThrow();

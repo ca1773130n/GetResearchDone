@@ -17,10 +17,10 @@ jest.setTimeout(30000);
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../');
 
-let tarballPath;
-let tarballName;
-let tempDir;
-let consumerDir;
+let tarballPath: string;
+let tarballName: string;
+let tempDir: string;
+let consumerDir: string;
 
 // ─── Setup / Teardown ──────────────────────────────────────────────────────
 
@@ -67,8 +67,8 @@ afterAll(() => {
 // ─── 1. npm pack validation ───────────────────────────────────────────────
 
 describe('npm pack validation', () => {
-  let dryRunInfo;
-  let dryRunFilePaths;
+  let dryRunInfo: any;
+  let dryRunFilePaths: string[];
 
   beforeAll(() => {
     const dryRunOutput = execFileSync('npm', ['pack', '--dry-run', '--json'], {
@@ -76,7 +76,7 @@ describe('npm pack validation', () => {
       encoding: 'utf-8',
     });
     dryRunInfo = JSON.parse(dryRunOutput);
-    dryRunFilePaths = dryRunInfo[0].files.map((f) => f.path);
+    dryRunFilePaths = dryRunInfo[0].files.map((f: any) => f.path);
   });
 
   test('npm pack produces a .tgz tarball', () => {
@@ -136,15 +136,15 @@ describe('npm install from tarball', () => {
   test('grd-tools bin symlink exists', () => {
     const binDir = path.join(consumerDir, 'node_modules', '.bin');
     // On all platforms, the .bin directory should contain grd-tools entry
-    const entries = fs.readdirSync(binDir);
-    const hasGrdTools = entries.some((e) => e.startsWith('grd-tools'));
+    const entries = fs.readdirSync(binDir) as string[];
+    const hasGrdTools = entries.some((e: string) => e.startsWith('grd-tools'));
     expect(hasGrdTools).toBe(true);
   });
 
   test('grd-mcp-server bin symlink exists', () => {
     const binDir = path.join(consumerDir, 'node_modules', '.bin');
-    const entries = fs.readdirSync(binDir);
-    const hasMcpServer = entries.some((e) => e.startsWith('grd-mcp-server'));
+    const entries = fs.readdirSync(binDir) as string[];
+    const hasMcpServer = entries.some((e: string) => e.startsWith('grd-mcp-server'));
     expect(hasMcpServer).toBe(true);
   });
 
@@ -170,10 +170,11 @@ describe('bin entry execution', () => {
       });
       // If it exits 0, verify it produced some output
       expect(stdout.length).toBeGreaterThan(0);
-    } catch (err) {
+    } catch (err: unknown) {
       // Exit code 1 with usage info in stderr is acceptable
-      expect(err.status).toBe(1);
-      expect(err.stderr).toMatch(/Usage/i);
+      const e = err as { status?: number; stderr?: string };
+      expect(e.status).toBe(1);
+      expect(e.stderr).toMatch(/Usage/i);
     }
   });
 

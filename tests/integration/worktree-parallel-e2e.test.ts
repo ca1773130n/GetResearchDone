@@ -60,7 +60,7 @@ const E2E_MILESTONE = 'v9.9.9';
  * Includes config.json, ROADMAP.md, and phase directories.
  * Uses E2E_MILESTONE to avoid worktree path collisions with unit tests.
  */
-function createTestGitRepo() {
+function createTestGitRepo(): string {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-'));
 
   execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -127,7 +127,7 @@ function createTestGitRepo() {
 /**
  * Create a git repo with a bare remote (allows git push to succeed).
  */
-function createTestGitRepoWithRemote() {
+function createTestGitRepoWithRemote(): { repoDir: string; bareDir: string } {
   const repoDir = createTestGitRepo();
   const bareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-bare-'));
   fs.rmSync(bareDir, { recursive: true, force: true });
@@ -146,7 +146,7 @@ function createTestGitRepoWithRemote() {
 /**
  * Clean up a test git repo and any GRD worktrees it may have created.
  */
-function cleanupTestRepo(repoDir) {
+function cleanupTestRepo(repoDir: string): void {
   const resolvedRepo = fs.realpathSync(repoDir);
   if (!resolvedRepo || !resolvedRepo.startsWith(REAL_TMPDIR)) {
     throw new Error('Refusing to remove directory outside tmpdir: ' + repoDir);
@@ -189,7 +189,7 @@ function cleanupTestRepo(repoDir) {
   fs.rmSync(repoDir, { recursive: true, force: true });
 }
 
-function cleanupTestRepoWithRemote(repoDir, bareDir) {
+function cleanupTestRepoWithRemote(repoDir: string, bareDir: string): void {
   cleanupTestRepo(repoDir);
   try {
     fs.rmSync(bareDir, { recursive: true, force: true });
@@ -202,7 +202,7 @@ function cleanupTestRepoWithRemote(repoDir, bareDir) {
 
 // 1. E2E: Single-phase worktree execution pipeline
 describe('E2E: Single-phase worktree execution pipeline', () => {
-  let repoDir, bareDir;
+  let repoDir: string, bareDir: string;
 
   beforeEach(() => {
     const repos = createTestGitRepoWithRemote();
@@ -240,7 +240,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     const { stdout: listOut } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const listed = JSON.parse(listOut);
     expect(listed.count).toBeGreaterThanOrEqual(1);
-    const found = listed.worktrees.find((w) => w.phase === '27');
+    const found = listed.worktrees.find((w: any) => w.phase === '27');
     expect(found).toBeDefined();
     expect(found.branch).toBe(`grd/${E2E_MILESTONE}/27-worktree-infrastructure`);
 
@@ -277,7 +277,7 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
     // VERIFY GONE FROM GIT WORKTREE LIST
     const { stdout: finalListOut } = captureOutput(() => cmdWorktreeList(repoDir, false));
     const finalList = JSON.parse(finalListOut);
-    const stillExists = finalList.worktrees.find((w) => w.phase === '27');
+    const stillExists = finalList.worktrees.find((w: any) => w.phase === '27');
     expect(stillExists).toBeUndefined();
   });
 
@@ -341,16 +341,16 @@ describe('E2E: Single-phase worktree execution pipeline', () => {
 
 // 2. E2E: Parallel execution of independent phases
 describe('E2E: Parallel execution of independent phases', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeParallelRoadmapAndPhases(dir) {
+  function writeParallelRoadmapAndPhases(dir: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
       roadmapPath,
@@ -378,7 +378,7 @@ describe('E2E: Parallel execution of independent phases', () => {
     fs.writeFileSync(path.join(phase2Dir, '02-01-PLAN.md'), '---\nphase: 02\nplan: 01\n---\n');
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, any> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -551,16 +551,16 @@ describe('E2E: Parallel execution of independent phases', () => {
 
 // 3. E2E: Sequential fallback equivalence
 describe('E2E: Sequential fallback equivalence', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeRoadmapAndPhases(dir) {
+  function writeRoadmapAndPhases(dir: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
       roadmapPath,
@@ -588,7 +588,7 @@ describe('E2E: Sequential fallback equivalence', () => {
     fs.writeFileSync(path.join(phase2Dir, '02-01-PLAN.md'), '---\nphase: 02\nplan: 01\n---\n');
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, any> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -705,7 +705,7 @@ describe('E2E: Sequential fallback equivalence', () => {
 
 // 4. E2E: Stale worktree cleanup
 describe('E2E: Stale worktree cleanup', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -785,16 +785,16 @@ describe('E2E: Stale worktree cleanup', () => {
 
 // 5. E2E: Dependency graph integration with parallel context
 describe('E2E: Dependency graph integration with parallel context', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeV020Roadmap(dir) {
+  function writeV020Roadmap(dir: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
       roadmapPath,
@@ -850,7 +850,7 @@ describe('E2E: Dependency graph integration with parallel context', () => {
     }
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, any> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -905,8 +905,8 @@ describe('E2E: Dependency graph integration with parallel context', () => {
     const ctx = buildParallelContext(fixtureDir, ['27', '29']);
     expect(ctx.phases).toHaveLength(2);
 
-    const phase27 = ctx.phases.find((p) => p.phase_number === '27');
-    const phase29 = ctx.phases.find((p) => p.phase_number === '29');
+    const phase27 = ctx.phases.find((p: any) => p.phase_number === '27');
+    const phase29 = ctx.phases.find((p: any) => p.phase_number === '29');
     expect(phase27).toBeDefined();
     expect(phase29).toBeDefined();
     expect(phase27.worktree_path).toContain('grd-worktree-');
@@ -917,16 +917,16 @@ describe('E2E: Dependency graph integration with parallel context', () => {
 
 // 6. E2E: Status tracker per-phase tracking
 describe('E2E: Status tracker per-phase tracking', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeNPhaseRoadmap(dir, n) {
+  function writeNPhaseRoadmap(dir: string, n: number): void {
     const lines = ['# Roadmap', '', '## v1.0: Foundation', ''];
     for (let i = 1; i <= n; i++) {
       const padded = String(i).padStart(2, '0');
@@ -952,7 +952,7 @@ describe('E2E: Status tracker per-phase tracking', () => {
     fs.writeFileSync(path.join(dir, '.planning', 'ROADMAP.md'), lines.join('\n'), 'utf-8');
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, any> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -981,7 +981,7 @@ describe('E2E: Status tracker per-phase tracking', () => {
 
     const ctx = buildParallelContext(fixtureDir, ['1', '2', '3', '4']);
     const trackerKeys = Object.keys(ctx.status_tracker.phases).sort();
-    const phaseNumbers = ctx.phases.map((p) => p.phase_number).sort();
+    const phaseNumbers = ctx.phases.map((p: any) => p.phase_number).sort();
 
     expect(trackerKeys).toEqual(phaseNumbers);
   });
@@ -1029,7 +1029,7 @@ describe('E2E: Status tracker per-phase tracking', () => {
  */
 
 // Helper: create a git repo with configurable backend for Phase 47 tests
-function createPhase47GitRepo(backendOverrides = {}) {
+function createPhase47GitRepo(backendOverrides: Record<string, any> = {}): string {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-p47-'));
 
   execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -1091,7 +1091,7 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
   // ---- Test group 1: native isolation end-to-end (claude backend) ----
 
   describe('native isolation end-to-end (claude backend)', () => {
-    let repoDir;
+    let repoDir: string;
 
     beforeEach(() => {
       repoDir = createPhase47GitRepo({ backend: 'claude' });
@@ -1145,7 +1145,7 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
   // ---- Test group 2: manual isolation end-to-end (codex backend) ----
 
   describe('manual isolation end-to-end (codex backend)', () => {
-    let repoDir;
+    let repoDir: string;
 
     beforeEach(() => {
       repoDir = createPhase47GitRepo({ backend: 'codex' });
@@ -1199,12 +1199,12 @@ describe('Phase 47: Native vs Manual Isolation Integration', () => {
   // ---- Test group 3: isolation mode consistency across modules ----
 
   describe('isolation mode consistency across modules', () => {
-    let repoDir;
+    let repoDir: string;
 
     afterEach(() => {
       if (repoDir) {
         cleanupTestRepo(repoDir);
-        repoDir = null;
+        repoDir = '';
       }
     });
 
