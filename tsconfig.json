@@ -17,6 +17,6 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["lib/**/*.ts", "bin/**/*.ts"],
-  "exclude": ["node_modules", "dist", "coverage", "tests", "testbed"]
+  "include": ["lib/**/*.ts", "bin/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist", "coverage", "testbed"]
 }
