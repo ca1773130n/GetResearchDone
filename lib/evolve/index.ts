@@ -3,7 +3,7 @@
 /**
  * GRD Evolve -- Barrel re-export
  *
- * Re-exports all 39 public symbols from the evolve sub-modules.
+ * Re-exports all 44 public symbols from the evolve sub-modules.
  * This file is the single entry point for consumers of lib/evolve/.
  *
  * @see lib/evolve/types.ts     -- Domain types (re-exported via module.exports)
@@ -12,6 +12,7 @@
  * @see lib/evolve/scoring.ts   -- Scoring heuristic + group engine
  * @see lib/evolve/orchestrator.ts -- Evolve loop + todos
  * @see lib/evolve/_prompts.ts  -- Prompt templates
+ * @see lib/evolve/_product-ideation.ts -- Product ideation discovery
  * @see lib/evolve/cli.ts       -- CLI command functions
  */
 
@@ -23,6 +24,7 @@ const scoringModule = require('./scoring');
 const orchestratorModule = require('./orchestrator');
 const promptsModule = require('./_prompts');
 const cliModule = require('./cli');
+const productIdeationModule = require('./_product-ideation');
 
 module.exports = {
   // ─── Constants (from state.ts) ──────────────────────────────────────────
@@ -73,6 +75,12 @@ module.exports = {
   // ─── Discovery orchestrator (from discovery.ts) ─────────────────────────
   runDiscovery: discoveryModule.runDiscovery,
   runGroupDiscovery: discoveryModule.runGroupDiscovery,
+
+  // ─── Product ideation discovery (from _product-ideation.ts) ─────────────
+  gatherProductContext: productIdeationModule.gatherProductContext,
+  buildProductIdeationPrompt: productIdeationModule.buildProductIdeationPrompt,
+  parseProductIdeationOutput: productIdeationModule.parseProductIdeationOutput,
+  discoverProductIdeationItems: productIdeationModule.discoverProductIdeationItems,
 
   // ─── Prompt builders (from _prompts.ts) ─────────────────────────────────
   buildPlanPrompt: promptsModule.buildPlanPrompt,
