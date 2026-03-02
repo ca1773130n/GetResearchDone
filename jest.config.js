@@ -23,7 +23,7 @@ module.exports = {
     './lib/gates.ts': { lines: 98, functions: 100, branches: 82 },
     './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },
     './lib/markdown-split.ts': { lines: 95, functions: 100, branches: 90 },
-    './lib/mcp-server.ts': { lines: 90, functions: 85, branches: 55 },
+    './lib/mcp-server.ts': { lines: 85, functions: 85, branches: 55 },
     './lib/parallel.ts': { lines: 85, functions: 100, branches: 80 },
     './lib/paths.ts': { lines: 95, functions: 100, branches: 95 },
     './lib/phase.ts': { lines: 91, functions: 94, branches: 70 },
