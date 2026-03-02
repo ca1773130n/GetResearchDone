@@ -203,6 +203,69 @@ describe('buildAutoplanPrompt', () => {
     expect(prompt).toContain('2. **Second**');
     expect(prompt).toContain('3. **Third**');
   });
+
+  test('includes product feature guidance when product-ideation groups are present', () => {
+    const groups = [
+      {
+        id: 'product-ideation/new-commands',
+        theme: 'new-commands',
+        dimension: 'product-ideation',
+        items: [
+          { id: 'pi/snap', dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Snapshot', description: 'Capture state', effort: 'small' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+        ],
+        priority: 11,
+        effort: 'small' as const,
+      },
+    ];
+    const prompt = buildAutoplanPrompt(groups);
+    expect(prompt).toContain('Product Feature Guidance');
+    expect(prompt).toContain('BUILD NEW FEATURES');
+  });
+
+  test('does NOT include product feature guidance for pure code-quality groups', () => {
+    const groups = [
+      {
+        id: 'quality/test-coverage',
+        theme: 'test-coverage',
+        dimension: 'quality',
+        items: [
+          { id: 'q/tests', dimension: 'quality', slug: 'improve-coverage-state', title: 'Coverage', description: 'Improve coverage', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+        ],
+        priority: 4,
+        effort: 'medium' as const,
+      },
+    ];
+    const prompt = buildAutoplanPrompt(groups);
+    expect(prompt).not.toContain('Product Feature Guidance');
+  });
+
+  test('includes product feature guidance in mixed groups (product-ideation + code-quality)', () => {
+    const groups = [
+      {
+        id: 'product-ideation/new-workflows',
+        theme: 'new-workflows',
+        dimension: 'product-ideation',
+        items: [
+          { id: 'pi/wf', dimension: 'product-ideation', slug: 'new-workflow-a', title: 'Workflow', description: 'New workflow', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+        ],
+        priority: 11,
+        effort: 'medium' as const,
+      },
+      {
+        id: 'quality/test-coverage',
+        theme: 'test-coverage',
+        dimension: 'quality',
+        items: [
+          { id: 'q/tests', dimension: 'quality', slug: 'improve-coverage-state', title: 'Coverage', description: 'Improve coverage', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+        ],
+        priority: 4,
+        effort: 'medium' as const,
+      },
+    ];
+    const prompt = buildAutoplanPrompt(groups);
+    expect(prompt).toContain('Product Feature Guidance');
+    expect(prompt).toContain('grd:new-milestone');
+  });
 });
 
 // ─── runAutoplan ─────────────────────────────────────────────────────────────
