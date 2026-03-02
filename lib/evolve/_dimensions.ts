@@ -325,6 +325,10 @@ function analyzeCodebaseForItems(cwd: string): WorkItem[] {
     discoverNewFeatureItems: (cwd: string) => WorkItem[];
   };
 
+  // Note: 'product-ideation' dimension is NOT included in the hardcoded fallback.
+  // Product ideation requires Claude (it reads project vision, roadmap, etc. and
+  // generates creative feature ideas). It only runs via the Claude-powered discovery
+  // path in discovery.ts:discoverWithClaude -> _product-ideation.ts:discoverProductIdeationItems.
   const discoverers: Array<[string, (cwd: string) => WorkItem[]]> = [
     ['improve-features', discoverImproveFeatureItems],
     ['new-features', discoverNewFeatureItems],
