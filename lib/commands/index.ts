@@ -3,26 +3,26 @@
 'use strict';
 
 // ─── Slug & Timestamp ────────────────────────────────────────────────────────
-const _slugTimestamp = require('./slug-timestamp.ts') as {
+const _slugTimestamp = require('./slug-timestamp') as {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
 };
 
 // ─── Todo ────────────────────────────────────────────────────────────────────
-const _todo = require('./todo.ts') as {
+const _todo = require('./todo') as {
   cmdListTodos: (cwd: string, area: string | null, raw: boolean) => void;
   cmdTodoComplete: (cwd: string, filename: string, raw: boolean, dryRun?: boolean) => void;
 };
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const _config = require('./config.ts') as {
+const _config = require('./config') as {
   cmdConfigEnsureSection: (cwd: string, raw: boolean) => void;
   cmdConfigSet: (cwd: string, key: string, value: string, raw: boolean) => void;
   cmdVerifyPathExists: (cwd: string, targetPath: string, raw: boolean) => void;
 };
 
 // ─── Phase Info ──────────────────────────────────────────────────────────────
-const _phaseInfo = require('./phase-info.ts') as {
+const _phaseInfo = require('./phase-info') as {
   cmdFindPhase: (cwd: string, phase: string, raw: boolean) => void;
   cmdResolveModel: (cwd: string, agentType: string, raw: boolean) => void;
   cmdDetectBackend: (cwd: string, raw: boolean) => void;
@@ -36,12 +36,12 @@ const _phaseInfo = require('./phase-info.ts') as {
 };
 
 // ─── Progress ────────────────────────────────────────────────────────────────
-const _cmdProgress = require('./progress.ts') as {
+const _cmdProgress = require('./progress') as {
   cmdProgressRender: (cwd: string, format: string, raw: boolean) => void;
 };
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-const _dashboard = require('./dashboard.ts') as {
+const _dashboard = require('./dashboard') as {
   buildDashboardData: (cwd: string) => Record<string, unknown> | null;
   renderDashboard: (data: Record<string, unknown>, options?: Record<string, unknown>) => { jsonResult: Record<string, unknown>; tui: string };
   cmdDashboard: (cwd: string, raw: boolean, options?: Record<string, unknown>) => void;
@@ -49,24 +49,24 @@ const _dashboard = require('./dashboard.ts') as {
 };
 
 // ─── Health ──────────────────────────────────────────────────────────────────
-const _health = require('./health.ts') as {
+const _health = require('./health') as {
   cmdHealth: (cwd: string, raw: boolean) => void;
   cmdHealthCheck: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
 };
 
 // ─── Long-Term Roadmap ───────────────────────────────────────────────────────
-const _longTermRoadmap = require('./long-term-roadmap.ts') as {
+const _longTermRoadmap = require('./long-term-roadmap') as {
   cmdLongTermRoadmap: (cwd: string, subcommand: string, args: string[], raw: boolean) => void;
 };
 
 // ─── Quality ─────────────────────────────────────────────────────────────────
-const _quality = require('./quality.ts') as {
+const _quality = require('./quality') as {
   cmdQualityAnalysis: (cwd: string, args: string[], raw: boolean) => void;
   cmdSetup: (cwd: string, raw: boolean) => void;
 };
 
 // ─── Search ──────────────────────────────────────────────────────────────────
-const _search = require('./search.ts') as {
+const _search = require('./search') as {
   cmdSearch: (cwd: string, query: string, raw: boolean) => void;
   cmdMigrateDirs: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;

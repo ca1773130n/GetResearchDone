@@ -19,7 +19,7 @@ const {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
 };
-const { readCachedRoadmap, readCachedState } = require('./phase-info.ts') as {
+const { readCachedRoadmap, readCachedState } = require('./phase-info') as {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
 };

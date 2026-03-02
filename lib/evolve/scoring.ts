@@ -12,7 +12,7 @@
 import type { WorkItem, WorkItemEffort, WorkGroup } from './types';
 
 const { DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS, THEME_PATTERNS } =
-  require('./state.ts') as {
+  require('./state') as {
     DIMENSION_WEIGHTS: Record<string, number>;
     EFFORT_MODIFIERS: Record<string, number>;
     SOURCE_MODIFIERS: Record<string, number>;

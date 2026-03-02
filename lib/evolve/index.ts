@@ -17,12 +17,12 @@
 
 // ─── State (constants + state I/O + work item factory) ──────────────────────
 
-const stateModule = require('./state.ts');
-const discoveryModule = require('./discovery.ts');
-const scoringModule = require('./scoring.ts');
-const orchestratorModule = require('./orchestrator.ts');
-const promptsModule = require('./_prompts.ts');
-const cliModule = require('./cli.ts');
+const stateModule = require('./state');
+const discoveryModule = require('./discovery');
+const scoringModule = require('./scoring');
+const orchestratorModule = require('./orchestrator');
+const promptsModule = require('./_prompts');
+const cliModule = require('./cli');
 
 module.exports = {
   // ─── Constants (from state.ts) ──────────────────────────────────────────

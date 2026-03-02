@@ -80,20 +80,20 @@ const { createEvolveWorktree, removeEvolveWorktree, pushAndCreatePR } =
     ) => { pr_url?: string; error?: string };
   };
 const { SONNET_MODEL, DEFAULT_PICK_PCT, readEvolveState, writeEvolveState } =
-  require('./state.ts') as {
+  require('./state') as {
     SONNET_MODEL: string;
     DEFAULT_PICK_PCT: number;
     readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
     writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
   };
-const { runGroupDiscovery } = require('./discovery.ts') as {
+const { runGroupDiscovery } = require('./discovery') as {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
 };
-const { buildBatchExecutePrompt, buildBatchReviewPrompt } = require('./_prompts.ts') as {
+const { buildBatchExecutePrompt, buildBatchReviewPrompt } = require('./_prompts') as {
   buildBatchExecutePrompt: (groups: WorkGroup[]) => string;
   buildBatchReviewPrompt: (groups: WorkGroup[]) => string;
 };

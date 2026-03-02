@@ -50,7 +50,7 @@ const {
   THEME_PATTERNS,
   createWorkItem,
   mergeWorkItems,
-} = require('./state.ts') as {
+} = require('./state') as {
   SONNET_MODEL: string;
   WORK_ITEM_DIMENSIONS: string[];
   DEFAULT_ITEMS_PER_ITERATION: number;
@@ -65,11 +65,11 @@ const {
   ) => WorkItem;
   mergeWorkItems: (existing: WorkItem[], discovered: WorkItem[]) => WorkItem[];
 };
-const { analyzeCodebaseForItems } = require('./_dimensions.ts') as {
+const { analyzeCodebaseForItems } = require('./_dimensions') as {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 };
 const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups } =
-  require('./scoring.ts') as {
+  require('./scoring') as {
     selectPriorityItems: (
       items: WorkItem[],
       count: number
@@ -365,8 +365,8 @@ async function runGroupDiscovery(
 
 module.exports = {
   // Re-export dimension functions for backward compat
-  discoverImproveFeatureItems: require('./_dimensions-features.ts').discoverImproveFeatureItems,
-  analyzeCodebaseForItems: require('./_dimensions.ts').analyzeCodebaseForItems,
+  discoverImproveFeatureItems: require('./_dimensions-features').discoverImproveFeatureItems,
+  analyzeCodebaseForItems: require('./_dimensions').analyzeCodebaseForItems,
   // Framework functions
   buildCodebaseDigest,
   buildDiscoveryPrompt,

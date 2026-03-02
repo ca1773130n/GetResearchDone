@@ -19,7 +19,7 @@ const {
   validateSubcommand,
   validateGitRef,
   findClosestCommand,
-} = require('../lib/utils.ts') as {
+} = require('../lib/utils') as {
   parseIncludeFlag: (args: string[]) => Set<string>;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
@@ -35,7 +35,7 @@ const {
   cmdFrontmatterSet,
   cmdFrontmatterMerge,
   cmdFrontmatterValidate,
-} = require('../lib/frontmatter.ts') as {
+} = require('../lib/frontmatter') as {
   cmdFrontmatterGet: (cwd: string, filePath: string, field: string | null, raw: boolean) => void;
   cmdFrontmatterSet: (cwd: string, filePath: string, field: string, value: string, raw: boolean) => void;
   cmdFrontmatterMerge: (cwd: string, filePath: string, data: string, raw: boolean) => void;
@@ -55,7 +55,7 @@ const {
   cmdStateResolveBlocker,
   cmdStateRecordSession,
   cmdStateSnapshot,
-} = require('../lib/state.ts') as {
+} = require('../lib/state') as {
   cmdStateLoad: (cwd: string, raw: boolean) => void;
   cmdStateGet: (cwd: string, section: string | null, raw: boolean) => void;
   cmdStatePatch: (cwd: string, patches: Record<string, string>, raw: boolean) => void;
@@ -70,13 +70,13 @@ const {
   cmdStateSnapshot: (cwd: string, raw: boolean, opts?: Record<string, string | undefined>) => void;
 };
 
-const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze } = require('../lib/roadmap.ts') as {
+const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze } = require('../lib/roadmap') as {
   cmdRoadmapGetPhase: (cwd: string, phaseNum: string, raw: boolean) => void;
   cmdPhaseNextDecimal: (cwd: string, basePhase: string, raw: boolean) => void;
   cmdRoadmapAnalyze: (cwd: string, raw: boolean) => void;
 };
 
-const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold } = require('../lib/scaffold.ts') as {
+const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold } = require('../lib/scaffold') as {
   cmdTemplateSelect: (cwd: string, planPath: string, raw: boolean) => void;
   cmdTemplateFill: (cwd: string, templateType: string, options: Record<string, unknown>, raw: boolean) => void;
   cmdScaffold: (cwd: string, type: string, options: Record<string, string | null>, raw: boolean) => void;
@@ -90,7 +90,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
-} = require('../lib/verify.ts') as {
+} = require('../lib/verify') as {
   cmdVerifySummary: (cwd: string, summaryPath: string, checkFileCount: number, raw: boolean) => void;
   cmdVerifyPlanStructure: (cwd: string, filePath: string, raw: boolean) => void;
   cmdVerifyPhaseCompleteness: (cwd: string, phase: string, raw: boolean) => void;
@@ -109,7 +109,7 @@ const {
   cmdMilestoneComplete,
   cmdValidateConsistency,
   cmdVersionBump,
-} = require('../lib/phase.ts') as {
+} = require('../lib/phase') as {
   cmdPhasesList: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdPhaseAdd: (cwd: string, name: string, raw: boolean, context?: string) => void;
   cmdPhaseInsert: (cwd: string, phase: string, name: string, raw: boolean) => void;
@@ -120,7 +120,7 @@ const {
   cmdVersionBump: (cwd: string, version: string, raw: boolean) => void;
 };
 
-const { cmdTracker } = require('../lib/tracker.ts') as {
+const { cmdTracker } = require('../lib/tracker') as {
   cmdTracker: (cwd: string, sub: string, args: string[], raw: boolean) => Promise<void>;
 };
 
@@ -134,7 +134,7 @@ const {
   cmdWorktreeMerge,
   cmdWorktreeHookCreate,
   cmdWorktreeHookRemove,
-} = require('../lib/worktree.ts') as {
+} = require('../lib/worktree') as {
   cmdWorktreeCreate: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeList: (cwd: string, raw: boolean) => void;
@@ -146,11 +146,11 @@ const {
   cmdWorktreeHookRemove: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
 };
 
-const { cmdPhaseAnalyzeDeps } = require('../lib/deps.ts') as {
+const { cmdPhaseAnalyzeDeps } = require('../lib/deps') as {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 };
 
-const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot.ts') as {
+const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot') as {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
 };
@@ -162,7 +162,7 @@ const {
   cmdEvolveAdvance,
   cmdEvolveReset,
   cmdInitEvolve,
-} = require('../lib/evolve/index.ts') as {
+} = require('../lib/evolve/index') as {
   cmdEvolve: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdEvolveDiscover: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdEvolveState: (cwd: string, args: string[], raw: boolean) => void;
@@ -171,12 +171,12 @@ const {
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
 };
 
-const { cmdInitExecuteParallel, cmdParallelProgress } = require('../lib/parallel.ts') as {
+const { cmdInitExecuteParallel, cmdParallelProgress } = require('../lib/parallel') as {
   cmdInitExecuteParallel: (cwd: string, phases: string[], includes: Set<string>, raw: boolean) => void;
   cmdParallelProgress: (args: string[], raw: boolean) => void;
 };
 
-const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-split.ts') as {
+const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-split') as {
   splitMarkdown: (content: string, options?: { threshold?: number; basename?: string }) => {
     split_performed: boolean;
     reason?: string;
@@ -219,7 +219,7 @@ const {
   cmdInitRoadmapper,
   cmdInitSurveyor,
   cmdInitVerifier,
-} = require('../lib/context/index.ts') as {
+} = require('../lib/context/index') as {
   cmdInitExecutePhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitPlanPhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitNewProject: (cwd: string, raw: boolean) => void;
@@ -283,7 +283,7 @@ const {
   cmdMigrateDirs,
   cmdCoverageReport,
   cmdHealthCheck,
-} = require('../lib/commands/index.ts') as {
+} = require('../lib/commands/index') as {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
   cmdListTodos: (cwd: string, area: string | null, raw: boolean) => void;

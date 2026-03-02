@@ -29,7 +29,7 @@ const {
   getLtMilestoneById: (content: string, id: string) => LtMilestoneEntry | null;
   initFromRoadmap: (roadmapContent: string, projectName: string) => string;
 };
-const { readCachedRoadmap } = require('./phase-info.ts') as {
+const { readCachedRoadmap } = require('./phase-info') as {
   readCachedRoadmap: (roadmapPath: string) => string | null;
 };
 

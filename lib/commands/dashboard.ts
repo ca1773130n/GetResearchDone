@@ -30,7 +30,7 @@ const {
   parseRequirements: (content: string) => { id: string; title: string; priority: string }[];
   parseTraceabilityMatrix: (content: string) => { req: string; status: string }[];
 };
-const { readCachedRoadmap, readCachedState } = require('./phase-info.ts') as {
+const { readCachedRoadmap, readCachedState } = require('./phase-info') as {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
 };
@@ -39,7 +39,7 @@ const {
   parseDashboardActiveMilestones,
   parseDashboardPhases,
   parseDashboardStateSummary,
-} = require('./_dashboard-parsers.ts') as {
+} = require('./_dashboard-parsers') as {
   parseDashboardShippedMilestones: (roadmapContent: string) => MilestoneEntry[];
   parseDashboardActiveMilestones: (roadmapContent: string) => {
     activeMilestones: MilestoneEntry[];

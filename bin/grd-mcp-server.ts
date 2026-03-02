@@ -40,7 +40,7 @@ interface McpServerConstructor {
   new (options?: { cwd?: string }): McpServerInstance;
 }
 
-const { McpServer } = require('../lib/mcp-server.ts') as {
+const { McpServer } = require('../lib/mcp-server') as {
   McpServer: McpServerConstructor;
 };
 

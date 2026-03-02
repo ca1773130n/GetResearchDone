@@ -24,21 +24,21 @@ const {
   writeEvolveState,
   advanceIteration,
   evolveStatePath,
-} = require('./state.ts') as {
+} = require('./state') as {
   DEFAULT_PICK_PCT: number;
   readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
   writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
   advanceIteration: (previousState: EvolveState) => EvolveState;
   evolveStatePath: (cwd: string) => string;
 };
-const { runGroupDiscovery } = require('./discovery.ts') as {
+const { runGroupDiscovery } = require('./discovery') as {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
 };
-const { runEvolve } = require('./orchestrator.ts') as {
+const { runEvolve } = require('./orchestrator') as {
   runEvolve: (cwd: string, options?: EvolveOptions) => Promise<EvolveResult>;
 };
 const { output, error, loadConfig, resolveModelForAgent, getMilestoneInfo } =
