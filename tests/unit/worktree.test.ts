@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/worktree.js
+ * Unit tests for lib/worktree.ts
  *
  * Tests git worktree lifecycle management: create, remove, list, and stale
  * cleanup. All tests use isolated temp git repos to avoid polluting the
@@ -84,7 +84,7 @@ function createTestGitRepo() {
  *
  * @param {string} repoDir - Path to the test repo
  */
-function cleanupTestRepo(repoDir) {
+function cleanupTestRepo(repoDir: string) {
   const resolvedRepo = fs.realpathSync(repoDir);
   if (!resolvedRepo || !resolvedRepo.startsWith(REAL_TMPDIR)) {
     throw new Error('Refusing to remove directory outside tmpdir: ' + repoDir);
@@ -132,7 +132,7 @@ function cleanupTestRepo(repoDir) {
 // ─── cmdWorktreeCreate ────────────────────────────────────────────────────────
 
 describe('cmdWorktreeCreate', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -325,7 +325,7 @@ describe('cmdWorktreeCreate', () => {
 // ─── cmdWorktreeRemove ────────────────────────────────────────────────────────
 
 describe('cmdWorktreeRemove', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -421,7 +421,7 @@ describe('cmdWorktreeRemove', () => {
 // ─── cmdWorktreeList ──────────────────────────────────────────────────────────
 
 describe('cmdWorktreeList', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -522,7 +522,7 @@ describe('cmdWorktreeList', () => {
 // ─── cmdWorktreeRemoveStale ───────────────────────────────────────────────────
 
 describe('cmdWorktreeRemoveStale', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -655,7 +655,7 @@ function createTestGitRepoWithRemote() {
  * @param {string} repoDir - Path to the main test repo
  * @param {string} bareDir - Path to the bare remote repo
  */
-function cleanupTestRepoWithRemote(repoDir, bareDir) {
+function cleanupTestRepoWithRemote(repoDir: string, bareDir: string) {
   cleanupTestRepo(repoDir);
   try {
     fs.rmSync(bareDir, { recursive: true, force: true });
@@ -667,7 +667,7 @@ function cleanupTestRepoWithRemote(repoDir, bareDir) {
 // ─── cmdWorktreePushAndPR ─────────────────────────────────────────────────────
 
 describe('cmdWorktreePushAndPR', () => {
-  let repoDir, bareDir;
+  let repoDir: string, bareDir: string;
 
   beforeEach(() => {
     const repos = createTestGitRepoWithRemote();
@@ -921,7 +921,7 @@ describe('cmdWorktreePushAndPR', () => {
 // ─── cmdWorktreeEnsureMilestoneBranch ─────────────────────────────────────────
 
 describe('cmdWorktreeEnsureMilestoneBranch', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1007,7 +1007,7 @@ describe('cmdWorktreeEnsureMilestoneBranch', () => {
 // ─── cmdWorktreeMerge ─────────────────────────────────────────────────────────
 
 describe('cmdWorktreeMerge', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1021,7 +1021,7 @@ describe('cmdWorktreeMerge', () => {
    * Helper: set up milestone + phase branches with a commit on the phase branch.
    * Returns the milestone and phase branch names.
    */
-  function setupBranches(repoPath) {
+  function setupBranches(repoPath: string) {
     // Create milestone branch
     const { stdout: msOut } = captureOutput(() =>
       cmdWorktreeEnsureMilestoneBranch(repoPath, { milestone: 'v0.2.0' }, false)
@@ -1359,7 +1359,7 @@ describe('cmdWorktreeMerge', () => {
 // ─── Worktree Hook Handlers ──────────────────────────────────────────────────
 
 describe('cmdWorktreeHookCreate', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1424,7 +1424,7 @@ describe('cmdWorktreeHookCreate', () => {
 });
 
 describe('cmdWorktreeHookRemove', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1518,7 +1518,7 @@ describe('cmdWorktreeHookRemove', () => {
 // ─── Phase 47: Hook Handler Comprehensive Edge Cases ──────────────────────────
 
 describe('Phase 47: hook handler comprehensive edge cases', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1598,7 +1598,7 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
         if (end === -1) break;
         try {
           jsonObjects.push(JSON.parse(remaining.slice(start, end + 1)));
-        } catch (_e) {
+        } catch (_e: any) {
           // skip malformed
         }
         remaining = remaining.slice(end + 1);
@@ -1635,7 +1635,7 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
       // Note: captureOutput's process.exit mock causes the catch block to fire
       // too (process.exit throws __GRD_TEST_EXIT__), so stdout may have multiple
       // JSON objects. We collect all and verify rename_failed appears in one.
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
       try {
         const { stdout, exitCode } = captureOutput(() =>
           cmdWorktreeHookCreate(repoDir, '/tmp/grd-nonexistent-27', 'auto-branch-name', false)
@@ -1663,11 +1663,11 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
           } catch {}
           remaining = remaining.slice(end + 1);
         }
-        expect(jsonObjects.some((r) => r.rename_failed === true)).toBe(true);
+        expect(jsonObjects.some((r: any) => r.rename_failed === true)).toBe(true);
         // After the fix a specific warning for branch rename failure is written
         // to stderr (distinct from the catch-block's "could not determine phase
         // metadata" message which fires due to the process.exit mock).
-        const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
+        const stderrOutput = stderrSpy.mock.calls.map((c: any) => c[0]).join('');
         expect(stderrOutput).toContain('branch rename');
       } finally {
         stderrSpy.mockRestore();
@@ -1762,7 +1762,7 @@ describe('Phase 47: hook handler comprehensive edge cases', () => {
 // ─── cmdWorktreeMerge edge cases ─────────────────────────────────────────────
 
 describe('cmdWorktreeMerge additional edge cases', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1821,7 +1821,7 @@ describe('cmdWorktreeMerge additional edge cases', () => {
 // ─── cmdWorktreeHookCreate edge cases ────────────────────────────────────────
 
 describe('cmdWorktreeHookCreate rename paths', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1869,7 +1869,7 @@ describe('cmdWorktreeHookCreate rename paths', () => {
 // ─── cmdWorktreeCreate error branches ─────────────────────────────────────────
 
 describe('cmdWorktreeCreate error branches', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -1944,7 +1944,7 @@ describe('cmdWorktreeCreate error branches', () => {
 // ─── cmdWorktreeHookRemove ────────────────────────────────────────────────────
 
 describe('cmdWorktreeHookRemove', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -2011,7 +2011,7 @@ describe('cmdWorktreeHookRemove', () => {
 // ─── createEvolveWorktree ────────────────────────────────────────────────────
 
 describe('createEvolveWorktree', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -2090,7 +2090,7 @@ describe('createEvolveWorktree', () => {
 // ─── removeEvolveWorktree ───────────────────────────────────────────────────
 
 describe('removeEvolveWorktree', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -2158,8 +2158,8 @@ describe('ensureWorktreesDir (export)', () => {
       // Make .gitignore read-only to force writeFileSync to fail
       fs.chmodSync(gitignorePath, 0o444);
 
-      const stderrLines = [];
-      const spy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+      const stderrLines: string[] = [];
+      const spy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
         stderrLines.push(typeof msg === 'string' ? msg : String(msg));
         return true;
       });
@@ -2172,7 +2172,7 @@ describe('ensureWorktreesDir (export)', () => {
       }
 
       expect(result).toBe(false);
-      expect(stderrLines.some((l) => l.includes('could not update .gitignore'))).toBe(true);
+      expect(stderrLines.some((l: any) => l.includes('could not update .gitignore'))).toBe(true);
     } finally {
       try { fs.chmodSync(gitignorePath, 0o644); } catch { /* ignore */ }
       fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -2221,7 +2221,7 @@ describe('pushAndCreatePR', () => {
 // ─── cmdWorktreeRemove — git error logging ────────────────────────────────────
 
 describe('cmdWorktreeRemove — git error logging', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     repoDir = createTestGitRepo();
@@ -2237,9 +2237,10 @@ describe('cmdWorktreeRemove — git error logging', () => {
     fs.mkdirSync(fakePath, { recursive: true });
     fs.writeFileSync(path.join(fakePath, 'file.txt'), 'hello');
 
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
-      stderrLines.push(msg);
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
+      stderrLines.push(String(msg));
+      return true;
     });
 
     try {

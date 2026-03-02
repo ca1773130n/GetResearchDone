@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/parallel.js — Parallel execution module
+ * Unit tests for lib/parallel.ts — Parallel execution module
  *
  * Tests validateIndependentPhases, buildParallelContext, and cmdInitExecuteParallel.
  */
@@ -142,16 +142,16 @@ describe('validateIndependentPhases', () => {
 // ─── buildParallelContext ───────────────────────────────────────────────────
 
 describe('buildParallelContext', () => {
-  let fixtureDir;
+  let fixtureDir = '';
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeRoadmapAndPhases(dir) {
+  function writeRoadmapAndPhases(dir: string): void {
     // Write a ROADMAP with two independent phases
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
@@ -195,7 +195,7 @@ describe('buildParallelContext', () => {
     fs.writeFileSync(path.join(phase2Dir, '02-01-PLAN.md'), '---\nphase: 02\nplan: 01\n---\n');
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -355,21 +355,21 @@ describe('buildParallelContext', () => {
 // ─── cmdInitExecuteParallel ─────────────────────────────────────────────────
 
 describe('cmdInitExecuteParallel', () => {
-  let fixtureDir;
+  let fixtureDir = '';
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeRoadmapAndPhases(dir, roadmapContent) {
+  function writeRoadmapAndPhases(dir: string, roadmapContent: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(roadmapPath, roadmapContent, 'utf-8');
   }
 
-  function ensurePhaseDir(dir, phaseNum, phaseName) {
+  function ensurePhaseDir(dir: string, phaseNum: number | string, phaseName: string): void {
     const padded = String(phaseNum).padStart(2, '0');
     const slug = phaseName
       .toLowerCase()
@@ -390,7 +390,7 @@ describe('cmdInitExecuteParallel', () => {
     );
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -539,21 +539,21 @@ describe('cmdInitExecuteParallel', () => {
 
 describe('CLI integration -- init execute-parallel', () => {
   const { COMMAND_DESCRIPTORS } = require('../../lib/mcp-server');
-  let fixtureDir;
+  let fixtureDir = '';
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeRoadmap(dir, content) {
+  function writeRoadmap(dir: string, content: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(roadmapPath, content, 'utf-8');
   }
 
-  function ensurePhaseDir(dir, phaseNum, phaseName) {
+  function ensurePhaseDir(dir: string, phaseNum: number | string, phaseName: string): void {
     const padded = String(phaseNum).padStart(2, '0');
     const slug = phaseName
       .toLowerCase()
@@ -574,7 +574,7 @@ describe('CLI integration -- init execute-parallel', () => {
     );
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -680,15 +680,15 @@ describe('CLI integration -- init execute-parallel', () => {
   });
 
   test('MCP descriptor grd_init_execute_parallel exists with correct params', () => {
-    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel');
     expect(descriptor).toBeDefined();
     expect(descriptor.params).toBeInstanceOf(Array);
 
-    const phasesParam = descriptor.params.find((p) => p.name === 'phases');
+    const phasesParam = descriptor.params.find((p: Record<string, unknown>) => p.name === 'phases');
     expect(phasesParam).toBeDefined();
     expect(phasesParam.required).toBe(true);
 
-    const includeParam = descriptor.params.find((p) => p.name === 'include');
+    const includeParam = descriptor.params.find((p: Record<string, unknown>) => p.name === 'include');
     expect(includeParam).toBeDefined();
     expect(includeParam.required).toBe(false);
 
@@ -701,7 +701,7 @@ describe('CLI integration -- init execute-parallel', () => {
     ensurePhaseDir(fixtureDir, 1, 'Alpha');
     writeConfig(fixtureDir, { autonomous_mode: true });
 
-    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel');
     expect(descriptor).toBeDefined();
 
     // Should not throw; may output error JSON for bad phase, but should not crash
@@ -737,16 +737,16 @@ describe('CLI integration -- init execute-parallel', () => {
 // ─── Phase 47: buildParallelContext native vs manual isolation ───────────────
 
 describe('Phase 47: buildParallelContext native vs manual isolation', () => {
-  let fixtureDir;
+  let fixtureDir = '';
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeRoadmapAndPhases(dir) {
+  function writeRoadmapAndPhases(dir: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(
       roadmapPath,
@@ -788,7 +788,7 @@ describe('Phase 47: buildParallelContext native vs manual isolation', () => {
     fs.writeFileSync(path.join(phase2Dir, '02-01-PLAN.md'), '---\nphase: 02\nplan: 01\n---\n');
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const base = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...base, ...overrides }, null, 2), 'utf-8');
@@ -863,9 +863,9 @@ describe('Phase 47: buildParallelContext native vs manual isolation', () => {
 // ─── cmdInitExecuteParallel error paths ──────────────────────────────────────
 
 describe('cmdInitExecuteParallel error paths', () => {
-  let fixtureDir;
+  let fixtureDir = '';
 
-  function writeRoadmapAndPhases(dir) {
+  function writeRoadmapAndPhases(dir: string): void {
     fs.writeFileSync(
       path.join(dir, '.planning', 'ROADMAP.md'),
       [
@@ -883,7 +883,7 @@ describe('cmdInitExecuteParallel error paths', () => {
     );
   }
 
-  function writeConfig(dir, overrides = {}) {
+  function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void {
     const configPath = path.join(dir, '.planning', 'config.json');
     const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     fs.writeFileSync(configPath, JSON.stringify({ ...existing, ...overrides }, null, 2), 'utf-8');
@@ -891,7 +891,7 @@ describe('cmdInitExecuteParallel error paths', () => {
 
   afterEach(() => {
     if (fixtureDir) cleanupFixtureDir(fixtureDir);
-    fixtureDir = null;
+    fixtureDir = '';
   });
 
   test('returns error when no phase numbers provided', () => {
@@ -1013,8 +1013,8 @@ describe('formatProgressBar', () => {
 
 describe('streamPhaseProgress', () => {
   test('writes formatted progress to stderr', () => {
-    const stderrWrites = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrWrites: (string | Uint8Array)[] = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrWrites.push(data);
       return true;
     });
@@ -1027,8 +1027,8 @@ describe('streamPhaseProgress', () => {
   });
 
   test('includes optional status label', () => {
-    const stderrWrites = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrWrites: (string | Uint8Array)[] = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrWrites.push(data);
       return true;
     });
@@ -1043,8 +1043,8 @@ describe('streamPhaseProgress', () => {
 
 describe('cmdParallelProgress', () => {
   test('writes to stderr in default mode', () => {
-    const stderrWrites = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrWrites: (string | Uint8Array)[] = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrWrites.push(data);
       return true;
     });

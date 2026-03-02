@@ -1,6 +1,8 @@
 /**
  * Unit tests for auto-cleanup non-interference when disabled (DEFER-13-01)
  *
+ * Source modules: lib/cleanup.ts
+ *
  * Validates that the cleanup system does NOT interfere with normal phase execution
  * when phase_cleanup.enabled is false (the default). Tests cover:
  * - Config-gated early exit (runQualityAnalysis)
@@ -23,18 +25,18 @@ function createTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'grd-noninterference-'));
 }
 
-function removeTempDir(dir) {
+function removeTempDir(dir: string): void {
   if (!dir || !dir.startsWith(os.tmpdir())) return;
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-function writeConfig(dir, configObj) {
+function writeConfig(dir: string, configObj: Record<string, unknown>): void {
   const planningDir = path.join(dir, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
   fs.writeFileSync(path.join(planningDir, 'config.json'), JSON.stringify(configObj, null, 2));
 }
 
-function writeFile(dir, relPath, content) {
+function writeFile(dir: string, relPath: string, content: string): string {
   const fullPath = path.join(dir, relPath);
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
   fs.writeFileSync(fullPath, content);
@@ -45,9 +47,9 @@ function writeFile(dir, relPath, content) {
  * Recursively collect all file paths under a directory with their mtimes.
  * Returns a Map of relative path -> mtime timestamp.
  */
-function collectFileMtimes(rootDir) {
-  const mtimes = new Map();
-  function walk(dir) {
+function collectFileMtimes(rootDir: string): Map<string, number> {
+  const mtimes = new Map<string, number>();
+  function walk(dir: string): void {
     let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -71,9 +73,9 @@ function collectFileMtimes(rootDir) {
 /**
  * Recursively collect all file paths under a directory.
  */
-function collectFilePaths(rootDir) {
-  const paths = [];
-  function walk(dir) {
+function collectFilePaths(rootDir: string): string[] {
+  const paths: string[] = [];
+  function walk(dir: string): void {
     let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -97,7 +99,7 @@ function collectFilePaths(rootDir) {
 // ─── Test Group 1: Config-Gated Early Exit (runQualityAnalysis) ──────────────
 
 describe('Config-Gated Early Exit (runQualityAnalysis)', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -164,7 +166,7 @@ describe('Config-Gated Early Exit (runQualityAnalysis)', () => {
 // ─── Test Group 2: No Filesystem Side Effects When Disabled ──────────────────
 
 describe('No Filesystem Side Effects When Disabled (runQualityAnalysis)', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -249,7 +251,7 @@ describe('No Filesystem Side Effects When Disabled (runQualityAnalysis)', () => 
 // ─── Test Group 3: No Filesystem Side Effects for generateCleanupPlan ────────
 
 describe('No Filesystem Side Effects for generateCleanupPlan When Disabled', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -384,8 +386,8 @@ describe('No Filesystem Side Effects for generateCleanupPlan When Disabled', () 
 // ─── Test Group 4: Output Equivalence ────────────────────────────────────────
 
 describe('Output Equivalence', () => {
-  let tmpDirA;
-  let tmpDirB;
+  let tmpDirA: string;
+  let tmpDirB: string;
 
   beforeEach(() => {
     tmpDirA = createTempDir();
@@ -421,7 +423,7 @@ describe('Output Equivalence', () => {
 // ─── Test Group 5: Performance (No I/O Overhead) ─────────────────────────────
 
 describe('Performance (No I/O Overhead)', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -481,7 +483,7 @@ describe('Performance (No I/O Overhead)', () => {
 // ─── Test Group 6: getCleanupConfig Defaults ─────────────────────────────────
 
 describe('getCleanupConfig Defaults', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -546,8 +548,8 @@ describe('Integration with Phase Execution Context', () => {
   const { captureOutput } = require('../helpers/setup');
   const { cmdInitExecutePhase } = require('../../lib/context');
 
-  let tmpDirA;
-  let tmpDirB;
+  let tmpDirA: string;
+  let tmpDirB: string;
 
   beforeEach(() => {
     tmpDirA = createFixtureDir();

@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/commands.js
+ * Unit tests for lib/commands/ (commands/index.ts and sub-modules)
  *
  * Tests 17 standalone utility commands: slug, timestamp, todos, path verify,
  * config operations, history digest, model resolution, phase lookup, commit,
@@ -51,7 +51,7 @@ const { clearModelCache } = require('../../lib/backend');
  * pretty-printed JSON (when cmd functions have try/catch that catches the
  * process.exit sentinel and calls output() again).
  */
-function parseFirstJson(str) {
+function parseFirstJson(str: string): any {
   try {
     return JSON.parse(str);
   } catch {
@@ -157,7 +157,7 @@ describe('cmdCurrentTimestamp', () => {
 // ─── cmdListTodos ───────────────────────────────────────────────────────────
 
 describe('cmdListTodos', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -202,7 +202,7 @@ describe('cmdListTodos', () => {
     const badEntry = path.join(pendingDir, 'bad-todo.md');
     fs.mkdirSync(badEntry, { recursive: true });
 
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       captureOutput(() => cmdListTodos(localFixture, null, false));
       const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
@@ -217,7 +217,7 @@ describe('cmdListTodos', () => {
 // ─── cmdTodoComplete ────────────────────────────────────────────────────────
 
 describe('cmdTodoComplete', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -269,7 +269,7 @@ describe('cmdTodoComplete', () => {
 // ─── cmdVerifyPathExists ────────────────────────────────────────────────────
 
 describe('cmdVerifyPathExists', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -313,7 +313,7 @@ describe('cmdVerifyPathExists', () => {
 // ─── cmdConfigEnsureSection ─────────────────────────────────────────────────
 
 describe('cmdConfigEnsureSection', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -367,7 +367,7 @@ describe('cmdConfigEnsureSection', () => {
 // ─── cmdConfigSet ───────────────────────────────────────────────────────────
 
 describe('cmdConfigSet', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -412,7 +412,7 @@ describe('cmdConfigSet', () => {
 // ─── cmdHistoryDigest ───────────────────────────────────────────────────────
 
 describe('cmdHistoryDigest', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -445,7 +445,7 @@ describe('cmdHistoryDigest', () => {
 // ─── cmdResolveModel ────────────────────────────────────────────────────────
 
 describe('cmdResolveModel', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -488,7 +488,7 @@ describe('cmdResolveModel', () => {
 // ─── cmdFindPhase ───────────────────────────────────────────────────────────
 
 describe('cmdFindPhase', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -559,7 +559,7 @@ describe('cmdCommit', () => {
 // ─── cmdPhasePlanIndex ──────────────────────────────────────────────────────
 
 describe('cmdPhasePlanIndex', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -603,7 +603,7 @@ describe('cmdPhasePlanIndex', () => {
       cmdPhasePlanIndex(fixtureDir, '1', false);
     });
     const parsed = JSON.parse(stdout);
-    const plan = parsed.plans.find((p) => p.id === '01-01');
+    const plan = parsed.plans.find((p: any) => p.id === '01-01');
     expect(plan).toBeDefined();
     expect(plan.objective).toBe('Create project structure.');
   });
@@ -613,7 +613,7 @@ describe('cmdPhasePlanIndex', () => {
       cmdPhasePlanIndex(fixtureDir, '1', false);
     });
     const parsed = JSON.parse(stdout);
-    const plan = parsed.plans.find((p) => p.id === '01-01');
+    const plan = parsed.plans.find((p: any) => p.id === '01-01');
     expect(plan).toBeDefined();
     expect(plan.files_modified).toEqual(['src/index.js']);
   });
@@ -622,7 +622,7 @@ describe('cmdPhasePlanIndex', () => {
 // ─── cmdSummaryExtract ──────────────────────────────────────────────────────
 
 describe('cmdSummaryExtract', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -678,7 +678,7 @@ describe('cmdSummaryExtract', () => {
 // ─── cmdProgressRender ──────────────────────────────────────────────────────
 
 describe('cmdProgressRender', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -765,7 +765,7 @@ describe('cmdProgressRender', () => {
 // ─── cmdDashboard ──────────────────────────────────────────────────────────
 
 describe('cmdDashboard', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -1204,7 +1204,7 @@ Shipped.
 // ─── cmdPhaseDetail ────────────────────────────────────────────────────────
 
 describe('cmdPhaseDetail', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -1337,7 +1337,7 @@ describe('cmdPhaseDetail', () => {
 // ─── cmdPhaseDetail requirements ──────────────────────────────────────────
 
 describe('cmdPhaseDetail requirements', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -1400,7 +1400,7 @@ describe('cmdPhaseDetail requirements', () => {
 // ─── cmdHealth ─────────────────────────────────────────────────────────────
 
 describe('cmdHealth', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -1567,8 +1567,8 @@ describe('cmdHealth', () => {
 // ─── cmdDetectBackend ────────────────────────────────────────────────────────
 
 describe('cmdDetectBackend', () => {
-  let fixtureDir;
-  let savedEnv;
+  let fixtureDir: string;
+  let savedEnv: NodeJS.ProcessEnv;
 
   // Detection-relevant env vars (same list as backend.test.js)
   const DETECTION_ENV_VARS = [
@@ -1798,7 +1798,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── list subcommand ───────────────────────────────────────────────────
 
   describe('list', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -1847,7 +1847,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── add subcommand ────────────────────────────────────────────────────
 
   describe('add', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -1892,7 +1892,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── remove subcommand ─────────────────────────────────────────────────
 
   describe('remove', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -1956,7 +1956,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── update subcommand ─────────────────────────────────────────────────
 
   describe('update', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2026,7 +2026,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── refine subcommand ─────────────────────────────────────────────────
 
   describe('refine', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2084,7 +2084,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── link subcommand ───────────────────────────────────────────────────
 
   describe('link', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2136,7 +2136,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── unlink subcommand ─────────────────────────────────────────────────
 
   describe('unlink', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2174,7 +2174,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── display subcommand ────────────────────────────────────────────────
 
   describe('display', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2223,7 +2223,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── init subcommand ───────────────────────────────────────────────────
 
   describe('init', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2255,7 +2255,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── history subcommand ────────────────────────────────────────────────
 
   describe('history', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2318,7 +2318,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── parse subcommand ──────────────────────────────────────────────────
 
   describe('parse', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2374,7 +2374,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── validate subcommand ───────────────────────────────────────────────
 
   describe('validate', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2420,7 +2420,7 @@ describe('cmdLongTermRoadmap', () => {
   // ─── edge cases ────────────────────────────────────────────────────────
 
   describe('edge cases', () => {
-    let fixtureDir;
+    let fixtureDir: string;
     beforeEach(() => {
       fixtureDir = createFixtureDir();
     });
@@ -2456,7 +2456,7 @@ describe('cmdLongTermRoadmap', () => {
 // ─── cmdQualityAnalysis ──────────────────────────────────────────────────────
 
 describe('cmdQualityAnalysis', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -2467,7 +2467,7 @@ describe('cmdQualityAnalysis', () => {
   });
 
   // Helper: write config with optional phase_cleanup section
-  function setCleanupConfig(enabled) {
+  function setCleanupConfig(enabled: boolean | undefined) {
     const configPath = path.join(fixtureDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     if (enabled !== undefined) {
@@ -2477,7 +2477,7 @@ describe('cmdQualityAnalysis', () => {
   }
 
   // Helper: create a minimal JS file in lib/ for analysis
-  function createSourceFile(name, content) {
+  function createSourceFile(name: string, content: string) {
     const libDir = path.join(fixtureDir, 'lib');
     fs.mkdirSync(libDir, { recursive: true });
     fs.writeFileSync(path.join(libDir, name), content, 'utf-8');
@@ -2638,7 +2638,7 @@ describe('cmdQualityAnalysis', () => {
 // ─── cmdRequirementGet ──────────────────────────────────────────────────────
 
 describe('cmdRequirementGet', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -2717,7 +2717,7 @@ describe('cmdRequirementGet', () => {
 // ─── cmdRequirementList ─────────────────────────────────────────────────────
 
 describe('cmdRequirementList', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -2744,7 +2744,7 @@ describe('cmdRequirementList', () => {
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.requirements.length).toBe(2);
-    const ids = parsed.requirements.map((r) => r.id);
+    const ids = parsed.requirements.map((r: any) => r.id);
     expect(ids).toContain('REQ-01');
     expect(ids).toContain('REQ-03');
   });
@@ -2756,7 +2756,7 @@ describe('cmdRequirementList', () => {
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.requirements.length).toBe(2);
-    const ids = parsed.requirements.map((r) => r.id);
+    const ids = parsed.requirements.map((r: any) => r.id);
     expect(ids).toContain('REQ-01');
     expect(ids).toContain('REQ-03');
   });
@@ -2778,7 +2778,7 @@ describe('cmdRequirementList', () => {
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.requirements.length).toBe(2);
-    const ids = parsed.requirements.map((r) => r.id);
+    const ids = parsed.requirements.map((r: any) => r.id);
     expect(ids).toContain('REQ-01');
     expect(ids).toContain('REQ-03');
   });
@@ -2790,7 +2790,7 @@ describe('cmdRequirementList', () => {
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.requirements.length).toBe(4);
-    const ids = parsed.requirements.map((r) => r.id);
+    const ids = parsed.requirements.map((r: any) => r.id);
     expect(ids).toContain('REQ-99');
   });
 
@@ -2801,7 +2801,7 @@ describe('cmdRequirementList', () => {
     expect(exitCode).toBe(0);
     const parsed = parseFirstJson(stdout);
     expect(parsed.requirements.length).toBe(2);
-    const ids = parsed.requirements.map((r) => r.id);
+    const ids = parsed.requirements.map((r: any) => r.id);
     expect(ids).toContain('REQ-01');
     expect(ids).toContain('REQ-03');
   });
@@ -2820,7 +2820,7 @@ describe('cmdRequirementList', () => {
 // ─── cmdRequirementTraceability ─────────────────────────────────────────────
 
 describe('cmdRequirementTraceability', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -2880,7 +2880,7 @@ describe('cmdRequirementTraceability', () => {
 // ─── cmdSearch ───────────────────────────────────────────────────────────────
 
 describe('cmdSearch', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -2913,7 +2913,7 @@ describe('cmdSearch', () => {
     });
     expect(exitCode).toBe(0);
     const result = parseFirstJson(stdout);
-    const uniqueFiles = new Set(result.matches.map((m) => m.file));
+    const uniqueFiles = new Set(result.matches.map((m: any) => m.file));
     expect(uniqueFiles.size).toBeGreaterThanOrEqual(2);
   });
 
@@ -2945,7 +2945,7 @@ describe('cmdSearch', () => {
     expect(exitCode).toBe(0);
     const result = parseFirstJson(stdout);
     expect(result.matches.length).toBeGreaterThanOrEqual(1);
-    const hasSubdirMatch = result.matches.some((m) => m.file.includes('milestones/'));
+    const hasSubdirMatch = result.matches.some((m: any) => m.file.includes('milestones/'));
     expect(hasSubdirMatch).toBe(true);
   });
 
@@ -2990,7 +2990,7 @@ describe('cmdSearch', () => {
 // ─── cmdRequirementUpdateStatus ─────────────────────────────────────────────
 
 describe('cmdRequirementUpdateStatus', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -3014,7 +3014,7 @@ describe('cmdRequirementUpdateStatus', () => {
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
     const reqRow = content
       .split('\n')
-      .find((line) => line.includes('REQ-01') && line.startsWith('|'));
+      .find((line: string) => line.includes('REQ-01') && line.startsWith('|'));
     expect(reqRow).toContain('Deferred');
     expect(reqRow).not.toContain('Done');
   });
@@ -3031,7 +3031,7 @@ describe('cmdRequirementUpdateStatus', () => {
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'REQUIREMENTS.md'), 'utf-8');
     const reqRow = content
       .split('\n')
-      .find((line) => line.includes('REQ-01') && line.startsWith('|'));
+      .find((line: string) => line.includes('REQ-01') && line.startsWith('|'));
     expect(reqRow).toContain('In Progress');
   });
 
@@ -3085,21 +3085,21 @@ describe('cmdRequirementUpdateStatus', () => {
     const after = fs.readFileSync(reqPath, 'utf-8');
 
     // REQ-01 row should be unchanged (still Done)
-    const req01Before = before.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-01'));
-    const req01After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-01'));
+    const req01Before = before.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
+    const req01After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
     expect(req01After).toBe(req01Before);
 
     // REQ-03 row should be unchanged (still In Progress)
-    const req03Before = before.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-03'));
-    const req03After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-03'));
+    const req03Before = before.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
+    const req03After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
     expect(req03After).toBe(req03Before);
 
     // Content above Traceability Matrix section is unchanged
-    const matrixIdx = (text) => text.indexOf('## Traceability Matrix');
+    const matrixIdx = (text: string) => text.indexOf('## Traceability Matrix');
     expect(after.substring(0, matrixIdx(after))).toBe(before.substring(0, matrixIdx(before)));
 
     // REQ-02 Feature and Priority columns preserved
-    const req02After = after.split('\n').find((l) => l.startsWith('|') && l.includes('REQ-02'));
+    const req02After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-02'));
     expect(req02After).toContain('CLI Feature');
     expect(req02After).toContain('P1');
   });
@@ -3123,13 +3123,13 @@ describe('cmdRequirementUpdateStatus', () => {
 
 describe('cmdMigrateDirs', () => {
   const os = require('os');
-  let tmpDir;
+  let tmpDir: string;
 
   /**
    * Helper: create an old-style .planning/ layout with STATE.md containing
    * a milestone field and optional directories with sample files.
    */
-  function setupOldLayout(opts = {}) {
+  function setupOldLayout(opts: any = {}) {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-migrate-'));
     const planningDir = path.join(tmpDir, '.planning');
     fs.mkdirSync(planningDir, { recursive: true });
@@ -3214,7 +3214,7 @@ describe('cmdMigrateDirs', () => {
 
     // Result should include moved_directories with phases entry
     expect(result.moved_directories).toBeDefined();
-    const phasesEntry = result.moved_directories.find((d) => d.from === 'phases');
+    const phasesEntry = result.moved_directories.find((d: any) => d.from === 'phases');
     expect(phasesEntry).toBeDefined();
   });
 
@@ -3244,7 +3244,7 @@ describe('cmdMigrateDirs', () => {
     const result = parseFirstJson(stdout);
 
     // codebase/ should NOT appear in moved_directories
-    const codebaseEntry = result.moved_directories.find((d) => d.from === 'codebase');
+    const codebaseEntry = result.moved_directories.find((d: any) => d.from === 'codebase');
     expect(codebaseEntry).toBeUndefined();
 
     // codebase/ should still be at old root location
@@ -3402,7 +3402,7 @@ describe('cmdMigrateDirs', () => {
 // ─── ceremony config defaults ──────────────────────────────────────────────
 
 describe('ceremony config defaults', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -3432,7 +3432,7 @@ describe('ceremony config defaults', () => {
 // ─── cmdCoverageReport ──────────────────────────────────────────────────────
 
 describe('cmdCoverageReport', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -3660,7 +3660,7 @@ describe('cmdCoverageReport', () => {
 // ─── cmdHealthCheck ─────────────────────────────────────────────────────────
 
 describe('cmdHealthCheck', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -3674,7 +3674,7 @@ describe('cmdHealthCheck', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
     let callIndex = 0;
-    child_process.execFileSync = (cmd, args) => {
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       callIndex++;
       if (args && args[0] === 'jest') {
         return 'Tests:  100 passed, 100 total';
@@ -3711,10 +3711,10 @@ describe('cmdHealthCheck', () => {
   test('reports test failures with counts', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
-    child_process.execFileSync = (cmd, args) => {
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       if (args && args[0] === 'jest') {
         const err = new Error('Tests failed');
-        err.stdout = 'Tests:  3 failed, 97 passed, 100 total';
+        (err as any).stdout ='Tests:  3 failed, 97 passed, 100 total';
         throw err;
       }
       if (args && args[0] === 'eslint') {
@@ -3744,11 +3744,11 @@ describe('cmdHealthCheck', () => {
   test('reports lint errors', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
-    child_process.execFileSync = (cmd, args) => {
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       if (args && args[0] === 'jest') return 'Tests:  50 passed, 50 total';
       if (args && args[0] === 'eslint') {
         const err = new Error('Lint failed');
-        err.stdout = JSON.stringify([
+        (err as any).stdout =JSON.stringify([
           { filePath: 'lib/a.js', errorCount: 2, warningCount: 1, messages: [] },
           { filePath: 'lib/b.js', errorCount: 0, warningCount: 3, messages: [] },
         ]);
@@ -3775,8 +3775,8 @@ describe('cmdHealthCheck', () => {
   test('fix mode passes --fix to lint and --write to prettier', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
-    const calls = [];
-    child_process.execFileSync = (cmd, args) => {
+    const calls: any[] = [];
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       calls.push({ cmd, args: [...args] });
       if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
       if (args && args[0] === 'eslint') {
@@ -3809,11 +3809,11 @@ describe('cmdHealthCheck', () => {
   test('handles lint parse error gracefully', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
-    child_process.execFileSync = (cmd, args) => {
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
       if (args && args[0] === 'eslint') {
         const err = new Error('Lint crashed');
-        err.stdout = 'not valid json';
+        (err as any).stdout ='not valid json';
         throw err;
       }
       if (args && args[0] === 'prettier') return '';
@@ -3835,7 +3835,7 @@ describe('cmdHealthCheck', () => {
   test('handles consistency check error', () => {
     const child_process = require('child_process');
     const origExecFileSync = child_process.execFileSync;
-    child_process.execFileSync = (cmd, args) => {
+    child_process.execFileSync = (cmd: string, args: string[]) => {
       if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
       if (args && args[0] === 'eslint') {
         return JSON.stringify([
@@ -3924,7 +3924,7 @@ describe('cmdVerifyPathExists — null path', () => {
 // formatted for human consumption. Raw mode would use process.exit(1) instead.
 
 describe('cmdPhaseDetail — non-raw error paths', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -3954,7 +3954,7 @@ describe('cmdPhaseDetail — non-raw error paths', () => {
 // ─── cmdCommit — commit_failed reason ────────────────────────────────────────
 
 describe('cmdCommit — commit_failed for non-empty-commit errors', () => {
-  let repoDir;
+  let repoDir: string;
 
   beforeEach(() => {
     const os = require('os');
@@ -4004,7 +4004,7 @@ describe('cmdCommit — commit_failed for non-empty-commit errors', () => {
 // ─── cmdDashboard filter option ──────────────────────────────────────────────
 
 describe('cmdDashboard filter option', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -4032,8 +4032,8 @@ describe('cmdDashboard filter option', () => {
       cmdDashboard(fixtureDir, true, { filter: 'incomplete' });
     });
     const parsed = JSON.parse(stdout);
-    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
-    const phase1 = allPhases.find((p) => p.number === '1');
+    const allPhases = parsed.milestones.flatMap((ms: any) => ms.phases);
+    const phase1 = allPhases.find((p: any) => p.number === '1');
     expect(phase1).toBeUndefined();
   });
 
@@ -4042,8 +4042,8 @@ describe('cmdDashboard filter option', () => {
       cmdDashboard(fixtureDir, true, { filter: 'incomplete' });
     });
     const parsed = JSON.parse(stdout);
-    const allPhases = parsed.milestones.flatMap((ms) => ms.phases);
-    const phase2 = allPhases.find((p) => p.number === '2');
+    const allPhases = parsed.milestones.flatMap((ms: any) => ms.phases);
+    const phase2 = allPhases.find((p: any) => p.number === '2');
     expect(phase2).toBeDefined();
   });
 

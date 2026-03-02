@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/context.js
+ * Unit tests for lib/context/ (context/index.ts and sub-modules)
  *
  * Tests init workflow context loading functions. Each cmdInit* function
  * assembles context JSON from .planning/ files for Claude Code workflow agents.
@@ -65,7 +65,7 @@ const { VALID_BACKENDS, BACKEND_CAPABILITIES } = require('../../lib/backend');
 // ─── cmdInitExecutePhase ─────────────────────────────────────────────────────
 
 describe('cmdInitExecutePhase', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -193,7 +193,7 @@ describe('cmdInitExecutePhase', () => {
   });
 
   describe('base_branch config variations', () => {
-    let customTmpDir;
+    let customTmpDir: string;
 
     beforeAll(() => {
       customTmpDir = createFixtureDir();
@@ -243,7 +243,7 @@ describe('cmdInitExecutePhase', () => {
 // ─── cmdInitPlanPhase ────────────────────────────────────────────────────────
 
 describe('cmdInitPlanPhase', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -286,7 +286,7 @@ describe('cmdInitPlanPhase', () => {
 // ─── cmdInitNewProject ───────────────────────────────────────────────────────
 
 describe('cmdInitNewProject', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -320,7 +320,7 @@ describe('cmdInitNewProject', () => {
 // ─── cmdInitResume ───────────────────────────────────────────────────────────
 
 describe('cmdInitResume', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -345,7 +345,7 @@ describe('cmdInitResume', () => {
 // ─── cmdInitVerifyWork ───────────────────────────────────────────────────────
 
 describe('cmdInitVerifyWork', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -375,7 +375,7 @@ describe('cmdInitVerifyWork', () => {
 // ─── cmdInitPhaseOp ──────────────────────────────────────────────────────────
 
 describe('cmdInitPhaseOp', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -407,7 +407,7 @@ describe('cmdInitPhaseOp', () => {
 // ─── cmdInitTodos ────────────────────────────────────────────────────────────
 
 describe('cmdInitTodos', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -441,7 +441,7 @@ describe('cmdInitTodos', () => {
 // ─── cmdInitMilestoneOp ──────────────────────────────────────────────────────
 
 describe('cmdInitMilestoneOp', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -466,7 +466,7 @@ describe('cmdInitMilestoneOp', () => {
 // ─── cmdInitMapCodebase ──────────────────────────────────────────────────────
 
 describe('cmdInitMapCodebase', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -491,7 +491,7 @@ describe('cmdInitMapCodebase', () => {
 // ─── cmdInitProgress ─────────────────────────────────────────────────────────
 
 describe('cmdInitProgress', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -516,12 +516,12 @@ describe('cmdInitProgress', () => {
     const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(), false));
     const result = JSON.parse(stdout);
     // Phase 1 has both plan and summary -> complete
-    const phase1 = result.phases.find((p) => p.number === '01');
+    const phase1 = result.phases.find((p: any) => p.number === '01');
     expect(phase1).toBeDefined();
     expect(phase1.status).toBe('complete');
 
     // Phase 2 has plan but no summary -> in_progress
-    const phase2 = result.phases.find((p) => p.number === '02');
+    const phase2 = result.phases.find((p: any) => p.number === '02');
     expect(phase2).toBeDefined();
     expect(phase2.status).toBe('in_progress');
   });
@@ -537,7 +537,7 @@ describe('cmdInitProgress', () => {
 // ─── cmdInitResearchWorkflow ─────────────────────────────────────────────────
 
 describe('cmdInitResearchWorkflow', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -585,7 +585,7 @@ describe('cmdInitResearchWorkflow', () => {
 // ─── cmdInitNewMilestone ─────────────────────────────────────────────────────
 
 describe('cmdInitNewMilestone', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -673,7 +673,7 @@ describe('cmdInitNewMilestone', () => {
 // ─── cmdInitQuick ────────────────────────────────────────────────────────────
 
 describe('cmdInitQuick', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -706,8 +706,8 @@ describe('cmdInitQuick', () => {
 // ─── Backend-aware context init ──────────────────────────────────────────────
 
 describe('backend-aware context init', () => {
-  let tmpDir;
-  const savedEnv = {};
+  let tmpDir: string;
+  const savedEnv: Record<string, string | undefined> = {};
   // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
   const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
   const envVarsToClean = [
@@ -875,7 +875,7 @@ describe('backend-aware context init', () => {
 // ─── PRINCIPLES.md integration ───────────────────────────────────────────────
 
 describe('PRINCIPLES.md integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -944,7 +944,7 @@ describe('PRINCIPLES.md integration', () => {
 });
 
 describe('PRINCIPLES.md absent', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1014,7 +1014,7 @@ describe('PRINCIPLES.md absent', () => {
 // ─── ceremony level detection ────────────────────────────────────────────────
 
 describe('ceremony level detection', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1049,7 +1049,7 @@ describe('ceremony level detection', () => {
 // ─── ceremony config overrides ───────────────────────────────────────────────
 
 describe('ceremony config overrides', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1122,7 +1122,7 @@ describe('ceremony config overrides', () => {
 // ─── standards integration ───────────────────────────────────────────────────
 
 describe('standards integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1173,7 +1173,7 @@ describe('standards integration', () => {
 // ─── webmcp_available integration ─────────────────────────────────────────────
 
 describe('webmcp_available integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1246,8 +1246,8 @@ describe('webmcp_available integration', () => {
 // ─── native_worktree_available integration ──────────────────────────────────
 
 describe('native_worktree_available integration', () => {
-  let tmpDir;
-  const savedEnv = {};
+  let tmpDir: string;
+  const savedEnv: Record<string, string | undefined> = {};
   const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
   const envVarsToClean = [
     ...claudeCodeVars,
@@ -1316,8 +1316,8 @@ describe('native_worktree_available integration', () => {
 // ─── isolation_mode and main_repo_path integration ──────────────────────────
 
 describe('isolation_mode and main_repo_path integration', () => {
-  let tmpDir;
-  const savedEnv = {};
+  let tmpDir: string;
+  const savedEnv: Record<string, string | undefined> = {};
   const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
   const envVarsToClean = [
     ...claudeCodeVars,
@@ -1412,7 +1412,7 @@ describe('isolation_mode and main_repo_path integration', () => {
 });
 
 describe('standards absent', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1432,8 +1432,8 @@ describe('standards absent', () => {
 // ─── Phase 47: native vs manual isolation matrix ──────────────────────────
 
 describe('Phase 47: native vs manual isolation matrix', () => {
-  let tmpDir;
-  const savedEnv = {};
+  let tmpDir: string;
+  const savedEnv: Record<string, string | undefined> = {};
   const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
   const envVarsToClean = [
     ...claudeCodeVars,
@@ -1464,7 +1464,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
     cleanupFixtureDir(tmpDir);
   });
 
-  function writeConfigForBackend(dir, backend, branchingStrategy) {
+  function writeConfigForBackend(dir: string, backend: string, branchingStrategy: string) {
     fs.writeFileSync(
       path.join(dir, '.planning', 'config.json'),
       JSON.stringify({
@@ -1579,7 +1579,7 @@ describe('Phase 47: native vs manual isolation matrix', () => {
 // ─── inferCeremonyLevel overrides ─────────────────────────────────────────────
 
 describe('inferCeremonyLevel overrides', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1611,7 +1611,7 @@ describe('inferCeremonyLevel overrides', () => {
 // ─── gate failure paths ───────────────────────────────────────────────────────
 
 describe('gate failure paths', () => {
-  let failTmpDir;
+  let failTmpDir: string;
 
   beforeAll(() => {
     failTmpDir = createFixtureDir();
@@ -1650,7 +1650,7 @@ describe('gate failure paths', () => {
 });
 
 describe('cmdInitNewMilestone gate failure', () => {
-  let gateTmpDir;
+  let gateTmpDir: string;
 
   beforeAll(() => {
     gateTmpDir = createFixtureDir();
@@ -1678,7 +1678,7 @@ describe('cmdInitNewMilestone gate failure', () => {
 // ─── plan-phase gate warnings (stale artifacts) ───────────────────────────────
 
 describe('plan-phase gate warnings', () => {
-  let warnTmpDir;
+  let warnTmpDir: string;
 
   beforeAll(() => {
     warnTmpDir = createFixtureDir();
@@ -1717,7 +1717,7 @@ describe('plan-phase gate warnings', () => {
 // ─── execute-phase include handlers ──────────────────────────────────────────
 
 describe('execute-phase include handlers', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1779,7 +1779,7 @@ describe('execute-phase include handlers', () => {
 // ─── plan-phase include handlers ─────────────────────────────────────────────
 
 describe('plan-phase include handlers', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1876,7 +1876,7 @@ describe('plan-phase include handlers', () => {
 // ─── cmdInitQuick next_num increment ─────────────────────────────────────────
 
 describe('cmdInitQuick next_num increment', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1900,7 +1900,7 @@ describe('cmdInitQuick next_num increment', () => {
 // ─── cmdInitMilestoneOp archive scanning ─────────────────────────────────────
 
 describe('cmdInitMilestoneOp archive scanning', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1926,7 +1926,7 @@ describe('cmdInitMilestoneOp archive scanning', () => {
 // ─── cmdInitProgress paused state and additional includes ────────────────────
 
 describe('cmdInitProgress paused state and additional includes', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -1988,7 +1988,7 @@ describe('cmdInitProgress paused state and additional includes', () => {
 // ─── cmdInitProgress cache behavior ──────────────────────────────────────────
 
 describe('cmdInitProgress cache behavior', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -2049,7 +2049,7 @@ describe('cmdInitProgress cache behavior', () => {
 // ─── cmdInitResearchWorkflow includes ────────────────────────────────────────
 
 describe('cmdInitResearchWorkflow includes', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2168,7 +2168,7 @@ describe('cmdInitResearchWorkflow includes', () => {
 // ─── cmdInitPlanMilestoneGaps with audit file ────────────────────────────────
 
 describe('cmdInitPlanMilestoneGaps with audit file', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2201,7 +2201,7 @@ describe('cmdInitPlanMilestoneGaps with audit file', () => {
 // ─── cmdInitDebug ─────────────────────────────────────────────────────────────
 
 describe('cmdInitDebug', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2244,7 +2244,7 @@ describe('cmdInitDebug', () => {
 // ─── cmdInitIntegrationCheck ──────────────────────────────────────────────────
 
 describe('cmdInitIntegrationCheck', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2279,7 +2279,7 @@ describe('cmdInitIntegrationCheck', () => {
 // ─── cmdInitMigrate ───────────────────────────────────────────────────────────
 
 describe('cmdInitMigrate', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2301,7 +2301,7 @@ describe('cmdInitMigrate', () => {
     const { stdout } = captureOutput(() => cmdInitMigrate(tmpDir, false));
     const result = JSON.parse(stdout);
     // v0.9-REQUIREMENTS.md is a flat milestone file in fixture
-    expect(result.flat_milestone_files.some((f) => f.includes('v0.9-REQUIREMENTS.md'))).toBe(true);
+    expect(result.flat_milestone_files.some((f: any) => f.includes('v0.9-REQUIREMENTS.md'))).toBe(true);
   });
 
   test('includes paths', () => {
@@ -2316,7 +2316,7 @@ describe('cmdInitMigrate', () => {
 // ─── cmdInitPlanCheck ────────────────────────────────────────────────────────
 
 describe('cmdInitPlanCheck', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2350,7 +2350,7 @@ describe('cmdInitPlanCheck', () => {
 // ─── cmdInitPhaseResearch ────────────────────────────────────────────────────
 
 describe('cmdInitPhaseResearch', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2391,7 +2391,7 @@ describe('cmdInitPhaseResearch', () => {
 // ─── cmdInitCodeReview ────────────────────────────────────────────────────────
 
 describe('cmdInitCodeReview', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2426,7 +2426,7 @@ describe('cmdInitCodeReview', () => {
 // ─── cmdInitAssessBaseline ────────────────────────────────────────────────────
 
 describe('cmdInitAssessBaseline', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2458,7 +2458,7 @@ describe('cmdInitAssessBaseline', () => {
 // ─── cmdInitDeepDive ──────────────────────────────────────────────────────────
 
 describe('cmdInitDeepDive', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2500,7 +2500,7 @@ describe('cmdInitDeepDive', () => {
 // ─── cmdInitEvalPlan ──────────────────────────────────────────────────────────
 
 describe('cmdInitEvalPlan', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2540,7 +2540,7 @@ describe('cmdInitEvalPlan', () => {
 // ─── cmdInitEvalReport ────────────────────────────────────────────────────────
 
 describe('cmdInitEvalReport', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2581,7 +2581,7 @@ describe('cmdInitEvalReport', () => {
 // ─── cmdInitFeasibility ───────────────────────────────────────────────────────
 
 describe('cmdInitFeasibility', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2622,7 +2622,7 @@ describe('cmdInitFeasibility', () => {
 // ─── cmdInitProductOwner ──────────────────────────────────────────────────────
 
 describe('cmdInitProductOwner', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2656,7 +2656,7 @@ describe('cmdInitProductOwner', () => {
 // ─── cmdInitProjectResearcher ─────────────────────────────────────────────────
 
 describe('cmdInitProjectResearcher', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2696,7 +2696,7 @@ describe('cmdInitProjectResearcher', () => {
 // ─── cmdInitResearchSynthesizer ───────────────────────────────────────────────
 
 describe('cmdInitResearchSynthesizer', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2729,7 +2729,7 @@ describe('cmdInitResearchSynthesizer', () => {
 // ─── cmdInitRoadmapper ────────────────────────────────────────────────────────
 
 describe('cmdInitRoadmapper', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2764,7 +2764,7 @@ describe('cmdInitRoadmapper', () => {
 // ─── cmdInitSurveyor ──────────────────────────────────────────────────────────
 
 describe('cmdInitSurveyor', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2803,7 +2803,7 @@ describe('cmdInitSurveyor', () => {
 // ─── cmdInitVerifier ──────────────────────────────────────────────────────────
 
 describe('cmdInitVerifier', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -2845,7 +2845,7 @@ describe('cmdInitVerifier', () => {
 // ─── Agent-named alias functions ─────────────────────────────────────────────
 
 describe('cmdInitBaselineAssessor', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2859,7 +2859,7 @@ describe('cmdInitBaselineAssessor', () => {
 });
 
 describe('cmdInitCodeReviewer', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2872,7 +2872,7 @@ describe('cmdInitCodeReviewer', () => {
 });
 
 describe('cmdInitCodebaseMapper', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2885,7 +2885,7 @@ describe('cmdInitCodebaseMapper', () => {
 });
 
 describe('cmdInitDebugger', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2898,7 +2898,7 @@ describe('cmdInitDebugger', () => {
 });
 
 describe('cmdInitDeepDiver', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2912,7 +2912,7 @@ describe('cmdInitDeepDiver', () => {
 });
 
 describe('cmdInitEvalPlanner', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2925,7 +2925,7 @@ describe('cmdInitEvalPlanner', () => {
 });
 
 describe('cmdInitEvalReporter', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2938,7 +2938,7 @@ describe('cmdInitEvalReporter', () => {
 });
 
 describe('cmdInitExecutor', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2964,7 +2964,7 @@ describe('cmdInitExecutor', () => {
 });
 
 describe('cmdInitFeasibilityAnalyst', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2977,7 +2977,7 @@ describe('cmdInitFeasibilityAnalyst', () => {
 });
 
 describe('cmdInitIntegrationChecker', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -2991,7 +2991,7 @@ describe('cmdInitIntegrationChecker', () => {
 });
 
 describe('cmdInitMigrator', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -3005,7 +3005,7 @@ describe('cmdInitMigrator', () => {
 });
 
 describe('cmdInitPhaseResearcher', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 
@@ -3018,7 +3018,7 @@ describe('cmdInitPhaseResearcher', () => {
 });
 
 describe('cmdInitPlanChecker', () => {
-  let tmpDir;
+  let tmpDir: string;
   beforeAll(() => { tmpDir = createFixtureDir(); });
   afterAll(() => { cleanupFixtureDir(tmpDir); });
 

@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/tracker.js
+ * Unit tests for lib/tracker.ts
  *
  * Tests tracker configuration parsing, mapping file I/O, and error paths.
  * NO external service calls (GitHub CLI, Jira) — all tests run offline.
@@ -23,7 +23,7 @@ const {
 // ─── loadTrackerConfig ───────────────────────────────────────────────────────
 
 describe('loadTrackerConfig', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -89,8 +89,8 @@ describe('loadTrackerConfig', () => {
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     fs.writeFileSync(configPath, '{ this is not valid json :::}', 'utf-8');
 
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrLines.push(String(data));
       return true;
     });
@@ -100,7 +100,7 @@ describe('loadTrackerConfig', () => {
     stderrSpy.mockRestore();
 
     expect(result.provider).toBe('none');
-    expect(stderrLines.some((line) => line.includes('config.json'))).toBe(true);
+    expect(stderrLines.some((line: any) => line.includes('config.json'))).toBe(true);
   });
 
   test('migrates old github_integration format', () => {
@@ -170,7 +170,7 @@ describe('loadTrackerConfig', () => {
 // ─── loadTrackerMapping / saveTrackerMapping ──────────────────────────────────
 
 describe('loadTrackerMapping', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -226,7 +226,7 @@ describe('loadTrackerMapping', () => {
 });
 
 describe('saveTrackerMapping', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -300,7 +300,7 @@ describe('PROVIDERS', () => {
 // ─── createTracker / createGitHubTracker ─────────────────────────────────────
 
 describe('createTracker', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -336,7 +336,7 @@ describe('createTracker', () => {
 // ─── cmdTracker ──────────────────────────────────────────────────────────────
 
 describe('cmdTracker', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1003,7 +1003,7 @@ describe('cmdTracker', () => {
     expect(result.project_key).toBe('PROJ');
     expect(Array.isArray(result.operations)).toBe(true);
     const createOps = result.operations.filter(
-      (op) => op.action === 'create' && op.type === 'phase'
+      (op: any) => op.action === 'create' && op.type === 'phase'
     );
     expect(createOps.length).toBe(2);
   });
@@ -1044,7 +1044,7 @@ describe('cmdTracker', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     const skipOps = result.operations.filter(
-      (op) => op.action === 'skip' && op.type === 'phase' && op.phase === '1'
+      (op: any) => op.action === 'skip' && op.type === 'phase' && op.phase === '1'
     );
     expect(skipOps.length).toBe(1);
     expect(skipOps[0].reason).toBe('already_synced');
@@ -1112,7 +1112,7 @@ describe('cmdTracker', () => {
     expect(result.provider).toBe('mcp-atlassian');
     expect(Array.isArray(result.operations)).toBe(true);
     const createOps = result.operations.filter(
-      (op) => op.action === 'create' && op.type === 'plan'
+      (op: any) => op.action === 'create' && op.type === 'plan'
     );
     expect(createOps.length).toBe(2);
   });
@@ -1148,7 +1148,7 @@ describe('cmdTracker', () => {
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    const skipOps = result.operations.filter((op) => op.action === 'skip' && op.type === 'plan');
+    const skipOps = result.operations.filter((op: any) => op.action === 'skip' && op.type === 'plan');
     expect(skipOps.length).toBe(1);
     expect(skipOps[0].reason).toBe('already_synced');
   });
@@ -1280,7 +1280,7 @@ describe('cmdTracker', () => {
 // ─── createGitHubTracker method tests ───────────────────────────────────────
 
 describe('createGitHubTracker', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1450,7 +1450,7 @@ describe('createGitHubTracker', () => {
 // ─── loadTrackerConfig — required field validation ───────────────────────────
 
 describe('loadTrackerConfig — required field validation warning', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1472,9 +1472,10 @@ describe('loadTrackerConfig — required field validation warning', () => {
     };
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
-      stderrLines.push(msg);
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
+      stderrLines.push(String(msg));
+      return true;
     });
     try {
       loadTrackerConfig(tmpDir);

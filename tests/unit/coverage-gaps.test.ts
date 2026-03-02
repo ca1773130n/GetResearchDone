@@ -25,7 +25,7 @@ const {
 } = require('../../lib/context');
 
 describe('context --include flag branches', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -297,7 +297,7 @@ describe('parseMustHavesBlock edge cases', () => {
 const { cmdVerifyArtifacts, cmdVerifyKeyLinks } = require('../../lib/verify');
 
 describe('cmdVerifyArtifacts detailed paths', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -418,7 +418,7 @@ describe('cmdVerifyArtifacts detailed paths', () => {
 });
 
 describe('cmdVerifyKeyLinks detailed paths', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -541,7 +541,7 @@ describe('cmdVerifyKeyLinks detailed paths', () => {
 const { cmdTemplateFill } = require('../../lib/scaffold');
 
 describe('cmdTemplateFill verification template', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -593,7 +593,7 @@ const {
 } = require('../../lib/frontmatter');
 
 describe('cmdFrontmatterSet', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -641,7 +641,7 @@ describe('cmdFrontmatterSet', () => {
 });
 
 describe('cmdFrontmatterMerge', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -687,7 +687,7 @@ describe('cmdFrontmatterMerge', () => {
 });
 
 describe('cmdFrontmatterValidate', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -723,7 +723,7 @@ describe('cmdFrontmatterValidate', () => {
 const { cmdVerifyReferences } = require('../../lib/verify');
 
 describe('cmdVerifyReferences backtick paths', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -773,7 +773,7 @@ describe('cmdVerifyReferences backtick paths', () => {
 // ─── Verify key links additional paths ──────────────────────────────────────
 
 describe('cmdVerifyKeyLinks additional paths', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -935,7 +935,7 @@ describe('cmdVerifyKeyLinks additional paths', () => {
 // ─── Verify artifacts min_lines and exports ──────────────────────────────────
 
 describe('cmdVerifyArtifacts min_lines and exports', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1021,7 +1021,7 @@ describe('cmdVerifyArtifacts min_lines and exports', () => {
 // ─── Context include branches where files exist ──────────────────────────────
 
 describe('context include branches with existing files', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1071,7 +1071,7 @@ describe('context include branches with existing files', () => {
 // ─── Research workflow include branches ──────────────────────────────────────
 
 describe('research workflow include branches with files', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1146,7 +1146,7 @@ describe('research workflow include branches with files', () => {
 // ─── Init progress include branches (roadmap, project, config) ──────────────
 
 describe('init progress additional include branches', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1177,7 +1177,7 @@ describe('init progress additional include branches', () => {
 });
 
 describe('cmdProgressRender modes', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();

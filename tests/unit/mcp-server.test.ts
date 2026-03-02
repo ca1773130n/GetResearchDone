@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/mcp-server.js
+ * Unit tests for lib/mcp-server.js (still JavaScript, last unmigrated lib module)
  *
  * Tests the MCP (Model Context Protocol) server module covering:
  * 1. buildToolDefinitions() — schema generation
@@ -35,8 +35,8 @@ const {
 
 // ─── Fixture Setup ──────────────────────────────────────────────────────────
 
-let fixtureDir;
-let server;
+let fixtureDir: string;
+let server: any;
 
 beforeAll(() => {
   fixtureDir = createFixtureDir();
@@ -50,7 +50,7 @@ afterAll(() => {
 // ─── 1. buildToolDefinitions() — Schema Generation ─────────────────────────
 
 describe('buildToolDefinitions()', () => {
-  let tools;
+  let tools: any;
 
   beforeAll(() => {
     tools = buildToolDefinitions();
@@ -80,7 +80,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('tools with required params have required array in inputSchema', () => {
-    const toolsWithRequired = tools.filter((t) => t.inputSchema.required);
+    const toolsWithRequired = tools.filter((t: any) => t.inputSchema.required);
     expect(toolsWithRequired.length).toBeGreaterThan(0);
     for (const tool of toolsWithRequired) {
       expect(Array.isArray(tool.inputSchema.required)).toBe(true);
@@ -93,7 +93,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('tools without required params do not have required array', () => {
-    const toolsWithoutRequired = tools.filter((t) => !t.inputSchema.required);
+    const toolsWithoutRequired = tools.filter((t: any) => !t.inputSchema.required);
     expect(toolsWithoutRequired.length).toBeGreaterThan(0);
     for (const tool of toolsWithoutRequired) {
       expect(tool.inputSchema.required).toBeUndefined();
@@ -108,7 +108,7 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('no duplicate tool names', () => {
-    const names = tools.map((t) => t.name);
+    const names = tools.map((t: any) => t.name);
     const unique = new Set(names);
     expect(unique.size).toBe(names.length);
   });
@@ -116,14 +116,14 @@ describe('buildToolDefinitions()', () => {
   // ── Spot-check specific tools ──
 
   test('grd_state_load has no required params', () => {
-    const tool = tools.find((t) => t.name === 'grd_state_load');
+    const tool = tools.find((t: any) => t.name === 'grd_state_load');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toBeUndefined();
     expect(Object.keys(tool.inputSchema.properties)).toHaveLength(0);
   });
 
   test('grd_state_get has optional section param of type string', () => {
-    const tool = tools.find((t) => t.name === 'grd_state_get');
+    const tool = tools.find((t: any) => t.name === 'grd_state_get');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.properties.section).toBeDefined();
     expect(tool.inputSchema.properties.section.type).toBe('string');
@@ -131,14 +131,14 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('grd_phase_add has required description param', () => {
-    const tool = tools.find((t) => t.name === 'grd_phase_add');
+    const tool = tools.find((t: any) => t.name === 'grd_phase_add');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('description');
     expect(tool.inputSchema.properties.description.type).toBe('string');
   });
 
   test('grd_verify_plan_structure has required file param', () => {
-    const tool = tools.find((t) => t.name === 'grd_verify_plan_structure');
+    const tool = tools.find((t: any) => t.name === 'grd_verify_plan_structure');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('file');
   });
@@ -146,21 +146,21 @@ describe('buildToolDefinitions()', () => {
   // ── Spot-checks for requirement & search tools ──
 
   test('grd_requirement_get has required req_id param of type string', () => {
-    const tool = tools.find((t) => t.name === 'grd_requirement_get');
+    const tool = tools.find((t: any) => t.name === 'grd_requirement_get');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('req_id');
     expect(tool.inputSchema.properties.req_id.type).toBe('string');
   });
 
   test('grd_requirement_list has 5 optional params and no required array', () => {
-    const tool = tools.find((t) => t.name === 'grd_requirement_list');
+    const tool = tools.find((t: any) => t.name === 'grd_requirement_list');
     expect(tool).toBeDefined();
     expect(Object.keys(tool.inputSchema.properties)).toHaveLength(5);
     expect(tool.inputSchema.required).toBeUndefined();
   });
 
   test('grd_requirement_update_status has required req_id and status params', () => {
-    const tool = tools.find((t) => t.name === 'grd_requirement_update_status');
+    const tool = tools.find((t: any) => t.name === 'grd_requirement_update_status');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('req_id');
     expect(tool.inputSchema.required).toContain('status');
@@ -169,21 +169,21 @@ describe('buildToolDefinitions()', () => {
   });
 
   test('grd_search has required query param of type string', () => {
-    const tool = tools.find((t) => t.name === 'grd_search');
+    const tool = tools.find((t: any) => t.name === 'grd_search');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('query');
     expect(tool.inputSchema.properties.query.type).toBe('string');
   });
 
   test('grd_init_execute_phase has required phase param', () => {
-    const tool = tools.find((t) => t.name === 'grd_init_execute_phase');
+    const tool = tools.find((t: any) => t.name === 'grd_init_execute_phase');
     expect(tool).toBeDefined();
     expect(tool.inputSchema.required).toContain('phase');
   });
 
   test('inputSchema properties have correct types for various param types', () => {
     // array type
-    const commitTool = tools.find((t) => t.name === 'grd_commit');
+    const commitTool = tools.find((t: any) => t.name === 'grd_commit');
     expect(commitTool).toBeDefined();
     const filesProp = commitTool.inputSchema.properties.files;
     expect(filesProp.type).toBe('array');
@@ -194,12 +194,12 @@ describe('buildToolDefinitions()', () => {
     expect(amendProp.type).toBe('boolean');
 
     // object type
-    const patchTool = tools.find((t) => t.name === 'grd_state_patch');
+    const patchTool = tools.find((t: any) => t.name === 'grd_state_patch');
     expect(patchTool).toBeDefined();
     expect(patchTool.inputSchema.properties.patches.type).toBe('object');
 
     // number type
-    const verifySummary = tools.find((t) => t.name === 'grd_verify_summary');
+    const verifySummary = tools.find((t: any) => t.name === 'grd_verify_summary');
     expect(verifySummary).toBeDefined();
     expect(verifySummary.inputSchema.properties.check_count.type).toBe('number');
   });
@@ -227,49 +227,49 @@ describe('COMMAND_DESCRIPTORS', () => {
   });
 
   test('covers state command family', () => {
-    const stateCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_state_'));
+    const stateCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_state_'));
     expect(stateCommands.length).toBeGreaterThanOrEqual(10);
   });
 
   test('covers verify command family', () => {
-    const verifyCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_verify_'));
+    const verifyCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_verify_'));
     expect(verifyCommands.length).toBeGreaterThanOrEqual(5);
   });
 
   test('covers frontmatter command family', () => {
-    const fmCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_frontmatter_'));
+    const fmCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_frontmatter_'));
     expect(fmCommands.length).toBeGreaterThanOrEqual(4);
   });
 
   test('covers phase command family', () => {
-    const phaseCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_phase_'));
+    const phaseCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_phase_'));
     expect(phaseCommands.length).toBeGreaterThanOrEqual(4);
   });
 
   test('covers init command family', () => {
-    const initCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_init_'));
+    const initCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_init_'));
     expect(initCommands.length).toBeGreaterThanOrEqual(15);
   });
 
   test('covers tracker command family', () => {
-    const trackerCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_tracker_'));
+    const trackerCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_tracker_'));
     expect(trackerCommands.length).toBeGreaterThanOrEqual(10);
   });
 
   test('covers long_term_roadmap command family', () => {
-    const ltrCommands = COMMAND_DESCRIPTORS.filter((d) =>
+    const ltrCommands = COMMAND_DESCRIPTORS.filter((d: any) =>
       d.name.startsWith('grd_long_term_roadmap_')
     );
     expect(ltrCommands.length).toBeGreaterThanOrEqual(12);
   });
 
   test('covers requirement command family', () => {
-    const reqCommands = COMMAND_DESCRIPTORS.filter((d) => d.name.startsWith('grd_requirement_'));
+    const reqCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_requirement_'));
     expect(reqCommands.length).toBeGreaterThanOrEqual(4);
   });
 
   test('covers search command', () => {
-    const searchCmd = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_search');
+    const searchCmd = COMMAND_DESCRIPTORS.find((d: any) => d.name === 'grd_search');
     expect(searchCmd).toBeDefined();
   });
 
@@ -585,7 +585,7 @@ describe('handleMessage — tools/call (execution)', () => {
 
 describe('handleMessage — bulk tool execute lambda coverage', () => {
   // Helper: call a tool and return the response (success or isError)
-  function callTool(name, args = {}) {
+  function callTool(name: string, args: Record<string, unknown> = {}) {
     return server.handleMessage({
       jsonrpc: '2.0',
       id: `bulk-${name}`,
@@ -1646,8 +1646,8 @@ describe('v0.2.8 evolve MCP tools', () => {
     'grd_evolve_run',
   ];
 
-  let evolveFixtureDir;
-  let evolveServer;
+  let evolveFixtureDir: string;
+  let evolveServer: any;
 
   beforeAll(() => {
     evolveFixtureDir = createFixtureDir();
@@ -1667,7 +1667,7 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   test('all expected evolve tool names appear in buildToolDefinitions()', () => {
     const tools = buildToolDefinitions();
-    const evolveToolNames = tools.filter((t) => t.name.includes('evolve')).map((t) => t.name);
+    const evolveToolNames = tools.filter((t: any) => t.name.includes('evolve')).map((t: any) => t.name);
 
     for (const expected of EXPECTED_EVOLVE_TOOLS) {
       expect(evolveToolNames).toContain(expected);
@@ -1676,7 +1676,7 @@ describe('v0.2.8 evolve MCP tools', () => {
   });
 
   test('all expected evolve tool names appear in COMMAND_DESCRIPTORS', () => {
-    const descriptorNames = COMMAND_DESCRIPTORS.map((d) => d.name);
+    const descriptorNames = COMMAND_DESCRIPTORS.map((d: any) => d.name);
     for (const expected of EXPECTED_EVOLVE_TOOLS) {
       expect(descriptorNames).toContain(expected);
     }
@@ -1686,7 +1686,7 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   test('each evolve tool has name, description, and inputSchema fields', () => {
     const tools = buildToolDefinitions();
-    const evolveTools = tools.filter((t) => EXPECTED_EVOLVE_TOOLS.includes(t.name));
+    const evolveTools = tools.filter((t: any) => EXPECTED_EVOLVE_TOOLS.includes(t.name));
 
     expect(evolveTools.length).toBe(EXPECTED_EVOLVE_TOOLS.length);
 
@@ -1704,7 +1704,7 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   test('each evolve COMMAND_DESCRIPTOR has name, description, params, and execute', () => {
     for (const toolName of EXPECTED_EVOLVE_TOOLS) {
-      const desc = COMMAND_DESCRIPTORS.find((d) => d.name === toolName);
+      const desc = COMMAND_DESCRIPTORS.find((d: any) => d.name === toolName);
       expect(desc).toBeDefined();
       expect(typeof desc.name).toBe('string');
       expect(typeof desc.description).toBe('string');
@@ -1804,11 +1804,11 @@ describe('v0.2.8 evolve MCP tools', () => {
   // function is callable (returns a Promise).
 
   test('grd_evolve_run descriptor has correct structure and callable execute', () => {
-    const desc = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_evolve_run');
+    const desc = COMMAND_DESCRIPTORS.find((d: any) => d.name === 'grd_evolve_run');
     expect(desc).toBeDefined();
     expect(typeof desc.execute).toBe('function');
     expect(desc.params.length).toBe(5);
-    const paramNames = desc.params.map((p) => p.name);
+    const paramNames = desc.params.map((p: any) => p.name);
     expect(paramNames).toContain('iterations');
     expect(paramNames).toContain('items');
     expect(paramNames).toContain('timeout');
@@ -1834,15 +1834,15 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   test('existing non-evolve MCP tools are not affected', () => {
     const tools = buildToolDefinitions();
-    const nonEvolveTools = tools.filter((t) => !t.name.includes('evolve'));
+    const nonEvolveTools = tools.filter((t: any) => !t.name.includes('evolve'));
 
     // There should be many non-evolve tools
     expect(nonEvolveTools.length).toBeGreaterThanOrEqual(90);
 
     // Spot-check a few
-    const stateLoad = nonEvolveTools.find((t) => t.name === 'grd_state_load');
+    const stateLoad = nonEvolveTools.find((t: any) => t.name === 'grd_state_load');
     expect(stateLoad).toBeDefined();
-    const slugTool = nonEvolveTools.find((t) => t.name === 'grd_generate_slug');
+    const slugTool = nonEvolveTools.find((t: any) => t.name === 'grd_generate_slug');
     expect(slugTool).toBeDefined();
   });
 });
@@ -1852,7 +1852,7 @@ describe('v0.2.8 evolve MCP tools', () => {
 // split-success path, and grd_autopilot_run / grd_evolve_run lambda bodies.
 
 describe('handleMessage — previously-uncovered execute lambdas', () => {
-  function callTool(name, args = {}) {
+  function callTool(name: string, args: Record<string, unknown> = {}) {
     return server.handleMessage({
       jsonrpc: '2.0',
       id: `coverage-${name}`,
