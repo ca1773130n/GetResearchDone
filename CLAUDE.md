@@ -6,7 +6,7 @@ R&D workflow automation for Claude Code. Paper-driven development, tiered evalua
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all tests with coverage (1,631 tests) |
+| `npm test` | Run all tests with coverage (2,646+ tests) |
 | `npm run test:unit` | Unit tests only with coverage |
 | `npm run test:integration` | Integration + E2E tests |
 | `npm run test:watch` | Watch mode for development |
@@ -14,53 +14,79 @@ R&D workflow automation for Claude Code. Paper-driven development, tiered evalua
 | `npm run lint:fix` | Auto-fix lint issues |
 | `npm run format:check` | Prettier check (CI-safe) |
 | `npm run format` | Prettier auto-format |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run build:check` | Type-check without emitting (`tsc --noEmit`) |
 
-Single test file: `npx jest tests/unit/state.test.js`
+Single test file: `npx jest tests/unit/state.test.ts`
 Single test name: `npx jest -t "should parse frontmatter"`
 
 ## Source Architecture
 
 ```
 bin/
-├── grd-tools.js            # Main CLI — all deterministic operations
-├── grd-mcp-server.js       # MCP server for tool exposure
-├── grd-manifest.js         # SHA256 file tracking for self-update
-└── postinstall.js          # npm postinstall hook
-lib/                        # 19 modules (pure logic, no I/O side effects in tests)
-├── backend.js              # Claude Code backend detection + capabilities
-├── cleanup.js              # Phase-boundary quality analysis
-├── commands.js             # CLI command routing + argument parsing
-├── context.js              # Context optimization (plan index, snapshots)
-├── deps.js                 # Dependency management
-├── frontmatter.js          # YAML frontmatter CRUD
-├── gates.js                # Research + confirmation gates
-├── long-term-roadmap.js    # LT milestone CRUD + protection rules
-├── mcp-server.js           # MCP tool registration
-├── parallel.js             # Parallel execution engine
-├── paths.js                # Milestone-scoped path resolution for .planning/
-├── phase.js                # Phase lifecycle (add/insert/remove/complete)
-├── roadmap.js              # ROADMAP.md parsing + manipulation
-├── scaffold.js             # Directory/file scaffolding
-├── state.js                # STATE.md read/write/patch
-├── tracker.js              # GitHub Issues / MCP Atlassian sync
-├── utils.js                # Shared utilities (slug, date, markdown)
-├── verify.js               # Plan/phase/commit verification suite
-└── worktree.js             # Git worktree parallel execution
+├── grd-tools.ts            # Main CLI — all deterministic operations
+├── grd-tools.js            # CJS proxy (requires grd-tools.ts)
+├── grd-mcp-server.ts       # MCP server for tool exposure
+├── grd-mcp-server.js       # CJS proxy
+├── grd-manifest.ts         # SHA256 file tracking for self-update
+└── postinstall.ts          # npm postinstall hook
+lib/                        # 21 modules + 3 decomposed sub-module directories
+├── autopilot.ts            # Autopilot orchestration
+├── backend.ts              # Claude Code backend detection + capabilities
+├── cleanup.ts              # Phase-boundary quality analysis
+├── commands/               # CLI command routing (decomposed from commands.js)
+│   ├── index.ts            # Barrel re-export + routing
+│   ├── dashboard.ts        # Dashboard rendering
+│   ├── health.ts           # Health check commands
+│   ├── progress.ts         # Progress display
+│   └── ... (12 sub-modules)
+├── context/                # Context optimization (decomposed from context.js)
+│   ├── index.ts            # Barrel re-export
+│   ├── base.ts             # Shared init context builder
+│   ├── execute.ts          # Execute-phase init
+│   └── ... (7 sub-modules)
+├── deps.ts                 # Dependency management
+├── evolve/                 # Self-evolution loop (decomposed from evolve.js)
+│   ├── index.ts            # Barrel re-export
+│   ├── orchestrator.ts     # Evolution orchestration
+│   ├── discovery.ts        # Codebase discovery
+│   └── ... (10 sub-modules)
+├── frontmatter.ts          # YAML frontmatter CRUD
+├── gates.ts                # Research + confirmation gates
+├── long-term-roadmap.ts    # LT milestone CRUD + protection rules
+├── markdown-split.ts       # Markdown file splitting for context
+├── mcp-server.ts           # MCP tool registration
+├── parallel.ts             # Parallel execution engine
+├── paths.ts                # Milestone-scoped path resolution for .planning/
+├── phase.ts                # Phase lifecycle (add/insert/remove/complete)
+├── requirements.ts         # Requirements parsing + traceability
+├── roadmap.ts              # ROADMAP.md parsing + manipulation
+├── scaffold.ts             # Directory/file scaffolding
+├── state.ts                # STATE.md read/write/patch
+├── tracker.ts              # GitHub Issues / MCP Atlassian sync
+├── types.ts                # Shared TypeScript type definitions
+├── utils.ts                # Shared utilities (slug, date, markdown)
+├── verify.ts               # Plan/phase/commit verification suite
+└── worktree.ts             # Git worktree parallel execution
 commands/                   # 39 skill definitions (markdown with frontmatter)
 agents/                     # 19 subagent definitions (markdown with frontmatter)
 tests/
-├── unit/                   # Unit tests — one per lib/ module
-├── integration/            # CLI + E2E workflow tests
+├── unit/                   # Unit tests — one per lib/ module (.test.ts)
+├── integration/            # CLI + E2E workflow tests (.test.ts)
 ├── golden/                 # Golden output snapshot tests
 ├── fixtures/               # Shared test fixtures
-└── helpers/                # Test utilities
+└── helpers/                # Test utilities (.ts)
+dist/                       # Compiled TypeScript output (generated by npm run build)
 docs/                       # Tutorials, quickstart, diagrams
 .claude-plugin/plugin.json  # Claude Code plugin manifest
 ```
 
 ## Key Files
 
-- `bin/grd-tools.js` — Entry point for all CLI operations; commands call this
+- `bin/grd-tools.ts` — Main CLI implementation (TypeScript)
+- `bin/grd-tools.js` — CJS proxy entry point; requires grd-tools.ts at runtime
+- `tsconfig.json` — TypeScript config (strict mode, noEmit for type-checking)
+- `tsconfig.build.json` — Build config (extends tsconfig.json, emits to dist/)
 - `.planning/config.json` — Project configuration (gates, tracker, eval, execution settings)
 - `.planning/STATE.md` — Living memory; always read this first to understand project state
 - `.planning/ROADMAP.md` — Phase structure; source of truth for what to build
@@ -69,7 +95,8 @@ docs/                       # Tutorials, quickstart, diagrams
 
 ## Testing
 
-- Tests mirror `lib/` structure: `lib/state.js` → `tests/unit/state.test.js`
+- Tests mirror `lib/` structure: `lib/state.ts` → `tests/unit/state.test.ts`
+- All 37 test files are TypeScript (.test.ts), transformed via ts-jest
 - Per-file coverage thresholds in `jest.config.js` — do not lower them
 - Golden tests (`tests/golden/`) use `capture.sh` to snapshot CLI output
 - Pre-commit hook runs `npm run lint` — commits fail if lint errors exist
@@ -88,12 +115,16 @@ zsh escapes `!` inside strings, breaking `!=` and `!==` in inline shell scripts.
 
 ## Code Style
 
-- CommonJS (`require`/`module.exports`), not ESM
+- TypeScript with `strict: true` (all lib/ and bin/ files are .ts)
+- CommonJS `require()`/`module.exports` pattern (not ESM imports)
+- CJS proxy pattern: each lib/*.js is a thin proxy that `require()`s the .ts file
 - `'use strict'` at top of every file
-- ESLint flat config with `@eslint/js` recommended rules
-- Prefix unused function args with `_` (e.g., `function handler(_req, res)`)
+- ESLint flat config with `typescript-eslint` for .ts files
+- Prefix unused function args with `_` (e.g., `function handler(_req: Request, res: Response)`)
 - Prettier for formatting (no config file — uses defaults)
 - Node >=18 required
+- Zero `any` types in core lib/ modules (use `Record<string, unknown>` or specific interfaces)
+- Typed `require()` pattern: `const { fn } = require('./module') as { fn: (arg: Type) => ReturnType }`
 
 ## Planning Directory
 
@@ -322,4 +353,4 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 
 - `/grd:update` — Check for updates, display changelog, backup modifications, pull latest
 - `/grd:reapply-patches` — Restore local modifications after update
-- `bin/grd-manifest.js` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
+- `bin/grd-manifest.ts` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
