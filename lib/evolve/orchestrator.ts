@@ -27,8 +27,11 @@ import type {
   WorktreeInfo,
   EvolutionNotesData,
   HistoryEntry,
+  InfiniteEvolveOptions,
+  InfiniteEvolveResult,
+  InfiniteEvolveCycleResult,
 } from './types';
-import type { GrdConfig } from '../types';
+import type { AutoplanOptions, AutoplanResult, MultiMilestoneOptions, MultiMilestoneResult, GrdConfig } from '../types';
 
 const fs = require('fs');
 const path = require('path');
@@ -96,6 +99,12 @@ const { runGroupDiscovery } = require('./discovery') as {
 const { buildBatchExecutePrompt, buildBatchReviewPrompt } = require('./_prompts') as {
   buildBatchExecutePrompt: (groups: WorkGroup[]) => string;
   buildBatchReviewPrompt: (groups: WorkGroup[]) => string;
+};
+const { runAutoplan } = require('../autoplan') as {
+  runAutoplan: (cwd: string, options?: AutoplanOptions) => Promise<AutoplanResult>;
+};
+const { runMultiMilestoneAutopilot } = require('../autopilot') as {
+  runMultiMilestoneAutopilot: (cwd: string, options?: MultiMilestoneOptions) => Promise<MultiMilestoneResult>;
 };
 
 // ─── Evolve Loop Helpers ─────────────────────────────────────────────────────
@@ -553,6 +562,228 @@ function writeDiscoveriesToTodos(cwd: string, groups: WorkGroup[]): number {
   return created;
 }
 
+// ─── Infinite Evolve Loop ────────────────────────────────────────────────────
+
+/**
+ * Run the infinite evolve loop: discover -> autoplan -> autopilot -> repeat.
+ *
+ * Each cycle:
+ * 1. Discover improvements via evolve's discovery engine
+ * 2. Create a milestone from discoveries via autoplan
+ * 3. Execute all phases in that milestone via autopilot
+ * 4. Repeat until maxCycles reached, time budget exhausted, or no discoveries remain
+ *
+ * Safety: maxCycles cap (default 10), optional timeBudget, dry-run preview.
+ */
+async function runInfiniteEvolve(
+  cwd: string,
+  options: InfiniteEvolveOptions = {}
+): Promise<InfiniteEvolveResult> {
+  const maxCycles: number = options.maxCycles ?? 10;
+  const timeBudget: number = options.timeBudget ?? 0; // 0 = unlimited
+  const effectivePickPct: number = options.pickPct ?? DEFAULT_PICK_PCT;
+  const dryRun: boolean = options.dryRun ?? false;
+  const maxTurns: number | undefined = options.maxTurns;
+  const model: string | undefined = options.model;
+  const maxMilestones: number = options.maxMilestones ?? 1;
+
+  // Set up logging
+  const logFile: string = path.join(cwd, '.planning', 'autopilot', 'infinite-evolve.log');
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+  const log = (msg: string): void => {
+    const line: string = `[${new Date().toISOString()}] ${msg}\n`;
+    process.stderr.write(`[infinite-evolve] ${msg}\n`);
+    fs.appendFileSync(logFile, line);
+  };
+
+  const startTime: number = Date.now();
+  const cycleResults: InfiniteEvolveCycleResult[] = [];
+  let totalGroupsDiscovered: number = 0;
+  let totalItemsDiscovered: number = 0;
+  let stoppedAt: string | null = null;
+
+  log(`Starting infinite evolve loop: maxCycles=${maxCycles}, timeBudget=${timeBudget}min, pickPct=${effectivePickPct}, dryRun=${dryRun}`);
+
+  for (let cycle = 0; cycle < maxCycles; cycle++) {
+    // Check time budget
+    if (timeBudget > 0) {
+      const elapsedMs: number = Date.now() - startTime;
+      if (elapsedMs > timeBudget * 60 * 1000) {
+        stoppedAt = `Time budget exhausted (${Math.round(elapsedMs / 60000)}min of ${timeBudget}min)`;
+        log(stoppedAt);
+        break;
+      }
+    }
+
+    log(`=== Cycle ${cycle + 1}/${maxCycles} ===`);
+
+    // Step 1: Discovery
+    log('Step 1: Running discovery...');
+    const state: EvolveGroupState | EvolveState | null = readEvolveState(cwd);
+    let discovery: GroupDiscoveryResult;
+    try {
+      discovery = await runGroupDiscovery(cwd, state, effectivePickPct);
+    } catch (err) {
+      const reason: string = `Discovery failed: ${(err as Error).message}`;
+      log(reason);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: 0,
+        discovery_items: 0,
+        autoplan_status: 'skipped',
+        autopilot_status: 'skipped',
+        reason,
+      });
+      stoppedAt = reason;
+      break;
+    }
+
+    const groupCount: number = discovery.selected_groups.length;
+    const itemCount: number = discovery.selected_groups.reduce((sum, g) => sum + g.items.length, 0);
+    totalGroupsDiscovered += groupCount;
+    totalItemsDiscovered += itemCount;
+    log(`Discovered ${groupCount} groups (${itemCount} items)`);
+
+    if (groupCount === 0) {
+      stoppedAt = 'No improvements discovered';
+      log(stoppedAt);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: 0,
+        discovery_items: 0,
+        autoplan_status: 'skipped',
+        autopilot_status: 'skipped',
+        reason: stoppedAt,
+      });
+      break;
+    }
+
+    if (dryRun) {
+      log(`[DRY RUN] Would create milestone from ${groupCount} groups (${itemCount} items)`);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: groupCount,
+        discovery_items: itemCount,
+        autoplan_status: 'dry-run',
+        autopilot_status: 'dry-run',
+      });
+      // Dry run exits after one cycle to show what would happen
+      break;
+    }
+
+    // Step 2: Autoplan -- create milestone from discoveries
+    log('Step 2: Running autoplan...');
+    const autoplanGroups: AutoplanOptions['groups'] = discovery.selected_groups.map((g) => ({
+      id: g.id,
+      theme: g.theme,
+      dimension: g.dimension,
+      items: g.items.map((item) => ({
+        title: item.title,
+        description: item.description,
+        effort: item.effort,
+      })),
+      priority: g.priority,
+      effort: g.effort,
+    }));
+
+    let autoplanResult: AutoplanResult;
+    try {
+      autoplanResult = await runAutoplan(cwd, {
+        groups: autoplanGroups,
+        dryRun: false,
+        timeout: options.timeout,
+        maxTurns,
+        model,
+      });
+    } catch (err) {
+      const reason: string = `Autoplan failed: ${(err as Error).message}`;
+      log(reason);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: groupCount,
+        discovery_items: itemCount,
+        autoplan_status: 'failed',
+        autopilot_status: 'skipped',
+        reason,
+      });
+      continue; // Try next cycle
+    }
+
+    if (autoplanResult.status === 'failed') {
+      const reason: string = `Autoplan failed: ${autoplanResult.reason || 'unknown'}`;
+      log(reason);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: groupCount,
+        discovery_items: itemCount,
+        autoplan_status: 'failed',
+        autopilot_status: 'skipped',
+        reason,
+      });
+      continue; // Try next cycle
+    }
+
+    log(`Autoplan completed: milestone "${autoplanResult.milestone_name}" (${autoplanResult.groups_count} groups, ${autoplanResult.items_count} items)`);
+
+    // Step 3: Autopilot -- execute newly created milestone phases
+    log('Step 3: Running multi-milestone autopilot...');
+    let autopilotResult: MultiMilestoneResult;
+    try {
+      autopilotResult = await runMultiMilestoneAutopilot(cwd, {
+        dryRun: false,
+        timeout: options.timeout,
+        maxTurns,
+        model,
+        maxMilestones,
+      });
+    } catch (err) {
+      const reason: string = `Autopilot failed: ${(err as Error).message}`;
+      log(reason);
+      cycleResults.push({
+        cycle: cycle + 1,
+        discovery_groups: groupCount,
+        discovery_items: itemCount,
+        autoplan_status: 'completed',
+        autopilot_status: 'failed',
+        reason,
+      });
+      continue; // Try next cycle
+    }
+
+    const autopilotStatus: string = autopilotResult.stopped_at ? 'failed' : 'completed';
+    if (autopilotResult.stopped_at) {
+      log(`Autopilot stopped: ${autopilotResult.stopped_at} (${autopilotResult.milestones_completed}/${autopilotResult.milestones_attempted} milestones)`);
+    } else {
+      log(`Autopilot completed: ${autopilotResult.milestones_completed} milestones, ${autopilotResult.total_phases_completed} phases`);
+    }
+
+    cycleResults.push({
+      cycle: cycle + 1,
+      discovery_groups: groupCount,
+      discovery_items: itemCount,
+      autoplan_status: 'completed',
+      autopilot_status: autopilotStatus,
+      reason: autopilotResult.stopped_at ?? undefined,
+    });
+  }
+
+  // Summary
+  const cyclesCompleted: number = cycleResults.filter(
+    (c) => c.autoplan_status === 'completed' && c.autopilot_status === 'completed'
+  ).length;
+
+  log(`Infinite evolve done: ${cyclesCompleted}/${cycleResults.length} cycles completed, ${totalGroupsDiscovered} groups, ${totalItemsDiscovered} items`);
+
+  return {
+    cycles_completed: cyclesCompleted,
+    cycles_attempted: cycleResults.length,
+    stopped_at: stoppedAt,
+    cycle_results: cycleResults,
+    total_groups_discovered: totalGroupsDiscovered,
+    total_items_discovered: totalItemsDiscovered,
+  };
+}
+
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -561,4 +792,5 @@ module.exports = {
   writeEvolutionNotes,
   writeDiscoveriesToTodos,
   runEvolve,
+  runInfiniteEvolve,
 };

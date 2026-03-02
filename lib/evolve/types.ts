@@ -220,3 +220,37 @@ export interface HandleIterationReturn {
   newState: EvolveGroupState;
   iterResult: IterationResult;
 }
+
+// ── Infinite Evolve Types ────────────────────────────────────────────────────
+
+/** Per-cycle result in the infinite evolve loop. */
+export interface InfiniteEvolveCycleResult {
+  cycle: number;
+  discovery_groups: number; // Groups discovered in this cycle
+  discovery_items: number; // Items discovered in this cycle
+  autoplan_status: string; // 'completed' | 'failed' | 'dry-run' | 'skipped'
+  autopilot_status: string; // 'completed' | 'failed' | 'dry-run' | 'skipped'
+  reason?: string; // Failure reason if any step failed
+}
+
+/** Options for runInfiniteEvolve. */
+export interface InfiniteEvolveOptions {
+  maxCycles?: number; // Maximum discover -> autoplan -> autopilot cycles (default: 10)
+  timeBudget?: number; // Total time budget in minutes (0 = unlimited)
+  pickPct?: number; // Discovery pick percentage
+  dryRun?: boolean; // Preview each step without executing
+  timeout?: number; // Per-subprocess timeout in minutes
+  maxTurns?: number; // Max turns per subprocess
+  model?: string; // Model override
+  maxMilestones?: number; // Pass-through to multi-milestone autopilot (default: 1 per cycle)
+}
+
+/** Returned by runInfiniteEvolve. */
+export interface InfiniteEvolveResult {
+  cycles_completed: number;
+  cycles_attempted: number;
+  stopped_at: string | null;
+  cycle_results: InfiniteEvolveCycleResult[];
+  total_groups_discovered: number;
+  total_items_discovered: number;
+}
