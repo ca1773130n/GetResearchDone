@@ -68,7 +68,7 @@ const {
 const { analyzeCodebaseForItems } = require('./_dimensions') as {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 };
-const { discoverProductIdeationItems } = require('./_product-ideation.ts') as {
+const { discoverProductIdeationItems } = require('./_product-ideation') as {
   discoverProductIdeationItems: (cwd: string) => Promise<WorkItem[]>;
 };
 const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups } =
