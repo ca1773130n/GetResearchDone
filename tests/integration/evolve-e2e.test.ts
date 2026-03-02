@@ -28,11 +28,11 @@ jest.mock('../../lib/autopilot', () => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function createTmpDir(prefix = 'grd-evolve-e2e-') {
+function createTmpDir(prefix: string = 'grd-evolve-e2e-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
-function cleanupDir(dir) {
+function cleanupDir(dir: string): void {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -43,7 +43,7 @@ function cleanupDir(dir) {
  * Includes: TODO comments, long functions, missing test files,
  * missing JSDoc headers, process.exit calls.
  */
-function createDiscoveryFixture(tmpDir) {
+function createDiscoveryFixture(tmpDir: string): void {
   // .planning/ with minimal config
   const planningDir = path.join(tmpDir, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
@@ -129,7 +129,7 @@ describe('E2E: Work item discovery quality', () => {
     WORK_ITEM_DIMENSIONS,
   } = require('../../lib/evolve');
 
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createTmpDir();
@@ -147,7 +147,7 @@ describe('E2E: Work item discovery quality', () => {
     expect(items.length).toBeGreaterThan(0);
 
     // Items span at least 2 of 6 dimensions
-    const dimensions = new Set(items.map((i) => i.dimension));
+    const dimensions = new Set(items.map((i: any) => i.dimension));
     expect(dimensions.size).toBeGreaterThanOrEqual(2);
 
     // Fixture should trigger quality (TODO/FIXME, missing tests) and consistency (process.exit, missing JSDoc)
@@ -197,7 +197,7 @@ describe('E2E: Work item discovery quality', () => {
     const second = await runDiscovery(tmpDir, priorState);
 
     // Merged count should not exceed total unique items
-    const allIds = [...second.selected.map((i) => i.id), ...second.remaining.map((i) => i.id)];
+    const allIds = [...second.selected.map((i: any) => i.id), ...second.remaining.map((i: any) => i.id)];
     const uniqueIds = new Set(allIds);
     expect(uniqueIds.size).toBe(allIds.length);
   });
@@ -216,7 +216,7 @@ describe('E2E: Full evolve iteration mechanics', () => {
     writeEvolutionNotes,
   } = require('../../lib/evolve');
 
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTmpDir();
@@ -309,7 +309,7 @@ describe('E2E: Iteration handoff', () => {
     readEvolveState,
   } = require('../../lib/evolve');
 
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTmpDir();
@@ -333,7 +333,7 @@ describe('E2E: Iteration handoff', () => {
     ];
 
     // First iteration: select 3, leave 2 remaining
-    state.selected = items.slice(0, 3).map((i) => ({ ...i, status: 'selected' }));
+    state.selected = items.slice(0, 3).map((i: any) => ({ ...i, status: 'selected' }));
     state.remaining = items.slice(3);
     // Mark 2 completed, 1 failed
     state.completed = [state.selected[0], state.selected[1]];
@@ -346,7 +346,7 @@ describe('E2E: Iteration handoff', () => {
     // Remaining from first iteration carried over (2 items that were not selected)
     expect(iter2.remaining.length).toBe(2);
     // Completed items are NOT in the remaining queue
-    const remainingIds = iter2.remaining.map((i) => i.id);
+    const remainingIds = iter2.remaining.map((i: any) => i.id);
     expect(remainingIds).not.toContain('quality/fix-tests-a');
     expect(remainingIds).not.toContain('quality/fix-tests-b');
 
@@ -389,10 +389,10 @@ describe('E2E: Iteration handoff', () => {
 
     expect(merged).toHaveLength(2);
     // Existing wins: description should be the original
-    const fixItem = merged.find((i) => i.id === 'quality/fix-tests-a');
+    const fixItem = merged.find((i: any) => i.id === 'quality/fix-tests-a');
     expect(fixItem.description).toBe('Original description');
     // New item is added
-    expect(merged.find((i) => i.id === 'consistency/naming-new')).toBeDefined();
+    expect(merged.find((i: any) => i.id === 'consistency/naming-new')).toBeDefined();
   });
 
   test('state file on disk reflects second iteration data', () => {
@@ -436,7 +436,7 @@ describe('E2E: Discovery on GRD codebase itself', () => {
     expect(items.length).toBeGreaterThan(0);
 
     // Should cover at least 3 of 6 dimensions (GRD has 22 modules)
-    const dimensions = new Set(items.map((i) => i.dimension));
+    const dimensions = new Set(items.map((i: any) => i.dimension));
     expect(dimensions.size).toBeGreaterThanOrEqual(3);
 
     // All dimensions should be valid

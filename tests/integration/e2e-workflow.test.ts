@@ -22,7 +22,7 @@ const FIXTURE_SOURCE = path.resolve(__dirname, '../fixtures/planning');
  * Create a temp directory with a copy of the fixture .planning/ structure
  * and minimal project scaffolding for quality analysis.
  */
-function createTestDir() {
+function createTestDir(): string {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-e2e-'));
   const dest = path.join(tmpRoot, '.planning');
   fs.cpSync(FIXTURE_SOURCE, dest, { recursive: true });
@@ -49,7 +49,7 @@ function createTestDir() {
   return tmpRoot;
 }
 
-function cleanupDir(dir) {
+function cleanupDir(dir: string): void {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -57,7 +57,7 @@ function cleanupDir(dir) {
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
-let fixtureDir;
+let fixtureDir: string;
 
 beforeAll(() => {
   fixtureDir = createTestDir();
@@ -200,7 +200,7 @@ describe('E2E: Quality analysis pipeline', () => {
 describe('E2E: MCP server tool call', () => {
   const { McpServer } = require('../../lib/mcp-server');
 
-  let server;
+  let server: any;
 
   beforeAll(() => {
     server = new McpServer({ cwd: fixtureDir });

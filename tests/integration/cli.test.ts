@@ -19,13 +19,16 @@ const FIXTURE_SOURCE = path.resolve(__dirname, '../fixtures/planning');
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
+interface CLIResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
 /**
  * Run a CLI command via execFileSync.
- * @param {string[]} args - Arguments to pass to grd-tools.js
- * @param {string} cwd - Working directory
- * @returns {{ stdout: string, stderr: string, exitCode: number }}
  */
-function runCLI(args, cwd) {
+function runCLI(args: string[], cwd: string): CLIResult {
   try {
     const stdout = execFileSync('node', [GRD_TOOLS, ...args], {
       cwd,
@@ -34,11 +37,12 @@ function runCLI(args, cwd) {
       env: { ...process.env, NODE_NO_WARNINGS: '1' },
     });
     return { stdout, stderr: '', exitCode: 0 };
-  } catch (err) {
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; status?: number };
     return {
-      stdout: err.stdout || '',
-      stderr: err.stderr || '',
-      exitCode: err.status || 1,
+      stdout: e.stdout || '',
+      stderr: e.stderr || '',
+      exitCode: e.status || 1,
     };
   }
 }
@@ -47,7 +51,7 @@ function runCLI(args, cwd) {
  * Create a temp directory with a copy of the fixture .planning/ structure
  * plus a src/index.js so verify-path-exists has something to check.
  */
-function createTestDir() {
+function createTestDir(): string {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-'));
   const dest = path.join(tmpRoot, '.planning');
   fs.cpSync(FIXTURE_SOURCE, dest, { recursive: true });
@@ -61,7 +65,7 @@ function createTestDir() {
  * Create a test dir with STATE.md format that has "Current plan: NN-MM (desc), next: NN-MM+1"
  * and "N plans" so advance-plan can parse it.
  */
-function createTestDirWithPlanCount() {
+function createTestDirWithPlanCount(): string {
   const tmpRoot = createTestDir();
   const statePath = path.join(tmpRoot, '.planning', 'STATE.md');
   let state = fs.readFileSync(statePath, 'utf-8');
@@ -76,7 +80,7 @@ function createTestDirWithPlanCount() {
   return tmpRoot;
 }
 
-function cleanupDir(dir) {
+function cleanupDir(dir: string): void {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -85,13 +89,13 @@ function cleanupDir(dir) {
 /**
  * Parse JSON from CLI stdout, handling potential pretty-printing.
  */
-function parseJSON(stdout) {
+function parseJSON(stdout: string): Record<string, any> {
   return JSON.parse(stdout.trim());
 }
 
 // ─── Shared fixture for read-only tests ──────────────────────────────────────
 
-let fixtureDir;
+let fixtureDir: string;
 
 beforeAll(() => {
   fixtureDir = createTestDir();
@@ -1046,7 +1050,7 @@ describe('health command', () => {
 // ─── Long-Term Roadmap Commands ─────────────────────────────────────────────
 
 describe('long-term-roadmap commands', () => {
-  let ltDir;
+  let ltDir: string;
 
   beforeEach(() => {
     ltDir = createTestDir();
@@ -1283,7 +1287,7 @@ describe('error handling', () => {
 // ─── Mutating State Commands ────────────────────────────────────────────────
 
 describe('mutating state commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1420,7 +1424,7 @@ describe('mutating state commands', () => {
 // ─── Mutating Frontmatter Commands ──────────────────────────────────────────
 
 describe('mutating frontmatter commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1468,7 +1472,7 @@ describe('mutating frontmatter commands', () => {
 // ─── Mutating Phase Commands ────────────────────────────────────────────────
 
 describe('mutating phase commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1522,7 +1526,7 @@ describe('mutating phase commands', () => {
 // ─── Mutating Todo Commands ─────────────────────────────────────────────────
 
 describe('mutating todo commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1554,7 +1558,7 @@ describe('mutating todo commands', () => {
 // ─── Mutating Scaffold Commands ─────────────────────────────────────────────
 
 describe('mutating scaffold commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1585,7 +1589,7 @@ describe('mutating scaffold commands', () => {
 // ─── Mutating Config Commands ───────────────────────────────────────────────
 
 describe('mutating config commands', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -1611,7 +1615,7 @@ describe('mutating config commands', () => {
 // ─── Migrate-dirs Command ───────────────────────────────────────────────────
 
 describe('migrate-dirs command', () => {
-  let migDir;
+  let migDir: string;
 
   beforeEach(() => {
     migDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-mig-'));
@@ -1655,7 +1659,7 @@ describe('migrate-dirs command', () => {
     expect(data.errors).toEqual([]);
 
     // Verify phases were moved
-    const phasesMoved = data.moved_directories.find((d) => d.from === 'phases');
+    const phasesMoved = data.moved_directories.find((d: any) => d.from === 'phases');
     expect(phasesMoved).toBeDefined();
     expect(phasesMoved.to).toBe(path.join('milestones', 'v1.0.0', 'phases'));
 
@@ -1691,7 +1695,7 @@ describe('migrate-dirs command', () => {
 // ─── Git-dependent Commands ─────────────────────────────────────────────────
 
 describe('git-dependent commands', () => {
-  let gitDir;
+  let gitDir: string;
 
   beforeEach(() => {
     gitDir = createTestDir();
@@ -1740,9 +1744,9 @@ describe('git-dependent commands', () => {
 // ─── Autopilot Commands ──────────────────────────────────────────────────────
 
 describe('autopilot commands', () => {
-  let apDir;
+  let apDir: string;
 
-  function createAutopilotIntegrationFixture(opts = {}) {
+  function createAutopilotIntegrationFixture(opts: { withPlan?: boolean } = {}): string {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-autopilot-'));
     const planning = path.join(tmpRoot, '.planning');
     fs.mkdirSync(planning, { recursive: true });
@@ -1801,8 +1805,8 @@ describe('autopilot commands', () => {
     expect(data.stopped_at).toBeNull();
     expect(data.results).toHaveLength(6);
     // Each phase has both plan and execute steps
-    const planSteps = data.results.filter((r) => r.step === 'plan');
-    const execSteps = data.results.filter((r) => r.step === 'execute');
+    const planSteps = data.results.filter((r: any) => r.step === 'plan');
+    const execSteps = data.results.filter((r: any) => r.step === 'execute');
     expect(planSteps).toHaveLength(3);
     expect(execSteps).toHaveLength(3);
   });
@@ -1816,7 +1820,7 @@ describe('autopilot commands', () => {
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data.phases_completed).toBe(3);
-    const steps = data.results.map((r) => r.step);
+    const steps = data.results.map((r: any) => r.step);
     expect(steps).not.toContain('plan');
     expect(steps).toContain('execute');
     expect(data.results).toHaveLength(3);
@@ -1866,7 +1870,7 @@ describe('autopilot commands', () => {
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data.phases_completed).toBe(3);
-    const steps = data.results.map((r) => r.step);
+    const steps = data.results.map((r: any) => r.step);
     expect(steps).toContain('plan');
     expect(steps).not.toContain('execute');
     expect(data.results).toHaveLength(3);
@@ -1876,13 +1880,13 @@ describe('autopilot commands', () => {
 // ─── v0.2.7 Integration Regression ─────────────────────────────────────────
 
 describe('v0.2.7 integration regression', () => {
-  let v027Dir;
+  let v027Dir: string;
 
   /**
    * Create a fixture with milestone-scoped directory structure matching v0.2.7.
    * milestones/v1.0/phases/01-setup/ with a plan file, STATE.md, ROADMAP.md, config.json.
    */
-  function createMilestoneScopedFixture(opts = {}) {
+  function createMilestoneScopedFixture(opts: { withSrc?: boolean } = {}): string {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-v027-'));
     const planning = path.join(tmpRoot, '.planning');
     fs.mkdirSync(planning, { recursive: true });
@@ -2036,9 +2040,9 @@ describe('v0.2.7 integration regression', () => {
     const data = parseJSON(stdout);
     expect(data.results).toHaveLength(6);
     // Wave-based: all plans in wave first, then all executes
-    const phases = data.results.map((r) => r.phase);
+    const phases = data.results.map((r: any) => r.phase);
     expect(phases).toEqual(['1', '2', '3', '1', '2', '3']);
-    const steps = data.results.map((r) => r.step);
+    const steps = data.results.map((r: any) => r.step);
     expect(steps).toEqual(['plan', 'plan', 'plan', 'execute', 'execute', 'execute']);
   });
 
@@ -2093,7 +2097,7 @@ describe('v0.2.7 integration regression', () => {
 // ─── milestone complete CLI arg parsing ──────────────────────────────────────
 
 describe('milestone complete CLI arg parsing', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -2127,7 +2131,7 @@ describe('milestone complete CLI arg parsing', () => {
 // ─── Dry-run flags ───────────────────────────────────────────────────────────
 
 describe('dry-run flags', () => {
-  let mutDir;
+  let mutDir: string;
 
   beforeEach(() => {
     mutDir = createTestDir();
@@ -2412,10 +2416,8 @@ const GRD_MANIFEST = path.resolve(__dirname, '../../bin/grd-manifest.js');
 
 /**
  * Run grd-manifest.js directly (it uses its own plugin root, not cwd).
- * @param {string[]} args - Arguments to pass
- * @returns {{ stdout: string, stderr: string, exitCode: number }}
  */
-function runManifest(args) {
+function runManifest(args: string[]): CLIResult {
   try {
     const stdout = execFileSync('node', [GRD_MANIFEST, ...args], {
       encoding: 'utf-8',
@@ -2423,11 +2425,12 @@ function runManifest(args) {
       env: { ...process.env, NODE_NO_WARNINGS: '1' },
     });
     return { stdout, stderr: '', exitCode: 0 };
-  } catch (err) {
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; status?: number };
     return {
-      stdout: err.stdout || '',
-      stderr: err.stderr || '',
-      exitCode: err.status || 1,
+      stdout: e.stdout || '',
+      stderr: e.stderr || '',
+      exitCode: e.status || 1,
     };
   }
 }
