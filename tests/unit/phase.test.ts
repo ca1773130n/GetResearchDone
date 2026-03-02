@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/phase.js
+ * Unit tests for lib/phase.ts
  *
  * Tests phase lifecycle operations: list, add, insert, remove, complete,
  * milestone complete, and validate consistency. All mutating tests use
@@ -29,7 +29,7 @@ const {
 // ─── cmdPhasesList ───────────────────────────────────────────────────────────
 
 describe('cmdPhasesList', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
@@ -109,7 +109,7 @@ describe('cmdPhasesList', () => {
 // ─── cmdPhaseAdd ─────────────────────────────────────────────────────────────
 
 describe('cmdPhaseAdd', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -254,7 +254,7 @@ describe('cmdPhaseAdd', () => {
 // ─── cmdPhaseInsert ──────────────────────────────────────────────────────────
 
 describe('cmdPhaseInsert', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -322,7 +322,7 @@ describe('cmdPhaseInsert', () => {
 // ─── cmdPhaseRemove ──────────────────────────────────────────────────────────
 
 describe('cmdPhaseRemove', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -447,7 +447,7 @@ describe('cmdPhaseRemove', () => {
 // ─── cmdPhaseComplete ────────────────────────────────────────────────────────
 
 describe('cmdPhaseComplete', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -498,7 +498,7 @@ describe('cmdPhaseComplete', () => {
 // ─── cmdMilestoneComplete ────────────────────────────────────────────────────
 
 describe('cmdMilestoneComplete', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -570,7 +570,7 @@ describe('cmdMilestoneComplete', () => {
     captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
     const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
     const remaining = fs.readdirSync(phasesDir, { withFileTypes: true });
-    const dirs = remaining.filter((e) => e.isDirectory());
+    const dirs = remaining.filter((e: any) => e.isDirectory());
     expect(dirs.length).toBe(0);
   });
 
@@ -641,7 +641,7 @@ describe('cmdMilestoneComplete', () => {
 // ─── cmdValidateConsistency ──────────────────────────────────────────────────
 
 describe('cmdValidateConsistency', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -666,7 +666,7 @@ describe('cmdValidateConsistency', () => {
     });
     const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     const result = JSON.parse(stdout);
-    expect(result.warnings.some((w) => w.includes('99'))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes('99'))).toBe(true);
   });
 
   test('detects missing frontmatter wave field in plans', () => {
@@ -680,7 +680,7 @@ describe('cmdValidateConsistency', () => {
 
     const { stdout } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     const result = JSON.parse(stdout);
-    expect(result.warnings.some((w) => w.includes('wave'))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes('wave'))).toBe(true);
   });
 
   test('fails when ROADMAP.md is missing', () => {
@@ -695,7 +695,7 @@ describe('cmdValidateConsistency', () => {
 // ─── cmdPhaseComplete quality analysis integration ──────────────────────────
 
 describe('cmdPhaseComplete quality analysis integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -706,7 +706,7 @@ describe('cmdPhaseComplete quality analysis integration', () => {
   });
 
   // Helper: set phase_cleanup config
-  function setCleanupConfig(enabled) {
+  function setCleanupConfig(enabled: boolean | undefined) {
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     if (enabled !== undefined) {
@@ -718,7 +718,7 @@ describe('cmdPhaseComplete quality analysis integration', () => {
   }
 
   // Helper: create a source file in lib/ for quality analysis to find
-  function createSourceFile(name, content) {
+  function createSourceFile(name: string, content: string): void {
     const libDir = path.join(tmpDir, 'lib');
     fs.mkdirSync(libDir, { recursive: true });
     fs.writeFileSync(path.join(libDir, name), content, 'utf-8');
@@ -821,7 +821,7 @@ describe('cmdPhaseComplete quality analysis integration', () => {
 // ─── cmdPhaseComplete cleanup plan generation integration ───────────────────
 
 describe('cmdPhaseComplete cleanup plan generation integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -832,7 +832,7 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
   });
 
   // Helper: set phase_cleanup config with options
-  function setCleanupConfig(options) {
+  function setCleanupConfig(options: unknown): void {
     const configPath = path.join(tmpDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     if (options === undefined) {
@@ -846,7 +846,7 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
   }
 
   // Helper: create source files in lib/ that trigger quality issues
-  function createSourceFiles(options = {}) {
+  function createSourceFiles(options: any = {}) {
     const libDir = path.join(tmpDir, 'lib');
     fs.mkdirSync(libDir, { recursive: true });
 
@@ -993,7 +993,7 @@ describe('cmdMilestoneComplete git merge', () => {
     return tmpDir;
   }
 
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createGitFixtureDir();
@@ -1103,7 +1103,7 @@ describe('cmdMilestoneComplete git merge', () => {
 // ─── cmdVersionBump ──────────────────────────────────────────────────────────
 
 describe('cmdVersionBump', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1176,7 +1176,7 @@ describe('cmdVersionBump', () => {
 // ─── cmdPhaseRemove decimal renumbering ──────────────────────────────────────
 
 describe('cmdPhaseRemove decimal renumbering', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1237,8 +1237,8 @@ describe('cmdPhaseRemove decimal renumbering', () => {
 
     // Files inside should have updated prefixes
     const newDirFiles = fs.readdirSync(path.join(phasesDir, '06.2-feature-c'));
-    expect(newDirFiles.some((f) => f.includes('06.2-'))).toBe(true);
-    expect(newDirFiles.every((f) => !f.includes('06.3-'))).toBe(true);
+    expect(newDirFiles.some((f: any) => f.includes('06.2-'))).toBe(true);
+    expect(newDirFiles.every((f: any) => !f.includes('06.3-'))).toBe(true);
   });
 
   test('removes last decimal without needing renumbering', () => {
@@ -1262,7 +1262,7 @@ describe('cmdPhaseRemove decimal renumbering', () => {
 // ─── cmdValidateConsistency edge cases ───────────────────────────────────────
 
 describe('cmdValidateConsistency edge cases', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1283,7 +1283,7 @@ describe('cmdValidateConsistency edge cases', () => {
     const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    expect(result.warnings.some((w) => w.includes('Gap in plan numbering'))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes('Gap in plan numbering'))).toBe(true);
   });
 
   test('detects orphan summary warning', () => {
@@ -1300,7 +1300,7 @@ describe('cmdValidateConsistency edge cases', () => {
     const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    expect(result.warnings.some((w) => w.includes('has no matching PLAN.md'))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes('has no matching PLAN.md'))).toBe(true);
   });
 
   test('detects missing wave frontmatter', () => {
@@ -1317,14 +1317,14 @@ describe('cmdValidateConsistency edge cases', () => {
     const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    expect(result.warnings.some((w) => w.includes("missing 'wave'"))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes("missing 'wave'"))).toBe(true);
   });
 });
 
 // ─── --dry-run: cmdPhaseRemove ────────────────────────────────────────────────
 
 describe('cmdPhaseRemove --dry-run', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1371,7 +1371,7 @@ describe('cmdPhaseRemove --dry-run', () => {
 // ─── --dry-run: cmdPhaseComplete ─────────────────────────────────────────────
 
 describe('cmdPhaseComplete --dry-run', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1402,7 +1402,7 @@ describe('cmdPhaseComplete --dry-run', () => {
 // ─── --dry-run: cmdMilestoneComplete ─────────────────────────────────────────
 
 describe('cmdMilestoneComplete --dry-run', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1436,7 +1436,7 @@ describe('cmdMilestoneComplete --dry-run', () => {
 // ─── cmdValidateConsistency --fix ────────────────────────────────────────────
 
 describe('cmdValidateConsistency --fix', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1493,7 +1493,7 @@ describe('cmdValidateConsistency --fix', () => {
     const result = JSON.parse(stdout);
 
     // Without fix option, should warn but not remove
-    expect(result.warnings.some((w) => w.includes('01-98'))).toBe(true);
+    expect(result.warnings.some((w: any) => w.includes('01-98'))).toBe(true);
     expect(fs.existsSync(orphanSummary)).toBe(true);
   });
 });
@@ -1501,7 +1501,7 @@ describe('cmdValidateConsistency --fix', () => {
 // ─── cmdPhaseBatchComplete ────────────────────────────────────────────────────
 
 describe('cmdPhaseBatchComplete', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1544,7 +1544,7 @@ describe('cmdPhaseBatchComplete', () => {
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.results).toHaveLength(2);
-    expect(result.results.map((r) => r.phase)).toEqual(['1', '2']);
+    expect(result.results.map((r: any) => r.phase)).toEqual(['1', '2']);
   });
 
   test('includes total_phases and completed_count in result', () => {
@@ -1561,7 +1561,7 @@ describe('cmdPhaseBatchComplete', () => {
 // ─── Stability: swallowed errors in cmdPhaseRemove renumber path ─────────────
 
 describe('cmdPhaseRemove — error logging in renumber path', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1588,7 +1588,7 @@ describe('cmdPhaseRemove — error logging in renumber path', () => {
       // Third call is for renumbering — fail it with EPERM
       if (callCount === 3) {
         const err = new Error('EPERM: operation not permitted');
-        err.code = 'EPERM';
+        (err as any).code = 'EPERM';
         throw err;
       }
       return origFsReaddirSync(...args);
@@ -1607,7 +1607,7 @@ describe('cmdPhaseRemove — error logging in renumber path', () => {
 // ─── Stability: phase numbering gap detection in cmdPhaseAdd ─────────────────
 
 describe('cmdPhaseAdd — phase numbering gap detection', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1631,14 +1631,14 @@ describe('cmdPhaseAdd — phase numbering gap detection', () => {
     const result = JSON.parse(stdout);
     // After fix: result includes a warnings field about the gap
     expect(result.warnings).toBeDefined();
-    expect(result.warnings.some((w) => /gap|missing|sequen/i.test(w))).toBe(true);
+    expect(result.warnings.some((w: any) => /gap|missing|sequen/i.test(w))).toBe(true);
   });
 });
 
 // ─── atomicWriteFile ──────────────────────────────────────────────────────────
 
 describe('atomicWriteFile', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-phase-atomic-'));

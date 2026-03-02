@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/cleanup.js
+ * Unit tests for lib/cleanup.ts
  *
  * Tests config schema handling and quality analysis functions:
  * getCleanupConfig, analyzeComplexity, analyzeDeadExports, analyzeFileSize, runQualityAnalysis.
@@ -44,18 +44,18 @@ function createTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'grd-cleanup-test-'));
 }
 
-function removeTempDir(dir) {
+function removeTempDir(dir: string): void {
   if (!dir || !dir.startsWith(os.tmpdir())) return;
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-function writeConfig(dir, configObj) {
+function writeConfig(dir: string, configObj: Record<string, unknown>): void {
   const planningDir = path.join(dir, '.planning');
   fs.mkdirSync(planningDir, { recursive: true });
   fs.writeFileSync(path.join(planningDir, 'config.json'), JSON.stringify(configObj, null, 2));
 }
 
-function writeFile(dir, relPath, content) {
+function writeFile(dir: string, relPath: string, content: string): string {
   const fullPath = path.join(dir, relPath);
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
   fs.writeFileSync(fullPath, content);
@@ -65,7 +65,7 @@ function writeFile(dir, relPath, content) {
 // ─── getCleanupConfig ─────────────────────────────────────────────────────────
 
 describe('getCleanupConfig', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -126,7 +126,7 @@ describe('getCleanupConfig', () => {
 // ─── analyzeComplexity ────────────────────────────────────────────────────────
 
 describe('analyzeComplexity', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -190,7 +190,7 @@ describe('analyzeComplexity', () => {
     // but execFileSync fails because the cwd does not exist
     const absFile = path.join(os.tmpdir(), 'grd-complexity-stderr-test.js');
     fs.writeFileSync(absFile, 'function x() { return 1; }\n');
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const result = analyzeComplexity('/nonexistent-cwd-xyz-98765', [absFile]);
       expect(result).toEqual([]);
@@ -208,7 +208,7 @@ describe('analyzeComplexity', () => {
 // ─── analyzeDeadExports ───────────────────────────────────────────────────────
 
 describe('analyzeDeadExports', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -242,7 +242,7 @@ describe('analyzeDeadExports', () => {
     writeFile(tmpDir, 'consumer.js', "const { funcA } = require('./lib');\nfuncA();\n");
     const result = analyzeDeadExports(tmpDir, ['lib.js']);
     expect(result.length).toBe(2);
-    const names = result.map((r) => r.exportName).sort();
+    const names = result.map((r: any) =>  r.exportName).sort();
     expect(names).toEqual(['funcB', 'funcC']);
   });
 
@@ -272,7 +272,7 @@ describe('analyzeDeadExports', () => {
 // ─── analyzeFileSize ──────────────────────────────────────────────────────────
 
 describe('analyzeFileSize', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -325,7 +325,7 @@ describe('analyzeFileSize', () => {
 // ─── runQualityAnalysis ───────────────────────────────────────────────────────
 
 describe('runQualityAnalysis', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -396,7 +396,7 @@ describe('runQualityAnalysis', () => {
 // ─── analyzeChangelogDrift ──────────────────────────────────────────────────
 
 describe('analyzeChangelogDrift', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -467,7 +467,7 @@ describe('analyzeChangelogDrift', () => {
 // ─── analyzeReadmeLinks ─────────────────────────────────────────────────────
 
 describe('analyzeReadmeLinks', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -524,7 +524,7 @@ describe('analyzeReadmeLinks', () => {
 
     const result = analyzeReadmeLinks(tmpDir);
     expect(result.length).toBe(2);
-    const links = result.map((r) => r.link).sort();
+    const links = result.map((r: any) =>  r.link).sort();
     expect(links).toEqual(['missing-a.md', 'missing-b.md']);
   });
 
@@ -539,7 +539,7 @@ describe('analyzeReadmeLinks', () => {
 // ─── analyzeJsdocDrift ──────────────────────────────────────────────────────
 
 describe('analyzeJsdocDrift', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -569,7 +569,7 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const extraParam = result.find((r) => r.issue.includes('extra') && r.issue.includes('extra'));
+    const extraParam = result.find((r: any) =>  r.issue.includes('extra') && r.issue.includes('extra'));
     expect(extraParam).toBeDefined();
     expect(extraParam.issue).toMatch(/extra/i);
   });
@@ -592,7 +592,7 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const missingParam = result.find((r) => r.issue.includes('missing'));
+    const missingParam = result.find((r: any) =>  r.issue.includes('missing'));
     expect(missingParam).toBeDefined();
     expect(missingParam.issue).toMatch(/missing/i);
   });
@@ -638,7 +638,7 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const extra = result.find((r) => r.issue.includes('ghost'));
+    const extra = result.find((r: any) =>  r.issue.includes('ghost'));
     expect(extra).toBeDefined();
   });
 
@@ -679,7 +679,7 @@ describe('analyzeJsdocDrift', () => {
 // ─── runQualityAnalysis doc_drift integration ───────────────────────────────
 
 describe('runQualityAnalysis doc_drift integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -749,7 +749,7 @@ describe('runQualityAnalysis doc_drift integration', () => {
 // ─── generateCleanupPlan ──────────────────────────────────────────────────────
 
 describe('generateCleanupPlan', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -760,7 +760,7 @@ describe('generateCleanupPlan', () => {
   });
 
   // Helper: create a phase directory structure
-  function createPhaseDir(phaseNum, slug, existingPlans = []) {
+  function createPhaseDir(phaseNum: number | string, slug: string, existingPlans: (number | string)[] = []) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
     const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);
@@ -773,7 +773,7 @@ describe('generateCleanupPlan', () => {
   }
 
   // Helper: build a quality report with configurable issue counts
-  function makeQualityReport(options = {}) {
+  function makeQualityReport(options: any = {}) {
     const complexity = options.complexity || [];
     const dead_exports = options.dead_exports || [];
     const file_size = options.file_size || [];
@@ -788,7 +788,7 @@ describe('generateCleanupPlan', () => {
         (doc_drift.jsdoc || []).length;
     }
 
-    const summary = {
+    const summary: Record<string, number> = {
       total_issues: baseIssues + docDriftCount,
       complexity_violations: complexity.length,
       dead_exports: dead_exports.length,
@@ -798,7 +798,7 @@ describe('generateCleanupPlan', () => {
       summary.doc_drift_issues = docDriftCount;
     }
 
-    const details = { complexity, dead_exports, file_size };
+    const details: Record<string, unknown> = { complexity, dead_exports, file_size };
     if (doc_drift) {
       details.doc_drift = doc_drift;
     }
@@ -1079,7 +1079,7 @@ describe('generateCleanupPlan', () => {
 // ─── analyzeTestCoverageGaps ──────────────────────────────────────────────────
 
 describe('analyzeTestCoverageGaps', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1117,7 +1117,7 @@ describe('analyzeTestCoverageGaps', () => {
     );
     const result = analyzeTestCoverageGaps(tmpDir, ['lib/utils.js']);
     expect(result.length).toBe(2);
-    const names = result.map((r) => r.exportName).sort();
+    const names = result.map((r: any) =>  r.exportName).sort();
     expect(names).toEqual(['beta', 'gamma']);
     expect(result[0].testFile).toBe(path.join('tests', 'unit', 'utils.test.js'));
   });
@@ -1148,7 +1148,7 @@ describe('analyzeTestCoverageGaps', () => {
 // ─── analyzeExportConsistency ─────────────────────────────────────────────────
 
 describe('analyzeExportConsistency', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1208,7 +1208,7 @@ describe('analyzeExportConsistency', () => {
 // ─── analyzeDocStaleness ──────────────────────────────────────────────────────
 
 describe('analyzeDocStaleness', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1241,7 +1241,7 @@ describe('analyzeDocStaleness', () => {
       "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n];\n"
     );
     const result = analyzeDocStaleness(tmpDir);
-    const notImpl = result.filter((r) => r.issue === 'documented-but-not-implemented');
+    const notImpl = result.filter((r: any) =>  r.issue === 'documented-but-not-implemented');
     expect(notImpl.length).toBe(1);
     expect(notImpl[0].detail).toContain('ghost command');
   });
@@ -1254,7 +1254,7 @@ describe('analyzeDocStaleness', () => {
       "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n  { name: 'grd_secret_tool', execute: () => {} },\n];\n"
     );
     const result = analyzeDocStaleness(tmpDir);
-    const notDoc = result.filter((r) => r.issue === 'implemented-but-not-documented');
+    const notDoc = result.filter((r: any) =>  r.issue === 'implemented-but-not-documented');
     expect(notDoc.length).toBe(1);
     expect(notDoc[0].detail).toContain('grd_secret_tool');
   });
@@ -1289,7 +1289,7 @@ describe('analyzeDocStaleness', () => {
 // ─── analyzeConfigSchemaDrift ─────────────────────────────────────────────────
 
 describe('analyzeConfigSchemaDrift', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1312,9 +1312,9 @@ describe('analyzeConfigSchemaDrift', () => {
     );
     writeConfig(tmpDir, { some_key: true });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notInConfig = result.filter((r) => r.issue === 'documented-key-not-in-config');
+    const notInConfig = result.filter((r: any) =>  r.issue === 'documented-key-not-in-config');
     expect(notInConfig.length).toBe(2);
-    expect(notInConfig.map((r) => r.detail)).toEqual(
+    expect(notInConfig.map((r: any) =>  r.detail)).toEqual(
       expect.arrayContaining([
         expect.stringContaining('tracker'),
         expect.stringContaining('execution'),
@@ -1326,7 +1326,7 @@ describe('analyzeConfigSchemaDrift', () => {
     writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `known_key` — Known\n\n## Other\n');
     writeConfig(tmpDir, { known_key: true, secret_key: false });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
+    const notDoc = result.filter((r: any) =>  r.issue === 'config-key-not-documented');
     expect(notDoc.length).toBe(1);
     expect(notDoc[0].detail).toContain('secret_key');
   });
@@ -1335,7 +1335,7 @@ describe('analyzeConfigSchemaDrift', () => {
     writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `visible` — Visible\n\n## Other\n');
     writeConfig(tmpDir, { visible: true, _internal: 'hidden' });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notDoc = result.filter((r) => r.issue === 'config-key-not-documented');
+    const notDoc = result.filter((r: any) =>  r.issue === 'config-key-not-documented');
     expect(notDoc).toEqual([]);
   });
 
@@ -1348,7 +1348,7 @@ describe('analyzeConfigSchemaDrift', () => {
     writeConfig(tmpDir, { alpha: 1, beta: 2 });
     const result = analyzeConfigSchemaDrift(tmpDir);
     const configIssues = result.filter(
-      (r) => r.issue === 'documented-key-not-in-config' || r.issue === 'config-key-not-documented'
+      (r: any) =>  r.issue === 'documented-key-not-in-config' || r.issue === 'config-key-not-documented'
     );
     expect(configIssues).toEqual([]);
   });
@@ -1368,7 +1368,7 @@ describe('analyzeConfigSchemaDrift', () => {
       ].join('\n')
     );
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notImported = result.filter((r) => r.issue === 'execute-function-not-imported');
+    const notImported = result.filter((r: any) =>  r.issue === 'execute-function-not-imported');
     expect(notImported.length).toBe(1);
     expect(notImported[0].detail).toContain('cmdGhost');
   });
@@ -1377,7 +1377,7 @@ describe('analyzeConfigSchemaDrift', () => {
 // ─── runQualityAnalysis new analyzer integration ─────────────────────────────
 
 describe('runQualityAnalysis new analyzer integration', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1455,7 +1455,7 @@ describe('runQualityAnalysis new analyzer integration', () => {
 // ─── generateCleanupPlan new task groupings ──────────────────────────────────
 
 describe('generateCleanupPlan new task groupings', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1465,7 +1465,7 @@ describe('generateCleanupPlan new task groupings', () => {
     removeTempDir(tmpDir);
   });
 
-  function createPhaseDir(phaseNum, slug, existingPlans = []) {
+  function createPhaseDir(phaseNum: number | string, slug: string, existingPlans: (number | string)[] = []) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
     const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);
@@ -1613,7 +1613,7 @@ describe('resetCleanupCache', () => {
 // ─── analyzeComplexity onProgress callback ────────────────────────────────────
 
 describe('analyzeComplexity onProgress callback', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();
@@ -1624,23 +1624,23 @@ describe('analyzeComplexity onProgress callback', () => {
   });
 
   test('does not call onProgress when file list is empty', () => {
-    const calls = [];
-    analyzeComplexity(tmpDir, [], { onProgress: (info) => calls.push(info) });
+    const calls: any[] = [];
+    analyzeComplexity(tmpDir, [], { onProgress: (info: any) => calls.push(info) });
     expect(calls).toHaveLength(0);
   });
 
   test('does not call onProgress when all files are non-existent', () => {
-    const calls = [];
+    const calls: any[] = [];
     analyzeComplexity(tmpDir, ['does-not-exist.js'], {
-      onProgress: (info) => calls.push(info),
+      onProgress: (info: any) => calls.push(info),
     });
     expect(calls).toHaveLength(0);
   });
 
   test('calls onProgress with started event before analysis', () => {
     writeFile(tmpDir, 'prog.js', 'function foo(a) { return a; }\n');
-    const calls = [];
-    analyzeComplexity(tmpDir, ['prog.js'], { onProgress: (info) => calls.push(info) });
+    const calls: any[] = [];
+    analyzeComplexity(tmpDir, ['prog.js'], { onProgress: (info: any) => calls.push(info) });
     expect(calls.length).toBeGreaterThanOrEqual(1);
     expect(calls[0].event).toBe('started');
     expect(calls[0].file_count).toBe(1);
@@ -1648,9 +1648,9 @@ describe('analyzeComplexity onProgress callback', () => {
 
   test('calls onProgress with completed event after analysis', () => {
     writeFile(tmpDir, 'prog2.js', 'function bar(b) { return b + 1; }\n');
-    const calls = [];
-    analyzeComplexity(tmpDir, ['prog2.js'], { onProgress: (info) => calls.push(info) });
-    const completedCall = calls.find((c) => c.event === 'completed');
+    const calls: any[] = [];
+    analyzeComplexity(tmpDir, ['prog2.js'], { onProgress: (info: any) => calls.push(info) });
+    const completedCall = calls.find((c: any) => c.event === 'completed');
     expect(completedCall).toBeDefined();
     expect(completedCall).toHaveProperty('violation_count');
   });
@@ -1664,7 +1664,7 @@ describe('analyzeComplexity onProgress callback', () => {
 // ─── loadQualityHistory / saveQualityMetrics / computeTrends ─────────────────
 
 describe('quality history and trends', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createTempDir();

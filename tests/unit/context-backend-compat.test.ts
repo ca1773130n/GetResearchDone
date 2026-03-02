@@ -6,6 +6,9 @@
  * env vars for backend switching to test the highest-priority detection path
  * and avoid env var interference between parallel tests.
  *
+ * Source modules: lib/context/ (context/index.ts, context/base.ts, etc.)
+ *                 lib/backend.ts
+ *
  * Coverage:
  *   - All 14 cmdInit* functions verified under claude (baseline regression check)
  *   - Representative functions verified under codex, gemini, opencode
@@ -46,9 +49,9 @@ const {
 /**
  * Write a backend value into the fixture's config.json, preserving existing fields.
  */
-function setFixtureBackend(fixtureDir, backend) {
+function setFixtureBackend(fixtureDir: string, backend: string): void {
   const configPath = path.join(fixtureDir, '.planning', 'config.json');
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
   config.backend = backend;
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
@@ -56,9 +59,9 @@ function setFixtureBackend(fixtureDir, backend) {
 /**
  * Remove backend field from fixture config (restore to default/claude).
  */
-function clearFixtureBackend(fixtureDir) {
+function clearFixtureBackend(fixtureDir: string): void {
   const configPath = path.join(fixtureDir, '.planning', 'config.json');
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
   delete config.backend;
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
@@ -66,16 +69,16 @@ function clearFixtureBackend(fixtureDir) {
 /**
  * Call a cmdInit* function and return parsed JSON result.
  */
-function callInit(fn) {
+function callInit(fn: () => void): Record<string, unknown> {
   const { stdout, exitCode } = captureOutput(fn);
   expect(exitCode).toBe(0);
-  return JSON.parse(stdout);
+  return JSON.parse(stdout) as Record<string, unknown>;
 }
 
 // ─── Save/restore env vars ───────────────────────────────────────────────
 
-const savedEnv = {};
-const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
+const savedEnv: Record<string, string | undefined> = {};
+const claudeCodeVars = Object.keys(process.env).filter((k: string) => k.startsWith('CLAUDE_CODE_'));
 const envVarsToClean = [
   ...claudeCodeVars,
   'CODEX_HOME',
@@ -87,7 +90,7 @@ const envVarsToClean = [
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe('Context init backward compatibility (DEFER-10-01)', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     // Save and clear env vars to prevent env var interference
@@ -334,29 +337,29 @@ describe('Context init backward compatibility (DEFER-10-01)', () => {
   // ─── All 14 functions produce valid JSON with backend fields ───────────
 
   describe('all 14 functions produce valid JSON with backend fields', () => {
-    const functions = [
-      { name: 'cmdInitExecutePhase', fn: (dir) => cmdInitExecutePhase(dir, '1', new Set(), false) },
-      { name: 'cmdInitPlanPhase', fn: (dir) => cmdInitPlanPhase(dir, '1', new Set(), false) },
-      { name: 'cmdInitNewProject', fn: (dir) => cmdInitNewProject(dir, false) },
-      { name: 'cmdInitNewMilestone', fn: (dir) => cmdInitNewMilestone(dir, false) },
-      { name: 'cmdInitQuick', fn: (dir) => cmdInitQuick(dir, 'test', false) },
-      { name: 'cmdInitResume', fn: (dir) => cmdInitResume(dir, false) },
-      { name: 'cmdInitVerifyWork', fn: (dir) => cmdInitVerifyWork(dir, '1', false) },
-      { name: 'cmdInitPhaseOp', fn: (dir) => cmdInitPhaseOp(dir, '1', false) },
-      { name: 'cmdInitTodos', fn: (dir) => cmdInitTodos(dir, null, false) },
-      { name: 'cmdInitMilestoneOp', fn: (dir) => cmdInitMilestoneOp(dir, false) },
-      { name: 'cmdInitMapCodebase', fn: (dir) => cmdInitMapCodebase(dir, false) },
-      { name: 'cmdInitProgress', fn: (dir) => cmdInitProgress(dir, new Set(), false) },
+    const functions: Array<{ name: string; fn: (dir: string) => void }> = [
+      { name: 'cmdInitExecutePhase', fn: (dir: string) => cmdInitExecutePhase(dir, '1', new Set(), false) },
+      { name: 'cmdInitPlanPhase', fn: (dir: string) => cmdInitPlanPhase(dir, '1', new Set(), false) },
+      { name: 'cmdInitNewProject', fn: (dir: string) => cmdInitNewProject(dir, false) },
+      { name: 'cmdInitNewMilestone', fn: (dir: string) => cmdInitNewMilestone(dir, false) },
+      { name: 'cmdInitQuick', fn: (dir: string) => cmdInitQuick(dir, 'test', false) },
+      { name: 'cmdInitResume', fn: (dir: string) => cmdInitResume(dir, false) },
+      { name: 'cmdInitVerifyWork', fn: (dir: string) => cmdInitVerifyWork(dir, '1', false) },
+      { name: 'cmdInitPhaseOp', fn: (dir: string) => cmdInitPhaseOp(dir, '1', false) },
+      { name: 'cmdInitTodos', fn: (dir: string) => cmdInitTodos(dir, null, false) },
+      { name: 'cmdInitMilestoneOp', fn: (dir: string) => cmdInitMilestoneOp(dir, false) },
+      { name: 'cmdInitMapCodebase', fn: (dir: string) => cmdInitMapCodebase(dir, false) },
+      { name: 'cmdInitProgress', fn: (dir: string) => cmdInitProgress(dir, new Set(), false) },
       {
         name: 'cmdInitResearchWorkflow',
-        fn: (dir) => cmdInitResearchWorkflow(dir, 'survey', null, new Set(), false),
+        fn: (dir: string) => cmdInitResearchWorkflow(dir, 'survey', null, new Set(), false),
       },
-      { name: 'cmdInitPlanMilestoneGaps', fn: (dir) => cmdInitPlanMilestoneGaps(dir, false) },
+      { name: 'cmdInitPlanMilestoneGaps', fn: (dir: string) => cmdInitPlanMilestoneGaps(dir, false) },
     ];
 
     test.each(functions.map((f) => [f.name, f.fn]))(
       '%s produces valid JSON with backend and backend_capabilities under codex',
-      (name, fn) => {
+      (_name: string, fn: (dir: string) => void) => {
         setFixtureBackend(tmpDir, 'codex');
         const result = callInit(() => fn(tmpDir));
         expect(result.backend).toBe('codex');
