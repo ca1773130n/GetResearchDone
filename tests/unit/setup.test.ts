@@ -114,12 +114,12 @@ describe('cmdSetup — idempotency', () => {
 // ─── Error Handling ──────────────────────────────────────────────────────────
 
 describe('cmdSetup — error handling', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   afterEach(() => {
-    if (tmpDir && tmpDir.startsWith(os.tmpdir())) {
+    if (tmpDir && tmpDir.length > 0 && tmpDir.startsWith(os.tmpdir())) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-      tmpDir = null;
+      tmpDir = '';
     }
   });
 

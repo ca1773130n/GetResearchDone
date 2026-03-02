@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/autopilot.js
+ * Unit tests for lib/autopilot.ts
  *
  * Tests autopilot orchestration: phase range resolution, plan/execute detection,
  * prompt building, status markers, state updates, spawn wrapper, and the main loop
@@ -34,14 +34,14 @@ const {
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
-function phasesBase(tmpDir) {
+function phasesBase(tmpDir: string) {
   return path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases');
 }
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
 
 /** Create a minimal fixture dir with ROADMAP.md and phase directories */
-function createAutopilotFixture(opts = {}) {
+function createAutopilotFixture(opts: any = {}) {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
   const planning = path.join(tmpRoot, '.planning');
   fs.mkdirSync(planning, { recursive: true });
@@ -110,26 +110,26 @@ function createMockChild(exitCode = 0) {
 }
 
 /** Capture stdout from an async function (handles process.exit) */
-async function captureOutputAsync(fn) {
+async function captureOutputAsync(fn: () => Promise<void>) {
   let captured = '';
   const EXIT_SENTINEL = '__GRD_TEST_EXIT__';
 
-  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code: any) => {
     const err = new Error(EXIT_SENTINEL);
-    err.__EXIT__ = true;
-    err.code = code;
+    (err as any).__EXIT__ = true;
+    (err as any).code = code;
     throw err;
   });
 
-  const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
-    captured += data;
+  const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
+    captured += String(data);
     return true;
   });
 
   try {
     await fn();
-  } catch (e) {
-    if (!(e && e.__EXIT__)) {
+  } catch (e: any) {
+    if (!(e && (e as any).__EXIT__)) {
       writeSpy.mockRestore();
       exitSpy.mockRestore();
       throw e;
@@ -187,12 +187,12 @@ describe('lib/autopilot', () => {
   // ── resolvePhaseRange ──
 
   describe('resolvePhaseRange', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -248,12 +248,12 @@ describe('lib/autopilot', () => {
   // ── isPhasePlanned / isPhaseExecuted ──
 
   describe('isPhasePlanned', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -283,12 +283,12 @@ describe('lib/autopilot', () => {
   });
 
   describe('isPhaseExecuted', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -346,12 +346,12 @@ describe('lib/autopilot', () => {
   // ── writeStatusMarker ──
 
   describe('writeStatusMarker', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -383,12 +383,12 @@ describe('lib/autopilot', () => {
   // ── updateStateProgress ──
 
   describe('updateStateProgress', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -411,12 +411,12 @@ describe('lib/autopilot', () => {
   // ── spawnClaude ──
 
   describe('spawnClaude', () => {
-    let spawnSyncSpy;
+    let spawnSyncSpy: any;
 
     afterEach(() => {
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
     });
 
@@ -463,7 +463,7 @@ describe('lib/autopilot', () => {
 
     it('detects timeout', () => {
       const timeoutError = new Error('timed out');
-      timeoutError.code = 'ETIMEDOUT';
+      (timeoutError as any).code = 'ETIMEDOUT';
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
         status: null,
         error: timeoutError,
@@ -489,12 +489,12 @@ describe('lib/autopilot', () => {
   // ── spawnClaudeAsync ──
 
   describe('spawnClaudeAsync', () => {
-    let spawnSpy;
+    let spawnSpy: any;
 
     afterEach(() => {
       if (spawnSpy) {
         spawnSpy.mockRestore();
-        spawnSpy = null;
+        spawnSpy = undefined;
       }
     });
 
@@ -585,8 +585,8 @@ describe('lib/autopilot', () => {
         return child;
       });
 
-      const stderrLines = [];
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      const stderrLines: string[] = [];
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
         stderrLines.push(String(data));
         return true;
       });
@@ -598,7 +598,7 @@ describe('lib/autopilot', () => {
       // Should capture in result
       expect(result.stderr).toBe('error output');
       // Should also forward to parent stderr for real-time visibility
-      expect(stderrLines.some((line) => line.includes('error output'))).toBe(true);
+      expect(stderrLines.some((line: any) => line.includes('error output'))).toBe(true);
     });
   });
 
@@ -660,22 +660,22 @@ describe('lib/autopilot', () => {
   // ── runAutopilot ──
 
   describe('runAutopilot', () => {
-    let tmpDir;
-    let spawnSyncSpy;
-    let spawnSpy;
+    let tmpDir: string;
+    let spawnSyncSpy: any;
+    let spawnSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
       if (spawnSpy) {
         spawnSpy.mockRestore();
-        spawnSpy = null;
+        spawnSpy = undefined;
       }
     });
 
@@ -708,7 +708,7 @@ describe('lib/autopilot', () => {
     it('skip-plan only runs execute steps in dry-run', async () => {
       tmpDir = createAutopilotFixture();
       const result = await runAutopilot(tmpDir, { dryRun: true, skipPlan: true });
-      const steps = result.results.map((r) => r.step);
+      const steps = result.results.map((r: any) => r.step);
       expect(steps).not.toContain('plan');
       expect(steps).toContain('execute');
     });
@@ -716,7 +716,7 @@ describe('lib/autopilot', () => {
     it('skip-execute only runs plan steps in dry-run', async () => {
       tmpDir = createAutopilotFixture();
       const result = await runAutopilot(tmpDir, { dryRun: true, skipExecute: true });
-      const steps = result.results.map((r) => r.step);
+      const steps = result.results.map((r: any) => r.step);
       expect(steps).toContain('plan');
       expect(steps).not.toContain('execute');
     });
@@ -752,7 +752,7 @@ describe('lib/autopilot', () => {
       const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
       expect(result.phases_completed).toBe(0);
       expect(result.stopped_at).toBeNull();
-      const failed = result.results.filter((r) => r.status === 'failed');
+      const failed = result.results.filter((r: any) => r.status === 'failed');
       expect(failed.length).toBeGreaterThan(0);
     });
 
@@ -769,7 +769,7 @@ describe('lib/autopilot', () => {
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
       expect(result.stopped_at).toBeNull();
-      const planResult = result.results.find((r) => r.step === 'plan');
+      const planResult = result.results.find((r: any) => r.step === 'plan');
       expect(planResult.status).toBe('completed');
     });
 
@@ -816,7 +816,7 @@ describe('lib/autopilot', () => {
       });
 
       const timeoutError = new Error('timed out');
-      timeoutError.code = 'ETIMEDOUT';
+      (timeoutError as any).code = 'ETIMEDOUT';
 
       spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
         status: null,
@@ -825,7 +825,7 @@ describe('lib/autopilot', () => {
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48', skipPlan: true });
       expect(result.stopped_at).toBeNull();
-      const execResult = result.results.find((r) => r.step === 'execute');
+      const execResult = result.results.find((r: any) => r.step === 'execute');
       expect(execResult.status).toBe('failed');
       expect(execResult.reason).toBe('timeout');
     });
@@ -834,7 +834,7 @@ describe('lib/autopilot', () => {
       tmpDir = createAutopilotFixture();
       const result = await runAutopilot(tmpDir, { dryRun: true, from: '49', to: '49' });
       expect(result.phases_attempted).toBe(1);
-      const phases = [...new Set(result.results.map((r) => r.phase))];
+      const phases = [...new Set(result.results.map((r: any) => r.phase))];
       expect(phases).toEqual(['49']);
     });
   });
@@ -842,17 +842,17 @@ describe('lib/autopilot', () => {
   // ── cmdAutopilot ──
 
   describe('cmdAutopilot', () => {
-    let tmpDir;
-    let spawnSyncSpy;
+    let tmpDir: string;
+    let spawnSyncSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
     });
 
@@ -910,17 +910,17 @@ describe('lib/autopilot', () => {
   // ── cmdInitAutopilot ──
 
   describe('cmdInitAutopilot', () => {
-    let tmpDir;
-    let spawnSyncSpy;
+    let tmpDir: string;
+    let spawnSyncSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
     });
 
@@ -975,12 +975,12 @@ describe('lib/autopilot', () => {
   // ── Milestone-scoped path tests ──
 
   describe('milestone-scoped paths', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -1030,22 +1030,22 @@ describe('lib/autopilot', () => {
   // ── runAutopilot execute verification failure ──
 
   describe('runAutopilot execute verification', () => {
-    let tmpDir;
-    let spawnSyncSpy;
-    let spawnSpy;
+    let tmpDir: string;
+    let spawnSyncSpy: any;
+    let spawnSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
       if (spawnSpy) {
         spawnSpy.mockRestore();
-        spawnSpy = null;
+        spawnSpy = undefined;
       }
     });
 
@@ -1090,7 +1090,7 @@ describe('lib/autopilot', () => {
       const nums = ['48', '49', '50'];
 
       // Plan step (async spawn) — create PLAN.md for whichever phase is being planned
-      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd: any, args: any) => {
         // Extract phase number from prompt
         const prompt = args[1]; // -p <prompt>
         for (let i = 0; i < nums.length; i++) {
@@ -1103,7 +1103,7 @@ describe('lib/autopilot', () => {
       });
 
       // Execute step (sync spawnSync) — create SUMMARY.md
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd: any, args: any) => {
         const prompt = args[1];
         for (let i = 0; i < nums.length; i++) {
           if (prompt.includes(`execute-phase ${nums[i]}`)) {
@@ -1118,7 +1118,7 @@ describe('lib/autopilot', () => {
       expect(result.phases_completed).toBe(3);
       expect(result.stopped_at).toBeNull();
       expect(result.results).toHaveLength(6);
-      result.results.forEach((r) => {
+      result.results.forEach((r: any) => {
         expect(r.status).toBe('completed');
       });
     });
@@ -1127,12 +1127,12 @@ describe('lib/autopilot', () => {
   // ── Edge cases: resolvePhaseRange ──
 
   describe('resolvePhaseRange edge cases', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -1206,12 +1206,12 @@ describe('lib/autopilot', () => {
   // ── Edge cases: spawnClaude ──
 
   describe('spawnClaude edge cases', () => {
-    let spawnSyncSpy;
+    let spawnSyncSpy: any;
 
     afterEach(() => {
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
     });
 
@@ -1277,12 +1277,12 @@ describe('lib/autopilot', () => {
   // ── Edge cases: cmdAutopilot flag parsing ──
 
   describe('cmdAutopilot flag parsing edge cases', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -1315,7 +1315,7 @@ describe('lib/autopilot', () => {
         cmdAutopilot(tmpDir, ['--dry-run', '--skip-execute', '--from', '48', '--to', '48'], false)
       );
       const result = JSON.parse(stdout);
-      const steps = result.results.map((r) => r.step);
+      const steps = result.results.map((r: any) => r.step);
       expect(steps).toContain('plan');
       expect(steps).not.toContain('execute');
     });
@@ -1335,12 +1335,12 @@ describe('lib/autopilot', () => {
   // ── Edge cases: updateStateProgress ──
 
   describe('updateStateProgress edge cases', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -1371,22 +1371,22 @@ describe('lib/autopilot', () => {
   // ── Edge cases: runAutopilot ──
 
   describe('runAutopilot edge cases', () => {
-    let tmpDir;
-    let spawnSyncSpy;
-    let spawnSpy;
+    let tmpDir: string;
+    let spawnSyncSpy: any;
+    let spawnSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
       if (spawnSpy) {
         spawnSpy.mockRestore();
-        spawnSpy = null;
+        spawnSpy = undefined;
       }
     });
 
@@ -1469,12 +1469,12 @@ describe('lib/autopilot', () => {
   // ── Edge cases: writeStatusMarker ──
 
   describe('writeStatusMarker edge cases', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
     });
 
@@ -1506,22 +1506,22 @@ describe('lib/autopilot', () => {
   // ── Parallel planning ──
 
   describe('parallel planning', () => {
-    let tmpDir;
-    let spawnSpy;
-    let spawnSyncSpy;
+    let tmpDir: string;
+    let spawnSpy: any;
+    let spawnSyncSpy: any;
 
     afterEach(() => {
       if (tmpDir) {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        tmpDir = null;
+        tmpDir = '';
       }
       if (spawnSpy) {
         spawnSpy.mockRestore();
-        spawnSpy = null;
+        spawnSpy = undefined;
       }
       if (spawnSyncSpy) {
         spawnSyncSpy.mockRestore();
-        spawnSyncSpy = null;
+        spawnSyncSpy = undefined;
       }
     });
 
@@ -1534,10 +1534,10 @@ describe('lib/autopilot', () => {
         ],
       });
 
-      const spawnCallTimes = [];
-      const resolvers = [];
+      const spawnCallTimes: number[] = [];
+      const resolvers: Array<() => void> = [];
 
-      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd: any, args: any) => {
         spawnCallTimes.push(Date.now());
         const child = new EventEmitter();
         child.kill = jest.fn();
@@ -1559,7 +1559,7 @@ describe('lib/autopilot', () => {
       });
 
       // Execute step (sync)
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd: any, args: any) => {
         const prompt = args[1];
         const nums = ['48', '49', '50'];
         const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
@@ -1581,7 +1581,7 @@ describe('lib/autopilot', () => {
       expect(spawnSpy).toHaveBeenCalledTimes(3);
 
       // Now resolve all
-      resolvers.forEach((r) => r());
+      resolvers.forEach((r: any) => r());
 
       const result = await promise;
       expect(result.phases_completed).toBe(3);
@@ -1606,7 +1606,7 @@ describe('lib/autopilot', () => {
       const nums = ['48', '49', '50'];
       const dirs = ['48-first-feature', '49-second-feature', '50-third-feature'];
 
-      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd, args) => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation((_cmd: any, args: any) => {
         const prompt = args[1];
         for (let i = 0; i < nums.length; i++) {
           if (prompt.includes(`plan-phase ${nums[i]}`)) {
@@ -1618,7 +1618,7 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd, args) => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd: any, args: any) => {
         const prompt = args[1];
         for (let i = 0; i < nums.length; i++) {
           if (prompt.includes(`execute-phase ${nums[i]}`)) {

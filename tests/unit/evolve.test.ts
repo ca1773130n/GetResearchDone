@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/evolve.js
+ * Unit tests for lib/evolve.ts
  *
  * Tests the evolve iteration state layer: work item creation, state path
  * resolution, initial state creation, disk I/O (read/write), merge/deduplication,
@@ -91,7 +91,7 @@ const {
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
 
-let tmpDirs = [];
+let tmpDirs: string[] = [];
 
 function createTmpDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-evolve-test-'));
@@ -320,10 +320,10 @@ describe('mergeWorkItems', () => {
     const result = mergeWorkItems(existing, discovered);
     expect(result).toHaveLength(3);
     // Existing wins for shared id
-    expect(result.find((i) => i.id === 'quality/shared').title).toBe('Shared Existing');
+    expect(result.find((i: any) => i.id === 'quality/shared').title).toBe('Shared Existing');
     // Non-overlapping items both present
-    expect(result.find((i) => i.id === 'quality/only-existing')).toBeDefined();
-    expect(result.find((i) => i.id === 'stability/only-discovered')).toBeDefined();
+    expect(result.find((i: any) => i.id === 'quality/only-existing')).toBeDefined();
+    expect(result.find((i: any) => i.id === 'stability/only-discovered')).toBeDefined();
   });
 
   test('preserves all fields on surviving items', () => {
@@ -371,7 +371,7 @@ describe('advanceIteration', () => {
     const prev = buildPreviousState();
     const next = advanceIteration(prev);
     // Only the pending remaining item should carry over (not the completed one)
-    const remainingIds = next.remaining.map((i) => i.id);
+    const remainingIds = next.remaining.map((i: any) => i.id);
     expect(remainingIds).toContain('productivity/rem-1');
     expect(remainingIds).not.toContain('stability/rem-done');
   });
@@ -379,7 +379,7 @@ describe('advanceIteration', () => {
   test('merges bugfix items into remaining', () => {
     const prev = buildPreviousState();
     const next = advanceIteration(prev);
-    const remainingIds = next.remaining.map((i) => i.id);
+    const remainingIds = next.remaining.map((i: any) => i.id);
     expect(remainingIds).toContain('quality/bug-1');
   });
 
@@ -541,7 +541,7 @@ describe('analyzeCodebaseForItems', () => {
   test('items span multiple dimensions', () => {
     const fixture = createDiscoveryFixture();
     const items = analyzeCodebaseForItems(fixture);
-    const dimensions = new Set(items.map((i) => i.dimension));
+    const dimensions = new Set(items.map((i: any) => i.dimension));
     expect(dimensions.size).toBeGreaterThanOrEqual(2);
   });
 
@@ -643,15 +643,15 @@ describe('parseDiscoveryOutput', () => {
       { dimension: 'quality', slug: 'completely-random-2', title: 'C', description: 'D', effort: 'small' },
       { dimension: 'quality', slug: 'completely-random-3', title: 'D', description: 'D', effort: 'small' },
     ]);
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrLines.push(String(data));
       return true;
     });
     const items = parseDiscoveryOutput(raw);
     stderrSpy.mockRestore();
     expect(items).toHaveLength(4);
-    expect(stderrLines.some((l) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(true);
+    expect(stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(true);
   });
 
   test('does not warn when <=50% items are off-theme', () => {
@@ -662,14 +662,14 @@ describe('parseDiscoveryOutput', () => {
       { dimension: 'quality', slug: 'improve-coverage-c', title: 'C', description: 'D', effort: 'small' },
       { dimension: 'quality', slug: 'completely-random', title: 'D', description: 'D', effort: 'small' },
     ]);
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrLines.push(String(data));
       return true;
     });
     parseDiscoveryOutput(raw);
     stderrSpy.mockRestore();
-    expect(stderrLines.some((l) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(false);
+    expect(stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(false);
   });
 });
 
@@ -727,10 +727,8 @@ describe('discoverWithClaude', () => {
     autopilotModule.spawnClaudeAsync.mockResolvedValueOnce(timedOutResult);
     const fixture = createDiscoveryFixture();
 
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
-      stderrLines.push(msg);
-    });
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => { stderrLines.push(String(msg)); return true; });
     try {
       await discoverWithClaude(fixture);
     } finally {
@@ -880,7 +878,7 @@ describe('runDiscovery', () => {
     expect(result.merged_count).toBeGreaterThan(result.all_discovered_count);
     // The carryover item should appear somewhere in selected or remaining
     const allItems = [...result.selected, ...result.remaining];
-    const carryoverFound = allItems.some((i) => i.id === 'quality/carryover-item');
+    const carryoverFound = allItems.some((i: any) => i.id === 'quality/carryover-item');
     expect(carryoverFound).toBe(true);
   });
 
@@ -933,33 +931,33 @@ describe('runDiscovery', () => {
  * Capture stdout/stderr from a sync cmd* function that calls output()/error().
  * These functions call process.exit, so we intercept it.
  */
-function captureOutput(fn) {
+function captureOutput(fn: () => void) {
   let stdout = '';
   let stderr = '';
   let exitCode = 0;
 
-  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
-    exitCode = code;
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code: any) => {
+    exitCode = code as number;
     const err = new Error('__TEST_EXIT__');
-    err.__EXIT__ = true;
-    err.code = code;
+    (err as any).__EXIT__ = true;
+    (err as any).code = code;
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
     stdout += data;
     return true;
   });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
     stderr += data;
     return true;
   });
 
   try {
     fn();
-  } catch (e) {
-    if (!(e && e.__EXIT__)) {
+  } catch (e: any) {
+    if (!(e && (e as any).__EXIT__)) {
       throw e;
     }
   } finally {
@@ -974,33 +972,33 @@ function captureOutput(fn) {
 /**
  * Async variant of captureOutput for async cmd* functions.
  */
-async function captureOutputAsync(fn) {
+async function captureOutputAsync(fn: () => Promise<void>) {
   let stdout = '';
   let stderr = '';
   let exitCode = 0;
 
-  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
-    exitCode = code;
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code: any) => {
+    exitCode = code as number;
     const err = new Error('__TEST_EXIT__');
-    err.__EXIT__ = true;
-    err.code = code;
+    (err as any).__EXIT__ = true;
+    (err as any).code = code;
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
     stdout += data;
     return true;
   });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
     stderr += data;
     return true;
   });
 
   try {
     await fn();
-  } catch (e) {
-    if (!(e && e.__EXIT__)) {
+  } catch (e: any) {
+    if (!(e && (e as any).__EXIT__)) {
       throw e;
     }
   } finally {
@@ -1254,10 +1252,10 @@ describe('groupDiscoveredItems', () => {
       createWorkItem('usability', 'add-jsdoc-utils-fn1', 'JSDoc fn1', 'Desc'),
     ];
     const groups = groupDiscoveredItems(items);
-    const coverageGroup = groups.find((g) => g.theme === 'test-coverage');
+    const coverageGroup = groups.find((g: any) => g.theme === 'test-coverage');
     expect(coverageGroup).toBeDefined();
     expect(coverageGroup.items).toHaveLength(2);
-    const jsdocGroup = groups.find((g) => g.theme === 'jsdoc-gaps');
+    const jsdocGroup = groups.find((g: any) => g.theme === 'jsdoc-gaps');
     expect(jsdocGroup).toBeDefined();
     expect(jsdocGroup.items).toHaveLength(1);
   });
@@ -1265,7 +1263,7 @@ describe('groupDiscoveredItems', () => {
   test('unmatched items go to dimension/miscellaneous groups', () => {
     const items = [createWorkItem('quality', 'something-random', 'Random', 'Desc')];
     const groups = groupDiscoveredItems(items);
-    const misc = groups.find((g) => g.theme === 'miscellaneous' && g.dimension === 'quality');
+    const misc = groups.find((g: any) => g.theme === 'miscellaneous' && g.dimension === 'quality');
     expect(misc).toBeDefined();
     expect(misc.items).toHaveLength(1);
   });
@@ -1307,7 +1305,7 @@ describe('groupDiscoveredItems', () => {
       }),
     ];
     const groups = groupDiscoveredItems(items);
-    const group = groups.find((g) => g.theme === 'test-coverage');
+    const group = groups.find((g: any) => g.theme === 'test-coverage');
     const expectedPriority = (scoreWorkItem(items[0]) + scoreWorkItem(items[1])) / 2;
     expect(group.priority).toBe(expectedPriority);
   });
@@ -1350,12 +1348,12 @@ describe('groupDiscoveredItems', () => {
     const defaultGroups = groupDiscoveredItems(items);
     const customGroups = groupDiscoveredItems(items, { quality: 100, stability: 1 });
 
-    const defaultQuality = defaultGroups.find((g) => g.dimension === 'quality');
-    const customQuality = customGroups.find((g) => g.dimension === 'quality');
+    const defaultQuality = defaultGroups.find((g: any) => g.dimension === 'quality');
+    const customQuality = customGroups.find((g: any) => g.dimension === 'quality');
     expect(customQuality.priority).toBeGreaterThan(defaultQuality.priority);
 
-    const defaultStability = defaultGroups.find((g) => g.dimension === 'stability');
-    const customStability = customGroups.find((g) => g.dimension === 'stability');
+    const defaultStability = defaultGroups.find((g: any) => g.dimension === 'stability');
+    const customStability = customGroups.find((g: any) => g.dimension === 'stability');
     expect(customStability.priority).toBeLessThan(defaultStability.priority);
   });
 });
@@ -1557,7 +1555,7 @@ describe('runGroupDiscovery', () => {
     const allItems = [...result.selected_groups, ...result.remaining_groups].flatMap(
       (g) => g.items
     );
-    const found = allItems.some((i) => i.id === 'quality/improve-coverage-carryover');
+    const found = allItems.some((i: any) => i.id === 'quality/improve-coverage-carryover');
     expect(found).toBe(true);
   });
 
@@ -2022,7 +2020,7 @@ describe('discoverProductivityItems — long function detection', () => {
 
     const items = analyzeCodebaseForItems(tmpDir);
     const found = items.find(
-      (i) => i.dimension === 'productivity' && i.id.includes('split-longfunc')
+      (i: any) => i.dimension === 'productivity' && i.id.includes('split-longfunc')
     );
     expect(found).toBeDefined();
     expect(found.title).toContain('veryLongFunction');
@@ -2055,7 +2053,7 @@ describe('discoverQualityItems — jest.config.js threshold detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'quality/improve-coverage-lowcov');
+    const found = items.find((i: any) => i.id === 'quality/improve-coverage-lowcov');
     expect(found).toBeDefined();
     expect(found.description).toContain('80%');
   });
@@ -2081,7 +2079,7 @@ describe('discoverQualityItems — jest.config.js threshold detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'quality/improve-coverage-goodcov');
+    const found = items.find((i: any) => i.id === 'quality/improve-coverage-goodcov');
     expect(found).toBeUndefined();
   });
 });
@@ -2104,7 +2102,7 @@ describe('discoverQualityItems — TODO/FIXME/HACK marker detection', () => {
 
     const items = analyzeCodebaseForItems(tmpDir);
     const found = items.find(
-      (i) => i.dimension === 'quality' && i.id.includes('resolve-todo-marked')
+      (i: any) => i.dimension === 'quality' && i.id.includes('resolve-todo-marked')
     );
     expect(found).toBeDefined();
     expect(found.title).toContain('TODO');
@@ -2128,7 +2126,7 @@ describe('discoverQualityItems — TODO/FIXME/HACK marker detection', () => {
 
     const items = analyzeCodebaseForItems(tmpDir);
     const found = items.find(
-      (i) => i.dimension === 'quality' && i.id.includes('resolve-todo-nofalse')
+      (i: any) => i.dimension === 'quality' && i.id.includes('resolve-todo-nofalse')
     );
     expect(found).toBeUndefined();
   });
@@ -2146,7 +2144,7 @@ describe('discoverUsabilityItems — command description detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'usability/add-description-my-command');
+    const found = items.find((i: any) => i.id === 'usability/add-description-my-command');
     expect(found).toBeDefined();
     expect(found.description).toContain('missing a description');
   });
@@ -2162,7 +2160,7 @@ describe('discoverUsabilityItems — command description detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'usability/add-description-empty-desc');
+    const found = items.find((i: any) => i.id === 'usability/add-description-empty-desc');
     expect(found).toBeDefined();
   });
 
@@ -2177,7 +2175,7 @@ describe('discoverUsabilityItems — command description detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'usability/add-description-good-command');
+    const found = items.find((i: any) => i.id === 'usability/add-description-good-command');
     expect(found).toBeUndefined();
   });
 });
@@ -2213,7 +2211,7 @@ describe('discoverUsabilityItems — JSDoc detection for exported functions', ()
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'usability/add-jsdoc-undoc-undocumentedExport');
+    const found = items.find((i: any) => i.id === 'usability/add-jsdoc-undoc-undocumentedExport');
     expect(found).toBeDefined();
     expect(found.description).toContain('undocumentedExport');
   });
@@ -2233,7 +2231,7 @@ describe('discoverConsistencyItems — module header detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.id === 'consistency/add-module-header-noheader');
+    const found = items.find((i: any) => i.id === 'consistency/add-module-header-noheader');
     expect(found).toBeDefined();
     expect(found.description).toContain('missing the standard JSDoc module header');
   });
@@ -2261,7 +2259,7 @@ describe('discoverStabilityItems — hardcoded .planning/ path detection', () =>
 
     const items = analyzeCodebaseForItems(tmpDir);
     const found = items.find(
-      (i) => i.dimension === 'stability' && i.id.includes('use-paths-module-hardcoded')
+      (i: any) => i.dimension === 'stability' && i.id.includes('use-paths-module-hardcoded')
     );
     expect(found).toBeDefined();
     expect(found.description).toContain('.planning/');
@@ -2308,7 +2306,7 @@ describe('discoverNewFeatureItems — cmdInit MCP binding detection', () => {
     );
 
     const items = analyzeCodebaseForItems(tmpDir);
-    const found = items.find((i) => i.dimension === 'new-features' && i.id.includes('orphan'));
+    const found = items.find((i: any) => i.dimension === 'new-features' && i.id.includes('orphan'));
     expect(found).toBeDefined();
     expect(found.description).toContain('cmdInitOrphan');
   });
@@ -2328,7 +2326,7 @@ describe('runDiscovery — bugfix items in previous state', () => {
 
     const result = await runDiscovery(fixture, previousState);
     const allItems = [...result.selected, ...result.remaining];
-    expect(allItems.some((i) => i.id === 'quality/critical-bug')).toBe(true);
+    expect(allItems.some((i: any) => i.id === 'quality/critical-bug')).toBe(true);
   });
 });
 
@@ -2489,33 +2487,33 @@ describe('cmdEvolve (--no-worktree flag)', () => {
 /**
  * Capture stdout/stderr from an async cmd* function that calls output()/error().
  */
-async function captureAsyncOutput(fn) {
+async function captureAsyncOutput(fn: () => Promise<void>) {
   let stdout = '';
   let stderr = '';
   let exitCode = 0;
 
-  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
-    exitCode = code;
+  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code: any) => {
+    exitCode = code as number;
     const err = new Error('__TEST_EXIT__');
-    err.__EXIT__ = true;
-    err.code = code;
+    (err as any).__EXIT__ = true;
+    (err as any).code = code;
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
+  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
     stdout += data;
     return true;
   });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
     stderr += data;
     return true;
   });
 
   try {
     await fn();
-  } catch (e) {
-    if (!(e && e.__EXIT__)) {
+  } catch (e: any) {
+    if (!(e && (e as any).__EXIT__)) {
       throw e;
     }
   } finally {
@@ -2532,7 +2530,7 @@ async function captureAsyncOutput(fn) {
 describe('analyzeCodebaseForItems — logs to stderr on unexpected discoverer errors', () => {
   test('logs to stderr when lib/ is a file (ENOTDIR) instead of silently dropping errors', () => {
     let stderrOutput = '';
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
       stderrOutput += data;
       return true;
     });
@@ -2567,7 +2565,7 @@ describe('discoverImproveFeatureItems — agents/ directory traversal', () => {
       );
       const items = analyzeCodebaseForItems(tmpDir);
       expect(Array.isArray(items)).toBe(true);
-      const agentItem = items.find((i) => i.id && i.id.includes('my-agent'));
+      const agentItem = items.find((i: any) => i.id && i.id.includes('my-agent'));
       expect(agentItem).toBeDefined();
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -2603,7 +2601,7 @@ describe('writeDiscoveriesToTodos', () => {
     const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
     const files = fs.readdirSync(pendingDir);
     expect(files.length).toBe(2);
-    expect(files.some((f) => f.startsWith('evolve-'))).toBe(true);
+    expect(files.some((f: any) => f.startsWith('evolve-'))).toBe(true);
 
     // Check file content has required frontmatter
     const content = fs.readFileSync(path.join(pendingDir, files[0]), 'utf-8');
