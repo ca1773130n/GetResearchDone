@@ -370,3 +370,27 @@ Plans:
 - [ ] 66-01-PLAN.md -- Core multi-milestone autopilot logic (types, helpers, orchestration loop)
 - [ ] 66-02-PLAN.md -- CLI integration, grd-tools routing, MCP tool, command docs
 - [ ] 66-03-PLAN.md -- Comprehensive tests and integration validation
+
+### Phase 67: Autoplan command and evolve infinite autopilot mode
+
+**Goal:** Add autoplan command to automatically generate milestones from evolve discoveries, and add infinite mode to evolve that chains discover -> autoplan -> autopilot in a fully autonomous development loop
+**Type:** implement
+**Depends on:** Phase 66
+**Duration:** 7d
+**Verification Level:** proxy
+**Success Criteria** (what must be TRUE):
+  1. `runAutoplan()` converts evolve discovery results into structured milestones via claude -p subprocess
+  2. `buildAutoplanPrompt()` produces a prompt that instructs claude to create a milestone from work groups
+  3. `runInfiniteEvolve()` implements the discover -> autoplan -> autopilot -> repeat cycle with safety caps
+  4. CLI command `autoplan` accessible via grd-tools with --dry-run, --pick-pct, --name, --timeout flags
+  5. CLI flag `evolve run --infinite` triggers the infinite evolve mode
+  6. MCP server exposes grd_autoplan_run and grd_autoplan_init tools
+  7. 35+ new tests covering all new functions with coverage thresholds maintained
+  8. All 2,727+ existing tests pass with zero regressions
+**Plans:** 4 plans
+
+Plans:
+- [ ] 67-01-PLAN.md -- Autoplan core logic (lib/autoplan.ts) and types (AutoplanOptions, AutoplanResult)
+- [ ] 67-02-PLAN.md -- CLI routing, MCP tool registration, skill definition (commands/autoplan.md)
+- [ ] 67-03-PLAN.md -- Evolve infinite mode (runInfiniteEvolve, --infinite flag, updated skill docs)
+- [ ] 67-04-PLAN.md -- Comprehensive tests for autoplan and infinite evolve functions
