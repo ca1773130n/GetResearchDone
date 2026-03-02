@@ -318,10 +318,14 @@ Plans:
   5. All 123 MCP tools function correctly via the compiled MCP server
   6. CLAUDE.md updated: file extensions (.ts), build commands (`npm run build`), module structure (decomposed commands/context/evolve), code style section for TypeScript conventions
   7. Plugin compatibility verified: Claude Code plugin manifest loads and SessionStart hook fires correctly with dist/ paths
-**Plans:** 0 plans
+**Plans:** 4 plans
+**Completed:** 2026-03-02
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 65 to break down)
+- [x] 65-01-PLAN.md — Import path fix: rewrite 65 .ts require paths to extensionless + CJS proxies
+- [x] 65-02-PLAN.md — Deferred validation resolution: all 7 DEFER-* items resolved
+- [x] 65-03-PLAN.md — CI pipeline: TypeScript build gates, Node 18/20/22 matrix, npm-pack fix
+- [x] 65-04-PLAN.md — CLAUDE.md update: TypeScript conventions, module structure, build commands
 
 ## Progress
 
@@ -334,13 +338,13 @@ Plans:
 | 62. Oversized Module Decomposition | v0.3.0 | Complete    | 2026-03-01 | - |
 | 63. Entry Points & MCP Server | v0.3.0 | 0/0 | Not started | - |
 | 64. Test Suite Migration | v0.3.0 | 0/0 | Not started | - |
-| 65. Integration Validation | v0.3.0 | 0/0 | Not started | - |
+| 65. Integration Validation | v0.3.0 | 4/4 | Complete    | 2026-03-02 |
 
 ## Deferred Validations
 
 | Deferred From | Validation | Must Resolve By | Status |
 |---------------|-----------|-----------------|--------|
-| Phase 58 | Strict mode compatibility with full codebase (only validated on sample file) | Phase 65 | Pending |
-| Phase 59 | CommonJS interop validated with all 20+ downstream consumers (only spot-checked) | Phase 65 | Pending |
-| Phase 62 | Barrel re-export backward compatibility under real CLI and MCP invocation | Phase 65 | Pending |
-| Phase 63 | Plugin manifest compatibility with dist/ paths under Claude Code runtime | Phase 65 | Pending |
+| Phase 58 | Strict mode compatibility with full codebase (only validated on sample file) | Phase 65 | Resolved (65-02) |
+| Phase 59 | CommonJS interop validated with all 20+ downstream consumers (only spot-checked) | Phase 65 | Resolved (65-02) |
+| Phase 62 | Barrel re-export backward compatibility under real CLI and MCP invocation | Phase 65 | Resolved (65-02) |
+| Phase 63 | Plugin manifest compatibility with dist/ paths under Claude Code runtime | Phase 65 | Resolved (65-02) |
