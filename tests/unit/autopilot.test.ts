@@ -28,6 +28,13 @@ const {
   runAutopilot,
   cmdAutopilot,
   cmdInitAutopilot,
+  isMilestoneComplete,
+  resolveNextMilestone,
+  buildNewMilestonePrompt,
+  buildMilestoneCompletePrompt,
+  runMultiMilestoneAutopilot,
+  cmdMultiMilestoneAutopilot,
+  cmdInitMultiMilestoneAutopilot,
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
   startHeartbeat,
@@ -1687,6 +1694,310 @@ describe('lib/autopilot', () => {
 
       stderrSpy.mockRestore();
       jest.useRealTimers();
+    });
+  });
+
+  // ─── Multi-Milestone Helper Functions ──────────────────────────────────────
+
+  describe('isMilestoneComplete', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    it('returns false when no phases exist (no ROADMAP phases)', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      fs.writeFileSync(
+        path.join(planning, 'ROADMAP.md'),
+        '# Roadmap\n\n## v1.0 Test Milestone\n\nNo phases here.\n'
+      );
+
+      expect(isMilestoneComplete(tmpDir)).toBe(false);
+    });
+
+    it('returns false when some phases are incomplete', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '1', name: 'First' },
+          { num: '2', name: 'Second' },
+        ],
+        phaseDirs: [
+          {
+            dir: '01-first',
+            files: {
+              '01-01-PLAN.md': '# Plan',
+              '01-01-SUMMARY.md': '# Summary',
+            },
+          },
+          {
+            dir: '02-second',
+            files: {
+              '02-01-PLAN.md': '# Plan',
+              // No summary — incomplete
+            },
+          },
+        ],
+      });
+
+      expect(isMilestoneComplete(tmpDir)).toBe(false);
+    });
+
+    it('returns true when all phases have disk_status complete', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '1', name: 'First' },
+          { num: '2', name: 'Second' },
+        ],
+        phaseDirs: [
+          {
+            dir: '01-first',
+            files: {
+              '01-01-PLAN.md': '# Plan',
+              '01-01-SUMMARY.md': '# Summary',
+            },
+          },
+          {
+            dir: '02-second',
+            files: {
+              '02-01-PLAN.md': '# Plan',
+              '02-01-SUMMARY.md': '# Summary',
+            },
+          },
+        ],
+      });
+
+      expect(isMilestoneComplete(tmpDir)).toBe(true);
+    });
+
+    it('returns false for an empty roadmap (ROADMAP.md missing)', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n');
+
+      expect(isMilestoneComplete(tmpDir)).toBe(false);
+    });
+
+    it('returns true when ROADMAP phases have (Complete) markers', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({ model_profile: 'balanced' })
+      );
+      fs.writeFileSync(
+        path.join(planning, 'ROADMAP.md'),
+        '# Roadmap\n\n## v1.0 Test Milestone\n\n' +
+          '### Phase 1: First (Complete)\n\n**Goal:** Build first\n\n' +
+          '### Phase 2: Second (Complete)\n\n**Goal:** Build second\n\n'
+      );
+      const phasesDir = path.join(planning, 'milestones', 'v1.0', 'phases');
+      fs.mkdirSync(path.join(phasesDir, '01-first'), { recursive: true });
+      fs.mkdirSync(path.join(phasesDir, '02-second'), { recursive: true });
+      fs.writeFileSync(path.join(phasesDir, '01-first', '01-01-PLAN.md'), '# Plan');
+      fs.writeFileSync(path.join(phasesDir, '01-first', '01-01-SUMMARY.md'), '# Summary');
+      fs.writeFileSync(path.join(phasesDir, '02-second', '02-01-PLAN.md'), '# Plan');
+      fs.writeFileSync(path.join(phasesDir, '02-second', '02-01-SUMMARY.md'), '# Summary');
+
+      expect(isMilestoneComplete(tmpDir)).toBe(true);
+    });
+
+    it('returns false when one phase is complete and another is not', () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '1', name: 'First' },
+          { num: '2', name: 'Second' },
+          { num: '3', name: 'Third' },
+        ],
+        phaseDirs: [
+          {
+            dir: '01-first',
+            files: {
+              '01-01-PLAN.md': '# Plan',
+              '01-01-SUMMARY.md': '# Summary',
+            },
+          },
+          {
+            dir: '02-second',
+            files: {
+              '02-01-PLAN.md': '# Plan',
+              '02-01-SUMMARY.md': '# Summary',
+            },
+          },
+        ],
+      });
+
+      expect(isMilestoneComplete(tmpDir)).toBe(false);
+    });
+  });
+
+  describe('resolveNextMilestone', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    it('returns null when no LONG-TERM-ROADMAP.md exists', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+      expect(resolveNextMilestone(tmpDir)).toBeNull();
+    });
+
+    it('returns null when LT roadmap has no planned milestones', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\n## LT-1: Past Work\n\n**Status:** completed\n**Goal:** Already done\n**Normal milestones:** v0.1.0 (shipped)\n\n'
+      );
+
+      expect(resolveNextMilestone(tmpDir)).toBeNull();
+    });
+
+    it('returns the next planned LT milestone info when available', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** completed\n**Goal:** Build foundation\n**Normal milestones:** v0.1.0 (shipped)\n\n' +
+          '## LT-2: Advanced Features\n\n**Status:** active\n**Goal:** Build advanced features\n**Normal milestones:** v0.2.0 (shipped), v0.3.0\n\n'
+      );
+
+      const result = resolveNextMilestone(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe('v0.3.0');
+      expect(result!.name).toBe('Advanced Features');
+    });
+
+    it('correctly skips shipped/completed LT milestones', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** completed\n**Goal:** Build foundation\n**Normal milestones:** v0.1.0 (shipped)\n\n' +
+          '## LT-2: Expansion\n\n**Status:** completed\n**Goal:** Expand\n**Normal milestones:** v0.2.0 (shipped)\n\n' +
+          '## LT-3: Future Work\n\n**Status:** planned\n**Goal:** Future\n**Normal milestones:** v0.4.0\n\n'
+      );
+
+      const result = resolveNextMilestone(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe('v0.4.0');
+      expect(result!.name).toBe('Future Work');
+    });
+
+    it('returns synthetic version for planned LT milestone with no linked milestones', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** completed\n**Goal:** Build foundation\n**Normal milestones:** v0.1.0 (shipped)\n\n' +
+          '## LT-2: Future Work\n\n**Status:** planned\n**Goal:** Future\n\n'
+      );
+
+      const result = resolveNextMilestone(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe('next-lt-2');
+      expect(result!.name).toBe('Future Work');
+    });
+
+    it('returns null for empty LT roadmap content', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\nNothing here.\n'
+      );
+
+      expect(resolveNextMilestone(tmpDir)).toBeNull();
+    });
+
+    it('skips shipped normal milestones within an active LT milestone', () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+      const planning = path.join(tmpDir, '.planning');
+      fs.mkdirSync(planning, { recursive: true });
+      fs.writeFileSync(
+        path.join(planning, 'LONG-TERM-ROADMAP.md'),
+        '# Long-Term Roadmap\n\n' +
+          '## LT-1: Big Feature\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v0.1.0 (shipped), v0.2.0 (shipped), v0.3.0\n\n'
+      );
+
+      const result = resolveNextMilestone(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe('v0.3.0');
+    });
+  });
+
+  describe('buildNewMilestonePrompt', () => {
+    it('returns string containing grd:new-milestone', () => {
+      const prompt = buildNewMilestonePrompt();
+      expect(prompt).toContain('grd:new-milestone');
+    });
+
+    it('returns string containing Skill tool', () => {
+      const prompt = buildNewMilestonePrompt();
+      expect(prompt).toContain('Skill tool');
+    });
+
+    it('returns string containing Autonomous mode', () => {
+      const prompt = buildNewMilestonePrompt();
+      expect(prompt).toContain('Autonomous mode');
+    });
+
+    it('returns a non-empty string', () => {
+      const prompt = buildNewMilestonePrompt();
+      expect(typeof prompt).toBe('string');
+      expect(prompt.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('buildMilestoneCompletePrompt', () => {
+    it('returns string containing milestone complete', () => {
+      const prompt = buildMilestoneCompletePrompt('v1.0');
+      expect(prompt.toLowerCase()).toContain('milestone');
+      expect(prompt.toLowerCase()).toContain('complete');
+    });
+
+    it('includes the version string passed as argument', () => {
+      const prompt = buildMilestoneCompletePrompt('v2.5.1');
+      expect(prompt).toContain('v2.5.1');
+    });
+
+    it('returns string containing grd-tools', () => {
+      const prompt = buildMilestoneCompletePrompt('v1.0');
+      expect(prompt).toContain('grd-tools');
+    });
+
+    it('works with different version formats', () => {
+      const prompt1 = buildMilestoneCompletePrompt('v0.1.0');
+      const prompt2 = buildMilestoneCompletePrompt('v3.0');
+      expect(prompt1).toContain('v0.1.0');
+      expect(prompt2).toContain('v3.0');
     });
   });
 });
