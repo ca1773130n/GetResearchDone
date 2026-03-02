@@ -15,6 +15,8 @@ import type {
   EvolveOptions,
   EvolveResult,
   GroupDiscoveryResult,
+  InfiniteEvolveOptions,
+  InfiniteEvolveResult,
 } from './types';
 import type { BackendCapabilities, GrdConfig, MilestoneInfo } from '../types';
 
@@ -38,8 +40,9 @@ const { runGroupDiscovery } = require('./discovery') as {
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
 };
-const { runEvolve } = require('./orchestrator') as {
+const { runEvolve, runInfiniteEvolve } = require('./orchestrator') as {
   runEvolve: (cwd: string, options?: EvolveOptions) => Promise<EvolveResult>;
+  runInfiniteEvolve: (cwd: string, options?: InfiniteEvolveOptions) => Promise<InfiniteEvolveResult>;
 };
 const { output, error, loadConfig, resolveModelForAgent, getMilestoneInfo } =
   require('../utils') as {
@@ -66,6 +69,27 @@ async function cmdEvolve(cwd: string, args: string[], raw: boolean): Promise<voi
     return i !== -1 ? args[i + 1] : fallback;
   };
   const hasFlag = (name: string): boolean => args.indexOf(name) !== -1;
+
+  // Check for infinite mode first
+  if (hasFlag('--infinite')) {
+    const infiniteOptions: InfiniteEvolveOptions = {
+      maxCycles: hasFlag('--max-cycles') ? parseInt(flag('--max-cycles', '10'), 10) : undefined,
+      timeBudget: hasFlag('--time-budget') ? parseInt(flag('--time-budget', '0'), 10) : undefined,
+      pickPct: hasFlag('--pick-pct')
+        ? parseInt(flag('--pick-pct', String(DEFAULT_PICK_PCT)), 10)
+        : undefined,
+      timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0'), 10) : undefined,
+      maxTurns: hasFlag('--max-turns') ? parseInt(flag('--max-turns', '0'), 10) : undefined,
+      dryRun: hasFlag('--dry-run'),
+      model: undefined, // no model flag for infinite (uses defaults)
+      maxMilestones: hasFlag('--max-milestones') ? parseInt(flag('--max-milestones', '1'), 10) : undefined,
+    };
+    const infiniteResult: InfiniteEvolveResult = await runInfiniteEvolve(cwd, infiniteOptions);
+    output(infiniteResult, raw, raw ? JSON.stringify(infiniteResult) : undefined);
+    // Unreachable — output() calls process.exit()
+    return undefined as never;
+  }
+
   const options: EvolveOptions = {
     iterations: hasFlag('--iterations') ? parseInt(flag('--iterations', '1'), 10) : undefined,
     pickPct: hasFlag('--pick-pct')
@@ -206,6 +230,7 @@ function cmdInitEvolve(cwd: string, raw: boolean): void {
       executor: executorModel,
     },
     milestone,
+    infinite_mode_available: true,
   };
 
   output(result, raw, raw ? JSON.stringify(result) : undefined);
