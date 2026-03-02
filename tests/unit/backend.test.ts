@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/backend.js
+ * Unit tests for lib/backend.ts
  *
  * Tests backend detection waterfall, model resolution, capabilities registry,
  * and exported constants for all 4 AI coding CLI backends.
@@ -14,7 +14,7 @@ const path = require('path');
 
 // ─── Environment Mocking Helpers ────────────────────────────────────────────
 
-const DETECTION_ENV_VARS = [
+const DETECTION_ENV_VARS: string[] = [
   'CLAUDE_CODE_ENTRYPOINT',
   'CLAUDE_CODE_ACTION',
   'CLAUDE_CODE_ENABLE_TELEMETRY',
@@ -26,14 +26,15 @@ const DETECTION_ENV_VARS = [
   'AGENT',
 ];
 
+interface TempDirOpts {
+  config?: Record<string, unknown>;
+  files?: string[];
+}
+
 /**
  * Create a temp directory with optional .planning/config.json and filesystem clue files.
- * @param {Object} [opts] - Options
- * @param {Object} [opts.config] - Config to write as .planning/config.json
- * @param {string[]} [opts.files] - Relative file paths to create (e.g., '.claude-plugin/plugin.json')
- * @returns {string} Temp directory path
  */
-function createTempDir(opts = {}) {
+function createTempDir(opts: TempDirOpts = {}): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-test-'));
 
   if (opts.config) {
@@ -53,7 +54,7 @@ function createTempDir(opts = {}) {
   return tmpDir;
 }
 
-function cleanupTempDir(dir) {
+function cleanupTempDir(dir: string): void {
   if (!dir || !dir.startsWith(os.tmpdir())) return;
   fs.rmSync(dir, { recursive: true, force: true });
 }
@@ -232,8 +233,8 @@ describe('lib/backend.js', () => {
   // ─── detectBackend(cwd) ────────────────────────────────────────────────
 
   describe('detectBackend(cwd)', () => {
-    let savedEnv;
-    let tmpDir;
+    let savedEnv: NodeJS.ProcessEnv;
+    let tmpDir: string;
 
     beforeEach(() => {
       savedEnv = { ...process.env };
@@ -710,9 +711,9 @@ describe('lib/backend.js', () => {
   // ─── detectWebMcp(cwd) ──────────────────────────────────────────────────
 
   describe('detectWebMcp(cwd)', () => {
-    let savedEnv;
-    let tmpDir;
-    let readFileSyncSpy;
+    let savedEnv: NodeJS.ProcessEnv;
+    let tmpDir: string;
+    let readFileSyncSpy: jest.SpyInstance | null;
 
     beforeEach(() => {
       savedEnv = { ...process.env };
@@ -733,11 +734,11 @@ describe('lib/backend.js', () => {
 
     test('returns available: false with reason when nothing detected', () => {
       // Mock ~/.claude.json to not exist (ensure clean detection)
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           throw new Error('ENOENT');
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(false);
@@ -766,11 +767,11 @@ describe('lib/backend.js', () => {
 
     test('returns available: true, source: "env" when CHROME_DEVTOOLS_MCP=true', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           throw new Error('ENOENT');
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       process.env.CHROME_DEVTOOLS_MCP = 'true';
       const result = detectWebMcp(tmpDir);
@@ -780,11 +781,11 @@ describe('lib/backend.js', () => {
 
     test('returns available: true, source: "env" when WEBMCP_AVAILABLE=1', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           throw new Error('ENOENT');
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       process.env.WEBMCP_AVAILABLE = '1';
       const result = detectWebMcp(tmpDir);
@@ -794,11 +795,11 @@ describe('lib/backend.js', () => {
 
     test('returns available: false with reason when env var is "false"', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           throw new Error('ENOENT');
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       process.env.CHROME_DEVTOOLS_MCP = 'false';
       const result = detectWebMcp(tmpDir);
@@ -808,7 +809,7 @@ describe('lib/backend.js', () => {
     });
 
     test('returns available: true, source: "mcp-config" when ~/.claude.json has matching server', () => {
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           return JSON.stringify({
             mcpServers: {
@@ -816,7 +817,7 @@ describe('lib/backend.js', () => {
             },
           });
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
@@ -835,11 +836,11 @@ describe('lib/backend.js', () => {
     test('handles missing .planning directory gracefully', () => {
       const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-webmcp-empty-'));
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           throw new Error('ENOENT');
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       try {
         const result = detectWebMcp(emptyDir);
@@ -851,7 +852,7 @@ describe('lib/backend.js', () => {
     });
 
     test('matches playwright server name in ~/.claude.json', () => {
-      readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockImplementation((filePath, ...args) => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
           return JSON.stringify({
             mcpServers: {
@@ -859,7 +860,7 @@ describe('lib/backend.js', () => {
             },
           });
         }
-        return jest.requireActual('fs').readFileSync(filePath, ...args);
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
       });
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);

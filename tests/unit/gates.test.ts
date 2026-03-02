@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/gates.js
+ * Unit tests for lib/gates.ts
  *
  * Tests validation gate system: individual check functions,
  * gate registry, runPreflightGates, YOLO bypass, and new-project safety.
@@ -25,7 +25,7 @@ const {
 // ─── checkOrphanedPhases ────────────────────────────────────────────────────
 
 describe('checkOrphanedPhases', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -80,8 +80,8 @@ describe('checkOrphanedPhases', () => {
         '# Roadmap\n### Phase 1: Test\n'
       );
 
-      const stderrLines = [];
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      const stderrLines: string[] = [];
+      const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation((data: string) => {
         stderrLines.push(String(data));
         return true;
       });
@@ -101,7 +101,7 @@ describe('checkOrphanedPhases', () => {
 // ─── checkPhaseInRoadmap ────────────────────────────────────────────────────
 
 describe('checkPhaseInRoadmap', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -147,7 +147,7 @@ describe('checkPhaseInRoadmap', () => {
 // ─── checkPhaseHasPlans ─────────────────────────────────────────────────────
 
 describe('checkPhaseHasPlans', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -186,7 +186,7 @@ describe('checkPhaseHasPlans', () => {
 // ─── checkNoStaleArtifacts ──────────────────────────────────────────────────
 
 describe('checkNoStaleArtifacts', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -216,7 +216,7 @@ describe('checkNoStaleArtifacts', () => {
 // ─── checkOldPhasesArchived ─────────────────────────────────────────────────
 
 describe('checkOldPhasesArchived', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -254,7 +254,7 @@ describe('checkOldPhasesArchived', () => {
 // ─── checkMilestoneStateCoherence ───────────────────────────────────────────
 
 describe('checkMilestoneStateCoherence', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -295,7 +295,7 @@ describe('GATE_REGISTRY', () => {
   });
 
   test('each entry is a non-empty array of strings', () => {
-    for (const [, gates] of Object.entries(GATE_REGISTRY)) {
+    for (const [, gates] of Object.entries(GATE_REGISTRY) as [string, string[]][]) {
       expect(Array.isArray(gates)).toBe(true);
       expect(gates.length).toBeGreaterThan(0);
       for (const gate of gates) {
@@ -308,7 +308,7 @@ describe('GATE_REGISTRY', () => {
 // ─── runPreflightGates ──────────────────────────────────────────────────────
 
 describe('runPreflightGates', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -393,7 +393,7 @@ describe('runPreflightGates', () => {
 // ─── Multi-milestone: gates ignore shipped sections ──────────────────────────
 
 describe('gates with shipped milestone sections', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -434,7 +434,7 @@ describe('gates with shipped milestone sections', () => {
       { recursive: true }
     );
     const violations = checkOrphanedPhases(tmpDir);
-    const orphanNums = violations.map((v) => v.context.phase_number);
+    const orphanNums = violations.map((v: { context: { phase_number: string } }) => v.context.phase_number);
     expect(orphanNums).not.toContain('29');
   });
 
@@ -447,7 +447,7 @@ describe('gates with shipped milestone sections', () => {
     // Phase 1 dir exists from fixture but Phase 1 is inside <details> in new roadmap
     // The fixture has Phase 1 and Phase 2 dirs — they should now appear orphaned
     const violations = checkOrphanedPhases(tmpDir);
-    const orphanNums = violations.map((v) => v.context.phase_number);
+    const orphanNums = violations.map((v: { context: { phase_number: string } }) => v.context.phase_number);
     // Phase 1 and 2 are inside <details> so not recognized in active content
     expect(orphanNums).toContain('01');
   });

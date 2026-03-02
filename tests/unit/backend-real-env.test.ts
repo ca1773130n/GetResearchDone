@@ -2,7 +2,7 @@
  * Real-environment backend detection validation tests (DEFER-09-01)
  *
  * Validates detectBackend() under real-ish conditions with process.env
- * manipulation. Goes deeper than backend.test.js: complete waterfall
+ * manipulation. Goes deeper than backend.test.ts: complete waterfall
  * priority, all 4 backend env patterns, edge cases, filesystem clue
  * isolation, and getBackendCapabilities cross-verification.
  *
@@ -23,10 +23,15 @@ const {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+interface TempDirOpts {
+  config?: Record<string, unknown>;
+  files?: string[];
+}
+
 /**
  * Create a temp directory with optional config and filesystem clue files.
  */
-function createTempDir(opts = {}) {
+function createTempDir(opts: TempDirOpts = {}): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-real-env-'));
 
   if (opts.config) {
@@ -46,7 +51,7 @@ function createTempDir(opts = {}) {
   return tmpDir;
 }
 
-function cleanupTempDir(dir) {
+function cleanupTempDir(dir: string): void {
   if (!dir || !dir.startsWith(os.tmpdir())) return;
   fs.rmSync(dir, { recursive: true, force: true });
 }
@@ -55,7 +60,7 @@ function cleanupTempDir(dir) {
  * Clear all backend-detection-relevant env vars from process.env.
  * Uses dynamic scanning for CLAUDE_CODE_* to be future-proof.
  */
-function clearDetectionEnvVars() {
+function clearDetectionEnvVars(): void {
   for (const key of Object.keys(process.env)) {
     if (key.startsWith('CLAUDE_CODE_')) {
       delete process.env[key];
@@ -71,8 +76,8 @@ function clearDetectionEnvVars() {
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe('Real-environment backend detection (DEFER-09-01)', () => {
-  let savedEnv;
-  let tmpDir;
+  let savedEnv: NodeJS.ProcessEnv;
+  let tmpDir: string;
 
   beforeEach(() => {
     savedEnv = { ...process.env };
