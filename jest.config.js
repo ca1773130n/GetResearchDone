@@ -18,6 +18,7 @@ module.exports = {
     './lib/commands/index.ts': { lines: 90, functions: 95, branches: 70 },
     './lib/context/index.ts': { lines: 87, functions: 83, branches: 77 },
     './lib/deps.ts': { lines: 94, functions: 100, branches: 87 },
+    './lib/evolve/_product-ideation.ts': { lines: 80, functions: 100, branches: 60 },
     './lib/evolve/index.ts': { lines: 85, functions: 94, branches: 70 },
     './lib/frontmatter.ts': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.ts': { lines: 98, functions: 100, branches: 82 },
