@@ -294,10 +294,13 @@ Plans:
   4. Test helpers and fixtures have typed exports
   5. Per-file coverage thresholds in jest.config still apply to .ts source files and all thresholds are met
   6. Total test count remains at 2,184+ with zero regressions
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 64 to break down)
+- [ ] 64-01-PLAN.md — Test infrastructure migration (helpers, fixtures, tsconfig, jest.config)
+- [ ] 64-02-PLAN.md — Unit test migration batch 1: foundation and data layer (16 files)
+- [ ] 64-03-PLAN.md — Unit test migration batch 2: command and integration layer (15 files)
+- [ ] 64-04-PLAN.md — Integration and E2E test migration (6 files)
 
 ### Phase 65: Integration Validation & Documentation
 
