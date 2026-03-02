@@ -11,6 +11,7 @@ module.exports = {
   },
   coverageThreshold: {
     // === Existing per-file thresholds (DO NOT MODIFY) ===
+    './lib/autoplan.ts': { lines: 90, functions: 90, branches: 75 },
     './lib/autopilot.ts': { lines: 93, functions: 93, branches: 80 },
     './lib/backend.ts': { lines: 95, functions: 100, branches: 88 },
     './lib/cleanup.ts': { lines: 92, functions: 96, branches: 80 },

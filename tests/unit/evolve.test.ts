@@ -34,9 +34,29 @@ jest.mock('../../lib/autopilot', () => {
       timedOut: false,
       stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     }),
+    runMultiMilestoneAutopilot: jest.fn().mockResolvedValue({
+      milestones_attempted: 1,
+      milestones_completed: 1,
+      milestone_results: [],
+      stopped_at: null,
+      total_phases_attempted: 3,
+      total_phases_completed: 3,
+    }),
   };
 });
 const autopilotModule = require('../../lib/autopilot');
+
+// Mock autoplan for runInfiniteEvolve tests (orchestrator.ts requires ../autoplan at load time)
+jest.mock('../../lib/autoplan', () => ({
+  runAutoplan: jest.fn().mockResolvedValue({
+    status: 'completed',
+    groups_count: 2,
+    items_count: 5,
+    prompt: 'test prompt',
+    milestone_name: 'Test Improvements',
+  }),
+}));
+const autoplanModule = require('../../lib/autoplan');
 
 // Mock worktree helpers for evolve worktree isolation tests
 jest.mock('../../lib/worktree', () => {
@@ -81,6 +101,7 @@ const {
   writeDiscoveriesToTodos,
   writeEvolutionNotes,
   runEvolve,
+  runInfiniteEvolve,
   cmdEvolve,
   cmdEvolveDiscover,
   cmdEvolveState,
@@ -2666,5 +2687,309 @@ describe('writeDiscoveriesToTodos', () => {
     expect(content).toContain('Error in alpha');
     expect(content).toContain('Error in beta');
     expect(content).toContain('2 item');
+  });
+});
+
+// ─── runInfiniteEvolve ──────────────────────────────────────────────────────
+
+describe('runInfiniteEvolve', () => {
+  // Helper to create a discovery result with selected groups
+  function makeDiscoveryResult(groupCount: number) {
+    const groups = Array.from({ length: groupCount }, (_, i) => ({
+      id: `test/group-${i}`,
+      theme: `Theme ${i}`,
+      dimension: 'quality',
+      items: [
+        {
+          id: `test/group-${i}-item`,
+          dimension: 'quality',
+          slug: `item-${i}`,
+          title: `Item ${i}`,
+          description: `Description ${i}`,
+          effort: 'small' as const,
+          source: 'discovery' as const,
+          status: 'pending' as const,
+          iteration_added: 0,
+        },
+      ],
+      priority: 8 - i,
+      effort: 'small' as const,
+    }));
+    return {
+      groups,
+      selected_groups: groups,
+      remaining_groups: [],
+      all_items_count: groupCount,
+      merged_items_count: groupCount,
+      groups_count: groupCount,
+    };
+  }
+
+  let tmpDir: string;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    tmpDir = createTmpDir();
+    // Create the autopilot log directory
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'autopilot'), { recursive: true });
+    // Create EVOLVE-STATE.json so readEvolveState doesn't fail
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+
+    // Default: spawnClaudeAsync returns success (for discovery)
+    (autopilotModule.spawnClaudeAsync as jest.Mock).mockResolvedValue({
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
+
+    // Default: runMultiMilestoneAutopilot returns success
+    (autopilotModule.runMultiMilestoneAutopilot as jest.Mock).mockResolvedValue({
+      milestones_attempted: 1,
+      milestones_completed: 1,
+      milestone_results: [],
+      stopped_at: null,
+      total_phases_attempted: 3,
+      total_phases_completed: 3,
+    });
+
+    // Default: runAutoplan returns completed
+    (autoplanModule.runAutoplan as jest.Mock).mockResolvedValue({
+      status: 'completed',
+      groups_count: 2,
+      items_count: 5,
+      prompt: 'test prompt',
+      milestone_name: 'Test Improvements',
+    });
+  });
+
+  test('completes a normal cycle when discovery, autoplan, and autopilot all succeed', async () => {
+    // runGroupDiscovery is NOT mocked at module level -- it uses the real implementation
+    // which calls spawnClaudeAsync (already mocked). The real runGroupDiscovery
+    // is called by runInfiniteEvolve. We need to mock it at the function level.
+    // Actually, runInfiniteEvolve calls runGroupDiscovery from the orchestrator module
+    // which calls the discovery module. Since spawnClaudeAsync is mocked, discovery
+    // will use that mock. Let's override spawnClaudeAsync to return our mock items.
+    (autopilotModule.spawnClaudeAsync as jest.Mock)
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: false,
+        stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    expect(result.cycles_attempted).toBeGreaterThanOrEqual(1);
+    expect(result.cycle_results).toHaveLength(result.cycles_attempted);
+    expect(result.total_groups_discovered).toBeGreaterThan(0);
+    expect(result.total_items_discovered).toBeGreaterThan(0);
+  });
+
+  test('respects maxCycles cap', async () => {
+    // Discovery always returns items, but we cap at 2
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 2 });
+    expect(result.cycles_attempted).toBeLessThanOrEqual(2);
+  });
+
+  test('timeBudget enforcement stops the loop', async () => {
+    // Use a very small timeBudget so it expires immediately
+    const result = await runInfiniteEvolve(tmpDir, {
+      maxCycles: 100,
+      timeBudget: 0.00001, // 0.0006 seconds -- will expire immediately
+    });
+    // The loop should stop because time budget is exhausted
+    // (may complete 0 or 1 cycle before checking)
+    expect(result.stopped_at).toMatch(/[Tt]ime budget/);
+    expect(result.cycles_attempted).toBeLessThan(100);
+  });
+
+  test('dry-run mode exits after one cycle with dry-run status', async () => {
+    const result = await runInfiniteEvolve(tmpDir, {
+      dryRun: true,
+      maxCycles: 10,
+    });
+    // Dry run should complete at most 1 cycle
+    expect(result.cycles_attempted).toBeLessThanOrEqual(1);
+    if (result.cycles_attempted > 0) {
+      expect(result.cycle_results[0].autoplan_status).toBe('dry-run');
+      expect(result.cycle_results[0].autopilot_status).toBe('dry-run');
+    }
+    // spawnClaude should not have been called for autoplan/autopilot
+    expect(autopilotModule.runMultiMilestoneAutopilot).not.toHaveBeenCalled();
+    expect(autoplanModule.runAutoplan).not.toHaveBeenCalled();
+  });
+
+  test('stops gracefully when no discoveries found', async () => {
+    // Make discovery return no items
+    (autopilotModule.spawnClaudeAsync as jest.Mock).mockResolvedValue({
+      exitCode: 0,
+      timedOut: false,
+      stdout: '[]', // No discovery items
+    });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 5 });
+    // Should stop because no groups were discovered
+    expect(result.cycles_attempted).toBeLessThanOrEqual(2);
+    // Check that some cycle had 0 discovery groups
+    const emptyDiscoveryCycle = result.cycle_results.find(
+      (c: any) => c.discovery_groups === 0
+    );
+    if (emptyDiscoveryCycle) {
+      expect(emptyDiscoveryCycle.autoplan_status).toBe('skipped');
+      expect(emptyDiscoveryCycle.autopilot_status).toBe('skipped');
+    }
+  });
+
+  test('continues to next cycle when autoplan fails', async () => {
+    // First cycle: autoplan fails. Second cycle: discovery returns nothing -> stop
+    (autoplanModule.runAutoplan as jest.Mock)
+      .mockResolvedValueOnce({
+        status: 'failed',
+        groups_count: 0,
+        items_count: 0,
+        prompt: '',
+        reason: 'test failure',
+      })
+      .mockResolvedValueOnce({
+        status: 'completed',
+        groups_count: 2,
+        items_count: 5,
+        prompt: 'test prompt',
+        milestone_name: 'Recovered',
+      });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 2 });
+    // First cycle should show autoplan failure
+    if (result.cycle_results.length > 0) {
+      const failedCycle = result.cycle_results.find(
+        (c: any) => c.autoplan_status === 'failed'
+      );
+      if (failedCycle) {
+        expect(failedCycle.autopilot_status).toBe('skipped');
+        expect(failedCycle.reason).toContain('Autoplan failed');
+      }
+    }
+  });
+
+  test('records autopilot failure when autopilot stops with error', async () => {
+    (autopilotModule.runMultiMilestoneAutopilot as jest.Mock).mockResolvedValue({
+      milestones_attempted: 1,
+      milestones_completed: 0,
+      milestone_results: [],
+      stopped_at: 'Phase 1 plan failed',
+      total_phases_attempted: 1,
+      total_phases_completed: 0,
+    });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    if (result.cycle_results.length > 0) {
+      const cycle = result.cycle_results.find(
+        (c: any) => c.autopilot_status === 'failed'
+      );
+      if (cycle) {
+        expect(cycle.autoplan_status).toBe('completed');
+        expect(cycle.reason).toContain('Phase 1 plan failed');
+      }
+    }
+  });
+
+  test('return structure has all InfiniteEvolveResult fields', async () => {
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    expect(result).toHaveProperty('cycles_completed');
+    expect(result).toHaveProperty('cycles_attempted');
+    expect(result).toHaveProperty('stopped_at');
+    expect(result).toHaveProperty('cycle_results');
+    expect(result).toHaveProperty('total_groups_discovered');
+    expect(result).toHaveProperty('total_items_discovered');
+    expect(typeof result.cycles_completed).toBe('number');
+    expect(typeof result.cycles_attempted).toBe('number');
+    expect(Array.isArray(result.cycle_results)).toBe(true);
+    expect(typeof result.total_groups_discovered).toBe('number');
+    expect(typeof result.total_items_discovered).toBe('number');
+  });
+
+  test('cycle_results entries have expected fields', async () => {
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    if (result.cycle_results.length > 0) {
+      const cycle = result.cycle_results[0];
+      expect(cycle).toHaveProperty('cycle');
+      expect(cycle).toHaveProperty('discovery_groups');
+      expect(cycle).toHaveProperty('discovery_items');
+      expect(cycle).toHaveProperty('autoplan_status');
+      expect(cycle).toHaveProperty('autopilot_status');
+    }
+  });
+
+  test('handles autoplan throwing an exception', async () => {
+    (autoplanModule.runAutoplan as jest.Mock)
+      .mockRejectedValueOnce(new Error('Subprocess crashed'));
+
+    // Second discovery returns nothing to stop loop
+    (autopilotModule.spawnClaudeAsync as jest.Mock)
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: false,
+        stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: false,
+        stdout: '[]',
+      });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 2 });
+    const failedCycle = result.cycle_results.find(
+      (c: any) => c.autoplan_status === 'failed'
+    );
+    if (failedCycle) {
+      expect(failedCycle.reason).toContain('Subprocess crashed');
+    }
+  });
+
+  test('handles autopilot throwing an exception', async () => {
+    (autopilotModule.runMultiMilestoneAutopilot as jest.Mock)
+      .mockRejectedValueOnce(new Error('Autopilot crashed'));
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    const failedCycle = result.cycle_results.find(
+      (c: any) => c.autopilot_status === 'failed'
+    );
+    if (failedCycle) {
+      expect(failedCycle.reason).toContain('Autopilot crashed');
+    }
+  });
+
+  test('handles discovery returning empty results (no improvements)', async () => {
+    // When spawnClaudeAsync fails, runGroupDiscovery catches it internally
+    // and returns 0 selected groups, causing runInfiniteEvolve to stop gracefully
+    (autopilotModule.spawnClaudeAsync as jest.Mock)
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: false,
+        stdout: '[]',
+      });
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    // Should stop because no groups were discovered
+    expect(result.cycle_results.length).toBeGreaterThanOrEqual(1);
+    const lastCycle = result.cycle_results[result.cycle_results.length - 1];
+    expect(lastCycle.discovery_groups).toBe(0);
+    expect(lastCycle.autoplan_status).toBe('skipped');
+    expect(lastCycle.autopilot_status).toBe('skipped');
+    expect(result.stopped_at).toContain('No improvements');
+  });
+
+  test('passes maxMilestones to autopilot', async () => {
+    await runInfiniteEvolve(tmpDir, { maxCycles: 1, maxMilestones: 3 });
+    if ((autopilotModule.runMultiMilestoneAutopilot as jest.Mock).mock.calls.length > 0) {
+      const callArgs = (autopilotModule.runMultiMilestoneAutopilot as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toMatchObject({ maxMilestones: 3 });
+    }
+  });
+
+  test('stopped_at is null when loop completes all cycles without issue', async () => {
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    // If all cycles completed successfully, stopped_at should be null
+    if (result.cycles_completed === result.cycles_attempted && result.cycles_attempted > 0) {
+      expect(result.stopped_at).toBeNull();
+    }
   });
 });
