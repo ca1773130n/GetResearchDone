@@ -707,6 +707,217 @@ async function runAutopilot(
   };
 }
 
+// ─── Multi-Milestone Orchestration ───────────────────────────────────────────
+
+/**
+ * Run the multi-milestone autopilot loop.
+ * Orchestrates across milestone boundaries: completes current milestone phases,
+ * detects milestone completion, resolves the next milestone, creates it, and continues.
+ *
+ * Safety: maxMilestones cap (default 10) prevents infinite loops.
+ */
+async function runMultiMilestoneAutopilot(
+  cwd: string,
+  options: MultiMilestoneOptions = {}
+): Promise<MultiMilestoneResult> {
+  const maxMilestones: number = options.maxMilestones ?? 10;
+  const dryRun: boolean = options.dryRun ?? false;
+  const timeoutMs: number | undefined = options.timeout ? options.timeout * 60 * 1000 : undefined;
+
+  // Set up logging (reuse existing autopilot log pattern)
+  const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+  const log: (msg: string) => void = (msg: string): void => {
+    const line: string = `[${new Date().toISOString()}] [multi-milestone] ${msg}\n`;
+    process.stderr.write(`[multi-milestone] ${msg}\n`);
+    fs.appendFileSync(logFile, line);
+  };
+
+  // Initialize result tracking
+  const milestoneResults: MilestoneStepResult[] = [];
+  let milestonesAttempted: number = 0;
+  let milestonesCompleted: number = 0;
+  let totalPhasesAttempted: number = 0;
+  let totalPhasesCompleted: number = 0;
+  let stoppedAt: string | null = null;
+
+  log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
+
+  for (let i = 0; i < maxMilestones; i++) {
+    if (stoppedAt) break;
+
+    // Get current milestone info (re-read each iteration for fresh state)
+    const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+    const currentVersion: string = milestoneInfo.version;
+
+    log(`Milestone ${i + 1}/${maxMilestones}: ${currentVersion} (${milestoneInfo.name})`);
+    milestonesAttempted++;
+
+    // Check for incomplete phases in current milestone
+    const { phases, error: rangeError } = resolvePhaseRange(cwd, null, null);
+
+    if (rangeError) {
+      log(`Error resolving phases: ${rangeError}`);
+      milestoneResults.push({
+        milestone: currentVersion,
+        phases_attempted: 0,
+        phases_completed: 0,
+        status: 'failed',
+        reason: rangeError,
+      });
+      stoppedAt = `Failed to resolve phases for ${currentVersion}: ${rangeError}`;
+      break;
+    }
+
+    const incompletePhases = phases.filter(
+      (p) => p.disk_status !== 'complete'
+    );
+
+    if (incompletePhases.length > 0) {
+      log(`${currentVersion}: ${incompletePhases.length} incomplete phase(s), running autopilot...`);
+
+      if (dryRun) {
+        milestoneResults.push({
+          milestone: currentVersion,
+          phases_attempted: incompletePhases.length,
+          phases_completed: 0,
+          status: 'dry-run',
+          reason: `Would process ${incompletePhases.length} incomplete phase(s)`,
+        });
+        totalPhasesAttempted += incompletePhases.length;
+      } else {
+        // Run single-milestone autopilot for current milestone's phases
+        const autopilotResult: AutopilotResult = await runAutopilot(cwd, {
+          resume: options.resume,
+          skipPlan: options.skipPlan,
+          skipExecute: options.skipExecute,
+          timeout: options.timeout,
+          maxTurns: options.maxTurns,
+          model: options.model,
+        });
+
+        totalPhasesAttempted += autopilotResult.phases_attempted;
+        totalPhasesCompleted += autopilotResult.phases_completed;
+
+        const autopilotFailed: boolean = autopilotResult.stopped_at !== null;
+        milestoneResults.push({
+          milestone: currentVersion,
+          phases_attempted: autopilotResult.phases_attempted,
+          phases_completed: autopilotResult.phases_completed,
+          status: autopilotFailed ? 'failed' : 'completed',
+          reason: autopilotResult.stopped_at || undefined,
+        });
+
+        if (autopilotFailed) {
+          log(`${currentVersion}: autopilot stopped: ${autopilotResult.stopped_at}`);
+          stoppedAt = `Autopilot failed for ${currentVersion}: ${autopilotResult.stopped_at}`;
+          break;
+        }
+      }
+    } else {
+      log(`${currentVersion}: all phases already complete`);
+      milestoneResults.push({
+        milestone: currentVersion,
+        phases_attempted: 0,
+        phases_completed: 0,
+        status: 'skipped',
+        reason: 'all phases already complete',
+      });
+    }
+
+    // Check milestone completion after autopilot run
+    if (isMilestoneComplete(cwd)) {
+      log(`${currentVersion}: milestone complete`);
+
+      if (!dryRun) {
+        // Complete the milestone via deterministic grd-tools command
+        const completePrompt: string = buildMilestoneCompletePrompt(currentVersion);
+        log(`${currentVersion}: completing milestone...`);
+
+        const completeResult: SpawnResult = spawnClaude(cwd, completePrompt, {
+          timeout: timeoutMs,
+          maxTurns: options.maxTurns,
+          model: options.model,
+        });
+
+        if (completeResult.exitCode !== 0) {
+          const reason: string = completeResult.timedOut
+            ? 'timeout'
+            : `exit code ${completeResult.exitCode}`;
+          log(`${currentVersion}: milestone complete FAILED (${reason})`);
+          stoppedAt = `Failed to complete milestone ${currentVersion}: ${reason}`;
+          break;
+        }
+
+        log(`${currentVersion}: milestone completed successfully`);
+      } else {
+        log(`${currentVersion}: [dry-run] would complete milestone`);
+      }
+
+      milestonesCompleted++;
+    } else {
+      log(`${currentVersion}: milestone not fully complete yet`);
+      stoppedAt = `Milestone ${currentVersion} is not fully complete after autopilot run`;
+      break;
+    }
+
+    // Resolve next milestone
+    const nextMs = resolveNextMilestone(cwd);
+    if (!nextMs) {
+      log('No next milestone found in LONG-TERM-ROADMAP.md — stopping');
+      stoppedAt = null; // Graceful completion, not an error
+      break;
+    }
+
+    log(`Next milestone: ${nextMs.version} (${nextMs.name})`);
+
+    if (dryRun) {
+      log(`[dry-run] Would create new milestone: ${nextMs.version}`);
+      continue;
+    }
+
+    // Spawn new milestone creation via claude -p
+    const newMilestonePrompt: string = buildNewMilestonePrompt();
+    log('Creating new milestone...');
+
+    const createResult: SpawnResult = spawnClaude(cwd, newMilestonePrompt, {
+      timeout: timeoutMs,
+      maxTurns: options.maxTurns,
+      model: options.model,
+    });
+
+    if (createResult.exitCode !== 0) {
+      const reason: string = createResult.timedOut
+        ? 'timeout'
+        : `exit code ${createResult.exitCode}`;
+      log(`New milestone creation FAILED (${reason})`);
+      stoppedAt = `Failed to create new milestone: ${reason}`;
+      break;
+    }
+
+    log('New milestone created, continuing loop...');
+  }
+
+  if (!stoppedAt && milestonesAttempted >= maxMilestones) {
+    stoppedAt = `Reached maxMilestones cap (${maxMilestones})`;
+    log(stoppedAt);
+  }
+
+  log(
+    `Multi-milestone autopilot done: ${milestonesCompleted}/${milestonesAttempted} milestones completed` +
+      (stoppedAt ? ` (stopped: ${stoppedAt})` : '')
+  );
+
+  return {
+    milestones_attempted: milestonesAttempted,
+    milestones_completed: milestonesCompleted,
+    milestone_results: milestoneResults,
+    stopped_at: stoppedAt,
+    total_phases_attempted: totalPhasesAttempted,
+    total_phases_completed: totalPhasesCompleted,
+  };
+}
+
 // ─── CLI Entry Points ───────────────────────────────────────────────────────
 
 /**
@@ -804,9 +1015,14 @@ module.exports = {
   cmdAutopilot,
   cmdInitAutopilot,
   runAutopilot,
+  runMultiMilestoneAutopilot,
   resolvePhaseRange,
   isPhasePlanned,
   isPhaseExecuted,
+  isMilestoneComplete,
+  resolveNextMilestone,
+  buildNewMilestonePrompt,
+  buildMilestoneCompletePrompt,
   spawnClaude,
   spawnClaudeAsync,
   buildPlanPrompt,
