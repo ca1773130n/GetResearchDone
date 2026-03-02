@@ -150,9 +150,11 @@ const { cmdPhaseAnalyzeDeps } = require('../lib/deps') as {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 };
 
-const { cmdAutopilot, cmdInitAutopilot } = require('../lib/autopilot') as {
+const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot } = require('../lib/autopilot') as {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
+  cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
 };
 
 const {
@@ -433,6 +435,7 @@ const INIT_WORKFLOWS: readonly string[] = [
   'product-plan',
   'iterate',
   'autopilot',
+  'multi-milestone-autopilot',
   'evolve',
   'debug',
   'integration-check',
@@ -837,6 +840,9 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         case 'autopilot':
           cmdInitAutopilot(cwd, raw);
           break;
+        case 'multi-milestone-autopilot':
+          cmdInitMultiMilestoneAutopilot(cwd, raw);
+          break;
         case 'evolve':
           cmdInitEvolve(cwd, raw);
           break;
@@ -1057,6 +1063,9 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
     case 'autopilot':
       await cmdAutopilot(cwd, args.slice(1), raw);
       break;
+    case 'multi-milestone-autopilot':
+      await cmdMultiMilestoneAutopilot(cwd, args.slice(1), raw);
+      break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
       break;
@@ -1151,7 +1160,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         'phase-plan-index', 'state-snapshot', 'summary-extract', 'tracker',
         'dashboard', 'phase-detail', 'health', 'detect-backend', 'long-term-roadmap',
         'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
-        'evolve', 'autopilot', 'worktree-hook-create', 'worktree-hook-remove',
+        'evolve', 'autopilot', 'multi-milestone-autopilot', 'worktree-hook-create', 'worktree-hook-remove',
         'coverage-report', 'health-check', 'markdown-split', 'parallel-progress',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);

@@ -1009,11 +1009,116 @@ function startHeartbeat(message: string): ReturnType<typeof setInterval> {
   }, HEARTBEAT_INTERVAL_MS);
 }
 
+/**
+ * Parse CLI flags and run the multi-milestone autopilot loop.
+ */
+async function cmdMultiMilestoneAutopilot(
+  cwd: string,
+  args: string[],
+  raw: boolean
+): Promise<void> {
+  const flag = (name: string, fallback: string | null): string | null => {
+    const i: number = args.indexOf(name);
+    return i !== -1 ? args[i + 1] : fallback;
+  };
+  const hasFlag = (name: string): boolean => args.indexOf(name) !== -1;
+
+  const options: MultiMilestoneOptions = {
+    maxMilestones: hasFlag('--max-milestones')
+      ? parseInt(flag('--max-milestones', '10')!, 10)
+      : undefined,
+    dryRun: hasFlag('--dry-run'),
+    resume: hasFlag('--resume'),
+    timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
+    maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
+    model: flag('--model', undefined as unknown as null) ?? undefined,
+    skipPlan: hasFlag('--skip-plan'),
+    skipExecute: hasFlag('--skip-execute'),
+  };
+
+  const result: MultiMilestoneResult = await runMultiMilestoneAutopilot(cwd, options);
+  const rawSummary: string | undefined = raw
+    ? `Multi-milestone autopilot: ${result.milestones_completed}/${result.milestones_attempted} milestones completed (${result.total_phases_completed}/${result.total_phases_attempted} phases)${result.stopped_at ? ` (stopped: ${result.stopped_at})` : ''}`
+    : undefined;
+  output(result, raw, rawSummary);
+}
+
+/**
+ * Pre-flight context for multi-milestone autopilot initialization.
+ * Returns LT roadmap state, current milestone info, and next milestone resolution.
+ */
+function cmdInitMultiMilestoneAutopilot(cwd: string, raw: boolean): void {
+  const config: GrdConfig = loadConfig(cwd);
+  const analysis = analyzeRoadmap(cwd);
+
+  // Check if claude CLI is available
+  let claudeAvailable: boolean = false;
+  try {
+    const check = childProcess.spawnSync('claude', ['--version'], {
+      stdio: 'pipe',
+      timeout: config.timeouts.autopilot_check_ms,
+    });
+    claudeAvailable = check.status === 0;
+  } catch {
+    // claude CLI not found -- claudeAvailable stays false
+  }
+
+  // Current milestone info
+  const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+
+  // Current milestone completion state
+  const milestoneComplete: boolean = isMilestoneComplete(cwd);
+
+  // Next milestone from LT roadmap
+  const nextMilestone = resolveNextMilestone(cwd);
+
+  // LT roadmap existence and state
+  const ltRoadmapPath: string = path.join(cwd, '.planning', 'LONG-TERM-ROADMAP.md');
+  const ltRoadmapExists: boolean = fs.existsSync(ltRoadmapPath);
+  let ltMilestoneCount: number = 0;
+  if (ltRoadmapExists) {
+    const ltContent: string = fs.readFileSync(ltRoadmapPath, 'utf-8');
+    const parsed = parseLongTermRoadmap(ltContent);
+    if (parsed) {
+      ltMilestoneCount = parsed.milestones.length;
+    }
+  }
+
+  const phases = analysis.phases || [];
+  const incomplete = phases.filter(
+    (p) => (p as { disk_status?: string }).disk_status !== 'complete' && !p.roadmap_complete
+  );
+
+  const result = {
+    claude_available: claudeAvailable,
+    current_milestone: {
+      version: milestoneInfo.version,
+      name: milestoneInfo.name,
+      is_complete: milestoneComplete,
+      total_phases: phases.length,
+      incomplete_phases: incomplete.length,
+    },
+    lt_roadmap: {
+      exists: ltRoadmapExists,
+      milestone_count: ltMilestoneCount,
+    },
+    next_milestone: nextMilestone,
+    config: {
+      model_profile: config.model_profile,
+      autonomous_mode: config.autonomous_mode,
+    },
+  };
+
+  output(result, raw, raw ? JSON.stringify(result) : undefined);
+}
+
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
   cmdAutopilot,
   cmdInitAutopilot,
+  cmdMultiMilestoneAutopilot,
+  cmdInitMultiMilestoneAutopilot,
   runAutopilot,
   runMultiMilestoneAutopilot,
   resolvePhaseRange,
