@@ -360,4 +360,46 @@ export interface DependencyGraph {
   edges: DependencyEdge[];
 }
 
+// ─── Multi-Milestone Autopilot Types (from autopilot.ts) ─────────────────────
+
+/**
+ * Options for multi-milestone autopilot orchestration.
+ * Controls how many milestones to process, subprocess behavior, and step skipping.
+ */
+export interface MultiMilestoneOptions {
+  maxMilestones?: number; // Max milestones to process (default: 10, safety cap)
+  dryRun?: boolean; // Log what would happen without spawning
+  resume?: boolean; // Skip already-completed phases/milestones
+  timeout?: number; // Per-subprocess timeout in minutes
+  maxTurns?: number; // Max turns per claude -p subprocess
+  model?: string; // Model override
+  skipPlan?: boolean; // Skip planning step
+  skipExecute?: boolean; // Skip execution step
+}
+
+/**
+ * Per-milestone result in multi-milestone autopilot.
+ * Tracks phase attempts and completion status for a single milestone iteration.
+ */
+export interface MilestoneStepResult {
+  milestone: string; // Milestone version (e.g., "v0.3.0")
+  phases_attempted: number;
+  phases_completed: number;
+  status: 'completed' | 'failed' | 'skipped' | 'dry-run';
+  reason?: string;
+}
+
+/**
+ * Returned by runMultiMilestoneAutopilot.
+ * Aggregates results across all milestone iterations.
+ */
+export interface MultiMilestoneResult {
+  milestones_attempted: number;
+  milestones_completed: number;
+  milestone_results: MilestoneStepResult[];
+  stopped_at: string | null;
+  total_phases_attempted: number;
+  total_phases_completed: number;
+}
+
 module.exports = {};
