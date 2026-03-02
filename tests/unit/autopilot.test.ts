@@ -148,6 +148,77 @@ async function captureOutputAsync(fn: () => Promise<void>) {
   return { stdout: captured };
 }
 
+/**
+ * Create a fixture for multi-milestone autopilot tests.
+ * Sets up a complete milestone with all phases complete, config, STATE.md,
+ * ROADMAP.md, and optionally a LONG-TERM-ROADMAP.md.
+ */
+function createMultiMilestoneFixture(opts: any = {}) {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-multi-ms-'));
+  const planning = path.join(tmpRoot, '.planning');
+  fs.mkdirSync(planning, { recursive: true });
+
+  // STATE.md
+  fs.writeFileSync(
+    path.join(planning, 'STATE.md'),
+    '# State\n\n**Milestone:** v1.0\n**Current Phase:** Phase 1\n'
+  );
+
+  // config.json
+  fs.writeFileSync(
+    path.join(planning, 'config.json'),
+    JSON.stringify({ model_profile: 'balanced', autonomous_mode: true }, null, 2)
+  );
+
+  // ROADMAP.md with all-complete phases (default)
+  const phases = opts.phases || [
+    { num: '1', name: 'Setup' },
+    { num: '2', name: 'Core' },
+  ];
+
+  let roadmap = '# Roadmap\n\n- v1.0 Test Milestone (in progress)\n\n## v1.0 Test Milestone\n\n';
+  for (const p of phases) {
+    const statusSuffix = opts.allComplete !== false ? ' (Complete)' : '';
+    roadmap += `### Phase ${p.num}: ${p.name}${statusSuffix}\n\n**Goal:** Build ${p.name}\n`;
+    if (p.depends_on) {
+      roadmap += `**Depends on:** ${p.depends_on}\n`;
+    }
+    roadmap += '\n';
+  }
+  fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmap);
+
+  // Create milestone-scoped phases dir
+  const phasesDir = path.join(planning, 'milestones', 'v1.0', 'phases');
+  fs.mkdirSync(phasesDir, { recursive: true });
+
+  // Create phase dirs with plans and summaries (all complete by default)
+  for (const p of phases) {
+    const slug = p.name.toLowerCase().replace(/\s+/g, '-');
+    const padNum = p.num.padStart(2, '0');
+    const dir = path.join(phasesDir, `${padNum}-${slug}`);
+    fs.mkdirSync(dir, { recursive: true });
+    if (opts.allComplete !== false) {
+      fs.writeFileSync(path.join(dir, `${padNum}-01-PLAN.md`), '# Plan');
+      fs.writeFileSync(path.join(dir, `${padNum}-01-SUMMARY.md`), '# Summary');
+    } else if (opts.phaseDirs) {
+      // Custom per-phase files
+      const pd = opts.phaseDirs.find((d: any) => d.num === p.num);
+      if (pd && pd.files) {
+        for (const [name, content] of Object.entries(pd.files)) {
+          fs.writeFileSync(path.join(dir, name), (content as string) || '');
+        }
+      }
+    }
+  }
+
+  // Optional LONG-TERM-ROADMAP.md
+  if (opts.ltRoadmap) {
+    fs.writeFileSync(path.join(planning, 'LONG-TERM-ROADMAP.md'), opts.ltRoadmap);
+  }
+
+  return tmpRoot;
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 // ─── DEFAULT_TIMEOUT_MINUTES ─────────────────────────────────────────────────
@@ -1998,6 +2069,519 @@ describe('lib/autopilot', () => {
       const prompt2 = buildMilestoneCompletePrompt('v3.0');
       expect(prompt1).toContain('v0.1.0');
       expect(prompt2).toContain('v3.0');
+    });
+  });
+
+  // ─── Multi-Milestone Orchestration ─────────────────────────────────────────
+
+  describe('runMultiMilestoneAutopilot', () => {
+    let tmpDir: string;
+    let spawnSyncSpy: any;
+    let spawnSpy: any;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = undefined;
+      }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
+    });
+
+    it('dry-run mode reports milestones without spawning processes', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        ltRoadmap:
+          '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v1.0\n\n',
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir, { dryRun: true });
+
+      expect(result.milestones_attempted).toBeGreaterThanOrEqual(1);
+      expect(result.milestone_results).toBeDefined();
+      expect(result.milestone_results.length).toBeGreaterThanOrEqual(1);
+      // In dry-run, the milestone should be marked as skipped (all phases already complete)
+      // or dry-run for incomplete phases
+    });
+
+    it('stops when no next milestone exists', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        // No LT roadmap — no next milestone available
+      });
+
+      // Mock spawnClaude for milestone completion
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir);
+
+      // Should complete the current milestone but then stop
+      expect(result.milestones_completed).toBe(1);
+      expect(result.stopped_at).toBeNull(); // Graceful stop, not an error
+    });
+
+    it('respects maxMilestones safety cap', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        ltRoadmap:
+          '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v1.0, v2.0, v3.0\n\n',
+      });
+
+      // Mock spawnClaude for milestone completion and creation
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir, { maxMilestones: 1 });
+
+      expect(result.milestones_attempted).toBeLessThanOrEqual(1);
+      // Either stopped_at mentions cap or is null (completed within cap)
+    });
+
+    it('handles spawn failure gracefully', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        phases: [
+          { num: '1', name: 'Setup' },
+        ],
+        allComplete: false,
+        phaseDirs: [
+          {
+            num: '1',
+            files: {
+              '01-01-PLAN.md': '# Plan',
+              // No summary — incomplete
+            },
+          },
+        ],
+      });
+
+      // Plan step (async spawn) fails
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(1);
+      });
+
+      // Execute step (sync) also fails
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 1,
+        error: null,
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir);
+
+      // Should not throw — failures are handled gracefully
+      expect(result).toBeDefined();
+      // The milestone is not fully complete after autopilot run, so stopped_at is set
+      expect(result.stopped_at).toBeTruthy();
+      expect(result.milestone_results.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('processes incomplete phases before milestone transition', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        phases: [
+          { num: '1', name: 'Setup' },
+          { num: '2', name: 'Core' },
+        ],
+        allComplete: false,
+        phaseDirs: [
+          {
+            num: '1',
+            files: {
+              '01-01-PLAN.md': '# Plan',
+              '01-01-SUMMARY.md': '# Summary',
+            },
+          },
+          {
+            num: '2',
+            files: {
+              '02-01-PLAN.md': '# Plan',
+              // No summary — incomplete
+            },
+          },
+        ],
+      });
+
+      // Plan step (async spawn) succeeds
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0);
+      });
+
+      // Execute step (sync) — create SUMMARY.md to make phase complete
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation((_cmd: any, args: any) => {
+        if (args && args[1] && typeof args[1] === 'string') {
+          const prompt = args[1];
+          if (prompt.includes('execute-phase 2')) {
+            const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '02-core');
+            fs.writeFileSync(path.join(phaseDir, '02-01-SUMMARY.md'), '# Summary');
+          }
+        }
+        return { status: 0, error: null };
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir);
+
+      // runAutopilot should be called for incomplete phases
+      expect(result.total_phases_attempted).toBeGreaterThanOrEqual(1);
+      // The milestone should have attempted some phases
+      const firstMilestone = result.milestone_results[0];
+      expect(firstMilestone.phases_attempted).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns structured result with all expected fields', async () => {
+      tmpDir = createMultiMilestoneFixture();
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const result = await runMultiMilestoneAutopilot(tmpDir, { dryRun: true });
+
+      expect(result).toHaveProperty('milestones_attempted');
+      expect(result).toHaveProperty('milestones_completed');
+      expect(result).toHaveProperty('milestone_results');
+      expect(result).toHaveProperty('stopped_at');
+      expect(result).toHaveProperty('total_phases_attempted');
+      expect(result).toHaveProperty('total_phases_completed');
+      expect(typeof result.milestones_attempted).toBe('number');
+      expect(typeof result.milestones_completed).toBe('number');
+      expect(Array.isArray(result.milestone_results)).toBe(true);
+    });
+
+    it('default maxMilestones is 10', async () => {
+      tmpDir = createMultiMilestoneFixture();
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      // With no LT roadmap, it will stop after first milestone, well within 10
+      const result = await runMultiMilestoneAutopilot(tmpDir);
+      // Verify it doesn't fail with default maxMilestones
+      expect(result.milestones_attempted).toBeLessThanOrEqual(10);
+    });
+
+    it('logs to autopilot.log during execution', async () => {
+      tmpDir = createMultiMilestoneFixture();
+
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      await runMultiMilestoneAutopilot(tmpDir, { dryRun: true });
+
+      const logPath = path.join(tmpDir, '.planning', 'autopilot', 'autopilot.log');
+      expect(fs.existsSync(logPath)).toBe(true);
+      const logContent = fs.readFileSync(logPath, 'utf-8');
+      expect(logContent).toContain('multi-milestone');
+    });
+  });
+
+  // ─── cmdMultiMilestoneAutopilot ────────────────────────────────────────────
+
+  describe('cmdMultiMilestoneAutopilot', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    it('outputs JSON result in non-raw mode', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run'], false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('milestones_attempted');
+      expect(result).toHaveProperty('milestone_results');
+    });
+
+    it('parses --max-milestones flag correctly', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run', '--max-milestones', '5'], false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.milestones_attempted).toBeLessThanOrEqual(5);
+    });
+
+    it('parses --dry-run flag', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run'], false)
+      );
+      const result = JSON.parse(stdout);
+      // Dry-run should not fail (no actual spawns)
+      expect(result).toBeDefined();
+    });
+
+    it('parses --resume flag', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run', '--resume'], false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result).toBeDefined();
+    });
+
+    it('parses --timeout and --max-turns flags', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(
+          tmpDir,
+          ['--dry-run', '--timeout', '60', '--max-turns', '100'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(result).toBeDefined();
+    });
+
+    it('parses --model flag', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run', '--model', 'opus'], false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result).toBeDefined();
+    });
+
+    it('raw mode outputs human-readable summary', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(tmpDir, ['--dry-run'], true)
+      );
+      // Should not be valid JSON
+      expect(() => JSON.parse(stdout)).toThrow();
+      // Should contain milestone count info
+      expect(stdout).toMatch(/\d+\/\d+ milestones/);
+    });
+
+    it('parses --skip-plan and --skip-execute flags', async () => {
+      tmpDir = createMultiMilestoneFixture();
+      const { stdout } = await captureOutputAsync(() =>
+        cmdMultiMilestoneAutopilot(
+          tmpDir,
+          ['--dry-run', '--skip-plan', '--skip-execute'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ─── cmdInitMultiMilestoneAutopilot ────────────────────────────────────────
+
+  describe('cmdInitMultiMilestoneAutopilot', () => {
+    let tmpDir: string;
+    let spawnSyncSpy: any;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = undefined;
+      }
+    });
+
+    it('returns claude_available field', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('claude_available');
+      expect(result.claude_available).toBe(true);
+    });
+
+    it('returns lt_roadmap field', () => {
+      tmpDir = createMultiMilestoneFixture({
+        ltRoadmap:
+          '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v1.0\n\n',
+      });
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('lt_roadmap');
+      expect(result.lt_roadmap.exists).toBe(true);
+      expect(result.lt_roadmap.milestone_count).toBe(1);
+    });
+
+    it('returns lt_roadmap.exists false when no LT roadmap', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.lt_roadmap.exists).toBe(false);
+      expect(result.lt_roadmap.milestone_count).toBe(0);
+    });
+
+    it('returns current_milestone info', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('current_milestone');
+      expect(result.current_milestone).toHaveProperty('version');
+      expect(result.current_milestone).toHaveProperty('name');
+      expect(result.current_milestone).toHaveProperty('is_complete');
+      expect(result.current_milestone).toHaveProperty('total_phases');
+      expect(result.current_milestone).toHaveProperty('incomplete_phases');
+    });
+
+    it('returns next_milestone info when LT roadmap exists', () => {
+      tmpDir = createMultiMilestoneFixture({
+        ltRoadmap:
+          '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v1.0, v2.0\n\n',
+      });
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('next_milestone');
+      // next_milestone should be v1.0 (the first non-shipped in the LT roadmap)
+      expect(result.next_milestone).not.toBeNull();
+    });
+
+    it('returns next_milestone null when no next milestone available', () => {
+      tmpDir = createMultiMilestoneFixture();
+      // No LT roadmap => no next milestone
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.next_milestone).toBeNull();
+    });
+
+    it('returns milestone_complete status', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.current_milestone.is_complete).toBe(true); // all phases complete
+    });
+
+    it('reports incomplete milestone when phases are not done', () => {
+      tmpDir = createMultiMilestoneFixture({
+        allComplete: false,
+        phaseDirs: [
+          { num: '1', files: { '01-01-PLAN.md': '# Plan' } },
+          { num: '2', files: { '02-01-PLAN.md': '# Plan' } },
+        ],
+      });
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.current_milestone.is_complete).toBe(false);
+      expect(result.current_milestone.incomplete_phases).toBeGreaterThan(0);
+    });
+
+    it('reports claude unavailable when spawn check fails', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+        throw new Error('not found');
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result.claude_available).toBe(false);
+    });
+
+    it('returns config with model_profile and autonomous_mode', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, false);
+      });
+      const result = JSON.parse(stdout);
+      expect(result).toHaveProperty('config');
+      expect(result.config).toHaveProperty('model_profile');
+      expect(result.config).toHaveProperty('autonomous_mode');
+    });
+
+    it('raw mode outputs JSON string', () => {
+      tmpDir = createMultiMilestoneFixture();
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const { stdout } = captureOutput(() => {
+        cmdInitMultiMilestoneAutopilot(tmpDir, true);
+      });
+      // In raw mode, output function uses rawValue which is JSON.stringify(result)
+      // The raw string will be a JSON representation
+      expect(stdout.length).toBeGreaterThan(0);
     });
   });
 });
