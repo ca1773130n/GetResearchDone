@@ -124,6 +124,10 @@ const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMulti
   cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
 };
+const { cmdAutoplan, cmdInitAutoplan } = require('./autoplan') as {
+  cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitAutoplan: (cwd: string, raw: boolean) => void;
+};
 const {
   cmdEvolve,
   cmdEvolveDiscover,
@@ -2006,6 +2010,68 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) =>
       cmdInitMultiMilestoneAutopilot(cwd, false),
+  },
+  // ── Autoplan ──
+  {
+    name: 'grd_autoplan_run',
+    description:
+      'Automatically generate a milestone from evolve discovery results or fresh discovery',
+    params: [
+      {
+        name: 'dry_run',
+        type: 'boolean' as const,
+        required: false,
+        description: 'Preview the autoplan prompt without executing',
+      },
+      {
+        name: 'timeout',
+        type: 'number' as const,
+        required: false,
+        description: 'Subprocess timeout in minutes',
+      },
+      {
+        name: 'max_turns',
+        type: 'number' as const,
+        required: false,
+        description: 'Max turns for subprocess',
+      },
+      {
+        name: 'model',
+        type: 'string' as const,
+        required: false,
+        description: 'Model override',
+      },
+      {
+        name: 'pick_pct',
+        type: 'number' as const,
+        required: false,
+        description: 'Discovery pick percentage (default: 50)',
+      },
+      {
+        name: 'name',
+        type: 'string' as const,
+        required: false,
+        description: 'Override milestone name',
+      },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) => {
+      const cliArgs: string[] = [];
+      if (args.dry_run) cliArgs.push('--dry-run');
+      if (args.timeout) cliArgs.push('--timeout', String(args.timeout));
+      if (args.max_turns) cliArgs.push('--max-turns', String(args.max_turns));
+      if (args.model) cliArgs.push('--model', args.model as string);
+      if (args.pick_pct) cliArgs.push('--pick-pct', String(args.pick_pct));
+      if (args.name) cliArgs.push('--name', args.name as string);
+      return cmdAutoplan(cwd, cliArgs, false);
+    },
+  },
+  {
+    name: 'grd_autoplan_init',
+    description:
+      'Pre-flight context for autoplan: evolve state, current milestone, config',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) =>
+      cmdInitAutoplan(cwd, false),
   },
   // ── Evolve Orchestrator ──
   {
