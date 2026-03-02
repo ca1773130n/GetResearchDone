@@ -118,9 +118,15 @@ const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze } = require('
 const { cmdPhaseAnalyzeDeps } = require('./deps') as {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 };
-const { cmdAutopilot, cmdInitAutopilot } = require('./autopilot') as {
+const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot } = require('./autopilot') as {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
+  cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => void;
+  cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
+};
+const { cmdAutoplan, cmdInitAutoplan } = require('./autoplan') as {
+  cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitAutoplan: (cwd: string, raw: boolean) => void;
 };
 const {
   cmdEvolve,
@@ -1927,6 +1933,145 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     description: 'Get autopilot pre-flight context: phase range, config, claude availability',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdInitAutopilot(cwd, false),
+  },
+
+  // ── Multi-Milestone Autopilot ──
+  {
+    name: 'grd_multi_milestone_autopilot_run',
+    description:
+      'Plan and execute phases across multiple milestones autonomously, completing one milestone and starting the next',
+    params: [
+      {
+        name: 'max_milestones',
+        type: 'number',
+        required: false,
+        description: 'Maximum milestones to process (default: 10)',
+      },
+      {
+        name: 'dry_run',
+        type: 'boolean',
+        required: false,
+        description: 'Preview without executing',
+      },
+      {
+        name: 'resume',
+        type: 'boolean',
+        required: false,
+        description: 'Skip already-completed work',
+      },
+      {
+        name: 'timeout',
+        type: 'number',
+        required: false,
+        description: 'Per-subprocess timeout in minutes',
+      },
+      {
+        name: 'max_turns',
+        type: 'number',
+        required: false,
+        description: 'Max turns per subprocess',
+      },
+      {
+        name: 'model',
+        type: 'string',
+        required: false,
+        description: 'Model override',
+      },
+      {
+        name: 'skip_plan',
+        type: 'boolean',
+        required: false,
+        description: 'Skip planning step',
+      },
+      {
+        name: 'skip_execute',
+        type: 'boolean',
+        required: false,
+        description: 'Skip execution step',
+      },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) => {
+      const cliArgs: string[] = [];
+      if (args.max_milestones) cliArgs.push('--max-milestones', String(args.max_milestones));
+      if (args.dry_run) cliArgs.push('--dry-run');
+      if (args.resume) cliArgs.push('--resume');
+      if (args.timeout) cliArgs.push('--timeout', String(args.timeout));
+      if (args.max_turns) cliArgs.push('--max-turns', String(args.max_turns));
+      if (args.model) cliArgs.push('--model', args.model as string);
+      if (args.skip_plan) cliArgs.push('--skip-plan');
+      if (args.skip_execute) cliArgs.push('--skip-execute');
+      return cmdMultiMilestoneAutopilot(cwd, cliArgs, false);
+    },
+  },
+  {
+    name: 'grd_multi_milestone_autopilot_init',
+    description:
+      'Pre-flight context for multi-milestone autopilot: LT roadmap state, milestone completion, next milestone',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) =>
+      cmdInitMultiMilestoneAutopilot(cwd, false),
+  },
+  // ── Autoplan ──
+  {
+    name: 'grd_autoplan_run',
+    description:
+      'Automatically generate a milestone from evolve discovery results or fresh discovery',
+    params: [
+      {
+        name: 'dry_run',
+        type: 'boolean' as const,
+        required: false,
+        description: 'Preview the autoplan prompt without executing',
+      },
+      {
+        name: 'timeout',
+        type: 'number' as const,
+        required: false,
+        description: 'Subprocess timeout in minutes',
+      },
+      {
+        name: 'max_turns',
+        type: 'number' as const,
+        required: false,
+        description: 'Max turns for subprocess',
+      },
+      {
+        name: 'model',
+        type: 'string' as const,
+        required: false,
+        description: 'Model override',
+      },
+      {
+        name: 'pick_pct',
+        type: 'number' as const,
+        required: false,
+        description: 'Discovery pick percentage (default: 50)',
+      },
+      {
+        name: 'name',
+        type: 'string' as const,
+        required: false,
+        description: 'Override milestone name',
+      },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) => {
+      const cliArgs: string[] = [];
+      if (args.dry_run) cliArgs.push('--dry-run');
+      if (args.timeout) cliArgs.push('--timeout', String(args.timeout));
+      if (args.max_turns) cliArgs.push('--max-turns', String(args.max_turns));
+      if (args.model) cliArgs.push('--model', args.model as string);
+      if (args.pick_pct) cliArgs.push('--pick-pct', String(args.pick_pct));
+      if (args.name) cliArgs.push('--name', args.name as string);
+      return cmdAutoplan(cwd, cliArgs, false);
+    },
+  },
+  {
+    name: 'grd_autoplan_init',
+    description:
+      'Pre-flight context for autoplan: evolve state, current milestone, config',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) =>
+      cmdInitAutoplan(cwd, false),
   },
   // ── Evolve Orchestrator ──
   {

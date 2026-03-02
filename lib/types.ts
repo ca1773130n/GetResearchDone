@@ -360,4 +360,81 @@ export interface DependencyGraph {
   edges: DependencyEdge[];
 }
 
+// ─── Multi-Milestone Autopilot Types (from autopilot.ts) ─────────────────────
+
+/**
+ * Options for multi-milestone autopilot orchestration.
+ * Controls how many milestones to process, subprocess behavior, and step skipping.
+ */
+export interface MultiMilestoneOptions {
+  maxMilestones?: number; // Max milestones to process (default: 10, safety cap)
+  dryRun?: boolean; // Log what would happen without spawning
+  resume?: boolean; // Skip already-completed phases/milestones
+  timeout?: number; // Per-subprocess timeout in minutes
+  maxTurns?: number; // Max turns per claude -p subprocess
+  model?: string; // Model override
+  skipPlan?: boolean; // Skip planning step
+  skipExecute?: boolean; // Skip execution step
+}
+
+/**
+ * Per-milestone result in multi-milestone autopilot.
+ * Tracks phase attempts and completion status for a single milestone iteration.
+ */
+export interface MilestoneStepResult {
+  milestone: string; // Milestone version (e.g., "v0.3.0")
+  phases_attempted: number;
+  phases_completed: number;
+  status: 'completed' | 'failed' | 'skipped' | 'dry-run';
+  reason?: string;
+}
+
+/**
+ * Returned by runMultiMilestoneAutopilot.
+ * Aggregates results across all milestone iterations.
+ */
+export interface MultiMilestoneResult {
+  milestones_attempted: number;
+  milestones_completed: number;
+  milestone_results: MilestoneStepResult[];
+  stopped_at: string | null;
+  total_phases_attempted: number;
+  total_phases_completed: number;
+}
+
+// ── Autoplan Types (from autoplan.ts) ─────────────────────────────────────────
+
+/**
+ * Options for the autoplan command.
+ * Controls discovery behavior, subprocess parameters, and output format.
+ */
+export interface AutoplanOptions {
+  groups?: Array<{
+    id: string;
+    theme: string;
+    dimension: string;
+    items: Array<{ title: string; description: string; effort: string }>;
+    priority: number;
+    effort: string;
+  }>; // Pre-discovered work groups (skip discovery if provided)
+  pickPct?: number; // Discovery pick percentage (only used when groups not provided)
+  dryRun?: boolean; // Build prompt only, do not spawn subprocess
+  timeout?: number; // Subprocess timeout in minutes
+  maxTurns?: number; // Max turns for claude -p subprocess
+  model?: string; // Model override for subprocess
+  milestoneName?: string; // Override for milestone name (default: derived from groups)
+}
+
+/**
+ * Result returned by runAutoplan().
+ */
+export interface AutoplanResult {
+  status: 'completed' | 'failed' | 'dry-run';
+  groups_count: number; // Number of work groups used as input
+  items_count: number; // Total work items across groups
+  prompt: string; // The prompt that was (or would be) sent to claude -p
+  milestone_name?: string; // Derived or overridden milestone name
+  reason?: string; // Failure reason if status is 'failed'
+}
+
 module.exports = {};

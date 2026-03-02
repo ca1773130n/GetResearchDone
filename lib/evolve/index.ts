@@ -85,6 +85,7 @@ module.exports = {
   writeEvolutionNotes: orchestratorModule.writeEvolutionNotes,
   writeDiscoveriesToTodos: orchestratorModule.writeDiscoveriesToTodos,
   runEvolve: orchestratorModule.runEvolve,
+  runInfiniteEvolve: orchestratorModule.runInfiniteEvolve,
 
   // ─── CLI commands (from cli.ts) ─────────────────────────────────────────
   cmdEvolve: cliModule.cmdEvolve,

@@ -9,15 +9,24 @@
  * Created in Phase 52.
  */
 
-import type { DependencyGraph, GrdConfig, PhaseInfo } from './types';
+import type {
+  DependencyGraph,
+  GrdConfig,
+  MilestoneInfo,
+  MultiMilestoneOptions,
+  MilestoneStepResult,
+  MultiMilestoneResult,
+  PhaseInfo,
+} from './types';
 
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process') as typeof import('child_process');
-const { loadConfig, findPhaseInternal, output } = require('./utils') as {
+const { loadConfig, findPhaseInternal, output, getMilestoneInfo } = require('./utils') as {
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
+  getMilestoneInfo: (cwd: string) => MilestoneInfo;
 };
 const { analyzeRoadmap } = require('./roadmap') as {
   analyzeRoadmap: (cwd: string) => {
@@ -36,6 +45,18 @@ const { buildDependencyGraph, computeParallelGroups } = require('./deps') as {
     phases: Array<{ number: string; name: string; depends_on?: string | null }>
   ) => DependencyGraph;
   computeParallelGroups: (graph: DependencyGraph) => string[][];
+};
+const { parseLongTermRoadmap } = require('./long-term-roadmap') as {
+  parseLongTermRoadmap: (
+    content: unknown
+  ) => {
+    milestones: Array<{
+      id: string;
+      name: string;
+      status: string;
+      normal_milestones: Array<{ version: string; note?: string }>;
+    }>;
+  } | null;
 };
 
 // ─── Default Constants ──────────────────────────────────────────────────────
@@ -390,6 +411,85 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
   fs.writeFileSync(statePath, content);
 }
 
+// ─── Multi-Milestone Helpers ─────────────────────────────────────────────────
+
+/**
+ * Check if all phases in the current milestone are complete.
+ * Returns true if every phase has disk_status 'complete' or roadmap_complete is true,
+ * AND there is at least one phase.
+ */
+function isMilestoneComplete(cwd: string): boolean {
+  const analysis = analyzeRoadmap(cwd);
+  if (analysis.error || !analysis.phases || analysis.phases.length === 0) {
+    return false;
+  }
+
+  return analysis.phases.every(
+    (p) =>
+      (p as { disk_status?: string }).disk_status === 'complete' ||
+      p.roadmap_complete === true
+  );
+}
+
+/**
+ * Determine the next milestone to work on from LONG-TERM-ROADMAP.md.
+ * Strategy:
+ * - Parse LT roadmap, find the first "active" or "planned" LT milestone
+ *   that has linked normal milestones not yet shipped (note != "shipped"),
+ *   or find the next LT milestone that is "planned" with no linked milestones yet.
+ * - Returns { version, name } of the next milestone to create, or null if none found.
+ */
+function resolveNextMilestone(cwd: string): { version: string; name: string } | null {
+  const ltRoadmapPath: string = path.join(cwd, '.planning', 'LONG-TERM-ROADMAP.md');
+  if (!fs.existsSync(ltRoadmapPath)) {
+    return null;
+  }
+
+  const content: string = fs.readFileSync(ltRoadmapPath, 'utf-8');
+  const parsed = parseLongTermRoadmap(content);
+  if (!parsed) {
+    return null;
+  }
+
+  // Find the first LT milestone that is "active" or "planned"
+  for (const ltMs of parsed.milestones) {
+    if (ltMs.status === 'completed') continue;
+
+    // Check linked normal milestones -- find first that isn't shipped
+    for (const nm of ltMs.normal_milestones) {
+      const note: string = (nm.note || '').toLowerCase();
+      if (note === 'shipped' || note === 'complete' || note === 'completed') {
+        continue;
+      }
+      // This normal milestone isn't shipped yet -- it's the next one
+      return { version: nm.version, name: ltMs.name };
+    }
+
+    // If all linked milestones are shipped but LT milestone isn't completed,
+    // or if there are no linked milestones, this LT milestone needs a new normal milestone
+    if (ltMs.status === 'planned') {
+      return { version: `next-${ltMs.id.toLowerCase()}`, name: ltMs.name };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Build the prompt string for spawning `/grd:new-milestone` via `claude -p`.
+ */
+function buildNewMilestonePrompt(): string {
+  return 'Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions. Complete all milestone creation steps including research, requirements, and roadmap setup.';
+}
+
+/**
+ * Build the prompt string for completing a milestone via `claude -p`.
+ * Uses grd-tools.js milestone complete directly since it is a deterministic operation.
+ */
+function buildMilestoneCompletePrompt(version: string): string {
+  return `Run the following command to complete the milestone: node \${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js milestone complete --name "${version}". Then verify the milestone was archived successfully by checking .planning/STATE.md.`;
+}
+
 // ─── Main Loop ──────────────────────────────────────────────────────────────
 
 /**
@@ -607,6 +707,217 @@ async function runAutopilot(
   };
 }
 
+// ─── Multi-Milestone Orchestration ───────────────────────────────────────────
+
+/**
+ * Run the multi-milestone autopilot loop.
+ * Orchestrates across milestone boundaries: completes current milestone phases,
+ * detects milestone completion, resolves the next milestone, creates it, and continues.
+ *
+ * Safety: maxMilestones cap (default 10) prevents infinite loops.
+ */
+async function runMultiMilestoneAutopilot(
+  cwd: string,
+  options: MultiMilestoneOptions = {}
+): Promise<MultiMilestoneResult> {
+  const maxMilestones: number = options.maxMilestones ?? 10;
+  const dryRun: boolean = options.dryRun ?? false;
+  const timeoutMs: number | undefined = options.timeout ? options.timeout * 60 * 1000 : undefined;
+
+  // Set up logging (reuse existing autopilot log pattern)
+  const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+  const log: (msg: string) => void = (msg: string): void => {
+    const line: string = `[${new Date().toISOString()}] [multi-milestone] ${msg}\n`;
+    process.stderr.write(`[multi-milestone] ${msg}\n`);
+    fs.appendFileSync(logFile, line);
+  };
+
+  // Initialize result tracking
+  const milestoneResults: MilestoneStepResult[] = [];
+  let milestonesAttempted: number = 0;
+  let milestonesCompleted: number = 0;
+  let totalPhasesAttempted: number = 0;
+  let totalPhasesCompleted: number = 0;
+  let stoppedAt: string | null = null;
+
+  log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
+
+  for (let i = 0; i < maxMilestones; i++) {
+    if (stoppedAt) break;
+
+    // Get current milestone info (re-read each iteration for fresh state)
+    const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+    const currentVersion: string = milestoneInfo.version;
+
+    log(`Milestone ${i + 1}/${maxMilestones}: ${currentVersion} (${milestoneInfo.name})`);
+    milestonesAttempted++;
+
+    // Check for incomplete phases in current milestone
+    const { phases, error: rangeError } = resolvePhaseRange(cwd, null, null);
+
+    if (rangeError) {
+      log(`Error resolving phases: ${rangeError}`);
+      milestoneResults.push({
+        milestone: currentVersion,
+        phases_attempted: 0,
+        phases_completed: 0,
+        status: 'failed',
+        reason: rangeError,
+      });
+      stoppedAt = `Failed to resolve phases for ${currentVersion}: ${rangeError}`;
+      break;
+    }
+
+    const incompletePhases = phases.filter(
+      (p) => p.disk_status !== 'complete'
+    );
+
+    if (incompletePhases.length > 0) {
+      log(`${currentVersion}: ${incompletePhases.length} incomplete phase(s), running autopilot...`);
+
+      if (dryRun) {
+        milestoneResults.push({
+          milestone: currentVersion,
+          phases_attempted: incompletePhases.length,
+          phases_completed: 0,
+          status: 'dry-run',
+          reason: `Would process ${incompletePhases.length} incomplete phase(s)`,
+        });
+        totalPhasesAttempted += incompletePhases.length;
+      } else {
+        // Run single-milestone autopilot for current milestone's phases
+        const autopilotResult: AutopilotResult = await runAutopilot(cwd, {
+          resume: options.resume,
+          skipPlan: options.skipPlan,
+          skipExecute: options.skipExecute,
+          timeout: options.timeout,
+          maxTurns: options.maxTurns,
+          model: options.model,
+        });
+
+        totalPhasesAttempted += autopilotResult.phases_attempted;
+        totalPhasesCompleted += autopilotResult.phases_completed;
+
+        const autopilotFailed: boolean = autopilotResult.stopped_at !== null;
+        milestoneResults.push({
+          milestone: currentVersion,
+          phases_attempted: autopilotResult.phases_attempted,
+          phases_completed: autopilotResult.phases_completed,
+          status: autopilotFailed ? 'failed' : 'completed',
+          reason: autopilotResult.stopped_at || undefined,
+        });
+
+        if (autopilotFailed) {
+          log(`${currentVersion}: autopilot stopped: ${autopilotResult.stopped_at}`);
+          stoppedAt = `Autopilot failed for ${currentVersion}: ${autopilotResult.stopped_at}`;
+          break;
+        }
+      }
+    } else {
+      log(`${currentVersion}: all phases already complete`);
+      milestoneResults.push({
+        milestone: currentVersion,
+        phases_attempted: 0,
+        phases_completed: 0,
+        status: 'skipped',
+        reason: 'all phases already complete',
+      });
+    }
+
+    // Check milestone completion after autopilot run
+    if (isMilestoneComplete(cwd)) {
+      log(`${currentVersion}: milestone complete`);
+
+      if (!dryRun) {
+        // Complete the milestone via deterministic grd-tools command
+        const completePrompt: string = buildMilestoneCompletePrompt(currentVersion);
+        log(`${currentVersion}: completing milestone...`);
+
+        const completeResult: SpawnResult = spawnClaude(cwd, completePrompt, {
+          timeout: timeoutMs,
+          maxTurns: options.maxTurns,
+          model: options.model,
+        });
+
+        if (completeResult.exitCode !== 0) {
+          const reason: string = completeResult.timedOut
+            ? 'timeout'
+            : `exit code ${completeResult.exitCode}`;
+          log(`${currentVersion}: milestone complete FAILED (${reason})`);
+          stoppedAt = `Failed to complete milestone ${currentVersion}: ${reason}`;
+          break;
+        }
+
+        log(`${currentVersion}: milestone completed successfully`);
+      } else {
+        log(`${currentVersion}: [dry-run] would complete milestone`);
+      }
+
+      milestonesCompleted++;
+    } else {
+      log(`${currentVersion}: milestone not fully complete yet`);
+      stoppedAt = `Milestone ${currentVersion} is not fully complete after autopilot run`;
+      break;
+    }
+
+    // Resolve next milestone
+    const nextMs = resolveNextMilestone(cwd);
+    if (!nextMs) {
+      log('No next milestone found in LONG-TERM-ROADMAP.md — stopping');
+      stoppedAt = null; // Graceful completion, not an error
+      break;
+    }
+
+    log(`Next milestone: ${nextMs.version} (${nextMs.name})`);
+
+    if (dryRun) {
+      log(`[dry-run] Would create new milestone: ${nextMs.version}`);
+      continue;
+    }
+
+    // Spawn new milestone creation via claude -p
+    const newMilestonePrompt: string = buildNewMilestonePrompt();
+    log('Creating new milestone...');
+
+    const createResult: SpawnResult = spawnClaude(cwd, newMilestonePrompt, {
+      timeout: timeoutMs,
+      maxTurns: options.maxTurns,
+      model: options.model,
+    });
+
+    if (createResult.exitCode !== 0) {
+      const reason: string = createResult.timedOut
+        ? 'timeout'
+        : `exit code ${createResult.exitCode}`;
+      log(`New milestone creation FAILED (${reason})`);
+      stoppedAt = `Failed to create new milestone: ${reason}`;
+      break;
+    }
+
+    log('New milestone created, continuing loop...');
+  }
+
+  if (!stoppedAt && milestonesAttempted >= maxMilestones) {
+    stoppedAt = `Reached maxMilestones cap (${maxMilestones})`;
+    log(stoppedAt);
+  }
+
+  log(
+    `Multi-milestone autopilot done: ${milestonesCompleted}/${milestonesAttempted} milestones completed` +
+      (stoppedAt ? ` (stopped: ${stoppedAt})` : '')
+  );
+
+  return {
+    milestones_attempted: milestonesAttempted,
+    milestones_completed: milestonesCompleted,
+    milestone_results: milestoneResults,
+    stopped_at: stoppedAt,
+    total_phases_attempted: totalPhasesAttempted,
+    total_phases_completed: totalPhasesCompleted,
+  };
+}
+
 // ─── CLI Entry Points ───────────────────────────────────────────────────────
 
 /**
@@ -698,15 +1009,125 @@ function startHeartbeat(message: string): ReturnType<typeof setInterval> {
   }, HEARTBEAT_INTERVAL_MS);
 }
 
+/**
+ * Parse CLI flags and run the multi-milestone autopilot loop.
+ */
+async function cmdMultiMilestoneAutopilot(
+  cwd: string,
+  args: string[],
+  raw: boolean
+): Promise<void> {
+  const flag = (name: string, fallback: string | null): string | null => {
+    const i: number = args.indexOf(name);
+    return i !== -1 ? args[i + 1] : fallback;
+  };
+  const hasFlag = (name: string): boolean => args.indexOf(name) !== -1;
+
+  const options: MultiMilestoneOptions = {
+    maxMilestones: hasFlag('--max-milestones')
+      ? parseInt(flag('--max-milestones', '10')!, 10)
+      : undefined,
+    dryRun: hasFlag('--dry-run'),
+    resume: hasFlag('--resume'),
+    timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
+    maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
+    model: flag('--model', undefined as unknown as null) ?? undefined,
+    skipPlan: hasFlag('--skip-plan'),
+    skipExecute: hasFlag('--skip-execute'),
+  };
+
+  const result: MultiMilestoneResult = await runMultiMilestoneAutopilot(cwd, options);
+  const rawSummary: string | undefined = raw
+    ? `Multi-milestone autopilot: ${result.milestones_completed}/${result.milestones_attempted} milestones completed (${result.total_phases_completed}/${result.total_phases_attempted} phases)${result.stopped_at ? ` (stopped: ${result.stopped_at})` : ''}`
+    : undefined;
+  output(result, raw, rawSummary);
+}
+
+/**
+ * Pre-flight context for multi-milestone autopilot initialization.
+ * Returns LT roadmap state, current milestone info, and next milestone resolution.
+ */
+function cmdInitMultiMilestoneAutopilot(cwd: string, raw: boolean): void {
+  const config: GrdConfig = loadConfig(cwd);
+  const analysis = analyzeRoadmap(cwd);
+
+  // Check if claude CLI is available
+  let claudeAvailable: boolean = false;
+  try {
+    const check = childProcess.spawnSync('claude', ['--version'], {
+      stdio: 'pipe',
+      timeout: config.timeouts.autopilot_check_ms,
+    });
+    claudeAvailable = check.status === 0;
+  } catch {
+    // claude CLI not found -- claudeAvailable stays false
+  }
+
+  // Current milestone info
+  const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+
+  // Current milestone completion state
+  const milestoneComplete: boolean = isMilestoneComplete(cwd);
+
+  // Next milestone from LT roadmap
+  const nextMilestone = resolveNextMilestone(cwd);
+
+  // LT roadmap existence and state
+  const ltRoadmapPath: string = path.join(cwd, '.planning', 'LONG-TERM-ROADMAP.md');
+  const ltRoadmapExists: boolean = fs.existsSync(ltRoadmapPath);
+  let ltMilestoneCount: number = 0;
+  if (ltRoadmapExists) {
+    const ltContent: string = fs.readFileSync(ltRoadmapPath, 'utf-8');
+    const parsed = parseLongTermRoadmap(ltContent);
+    if (parsed) {
+      ltMilestoneCount = parsed.milestones.length;
+    }
+  }
+
+  const phases = analysis.phases || [];
+  const incomplete = phases.filter(
+    (p) => (p as { disk_status?: string }).disk_status !== 'complete' && !p.roadmap_complete
+  );
+
+  const result = {
+    claude_available: claudeAvailable,
+    current_milestone: {
+      version: milestoneInfo.version,
+      name: milestoneInfo.name,
+      is_complete: milestoneComplete,
+      total_phases: phases.length,
+      incomplete_phases: incomplete.length,
+    },
+    lt_roadmap: {
+      exists: ltRoadmapExists,
+      milestone_count: ltMilestoneCount,
+    },
+    next_milestone: nextMilestone,
+    config: {
+      model_profile: config.model_profile,
+      autonomous_mode: config.autonomous_mode,
+    },
+  };
+
+  output(result, raw, raw ? JSON.stringify(result) : undefined);
+}
+
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
   cmdAutopilot,
   cmdInitAutopilot,
+  cmdMultiMilestoneAutopilot,
+  cmdInitMultiMilestoneAutopilot,
   runAutopilot,
+  runMultiMilestoneAutopilot,
   resolvePhaseRange,
   isPhasePlanned,
   isPhaseExecuted,
+  isMilestoneComplete,
+  resolveNextMilestone,
+  buildNewMilestonePrompt,
+  buildMilestoneCompletePrompt,
   spawnClaude,
   spawnClaudeAsync,
   buildPlanPrompt,
