@@ -348,3 +348,25 @@ Plans:
 | Phase 59 | CommonJS interop validated with all 20+ downstream consumers (only spot-checked) | Phase 65 | Resolved (65-02) |
 | Phase 62 | Barrel re-export backward compatibility under real CLI and MCP invocation | Phase 65 | Resolved (65-02) |
 | Phase 63 | Plugin manifest compatibility with dist/ paths under Claude Code runtime | Phase 65 | Resolved (65-02) |
+
+### Phase 66: Extend autopilot for multi-milestone automation
+
+**Goal:** Extend autopilot to orchestrate work across milestone boundaries -- completing one milestone, creating the next via LT roadmap, and continuing phase planning/execution autonomously
+**Type:** implement
+**Depends on:** Phase 65
+**Duration:** 7d
+**Verification Level:** proxy
+**Success Criteria** (what must be TRUE):
+  1. `runMultiMilestoneAutopilot` function orchestrates across milestone boundaries with safety caps
+  2. `isMilestoneComplete` correctly detects when all phases in current milestone are done
+  3. `resolveNextMilestone` resolves next milestone from LONG-TERM-ROADMAP.md
+  4. CLI command `multi-milestone-autopilot` accessible via grd-tools with --max-milestones, --dry-run, --resume flags
+  5. MCP server exposes multi-milestone-autopilot tool
+  6. 30+ new tests covering all new functions with coverage thresholds maintained
+  7. All 2,676+ existing tests pass with zero regressions
+**Plans:** 3 plans
+
+Plans:
+- [ ] 66-01-PLAN.md -- Core multi-milestone autopilot logic (types, helpers, orchestration loop)
+- [ ] 66-02-PLAN.md -- CLI integration, grd-tools routing, MCP tool, command docs
+- [ ] 66-03-PLAN.md -- Comprehensive tests and integration validation
