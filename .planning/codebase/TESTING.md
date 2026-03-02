@@ -1,6 +1,6 @@
 # Testing
 
-**Analysis Date:** 2026-02-20
+**Analysis Date:** 2026-03-01
 
 ## Framework and Configuration
 
@@ -35,7 +35,7 @@ module.exports = {
 
 ```
 tests/
-├── unit/              # One file per lib/ module (32 test files)
+├── unit/              # One file per lib/ module (31 test files)
 │   ├── state.test.js
 │   ├── commands.test.js
 │   ├── cleanup.test.js
@@ -62,16 +62,21 @@ tests/
 │   ├── cleanup-noninterference.test.js
 │   ├── coverage-gaps.test.js
 │   ├── setup.test.js
-│   └── postinstall.test.js
+│   ├── postinstall.test.js
+│   ├── autopilot.test.js       # lib/autopilot.js (Phase 52)
+│   ├── evolve.test.js          # lib/evolve.js (Phase 55)
+│   ├── markdown-split.test.js  # lib/markdown-split.js
+│   └── agent-audit.test.js     # agents/ frontmatter + plugin.json validation
 ├── integration/
 │   ├── cli.test.js               # End-to-end CLI via execFileSync
 │   ├── e2e-workflow.test.js      # Feature chain integration test
 │   ├── golden.test.js            # Golden snapshot comparisons
 │   ├── npm-pack.test.js          # npm pack integrity check
-│   └── worktree-parallel-e2e.test.js
+│   ├── worktree-parallel-e2e.test.js
+│   └── evolve-e2e.test.js        # Evolve loop end-to-end (Phase 55)
 ├── helpers/
 │   ├── fixtures.js               # createFixtureDir, cleanupFixtureDir
-│   └── setup.js                  # captureOutput, captureError
+│   └── setup.js                  # captureOutput, captureError, captureOutputAsync
 ├── fixtures/
 │   └── planning/                 # Complete .planning/ fixture tree
 │       ├── config.json
@@ -94,6 +99,13 @@ tests/
 
 **Mapping rule:** `lib/{module}.js` → `tests/unit/{module}.test.js`. This 1:1 mapping is enforced by the per-file coverage thresholds in `jest.config.js`.
 
+**Exception:** `lib/requirements.js` has no corresponding unit test file and no coverage threshold entry. It is a new module with no test coverage yet.
+
+**Non-module test files:**
+- `tests/unit/agent-audit.test.js` — validates `agents/` directory: agent count (20), frontmatter fields, `plugin.json` hook registration. Not tied to a `lib/` module.
+- `tests/unit/validation.test.js` — dedicated tests for all `validatePhaseArg`, `validateFileArg`, etc. from `lib/utils.js` (supplement to `utils.test.js`).
+- `tests/unit/coverage-gaps.test.js` — targets branches not covered by primary tests. Add tests here rather than lowering thresholds.
+
 ---
 
 ## Test Naming Conventions
@@ -113,6 +125,8 @@ test('updates STATE.md on disk', () => { ... });
 test('persists changes to disk', () => { ... });
 test('requires phase, plan, and duration', () => { ... });
 ```
+
+**Exception:** `tests/unit/autopilot.test.js` uses `it()` in a small number of top-level constant tests (e.g., `it('is a positive number...')`). The convention is `test()` everywhere else.
 
 **Nested `describe` for validation suites** (in `tests/unit/validation.test.js`):
 ```js
@@ -201,48 +215,72 @@ describe('cmdStatePatch', () => {
 
 ---
 
-## `captureOutput` / `captureError` Pattern
+## Custom Fixture Pattern (for modules needing non-standard layout)
 
-`tests/helpers/setup.js` provides two utilities for testing `cmd*` functions that call `process.exit()`:
+`tests/unit/autopilot.test.js` and `tests/unit/evolve.test.js` create their own minimal fixture structures (not using `createFixtureDir`) because they need specific ROADMAP.md phase layouts or milestone names:
+
+```js
+function createAutopilotFixture(opts = {}) {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-autopilot-'));
+  const planning = path.join(tmpRoot, '.planning');
+  fs.mkdirSync(planning, { recursive: true });
+  fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n...');
+  fs.writeFileSync(path.join(planning, 'config.json'), JSON.stringify({...}));
+  // ... build ROADMAP.md and phase dirs programmatically ...
+  return tmpRoot;
+}
+```
+
+`tests/unit/evolve.test.js` tracks temp dirs in an array and cleans up via `afterEach`:
+```js
+let tmpDirs = [];
+
+function createTmpDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-evolve-test-'));
+  tmpDirs.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  for (const dir of tmpDirs) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { }
+  }
+  tmpDirs = [];
+});
+```
+
+Use `createFixtureDir` when you need the full standard `.planning/` structure. Use a custom fixture builder when you need specific phase layouts or milestone configurations.
+
+---
+
+## `captureOutput` / `captureError` / `captureOutputAsync` Pattern
+
+`tests/helpers/setup.js` provides three utilities for testing `cmd*` functions that call `process.exit()`:
 
 ```js
 const EXIT_SENTINEL = '__GRD_TEST_EXIT__';
 
-// Capture stdout and exit code from a cmd* function
+// Capture stdout and exit code from a sync cmd* function
 function captureOutput(fn) {
-  let captured = '';
-  let exitCode = null;
-
-  const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code) => {
-    if (exitCode === null) exitCode = code;
-    const err = new Error(EXIT_SENTINEL);
-    err.__EXIT__ = true;
-    err.code = code;
-    throw err;
-  });
-
-  const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data) => {
-    captured += data;
-    return true;
-  });
-
-  try {
-    fn();
-  } catch (e) {
-    if (e && e.__EXIT__) { /* expected */ }
-    else { writeSpy.mockRestore(); exitSpy.mockRestore(); throw e; }
-  } finally {
-    writeSpy.mockRestore();
-    exitSpy.mockRestore();
-  }
-
-  return { stdout: captured, exitCode: exitCode ?? 0 };
+  // Spies on process.exit and process.stdout.write
+  // process.exit throws EXIT_SENTINEL which is caught and swallowed
+  // Returns: { stdout: string, exitCode: number }
 }
 
-// Same pattern for stderr (error paths):
-function captureError(fn) { ... }
-// Returns: { stderr: captured, exitCode: exitCode ?? 1 }
+// Capture stderr and exit code from an error path
+function captureError(fn) {
+  // Same pattern for stderr
+  // Returns: { stderr: string, exitCode: number }
+}
+
+// Capture stdout and exit code from an async cmd* function (returns Promise)
+async function captureOutputAsync(fn) {
+  // Awaits fn() instead of calling synchronously
+  // Returns: Promise<{ stdout: string, exitCode: number }>
+}
 ```
+
+`captureOutputAsync` was added to `tests/helpers/setup.js` to support async `cmd*` functions in `lib/autopilot.js` and `lib/evolve.js`. Always call `.mockRestore()` in `finally` blocks.
 
 Usage:
 ```js
@@ -251,6 +289,13 @@ const { stdout, exitCode } = captureOutput(() => {
 });
 expect(exitCode).toBe(0);
 const parsed = JSON.parse(stdout);
+```
+
+```js
+// For async cmd* functions:
+const { stdout, exitCode } = await captureOutputAsync(async () => {
+  await cmdEvolve(fixtureDir, args, false);
+});
 ```
 
 ---
@@ -297,6 +342,41 @@ beforeEach(() => {
   fs.writeFileSync(statePath, content, 'utf-8');
 });
 ```
+
+---
+
+## Jest Module Mocking Pattern
+
+Tests for modules that call `spawnClaudeAsync` (which would launch real Claude subprocesses) use `jest.mock()` at the top of the file, before any `require()` of the module under test:
+
+```js
+// tests/unit/evolve.test.js — must precede require('../../lib/evolve')
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaude: jest.fn(actual.spawnClaude),
+    spawnClaudeAsync: jest.fn().mockResolvedValue({
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    }),
+  };
+});
+```
+
+```js
+// tests/unit/mcp-server.test.js
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
+  };
+});
+```
+
+Use `jest.requireActual` to spread remaining real exports — only override what the test needs to control. This pattern prevents subprocess leaks in CI.
 
 ---
 
@@ -395,13 +475,25 @@ const GOLDEN_COMMANDS = {
 
 **`exactKeys: false`**: Relaxed comparison — both must be valid JSON objects with at least one key. Used when the golden was captured from a different project state than the fixture.
 
-**Structural integrity tests** verify golden files themselves are valid and have expected fields:
+---
+
+## E2E Evolve Test Pattern
+
+`tests/integration/evolve-e2e.test.js` tests the evolve loop by importing modules directly (no CLI subprocess). It mocks `spawnClaudeAsync` to prevent real Claude calls, then creates custom `lib/` file fixtures that trigger discovery heuristics:
+
 ```js
-test('all golden JSON files contain valid JSON', () => {
-  for (const file of jsonFiles) {
-    expect(() => JSON.parse(content)).not.toThrow();
-  }
+jest.mock('../../lib/autopilot', () => {
+  const actual = jest.requireActual('../../lib/autopilot');
+  return {
+    ...actual,
+    spawnClaudeAsync: jest.fn().mockResolvedValue({ exitCode: 1, timedOut: false, stdout: '' }),
+  };
 });
+
+function createDiscoveryFixture(tmpDir) {
+  // Create lib/ files with TODO comments, long functions, empty catch blocks, process.exit calls
+  // to trigger discovery heuristics in analyzeCodebaseForItems()
+}
 ```
 
 ---
@@ -418,7 +510,6 @@ function parseFirstJson(str) {
     // Walk string char by char to find end of first JSON object by brace depth
     let depth = 0, inString = false, escape = false;
     for (let i = 0; i < str.length; i++) {
-      // ... brace counting logic ...
       if (ch === '{') depth++;
       if (ch === '}') {
         depth--;
@@ -435,23 +526,34 @@ Used in `tests/unit/state.test.js` and `tests/unit/commands.test.js`.
 
 ## Coverage Thresholds
 
-Per-file thresholds are enforced in `jest.config.js`. **Do not lower them.** Current thresholds:
+Per-file thresholds are enforced in `jest.config.js`. **Do not lower them.** All thresholds were significantly raised in Phase 51 — the floor is now 85%+ lines for all covered modules:
 
 | File | Lines | Functions | Branches |
 |------|-------|-----------|---------|
-| `lib/utils.js` | 85% | 90% | 65% |
-| `lib/state.js` | 83% | 85% | 65% |
-| `lib/commands.js` | 80% | 90% | 60% |
-| `lib/phase.js` | 80% | 85% | 60% |
-| `lib/roadmap.js` | 80% | 80% | 60% |
-| `lib/mcp-server.js` | 80% | 80% | 60% |
-| `lib/scaffold.js` | 75% | 100% | 55% |
-| `lib/verify.js` | 75% | 90% | 50% |
-| `lib/context.js` | 70% | 60% | 60% |
-| `lib/frontmatter.js` | 65% | 80% | 55% |
-| `lib/backend.js` | 90% | 100% | 90% |
-| `lib/paths.js` | 90% | 100% | 85% |
-| `lib/tracker.js` | 30% | 35% | 30% |
+| `lib/autopilot.js` | 93% | 93% | 80% |
+| `lib/backend.js` | 95% | 100% | 88% |
+| `lib/cleanup.js` | 92% | 96% | 80% |
+| `lib/commands.js` | 90% | 95% | 70% |
+| `lib/context.js` | 87% | 83% | 77% |
+| `lib/deps.js` | 94% | 100% | 87% |
+| `lib/evolve.js` | 85% | 94% | 70% |
+| `lib/frontmatter.js` | 89% | 100% | 78% |
+| `lib/gates.js` | 98% | 100% | 82% |
+| `lib/long-term-roadmap.js` | 97% | 100% | 83% |
+| `lib/markdown-split.js` | 95% | 100% | 90% |
+| `lib/mcp-server.js` | 90% | 85% | 55% |
+| `lib/parallel.js` | 85% | 100% | 80% |
+| `lib/paths.js` | 95% | 100% | 95% |
+| `lib/phase.js` | 91% | 94% | 70% |
+| `lib/roadmap.js` | 91% | 94% | 83% |
+| `lib/scaffold.js` | 90% | 100% | 70% |
+| `lib/state.js` | 85% | 88% | 77% |
+| `lib/tracker.js` | 85% | 89% | 70% |
+| `lib/utils.js` | 92% | 95% | 85% |
+| `lib/verify.js` | 85% | 100% | 70% |
+| `lib/worktree.js` | 84% | 100% | 73% |
+
+**Not covered:** `lib/requirements.js` has no threshold entry and no test file.
 
 Coverage is collected from `lib/**/*.js` only. Run `npm test` (which includes `--coverage`) to enforce.
 
@@ -487,6 +589,8 @@ jest.spyOn(process.stderr, 'write').mockImplementation((data) => { captured += d
 
 Always call `.mockRestore()` in `finally` blocks.
 
+**`jest.mock()` for subprocess-launching modules** — used when a module under test calls `spawnClaudeAsync`. Must be called before `require()` of the module that imports the mocked dependency. Pattern in `tests/unit/evolve.test.js` and `tests/unit/mcp-server.test.js`.
+
 **Manual module isolation for environment-dependent tests** (`tests/unit/backend-real-env.test.js`) — tests that read actual environment variables run in isolation.
 
 **`clearModelCache()`** from `lib/backend` — called in `beforeEach` or `beforeAll` when tests touch model resolution, to prevent cache bleed between tests:
@@ -514,8 +618,6 @@ describe('E2E: Backend detection', () => {
   });
 });
 ```
-
-This file tests version-specific feature interactions — it documents that the feature chain works end-to-end, not just each function in isolation.
 
 ---
 
@@ -555,9 +657,11 @@ Global timeout is 15 seconds per test (configured in `jest.config.js`). Integrat
 **For a new `lib/` module** (`lib/foo.js`):
 1. Create `tests/unit/foo.test.js`
 2. Import functions directly from `../../lib/foo`
-3. Use `captureOutput`/`captureError` for `cmd*` functions
-4. Use `createFixtureDir`/`cleanupFixtureDir` for filesystem tests
-5. Add coverage threshold for `./lib/foo.js` in `jest.config.js`
+3. Use `captureOutput`/`captureError` for sync `cmd*` functions
+4. Use `captureOutputAsync` for async `cmd*` functions
+5. Use `createFixtureDir`/`cleanupFixtureDir` for filesystem tests, or a custom fixture builder if you need a non-standard layout
+6. If the module calls `spawnClaudeAsync`, add a `jest.mock('../../lib/autopilot', ...)` at the top before any `require` of the module under test
+7. Add coverage threshold for `./lib/foo.js` in `jest.config.js`
 
 **For a new CLI command** (integration):
 1. Add test to the appropriate `describe` block in `tests/integration/cli.test.js`
@@ -571,4 +675,4 @@ Global timeout is 15 seconds per test (configured in `jest.config.js`). Integrat
 
 ---
 
-*Testing analysis: 2026-02-20*
+*Testing analysis: 2026-03-01*

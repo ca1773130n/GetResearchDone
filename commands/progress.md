@@ -20,6 +20,12 @@ Modes:
 Read all files referenced by the invoking prompt's execution_context before starting.
 </required_reading>
 
+<shell_safety>
+NEVER use inline `node -e` or `python3 -c` with `!=` or `!==` — zsh escapes `!` and breaks them.
+Use `grd-tools.js` pre-formatted output directly. Do NOT pipe `--raw` JSON through inline one-liners.
+If JSON field extraction is needed, write a temp .js file or use inverted equality (`=== "x"` + negate).
+</shell_safety>
+
 <process>
 
 <step name="parse_mode">

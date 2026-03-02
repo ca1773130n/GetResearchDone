@@ -10,6 +10,12 @@ Each agent has fresh context, explores a specific focus area, and writes documen
 Output: ${codebase_dir}/ folder with 7 structured documents about the codebase state.
 </purpose>
 
+<shell_safety>
+NEVER use inline `node -e` or `python3 -c` with `!=` or `!==` — zsh escapes `!` and breaks them.
+Use `grd-tools.js` pre-formatted output directly. Do NOT pipe `--raw` JSON through inline one-liners.
+If JSON field extraction is needed, write a temp .js file or use inverted equality (`=== "x"` + negate).
+</shell_safety>
+
 <process>
 
 <step name="init_context" priority="first">

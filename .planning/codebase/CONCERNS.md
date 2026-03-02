@@ -1,6 +1,6 @@
 # Technical Concerns
 
-**Analysis Date:** 2026-02-20
+**Analysis Date:** 2026-03-01
 
 ---
 
@@ -8,10 +8,11 @@
 
 | Severity | Count | Key Areas |
 |----------|-------|-----------|
-| Critical | 2 | MCP process monkeypatching, tracker coverage floor |
-| High | 6 | process.exit in libs, empty catch blocks, non-atomic writes, unescaped RegExp, path validation gap, model name staleness |
-| Medium | 6 | commands.js god-file, missing coverage thresholds, mcp-server version hardcoding, backward-compat accumulation, search scalability, npx dependency |
-| Low | 4 | magic number bar widths, duplicate progress logic, archivedPhasesDir mismatch, no test for concurrent writes |
+| Critical | 2 | MCP process monkeypatching (unchanged), model name staleness (OpenCode) |
+| High | 5 | process.exit in libs, empty catch blocks (151 total, growing), non-atomic writes, unescaped RegExp, path validation gap (symlink bypass) |
+| Medium | 5 | commands.js god-file (25 own fns + 2,848 lines), missing requirements.js threshold, MCP version hardcoding, backward-compat migration accumulation, search scalability |
+| Low | 3 | magic number bar widths (multiple formats, multiple files), duplicate progress logic, archivedPhasesDir path mismatch |
+| New | 3 | evolve.js god-file (2,567 lines), context.js god-file (2,546 lines), no test file for requirements.js |
 
 ---
 
@@ -19,17 +20,19 @@
 
 ### C1 — MCP Server Monkeypatches Global Process Streams
 
-**File:** `lib/mcp-server.js:1577-1622` (`captureExecution` function)
+**File:** `lib/mcp-server.js:1909-1955` (`captureExecution` function), `lib/mcp-server.js:1961-2010` (`captureExecutionAsync`)
 
 The MCP server reuses all `cmd*` functions which call `process.exit()` and write to `process.stdout`/`process.stderr`. To intercept these in a long-lived server context, `captureExecution()` replaces three global references on every tool call:
 
 ```js
-process.stdout.write = function (data) { ... };
-process.stderr.write = function (data) { ... };
+process.stdout.write = function (data) { stdout += String(data); return true; };
+process.stderr.write = function (data) { stderr += String(data); return true; };
 process.exit = function (code) { throw new Error(EXIT_SENTINEL); };
 ```
 
-**Risk:** If any `cmd*` function throws an unexpected exception (not `__MCP_EXIT__`), the `finally` block restores the originals — but only for the current stack frame. If a concurrent MCP call fires between the monkey-patch and the restore (e.g., two rapid tool calls), one call may write to the other call's captured buffer, producing corrupt output. There is no mutex or re-entrancy guard.
+An async variant `captureExecutionAsync` (`lib/mcp-server.js:1961`) extends this to async tool handlers but still uses the same global mutation approach with no concurrency guard.
+
+**Risk:** If any `cmd*` function throws an unexpected exception (not `__MCP_EXIT__`), the `catch` block restores the originals before re-throwing — but only for the current stack frame. If a concurrent MCP call fires between the monkey-patch and the restore (e.g., two rapid tool calls), one call may write to the other call's captured buffer, producing corrupt output. There is no mutex or re-entrancy guard. The async variant has no protection against concurrent `await` yield points during which another call could mutate the same global references.
 
 **Impact:** Silent data corruption in MCP mode. Impossible to detect without load testing.
 
@@ -37,77 +40,99 @@ process.exit = function (code) { throw new Error(EXIT_SENTINEL); };
 
 ---
 
-### C2 — `lib/tracker.js` Coverage Floor Is Critically Low (30%)
+### C2 — OpenCode Backend Model IDs Are Outdated
 
-**File:** `jest.config.js:38-42`, `lib/tracker.js`
+**File:** `lib/backend.js:42-46`
 
-The configured coverage threshold for `lib/tracker.js` is 30% lines / 35% functions / 30% branches — and the actual coverage is 40.61% lines / 44% functions / 40.46% branches. This is the lowest threshold in the project by a wide margin (next lowest is `lib/context.js` at 70%).
+```js
+opencode: {
+  opus: 'anthropic/claude-opus-4-5',
+  sonnet: 'anthropic/claude-sonnet-4-5',
+  haiku: 'anthropic/claude-haiku-4-5',
+},
+```
 
-The tracker module (1,043 lines) contains the GitHub Issues sync logic and Jira/MCP Atlassian integration. Lines 233–380 in `tracker.js` (the core of `createGitHubTracker` — `createPhaseIssue`, `createTaskIssue`, `updateIssueStatus`, `syncRoadmap`, `syncPhase`) are entirely untested. Lines 493–1026 (Jira prepare/schedule/reschedule functions) are also untested.
+As of 2026-03-01, the current Claude model IDs are `claude-opus-4-6` and `claude-sonnet-4-6`. The `4-5` series identifiers are outdated. Users on the OpenCode backend will receive 404 / model-not-found errors unless they override via `backend_models` in `config.json`.
 
-**Impact:** Regressions in tracker operations will not be caught by CI. Users relying on GitHub Issues or Jira sync have no safety net.
+The previous concern about `lib/tracker.js` coverage floor (30%) has been resolved: `jest.config.js` now sets `tracker.js` thresholds at 85% lines / 89% functions / 70% branches, and all six previously un-thresholded modules now have per-file thresholds configured.
 
-**Fix:** Add mock-based tests for `createGitHubTracker` methods (mocking `execFileSync('gh', ...)`). Raise threshold to 60%+ lines.
+**Impact:** Users on OpenCode backend cannot use default model resolution for any agent tier.
+
+**Fix:** Update `DEFAULT_BACKEND_MODELS.opencode` to `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-6`. Also note: `gpt-5.3-codex` and `gemini-3-pro` are speculative identifiers that may not match real API names.
 
 ---
 
 ## High
 
-### H1 — `process.exit()` Called from Library Modules (18 call sites)
+### H1 — `process.exit()` Called from Library Modules (2 call sites in utils.js)
 
-**Files:** `lib/commands.js` (lines 900, 1281, 1300, 1330, 1583, 1819), `lib/utils.js` (lines 455, 465), `lib/state.js` (line 91)
-
-Library modules in `lib/` call `process.exit()` directly via the `output()` and `error()` helpers:
+**File:** `lib/utils.js:662-672`
 
 ```js
-// lib/utils.js:449-465
 function output(result, raw, rawValue) { ...; process.exit(0); }
 function error(message) { ...; process.exit(1); }
 ```
 
-This design means `lib/` modules cannot be used as ordinary libraries — they terminate the process on every successful or failed call. The MCP server works around this with the global monkeypatching described in C1. Any future reuse of these functions (e.g., in tests without output capture, in a web API wrapper, or in a REPL context) will cause the process to exit unexpectedly.
+All `cmd*` functions across `lib/` terminate the process by calling `output()` and `error()`, which call `process.exit()`. This design means `lib/` modules cannot be used as ordinary libraries and drives the C1 monkeypatching concern. The new `lib/evolve.js` (2,567 lines) and `lib/autopilot.js` (633 lines) follow this same pattern — both import and call `output()` and `error()`.
 
-**Impact:** Architectural lock-in. Drives the C1 monkeypatching concern. Makes unit testing require `captureOutput` helpers for every assertion.
+**Impact:** Architectural lock-in. Every new module added to `lib/` inherits the process-exit dependency. Unit tests require `captureOutput` helpers. The async evolve loop (`lib/evolve.js:runEvolve`) is the first long-running async function in `lib/` that does not call `output()` directly, but subsidiary `cmd*` functions (`cmdEvolveDiscover`, `cmdEvolveState`, etc.) do.
 
 **Fix:** Refactor `output()` and `error()` to return structured results instead of calling `process.exit()`. Move exit calls to `bin/grd-tools.js` (the CLI entry point only).
 
 ---
 
-### H2 — 110+ Empty `catch {}` Blocks Silently Swallow Errors
+### H2 — Empty `catch {}` Blocks Have Grown to 151 Across `lib/` (From ~110)
 
-**Files:** `lib/phase.js` (11 instances), `lib/cleanup.js` (20 instances), `lib/roadmap.js` (2 instances), `lib/state.js` (1 instance), `lib/commands.js` (4 instances)
+**Distribution by file:**
 
-There are 110 empty catch blocks across `lib/` (confirmed by grep). Representative examples:
+| File | Empty catch count |
+|------|-------------------|
+| `lib/context.js` | 29 |
+| `lib/phase.js` | 21 |
+| `lib/evolve.js` | 18 |
+| `lib/commands.js` | 14 |
+| `lib/state.js` | 13 |
+| `lib/utils.js` | 12 |
+| `lib/cleanup.js` | 8 |
+| `lib/tracker.js` | 7 |
+| `lib/gates.js` | 6 |
+| `lib/verify.js` | 5 |
+| other lib/ files | 18 |
 
-- `lib/phase.js:239` — silent catch after directory rename; if this fails, sibling phases are not renumbered but the caller receives success
+The previous count was ~110; the addition of `lib/context.js` (29 instances), `lib/evolve.js` (18 instances) has raised the total to 151. Most are benign (e.g., `lib/evolve.js:175` catches `JSON.parse` errors and returns `null`, `lib/evolve.js:2389` catches `unlinkSync` when the file does not exist). However, the dangerous category in `lib/phase.js` (21 instances) is unchanged:
+
+- `lib/phase.js` rename loops — silent catch after directory rename; if this fails, sibling phases are not renumbered but the caller receives success
 - `lib/phase.js:395` — silent catch during file rename inside `cmdPhaseRemove`; partial rename is undetected
-- `lib/phase.js:827` — silent catch during milestone state update
 
-Many of these silently allow partial state to persist. For example, if renaming 10 phase directories in a remove operation fails halfway, the ROADMAP.md is already updated but the filesystem is not — the project enters an inconsistent state with no error reported.
+Many `lib/state.js` catches (13 instances) also silently absorb errors in STATE.md field parsing, meaning callers may receive empty/default data without any indication of failure.
 
 **Fix (priority order):**
 1. `lib/phase.js` rename loops — at minimum log errors to stderr even if non-fatal
-2. `lib/cleanup.js` — convert to `return []` with a logged warning
-3. Add atomic rollback for multi-step operations (update roadmap, then rename dirs — reverse both on failure)
+2. `lib/state.js` — add a `// intentionally ignored: <reason>` comment pattern to distinguish silent-but-safe from silent-and-risky
+3. New modules (`lib/context.js`, `lib/evolve.js`) — many catches are genuinely benign (directory-not-found fallbacks), but annotate them to distinguish from structural issues
 
 ---
 
 ### H3 — Non-Atomic File Writes on Critical Project Files
 
-**Files:** `lib/phase.js`, `lib/state.js`, `lib/frontmatter.js`, `lib/cleanup.js`
+**Files:** `lib/phase.js`, `lib/state.js`, `lib/frontmatter.js`, `lib/cleanup.js`, `lib/evolve.js`, `lib/autopilot.js`, `lib/requirements.js`
 
 All critical file mutations use direct `fs.writeFileSync()` with no temp-file-then-rename pattern:
 
 ```js
 // lib/phase.js:174
 fs.writeFileSync(roadmapPath, updatedContent, 'utf-8');
-// lib/phase.js:545
-fs.writeFileSync(statePath, stateContent, 'utf-8');
+// lib/evolve.js:191
+fs.writeFileSync(filePath, JSON.stringify(state, null, 2) + '\n');
+// lib/requirements.js:391
+fs.writeFileSync(reqFilePath, updatedContent, 'utf-8');
+// lib/autopilot.js:298
+fs.writeFileSync(statePath, content);
 ```
 
-If the process is killed (Ctrl+C, OOM, agent timeout) during a write, the file is left in a partially written state. For ROADMAP.md and STATE.md, this is project-corrupting.
+The new modules (`lib/evolve.js`, `lib/autopilot.js`, `lib/requirements.js`) added since the last analysis all use the same non-atomic write pattern.
 
-**Impact:** Silent corruption of STATE.md or ROADMAP.md on process interruption. Recovery requires manual diff/repair.
+**Impact:** Silent corruption of STATE.md, ROADMAP.md, REQUIREMENTS.md, or EVOLVE-STATE.json on process interruption (Ctrl+C, OOM, agent timeout). Recovery requires manual diff/repair.
 
 **Fix:** Use write-to-temp + rename pattern:
 ```js
@@ -118,11 +143,11 @@ fs.renameSync(tmp, roadmapPath);
 
 ---
 
-### H4 — Unescaped File Content Used in `new RegExp()` (`lib/cleanup.js`)
+### H4 — Unescaped File Content Used in `new RegExp()` (Multiple Locations)
 
-**File:** `lib/cleanup.js:192-195`
+**Files:** `lib/cleanup.js:192-195`, `lib/long-term-roadmap.js:45`, `lib/context.js:76`, `lib/evolve.js:1070`
 
-Export names extracted from source files are used directly in dynamically constructed `RegExp` objects without escaping:
+Export names and user-controlled field names are used directly in dynamically constructed `RegExp` objects without escaping:
 
 ```js
 // lib/cleanup.js:192-195
@@ -131,32 +156,34 @@ const patterns = [
   new RegExp(`require.*\\b${exportName}\\b`, 'g'),
   new RegExp(`\\.${exportName}\\b`, 'g'),
 ];
+
+// lib/context.js:76 — phaseNum is parsed from ROADMAP.md
+const phasePattern = new RegExp('## Phase ' + phaseNum + '[^#]*', 's');
+
+// lib/evolve.js:1070 — cmd filename from filesystem
+const normalizedCmd = cmd.replace(/-/g, '[- ]?');
+const pattern = new RegExp(normalizedCmd, 'i');
 ```
 
-If a source file contains an exported identifier with special regex characters (e.g., `$init`, a name starting with `$`), the regex construction will throw or produce incorrect matching results. Similarly in `lib/long-term-roadmap.js:45`:
-
-```js
-// lib/long-term-roadmap.js:45
-const pattern = new RegExp(`\\*\\*${fieldName}:\\*\\*\\s*(.+)`, 'i');
-```
-
-`fieldName` comes from object iteration over user-controlled milestone fields.
+`lib/context.js:76` uses `parseInt(phaseInfo.phase_number, 10)` so the value is numeric and safe. `lib/evolve.js:1070` uses a `.replace()` that introduces intentional regex syntax (`[- ]?`) but does not otherwise escape the command name, so a command file named `fix+(bug).md` would produce an invalid RegExp.
 
 **Fix:** Escape all dynamic strings before inserting into `new RegExp()`:
 ```js
 const escaped = str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 ```
 
-Note: `lib/long-term-roadmap.js:496` already does this correctly (`escapedId`). Apply the same pattern to `lib/cleanup.js`.
+Note: `lib/long-term-roadmap.js:496` already does this correctly (`escapedId`). Apply the same pattern to `lib/cleanup.js` and `lib/evolve.js:1070`.
 
 ---
 
 ### H5 — Path Escape Validation Uses `path.resolve` Without `realpathSync` (Symlink Bypass)
 
-**File:** `lib/utils.js:356-361`
+**File:** `lib/utils.js:563-569`
 
 ```js
 function validateFilePath(filePath, cwd) {
+  if (typeof filePath !== 'string') throw new Error('File path must be a string');
+  if (filePath.includes('\0')) throw new Error('File path must not contain null bytes');
   const resolved = path.resolve(cwd, filePath);
   if (!resolved.startsWith(cwd)) throw new Error('File path must not escape project directory');
   return filePath;
@@ -169,7 +196,7 @@ function validateFilePath(filePath, cwd) {
 const realCwd = fs.realpathSync(cwd); // "handles macOS /var -> /private/var symlink"
 ```
 
-But `validateFilePath` in `lib/utils.js` does not apply the same treatment.
+But `validateFilePath` in `lib/utils.js` does not apply the same treatment. The MCP server calls `descriptor.execute(this.cwd, args)` directly without re-running path validation, so MCP tool calls that accept file arguments bypass the validation layer entirely.
 
 **Fix:**
 ```js
@@ -184,83 +211,44 @@ function validateFilePath(filePath, cwd) {
 }
 ```
 
----
-
-### H6 — Model Name Strings Are Hardcoded and May Become Stale
-
-**File:** `lib/backend.js:37-46`
-
-Model identifiers for non-Claude backends are hardcoded constants:
-
-```js
-codex: { opus: 'gpt-5.3-codex', sonnet: 'gpt-5.3-codex-spark', haiku: 'gpt-5.3-codex-spark' },
-gemini: { opus: 'gemini-3-pro', sonnet: 'gemini-3-flash', haiku: 'gemini-2.5-flash' },
-opencode: {
-  opus: 'anthropic/claude-opus-4-5',
-  sonnet: 'anthropic/claude-sonnet-4-5',
-  haiku: 'anthropic/claude-haiku-4-5',
-},
-```
-
-As of analysis date, `claude-opus-4-5` and `claude-sonnet-4-5` model IDs are outdated (current Claude models are `claude-opus-4-6`, `claude-sonnet-4-6`). `gpt-5.3-codex` and `gemini-3-pro` are speculative future identifiers.
-
-**Impact:** Users on OpenCode backend will get 404/invalid model errors unless they override via `backend_models` config.
-
-**Fix:** Document that `DEFAULT_BACKEND_MODELS` requires periodic updates. Add a config-file override path (already exists via `backend_models` in `config.json`) and document it prominently. Update OpenCode model strings to current releases.
+Additionally, move `validateFileArg()` into each `cmd*` function that accepts a file path, rather than relying solely on the CLI routing layer in `bin/grd-tools.js`.
 
 ---
 
 ## Medium
 
-### M1 — `lib/commands.js` Is a God File (2,808 Lines, 35 Functions)
+### M1 — `lib/commands.js` Remains a God File (2,848 Lines, 25 Own Functions)
 
 **File:** `lib/commands.js`
 
-At 2,808 lines containing 35 `cmd*` functions spanning slug generation, config management, history digestion, model resolution, progress rendering, dashboard, phase detail, health, backend detection, long-term roadmap, quality analysis, setup, requirement CRUD, search, and directory migration — this module is the largest in the project and is growing.
+At 2,848 lines with 25 `cmd*` functions defined directly in the file (plus re-exported functions from `lib/requirements.js`), `commands.js` is still the largest source file. The partial split of requirement functions into `lib/requirements.js` (415 lines) improved isolation for that domain, but `commands.js` still spans slug generation, config management, history digestion, model resolution, progress rendering (three formats), dashboard, phase detail, health, backend detection, long-term roadmap, quality analysis, setup, search, directory migration, coverage reporting, and health checks.
 
-The module imports from `utils`, `frontmatter`, `backend`, `long-term-roadmap`, `cleanup`, and `paths` but has no single cohesive responsibility. New CLI commands continue to be added here.
+The corresponding test file (`tests/unit/commands.test.js`) has grown beyond 3,000 lines.
 
-**Impact:** Difficult to navigate. Test file (`tests/unit/commands.test.js` at 3,338 lines) is correspondingly difficult to maintain. Code changes in one feature area can accidentally affect unrelated areas.
-
-**Fix:** Split by domain:
-- `lib/requirements.js` — `cmdRequirementGet`, `cmdRequirementList`, `cmdRequirementTraceability`, `cmdRequirementUpdateStatus`
+**Fix:** Continue the split pattern established by `lib/requirements.js`:
 - `lib/dashboard.js` — `cmdDashboard`, `cmdPhaseDetail`, `cmdProgressRender`, `cmdHealth`
 - `lib/config-cmd.js` — `cmdConfigEnsureSection`, `cmdConfigSet`
 
 ---
 
-### M2 — Six `lib/` Modules Have No Coverage Thresholds in `jest.config.js`
+### M2 — `lib/requirements.js` Has No Coverage Threshold in `jest.config.js`
 
-**File:** `jest.config.js`
+**File:** `jest.config.js`, `lib/requirements.js`
 
-The following modules have no per-file coverage threshold configured:
+`lib/requirements.js` (415 lines) contains `cmdRequirementGet`, `cmdRequirementList`, `cmdRequirementTraceability`, and `cmdRequirementUpdateStatus`. It is tested via `tests/unit/commands.test.js` (which imports and tests these functions), but there is no per-file threshold entry in `jest.config.js` for `./lib/requirements.js`. Unlike the previously uncovered modules, `requirements.js` is not listed in the `coverageThreshold` map at all.
 
-| Module | Lines | Actual Coverage (measured) |
-|--------|-------|---------------------------|
-| `lib/cleanup.js` | 1,406 | 92.33% lines |
-| `lib/deps.js` | ~200 | 96.77% lines |
-| `lib/gates.js` | ~280 | 96.4% lines |
-| `lib/long-term-roadmap.js` | 746 | 92.03% lines |
-| `lib/parallel.js` | ~470 | 84.5% lines |
-| `lib/worktree.js` | 471 | 84.5% lines |
+With no threshold, coverage for this file can silently drop to 0% without breaking CI.
 
-With no threshold, coverage for these files can silently drop to 0% without breaking CI. The parallel and worktree modules are particularly fragile as they orchestrate git operations.
-
-**Fix:** Add coverage thresholds for all 6 modules. Conservative targets that match current coverage:
+**Fix:** Add a threshold entry:
 ```js
-'./lib/cleanup.js': { lines: 90, functions: 95, branches: 80 },
-'./lib/deps.js': { lines: 90, functions: 100, branches: 85 },
-'./lib/gates.js': { lines: 90, functions: 100, branches: 80 },
-'./lib/long-term-roadmap.js': { lines: 88, functions: 90, branches: 78 },
-'./lib/parallel.js': { lines: 80, functions: 100, branches: 72 },
-'./lib/worktree.js': { lines: 80, functions: 100, branches: 70 },
+'./lib/requirements.js': { lines: 85, functions: 100, branches: 75 },
 ```
 
 ---
 
 ### M3 — MCP Server Version Hardcoded and Out of Sync with `package.json`
 
-**File:** `lib/mcp-server.js:1706-1708`
+**File:** `lib/mcp-server.js:2088-2092`
 
 ```js
 serverInfo: {
@@ -269,7 +257,7 @@ serverInfo: {
 },
 ```
 
-The package is at version `0.2.2` (from `package.json`). The MCP protocol version `2024-11-05` is also hardcoded. MCP clients that inspect `serverInfo.version` will see stale data. If the MCP protocol version advances, the server will not negotiate the correct version.
+The package is at version `0.2.8` (from `package.json`). The MCP protocol version `2024-11-05` is also hardcoded at `lib/mcp-server.js:2084`. MCP clients that inspect `serverInfo.version` will see stale data.
 
 **Fix:** Read version dynamically:
 ```js
@@ -280,24 +268,24 @@ serverInfo: { name: 'grd-mcp-server', version }
 
 ---
 
-### M4 — Backward-Compatibility Migration Code Accumulating in `lib/paths.js` and `lib/tracker.js`
+### M4 — Backward-Compatibility Migration Code Still Accumulating
 
-**Files:** `lib/paths.js:91-96` (fallback comment notes "transition period"), `lib/tracker.js:37-64` (three legacy format auto-migrations)
+**Files:** `lib/tracker.js:37-98`, `lib/paths.js:246-262`
 
-The `paths.js` module has documented a "transition period" fallback to old-style `.planning/phases/` paths. If the `cmdMigrateDirs` migration (`lib/commands.js:2674`) has already been completed for all users, the fallback branches in `phasesDir()`, `researchDir()`, `codebaseDir()`, `todosDir()`, `quickDir()` are dead code that creates confusion.
+The `lib/tracker.js` module maintains three separate config migration paths (auto-applied on every config load):
+1. `jira` → `mcp-atlassian` provider rename (line 42)
+2. `epic_issue_type` → `milestone_issue_type` (line 56)
+3. `github_integration` → `tracker.github` (line 77)
 
-Similarly, `lib/tracker.js` maintains three separate config migration paths:
-1. `jira` → `mcp-atlassian` (line 38)
-2. `epic_issue_type` → `milestone_issue_type` (line 52)
-3. `github_integration` → `tracker.github` (line 67)
+The `lib/paths.js:archivedPhasesDir()` function (lines 255-262) generates `{version}-phases/` paths for archived milestone phases, but the actual milestone archive layout in `.planning/milestones/` uses plain version directories (`v0.2.0/`). This function is used only by `lib/phase.js:1036` during `milestone complete` operations. Whether the archive creates `v0.2.0-phases/` or `v0.2.0/` depends on which code path is followed. The comment says "matches existing archive layout" but the layout directory structure observed is plain versioned directories.
 
-**Fix:** Document a deprecation timeline for the old paths fallback. Add a validation check during `state load` or `health` to warn users still on the old layout. Remove the migration code once all users have migrated.
+**Fix:** Document a deprecation timeline for legacy tracker config formats. Add a `state load` or `health` warning for users still on the old layout. Remove migration code once confirmed-complete across user base.
 
 ---
 
 ### M5 — `cmdSearch` Has No Result Limit (Unbounded Memory)
 
-**File:** `lib/commands.js:2630-2657`
+**File:** `lib/commands.js:2441-2483`
 
 ```js
 function cmdSearch(cwd, query, raw) {
@@ -322,75 +310,119 @@ On large projects with thousands of `.md` files, this function loads all file co
 
 ---
 
-### M6 — ESLint Complexity Analysis Depends on `npx` Being Available
-
-**File:** `lib/cleanup.js:90`
-
-```js
-const output = execFileSync('npx', args, { ... });
-```
-
-The `analyzeComplexity()` function spawns `npx eslint` as a subprocess. This:
-1. Requires `npx` and `eslint` (a devDependency) to be present at runtime, which may not be true in a production npm install (devDependencies are excluded)
-2. Has no `maxBuffer` override — the default `execFileSync` maxBuffer is 1MB, which may be exceeded on large codebases
-
-The function does degrade gracefully (returns `[]` on failure), but complexity analysis is silently disabled in production installs.
-
-**Fix:** Document that `phase_cleanup.refactoring: true` requires devDependencies to be installed. Alternatively, implement a lightweight complexity counter that does not require ESLint.
-
----
-
 ## Low
 
-### L1 — Progress Bar Width (20 chars) Is a Magic Number Repeated in Three Places
+### L1 — Progress Bar Width Is a Magic Number Repeated in Multiple Files and Formats
 
-**Files:** `lib/commands.js:844,849,861`, `lib/state.js:353`
+**Files:** `lib/commands.js:974,994,1242`, `lib/state.js:413`
 
-The integer `20` representing progress bar width appears four times with no named constant:
+The integer progress bar width appears as inline constants with different values:
 
 ```js
-// lib/commands.js:849
-const filled = Math.round((percent / 100) * 20);
-const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+// lib/commands.js:974 — 'table' format
+const barWidth = 10;
+// lib/commands.js:994 — 'bar' format
+const barWidth = 20;
+// lib/commands.js:1242 — dashboard
+const barWidth = 10;
+// lib/state.js:413 — STATE.md progress
+const barWidth = 10;
 ```
 
-**Fix:** Extract to a named constant `const PROGRESS_BAR_WIDTH = 20` in `lib/utils.js`.
+Three different sizes (10, 10, 20, 10) are scattered across two files with no named constants. The same progress bar rendering pattern (percent calculation → filled/empty repeat) appears four times with no shared utility.
+
+**Fix:** Extract to named constants and a shared `renderProgressBar(completed, total, width)` function in `lib/utils.js`. Use `TABLE_BAR_WIDTH = 10` and `CLI_BAR_WIDTH = 20` as named constants.
 
 ---
 
-### L2 — Progress Rendering Logic Duplicated Between `lib/state.js` and `lib/commands.js`
+### L2 — `archivedPhasesDir()` Path Pattern May Not Match Actual Archive Layout
 
-**Files:** `lib/state.js:350-355`, `lib/commands.js:844-863`
-
-Both modules contain near-identical progress bar rendering code (percent calculation, bar fill, text formatting). Changes to the display format must be applied in two places.
-
-**Fix:** Extract to a shared `renderProgressBar(completed, total, width)` function in `lib/utils.js`.
-
----
-
-### L3 — `archivedPhasesDir()` Creates a Path Pattern (`{version}-phases`) That Does Not Match Actual Archive Layout
-
-**File:** `lib/paths.js:205-212`
+**File:** `lib/paths.js:255-262`
 
 ```js
 function archivedPhasesDir(cwd, version) {
-  return path.join(cwd, '.planning', 'milestones', version + '-phases');
+  const milestonesBase = path.join(cwd, '.planning', 'milestones');
+  const resolved = path.join(milestonesBase, version + '-phases');
+  // ...
+  return resolved;
 }
 ```
 
-The comment says "matches the existing archive layout." However, the actual milestone archive layout (as visible in `.planning/milestones/`) uses plain version directories (e.g., `v0.2.0/`) not `v0.2.0-phases/`. This function is unused by any currently active code path (confirmed by grep), but if referenced it will produce wrong paths.
+This function generates paths like `.planning/milestones/v0.2.0-phases/`. However, the actual `.planning/milestones/` directory layout observed in this project uses plain version directories (e.g., `v0.2.8/`). The function is used by `lib/phase.js:1036` during `milestone complete` but may produce paths that do not match any existing directory if the archive layout has changed. No tests verify that `milestone complete` creates the expected directory structure.
 
-**Fix:** Verify the intended archive format and either update or remove the function.
+**Fix:** Verify the intended archive format end-to-end. Either update or remove the function. Add an integration test for `milestone complete` that verifies the resulting directory structure.
 
 ---
 
-### L4 — No Test Coverage for Concurrent Worktree + Roadmap Write Scenarios
+### L3 — No Test Coverage for Concurrent Worktree + Roadmap Write Scenarios
 
-**Files:** `tests/integration/worktree-parallel-e2e.test.js`
+**File:** `tests/integration/worktree-parallel-e2e.test.js`
 
-The integration test at line 455 tests concurrent worktree _creation_ (different paths/branches), but there is no test verifying that two simultaneous `phase complete` or `phase add` operations on the same ROADMAP.md do not corrupt it. The `worktree` module creates isolated git worktrees, but ROADMAP.md and STATE.md live in the shared main repo — concurrent writes to them during parallel execution would be a real-world scenario.
+The integration test tests concurrent worktree creation (different paths/branches), but there is no test verifying that two simultaneous `phase complete` or `phase add` operations on the same ROADMAP.md do not corrupt it. The `worktree` module creates isolated git worktrees, but ROADMAP.md and STATE.md live in the shared main repo — concurrent writes to them during parallel execution are a real-world scenario in the evolve loop (which spawns multiple subprocess iterations).
 
 **Fix:** Add integration test that spawns two concurrent `phase complete` calls and verifies ROADMAP.md integrity afterward. Add a file lock or sequential queue for shared file writes in parallel mode.
+
+---
+
+## New Concerns (Since Last Analysis)
+
+### N1 — `lib/evolve.js` Is a Second God File (2,567 Lines)
+
+**File:** `lib/evolve.js`
+
+The evolve module (2,567 lines) combines:
+- State I/O (`readEvolveState`, `writeEvolveState`, `createInitialState`)
+- Merge/deduplication logic (`mergeWorkItems`, `advanceIteration`)
+- Codebase discovery engine (18 separate `discover*` sub-functions, ~1,200 lines total)
+- AI-based discovery via `spawnClaudeAsync` (`discoverWithClaude`)
+- Scoring and priority selection (`scoringHeuristic`, `pickTopItems`, `groupDiscoveredItems`)
+- Iteration orchestration (`runGroupDiscovery`, `_runIterationStep`, `_handleIterationResult`, `runEvolve`)
+- Evolution notes I/O (`writeEvolutionNotes`)
+- Todo integration (`writeDiscoveriesToTodos`)
+- CLI entry points (`cmdEvolveDiscover`, `cmdEvolveState`, `cmdEvolveAdvance`, `cmdEvolveReset`, `cmdInitEvolve`)
+
+The discovery engine section alone (~1,200 lines) contains 18 parallel catch blocks that silently absorb errors from individual discovery dimensions. If a discovery function fails, no item is added but no warning is logged either.
+
+**Impact:** The module is already 88% as large as `lib/commands.js`. Further growth is likely as more discovery dimensions are added.
+
+**Fix:** Split into at least three modules:
+- `lib/evolve-state.js` — state I/O, state creation, merge logic, iteration advancement
+- `lib/evolve-discover.js` — all `discover*` functions and `analyzeCodebaseForItems`
+- `lib/evolve.js` — orchestration (`runEvolve`, `runGroupDiscovery`), CLI entry points
+
+---
+
+### N2 — `lib/context.js` Is a Third God File (2,546 Lines, 29 Empty Catches)
+
+**File:** `lib/context.js`
+
+The context module (2,546 lines) provides init workflow context for all 21 workflow types (`cmdInitExecutePhase`, `cmdInitPlanPhase`, `cmdInitNewProject`, etc.). It contains:
+- 29 empty `catch {}` blocks — the highest count in the codebase
+- Inline file caching with `readCachedState` (module-level state)
+- Ceremony level detection logic (`inferCeremonyLevel`)
+- A shared `buildInitContext` utility
+- 21 `cmdInit*` functions each loading config/state/roadmap/backend independently
+
+The 29 silent catches in context.js are mostly benign (optional file reads for context enrichment), but the lack of any error logging means it is impossible to diagnose context loading failures in production.
+
+**Impact:** Adding new init workflows continues to grow this file. The lack of error transparency makes debugging context failures difficult for users.
+
+**Fix:** Extract `buildInitContext` and the ceremony detection logic to a shared base. Group related init functions (survey/deep-dive/feasibility into `lib/context-research.js`, execution/planning into `lib/context-execution.js`).
+
+---
+
+### N3 — `lib/requirements.js` Has No Dedicated Test File
+
+**File:** `lib/requirements.js`, `tests/unit/commands.test.js`
+
+`lib/requirements.js` (415 lines) contains four `cmd*` functions that are tested via `tests/unit/commands.test.js` (describes at lines 2640, 2719, 2822, 2992). This violates the project's test-mirror convention (`lib/X.js` → `tests/unit/X.test.js`). More critically, there is no per-file coverage threshold for `lib/requirements.js` in `jest.config.js`, meaning coverage can silently drop without breaking CI.
+
+**Impact:** Coverage regressions in requirement management go undetected. The module is tested through `commands.test.js` which already exceeds 3,000 lines.
+
+**Fix:** Create `tests/unit/requirements.test.js` with focused tests for `lib/requirements.js`. Add to `jest.config.js`:
+```js
+'./lib/requirements.js': { lines: 85, functions: 100, branches: 75 },
+```
 
 ---
 
@@ -398,17 +430,17 @@ The integration test at line 455 tests concurrent worktree _creation_ (different
 
 ### Path Traversal — Partially Mitigated
 
-`validateFilePath()` in `lib/utils.js:356` is called from `bin/grd-tools.js` for the `frontmatter`, `verify`, and `summary-extract` commands. However, internal lib-to-lib calls (e.g., `cmdFrontmatterSet` called from `mcp-server.js`) do not go through `bin/grd-tools.js` and therefore bypass the validation layer. The MCP server calls `descriptor.execute(this.cwd, args)` directly without re-running `validateFileArg`. Since MCP tools accept arbitrary `file` arguments from the calling agent, an agent could pass `../../etc/passwd` and reach `cmdFrontmatterGet` without path validation.
+`validateFilePath()` in `lib/utils.js:563` is called from `bin/grd-tools.js` for the `frontmatter`, `verify`, and `summary-extract` commands. However, internal lib-to-lib calls (e.g., `cmdFrontmatterSet` called from `mcp-server.js`) do not go through `bin/grd-tools.js` and therefore bypass the validation layer. The MCP server calls `descriptor.execute(this.cwd, args)` directly without re-running `validateFileArg`. Since MCP tools accept arbitrary `file` arguments from the calling agent, an agent could pass `../../etc/passwd` and reach `cmdFrontmatterGet` without path validation. The symlink bypass (H5) compounds this risk.
 
 **Recommendation:** Move `validateFileArg()` into each `cmd*` function that accepts a file path, rather than relying on the CLI routing layer.
 
 ### Shell Injection — Mitigated
 
-All `execFileSync` calls use argument arrays (not shell strings). `execSync` is not used anywhere in `lib/`. This is correct and safe.
+All `execFileSync` calls use argument arrays (not shell strings). `execSync` is not used anywhere in `lib/`. The new `lib/autopilot.js` and `lib/evolve.js` use `childProcess.spawnSync` and `childProcess.spawn` with array arguments. This is correct and safe.
 
-### Regex Injection from Codebase Content — Low Risk
+### Regex Injection from Codebase Content — Low Risk (Growing)
 
-The `exportName` injection into `new RegExp()` in `lib/cleanup.js:192-195` affects analysis-only code that never writes files. The worst case is incorrect dead-export detection, not file corruption. However the fix is trivial and should be applied.
+The `exportName` injection in `lib/cleanup.js:192-195` and command filename injection in `lib/evolve.js:1070` affect analysis-only code that never writes files. The worst case is incorrect dead-export detection or missed integration test discovery. The fix is trivial and should be applied.
 
 ---
 
@@ -416,14 +448,18 @@ The `exportName` injection into `new RegExp()` in `lib/cleanup.js:192-195` affec
 
 ### devDependencies Only — No Runtime Dependencies
 
-The project has zero production `dependencies` in `package.json`. All tooling (`jest`, `eslint`, `prettier`, `@eslint/js`, `globals`) is in `devDependencies`. This is intentional and well-designed for a CLI tool that bundles its own lib/.
+The project has zero production `dependencies` in `package.json`. All tooling (`jest`, `eslint`, `prettier`, `@eslint/js`, `globals`) is in `devDependencies`. This is intentional and well-designed for a CLI tool.
 
-**Risk:** `analyzeComplexity()` in `lib/cleanup.js` calls `npx eslint` at runtime. In a production install (`npm install --production`), eslint is not available and complexity analysis silently fails. This is documented at M6.
+**Risk:** `analyzeComplexity()` in `lib/cleanup.js` calls `npx eslint` at runtime. In a production install (`npm install --production`), eslint is not available and complexity analysis silently fails.
 
-### Jest v30 — Recent Major Version
+### jest v30 — Current Major Version
 
-`jest: ^30.2.0` (in `devDependencies`). Jest 30 is a major version released recently. No known breaking changes affect the test suite (all 1,634 tests pass), but ecosystem plugins and coverage reporters may lag.
+`jest: ^30.2.0` (in `devDependencies`). No known breaking changes affect the test suite. All 1,631+ tests pass.
+
+### ESLint v10 — Recent Major Version
+
+`eslint: ^10.0.0` and `@eslint/js: ^10.0.1` are the latest major versions. The flat config system is in use (`eslint.config.js`). No known issues, but ecosystem plugins may lag.
 
 ---
 
-*Concerns analysis: 2026-02-20*
+*Concerns analysis: 2026-03-01*
