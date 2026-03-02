@@ -221,6 +221,18 @@ export interface HandleIterationReturn {
   iterResult: IterationResult;
 }
 
+// ── Product Ideation Types ───────────────────────────────────────────────────
+
+/** Structured context gathered from project planning files for product ideation. */
+export interface ProductIdeationContext {
+  projectVision: string | null;
+  longTermGoals: string | null;
+  existingCommands: string[];
+  existingAgents: string[];
+  recentPhases: string | null;
+  productQuality: string | null;
+}
+
 // ── Infinite Evolve Types ────────────────────────────────────────────────────
 
 /** Per-cycle result in the infinite evolve loop. */

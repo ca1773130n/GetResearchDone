@@ -33,6 +33,7 @@ const SONNET_MODEL: string = 'sonnet';
 const WORK_ITEM_DIMENSIONS: string[] = [
   'improve-features',
   'new-features',
+  'product-ideation',
   'productivity',
   'quality',
   'usability',
@@ -67,12 +68,14 @@ const THEME_PATTERNS: ThemePattern[] = [
   { pattern: /^improve-output-/, theme: 'output-improvements' },
   { pattern: /^add-fallback-/, theme: 'error-recovery' },
   { pattern: /^consolidate-/, theme: 'api-consolidation' },
+  { pattern: /^product-/, theme: 'product-ideation' },
 ];
 
 /** Dimension weights for priority scoring */
 const DIMENSION_WEIGHTS: Record<string, number> = {
   'improve-features': 10,
   'new-features': 9,
+  'product-ideation': 10,
   stability: 9,
   consistency: 7,
   productivity: 6,
