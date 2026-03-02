@@ -21,6 +21,7 @@ const MOCK_DISCOVERY_ITEMS = [
   { dimension: 'productivity', slug: 'long-func-alpha-doSomething', title: 'Long function doSomething', description: 'lib/alpha.js function doSomething could be refactored for clarity.', effort: 'medium' },
   { dimension: 'improve-features', slug: 'improve-output-alpha-L8', title: 'Improve output in alpha.js', description: 'lib/alpha.js line 8 output could include human-readable format.', effort: 'small' },
   { dimension: 'new-features', slug: 'add-dry-run-alpha', title: 'Add dry-run to alpha', description: 'lib/alpha.js doSomething could support a --dry-run flag.', effort: 'medium' },
+  { dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Add snapshot command', description: 'New /grd:snapshot command that captures full project state for comparison.', effort: 'medium' },
 ];
 
 // Mock spawnClaude before any require of lib/evolve.js (which destructures it at load time)
@@ -108,6 +109,10 @@ const {
   cmdEvolveAdvance,
   cmdEvolveReset,
   cmdInitEvolve,
+  gatherProductContext,
+  buildProductIdeationPrompt,
+  parseProductIdeationOutput,
+  discoverProductIdeationItems,
 } = require('../../lib/evolve');
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
@@ -759,6 +764,248 @@ describe('discoverWithClaude', () => {
     const combined = stderrLines.join('');
     // Should contain a human-readable timeout indicator, not just "timedOut=true"
     expect(combined).toMatch(/WARNING.*timeout|timed out|TIMEOUT/i);
+  });
+});
+
+// ─── Product Ideation Discovery ─────────────────────────────────────────────
+
+describe('product ideation discovery', () => {
+
+  describe('gatherProductContext', () => {
+    test('returns ProductIdeationContext with all fields', () => {
+      const dir = createTmpDir();
+      // Create minimal planning files
+      const planningDir = path.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild great tools');
+      fs.writeFileSync(path.join(planningDir, 'LONG-TERM-ROADMAP.md'), '# LT Roadmap\n\n## LT-1: Foundation');
+      fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n### Phase 1\n\nDone');
+
+      // Create commands and agents directories
+      const cmdDir = path.join(dir, 'commands');
+      const agentDir = path.join(dir, 'agents');
+      fs.mkdirSync(cmdDir, { recursive: true });
+      fs.mkdirSync(agentDir, { recursive: true });
+      fs.writeFileSync(path.join(cmdDir, 'survey.md'), '---\nname: survey\n---\n');
+      fs.writeFileSync(path.join(cmdDir, 'plan-phase.md'), '---\nname: plan-phase\n---\n');
+      fs.writeFileSync(path.join(agentDir, 'grd-planner.md'), '---\nname: grd-planner\n---\n');
+
+      const context = gatherProductContext(dir);
+      expect(context).toHaveProperty('projectVision');
+      expect(context).toHaveProperty('longTermGoals');
+      expect(context).toHaveProperty('existingCommands');
+      expect(context).toHaveProperty('existingAgents');
+      expect(context).toHaveProperty('recentPhases');
+      expect(context.projectVision).toContain('Build great tools');
+      expect(context.longTermGoals).toContain('Foundation');
+      expect(context.existingCommands).toContain('survey');
+      expect(context.existingCommands).toContain('plan-phase');
+      expect(context.existingAgents).toContain('grd-planner');
+    });
+
+    test('returns null fields when planning files do not exist', () => {
+      const dir = createTmpDir();
+      const context = gatherProductContext(dir);
+      expect(context.projectVision).toBeNull();
+      expect(context.longTermGoals).toBeNull();
+      expect(context.existingCommands).toEqual([]);
+      expect(context.existingAgents).toEqual([]);
+    });
+
+    test('returns null productQuality when PRODUCT-QUALITY.md does not exist', () => {
+      const dir = createTmpDir();
+      const context = gatherProductContext(dir);
+      expect(context.productQuality).toBeNull();
+    });
+
+    test('includes productQuality when PRODUCT-QUALITY.md exists', () => {
+      const dir = createTmpDir();
+      const planningDir = path.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(path.join(planningDir, 'PRODUCT-QUALITY.md'), '# Quality\n\nGap: missing onboarding');
+      const context = gatherProductContext(dir);
+      expect(context.productQuality).toContain('missing onboarding');
+    });
+  });
+
+  describe('buildProductIdeationPrompt', () => {
+    test('returns a non-empty string', () => {
+      const context = {
+        projectVision: 'Build great tools',
+        longTermGoals: 'Foundation, then scale',
+        existingCommands: ['survey', 'plan-phase'],
+        existingAgents: ['grd-planner'],
+        recentPhases: 'Phase 65: Integration',
+        productQuality: null,
+      };
+      const prompt = buildProductIdeationPrompt(context);
+      expect(typeof prompt).toBe('string');
+      expect(prompt.length).toBeGreaterThan(100);
+    });
+
+    test('contains product manager role instruction', () => {
+      const context = {
+        projectVision: 'Vision text',
+        longTermGoals: 'Goals text',
+        existingCommands: [],
+        existingAgents: [],
+        recentPhases: null,
+        productQuality: null,
+      };
+      const prompt = buildProductIdeationPrompt(context);
+      expect(prompt.toLowerCase()).toContain('product manager');
+    });
+
+    test('includes project vision in the prompt', () => {
+      const context = {
+        projectVision: 'MyUniqueVisionText123',
+        longTermGoals: null,
+        existingCommands: [],
+        existingAgents: [],
+        recentPhases: null,
+        productQuality: null,
+      };
+      const prompt = buildProductIdeationPrompt(context);
+      expect(prompt).toContain('MyUniqueVisionText123');
+    });
+
+    test('includes existing commands list in the prompt', () => {
+      const context = {
+        projectVision: 'Vision',
+        longTermGoals: null,
+        existingCommands: ['survey', 'deep-dive', 'plan-phase'],
+        existingAgents: [],
+        recentPhases: null,
+        productQuality: null,
+      };
+      const prompt = buildProductIdeationPrompt(context);
+      expect(prompt).toContain('survey');
+      expect(prompt).toContain('deep-dive');
+    });
+
+    test('specifies product-ideation as the dimension', () => {
+      const context = {
+        projectVision: 'Vision',
+        longTermGoals: null,
+        existingCommands: [],
+        existingAgents: [],
+        recentPhases: null,
+        productQuality: null,
+      };
+      const prompt = buildProductIdeationPrompt(context);
+      expect(prompt).toContain('product-ideation');
+    });
+  });
+
+  describe('parseProductIdeationOutput', () => {
+    test('parses valid JSON array with product-ideation items', () => {
+      const raw = JSON.stringify([
+        { dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Snapshot', description: 'Capture state', effort: 'medium' },
+        { dimension: 'product-ideation', slug: 'new-workflow-review', title: 'Review Flow', description: 'Automated review', effort: 'small' },
+      ]);
+      const items = parseProductIdeationOutput(raw);
+      expect(items).toHaveLength(2);
+      expect(items[0].dimension).toBe('product-ideation');
+      expect(items[1].dimension).toBe('product-ideation');
+    });
+
+    test('rejects items with wrong dimension', () => {
+      const raw = JSON.stringify([
+        { dimension: 'product-ideation', slug: 'new-cmd-a', title: 'A', description: 'Desc A', effort: 'small' },
+        { dimension: 'quality', slug: 'fix-b', title: 'B', description: 'Desc B', effort: 'small' },
+      ]);
+      const items = parseProductIdeationOutput(raw);
+      expect(items).toHaveLength(1);
+      expect(items[0].slug).toBe('new-cmd-a');
+    });
+
+    test('returns empty array for invalid JSON', () => {
+      const items = parseProductIdeationOutput('not json at all');
+      expect(items).toEqual([]);
+    });
+
+    test('strips markdown fences before parsing', () => {
+      const raw = '```json\n' + JSON.stringify([
+        { dimension: 'product-ideation', slug: 'new-cmd-x', title: 'X', description: 'Desc', effort: 'small' },
+      ]) + '\n```';
+      const items = parseProductIdeationOutput(raw);
+      expect(items).toHaveLength(1);
+    });
+
+    test('defaults effort to medium for invalid values', () => {
+      const raw = JSON.stringify([
+        { dimension: 'product-ideation', slug: 'new-cmd-y', title: 'Y', description: 'Desc', effort: 'invalid' },
+      ]);
+      const items = parseProductIdeationOutput(raw);
+      expect(items).toHaveLength(1);
+      expect(items[0].effort).toBe('medium');
+    });
+
+    test('returns empty array for non-array JSON', () => {
+      const items = parseProductIdeationOutput('{"not": "array"}');
+      expect(items).toEqual([]);
+    });
+  });
+
+  describe('discoverProductIdeationItems', () => {
+    test('returns empty array when no PROJECT.md exists', async () => {
+      const dir = createTmpDir();
+      const items = await discoverProductIdeationItems(dir);
+      expect(items).toEqual([]);
+    });
+
+    test('returns parsed items when Claude succeeds', async () => {
+      const dir = createTmpDir();
+      const planningDir = path.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+
+      // Mock spawnClaudeAsync to return product ideation items
+      const mockItems = [
+        { dimension: 'product-ideation', slug: 'new-cmd-test', title: 'Test Cmd', description: 'A new command', effort: 'small' },
+      ];
+      autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: false,
+        stdout: JSON.stringify(mockItems),
+      });
+
+      const items = await discoverProductIdeationItems(dir);
+      expect(items.length).toBeGreaterThanOrEqual(1);
+      expect(items[0].dimension).toBe('product-ideation');
+    });
+
+    test('returns empty array when Claude subprocess fails', async () => {
+      const dir = createTmpDir();
+      const planningDir = path.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+
+      autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+        exitCode: 1,
+        timedOut: false,
+        stdout: '',
+      });
+
+      const items = await discoverProductIdeationItems(dir);
+      expect(items).toEqual([]);
+    });
+
+    test('returns empty array when Claude times out', async () => {
+      const dir = createTmpDir();
+      const planningDir = path.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+
+      autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
+        exitCode: 0,
+        timedOut: true,
+        stdout: '',
+      });
+
+      const items = await discoverProductIdeationItems(dir);
+      expect(items).toEqual([]);
+    });
   });
 });
 
