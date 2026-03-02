@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-- **Active phase:** Phase 62 (Oversized Module Decomposition & Migration)
-- **Current plan:** Plan 05 complete (5/5 plans)
+- **Active phase:** Phase 63 (Entry Points & MCP Server Migration)
+- **Current plan:** 04
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Milestone complete
-- **Progress:** [======----] 62% (5/8 phases)
-- **Next:** Execute Phase 63 (Entry Points & MCP Server Migration)
+- **Status:** Phase complete
+- **Progress:** [=========-] 75% (6/8 phases)
+- **Next:** Execute Phase 64 (Test Suite Migration)
 
 ## Phase Summary
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 | 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Complete (5/5 plans) |
 | 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Complete (5/5 plans) |
 | 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Complete (5/5 plans) |
-| 63 | Entry Points & MCP Server Migration | REQ-70 | Not started |
+| 63 | Entry Points & MCP Server Migration | REQ-70 | Complete (4/4 plans) |
 | 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Not started |
 | 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | Not started |
 
@@ -146,6 +146,19 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[62-05]** Explicit .ts extensions required for intra-directory requires under Node.js v24 CJS resolution (progress.ts, long-term-roadmap.ts)
 - **[62-05]** npm-pack integration test failures (2) are pre-existing Node v24 limitation: type stripping unsupported under node_modules (DEFER-59-01)
 
+- **[63-01]** Use const = require() pattern (not ESM import) in bin/*.ts scripts -- Node.js v24 treats import as ESM, losing __dirname
+- **[63-01]** Remove fs.Dirent explicit type annotation in favor of inference from readdirSync
+- **[63-02]** RouteDescriptor interface local to grd-tools.ts (not in types.ts) -- single-consumer type
+- **[63-02]** flag() helper single signature with optional fallback + ?? null at call sites (cleaner than overloads)
+- **[63-02]** Decomposed module imports use .ts barrel directly (commands/index.ts, context/index.ts, evolve/index.ts) for typed import consistency
+- **[63-02]** Subcommand arrays typed as readonly string[] with as string[] cast at validateSubcommand call sites
+- **[63-03]** eslint-disable for no-explicit-any on CommandDescriptor.execute args (JSON-RPC dispatch validated per-handler)
+- **[63-03]** 7 local interfaces (ParamDescriptor, CommandDescriptor, CaptureResult, McpToolDefinition, JsonRpcMessage, JsonRpcResponse, McpExitError) in module
+- **[63-03]** process.stdout.write/stderr.write cast as typeof for TS compatibility with overloaded Node.js signatures
+- **[63-03]** McpExitError uses interface extending Error with __MCP_EXIT__ sentinel for type-safe catch handling
+- [Phase 63]: McpServerConstructor/McpServerInstance interfaces locally in grd-mcp-server.ts for typed import (consistent with require-as pattern)
+- [Phase 63-04]: Local JsonRpcMessage/JsonRpcResponse interfaces redefined in grd-mcp-server.ts (mcp-server.ts uses module.exports not ES exports, so typeof import fails)
+
 ## Known Bugs
 
 None.
@@ -156,12 +169,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 62-05-PLAN.md (Final Verification and Jest Coverage Threshold Update)
-- **Stopped at:** Completed 62-05-PLAN.md -- Phase 62 complete
-- **Next action:** Execute Phase 63 (Entry Points & MCP Server Migration)
-- **Context needed:** bin/grd-tools.js and bin/grd-mcp-server.js migration to TypeScript
+- **Last action:** Executed 63-04-PLAN.md (MCP Server Migration & Full Integration Verification)
+- **Stopped at:** Completed 63-04-PLAN.md -- Phase 63 complete
+- **Next action:** Execute Phase 64 (Test Suite Migration)
+- **Context needed:** All bin/ and lib/ .ts files in place; 5 CJS proxies; 123 MCP tools; next focus is test suite migration
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T23:05Z*
+*Last updated: 2026-03-02T23:56Z*

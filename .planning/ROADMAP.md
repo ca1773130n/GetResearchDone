@@ -257,7 +257,7 @@ Plans:
 - [ ] 62-04-PLAN.md — Decompose & migrate commands.js Part 2 (dashboard, health, search + barrel + CJS proxy)
 - [ ] 62-05-PLAN.md — jest.config.js threshold updates + full test suite verification
 
-### Phase 63: Entry Points & MCP Server Migration
+### Phase 63: Entry Points & MCP Server Migration ✅ (2026-03-02)
 
 **Goal:** All bin/ entry points and the MCP server are migrated to TypeScript with fully typed routing tables and tool descriptors
 **Type:** implement
@@ -266,15 +266,18 @@ Plans:
 **Requirements:** REQ-70
 **Verification Level:** proxy
 **Success Criteria** (what must be TRUE):
-  1. 4 bin/ entry points migrated to .ts: grd-tools, grd-mcp-server, grd-manifest, postinstall
-  2. `bin/grd-tools.ts` routing table is fully typed -- every route maps to a typed function reference
-  3. `lib/mcp-server.ts` COMMAND_DESCRIPTORS table is fully typed with typed parameter schemas and execute functions
-  4. Shebang lines preserved in compiled output; `node dist/bin/grd-tools.js` works identically to `node bin/grd-tools.js`
-  5. All 118 MCP tools respond correctly via `tools/list` and `tools/call`
-**Plans:** 0 plans
+  1. 4 bin/ entry points migrated to .ts: grd-tools, grd-mcp-server, grd-manifest, postinstall ✅
+  2. `bin/grd-tools.ts` routing table is fully typed -- every route maps to a typed function reference ✅
+  3. `lib/mcp-server.ts` COMMAND_DESCRIPTORS table is fully typed with typed parameter schemas and execute functions ✅
+  4. Shebang lines preserved in compiled output; `node dist/bin/grd-tools.js` works identically to `node bin/grd-tools.js` (DEFER-63-01: dist/ runtime deferred to Phase 65)
+  5. All 123 MCP tools respond correctly via `tools/list` and `tools/call` ✅
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 63 to break down)
+- [x] 63-01-PLAN.md — Migrate postinstall.js and grd-manifest.js to TypeScript
+- [x] 63-02-PLAN.md — Migrate grd-tools.js to TypeScript with typed routing table
+- [x] 63-03-PLAN.md — Migrate mcp-server.js to TypeScript with typed COMMAND_DESCRIPTORS
+- [x] 63-04-PLAN.md — Migrate grd-mcp-server.js and full integration verification
 
 ### Phase 64: Test Suite Migration
 
@@ -309,7 +312,7 @@ Plans:
   2. Zero `any` types in core lib/ modules (audit script confirms; exceptions only in test mocks with documented justification)
   3. All 2,184+ tests pass against the compiled TypeScript output (the dist/ build)
   4. `node dist/bin/grd-tools.js state load --raw` produces identical output to the pre-migration JS version
-  5. All 118 MCP tools function correctly via the compiled MCP server
+  5. All 123 MCP tools function correctly via the compiled MCP server
   6. CLAUDE.md updated: file extensions (.ts), build commands (`npm run build`), module structure (decomposed commands/context/evolve), code style section for TypeScript conventions
   7. Plugin compatibility verified: Claude Code plugin manifest loads and SessionStart hook fires correctly with dist/ paths
 **Plans:** 0 plans
