@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/deps.js — Dependency analysis module
+ * Unit tests for lib/deps.ts — Dependency analysis module
  *
  * Tests parseDependsOn, buildDependencyGraph, computeParallelGroups,
  * detectCycle, and cmdPhaseAnalyzeDeps.
@@ -264,16 +264,16 @@ describe('detectCycle', () => {
 // ─── cmdPhaseAnalyzeDeps ─────────────────────────────────────────────────────
 
 describe('cmdPhaseAnalyzeDeps', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeCustomRoadmap(dir, content) {
+  function writeCustomRoadmap(dir: string, content: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(roadmapPath, content, 'utf-8');
   }
@@ -418,16 +418,16 @@ describe('cmdPhaseAnalyzeDeps', () => {
 // ─── CLI Integration — phase analyze-deps ────────────────────────────────────
 
 describe('CLI integration — phase analyze-deps', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   afterEach(() => {
     if (fixtureDir) {
       cleanupFixtureDir(fixtureDir);
-      fixtureDir = null;
+      fixtureDir = '';
     }
   });
 
-  function writeCustomRoadmap(dir, content) {
+  function writeCustomRoadmap(dir: string, content: string): void {
     const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
     fs.writeFileSync(roadmapPath, content, 'utf-8');
   }
@@ -573,7 +573,7 @@ describe('CLI integration — phase analyze-deps', () => {
   });
 
   test('MCP descriptor grd_phase_analyze_deps exists with empty params', () => {
-    const descriptor = COMMAND_DESCRIPTORS.find((d) => d.name === 'grd_phase_analyze_deps');
+    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_phase_analyze_deps') as Record<string, unknown>;
     expect(descriptor).toBeDefined();
     expect(descriptor.params).toEqual([]);
     expect(typeof descriptor.execute).toBe('function');

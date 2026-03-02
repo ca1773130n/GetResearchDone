@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/state.js
+ * Unit tests for lib/state.ts
  *
  * Tests STATE.md operations: field extract/replace helpers, load, get, patch,
  * advance-plan, record-metric, add-decision, add/resolve-blocker,
@@ -33,7 +33,7 @@ const {
  * pretty-printed JSON (happens when cmd functions have try/catch that
  * catches the process.exit sentinel and calls output() again).
  */
-function parseFirstJson(str) {
+function parseFirstJson(str: string): Record<string, unknown> {
   try {
     return JSON.parse(str);
   } catch {
@@ -139,7 +139,7 @@ describe('stateReplaceField', () => {
 // ─── cmdStateLoad ───────────────────────────────────────────────────────────
 
 describe('cmdStateLoad', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -193,7 +193,7 @@ describe('cmdStateLoad', () => {
 // ─── cmdStateGet ────────────────────────────────────────────────────────────
 
 describe('cmdStateGet', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -250,7 +250,7 @@ describe('cmdStateGet', () => {
 // ─── cmdStatePatch ──────────────────────────────────────────────────────────
 
 describe('cmdStatePatch', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -289,7 +289,7 @@ describe('cmdStatePatch', () => {
 // ─── cmdStateUpdate ─────────────────────────────────────────────────────────
 
 describe('cmdStateUpdate', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -346,7 +346,7 @@ describe('cmdStateUpdate', () => {
 // ─── cmdStateAdvancePlan ────────────────────────────────────────────────────
 
 describe('cmdStateAdvancePlan', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -402,7 +402,7 @@ describe('cmdStateAdvancePlan', () => {
 // ─── cmdStateRecordMetric ───────────────────────────────────────────────────
 
 describe('cmdStateRecordMetric', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -496,7 +496,7 @@ describe('cmdStateRecordMetric', () => {
 // ─── cmdStateAddDecision ────────────────────────────────────────────────────
 
 describe('cmdStateAddDecision', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -568,7 +568,7 @@ describe('cmdStateAddDecision', () => {
 // ─── cmdStateAddBlocker / cmdStateResolveBlocker ────────────────────────────
 
 describe('cmdStateAddBlocker', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -605,7 +605,7 @@ describe('cmdStateAddBlocker', () => {
 });
 
 describe('cmdStateResolveBlocker', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -640,7 +640,7 @@ describe('cmdStateResolveBlocker', () => {
 // ─── cmdStateUpdateProgress ─────────────────────────────────────────────────
 
 describe('cmdStateUpdateProgress', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -675,7 +675,7 @@ describe('cmdStateUpdateProgress', () => {
 // ─── cmdStateRecordSession ──────────────────────────────────────────────────
 
 describe('cmdStateRecordSession', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -728,7 +728,7 @@ describe('cmdStateRecordSession', () => {
 // ─── cmdStateSnapshot ───────────────────────────────────────────────────────
 
 describe('cmdStateSnapshot', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -823,7 +823,7 @@ describe('cmdStateSnapshot', () => {
 // ─── cmdStateSnapshot --since diff mode ─────────────────────────────────────
 
 describe('cmdStateSnapshot --since diff mode', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -966,7 +966,7 @@ describe('cmdStateSnapshot --since diff mode', () => {
 // ─── BUG-48-003: cmdStateSnapshot parses Active phase format ────────────────
 
 describe('BUG-48-003: cmdStateSnapshot Active phase field', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1087,7 +1087,7 @@ describe('BUG-48-003: cmdStateSnapshot Active phase field', () => {
 // ─── BUG-48-005: cmdStatePatch underscore-to-space field name mapping ────────
 
 describe('BUG-48-005: cmdStatePatch underscore-to-space mapping', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1145,7 +1145,7 @@ describe('BUG-48-005: cmdStatePatch underscore-to-space mapping', () => {
 // ─── cmdStatePatch audit trail ───────────────────────────────────────────────
 
 describe('cmdStatePatch audit trail', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -1206,6 +1206,6 @@ describe('cmdStatePatch audit trail', () => {
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
     // Both patches should appear in the audit log
     const auditSection = content.split('## Audit Log')[1] || '';
-    expect(auditSection.split('\n').filter((l) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(2);
+    expect(auditSection.split('\n').filter((l: string) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(2);
   });
 });

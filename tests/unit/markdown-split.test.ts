@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/markdown-split.js
+ * Unit tests for lib/markdown-split.ts
  *
  * Tests the core markdown splitting module: token estimation, boundary
  * detection, split/reassemble lifecycle, index file detection, and
@@ -25,7 +25,7 @@ const {
 
 // ─── Fixture Helpers ────────────────────────────────────────────────────────
 
-let tmpDirs = [];
+let tmpDirs: string[] = [];
 
 function createTmpDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-split-test-'));
@@ -37,7 +37,7 @@ function createTmpDir() {
  * Generate synthetic markdown content with numbered sections.
  * Each section is ~200 chars, so 500 sections ≈ 100k chars ≈ 25k tokens.
  */
-function generateLargeMarkdown(sectionCount, headingLevel = 2) {
+function generateLargeMarkdown(sectionCount: number, headingLevel = 2) {
   const prefix = '#'.repeat(headingLevel);
   const sections = [];
   for (let i = 1; i <= sectionCount; i++) {
@@ -413,7 +413,7 @@ describe('safeReadMarkdown integration', () => {
     ).join('\n\n');
     const result = splitMarkdown(content, { threshold: 1000, basename: 'TEST' });
     fs.writeFileSync(path.join(tmpDir, 'TEST.md'), result.index_content);
-    result.parts.forEach((p) => fs.writeFileSync(path.join(tmpDir, p.filename), p.content));
+    result.parts.forEach((p: { filename: string; content: string }) => fs.writeFileSync(path.join(tmpDir, p.filename), p.content));
     const reassembled = safeReadMarkdown(path.join(tmpDir, 'TEST.md'));
     expect(reassembled.trim()).toBe(content.trim());
   });
@@ -516,8 +516,8 @@ describe('readMarkdownWithPartials — missing partial error handling', () => {
     const indexPath = path.join(tmpDir, 'PLAN.md');
     fs.writeFileSync(indexPath, indexContent);
 
-    const stderrLines = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg) => {
+    const stderrLines: string[] = [];
+    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation((msg: string) => {
       stderrLines.push(msg);
     });
     try {

@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/utils.js
+ * Unit tests for lib/utils.ts
  *
  * Tests constants, validation helpers, pure functions, and output/error utilities.
  */
@@ -214,7 +214,7 @@ describe('validateGitRef', () => {
 // ─── safeReadFile ───────────────────────────────────────────────────────────
 
 describe('safeReadFile', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -291,7 +291,7 @@ describe('normalizePhaseName', () => {
 // ─── resolveModelInternal / resolveModelForAgent ────────────────────────────
 
 describe('resolveModelInternal', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -341,7 +341,7 @@ describe('resolveModelForAgent', () => {
 // ─── loadConfig ─────────────────────────────────────────────────────────────
 
 describe('loadConfig', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -491,9 +491,9 @@ describe('debugLog', () => {
 
   test('is a no-op when GRD_DEBUG is not set', () => {
     delete process.env.GRD_DEBUG;
-    const writes = [];
+    const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
     debugLog('test message');
     process.stderr.write = origWrite;
     expect(writes).toHaveLength(0);
@@ -501,9 +501,9 @@ describe('debugLog', () => {
 
   test('writes to stderr when GRD_DEBUG=1', () => {
     process.env.GRD_DEBUG = '1';
-    const writes = [];
+    const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
     debugLog('hello world');
     process.stderr.write = origWrite;
     expect(writes.some((w) => w.includes('[grd:debug]') && w.includes('hello world'))).toBe(true);
@@ -511,9 +511,9 @@ describe('debugLog', () => {
 
   test('includes JSON-serialized data when provided', () => {
     process.env.GRD_DEBUG = '1';
-    const writes = [];
+    const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (...args) => { writes.push(args[0]); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
     debugLog('msg', { key: 'val' });
     process.stderr.write = origWrite;
     expect(writes.some((w) => w.includes('"key"') && w.includes('"val"'))).toBe(true);
@@ -523,7 +523,7 @@ describe('debugLog', () => {
 // ─── findPhaseInternal consistency_warning ──────────────────────────────────
 
 describe('findPhaseInternal consistency_warning', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -570,8 +570,8 @@ const os = require('os');
 
 describe('Backend-aware model resolution', () => {
   describe('resolveModelInternal with backend', () => {
-    let tmpDir;
-    const savedEnv = {};
+    let tmpDir: string;
+    const savedEnv: Record<string, string | undefined> = {};
     // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
     const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
     const envVarsToClean = [
@@ -696,8 +696,8 @@ describe('Backend-aware model resolution', () => {
   });
 
   describe('resolveModelForAgent with cwd', () => {
-    let tmpDir;
-    const savedEnv = {};
+    let tmpDir: string;
+    const savedEnv: Record<string, string | undefined> = {};
     // Track all CLAUDE_CODE_* env vars dynamically to avoid false detection
     const claudeCodeVars = Object.keys(process.env).filter((k) => k.startsWith('CLAUDE_CODE_'));
     const envVarsToClean = [
@@ -772,7 +772,7 @@ describe('Backend-aware model resolution', () => {
   });
 
   describe('loadConfig backend fields', () => {
-    let tmpDir;
+    let tmpDir: string;
 
     beforeEach(() => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-backend-config-'));
@@ -888,7 +888,7 @@ describe('stripShippedSections', () => {
 
 describe('getMilestoneInfo', () => {
   const fs = require('fs');
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -977,7 +977,7 @@ describe('getMilestoneInfo', () => {
 
 describe('safeReadJSON', () => {
   const fs = require('fs');
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -1113,7 +1113,7 @@ describe('findClosestCommand', () => {
 // ─── clearPhaseCache ─────────────────────────────────────────────────────────
 
 describe('clearPhaseCache', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -1163,7 +1163,7 @@ describe('createRunCache', () => {
   test('calls reader directly when cache is inactive', () => {
     const cache = createRunCache();
     let calls = 0;
-    const reader = (k) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => { calls++; return `value:${k}`; };
     const result = cache.get('key1', reader);
     expect(result).toBe('value:key1');
     expect(calls).toBe(1);
@@ -1176,7 +1176,7 @@ describe('createRunCache', () => {
     const cache = createRunCache();
     cache.init();
     let calls = 0;
-    const reader = (k) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => { calls++; return `value:${k}`; };
     cache.get('key1', reader);
     cache.get('key1', reader);
     expect(calls).toBe(1); // reader called only once
@@ -1186,7 +1186,7 @@ describe('createRunCache', () => {
     const cache = createRunCache();
     cache.init();
     let calls = 0;
-    const reader = (k) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => { calls++; return `value:${k}`; };
     cache.get('key1', reader);
     expect(calls).toBe(1);
     cache.reset();
@@ -1199,7 +1199,7 @@ describe('createRunCache', () => {
 // ─── findPhaseDir ────────────────────────────────────────────────────────────
 
 describe('findPhaseDir', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-findphasedir-'));
@@ -1272,7 +1272,7 @@ describe('parsePhaseNumber', () => {
 // ─── walkJsFiles ─────────────────────────────────────────────────────────────
 
 describe('walkJsFiles', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-walkjs-'));

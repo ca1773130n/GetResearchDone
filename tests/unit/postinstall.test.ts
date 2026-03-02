@@ -23,7 +23,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 // ─── package.json validation tests ──────────────────────────────────────────
 
 describe('package.json npm configuration', () => {
-  let pkg;
+  let pkg: any; // JSON.parse result with deep property access
 
   beforeAll(() => {
     pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'));
@@ -90,7 +90,7 @@ describe('package.json npm configuration', () => {
 // ─── postinstall script tests ───────────────────────────────────────────────
 
 describe('postinstall script', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-postinstall-test-'));

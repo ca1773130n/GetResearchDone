@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/frontmatter.js
+ * Unit tests for lib/frontmatter.ts
  *
  * Tests YAML frontmatter extraction, reconstruction, splicing, validation,
  * and the command-level functions.
@@ -283,7 +283,7 @@ Body`;
 // ─── cmdFrontmatterGet ──────────────────────────────────────────────────────
 
 describe('cmdFrontmatterGet', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -359,8 +359,8 @@ describe('cmdFrontmatterGet', () => {
 // ─── cmdFrontmatterSet ──────────────────────────────────────────────────────
 
 describe('cmdFrontmatterSet', () => {
-  let tmpDir;
-  let tmpFile;
+  let tmpDir: string;
+  let tmpFile: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-fm-set-'));
@@ -407,8 +407,8 @@ describe('cmdFrontmatterSet', () => {
 // ─── cmdFrontmatterMerge ────────────────────────────────────────────────────
 
 describe('cmdFrontmatterMerge', () => {
-  let tmpDir;
-  let tmpFile;
+  let tmpDir: string;
+  let tmpFile: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-fm-merge-'));
@@ -453,7 +453,7 @@ describe('cmdFrontmatterMerge', () => {
 // ─── cmdFrontmatterValidate ─────────────────────────────────────────────────
 
 describe('cmdFrontmatterValidate', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -575,11 +575,11 @@ describe('getPhaseRoadmapMetadata', () => {
   const osTmp = require('os');
   const pathTmp = require('path');
 
-  function makeTmpDir() {
+  function makeTmpDir(): string {
     return fsTmp.mkdtempSync(pathTmp.join(osTmp.tmpdir(), 'grd-fm-test-'));
   }
 
-  function removeTmpDir(dir) {
+  function removeTmpDir(dir: string): void {
     if (dir && dir.startsWith(osTmp.tmpdir())) {
       fsTmp.rmSync(dir, { recursive: true, force: true });
     }

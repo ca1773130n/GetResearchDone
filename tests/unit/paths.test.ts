@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/paths.js
+ * Unit tests for lib/paths.ts
  *
  * Tests centralized path resolution: currentMilestone, milestonesDir, phasesDir,
  * phaseDir, researchDir, codebaseDir, todosDir, quickDir, archivedPhasesDir,
@@ -35,7 +35,7 @@ const {
  * Create an isolated temp directory for testing.
  * Optionally writes a STATE.md with the given content.
  */
-function makeTmpDir(stateContent) {
+function makeTmpDir(stateContent?: string): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
   if (stateContent !== undefined) {
     const planningDir = path.join(tmpDir, '.planning');
@@ -45,7 +45,7 @@ function makeTmpDir(stateContent) {
   return tmpDir;
 }
 
-function cleanTmpDir(dir) {
+function cleanTmpDir(dir: string): void {
   if (dir && dir.startsWith(os.tmpdir())) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -54,7 +54,7 @@ function cleanTmpDir(dir) {
 // ─── currentMilestone ─────────────────────────────────────────────────────────
 
 describe('currentMilestone', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -230,7 +230,7 @@ describe('milestonesDir', () => {
 // ─── phasesDir ────────────────────────────────────────────────────────────────
 
 describe('phasesDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -281,7 +281,7 @@ describe('phasesDir', () => {
 // ─── phaseDir ─────────────────────────────────────────────────────────────────
 
 describe('phaseDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -325,7 +325,7 @@ describe('phaseDir', () => {
 // ─── researchDir ──────────────────────────────────────────────────────────────
 
 describe('researchDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -366,7 +366,7 @@ describe('codebaseDir', () => {
 // ─── todosDir ─────────────────────────────────────────────────────────────────
 
 describe('todosDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -390,7 +390,7 @@ describe('todosDir', () => {
 // ─── quickDir ─────────────────────────────────────────────────────────────────
 
 describe('quickDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);
@@ -421,7 +421,7 @@ describe('quickDir', () => {
 // ─── standardsDir ─────────────────────────────────────────────────────────────
 
 describe('standardsDir', () => {
-  let tmpDir;
+  let tmpDir: string | null;
 
   afterEach(() => {
     if (tmpDir) cleanTmpDir(tmpDir);

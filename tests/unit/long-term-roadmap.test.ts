@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/long-term-roadmap.js
+ * Unit tests for lib/long-term-roadmap.ts
  *
  * Tests for flat LT-N milestone format: parsing, validation,
  * generation, display formatting, CRUD, and protection rules.
@@ -260,14 +260,14 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /project/i.test(e))).toBe(true);
+    expect(result.errors.some((e: string) => /project/i.test(e))).toBe(true);
   });
 
   test('no milestones fails validation', () => {
     const parsed = { frontmatter: { project: 'Test' }, milestones: [] };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /no lt/i.test(e))).toBe(true);
+    expect(result.errors.some((e: string) => /no lt/i.test(e))).toBe(true);
   });
 
   test('missing goal fails validation', () => {
@@ -277,7 +277,7 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /goal/i.test(e))).toBe(true);
+    expect(result.errors.some((e: string) => /goal/i.test(e))).toBe(true);
   });
 
   test('invalid status fails validation', () => {
@@ -287,7 +287,7 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /status/i.test(e))).toBe(true);
+    expect(result.errors.some((e: string) => /status/i.test(e))).toBe(true);
   });
 
   test('duplicate IDs fail validation', () => {
@@ -300,7 +300,7 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => /duplicate/i.test(e))).toBe(true);
+    expect(result.errors.some((e: string) => /duplicate/i.test(e))).toBe(true);
   });
 
   test('warns when no active milestone', () => {
@@ -310,7 +310,7 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(true);
-    expect(result.warnings.some((w) => /active/i.test(w))).toBe(true);
+    expect(result.warnings.some((w: string) => /active/i.test(w))).toBe(true);
   });
 
   test('warns when multiple active milestones', () => {
@@ -323,7 +323,7 @@ describe('validateLongTermRoadmap', () => {
     };
     const result = validateLongTermRoadmap(parsed);
     expect(result.valid).toBe(true);
-    expect(result.warnings.some((w) => /multiple/i.test(w))).toBe(true);
+    expect(result.warnings.some((w: string) => /multiple/i.test(w))).toBe(true);
   });
 });
 
@@ -515,7 +515,7 @@ describe('removeLtMilestone', () => {
     expect(typeof result).toBe('string');
     const parsed = parseLongTermRoadmap(result);
     expect(parsed.milestones.length).toBe(2);
-    expect(parsed.milestones.every((m) => m.id !== 'LT-3')).toBe(true);
+    expect(parsed.milestones.every((m: Record<string, unknown>) => m.id !== 'LT-3')).toBe(true);
   });
 
   test('returns error for non-existent ID', () => {

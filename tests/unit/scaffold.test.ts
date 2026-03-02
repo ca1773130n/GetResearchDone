@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/scaffold.js
+ * Unit tests for lib/scaffold.ts
  *
  * Tests template selection, template fill, and scaffold operations.
  */
@@ -16,7 +16,7 @@ const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold } = require('../../lib/s
  * pretty-printed JSON (when cmd functions have try/catch that catches the
  * process.exit sentinel and calls output() again).
  */
-function parseFirstJson(str) {
+function parseFirstJson(str: string): Record<string, unknown> {
   try {
     return JSON.parse(str);
   } catch {
@@ -51,7 +51,7 @@ function parseFirstJson(str) {
 // ─── cmdTemplateSelect ──────────────────────────────────────────────────────
 
 describe('cmdTemplateSelect', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -148,7 +148,7 @@ describe('cmdTemplateSelect', () => {
 // ─── cmdTemplateFill ────────────────────────────────────────────────────────
 
 describe('cmdTemplateFill', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -243,7 +243,7 @@ describe('cmdTemplateFill', () => {
 // ─── cmdScaffold ────────────────────────────────────────────────────────────
 
 describe('cmdScaffold', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -414,7 +414,7 @@ describe('cmdScaffold', () => {
 // ─── cmdTemplateFill additional tests ───────────────────────────────────────
 
 describe('cmdTemplateFill additional', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
