@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 - **Active phase:** Phase 65 (Integration Validation & Documentation)
-- **Current plan:** 04
+- **Current plan:** 02
 - **Milestone:** v0.3.0 TypeScript Migration & Refactoring
 - **Status:** In progress
 - **Progress:** [=========+] 87% (7/8 phases)
-- **Next:** Complete remaining Phase 65 plans (02, 03) for full integration validation
+- **Next:** Continue Phase 65 execution (plans 03-04)
 
 ## Phase Summary
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 | 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Complete (5/5 plans) |
 | 63 | Entry Points & MCP Server Migration | REQ-70 | Complete (4/4 plans) |
 | 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Complete (4/4 plans) |
-| 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | In progress (3/4 plans) |
+| 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | In progress (2/4 plans) |
 
 ## Deferred Validations
 
@@ -174,12 +174,6 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[64-04]** Used `as string[]` for fs.readdirSync results where TypeScript could not infer the string type from the require'd fs module
 - **[64-04]** Used empty string `''` instead of null for nullable fixture directory cleanup to avoid union type complexity (consistent with 64-03 pattern)
 - **[64-04]** Deleted CJS proxy helpers (setup.js, fixtures.js) since all test files are now .ts and ts-jest handles .ts resolution directly
-- **[65-03]** Type-check gate (tsc --noEmit) added to CI lint job alongside ESLint
-- **[65-03]** Build step (npm run build) added to CI test job before test run for dist/ verification on all Node versions
-- **[65-03]** Validate job uses --ignore-scripts for consumer install to avoid postinstall .ts resolution issues
-- **[65-03]** npm-pack test validates dist/bin/ paths (dist/bin/grd-tools.js, dist/bin/grd-mcp-server.js) in consumer context
-- **[65-03]** jest.config.js mcp-server coverage path updated from .js to .ts (last stale CJS proxy reference)
-- **[65-04]** CLAUDE.md updated to reflect TypeScript codebase: .ts extensions, decomposed modules, 2,646+ tests, build commands, TypeScript code style conventions
 
 ## Known Bugs
 
@@ -191,12 +185,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 65-03-PLAN.md (CI Pipeline TypeScript Gates & npm-pack Test Fix)
-- **Stopped at:** Completed 65-03-PLAN.md -- CI pipeline updated with TS gates, Node 18/20/22 matrix, npm-pack test fixed for dist/
-- **Next action:** Phase 65 complete (all 4 plans done) -- proceed to milestone completion
-- **Context needed:** All 4 Phase 65 plans complete; CI has tsc type-check + build gates; npm-pack validates dist/ paths; 2,660 tests passing; all DEFER-* items resolved
+- **Last action:** Executed 65-02-PLAN.md (Deferred Validation Resolution)
+- **Stopped at:** Completed 65-02-PLAN.md -- all 7 DEFER-* items resolved
+- **Next action:** Execute 65-03-PLAN.md (next plan in Phase 65)
+- **Context needed:** Zero any types in core lib/; all 7 deferred validations resolved with automated test coverage in tests/integration/deferred-validation.test.ts; 18 new tests passing
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T04:02Z*
+*Last updated: 2026-03-02T02:40Z*

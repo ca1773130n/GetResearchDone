@@ -25,8 +25,7 @@ interface CommandDescriptor {
   name: string;
   description: string;
   params: ParamDescriptor[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-RPC dispatch: args are validated per-handler, not at the descriptor level
-  execute: (cwd: string, args: Record<string, any>) => void | unknown;
+  execute: (cwd: string, args: Record<string, unknown>) => void | unknown;
 }
 
 /** Result from captureExecution/captureExecutionAsync */
