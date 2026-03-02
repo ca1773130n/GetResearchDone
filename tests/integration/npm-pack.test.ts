@@ -1,11 +1,12 @@
 /**
  * Integration tests for npm distribution pipeline.
  *
- * Validates end-to-end: npm pack -> install from tarball -> bin entries ->
- * MCP server start -> plugin.json resolution. Uses real npm commands via
- * execFileSync/spawn against a temp consumer project.
+ * Validates end-to-end: npm build -> npm pack -> install from tarball ->
+ * dist/ bin entries -> MCP server start -> plugin.json resolution.
+ * Uses real npm commands via execFileSync/spawn against a temp consumer project.
  *
  * Created in Phase 18 Plan 02 (Distribution Validation).
+ * Updated in Phase 65 Plan 03 to validate dist/ build paths.
  */
 
 const { execFileSync } = require('child_process');
@@ -13,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../');
 
@@ -22,9 +23,16 @@ let tarballName: string;
 let tempDir: string;
 let consumerDir: string;
 
-// ─── Setup / Teardown ──────────────────────────────────────────────────────
+// --- Setup / Teardown --------------------------------------------------------
 
 beforeAll(() => {
+  // Build dist/ first so it is included in the tarball
+  execFileSync('npm', ['run', 'build'], {
+    cwd: PROJECT_ROOT,
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+
   // Pack once for all tests
   const packOutput = execFileSync('npm', ['pack', '--json'], {
     cwd: PROJECT_ROOT,
@@ -42,11 +50,16 @@ beforeAll(() => {
   // Create minimal consumer package.json
   fs.writeFileSync(
     path.join(consumerDir, 'package.json'),
-    JSON.stringify({ name: 'test-consumer', version: '1.0.0', private: true }, null, 2) + '\n'
+    JSON.stringify(
+      { name: 'test-consumer', version: '1.0.0', private: true },
+      null,
+      2,
+    ) + '\n',
   );
 
-  // Install from tarball
-  execFileSync('npm', ['install', tarballPath], {
+  // Install from tarball with --ignore-scripts to avoid postinstall requiring
+  // ts-jest or native TS support in the consumer context
+  execFileSync('npm', ['install', '--ignore-scripts', tarballPath], {
     cwd: consumerDir,
     encoding: 'utf-8',
     stdio: 'pipe',
@@ -64,7 +77,7 @@ afterAll(() => {
   }
 });
 
-// ─── 1. npm pack validation ───────────────────────────────────────────────
+// --- 1. npm pack validation --------------------------------------------------
 
 describe('npm pack validation', () => {
   let dryRunInfo: any;
@@ -85,22 +98,27 @@ describe('npm pack validation', () => {
   });
 
   test('pack JSON output includes expected file count', () => {
-    // Should have at least 20 files (bin, lib, commands, agents, plugin.json)
+    // Should have at least 20 files (bin, lib, dist, commands, agents, plugin.json)
     expect(dryRunInfo[0].files.length).toBeGreaterThanOrEqual(20);
   });
 
   test('tarball contains all required files', () => {
-    // bin/ entries
+    // bin/ entries (CJS proxies)
     expect(dryRunFilePaths).toContain('bin/grd-tools.js');
     expect(dryRunFilePaths).toContain('bin/grd-mcp-server.js');
     expect(dryRunFilePaths).toContain('bin/postinstall.js');
 
-    // lib/ files (spot-check key modules)
+    // lib/ files (spot-check key modules — both .ts source and .js CJS proxy)
+    expect(dryRunFilePaths).toContain('lib/backend.ts');
     expect(dryRunFilePaths).toContain('lib/backend.js');
-    expect(dryRunFilePaths).toContain('lib/cleanup.js');
-    expect(dryRunFilePaths).toContain('lib/commands.js');
-    expect(dryRunFilePaths).toContain('lib/context.js');
+    expect(dryRunFilePaths).toContain('lib/mcp-server.ts');
     expect(dryRunFilePaths).toContain('lib/mcp-server.js');
+
+    // dist/ compiled output
+    const distFiles = dryRunFilePaths.filter((p) => p.startsWith('dist/'));
+    expect(distFiles.length).toBeGreaterThan(0);
+    expect(dryRunFilePaths).toContain('dist/bin/grd-tools.js');
+    expect(dryRunFilePaths).toContain('dist/bin/grd-mcp-server.js');
 
     // .claude-plugin/plugin.json
     expect(dryRunFilePaths).toContain('.claude-plugin/plugin.json');
@@ -109,7 +127,9 @@ describe('npm pack validation', () => {
     const agentFiles = dryRunFilePaths.filter((p) => p.startsWith('agents/'));
     expect(agentFiles.length).toBeGreaterThan(0);
 
-    const commandFiles = dryRunFilePaths.filter((p) => p.startsWith('commands/'));
+    const commandFiles = dryRunFilePaths.filter((p) =>
+      p.startsWith('commands/'),
+    );
     expect(commandFiles.length).toBeGreaterThan(0);
   });
 
@@ -119,13 +139,13 @@ describe('npm pack validation', () => {
         p.startsWith('tests/') ||
         p.startsWith('.planning/') ||
         p.startsWith('.github/') ||
-        p.startsWith('coverage/')
+        p.startsWith('coverage/'),
     );
     expect(excluded).toEqual([]);
   });
 });
 
-// ─── 2. npm install from tarball ──────────────────────────────────────────
+// --- 2. npm install from tarball ---------------------------------------------
 
 describe('npm install from tarball', () => {
   test('consumer project has node_modules/grd-tools/', () => {
@@ -144,24 +164,34 @@ describe('npm install from tarball', () => {
   test('grd-mcp-server bin symlink exists', () => {
     const binDir = path.join(consumerDir, 'node_modules', '.bin');
     const entries = fs.readdirSync(binDir) as string[];
-    const hasMcpServer = entries.some((e: string) => e.startsWith('grd-mcp-server'));
+    const hasMcpServer = entries.some((e: string) =>
+      e.startsWith('grd-mcp-server'),
+    );
     expect(hasMcpServer).toBe(true);
   });
 
-  test('installed package contains bin/ lib/ agents/ commands/ directories', () => {
+  test('installed package contains bin/ lib/ dist/ agents/ commands/ directories', () => {
     const installedDir = path.join(consumerDir, 'node_modules', 'grd-tools');
     expect(fs.existsSync(path.join(installedDir, 'bin'))).toBe(true);
     expect(fs.existsSync(path.join(installedDir, 'lib'))).toBe(true);
+    expect(fs.existsSync(path.join(installedDir, 'dist'))).toBe(true);
     expect(fs.existsSync(path.join(installedDir, 'agents'))).toBe(true);
     expect(fs.existsSync(path.join(installedDir, 'commands'))).toBe(true);
   });
 });
 
-// ─── 3. Bin entry execution ──────────────────────────────────────────────
+// --- 3. Bin entry execution (via dist/ build) --------------------------------
 
 describe('bin entry execution', () => {
-  test('grd-tools.js produces usage output', () => {
-    const grdToolsPath = path.join(consumerDir, 'node_modules', 'grd-tools', 'bin', 'grd-tools.js');
+  test('dist/bin/grd-tools.js produces valid output', () => {
+    const grdToolsPath = path.join(
+      consumerDir,
+      'node_modules',
+      'grd-tools',
+      'dist',
+      'bin',
+      'grd-tools.js',
+    );
 
     try {
       const stdout = execFileSync('node', [grdToolsPath], {
@@ -178,13 +208,14 @@ describe('bin entry execution', () => {
     }
   });
 
-  test('grd-mcp-server responds to MCP initialize handshake', () => {
+  test('dist/bin/grd-mcp-server.js responds to MCP initialize handshake', () => {
     const mcpServerPath = path.join(
       consumerDir,
       'node_modules',
       'grd-tools',
+      'dist',
       'bin',
-      'grd-mcp-server.js'
+      'grd-mcp-server.js',
     );
 
     // Send initialize message via stdin using input option (synchronous, no open handles)
@@ -219,14 +250,14 @@ describe('bin entry execution', () => {
       'node_modules',
       'grd-tools',
       'bin',
-      'postinstall.js'
+      'postinstall.js',
     );
     const content = fs.readFileSync(postinstallPath, 'utf-8');
     expect(content.startsWith('#!/usr/bin/env node')).toBe(true);
   });
 });
 
-// ─── 4. plugin.json path resolution ──────────────────────────────────────
+// --- 4. plugin.json path resolution -----------------------------------------
 
 describe('plugin.json path resolution', () => {
   test('plugin.json exists at expected installed path', () => {
@@ -235,7 +266,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json'
+      'plugin.json',
     );
     expect(fs.existsSync(pluginPath)).toBe(true);
   });
@@ -246,7 +277,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json'
+      'plugin.json',
     );
     const content = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
     expect(content.name).toBeDefined();
@@ -260,7 +291,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json'
+      'plugin.json',
     );
     const raw = fs.readFileSync(pluginPath, 'utf-8');
     expect(raw).toContain('${CLAUDE_PLUGIN_ROOT}');
