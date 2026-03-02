@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/verify.js
+ * Unit tests for lib/verify.ts
  *
  * Tests verification suite: plan structure, phase completeness, references,
  * artifacts, key-links, summary verification, and commit verification.
@@ -24,7 +24,7 @@ const {
 // ─── cmdVerifyPlanStructure ─────────────────────────────────────────────────
 
 describe('cmdVerifyPlanStructure', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -69,7 +69,7 @@ describe('cmdVerifyPlanStructure', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.valid).toBe(false);
     // Should include a "Found frontmatter fields" context message
-    const foundMsg = parsed.errors.find((e) => e.startsWith('Found frontmatter fields:'));
+    const foundMsg = parsed.errors.find((e: string) => e.startsWith('Found frontmatter fields:'));
     expect(foundMsg).toBeDefined();
     expect(foundMsg).toContain('phase');
     expect(foundMsg).toContain('plan');
@@ -124,7 +124,7 @@ describe('cmdVerifyPlanStructure', () => {
 // ─── cmdVerifyPhaseCompleteness ─────────────────────────────────────────────
 
 describe('cmdVerifyPhaseCompleteness', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -167,7 +167,7 @@ describe('cmdVerifyPhaseCompleteness', () => {
 // ─── cmdVerifyReferences ────────────────────────────────────────────────────
 
 describe('cmdVerifyReferences', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -217,7 +217,7 @@ describe('cmdVerifyReferences', () => {
 // ─── cmdVerifyArtifacts ─────────────────────────────────────────────────────
 
 describe('cmdVerifyArtifacts', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -311,7 +311,7 @@ describe('cmdVerifyArtifacts', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.all_passed).toBe(false);
-    const failed = parsed.artifacts.find((a) => !a.passed);
+    const failed = parsed.artifacts.find((a: Record<string, unknown>) => !a.passed);
     expect(failed).toBeDefined();
     expect(failed.plan_file).toBe('rich-error-plan.md');
     expect(failed.must_haves_field).toBe('must_haves.artifacts');
@@ -323,7 +323,7 @@ describe('cmdVerifyArtifacts', () => {
 // ─── cmdVerifyKeyLinks ──────────────────────────────────────────────────────
 
 describe('cmdVerifyKeyLinks', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeEach(() => {
     fixtureDir = createFixtureDir();
@@ -401,7 +401,7 @@ describe('cmdVerifyKeyLinks', () => {
 // ─── cmdVerifySummary ───────────────────────────────────────────────────────
 
 describe('cmdVerifySummary', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();

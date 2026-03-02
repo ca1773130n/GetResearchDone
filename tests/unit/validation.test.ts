@@ -1,5 +1,5 @@
 /**
- * Unit tests for CLI argument validation functions (lib/utils.js)
+ * Unit tests for CLI argument validation functions (lib/utils.ts)
  *
  * Tests validatePhaseArg, validateFileArg, validateSubcommand, validateRequiredArg.
  * Existing validatePhaseName, validateFilePath, validateGitRef tests are in utils.test.js.
@@ -81,7 +81,7 @@ describe('validatePhaseArg', () => {
 // ─── validateFileArg ───────────────────────────────────────────────────────
 
 describe('validateFileArg', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeAll(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-val-test-'));
@@ -242,7 +242,7 @@ describe('validateRequiredArg', () => {
 describe('CLI validation (integration)', () => {
   const cliPath = path.resolve(__dirname, '..', '..', 'bin', 'grd-tools.js');
 
-  function runCLI(args) {
+  function runCLI(args: string[]) {
     try {
       const stdout = execFileSync('node', [cliPath, ...args], {
         encoding: 'utf-8',
@@ -250,11 +250,12 @@ describe('CLI validation (integration)', () => {
         stdio: 'pipe',
       });
       return { exitCode: 0, stdout, stderr: '' };
-    } catch (e) {
+    } catch (e: unknown) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
       return {
-        exitCode: e.status ?? 1,
-        stdout: (e.stdout ?? '').toString(),
-        stderr: (e.stderr ?? '').toString(),
+        exitCode: err.status ?? 1,
+        stdout: (err.stdout ?? '').toString(),
+        stderr: (err.stderr ?? '').toString(),
       };
     }
   }

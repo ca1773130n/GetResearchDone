@@ -1,5 +1,5 @@
 /**
- * Unit tests for lib/roadmap.js
+ * Unit tests for lib/roadmap.ts
  *
  * Tests schedule helpers, roadmap parsing, and command-level functions.
  */
@@ -81,7 +81,7 @@ describe('addDays', () => {
 // ─── computeSchedule ────────────────────────────────────────────────────────
 
 describe('computeSchedule', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -102,7 +102,7 @@ describe('computeSchedule', () => {
 
   test('phases have start_date and due_date when milestone has start date', () => {
     const schedule = computeSchedule(fixtureDir);
-    const phase1 = schedule.phases.find((p) => p.number === '1');
+    const phase1 = schedule.phases.find((p: Record<string, unknown>) => p.number === '1');
     expect(phase1).toBeDefined();
     expect(phase1.start_date).toBe('2026-01-15');
     // Duration is 2d, so due_date = start + (2-1) = 2026-01-16
@@ -111,7 +111,7 @@ describe('computeSchedule', () => {
 
   test('second phase starts after first phase ends', () => {
     const schedule = computeSchedule(fixtureDir);
-    const phase2 = schedule.phases.find((p) => p.number === '2');
+    const phase2 = schedule.phases.find((p: Record<string, unknown>) => p.number === '2');
     expect(phase2).toBeDefined();
     // Phase 1 ends 2026-01-16, phase 2 starts 2026-01-17
     expect(phase2.start_date).toBe('2026-01-17');
@@ -127,7 +127,7 @@ describe('computeSchedule', () => {
 // ─── getScheduleForPhase / getScheduleForMilestone ──────────────────────────
 
 describe('getScheduleForPhase', () => {
-  let schedule;
+  let schedule: any; // computeSchedule result with deep property access
 
   beforeAll(() => {
     const fixtureDir = createFixtureDir();
@@ -148,7 +148,7 @@ describe('getScheduleForPhase', () => {
 });
 
 describe('getScheduleForMilestone', () => {
-  let schedule;
+  let schedule: any; // computeSchedule result with deep property access
 
   beforeAll(() => {
     const fixtureDir = createFixtureDir();
@@ -171,7 +171,7 @@ describe('getScheduleForMilestone', () => {
 // ─── cmdRoadmapGetPhase ─────────────────────────────────────────────────────
 
 describe('cmdRoadmapGetPhase', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -205,7 +205,7 @@ describe('cmdRoadmapGetPhase', () => {
 // ─── cmdPhaseNextDecimal ────────────────────────────────────────────────────
 
 describe('cmdPhaseNextDecimal', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -238,7 +238,7 @@ describe('cmdPhaseNextDecimal', () => {
 // ─── cmdRoadmapAnalyze ──────────────────────────────────────────────────────
 
 describe('cmdRoadmapAnalyze', () => {
-  let fixtureDir;
+  let fixtureDir: string;
 
   beforeAll(() => {
     fixtureDir = createFixtureDir();
@@ -285,7 +285,7 @@ describe('cmdRoadmapAnalyze', () => {
     fs.rmSync(phasesDir, { recursive: true });
     fs.writeFileSync(phasesDir, 'not a directory');
 
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation(() => {});
     try {
       captureOutput(() => cmdRoadmapAnalyze(localDir, false));
       const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
@@ -317,7 +317,7 @@ describe('cmdRoadmapAnalyze', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phase2 = parsed.phases.find((p) => p.number === '2');
+    const phase2 = parsed.phases.find((p: Record<string, unknown>) => p.number === '2');
     expect(phase2.depends_on).toBe('Phase 1');
     cleanupFixtureDir(tmpDir);
   });
@@ -326,7 +326,7 @@ describe('cmdRoadmapAnalyze', () => {
 // ─── Multi-milestone: shipped sections are stripped ──────────────────────────
 
 describe('multi-milestone shipped sections', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -373,7 +373,7 @@ describe('multi-milestone shipped sections', () => {
       'utf-8'
     );
     const schedule = computeSchedule(tmpDir);
-    const phaseNumbers = schedule.phases.map((p) => p.number);
+    const phaseNumbers = schedule.phases.map((p: Record<string, unknown>) => p.number);
     expect(phaseNumbers).toContain('29');
     expect(phaseNumbers).toContain('30');
     expect(phaseNumbers).not.toContain('1');
@@ -387,7 +387,7 @@ describe('multi-milestone shipped sections', () => {
       'utf-8'
     );
     const schedule = computeSchedule(tmpDir);
-    const versions = schedule.milestones.map((m) => m.version);
+    const versions = schedule.milestones.map((m: Record<string, unknown>) => m.version);
     expect(versions).toContain('v0.2.0');
     expect(versions).not.toContain('v0.0.5');
   });
@@ -429,7 +429,7 @@ describe('multi-milestone shipped sections', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phaseNumbers = parsed.phases.map((p) => p.number);
+    const phaseNumbers = parsed.phases.map((p: Record<string, unknown>) => p.number);
     expect(phaseNumbers).toContain('29');
     expect(phaseNumbers).toContain('30');
     expect(phaseNumbers).not.toContain('1');
@@ -446,7 +446,7 @@ describe('multi-milestone shipped sections', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const versions = parsed.milestones.map((m) => m.version);
+    const versions = parsed.milestones.map((m: Record<string, unknown>) => m.version);
     expect(versions).toContain('v0.2.0');
     expect(versions).not.toContain('v0.0.5');
   });
@@ -455,7 +455,7 @@ describe('multi-milestone shipped sections', () => {
 // ─── BUG-48-002: Goal regex handles both **Goal:** and **Goal**: ────────────
 
 describe('BUG-48-002: goal regex both formats', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = createFixtureDir();
@@ -540,8 +540,8 @@ describe('BUG-48-002: goal regex both formats', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
-    const phase2 = parsed.phases.find((p) => p.number === '2');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
+    const phase2 = parsed.phases.find((p: Record<string, unknown>) => p.number === '2');
     expect(phase1.goal).toBe('Build the foundation');
     expect(phase2.goal).toBe('Ship it');
   });
@@ -565,8 +565,8 @@ describe('BUG-48-002: goal regex both formats', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
-    const phase2 = parsed.phases.find((p) => p.number === '2');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
+    const phase2 = parsed.phases.find((p: Record<string, unknown>) => p.number === '2');
     expect(phase1).toHaveProperty('line');
     expect(typeof phase1.line).toBe('number');
     expect(phase1.line).toBeGreaterThan(0);
@@ -592,8 +592,8 @@ describe('BUG-48-002: goal regex both formats', () => {
       cmdRoadmapAnalyze(tmpDir, false);
     });
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
-    const phase2 = parsed.phases.find((p) => p.number === '2');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
+    const phase2 = parsed.phases.find((p: Record<string, unknown>) => p.number === '2');
     expect(phase1.warnings).toBeInstanceOf(Array);
     expect(phase1.warnings.length).toBeGreaterThan(0);
     expect(phase1.warnings[0]).toMatch(/goal/i);
@@ -664,7 +664,7 @@ describe('computeSchedule with mcp_atlassian default_duration_days', () => {
 });
 
 describe('analyzeRoadmap phase disk statuses', () => {
-  let tmpDir;
+  let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(require('os').tmpdir() + '/grd-analyze-');
@@ -693,7 +693,7 @@ describe('analyzeRoadmap phase disk statuses', () => {
     fs.writeFileSync(require('path').join(phaseDir, '01-RESEARCH.md'), '# Research');
     const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
     expect(phase1.disk_status).toBe('researched');
   });
 
@@ -715,7 +715,7 @@ describe('analyzeRoadmap phase disk statuses', () => {
     fs.writeFileSync(require('path').join(phaseDir, '01-CONTEXT.md'), '# Context');
     const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
     expect(phase1.disk_status).toBe('discussed');
   });
 
@@ -731,7 +731,7 @@ describe('analyzeRoadmap phase disk statuses', () => {
     fs.writeFileSync(require('path').join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
     const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
     const parsed = JSON.parse(stdout);
-    const phase1 = parsed.phases.find((p) => p.number === '1');
+    const phase1 = parsed.phases.find((p: Record<string, unknown>) => p.number === '1');
     expect(phase1.start_date).toBeNull();
     expect(phase1.due_date).toBeNull();
   });

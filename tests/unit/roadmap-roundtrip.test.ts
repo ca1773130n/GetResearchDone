@@ -1,5 +1,5 @@
 /**
- * Round-trip integrity tests for lib/long-term-roadmap.js
+ * Round-trip integrity tests for lib/long-term-roadmap.ts
  *
  * Validates the full long-term roadmap lifecycle: create -> update -> link ->
  * unlink -> add -> remove -> validate, ensuring no data loss at any step.
