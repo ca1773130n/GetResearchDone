@@ -63,6 +63,12 @@ function buildAutoplanPrompt(groups: WorkGroup[], milestoneName?: string): strin
     ? `Use "${milestoneName}" as the milestone name.`
     : 'Derive a concise milestone name from the dominant themes of the work groups.';
 
+  // Detect if we have product-ideation groups
+  const hasProductIdeation: boolean = groups.some((g) => g.dimension === 'product-ideation');
+  const productIdeationGuidance: string = hasProductIdeation
+    ? `\n\n## Product Feature Guidance\n\nSome groups are product-ideation items (creative feature proposals, not code fixes). For these:\n- Create phases that BUILD NEW FEATURES, not just refactor existing code\n- Phase names should reflect the user-facing capability being added\n- Requirements should describe user value and expected behavior\n- Verification should include user-facing acceptance criteria\n- These are higher priority than code-quality improvements`
+    : '';
+
   return `Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions.
 
 ${nameInstruction}
@@ -71,7 +77,7 @@ Use the following discovered work groups as the basis for milestone phases. Each
 
 ## Discovered Work Groups
 
-${groupSummaries}
+${groupSummaries}${productIdeationGuidance}
 
 ## Instructions
 

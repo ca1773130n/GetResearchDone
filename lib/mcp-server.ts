@@ -2123,7 +2123,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   {
     name: 'grd_evolve_discover',
     description:
-      'Discover work items for self-improvement across 6 dimensions (productivity, quality, usability, consistency, stability, new-features) and select top priority items',
+      'Discover work items for self-improvement across 8 dimensions (product-ideation, improve-features, new-features, productivity, quality, usability, consistency, stability) and select top priority items. Product ideation discovers creative feature ideas by analyzing PROJECT.md and the product roadmap.',
     params: [
       {
         name: 'count',
