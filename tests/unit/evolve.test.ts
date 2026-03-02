@@ -134,8 +134,8 @@ afterEach(() => {
 // ─── WORK_ITEM_DIMENSIONS constant ─────────────────────────────────────────
 
 describe('WORK_ITEM_DIMENSIONS', () => {
-  test('contains exactly 6 dimensions', () => {
-    expect(WORK_ITEM_DIMENSIONS).toHaveLength(7);
+  test('contains exactly 8 dimensions', () => {
+    expect(WORK_ITEM_DIMENSIONS).toHaveLength(8);
   });
 
   test('all dimensions are lowercase kebab-case strings', () => {
