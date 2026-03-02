@@ -68,6 +68,9 @@ const {
 const { analyzeCodebaseForItems } = require('./_dimensions') as {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 };
+const { discoverProductIdeationItems } = require('./_product-ideation.ts') as {
+  discoverProductIdeationItems: (cwd: string) => Promise<WorkItem[]>;
+};
 const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups } =
   require('./scoring') as {
     selectPriorityItems: (
@@ -135,7 +138,7 @@ ${tree}
 Output ONLY a JSON array. Each item:
 {"dimension":"<dim>","slug":"<kebab-id>","title":"<short>","description":"<what+why, include file:line>","effort":"small|medium|large"}
 
-Dimensions: productivity, quality, usability, consistency, stability, improve-features, new-features
+Dimensions: productivity, quality, usability, consistency, stability, improve-features, new-features, product-ideation
 
 Rules:
 - Read source files to find real issues
@@ -148,9 +151,10 @@ Rules:
 // ─── Claude-Powered Discovery ───────────────────────────────────────────────
 
 /**
- * Discover improvement opportunities by running Claude as a subprocess.
+ * Discover code-quality improvement opportunities by running Claude as a subprocess.
+ * (Renamed from discoverWithClaude -- handles the code-quality dimension only.)
  */
-async function discoverWithClaude(cwd: string): Promise<WorkItem[]> {
+async function _discoverCodeQualityWithClaude(cwd: string): Promise<WorkItem[]> {
   try {
     const prompt: string = buildDiscoveryPrompt(cwd);
     const result = await spawnClaudeAsync(cwd, prompt, {
@@ -196,6 +200,24 @@ async function discoverWithClaude(cwd: string): Promise<WorkItem[]> {
     );
     return analyzeCodebaseForItems(cwd);
   }
+}
+
+/**
+ * Discover ALL improvement opportunities: code-quality AND product ideation.
+ * Runs both discovery pathways in parallel and merges the results.
+ */
+async function discoverWithClaude(cwd: string): Promise<WorkItem[]> {
+  // Run both discovery pathways in parallel.
+  // IMPORTANT: Wrap discoverProductIdeationItems in .catch so an unexpected
+  // throw (as opposed to the graceful empty-array return it already does
+  // internally) cannot reject the Promise.all and crash the whole pipeline.
+  const [codeQualityItems, productIdeationItems] = await Promise.all([
+    _discoverCodeQualityWithClaude(cwd),
+    discoverProductIdeationItems(cwd).catch(() => [] as WorkItem[]),
+  ]);
+
+  // Merge: product ideation items come first (they have higher dimension weight)
+  return [...productIdeationItems, ...codeQualityItems];
 }
 
 /**
