@@ -320,6 +320,11 @@ function getGrdWorktrees(cwd: string): GrdWorktreeEntry[] {
  * Creates a worktree at {cwd}/.worktrees/grd-worktree-{milestone}-{phase}
  * with a branch following the configured phase_branch_template pattern.
  * Ensures .worktrees/ directory exists and is listed in .gitignore.
+ *
+ * @param cwd - Project working directory
+ * @param options - Worktree creation options (phase, milestone, slug, startPoint, force)
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeCreate(
   cwd: string,
@@ -409,6 +414,11 @@ function cmdWorktreeCreate(
  *
  * Gracefully handles non-existent worktrees (returns success with already_gone flag).
  * Calls git worktree prune after removal to clean git state.
+ *
+ * @param cwd - Project working directory
+ * @param options - Removal options containing phase, milestone, path, or force flag
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeRemove(
   cwd: string,
@@ -424,7 +434,7 @@ function cmdWorktreeRemove(
     wtPath = worktreePath(cwd, milestone, options.phase);
   } else {
     error(
-      'Either --phase or --path is required for worktree remove. Specify which worktree to remove using --phase <N> or --path <worktree-path>. Example: worktree remove --phase 3'
+      'Either --phase or --path is required for worktree remove. Specify which worktree to remove using --phase <N> or --path <worktree-path>. Example: worktree remove --phase 3. To list active worktrees: grd-tools.js worktree list'
     );
     return; // unreachable — error() calls process.exit()
   }
@@ -468,6 +478,10 @@ function cmdWorktreeRemove(
  * Parses git worktree list --porcelain output and filters to only
  * GRD-created worktrees (those in .worktrees/ with grd-worktree- prefix).
  * Returns empty array if no worktrees exist.
+ *
+ * @param cwd - Project working directory
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeList(cwd: string, raw: boolean): void {
   const worktrees: GrdWorktreeEntry[] = getGrdWorktrees(cwd);
@@ -479,6 +493,10 @@ function cmdWorktreeList(cwd: string, raw: boolean): void {
  *
  * A worktree is stale if its path does not exist on disk or is empty.
  * Locked worktrees are never removed regardless of disk state.
+ *
+ * @param cwd - Project working directory
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeRemoveStale(cwd: string, raw: boolean): void {
   const worktrees: GrdWorktreeEntry[] = getGrdWorktrees(cwd);
@@ -521,6 +539,11 @@ function cmdWorktreeRemoveStale(cwd: string, raw: boolean): void {
  *
  * Both error paths return structured JSON (exit 0) so callers (orchestrators,
  * MCP) receive parseable output rather than a crash.
+ *
+ * @param cwd - Project working directory
+ * @param options - Options object containing phase, milestone, title, body, and base branch
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreePushAndPR(
   cwd: string,
@@ -664,6 +687,9 @@ function cmdWorktreePushAndPR(
  *
  * Worktree directory: {cwd}/.worktrees/grd-evolve-{YYYYMMDD-HHmmss}
  * Branch name: grd/evolve/{YYYYMMDD-HHmmss}
+ *
+ * @param cwd - Project working directory
+ * @returns EvolveWorktreeResult with path, branch, baseBranch, and created timestamp, or EvolveWorktreeError with error message
  */
 function createEvolveWorktree(
   cwd: string
@@ -870,6 +896,11 @@ function cmdWorktreeEnsureMilestoneBranch(
  * Records the current branch, checks out the target branch, merges the
  * phase branch with --no-ff, and restores the original branch. On conflict,
  * aborts the merge and restores the original branch.
+ *
+ * @param cwd - Project working directory
+ * @param options - Merge options including phase, milestone, slug, branch, base, deleteBranch, and strategy
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): void {
   const { phase, slug, deleteBranch } = options;
@@ -1008,6 +1039,7 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
  * @param wtPath - Path to the created worktree ($WORKTREE_PATH)
  * @param wtBranch - Branch name of the created worktree ($WORKTREE_BRANCH)
  * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeHookCreate(
   cwd: string,
@@ -1126,6 +1158,7 @@ function cmdWorktreeHookCreate(
  * @param wtPath - Path to the removed worktree ($WORKTREE_PATH)
  * @param wtBranch - Branch name of the removed worktree ($WORKTREE_BRANCH)
  * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout and exits)
  */
 function cmdWorktreeHookRemove(
   cwd: string,

@@ -122,6 +122,9 @@ interface BuildParallelContextOptions {
  * command template already receives parallel_groups from deps analysis for ordering.
  * The validation here prevents the user from requesting two phases where one
  * directly depends on the other.
+ * @param graph - Dependency graph containing all phase edges
+ * @param requestedPhases - Array of phase number strings to validate
+ * @returns Validation result indicating whether phases are independent, with any conflict pairs
  */
 function validateIndependentPhases(
   graph: DependencyGraph,
@@ -155,6 +158,10 @@ function validateIndependentPhases(
  * Loads config, detects backend capabilities, resolves per-phase info (directory,
  * plans, worktree paths), and selects parallel vs sequential mode. Returns a
  * context object consumed by the execute-phase command template.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @param phaseNumbers - Array of phase number strings to build context for
+ * @param options - Optional configuration for native worktree availability
+ * @returns Full parallel execution context, or an error object if a phase is not found
  */
 function buildParallelContext(
   cwd: string,
@@ -241,6 +248,11 @@ function buildParallelContext(
  * Follows the established cmdInit* pattern: validates inputs, runs preflight gates,
  * checks roadmap for requested phases, validates independence via dependency graph,
  * builds context, and outputs structured JSON.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @param phaseNumbers - Array of phase number strings requested for parallel execution
+ * @param _includes - Unused set of include filters (reserved for future use)
+ * @param raw - Whether to output plain text instead of JSON
+ * @returns void (outputs JSON or error to stdout)
  */
 function cmdInitExecuteParallel(
   cwd: string,

@@ -650,7 +650,8 @@ describe('cmdInitAutoplan', () => {
           all_items_count: 15,
         }),
       }),
-      false
+      false,
+      expect.any(String)
     );
   });
 
@@ -667,7 +668,8 @@ describe('cmdInitAutoplan', () => {
           all_items_count: 0,
         }),
       }),
-      false
+      false,
+      expect.any(String)
     );
   });
 
@@ -683,7 +685,8 @@ describe('cmdInitAutoplan', () => {
           name: 'Big Release',
         },
       }),
-      false
+      false,
+      expect.any(String)
     );
   });
 
@@ -702,7 +705,8 @@ describe('cmdInitAutoplan', () => {
           autonomous_mode: false,
         },
       }),
-      false
+      false,
+      expect.any(String)
     );
   });
 
@@ -712,7 +716,8 @@ describe('cmdInitAutoplan', () => {
     cmdInitAutoplan('/tmp/test', true);
     expect(mockOutput).toHaveBeenCalledWith(
       expect.any(Object),
-      true
+      true,
+      expect.any(String)
     );
   });
 
@@ -734,7 +739,8 @@ describe('cmdInitAutoplan', () => {
           all_items_count: 0,
         }),
       }),
-      false
+      false,
+      expect.any(String)
     );
   });
 });

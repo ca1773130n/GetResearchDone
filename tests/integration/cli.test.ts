@@ -2507,3 +2507,91 @@ describe('reapply-patches command integration', () => {
     }
   });
 });
+
+// ─── Autoplan Command Integration ────────────────────────────────────────────
+
+describe('autoplan command', () => {
+  let autoplanDir: string;
+
+  /**
+   * Create a minimal fixture for autoplan tests.
+   * Autoplan needs config.json, STATE.md, and ROADMAP.md at minimum.
+   */
+  function createAutoplanFixture(): string {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-integ-autoplan-'));
+    const planning = path.join(tmpRoot, '.planning');
+    fs.mkdirSync(planning, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({ model_profile: 'balanced', autonomous_mode: false }, null, 2)
+    );
+
+    fs.writeFileSync(
+      path.join(planning, 'STATE.md'),
+      '# State\n\n**Milestone:** v1.0\n**Status:** active\n'
+    );
+
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.md'),
+      '# Roadmap\n\n## v1.0 Test Milestone\n\n### Phase 1: Setup\n\n**Goal:** Initial setup\n\n'
+    );
+
+    return tmpRoot;
+  }
+
+  afterEach(() => {
+    if (autoplanDir && fs.existsSync(autoplanDir)) {
+      fs.rmSync(autoplanDir, { recursive: true, force: true });
+    }
+  });
+
+  test('init autoplan returns evolve state, milestone, and config', () => {
+    autoplanDir = createAutoplanFixture();
+    const { stdout, exitCode } = runCLI(['init', 'autoplan'], autoplanDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data).toHaveProperty('evolve_state');
+    expect(data.evolve_state).toHaveProperty('exists');
+    expect(data.evolve_state).toHaveProperty('iteration');
+    expect(data.evolve_state).toHaveProperty('remaining_groups_count');
+    expect(data.evolve_state).toHaveProperty('all_items_count');
+    expect(data).toHaveProperty('current_milestone');
+    expect(data.current_milestone).toHaveProperty('version');
+    expect(data).toHaveProperty('config');
+    expect(data.config).toHaveProperty('model_profile');
+    expect(data.config).toHaveProperty('autonomous_mode');
+  });
+
+  test('init autoplan with no evolve state returns exists: false and iteration 0', () => {
+    autoplanDir = createAutoplanFixture();
+    const { stdout, exitCode } = runCLI(['init', 'autoplan'], autoplanDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.evolve_state.exists).toBe(false);
+    expect(data.evolve_state.iteration).toBe(0);
+    expect(data.evolve_state.remaining_groups_count).toBe(0);
+    expect(data.evolve_state.all_items_count).toBe(0);
+  });
+
+  test('init autoplan with evolve state file reflects iteration and group counts', () => {
+    autoplanDir = createAutoplanFixture();
+    const evolveState = {
+      iteration: 3,
+      remaining_groups: [{ group: 'test', items: [] }],
+      all_items_count: 10,
+    };
+    fs.writeFileSync(
+      path.join(autoplanDir, '.planning', 'EVOLVE-STATE.json'),
+      JSON.stringify(evolveState, null, 2)
+    );
+    const { stdout, exitCode } = runCLI(['init', 'autoplan'], autoplanDir);
+    expect(exitCode).toBe(0);
+    const data = parseJSON(stdout);
+    expect(data.evolve_state.exists).toBe(true);
+    expect(data.evolve_state.iteration).toBe(3);
+    expect(data.evolve_state.remaining_groups_count).toBe(1);
+    expect(data.evolve_state.all_items_count).toBe(10);
+  });
+
+});

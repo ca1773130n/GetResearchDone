@@ -164,7 +164,7 @@ function cmdTemplateSelect(cwd: string, planPath: string, raw: boolean): void {
  */
 function cmdTemplateFill(cwd: string, templateType: string, options: TemplateFillOptions, raw: boolean): void {
   if (!templateType) {
-    error('template type required: summary, plan, or verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Specify a template type, e.g.: scaffold summary. Valid types: summary, plan, verification, context, uat, baseline');
+    error('template type required: summary, plan, or verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Specify a template type, e.g.: scaffold summary. Valid types: summary, plan, verification, context, uat, baseline. To list available templates: scaffold template-select <type>');
   }
   if (!options.phase) {
     error('--phase required');

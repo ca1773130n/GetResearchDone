@@ -399,6 +399,7 @@ function cmdFrontmatterGet(cwd: string, filePath: string, field: string | null, 
  * @param field - Field name to set
  * @param value - Value to set (JSON-parsed if valid JSON, otherwise stored as string)
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes the updated file to disk and outputs result via the output helper
  */
 function cmdFrontmatterSet(cwd: string, filePath: string, field: string, value: string, raw: boolean): void {
   if (!filePath || !field || value === undefined) {
@@ -429,6 +430,7 @@ function cmdFrontmatterSet(cwd: string, filePath: string, field: string, value: 
  * @param filePath - Path to the markdown file
  * @param data - JSON string of key-value pairs to merge into frontmatter
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes the updated file to disk and outputs result via the output helper
  */
 function cmdFrontmatterMerge(cwd: string, filePath: string, data: string, raw: boolean): void {
   if (!filePath || !data) {
@@ -460,6 +462,7 @@ function cmdFrontmatterMerge(cwd: string, filePath: string, data: string, raw: b
  * @param filePath - Path to the markdown file to validate
  * @param schemaName - Schema name ('plan', 'summary', or 'verification')
  * @param raw - Output raw text instead of JSON
+ * @returns void — outputs validation result (valid/invalid, missing fields) via the output helper
  */
 function cmdFrontmatterValidate(cwd: string, filePath: string, schemaName: string, raw: boolean): void {
   if (!filePath || !schemaName) {

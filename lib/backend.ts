@@ -166,6 +166,9 @@ function fileExists(filePath: string): boolean {
  *
  * Note: The AGENT env var is NOT used for OpenCode detection per PITFALLS.md P5
  * (too generic, may collide with other tools).
+ *
+ * @param cwd - Absolute path to the project root directory used for config and filesystem detection
+ * @returns The detected backend identifier (e.g. 'claude', 'codex', 'gemini', 'opencode')
  */
 function detectBackend(cwd: string): BackendId {
   // Step 1: Config override (highest priority)
@@ -203,6 +206,9 @@ function detectBackend(cwd: string): BackendId {
  *   opus tier: /opus/i, /pro/i (non-flash)
  *   sonnet tier: /sonnet/i
  *   haiku tier: /haiku/i, /flash/i, /mini/i, /spark/i
+ *
+ * @param stdout - Raw stdout string from the `opencode models` CLI command
+ * @returns A DetectedModels map with opus/sonnet/haiku slots filled where matched, or null if no models were matched
  */
 function parseOpenCodeModels(stdout: string): DetectedModels | null {
   if (!stdout || typeof stdout !== 'string') return null;
@@ -320,6 +326,12 @@ function clearModelCache(): void {
  * Checks config.backend_models for user overrides first, then falls back
  * to DEFAULT_BACKEND_MODELS. Unknown backends fall back to claude mappings.
  * Unknown tiers return undefined.
+ *
+ * @param backend - The backend identifier (e.g. 'claude', 'codex', 'gemini', 'opencode')
+ * @param tier - The abstract model tier to resolve ('opus', 'sonnet', or 'haiku')
+ * @param config - Optional parsed config.json object used for user-defined backend_models overrides
+ * @param cwd - Optional project root path used for dynamic model detection (opencode only)
+ * @returns The backend-specific model name string, or undefined if the tier is not mapped
  */
 function resolveBackendModel(
   backend: string,
@@ -359,6 +371,9 @@ function resolveBackendModel(
  *
  * Returns an object describing what orchestration features the backend supports.
  * Unknown backends return claude capabilities as a safe default.
+ *
+ * @param backend - The backend identifier (e.g. 'claude', 'codex', 'gemini', 'opencode')
+ * @returns A BackendCapabilities object describing which orchestration features are supported
  */
 function getBackendCapabilities(backend: string): BackendCapabilities {
   return (
@@ -376,6 +391,9 @@ function getBackendCapabilities(backend: string): BackendCapabilities {
  *   2. Environment variables: CHROME_DEVTOOLS_MCP, WEBMCP_AVAILABLE
  *   3. Claude Code MCP settings: ~/.claude.json `mcpServers` key
  *   4. Default: not available
+ *
+ * @param cwd - Absolute path to the project root directory used for config-based detection
+ * @returns A WebMcpResult indicating availability, the detection source, and an optional reason when unavailable
  */
 function detectWebMcp(cwd: string): WebMcpResult {
   // Step 1: Config override (highest priority)

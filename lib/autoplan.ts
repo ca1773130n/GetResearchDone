@@ -257,7 +257,7 @@ function cmdInitAutoplan(cwd: string, raw: boolean): void {
     },
   };
 
-  output(result, raw);
+  output(result, raw, `Milestone: ${result.current_milestone.version}, evolve_state: iteration ${result.evolve_state.iteration}${result.evolve_state.exists ? ' (active)' : ''}`);
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

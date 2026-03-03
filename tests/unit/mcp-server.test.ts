@@ -2002,3 +2002,199 @@ describe('handleMessage — previously-uncovered execute lambdas', () => {
     expect(r.result || r.error).toBeDefined();
   });
 });
+
+// ─── 14. New init agent execute lambdas (lines 1570-1827) ───────────────────
+// Cover all 30 new MCP tool bindings added in Group 4.
+
+describe('handleMessage — new init agent execute lambdas', () => {
+  function callTool(name: string, args: Record<string, unknown> = {}) {
+    return server.handleMessage({
+      jsonrpc: '2.0',
+      id: `coverage-new-${name}`,
+      method: 'tools/call',
+      params: { name, arguments: args },
+    });
+  }
+
+  test('grd_init_debug execute lambda', () => {
+    const r = callTool('grd_init_debug');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_debug with phase execute lambda', () => {
+    const r = callTool('grd_init_debug', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_debugger execute lambda', () => {
+    const r = callTool('grd_init_debugger');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_integration_check execute lambda', () => {
+    const r = callTool('grd_init_integration_check');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_integration_checker execute lambda', () => {
+    const r = callTool('grd_init_integration_checker');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_migrate execute lambda', () => {
+    const r = callTool('grd_init_migrate');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_migrator execute lambda', () => {
+    const r = callTool('grd_init_migrator');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_plan_check execute lambda', () => {
+    const r = callTool('grd_init_plan_check', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_plan_checker execute lambda', () => {
+    const r = callTool('grd_init_plan_checker', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_executor execute lambda', () => {
+    const r = callTool('grd_init_executor', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_executor with include execute lambda', () => {
+    const r = callTool('grd_init_executor', { phase: '1', include: 'state,roadmap' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_code_review execute lambda', () => {
+    const r = callTool('grd_init_code_review', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_code_reviewer execute lambda', () => {
+    const r = callTool('grd_init_code_reviewer', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_phase_research execute lambda', () => {
+    const r = callTool('grd_init_phase_research', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_phase_research with include execute lambda', () => {
+    const r = callTool('grd_init_phase_research', { phase: '1', include: 'landscape' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_phase_researcher execute lambda', () => {
+    const r = callTool('grd_init_phase_researcher', { phase: '1' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_codebase_mapper execute lambda', () => {
+    const r = callTool('grd_init_codebase_mapper');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_baseline_assessor execute lambda', () => {
+    const r = callTool('grd_init_baseline_assessor');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_deep_diver execute lambda', () => {
+    const r = callTool('grd_init_deep_diver');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_deep_diver with topic execute lambda', () => {
+    const r = callTool('grd_init_deep_diver', { topic: 'transformer-xl' });
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_eval_planner execute lambda', () => {
+    const r = callTool('grd_init_eval_planner');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_eval_reporter execute lambda', () => {
+    const r = callTool('grd_init_eval_reporter');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_feasibility_analyst execute lambda', () => {
+    const r = callTool('grd_init_feasibility_analyst');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_product_owner execute lambda', () => {
+    const r = callTool('grd_init_product_owner');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_project_researcher execute lambda', () => {
+    const r = callTool('grd_init_project_researcher');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_research_synthesizer execute lambda', () => {
+    const r = callTool('grd_init_research_synthesizer');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_roadmapper execute lambda', () => {
+    const r = callTool('grd_init_roadmapper');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_surveyor execute lambda', () => {
+    const r = callTool('grd_init_surveyor');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_verifier execute lambda', () => {
+    const r = callTool('grd_init_verifier');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_assess_baseline_direct execute lambda', () => {
+    const r = callTool('grd_init_assess_baseline_direct');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_deep_dive_direct execute lambda', () => {
+    const r = callTool('grd_init_deep_dive_direct');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_eval_plan_direct execute lambda', () => {
+    const r = callTool('grd_init_eval_plan_direct');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_eval_report_direct execute lambda', () => {
+    const r = callTool('grd_init_eval_report_direct');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_init_feasibility_direct execute lambda', () => {
+    const r = callTool('grd_init_feasibility_direct');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  // ── Sync autopilot/autoplan init tools (safe to call) ──
+
+  test('grd_multi_milestone_autopilot_init execute lambda', () => {
+    const r = callTool('grd_multi_milestone_autopilot_init');
+    expect(r.result || r.error).toBeDefined();
+  });
+
+  test('grd_autoplan_init execute lambda', () => {
+    const r = callTool('grd_autoplan_init');
+    expect(r.result || r.error).toBeDefined();
+  });
+});

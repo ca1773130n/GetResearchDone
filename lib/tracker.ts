@@ -982,7 +982,7 @@ function handleSyncRoadmap(
   }
 
   const stats: SyncStats = tracker.syncRoadmap({ phases });
-  output(stats, raw);
+  output(stats, raw, `Roadmap synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`);
 }
 
 function handleSyncPhase(
@@ -1062,7 +1062,7 @@ function handleSyncPhase(
     }
   }
   const stats: SyncStats = tracker.syncPhase(phaseNum, { plans });
-  output(stats, raw);
+  output(stats, raw, `Phase ${phaseNum} synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`);
 }
 
 function handleUpdateStatus(
@@ -1074,7 +1074,7 @@ function handleUpdateStatus(
   const status: string | undefined = args[1];
   if (!phaseNum || !status) {
     error(
-      'Usage: tracker update-status <phase-number> <status>. Provide phase number and one of the valid status values (in-progress, completed, blocked). Example: tracker update-status 3 completed'
+      'Usage: tracker update-status <phase-number> <status>. Provide phase number and one of the valid status values (in-progress, completed, blocked). Example: tracker update-status 3 completed. To see current phase numbers: grd-tools.js roadmap get-phase <N>'
     );
     return; // unreachable after error() but helps TS narrowing
   }
@@ -1115,7 +1115,7 @@ function handleUpdateStatus(
     phaseInfo.status = status;
     saveTrackerMapping(cwd, mapping);
   }
-  output(result, raw);
+  output(result, raw, `Status ${result.success ? `updated to '${status}'` : 'update failed'}`);
 }
 
 function handleAddComment(
@@ -1186,7 +1186,7 @@ function handleAddComment(
     phaseInfo.issueRef,
     content
   );
-  output(result, raw);
+  output(result, raw, `Comment ${result.success ? 'added successfully' : 'failed'}`);
 }
 
 /**
@@ -1385,7 +1385,7 @@ function handlePreparePhaseSync(
   const phaseNum: string | undefined = args[0];
   if (!phaseNum) {
     error(
-      'Usage: tracker prepare-phase-sync <phase-number>. Provide the phase number to sync, e.g.: tracker prepare-phase-sync 3'
+      'Usage: tracker prepare-phase-sync <phase-number>. Provide the phase number to sync, e.g.: tracker prepare-phase-sync 3. To see available phase numbers: grd-tools.js roadmap analyze'
     );
     return; // unreachable after error() but helps TS narrowing
   }
@@ -1654,7 +1654,7 @@ function handleSchedule(
   raw: boolean
 ): void {
   const schedule: ScheduleResult = computeSchedule(cwd);
-  output(schedule, raw);
+  output(schedule, raw, `${schedule.phases.length} phases scheduled across ${schedule.milestones.length} milestone(s)`);
 }
 
 function handlePrepareReschedule(

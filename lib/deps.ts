@@ -227,6 +227,7 @@ function detectCycle(graph: DependencyGraph): string[] | null {
  * Calls analyzeRoadmap(cwd) internally to reuse roadmap parsing (including depends_on extraction).
  * @param cwd - Project working directory
  * @param raw - Output raw text instead of JSON
+ * @returns void — outputs JSON or raw text to stdout via the output helper
  */
 function cmdPhaseAnalyzeDeps(cwd: string, raw: boolean): void {
   const roadmapResult = analyzeRoadmap(cwd) as {
@@ -252,7 +253,7 @@ function cmdPhaseAnalyzeDeps(cwd: string, raw: boolean): void {
       nodes: graph.nodes,
       edges: graph.edges,
     };
-    output(result, raw);
+    output(result, raw, `Circular dependency detected: ${cycle.join(' → ')}`);
     return;
   }
 
@@ -266,7 +267,7 @@ function cmdPhaseAnalyzeDeps(cwd: string, raw: boolean): void {
     phase_count: graph.nodes.length,
     group_count: parallelGroups.length,
   };
-  output(result, raw);
+  output(result, raw, `${graph.nodes.length} phases, ${parallelGroups.length} parallel groups`);
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

@@ -1002,7 +1002,7 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
       has_changes,
     };
 
-    output(diffResult, raw);
+    output(diffResult, raw, `${has_changes ? `Changes since ${options.since}: ${Object.keys(changed_fields).length} field(s), ${new_decisions.length} decision(s)` : `No changes since ${options.since}`}`);
     return;
   }
 

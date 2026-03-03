@@ -231,6 +231,39 @@ const {
   cmdInitProgress,
   cmdInitResearchWorkflow,
   cmdInitPlanMilestoneGaps,
+  // Agent & operation workflows (from context/agents.ts)
+  cmdInitDebug,
+  cmdInitIntegrationCheck,
+  cmdInitMigrate,
+  cmdInitPlanCheck,
+  cmdInitExecutor,
+  cmdInitBaselineAssessor,
+  cmdInitCodeReviewer,
+  cmdInitCodebaseMapper,
+  cmdInitDebugger,
+  cmdInitDeepDiver,
+  cmdInitEvalPlanner,
+  cmdInitEvalReporter,
+  cmdInitFeasibilityAnalyst,
+  cmdInitIntegrationChecker,
+  cmdInitMigrator,
+  cmdInitPhaseResearcher,
+  cmdInitPlanChecker,
+  // Execute & plan workflows (from context/execute.ts)
+  cmdInitCodeReview,
+  cmdInitPhaseResearch,
+  // Research workflows (from context/research.ts)
+  cmdInitAssessBaseline,
+  cmdInitDeepDive,
+  cmdInitEvalPlan,
+  cmdInitEvalReport,
+  cmdInitFeasibility,
+  cmdInitProductOwner,
+  cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer,
+  cmdInitRoadmapper,
+  cmdInitSurveyor,
+  cmdInitVerifier,
 } = require('./context') as {
   cmdInitExecutePhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitPlanPhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
@@ -246,6 +279,39 @@ const {
   cmdInitProgress: (cwd: string, includes: Set<string>, raw: boolean) => void;
   cmdInitResearchWorkflow: (cwd: string, workflow: string, topic: string, includes: Set<string>, raw: boolean) => void;
   cmdInitPlanMilestoneGaps: (cwd: string, raw: boolean) => void;
+  // Agent & operation workflows
+  cmdInitDebug: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitIntegrationCheck: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitMigrate: (cwd: string, raw: boolean) => void;
+  cmdInitPlanCheck: (cwd: string, phase: string, raw: boolean) => void;
+  cmdInitExecutor: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
+  cmdInitBaselineAssessor: (cwd: string, raw: boolean) => void;
+  cmdInitCodeReviewer: (cwd: string, phase: string, raw: boolean) => void;
+  cmdInitCodebaseMapper: (cwd: string, raw: boolean) => void;
+  cmdInitDebugger: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitDeepDiver: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitEvalPlanner: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitEvalReporter: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitFeasibilityAnalyst: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitIntegrationChecker: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitMigrator: (cwd: string, raw: boolean) => void;
+  cmdInitPhaseResearcher: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
+  cmdInitPlanChecker: (cwd: string, phase: string, raw: boolean) => void;
+  // Execute & plan workflows
+  cmdInitCodeReview: (cwd: string, phase: string, raw: boolean) => void;
+  cmdInitPhaseResearch: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
+  // Research workflows
+  cmdInitAssessBaseline: (cwd: string, raw: boolean) => void;
+  cmdInitDeepDive: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitEvalPlan: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitEvalReport: (cwd: string, phase: string | null, raw: boolean) => void;
+  cmdInitFeasibility: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitProductOwner: (cwd: string, raw: boolean) => void;
+  cmdInitProjectResearcher: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitResearchSynthesizer: (cwd: string, raw: boolean) => void;
+  cmdInitRoadmapper: (cwd: string, raw: boolean) => void;
+  cmdInitSurveyor: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitVerifier: (cwd: string, phase: string | null, raw: boolean) => void;
 };
 
 const {
@@ -1493,6 +1559,274 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       ),
   },
 
+  // ── Agent & Operation Workflow Inits ──
+  {
+    name: 'grd_init_debug',
+    description: 'Initialize debug context with phase info, debug files, and project state',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitDebug(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_debugger',
+    description: 'Initialize grd-debugger agent context (alias for grd_init_debug)',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitDebugger(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_integration_check',
+    description: 'Initialize integration-check context with phase inventory and deferred validations',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitIntegrationCheck(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_integration_checker',
+    description: 'Initialize grd-integration-checker agent context (alias for grd_init_integration_check)',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitIntegrationChecker(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_migrate',
+    description: 'Initialize migrate context with planning directory layout inventory',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitMigrate(cwd, false),
+  },
+  {
+    name: 'grd_init_migrator',
+    description: 'Initialize grd-migrator agent context (alias for grd_init_migrate)',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitMigrator(cwd, false),
+  },
+  {
+    name: 'grd_init_plan_check',
+    description: 'Initialize plan-check context with phase plan files and roadmap goal',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number to check' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitPlanCheck(cwd, args.phase as string, false),
+  },
+  {
+    name: 'grd_init_plan_checker',
+    description: 'Initialize grd-plan-checker agent context (alias for grd_init_plan_check)',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number to check' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitPlanChecker(cwd, args.phase as string, false),
+  },
+  {
+    name: 'grd_init_executor',
+    description: 'Initialize grd-executor agent context with phase plans, STATE, and ROADMAP',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
+      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items (state,roadmap)' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitExecutor(
+        cwd,
+        args.phase as string,
+        new Set((args.include as string) ? (args.include as string).split(',') : []),
+        false
+      ),
+  },
+  {
+    name: 'grd_init_code_review',
+    description: 'Initialize code-review context for a phase',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitCodeReview(cwd, args.phase as string, false),
+  },
+  {
+    name: 'grd_init_code_reviewer',
+    description: 'Initialize grd-code-reviewer agent context (alias for grd_init_code_review)',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitCodeReviewer(cwd, args.phase as string, false),
+  },
+  {
+    name: 'grd_init_phase_research',
+    description: 'Initialize phase-research context with research files for a phase',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
+      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitPhaseResearch(
+        cwd,
+        args.phase as string,
+        new Set((args.include as string) ? (args.include as string).split(',') : []),
+        false
+      ),
+  },
+  {
+    name: 'grd_init_phase_researcher',
+    description: 'Initialize grd-phase-researcher agent context (alias for grd_init_phase_research)',
+    params: [
+      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
+      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitPhaseResearcher(
+        cwd,
+        args.phase as string,
+        new Set((args.include as string) ? (args.include as string).split(',') : []),
+        false
+      ),
+  },
+  {
+    name: 'grd_init_codebase_mapper',
+    description: 'Initialize grd-codebase-mapper agent context (alias for grd_init_map_codebase)',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitCodebaseMapper(cwd, false),
+  },
+  // ── Research Agent Inits (direct functions) ──
+  {
+    name: 'grd_init_baseline_assessor',
+    description: 'Initialize grd-baseline-assessor agent context with assessor model and eval config',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitBaselineAssessor(cwd, false),
+  },
+  {
+    name: 'grd_init_deep_diver',
+    description: 'Initialize grd-deep-diver agent context with topic, landscape, and papers info',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Paper or topic identifier' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitDeepDiver(cwd, (args.topic as string) || '', false),
+  },
+  {
+    name: 'grd_init_eval_planner',
+    description: 'Initialize grd-eval-planner agent context with phase info and eval config',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitEvalPlanner(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_eval_reporter',
+    description: 'Initialize grd-eval-reporter agent context with phase plans, summaries, and eval config',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitEvalReporter(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_feasibility_analyst',
+    description: 'Initialize grd-feasibility-analyst agent context with topic, deep dives, and research files',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Approach or topic to analyze' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitFeasibilityAnalyst(cwd, (args.topic as string) || '', false),
+  },
+  {
+    name: 'grd_init_product_owner',
+    description: 'Initialize grd-product-owner agent context with project docs and milestone info',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitProductOwner(cwd, false),
+  },
+  {
+    name: 'grd_init_project_researcher',
+    description: 'Initialize grd-project-researcher agent context with project docs and research landscape',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Research topic' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitProjectResearcher(cwd, (args.topic as string) || '', false),
+  },
+  {
+    name: 'grd_init_research_synthesizer',
+    description: 'Initialize grd-research-synthesizer agent context with deep dives and research files',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitResearchSynthesizer(cwd, false),
+  },
+  {
+    name: 'grd_init_roadmapper',
+    description: 'Initialize grd-roadmapper agent context with project docs and milestone info',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitRoadmapper(cwd, false),
+  },
+  {
+    name: 'grd_init_surveyor',
+    description: 'Initialize grd-surveyor agent context with landscape, papers, and research config',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Survey topic' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitSurveyor(cwd, (args.topic as string) || '', false),
+  },
+  {
+    name: 'grd_init_verifier',
+    description: 'Initialize grd-verifier agent context with phase plans, summaries, and eval config',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitVerifier(cwd, (args.phase as string) || null, false),
+  },
+  // Direct research function bindings (without the generic cmdInitResearchWorkflow wrapper)
+  {
+    name: 'grd_init_assess_baseline_direct',
+    description: 'Initialize assess-baseline context directly (assessor model, eval config, artifact existence)',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitAssessBaseline(cwd, false),
+  },
+  {
+    name: 'grd_init_deep_dive_direct',
+    description: 'Initialize deep-dive context directly (deep-diver model, existing deep dives list)',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Paper or topic identifier' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitDeepDive(cwd, (args.topic as string) || '', false),
+  },
+  {
+    name: 'grd_init_eval_plan_direct',
+    description: 'Initialize eval-plan context directly (eval-planner model, phase info, eval config)',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitEvalPlan(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_eval_report_direct',
+    description: 'Initialize eval-report context directly (eval-reporter model, phase plans, summaries)',
+    params: [
+      { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitEvalReport(cwd, (args.phase as string) || null, false),
+  },
+  {
+    name: 'grd_init_feasibility_direct',
+    description: 'Initialize feasibility context directly (feasibility model, topic, deep dives)',
+    params: [
+      { name: 'topic', type: 'string', required: false, description: 'Approach or topic to analyze' },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) =>
+      cmdInitFeasibility(cwd, (args.topic as string) || '', false),
+  },
+
   // ── Long-Term Roadmap (12 subcommands) ──
   {
     name: 'grd_long_term_roadmap_list',
@@ -2353,6 +2687,8 @@ const EXIT_SENTINEL = '__MCP_EXEC_EXIT__';
  * The existing cmd* functions call output() which writes to stdout and calls process.exit(0),
  * or error() which writes to stderr and calls process.exit(1). We intercept these to capture
  * the output without actually exiting the process.
+ * @param fn - The synchronous function to execute with captured output
+ * @returns Captured stdout, stderr, and exit code from the executed function
  */
 function captureExecution(fn: () => void): CaptureResult {
   let stdout = '';

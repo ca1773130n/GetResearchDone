@@ -438,6 +438,9 @@ function isMilestoneComplete(cwd: string): boolean {
  *   that has linked normal milestones not yet shipped (note != "shipped"),
  *   or find the next LT milestone that is "planned" with no linked milestones yet.
  * - Returns { version, name } of the next milestone to create, or null if none found.
+ *
+ * @param cwd - Absolute path to the project root directory
+ * @returns The version and name of the next milestone to create, or null if no next milestone is found
  */
 function resolveNextMilestone(cwd: string): { version: string; name: string } | null {
   const ltRoadmapPath: string = path.join(cwd, '.planning', 'LONG-TERM-ROADMAP.md');
@@ -715,6 +718,10 @@ async function runAutopilot(
  * detects milestone completion, resolves the next milestone, creates it, and continues.
  *
  * Safety: maxMilestones cap (default 10) prevents infinite loops.
+ *
+ * @param cwd - Absolute path to the project root directory
+ * @param options - Configuration options including maxMilestones cap, dryRun flag, resume flag, timeout, maxTurns, model, skipPlan, and skipExecute
+ * @returns Aggregate result with milestone and phase counts, per-milestone results, and the stop reason if any
  */
 async function runMultiMilestoneAutopilot(
   cwd: string,

@@ -360,6 +360,7 @@ function writeStateFile(statePath: string, content: string): void {
  * @param cwd - Project working directory
  * @param options - List options
  * @param raw - Output raw text (newline-separated) instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhasesList(
   cwd: string,
@@ -469,6 +470,7 @@ function cmdPhasesList(
  * @param description - Human-readable phase description for the roadmap heading
  * @param raw - Output raw padded number instead of JSON
  * @param context - Optional context text for CONTEXT.md
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhaseAdd(
   cwd: string,
@@ -590,6 +592,7 @@ function cmdPhaseAdd(
  * @param afterPhase - Phase number to insert after (e.g., '06')
  * @param description - Human-readable phase description
  * @param raw - Output raw decimal phase number instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhaseInsert(
   cwd: string,
@@ -1063,6 +1066,7 @@ function _patchFrontmatterRefs(
  * @param targetPhase - Phase number to remove (integer or decimal)
  * @param options - Remove options
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhaseRemove(
   cwd: string,
@@ -1470,6 +1474,7 @@ function _phaseCompleteCore(
  * @param phaseNum - Phase number to complete (e.g., '02' or '2')
  * @param raw - Output raw text instead of JSON
  * @param options - Options (e.g., dryRun, force)
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhaseComplete(
   cwd: string,
@@ -1741,6 +1746,7 @@ function _rewriteRoadmapAfterComplete(
  * @param version - Milestone version to complete (e.g., 'v1.0')
  * @param options - Milestone options
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdMilestoneComplete(
   cwd: string,
@@ -2041,6 +2047,7 @@ function cmdMilestoneComplete(
  * @param cwd - Project working directory
  * @param raw - Output raw 'passed'/'failed' instead of JSON
  * @param options - Validation options (e.g., fix)
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdValidateConsistency(
   cwd: string,
@@ -2246,11 +2253,12 @@ function cmdValidateConsistency(
  * @param cwd - Project working directory
  * @param version - Version string (with or without 'v' prefix)
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdVersionBump(cwd: string, version: string, raw: boolean): void {
   if (!version) {
     error(
-      'version required for version bump (e.g., v1.0.0). Usage: milestone version-bump <version>. Provide the new version, e.g.: milestone version-bump v1.3.0. Current version can be found in .planning/config.json.'
+      'version required for version bump (e.g., v1.0.0). Usage: milestone version-bump <version>. Provide the new version, e.g.: milestone version-bump v1.3.0. Current version can be found in .planning/config.json. To check current version: cat .planning/config.json | grep version'
     );
   }
 
@@ -2328,6 +2336,7 @@ function cmdVersionBump(cwd: string, version: string, raw: boolean): void {
  * @param phases - Array of phase numbers to complete
  * @param options - Options passed to each cmdPhaseComplete call
  * @param raw - Output raw text instead of JSON
+ * @returns void — writes JSON or raw text to stdout and exits on error
  */
 function cmdPhaseBatchComplete(
   cwd: string,
@@ -2384,6 +2393,7 @@ function cmdPhaseBatchComplete(
  * On failure, the original file is left untouched.
  * @param filePath - Absolute path to the target file
  * @param content - Content to write
+ * @returns void — throws on write or rename failure
  */
 function atomicWriteFile(filePath: string, content: string): void {
   const tmpPath: string = filePath + '.tmp';

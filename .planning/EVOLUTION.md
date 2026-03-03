@@ -2707,3 +2707,2088 @@ None
 None
 
 ---
+## Iteration 26
+_2026-03-03T14:04:41.383Z_
+
+### Items Attempted
+
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Weights & Biases / MLflow Integration** — unknown
+- **Inline Paper Search from CLI** — unknown
+- **Research Citation Graph** — unknown
+- **Token & Time Cost Estimator** — unknown
+- **Phase Rollback / Undo** — unknown
+- **Knowledge Base Export / Import** — unknown
+- **Async Phase Completion Notifications** — unknown
+- **Natural Language Planning Search** — unknown
+- **Phase Template Library** — unknown
+- **Automated Research Gap Analysis** — unknown
+- **Jupyter Notebook Artifact Sync** — unknown
+- **Phase Change Impact Analyzer** — unknown
+- **Live Interactive TUI Dashboard** — unknown
+- **Auto-Generated Changelog from Phases** — unknown
+- **HuggingFace Model Card Integration** — unknown
+- **Phase Dry Run Simulation** — unknown
+- **Automated Phase Retrospectives** — unknown
+- **Requirements Coverage Heatmap** — unknown
+- **Intelligent Phase Scheduler** — unknown
+- **Notion / Obsidian Sync** — unknown
+- **Multi-Hypothesis Experiment Designer** — unknown
+- **Blocker Escalation & Auto-Resolution** — unknown
+- **Claude API Cost & Usage Dashboard** — unknown
+- **Paper-to-Code Scaffold Generator** — unknown
+- **Automated Regression Watchdog** — unknown
+- **Team Contribution Analytics** — unknown
+- **Voice Command Interface** — unknown
+- **Public Benchmark Leaderboard Tracker** — unknown
+- **Decision Archaeology Tool** — unknown
+- **Auto-Generated PR Descriptions from Phases** — unknown
+- **Multi-Project Portfolio Dashboard** — unknown
+- **Eval Metric Anomaly Detector** — unknown
+- **Persistent Agent Memory Across Projects** — unknown
+- **One-Click Paper Implementation Kickoff** — unknown
+- **Phase Confidence Score** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add integration test for /autoplan command** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 27
+_2026-03-03T14:18:20.004Z_
+
+### Items Attempted
+
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Cross-Project Knowledge Base** — unknown
+- **Conversational Phase Creation** — unknown
+- **AI Cost Budget Guardrails** — unknown
+- **Auto-Generate Stakeholder Reports** — unknown
+- **Continuous Literature Monitor** — unknown
+- **Phase Replay for A/B Comparison** — unknown
+- **Visual Roadmap & Dependency Graph** — unknown
+- **Phase Completion Webhooks** — unknown
+- **Research Hypothesis Tracker** — unknown
+- **Semantic Search Across Planning Artifacts** — unknown
+- **Metrics Trend Over Time** — unknown
+- **Decision Archaeology — Trace Code to Research** — unknown
+- **Multi-Model Agent Benchmarking** — unknown
+- **Auto-Generate CHANGELOG from Phases** — unknown
+- **AI Confidence Scores for Phase Estimates** — unknown
+- **Safe Phase Rollback** — unknown
+- **Research Gap Analysis** — unknown
+- **Agent Template Marketplace** — unknown
+- **Sprint / Iteration Cycle Mapping** — unknown
+- **Regression Bisect — Which Phase Broke It?** — unknown
+- **Paper-to-Code Annotation Layer** — unknown
+- **Pre-Execution Impact Preview** — unknown
+- **Team Handoff Digest** — unknown
+- **Shared Eval Benchmark Library** — unknown
+- **Live Phase Execution Log Stream** — unknown
+- **Dependency Impact Analysis Before Phases** — unknown
+- **Goal Drift Detector** — unknown
+- **Smart Phase Batching Recommendations** — unknown
+- **Interactive Eval Notebook Export** — unknown
+- **Scope Creep Guard** — unknown
+- **Cross-Milestone Requirement Traceability** — unknown
+- **Collaborative Phase Planning Session** — unknown
+- **Failure Pattern Library** — unknown
+- **Phase Complexity Forecaster** — unknown
+- **Multi-Repo Project Orchestration** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 28
+_2026-03-03T14:37:16.029Z_
+
+### Items Attempted
+
+- **Phase Velocity & Burndown Dashboard** — unknown
+- **Token Cost Tracker per Phase** — unknown
+- **Natural Language Phase Creation** — unknown
+- **arXiv Paper Import & Citation Tracking** — unknown
+- **Phase Template Library** — unknown
+- **Slack/Discord Phase Completion Notifications** — unknown
+- **Phase Dependency Graph Visualization** — unknown
+- **Milestone Retrospective Generator** — unknown
+- **Cross-Project Knowledge Search** — unknown
+- **Pre-Execution Phase Risk Analysis** — unknown
+- **Weights & Biases Experiment Sync** — unknown
+- **Auto Changelog Generation from Phases** — unknown
+- **Phase Replay with Modified Context** — unknown
+- **Technical Debt Accumulation Tracker** — unknown
+- **Interactive Phase Planning TUI** — unknown
+- **Paper-to-Phase Auto-Conversion** — unknown
+- **Agent Performance Analytics** — unknown
+- **Research Hypothesis Tracker** — unknown
+- **Linear / Notion Integration** — unknown
+- **Phase Clone for Experiments** — unknown
+- **CI-Triggered Phase Execution** — unknown
+- **Research Coverage Audit** — unknown
+- **Smart Phase Ordering Suggestions** — unknown
+- **Plain-English Phase Explainer** — unknown
+- **Deferred Validation Auto-Scheduler** — unknown
+- **Multi-Model Phase Comparison** — unknown
+- **Research Knowledge Graph Export** — unknown
+- **Phase Before/After Diff Viewer** — unknown
+- **HuggingFace Benchmark & Leaderboard Sync** — unknown
+- **Blocker Escalation & Aging Alerts** — unknown
+- **Batch Phase Operations** — unknown
+- **Research Contradiction Detector** — unknown
+- **Project Snapshot Sharing** — unknown
+- **Phase Impact Analysis Before Removal** — unknown
+- **Contextual Research Recommendations** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 29
+_2026-03-03T15:00:13.505Z_
+
+### Items Attempted
+
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Experiment Replay & Comparison** — unknown
+- **Cross-Project Knowledge Graph** — unknown
+- **Phase Cost & Token Estimator** — unknown
+- **Team Handoff Packets** — unknown
+- **Slack/Discord Webhook Notifications** — unknown
+- **Spec Drift Detector** — unknown
+- **Paper-to-Code Linker** — unknown
+- **Metric Regression Alerts** — unknown
+- **Visual Roadmap Export (Gantt / Timeline)** — unknown
+- **PR Context Auto-Injection** — unknown
+- **Phase Time Machine** — unknown
+- **Competitive Benchmark Tracker** — unknown
+- **Decision Rationale Explainer** — unknown
+- **Automated Ablation Study Scheduler** — unknown
+- **Mid-Phase Model Switcher** — unknown
+- **Requirement Coverage Heatmap** — unknown
+- **Git Blame Phase Annotator** — unknown
+- **Dependency Impact Preview** — unknown
+- **Multi-Repo Phase Sync** — unknown
+- **Research Gap Finder** — unknown
+- **Phase Template Library** — unknown
+- **Interactive Phase Debugger** — unknown
+- **Auto-Changelog from Phase Summaries** — unknown
+- **Phase Risk Scorer** — unknown
+- **GRD Cloud Dashboard** — unknown
+- **Natural Language Phase Query** — unknown
+- **Test Gap Auto-Filler** — unknown
+- **Milestone Retrospective Generator** — unknown
+- **Context Window Optimizer** — unknown
+- **Inline Citation Validator** — unknown
+- **Agent Persona Profiles** — unknown
+- **Phase Dependency Visualizer** — unknown
+- **Pre-Execution Secrets Scanner** — unknown
+- **Milestone-Level Branching Strategies** — unknown
+- **Eval Target Negotiator** — unknown
+- **Knowledge Base Export for RAG** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 30
+_2026-03-03T15:28:50.982Z_
+
+### Items Attempted
+
+- **Cross-Project Research Library** — unknown
+- **Phase Cost Estimator** — unknown
+- **Interactive Phase Dependency Graph** — unknown
+- **Metric Regression Detection** — unknown
+- **Paper → Code Section Mapper** — unknown
+- **Phase Completion Notifications** — unknown
+- **Research Gap Analysis** — unknown
+- **Experiment Run Diff** — unknown
+- **Experiment Reproducibility Audit** — unknown
+- **Phase Template Library** — unknown
+- **Multi-Engineer Phase Assignment** — unknown
+- **Auto-Generated PR Descriptions** — unknown
+- **Research Topic Alert Subscriptions** — unknown
+- **Research Report Generator** — unknown
+- **Semantic Search Across Planning Artifacts** — unknown
+- **Phase Duration Analytics** — unknown
+- **Research Contradiction Detector** — unknown
+- **Phase Budget Guardrails** — unknown
+- **Codebase Health Trend Charts** — unknown
+- **Deferred Validation Tracker Dashboard** — unknown
+- **Built-in A/B Phase Comparison** — unknown
+- **Requirements Coverage Heatmap** — unknown
+- **Personal Model Performance Leaderboard** — unknown
+- **Promote Todo to Phase** — unknown
+- **Automated Milestone Retrospective** — unknown
+- **Paper Implementation Status Board** — unknown
+- **Phase Risk Scoring** — unknown
+- **Dataset Version Registry** — unknown
+- **Agent Performance Profiler** — unknown
+- **Daily Standup Digest** — unknown
+- **Principles Conflict Checker** — unknown
+- **Multi-Milestone Burndown View** — unknown
+- **Code Review Issue Trend Analysis** — unknown
+- **Intelligent Phase Splitter** — unknown
+- **Institutional Knowledge Distillation** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 31
+_2026-03-03T15:47:03.332Z_
+
+### Items Attempted
+
+- **Cross-Project Research Library** — unknown
+- **Phase Cost Tracking & Budget Caps** — unknown
+- **Visual Phase Dependency Graph** — unknown
+- **Autopilot Completion Notifications** — unknown
+- **Reusable Phase Templates** — unknown
+- **Eval Metric Trend Visualization** — unknown
+- **Non-Technical Stakeholder Report** — unknown
+- **Research Staleness Detection** — unknown
+- **A/B Experiment Comparator** — unknown
+- **PR-Triggered Phase Evaluation** — unknown
+- **Full-Text Planning Search** — unknown
+- **Auto-Generated CHANGELOG from Phases** — unknown
+- **Automated Phase Retrospective** — unknown
+- **Searchable Decision Audit Trail** — unknown
+- **Pre-Execution Phase Risk Score** — unknown
+- **Auto-Updated README from Phase Summaries** — unknown
+- **Initialize GRD from Existing Repository** — unknown
+- **Actual vs Estimated Duration Tracking** — unknown
+- **Public Benchmark Comparison** — unknown
+- **Context Window Usage Analyzer** — unknown
+- **Cross-Repository Milestone Sync** — unknown
+- **Phase Replay with Config Variants** — unknown
+- **Natural Language Roadmap Modification** — unknown
+- **Paper Citation & Influence Graph** — unknown
+- **Metric Regression Auto-Detection** — unknown
+- **Research Brief PDF Export** — unknown
+- **Interactive Assumption Validation Before Planning** — unknown
+- **Promote Captured Todos into Full Phases** — unknown
+- **Agent Team Configuration Presets** — unknown
+- **Phase Complexity Forecaster** — unknown
+- **Planning Knowledge Graph Explorer** — unknown
+- **GitHub Issue → Phase Import** — unknown
+- **Milestone Health Audit Report** — unknown
+- **Semantic Phase Duplicate Detection** — unknown
+- **Agent Performance Analytics Dashboard** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 32
+_2026-03-03T16:03:26.370Z_
+
+### Items Attempted
+
+- **Cross-Project Research Library** — unknown
+- **Research-to-Code Traceability Links** — unknown
+- **Phase Template Marketplace** — unknown
+- **Natural Language Project Query** — unknown
+- **Hypothesis Tracking & Validation** — unknown
+- **AI API Cost Tracking Per Phase** — unknown
+- **Daily Standup Generator** — unknown
+- **Papers with Code Benchmark Integration** — unknown
+- **Interactive Phase Dependency Graph** — unknown
+- **Research Debt Register** — unknown
+- **Team Notification Integration (Slack / Discord)** — unknown
+- **CI/CD Phase Triggers** — unknown
+- **Phase Experiment Replay** — unknown
+- **Automated Milestone Retrospective** — unknown
+- **Multi-Model Phase Output Comparison** — unknown
+- **Jupyter Notebook Export** — unknown
+- **AI Phase Risk Scorer** — unknown
+- **Metric Drift Alerts** — unknown
+- **Contextual Paper Recommender** — unknown
+- **Phase Handoff Context Packet** — unknown
+- **Natural Language Roadmap Editor** — unknown
+- **Requirement Coverage Heatmap** — unknown
+- **Semantic Changelog from Phase Summaries** — unknown
+- **Research Knowledge Graph** — unknown
+- **Parallel Research Thread Merge** — unknown
+- **Data-Driven Phase Duration Estimator** — unknown
+- **Failure Pattern Recognition & Mitigation** — unknown
+- **Figma Design-to-Phase Scaffolder** — unknown
+- **OpenAPI Spec to Phase Plan Generator** — unknown
+- **Searchable Decision Log** — unknown
+- **Live Progress Web Dashboard** — unknown
+- **Project Pattern Library Extractor** — unknown
+- **Scope Creep Early Warning** — unknown
+- **Obsidian / Notion Knowledge Sync** — unknown
+- **Milestone-over-Milestone Analytics** — unknown
+- **Real-Time Research Feed Subscription** — unknown
+- **Auto-Calibrated Eval Targets** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 33
+_2026-03-03T16:23:38.746Z_
+
+### Items Attempted
+
+- **Research Knowledge Sharing Across Projects** — unknown
+- **Phase Cost Estimator Before Execution** — unknown
+- **Natural Language to Roadmap Generation** — unknown
+- **Reusable Phase Templates** — unknown
+- **A/B Phase Execution for Competing Approaches** — unknown
+- **Auto-Suggest Papers Based on Phase Goals** — unknown
+- **Visual Paper Citation and Influence Graph** — unknown
+- **Phase Rollback and Undo** — unknown
+- **Stakeholder Progress Digests** — unknown
+- **Metric Performance Timeline Dashboard** — unknown
+- **Pre-Execution Risk Assessment** — unknown
+- **Automated Sprint Retrospective Generator** — unknown
+- **Cross-Model Evaluation Runner** — unknown
+- **Intelligent Next-Phase Suggestions** — unknown
+- **Research Knowledge Base Export** — unknown
+- **Phase Complexity and Duration Estimator** — unknown
+- **Multi-Developer Collaboration Mode** — unknown
+- **Paper Implementation Fidelity Tracker** — unknown
+- **Natural Language Project History Query** — unknown
+- **Phase Dependency and Blocker Graph** — unknown
+- **Eval Harness Code Generator** — unknown
+- **Research Quality Score for Phases** — unknown
+- **Real-Time Phase Notifications via Webhooks** — unknown
+- **Weights & Biases / MLflow Experiment Sync** — unknown
+- **Automatic Phase Changelog and Diff Summary** — unknown
+- **Milestone Health Audit with Gap Analysis** — unknown
+- **Interactive Conversation-Based Phase Scoping** — unknown
+- **Auto-Generate Tests from Verification Criteria** — unknown
+- **Searchable Decision Audit Trail** — unknown
+- **Execution Budget and Time-Boxing Controls** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 34
+_2026-03-03T16:40:19.713Z_
+
+### Items Attempted
+
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 35
+_2026-03-03T17:00:26.723Z_
+
+### Items Attempted
+
+- **Cross-Project Knowledge Base** — unknown
+- **Contextual Paper Recommendations** — unknown
+- **Formal Hypothesis Tracker** — unknown
+- **Claude API Cost Per Phase** — unknown
+- **Experiment Registry with Diff Views** — unknown
+- **Experiment Tracker Integration (MLflow / W&B)** — unknown
+- **Automated Phase Retrospective** — unknown
+- **Natural Language Phase Creation** — unknown
+- **Multi-Project Dashboard** — unknown
+- **Proactive Blocker Prediction** — unknown
+- **Slack / Discord Phase Notifications** — unknown
+- **Semantic Search Across Planning Artifacts** — unknown
+- **Phase Template Library** — unknown
+- **Decision Audit Trail** — unknown
+- **Metric Regression Detection** — unknown
+- **Documentation Export (Confluence / Notion)** — unknown
+- **Gradual Autonomy with Preference Learning** — unknown
+- **Auto-Generated PR Descriptions from Phase Plans** — unknown
+- **Compute Budget Planning** — unknown
+- **AI Peer Review for Research Plans** — unknown
+- **Changelog Auto-Writer** — unknown
+- **Phase Dependency Impact Analysis** — unknown
+- **Experiment Reproducibility Checker** — unknown
+- **Phase-Level Team Assignment** — unknown
+- **R&D Knowledge Graph** — unknown
+- **Phase Failure Autopsy** — unknown
+- **Effort Estimation Calibration** — unknown
+- **Backend Capability Parity Report** — unknown
+- **Research Gap Detector** — unknown
+- **VS Code Extension for GRD** — unknown
+- **Add human-readable output in autoplan.ts line 260** — unknown
+- **Add human-readable output in deps.ts line 255** — unknown
+- **Add human-readable output in deps.ts line 269** — unknown
+- **Add human-readable output in state.ts line 1005** — unknown
+- **Add human-readable output in tracker.ts line 1065** — unknown
+- **Add human-readable output in tracker.ts line 1189** — unknown
+- **Add human-readable output in tracker.ts line 1657** — unknown
+- **Add recovery hint to error in phase.ts line 2252** — unknown
+- **Add recovery hint to error in scaffold.ts line 167** — unknown
+- **Add recovery hint to error in tracker.ts line 1076** — unknown
+- **Add recovery hint to error in tracker.ts line 1387** — unknown
+- **Add recovery hint to error in worktree.ts line 426** — unknown
+- **Add MCP tool for cmdInitDebug** — unknown
+- **Add MCP tool for cmdInitIntegrationCheck** — unknown
+- **Add MCP tool for cmdInitMigrate** — unknown
+- **Add MCP tool for cmdInitPlanCheck** — unknown
+- **Add MCP tool for cmdInitExecutor** — unknown
+- **Add MCP tool for cmdInitBaselineAssessor** — unknown
+- **Add MCP tool for cmdInitCodeReviewer** — unknown
+- **Add MCP tool for cmdInitCodebaseMapper** — unknown
+- **Add MCP tool for cmdInitDebugger** — unknown
+- **Add MCP tool for cmdInitDeepDiver** — unknown
+- **Add MCP tool for cmdInitEvalPlanner** — unknown
+- **Add MCP tool for cmdInitEvalReporter** — unknown
+- **Add MCP tool for cmdInitFeasibilityAnalyst** — unknown
+- **Add MCP tool for cmdInitIntegrationChecker** — unknown
+- **Add MCP tool for cmdInitMigrator** — unknown
+- **Add MCP tool for cmdInitPhaseResearcher** — unknown
+- **Add MCP tool for cmdInitPlanChecker** — unknown
+- **Add MCP tool for cmdInitCodeReview** — unknown
+- **Add MCP tool for cmdInitPhaseResearch** — unknown
+- **Add MCP tool for cmdInitAssessBaseline** — unknown
+- **Add MCP tool for cmdInitDeepDive** — unknown
+- **Add MCP tool for cmdInitEvalPlan** — unknown
+- **Add MCP tool for cmdInitEvalReport** — unknown
+- **Add MCP tool for cmdInitFeasibility** — unknown
+- **Add MCP tool for cmdInitProductOwner** — unknown
+- **Add MCP tool for cmdInitProjectResearcher** — unknown
+- **Add MCP tool for cmdInitResearchSynthesizer** — unknown
+- **Add MCP tool for cmdInitRoadmapper** — unknown
+- **Add MCP tool for cmdInitSurveyor** — unknown
+- **Add MCP tool for cmdInitVerifier** — unknown
+- **Add init workflow for grd-baseline-assessor agent** — unknown
+- **Add init workflow for grd-code-reviewer agent** — unknown
+- **Add init workflow for grd-codebase-mapper agent** — unknown
+- **Add init workflow for grd-debugger agent** — unknown
+- **Add init workflow for grd-deep-diver agent** — unknown
+- **Add init workflow for grd-eval-planner agent** — unknown
+- **Add init workflow for grd-eval-reporter agent** — unknown
+- **Add init workflow for grd-executor agent** — unknown
+- **Add init workflow for grd-feasibility-analyst agent** — unknown
+- **Add init workflow for grd-integration-checker agent** — unknown
+- **Add init workflow for grd-migrator agent** — unknown
+- **Add init workflow for grd-phase-researcher agent** — unknown
+- **Add init workflow for grd-plan-checker agent** — unknown
+- **Add init workflow for grd-product-owner agent** — unknown
+- **Add init workflow for grd-project-researcher agent** — unknown
+- **Add init workflow for grd-research-synthesizer agent** — unknown
+- **Add init workflow for grd-roadmapper agent** — unknown
+- **Add init workflow for grd-surveyor agent** — unknown
+- **Add init workflow for grd-verifier agent** — unknown
+- **Replace process.exit calls in mcp-server.ts** — unknown
+- **Replace process.exit calls in roadmap.ts** — unknown
+- **Replace process.exit calls in utils.ts** — unknown
+- **Replace process.exit calls in worktree.ts** — unknown
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---

@@ -26,6 +26,8 @@ const path = require('path');
  * the version string (e.g., 'v0.2.1'). Returns 'anonymous' when
  * STATE.md is missing, unreadable, has no Milestone field, or the
  * field value contains no version string.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @returns Current milestone version string (e.g., 'v0.2.1'), or 'anonymous' if not found
  */
 function currentMilestone(cwd: string): string {
   const statePath: string = path.join(cwd, '.planning', 'STATE.md');
@@ -153,6 +155,9 @@ function milestonesDir(cwd: string): string {
  *
  * Always returns the milestone-scoped path (.planning/milestones/{milestone}/phases/).
  * Callers should use fs.mkdirSync({ recursive: true }) to ensure the directory exists.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @param milestone - Milestone version string (e.g., 'v0.2.1'); defaults to current milestone if omitted
+ * @returns Absolute path to the milestone-scoped phases directory
  */
 function phasesDir(cwd: string, milestone?: string | null): string {
   if (milestone == null) {
@@ -209,6 +214,8 @@ function researchDir(cwd: string, milestone?: string | null): string {
  *
  * Always returns .planning/codebase/ -- codebase maps are project-wide,
  * not scoped to a specific milestone.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @returns Absolute path to the .planning/codebase/ directory
  */
 function codebaseDir(cwd: string): string {
   return path.join(cwd, '.planning', 'codebase');
@@ -239,6 +246,9 @@ function quickDir(cwd: string, milestone?: string | null): string {
  *
  * Matches the existing archive layout where completed milestone phases
  * are stored as {version}-phases/ directories.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @param version - Milestone version string used to form the archive directory name (e.g., 'v0.2.1')
+ * @returns Absolute path to the archived phases directory (e.g., .planning/milestones/v0.2.1-phases/)
  */
 function archivedPhasesDir(cwd: string, version: string): string {
   const milestonesBase: string = path.join(cwd, '.planning', 'milestones');
@@ -271,6 +281,8 @@ function standardsDir(cwd: string, milestone?: string | null): string {
  *
  * Single source of truth for the .planning/ directory location.
  * Use this instead of hardcoding path.join(cwd, '.planning', ...) constructions.
+ * @param cwd - Absolute path to the working directory (project root)
+ * @returns Absolute path to the .planning/ directory
  */
 function planningDir(cwd: string): string {
   return path.join(cwd, '.planning');
