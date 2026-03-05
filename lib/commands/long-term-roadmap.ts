@@ -3,20 +3,20 @@
 'use strict';
 
 const path = require('path');
-const { safeReadFile, output, error } = require('../utils') as {
+const { safeReadFile, output, error }: {
   safeReadFile: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { planningDir: getPlanningDir } = require('../paths') as {
+} = require('../utils');
+const { planningDir: getPlanningDir }: {
   planningDir: (cwd: string) => string;
-};
+} = require('../paths');
 const {
   parseLongTermRoadmap, validateLongTermRoadmap, formatLongTermRoadmap,
   updateRefinementHistory, addLtMilestone, removeLtMilestone,
   updateLtMilestone, linkNormalMilestone, unlinkNormalMilestone,
   getLtMilestoneById, initFromRoadmap,
-} = require('../long-term-roadmap') as {
+}: {
   parseLongTermRoadmap: (content: unknown) => LtRoadmapParsed | null;
   validateLongTermRoadmap: (parsed: LtRoadmapParsed | null) => LtValidationResult;
   formatLongTermRoadmap: (parsed: LtRoadmapParsed | null) => string;
@@ -28,10 +28,10 @@ const {
   unlinkNormalMilestone: (content: string, id: string, version: string, roadmapContent?: string) => string | LtErrorResult;
   getLtMilestoneById: (content: string, id: string) => LtMilestoneEntry | null;
   initFromRoadmap: (roadmapContent: string, projectName: string) => string;
-};
-const { readCachedRoadmap } = require('./phase-info') as {
+} = require('../long-term-roadmap');
+const { readCachedRoadmap }: {
   readCachedRoadmap: (roadmapPath: string) => string | null;
-};
+} = require('./phase-info');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

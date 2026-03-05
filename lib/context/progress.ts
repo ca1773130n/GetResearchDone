@@ -19,7 +19,7 @@ const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   resolveModelInternal, pathExistsInternal,
   getMilestoneInfo, output,
-} = require('../utils') as {
+}: {
   fs: typeof import('fs');
   path: typeof import('path');
   safeReadFile: (p: string) => string | null;
@@ -29,25 +29,25 @@ const {
   pathExistsInternal: (cwd: string, target: string) => boolean;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-};
+} = require('../utils');
 
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
-};
+} = require('../backend');
 
 const {
   planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
   todosDir: getTodosDirPath, quickDir: getQuickDirPath,
-} = require('../paths') as {
+}: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
   codebaseDir: (cwd: string) => string;
   todosDir: (cwd: string) => string;
   quickDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── Progress Cache Helpers ──────────────────────────────────────────────────
 

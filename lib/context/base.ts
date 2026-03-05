@@ -20,24 +20,24 @@ const {
   path,
   safeReadFile,
   getMilestoneInfo,
-} = require('../utils') as {
+}: {
   path: typeof import('path');
   safeReadFile: (filePath: string) => string | null;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
-};
+} = require('../utils');
 
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
-};
+} = require('../backend');
 
 const {
   phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath,
-} = require('../paths') as {
+}: {
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── Ceremony Level Inference ────────────────────────────────────────────────
 

@@ -12,7 +12,7 @@ const path = require('path');
 const {
   safeReadFile, loadConfig, isGitIgnored, execGit,
   normalizePhaseName, MODEL_PROFILES, output, error,
-} = require('../utils') as {
+}: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => GrdConfig;
   isGitIgnored: (cwd: string, p: string) => boolean;
@@ -21,22 +21,22 @@ const {
   MODEL_PROFILES: AgentModelProfiles;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { extractFrontmatter } = require('../frontmatter') as {
+} = require('../utils');
+const { extractFrontmatter }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
-};
+} = require('../frontmatter');
 const {
   detectBackend, resolveBackendModel, getBackendCapabilities, getCachedModels,
-} = require('../backend') as {
+}: {
   detectBackend: (cwd: string) => BackendId;
   resolveBackendModel: (b: string, t: ModelTier, c?: Record<string, unknown>, cwd?: string) => string | undefined;
   getBackendCapabilities: (b: string) => BackendCapabilities;
   getCachedModels: (b: string, cwd?: string) => Record<string, string> | null;
-};
-const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir } = require('../paths') as {
+} = require('../backend');
+const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir }: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

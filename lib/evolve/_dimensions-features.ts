@@ -16,10 +16,10 @@ import type { WorkItem } from './types';
 
 const fs = require('fs');
 const path = require('path');
-const { safeReadFile } = require('../utils') as {
+const { safeReadFile }: {
   safeReadFile: (filePath: string) => string | null;
-};
-const { createWorkItem, readLibFileCached } = require('./state') as {
+} = require('../utils');
+const { createWorkItem, readLibFileCached }: {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -28,11 +28,11 @@ const { createWorkItem, readLibFileCached } = require('./state') as {
     opts?: { effort?: string; source?: string; status?: string; iteration_added?: number }
   ) => WorkItem;
   readLibFileCached: (filePath: string) => string | null;
-};
-const { listSourceFiles, stripExt } = require('./_dimensions') as {
+} = require('./state');
+const { listSourceFiles, stripExt }: {
   listSourceFiles: (dirPath: string, ext?: string) => string[];
   stripExt: (filename: string) => string;
-};
+} = require('./_dimensions');
 
 // ─── Improve Features Discoverer ────────────────────────────────────────────
 

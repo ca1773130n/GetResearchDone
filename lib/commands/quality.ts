@@ -4,13 +4,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { output, error } = require('../utils') as {
+const { output, error }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { runQualityAnalysis } = require('../cleanup') as {
+} = require('../utils');
+const { runQualityAnalysis }: {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityReport;
-};
+} = require('../cleanup');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

@@ -23,7 +23,7 @@ const {
   loadConfig,
   findPhaseInternal,
   generateSlugInternal,
-} = require('./utils') as {
+}: {
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => ExecGitResult;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
@@ -31,7 +31,7 @@ const {
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   generateSlugInternal: (text: string) => string | null;
-};
+} = require('./utils');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

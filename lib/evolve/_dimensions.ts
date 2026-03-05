@@ -16,10 +16,10 @@ import type { WorkItem } from './types';
 
 const fs = require('fs');
 const path = require('path');
-const { safeReadFile } = require('../utils') as {
+const { safeReadFile }: {
   safeReadFile: (filePath: string) => string | null;
-};
-const { createWorkItem, readLibFileCached } = require('./state') as {
+} = require('../utils');
+const { createWorkItem, readLibFileCached }: {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -28,7 +28,7 @@ const { createWorkItem, readLibFileCached } = require('./state') as {
     opts?: { effort?: string; source?: string; status?: string; iteration_added?: number }
   ) => WorkItem;
   readLibFileCached: (filePath: string) => string | null;
-};
+} = require('./state');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -320,10 +320,10 @@ function _discoverDimension(name: string, finder: (cwd: string) => WorkItem[], c
  * Analyze the codebase and produce categorized work items across all 7 dimensions.
  */
 function analyzeCodebaseForItems(cwd: string): WorkItem[] {
-  const { discoverImproveFeatureItems, discoverNewFeatureItems } = require('./_dimensions-features') as {
+  const { discoverImproveFeatureItems, discoverNewFeatureItems }: {
     discoverImproveFeatureItems: (cwd: string) => WorkItem[];
     discoverNewFeatureItems: (cwd: string) => WorkItem[];
-  };
+  } = require('./_dimensions-features');
 
   // Note: 'product-ideation' dimension is NOT included in the hardcoded fallback.
   // Product ideation requires Claude (it reads project vision, roadmap, etc. and

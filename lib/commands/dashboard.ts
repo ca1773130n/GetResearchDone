@@ -9,37 +9,37 @@ const path = require('path');
 
 const {
   safeReadFile, normalizePhaseName, output, error,
-} = require('../utils') as {
+}: {
   safeReadFile: (p: string) => string | null;
   normalizePhaseName: (phase: string) => string;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { extractFrontmatter } = require('../frontmatter') as {
+} = require('../utils');
+const { extractFrontmatter }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
-};
+} = require('../frontmatter');
 const {
   phasesDir: getPhasesDirPath, planningDir: getPlanningDir,
-} = require('../paths') as {
+}: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
-};
+} = require('../paths');
 const {
   parseRequirements, parseTraceabilityMatrix,
-} = require('../requirements') as {
+}: {
   parseRequirements: (content: string) => { id: string; title: string; priority: string }[];
   parseTraceabilityMatrix: (content: string) => { req: string; status: string }[];
-};
-const { readCachedRoadmap, readCachedState } = require('./phase-info') as {
+} = require('../requirements');
+const { readCachedRoadmap, readCachedState }: {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
-};
+} = require('./phase-info');
 const {
   parseDashboardShippedMilestones,
   parseDashboardActiveMilestones,
   parseDashboardPhases,
   parseDashboardStateSummary,
-} = require('./_dashboard-parsers') as {
+}: {
   parseDashboardShippedMilestones: (roadmapContent: string) => MilestoneEntry[];
   parseDashboardActiveMilestones: (roadmapContent: string) => {
     activeMilestones: MilestoneEntry[];
@@ -51,7 +51,7 @@ const {
     activeMilestones: MilestoneEntry[]
   ) => PhaseData[];
   parseDashboardStateSummary: (stateContent: string) => StateSummary;
-};
+} = require('./_dashboard-parsers');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

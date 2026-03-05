@@ -20,10 +20,10 @@ import type {
 } from './types';
 
 const path = require('path');
-const { safeReadFile } = require('../utils') as {
+const { safeReadFile }: {
   safeReadFile: (filePath: string) => string | null;
-};
-const { spawnClaudeAsync } = require('../autopilot') as {
+} = require('../utils');
+const { spawnClaudeAsync }: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -41,7 +41,7 @@ const { spawnClaudeAsync } = require('../autopilot') as {
     stderr?: string;
     timedOut: boolean;
   }>;
-};
+} = require('../autopilot');
 const {
   SONNET_MODEL,
   WORK_ITEM_DIMENSIONS,
@@ -50,7 +50,7 @@ const {
   THEME_PATTERNS,
   createWorkItem,
   mergeWorkItems,
-} = require('./state') as {
+}: {
   SONNET_MODEL: string;
   WORK_ITEM_DIMENSIONS: string[];
   DEFAULT_ITEMS_PER_ITERATION: number;
@@ -64,15 +64,14 @@ const {
     opts?: { effort?: string }
   ) => WorkItem;
   mergeWorkItems: (existing: WorkItem[], discovered: WorkItem[]) => WorkItem[];
-};
-const { analyzeCodebaseForItems } = require('./_dimensions') as {
+} = require('./state');
+const { analyzeCodebaseForItems }: {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
-};
-const { discoverProductIdeationItems } = require('./_product-ideation') as {
+} = require('./_dimensions');
+const { discoverProductIdeationItems }: {
   discoverProductIdeationItems: (cwd: string) => Promise<WorkItem[]>;
-};
-const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups } =
-  require('./scoring') as {
+} = require('./_product-ideation');
+const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups }: {
     selectPriorityItems: (
       items: WorkItem[],
       count: number
@@ -85,7 +84,7 @@ const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups } =
       groups: WorkGroup[],
       pickPct: number
     ) => { selected: WorkGroup[]; remaining: WorkGroup[] };
-  };
+  } = require('./scoring');
 
 const fs = require('fs');
 

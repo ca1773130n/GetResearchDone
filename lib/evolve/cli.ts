@@ -26,36 +26,35 @@ const {
   writeEvolveState,
   advanceIteration,
   evolveStatePath,
-} = require('./state') as {
+}: {
   DEFAULT_PICK_PCT: number;
   readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
   writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
   advanceIteration: (previousState: EvolveState) => EvolveState;
   evolveStatePath: (cwd: string) => string;
-};
-const { runGroupDiscovery } = require('./discovery') as {
+} = require('./state');
+const { runGroupDiscovery }: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
-};
-const { runEvolve, runInfiniteEvolve } = require('./orchestrator') as {
+} = require('./discovery');
+const { runEvolve, runInfiniteEvolve }: {
   runEvolve: (cwd: string, options?: EvolveOptions) => Promise<EvolveResult>;
   runInfiniteEvolve: (cwd: string, options?: InfiniteEvolveOptions) => Promise<InfiniteEvolveResult>;
-};
-const { output, error, loadConfig, resolveModelForAgent, getMilestoneInfo } =
-  require('../utils') as {
+} = require('./orchestrator');
+const { output, error, loadConfig, resolveModelForAgent, getMilestoneInfo }: {
     output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
     error: (message: string) => never;
     loadConfig: (cwd: string) => GrdConfig;
     resolveModelForAgent: (config: GrdConfig, agent: string, cwd: string) => string;
     getMilestoneInfo: (cwd: string) => MilestoneInfo;
-  };
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+  } = require('../utils');
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
-};
+} = require('../backend');
 const fs = require('fs');
 
 // ─── CLI Command Functions ─────────────────────────────────────────────────

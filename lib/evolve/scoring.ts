@@ -11,13 +11,12 @@
 
 import type { WorkItem, WorkItemEffort, WorkGroup } from './types';
 
-const { DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS, THEME_PATTERNS } =
-  require('./state') as {
+const { DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS, THEME_PATTERNS }: {
     DIMENSION_WEIGHTS: Record<string, number>;
     EFFORT_MODIFIERS: Record<string, number>;
     SOURCE_MODIFIERS: Record<string, number>;
     THEME_PATTERNS: Array<{ pattern: RegExp; theme: string }>;
-  };
+  } = require('./state');
 
 // ─── Scoring Heuristic ──────────────────────────────────────────────────────
 

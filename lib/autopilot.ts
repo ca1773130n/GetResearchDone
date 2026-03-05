@@ -22,13 +22,13 @@ import type {
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process') as typeof import('child_process');
-const { loadConfig, findPhaseInternal, output, getMilestoneInfo } = require('./utils') as {
+const { loadConfig, findPhaseInternal, output, getMilestoneInfo }: {
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
-};
-const { analyzeRoadmap } = require('./roadmap') as {
+} = require('./utils');
+const { analyzeRoadmap }: {
   analyzeRoadmap: (cwd: string) => {
     error?: string;
     phases?: Array<{
@@ -39,14 +39,14 @@ const { analyzeRoadmap } = require('./roadmap') as {
       roadmap_complete?: boolean;
     }>;
   };
-};
-const { buildDependencyGraph, computeParallelGroups } = require('./deps') as {
+} = require('./roadmap');
+const { buildDependencyGraph, computeParallelGroups }: {
   buildDependencyGraph: (
     phases: Array<{ number: string; name: string; depends_on?: string | null }>
   ) => DependencyGraph;
   computeParallelGroups: (graph: DependencyGraph) => string[][];
-};
-const { parseLongTermRoadmap } = require('./long-term-roadmap') as {
+} = require('./deps');
+const { parseLongTermRoadmap }: {
   parseLongTermRoadmap: (
     content: unknown
   ) => {
@@ -57,7 +57,7 @@ const { parseLongTermRoadmap } = require('./long-term-roadmap') as {
       normal_milestones: Array<{ version: string; note?: string }>;
     }>;
   } | null;
-};
+} = require('./long-term-roadmap');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 

@@ -83,7 +83,7 @@ const {
   cmdStateResolveBlocker,
   cmdStateRecordSession,
   cmdStateSnapshot,
-} = require('./state') as {
+}: {
   cmdStateLoad: (cwd: string, raw: boolean) => void;
   cmdStateGet: (cwd: string, section: string | undefined, raw: boolean) => void;
   cmdStatePatch: (cwd: string, patches: Record<string, unknown>, raw: boolean) => void;
@@ -96,38 +96,38 @@ const {
   cmdStateResolveBlocker: (cwd: string, text: string, raw: boolean) => void;
   cmdStateRecordSession: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdStateSnapshot: (cwd: string, raw: boolean) => void;
-};
+} = require('./state');
 
 const {
   cmdFrontmatterGet,
   cmdFrontmatterSet,
   cmdFrontmatterMerge,
   cmdFrontmatterValidate,
-} = require('./frontmatter') as {
+}: {
   cmdFrontmatterGet: (cwd: string, file: string, field: string | null, raw: boolean) => void;
   cmdFrontmatterSet: (cwd: string, file: string, field: string, value: string, raw: boolean) => void;
   cmdFrontmatterMerge: (cwd: string, file: string, data: string, raw: boolean) => void;
   cmdFrontmatterValidate: (cwd: string, file: string, schema: string | null, raw: boolean) => void;
-};
+} = require('./frontmatter');
 
-const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze } = require('./roadmap') as {
+const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze }: {
   cmdRoadmapGetPhase: (cwd: string, phase: string, raw: boolean) => void;
   cmdPhaseNextDecimal: (cwd: string, phase: string, raw: boolean) => void;
   cmdRoadmapAnalyze: (cwd: string, raw: boolean) => void;
-};
-const { cmdPhaseAnalyzeDeps } = require('./deps') as {
+} = require('./roadmap');
+const { cmdPhaseAnalyzeDeps }: {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
-};
-const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot } = require('./autopilot') as {
+} = require('./deps');
+const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot }: {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
   cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
-};
-const { cmdAutoplan, cmdInitAutoplan } = require('./autoplan') as {
+} = require('./autopilot');
+const { cmdAutoplan, cmdInitAutoplan }: {
   cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutoplan: (cwd: string, raw: boolean) => void;
-};
+} = require('./autoplan');
 const {
   cmdEvolve,
   cmdEvolveDiscover,
@@ -135,15 +135,15 @@ const {
   cmdEvolveAdvance,
   cmdEvolveReset,
   cmdInitEvolve,
-} = require('./evolve') as {
+}: {
   cmdEvolve: (cwd: string, args: string[], raw: boolean) => unknown;
   cmdEvolveDiscover: (cwd: string, args: string[], raw: boolean) => Promise<unknown>;
   cmdEvolveState: (cwd: string, args: string[], raw: boolean) => void;
   cmdEvolveAdvance: (cwd: string, args: string[], raw: boolean) => void;
   cmdEvolveReset: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
-};
-const { splitMarkdown, isIndexFile, estimateTokens } = require('./markdown-split') as {
+} = require('./evolve');
+const { splitMarkdown, isIndexFile, estimateTokens }: {
   splitMarkdown: (content: string, opts: { threshold?: number; basename: string }) => {
     split_performed: boolean;
     reason?: string;
@@ -152,15 +152,15 @@ const { splitMarkdown, isIndexFile, estimateTokens } = require('./markdown-split
   };
   isIndexFile: (content: string) => boolean;
   estimateTokens: (content: string) => number;
-};
-const { cmdInitExecuteParallel } = require('./parallel') as {
+} = require('./markdown-split');
+const { cmdInitExecuteParallel }: {
   cmdInitExecuteParallel: (cwd: string, phases: string[], includes: Set<string>, raw: boolean) => void;
-};
-const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold } = require('./scaffold') as {
+} = require('./parallel');
+const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold }: {
   cmdTemplateSelect: (cwd: string, type: string, raw: boolean) => void;
   cmdTemplateFill: (cwd: string, template: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdScaffold: (cwd: string, type: string, opts: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('./scaffold');
 
 const {
   cmdVerifySummary,
@@ -170,7 +170,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
-} = require('./verify') as {
+}: {
   cmdVerifySummary: (cwd: string, file: string, checkCount: number, raw: boolean) => void;
   cmdVerifyPlanStructure: (cwd: string, file: string, raw: boolean) => void;
   cmdVerifyPhaseCompleteness: (cwd: string, phase: string, raw: boolean) => void;
@@ -178,7 +178,7 @@ const {
   cmdVerifyCommits: (cwd: string, hashes: string[], raw: boolean) => void;
   cmdVerifyArtifacts: (cwd: string, file: string, raw: boolean) => void;
   cmdVerifyKeyLinks: (cwd: string, file: string, raw: boolean) => void;
-};
+} = require('./verify');
 
 const {
   cmdPhasesList,
@@ -188,7 +188,7 @@ const {
   cmdPhaseComplete,
   cmdMilestoneComplete,
   cmdValidateConsistency,
-} = require('./phase') as {
+}: {
   cmdPhasesList: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdPhaseAdd: (cwd: string, description: string, raw: boolean, context?: string) => void;
   cmdPhaseInsert: (cwd: string, phase: string, description: string, raw: boolean) => void;
@@ -196,11 +196,11 @@ const {
   cmdPhaseComplete: (cwd: string, phase: string, raw: boolean) => void;
   cmdMilestoneComplete: (cwd: string, version: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdValidateConsistency: (cwd: string, raw: boolean) => void;
-};
+} = require('./phase');
 
-const { cmdTracker } = require('./tracker') as {
+const { cmdTracker }: {
   cmdTracker: (cwd: string, subcommand: string, args: string[] | unknown[], raw: boolean) => void;
-};
+} = require('./tracker');
 
 const {
   cmdWorktreeCreate,
@@ -208,13 +208,13 @@ const {
   cmdWorktreeList,
   cmdWorktreeRemoveStale,
   cmdWorktreePushAndPR,
-} = require('./worktree') as {
+}: {
   cmdWorktreeCreate: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdWorktreeList: (cwd: string, raw: boolean) => void;
   cmdWorktreeRemoveStale: (cwd: string, raw: boolean) => void;
   cmdWorktreePushAndPR: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('./worktree');
 
 const {
   cmdInitExecutePhase,
@@ -264,7 +264,7 @@ const {
   cmdInitRoadmapper,
   cmdInitSurveyor,
   cmdInitVerifier,
-} = require('./context') as {
+}: {
   cmdInitExecutePhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitPlanPhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitNewProject: (cwd: string, raw: boolean) => void;
@@ -312,7 +312,7 @@ const {
   cmdInitRoadmapper: (cwd: string, raw: boolean) => void;
   cmdInitSurveyor: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitVerifier: (cwd: string, phase: string | null, raw: boolean) => void;
-};
+} = require('./context');
 
 const {
   cmdGenerateSlug,
@@ -342,7 +342,7 @@ const {
   cmdSearch,
   cmdCoverageReport,
   cmdHealthCheck,
-} = require('./commands') as {
+}: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
   cmdListTodos: (cwd: string, area: string | undefined, raw: boolean) => void;
@@ -370,7 +370,7 @@ const {
   cmdSearch: (cwd: string, query: string, raw: boolean) => void;
   cmdCoverageReport: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdHealthCheck: (cwd: string, opts: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('./commands');
 
 // ─── Tool Descriptor Factory Functions ──────────────────────────────────────
 //

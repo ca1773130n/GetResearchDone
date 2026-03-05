@@ -12,9 +12,9 @@
 
 import type { FrontmatterObject } from './types';
 
-const { extractFrontmatter } = require('./frontmatter') as {
+const { extractFrontmatter }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
-};
+} = require('./frontmatter');
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 

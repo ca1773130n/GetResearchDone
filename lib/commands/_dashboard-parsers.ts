@@ -6,9 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { normalizePhaseName } = require('../utils') as {
+const { normalizePhaseName }: {
   normalizePhaseName: (phase: string) => string;
-};
+} = require('../utils');
 
 // ─── Domain Types (shared with dashboard.ts) ─────────────────────────────────
 

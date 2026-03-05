@@ -5,13 +5,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const { output, error } = require('../utils') as {
+const { output, error }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { todosDir: getTodosDirPath } = require('../paths') as {
+} = require('../utils');
+const { todosDir: getTodosDirPath }: {
   todosDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

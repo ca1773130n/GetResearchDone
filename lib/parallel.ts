@@ -20,25 +20,25 @@ import type {
   PreflightResult,
 } from './types';
 
-const { output, loadConfig, findPhaseInternal, getMilestoneInfo } = require('./utils') as {
+const { output, loadConfig, findPhaseInternal, getMilestoneInfo }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
-};
-const { detectBackend, getBackendCapabilities } = require('./backend') as {
+} = require('./utils');
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
-};
-const { worktreePath } = require('./worktree') as {
+} = require('./backend');
+const { worktreePath }: {
   worktreePath: (cwd: string, milestone: string, phase: string) => string;
-};
-const { buildDependencyGraph } = require('./deps') as {
+} = require('./worktree');
+const { buildDependencyGraph }: {
   buildDependencyGraph: (
     phases: Array<{ number: string; name: string; depends_on?: string | null }>
   ) => DependencyGraph;
-};
-const { analyzeRoadmap } = require('./roadmap') as {
+} = require('./deps');
+const { analyzeRoadmap }: {
   analyzeRoadmap: (cwd: string) => {
     error?: string;
     phases?: Array<{
@@ -49,14 +49,14 @@ const { analyzeRoadmap } = require('./roadmap') as {
       roadmap_complete?: boolean;
     }>;
   };
-};
-const { runPreflightGates } = require('./gates') as {
+} = require('./roadmap');
+const { runPreflightGates }: {
   runPreflightGates: (
     cwd: string,
     command: string,
     options: { phase: string }
   ) => PreflightResult;
-};
+} = require('./gates');
 
 // ─── Domain Types ──────────────────────────────────────────────────────────
 

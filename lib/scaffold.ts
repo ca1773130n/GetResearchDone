@@ -19,25 +19,25 @@ const {
   generateSlugInternal,
   output,
   error,
-} = require('./utils') as {
+}: {
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   normalizePhaseName: (phase: string) => string;
   generateSlugInternal: (text: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { reconstructFrontmatter } = require('./frontmatter') as {
+} = require('./utils');
+const { reconstructFrontmatter }: {
   reconstructFrontmatter: (obj: FrontmatterObject) => string;
-};
+} = require('./frontmatter');
 const {
   planningDir: getPlanningDir,
   phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath,
-} = require('./paths') as {
+}: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
-};
+} = require('./paths');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

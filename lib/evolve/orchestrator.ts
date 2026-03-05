@@ -35,17 +35,17 @@ import type { AutoplanOptions, AutoplanResult, MultiMilestoneOptions, MultiMiles
 
 const fs = require('fs');
 const path = require('path');
-const { loadConfig } = require('../utils') as {
+const { loadConfig }: {
   loadConfig: (cwd: string) => GrdConfig;
-};
-const { execGit } = require('../utils') as {
+} = require('../utils');
+const { execGit }: {
   execGit: (
     cwd: string,
     args: string[],
     opts?: { allowBlocked?: boolean }
   ) => { exitCode: number; stdout: string; stderr: string };
-};
-const { spawnClaudeAsync } = require('../autopilot') as {
+} = require('../utils');
+const { spawnClaudeAsync }: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -63,9 +63,8 @@ const { spawnClaudeAsync } = require('../autopilot') as {
     stderr?: string;
     timedOut: boolean;
   }>;
-};
-const { createEvolveWorktree, removeEvolveWorktree, pushAndCreatePR } =
-  require('../worktree') as {
+} = require('../autopilot');
+const { createEvolveWorktree, removeEvolveWorktree, pushAndCreatePR }: {
     createEvolveWorktree: (cwd: string) => {
       path: string;
       branch: string;
@@ -81,31 +80,30 @@ const { createEvolveWorktree, removeEvolveWorktree, pushAndCreatePR } =
       wtPath: string,
       opts?: { base?: string }
     ) => { pr_url?: string; error?: string };
-  };
-const { SONNET_MODEL, DEFAULT_PICK_PCT, readEvolveState, writeEvolveState } =
-  require('./state') as {
+  } = require('../worktree');
+const { SONNET_MODEL, DEFAULT_PICK_PCT, readEvolveState, writeEvolveState }: {
     SONNET_MODEL: string;
     DEFAULT_PICK_PCT: number;
     readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
     writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
-  };
-const { runGroupDiscovery } = require('./discovery') as {
+  } = require('./state');
+const { runGroupDiscovery }: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
-};
-const { buildBatchExecutePrompt, buildBatchReviewPrompt } = require('./_prompts') as {
+} = require('./discovery');
+const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
   buildBatchExecutePrompt: (groups: WorkGroup[]) => string;
   buildBatchReviewPrompt: (groups: WorkGroup[]) => string;
-};
-const { runAutoplan } = require('../autoplan') as {
+} = require('./_prompts');
+const { runAutoplan }: {
   runAutoplan: (cwd: string, options?: AutoplanOptions) => Promise<AutoplanResult>;
-};
-const { runMultiMilestoneAutopilot } = require('../autopilot') as {
+} = require('../autoplan');
+const { runMultiMilestoneAutopilot }: {
   runMultiMilestoneAutopilot: (cwd: string, options?: MultiMilestoneOptions) => Promise<MultiMilestoneResult>;
-};
+} = require('../autopilot');
 
 // ─── Evolve Loop Helpers ─────────────────────────────────────────────────────
 

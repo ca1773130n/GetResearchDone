@@ -24,7 +24,7 @@ const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
   getMilestoneInfo, resolveModelForAgent, output,
-} = require('../utils') as {
+}: {
   fs: typeof import('fs');
   path: typeof import('path');
   safeReadFile: (p: string) => string | null;
@@ -36,19 +36,19 @@ const {
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-};
+} = require('../utils');
 
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
-};
+} = require('../backend');
 
 const {
   planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
   todosDir: getTodosDirPath, quickDir: getQuickDirPath,
   milestonesDir: getMilestonesDirPath,
-} = require('../paths') as {
+}: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
@@ -56,11 +56,11 @@ const {
   todosDir: (cwd: string) => string;
   quickDir: (cwd: string) => string;
   milestonesDir: (cwd: string) => string;
-};
+} = require('../paths');
 
-const { buildInitContext } = require('./base') as {
+const { buildInitContext }: {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
-};
+} = require('./base');
 
 // ─── Research Workflow Init ──────────────────────────────────────────────────
 
@@ -168,9 +168,9 @@ function cmdInitPlanMilestoneGaps(cwd: string, raw: boolean): void {
       auditFile = entries[0];
       const content = safeReadFile(path.join(planningDir, auditFile));
       if (content) {
-        const { extractFrontmatter } = require('../frontmatter') as {
+        const { extractFrontmatter }: {
           extractFrontmatter: (content: string) => FrontmatterObject;
-        };
+        } = require('../frontmatter');
         const fm = extractFrontmatter(content);
         if (fm.gaps) auditGaps = fm.gaps;
       }

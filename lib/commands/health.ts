@@ -8,21 +8,21 @@ const child_process = require('child_process');
 
 const {
   safeReadFile, loadConfig, output,
-} = require('../utils') as {
+}: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-};
+} = require('../utils');
 const {
   phasesDir: getPhasesDirPath, planningDir: getPlanningDir,
-} = require('../paths') as {
+}: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
-};
-const { readCachedRoadmap, readCachedState } = require('./phase-info') as {
+} = require('../paths');
+const { readCachedRoadmap, readCachedState }: {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
-};
+} = require('./phase-info');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

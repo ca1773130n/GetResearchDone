@@ -32,7 +32,7 @@ const {
   getMilestoneInfo: getMilestoneInfoUtil,
   output,
   error,
-} = require('./utils') as {
+}: {
   normalizePhaseName: (phase: string) => string;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   generateSlugInternal: (text: string) => string | null;
@@ -46,13 +46,13 @@ const {
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
+} = require('./utils');
 
-const { extractFrontmatter } = require('./frontmatter') as {
+const { extractFrontmatter }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
-};
+} = require('./frontmatter');
 
-const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
+const { runQualityAnalysis, generateCleanupPlan }: {
   runQualityAnalysis: (
     cwd: string,
     phaseNum: string
@@ -62,23 +62,23 @@ const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
     phaseNum: string,
     qualityReport: QualityAnalysisResult
   ) => CleanupPlanResult;
-};
+} = require('./cleanup');
 
-const { runPreflightGates, checkOrphanedPhases } = require('./gates') as {
+const { runPreflightGates, checkOrphanedPhases }: {
   runPreflightGates: (
     cwd: string,
     command: string,
     options?: GateOptions
   ) => PreflightResult;
   checkOrphanedPhases: (cwd: string) => GateViolation[];
-};
+} = require('./gates');
 
 const {
   phasesDir: getPhasesDirPath,
   phaseDir: getPhaseDirPath,
   milestonesDir: getMilestonesDirPath,
   archivedPhasesDir: getArchivedPhasesDir,
-} = require('./paths') as {
+}: {
   phasesDir: (cwd: string, milestone?: string | null) => string;
   phaseDir: (
     cwd: string,
@@ -87,7 +87,7 @@ const {
   ) => string;
   milestonesDir: (cwd: string) => string;
   archivedPhasesDir: (cwd: string, version: string) => string;
-};
+} = require('./paths');
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 

@@ -23,7 +23,7 @@ const {
   loadConfig,
   output,
   error,
-} = require('./utils') as {
+}: {
   fs: typeof import('fs');
   path: typeof import('path');
   execFileSync: typeof import('child_process').execFileSync;
@@ -33,10 +33,9 @@ const {
   loadConfig: (cwd: string) => GrdConfig;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
+} = require('./utils');
 
-const { computeSchedule, getScheduleForPhase, getScheduleForMilestone } =
-  require('./roadmap') as {
+const { computeSchedule, getScheduleForPhase, getScheduleForMilestone }: {
     computeSchedule: (cwd: string) => ScheduleResult;
     getScheduleForPhase: (
       schedule: ScheduleResult,
@@ -46,11 +45,11 @@ const { computeSchedule, getScheduleForPhase, getScheduleForMilestone } =
       schedule: ScheduleResult,
       version: string
     ) => ParsedMilestone | null;
-  };
+  } = require('./roadmap');
 
-const { phasesDir: getPhasesDirPath } = require('./paths') as {
+const { phasesDir: getPhasesDirPath }: {
   phasesDir: (cwd: string, milestone?: string | null) => string;
-};
+} = require('./paths');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

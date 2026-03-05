@@ -20,28 +20,28 @@ import type {
   EvolveState,
 } from './evolve/types';
 
-const { loadConfig, output, getMilestoneInfo } = require('./utils') as {
+const { loadConfig, output, getMilestoneInfo }: {
   loadConfig: (cwd: string) => GrdConfig;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
-};
-const { spawnClaude } = require('./autopilot') as {
+} = require('./utils');
+const { spawnClaude }: {
   spawnClaude: (
     cwd: string,
     prompt: string,
     opts?: { timeout?: number; maxTurns?: number; model?: string }
   ) => { exitCode: number; timedOut: boolean };
-};
-const { runGroupDiscovery } = require('./evolve/discovery') as {
+} = require('./autopilot');
+const { runGroupDiscovery }: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
-};
-const { readEvolveState } = require('./evolve/state') as {
+} = require('./evolve/discovery');
+const { readEvolveState }: {
   readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
-};
+} = require('./evolve/state');
 
 // ─── Prompt Builder ──────────────────────────────────────────────────────────
 

@@ -3,26 +3,26 @@
 'use strict';
 
 // ─── Slug & Timestamp ────────────────────────────────────────────────────────
-const _slugTimestamp = require('./slug-timestamp') as {
+const _slugTimestamp: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
-};
+} = require('./slug-timestamp');
 
 // ─── Todo ────────────────────────────────────────────────────────────────────
-const _todo = require('./todo') as {
+const _todo: {
   cmdListTodos: (cwd: string, area: string | null, raw: boolean) => void;
   cmdTodoComplete: (cwd: string, filename: string, raw: boolean, dryRun?: boolean) => void;
-};
+} = require('./todo');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const _config = require('./config') as {
+const _config: {
   cmdConfigEnsureSection: (cwd: string, raw: boolean) => void;
   cmdConfigSet: (cwd: string, key: string, value: string, raw: boolean) => void;
   cmdVerifyPathExists: (cwd: string, targetPath: string, raw: boolean) => void;
-};
+} = require('./config');
 
 // ─── Phase Info ──────────────────────────────────────────────────────────────
-const _phaseInfo = require('./phase-info') as {
+const _phaseInfo: {
   cmdFindPhase: (cwd: string, phase: string, raw: boolean) => void;
   cmdResolveModel: (cwd: string, agentType: string, raw: boolean) => void;
   cmdDetectBackend: (cwd: string, raw: boolean) => void;
@@ -33,52 +33,52 @@ const _phaseInfo = require('./phase-info') as {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
   _stateContentCache: Map<string, string>;
-};
+} = require('./phase-info');
 
 // ─── Progress ────────────────────────────────────────────────────────────────
-const _cmdProgress = require('./progress') as {
+const _cmdProgress: {
   cmdProgressRender: (cwd: string, format: string, raw: boolean) => void;
-};
+} = require('./progress');
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-const _dashboard = require('./dashboard') as {
+const _dashboard: {
   buildDashboardData: (cwd: string) => Record<string, unknown> | null;
   renderDashboard: (data: Record<string, unknown>, options?: Record<string, unknown>) => { jsonResult: Record<string, unknown>; tui: string };
   cmdDashboard: (cwd: string, raw: boolean, options?: Record<string, unknown>) => void;
   cmdPhaseDetail: (cwd: string, phase: string, raw: boolean) => void;
-};
+} = require('./dashboard');
 
 // ─── Health ──────────────────────────────────────────────────────────────────
-const _health = require('./health') as {
+const _health: {
   cmdHealth: (cwd: string, raw: boolean) => void;
   cmdHealthCheck: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('./health');
 
 // ─── Long-Term Roadmap ───────────────────────────────────────────────────────
-const _longTermRoadmap = require('./long-term-roadmap') as {
+const _longTermRoadmap: {
   cmdLongTermRoadmap: (cwd: string, subcommand: string, args: string[], raw: boolean) => void;
-};
+} = require('./long-term-roadmap');
 
 // ─── Quality ─────────────────────────────────────────────────────────────────
-const _quality = require('./quality') as {
+const _quality: {
   cmdQualityAnalysis: (cwd: string, args: string[], raw: boolean) => void;
   cmdSetup: (cwd: string, raw: boolean) => void;
-};
+} = require('./quality');
 
 // ─── Search ──────────────────────────────────────────────────────────────────
-const _search = require('./search') as {
+const _search: {
   cmdSearch: (cwd: string, query: string, raw: boolean) => void;
   cmdMigrateDirs: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('./search');
 
 // ─── Requirements (re-export from lib/requirements) ─────────────────────────
-const _requirements = require('../requirements') as {
+const _requirements: {
   cmdRequirementGet: (...args: unknown[]) => void;
   cmdRequirementList: (...args: unknown[]) => void;
   cmdRequirementTraceability: (...args: unknown[]) => void;
   cmdRequirementUpdateStatus: (...args: unknown[]) => void;
-};
+} = require('../requirements');
 
 // ─── Barrel Exports ─────────────────────────────────────────────────────────
 

@@ -6,17 +6,17 @@ import type { MilestoneInfo } from '../types';
 
 const fs = require('fs');
 const path = require('path');
-const { output, getMilestoneInfo } = require('../utils') as {
+const { output, getMilestoneInfo }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
-};
-const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir } = require('../paths') as {
+} = require('../utils');
+const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir }: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
-};
-const { readCachedState } = require('./phase-info') as {
+} = require('../paths');
+const { readCachedState }: {
   readCachedState: (statePath: string) => string | null;
-};
+} = require('./phase-info');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

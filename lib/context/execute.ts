@@ -27,7 +27,7 @@ const {
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
   generateSlugInternal, getMilestoneInfo, resolveModelForAgent,
   execGit, output, error,
-} = require('../utils') as {
+}: {
   fs: typeof import('fs');
   path: typeof import('path');
   safeReadFile: (p: string) => string | null;
@@ -42,29 +42,28 @@ const {
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => ExecGitResult;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (msg: string) => never;
-};
+} = require('../utils');
 
-const { detectBackend, getBackendCapabilities, detectWebMcp } =
-  require('../backend') as {
+const { detectBackend, getBackendCapabilities, detectWebMcp }: {
     detectBackend: (cwd: string) => string;
     getBackendCapabilities: (b: string) => BackendCapabilities;
     detectWebMcp: (cwd: string) => WebMcpResult;
-  };
+  } = require('../backend');
 
-const { worktreePath } = require('../worktree') as {
+const { worktreePath }: {
   worktreePath: (cwd: string, m: string, p: string) => string;
-};
+} = require('../worktree');
 
-const { runPreflightGates } = require('../gates') as {
+const { runPreflightGates }: {
   runPreflightGates: (cwd: string, cmd: string, opts?: Record<string, unknown>) => PreflightResult;
-};
+} = require('../gates');
 
 const {
   planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
   todosDir: getTodosDirPath, quickDir: getQuickDirPath,
   standardsDir: getStandardsDirPath,
-} = require('../paths') as {
+}: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
@@ -72,11 +71,11 @@ const {
   todosDir: (cwd: string) => string;
   quickDir: (cwd: string) => string;
   standardsDir: (cwd: string) => string;
-};
+} = require('../paths');
 
-const { inferCeremonyLevel } = require('./base') as {
+const { inferCeremonyLevel }: {
   inferCeremonyLevel: (config: GrdConfig, phaseInfo: PhaseInfo | null, cwd: string) => string;
-};
+} = require('./base');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

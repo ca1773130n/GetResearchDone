@@ -11,7 +11,7 @@
 
 import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities, PreflightResult } from '../types';
 
-const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, output } = require('../utils') as {
+const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, output }: {
   fs: typeof import('fs'); path: typeof import('path');
   safeReadFile: (p: string) => string | null; loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
@@ -19,18 +19,18 @@ const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInter
   generateSlugInternal: (text: string) => string | null; getMilestoneInfo: (cwd: string) => MilestoneInfo;
   findCodeFiles: (dir: string, maxDepth: number, found: string[], depth: number) => string[];
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-};
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+} = require('../utils');
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string; getBackendCapabilities: (b: string) => BackendCapabilities;
-};
-const { runPreflightGates } = require('../gates') as {
+} = require('../backend');
+const { runPreflightGates }: {
   runPreflightGates: (cwd: string, cmd: string, opts?: Record<string, unknown>) => PreflightResult;
-};
-const { planningDir: getPlanningDir, phasesDir: getPhasesDirPath, researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath, todosDir: getTodosDirPath, quickDir: getQuickDirPath, milestonesDir: getMilestonesDirPath, standardsDir: getStandardsDirPath } = require('../paths') as {
+} = require('../gates');
+const { planningDir: getPlanningDir, phasesDir: getPhasesDirPath, researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath, todosDir: getTodosDirPath, quickDir: getQuickDirPath, milestonesDir: getMilestonesDirPath, standardsDir: getStandardsDirPath }: {
   planningDir: (cwd: string) => string; phasesDir: (cwd: string) => string; researchDir: (cwd: string) => string;
   codebaseDir: (cwd: string) => string; todosDir: (cwd: string) => string; quickDir: (cwd: string) => string;
   milestonesDir: (cwd: string) => string; standardsDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── New-Project Init ────────────────────────────────────────────────────────
 

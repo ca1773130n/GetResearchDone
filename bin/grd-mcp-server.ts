@@ -40,9 +40,9 @@ interface McpServerConstructor {
   new (options?: { cwd?: string }): McpServerInstance;
 }
 
-const { McpServer } = require('../lib/mcp-server') as {
+const { McpServer }: {
   McpServer: McpServerConstructor;
-};
+} = require('../lib/mcp-server');
 
 const server: McpServerInstance = new McpServer({ cwd: process.cwd() });
 

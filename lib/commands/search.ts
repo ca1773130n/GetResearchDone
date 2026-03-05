@@ -8,18 +8,18 @@ const child_process = require('child_process');
 
 const {
   safeReadFile, loadConfig, output, error,
-} = require('../utils') as {
+}: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
+} = require('../utils');
 const {
   currentMilestone, planningDir: getPlanningDir,
-} = require('../paths') as {
+}: {
   currentMilestone: (cwd: string) => string;
   planningDir: (cwd: string) => string;
-};
+} = require('../paths');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 

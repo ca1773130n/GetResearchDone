@@ -17,10 +17,10 @@ import type { WorkItem, WorkItemEffort, ProductIdeationContext } from './types';
 
 const path = require('path') as typeof import('path');
 const fs = require('fs') as typeof import('fs');
-const { safeReadFile } = require('../utils') as {
+const { safeReadFile }: {
   safeReadFile: (filePath: string) => string | null;
-};
-const { spawnClaudeAsync } = require('../autopilot') as {
+} = require('../utils');
+const { spawnClaudeAsync }: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -38,8 +38,8 @@ const { spawnClaudeAsync } = require('../autopilot') as {
     stderr?: string;
     timedOut: boolean;
   }>;
-};
-const { createWorkItem, SONNET_MODEL } = require('./state') as {
+} = require('../autopilot');
+const { createWorkItem, SONNET_MODEL }: {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -48,7 +48,7 @@ const { createWorkItem, SONNET_MODEL } = require('./state') as {
     opts?: { effort?: string }
   ) => WorkItem;
   SONNET_MODEL: string;
-};
+} = require('./state');
 
 // ── Context Gathering ────────────────────────────────────────────────────────
 

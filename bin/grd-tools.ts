@@ -19,7 +19,7 @@ const {
   validateSubcommand,
   validateGitRef,
   findClosestCommand,
-} = require('../lib/utils') as {
+}: {
   parseIncludeFlag: (args: string[]) => Set<string>;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
@@ -28,19 +28,19 @@ const {
   validateSubcommand: (sub: string, validSubs: string[], parentCmd: string) => string;
   validateGitRef: (ref: string) => string;
   findClosestCommand: (input: string | null, commands: string[]) => string | null;
-};
+} = require('../lib/utils');
 
 const {
   cmdFrontmatterGet,
   cmdFrontmatterSet,
   cmdFrontmatterMerge,
   cmdFrontmatterValidate,
-} = require('../lib/frontmatter') as {
+}: {
   cmdFrontmatterGet: (cwd: string, filePath: string, field: string | null, raw: boolean) => void;
   cmdFrontmatterSet: (cwd: string, filePath: string, field: string, value: string, raw: boolean) => void;
   cmdFrontmatterMerge: (cwd: string, filePath: string, data: string, raw: boolean) => void;
   cmdFrontmatterValidate: (cwd: string, filePath: string, schemaName: string, raw: boolean) => void;
-};
+} = require('../lib/frontmatter');
 
 const {
   cmdStateLoad,
@@ -55,7 +55,7 @@ const {
   cmdStateResolveBlocker,
   cmdStateRecordSession,
   cmdStateSnapshot,
-} = require('../lib/state') as {
+}: {
   cmdStateLoad: (cwd: string, raw: boolean) => void;
   cmdStateGet: (cwd: string, section: string | null, raw: boolean) => void;
   cmdStatePatch: (cwd: string, patches: Record<string, string>, raw: boolean) => void;
@@ -68,19 +68,19 @@ const {
   cmdStateResolveBlocker: (cwd: string, text: string, raw: boolean) => void;
   cmdStateRecordSession: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdStateSnapshot: (cwd: string, raw: boolean, opts?: Record<string, string | undefined>) => void;
-};
+} = require('../lib/state');
 
-const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze } = require('../lib/roadmap') as {
+const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze }: {
   cmdRoadmapGetPhase: (cwd: string, phaseNum: string, raw: boolean) => void;
   cmdPhaseNextDecimal: (cwd: string, basePhase: string, raw: boolean) => void;
   cmdRoadmapAnalyze: (cwd: string, raw: boolean) => void;
-};
+} = require('../lib/roadmap');
 
-const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold } = require('../lib/scaffold') as {
+const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold }: {
   cmdTemplateSelect: (cwd: string, planPath: string, raw: boolean) => void;
   cmdTemplateFill: (cwd: string, templateType: string, options: Record<string, unknown>, raw: boolean) => void;
   cmdScaffold: (cwd: string, type: string, options: Record<string, string | null>, raw: boolean) => void;
-};
+} = require('../lib/scaffold');
 
 const {
   cmdVerifySummary,
@@ -90,7 +90,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
-} = require('../lib/verify') as {
+}: {
   cmdVerifySummary: (cwd: string, summaryPath: string, checkFileCount: number, raw: boolean) => void;
   cmdVerifyPlanStructure: (cwd: string, filePath: string, raw: boolean) => void;
   cmdVerifyPhaseCompleteness: (cwd: string, phase: string, raw: boolean) => void;
@@ -98,7 +98,7 @@ const {
   cmdVerifyCommits: (cwd: string, hashes: string[], raw: boolean) => void;
   cmdVerifyArtifacts: (cwd: string, planFilePath: string, raw: boolean) => void;
   cmdVerifyKeyLinks: (cwd: string, planFilePath: string, raw: boolean) => void;
-};
+} = require('../lib/verify');
 
 const {
   cmdPhasesList,
@@ -109,7 +109,7 @@ const {
   cmdMilestoneComplete,
   cmdValidateConsistency,
   cmdVersionBump,
-} = require('../lib/phase') as {
+}: {
   cmdPhasesList: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdPhaseAdd: (cwd: string, name: string, raw: boolean, context?: string) => void;
   cmdPhaseInsert: (cwd: string, phase: string, name: string, raw: boolean) => void;
@@ -118,11 +118,11 @@ const {
   cmdMilestoneComplete: (cwd: string, version: string | null, options: Record<string, string | boolean | null>, raw: boolean) => void;
   cmdValidateConsistency: (cwd: string, raw: boolean) => void;
   cmdVersionBump: (cwd: string, version: string, raw: boolean) => void;
-};
+} = require('../lib/phase');
 
-const { cmdTracker } = require('../lib/tracker') as {
+const { cmdTracker }: {
   cmdTracker: (cwd: string, sub: string, args: string[], raw: boolean) => Promise<void>;
-};
+} = require('../lib/tracker');
 
 const {
   cmdWorktreeCreate,
@@ -134,7 +134,7 @@ const {
   cmdWorktreeMerge,
   cmdWorktreeHookCreate,
   cmdWorktreeHookRemove,
-} = require('../lib/worktree') as {
+}: {
   cmdWorktreeCreate: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeList: (cwd: string, raw: boolean) => void;
@@ -144,23 +144,23 @@ const {
   cmdWorktreeMerge: (cwd: string, options: Record<string, string | boolean | null>, raw: boolean) => void;
   cmdWorktreeHookCreate: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
   cmdWorktreeHookRemove: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
-};
+} = require('../lib/worktree');
 
-const { cmdPhaseAnalyzeDeps } = require('../lib/deps') as {
+const { cmdPhaseAnalyzeDeps }: {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
-};
+} = require('../lib/deps');
 
-const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot } = require('../lib/autopilot') as {
+const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot }: {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
   cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
-};
+} = require('../lib/autopilot');
 
-const { cmdAutoplan, cmdInitAutoplan } = require('../lib/autoplan') as {
+const { cmdAutoplan, cmdInitAutoplan }: {
   cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutoplan: (cwd: string, raw: boolean) => void;
-};
+} = require('../lib/autoplan');
 
 const {
   cmdEvolve,
@@ -169,21 +169,21 @@ const {
   cmdEvolveAdvance,
   cmdEvolveReset,
   cmdInitEvolve,
-} = require('../lib/evolve/index') as {
+}: {
   cmdEvolve: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdEvolveDiscover: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdEvolveState: (cwd: string, args: string[], raw: boolean) => void;
   cmdEvolveAdvance: (cwd: string, args: string[], raw: boolean) => void;
   cmdEvolveReset: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
-};
+} = require('../lib/evolve/index');
 
-const { cmdInitExecuteParallel, cmdParallelProgress } = require('../lib/parallel') as {
+const { cmdInitExecuteParallel, cmdParallelProgress }: {
   cmdInitExecuteParallel: (cwd: string, phases: string[], includes: Set<string>, raw: boolean) => void;
   cmdParallelProgress: (args: string[], raw: boolean) => void;
-};
+} = require('../lib/parallel');
 
-const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-split') as {
+const { splitMarkdown, isIndexFile, estimateTokens }: {
   splitMarkdown: (content: string, options?: { threshold?: number; basename?: string }) => {
     split_performed: boolean;
     reason?: string;
@@ -192,7 +192,7 @@ const { splitMarkdown, isIndexFile, estimateTokens } = require('../lib/markdown-
   };
   isIndexFile: (content: unknown) => boolean;
   estimateTokens: (content: string) => number;
-};
+} = require('../lib/markdown-split');
 
 const {
   cmdInitExecutePhase,
@@ -226,7 +226,7 @@ const {
   cmdInitRoadmapper,
   cmdInitSurveyor,
   cmdInitVerifier,
-} = require('../lib/context/index') as {
+}: {
   cmdInitExecutePhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitPlanPhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
   cmdInitNewProject: (cwd: string, raw: boolean) => void;
@@ -258,7 +258,7 @@ const {
   cmdInitRoadmapper: (cwd: string, raw: boolean) => void;
   cmdInitSurveyor: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitVerifier: (cwd: string, phase: string | null, raw: boolean) => void;
-};
+} = require('../lib/context/index');
 
 const {
   cmdGenerateSlug,
@@ -290,7 +290,7 @@ const {
   cmdMigrateDirs,
   cmdCoverageReport,
   cmdHealthCheck,
-} = require('../lib/commands/index') as {
+}: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
   cmdListTodos: (cwd: string, area: string | null, raw: boolean) => void;
@@ -320,7 +320,7 @@ const {
   cmdMigrateDirs: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
   cmdHealthCheck: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
-};
+} = require('../lib/commands/index');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

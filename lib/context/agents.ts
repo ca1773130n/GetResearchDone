@@ -26,7 +26,7 @@ const {
   fs, path, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
   getMilestoneInfo, resolveModelForAgent, output, error,
-} = require('../utils') as {
+}: {
   fs: typeof import('fs');
   path: typeof import('path');
   safeReadMarkdown: (p: string) => string | null;
@@ -38,49 +38,49 @@ const {
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (msg: string) => never;
-};
+} = require('../utils');
 
-const { detectBackend, getBackendCapabilities } = require('../backend') as {
+const { detectBackend, getBackendCapabilities }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
-};
+} = require('../backend');
 
 const {
   planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
   milestonesDir: getMilestonesDirPath,
-} = require('../paths') as {
+}: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
   researchDir: (cwd: string) => string;
   codebaseDir: (cwd: string) => string;
   milestonesDir: (cwd: string) => string;
-};
+} = require('../paths');
 
-const { buildInitContext } = require('./base') as {
+const { buildInitContext }: {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
-};
+} = require('./base');
 
 // Import sibling module functions for agent aliases
-const { cmdInitCodeReview, cmdInitPhaseResearch } = require('./execute') as {
+const { cmdInitCodeReview, cmdInitPhaseResearch }: {
   cmdInitCodeReview: (cwd: string, phase: string, raw: boolean) => void;
   cmdInitPhaseResearch: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
-};
+} = require('./execute');
 
-const { cmdInitMapCodebase } = require('./project') as {
+const { cmdInitMapCodebase }: {
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
-};
+} = require('./project');
 
 const {
   cmdInitAssessBaseline, cmdInitDeepDive, cmdInitEvalPlan,
   cmdInitEvalReport, cmdInitFeasibility,
-} = require('./research') as {
+}: {
   cmdInitAssessBaseline: (cwd: string, raw: boolean) => void;
   cmdInitDeepDive: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitEvalPlan: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitEvalReport: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitFeasibility: (cwd: string, topic: string, raw: boolean) => void;
-};
+} = require('./research');
 
 // ─── Debug Init ──────────────────────────────────────────────────────────────
 

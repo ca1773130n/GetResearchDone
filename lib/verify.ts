@@ -20,18 +20,18 @@ const {
   validateGitRef,
   output,
   error,
-} = require('./utils') as {
+}: {
   safeReadFile: (filePath: string) => string | null;
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => ExecGitResult;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   validateGitRef: (ref: string) => string;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-};
-const { extractFrontmatter, parseMustHavesBlock } = require('./frontmatter') as {
+} = require('./utils');
+const { extractFrontmatter, parseMustHavesBlock }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
   parseMustHavesBlock: (content: string, field: string) => MustHavesEntry[];
-};
+} = require('./frontmatter');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
