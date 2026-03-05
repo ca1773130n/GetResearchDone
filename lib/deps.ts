@@ -143,8 +143,8 @@ function computeParallelGroups(graph: DependencyGraph): string[][] {
       break;
     }
 
-    // Sort for deterministic output
-    group.sort();
+    // Sort numerically for deterministic output
+    group.sort((a, b) => parseFloat(a) - parseFloat(b));
     groups.push(group);
 
     // Remove current group's nodes and decrement in-degrees

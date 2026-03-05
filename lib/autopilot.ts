@@ -237,6 +237,7 @@ function _buildSpawnConfig(prompt: string, opts: SpawnOptions = {}): SpawnConfig
 
   const env: Record<string, string | undefined> = { ...process.env };
   delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
 
   return { args, env };
 }
