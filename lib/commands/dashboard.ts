@@ -19,10 +19,12 @@ const { extractFrontmatter }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
 } = require('../frontmatter');
 const {
-  phasesDir: getPhasesDirPath, planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath, planningDir: getPlanningDir, currentMilestone: getCurrentMilestone, milestonesDir: getMilestonesDir,
 }: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
+  currentMilestone: (cwd: string) => string;
+  milestonesDir: (cwd: string) => string;
 } = require('../paths');
 const {
   parseRequirements, parseTraceabilityMatrix,
@@ -235,11 +237,19 @@ function renderDashboardTui(
 
 /** Build dashboard data from ROADMAP.md and STATE.md. Returns null if ROADMAP.md missing. */
 function buildDashboardData(cwd: string): DashboardData | null {
-  const roadmapPath = path.join(getPlanningDir(cwd), 'ROADMAP.md');
+  // Try root ROADMAP.md first, fall back to milestone-scoped ROADMAP.md
+  let roadmapPath = path.join(getPlanningDir(cwd), 'ROADMAP.md');
+  let roadmapContent = readCachedRoadmap(roadmapPath);
+  if (!roadmapContent) {
+    const milestone = getCurrentMilestone(cwd);
+    if (milestone && milestone !== 'anonymous') {
+      roadmapPath = path.join(getMilestonesDir(cwd), milestone, 'ROADMAP.md');
+      roadmapContent = readCachedRoadmap(roadmapPath);
+    }
+  }
+  if (!roadmapContent) return null;
   const statePath = path.join(getPlanningDir(cwd), 'STATE.md');
   const phasesDir = getPhasesDirPath(cwd) as string;
-  const roadmapContent = readCachedRoadmap(roadmapPath);
-  if (!roadmapContent) return null;
 
   const stateContent = readCachedState(statePath) || '';
   const shippedMilestones = parseDashboardShippedMilestones(roadmapContent);
@@ -324,7 +334,14 @@ function cmdPhaseDetail(cwd: string, phase: string, raw: boolean): void {
 
   const phasesDir = getPhasesDirPath(cwd) as string;
   const statePath = path.join(getPlanningDir(cwd), 'STATE.md');
-  const roadmapPath = path.join(getPlanningDir(cwd), 'ROADMAP.md');
+  let roadmapPath = path.join(getPlanningDir(cwd), 'ROADMAP.md');
+  if (!fs.existsSync(roadmapPath)) {
+    const milestone = getCurrentMilestone(cwd);
+    if (milestone && milestone !== 'anonymous') {
+      const msPath = path.join(getMilestonesDir(cwd), milestone, 'ROADMAP.md');
+      if (fs.existsSync(msPath)) roadmapPath = msPath;
+    }
+  }
   const normalized = normalizePhaseName(phase);
 
   let phaseDir: string | null = null;
