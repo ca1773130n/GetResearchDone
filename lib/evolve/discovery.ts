@@ -90,39 +90,67 @@ const fs = require('fs');
 
 // ─── Codebase Digest ────────────────────────────────────────────────────────
 
-/**
- * Build a compact file tree with line counts for Claude-powered discovery.
- */
-function buildCodebaseDigest(cwd: string): string {
-  const lines: string[] = [];
-  const dirs: string[] = ['lib', 'bin', 'tests/unit', 'tests/integration'];
+/** File extensions to include in codebase digest. */
+const CODE_EXTENSIONS: Set<string> = new Set([
+  '.ts', '.js', '.tsx', '.jsx', '.py', '.rs', '.go', '.java', '.kt',
+  '.rb', '.php', '.swift', '.c', '.cpp', '.h', '.hpp', '.cs', '.vue',
+  '.svelte', '.astro', '.sql', '.sh', '.bash', '.zsh',
+]);
 
-  for (const dir of dirs) {
-    const dirPath: string = path.join(cwd, dir);
-    try {
-      const entries: Array<{ isFile: () => boolean; name: string }> = fs
-        .readdirSync(dirPath, { withFileTypes: true })
-        .filter((e: { isFile: () => boolean }) => e.isFile());
-      const names: Set<string> = new Set(entries.map((e: { name: string }) => e.name));
-      const files: string[] = entries
-        .filter((e: { name: string }) => {
-          const n: string = e.name;
-          if (n.endsWith('.js') && names.has(n.replace(/\.js$/, '.ts'))) return false;
-          return n.endsWith('.js') || n.endsWith('.ts');
-        })
-        .map((e: { name: string }) => {
-          const content: string | null = safeReadFile(path.join(dirPath, e.name));
-          const lineCount: number = content ? content.split('\n').length : 0;
-          return `${dir}/${e.name} (${lineCount}L)`;
-        })
-        .sort();
-      lines.push(...files);
-    } catch {
-      continue;
+/** Directories to always skip. */
+const SKIP_DIRS: Set<string> = new Set([
+  'node_modules', '.git', '.next', '.nuxt', 'dist', 'build', 'out',
+  '.cache', '.turbo', '.vercel', '__pycache__', '.tox', '.mypy_cache',
+  'target', 'vendor', '.worktrees', '.planning', 'coverage',
+]);
+
+/**
+ * Recursively collect source files from a directory (max 2 levels deep).
+ */
+function _collectSourceFiles(
+  baseDir: string,
+  relPrefix: string,
+  depth: number,
+  maxDepth: number
+): string[] {
+  if (depth > maxDepth) return [];
+  const results: string[] = [];
+  let entries: Array<{ isFile: () => boolean; isDirectory: () => boolean; name: string }>;
+  try {
+    entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  const names: Set<string> = new Set(entries.map((e: { name: string }) => e.name));
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const sub: string = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+      results.push(..._collectSourceFiles(path.join(baseDir, entry.name), sub, depth + 1, maxDepth));
+    } else if (entry.isFile()) {
+      const ext: string = path.extname(entry.name);
+      if (!CODE_EXTENSIONS.has(ext)) continue;
+      // Skip JS files that have a matching TS file
+      if (ext === '.js' && names.has(entry.name.replace(/\.js$/, '.ts'))) continue;
+      if (ext === '.jsx' && names.has(entry.name.replace(/\.jsx$/, '.tsx'))) continue;
+      const rel: string = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+      const content: string | null = safeReadFile(path.join(baseDir, entry.name));
+      const lineCount: number = content ? content.split('\n').length : 0;
+      results.push(`${rel} (${lineCount}L)`);
     }
   }
+  return results;
+}
 
-  return lines.join('\n');
+/**
+ * Build a compact file tree with line counts for Claude-powered discovery.
+ * Dynamically scans the project's actual directories (max 2 levels deep).
+ */
+function buildCodebaseDigest(cwd: string): string {
+  const files: string[] = _collectSourceFiles(cwd, '', 0, 2);
+  files.sort();
+  return files.join('\n');
 }
 
 /**
