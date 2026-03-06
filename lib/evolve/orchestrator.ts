@@ -176,25 +176,38 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       outcomes.push({ group: group.id, status: 'fail', step: 'execute', reason });
     }
   } else {
-    log(`Batch execute completed`);
+    // Check if the subprocess actually changed any code
+    const diffCheck = execGit(executionCwd, ['diff', '--stat', 'HEAD']);
+    const hasStagedChanges = execGit(executionCwd, ['diff', '--cached', '--stat']);
+    const hasChanges: boolean = (diffCheck.stdout || '').trim().length > 0
+      || (hasStagedChanges.stdout || '').trim().length > 0;
 
-    log(`Running single review for all ${allGroups.length} groups`);
-    const reviewPrompt: string = buildBatchReviewPrompt(allGroups);
-    const reviewResult = await spawnClaudeAsync(executionCwd, reviewPrompt, {
-      model: SONNET_MODEL,
-      timeout: timeoutMs,
-      maxTurns,
-    });
-
-    if (reviewResult.exitCode !== 0) {
-      const reason: string = reviewResult.timedOut ? 'timeout' : `exit ${reviewResult.exitCode}`;
-      log(`Batch review FAILED (${reason}) — execution changes kept`);
+    if (!hasChanges) {
+      log(`Batch execute completed but NO code changes were made — marking as skip`);
+      for (const group of allGroups) {
+        outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'no code changes' });
+      }
     } else {
-      log(`Batch review completed`);
-    }
+      log(`Batch execute completed (code changes detected)`);
 
-    for (const group of allGroups) {
-      outcomes.push({ group: group.id, status: 'pass' });
+      log(`Running single review for all ${allGroups.length} groups`);
+      const reviewPrompt: string = buildBatchReviewPrompt(allGroups);
+      const reviewResult = await spawnClaudeAsync(executionCwd, reviewPrompt, {
+        model: SONNET_MODEL,
+        timeout: timeoutMs,
+        maxTurns,
+      });
+
+      if (reviewResult.exitCode !== 0) {
+        const reason: string = reviewResult.timedOut ? 'timeout' : `exit ${reviewResult.exitCode}`;
+        log(`Batch review FAILED (${reason}) — execution changes kept`);
+      } else {
+        log(`Batch review completed`);
+      }
+
+      for (const group of allGroups) {
+        outcomes.push({ group: group.id, status: 'pass' });
+      }
     }
   }
 
@@ -217,12 +230,16 @@ function _handleIterationResult(
   writeEvolutionNotes(cwd, {
     iteration: iterNum,
     items: discovery.selected_groups.flatMap((g) => g.items),
-    outcomes: (outcomes || []).map((o) => ({
-      item: o.group,
-      status: o.status,
-      step: o.step,
-      reason: o.reason,
-    })),
+    outcomes: (outcomes || []).flatMap((o) => {
+      const group = discovery.selected_groups.find((g) => g.id === o.group);
+      if (!group) return [{ item: o.group, status: o.status, step: o.step, reason: o.reason }];
+      return group.items.map((it) => ({
+        item: it.title,
+        status: o.status,
+        step: o.step,
+        reason: o.reason,
+      }));
+    }),
     decisions: [],
     patterns: [],
     takeaways: [],
