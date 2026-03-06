@@ -236,8 +236,13 @@ function _buildSpawnConfig(prompt: string, opts: SpawnOptions = {}): SpawnConfig
   }
 
   const env: Record<string, string | undefined> = { ...process.env };
-  delete env.CLAUDECODE;
-  delete env.CLAUDE_CODE_ENTRYPOINT;
+  // Strip ALL Claude Code env vars to prevent nested-session detection.
+  // Uses prefix match so future env vars are automatically handled.
+  for (const key of Object.keys(env)) {
+    if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_') || key.startsWith('CLAUDECODE_')) {
+      delete env[key];
+    }
+  }
 
   return { args, env };
 }
