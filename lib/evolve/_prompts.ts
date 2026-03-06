@@ -99,13 +99,15 @@ function buildGroupReviewPrompt(group: WorkGroup): string {
 /**
  * Build a single execution prompt for ALL groups in an iteration.
  */
-function buildBatchExecutePrompt(groups: WorkGroup[]): string {
+function buildBatchExecutePrompt(groups: WorkGroup[], iterationNum?: number): string {
   const sections: string[] = groups.map((group) => {
     const itemList: string = group.items
       .map((item, i) => `${i + 1}. ${item.title}: ${item.description}`)
       .join('\n');
     return `### ${group.title} (${group.dimension}/${group.theme})\n${itemList}`;
   });
+
+  const feedbackFile: string = `.planning/evolve-iteration-${iterationNum || 0}.json`;
 
   return [
     'Read CLAUDE.md for project conventions.',
@@ -117,6 +119,17 @@ function buildBatchExecutePrompt(groups: WorkGroup[]): string {
     'After ALL changes are done, run `npm test` once to verify nothing is broken.',
     'Fix any test failures before completing.',
     'Keep changes focused and minimal.',
+    '',
+    `After completing all changes, write a JSON feedback file to \`${feedbackFile}\` with this exact structure:`,
+    '```json',
+    '{',
+    '  "decisions": ["Brief description of each design decision you made and why"],',
+    '  "patterns": ["Any code patterns you noticed — good or bad — worth documenting"],',
+    '  "takeaways": ["Observations about the codebase that could inform future improvements"],',
+    '  "files_changed": ["list/of/files/you/modified.ts"]',
+    '}',
+    '```',
+    'Include at least 1 entry per array. Be specific and concise.',
   ].join('\n');
 }
 

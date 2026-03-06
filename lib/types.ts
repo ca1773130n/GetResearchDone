@@ -113,6 +113,12 @@ export interface GrdConfig {
   autonomous_mode: boolean;
   ceremony: CeremonyConfig | undefined;
   timeouts: GrdTimeouts;
+  evolve: EvolveConfig | undefined;
+}
+
+export interface EvolveConfig {
+  auto_commit: boolean;
+  create_pr: boolean;
 }
 
 // ─── Phase and Milestone Types ───────────────────────────────────────────────

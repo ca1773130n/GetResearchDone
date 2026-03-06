@@ -264,6 +264,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'research_gates',
   'confirmation_gates',
   'timeouts',
+  'evolve',
 ]);
 
 /**
@@ -313,6 +314,8 @@ function loadConfig(cwd: string): GrdConfig {
     ceremony: undefined,
     // Timeout defaults (ms)
     timeouts: defaultTimeouts,
+    // Evolve config
+    evolve: undefined,
   };
 
   try {
@@ -410,6 +413,15 @@ function loadConfig(cwd: string): GrdConfig {
       autonomous_mode: (get('autonomous_mode') ?? false) as boolean,
       // Ceremony config (pass-through)
       ceremony: (parsed.ceremony || undefined) as GrdConfig['ceremony'],
+      // Evolve config
+      evolve: ((): GrdConfig['evolve'] => {
+        const e = parsed.evolve && typeof parsed.evolve === 'object' ? parsed.evolve as Record<string, unknown> : null;
+        if (!e) return undefined;
+        return {
+          auto_commit: (e.auto_commit ?? true) as boolean,
+          create_pr: (e.create_pr ?? true) as boolean,
+        };
+      })(),
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> = parsed.timeouts && typeof parsed.timeouts === 'object' ? parsed.timeouts as Record<string, unknown> : {};

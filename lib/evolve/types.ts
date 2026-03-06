@@ -123,6 +123,8 @@ export interface EvolveOptions {
   maxTurns?: number;
   dryRun?: boolean;
   useWorktree?: boolean;
+  autoCommit?: boolean;
+  createPr?: boolean;
 }
 
 /** Result of processing one group. */
@@ -203,6 +205,16 @@ export interface IterationContext {
   maxTurns: number | undefined;
   cwd: string;
   log: (msg: string) => void;
+  autoCommit: boolean;
+  iterationNum: number;
+}
+
+/** Structured feedback from a single iteration's subprocess. */
+export interface IterationFeedback {
+  decisions: string[];
+  patterns: string[];
+  takeaways: string[];
+  files_changed?: string[];
 }
 
 /** Return from _runIterationStep. */
@@ -211,6 +223,7 @@ export interface IterationStepResult {
   outcomes: GroupOutcome[] | null;
   worktreeInfo: WorktreeInfo | null;
   executionCwd: string;
+  feedback: IterationFeedback | null;
   useWorktree: boolean;
   isDryRun: boolean;
 }

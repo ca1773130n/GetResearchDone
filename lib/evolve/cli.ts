@@ -89,6 +89,10 @@ async function cmdEvolve(cwd: string, args: string[], raw: boolean): Promise<voi
     return undefined as never;
   }
 
+  // Read evolve config for auto_commit and create_pr defaults
+  const config: GrdConfig = loadConfig(cwd);
+  const evolveConfig = config.evolve;
+
   const options: EvolveOptions = {
     iterations: hasFlag('--iterations') ? parseInt(flag('--iterations', '1'), 10) : undefined,
     pickPct: hasFlag('--pick-pct')
@@ -98,6 +102,8 @@ async function cmdEvolve(cwd: string, args: string[], raw: boolean): Promise<voi
     maxTurns: hasFlag('--max-turns') ? parseInt(flag('--max-turns', '0'), 10) : undefined,
     dryRun: hasFlag('--dry-run'),
     useWorktree: hasFlag('--no-worktree') ? false : undefined,
+    autoCommit: evolveConfig?.auto_commit ?? true,
+    createPr: evolveConfig?.create_pr ?? true,
   };
   const result: EvolveResult = await runEvolve(cwd, options);
   output(result, raw, raw ? JSON.stringify(result) : undefined);

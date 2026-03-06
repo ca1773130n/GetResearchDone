@@ -1,6 +1,6 @@
 ---
-description: Configure GRD workflow agents, model profile, git isolation, execution teams, code review, confirmation gates, research gates, and autonomous mode
-argument-hint: "[yolo | profile | ceremony]"
+description: Configure GRD workflow agents, model profile, git isolation, execution teams, code review, confirmation gates, research gates, autonomous mode, and evolve settings
+argument-hint: "[yolo | profile | ceremony | evolve]"
 ---
 
 <purpose>
@@ -10,6 +10,7 @@ Supports quick toggle subcommands:
 - `/grd:settings yolo [on|off|status]` — toggle autonomous mode (same as former /grd:yolo)
 - `/grd:settings profile [quality|balanced|budget]` — switch model profile (same as former /grd:set-profile)
 - `/grd:settings ceremony [full|standard|minimal]` — set default ceremony level
+- `/grd:settings evolve [auto-commit|create-pr] [on|off|status]` — toggle evolve settings
 - `/grd:settings` (no args) — full interactive settings flow
 </purpose>
 
@@ -32,6 +33,8 @@ elif FIRST_ARG == "profile":
   → jump to <subcommand_profile> with REMAINING_ARGS
 elif FIRST_ARG == "ceremony":
   → jump to <subcommand_ceremony> with REMAINING_ARGS
+elif FIRST_ARG == "evolve":
+  → jump to <subcommand_evolve> with REMAINING_ARGS
 else:
   → continue to full settings flow (ensure_and_load_config)
 ```
@@ -362,6 +365,90 @@ This applies to future /grd:plan-phase and /grd:execute-phase runs.
 
 **DONE — exit command after subcommand completes.**
 </subcommand_ceremony>
+
+<subcommand_evolve>
+## Subcommand: evolve [auto-commit | create-pr] [on | off | status]
+
+Configure evolve command settings: auto-commit per iteration and PR creation.
+
+### Step E0: Parse arguments
+
+```
+SETTING = first word of REMAINING_ARGS (auto-commit | create-pr)
+ACTION = second word of REMAINING_ARGS (on | off | status | empty)
+
+if SETTING is empty:
+  → show all evolve settings (status mode)
+elif SETTING not in ["auto-commit", "create-pr"]:
+  Error: Invalid evolve setting "SETTING"
+  Valid settings: auto-commit, create-pr
+  EXIT
+```
+
+### Step E1: Load config
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-ensure-section
+```
+
+Read `.planning/config.json` and parse `evolve` section (defaults: `auto_commit: true`, `create_pr: true`).
+
+### Step E2: Display status
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► EVOLVE SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| Setting       | Value |
+|---------------|-------|
+| Auto-commit   | {ON/OFF} |
+| Create PR     | {ON/OFF} |
+
+Auto-commit: Automatically commit changes after each evolve iteration.
+Create PR: Push branch and create a pull request after all iterations complete.
+```
+
+If ACTION is `status` or SETTING is empty: stop here, display only.
+
+### Step E3: Update setting
+
+Map SETTING to config key:
+- `auto-commit` → `evolve.auto_commit`
+- `create-pr` → `evolve.create_pr`
+
+Map ACTION:
+- `on` → `true`
+- `off` → `false`
+- empty → toggle current value
+
+Update `.planning/config.json`:
+```json
+{
+  "evolve": {
+    "auto_commit": true/false,
+    "create_pr": true/false
+  }
+}
+```
+
+### Step E4: Display confirmation
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► EVOLVE: {SETTING} set to {ON/OFF}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Updated .planning/config.json
+
+Quick commands:
+- /grd:settings evolve — show all evolve settings
+- /grd:settings evolve auto-commit [on|off] — toggle auto-commit
+- /grd:settings evolve create-pr [on|off] — toggle PR creation
+```
+
+**DONE — exit command after subcommand completes.**
+</subcommand_evolve>
 
 <step name="ensure_and_load_config">
 ```bash

@@ -23,6 +23,7 @@ import type {
   DryRunIterationResult,
   IterationContext,
   IterationStepResult,
+  IterationFeedback,
   HandleIterationReturn,
   WorktreeInfo,
   EvolutionNotesData,
@@ -95,7 +96,7 @@ const { runGroupDiscovery }: {
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
-  buildBatchExecutePrompt: (groups: WorkGroup[]) => string;
+  buildBatchExecutePrompt: (groups: WorkGroup[], iterationNum?: number) => string;
   buildBatchReviewPrompt: (groups: WorkGroup[]) => string;
 } = require('./_prompts');
 const { runAutoplan }: {
@@ -136,11 +137,11 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   );
 
   if (dryRun) {
-    return { discovery, outcomes: [], worktreeInfo, executionCwd, useWorktree, isDryRun: true };
+    return { discovery, outcomes: [], worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: true };
   }
 
   if (discovery.selected_groups.length === 0) {
-    return { discovery, outcomes: null, worktreeInfo, executionCwd, useWorktree, isDryRun: false };
+    return { discovery, outcomes: null, worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: false };
   }
 
   // Create worktree on first non-dry-run iteration if enabled
@@ -162,12 +163,15 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   const totalItems: number = allGroups.reduce((sum, g) => sum + g.items.length, 0);
   log(`Batch-executing ${allGroups.length} groups (${totalItems} items) in one subprocess`);
 
-  const executePrompt: string = buildBatchExecutePrompt(allGroups);
+  const { autoCommit, iterationNum } = iterCtx;
+  const executePrompt: string = buildBatchExecutePrompt(allGroups, iterationNum);
   const execResult = await spawnClaudeAsync(executionCwd, executePrompt, {
     model: SONNET_MODEL,
     timeout: timeoutMs,
     maxTurns,
   });
+
+  let feedback: IterationFeedback | null = null;
 
   if (execResult.exitCode !== 0) {
     const reason: string = execResult.timedOut ? 'timeout' : `exit ${execResult.exitCode}`;
@@ -176,6 +180,17 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       outcomes.push({ group: group.id, status: 'fail', step: 'execute', reason });
     }
   } else {
+    // Read feedback JSON written by the subprocess
+    const feedbackPath: string = path.join(executionCwd, '.planning', `evolve-iteration-${iterationNum}.json`);
+    try {
+      const raw: string = fs.readFileSync(feedbackPath, 'utf-8');
+      feedback = JSON.parse(raw) as IterationFeedback;
+      fs.unlinkSync(feedbackPath);
+      log(`Read iteration feedback: ${(feedback.decisions || []).length} decisions, ${(feedback.patterns || []).length} patterns, ${(feedback.takeaways || []).length} takeaways`);
+    } catch {
+      log(`No iteration feedback file found (subprocess may not have written it)`);
+    }
+
     // Check if the subprocess actually changed any code
     const diffCheck = execGit(executionCwd, ['diff', '--stat', 'HEAD']);
     const hasStagedChanges = execGit(executionCwd, ['diff', '--cached', '--stat']);
@@ -208,10 +223,23 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       for (const group of allGroups) {
         outcomes.push({ group: group.id, status: 'pass' });
       }
+
+      // Auto-commit if enabled
+      if (autoCommit) {
+        const themes: string = allGroups.map((g) => g.theme || g.id).join(', ');
+        const commitMsg: string = `evolve(iteration-${iterationNum}): ${themes}`;
+        execGit(executionCwd, ['add', '-A']);
+        const commitResult = execGit(executionCwd, ['commit', '-m', commitMsg]);
+        if (commitResult.exitCode === 0) {
+          log(`Auto-committed: ${commitMsg}`);
+        } else {
+          log(`Auto-commit failed: ${(commitResult.stderr || '').trim()}`);
+        }
+      }
     }
   }
 
-  return { discovery, outcomes, worktreeInfo, executionCwd, useWorktree, isDryRun: false };
+  return { discovery, outcomes, worktreeInfo, executionCwd, useWorktree, isDryRun: false, feedback };
 }
 
 /**
@@ -224,7 +252,7 @@ function _handleIterationResult(
   effectivePickPct: number,
   cwd: string
 ): HandleIterationReturn {
-  const { discovery, outcomes } = stepResult;
+  const { discovery, outcomes, feedback } = stepResult;
 
   // Write evolution notes (always to original cwd)
   writeEvolutionNotes(cwd, {
@@ -240,9 +268,9 @@ function _handleIterationResult(
         reason: o.reason,
       }));
     }),
-    decisions: [],
-    patterns: [],
-    takeaways: [],
+    decisions: feedback?.decisions || [],
+    patterns: feedback?.patterns || [],
+    takeaways: feedback?.takeaways || [],
   });
 
   // Compute completed and failed groups
@@ -373,7 +401,7 @@ function writeEvolutionNotes(cwd: string, iterationData: EvolutionNotesData): vo
  * Main evolve orchestration loop.
  */
 async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<EvolveResult> {
-  const { iterations = 1, pickPct, timeout, maxTurns, dryRun = false } = options;
+  const { iterations = 1, pickPct, timeout, maxTurns, dryRun = false, autoCommit = true, createPr = true } = options;
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;
   const timeoutMs: number | undefined = timeout ? timeout * 60 * 1000 : undefined;
   const unlimited: boolean = iterations === 0;
@@ -420,6 +448,8 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
       maxTurns,
       cwd,
       log,
+      autoCommit,
+      iterationNum: iterNum,
     });
 
     // Propagate mutable worktree state back from the step
@@ -479,7 +509,7 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     ]);
     const hasCommits: boolean = logResult.exitCode === 0 && logResult.stdout.trim().length > 0;
 
-    if (hasCommits) {
+    if (hasCommits && createPr) {
       log(`Pushing worktree branch and creating PR...`);
       prInfo = pushAndCreatePR(cwd, worktreeInfo.path, {
         base: worktreeInfo.baseBranch,
@@ -489,8 +519,10 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
       } else {
         log(`PR created: ${prInfo.pr_url}`);
       }
-    } else {
+    } else if (!hasCommits) {
       log('No commits on worktree branch, skipping PR.');
+    } else {
+      log('PR creation disabled via config.');
     }
 
     // Clean up worktree
