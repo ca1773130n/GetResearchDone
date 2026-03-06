@@ -80,9 +80,8 @@ const THEME_PATTERNS: ThemePattern[] = [
   { pattern: /^consolidate-/, theme: 'api-consolidation' },
 ];
 
-/** Dimension weights for priority scoring */
+/** Dimension weights for priority scoring (product-ideation is low — discovery-only, not executed) */
 const DIMENSION_WEIGHTS: Record<string, number> = {
-  'product-ideation': 11,
   'improve-features': 10,
   'new-features': 9,
   stability: 9,
@@ -90,6 +89,7 @@ const DIMENSION_WEIGHTS: Record<string, number> = {
   productivity: 6,
   usability: 5,
   quality: 4,
+  'product-ideation': 1,
 };
 
 /** Effort modifiers for priority scoring (prefer low-hanging fruit) */

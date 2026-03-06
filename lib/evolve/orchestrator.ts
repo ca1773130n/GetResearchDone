@@ -157,14 +157,58 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     }
   }
 
-  // 2. Batch-execute ALL selected groups in one subprocess, then review once
+  // 2. Separate product-ideation groups (discovery-only) from executable groups
   const outcomes: GroupOutcome[] = [];
-  const allGroups: WorkGroup[] = discovery.selected_groups;
-  const totalItems: number = allGroups.reduce((sum, g) => sum + g.items.length, 0);
-  log(`Batch-executing ${allGroups.length} groups (${totalItems} items) in one subprocess`);
+  const ideationGroups: WorkGroup[] = discovery.selected_groups.filter(
+    (g) => g.dimension === 'product-ideation'
+  );
+  const executableGroups: WorkGroup[] = discovery.selected_groups.filter(
+    (g) => g.dimension !== 'product-ideation'
+  );
+
+  // Write ideation groups to todos (they're ideas, not executable code tasks)
+  if (ideationGroups.length > 0) {
+    const todosCreated: number = writeDiscoveriesToTodos(cwd, ideationGroups);
+    log(`Wrote ${todosCreated} product-ideation items to todos (discovery-only, not executing)`);
+    for (const group of ideationGroups) {
+      outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'product-ideation: written to todos' });
+    }
+  }
+
+  if (executableGroups.length === 0) {
+    log(`No executable groups remaining after filtering product-ideation`);
+    return { discovery, outcomes, worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: false };
+  }
+
+  const allGroups: WorkGroup[] = executableGroups;
+  // Cap items per batch to keep subprocess focused (max 30 items)
+  const MAX_BATCH_ITEMS: number = 30;
+  let cappedGroups: WorkGroup[] = allGroups;
+  let totalItems: number = allGroups.reduce((sum, g) => sum + g.items.length, 0);
+  if (totalItems > MAX_BATCH_ITEMS) {
+    cappedGroups = [];
+    let runningTotal: number = 0;
+    for (const group of allGroups) {
+      if (runningTotal + group.items.length <= MAX_BATCH_ITEMS) {
+        cappedGroups.push(group);
+        runningTotal += group.items.length;
+      } else if (runningTotal === 0) {
+        // Always include at least one group, but cap its items
+        const cappedItems = group.items.slice(0, MAX_BATCH_ITEMS);
+        cappedGroups.push({ ...group, items: cappedItems });
+        runningTotal += cappedItems.length;
+        break;
+      } else {
+        break;
+      }
+    }
+    totalItems = runningTotal;
+    log(`Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS})`);
+  }
+  log(`Batch-executing ${cappedGroups.length} groups (${totalItems} items) in one subprocess`);
 
   const { autoCommit, iterationNum } = iterCtx;
-  const executePrompt: string = buildBatchExecutePrompt(allGroups, iterationNum);
+  const executePrompt: string = buildBatchExecutePrompt(cappedGroups, iterationNum);
   const execResult = await spawnClaudeAsync(executionCwd, executePrompt, {
     model: SONNET_MODEL,
     timeout: timeoutMs,
@@ -176,7 +220,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   if (execResult.exitCode !== 0) {
     const reason: string = execResult.timedOut ? 'timeout' : `exit ${execResult.exitCode}`;
     log(`Batch execute FAILED (${reason})`);
-    for (const group of allGroups) {
+    for (const group of cappedGroups) {
       outcomes.push({ group: group.id, status: 'fail', step: 'execute', reason });
     }
   } else {
@@ -191,22 +235,26 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       log(`No iteration feedback file found (subprocess may not have written it)`);
     }
 
-    // Check if the subprocess actually changed any code
-    const diffCheck = execGit(executionCwd, ['diff', '--stat', 'HEAD']);
-    const hasStagedChanges = execGit(executionCwd, ['diff', '--cached', '--stat']);
-    const hasChanges: boolean = (diffCheck.stdout || '').trim().length > 0
+    // Check if the subprocess actually changed source code files (not just markdown/docs)
+    const CODE_DIFF_FILTER: string[] = ['--', '*.ts', '*.js', '*.tsx', '*.jsx', '*.py', '*.rs', '*.go', '*.java', '*.json'];
+    const diffCheck = execGit(executionCwd, ['diff', '--stat', 'HEAD', ...CODE_DIFF_FILTER]);
+    const hasStagedChanges = execGit(executionCwd, ['diff', '--cached', '--stat', ...CODE_DIFF_FILTER]);
+    const hasCodeChanges: boolean = (diffCheck.stdout || '').trim().length > 0
       || (hasStagedChanges.stdout || '').trim().length > 0;
 
-    if (!hasChanges) {
-      log(`Batch execute completed but NO code changes were made — marking as skip`);
-      for (const group of allGroups) {
-        outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'no code changes' });
+    if (!hasCodeChanges) {
+      // Discard any non-code changes (markdown stubs, todo files, etc.)
+      execGit(executionCwd, ['checkout', '--', '.']);
+      execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/', '*.md']);
+      log(`Batch execute completed but NO source code changes were made — discarding markdown-only changes and marking as skip`);
+      for (const group of cappedGroups) {
+        outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'no source code changes' });
       }
     } else {
       log(`Batch execute completed (code changes detected)`);
 
-      log(`Running single review for all ${allGroups.length} groups`);
-      const reviewPrompt: string = buildBatchReviewPrompt(allGroups);
+      log(`Running single review for all ${cappedGroups.length} groups`);
+      const reviewPrompt: string = buildBatchReviewPrompt(cappedGroups);
       const reviewResult = await spawnClaudeAsync(executionCwd, reviewPrompt, {
         model: SONNET_MODEL,
         timeout: timeoutMs,
@@ -220,13 +268,13 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
         log(`Batch review completed`);
       }
 
-      for (const group of allGroups) {
+      for (const group of cappedGroups) {
         outcomes.push({ group: group.id, status: 'pass' });
       }
 
       // Auto-commit if enabled
       if (autoCommit) {
-        const themes: string = allGroups.map((g) => g.theme || g.id).join(', ');
+        const themes: string = cappedGroups.map((g) => g.theme || g.id).join(', ');
         const commitMsg: string = `evolve(iteration-${iterationNum}): ${themes}`;
         execGit(executionCwd, ['add', '-A']);
         const commitResult = execGit(executionCwd, ['commit', '-m', commitMsg]);
