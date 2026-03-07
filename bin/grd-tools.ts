@@ -290,6 +290,16 @@ const {
   cmdMigrateDirs,
   cmdCoverageReport,
   cmdHealthCheck,
+  cmdPhaseRiskAssessment,
+  cmdCitationBacklinks,
+  cmdEvalRegressionCheck,
+  cmdPhaseTimeBudget,
+  cmdConfigDiff,
+  cmdPhaseReadiness,
+  cmdMilestoneHealth,
+  cmdDecisionTimeline,
+  cmdImportKnowledge,
+  cmdTodoDuplicates,
 }: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
@@ -320,6 +330,16 @@ const {
   cmdMigrateDirs: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
   cmdHealthCheck: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
+  cmdPhaseRiskAssessment: (cwd: string, phase: string, raw: boolean) => void;
+  cmdCitationBacklinks: (cwd: string, raw: boolean) => void;
+  cmdEvalRegressionCheck: (cwd: string, phase: string, raw: boolean, thresholdPct?: number) => void;
+  cmdPhaseTimeBudget: (cwd: string, raw: boolean) => void;
+  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean) => void;
+  cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
+  cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
+  cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
+  cmdImportKnowledge: (cwd: string, sourcePath: string, types: string, raw: boolean, force?: boolean) => void;
+  cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
 } = require('../lib/commands/index');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -367,6 +387,16 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'phase-detail', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseDetail(cwd, args[1], raw); } },
   { command: 'phase-plan-index', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhasePlanIndex(cwd, args[1], raw); } },
   { command: 'search', handler: (args, cwd, raw) => { if (!args[1]) error('Search query is required'); return cmdSearch(cwd, args[1], raw); } },
+  { command: 'phase-risk', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseRiskAssessment(cwd, args[1], raw); } },
+  { command: 'citation-backlinks', handler: (_args, cwd, raw) => cmdCitationBacklinks(cwd, raw) },
+  { command: 'eval-regression-check', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); const t = flag(args, '--threshold'); return cmdEvalRegressionCheck(cwd, args[1], raw, t ? parseFloat(t) : undefined); } },
+  { command: 'phase-time-budget', handler: (_args, cwd, raw) => cmdPhaseTimeBudget(cwd, raw) },
+  { command: 'config-diff', handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset')) },
+  { command: 'phase-readiness', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseReadiness(cwd, args[1], raw); } },
+  { command: 'milestone-health', handler: (_args, cwd, raw) => cmdMilestoneHealth(cwd, raw) },
+  { command: 'decision-timeline', handler: (_args, cwd, raw) => cmdDecisionTimeline(cwd, raw) },
+  { command: 'import-knowledge', handler: (args, cwd, raw) => { if (!args[1]) error('Source path required'); return cmdImportKnowledge(cwd, args[1], flag(args, '--types') || 'all', raw, args.includes('--force')); } },
+  { command: 'todo-duplicates', handler: (args, cwd, raw) => { const t = flag(args, '--threshold'); return cmdTodoDuplicates(cwd, raw, t ? parseFloat(t) : undefined); } },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────

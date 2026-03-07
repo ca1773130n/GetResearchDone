@@ -72,6 +72,20 @@ const _search: {
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
 } = require('./search');
 
+// ─── Analysis ────────────────────────────────────────────────────────────────
+const _analysis: {
+  cmdPhaseRiskAssessment: (cwd: string, phase: string, raw: boolean) => void;
+  cmdCitationBacklinks: (cwd: string, raw: boolean) => void;
+  cmdEvalRegressionCheck: (cwd: string, phase: string, raw: boolean, thresholdPct?: number) => void;
+  cmdPhaseTimeBudget: (cwd: string, raw: boolean) => void;
+  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean) => void;
+  cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
+  cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
+  cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
+  cmdImportKnowledge: (cwd: string, sourcePath: string, types: string, raw: boolean, force?: boolean) => void;
+  cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
+} = require('./analysis');
+
 // ─── Requirements (re-export from lib/requirements) ─────────────────────────
 const _requirements: {
   cmdRequirementGet: (...args: unknown[]) => void;
@@ -132,6 +146,18 @@ module.exports = {
   cmdSearch: _search.cmdSearch,
   cmdMigrateDirs: _search.cmdMigrateDirs,
   cmdCoverageReport: _search.cmdCoverageReport,
+
+  // analysis
+  cmdPhaseRiskAssessment: _analysis.cmdPhaseRiskAssessment,
+  cmdCitationBacklinks: _analysis.cmdCitationBacklinks,
+  cmdEvalRegressionCheck: _analysis.cmdEvalRegressionCheck,
+  cmdPhaseTimeBudget: _analysis.cmdPhaseTimeBudget,
+  cmdConfigDiff: _analysis.cmdConfigDiff,
+  cmdPhaseReadiness: _analysis.cmdPhaseReadiness,
+  cmdMilestoneHealth: _analysis.cmdMilestoneHealth,
+  cmdDecisionTimeline: _analysis.cmdDecisionTimeline,
+  cmdImportKnowledge: _analysis.cmdImportKnowledge,
+  cmdTodoDuplicates: _analysis.cmdTodoDuplicates,
 
   // requirements (pass-through re-export)
   cmdRequirementGet: _requirements.cmdRequirementGet,

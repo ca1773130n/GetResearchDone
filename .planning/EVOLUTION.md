@@ -5050,3 +5050,89 @@ _2026-03-07T01:20:19.299Z_
 - The context module architecture (base/execute/research/project/agents/progress) is complete and well-structured; future improvements should focus on product-ideation todos rather than code-quality dimensions
 
 ---
+## Iteration 1
+_2026-03-07T01:43:32.302Z_
+
+### Items Attempted
+
+- **Add recovery hint to error in scaffold.ts line 167** — pass
+- **Add recovery hint to error in tracker.ts line 1075** — pass
+- **Add recovery hint to error in tracker.ts line 1386** — pass
+- **Add recovery hint to error in worktree.ts line 436** — pass
+- **Add init workflow for grd-baseline-assessor agent** — pass
+- **Add init workflow for grd-code-reviewer agent** — pass
+- **Add init workflow for grd-codebase-mapper agent** — pass
+- **Add init workflow for grd-debugger agent** — pass
+- **Add init workflow for grd-deep-diver agent** — pass
+- **Add init workflow for grd-eval-planner agent** — pass
+- **Add init workflow for grd-eval-reporter agent** — pass
+- **Add init workflow for grd-executor agent** — pass
+- **Add init workflow for grd-feasibility-analyst agent** — pass
+- **Add init workflow for grd-integration-checker agent** — pass
+- **Add init workflow for grd-migrator agent** — pass
+- **Add init workflow for grd-phase-researcher agent** — pass
+- **Add init workflow for grd-plan-checker agent** — pass
+- **Add init workflow for grd-product-owner agent** — pass
+- **Add init workflow for grd-project-researcher agent** — pass
+- **Add init workflow for grd-research-synthesizer agent** — pass
+- **Add init workflow for grd-roadmapper agent** — pass
+- **Add init workflow for grd-surveyor agent** — pass
+- **Add init workflow for grd-verifier agent** — pass
+- **Replace process.exit calls in mcp-server.ts** — pass
+- **Replace process.exit calls in roadmap.ts** — pass
+- **Replace process.exit calls in utils.ts** — pass
+- **Replace process.exit calls in worktree.ts** — pass
+- **Split long function _extractParamNames in cleanup.ts** — unknown
+- **Split long function runQualityAnalysis in cleanup.ts** — unknown
+- **Split long function generateCleanupPlan in cleanup.ts** — unknown
+- **Split long function extractFrontmatter in frontmatter.ts** — unknown
+- **Split long function cmdPhasesList in phase.ts** — unknown
+- **Split long function cmdPhaseAdd in phase.ts** — unknown
+- **Split long function cmdPhaseInsert in phase.ts** — unknown
+- **Split long function _renumberIntegerPhases in phase.ts** — unknown
+- **Split long function cmdPhaseRemove in phase.ts** — unknown
+- **Split long function _phaseCompleteCore in phase.ts** — unknown
+- **Split long function _archiveMilestone in phase.ts** — unknown
+- **Split long function cmdMilestoneComplete in phase.ts** — unknown
+- **Split long function cmdValidateConsistency in phase.ts** — unknown
+- **Split long function cmdRequirementGet in requirements.ts** — unknown
+- **Split long function cmdRequirementList in requirements.ts** — unknown
+- **Split long function cmdRequirementUpdateStatus in requirements.ts** — unknown
+- **Split long function computeSchedule in roadmap.ts** — unknown
+- **Split long function analyzeRoadmap in roadmap.ts** — unknown
+- **Split long function cmdTemplateFill in scaffold.ts** — unknown
+- **Split long function cmdScaffold in scaffold.ts** — unknown
+- **Split long function cmdStateSnapshot in state.ts** — unknown
+- **Split long function loadTrackerMapping in tracker.ts** — unknown
+- **Split long function createGitHubTracker in tracker.ts** — unknown
+- **Split long function handleSyncRoadmap in tracker.ts** — unknown
+- **Split long function handlePreparePhaseSync in tracker.ts** — unknown
+- **Split long function handleRecordMapping in tracker.ts** — unknown
+- **Split long function loadConfig in utils.ts** — unknown
+- **Split long function cmdVerifySummary in verify.ts** — unknown
+- **Split long function cmdVerifyPlanStructure in verify.ts** — unknown
+- **Split long function cmdWorktreeCreate in worktree.ts** — unknown
+- **Split long function cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Split long function cmdWorktreeMerge in worktree.ts** — unknown
+- **Split long function cmdWorktreeHookCreate in worktree.ts** — unknown
+
+### Decisions Made
+
+- Skipped all 4 error-recovery items: scaffold.ts:167, tracker.ts:1075, tracker.ts:1386, worktree.ts:436 — each already contains a full actionable recovery hint with usage examples and next steps. False positives from the error() call scanner.
+- Added 6 missing agent aliases (ProductOwner, ProjectResearcher, ResearchSynthesizer, Roadmapper, Surveyor, Verifier) to lib/context/agents.ts as thin wrappers delegating to canonical functions in research.ts. These existed in research.ts and were accessible via index.ts but were not represented as aliases in agents.ts, making agents.ts incomplete as the unified agent-alias module.
+- Updated lib/context/index.ts to route the 6 new aliases through _agents instead of _research directly, so agents.ts is now the single source for all 19 agent init aliases.
+- Skipped all 4 process-exit-cleanup items: mcp-server.ts intentionally intercepts process.exit (captureExecution pattern), roadmap.ts only has a comment mentioning process.exit with no actual call, utils.ts IS the error()/output() implementation so it cannot call error() to replace process.exit, worktree.ts only has comments about unreachability.
+
+### Patterns Discovered
+
+- The _dimensions-features.ts scanner reads all context/ files concatenated via readModuleContent, so functions in research.ts ARE found by the check. The flagging of 6 agents was a false positive — the functions existed but were not in agents.ts specifically.
+- SATURATED_THEMES in discovery.ts already includes error-recovery, agent-workflow-gaps, and process-exit-cleanup — these three themes should not have been in this batch. The dimension scanner (_dimensions.ts, _dimensions-features.ts) still generates these work items, but the orchestrator/survey filters them out for new batches.
+- The agents.ts thin-wrapper pattern creates a consistent module boundary: all agent-facing init functions live in agents.ts, all canonical implementations live in research.ts/execute.ts/project.ts. Without the 6 aliases, index.ts was routing some agents through _research and some through _agents inconsistently.
+
+### Takeaways
+
+- All three groups (error-recovery, agent-workflow-gaps, process-exit-cleanup) are fully saturated — no new real work exists in these dimensions. Future evolve iterations should pre-filter these themes before dispatching work items.
+- The evolve scanner generates ~35 agent-workflow-gap false positives even though all canonical functions exist, because the naming check passes but the agents.ts consistency expectation is violated for 6 agents. Adding the 6 aliases eliminates this class of false positive permanently.
+- Todo backlog is at 857 items; product ideation space is extremely saturated. New idea rate in recent iterations is <10%. Consider deprioritizing product-ideation dimension in favor of implementation/test coverage improvements.
+
+---
