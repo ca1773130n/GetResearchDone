@@ -5,7 +5,9 @@
  *           cmdInitBaselineAssessor, cmdInitCodeReviewer, cmdInitCodebaseMapper,
  *           cmdInitDebugger, cmdInitDeepDiver, cmdInitEvalPlanner, cmdInitEvalReporter,
  *           cmdInitExecutor, cmdInitFeasibilityAnalyst, cmdInitIntegrationChecker,
- *           cmdInitMigrator, cmdInitPhaseResearcher, cmdInitPlanChecker
+ *           cmdInitMigrator, cmdInitPhaseResearcher, cmdInitPlanChecker,
+ *           cmdInitProductOwner, cmdInitProjectResearcher, cmdInitResearchSynthesizer,
+ *           cmdInitRoadmapper, cmdInitSurveyor, cmdInitVerifier
  *
  * Agent aliases are thin wrappers that delegate to canonical cmdInit* functions
  * in sibling modules (execute, research, project).
@@ -74,12 +76,24 @@ const { cmdInitMapCodebase }: {
 const {
   cmdInitAssessBaseline, cmdInitDeepDive, cmdInitEvalPlan,
   cmdInitEvalReport, cmdInitFeasibility,
+  cmdInitProductOwner: _cmdInitProductOwner,
+  cmdInitProjectResearcher: _cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer: _cmdInitResearchSynthesizer,
+  cmdInitRoadmapper: _cmdInitRoadmapper,
+  cmdInitSurveyor: _cmdInitSurveyor,
+  cmdInitVerifier: _cmdInitVerifier,
 }: {
   cmdInitAssessBaseline: (cwd: string, raw: boolean) => void;
   cmdInitDeepDive: (cwd: string, topic: string, raw: boolean) => void;
   cmdInitEvalPlan: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitEvalReport: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitFeasibility: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitProductOwner: (cwd: string, raw: boolean) => void;
+  cmdInitProjectResearcher: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitResearchSynthesizer: (cwd: string, raw: boolean) => void;
+  cmdInitRoadmapper: (cwd: string, raw: boolean) => void;
+  cmdInitSurveyor: (cwd: string, topic: string, raw: boolean) => void;
+  cmdInitVerifier: (cwd: string, phase: string | null, raw: boolean) => void;
 } = require('./research');
 
 // ─── Debug Init ──────────────────────────────────────────────────────────────
@@ -285,6 +299,12 @@ function cmdInitIntegrationChecker(cwd: string, phase: string | null, raw: boole
 function cmdInitMigrator(cwd: string, raw: boolean): void { return cmdInitMigrate(cwd, raw); }
 function cmdInitPhaseResearcher(cwd: string, phase: string, includes: Set<string>, raw: boolean): void { return cmdInitPhaseResearch(cwd, phase, includes, raw); }
 function cmdInitPlanChecker(cwd: string, phase: string, raw: boolean): void { return cmdInitPlanCheck(cwd, phase, raw); }
+function cmdInitProductOwner(cwd: string, raw: boolean): void { return _cmdInitProductOwner(cwd, raw); }
+function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): void { return _cmdInitProjectResearcher(cwd, topic, raw); }
+function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void { return _cmdInitResearchSynthesizer(cwd, raw); }
+function cmdInitRoadmapper(cwd: string, raw: boolean): void { return _cmdInitRoadmapper(cwd, raw); }
+function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void { return _cmdInitSurveyor(cwd, topic, raw); }
+function cmdInitVerifier(cwd: string, phase: string | null, raw: boolean): void { return _cmdInitVerifier(cwd, phase, raw); }
 
 module.exports = {
   cmdInitDebug,
@@ -305,4 +325,10 @@ module.exports = {
   cmdInitMigrator,
   cmdInitPhaseResearcher,
   cmdInitPlanChecker,
+  cmdInitProductOwner,
+  cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer,
+  cmdInitRoadmapper,
+  cmdInitSurveyor,
+  cmdInitVerifier,
 };

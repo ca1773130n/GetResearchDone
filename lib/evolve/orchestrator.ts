@@ -157,30 +157,9 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     }
   }
 
-  // 2. Separate product-ideation groups (discovery-only) from executable groups
+  // 2. All groups are executable — product-ideation items are real feature work
   const outcomes: GroupOutcome[] = [];
-  const ideationGroups: WorkGroup[] = discovery.selected_groups.filter(
-    (g) => g.dimension === 'product-ideation'
-  );
-  const executableGroups: WorkGroup[] = discovery.selected_groups.filter(
-    (g) => g.dimension !== 'product-ideation'
-  );
-
-  // Write ideation groups to todos (they're ideas, not executable code tasks)
-  if (ideationGroups.length > 0) {
-    const todosCreated: number = writeDiscoveriesToTodos(cwd, ideationGroups);
-    log(`Wrote ${todosCreated} product-ideation items to todos (discovery-only, not executing)`);
-    for (const group of ideationGroups) {
-      outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'product-ideation: written to todos' });
-    }
-  }
-
-  if (executableGroups.length === 0) {
-    log(`No executable groups remaining after filtering product-ideation`);
-    return { discovery, outcomes, worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: false };
-  }
-
-  const allGroups: WorkGroup[] = executableGroups;
+  const allGroups: WorkGroup[] = discovery.selected_groups;
   // Cap items per batch to keep subprocess focused (max 30 items)
   const MAX_BATCH_ITEMS: number = 30;
   let cappedGroups: WorkGroup[] = allGroups;
@@ -323,11 +302,18 @@ function _handleIterationResult(
 
   // Compute completed and failed groups
   const milestone: string = prevState ? prevState.milestone : '';
-  const completedGroups: WorkGroup[] = (outcomes || [])
+  const newlyCompleted: WorkGroup[] = (outcomes || [])
     .filter((o) => o.status === 'pass')
     .map((o) => discovery.selected_groups.find((g) => g.id === o.group))
     .filter((g): g is WorkGroup => g !== undefined)
     .map((g) => ({ ...g, status: 'completed' }));
+  // Accumulate completed groups across iterations (for dedup in future discoveries)
+  const prevCompleted: WorkGroup[] = prevState?.completed_groups || [];
+  const completedIds = new Set<string>(prevCompleted.map((g) => g.id));
+  const completedGroups: WorkGroup[] = [
+    ...prevCompleted,
+    ...newlyCompleted.filter((g) => !completedIds.has(g.id)),
+  ];
   const failedGroups: WorkGroup[] = (outcomes || [])
     .filter((o) => o.status === 'fail')
     .map((o) => discovery.selected_groups.find((g) => g.id === o.group))

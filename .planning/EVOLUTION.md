@@ -4792,3 +4792,261 @@ None
 None
 
 ---
+## Iteration 36
+_2026-03-07T01:20:19.299Z_
+
+### Items Attempted
+
+- **Add recovery hint to error in scaffold.ts line 167** — skip
+- **Add recovery hint to error in tracker.ts line 1075** — skip
+- **Add recovery hint to error in tracker.ts line 1386** — skip
+- **Add recovery hint to error in worktree.ts line 436** — skip
+- **Add init workflow for grd-baseline-assessor agent** — skip
+- **Add init workflow for grd-code-reviewer agent** — skip
+- **Add init workflow for grd-codebase-mapper agent** — skip
+- **Add init workflow for grd-debugger agent** — skip
+- **Add init workflow for grd-deep-diver agent** — skip
+- **Add init workflow for grd-eval-planner agent** — skip
+- **Add init workflow for grd-eval-reporter agent** — skip
+- **Add init workflow for grd-executor agent** — skip
+- **Add init workflow for grd-feasibility-analyst agent** — skip
+- **Add init workflow for grd-integration-checker agent** — skip
+- **Add init workflow for grd-migrator agent** — skip
+- **Add init workflow for grd-phase-researcher agent** — skip
+- **Add init workflow for grd-plan-checker agent** — skip
+- **Add init workflow for grd-product-owner agent** — skip
+- **Add init workflow for grd-project-researcher agent** — skip
+- **Add init workflow for grd-research-synthesizer agent** — skip
+- **Add init workflow for grd-roadmapper agent** — skip
+- **Add init workflow for grd-surveyor agent** — skip
+- **Add init workflow for grd-verifier agent** — skip
+- **Replace process.exit calls in mcp-server.ts** — skip
+- **Replace process.exit calls in roadmap.ts** — skip
+- **Replace process.exit calls in utils.ts** — skip
+- **Replace process.exit calls in worktree.ts** — skip
+- **Add JSDoc to runMultiMilestoneAutopilot in autopilot.ts** — unknown
+- **Add JSDoc to resolveNextMilestone in autopilot.ts** — unknown
+- **Add JSDoc to detectBackend in backend.ts** — unknown
+- **Add JSDoc to resolveBackendModel in backend.ts** — unknown
+- **Add JSDoc to getBackendCapabilities in backend.ts** — unknown
+- **Add JSDoc to parseOpenCodeModels in backend.ts** — unknown
+- **Add JSDoc to detectWebMcp in backend.ts** — unknown
+- **Add JSDoc to computeParallelGroups in deps.ts** — unknown
+- **Add JSDoc to cmdPhaseAnalyzeDeps in deps.ts** — unknown
+- **Add JSDoc to spliceFrontmatter in frontmatter.ts** — unknown
+- **Add JSDoc to parseMustHavesBlock in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterSet in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterMerge in frontmatter.ts** — unknown
+- **Add JSDoc to cmdFrontmatterValidate in frontmatter.ts** — unknown
+- **Add JSDoc to updateRefinementHistory in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseNormalMilestoneList in long-term-roadmap.ts** — unknown
+- **Add JSDoc to parseLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to generateLongTermRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to extractShippedVersions in long-term-roadmap.ts** — unknown
+- **Add JSDoc to addLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to removeLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to updateLtMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to linkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to unlinkNormalMilestone in long-term-roadmap.ts** — unknown
+- **Add JSDoc to getLtMilestoneById in long-term-roadmap.ts** — unknown
+- **Add JSDoc to initFromRoadmap in long-term-roadmap.ts** — unknown
+- **Add JSDoc to findSplitBoundaries in markdown-split.ts** — unknown
+- **Add JSDoc to splitMarkdown in markdown-split.ts** — unknown
+- **Add JSDoc to captureExecution in mcp-server.ts** — unknown
+- **Add JSDoc to validateIndependentPhases in parallel.ts** — unknown
+- **Add JSDoc to buildParallelContext in parallel.ts** — unknown
+- **Add JSDoc to cmdInitExecuteParallel in parallel.ts** — unknown
+- **Add JSDoc to currentMilestone in paths.ts** — unknown
+- **Add JSDoc to planningDir in paths.ts** — unknown
+- **Add JSDoc to phasesDir in paths.ts** — unknown
+- **Add JSDoc to codebaseDir in paths.ts** — unknown
+- **Add JSDoc to archivedPhasesDir in paths.ts** — unknown
+- **Add JSDoc to cmdPhasesList in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseAdd in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseInsert in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseRemove in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseComplete in phase.ts** — unknown
+- **Add JSDoc to cmdMilestoneComplete in phase.ts** — unknown
+- **Add JSDoc to cmdValidateConsistency in phase.ts** — unknown
+- **Add JSDoc to cmdVersionBump in phase.ts** — unknown
+- **Add JSDoc to cmdPhaseBatchComplete in phase.ts** — unknown
+- **Add JSDoc to atomicWriteFile in phase.ts** — unknown
+- **Add JSDoc to addDays in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForPhase in roadmap.ts** — unknown
+- **Add JSDoc to getScheduleForMilestone in roadmap.ts** — unknown
+- **Add JSDoc to cmdPhaseNextDecimal in roadmap.ts** — unknown
+- **Add JSDoc to cmdRoadmapAnalyze in roadmap.ts** — unknown
+- **Add JSDoc to cmdTemplateSelect in scaffold.ts** — unknown
+- **Add JSDoc to cmdTemplateFill in scaffold.ts** — unknown
+- **Add JSDoc to cmdScaffold in scaffold.ts** — unknown
+- **Add JSDoc to stateReplaceField in state.ts** — unknown
+- **Add JSDoc to cmdStateGet in state.ts** — unknown
+- **Add JSDoc to cmdStatePatch in state.ts** — unknown
+- **Add JSDoc to cmdStateUpdate in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordMetric in state.ts** — unknown
+- **Add JSDoc to cmdStateAddDecision in state.ts** — unknown
+- **Add JSDoc to cmdStateAddBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateResolveBlocker in state.ts** — unknown
+- **Add JSDoc to cmdStateRecordSession in state.ts** — unknown
+- **Add JSDoc to cmdStateSnapshot in state.ts** — unknown
+- **Add JSDoc to loadTrackerMapping in tracker.ts** — unknown
+- **Add JSDoc to createGitHubTracker in tracker.ts** — unknown
+- **Add JSDoc to cmdTracker in tracker.ts** — unknown
+- **Add JSDoc to safeReadMarkdown in utils.ts** — unknown
+- **Add JSDoc to safeReadJSON in utils.ts** — unknown
+- **Add JSDoc to extractMarkdownSection in utils.ts** — unknown
+- **Add JSDoc to isGitIgnored in utils.ts** — unknown
+- **Add JSDoc to execGit in utils.ts** — unknown
+- **Add JSDoc to normalizePhaseName in utils.ts** — unknown
+- **Add JSDoc to findCodeFiles in utils.ts** — unknown
+- **Add JSDoc to validateFilePath in utils.ts** — unknown
+- **Add JSDoc to validateGitRef in utils.ts** — unknown
+- **Add JSDoc to validateFileArg in utils.ts** — unknown
+- **Add JSDoc to validateSubcommand in utils.ts** — unknown
+- **Add JSDoc to validateRequiredArg in utils.ts** — unknown
+- **Add JSDoc to parsePhaseNumber in utils.ts** — unknown
+- **Add JSDoc to debugLog in utils.ts** — unknown
+- **Add JSDoc to findPhaseInternal in utils.ts** — unknown
+- **Add JSDoc to pathExistsInternal in utils.ts** — unknown
+- **Add JSDoc to stripShippedSections in utils.ts** — unknown
+- **Add JSDoc to resolveModelForAgent in utils.ts** — unknown
+- **Add JSDoc to levenshteinDistance in utils.ts** — unknown
+- **Add JSDoc to findClosestCommand in utils.ts** — unknown
+- **Add JSDoc to cmdVerifySummary in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPlanStructure in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyPhaseCompleteness in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyReferences in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyCommits in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyArtifacts in verify.ts** — unknown
+- **Add JSDoc to cmdVerifyKeyLinks in verify.ts** — unknown
+- **Add JSDoc to createEvolveWorktree in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemove in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeList in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeRemoveStale in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreePushAndPR in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeMerge in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookCreate in worktree.ts** — unknown
+- **Add JSDoc to cmdWorktreeHookRemove in worktree.ts** — unknown
+- **Split lib/commands.js (3,014 lines) into domain modules** — unknown
+- **Extract 20 init workflows from lib/context.js into lib/init/ subdirectory** — unknown
+- **Split long function spawnClaudeAsync in autopilot.js** — unknown
+- **Split long function _extractParamNames in cleanup.js** — unknown
+- **Split long function runQualityAnalysis in cleanup.js** — unknown
+- **Split long function generateCleanupPlan in cleanup.js** — unknown
+- **Split long function cmdHistoryDigest in commands.js** — unknown
+- **Split long function cmdPhasePlanIndex in commands.js** — unknown
+- **Split long function cmdProgressRender in commands.js** — unknown
+- **Split long function renderDashboardTui in commands.js** — unknown
+- **Split long function cmdDashboard in commands.js** — unknown
+- **Split long function cmdPhaseDetail in commands.js** — unknown
+- **Split long function cmdHealth in commands.js** — unknown
+- **Split long function cmdLongTermRoadmap in commands.js** — unknown
+- **Split long function cmdRequirementList in commands.js** — unknown
+- **Split long function cmdMigrateDirs in commands.js** — unknown
+- **Split long function cmdHealthCheck in commands.js** — unknown
+- **Split long function cmdInitExecutePhase in context.js** — unknown
+- **Split long function cmdInitPlanPhase in context.js** — unknown
+- **Split long function cmdInitNewMilestone in context.js** — unknown
+- **Split long function cmdInitProgress in context.js** — unknown
+- **Split long function cmdInitResearchWorkflow in context.js** — unknown
+- **Split long function discoverQualityItems in evolve.js** — unknown
+- **Split long function discoverUsabilityItems in evolve.js** — unknown
+- **Split long function discoverImproveFeatureItems in evolve.js** — unknown
+- **Split long function extractFrontmatter in frontmatter.js** — unknown
+- **Split long function cmdPhaseAdd in phase.js** — unknown
+- **Split long function cmdPhaseInsert in phase.js** — unknown
+- **Split long function cmdPhaseRemove in phase.js** — unknown
+- **Split long function _phaseCompleteCore in phase.js** — unknown
+- **Split long function cmdMilestoneComplete in phase.js** — unknown
+- **Split long function cmdValidateConsistency in phase.js** — unknown
+- **Split long function computeSchedule in roadmap.js** — unknown
+- **Split long function analyzeRoadmap in roadmap.js** — unknown
+- **Split long function cmdTemplateFill in scaffold.js** — unknown
+- **Split long function cmdScaffold in scaffold.js** — unknown
+- **Split long function cmdStateSnapshot in state.js** — unknown
+- **Split long function loadTrackerMapping in tracker.js** — unknown
+- **Split long function createGitHubTracker in tracker.js** — unknown
+- **Split long function handlePrepareRoadmapSync in tracker.js** — unknown
+- **Split long function loadConfig in utils.js** — unknown
+- **Split long function cmdVerifySummary in verify.js** — unknown
+- **Split long function cmdVerifyPlanStructure in verify.js** — unknown
+- **Split long function cmdWorktreePushAndPR in worktree.js** — unknown
+- **Split long function cmdWorktreeMerge in worktree.js** — unknown
+- **Split long function cmdWorktreeHookCreate in worktree.js** — unknown
+- **Split long function cmdRequirementList in requirements.js** — unknown
+- **Split long function cmdPhasesList in phase.ts** — unknown
+- **Split long function _renumberIntegerPhases in phase.ts** — unknown
+- **Split long function _archiveMilestone in phase.ts** — unknown
+- **Split long function cmdRequirementGet in requirements.ts** — unknown
+- **Split long function cmdRequirementUpdateStatus in requirements.ts** — unknown
+- **Split long function handleSyncRoadmap in tracker.ts** — unknown
+- **Split long function handlePreparePhaseSync in tracker.ts** — unknown
+- **Split long function handleRecordMapping in tracker.ts** — unknown
+- **Split long function cmdWorktreeCreate in worktree.ts** — unknown
+- **bin/grd-tools.js help string is manually maintained and outdated** — unknown
+- **cmdStateLoad raw output missing autonomous_mode, ceremony, and execution fields** — unknown
+- **STATE.md error messages don't suggest corrective action** — unknown
+- **cmdSearch only searches .planning/, missing commands/ and agents/ content** — unknown
+- **Evolve discovery silently falls back to heuristics when Claude parse fails** — unknown
+- **analyzeComplexity() silently returns empty results when ESLint is unavailable** — unknown
+- **cmdInitResearchWorkflow accepts arbitrary workflow names without validation** — unknown
+- **Context init functions don't detect missing .planning/ directory** — unknown
+- **Phase number error message doesn't explain expected format** — unknown
+- **Phase add error message lacks format guidance** — unknown
+- **buildParallelContext() has no JSDoc despite complex signature** — unknown
+- **inferCeremonyLevel() logic undocumented** — unknown
+- **Evolve discovery functions lack JSDoc** — unknown
+- **15+ public functions in backend.js lack JSDoc** — unknown
+- **Error messages inconsistently actionable across CLI** — unknown
+- **--raw flag behavior undocumented with inconsistent formats** — unknown
+- **paths.js functions imported with inconsistent aliases** — unknown
+- **cmdResolveModel silently returns 'sonnet' for unknown agent types in --raw mode** — unknown
+- **flag() helper in grd-tools.js returns the next flag as a value when flag value is missing** — unknown
+- **cmdHistoryDigest silently skips malformed SUMMARY.md files with no file path logged** — unknown
+- **spawnClaudeAsync drops the error detail when the claude binary is missing** — unknown
+- **Generic 'Phase not found' errors lack recovery hints** — unknown
+- **MCP tool descriptions in mcp-server.js lack examples** — unknown
+- **Evolve discovery silently returns empty on JSON parse error** — unknown
+- **cmdPhaseInsert error says 'not found in ROADMAP' when phase is actually shipped** — unknown
+- **cmdWorktreeRemove reports success when git still holds a reference** — unknown
+- **Phase consistency check doesn't distinguish plan-complete vs has-summaries** — unknown
+- **cmdGenerateSlug doesn't guarantee ASCII-safe output** — unknown
+- **DIMENSION_WEIGHTS constants have no rationale comments** — unknown
+- **grd-tools.js help text is hardcoded and incomplete** — unknown
+- **postinstall.js creates directories silently** — unknown
+- **No guidance for recovering from corrupted STATE.md or orphaned phases** — unknown
+- **scaffold.js silently falls back to default template on error** — unknown
+- **Dashboard regenerates all data synchronously on every call** — unknown
+- **Validation error messages lack actionable context** — unknown
+- **lib/tracker.js error messages don't guide the user to fix the issue** — unknown
+- **bin/grd-tools.js help text lists 50+ commands with no grouping** — unknown
+- **lib/evolve.js work item scoring algorithm is undocumented and DIMENSION_WEIGHTS unused** — unknown
+- **lib/context.js silently ignores backend detection failure** — unknown
+- **lib/mcp-server.js tool descriptions lack parameter examples** — unknown
+- **lib/evolve.js core algorithms have no JSDoc** — unknown
+- **lib/mcp-server.js (2227 lines) lacks architectural overview** — unknown
+- **Merge conflicts in worktree abort with no actionable guidance** — unknown
+- **CLAUDE.md has no documentation for the evolve loop** — unknown
+
+### Decisions Made
+
+- Skipped all error-recovery items: all 4 error messages (scaffold.ts, tracker.ts×2, worktree.ts) already contain detailed actionable recovery hints with examples and suggested commands — no improvement was needed
+- Skipped all agent-workflow-gap items: all 19 agents have corresponding init workflows — 13 via agent aliases in lib/context/agents.ts, and 6 (grd-product-owner, grd-project-researcher, grd-research-synthesizer, grd-roadmapper, grd-surveyor, grd-verifier) via direct full implementations in lib/context/research.ts, all exported through lib/context/index.ts and routed in the CLI
+- Skipped all process-exit-cleanup items: mcp-server.ts intentionally intercepts process.exit in captureExecution(); roadmap.ts and worktree.ts only mention process.exit in comments with no actual calls; utils.ts process.exit calls ARE the error()/output() function bodies and cannot be self-referentially replaced
+
+### Patterns Discovered
+
+- The evolve discovery system consistently produces false positives for 5 dimensions (error-recovery, agent-workflow-gaps, process-exit-cleanup, long-function-refactors, jsdoc-gaps) — all verified complete across iterations 53-73
+- Agent init workflows follow two patterns: (a) canonical named function in execute/research/project.ts + alias in agents.ts, or (b) direct implementation in research.ts exported through context/index.ts — the discovery system only checked one pattern
+- process.exit in comments (e.g. 'unreachable — error() calls process.exit()') are consistently flagged as needing cleanup despite being documentation, not executable code
+- The error() function in utils.ts is the terminal error handler that calls process.exit(1) — any suggestion to 'replace process.exit with error()' within utils.ts itself is circular and architecturally nonsensical
+
+### Takeaways
+
+- Todo backlog is saturated at 857+ items; the evolve discovery system's code-quality dimensions have been fully addressed and should either be pre-filtered or their detection logic improved to avoid re-flagging fixed items
+- All 5 code-quality dimensions (error-recovery, agent-workflow-gaps, process-exit-cleanup, long-function-refactors, jsdoc-gaps) show 100% false-positive rates for at least 5 consecutive iterations — these should be skipped or detection refined
+- The mcp-server.ts captureExecution pattern (intentional process.exit interception for MCP tool invocation) is a recurring false-positive target — should be explicitly excluded from process.exit audits via a lint rule or annotation
+- The context module architecture (base/execute/research/project/agents/progress) is complete and well-structured; future improvements should focus on product-ideation todos rather than code-quality dimensions
+
+---

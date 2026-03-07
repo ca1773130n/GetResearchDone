@@ -88,6 +88,21 @@ const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups }: {
 
 const fs = require('fs');
 
+// ─── Saturated Dimensions ───────────────────────────────────────────────────
+
+/**
+ * Dimensions that have been verified as 100% false-positive for 5+ consecutive
+ * iterations. Items in these themes are filtered out before grouping to avoid
+ * wasting subprocess calls on work that's already been done.
+ */
+const SATURATED_THEMES: Set<string> = new Set([
+  'error-recovery',
+  'agent-workflow-gaps',
+  'process-exit-cleanup',
+  'long-function-refactors',
+  'jsdoc-gaps',
+]);
+
 // ─── Codebase Digest ────────────────────────────────────────────────────────
 
 /** File extensions to include in codebase digest. */
@@ -154,14 +169,19 @@ function buildCodebaseDigest(cwd: string): string {
 }
 
 /**
- * Build the discovery prompt with a file tree.
+ * Build the discovery prompt with a file tree and optional exclusions.
  */
-function buildDiscoveryPrompt(cwd: string): string {
+function buildDiscoveryPrompt(cwd: string, completedTitles?: string[]): string {
   const tree: string = buildCodebaseDigest(cwd);
+
+  const exclusionBlock: string = completedTitles && completedTitles.length > 0
+    ? `\nDo NOT rediscover these already-completed items:\n${completedTitles.map((t) => `- ${t}`).join('\n')}\n`
+    : '';
+
   return `Analyze this codebase for improvement opportunities. Read the source files you need. Here is the file tree:
 
 ${tree}
-
+${exclusionBlock}
 Output ONLY a JSON array. Each item:
 {"dimension":"<dim>","slug":"<kebab-id>","title":"<short>","description":"<what+why, include file:line>","effort":"small|medium|large"}
 
@@ -171,6 +191,8 @@ Rules:
 - Read source files to find real issues
 - Be specific: file paths and line numbers
 - Actionable improvements only
+- Focus on real code changes: new features, bug fixes, refactors, tests — NOT documentation stubs or markdown files
+- Do NOT suggest adding JSDoc, fixing error messages, cleaning up process.exit, splitting long functions, or adding agent init workflows — these are already done
 - 30-80 items
 - ONLY the JSON array, no other text`;
 }
@@ -181,9 +203,9 @@ Rules:
  * Discover code-quality improvement opportunities by running Claude as a subprocess.
  * (Renamed from discoverWithClaude -- handles the code-quality dimension only.)
  */
-async function _discoverCodeQualityWithClaude(cwd: string): Promise<WorkItem[]> {
+async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[]): Promise<WorkItem[]> {
   try {
-    const prompt: string = buildDiscoveryPrompt(cwd);
+    const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
     const result = await spawnClaudeAsync(cwd, prompt, {
       captureOutput: true,
       model: SONNET_MODEL,
@@ -233,13 +255,13 @@ async function _discoverCodeQualityWithClaude(cwd: string): Promise<WorkItem[]> 
  * Discover ALL improvement opportunities: code-quality AND product ideation.
  * Runs both discovery pathways in parallel and merges the results.
  */
-async function discoverWithClaude(cwd: string): Promise<WorkItem[]> {
+async function discoverWithClaude(cwd: string, completedTitles?: string[]): Promise<WorkItem[]> {
   // Run both discovery pathways in parallel.
   // IMPORTANT: Wrap discoverProductIdeationItems in .catch so an unexpected
   // throw (as opposed to the graceful empty-array return it already does
   // internally) cannot reject the Promise.all and crash the whole pipeline.
   const [codeQualityItems, productIdeationItems] = await Promise.all([
-    _discoverCodeQualityWithClaude(cwd),
+    _discoverCodeQualityWithClaude(cwd, completedTitles),
     discoverProductIdeationItems(cwd).catch(() => [] as WorkItem[]),
   ]);
 
@@ -372,14 +394,17 @@ async function runGroupDiscovery(
   previousState: EvolveGroupState | EvolveState | null,
   pickPct?: number
 ): Promise<GroupDiscoveryResult> {
-  const freshItems: WorkItem[] = await discoverWithClaude(cwd);
+  // Extract completed titles from history to prevent rediscovery
+  const stateAsLegacy = previousState as EvolveState | null;
+  const stateAsGroup = previousState as EvolveGroupState | null;
+  const completedTitles: string[] = stateAsGroup?.completed_groups
+    ? stateAsGroup.completed_groups.flatMap((g) => g.items.map((i: WorkItem) => i.title))
+    : [];
+
+  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles);
   const allItemsCount: number = freshItems.length;
 
   let mergePool: WorkItem[] = freshItems;
-
-  // Backward compat: old state with flat 'remaining' array
-  const stateAsLegacy = previousState as EvolveState | null;
-  const stateAsGroup = previousState as EvolveGroupState | null;
 
   if (previousState && stateAsLegacy?.remaining && !stateAsGroup?.remaining_groups) {
     const oldItems: WorkItem[] = stateAsLegacy.remaining.filter(
@@ -399,6 +424,38 @@ async function runGroupDiscovery(
       }
     }
     mergePool = mergeWorkItems(prevItems, freshItems);
+  }
+
+  // Filter out items belonging to saturated themes (100% false-positive for 5+ iterations)
+  const preFilterCount: number = mergePool.length;
+  mergePool = mergePool.filter((item) => {
+    for (const { pattern, theme } of THEME_PATTERNS) {
+      if (pattern.test(item.slug) && SATURATED_THEMES.has(theme)) {
+        return false;
+      }
+    }
+    return true;
+  });
+  if (mergePool.length < preFilterCount) {
+    process.stderr.write(
+      `[evolve] Filtered ${preFilterCount - mergePool.length} items from saturated themes\n`
+    );
+  }
+
+  // Deduplicate against completed groups from history
+  if (previousState && stateAsGroup?.completed_groups) {
+    const completedIds = new Set<string>(
+      stateAsGroup.completed_groups.flatMap((g) => g.items.map((i: WorkItem) => i.id))
+    );
+    if (completedIds.size > 0) {
+      const beforeDedup: number = mergePool.length;
+      mergePool = mergePool.filter((item) => !completedIds.has(item.id));
+      if (mergePool.length < beforeDedup) {
+        process.stderr.write(
+          `[evolve] Deduped ${beforeDedup - mergePool.length} items already completed in prior iterations\n`
+        );
+      }
+    }
   }
 
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;

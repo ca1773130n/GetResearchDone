@@ -7,7 +7,7 @@
  *   - execute.ts:  execution/planning inits (5 functions)
  *   - project.ts:  project lifecycle inits (8 functions)
  *   - research.ts: R&D research inits (13 functions)
- *   - agents.ts:   agent aliases + operation inits (17 functions)
+ *   - agents.ts:   agent aliases + operation inits (23 functions)
  *   - progress.ts: progress cache + progress init (3 functions)
  */
 
@@ -69,12 +69,6 @@ module.exports = {
   cmdInitEvalPlan: _research.cmdInitEvalPlan,
   cmdInitEvalReport: _research.cmdInitEvalReport,
   cmdInitFeasibility: _research.cmdInitFeasibility,
-  cmdInitProductOwner: _research.cmdInitProductOwner,
-  cmdInitProjectResearcher: _research.cmdInitProjectResearcher,
-  cmdInitResearchSynthesizer: _research.cmdInitResearchSynthesizer,
-  cmdInitRoadmapper: _research.cmdInitRoadmapper,
-  cmdInitSurveyor: _research.cmdInitSurveyor,
-  cmdInitVerifier: _research.cmdInitVerifier,
 
   // Agents & Operation Workflows
   cmdInitDebug: _agents.cmdInitDebug,
@@ -94,6 +88,12 @@ module.exports = {
   cmdInitMigrator: _agents.cmdInitMigrator,
   cmdInitPhaseResearcher: _agents.cmdInitPhaseResearcher,
   cmdInitPlanChecker: _agents.cmdInitPlanChecker,
+  cmdInitProductOwner: _agents.cmdInitProductOwner,
+  cmdInitProjectResearcher: _agents.cmdInitProjectResearcher,
+  cmdInitResearchSynthesizer: _agents.cmdInitResearchSynthesizer,
+  cmdInitRoadmapper: _agents.cmdInitRoadmapper,
+  cmdInitSurveyor: _agents.cmdInitSurveyor,
+  cmdInitVerifier: _agents.cmdInitVerifier,
 
   // Progress & Cache
   _progressCachePath: _progress._progressCachePath,
