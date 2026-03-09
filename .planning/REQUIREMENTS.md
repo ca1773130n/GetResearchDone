@@ -39,10 +39,10 @@
 **Category:** Backend
 **Description:** Verify and update environment variable detection in `detectBackend()`. Confirm: `CLAUDE_CODE_*` prefix still valid for Claude Code, `CODEX_HOME` and `CODEX_THREAD_ID` still valid for Codex, `GEMINI_CLI_HOME` still valid for Gemini CLI, `OPENCODE` still valid for OpenCode. Update filesystem clue paths if config file locations have changed (e.g., `.codex/config.toml`, `.gemini/settings.json`).
 
-### REQ-88: OpenCode Deprecation Handling
+### REQ-88: OpenCode Model & Detection Update
 **Priority:** P1 — High
 **Category:** Backend
-**Description:** Handle OpenCode project archival (September 2025, read-only). Options: (a) mark as deprecated with console warning when detected, (b) keep model mappings frozen at last known versions, (c) update documentation noting archived status. Do NOT remove backend support entirely (existing users may still have it). Update OpenCode model mappings to use latest Claude model IDs (`anthropic/claude-opus-4-6`, `anthropic/claude-sonnet-4-6`).
+**Description:** Update OpenCode backend support. The original `opencode-ai/opencode` repo was archived Sept 2025, but development continued under `anomalyco/opencode` (v1.2.21, 70K+ stars, 650K+ MAD). OpenCode is NOT deprecated — it is thriving. Update model mappings to latest Claude model IDs (`anthropic/claude-opus-4-6`, `anthropic/claude-sonnet-4-6`, `anthropic/claude-haiku-4-5`). Verify `OPENCODE` env var and `opencode.json` filesystem detection still work with the new repository. Verify capability flags match current features (subagents, MCP, hooks via agents).
 
 ## Documentation & Tests
 

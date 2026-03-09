@@ -170,11 +170,11 @@ Phases 58-68 delivered full TypeScript migration with strict type checking, deco
 
 ### v0.3.6 Backend Ecosystem Sync (Active)
 
-Update model mappings, capability flags, and deprecation handling for all supported backends to reflect the current AI CLI ecosystem as of March 2026.
+Update model mappings, capability flags, and detection logic for all supported backends to reflect the current AI CLI ecosystem as of March 2026.
 
-#### Phase 69: Model Mappings, Capabilities & Deprecation
+#### Phase 69: Model Mappings, Capabilities & Detection Updates
 
-**Goal:** All backend model mappings and capability flags in `lib/backend.ts` reflect the current state of each CLI ecosystem, and OpenCode is marked as deprecated with a runtime warning.
+**Goal:** All backend model mappings and capability flags in `lib/backend.ts` reflect the current state of each CLI ecosystem (March 2026).
 
 **Dependencies:** None
 
@@ -187,11 +187,10 @@ Update model mappings, capability flags, and deprecation handling for all suppor
 1. `DEFAULT_BACKEND_MODELS.gemini.opus` returns `'gemini-3.1-pro'` (not deprecated `gemini-3-pro`)
 2. `DEFAULT_BACKEND_MODELS.gemini.haiku` returns `'gemini-3.1-flash-lite'` (not `gemini-2.5-flash`)
 3. `DEFAULT_BACKEND_MODELS.codex.opus` returns `'gpt-5.4'`
-4. `DEFAULT_BACKEND_MODELS.opencode` model IDs reference `claude-opus-4-6` and `claude-sonnet-4-6`
+4. `DEFAULT_BACKEND_MODELS.opencode` model IDs reference `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 5. `BACKEND_CAPABILITIES.gemini.subagents` is `true` (not `'experimental'`)
 6. `BACKEND_CAPABILITIES.codex.hooks` and `teams` reflect current Codex CLI capabilities
-7. When OpenCode backend is detected, a deprecation warning is emitted to stderr
-8. All existing `backend.test.ts` tests pass after constant updates
+7. All existing `backend.test.ts` tests pass after constant updates
 
 #### Phase 70: Detection Verification, Tests & Documentation
 
@@ -207,7 +206,7 @@ Update model mappings, capability flags, and deprecation handling for all suppor
 
 1. `detectBackend()` correctly identifies each backend via its env vars (`CLAUDE_CODE_*`, `CODEX_HOME`, `GEMINI_CLI_HOME`, `OPENCODE`)
 2. All model mapping assertions in `backend.test.ts` use the updated model names from Phase 69
-3. OpenCode deprecation warning test verifies stderr output when OpenCode is detected
+3. OpenCode capability flags verified against current anomalyco/opencode features
 4. CLAUDE.md agent model profiles table references current model names
 5. `npm test` passes with 0 failures across the full test suite
 6. No hardcoded references to `gemini-3-pro` or `gpt-5.3-codex` remain in the codebase (except test migration comments)
@@ -216,5 +215,5 @@ Update model mappings, capability flags, and deprecation handling for all suppor
 
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
-| 69 | Model Mappings, Capabilities & Deprecation | PENDING | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 |
+| 69 | Model Mappings, Capabilities & Detection Updates | PENDING | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 |
 | 70 | Detection Verification, Tests & Documentation | PENDING | REQ-87, REQ-89, REQ-90 |
