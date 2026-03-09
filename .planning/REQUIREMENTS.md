@@ -1,141 +1,71 @@
-# Requirements: v0.3.0 TypeScript Migration & Refactoring
+# Requirements: v0.3.6 Backend Ecosystem Sync
 
-**Milestone:** v0.3.0
-**Created:** 2026-03-01
+**Milestone:** v0.3.6
+**Created:** 2026-03-09
 
-## TypeScript Toolchain
+## Model Mapping Updates
 
-### REQ-62: TypeScript Build Pipeline
+### REQ-82: Gemini Model Mapping Update (Critical — gemini-3-pro deprecated)
 **Priority:** P0 — Critical
-**Category:** Infrastructure
-**Description:** Set up TypeScript compilation toolchain: tsconfig.json with strict mode, ts-jest for test compilation, build scripts in package.json, source maps for debugging. Output to dist/ directory. Preserve CommonJS output format for backward compatibility with existing plugin consumers.
+**Category:** Backend
+**Description:** Replace deprecated `gemini-3-pro` with `gemini-3.1-pro` in DEFAULT_BACKEND_MODELS. Gemini 3 Pro is being shut down March 9, 2026. Update opus tier to `gemini-3.1-pro`, sonnet tier to `gemini-3-flash` (unchanged), haiku tier to `gemini-3.1-flash-lite` (replacing `gemini-2.5-flash`). Verify model name format matches what Gemini CLI accepts.
 
-### REQ-63: ESLint TypeScript Integration
-**Priority:** P0 — Critical
-**Category:** Infrastructure
-**Description:** Migrate ESLint configuration from JavaScript to TypeScript rules. Replace @eslint/js with @typescript-eslint/eslint-plugin and @typescript-eslint/parser. Maintain existing rule severity (no-unused-vars with underscore prefix convention). Add type-aware linting rules.
-
-### REQ-64: CI Pipeline Adaptation
+### REQ-83: Codex Model Mapping Update (GPT-5.4)
 **Priority:** P1 — High
-**Category:** Infrastructure
-**Description:** Update GitHub Actions CI to build TypeScript before running tests and lint. Add type-check step (`tsc --noEmit`). Ensure CI catches type errors, lint errors, and test failures. Update Node version matrix if needed.
+**Category:** Backend
+**Description:** Add GPT-5.4 as the opus-tier model for Codex backend in DEFAULT_BACKEND_MODELS. GPT-5.4 is OpenAI's most capable model with native computer-use and 1M context window. Keep GPT-5.3-Codex as sonnet tier and GPT-5.3-Codex-Spark as haiku tier.
 
-## Core Module Migration
-
-### REQ-65: Foundation Layer Migration (paths, backend, utils)
-**Priority:** P0 — Critical
-**Category:** Migration
-**Description:** Migrate the three foundation modules to TypeScript: `lib/paths.ts`, `lib/backend.ts`, `lib/utils.ts`. Define core shared types and interfaces (Config, PhaseInfo, MilestoneInfo, BackendCapabilities, ModelProfile). These types will be imported by all higher-level modules.
-
-### REQ-66: Data Layer Migration (state, roadmap, frontmatter, markdown-split)
-**Priority:** P0 — Critical
-**Category:** Migration
-**Description:** Migrate data parsing modules to TypeScript: `lib/state.ts`, `lib/roadmap.ts`, `lib/frontmatter.ts`, `lib/markdown-split.ts`. Define types for STATE.md fields, roadmap phase structures, frontmatter objects, and split/reassemble operations.
-
-### REQ-67: Domain Logic Migration (phase, deps, gates, verify, scaffold, cleanup, requirements)
-**Priority:** P1 — High
-**Category:** Migration
-**Description:** Migrate domain logic modules to TypeScript: `lib/phase.ts`, `lib/deps.ts`, `lib/gates.ts`, `lib/verify.ts`, `lib/scaffold.ts`, `lib/cleanup.ts`, `lib/requirements.ts`. Type all command functions with explicit parameter and return types.
-
-### REQ-68: Integration Layer Migration (tracker, worktree, parallel, long-term-roadmap)
-**Priority:** P1 — High
-**Category:** Migration
-**Description:** Migrate integration modules to TypeScript: `lib/tracker.ts`, `lib/worktree.ts`, `lib/parallel.ts`, `lib/long-term-roadmap.ts`. Type external process interactions (git, gh CLI) and tracker sync operations.
-
-### REQ-69: Autonomous Layer Migration (autopilot, evolve)
-**Priority:** P1 — High
-**Category:** Migration
-**Description:** Migrate autonomous execution modules to TypeScript: `lib/autopilot.ts`, `lib/evolve.ts`. Type subprocess spawning interfaces, work item structures, evolve state schema, and iteration management.
-
-### REQ-70: Entry Points Migration (bin/grd-tools, bin/grd-mcp-server, bin/grd-manifest, bin/postinstall)
-**Priority:** P1 — High
-**Category:** Migration
-**Description:** Migrate all bin/ entry points to TypeScript. Maintain shebang lines and CLI argument parsing. Ensure `grd-tools.ts` routing table is fully typed.
-
-### REQ-71: Context and Commands Migration (context, commands, mcp-server)
-**Priority:** P1 — High
-**Category:** Migration
-**Description:** Migrate the three largest modules to TypeScript: `lib/context.ts`, `lib/commands.ts`, `lib/mcp-server.ts`. These are the heaviest integration points — type all init context bundles and MCP tool descriptors.
-
-## Module Restructuring
-
-### REQ-72: Decompose commands.js (~2,848 lines)
-**Priority:** P1 — High
-**Category:** Refactoring
-**Description:** Split `lib/commands.ts` into focused command modules during migration. Group by domain: `commands/slug.ts`, `commands/todo.ts`, `commands/config.ts`, `commands/dashboard.ts`, `commands/health.ts`, `commands/search.ts`, `commands/coverage.ts`, etc. Re-export from a `commands/index.ts` barrel for backward compatibility.
-
-### REQ-73: Decompose context.js (~2,546 lines)
-**Priority:** P1 — High
-**Category:** Refactoring
-**Description:** Split `lib/context.ts` into domain-grouped init modules during migration. Group by workflow family: `context/execute.ts`, `context/plan.ts`, `context/research.ts`, `context/project.ts`, `context/agents.ts`, etc. Re-export from `context/index.ts` barrel.
-
-### REQ-74: Decompose evolve.js (~2,567 lines)
-**Priority:** P1 — High
-**Category:** Refactoring
-**Description:** Split `lib/evolve.ts` into focused modules during migration: `evolve/discovery.ts` (work item analysis), `evolve/state.ts` (EVOLVE-STATE.json management), `evolve/scoring.ts` (priority selection), `evolve/orchestrator.ts` (run loop). Re-export from `evolve/index.ts` barrel.
-
-## Test Migration
-
-### REQ-75: Test Infrastructure Migration
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Migrate test infrastructure to TypeScript: configure ts-jest, migrate test helpers and fixtures, update jest.config to handle .ts files. Ensure per-file coverage thresholds still apply to the new .ts source files.
-
-### REQ-76: Unit Test Migration
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Migrate all unit test files from .js to .ts. Add type annotations to test helpers, mock factories, and assertions. Maintain or exceed existing per-file coverage thresholds.
-
-### REQ-77: Integration and E2E Test Migration
+### REQ-84: Claude Model Reference Update
 **Priority:** P2 — Medium
-**Category:** Testing
-**Description:** Migrate integration and E2E test files to TypeScript. Type subprocess spawn helpers and output parsing. Update golden test infrastructure if needed.
+**Category:** Backend
+**Description:** Verify Claude model tier names are current. Claude Code now supports Opus 4.6, Sonnet 4.6, and Haiku 4.5. GRD uses abstract tiers ('opus', 'sonnet', 'haiku') which Claude Code resolves internally — confirm this still works correctly and update any hardcoded model ID references (e.g., in OpenCode backend mappings which reference `anthropic/claude-opus-4-5`).
 
-## Type Safety
+## Capability Flag Updates
 
-### REQ-78: Strict Type Checking
-**Priority:** P0 — Critical
-**Category:** Quality
-**Description:** Enable `strict: true` in tsconfig.json. No `any` types in core lib/ modules (exceptions allowed only in test mocks and external API boundaries with documented justification). All exported functions must have explicit return types.
+### REQ-85: Gemini Capability Flags Update
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Update Gemini CLI capability flags in BACKEND_CAPABILITIES: change `subagents` from `'experimental'` to `true` (Generalist agent is now GA, enabled by default). Verify `parallel` status (Gemini now has contiguous parallel admission for agent tools). Verify `hooks` status. Add any new capability flags needed (e.g., `plan_mode`, `agent_skills`, `extensions`).
 
-### REQ-79: Type Definitions for Planning Artifacts
+### REQ-86: Codex Capability Flags Update
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Update Codex CLI capability flags in BACKEND_CAPABILITIES: verify `hooks` status (Codex now has plugin system with skills/MCP/app connectors). Verify `teams` status (Codex now has multi-agent with /agent command and thread forking). Update any new capability flags needed (e.g., `plugins`, `windows_native`).
+
+## Backend Detection Updates
+
+### REQ-87: Backend Detection Env Var Verification
 **Priority:** P2 — Medium
-**Category:** Quality
-**Description:** Define TypeScript interfaces for all .planning/ file formats: STATE.md fields, ROADMAP.md phase structure, config.json schema, EVOLVE-STATE.json, frontmatter objects, MCP tool descriptors. Consolidate in a `types/` directory or `lib/types.ts`.
+**Category:** Backend
+**Description:** Verify and update environment variable detection in `detectBackend()`. Confirm: `CLAUDE_CODE_*` prefix still valid for Claude Code, `CODEX_HOME` and `CODEX_THREAD_ID` still valid for Codex, `GEMINI_CLI_HOME` still valid for Gemini CLI, `OPENCODE` still valid for OpenCode. Update filesystem clue paths if config file locations have changed (e.g., `.codex/config.toml`, `.gemini/settings.json`).
 
-## Integration & Validation
+### REQ-88: OpenCode Deprecation Handling
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Handle OpenCode project archival (September 2025, read-only). Options: (a) mark as deprecated with console warning when detected, (b) keep model mappings frozen at last known versions, (c) update documentation noting archived status. Do NOT remove backend support entirely (existing users may still have it). Update OpenCode model mappings to use latest Claude model IDs (`anthropic/claude-opus-4-6`, `anthropic/claude-sonnet-4-6`).
 
-### REQ-80: Zero Breaking Changes
-**Priority:** P0 — Critical
-**Category:** Validation
-**Description:** All existing CLI commands, MCP tools, and plugin interfaces must continue to work identically after migration. The compiled output must be a drop-in replacement. All 2,184+ existing tests must pass against the TypeScript build.
+## Documentation & Tests
 
-### REQ-81: CLAUDE.md and Documentation Update
+### REQ-89: Backend Documentation Update
 **Priority:** P2 — Medium
 **Category:** Documentation
-**Description:** Update CLAUDE.md to reflect TypeScript codebase: file extensions, build commands, new module structure (decomposed commands/context/evolve). Update code style section for TypeScript conventions.
+**Description:** Update CLAUDE.md agent model profiles table with new model names. Update any documentation referencing specific model names. Add notes about OpenCode archived status.
+
+### REQ-90: Backend Test Updates
+**Priority:** P1 — High
+**Category:** Testing
+**Description:** Update unit tests in `tests/unit/backend.test.ts` to verify new model mappings, updated capability flags, and OpenCode deprecation warning. Ensure all existing backend detection tests still pass with updated constants. Add test for deprecated model migration path.
 
 ## Traceability Matrix
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-62 | Phase 58 | PENDING |
-| REQ-63 | Phase 58 | PENDING |
-| REQ-64 | Phase 65 | PENDING |
-| REQ-65 | Phase 59 | PENDING |
-| REQ-66 | Phase 60 | PENDING |
-| REQ-67 | Phase 60 | PENDING |
-| REQ-68 | Phase 61 | PENDING |
-| REQ-69 | Phase 61 | PENDING |
-| REQ-70 | Phase 63 | PENDING |
-| REQ-71 | Phase 62 | PENDING |
-| REQ-72 | Phase 62 | PENDING |
-| REQ-73 | Phase 62 | PENDING |
-| REQ-74 | Phase 62 | PENDING |
-| REQ-75 | Phase 64 | PENDING |
-| REQ-76 | Phase 64 | PENDING |
-| REQ-77 | Phase 64 | PENDING |
-| REQ-78 | Phase 65 | PENDING |
-| REQ-79 | Phase 59 | PENDING |
-| REQ-80 | Phase 65 | PENDING |
-| REQ-81 | Phase 65 | PENDING |
+| REQ-82 | Phase 69 | PENDING |
+| REQ-83 | Phase 69 | PENDING |
+| REQ-84 | Phase 69 | PENDING |
+| REQ-85 | Phase 69 | PENDING |
+| REQ-86 | Phase 69 | PENDING |
+| REQ-87 | Phase 70 | PENDING |
+| REQ-88 | Phase 69 | PENDING |
+| REQ-89 | Phase 70 | PENDING |
+| REQ-90 | Phase 70 | PENDING |

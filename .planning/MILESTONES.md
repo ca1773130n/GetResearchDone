@@ -441,3 +441,45 @@
 
 ---
 
+
+## v0.3.0 TypeScript Migration & Refactoring (Shipped: 2026-03-02)
+
+**Delivered:** Full TypeScript migration with strict type checking, oversized module decomposition, multi-milestone autopilot, autoplan command, and product ideation discovery engine.
+
+**Phases completed:** 11 phases (58-68), 44 plans
+**Timeline:** 2026-03-01 to 2026-03-02
+**Source:** 25 lib/ modules (~20,320 LOC), ~2,800 tests
+
+**Key accomplishments:**
+- TypeScript toolchain: tsconfig strict mode, ts-jest, typescript-eslint, dist/ build pipeline
+- Full migration of 22 top-level lib/ modules to .ts with proper type definitions
+- Decomposed 3 oversized modules: commands/ (12 sub-modules), context/ (7 sub-modules), evolve/ (10 sub-modules)
+- Migration of all bin/ entry points and MCP server to TypeScript
+- Migration of all 40 test files to TypeScript
+- Multi-milestone autopilot: orchestrates across milestone boundaries with safety caps
+- Autoplan command: converts evolve discovery results into structured milestones
+- Infinite evolve mode: discover -> autoplan -> autopilot -> repeat cycle
+- Product ideation discovery engine: 8-dimension analysis with product-ideation as highest priority
+
+**Deferred:**
+- DEFER-68-01: Real Claude subprocess for product ideation discovery
+- DEFER-68-02: Autoplan end-to-end with product-ideation groups
+
+---
+
+
+## v0.3.1-v0.3.5 Incremental Releases (Shipped: 2026-03-03 to 2026-03-09)
+
+**Delivered:** Node v22 compatibility, evolve stabilization, auto-commit/PR creation, product ideation execution.
+
+**Key accomplishments:**
+- v0.3.1: Node v22 compat — replaced `require() as {}` with destructuring annotations
+- v0.3.2: Node v22 compat, autopilot nested session crash fix, phase sort order fix
+- v0.3.3: Evolve outcome matching fix, autopilot env var stripping, dynamic dir scanning, dashboard ROADMAP fallback
+- v0.3.4: Evolve auto-commit, PR creation, and iteration feedback
+- v0.3.5: Evolve real code enforcement, product-ideation filtering, batch size cap, saturated dim skipping, history dedup
+- 73 evolve iterations run, 857+ product ideation todos captured
+- All 5 code-quality dimensions fully saturated (error-recovery, agent-workflow-gaps, process-exit-cleanup, long-function-refactors, jsdoc-gaps)
+
+---
+

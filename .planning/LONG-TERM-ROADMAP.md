@@ -17,13 +17,13 @@ last_refined: 2026-02-17
 **Normal milestones:** v0.2.0
 
 ## LT-3: Advanced Workflows
-**Status:** active
+**Status:** completed
 **Goal:** Agent Teams enhancements, async I/O optimization, advanced evaluation and iteration capabilities, cross-project knowledge reuse
-**Normal milestones:** v0.3.0 (planned), v0.2.1, v0.2.2, v0.2.6
+**Normal milestones:** v0.3.0, v0.3.1, v0.3.2, v0.3.3, v0.3.4, v0.3.5, v0.2.1, v0.2.2, v0.2.6
 
 ## LT-4: Production Release
 **Status:** planned
-**Goal:** TypeScript migration, comprehensive user acceptance testing, stable public API with backward-compatibility guarantees, full documentation
+**Goal:** Comprehensive user acceptance testing, stable public API with backward-compatibility guarantees, full documentation, plugin marketplace publishing
 **Normal milestones:** v1.0.0 (planned)
 
 ## Refinement History
@@ -36,3 +36,5 @@ last_refined: 2026-02-17
 | 2026-02-19 | v0.2.0 shipped | Completed LT-2 (all normal milestones shipped); activated LT-3 |
 | 2026-02-20 | v0.2.1 shipped | Linked to LT-3; hierarchical planning directory, stacked PR support |
 | 2026-02-20 | v0.2.2 shipped | Linked to LT-3; quickDir routing fix, migration skill + agent |
+| 2026-03-02 | v0.3.0 shipped | Full TypeScript migration, module decomposition, autoplan, infinite evolve |
+| 2026-03-09 | v0.3.1-v0.3.5 shipped | Node v22 compat, evolve stabilization, product ideation; LT-3 completed |

@@ -1,39 +1,41 @@
 # State
 
-**Updated:** 2026-03-03
+**Updated:** 2026-03-09
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-01)
+See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.0 TypeScript Migration & Refactoring -- full TS migration, type safety, module restructuring
-**Previous:** v0.2.8 Self-Evolving Loop (shipped 2026-02-22)
+**Current focus:** v0.3.6 Backend Ecosystem Sync — update model mappings, capability flags, and deprecated backend handling
+**Previous:** v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
 
 ## Current Position
 
-- **Active phase:** Phase 68 (Product Ideation Discovery Engine)
-- **Current plan:** 04 of 04
-- **Milestone:** v0.3.0 TypeScript Migration & Refactoring
-- **Status:** Milestone complete
-- **Progress:** [██████████] 100%
-- **Next:** Phase 68 complete -- product ideation discovery engine fully tested
+- **Active phase:** Phase 69 — Model Mappings, Capabilities & Deprecation
+- **Current plan:** N/A
+- **Milestone:** v0.3.6 Backend Ecosystem Sync
+- **Status:** Roadmap created, ready for planning
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** `/grd:plan-phase 69`
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
-|-------|------|-------------|--------|
-| 58 | TypeScript Toolchain & Build Pipeline | REQ-62, REQ-63 | Complete (3/3 plans) |
-| 59 | Foundation Layer & Shared Types | REQ-65, REQ-79 | Complete (3/3 plans) |
-| 60 | Data & Domain Layer Migration | REQ-66, REQ-67 | Complete (5/5 plans) |
-| 61 | Integration & Autonomous Layer Migration | REQ-68, REQ-69 | Complete (5/5 plans) |
-| 62 | Oversized Module Decomposition & Migration | REQ-71, REQ-72, REQ-73, REQ-74 | Complete (5/5 plans) |
-| 63 | Entry Points & MCP Server Migration | REQ-70 | Complete (4/4 plans) |
-| 64 | Test Suite Migration | REQ-75, REQ-76, REQ-77 | Complete (4/4 plans) |
-| 65 | Integration Validation & Documentation | REQ-64, REQ-78, REQ-80, REQ-81 | In progress (2/4 plans) |
-| 66 | Extend Autopilot for Multi-Milestone Automation | -- | Complete (3/3 plans) |
-| 67 | Autoplan Command and Evolve Infinite Autopilot Mode | -- | Complete (4/4 plans) |
-| 68 | Product Ideation Discovery Engine | -- | Complete (4/4 plans) |
+|-------|------|--------------|--------|
+| 69 | Model Mappings, Capabilities & Deprecation | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 | PENDING |
+| 70 | Detection Verification, Tests & Documentation | REQ-87, REQ-89, REQ-90 | PENDING |
+
+## Shipped Milestones (v0.3.x series)
+
+| Version | Name | Status |
+|---------|------|--------|
+| v0.3.0 | TypeScript Migration & Refactoring | Shipped (Phases 58-68, 44 plans) |
+| v0.3.1 | Node v22 Compatibility Fix | Shipped (bugfix) |
+| v0.3.2 | Autopilot & Evolve Fixes | Shipped (bugfix) |
+| v0.3.3 | Evolve Dynamic Scanning & Dashboard Fix | Shipped (bugfix + feature) |
+| v0.3.4 | Evolve Auto-Commit & PR Creation | Shipped (feature) |
+| v0.3.5 | Evolve Stabilization & Product Ideation | Shipped (feature) |
 
 ## Deferred Validations
 
@@ -61,11 +63,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 17 (v0.0.5 through v0.2.8)
-- Total tests: 2,800
-- Total lib/ modules: 23 (including autopilot.js, evolve.js, markdown-split.js, requirements.js)
+- Milestones shipped: 23 (v0.0.5 through v0.3.5)
+- Total tests: ~2,850
+- Total lib/ modules: 25 (22 top-level .ts + 3 decomposed sub-module directories)
 - Total commands: 40
-- Total lib/ LOC: ~17,334
+- Total lib/ LOC: ~20,320
 
 ## Decisions
 
@@ -90,131 +92,6 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 - **[59-03]** Record<string, unknown> with explicit type casts for loadConfig JSON parsing -- avoids any
 - **[59-03]** Typed error destructuring (err as { status?: number }) in execGit catch -- avoids any for non-standard Error properties
 - **[59-03]** never return type for output() and error() functions that call process.exit()
-- **[60-01]** Domain interfaces defined locally in .ts files (MustHavesArtifact, SplitMarkdownOptions, etc.) rather than in shared types.ts
-- **[60-01]** Discriminated union for SplitResult with split_performed as discriminant field
-- **[60-01]** isIndexFile parameter typed as `unknown` to preserve original defensive typeof check
-- **[60-01]** ParseStackFrame and FrontmatterSchemaDefinition as internal interfaces for parser implementation details
-- **[60-01]** Error cast pattern `(err as Error).message` for catch blocks (consistent with Phase 59)
-- **[60-03]** Cross-module types (CleanupConfig, QualityAnalysisSummary, GateViolation, PreflightResult, Requirement, TraceabilityEntry) promoted to types.ts as single source of truth
-- **[60-03]** Local-only types (ComplexityViolation, DeadExportViolation, TrendEntry, etc.) kept module-local -- single-consumer types do not belong in shared types
-- **[60-03]** QualityAnalysisSummary uses index signature [key: string]: number | undefined for dynamic summary fields
-- **[60-04]** DependencyNode/DependencyEdge/DependencyGraph promoted to types.ts since used by parallel.js and autopilot.js
-- **[60-04]** Verification result interfaces kept module-local (single-consumer types do not belong in shared types)
-- **[60-04]** require-as typed cast pattern for cross-module imports provides type safety at module boundaries
-- **[60-04]** fm.autonomous extracted to unknown for defensive string/boolean check (YAML parsing ambiguity)
-- **[60-04]** Unreachable return after error() calls helps TS narrowing when never type not tracked through require-as
-- **[60-05]** 25+ domain interfaces defined locally in phase.ts (PhaseAddOptions, PhaseCompleteResult, etc.) as single-consumer types
-- **[60-05]** QualityAnalysisResult and CleanupPlanResult redefined locally to avoid exporting cleanup-internal types
-- **[60-05]** Module-level caches typed as Map<string, string> with explicit generics
-- **[60-05]** require-as typed cast pattern for all cross-module imports consistent with Plan 04
-- **[61-01]** require-as typed cast with explicit signature for frontmatter import (consistent with phase.ts pattern)
-- **[61-01]** 7 local interfaces for LT milestone domain (LtMilestone, LongTermRoadmap, ValidationResult, RefinementHistoryEntry, NormalMilestoneEntry, AddLtMilestoneResult, ErrorResult)
-- **[61-01]** extractBoldField kept as internal helper (not exported) matching original module.exports
-- **[61-01]** parseLongTermRoadmap accepts unknown parameter to preserve null/undefined test cases
-- **[61-01]** Union return types (string | ErrorResult) for CRUD operations matching runtime behavior
-- **[61-02]** 13 local interfaces for tracker domain (TrackerConfig, TrackerMapping, GitHubTracker, IssueCreateResult, SyncStats, etc.) as single-consumer types
-- **[61-02]** Lines coverage threshold lowered from 85% to 84% for tracker.ts to accommodate 12 unreachable return statements required for TS narrowing after error() calls
-- **[61-02]** ScheduleEntry interface removed (unused -- schedule handler delegates to computeSchedule returning ScheduleResult from roadmap.ts)
-- **[61-03]** Hook function positional args (cwd, wtPath, wtBranch, raw) preserved for backward compat with grd-tools.js call sites
-- **[61-03]** Unused interfaces (WorktreeCreateResult, PushPRResult) removed to satisfy ESLint no-unused-vars -- output constructed as anonymous objects
-- **[61-03]** Branches coverage threshold lowered from 73% to 72% for worktree.ts (actual: 72.8%, TS migration rounding difference)
-- **[61-04]** ResolvePhaseRangeResult includes depends_on to preserve dependency wave computation downstream
-- **[61-04]** stoppedAt changed from let to const in runAutopilot (never reassigned; lint prefer-const)
-- **[61-04]** SpawnResult uses optional stdout/stderr fields (only populated with captureOutput/captureStderr flags)
-- **[61-05]** 18 local interfaces + 3 type aliases for evolve domain (WorkItem, EvolveState, EvolveGroupState, WorkGroup, GroupDiscoveryResult, ThemePattern, EvolveOptions, GroupOutcome, IterationResult, EvolveResult, etc.)
-- **[61-05]** WorkItemDimension type alias removed (lint: unused -- dimension field uses string to match runtime flexibility)
-- **[61-05]** ScoreFactors interface removed (lint: unused -- scoreWorkItem returns number directly)
-- **[61-05]** IterationContext interface encapsulates _runIterationStep parameters for type safety
-- **[61-05]** Dirent filter callbacks typed inline as { isFile: () => boolean; name: string } for fs.readdirSync
-- **[62-02]** export {} used in sub-modules without import type to force module scope (prevents TS2451 redeclaration errors)
-- **[62-02]** Module-level caches (_roadmapContentCache, _stateContentCache) placed in phase-info.ts and exported for sibling modules
-- **[62-02]** Array.from() used instead of spread for Set-to-Array conversion (avoids downlevelIteration requirement)
-- **[62-02]** Local domain interfaces per sub-module (PlanIndexEntry, LtMilestoneEntry, QualityReport, etc.) -- single-consumer types stay local
-- **[62-02]** flag() helper duplicated in long-term-roadmap.ts and quality.ts rather than shared (different signatures, minimal code)
-- [Phase 62]: Split 7 dimension discoverers across _dimensions.ts (5 core) and _dimensions-features.ts (2 feature) to keep each under 600 lines
-- [Phase 62]: Extracted prompt templates to _prompts.ts to keep orchestrator.ts under 600 lines
-- [Phase 62]: Added explicit .ts extensions to all internal require paths for Node.js CJS resolution
-- [Phase 62]: Scoring constants (DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS) kept in state.ts alongside other constants rather than in scoring.ts to avoid circular dependencies
-- [Phase 62]: Removed unused imports (WorkItemEffort in state.ts, output/error in orchestrator.ts) to satisfy ESLint
-- **[62-03]** context/base.ts contains only inferCeremonyLevel and buildInitContext as shared foundation for all cmdInit* sub-modules
-- **[62-03]** CJS barrel pattern in index.ts (const _mod = require('./mod.ts'); module.exports = {...}) because sub-modules use module.exports not ES exports
-- **[62-03]** Double unknown cast (as unknown as Record<string, unknown>) for GrdConfig/PhaseInfo/MilestoneInfo accessing untyped runtime properties
-- **[62-03]** Explicit .ts extensions required for all intra-context/ require paths (Node CJS resolution)
-- **[62-03]** _readPhaseFile helper with null-guard preserves original undefined-when-missing behavior for include handlers
-- **[62-04]** Dashboard parsers extracted to _dashboard-parsers.ts to keep dashboard.ts under 600 lines (471 vs 758 without extraction)
-- **[62-04]** Barrel index.ts uses CJS require-as pattern (not ES re-exports) to match sub-module module.exports convention
-- **[62-04]** export {} added to commands/index.ts to force module scope (prevents TS2451 with context/index.ts _progress variable)
-- **[62-04]** nextHeading.index nullability fixed with ?? 0 fallback in _dashboard-parsers.ts (String.match RegExpMatchArray has optional index)
-
-- **[62-05]** moduleDetection: "force" in tsconfig.json replaces export {} as TS module scope mechanism -- Node.js v24 native strip-types classifies export {} as ESM marker
-- **[62-05]** Renamed _progress to _cmdProgress in commands/index.ts to avoid TS2451 after export {} removal
-- **[62-05]** Explicit .ts extensions required for intra-directory requires under Node.js v24 CJS resolution (progress.ts, long-term-roadmap.ts)
-- **[62-05]** npm-pack integration test failures (2) are pre-existing Node v24 limitation: type stripping unsupported under node_modules (DEFER-59-01)
-
-- **[63-01]** Use const = require() pattern (not ESM import) in bin/*.ts scripts -- Node.js v24 treats import as ESM, losing __dirname
-- **[63-01]** Remove fs.Dirent explicit type annotation in favor of inference from readdirSync
-- **[63-02]** RouteDescriptor interface local to grd-tools.ts (not in types.ts) -- single-consumer type
-- **[63-02]** flag() helper single signature with optional fallback + ?? null at call sites (cleaner than overloads)
-- **[63-02]** Decomposed module imports use .ts barrel directly (commands/index.ts, context/index.ts, evolve/index.ts) for typed import consistency
-- **[63-02]** Subcommand arrays typed as readonly string[] with as string[] cast at validateSubcommand call sites
-- **[63-03]** eslint-disable for no-explicit-any on CommandDescriptor.execute args (JSON-RPC dispatch validated per-handler)
-- **[63-03]** 7 local interfaces (ParamDescriptor, CommandDescriptor, CaptureResult, McpToolDefinition, JsonRpcMessage, JsonRpcResponse, McpExitError) in module
-- **[63-03]** process.stdout.write/stderr.write cast as typeof for TS compatibility with overloaded Node.js signatures
-- **[63-03]** McpExitError uses interface extending Error with __MCP_EXIT__ sentinel for type-safe catch handling
-- [Phase 63]: McpServerConstructor/McpServerInstance interfaces locally in grd-mcp-server.ts for typed import (consistent with require-as pattern)
-- [Phase 63-04]: Local JsonRpcMessage/JsonRpcResponse interfaces redefined in grd-mcp-server.ts (mcp-server.ts uses module.exports not ES exports, so typeof import fails)
-
-- **[64-01]** process.exit mock typed as (code?: string | number | null) to match full Node.js process.exit signature
-- **[64-01]** CJS proxies kept for setup.js and fixtures.js to bridge unmigrated .test.js files during incremental migration
-- **[64-01]** jest.config.js unchanged from Phase 58-03 -- already configured for .ts test files
-- **[64-02]** jest.SpyInstance cast for process.stderr.write mocks to avoid TS2345 overload mismatch
-- **[64-02]** Record<string, unknown> for JSON.parse callback parameters (find/map/filter) instead of any
-- **[64-02]** Explicit any for deeply-nested JSON objects (pkg, schedule) where Record<string, unknown> would require excessive casting
-- **[64-02]** postinstall.test.ts header kept as bin/postinstall.js (bin files are CJS proxies, not migrated sources)
-- **[64-03]** Used `any` type for test lambda parameters (.filter/.map/.find callbacks) to minimize noise while maintaining type safety on critical paths
-- **[64-03]** Used `(err as any).code` pattern for Error properties not in base type (code, stdout, __EXIT__)
-- **[64-03]** Used empty string `''` instead of null for fixtureDir cleanup to avoid union type complexity
-- **[64-03]** Removed sample.ts scaffolding from 64-01 (no longer needed after real migrations proved successful)
-- **[64-04]** Used `any` type for callback parameters on JSON-parsed arrays (.find/.map/.filter) to minimize noise while maintaining type safety on critical paths
-- **[64-04]** Used `as string[]` for fs.readdirSync results where TypeScript could not infer the string type from the require'd fs module
-- **[64-04]** Used empty string `''` instead of null for nullable fixture directory cleanup to avoid union type complexity (consistent with 64-03 pattern)
-- **[64-04]** Deleted CJS proxy helpers (setup.js, fixtures.js) since all test files are now .ts and ts-jest handles .ts resolution directly
-
-- **[66-01]** Milestone completion uses deterministic grd-tools command via claude -p (no direct LLM for archiving)
-- **[66-01]** New milestone creation uses claude -p with /grd:new-milestone skill (LLM needed for research/requirements)
-- **[66-01]** resolveNextMilestone reads LONG-TERM-ROADMAP.md directly; returns null if no LT roadmap exists
-- **[66-01]** maxMilestones defaults to 10 as safety cap against infinite loops
-- **[66-01]** runMultiMilestoneAutopilot delegates to existing runAutopilot for per-milestone phase processing
-- [Phase 66]: cmdMultiMilestoneAutopilot uses same flag/hasFlag pattern as cmdAutopilot for CLI consistency
-- [Phase 66]: MCP tool names use grd_multi_milestone_autopilot_run/init (underscore convention matching existing tools)
-- [Phase 66]: Coverage thresholds maintained without adjustment (lines 93.27%, functions 97.82%, branches 82.35% all exceed configured thresholds)
-
-- **[67-01]** AutoplanOptions.groups uses simplified inline type (not WorkGroup directly) to decouple CLI callers from evolve/types
-- **[67-01]** runAutoplan uses synchronous spawnClaude (not async) because milestone artifacts must exist before returning
-- **[67-01]** CJS proxy lib/autoplan.js added for extensionless require() resolution (consistent with DEFER-59-01 pattern)
-- **[67-01]** Milestone name derivation uses highest-priority group theme with 'Improvements' fallback
-- **[67-02]** Autoplan MCP tools (grd_autoplan_run/init) placed between multi-milestone-autopilot and evolve sections following command hierarchy
-- **[67-02]** MCP param naming uses underscores (dry_run, pick_pct, max_turns) matching existing tool conventions
-
-- **[67-03]** runInfiniteEvolve uses runMultiMilestoneAutopilot (not runAutopilot) to handle newly-created milestones regardless of current milestone state
-- **[67-03]** Failed autoplan/autopilot steps continue to next cycle rather than aborting the entire loop
-- **[67-03]** Dry run exits after one cycle to preview what would happen without executing
-- **[67-03]** timeoutMs variable removed from runInfiniteEvolve -- autoplan/autopilot accept timeout in minutes and convert internally
-- **[67-04]** Isolated mock strategy for autoplan.test.ts (no requireActual spread) -- avoids subprocess side effects from utils/autopilot
-- **[67-04]** runInfiniteEvolve tests use real runGroupDiscovery via mocked spawnClaudeAsync to validate integration path
-
-- **[68-01]** Product-ideation dimension added to WORK_ITEM_DIMENSIONS at weight 10 (same as improve-features) to ensure product ideas get high priority
-- **[68-01]** Theme pattern /^product-/ added for product-ideation grouping in evolve scoring
-- **[68-01]** gatherProductContext reads first N chars of planning files (3000/2000/1500) to keep prompt within token limits
-- **[68-01]** Product ideation prompt sets role as "product manager for a developer tools company" -- fundamentally different from code-quality discovery
-- **[68-03]** Barrel symbol count corrected from 39 to 44 (40 existing + 4 new product ideation exports)
-- **[68-03]** MCP grd_evolve_discover description lists all 8 dimensions in priority order (product-ideation first)
-- **[68-03]** Autoplan product-ideation guidance uses conditional .some() check with ternary string injection -- zero overhead when no product-ideation groups
-- [Phase 68]: Product-ideation weight set to 11 (highest, above improve-features at 10) to ensure product ideas prioritized over code polish
-- [Phase 68]: discoverWithClaude renamed internally to _discoverCodeQualityWithClaude; new merged version runs both code-quality and product ideation in parallel
-- [Phase 68]: Used .ts extension for _product-ideation require (no .js proxy exists; Node v24 CJS resolution)
-- **[68-04]** Coverage threshold for _product-ideation.ts set to lines 80%, functions 100%, branches 60% (consistent with other evolve sub-modules)
-- **[68-04]** Product ideation tests import via barrel (lib/evolve) not direct module path -- exercises re-export chain
 
 ## Known Bugs
 
@@ -226,19 +103,27 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 68-04-PLAN.md (comprehensive test coverage for product ideation)
-- **Stopped at:** Completed 68-04-PLAN.md -- all product ideation tests passing (22 new tests)
-- **Next action:** Phase 68 complete -- proceed to next phase or milestone verification
-- **Context needed:** All 4 plans complete; 2800 total tests; 3 pre-existing dist/ failures (require .ts ext in compiled JS)
+- **Last action:** Created roadmap for v0.3.6 Backend Ecosystem Sync
+- **Stopped at:** Roadmap created, 2 phases (69-70), 9 requirements mapped
+- **Next action:** `/grd:plan-phase 69`
+- **Context needed:** lib/backend.ts contains DEFAULT_BACKEND_MODELS, BACKEND_CAPABILITIES, detectBackend(). tests/unit/backend.test.ts has existing tests.
 
 ## Accumulated Context
 
-### Roadmap Evolution
-- Phase 66 added: Extend autopilot for multi-milestone automation
-- Phase 67 added: Autoplan command and evolve infinite autopilot mode
-- Phase 68 added: Product ideation discovery engine
+### v0.3.x Release History
+- v0.3.0: Full TypeScript migration (Phases 58-68, 44 plans)
+- v0.3.1: Node v22 compat — replaced `require() as {}` with destructuring annotations
+- v0.3.2: Node v22 compat, autopilot nested session crash fix, phase sort order fix
+- v0.3.3: Evolve outcome matching fix, autopilot env var stripping, dynamic dir scanning, dashboard fallback
+- v0.3.4: Evolve auto-commit, PR creation, iteration feedback
+- v0.3.5: Evolve real code enforcement, product-ideation filtering, batch size cap, saturated dim skipping, history dedup
+
+### Evolve Iterations
+- 73 total evolve iterations run through v0.3.5
+- Product ideation todo backlog: 857+ items
+- All 5 code-quality dimensions (error-recovery, agent-workflow-gaps, process-exit-cleanup, long-function-refactors, jsdoc-gaps) are fully saturated — 100% false positive rate for 5+ consecutive iterations
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-02T18:37Z*
+*Last updated: 2026-03-09*

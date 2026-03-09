@@ -1,24 +1,23 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-01
+**Updated:** 2026-03-09
 
-## Current Milestone: v0.3.0 TypeScript Migration & Refactoring
+## Current Milestone: v0.3.6 Backend Ecosystem Sync
 
-**Previous:** v0.2.8 Self-Evolving Loop (shipped 2026-02-22)
+**Previous:** v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
 
-**Goal:** Migrate the entire codebase from CommonJS JavaScript to TypeScript, add type safety across all 23 lib/ modules, bin/ entry points, and tests. Restructure oversized modules (commands.js, context.js, evolve.js) during migration.
+**Goal:** Update GRD's backend detection, model mappings, and capability flags to reflect the latest versions of Claude Code, Codex CLI, Gemini CLI, and OpenCode. Address deprecated models, new capabilities, and archived backends.
 
 **Target features:**
-- TypeScript toolchain setup (tsconfig, build pipeline, ts-jest)
-- Full migration of all 23 lib/ modules to .ts with proper type definitions
-- Migration of bin/ entry points to TypeScript
-- Migration of all test files to TypeScript
-- Restructure commands.js (~2,848 lines) into focused command modules
-- Restructure context.js (~2,546 lines) into domain-grouped init modules
-- Restructure evolve.js (~2,567 lines) into discovery/state/orchestration modules
-- Strict type checking with no `any` escape hatches in core modules
-- Preserve all existing functionality (zero breaking changes to CLI/MCP interface)
+- Update Gemini model mappings: replace deprecated `gemini-3-pro` with `gemini-3.1-pro`, add `gemini-3.1-flash-lite`
+- Update Codex model mappings: add GPT-5.4 as opus tier
+- Update Claude model references to Opus 4.6 / Sonnet 4.6 / Haiku 4.5
+- Update Gemini capability flags: `subagents` from `'experimental'` to `true` (Generalist agent GA)
+- Update Codex capability flags: verify `hooks`, `teams` status with new plugin system
+- Address OpenCode backend: archived September 2025, decide on deprecation strategy
+- Update backend detection env vars and filesystem clues if changed
+- Update CLAUDE.md agent model profiles table with new model names
 
 ## Vision
 
@@ -37,7 +36,7 @@ A Claude Code plugin providing:
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
-- 118 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- 123 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - Validation gate system with pre-flight checks preventing phase directory collisions across milestones
 - Milestone-scoped directory hierarchy: all `.planning/` artifacts under `.planning/milestones/{milestone}/`
@@ -61,11 +60,26 @@ A Claude Code plugin providing:
 - Evolution notes (`EVOLUTION.md`): iteration-over-iteration takeaways, decisions, and patterns discovered
 - Sonnet-tier model ceiling: all evolve operations use sonnet/moderate model at most (no opus agents)
 - Markdown splitting infrastructure (`lib/markdown-split.js`): auto-split large markdown files (>25K tokens) into indexed partials with transparent reader reassembly
-- 40 commands across 22 modular lib/ modules
+- 40 commands across 25 modular lib/ modules (22 top-level .ts + 3 decomposed sub-module directories)
+- Multi-milestone autopilot (`/grd:autopilot`) with autoplan command for autonomous milestone creation
+- Infinite evolve mode: discover -> autoplan -> autopilot -> repeat cycle with safety caps
+- Product ideation discovery engine: 8-dimension analysis (6 code-quality + product-ideation + improve-features)
 
 ## Core Value
 
 Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
+
+## Previous State (v0.3.5)
+
+**Shipped:** 2026-03-09
+
+v0.3.0 completed the full TypeScript migration (Phases 58-68, 44 plans). v0.3.1-v0.3.5 were incremental bugfix and feature releases:
+- v0.3.1: Node v22 compatibility — replaced `require() as {}` with destructuring annotations
+- v0.3.2: Node v22 compat, autopilot nested session crash fix, phase sort order fix
+- v0.3.3: Evolve outcome matching fix, autopilot env var stripping, dynamic dir scanning, dashboard ROADMAP fallback
+- v0.3.4: Evolve auto-commit, PR creation, and iteration feedback
+- v0.3.5: Evolve real code enforcement, product-ideation filtering, batch size cap, saturated dimension skipping, history dedup
+- 73 evolve iterations, 857+ product ideation todos, all 5 code-quality dimensions saturated
 
 ## Previous State (v0.2.8)
 
@@ -496,8 +510,8 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 - DEFER-43-01/02: Live MCP detection and code reviewer validation (requires Chrome DevTools MCP)
 - DEFER-44-01/02/03: Live WebMCP workflow validation (requires Chrome DevTools MCP + frontend phase)
 - DEFER-54-01: Markdown splitting on real-world large files (cannot validate — no GRD files exceed 25K token threshold)
-- DEFER-56-01: Full evolve loop with live sonnet-tier models producing meaningful improvements (partially resolved — orchestration validated)
-- TypeScript migration (evaluated and deferred)
+- DEFER-56-01: Full evolve loop with live sonnet-tier models (partially resolved — 73 iterations run successfully)
+- DEFER-68-01/02: Real Claude subprocess for product ideation + autoplan end-to-end (pending)
 - Async I/O optimization (evaluated and deferred)
 - Plugin marketplace publishing
 
@@ -534,3 +548,9 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.2.6 milestone shipped: 2026-02-22*
 *v0.2.7 milestone shipped: 2026-02-22*
 *v0.2.8 milestone shipped: 2026-02-22*
+*v0.3.0 milestone shipped: 2026-03-02*
+*v0.3.1 shipped: 2026-03-03*
+*v0.3.2 shipped: 2026-03-03*
+*v0.3.3 shipped: 2026-03-03*
+*v0.3.4 shipped: 2026-03-03*
+*v0.3.5 shipped: 2026-03-09*
