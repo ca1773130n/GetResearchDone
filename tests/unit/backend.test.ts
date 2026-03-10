@@ -554,14 +554,14 @@ describe('lib/backend.js', () => {
       const stdout = [
         'Available models:',
         '---',
-        'anthropic/claude-opus-4-5',
-        'anthropic/claude-sonnet-4-5',
+        'anthropic/claude-opus-4-6',
+        'anthropic/claude-sonnet-4-6',
         'anthropic/claude-haiku-4-5',
       ].join('\n');
       const result = parseOpenCodeModels(stdout);
       expect(result).toEqual({
-        opus: 'anthropic/claude-opus-4-5',
-        sonnet: 'anthropic/claude-sonnet-4-5',
+        opus: 'anthropic/claude-opus-4-6',
+        sonnet: 'anthropic/claude-sonnet-4-6',
         haiku: 'anthropic/claude-haiku-4-5',
       });
     });
@@ -592,21 +592,21 @@ describe('lib/backend.js', () => {
         'Available models:',
         '---',
         '# Header comment',
-        'anthropic/claude-sonnet-4-5',
+        'anthropic/claude-sonnet-4-6',
       ].join('\n');
       const result = parseOpenCodeModels(stdout);
       expect(result).toEqual({
         opus: null,
-        sonnet: 'anthropic/claude-sonnet-4-5',
+        sonnet: 'anthropic/claude-sonnet-4-6',
         haiku: null,
       });
     });
 
     test('partial detection returns matched tiers with nulls for unmatched', () => {
-      const stdout = 'anthropic/claude-opus-4-5\n';
+      const stdout = 'anthropic/claude-opus-4-6\n';
       const result = parseOpenCodeModels(stdout);
       expect(result).toEqual({
-        opus: 'anthropic/claude-opus-4-5',
+        opus: 'anthropic/claude-opus-4-6',
         sonnet: null,
         haiku: null,
       });
@@ -624,14 +624,14 @@ describe('lib/backend.js', () => {
 
     test('first match wins per tier', () => {
       const stdout = [
-        'anthropic/claude-opus-4-5',
+        'anthropic/claude-opus-4-6',
         'anthropic/claude-opus-4',
-        'anthropic/claude-sonnet-4-5',
+        'anthropic/claude-sonnet-4-6',
         'anthropic/claude-sonnet-4',
       ].join('\n');
       const result = parseOpenCodeModels(stdout);
-      expect(result.opus).toBe('anthropic/claude-opus-4-5');
-      expect(result.sonnet).toBe('anthropic/claude-sonnet-4-5');
+      expect(result.opus).toBe('anthropic/claude-opus-4-6');
+      expect(result.sonnet).toBe('anthropic/claude-sonnet-4-6');
     });
   });
 
