@@ -88,8 +88,8 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     native_worktree_isolation: false,
   },
   gemini: {
-    subagents: 'experimental',
-    parallel: false,
+    subagents: true,
+    parallel: true,
     teams: false,
     hooks: true,
     mcp: true,
