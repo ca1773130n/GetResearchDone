@@ -189,10 +189,10 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('gemini has subagents experimental, parallel false, teams false, hooks true, mcp true', () => {
+    test('gemini has subagents true, parallel true, teams false, hooks true, mcp true', () => {
       expect(BACKEND_CAPABILITIES.gemini).toEqual({
-        subagents: 'experimental',
-        parallel: false,
+        subagents: true,
+        parallel: true,
         teams: false,
         hooks: true,
         mcp: true,
