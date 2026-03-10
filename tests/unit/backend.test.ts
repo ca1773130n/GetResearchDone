@@ -437,7 +437,7 @@ describe('lib/backend.js', () => {
     });
 
     test('falls back to default when config.backend_models is missing', () => {
-      expect(resolveBackendModel('codex', 'opus', {})).toBe('gpt-5.3-codex');
+      expect(resolveBackendModel('codex', 'opus', {})).toBe('gpt-5.4');
     });
 
     test('falls back to default when config.backend_models[backend] is missing', () => {
@@ -446,7 +446,7 @@ describe('lib/backend.js', () => {
           claude: { opus: 'custom-opus' },
         },
       };
-      expect(resolveBackendModel('codex', 'opus', config)).toBe('gpt-5.3-codex');
+      expect(resolveBackendModel('codex', 'opus', config)).toBe('gpt-5.4');
     });
 
     test('falls back to default when specific tier override is missing', () => {
