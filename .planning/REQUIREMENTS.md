@@ -49,7 +49,7 @@
 ### REQ-89: Backend Documentation Update
 **Priority:** P2 — Medium
 **Category:** Documentation
-**Description:** Update CLAUDE.md agent model profiles table with new model names. Update any documentation referencing specific model names. Add notes about OpenCode archived status.
+**Description:** Update CLAUDE.md agent model profiles table with new model names. Update any documentation referencing specific model names. Correct OpenCode status: document it is actively maintained under anomalyco/opencode (not archived).
 
 ### REQ-90: Backend Test Updates
 **Priority:** P1 — High
