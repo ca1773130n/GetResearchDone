@@ -55,9 +55,9 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
     haiku: 'gpt-5.3-codex-spark',
   },
   gemini: {
-    opus: 'gemini-3-pro',
+    opus: 'gemini-3.1-pro',
     sonnet: 'gemini-3-flash',
-    haiku: 'gemini-2.5-flash',
+    haiku: 'gemini-3.1-flash-lite',
   },
   opencode: {
     opus: 'anthropic/claude-opus-4-5',
