@@ -25,7 +25,8 @@
 - v0.3.3 Evolve Dynamic Scanning & Dashboard Fix (shipped 2026-03-03)
 - v0.3.4 Evolve Auto-Commit & PR Creation (shipped 2026-03-03)
 - v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
-- **v0.3.6 Backend Ecosystem Sync - Phases 69-70 (active)**
+- v0.3.6 Backend Ecosystem Sync - Phases 69-70 (shipped 2026-03-11)
+- **v0.3.7 Claude Code Feature Sync - Phases 71-73 (active)**
 
 ## Phases
 
@@ -148,8 +149,6 @@ Phases 54-57 closed the self-evolving loop: markdown splitting infrastructure (l
 
 </details>
 
-### v0.3.0 TypeScript Migration & Refactoring (Shipped 2026-03-02)
-
 <details>
 <summary>v0.3.0 TypeScript Migration & Refactoring (Phases 58-68) - SHIPPED 2026-03-02</summary>
 
@@ -168,52 +167,77 @@ Phases 58-68 delivered full TypeScript migration with strict type checking, deco
 
 </details>
 
-### v0.3.6 Backend Ecosystem Sync (Active)
+<details>
+<summary>v0.3.6 Backend Ecosystem Sync (Phases 69-70) - SHIPPED 2026-03-11</summary>
 
-Update model mappings, capability flags, and detection logic for all supported backends to reflect the current AI CLI ecosystem as of March 2026.
+Phases 69-70 updated model mappings, capability flags, and detection logic for all supported backends to reflect the current AI CLI ecosystem as of March 2026. Gemini models updated to 3.1 series, Codex to gpt-5.4, OpenCode to claude-4-6 family. Gemini subagents promoted to GA. All test assertions updated. See `.planning/milestones/v0.3.6/` for details.
 
-#### Phase 69: Model Mappings, Capabilities & Detection Updates
+</details>
 
-**Goal:** All backend model mappings and capability flags in `lib/backend.ts` reflect the current state of each CLI ecosystem (March 2026).
+### v0.3.7 Claude Code Feature Sync (Active)
+
+Adopt Claude Code features added since v2.1.50: effort levels, new hook events, HTTP hooks, `${CLAUDE_SKILL_DIR}`, `ExitWorktree` tool, cron/loop awareness, and auto-memory documentation.
+
+#### Phase 71: Effort Levels & Capability Flags
+
+**Goal:** GRD's agent spawning system supports effort levels as a second dimension alongside model tier, and all new capability flags (effort, http_hooks, cron) are registered in BACKEND_CAPABILITIES.
 
 **Dependencies:** None
 
-**Requirements:** REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88
+**Requirements:** REQ-91, REQ-92, REQ-95, REQ-98
 
 **Verification Level:** sanity
 
 **Success Criteria:**
 
-1. `DEFAULT_BACKEND_MODELS.gemini.opus` returns `'gemini-3.1-pro'` (not deprecated `gemini-3-pro`)
-2. `DEFAULT_BACKEND_MODELS.gemini.haiku` returns `'gemini-3.1-flash-lite'` (not `gemini-2.5-flash`)
-3. `DEFAULT_BACKEND_MODELS.codex.opus` returns `'gpt-5.4'`
-4. `DEFAULT_BACKEND_MODELS.opencode` model IDs reference `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
-5. `BACKEND_CAPABILITIES.gemini.subagents` is `true` (not `'experimental'`)
-6. `BACKEND_CAPABILITIES.codex.hooks` and `teams` reflect current Codex CLI capabilities
-7. All existing `backend.test.ts` tests pass after constant updates
+1. `BACKEND_CAPABILITIES.claude.effort` is `true`; other backends have `effort: false`
+2. `BACKEND_CAPABILITIES.claude.http_hooks` is `true`; other backends have `http_hooks: false`
+3. `BACKEND_CAPABILITIES.claude.cron` is `true`; other backends have `cron: false`
+4. `resolveEffortLevel(agentRole, profile)` returns correct effort for each agent/profile combination (e.g., planner+quality returns `'high'`, verifier+budget returns `'low'`)
+5. All `cmdInit*` functions include `effort_level` field in JSON output when backend supports effort
+6. `cmdInitAutopilot` includes `cron_available` field in JSON output
 
-#### Phase 70: Detection Verification, Tests & Documentation
+#### Phase 72: Hook Events & Tool Updates
 
-**Goal:** Backend detection logic is verified against current env vars and filesystem paths, all test assertions match the new constants, and documentation reflects the updated ecosystem.
+**Goal:** Plugin.json registers new hook events (TeammateIdle, TaskCompleted, InstructionsLoaded), worktree completion uses ExitWorktree when available, and command files use `${CLAUDE_SKILL_DIR}` where appropriate.
 
-**Dependencies:** Phase 69
+**Dependencies:** Phase 71
 
-**Requirements:** REQ-87, REQ-89, REQ-90
+**Requirements:** REQ-93, REQ-94, REQ-96, REQ-97
 
 **Verification Level:** sanity
 
 **Success Criteria:**
 
-1. `detectBackend()` correctly identifies each backend via its env vars (`CLAUDE_CODE_*`, `CODEX_HOME`, `GEMINI_CLI_HOME`, `OPENCODE`)
-2. All model mapping assertions in `backend.test.ts` use the updated model names from Phase 69
-3. OpenCode capability flags verified against current anomalyco/opencode features
-4. CLAUDE.md agent model profiles table references current model names
-5. `npm test` passes with 0 failures across the full test suite
-6. No hardcoded references to `gemini-3-pro` or `gpt-5.3-codex` remain in the codebase (except test migration comments)
+1. `plugin.json` registers `TeammateIdle`, `TaskCompleted`, and `InstructionsLoaded` hook events with correct handler commands
+2. Hook handler commands can access `agent_id` and `agent_type` metadata from hook event payloads
+3. `execute-phase.md` and `grd-executor.md` include an `ExitWorktree` call before completion flow when `isolation_mode` is `"native"`
+4. Command `.md` files that only need self-relative paths use `${CLAUDE_SKILL_DIR}` instead of `${CLAUDE_PLUGIN_ROOT}` (while `grd-tools.js` references retain `${CLAUDE_PLUGIN_ROOT}` since grd-tools lives in `bin/`, not the skill directory)
+
+#### Phase 73: Testing & Documentation
+
+**Goal:** All new capabilities have test coverage, CLAUDE.md reflects the updated feature set, and auto-memory interaction is documented.
+
+**Dependencies:** Phase 72
+
+**Requirements:** REQ-99, REQ-100, REQ-101
+
+**Verification Level:** sanity
+
+**Success Criteria:**
+
+1. `backend.test.ts` verifies `effort`, `http_hooks`, and `cron` capability flags for all backends
+2. Tests verify effort level resolution returns correct values for all 3 profiles (quality/balanced/budget) across key agent roles
+3. Init context tests verify `effort_level` and `cron_available` fields in JSON output
+4. CLAUDE.md agent model profiles table includes an effort column
+5. CLAUDE.md documents new hook events (TeammateIdle, TaskCompleted, InstructionsLoaded)
+6. CLAUDE.md includes a memory model section clarifying STATE.md vs auto-memory interaction
+7. `npm test` passes with 0 failures across the full test suite
 
 ### Progress
 
-| Phase | Name | Status | Requirements |
-|-------|------|--------|--------------|
-| 69 | Model Mappings, Capabilities & Detection Updates | Complete    | 2026-03-10 |
-| 70 | Detection Verification, Tests & Documentation | Complete    | 2026-03-10 |
+| Phase | Name | Status | Completed |
+|-------|------|--------|-----------|
+| 71 | Effort Levels & Capability Flags | Not started | - |
+| 72 | Hook Events & Tool Updates | Not started | - |
+| 73 | Testing & Documentation | Not started | - |
