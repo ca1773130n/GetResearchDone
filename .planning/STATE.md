@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **Active phase:** Phase 70 — Detection Verification, Tests & Documentation
 - **Current plan:** Plan 2 of 2 in Phase 70 (complete)
 - **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** Phase 70 complete — milestone ready for completion
+- **Status:** v0.3.6 Backend Ecosystem Sync milestone complete
 - **Progress:** [██████████] 100%
 - **Next:** Complete v0.3.6 milestone
 

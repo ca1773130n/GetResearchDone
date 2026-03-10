@@ -483,3 +483,13 @@
 
 ---
 
+
+## v0.3.6 Backend Ecosystem Sync v0.3.6 Backend Ecosystem Sync (Shipped: 2026-03-10)
+
+**Phases completed:** 2 phases, 4 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
