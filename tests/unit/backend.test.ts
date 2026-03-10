@@ -133,10 +133,10 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('opencode maps to anthropic/claude-opus-4-5, anthropic/claude-sonnet-4-5, anthropic/claude-haiku-4-5', () => {
+    test('opencode maps to anthropic/claude-opus-4-6, anthropic/claude-sonnet-4-6, anthropic/claude-haiku-4-5', () => {
       expect(DEFAULT_BACKEND_MODELS.opencode).toEqual({
-        opus: 'anthropic/claude-opus-4-5',
-        sonnet: 'anthropic/claude-sonnet-4-5',
+        opus: 'anthropic/claude-opus-4-6',
+        sonnet: 'anthropic/claude-sonnet-4-6',
         haiku: 'anthropic/claude-haiku-4-5',
       });
     });
