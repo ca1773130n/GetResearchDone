@@ -178,12 +178,12 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('codex has subagents true, parallel true, teams false, hooks false, mcp true', () => {
+    test('codex has subagents true, parallel true, teams true, hooks true, mcp true', () => {
       expect(BACKEND_CAPABILITIES.codex).toEqual({
         subagents: true,
         parallel: true,
-        teams: false,
-        hooks: false,
+        teams: true,
+        hooks: true,
         mcp: true,
         native_worktree_isolation: false,
       });
