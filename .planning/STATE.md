@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 ## Current Position
 
 - **Active phase:** Phase 69 — Model Mappings, Capabilities & Deprecation
-- **Current plan:** Plan 1 of 2 in Phase 69
+- **Current plan:** Plan 2 of 2 in Phase 69 (complete)
 - **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** Executing phase 69
-- **Progress:** [███░░░░░░░] 25%
-- **Next:** Execute 69-02 (tests and documentation updates)
+- **Status:** Phase 69 complete
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Plan and execute Phase 70 (Detection Verification, Tests & Documentation)
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 69 | Model Mappings, Capabilities & Deprecation | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 | PENDING |
+| 69 | Model Mappings, Capabilities & Deprecation | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 | DONE |
 | 70 | Detection Verification, Tests & Documentation | REQ-87, REQ-89, REQ-90 | PENDING |
 
 ## Shipped Milestones (v0.3.x series)
@@ -104,10 +104,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created roadmap for v0.3.6 Backend Ecosystem Sync
-- **Stopped at:** Completed 69-01-PLAN.md (model mappings + capabilities)
-- **Next action:** `/grd:plan-phase 69`
-- **Context needed:** lib/backend.ts contains DEFAULT_BACKEND_MODELS, BACKEND_CAPABILITIES, detectBackend(). tests/unit/backend.test.ts has existing tests.
+- **Last action:** Executed 69-02-PLAN.md (test assertion updates)
+- **Stopped at:** Completed Phase 69 (all 2 plans done)
+- **Next action:** `/grd:plan-phase 70` or `/grd:execute-phase 70`
+- **Context needed:** Phase 70 covers detection verification, tests, and documentation
 
 ## Accumulated Context
 
