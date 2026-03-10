@@ -50,7 +50,7 @@ const VALID_BACKENDS: readonly BackendId[] = [
 const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
   claude: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku' },
   codex: {
-    opus: 'gpt-5.3-codex',
+    opus: 'gpt-5.4',
     sonnet: 'gpt-5.3-codex-spark',
     haiku: 'gpt-5.3-codex-spark',
   },
