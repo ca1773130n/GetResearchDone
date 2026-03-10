@@ -82,8 +82,8 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
   codex: {
     subagents: true,
     parallel: true,
-    teams: false,
-    hooks: false,
+    teams: true,
+    hooks: true,
     mcp: true,
     native_worktree_isolation: false,
   },
