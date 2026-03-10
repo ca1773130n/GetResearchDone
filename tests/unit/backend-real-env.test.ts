@@ -342,8 +342,8 @@ describe('Real-environment backend detection (DEFER-09-01)', () => {
         {
           subagents: true,
           parallel: true,
-          teams: false,
-          hooks: false,
+          teams: true,
+          hooks: true,
           mcp: true,
           native_worktree_isolation: false,
         },
@@ -351,8 +351,8 @@ describe('Real-environment backend detection (DEFER-09-01)', () => {
       [
         'gemini',
         {
-          subagents: 'experimental',
-          parallel: false,
+          subagents: true,
+          parallel: true,
           teams: false,
           hooks: true,
           mcp: true,

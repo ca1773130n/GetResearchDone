@@ -1656,17 +1656,17 @@ describe('cmdDetectBackend', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.backend).toBe('codex');
-    expect(parsed.models.opus).toBe('gpt-5.3-codex');
+    expect(parsed.models.opus).toBe('gpt-5.4');
     expect(parsed.models.sonnet).toBe('gpt-5.3-codex-spark');
     expect(parsed.models.haiku).toBe('gpt-5.3-codex-spark');
     expect(parsed.capabilities.subagents).toBe(true);
     expect(parsed.capabilities.parallel).toBe(true);
-    expect(parsed.capabilities.teams).toBe(false);
-    expect(parsed.capabilities.hooks).toBe(false);
+    expect(parsed.capabilities.teams).toBe(true);
+    expect(parsed.capabilities.hooks).toBe(true);
     expect(parsed.capabilities.mcp).toBe(true);
   });
 
-  test('Gemini backend: correct models and capabilities (experimental subagents)', () => {
+  test('Gemini backend: correct models and capabilities', () => {
     const configPath = path.join(fixtureDir, '.planning', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     config.backend = 'gemini';
@@ -1677,11 +1677,11 @@ describe('cmdDetectBackend', () => {
     });
     const parsed = JSON.parse(stdout);
     expect(parsed.backend).toBe('gemini');
-    expect(parsed.models.opus).toBe('gemini-3-pro');
+    expect(parsed.models.opus).toBe('gemini-3.1-pro');
     expect(parsed.models.sonnet).toBe('gemini-3-flash');
-    expect(parsed.models.haiku).toBe('gemini-2.5-flash');
-    expect(parsed.capabilities.subagents).toBe('experimental');
-    expect(parsed.capabilities.parallel).toBe(false);
+    expect(parsed.models.haiku).toBe('gemini-3.1-flash-lite');
+    expect(parsed.capabilities.subagents).toBe(true);
+    expect(parsed.capabilities.parallel).toBe(true);
     expect(parsed.capabilities.teams).toBe(false);
     expect(parsed.capabilities.hooks).toBe(true);
     expect(parsed.capabilities.mcp).toBe(true);

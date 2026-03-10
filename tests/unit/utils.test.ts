@@ -659,14 +659,14 @@ describe('Backend-aware model resolution', () => {
       expect(model).toBe('opus');
     });
 
-    test('returns gpt-5.3-codex for grd-planner on codex backend with quality profile', () => {
+    test('returns gpt-5.4 for grd-planner on codex backend with quality profile', () => {
       fs.writeFileSync(
         path.join(tmpDir, '.planning', 'config.json'),
         JSON.stringify({ model_profile: 'quality' })
       );
       process.env.CODEX_HOME = '/tmp/codex';
       const model = resolveModelInternal(tmpDir, 'grd-planner');
-      expect(model).toBe('gpt-5.3-codex');
+      expect(model).toBe('gpt-5.4');
     });
 
     test('honors backend_models override in config.json', () => {

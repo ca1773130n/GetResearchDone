@@ -677,7 +677,7 @@ describe('E2E: Sequential fallback equivalence', () => {
     fixtureDir = createFixtureDir();
     writeRoadmapAndPhases(fixtureDir);
 
-    writeConfig(fixtureDir, { backend: 'codex' });
+    writeConfig(fixtureDir, { backend: 'gemini' });
     const seqCtx = buildParallelContext(fixtureDir, ['1', '2']);
 
     writeConfig(fixtureDir, { backend: 'claude', use_teams: true });
