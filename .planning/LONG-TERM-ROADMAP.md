@@ -19,7 +19,7 @@ last_refined: 2026-02-17
 ## LT-3: Advanced Workflows
 **Status:** completed
 **Goal:** Agent Teams enhancements, async I/O optimization, advanced evaluation and iteration capabilities, cross-project knowledge reuse
-**Normal milestones:** v0.3.0, v0.3.1, v0.3.2, v0.3.3, v0.3.4, v0.3.5, v0.2.1, v0.2.2, v0.2.6
+**Normal milestones:** v0.3.0, v0.3.1, v0.3.2, v0.3.3, v0.3.4, v0.3.5, v0.2.1, v0.2.2, v0.2.6, v0.3.7
 
 ## LT-4: Production Release
 **Status:** planned
