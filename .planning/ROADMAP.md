@@ -216,4 +216,4 @@ Update model mappings, capability flags, and detection logic for all supported b
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
 | 69 | Model Mappings, Capabilities & Detection Updates | Complete    | 2026-03-10 |
-| 70 | Detection Verification, Tests & Documentation | PENDING | REQ-87, REQ-89, REQ-90 |
+| 70 | Detection Verification, Tests & Documentation | Complete    | 2026-03-10 |
