@@ -6,6 +6,12 @@
  * clues > default. Resolves abstract model tiers (opus/sonnet/haiku) to
  * backend-specific model names. Provides capability flags per backend.
  *
+ * Supported backends (March 2026):
+ *   - Claude Code v2.1.71 — Anthropic's native CLI (opus/sonnet/haiku tiers)
+ *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark)
+ *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3 Flash, 3.1 Flash-Lite)
+ *   - OpenCode v1.2.21 — Provider-agnostic CLI by anomalyco (actively maintained, 70K+ stars)
+ *
  * This module reads config.json directly with fs.readFileSync to avoid
  * circular dependency with lib/utils.js (which will later import from here).
  *
@@ -183,8 +189,13 @@ function detectBackend(cwd: string): BackendId {
 
   // Step 2: Environment variable detection
   if (hasEnvPrefix('CLAUDE_CODE_')) return 'claude';
+  // CODEX_THREAD_ID: may be deprecated in newer Codex CLI versions (no docs mention
+  // as of March 2026), but kept for backward compatibility with older installations.
   if (process.env.CODEX_HOME || process.env.CODEX_THREAD_ID) return 'codex';
   if (process.env.GEMINI_CLI_HOME) return 'gemini';
+  // OpenCode: actively maintained under anomalyco/opencode (original opencode-ai
+  // repo archived Sept 2025). OPENCODE_PID is NOT used — it's a process management
+  // var, not a presence indicator.
   if (process.env.OPENCODE) return 'opencode';
 
   // Step 3: Filesystem clues
