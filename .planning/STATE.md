@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-03-09
+**Updated:** 2026-03-10
 
 ## Project Reference
 
@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 
 ## Current Position
 
-- **Active phase:** Phase 69 — Model Mappings, Capabilities & Deprecation
-- **Current plan:** Plan 2 of 2 in Phase 69 (complete)
+- **Active phase:** Phase 70 — Detection Verification, Tests & Documentation
+- **Current plan:** Plan 2 of 2 in Phase 70 (complete)
 - **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** Ready to plan
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Plan and execute Phase 70 (Detection Verification, Tests & Documentation)
+- **Status:** Phase 70 complete — milestone ready for completion
+- **Progress:** [██████████] 100%
+- **Next:** Complete v0.3.6 milestone
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 69 | Model Mappings, Capabilities & Deprecation | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 | DONE |
-| 70 | Detection Verification, Tests & Documentation | REQ-87, REQ-89, REQ-90 | PENDING |
+| 70 | Detection Verification, Tests & Documentation | REQ-87, REQ-89, REQ-90 | DONE |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -94,6 +94,9 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **[59-03]** never return type for output() and error() functions that call process.exit()
 - [Phase 69]: Gemini models updated: gemini-3-pro->3.1-pro, gemini-2.5-flash->3.1-flash-lite; Codex opus->gpt-5.4; OpenCode->claude-4-6; Gemini subagents GA+parallel; Codex hooks+teams enabled
 - [Phase 69]: Phase 69 deferred: D1=Gemini CLI live model acceptance (gemini-3.1-pro, gemini-3.1-flash-lite), D2=Codex CLI gpt-5.4 acceptance, D3=OpenCode claude-opus-4-6/claude-sonnet-4-6 acceptance — manual CLI verification required
+- **[70-02]** CODEX_THREAD_ID kept for backward compat despite possible deprecation
+- **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
+- **[70-02]** CLAUDE.md confirmed clean — agent profiles use abstract tiers, no stale model names
 
 ## Known Bugs
 
@@ -105,10 +108,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 69-02-PLAN.md (test assertion updates)
-- **Stopped at:** Completed Phase 69 (all 2 plans done)
-- **Next action:** `/grd:plan-phase 70` or `/grd:execute-phase 70`
-- **Context needed:** Phase 70 covers detection verification, tests, and documentation
+- **Last action:** Executed 70-02-PLAN.md (detection verification & documentation)
+- **Stopped at:** Completed Phase 70 (all 2 plans done)
+- **Next action:** Complete v0.3.6 milestone
+- **Context needed:** All phases (69, 70) complete; milestone ready for shipping
 
 ## Accumulated Context
 
@@ -128,4 +131,4 @@ None.
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-10*
