@@ -94,6 +94,8 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **[59-03]** never return type for output() and error() functions that call process.exit()
 - [Phase 69]: Gemini models updated: gemini-3-pro->3.1-pro, gemini-2.5-flash->3.1-flash-lite; Codex opus->gpt-5.4; OpenCode->claude-4-6; Gemini subagents GA+parallel; Codex hooks+teams enabled
 - [Phase 69]: Phase 69 deferred: D1=Gemini CLI live model acceptance (gemini-3.1-pro, gemini-3.1-flash-lite), D2=Codex CLI gpt-5.4 acceptance, D3=OpenCode claude-opus-4-6/claude-sonnet-4-6 acceptance — manual CLI verification required
+- **[70-01]** Phase 69 added no deprecation/migration code; deprecated model tests documented as N/A
+- **[70-01]** worktree-parallel-e2e sequential fallback test switched from codex to gemini (codex now has teams:true)
 - **[70-02]** CODEX_THREAD_ID kept for backward compat despite possible deprecation
 - **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
 - **[70-02]** CLAUDE.md confirmed clean — agent profiles use abstract tiers, no stale model names
