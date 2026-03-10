@@ -704,7 +704,7 @@ describe('lib/backend.js', () => {
     });
 
     test('backward compatible: undefined cwd uses defaults', () => {
-      expect(resolveBackendModel('opencode', 'opus')).toBe('anthropic/claude-opus-4-5');
+      expect(resolveBackendModel('opencode', 'opus')).toBe('anthropic/claude-opus-4-6');
     });
   });
 
