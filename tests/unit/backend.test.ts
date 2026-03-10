@@ -117,9 +117,9 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('codex maps to gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.3-codex-spark', () => {
+    test('codex maps to gpt-5.4, gpt-5.3-codex-spark, gpt-5.3-codex-spark', () => {
       expect(DEFAULT_BACKEND_MODELS.codex).toEqual({
-        opus: 'gpt-5.3-codex',
+        opus: 'gpt-5.4',
         sonnet: 'gpt-5.3-codex-spark',
         haiku: 'gpt-5.3-codex-spark',
       });
