@@ -1,23 +1,27 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-09
+**Updated:** 2026-03-11
 
-## Current Milestone: v0.3.6 Backend Ecosystem Sync
+## Current Milestone: v0.3.7 Claude Code Feature Sync
 
-**Previous:** v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
+**Previous:** v0.3.6 Backend Ecosystem Sync (shipped 2026-03-11)
 
-**Goal:** Update GRD's backend detection, model mappings, and capability flags to reflect the latest versions of Claude Code, Codex CLI, Gemini CLI, and OpenCode. Address deprecated models, new capabilities, and archived backends.
+**Goal:** Adopt Claude Code features added since v2.1.50 that GRD hasn't leveraged yet: effort levels, new hook events, HTTP hooks, `${CLAUDE_SKILL_DIR}`, `ExitWorktree` tool, cron/loop awareness, and auto-memory integration.
 
 **Target features:**
-- Update Gemini model mappings: replace deprecated `gemini-3-pro` with `gemini-3.1-pro`, add `gemini-3.1-flash-lite`
-- Update Codex model mappings: add GPT-5.4 as opus tier
-- Update Claude model references to Opus 4.6 / Sonnet 4.6 / Haiku 4.5
-- Update Gemini capability flags: `subagents` from `'experimental'` to `true` (Generalist agent GA)
-- Update Codex capability flags: verify `hooks`, `teams` status with new plugin system
-- Address OpenCode backend: archived September 2025, decide on deprecation strategy
-- Update backend detection env vars and filesystem clues if changed
-- Update CLAUDE.md agent model profiles table with new model names
+- Add effort level support (low/medium/high) as second dimension alongside model tier in agent spawning
+- Add `effort` config per agent profile, defaulting to backend-appropriate levels
+- Register `TeammateIdle` and `TaskCompleted` hook events for teammate lifecycle control in parallel execution
+- Register `InstructionsLoaded` hook event for plugin setup verification
+- Add `agent_id`/`agent_type` metadata to hook event handling
+- Add `effort` capability flag to BACKEND_CAPABILITIES (Claude Code supports it, others may not)
+- Add `cron` and `http_hooks` capability flags to BACKEND_CAPABILITIES
+- Migrate command/skill file paths from `${CLAUDE_PLUGIN_ROOT}` to `${CLAUDE_SKILL_DIR}` where applicable
+- Update worktree completion flow to use `ExitWorktree` tool when available
+- Add cron/loop awareness: capability detection, evolve loop scheduling option
+- Document auto-memory interaction with GRD's STATE.md-based memory model
+- Update tests for all new capabilities and hook registrations
 
 ## Vision
 

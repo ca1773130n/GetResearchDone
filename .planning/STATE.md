@@ -1,30 +1,27 @@
 # State
 
-**Updated:** 2026-03-10
+**Updated:** 2026-03-11
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-09)
+See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.6 Backend Ecosystem Sync — update model mappings, capability flags, and deprecated backend handling
-**Previous:** v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
+**Current focus:** v0.3.7 Claude Code Feature Sync — adopt effort levels, new hooks, ExitWorktree, SKILL_DIR, cron awareness
+**Previous:** v0.3.6 Backend Ecosystem Sync (shipped 2026-03-11)
 
 ## Current Position
 
-- **Active phase:** Phase 70 — Detection Verification, Tests & Documentation
-- **Current plan:** Plan 2 of 2 in Phase 70 (complete)
-- **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** v0.3.6 Backend Ecosystem Sync milestone complete
-- **Progress:** [██████████] 100%
-- **Next:** Complete v0.3.6 milestone
+- **Active phase:** Not started (defining requirements)
+- **Current plan:** N/A
+- **Milestone:** v0.3.7 Claude Code Feature Sync
+- **Status:** Requirements definition
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements and create roadmap
 
 ## Phase Summary
 
-| Phase | Name | Requirements | Status |
-|-------|------|--------------|--------|
-| 69 | Model Mappings, Capabilities & Deprecation | REQ-82, REQ-83, REQ-84, REQ-85, REQ-86, REQ-88 | DONE |
-| 70 | Detection Verification, Tests & Documentation | REQ-87, REQ-89, REQ-90 | DONE |
+(No phases yet — milestone being defined)
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -36,6 +33,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 | v0.3.3 | Evolve Dynamic Scanning & Dashboard Fix | Shipped (bugfix + feature) |
 | v0.3.4 | Evolve Auto-Commit & PR Creation | Shipped (feature) |
 | v0.3.5 | Evolve Stabilization & Product Ideation | Shipped (feature) |
+| v0.3.6 | Backend Ecosystem Sync | Shipped (Phases 69-70, 4 plans) |
 
 ## Deferred Validations
 
@@ -63,7 +61,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 23 (v0.0.5 through v0.3.5)
+- Milestones shipped: 24 (v0.0.5 through v0.3.6)
 - Total tests: ~2,850
 - Total lib/ modules: 25 (22 top-level .ts + 3 decomposed sub-module directories)
 - Total commands: 40
@@ -110,10 +108,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed 70-02-PLAN.md (detection verification & documentation)
-- **Stopped at:** Completed Phase 70 (all 2 plans done)
-- **Next action:** Complete v0.3.6 milestone
-- **Context needed:** All phases (69, 70) complete; milestone ready for shipping
+- **Last action:** Started v0.3.7 milestone definition
+- **Stopped at:** Defining requirements
+- **Next action:** Create REQUIREMENTS.md and ROADMAP.md
+- **Context needed:** Claude Code changelog v2.1.50-v2.1.72 researched; key features identified
 
 ## Accumulated Context
 
@@ -124,13 +122,27 @@ None.
 - v0.3.3: Evolve outcome matching fix, autopilot env var stripping, dynamic dir scanning, dashboard fallback
 - v0.3.4: Evolve auto-commit, PR creation, iteration feedback
 - v0.3.5: Evolve real code enforcement, product-ideation filtering, batch size cap, saturated dim skipping, history dedup
+- v0.3.6: Backend ecosystem sync — model mappings, capability flags, OpenCode status
+
+### Claude Code Features Research (v2.1.50-v2.1.72)
+- Effort levels: low/medium/high (v2.1.68/72), Opus 4.6 defaults medium, "ultrathink" for high
+- HTTP hooks: POST JSON to URL (v2.1.63)
+- New hook events: InstructionsLoaded, TeammateIdle/TaskCompleted with stop control (v2.1.69)
+- agent_id/agent_type in hook events (v2.1.69)
+- ${CLAUDE_SKILL_DIR} variable for skill self-reference (v2.1.69)
+- ExitWorktree tool (v2.1.72)
+- Auto-memory with /memory (v2.1.59)
+- Cron/loop scheduling (v2.1.71)
+- Project configs shared across worktrees (v2.1.63)
+- /reload-plugins command (v2.1.69)
+- Agent model parameter restored per-invocation (v2.1.72)
 
 ### Evolve Iterations
 - 73 total evolve iterations run through v0.3.5
 - Product ideation todo backlog: 857+ items
-- All 5 code-quality dimensions (error-recovery, agent-workflow-gaps, process-exit-cleanup, long-function-refactors, jsdoc-gaps) are fully saturated — 100% false positive rate for 5+ consecutive iterations
+- All 5 code-quality dimensions fully saturated
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-10*
+*Last updated: 2026-03-11*
