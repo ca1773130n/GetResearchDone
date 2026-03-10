@@ -60,8 +60,8 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
     haiku: 'gemini-3.1-flash-lite',
   },
   opencode: {
-    opus: 'anthropic/claude-opus-4-5',
-    sonnet: 'anthropic/claude-sonnet-4-5',
+    opus: 'anthropic/claude-opus-4-6',
+    sonnet: 'anthropic/claude-sonnet-4-6',
     haiku: 'anthropic/claude-haiku-4-5',
   },
 };
