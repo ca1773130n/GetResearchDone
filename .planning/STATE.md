@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 ## Current Position
 
 - **Active phase:** Phase 69 — Model Mappings, Capabilities & Deprecation
-- **Current plan:** N/A
+- **Current plan:** Plan 1 of 2 in Phase 69
 - **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** Roadmap created, ready for planning
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 69`
+- **Status:** Executing phase 69
+- **Progress:** [███░░░░░░░] 25%
+- **Next:** Execute 69-02 (tests and documentation updates)
 
 ## Phase Summary
 
@@ -92,6 +92,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **[59-03]** Record<string, unknown> with explicit type casts for loadConfig JSON parsing -- avoids any
 - **[59-03]** Typed error destructuring (err as { status?: number }) in execGit catch -- avoids any for non-standard Error properties
 - **[59-03]** never return type for output() and error() functions that call process.exit()
+- [Phase 69]: Gemini models updated: gemini-3-pro->3.1-pro, gemini-2.5-flash->3.1-flash-lite; Codex opus->gpt-5.4; OpenCode->claude-4-6; Gemini subagents GA+parallel; Codex hooks+teams enabled
 
 ## Known Bugs
 
@@ -104,7 +105,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Created roadmap for v0.3.6 Backend Ecosystem Sync
-- **Stopped at:** Roadmap created, 2 phases (69-70), 9 requirements mapped
+- **Stopped at:** Completed 69-01-PLAN.md (model mappings + capabilities)
 - **Next action:** `/grd:plan-phase 69`
 - **Context needed:** lib/backend.ts contains DEFAULT_BACKEND_MODELS, BACKEND_CAPABILITIES, detectBackend(). tests/unit/backend.test.ts has existing tests.
 
