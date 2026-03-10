@@ -125,11 +125,11 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('gemini maps to gemini-3-pro, gemini-3-flash, gemini-2.5-flash', () => {
+    test('gemini maps to gemini-3.1-pro, gemini-3-flash, gemini-3.1-flash-lite', () => {
       expect(DEFAULT_BACKEND_MODELS.gemini).toEqual({
-        opus: 'gemini-3-pro',
+        opus: 'gemini-3.1-pro',
         sonnet: 'gemini-3-flash',
-        haiku: 'gemini-2.5-flash',
+        haiku: 'gemini-3.1-flash-lite',
       });
     });
 
