@@ -224,6 +224,12 @@ Adopt Claude Code features added since v2.1.50: effort levels, new hook events, 
 
 **Verification Level:** sanity
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 73-01-PLAN.md — Backend capability flag + effort level resolution tests
+- [ ] 73-02-PLAN.md — Init context tests + CLAUDE.md documentation updates
+
 **Success Criteria:**
 
 1. `backend.test.ts` verifies `effort`, `http_hooks`, and `cron` capability flags for all backends
