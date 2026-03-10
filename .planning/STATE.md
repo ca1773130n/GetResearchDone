@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **Active phase:** Phase 69 — Model Mappings, Capabilities & Deprecation
 - **Current plan:** Plan 2 of 2 in Phase 69 (complete)
 - **Milestone:** v0.3.6 Backend Ecosystem Sync
-- **Status:** Phase 69 complete
+- **Status:** Ready to plan
 - **Progress:** [█████░░░░░] 50%
 - **Next:** Plan and execute Phase 70 (Detection Verification, Tests & Documentation)
 
@@ -93,6 +93,7 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 - **[59-03]** Typed error destructuring (err as { status?: number }) in execGit catch -- avoids any for non-standard Error properties
 - **[59-03]** never return type for output() and error() functions that call process.exit()
 - [Phase 69]: Gemini models updated: gemini-3-pro->3.1-pro, gemini-2.5-flash->3.1-flash-lite; Codex opus->gpt-5.4; OpenCode->claude-4-6; Gemini subagents GA+parallel; Codex hooks+teams enabled
+- [Phase 69]: Phase 69 deferred: D1=Gemini CLI live model acceptance (gemini-3.1-pro, gemini-3.1-flash-lite), D2=Codex CLI gpt-5.4 acceptance, D3=OpenCode claude-opus-4-6/claude-sonnet-4-6 acceptance — manual CLI verification required
 
 ## Known Bugs
 
