@@ -506,8 +506,8 @@ describe('lib/backend.js', () => {
 
     test('returns correct capabilities for gemini', () => {
       expect(getBackendCapabilities('gemini')).toEqual({
-        subagents: 'experimental',
-        parallel: false,
+        subagents: true,
+        parallel: true,
         teams: false,
         hooks: true,
         mcp: true,
