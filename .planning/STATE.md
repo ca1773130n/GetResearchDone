@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 - **Active phase:** Phase 71 — Effort Levels & Capability Flags
-- **Current plan:** N/A (not yet planned)
+- **Current plan:** Plan 1 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
-- **Status:** Ready to plan
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 71`
+- **Status:** In progress
+- **Progress:** [█░░░░░░░░░] 11%
+- **Next:** Execute 71-02-PLAN.md
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 71 | Effort Levels & Capability Flags | Not started |
+| 71 | Effort Levels & Capability Flags | In progress (1/3 plans) |
 | 72 | Hook Events & Tool Updates | Not started |
 | 73 | Testing & Documentation | Not started |
 
@@ -71,6 +71,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[70-01]** worktree-parallel-e2e sequential fallback test switched from codex to gemini (codex now has teams:true)
 - **[70-02]** CODEX_THREAD_ID kept for backward compat despite possible deprecation
 - **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
+- **[71-01]** Only Claude gets true for effort/http_hooks/cron capability flags; other backends false
+- **[71-01]** Removed premature unused imports from backend.ts to pass lint
 
 ## Known Bugs
 
@@ -82,10 +84,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created v0.3.7 roadmap (3 phases, 11 requirements)
-- **Stopped at:** Roadmap created, ready for phase planning
-- **Next action:** `/grd:plan-phase 71`
-- **Context needed:** Claude Code changelog v2.1.50-v2.1.72 features; lib/backend.ts for effort/capability changes
+- **Last action:** Completed 71-01 (capability flags for effort/http_hooks/cron)
+- **Stopped at:** Completed 71-01-PLAN.md
+- **Next action:** Execute 71-02-PLAN.md (effort level profiles and resolution)
+- **Context needed:** lib/backend.ts EFFORT_PROFILES (already partially added externally); lib/types.ts EffortLevel type
 
 ## Accumulated Context
 
