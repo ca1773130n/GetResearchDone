@@ -1202,6 +1202,105 @@ function cmdWorktreeHookRemove(
   output(result, raw, `Worktree hook: ${result.worktree_path}`);
 }
 
+// ─── Hook Handlers ────────────────────────────────────────────────────────────
+
+/**
+ * Hook handler for TeammateIdle events.
+ * Called when a teammate spawned via Agent tool becomes idle.
+ * Supports {continue: false, stopReason: "..."} response to stop the teammate.
+ *
+ * Environment variables from hook payload:
+ * - AGENT_ID: unique identifier of the idle agent
+ * - AGENT_TYPE: type of the agent (e.g., "task", "teammate")
+ */
+function cmdTeammateIdleHook(
+  _cwd: string,
+  raw: boolean
+): void {
+  const agentId = process.env.AGENT_ID || 'unknown';
+  const agentType = process.env.AGENT_TYPE || 'unknown';
+
+  // For now, allow all teammates to continue.
+  // Future: filter by agent_type to stop non-GRD agents or agents that have completed their work.
+  const result = {
+    ok: true,
+    hook: 'TeammateIdle',
+    agent_id: agentId,
+    agent_type: agentType,
+    action: 'continue',
+  };
+
+  if (raw) {
+    process.stdout.write(`TeammateIdle: agent=${agentId} type=${agentType} action=continue\n`);
+  } else {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }
+}
+
+/**
+ * Hook handler for TaskCompleted events.
+ * Called when a background task completes.
+ * Supports {continue: false, stopReason: "..."} response to stop the task.
+ *
+ * Environment variables from hook payload:
+ * - AGENT_ID: unique identifier of the completed task agent
+ * - AGENT_TYPE: type of the agent
+ */
+function cmdTaskCompletedHook(
+  _cwd: string,
+  raw: boolean
+): void {
+  const agentId = process.env.AGENT_ID || 'unknown';
+  const agentType = process.env.AGENT_TYPE || 'unknown';
+
+  const result = {
+    ok: true,
+    hook: 'TaskCompleted',
+    agent_id: agentId,
+    agent_type: agentType,
+    action: 'acknowledged',
+  };
+
+  if (raw) {
+    process.stdout.write(`TaskCompleted: agent=${agentId} type=${agentType}\n`);
+  } else {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }
+}
+
+/**
+ * Hook handler for InstructionsLoaded events.
+ * Called when CLAUDE.md or rules files are loaded.
+ * Used for plugin setup verification (e.g., confirm .planning/ exists).
+ *
+ * Environment variables from hook payload:
+ * - AGENT_ID: unique identifier of the agent loading instructions
+ * - AGENT_TYPE: type of the agent
+ */
+function cmdInstructionsLoadedHook(
+  cwd: string,
+  raw: boolean
+): void {
+  const agentId = process.env.AGENT_ID || 'unknown';
+  const agentType = process.env.AGENT_TYPE || 'unknown';
+  const planningDir = path.join(cwd, '.planning');
+  const planningExists = fs.existsSync(planningDir);
+
+  const result = {
+    ok: true,
+    hook: 'InstructionsLoaded',
+    agent_id: agentId,
+    agent_type: agentType,
+    planning_exists: planningExists,
+  };
+
+  if (raw) {
+    process.stdout.write(`InstructionsLoaded: agent=${agentId} planning=${planningExists}\n`);
+  } else {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1220,4 +1319,7 @@ module.exports = {
   cmdWorktreeMerge,
   cmdWorktreeHookCreate,
   cmdWorktreeHookRemove,
+  cmdTeammateIdleHook,
+  cmdTaskCompletedHook,
+  cmdInstructionsLoadedHook,
 };
