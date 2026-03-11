@@ -28,6 +28,9 @@ import type {
   BackendCapabilities,
   ModelTierMap,
   ModelTier,
+  ModelProfileName,
+  EffortLevel,
+  AgentEffortProfiles,
   WebMcpResult,
 } from './types';
 
@@ -122,6 +125,57 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     cron: false,
   },
 };
+
+// --- Effort Level Profiles ---------------------------------------------------
+
+/**
+ * Default effort levels per agent and profile. Mirrors MODEL_PROFILES in utils.ts
+ * but for the effort dimension. Effort controls reasoning depth in backends that
+ * support it (currently Claude Code v2.1.68+).
+ *
+ * Design intent (from REQ-92):
+ *   quality  => planners/executors get high (deep reasoning), verifiers get medium
+ *   balanced => planners get high, executors get medium, verifiers/lightweight agents get low
+ *   budget   => everything low (fast, minimal reasoning)
+ */
+const EFFORT_PROFILES: AgentEffortProfiles = {
+  'grd-planner':              { quality: 'high',   balanced: 'high',   budget: 'low' },
+  'grd-roadmapper':           { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-executor':             { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-phase-researcher':     { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-project-researcher':   { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-research-synthesizer': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-debugger':             { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-codebase-mapper':      { quality: 'medium', balanced: 'low',    budget: 'low' },
+  'grd-verifier':             { quality: 'medium', balanced: 'low',    budget: 'low' },
+  'grd-plan-checker':         { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-integration-checker':  { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-surveyor':             { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-deep-diver':           { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-feasibility-analyst':  { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-eval-planner':         { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-eval-reporter':        { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-product-owner':        { quality: 'high',   balanced: 'high',   budget: 'low' },
+  'grd-baseline-assessor':    { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-code-reviewer':        { quality: 'high',   balanced: 'medium', budget: 'low' },
+};
+
+/**
+ * Resolve the effort level for a given agent type and model profile.
+ *
+ * Returns the effort level from EFFORT_PROFILES for the given agent and profile.
+ * Unknown agent types return 'medium' as a safe default. Unknown profiles
+ * fall back to 'balanced', then to 'medium'.
+ *
+ * @param agentType - Agent type key (e.g., 'grd-executor', 'grd-planner')
+ * @param profile - Model profile name ('quality', 'balanced', or 'budget')
+ * @returns The effort level string: 'low', 'medium', or 'high'
+ */
+function resolveEffortLevel(agentType: string, profile: ModelProfileName): EffortLevel {
+  const agentEffort = EFFORT_PROFILES[agentType];
+  if (!agentEffort) return 'medium';
+  return agentEffort[profile] || agentEffort['balanced'] || 'medium';
+}
 
 // --- Internal Helpers --------------------------------------------------------
 
@@ -502,8 +556,10 @@ module.exports = {
   VALID_BACKENDS,
   DEFAULT_BACKEND_MODELS,
   BACKEND_CAPABILITIES,
+  EFFORT_PROFILES,
   detectBackend,
   resolveBackendModel,
+  resolveEffortLevel,
   getBackendCapabilities,
   parseOpenCodeModels,
   detectModels,
