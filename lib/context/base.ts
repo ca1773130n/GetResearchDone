@@ -109,9 +109,11 @@ function buildInitContext(
   const milestone = getMilestoneInfo(cwd);
   const phases_dir = path.relative(cwd, getPhasesDirPath(cwd));
   const research_dir = path.relative(cwd, getResearchDirPath(cwd));
+  const caps = getBackendCapabilities(backend);
   return {
     backend,
-    backend_capabilities: getBackendCapabilities(backend),
+    backend_capabilities: caps,
+    effort_supported: caps.effort === true,
     milestone_version: milestone.version,
     milestone_name: milestone.name,
     phases_dir,
