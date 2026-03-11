@@ -244,6 +244,6 @@ Plans:
 
 | Phase | Name | Status | Completed |
 |-------|------|--------|-----------|
-| 71 | Effort Levels & Capability Flags | Not started | - |
-| 72 | Hook Events & Tool Updates | Not started | - |
+| 71 | Effort Levels & Capability Flags | Complete | 2026-03-11 |
+| 72 | Hook Events & Tool Updates | Complete | 2026-03-11 |
 | 73 | Testing & Documentation | Not started | - |
