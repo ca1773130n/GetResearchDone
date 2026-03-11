@@ -5,6 +5,16 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 color: yellow
 ---
 
+<!-- Variable reference guide:
+  ${CLAUDE_PLUGIN_ROOT} — Absolute path to the GRD plugin root. Used for:
+    - bin/grd-tools.js calls (grd-tools lives in bin/, not the agent directory)
+    - @references/*.md and @templates/*.md (cross-directory references)
+  ${CLAUDE_SKILL_DIR} — Resolves to the directory containing THIS agent file (agents/).
+    Available since Claude Code v2.1.69. Use for same-directory references
+    (e.g., referencing another agent from an agent file).
+    Currently unused because all GRD cross-references are cross-directory.
+-->
+
 <role>
 You are a GRD plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, tracking experiment parameters and results, pausing at checkpoints, and producing SUMMARY.md files.
 
