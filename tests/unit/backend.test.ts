@@ -65,8 +65,10 @@ const {
   VALID_BACKENDS,
   DEFAULT_BACKEND_MODELS,
   BACKEND_CAPABILITIES,
+  EFFORT_PROFILES,
   detectBackend,
   resolveBackendModel,
+  resolveEffortLevel,
   getBackendCapabilities,
   parseOpenCodeModels,
   detectModels,
@@ -703,6 +705,14 @@ describe('lib/backend.js', () => {
       // After clear, re-detection should occur (still null for claude)
       expect(getCachedModels('claude')).toBeNull();
     });
+
+    test('returns cached result on second call within TTL', () => {
+      // First call populates cache
+      const first = getCachedModels('claude');
+      // Second call should return from cache (same result)
+      const second = getCachedModels('claude');
+      expect(second).toEqual(first);
+    });
   });
 
   // ─── resolveBackendModel with cwd (detection layer) ───────────────────
@@ -832,6 +842,34 @@ describe('lib/backend.js', () => {
       expect(result.reason).toBe('Disabled via environment variable');
     });
 
+    test('returns available: false when WEBMCP_AVAILABLE="false"', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
+      });
+      process.env.WEBMCP_AVAILABLE = 'false';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('env');
+      expect(result.reason).toBe('Disabled via environment variable');
+    });
+
+    test('returns available: false when WEBMCP_AVAILABLE="0"', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
+        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+          throw new Error('ENOENT');
+        }
+        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
+      });
+      process.env.WEBMCP_AVAILABLE = '0';
+      const result = detectWebMcp(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('env');
+      expect(result.reason).toBe('Disabled via environment variable');
+    });
+
     test('returns available: true, source: "mcp-config" when ~/.claude.json has matching server', () => {
       readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
         if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
@@ -921,6 +959,61 @@ describe('lib/backend.js', () => {
 
     test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (returns true)', () => {
       expect(getBackendCapabilities('unknown-backend').native_worktree_isolation).toBe(true);
+    });
+  });
+
+  // ─── EFFORT_PROFILES ────────────────────────────────────────────────────
+
+  describe('EFFORT_PROFILES', () => {
+    test('has entries for known agent types', () => {
+      expect(EFFORT_PROFILES['grd-executor']).toBeDefined();
+      expect(EFFORT_PROFILES['grd-planner']).toBeDefined();
+      expect(EFFORT_PROFILES['grd-verifier']).toBeDefined();
+    });
+
+    test('each entry has quality, balanced, budget keys', () => {
+      for (const [_agent, profile] of Object.entries(EFFORT_PROFILES)) {
+        expect(profile).toHaveProperty('quality');
+        expect(profile).toHaveProperty('balanced');
+        expect(profile).toHaveProperty('budget');
+      }
+    });
+
+    test('all effort values are low, medium, or high', () => {
+      const validLevels = ['low', 'medium', 'high'];
+      for (const [_agent, profile] of Object.entries(EFFORT_PROFILES)) {
+        const p = profile as Record<string, string>;
+        expect(validLevels).toContain(p.quality);
+        expect(validLevels).toContain(p.balanced);
+        expect(validLevels).toContain(p.budget);
+      }
+    });
+  });
+
+  // ─── resolveEffortLevel(agentType, profile) ─────────────────────────────
+
+  describe('resolveEffortLevel(agentType, profile)', () => {
+    test('returns correct effort for known agent and profile', () => {
+      const result = resolveEffortLevel('grd-executor', 'quality');
+      expect(['low', 'medium', 'high']).toContain(result);
+    });
+
+    test('returns medium for unknown agent type', () => {
+      expect(resolveEffortLevel('unknown-agent', 'quality')).toBe('medium');
+    });
+
+    test('falls back to balanced profile for unknown profile name', () => {
+      const balanced = resolveEffortLevel('grd-executor', 'balanced');
+      const unknown = resolveEffortLevel('grd-executor', 'nonexistent' as any);
+      expect(unknown).toBe(balanced);
+    });
+
+    test('returns effort for each valid profile', () => {
+      const profiles = ['quality', 'balanced', 'budget'] as const;
+      for (const profile of profiles) {
+        const result = resolveEffortLevel('grd-planner', profile);
+        expect(['low', 'medium', 'high']).toContain(result);
+      }
     });
   });
 });
