@@ -50,6 +50,9 @@ export interface BackendCapabilities {
   hooks: boolean;
   mcp: boolean;
   native_worktree_isolation: boolean;
+  effort: boolean;
+  http_hooks: boolean;
+  cron: boolean;
 }
 
 /**
