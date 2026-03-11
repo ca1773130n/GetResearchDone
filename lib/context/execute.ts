@@ -26,7 +26,7 @@ const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
   generateSlugInternal, getMilestoneInfo, resolveModelForAgent,
-  execGit, output, error,
+  resolveEffortForAgent, execGit, output, error,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -39,6 +39,7 @@ const {
   generateSlugInternal: (text: string) => string | null;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
+  resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => ExecGitResult;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (msg: string) => never;
@@ -132,6 +133,11 @@ function cmdInitExecutePhase(
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
     verifier_model: resolveModelInternal(cwd, 'grd-verifier'),
     reviewer_model: resolveModelInternal(cwd, 'grd-code-reviewer'),
+
+    // Effort levels (null if backend does not support effort)
+    executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
+    verifier_effort: resolveEffortForAgent(config, 'grd-verifier', cwd),
+    reviewer_effort: resolveEffortForAgent(config, 'grd-code-reviewer', cwd),
 
     // Config flags
     commit_docs: config.commit_docs,
@@ -340,6 +346,11 @@ function cmdInitPlanPhase(
     planner_model: resolveModelInternal(cwd, 'grd-planner'),
     checker_model: resolveModelInternal(cwd, 'grd-plan-checker'),
 
+    // Effort levels (null if backend does not support effort)
+    researcher_effort: resolveEffortForAgent(config, 'grd-phase-researcher', cwd),
+    planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
+    checker_effort: resolveEffortForAgent(config, 'grd-plan-checker', cwd),
+
     // Workflow flags
     research_enabled: config.research,
     plan_checker_enabled: config.plan_checker,
@@ -436,7 +447,9 @@ function cmdInitVerifyWork(cwd: string, phase: string, raw: boolean): void {
     backend,
     backend_capabilities: getBackendCapabilities(backend),
     planner_model: resolveModelInternal(cwd, 'grd-planner'),
+    planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
     checker_model: resolveModelInternal(cwd, 'grd-plan-checker'),
+    checker_effort: resolveEffortForAgent(config, 'grd-plan-checker', cwd),
     commit_docs: config.commit_docs,
     phase_found: !!phaseInfo,
     phase_dir: phaseInfo?.directory || null,
@@ -475,6 +488,7 @@ function cmdInitCodeReview(cwd: string, phase: string, raw: boolean): void {
     backend,
     backend_capabilities: getBackendCapabilities(backend),
     reviewer_model: resolveModelInternal(cwd, 'grd-code-reviewer'),
+    reviewer_effort: resolveEffortForAgent(config, 'grd-code-reviewer', cwd),
     code_review_enabled: config.code_review_enabled,
     code_review_timing: config.code_review_timing,
     code_review_severity_gate: config.code_review_severity_gate,
@@ -521,6 +535,7 @@ function cmdInitPhaseResearch(
     backend,
     backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelForAgent(config, 'researcher'),
+    researcher_effort: resolveEffortForAgent(config, 'grd-phase-researcher', cwd),
     phase_found: !!phaseInfo,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
