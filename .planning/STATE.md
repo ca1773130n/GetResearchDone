@@ -13,18 +13,18 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 - **Active phase:** Phase 72 — Hook Events & Tool Updates
-- **Current plan:** Plan 2 of 3 complete
+- **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [██████░░░░] 63%
-- **Next:** Execute 72-03-PLAN.md
+- **Progress:** [████████░░] 75%
+- **Next:** Execute 73-01-PLAN.md
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
-| 72 | Hook Events & Tool Updates | In progress (2/3 plans) |
+| 72 | Hook Events & Tool Updates | Complete (3/3 plans) |
 | 73 | Testing & Documentation | Not started |
 
 ## Shipped Milestones (v0.3.x series)
@@ -83,6 +83,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - [Phase 72]: CLAUDE_SKILL_DIR documented via HTML comments (invisible to agents, visible to maintainers)
 - [Phase 72]: Hook handlers placed in lib/worktree.ts alongside existing hook handlers for colocation
 - [Phase 72]: Used ROUTE_DESCRIPTORS for CLI routing; all hooks default to continue/acknowledge
+- **[72-03]** No CLAUDE_SKILL_DIR migration needed — all CLAUDE_PLUGIN_ROOT usages are cross-directory refs
 
 ## Known Bugs
 
@@ -94,10 +95,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 72-01 (hook event handlers: TeammateIdle, TaskCompleted, InstructionsLoaded)
-- **Stopped at:** Completed 72-01-PLAN.md
-- **Next action:** Execute 72-03-PLAN.md
-- **Context needed:** Phase 72 in progress; 3 new hook events registered in plugin.json; handlers in lib/worktree.ts
+- **Last action:** Completed 72-03 (CLAUDE_SKILL_DIR audit — zero migrations needed)
+- **Stopped at:** Completed 72-03-PLAN.md
+- **Next action:** Execute 73-01-PLAN.md
+- **Context needed:** Phase 72 complete; Phase 73 (Testing & Documentation) ready to start
 
 ## Accumulated Context
 
