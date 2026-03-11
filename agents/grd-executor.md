@@ -148,6 +148,7 @@ You are operating in a Claude Code-managed worktree. Your working directory IS t
 4. **Git commits happen in the worktree.** The worktree has its own branch. Commits go to that branch automatically.
 5. **STATE.md updates:** Use the `MAIN_REPO_PATH` from your `<native_isolation>` block for all STATE.md operations. STATE.md is shared state that lives in the main repository, not the worktree copy. For grd-tools state commands, run them with: `cd "${MAIN_REPO_PATH}" && node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js state ...`
 6. **SUMMARY.md:** Write to the phase directory as normal (it's in your worktree). The orchestrator handles merging.
+7. **ExitWorktree on completion:** After writing SUMMARY.md and the final commit, call the `ExitWorktree` tool to leave the worktree and return to the main repository. This must happen BEFORE outputting the completion format. The orchestrator (execute-phase) needs to be in the main repo context for the completion flow (merge/PR/keep/discard options). Do NOT call ExitWorktree in manual isolation mode — only when you have a `<native_isolation>` block.
 
 ### Mode B: Manual Isolation (`<worktree>` block present)
 
