@@ -134,6 +134,9 @@ const {
   cmdWorktreeMerge,
   cmdWorktreeHookCreate,
   cmdWorktreeHookRemove,
+  cmdTeammateIdleHook,
+  cmdTaskCompletedHook,
+  cmdInstructionsLoadedHook,
 }: {
   cmdWorktreeCreate: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
@@ -144,6 +147,9 @@ const {
   cmdWorktreeMerge: (cwd: string, options: Record<string, string | boolean | null>, raw: boolean) => void;
   cmdWorktreeHookCreate: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
   cmdWorktreeHookRemove: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
+  cmdTeammateIdleHook: (cwd: string, raw: boolean) => void;
+  cmdTaskCompletedHook: (cwd: string, raw: boolean) => void;
+  cmdInstructionsLoadedHook: (cwd: string, raw: boolean) => void;
 } = require('../lib/worktree');
 
 const { cmdPhaseAnalyzeDeps }: {
@@ -397,6 +403,9 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'decision-timeline', handler: (_args, cwd, raw) => cmdDecisionTimeline(cwd, raw) },
   { command: 'import-knowledge', handler: (args, cwd, raw) => { if (!args[1]) error('Source path required'); return cmdImportKnowledge(cwd, args[1], flag(args, '--types') || 'all', raw, args.includes('--force')); } },
   { command: 'todo-duplicates', handler: (args, cwd, raw) => { const t = flag(args, '--threshold'); return cmdTodoDuplicates(cwd, raw, t ? parseFloat(t) : undefined); } },
+  { command: 'teammate-idle-hook', handler: (_args, cwd, raw) => cmdTeammateIdleHook(cwd, raw) },
+  { command: 'task-completed-hook', handler: (_args, cwd, raw) => cmdTaskCompletedHook(cwd, raw) },
+  { command: 'instructions-loaded-hook', handler: (_args, cwd, raw) => cmdInstructionsLoadedHook(cwd, raw) },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1203,6 +1212,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         'dashboard', 'phase-detail', 'health', 'detect-backend', 'long-term-roadmap',
         'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
         'evolve', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'worktree-hook-create', 'worktree-hook-remove',
+        'teammate-idle-hook', 'task-completed-hook', 'instructions-loaded-hook',
         'coverage-report', 'health-check', 'markdown-split', 'parallel-progress',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
