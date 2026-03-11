@@ -622,6 +622,18 @@ After all waves:
 <step name="completion_flow" condition="branching_strategy != none">
 Present the user with 4 completion options for the worktree.
 
+**ExitWorktree (native isolation only):**
+
+Before presenting completion options, exit the worktree to return to the main repository context. This ensures all subsequent git operations (merge, PR, discard) run from the correct directory.
+
+When ISOLATION_MODE=native, call the ExitWorktree tool:
+
+```
+Use the ExitWorktree tool to leave the current worktree and return to the main repository.
+```
+
+This step is skipped when ISOLATION_MODE=manual (GRD manages worktree switching itself) or when branching_strategy=none.
+
 **When ISOLATION_MODE=native:**
 
 After all executor agents complete, determine the worktree branch name and path:
