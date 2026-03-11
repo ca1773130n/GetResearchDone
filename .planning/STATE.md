@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 - **Active phase:** Phase 71 — Effort Levels & Capability Flags
-- **Current plan:** Plan 2 of 3 complete
+- **Current plan:** Plan 3 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [██░░░░░░░░] 22%
-- **Next:** Execute 71-03-PLAN.md
+- **Progress:** [███░░░░░░░] 33%
+- **Next:** Execute 72-01-PLAN.md
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 71 | Effort Levels & Capability Flags | In progress (2/3 plans) |
+| 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
 | 72 | Hook Events & Tool Updates | Not started |
 | 73 | Testing & Documentation | Not started |
 
@@ -76,6 +76,9 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[71-02]** EffortLevel types in Backend Types section (not Utility) since effort is a backend capability
 - **[71-02]** Unknown agents default to 'medium' effort; resolveEffortForAgent returns null for unsupported backends
 - **[71-02]** Used untyped require for backend imports in utils.ts to match existing codebase patterns
+- **[71-03]** Every X_model field paired with X_effort field using resolveEffortForAgent
+- **[71-03]** Effort fields null (not omitted) when backend lacks effort support
+- **[71-03]** cron_available placed after claude_available in autopilot init as related capability flag
 
 ## Known Bugs
 
@@ -87,10 +90,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 71-02 (effort level profiles and resolution functions)
-- **Stopped at:** Completed 71-02-PLAN.md
-- **Next action:** Execute 71-03-PLAN.md (wire effort_level into cmdInit* JSON outputs)
-- **Context needed:** lib/backend.ts EFFORT_PROFILES + resolveEffortLevel; lib/utils.ts resolveEffortForAgent
+- **Last action:** Completed 71-03 (wired effort_level into all cmdInit* outputs)
+- **Stopped at:** Completed 71-03-PLAN.md
+- **Next action:** Execute 72-01-PLAN.md (Hook Events & Tool Updates)
+- **Context needed:** Phase 71 complete; effort_level fields in all init contexts; cron_available in autopilot init
 
 ## Accumulated Context
 
