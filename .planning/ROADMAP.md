@@ -227,8 +227,8 @@ Adopt Claude Code features added since v2.1.50: effort levels, new hook events, 
 **Plans:** 2 plans
 
 Plans:
-- [ ] 73-01-PLAN.md — Backend capability flag + effort level resolution tests
-- [ ] 73-02-PLAN.md — Init context tests + CLAUDE.md documentation updates
+- [x] 73-01-PLAN.md — Backend capability flag + effort level resolution tests
+- [x] 73-02-PLAN.md — Init context tests + CLAUDE.md documentation updates
 
 **Success Criteria:**
 
@@ -246,4 +246,4 @@ Plans:
 |-------|------|--------|-----------|
 | 71 | Effort Levels & Capability Flags | Complete | 2026-03-11 |
 | 72 | Hook Events & Tool Updates | Complete | 2026-03-11 |
-| 73 | Testing & Documentation | Not started | - |
+| 73 | Testing & Documentation | Complete | 2026-03-11 |
