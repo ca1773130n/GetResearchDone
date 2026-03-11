@@ -31,6 +31,21 @@ export type ModelTier = 'opus' | 'sonnet' | 'haiku';
 export type ModelProfileName = 'quality' | 'balanced' | 'budget';
 
 /**
+ * Effort levels for controlling reasoning depth in supported backends.
+ * Claude Code v2.1.68+: low (fast), medium (default for Opus 4.6), high (ultrathink).
+ */
+export type EffortLevel = 'low' | 'medium' | 'high';
+
+/**
+ * Maps agent types to effort level selections per model profile.
+ * Parallels AgentModelProfiles but for the effort dimension.
+ */
+export type AgentEffortProfiles = Record<
+  string,
+  Record<ModelProfileName, EffortLevel>
+>;
+
+/**
  * Maps abstract model tiers to backend-specific model name strings.
  */
 export interface ModelTierMap {
