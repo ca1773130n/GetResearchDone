@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-- **Active phase:** Phase 72 — Hook Events & Tool Updates
-- **Current plan:** Plan 3 of 3 complete
+- **Active phase:** Phase 73 — Testing & Documentation
+- **Current plan:** Plan 1 of 2 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [████████░░] 75%
-- **Next:** Execute 73-01-PLAN.md
+- **Progress:** [████████░░] 83%
+- **Next:** Execute 73-02-PLAN.md
 
 ## Phase Summary
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 |-------|------|--------|
 | 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
 | 72 | Hook Events & Tool Updates | Complete (3/3 plans) |
-| 73 | Testing & Documentation | Not started |
+| 73 | Testing & Documentation | In progress (1/2 plans) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -95,10 +95,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 72-03 (CLAUDE_SKILL_DIR audit — zero migrations needed)
-- **Stopped at:** Completed 72-03-PLAN.md
-- **Next action:** Execute 73-01-PLAN.md
-- **Context needed:** Phase 72 complete; Phase 73 (Testing & Documentation) ready to start
+- **Last action:** Completed 73-01 (backend capability flag & effort level test coverage)
+- **Stopped at:** Completed 73-01-PLAN.md
+- **Next action:** Execute 73-02-PLAN.md
+- **Context needed:** Phase 73 in progress; 73-01 added 20 tests for effort/http_hooks/cron flags
 
 ## Accumulated Context
 
