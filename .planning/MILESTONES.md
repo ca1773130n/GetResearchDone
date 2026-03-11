@@ -493,3 +493,13 @@
 
 ---
 
+
+## v0.3.7 Claude Code Feature Sync v0.3.7 Claude Code Feature Sync (Shipped: 2026-03-11)
+
+**Phases completed:** 3 phases, 8 plans, 8 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

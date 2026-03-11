@@ -1,27 +1,11 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-11
+**Updated:** 2026-03-12
 
-## Current Milestone: v0.3.7 Claude Code Feature Sync
+## Current Milestone: (none — v0.3.7 shipped)
 
-**Previous:** v0.3.6 Backend Ecosystem Sync (shipped 2026-03-11)
-
-**Goal:** Adopt Claude Code features added since v2.1.50 that GRD hasn't leveraged yet: effort levels, new hook events, HTTP hooks, `${CLAUDE_SKILL_DIR}`, `ExitWorktree` tool, cron/loop awareness, and auto-memory integration.
-
-**Target features:**
-- Add effort level support (low/medium/high) as second dimension alongside model tier in agent spawning
-- Add `effort` config per agent profile, defaulting to backend-appropriate levels
-- Register `TeammateIdle` and `TaskCompleted` hook events for teammate lifecycle control in parallel execution
-- Register `InstructionsLoaded` hook event for plugin setup verification
-- Add `agent_id`/`agent_type` metadata to hook event handling
-- Add `effort` capability flag to BACKEND_CAPABILITIES (Claude Code supports it, others may not)
-- Add `cron` and `http_hooks` capability flags to BACKEND_CAPABILITIES
-- Migrate command/skill file paths from `${CLAUDE_PLUGIN_ROOT}` to `${CLAUDE_SKILL_DIR}` where applicable
-- Update worktree completion flow to use `ExitWorktree` tool when available
-- Add cron/loop awareness: capability detection, evolve loop scheduling option
-- Document auto-memory interaction with GRD's STATE.md-based memory model
-- Update tests for all new capabilities and hook registrations
+**Previous:** v0.3.7 Claude Code Feature Sync (shipped 2026-03-12)
 
 ## Vision
 

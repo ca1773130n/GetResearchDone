@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **Active phase:** Phase 73 — Testing & Documentation
 - **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
-- **Status:** In progress
+- **Status:** v0.3.7 Claude Code Feature Sync milestone complete
 - **Progress:** [██████████] 100%
 - **Next:** Complete milestone v0.3.7
 
