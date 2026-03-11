@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **Current plan:** Plan 2 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [█████░░░░░] 50%
+- **Progress:** [██████░░░░] 63%
 - **Next:** Execute 72-03-PLAN.md
 
 ## Phase Summary
@@ -81,6 +81,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[71-03]** cron_available placed after claude_available in autopilot init as related capability flag
 - [Phase 72]: ExitWorktree placed before completion options to ensure main repo context for merge/PR/keep/discard
 - [Phase 72]: CLAUDE_SKILL_DIR documented via HTML comments (invisible to agents, visible to maintainers)
+- [Phase 72]: Hook handlers placed in lib/worktree.ts alongside existing hook handlers for colocation
+- [Phase 72]: Used ROUTE_DESCRIPTORS for CLI routing; all hooks default to continue/acknowledge
 
 ## Known Bugs
 
@@ -92,10 +94,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 72-02 (ExitWorktree + CLAUDE_SKILL_DIR documentation)
-- **Stopped at:** Completed 72-02-PLAN.md
+- **Last action:** Completed 72-01 (hook event handlers: TeammateIdle, TaskCompleted, InstructionsLoaded)
+- **Stopped at:** Completed 72-01-PLAN.md
 - **Next action:** Execute 72-03-PLAN.md
-- **Context needed:** Phase 72 in progress; ExitWorktree in completion flow; CLAUDE_SKILL_DIR documented
+- **Context needed:** Phase 72 in progress; 3 new hook events registered in plugin.json; handlers in lib/worktree.ts
 
 ## Accumulated Context
 
