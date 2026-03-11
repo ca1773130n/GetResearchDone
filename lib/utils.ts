@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
-const { detectBackend, resolveBackendModel } = require('./backend');
+const { detectBackend, resolveBackendModel, resolveEffortLevel, getBackendCapabilities } = require('./backend');
 const { phasesDir: getPhasesDirPath } = require('./paths');
 
 // ─── Git Operation Whitelist ────────────────────────────────────────────────
@@ -1042,6 +1042,22 @@ function resolveModelForAgent(config: GrdConfig, agentType: string, cwd?: string
   return tier;
 }
 
+/**
+ * Resolve effort level for a given agent type from project configuration.
+ * Returns null if the backend does not support effort levels.
+ * @param config - Project configuration
+ * @param agentType - Agent type key (e.g., 'grd-executor', 'grd-planner')
+ * @param cwd - Optional project working directory for backend detection
+ * @returns Effort level string ('low', 'medium', 'high') or null if unsupported
+ */
+function resolveEffortForAgent(config: GrdConfig, agentType: string, cwd?: string): string | null {
+  const backend = cwd ? detectBackend(cwd) : 'claude';
+  const caps = getBackendCapabilities(backend);
+  if (!caps.effort) return null;
+  const profile: ModelProfileName = (config.model_profile || 'balanced') as ModelProfileName;
+  return resolveEffortLevel(agentType, profile);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1095,6 +1111,7 @@ module.exports = {
   getMilestoneInfo,
   stripShippedSections,
   resolveModelForAgent,
+  resolveEffortForAgent,
   levenshteinDistance,
   findClosestCommand,
   clearPhaseCache,
