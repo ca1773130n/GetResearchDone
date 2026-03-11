@@ -11,13 +11,14 @@
 
 import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities, PreflightResult } from '../types';
 
-const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, output }: {
+const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, resolveEffortForAgent, output }: {
   fs: typeof import('fs'); path: typeof import('path');
   safeReadFile: (p: string) => string | null; loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   resolveModelInternal: (cwd: string, agent: string) => string; pathExistsInternal: (cwd: string, target: string) => boolean;
   generateSlugInternal: (text: string) => string | null; getMilestoneInfo: (cwd: string) => MilestoneInfo;
   findCodeFiles: (dir: string, maxDepth: number, found: string[], depth: number) => string[];
+  resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 const { detectBackend, getBackendCapabilities }: {
@@ -45,8 +46,11 @@ function cmdInitNewProject(cwd: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
+    researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
+    synthesizer_effort: resolveEffortForAgent(config, 'grd-research-synthesizer', cwd),
     roadmapper_model: resolveModelInternal(cwd, 'grd-roadmapper'),
+    roadmapper_effort: resolveEffortForAgent(config, 'grd-roadmapper', cwd),
     commit_docs: config.commit_docs,
     project_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'PROJECT.md')),
     has_codebase_map: fs.existsSync(getCodebaseDirPath(cwd)),
@@ -115,8 +119,11 @@ function cmdInitNewMilestone(cwd: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
+    researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
+    synthesizer_effort: resolveEffortForAgent(config, 'grd-research-synthesizer', cwd),
     roadmapper_model: resolveModelInternal(cwd, 'grd-roadmapper'),
+    roadmapper_effort: resolveEffortForAgent(config, 'grd-roadmapper', cwd),
     commit_docs: config.commit_docs, research_enabled: config.research,
     current_milestone: milestone.version, current_milestone_name: milestone.name,
     highest_archived_phase: highestArchivedPhase, highest_current_phase: highestCurrentPhase,
@@ -152,7 +159,9 @@ function cmdInitQuick(cwd: string, description: string | null, raw: boolean): vo
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     planner_model: resolveModelInternal(cwd, 'grd-planner'),
+    planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
+    executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
     commit_docs: config.commit_docs,
     next_num: nextNum, slug, description: description || null,
     date: now.toISOString().split('T')[0], timestamp: now.toISOString(),
@@ -331,6 +340,7 @@ function cmdInitMapCodebase(cwd: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     mapper_model: resolveModelInternal(cwd, 'grd-codebase-mapper'),
+    mapper_effort: resolveEffortForAgent(config, 'grd-codebase-mapper', cwd),
     commit_docs: config.commit_docs, search_gitignored: config.search_gitignored,
     parallelization: config.parallelization,
     codebase_dir: path.relative(cwd, codebaseDir),
