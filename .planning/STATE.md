@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-- **Active phase:** Phase 71 — Effort Levels & Capability Flags
-- **Current plan:** Plan 3 of 3 complete
+- **Active phase:** Phase 72 — Hook Events & Tool Updates
+- **Current plan:** Plan 2 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [████░░░░░░] 38%
-- **Next:** Execute 72-01-PLAN.md
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Execute 72-03-PLAN.md
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
-| 72 | Hook Events & Tool Updates | Not started |
+| 72 | Hook Events & Tool Updates | In progress (2/3 plans) |
 | 73 | Testing & Documentation | Not started |
 
 ## Shipped Milestones (v0.3.x series)
@@ -79,6 +79,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[71-03]** Every X_model field paired with X_effort field using resolveEffortForAgent
 - **[71-03]** Effort fields null (not omitted) when backend lacks effort support
 - **[71-03]** cron_available placed after claude_available in autopilot init as related capability flag
+- [Phase 72]: ExitWorktree placed before completion options to ensure main repo context for merge/PR/keep/discard
+- [Phase 72]: CLAUDE_SKILL_DIR documented via HTML comments (invisible to agents, visible to maintainers)
 
 ## Known Bugs
 
@@ -90,10 +92,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 71-03 (wired effort_level into all cmdInit* outputs)
-- **Stopped at:** Completed 71-03-PLAN.md
-- **Next action:** Execute 72-01-PLAN.md (Hook Events & Tool Updates)
-- **Context needed:** Phase 71 complete; effort_level fields in all init contexts; cron_available in autopilot init
+- **Last action:** Completed 72-02 (ExitWorktree + CLAUDE_SKILL_DIR documentation)
+- **Stopped at:** Completed 72-02-PLAN.md
+- **Next action:** Execute 72-03-PLAN.md
+- **Context needed:** Phase 72 in progress; ExitWorktree in completion flow; CLAUDE_SKILL_DIR documented
 
 ## Accumulated Context
 
