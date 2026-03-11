@@ -23,7 +23,7 @@ import type {
 const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveModelForAgent, output,
+  getMilestoneInfo, resolveModelForAgent, resolveEffortForAgent, output,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -35,6 +35,7 @@ const {
   pathExistsInternal: (cwd: string, target: string) => boolean;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
+  resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 
@@ -97,7 +98,9 @@ function cmdInitResearchWorkflow(
     roadmap_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'ROADMAP.md')),
     state_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'STATE.md')),
     researcher_model: resolveModelForAgent(config, 'researcher'),
+    researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     planner_model: resolveModelForAgent(config, 'planner'),
+    planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
     codebase_dir: path.relative(cwd, getCodebaseDirPath(cwd)),
@@ -228,6 +231,7 @@ function cmdInitAssessBaseline(cwd: string, raw: boolean): void {
 
   const result = buildInitContext(cwd, {
     assessor_model: resolveModelInternal(cwd, 'grd-baseline-assessor'),
+    assessor_effort: resolveEffortForAgent(config, 'grd-baseline-assessor', cwd),
     eval_config: (config as unknown as Record<string, unknown>).eval_config || {},
     autonomous_mode: config.autonomous_mode || false,
     baseline_exists: pathExistsInternal(cwd, path.join(planningDir, 'BASELINE.md')),
@@ -256,6 +260,7 @@ function cmdInitDeepDive(cwd: string, topic: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     deep_diver_model: resolveModelInternal(cwd, 'grd-deep-diver'),
+    deep_diver_effort: resolveEffortForAgent(config, 'grd-deep-diver', cwd),
     topic: topic || null,
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
@@ -280,6 +285,7 @@ function cmdInitEvalPlan(cwd: string, phase: string | null, raw: boolean): void 
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     eval_planner_model: resolveModelInternal(cwd, 'grd-eval-planner'),
+    eval_planner_effort: resolveEffortForAgent(config, 'grd-eval-planner', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
@@ -307,6 +313,7 @@ function cmdInitEvalReport(cwd: string, phase: string | null, raw: boolean): voi
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     eval_reporter_model: resolveModelInternal(cwd, 'grd-eval-reporter'),
+    eval_reporter_effort: resolveEffortForAgent(config, 'grd-eval-reporter', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
@@ -335,6 +342,7 @@ function cmdInitFeasibility(cwd: string, topic: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     feasibility_model: resolveModelInternal(cwd, 'grd-feasibility-analyst'),
+    feasibility_effort: resolveEffortForAgent(config, 'grd-feasibility-analyst', cwd),
     topic: topic || null,
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
@@ -357,6 +365,7 @@ function cmdInitProductOwner(cwd: string, raw: boolean): void {
 
   const result = buildInitContext(cwd, {
     product_owner_model: resolveModelInternal(cwd, 'grd-product-owner'),
+    product_owner_effort: resolveEffortForAgent(config, 'grd-product-owner', cwd),
     milestone_dir: (milestone as unknown as Record<string, unknown>).dir,
     project_exists: pathExistsInternal(cwd, path.join(planningDir, 'PROJECT.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(planningDir, 'ROADMAP.md')),
@@ -382,6 +391,7 @@ function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): voi
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
+    researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     topic: topic || null,
     milestone_version: milestone.version,
     project_exists: pathExistsInternal(cwd, path.join(planningDir, 'PROJECT.md')),
@@ -411,6 +421,7 @@ function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void {
 
   const result = buildInitContext(cwd, {
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
+    synthesizer_effort: resolveEffortForAgent(config, 'grd-research-synthesizer', cwd),
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
     benchmarks_exists: fs.existsSync(path.join(researchDir, 'BENCHMARKS.md')),
@@ -429,6 +440,7 @@ function cmdInitRoadmapper(cwd: string, raw: boolean): void {
 
   const result = buildInitContext(cwd, {
     roadmapper_model: resolveModelInternal(cwd, 'grd-roadmapper'),
+    roadmapper_effort: resolveEffortForAgent(config, 'grd-roadmapper', cwd),
     project_exists: pathExistsInternal(cwd, path.join(planningDir, 'PROJECT.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(planningDir, 'ROADMAP.md')),
     requirements_exists: pathExistsInternal(cwd, path.join(planningDir, 'REQUIREMENTS.md')),
@@ -451,6 +463,7 @@ function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     surveyor_model: resolveModelInternal(cwd, 'grd-surveyor'),
+    surveyor_effort: resolveEffortForAgent(config, 'grd-surveyor', cwd),
     topic: topic || null,
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
@@ -476,6 +489,7 @@ function cmdInitVerifier(cwd: string, phase: string | null, raw: boolean): void 
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     verifier_model: resolveModelInternal(cwd, 'grd-verifier'),
+    verifier_effort: resolveEffortForAgent(config, 'grd-verifier', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
