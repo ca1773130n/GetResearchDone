@@ -153,7 +153,7 @@ describe('lib/backend.js', () => {
       }
     });
 
-    test('each entry has subagents, parallel, teams, hooks, mcp, native_worktree_isolation keys', () => {
+    test('each entry has subagents, parallel, teams, hooks, mcp, native_worktree_isolation, effort, http_hooks, cron keys', () => {
       const requiredKeys = [
         'subagents',
         'parallel',
@@ -161,6 +161,9 @@ describe('lib/backend.js', () => {
         'hooks',
         'mcp',
         'native_worktree_isolation',
+        'effort',
+        'http_hooks',
+        'cron',
       ];
       for (const backend of VALID_BACKENDS) {
         for (const key of requiredKeys) {
@@ -959,6 +962,46 @@ describe('lib/backend.js', () => {
 
     test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (returns true)', () => {
       expect(getBackendCapabilities('unknown-backend').native_worktree_isolation).toBe(true);
+    });
+  });
+
+  // ─── BACKEND_CAPABILITIES effort/http_hooks/cron per backend ────────────
+
+  describe('BACKEND_CAPABILITIES effort/http_hooks/cron per backend', () => {
+    test('BACKEND_CAPABILITIES.claude.effort is true', () => {
+      expect(BACKEND_CAPABILITIES.claude.effort).toBe(true);
+    });
+
+    test('BACKEND_CAPABILITIES.claude.http_hooks is true', () => {
+      expect(BACKEND_CAPABILITIES.claude.http_hooks).toBe(true);
+    });
+
+    test('BACKEND_CAPABILITIES.claude.cron is true', () => {
+      expect(BACKEND_CAPABILITIES.claude.cron).toBe(true);
+    });
+
+    test('BACKEND_CAPABILITIES.codex.effort is false', () => {
+      expect(BACKEND_CAPABILITIES.codex.effort).toBe(false);
+    });
+
+    test('BACKEND_CAPABILITIES.gemini.effort is false', () => {
+      expect(BACKEND_CAPABILITIES.gemini.effort).toBe(false);
+    });
+
+    test('BACKEND_CAPABILITIES.opencode.effort is false', () => {
+      expect(BACKEND_CAPABILITIES.opencode.effort).toBe(false);
+    });
+
+    test('getBackendCapabilities("claude").effort returns true', () => {
+      expect(getBackendCapabilities('claude').effort).toBe(true);
+    });
+
+    test('getBackendCapabilities("codex").effort returns false', () => {
+      expect(getBackendCapabilities('codex').effort).toBe(false);
+    });
+
+    test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (effort: true)', () => {
+      expect(getBackendCapabilities('unknown-backend').effort).toBe(true);
     });
   });
 
