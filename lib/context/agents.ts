@@ -27,7 +27,7 @@ import type {
 const {
   fs, path, safeReadMarkdown, loadConfig,
   findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveModelForAgent, output, error,
+  getMilestoneInfo, resolveModelForAgent, resolveEffortForAgent, output, error,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -38,6 +38,7 @@ const {
   pathExistsInternal: (cwd: string, target: string) => boolean;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   resolveModelForAgent: (config: GrdConfig, agent: string, cwd?: string) => string;
+  resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (msg: string) => never;
 } = require('../utils');
@@ -226,6 +227,7 @@ function cmdInitPlanCheck(cwd: string, phase: string, raw: boolean): void {
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     checker_model: resolveModelForAgent(config, 'planner'),
+    checker_effort: resolveEffortForAgent(config, 'grd-plan-checker', cwd),
     phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
     plans: phaseInfo?.plans || [], plan_count: phaseInfo?.plans?.length || 0,
@@ -259,6 +261,7 @@ function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw:
   const result: Record<string, unknown> = {
     backend, backend_capabilities: getBackendCapabilities(backend),
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
+    executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
     commit_docs: config.commit_docs, parallelization: config.parallelization,
     use_teams: config.use_teams, team_timeout_minutes: config.team_timeout_minutes,
     phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
