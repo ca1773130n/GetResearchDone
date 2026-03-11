@@ -238,6 +238,112 @@ describe('cmdInitExecutePhase', () => {
       expect(result.base_branch).toBe('develop');
     });
   });
+
+  describe('effort_level fields', () => {
+    test('includes effort fields when backend supports effort (claude)', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      // Claude backend supports effort, so fields should be non-null strings
+      expect(result.executor_effort).toBeDefined();
+      expect(result.verifier_effort).toBeDefined();
+      expect(result.reviewer_effort).toBeDefined();
+      expect(['low', 'medium', 'high']).toContain(result.executor_effort);
+      expect(['low', 'medium', 'high']).toContain(result.verifier_effort);
+      expect(['low', 'medium', 'high']).toContain(result.reviewer_effort);
+    });
+
+    test('effort_supported is true in backend_capabilities for claude', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.backend_capabilities.effort).toBe(true);
+    });
+
+    test('effort values change based on model profile', () => {
+      // Fixture uses 'balanced' profile by default
+      const { stdout: balancedOut } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const balanced = JSON.parse(balancedOut);
+      // balanced profile: executor=medium, verifier=low (from EFFORT_PROFILES)
+      expect(balanced.executor_effort).toBe('medium');
+      expect(balanced.verifier_effort).toBe('low');
+    });
+
+    test('effort values reflect quality profile settings', () => {
+      // Create a tmpdir with quality profile
+      const qualityDir = createFixtureDir();
+      fs.writeFileSync(
+        path.join(qualityDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'quality',
+          branching_strategy: 'phase',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(qualityDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      // quality profile: executor=high, verifier=medium
+      expect(result.executor_effort).toBe('high');
+      expect(result.verifier_effort).toBe('medium');
+      cleanupFixtureDir(qualityDir);
+    });
+
+    test('effort values reflect budget profile settings', () => {
+      // Create a tmpdir with budget profile
+      const budgetDir = createFixtureDir();
+      fs.writeFileSync(
+        path.join(budgetDir, '.planning', 'config.json'),
+        JSON.stringify({
+          model_profile: 'budget',
+          branching_strategy: 'phase',
+          phase_branch_template: 'grd/{milestone}/{phase}-{slug}',
+          milestone_branch_template: 'grd/{milestone}-{slug}',
+        })
+      );
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(budgetDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      // budget profile: executor=low, verifier=low
+      expect(result.executor_effort).toBe('low');
+      expect(result.verifier_effort).toBe('low');
+      cleanupFixtureDir(budgetDir);
+    });
+  });
+
+  describe('cron_available in backend_capabilities', () => {
+    test('backend_capabilities includes cron flag', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      // Claude backend has cron: true
+      expect(result.backend_capabilities).toHaveProperty('cron');
+      expect(typeof result.backend_capabilities.cron).toBe('boolean');
+    });
+
+    test('cron is true for claude backend', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const result = JSON.parse(stdout);
+      expect(result.backend_capabilities.cron).toBe(true);
+    });
+
+    test('cron is false for non-claude backends', () => {
+      // Verify via BACKEND_CAPABILITIES directly
+      expect(BACKEND_CAPABILITIES.codex.cron).toBe(false);
+      expect(BACKEND_CAPABILITIES.gemini.cron).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.cron).toBe(false);
+    });
+  });
 });
 
 // ─── cmdInitPlanPhase ────────────────────────────────────────────────────────
@@ -280,6 +386,18 @@ describe('cmdInitPlanPhase', () => {
     );
     expect(exitCode).toBe(1);
     expect(stderr).toContain('phase required');
+  });
+
+  test('includes effort fields for plan-phase agents', () => {
+    const { stdout } = captureOutput(() =>
+      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
+    );
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('researcher_effort');
+    expect(result).toHaveProperty('planner_effort');
+    expect(result).toHaveProperty('checker_effort');
+    // Claude backend with balanced profile
+    expect(['low', 'medium', 'high']).toContain(result.planner_effort);
   });
 });
 
