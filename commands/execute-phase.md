@@ -3,6 +3,17 @@ description: Execute all plans in a phase using wave-based parallel execution
 argument-hint: <phase number>
 ---
 
+<!-- Variable reference guide:
+  ${CLAUDE_PLUGIN_ROOT} — Absolute path to the GRD plugin root. Used for:
+    - bin/grd-tools.js calls (grd-tools lives in bin/, not the skill directory)
+    - @references/*.md and @templates/*.md (cross-directory references)
+    - agents/*.md references from commands/ (cross-directory)
+  ${CLAUDE_SKILL_DIR} — Resolves to the directory containing THIS skill file (commands/).
+    Available since Claude Code v2.1.69. Use for same-directory references
+    (e.g., referencing another command from a command file).
+    Currently unused because all GRD cross-references are cross-directory.
+-->
+
 <purpose>
 Execute all plans in a phase using wave-based parallel execution. Orchestrator stays lean — delegates plan execution to subagents. After execution, auto-triggers eval report if EVAL.md exists and tracks experiment parameters in commit messages.
 </purpose>
