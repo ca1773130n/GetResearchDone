@@ -18,7 +18,7 @@ import type {
 const {
   fs, path, safeReadFile, safeReadMarkdown, loadConfig,
   resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, output,
+  getMilestoneInfo, resolveEffortForAgent, output,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -28,6 +28,7 @@ const {
   resolveModelInternal: (cwd: string, agent: string) => string;
   pathExistsInternal: (cwd: string, target: string) => boolean;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
+  resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 
@@ -191,7 +192,9 @@ function cmdInitProgress(
     backend,
     backend_capabilities: getBackendCapabilities(backend),
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
+    executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
     planner_model: resolveModelInternal(cwd, 'grd-planner'),
+    planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
     commit_docs: config.commit_docs,
     milestone_version: milestone.version,
     milestone_name: milestone.name,
