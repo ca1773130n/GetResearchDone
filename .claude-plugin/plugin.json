@@ -38,6 +38,39 @@
           }
         ]
       }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js\" teammate-idle-hook 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js\" task-completed-hook 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js\" instructions-loaded-hook 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
