@@ -28,6 +28,10 @@ const { loadConfig, findPhaseInternal, output, getMilestoneInfo }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('./utils');
+const { detectBackend, getBackendCapabilities }: {
+  detectBackend: (cwd: string) => string;
+  getBackendCapabilities: (backend: string) => import('./types').BackendCapabilities;
+} = require('./backend');
 const { analyzeRoadmap }: {
   analyzeRoadmap: (cwd: string) => {
     error?: string;
@@ -986,8 +990,12 @@ function cmdInitAutopilot(cwd: string, raw: boolean): void {
     (p) => (p as { disk_status?: string }).disk_status !== 'complete' && !p.roadmap_complete
   );
 
+  const backend = detectBackend(cwd);
+  const caps = getBackendCapabilities(backend);
+
   const result = {
     claude_available: claudeAvailable,
+    cron_available: caps.cron === true,
     total_phases: phases.length,
     incomplete_phases: incomplete.length,
     phase_range: {
