@@ -175,6 +175,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: true,
+        effort: true,
+        http_hooks: true,
+        cron: true,
       });
     });
 
@@ -186,6 +189,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
@@ -197,6 +203,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
@@ -208,6 +217,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
@@ -490,6 +502,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: true,
+        effort: true,
+        http_hooks: true,
+        cron: true,
       });
     });
 
@@ -501,6 +516,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
@@ -512,6 +530,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
@@ -523,6 +544,9 @@ describe('lib/backend.js', () => {
         hooks: true,
         mcp: true,
         native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
       });
     });
 
