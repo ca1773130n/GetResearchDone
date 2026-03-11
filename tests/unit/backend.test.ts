@@ -1036,19 +1036,61 @@ describe('lib/backend.js', () => {
   // ─── resolveEffortLevel(agentType, profile) ─────────────────────────────
 
   describe('resolveEffortLevel(agentType, profile)', () => {
-    test('returns correct effort for known agent and profile', () => {
-      const result = resolveEffortLevel('grd-executor', 'quality');
-      expect(['low', 'medium', 'high']).toContain(result);
+    // --- Matrix tests: agentRole x profile -> expectedEffort ---
+
+    test.each([
+      // grd-planner: quality=high, balanced=high, budget=low
+      ['grd-planner', 'quality', 'high'],
+      ['grd-planner', 'balanced', 'high'],
+      ['grd-planner', 'budget', 'low'],
+      // grd-executor: quality=high, balanced=medium, budget=low
+      ['grd-executor', 'quality', 'high'],
+      ['grd-executor', 'balanced', 'medium'],
+      ['grd-executor', 'budget', 'low'],
+      // grd-verifier: quality=medium, balanced=low, budget=low
+      ['grd-verifier', 'quality', 'medium'],
+      ['grd-verifier', 'balanced', 'low'],
+      ['grd-verifier', 'budget', 'low'],
+      // grd-deep-diver: quality=high, balanced=medium, budget=low
+      ['grd-deep-diver', 'quality', 'high'],
+      ['grd-deep-diver', 'balanced', 'medium'],
+      ['grd-deep-diver', 'budget', 'low'],
+      // grd-product-owner: quality=high, balanced=high, budget=low
+      ['grd-product-owner', 'quality', 'high'],
+      ['grd-product-owner', 'balanced', 'high'],
+      ['grd-product-owner', 'budget', 'low'],
+      // grd-code-reviewer: quality=high, balanced=medium, budget=low
+      ['grd-code-reviewer', 'quality', 'high'],
+      ['grd-code-reviewer', 'balanced', 'medium'],
+      ['grd-code-reviewer', 'budget', 'low'],
+    ])('resolveEffortLevel("%s", "%s") returns "%s"', (agent, profile, expected) => {
+      expect(resolveEffortLevel(agent, profile)).toBe(expected);
     });
+
+    // --- Edge cases ---
 
     test('returns medium for unknown agent type', () => {
       expect(resolveEffortLevel('unknown-agent', 'quality')).toBe('medium');
+    });
+
+    test('returns medium for completely unknown agent type with balanced profile', () => {
+      expect(resolveEffortLevel('nonexistent-agent', 'balanced')).toBe('medium');
     });
 
     test('falls back to balanced profile for unknown profile name', () => {
       const balanced = resolveEffortLevel('grd-executor', 'balanced');
       const unknown = resolveEffortLevel('grd-executor', 'nonexistent' as any);
       expect(unknown).toBe(balanced);
+    });
+
+    test('returns medium for undefined agent type', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(resolveEffortLevel(undefined as any, 'quality')).toBe('medium');
+    });
+
+    test('returns medium for null agent type', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(resolveEffortLevel(null as any, 'quality')).toBe('medium');
     });
 
     test('returns effort for each valid profile', () => {
