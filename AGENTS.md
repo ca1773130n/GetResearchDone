@@ -225,6 +225,15 @@ Toggle with `/grd:settings yolo`. When enabled:
 - Agent makes its own decisions using available context
 - All decisions are logged for review
 
+## Memory Model
+
+GRD uses a dual-memory architecture:
+
+- **STATE.md** (structured, persistent) — Project decisions, metrics, deferred validations, phase progress, and accumulated context. Read/written by GRD tools. Source of truth for project state across sessions.
+- **Auto-memory** (Claude Code native, session-level) — Claude Code's `/memory` command (v2.1.59+) manages session-level context automatically. Stores user preferences, workflow patterns, and frequently-used context.
+
+**Interaction model:** STATE.md and auto-memory are complementary, not competing. STATE.md handles project-specific structured data that must survive across milestones. Auto-memory handles ephemeral session preferences. GRD never reads or writes auto-memory directly — it operates exclusively through STATE.md and .planning/ files.
+
 ## Tracker Integration (GitHub / MCP Atlassian)
 
 When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
@@ -271,16 +280,16 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 
 ## Agent Model Profiles
 
-| Agent | Quality | Balanced | Budget |
-|-------|---------|----------|--------|
-| grd-planner | opus | opus | sonnet |
-| grd-executor | opus | sonnet | sonnet |
-| grd-surveyor | opus | sonnet | sonnet |
-| grd-deep-diver | opus | sonnet | haiku |
-| grd-eval-planner | opus | opus | sonnet |
-| grd-product-owner | opus | opus | sonnet |
-| grd-code-reviewer | opus | sonnet | haiku |
-| grd-verifier | sonnet | sonnet | haiku |
+| Agent | Quality | Balanced | Budget | Effort (Quality) | Effort (Balanced) | Effort (Budget) |
+|-------|---------|----------|--------|-------------------|-------------------|-----------------|
+| grd-planner | opus | opus | sonnet | high | high | low |
+| grd-executor | opus | sonnet | sonnet | high | medium | low |
+| grd-surveyor | opus | sonnet | sonnet | medium | medium | low |
+| grd-deep-diver | opus | sonnet | haiku | high | medium | low |
+| grd-eval-planner | opus | opus | sonnet | high | medium | low |
+| grd-product-owner | opus | opus | sonnet | high | high | low |
+| grd-code-reviewer | opus | sonnet | haiku | high | medium | low |
+| grd-verifier | sonnet | sonnet | haiku | medium | low | low |
 
 ## Configuration
 
@@ -295,6 +304,19 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `git` — Worktree isolation (enabled, worktree_dir, base_branch, branch_template)
 - `phase_cleanup` — Phase-boundary quality analysis (complexity, dead exports, file size, doc drift, test coverage gaps, export consistency, doc staleness, config schema drift)
 - Standard GSD settings (parallelization, gates, safety)
+
+## Hook Events
+
+GRD registers hooks in `.claude-plugin/plugin.json` for Claude Code lifecycle events:
+
+| Event | When | GRD Usage |
+|-------|------|-----------|
+| SessionStart | Claude Code session begins | Verify .planning/ exists |
+| WorktreeCreate | Native worktree created | Copy .planning/ to worktree |
+| WorktreeRemove | Native worktree removed | Clean up worktree state |
+| TeammateIdle | Teammate has no pending work | Available for task routing |
+| TaskCompleted | A task finishes execution | Progress tracking, next-step routing |
+| InstructionsLoaded | Instructions/CLAUDE.md loaded | Context verification |
 
 ## Git Isolation
 
@@ -362,5 +384,5 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 
 
 ---
-*Last synced by HarnessSync: 2026-03-07 02:03:59 UTC*
+*Last synced by HarnessSync: 2026-03-11 01:04:21 UTC*
 <!-- End HarnessSync managed content -->
