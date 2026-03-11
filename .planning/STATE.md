@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 - **Active phase:** Phase 73 — Testing & Documentation
-- **Current plan:** Plan 1 of 2 complete
+- **Current plan:** Plan 2 of 2 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [████████░░] 83%
-- **Next:** Execute 73-02-PLAN.md
+- **Progress:** [██████████] 100%
+- **Next:** Complete milestone v0.3.7
 
 ## Phase Summary
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 |-------|------|--------|
 | 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
 | 72 | Hook Events & Tool Updates | Complete (3/3 plans) |
-| 73 | Testing & Documentation | In progress (1/2 plans) |
+| 73 | Testing & Documentation | Complete (2/2 plans) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -59,7 +59,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Cumulative:**
 - Milestones shipped: 24 (v0.0.5 through v0.3.6)
-- Total tests: ~2,850
+- Total tests: ~2,930
 - Total lib/ modules: 25 (22 top-level .ts + 3 decomposed sub-module directories)
 - Total commands: 40
 - Total lib/ LOC: ~20,320
@@ -84,6 +84,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - [Phase 72]: Hook handlers placed in lib/worktree.ts alongside existing hook handlers for colocation
 - [Phase 72]: Used ROUTE_DESCRIPTORS for CLI routing; all hooks default to continue/acknowledge
 - **[72-03]** No CLAUDE_SKILL_DIR migration needed — all CLAUDE_PLUGIN_ROOT usages are cross-directory refs
+- **[73-02]** Effort values in CLAUDE.md sourced from EFFORT_PROFILES in backend.ts for accuracy
+- **[73-02]** cron_available tested via backend_capabilities in context init (covers all backends)
 
 ## Known Bugs
 
@@ -95,10 +97,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 73-01 (backend capability flag & effort level test coverage)
-- **Stopped at:** Completed 73-01-PLAN.md
-- **Next action:** Execute 73-02-PLAN.md
-- **Context needed:** Phase 73 in progress; 73-01 added 20 tests for effort/http_hooks/cron flags
+- **Last action:** Completed 73-02 (context tests & CLAUDE.md documentation updates)
+- **Stopped at:** Completed 73-02-PLAN.md
+- **Next action:** Complete milestone v0.3.7
+- **Context needed:** All 3 phases complete (71, 72, 73); ready for milestone completion
 
 ## Accumulated Context
 
