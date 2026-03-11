@@ -13,17 +13,17 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 - **Active phase:** Phase 71 — Effort Levels & Capability Flags
-- **Current plan:** Plan 1 of 3 complete
+- **Current plan:** Plan 2 of 3 complete
 - **Milestone:** v0.3.7 Claude Code Feature Sync
 - **Status:** In progress
-- **Progress:** [█░░░░░░░░░] 11%
-- **Next:** Execute 71-02-PLAN.md
+- **Progress:** [██░░░░░░░░] 22%
+- **Next:** Execute 71-03-PLAN.md
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 71 | Effort Levels & Capability Flags | In progress (1/3 plans) |
+| 71 | Effort Levels & Capability Flags | In progress (2/3 plans) |
 | 72 | Hook Events & Tool Updates | Not started |
 | 73 | Testing & Documentation | Not started |
 
@@ -73,6 +73,9 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
 - **[71-01]** Only Claude gets true for effort/http_hooks/cron capability flags; other backends false
 - **[71-01]** Removed premature unused imports from backend.ts to pass lint
+- **[71-02]** EffortLevel types in Backend Types section (not Utility) since effort is a backend capability
+- **[71-02]** Unknown agents default to 'medium' effort; resolveEffortForAgent returns null for unsupported backends
+- **[71-02]** Used untyped require for backend imports in utils.ts to match existing codebase patterns
 
 ## Known Bugs
 
@@ -84,10 +87,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 71-01 (capability flags for effort/http_hooks/cron)
-- **Stopped at:** Completed 71-01-PLAN.md
-- **Next action:** Execute 71-02-PLAN.md (effort level profiles and resolution)
-- **Context needed:** lib/backend.ts EFFORT_PROFILES (already partially added externally); lib/types.ts EffortLevel type
+- **Last action:** Completed 71-02 (effort level profiles and resolution functions)
+- **Stopped at:** Completed 71-02-PLAN.md
+- **Next action:** Execute 71-03-PLAN.md (wire effort_level into cmdInit* JSON outputs)
+- **Context needed:** lib/backend.ts EFFORT_PROFILES + resolveEffortLevel; lib/utils.ts resolveEffortForAgent
 
 ## Accumulated Context
 
