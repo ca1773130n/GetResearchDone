@@ -88,6 +88,12 @@ describe('compareSemver', () => {
     expect(compareSemver('1.0', '1.0.0')).toBe(0);
     expect(compareSemver('1.1', '1.0.0')).toBe(1);
   });
+
+  test('strips pre-release suffixes before comparing', () => {
+    expect(compareSemver('0.8.0-beta.1', '0.8.0')).toBe(0);
+    expect(compareSemver('0.7.9-rc.1', '0.8.0')).toBe(-1);
+    expect(compareSemver('1.0.0-alpha', '0.9.9')).toBe(1);
+  });
 });
 
 // ─── DEFAULT_OVERSTORY_CONFIG ─────────────────────────────────────────────────
@@ -526,7 +532,7 @@ describe('mergeAgent', () => {
 
     const [cmd, args] = mockExecFileSync.mock.calls[0];
     expect(cmd).toBe('ov');
-    expect(args).toEqual(['merge', 'ov-agent-abc123']);
+    expect(args).toEqual(['merge', 'ov-agent-abc123', '--json']);
   });
 
   test('returns MergeResult with conflicts when merge has conflicts', () => {
@@ -646,7 +652,7 @@ describe('nudgeAgent', () => {
     expect(mockExecFileSync).toHaveBeenCalledTimes(1);
     const [cmd, args] = mockExecFileSync.mock.calls[0];
     expect(cmd).toBe('ov');
-    expect(args).toEqual(['nudge', 'ov-agent-abc123', 'Please focus on the failing tests.']);
+    expect(args).toEqual(['nudge', 'ov-agent-abc123', '--', 'Please focus on the failing tests.']);
   });
 });
 

@@ -26,8 +26,9 @@ const { execFileSync } = require('child_process');
 const MIN_VERSION = '0.8.0';
 
 function compareSemver(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
+  // Strip pre-release suffixes (e.g. '0.8.0-beta.1' -> '0.8.0')
+  const pa = a.split('-')[0].split('.').map(Number);
+  const pb = b.split('-')[0].split('.').map(Number);
   for (let i = 0; i < 3; i++) {
     const va = pa[i] || 0;
     const vb = pb[i] || 0;
@@ -102,6 +103,7 @@ function installOverstory(cwd: string): void {
 }
 
 function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
+  // plan_path is consumed via the overlay; timeout_minutes is enforced by GRD's poll loop (ov stop)
   const args = [
     'sling', `GRD plan ${opts.plan_id}: execute plan`,
     '--runtime', opts.runtime,
@@ -109,7 +111,7 @@ function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
     '--overlay', opts.overlay_path,
   ];
   const stdout: string = execFileSync('ov', args, {
-    cwd, timeout: 30000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as SlingResult;
 }
@@ -129,7 +131,8 @@ function getFleetStatus(cwd: string): FleetStatus {
 }
 
 function mergeAgent(cwd: string, agentId: string): MergeResult {
-  const stdout: string = execFileSync('ov', ['merge', agentId], {
+  // ov merge outputs JSON by default per Overstory's CLI contract
+  const stdout: string = execFileSync('ov', ['merge', agentId, '--json'], {
     cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as MergeResult;
@@ -150,7 +153,7 @@ function getAgentMail(cwd: string, agentId: string): OverstoryMailMessage[] {
 }
 
 function nudgeAgent(cwd: string, agentId: string, message: string): void {
-  execFileSync('ov', ['nudge', agentId, message], {
+  execFileSync('ov', ['nudge', agentId, '--', message], {
     cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
