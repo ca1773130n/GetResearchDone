@@ -34,6 +34,7 @@ module.exports = {
     './lib/tracker.ts': { lines: 84, functions: 89, branches: 70 },
     './lib/utils.ts': { lines: 92, functions: 95, branches: 85 },
     './lib/verify.ts': { lines: 85, functions: 100, branches: 70 },
+    './lib/overstory.ts': { lines: 90, functions: 90, branches: 80 },
     './lib/worktree.ts': { lines: 84, functions: 100, branches: 72 },
   },
   testTimeout: 15000,

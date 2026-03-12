@@ -64,7 +64,10 @@ function detectOverstory(cwd: string): OverstoryInfo | null {
   let version: string;
   try {
     const stdout: string = execFileSync('ov', ['--version'], {
-      cwd, timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd,
+      timeout: 5000,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
     version = stdout.trim().replace(/^v/, '');
   } catch {
@@ -87,45 +90,68 @@ function detectOverstory(cwd: string): OverstoryInfo | null {
 function installOverstory(cwd: string): void {
   try {
     execFileSync('bun', ['--version'], {
-      timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 5000,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch {
-    throw new Error('Overstory requires Bun. Install via: curl -fsSL https://bun.sh/install | bash');
+    throw new Error(
+      'Overstory requires Bun. Install via: curl -fsSL https://bun.sh/install | bash'
+    );
   }
 
   execFileSync('bun', ['install', '-g', 'overstory'], {
-    cwd, timeout: 120000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 120000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 
   execFileSync('ov', ['init'], {
-    cwd, timeout: 30000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 30000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
 
 function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
   // plan_path is consumed via the overlay; timeout_minutes is enforced by GRD's poll loop (ov stop)
   const args = [
-    'sling', `GRD plan ${opts.plan_id}: execute plan`,
-    '--runtime', opts.runtime,
-    '--model', opts.model,
-    '--overlay', opts.overlay_path,
+    'sling',
+    `GRD plan ${opts.plan_id}: execute plan`,
+    '--runtime',
+    opts.runtime,
+    '--model',
+    opts.model,
+    '--overlay',
+    opts.overlay_path,
   ];
   const stdout: string = execFileSync('ov', args, {
-    cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 60000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as SlingResult;
 }
 
 function getAgentStatus(cwd: string, agentId: string): AgentStatus {
   const stdout: string = execFileSync('ov', ['status', agentId, '--json'], {
-    cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 10000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as AgentStatus;
 }
 
 function getFleetStatus(cwd: string): FleetStatus {
   const stdout: string = execFileSync('ov', ['status', '--json'], {
-    cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 10000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as FleetStatus;
 }
@@ -133,20 +159,29 @@ function getFleetStatus(cwd: string): FleetStatus {
 function mergeAgent(cwd: string, agentId: string): MergeResult {
   // ov merge outputs JSON by default per Overstory's CLI contract
   const stdout: string = execFileSync('ov', ['merge', agentId, '--json'], {
-    cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 60000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   return JSON.parse(stdout) as MergeResult;
 }
 
 function stopAgent(cwd: string, agentId: string): void {
   execFileSync('ov', ['stop', agentId], {
-    cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 10000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
 
 function getAgentMail(cwd: string, agentId: string): OverstoryMailMessage[] {
   const stdout: string = execFileSync('ov', ['mail', '--agent', agentId, '--json'], {
-    cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 10000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   const parsed = JSON.parse(stdout) as { messages: OverstoryMailMessage[] };
   return parsed.messages;
@@ -154,7 +189,10 @@ function getAgentMail(cwd: string, agentId: string): OverstoryMailMessage[] {
 
 function nudgeAgent(cwd: string, agentId: string, message: string): void {
   execFileSync('ov', ['nudge', agentId, '--', message], {
-    cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+    cwd,
+    timeout: 10000,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
 

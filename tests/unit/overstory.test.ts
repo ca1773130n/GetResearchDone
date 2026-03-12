@@ -614,7 +614,11 @@ describe('getAgentMail', () => {
     const result = getAgentMail(tmpDir, 'ov-agent-abc123');
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({ type: 'status', body: 'Starting plan execution...', ts: 1700000001000 });
+    expect(result[0]).toEqual({
+      type: 'status',
+      body: 'Starting plan execution...',
+      ts: 1700000001000,
+    });
     expect(result[1].type).toBe('progress');
 
     const [cmd, args] = mockExecFileSync.mock.calls[0];
