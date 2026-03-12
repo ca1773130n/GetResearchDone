@@ -1,5 +1,5 @@
 <!-- Managed by HarnessSync -->
-# Rules synced from Claude Code
+# Project Conventions (synced from Claude Code)
 
 # [Project rules from CLAUDE.md]
 

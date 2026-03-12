@@ -1,5 +1,5 @@
 <!-- Managed by HarnessSync -->
-# Rules synced from Claude Code
+# Rules (synced from Claude Code by HarnessSync)
 
 # [Project rules from CLAUDE.md]
 
@@ -384,5 +384,5 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 
 
 ---
-*Last synced by HarnessSync: 2026-03-12 21:46:50 UTC*
+*Last synced: 2026-03-12 21:46:50 UTC*
 <!-- End HarnessSync managed content -->

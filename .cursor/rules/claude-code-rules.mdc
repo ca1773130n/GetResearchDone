@@ -1,5 +1,30 @@
+---
+description: Synced from Claude Code by HarnessSync
+alwaysApply: true
+---
+
+---
+description: Synced from Claude Code by HarnessSync
+alwaysApply: true
+---
+
+---
+description: Synced from Claude Code by HarnessSync
+alwaysApply: true
+---
+
+---
+description: Synced from Claude Code by HarnessSync
+alwaysApply: true
+---
+
+---
+description: Synced from Claude Code by HarnessSync
+alwaysApply: true
+---
+
 <!-- Managed by HarnessSync -->
-# Rules synced from Claude Code
+<!-- Last synced: 2026-03-12 21:46:50 UTC -->
 
 # [Project rules from CLAUDE.md]
 
@@ -383,6 +408,4 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 - `bin/grd-manifest.ts` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
 
 
----
-*Last synced by HarnessSync: 2026-03-12 21:46:50 UTC*
 <!-- End HarnessSync managed content -->

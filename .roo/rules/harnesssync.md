@@ -1,5 +1,4 @@
-<!-- Managed by HarnessSync -->
-# Rules synced from Claude Code
+# HarnessSync Rules
 
 # [Project rules from CLAUDE.md]
 
@@ -383,6 +382,4 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 - `bin/grd-manifest.ts` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
 
 
----
 *Last synced by HarnessSync: 2026-03-12 21:46:50 UTC*
-<!-- End HarnessSync managed content -->
