@@ -51,6 +51,11 @@ const { detectBackend, getBackendCapabilities, detectWebMcp }: {
     detectWebMcp: (cwd: string) => WebMcpResult;
   } = require('../backend');
 
+const { detectOverstory, loadOverstoryConfig }: {
+  detectOverstory: (cwd: string) => import('../types').OverstoryInfo | null;
+  loadOverstoryConfig: (cwd: string) => import('../types').OverstoryConfig;
+} = require('../overstory');
+
 const { worktreePath }: {
   worktreePath: (cwd: string, m: string, p: string) => string;
 } = require('../worktree');
@@ -272,6 +277,11 @@ function cmdInitExecutePhase(
     // Native worktree isolation capability (Phase 45)
     native_worktree_available:
       getBackendCapabilities(backend).native_worktree_isolation === true,
+
+    // Overstory backend fields
+    overstory_available: backend === 'overstory' ? (detectOverstory(cwd) !== null) : false,
+    overstory_runtime: backend === 'overstory' ? loadOverstoryConfig(cwd).runtime : null,
+    overstory_config: backend === 'overstory' ? loadOverstoryConfig(cwd) : null,
 
     // Isolation mode and main repo path (Phase 46)
     isolation_mode:
