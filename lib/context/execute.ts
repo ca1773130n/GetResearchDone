@@ -128,6 +128,7 @@ function cmdInitExecutePhase(
   const phaseInfo = findPhaseInternal(cwd, phase);
   const milestone = getMilestoneInfo(cwd);
   const webmcp = detectWebMcp(cwd);
+  const overstoryConfig = backend === 'overstory' ? loadOverstoryConfig(cwd) : null;
 
   const result: Record<string, unknown> = {
     // Backend
@@ -278,18 +279,21 @@ function cmdInitExecutePhase(
     native_worktree_available:
       getBackendCapabilities(backend).native_worktree_isolation === true,
 
-    // Overstory backend fields
+    // Overstory backend fields (load config once to avoid triple disk read)
     overstory_available: backend === 'overstory' ? (detectOverstory(cwd) !== null) : false,
-    overstory_runtime: backend === 'overstory' ? loadOverstoryConfig(cwd).runtime : null,
-    overstory_config: backend === 'overstory' ? loadOverstoryConfig(cwd) : null,
+    overstory_runtime: overstoryConfig ? overstoryConfig.runtime : null,
+    overstory_config: overstoryConfig,
 
     // Isolation mode and main repo path (Phase 46)
+    // Overstory must be checked before native_worktree_isolation (which is true for overstory)
     isolation_mode:
       config.branching_strategy === 'none'
         ? 'none'
-        : getBackendCapabilities(backend).native_worktree_isolation === true
-          ? 'native'
-          : 'manual',
+        : backend === 'overstory'
+          ? 'overstory'
+          : getBackendCapabilities(backend).native_worktree_isolation === true
+            ? 'native'
+            : 'manual',
     main_repo_path: config.branching_strategy !== 'none' ? fs.realpathSync(cwd) : null,
   };
 
