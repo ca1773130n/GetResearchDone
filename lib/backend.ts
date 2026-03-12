@@ -49,6 +49,7 @@ const VALID_BACKENDS: readonly BackendId[] = [
   'codex',
   'gemini',
   'opencode',
+  'overstory',
 ];
 
 /**
@@ -73,6 +74,7 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
     sonnet: 'anthropic/claude-sonnet-4-6',
     haiku: 'anthropic/claude-haiku-4-5',
   },
+  overstory: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku' },
 };
 
 /**
@@ -120,6 +122,17 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     hooks: true,
     mcp: true,
     native_worktree_isolation: false,
+    effort: false,
+    http_hooks: false,
+    cron: false,
+  },
+  overstory: {
+    subagents: true,
+    parallel: true,
+    teams: true,
+    hooks: false,
+    mcp: true,
+    native_worktree_isolation: true,
     effort: false,
     http_hooks: false,
     cron: false,
@@ -254,6 +267,9 @@ function detectBackend(cwd: string): BackendId {
   }
 
   // Step 2: Environment variable detection
+  // Overstory detection (before Claude — takes priority when both present)
+  if (process.env.OVERSTORY_HOME || process.env.OVERSTORY_SESSION)
+    return 'overstory';
   if (hasEnvPrefix('CLAUDE_CODE_')) return 'claude';
   // CODEX_THREAD_ID: may be deprecated in newer Codex CLI versions (no docs mention
   // as of March 2026), but kept for backward compatibility with older installations.
@@ -265,6 +281,8 @@ function detectBackend(cwd: string): BackendId {
   if (process.env.OPENCODE) return 'opencode';
 
   // Step 3: Filesystem clues
+  if (fileExists(path.join(cwd, '.overstory', 'config.yaml')))
+    return 'overstory';
   if (fileExists(path.join(cwd, '.claude-plugin', 'plugin.json')))
     return 'claude';
   if (fileExists(path.join(cwd, '.codex', 'config.toml'))) return 'codex';

@@ -18,7 +18,7 @@
 /**
  * Valid backend identifiers for AI coding CLI detection.
  */
-export type BackendId = 'claude' | 'codex' | 'gemini' | 'opencode';
+export type BackendId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'overstory';
 
 /**
  * Abstract model tiers mapped to backend-specific model names.
@@ -459,6 +459,76 @@ export interface AutoplanResult {
   prompt: string; // The prompt that was (or would be) sent to claude -p
   milestone_name?: string; // Derived or overridden milestone name
   reason?: string; // Failure reason if status is 'failed'
+}
+
+// ─── Overstory Types (from overstory.ts) ─────────────────────────────────────
+
+export interface OverstoryInfo {
+  available: boolean;
+  version: string;
+  config_path: string;
+  max_agents: number;
+  default_runtime: string;
+  worktree_base: string;
+}
+
+export interface SlingOpts {
+  plan_path: string;
+  overlay_path: string;
+  runtime: string;
+  model: string;
+  phase_number: string;
+  plan_id: string;
+  milestone: string;
+  timeout_minutes: number;
+}
+
+export interface SlingResult {
+  agent_id: string;
+  worktree_path: string;
+  branch: string;
+  tmux_session: string;
+  runtime: string;
+}
+
+export interface AgentStatus {
+  agent_id: string;
+  state: 'pending' | 'running' | 'done' | 'failed' | 'stopped';
+  exit_code: number | null;
+  duration_ms: number;
+  worktree_path: string;
+  branch: string;
+  runtime: string;
+  model: string;
+}
+
+export interface FleetStatus {
+  agents: AgentStatus[];
+  active_count: number;
+  completed_count: number;
+  failed_count: number;
+}
+
+export interface MergeResult {
+  merged: boolean;
+  conflicts: string[];
+  branch: string;
+  commit_sha: string | null;
+  error: string | null;
+}
+
+export interface OverstoryConfig {
+  runtime: string;
+  install_prompt: boolean;
+  poll_interval_ms: number;
+  merge_strategy: 'auto' | 'manual';
+  overlay_template: string | null;
+}
+
+export interface OverstoryMailMessage {
+  type: string;
+  body: string;
+  ts: number;
 }
 
 module.exports = {};

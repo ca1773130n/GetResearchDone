@@ -24,6 +24,8 @@ const DETECTION_ENV_VARS: string[] = [
   'GEMINI_CLI_HOME',
   'OPENCODE',
   'AGENT',
+  'OVERSTORY_HOME',
+  'OVERSTORY_SESSION',
 ];
 
 interface TempDirOpts {
@@ -85,19 +87,19 @@ describe('lib/backend.js', () => {
       expect(Array.isArray(VALID_BACKENDS)).toBe(true);
     });
 
-    test('contains exactly 4 backends', () => {
-      expect(VALID_BACKENDS).toHaveLength(4);
+    test('contains exactly 5 backends', () => {
+      expect(VALID_BACKENDS).toHaveLength(5);
     });
 
-    test('contains claude, codex, gemini, opencode', () => {
-      expect(VALID_BACKENDS).toEqual(['claude', 'codex', 'gemini', 'opencode']);
+    test('contains claude, codex, gemini, opencode, overstory', () => {
+      expect(VALID_BACKENDS).toEqual(['claude', 'codex', 'gemini', 'opencode', 'overstory']);
     });
   });
 
   // ─── DEFAULT_BACKEND_MODELS ─────────────────────────────────────────────
 
   describe('DEFAULT_BACKEND_MODELS', () => {
-    test('has entries for all 4 backends', () => {
+    test('has entries for all 5 backends', () => {
       for (const backend of VALID_BACKENDS) {
         expect(DEFAULT_BACKEND_MODELS).toHaveProperty(backend);
       }
@@ -142,12 +144,20 @@ describe('lib/backend.js', () => {
         haiku: 'anthropic/claude-haiku-4-5',
       });
     });
+
+    test('overstory maps to opus, sonnet, haiku', () => {
+      expect(DEFAULT_BACKEND_MODELS.overstory).toEqual({
+        opus: 'opus',
+        sonnet: 'sonnet',
+        haiku: 'haiku',
+      });
+    });
   });
 
   // ─── BACKEND_CAPABILITIES ──────────────────────────────────────────────
 
   describe('BACKEND_CAPABILITIES', () => {
-    test('has entries for all 4 backends', () => {
+    test('has entries for all 5 backends', () => {
       for (const backend of VALID_BACKENDS) {
         expect(BACKEND_CAPABILITIES).toHaveProperty(backend);
       }
@@ -228,6 +238,20 @@ describe('lib/backend.js', () => {
       });
     });
 
+    test('overstory has subagents true, parallel true, teams true, hooks false, mcp true, native_worktree_isolation true', () => {
+      expect(BACKEND_CAPABILITIES.overstory).toEqual({
+        subagents: true,
+        parallel: true,
+        teams: true,
+        hooks: false,
+        mcp: true,
+        native_worktree_isolation: true,
+        effort: false,
+        http_hooks: false,
+        cron: false,
+      });
+    });
+
     // ─── native_worktree_isolation capability ──────────────────────────────
 
     test('claude has native_worktree_isolation: true', () => {
@@ -263,7 +287,9 @@ describe('lib/backend.js', () => {
           key === 'CODEX_THREAD_ID' ||
           key === 'GEMINI_CLI_HOME' ||
           key === 'OPENCODE' ||
-          key === 'AGENT'
+          key === 'AGENT' ||
+          key === 'OVERSTORY_HOME' ||
+          key === 'OVERSTORY_SESSION'
         ) {
           delete process.env[key];
         }
@@ -313,6 +339,22 @@ describe('lib/backend.js', () => {
       expect(detectBackend(tmpDir)).toBe('opencode');
     });
 
+    test('returns "overstory" when OVERSTORY_HOME is set', () => {
+      process.env.OVERSTORY_HOME = '/home/user/.overstory';
+      expect(detectBackend(tmpDir)).toBe('overstory');
+    });
+
+    test('returns "overstory" when OVERSTORY_SESSION is set', () => {
+      process.env.OVERSTORY_SESSION = 'session-abc';
+      expect(detectBackend(tmpDir)).toBe('overstory');
+    });
+
+    test('overstory env var takes priority over CLAUDE_CODE_ env vars', () => {
+      process.env.OVERSTORY_HOME = '/home/user/.overstory';
+      process.env.CLAUDE_CODE_ENTRYPOINT = 'plugin';
+      expect(detectBackend(tmpDir)).toBe('overstory');
+    });
+
     // --- Config override (highest priority) ---
 
     test('returns value from config.backend when set (highest priority)', () => {
@@ -326,6 +368,13 @@ describe('lib/backend.js', () => {
       cleanupTempDir(tmpDir);
       tmpDir = createTempDir({ config: { backend: 'gemini' } });
       expect(detectBackend(tmpDir)).toBe('gemini');
+    });
+
+    test('config.backend takes precedence over OVERSTORY_HOME', () => {
+      process.env.OVERSTORY_HOME = '/home/user/.overstory';
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { backend: 'claude' } });
+      expect(detectBackend(tmpDir)).toBe('claude');
     });
 
     test('ignores invalid config.backend values (not in VALID_BACKENDS)', () => {
@@ -380,6 +429,12 @@ describe('lib/backend.js', () => {
       cleanupTempDir(tmpDir);
       tmpDir = createTempDir({ files: ['opencode.json'] });
       expect(detectBackend(tmpDir)).toBe('opencode');
+    });
+
+    test('returns "overstory" when .overstory/config.yaml exists', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ files: ['.overstory/config.yaml'] });
+      expect(detectBackend(tmpDir)).toBe('overstory');
     });
 
     test('filesystem clues only checked when env vars do not match', () => {
