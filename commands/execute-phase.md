@@ -84,6 +84,21 @@ GRD manages the worktree explicitly (v0.2.5 behavior). Preserve existing worktre
 - All executor agents will receive `WORKTREE_PATH` and operate within it.
 - The main checkout remains clean on its original branch.
 
+**Mode C: overstory (isolation_mode='overstory')**
+
+Overstory manages agent lifecycle, worktrees, and merging. GRD dispatches plans via `ov sling`.
+
+- Record: `ISOLATION_MODE=overstory`
+- Record: `MAIN_REPO_PATH` from init JSON
+- Load: `OVERSTORY_CONFIG` from init JSON `overstory_config`
+- **Stale overlay cleanup:** Remove any leftover files matching `.planning/.tmp/overlay-*.md` from prior crashed runs
+- Verify: `overstory_available` is true from init JSON. If false:
+  - Check if `OVERSTORY_CONFIG.install_prompt` is true
+  - If yes: prompt user "Overstory CLI not found. Install? (bun install -g overstory)"
+  - On confirm: run `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js overstory install`, then re-detect
+  - On decline or if install_prompt is false: fall back to Mode A (native) or Mode B (manual) with warning
+- No worktree pre-creation — Overstory handles this via `ov sling`
+
 **When `branching_strategy` is `"none"`:** Skip this step entirely. Continue on the current directory with no worktree isolation (backwards compatible). No `ISOLATION_MODE` is set.
 </step>
 
@@ -506,6 +521,50 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    ```
 
    **When branching_strategy=none:** No isolation block at all in the prompt. Omit both `<worktree>` and `<native_isolation>` blocks, and do not set `isolation` parameter on the Task call. Include `<phase_context>` block in all modes. The executor operates in the normal working directory.
+
+**If ISOLATION_MODE is 'overstory':**
+
+For each wave:
+
+1. **Generate overlays:**
+   For each plan in wave:
+   - Read PLAN.md content from phase directory
+   - Generate overlay via lib/overstory.ts `generateOverlay(planContent, context)`
+   - Write overlay to `.planning/.tmp/overlay-${PHASE_NUMBER}-${PLAN_ID}.md`
+
+2. **Dispatch workers:**
+   For each plan in wave:
+   - Call `ov sling "GRD plan ${PLAN_ID}: execute plan" --runtime ${OVERSTORY_CONFIG.runtime} --model ${EXECUTOR_MODEL} --overlay <overlay_path>`
+   - Parse JSON result: record `agent_id`, `worktree_path`, `branch` per plan
+
+3. **Poll for completion:**
+   Every `OVERSTORY_CONFIG.poll_interval_ms` (default 5000ms):
+   - Run `ov status --json`, filter to dispatched agent_ids
+   - For each agent with `state: 'running'`:
+     a. Check mail: `ov mail --agent ${agent_id} --json`
+     b. If checkpoint messages found (type='checkpoint'):
+        - Surface checkpoint body to user
+        - Get user response
+        - Send via `ov nudge ${agent_id} -- "${response}"`
+   - For each agent with `state: 'done'`:
+     a. **Copy SUMMARY.md from worktree BEFORE merge:**
+        `cp ${agent.worktree_path}/${PHASE_DIR}/${PLAN_ID}-SUMMARY.md ${MAIN_REPO_PATH}/${PHASE_DIR}/`
+     b. Run `ov merge ${agent_id} --json` — parse MergeResult
+     c. If `merged: false`: log conflict to SUMMARY.md, warn user
+   - For each agent with `state: 'failed'`:
+     a. Log failure, copy any partial SUMMARY.md
+     b. Mark plan as failed in status tracker
+   - Check timeout: if any agent exceeds `team_timeout_minutes`, run `ov stop ${agent_id}`
+
+4. **Wave complete:**
+   - Clean up overlay files: remove `.planning/.tmp/overlay-${PHASE_NUMBER}-*.md`
+   - Code review (if timing=per_wave): run as normal
+   - Proceed to next wave
+
+5. **Phase complete:**
+   - Clean up `.planning/.tmp/` if empty
+   - Record metrics via `state record-metric`
+   - Trigger eval report if EVAL.md exists
 
 3. **Wait for all agents in wave to complete.**
 
