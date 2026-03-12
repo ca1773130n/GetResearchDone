@@ -629,6 +629,12 @@ describe('lib/backend.js', () => {
     test('returns claude capabilities for null backend', () => {
       expect(getBackendCapabilities(null)).toEqual(BACKEND_CAPABILITIES.claude);
     });
+
+    test('overstory backend gets parallel mode support (teams: true, native_worktree_isolation: true)', () => {
+      const caps = getBackendCapabilities('overstory');
+      expect(caps.teams).toBe(true);
+      expect(caps.native_worktree_isolation).toBe(true);
+    });
   });
 
   // ─── parseOpenCodeModels(stdout) ──────────────────────────────────────
