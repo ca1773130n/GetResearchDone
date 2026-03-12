@@ -156,6 +156,11 @@ const { cmdPhaseAnalyzeDeps }: {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 } = require('../lib/deps');
 
+const { detectOverstory, installOverstory }: {
+  detectOverstory: (cwd: string) => Record<string, unknown> | null;
+  installOverstory: (cwd: string) => void;
+} = require('../lib/overstory');
+
 const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot }: {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
@@ -1201,6 +1206,23 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
     case 'parallel-progress':
       cmdParallelProgress(args.slice(1), raw);
       break;
+    case 'overstory': {
+      const sub = validateSubcommand(args[1] || '', ['detect', 'install'], 'overstory');
+
+      if (sub === 'detect') {
+        const result = detectOverstory(cwd);
+        output(result || { available: false, reason: 'Overstory not detected' }, raw);
+      } else if (sub === 'install') {
+        try {
+          installOverstory(cwd);
+          output({ ok: true, message: 'Overstory installed and initialized' }, raw);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          output({ ok: false, error: msg }, raw);
+        }
+      }
+      break;
+    }
     default: {
       const TOP_LEVEL_COMMANDS: readonly string[] = [
         'state', 'resolve-model', 'find-phase', 'commit', 'verify-summary',
@@ -1213,7 +1235,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
         'evolve', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'worktree-hook-create', 'worktree-hook-remove',
         'teammate-idle-hook', 'task-completed-hook', 'instructions-loaded-hook',
-        'coverage-report', 'health-check', 'markdown-split', 'parallel-progress',
+        'coverage-report', 'health-check', 'markdown-split', 'parallel-progress', 'overstory',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';
