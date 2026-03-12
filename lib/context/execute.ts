@@ -23,10 +23,21 @@ import type {
 } from '../types';
 
 const {
-  fs, path, safeReadFile, safeReadMarkdown, loadConfig,
-  findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  generateSlugInternal, getMilestoneInfo, resolveModelForAgent,
-  resolveEffortForAgent, execGit, output, error,
+  fs,
+  path,
+  safeReadFile,
+  safeReadMarkdown,
+  loadConfig,
+  findPhaseInternal,
+  resolveModelInternal,
+  pathExistsInternal,
+  generateSlugInternal,
+  getMilestoneInfo,
+  resolveModelForAgent,
+  resolveEffortForAgent,
+  execGit,
+  output,
+  error,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -45,29 +56,46 @@ const {
   error: (msg: string) => never;
 } = require('../utils');
 
-const { detectBackend, getBackendCapabilities, detectWebMcp }: {
-    detectBackend: (cwd: string) => string;
-    getBackendCapabilities: (b: string) => BackendCapabilities;
-    detectWebMcp: (cwd: string) => WebMcpResult;
-  } = require('../backend');
+const {
+  detectBackend,
+  getBackendCapabilities,
+  detectWebMcp,
+}: {
+  detectBackend: (cwd: string) => string;
+  getBackendCapabilities: (b: string) => BackendCapabilities;
+  detectWebMcp: (cwd: string) => WebMcpResult;
+} = require('../backend');
 
-const { detectOverstory, loadOverstoryConfig }: {
-  detectOverstory: (cwd: string) => import('../types').OverstoryInfo | null;
+const {
+  detectOverstory,
+  loadOverstoryConfig,
+}: {
+  detectOverstory: (
+    cwd: string,
+    preloadedConfig?: import('../types').OverstoryConfig
+  ) => import('../types').OverstoryInfo | null;
   loadOverstoryConfig: (cwd: string) => import('../types').OverstoryConfig;
 } = require('../overstory');
 
-const { worktreePath }: {
+const {
+  worktreePath,
+}: {
   worktreePath: (cwd: string, m: string, p: string) => string;
 } = require('../worktree');
 
-const { runPreflightGates }: {
+const {
+  runPreflightGates,
+}: {
   runPreflightGates: (cwd: string, cmd: string, opts?: Record<string, unknown>) => PreflightResult;
 } = require('../gates');
 
 const {
-  planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
-  researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
-  todosDir: getTodosDirPath, quickDir: getQuickDirPath,
+  planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  researchDir: getResearchDirPath,
+  codebaseDir: getCodebaseDirPath,
+  todosDir: getTodosDirPath,
+  quickDir: getQuickDirPath,
   standardsDir: getStandardsDirPath,
 }: {
   planningDir: (cwd: string) => string;
@@ -79,7 +107,9 @@ const {
   standardsDir: (cwd: string) => string;
 } = require('../paths');
 
-const { inferCeremonyLevel }: {
+const {
+  inferCeremonyLevel,
+}: {
   inferCeremonyLevel: (config: GrdConfig, phaseInfo: PhaseInfo | null, cwd: string) => string;
 } = require('./base');
 
@@ -90,9 +120,7 @@ function _readPhaseFile(cwd: string, phaseDir: string, suffix: string): string |
   const phaseDirFull = path.join(cwd, phaseDir);
   try {
     const files: string[] = fs.readdirSync(phaseDirFull);
-    const match = files.find(
-      (f: string) => f.endsWith(suffix) || f === suffix.replace(/^-/, '')
-    );
+    const match = files.find((f: string) => f.endsWith(suffix) || f === suffix.replace(/^-/, ''));
     if (match) return safeReadMarkdown(path.join(phaseDirFull, match));
   } catch {
     // Phase directory may not exist yet
@@ -112,7 +140,9 @@ function cmdInitExecutePhase(
   raw: boolean
 ): void {
   if (!phase) {
-    error('phase required for init execute-phase. Usage: init execute-phase <phase-number>. Run `grd-tools roadmap get-phase` to list available phases, then pass the phase number, e.g.: init execute-phase 2');
+    error(
+      'phase required for init execute-phase. Usage: init execute-phase <phase-number>. Run `grd-tools roadmap get-phase` to list available phases, then pass the phase number, e.g.: init execute-phase 2'
+    );
     return;
   }
 
@@ -125,6 +155,7 @@ function cmdInitExecutePhase(
 
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
+  const backendCaps = getBackendCapabilities(backend);
   const phaseInfo = findPhaseInternal(cwd, phase);
   const milestone = getMilestoneInfo(cwd);
   const webmcp = detectWebMcp(cwd);
@@ -133,7 +164,7 @@ function cmdInitExecutePhase(
   const result: Record<string, unknown> = {
     // Backend
     backend,
-    backend_capabilities: getBackendCapabilities(backend),
+    backend_capabilities: backendCaps,
 
     // Models
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
@@ -193,9 +224,7 @@ function cmdInitExecutePhase(
           : null,
 
     // Worktree fields (computed, not created)
-    worktree_path: phaseInfo
-      ? worktreePath(cwd, milestone.version, phaseInfo.phase_number)
-      : null,
+    worktree_path: phaseInfo ? worktreePath(cwd, milestone.version, phaseInfo.phase_number) : null,
     worktree_branch:
       config.branching_strategy !== 'none' && phaseInfo
         ? (config.phase_branch_template || 'grd/{milestone}/{phase}-{slug}')
@@ -276,22 +305,23 @@ function cmdInitExecutePhase(
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
 
     // Native worktree isolation capability (Phase 45)
+    // For overstory, this is false — Overstory manages its own worktrees, not Claude Code
     native_worktree_available:
-      getBackendCapabilities(backend).native_worktree_isolation === true,
+      backend !== 'overstory' && backendCaps.native_worktree_isolation === true,
 
-    // Overstory backend fields (load config once to avoid triple disk read)
-    overstory_available: backend === 'overstory' ? (detectOverstory(cwd) !== null) : false,
+    // Overstory backend fields (config preloaded, pass to detectOverstory to avoid re-read)
+    overstory_available:
+      backend === 'overstory' ? detectOverstory(cwd, overstoryConfig ?? undefined) !== null : false,
     overstory_runtime: overstoryConfig ? overstoryConfig.runtime : null,
     overstory_config: overstoryConfig,
 
     // Isolation mode and main repo path (Phase 46)
-    // Overstory must be checked before native_worktree_isolation (which is true for overstory)
     isolation_mode:
       config.branching_strategy === 'none'
         ? 'none'
         : backend === 'overstory'
           ? 'overstory'
-          : getBackendCapabilities(backend).native_worktree_isolation === true
+          : backendCaps.native_worktree_isolation === true
             ? 'native'
             : 'manual',
     main_repo_path: config.branching_strategy !== 'none' ? fs.realpathSync(cwd) : null,
@@ -320,7 +350,11 @@ function cmdInitExecutePhase(
     if (ctx) result.context_content = ctx;
   }
 
-  output(result, raw, `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, milestone: ${result.milestone_version}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, milestone: ${result.milestone_version}`
+  );
 }
 
 // ─── Plan-Phase Init ─────────────────────────────────────────────────────────
@@ -328,14 +362,11 @@ function cmdInitExecutePhase(
 /**
  * CLI command: Initialize plan-phase context with models, workflow flags, and existing artifacts.
  */
-function cmdInitPlanPhase(
-  cwd: string,
-  phase: string,
-  includes: Set<string>,
-  raw: boolean
-): void {
+function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw: boolean): void {
   if (!phase) {
-    error('phase required for init plan-phase. Usage: init plan-phase <phase-number>. Pass the phase number as an argument, e.g.: init plan-phase 01');
+    error(
+      'phase required for init plan-phase. Usage: init plan-phase <phase-number>. Pass the phase number as an argument, e.g.: init plan-phase 01'
+    );
     return;
   }
 
@@ -406,7 +437,9 @@ function cmdInitPlanPhase(
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
   };
 
-  if (gates.warnings.length > 0) { result.gate_warnings = gates.warnings; }
+  if (gates.warnings.length > 0) {
+    result.gate_warnings = gates.warnings;
+  }
 
   // Include file contents if requested via --include
   if (includes.has('state')) {
@@ -489,7 +522,9 @@ function cmdInitVerifyWork(cwd: string, phase: string, raw: boolean): void {
  */
 function cmdInitCodeReview(cwd: string, phase: string, raw: boolean): void {
   if (!phase) {
-    error('phase required for init code-review. Usage: init code-review <phase-number>. Provide a phase number, e.g.: init code-review 2');
+    error(
+      'phase required for init code-review. Usage: init code-review <phase-number>. Provide a phase number, e.g.: init code-review 2'
+    );
     return;
   }
 
@@ -520,7 +555,11 @@ function cmdInitCodeReview(cwd: string, phase: string, raw: boolean): void {
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
   };
 
-  output(result, raw, `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`
+  );
 }
 
 // ─── Phase-Research Init ─────────────────────────────────────────────────────
@@ -535,7 +574,9 @@ function cmdInitPhaseResearch(
   raw: boolean
 ): void {
   if (!phase) {
-    error('phase required for init phase-research. Usage: init phase-research <phase-number>. Provide a phase number, e.g.: init phase-research 2');
+    error(
+      'phase required for init phase-research. Usage: init phase-research <phase-number>. Provide a phase number, e.g.: init phase-research 2'
+    );
     return;
   }
 

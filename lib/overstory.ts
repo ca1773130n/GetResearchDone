@@ -22,8 +22,10 @@ import type {
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { safeReadJSON }: { safeReadJSON: (p: string, d: unknown) => unknown } = require('./utils');
 
 const MIN_VERSION = '0.8.0';
+const OV_MAX_AGENTS = 25;
 
 function compareSemver(a: string, b: string): number {
   // Strip pre-release suffixes (e.g. '0.8.0-beta.1' -> '0.8.0')
@@ -38,6 +40,16 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
+/** Run an `ov` CLI command synchronously and return stdout. */
+function ovExec(cwd: string, args: string[], timeout: number): string {
+  return execFileSync('ov', args, {
+    cwd,
+    timeout,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  }) as string;
+}
+
 const DEFAULT_OVERSTORY_CONFIG: OverstoryConfig = {
   runtime: 'claude',
   install_prompt: true,
@@ -47,41 +59,33 @@ const DEFAULT_OVERSTORY_CONFIG: OverstoryConfig = {
 };
 
 function loadOverstoryConfig(cwd: string): OverstoryConfig {
-  try {
-    const raw = fs.readFileSync(path.join(cwd, '.planning', 'config.json'), 'utf-8');
-    const config = JSON.parse(raw) as Record<string, unknown>;
-    const ov = (config.overstory || {}) as Partial<OverstoryConfig>;
-    return { ...DEFAULT_OVERSTORY_CONFIG, ...ov };
-  } catch {
-    return { ...DEFAULT_OVERSTORY_CONFIG };
-  }
+  const parsed = safeReadJSON(path.join(cwd, '.planning', 'config.json'), {}) as Record<
+    string,
+    unknown
+  >;
+  const ov = (parsed.overstory || {}) as Partial<OverstoryConfig>;
+  return { ...DEFAULT_OVERSTORY_CONFIG, ...ov };
 }
 
-function detectOverstory(cwd: string): OverstoryInfo | null {
+function detectOverstory(cwd: string, preloadedConfig?: OverstoryConfig): OverstoryInfo | null {
   const configPath = path.join(cwd, '.overstory', 'config.yaml');
   if (!fs.existsSync(configPath)) return null;
 
   let version: string;
   try {
-    const stdout: string = execFileSync('ov', ['--version'], {
-      cwd,
-      timeout: 5000,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    version = stdout.trim().replace(/^v/, '');
+    version = ovExec(cwd, ['--version'], 5000).trim().replace(/^v/, '');
   } catch {
     return null;
   }
 
   if (compareSemver(version, MIN_VERSION) < 0) return null;
 
-  const ovConfig = loadOverstoryConfig(cwd);
+  const ovConfig = preloadedConfig || loadOverstoryConfig(cwd);
   return {
     available: true,
     version,
     config_path: configPath,
-    max_agents: 25,
+    max_agents: OV_MAX_AGENTS,
     default_runtime: ovConfig.runtime,
     worktree_base: path.join(cwd, '.overstory', 'worktrees'),
   };
@@ -107,12 +111,7 @@ function installOverstory(cwd: string): void {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
-  execFileSync('ov', ['init'], {
-    cwd,
-    timeout: 30000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  ovExec(cwd, ['init'], 30000);
 }
 
 function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
@@ -127,78 +126,45 @@ function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
     '--overlay',
     opts.overlay_path,
   ];
-  const stdout: string = execFileSync('ov', args, {
-    cwd,
-    timeout: 60000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return JSON.parse(stdout) as SlingResult;
+  return JSON.parse(ovExec(cwd, args, 60000)) as SlingResult;
 }
 
 function getAgentStatus(cwd: string, agentId: string): AgentStatus {
-  const stdout: string = execFileSync('ov', ['status', agentId, '--json'], {
-    cwd,
-    timeout: 10000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return JSON.parse(stdout) as AgentStatus;
+  return JSON.parse(ovExec(cwd, ['status', agentId, '--json'], 10000)) as AgentStatus;
 }
 
 function getFleetStatus(cwd: string): FleetStatus {
-  const stdout: string = execFileSync('ov', ['status', '--json'], {
-    cwd,
-    timeout: 10000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return JSON.parse(stdout) as FleetStatus;
+  return JSON.parse(ovExec(cwd, ['status', '--json'], 10000)) as FleetStatus;
 }
 
 function mergeAgent(cwd: string, agentId: string): MergeResult {
   // ov merge outputs JSON by default per Overstory's CLI contract
-  const stdout: string = execFileSync('ov', ['merge', agentId, '--json'], {
-    cwd,
-    timeout: 60000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return JSON.parse(stdout) as MergeResult;
+  return JSON.parse(ovExec(cwd, ['merge', agentId, '--json'], 60000)) as MergeResult;
 }
 
 function stopAgent(cwd: string, agentId: string): void {
-  execFileSync('ov', ['stop', agentId], {
-    cwd,
-    timeout: 10000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  ovExec(cwd, ['stop', agentId], 10000);
 }
 
 function getAgentMail(cwd: string, agentId: string): OverstoryMailMessage[] {
-  const stdout: string = execFileSync('ov', ['mail', '--agent', agentId, '--json'], {
-    cwd,
-    timeout: 10000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const parsed = JSON.parse(stdout) as { messages: OverstoryMailMessage[] };
+  const parsed = JSON.parse(ovExec(cwd, ['mail', '--agent', agentId, '--json'], 10000)) as {
+    messages: OverstoryMailMessage[];
+  };
   return parsed.messages;
 }
 
 function nudgeAgent(cwd: string, agentId: string, message: string): void {
-  execFileSync('ov', ['nudge', agentId, '--', message], {
-    cwd,
-    timeout: 10000,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  ovExec(cwd, ['nudge', agentId, '--', message], 10000);
 }
 
 function generateOverlay(
   planContent: string,
-  context: { phase_number: string; plan_id: string; milestone: string; phase_dir: string }
+  context: {
+    phase_number: string;
+    plan_id: string;
+    milestone: string;
+    phase_dir: string;
+  }
 ): string {
   const summaryName = `${context.plan_id}-SUMMARY.md`;
   return `# GRD Executor Task
@@ -239,8 +205,10 @@ duration: Xmin
 
 module.exports = {
   MIN_VERSION,
+  OV_MAX_AGENTS,
   DEFAULT_OVERSTORY_CONFIG,
   compareSemver,
+  ovExec,
   loadOverstoryConfig,
   detectOverstory,
   installOverstory,
