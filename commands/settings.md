@@ -35,6 +35,8 @@ elif FIRST_ARG == "ceremony":
   → jump to <subcommand_ceremony> with REMAINING_ARGS
 elif FIRST_ARG == "evolve":
   → jump to <subcommand_evolve> with REMAINING_ARGS
+elif FIRST_ARG == "overstory":
+  → jump to <subcommand_overstory> with REMAINING_ARGS
 else:
   → continue to full settings flow (ensure_and_load_config)
 ```
@@ -449,6 +451,80 @@ Quick commands:
 
 **DONE — exit command after subcommand completes.**
 </subcommand_evolve>
+
+<subcommand_overstory>
+## Subcommand: overstory [runtime | merge | poll]
+
+Configure Overstory execution backend settings.
+
+### Step O0: Parse arguments
+
+```
+SETTING = first word of REMAINING_ARGS (runtime | merge | poll)
+VALUE = second word of REMAINING_ARGS
+
+if SETTING is empty:
+  → show all overstory settings (status mode)
+elif SETTING not in ["runtime", "merge", "poll"]:
+  Error: Invalid overstory setting "SETTING"
+  Valid settings: runtime, merge, poll
+  EXIT
+```
+
+### Step O1: Load config
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-ensure-section
+```
+
+Read `.planning/config.json` and parse `overstory` section (defaults: `runtime: "claude"`, `poll_interval_ms: 5000`, `merge_strategy: "auto"`, `install_prompt: true`, `overlay_template: null`).
+
+### Step O2: Display status
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GRD ► OVERSTORY SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| Setting        | Value |
+|----------------|-------|
+| Runtime        | {overstory.runtime} |
+| Merge Strategy | {overstory.merge_strategy} |
+| Poll Interval  | {overstory.poll_interval_ms}ms |
+| Install Prompt | {overstory.install_prompt} |
+
+Runtime: Overstory runtime adapter for workers (claude, codex, pi, copilot, cursor).
+Merge Strategy: auto = FIFO merge queue, manual = prompt per agent.
+Poll Interval: Status polling frequency during wave execution (ms).
+```
+
+If SETTING is empty: stop here, display only.
+
+### Step O3: Update setting
+
+```
+if SETTING == "runtime":
+  if VALUE is empty: Error: "Usage: /grd:settings overstory runtime <name>"
+  → update overstory.runtime = VALUE in config.json
+
+elif SETTING == "merge":
+  if VALUE not in ["auto", "manual"]: Error: "Valid values: auto, manual"
+  → update overstory.merge_strategy = VALUE in config.json
+
+elif SETTING == "poll":
+  if VALUE is not a number or VALUE < 1000: Error: "Poll interval must be >= 1000ms"
+  → update overstory.poll_interval_ms = NUMBER(VALUE) in config.json
+```
+
+### Step O4: Confirm
+
+Display updated value and confirm:
+```
+✓ overstory.{SETTING} updated to {VALUE}
+```
+
+**DONE — exit command after subcommand completes.**
+</subcommand_overstory>
 
 <step name="ensure_and_load_config">
 ```bash
