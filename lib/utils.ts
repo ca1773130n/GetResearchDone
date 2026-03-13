@@ -265,6 +265,15 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'confirmation_gates',
   'timeouts',
   'evolve',
+  // New-project command keys
+  'mode',
+  'depth',
+  // YOLO saved state keys
+  '_saved_research_gates',
+  '_saved_confirmation_gates',
+  'yolo_decision_log',
+  // Backend-specific keys
+  'overstory',
 ]);
 
 /**
