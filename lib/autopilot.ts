@@ -62,6 +62,14 @@ const { parseLongTermRoadmap }: {
     }>;
   } | null;
 } = require('./long-term-roadmap');
+const { createScheduler }: {
+  createScheduler: (config: import('./types').SchedulerConfig | undefined) => {
+    spawn: (prompt: string, opts: Record<string, unknown>) => Promise<{ exitCode: number; timedOut: boolean; stdout?: string; stderr?: string; backend: string; tokensUsed: number; workItemId: string }>;
+    getState: (backend: string) => unknown;
+    persistState: (dir: string) => void;
+    loadPersistedState: (dir: string) => void;
+  } | null;
+} = require('./scheduler');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -87,6 +95,11 @@ interface SpawnResult {
   timedOut: boolean;
   stdout?: string;
   stderr?: string;
+}
+
+/** Normalize SchedulerSpawnResult to SpawnResult for drop-in compatibility. */
+function toSpawnResult(sr: { exitCode: number; timedOut: boolean; stdout?: string; stderr?: string }): SpawnResult {
+  return { exitCode: sr.exitCode, timedOut: sr.timedOut, stdout: sr.stdout, stderr: sr.stderr };
 }
 
 /** Internal config from _buildSpawnConfig. */
@@ -551,6 +564,12 @@ async function runAutopilot(
   let phasesCompleted: number = 0;
   const stoppedAt: string | null = null;
 
+  const config: GrdConfig = loadConfig(cwd);
+  const scheduler = createScheduler(config.scheduler);
+  if (scheduler) {
+    scheduler.loadPersistedState(path.join(cwd, '.planning'));
+  }
+
   const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
   const log: (msg: string) => void = (msg: string): void => {
@@ -597,11 +616,9 @@ async function runAutopilot(
           writeStatusMarker(cwd, phaseNum, 'plan', 'started');
           updateStateProgress(cwd, phaseNum, 'planning');
 
-          const promise: Promise<SpawnResult> = spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), {
-            timeout: timeoutMs,
-            maxTurns,
-            model,
-          });
+          const promise: Promise<SpawnResult> = scheduler
+            ? scheduler.spawn(buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model, cwd, workItemId: `phase-${phaseNum}-plan` }).then(toSpawnResult)
+            : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model });
           planTasks.push({ phaseNum, skipped: false, promise });
         }
       }
@@ -680,11 +697,9 @@ async function runAutopilot(
           writeStatusMarker(cwd, phaseNum, 'execute', 'started');
           updateStateProgress(cwd, phaseNum, 'executing');
 
-          const execResult: SpawnResult = spawnClaude(cwd, buildExecutePrompt(phaseNum), {
-            timeout: timeoutMs,
-            maxTurns,
-            model,
-          });
+          const execResult: SpawnResult = scheduler
+            ? toSpawnResult(await scheduler.spawn(buildExecutePrompt(phaseNum), { timeout: timeoutMs, maxTurns, model, cwd, workItemId: `phase-${phaseNum}-execute` }))
+            : spawnClaude(cwd, buildExecutePrompt(phaseNum), { timeout: timeoutMs, maxTurns, model });
 
           if (execResult.exitCode !== 0) {
             const reason: string = execResult.timedOut
@@ -717,6 +732,10 @@ async function runAutopilot(
   log(
     `Done: ${phasesCompleted}/${phasesAttempted} phases completed${stoppedAt ? ` (stopped: ${stoppedAt})` : ''}`
   );
+
+  if (scheduler) {
+    scheduler.persistState(path.join(cwd, '.planning'));
+  }
 
   return {
     phases_attempted: phasesAttempted,
@@ -766,6 +785,12 @@ async function runMultiMilestoneAutopilot(
   let stoppedAt: string | null = null;
 
   log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
+
+  const mmConfig: GrdConfig = loadConfig(cwd);
+  const mmScheduler = createScheduler(mmConfig.scheduler);
+  if (mmScheduler) {
+    mmScheduler.loadPersistedState(path.join(cwd, '.planning'));
+  }
 
   for (let i = 0; i < maxMilestones; i++) {
     if (stoppedAt) break;
@@ -858,11 +883,9 @@ async function runMultiMilestoneAutopilot(
         const completePrompt: string = buildMilestoneCompletePrompt(currentVersion);
         log(`${currentVersion}: completing milestone...`);
 
-        const completeResult: SpawnResult = spawnClaude(cwd, completePrompt, {
-          timeout: timeoutMs,
-          maxTurns: options.maxTurns,
-          model: options.model,
-        });
+        const completeResult: SpawnResult = mmScheduler
+          ? toSpawnResult(await mmScheduler.spawn(completePrompt, { timeout: timeoutMs, maxTurns: options.maxTurns, model: options.model, cwd, workItemId: `milestone-${currentVersion}-complete` }))
+          : spawnClaude(cwd, completePrompt, { timeout: timeoutMs, maxTurns: options.maxTurns, model: options.model });
 
         if (completeResult.exitCode !== 0) {
           const reason: string = completeResult.timedOut
@@ -904,11 +927,9 @@ async function runMultiMilestoneAutopilot(
     const newMilestonePrompt: string = buildNewMilestonePrompt();
     log('Creating new milestone...');
 
-    const createResult: SpawnResult = spawnClaude(cwd, newMilestonePrompt, {
-      timeout: timeoutMs,
-      maxTurns: options.maxTurns,
-      model: options.model,
-    });
+    const createResult: SpawnResult = mmScheduler
+      ? toSpawnResult(await mmScheduler.spawn(newMilestonePrompt, { timeout: timeoutMs, maxTurns: options.maxTurns, model: options.model, cwd, workItemId: 'new-milestone' }))
+      : spawnClaude(cwd, newMilestonePrompt, { timeout: timeoutMs, maxTurns: options.maxTurns, model: options.model });
 
     if (createResult.exitCode !== 0) {
       const reason: string = createResult.timedOut
@@ -931,6 +952,10 @@ async function runMultiMilestoneAutopilot(
     `Multi-milestone autopilot done: ${milestonesCompleted}/${milestonesAttempted} milestones completed` +
       (stoppedAt ? ` (stopped: ${stoppedAt})` : '')
   );
+
+  if (mmScheduler) {
+    mmScheduler.persistState(path.join(cwd, '.planning'));
+  }
 
   return {
     milestones_attempted: milestonesAttempted,
