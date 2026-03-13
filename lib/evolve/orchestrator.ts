@@ -39,6 +39,9 @@ const path = require('path');
 const { loadConfig }: {
   loadConfig: (cwd: string) => GrdConfig;
 } = require('../utils');
+const { createScheduler }: {
+  createScheduler: (config: import('../types').SchedulerConfig | undefined) => { spawn: (prompt: string, opts: Record<string, unknown>) => Promise<{ exitCode: number; timedOut: boolean; stdout?: string; stderr?: string; backend: string; tokensUsed: number; workItemId: string }>; getState: (backend: string) => unknown; persistState: (dir: string) => void; loadPersistedState: (dir: string) => void } | null;
+} = require('../scheduler');
 const { execGit }: {
   execGit: (
     cwd: string,
@@ -122,6 +125,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     maxTurns,
     cwd,
     log,
+    scheduler,
   } = iterCtx;
 
   let { useWorktree, worktreeInfo, executionCwd } = iterCtx;
@@ -188,11 +192,9 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
   const { autoCommit, iterationNum } = iterCtx;
   const executePrompt: string = buildBatchExecutePrompt(cappedGroups, iterationNum);
-  const execResult = await spawnClaudeAsync(executionCwd, executePrompt, {
-    model: SONNET_MODEL,
-    timeout: timeoutMs,
-    maxTurns,
-  });
+  const execResult = scheduler
+    ? await scheduler.spawn(executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, cwd: executionCwd, workItemId: `evolve-iter-${iterationNum}-execute` })
+    : await spawnClaudeAsync(executionCwd, executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns });
 
   let feedback: IterationFeedback | null = null;
 
@@ -234,11 +236,9 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
       log(`Running single review for all ${cappedGroups.length} groups`);
       const reviewPrompt: string = buildBatchReviewPrompt(cappedGroups);
-      const reviewResult = await spawnClaudeAsync(executionCwd, reviewPrompt, {
-        model: SONNET_MODEL,
-        timeout: timeoutMs,
-        maxTurns,
-      });
+      const reviewResult = scheduler
+        ? await scheduler.spawn(reviewPrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, cwd: executionCwd, workItemId: `evolve-iter-${iterationNum}-review` })
+        : await spawnClaudeAsync(executionCwd, reviewPrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns });
 
       if (reviewResult.exitCode !== 0) {
         const reason: string = reviewResult.timedOut ? 'timeout' : `exit ${reviewResult.exitCode}`;
@@ -443,9 +443,14 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
 
   // Auto-detect worktree usage from config if not explicitly set
   let useWorktree: boolean = options.useWorktree !== undefined ? options.useWorktree : false;
+  const evolveConfig: GrdConfig = loadConfig(cwd);
   if (options.useWorktree === undefined) {
-    const config: GrdConfig = loadConfig(cwd);
-    useWorktree = config.branching_strategy !== 'none';
+    useWorktree = evolveConfig.branching_strategy !== 'none';
+  }
+
+  const evolveScheduler = createScheduler(evolveConfig.scheduler);
+  if (evolveScheduler) {
+    evolveScheduler.loadPersistedState(path.join(cwd, '.planning'));
   }
 
   // Set up logging (same pattern as autopilot.js)
@@ -485,6 +490,7 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
       log,
       autoCommit,
       iterationNum: iterNum,
+      scheduler: evolveScheduler,
     });
 
     // Propagate mutable worktree state back from the step
@@ -566,6 +572,11 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
   }
 
   log(`Done: ${results.length} iteration(s) completed`);
+
+  if (evolveScheduler) {
+    evolveScheduler.persistState(path.join(cwd, '.planning'));
+  }
+
   const returnValue: EvolveResult = {
     iterations_completed: results.length,
     results,

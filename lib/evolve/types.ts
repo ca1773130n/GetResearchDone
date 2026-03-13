@@ -207,6 +207,8 @@ export interface IterationContext {
   log: (msg: string) => void;
   autoCommit: boolean;
   iterationNum: number;
+  /** Optional scheduler for rate-limited backend routing. */
+  scheduler: { spawn: (prompt: string, opts: Record<string, unknown>) => Promise<{ exitCode: number; timedOut: boolean; stdout?: string; stderr?: string; backend: string; tokensUsed: number; workItemId: string }> } | null;
 }
 
 /** Structured feedback from a single iteration's subprocess. */
