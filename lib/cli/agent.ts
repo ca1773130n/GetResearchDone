@@ -1,18 +1,10 @@
 'use strict';
 
 const { spawnSync } = require('child_process') as typeof import('child_process');
-const { getAdapter, checkBackendAvailable } = require('./adapters') as typeof import('./adapters');
-const { formatJson, formatError } = require('./output') as typeof import('./output');
+import type { CliAdapter } from './adapters';
+import type { JsonEnvelope } from './output';
 
-/**
- * Build the prompt string for an agent command.
- */
-function buildPromptForCommand(command: string, args: string[]): string {
-  const argsStr = args.length > 0 ? ' ' + args.join(' ') : '';
-  return `/grd:${command}${argsStr}`;
-}
-
-interface AgentOpts {
+export interface AgentOpts {
   cwd: string;
   backend: string;
   json: boolean;
@@ -22,9 +14,26 @@ interface AgentOpts {
 }
 
 /**
+ * Build the prompt string for an agent command.
+ */
+export function buildPromptForCommand(command: string, args: string[]): string {
+  const argsStr = args.length > 0 ? ' ' + args.join(' ') : '';
+  return `/grd:${command}${argsStr}`;
+}
+
+/**
  * Execute an agent command by spawning a backend subprocess.
  */
-function runAgentCommand(command: string, args: string[], opts: AgentOpts): void {
+export function runAgentCommand(command: string, args: string[], opts: AgentOpts): void {
+  const { getAdapter, checkBackendAvailable }: {
+    getAdapter: (backend: string) => CliAdapter;
+    checkBackendAvailable: (backend: string) => boolean;
+  } = require('./adapters');
+  const { formatJson, formatError }: {
+    formatJson: (envelope: JsonEnvelope) => string;
+    formatError: (message: string, backend: string, exitCode: number) => string;
+  } = require('./output');
+
   if (!checkBackendAvailable(opts.backend)) {
     const msg = `Backend "${opts.backend}" CLI not found. Install it or set --backend to an available option.`;
     if (opts.json) {
@@ -64,4 +73,3 @@ function runAgentCommand(command: string, args: string[], opts: AgentOpts): void
 }
 
 module.exports = { buildPromptForCommand, runAgentCommand };
-export { buildPromptForCommand, runAgentCommand };

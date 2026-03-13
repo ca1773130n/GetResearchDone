@@ -1,6 +1,6 @@
 'use strict';
 
-interface JsonEnvelope {
+export interface JsonEnvelope {
   status: 'ok' | 'error';
   data?: unknown;
   output?: string;
@@ -15,14 +15,14 @@ interface JsonEnvelope {
 /**
  * Format a JSON envelope for --json output.
  */
-function formatJson(envelope: JsonEnvelope): string {
+export function formatJson(envelope: JsonEnvelope): string {
   return JSON.stringify(envelope, null, 2);
 }
 
 /**
  * Format an error as a JSON envelope.
  */
-function formatError(message: string, backend: string, exitCode: number): string {
+export function formatError(message: string, backend: string, exitCode: number): string {
   return formatJson({
     status: 'error',
     error: message,
@@ -33,10 +33,9 @@ function formatError(message: string, backend: string, exitCode: number): string
 /**
  * Write JSON envelope to stdout and exit.
  */
-function outputJson(envelope: JsonEnvelope): void {
+export function outputJson(envelope: JsonEnvelope): void {
   process.stdout.write(formatJson(envelope) + '\n');
   process.exit(envelope.status === 'ok' ? 0 : 1);
 }
 
 module.exports = { formatJson, formatError, outputJson };
-export { formatJson, formatError, outputJson, JsonEnvelope };

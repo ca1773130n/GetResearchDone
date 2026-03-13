@@ -9,7 +9,8 @@
   },
   "bin": {
     "grd-tools": "bin/grd-tools.js",
-    "grd-mcp-server": "bin/grd-mcp-server.js"
+    "grd-mcp-server": "bin/grd-mcp-server.js",
+    "gd": "bin/gd.js"
   },
   "files": [
     "bin/",

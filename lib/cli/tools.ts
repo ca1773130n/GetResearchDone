@@ -7,7 +7,7 @@ const { join } = require('path') as typeof import('path');
  * Build the argument list for grd-tools.js delegation.
  * Includes passthrough flags (unknown flags forwarded from CLI).
  */
-function buildToolArgs(
+export function buildToolArgs(
   command: string,
   subcommand: string | undefined,
   extraArgs: string[],
@@ -26,7 +26,7 @@ function buildToolArgs(
  * Execute a tool command by delegating to grd-tools.js.
  * TODO: Refactor to in-process delegation once output()/error() return values instead of process.exit().
  */
-function runToolCommand(
+export function runToolCommand(
   command: string,
   subcommand: string | undefined,
   extraArgs: string[],
@@ -56,4 +56,3 @@ function runToolCommand(
 }
 
 module.exports = { buildToolArgs, runToolCommand };
-export { buildToolArgs, runToolCommand };

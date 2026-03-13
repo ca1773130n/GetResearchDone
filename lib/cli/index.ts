@@ -1,6 +1,6 @@
 'use strict';
 
-interface Flags {
+export interface Flags {
   json: boolean;
   help: boolean;
   version: boolean;
@@ -12,7 +12,7 @@ interface Flags {
   passthrough: string[];
 }
 
-const TOOL_COMMANDS = new Set([
+export const TOOL_COMMANDS = new Set([
   'state', 'verify', 'phase', 'scaffold', 'frontmatter', 'tracker',
   'roadmap', 'init', 'milestone', 'validate', 'state-snapshot',
   'summary-extract', 'history-digest', 'phase-plan-index', 'detect-backend',
@@ -27,7 +27,7 @@ const TOOL_COMMANDS = new Set([
   'overstory', 'progress',
 ]);
 
-const AGENT_COMMANDS = new Set([
+export const AGENT_COMMANDS = new Set([
   'new-project', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
   'autopilot', 'autoplan', 'evolve', 'resume-project', 'pause-work', 'quick',
   'migrate', 'survey', 'deep-dive', 'compare-methods', 'feasibility',
@@ -41,7 +41,7 @@ const AGENT_COMMANDS = new Set([
 
 const EVOLVE_TOOL_SUBS = new Set(['run', 'discover', 'state', 'advance', 'reset']);
 
-function parseFlags(argv: string[]): Flags {
+export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
     json: false, help: false, version: false, verbose: false,
     positional: [], passthrough: [],
@@ -71,7 +71,7 @@ function parseFlags(argv: string[]): Flags {
   return flags;
 }
 
-function classifyCommand(command: string, subcommand?: string): 'tool' | 'agent' | 'unknown' {
+export function classifyCommand(command: string, subcommand?: string): 'tool' | 'agent' | 'unknown' {
   if (command === 'evolve' && subcommand && EVOLVE_TOOL_SUBS.has(subcommand)) {
     return 'tool';
   }
@@ -81,4 +81,3 @@ function classifyCommand(command: string, subcommand?: string): 'tool' | 'agent'
 }
 
 module.exports = { parseFlags, classifyCommand, TOOL_COMMANDS, AGENT_COMMANDS };
-export { parseFlags, classifyCommand, Flags, TOOL_COMMANDS, AGENT_COMMANDS };

@@ -1,11 +1,11 @@
 'use strict';
 
-interface CliAdapter {
+export interface CliAdapter {
   binary: string;
   buildArgs(prompt: string, opts: { model?: string; verbose?: boolean }): string[];
 }
 
-const BUILTIN_ADAPTERS: Record<string, CliAdapter> = {
+export const BUILTIN_ADAPTERS: Record<string, CliAdapter> = {
   claude: {
     binary: 'claude',
     buildArgs: (prompt, opts) => [
@@ -44,11 +44,11 @@ const BUILTIN_ADAPTERS: Record<string, CliAdapter> = {
   },
 };
 
-function getAdapter(backend: string): CliAdapter {
+export function getAdapter(backend: string): CliAdapter {
   return BUILTIN_ADAPTERS[backend] || BUILTIN_ADAPTERS.claude;
 }
 
-function checkBackendAvailable(backend: string): boolean {
+export function checkBackendAvailable(backend: string): boolean {
   const adapter = getAdapter(backend);
   try {
     const { execFileSync } = require('child_process') as typeof import('child_process');
@@ -60,4 +60,3 @@ function checkBackendAvailable(backend: string): boolean {
 }
 
 module.exports = { getAdapter, checkBackendAvailable, BUILTIN_ADAPTERS };
-export { getAdapter, checkBackendAvailable, CliAdapter, BUILTIN_ADAPTERS };
