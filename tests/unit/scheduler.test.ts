@@ -18,7 +18,12 @@ import {
   pickBackend,
   markInFlight,
   markComplete,
+  createScheduler,
 } from '../../lib/scheduler';
+
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 describe('scheduler types', () => {
   it('SchedulerConfig has required fields', () => {
@@ -249,5 +254,82 @@ describe('concurrency accounting', () => {
     states.set('claude', claude);
     const result = pickBackend(['claude'], states, 1.5, { backend: 'opencode' });
     expect(result).toBe('opencode');
+  });
+});
+
+describe('createScheduler', () => {
+  it('returns null in pass-through mode when no config', () => {
+    const scheduler = createScheduler(undefined);
+    expect(scheduler).toBeNull();
+  });
+
+  it('creates scheduler with config', () => {
+    const config: SchedulerConfig = {
+      backend_priority: ['claude' as const, 'codex' as const],
+      free_fallback: { backend: 'opencode' as const },
+      backend_limits: { claude: { tpm: 80000 }, codex: { tpm: 100000 } },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+    };
+    const scheduler = createScheduler(config);
+    expect(scheduler).not.toBeNull();
+    expect(scheduler!.getState('claude')).toBeDefined();
+    expect(scheduler!.getState('codex')).toBeDefined();
+  });
+
+  it('uses default budget 40000 when backend_limits not specified', () => {
+    const config: SchedulerConfig = {
+      backend_priority: ['gemini' as const],
+      free_fallback: { backend: 'opencode' as const },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+    };
+    const scheduler = createScheduler(config);
+    expect(scheduler!.getState('gemini')!.token_budget).toBe(40000);
+  });
+});
+
+describe('state persistence', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scheduler-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('persists and reloads learned budgets', () => {
+    const config: SchedulerConfig = {
+      backend_priority: ['claude' as const],
+      free_fallback: { backend: 'opencode' as const },
+      backend_limits: { claude: { tpm: 80000 } },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+    };
+    const scheduler = createScheduler(config)!;
+
+    const state = scheduler.getState('claude')!;
+    state.ewma_tokens_per_task = 12345;
+    state.budget_learned = true;
+    state.budget_confidence = 0.7;
+
+    scheduler.persistState(tmpDir);
+
+    const scheduler2 = createScheduler(config)!;
+    scheduler2.loadPersistedState(tmpDir);
+    const reloaded = scheduler2.getState('claude')!;
+    expect(reloaded.ewma_tokens_per_task).toBe(12345);
+    expect(reloaded.budget_learned).toBe(true);
+    expect(reloaded.budget_confidence).toBe(0.7);
+  });
+
+  it('handles missing persistence file gracefully', () => {
+    const config: SchedulerConfig = {
+      backend_priority: ['claude' as const],
+      free_fallback: { backend: 'opencode' as const },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+    };
+    const scheduler = createScheduler(config)!;
+    scheduler.loadPersistedState(tmpDir);
+    expect(scheduler.getState('claude')!.ewma_tokens_per_task).toBe(0);
   });
 });
