@@ -246,6 +246,213 @@ export function markComplete(state: BackendUsageState): void {
   state.tokens_reserved = state.ewma_tokens_per_task * state.in_flight_count;
 }
 
+// ─── Scheduler Interface and Factory ─────────────────────────────────────────
+
+import type { SchedulerConfig, SchedulerSpawnResult } from './types';
+
+/**
+ * High-level scheduler that selects backends, spawns CLI processes,
+ * records usage samples, and persists learned state across sessions.
+ */
+interface Scheduler {
+  spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
+  getState(backend: string): BackendUsageState | undefined;
+  persistState(planningDir: string): void;
+  loadPersistedState(planningDir: string): void;
+}
+
+/**
+ * Creates a Scheduler instance from the given config, or returns null
+ * when no config is provided (pass-through / disabled mode).
+ *
+ * @param config - scheduler configuration, or undefined to disable
+ * @returns Scheduler instance, or null if config is absent
+ */
+export function createScheduler(config: SchedulerConfig | undefined): Scheduler | null {
+  if (!config) return null;
+
+  const states = new Map<string, BackendUsageState>();
+  const prediction = config.prediction;
+
+  // Initialize state for each backend in priority + fallback
+  const allBackends = [...config.backend_priority, config.free_fallback.backend];
+  for (const backend of new Set(allBackends)) {
+    const limit = config.backend_limits?.[backend]?.tpm;
+    const isFallback = backend === config.free_fallback.backend;
+    const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
+    states.set(backend, createBackendState(budget));
+  }
+
+  // Check which backend binaries are available
+  const availableBackends = new Set<string>();
+  const checkBinary = (binary: string): boolean => {
+    try {
+      const { execFileSync } = require('child_process') as typeof import('child_process');
+      execFileSync('which', [binary], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  for (const backend of new Set(allBackends)) {
+    const adapter = ADAPTERS[backend as BackendId];
+    if (adapter && checkBinary(adapter.binary)) availableBackends.add(backend);
+  }
+
+  const scheduler: Scheduler = {
+    getState(backend: string): BackendUsageState | undefined {
+      return states.get(backend);
+    },
+
+    async spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> {
+      const filteredPriority = config.backend_priority.filter((b) => availableBackends.has(b));
+      const backend = pickBackend(
+        filteredPriority,
+        states,
+        prediction.safety_margin_tasks,
+        config.free_fallback,
+      );
+
+      const adapter = ADAPTERS[backend as BackendId] || ADAPTERS.claude;
+      const state = states.get(backend) || createBackendState(DEFAULT_BUDGET_TPM);
+      const args = adapter.buildArgs(prompt, opts);
+      const workItemId = opts.workItemId || `task-${Date.now()}`;
+
+      markInFlight(state);
+      const startTime = Date.now();
+
+      try {
+        const { execFile } = require('child_process') as typeof import('child_process');
+        const result = await new Promise<SchedulerSpawnResult>((resolve) => {
+          const child = execFile(
+            adapter.binary,
+            args,
+            {
+              cwd: opts.cwd || process.cwd(),
+              maxBuffer: 50 * 1024 * 1024,
+              timeout: opts.timeout || 120 * 60 * 1000,
+              env: { ...process.env },
+            },
+            (error, stdout, stderr) => {
+              const duration = Date.now() - startTime;
+              const timedOut = !!(
+                error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+              );
+              const exitCode = error ? (child.exitCode || 1) : 0;
+
+              const tokens =
+                adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
+
+              const sample: UsageSample = {
+                backend: backend as BackendId,
+                timestamp: Date.now(),
+                duration,
+                tokenEstimate: tokens,
+                exitCode,
+                workItemId,
+              };
+
+              markComplete(state);
+              recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
+
+              // Periodic persistence: every 10 samples across all backends
+              const totalSamples = Array.from(states.values()).reduce(
+                (sum, s) => sum + s.samples.length,
+                0,
+              );
+              if (totalSamples % 10 === 0 && opts.cwd) {
+                const { join } = require('path') as typeof import('path');
+                scheduler.persistState(join(opts.cwd, '.planning'));
+              }
+
+              resolve({
+                exitCode,
+                stdout: stdout || undefined,
+                stderr: stderr || undefined,
+                timedOut,
+                backend: backend as BackendId,
+                tokensUsed: tokens,
+                workItemId,
+              });
+            },
+          );
+        });
+
+        // Rate limit retry: if rate-limited despite prediction, cooldown and retry
+        if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
+          state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000;
+          return scheduler.spawn(prompt, opts); // pickBackend will skip cooled-down backend
+        }
+
+        return result;
+      } catch (_err) {
+        markComplete(state);
+        return {
+          exitCode: 1,
+          timedOut: false,
+          backend: backend as BackendId,
+          tokensUsed: 0,
+          workItemId,
+        };
+      }
+    },
+
+    persistState(planningDir: string): void {
+      const { writeFileSync } = require('fs') as typeof import('fs');
+      const { join } = require('path') as typeof import('path');
+      const data: Record<string, unknown> = { version: 1, backends: {} };
+      const backends = data.backends as Record<string, unknown>;
+      for (const [key, state] of states) {
+        backends[key] = {
+          token_budget: state.token_budget,
+          ewma_tokens_per_task: state.ewma_tokens_per_task,
+          budget_learned: state.budget_learned,
+          budget_confidence: state.budget_confidence,
+          last_updated: Date.now(),
+        };
+      }
+      writeFileSync(
+        join(planningDir, 'scheduler-state.json'),
+        JSON.stringify(data, null, 2) + '\n',
+      );
+    },
+
+    loadPersistedState(planningDir: string): void {
+      const { readFileSync, existsSync } = require('fs') as typeof import('fs');
+      const { join } = require('path') as typeof import('path');
+      const filePath = join(planningDir, 'scheduler-state.json');
+      if (!existsSync(filePath)) return;
+      try {
+        const raw = JSON.parse(readFileSync(filePath, 'utf-8')) as {
+          version: number;
+          backends: Record<
+            string,
+            {
+              token_budget: number;
+              ewma_tokens_per_task: number;
+              budget_learned: boolean;
+              budget_confidence: number;
+            }
+          >;
+        };
+        if (raw.version !== 1) return;
+        for (const [key, saved] of Object.entries(raw.backends)) {
+          const state = states.get(key);
+          if (!state) continue;
+          if (saved.budget_learned) state.token_budget = saved.token_budget;
+          state.ewma_tokens_per_task = saved.ewma_tokens_per_task;
+          state.budget_learned = saved.budget_learned;
+          state.budget_confidence = saved.budget_confidence;
+        }
+      } catch {
+        // corrupted file — ignore, start fresh
+      }
+    },
+  };
+
+  return scheduler;
+}
+
 module.exports = {
   ADAPTERS,
   DEFAULT_BUDGET_TPM,
@@ -257,4 +464,5 @@ module.exports = {
   pickBackend,
   markInFlight,
   markComplete,
+  createScheduler,
 };
