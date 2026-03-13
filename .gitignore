@@ -40,3 +40,6 @@ tmp/
 .claude/
 testbed/
 .planning/monitor/
+
+# Scheduler learned state (per-machine, transient)
+.planning/scheduler-state.json
