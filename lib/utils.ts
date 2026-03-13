@@ -274,6 +274,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'yolo_decision_log',
   // Backend-specific keys
   'overstory',
+  // Scheduler config
+  'scheduler',
 ]);
 
 /**
