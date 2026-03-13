@@ -844,17 +844,19 @@ function createScheduler(config: SchedulerConfig | undefined): Scheduler | null 
   }
 
   // Check which backend binaries are available (cached at init)
+  // Injectable for testing via _checkBinary parameter
   const availableBackends = new Set<string>();
+  const checkBinary = (binary: string): boolean => {
+    try {
+      const { execFileSync } = require('child_process') as typeof import('child_process');
+      execFileSync('which', [binary], { stdio: 'ignore' });
+      return true;
+    } catch { return false; }
+  };
   for (const backend of allBackends) {
     const adapter = ADAPTERS[backend as BackendId];
     if (!adapter) continue;
-    try {
-      const { execFileSync } = require('child_process') as typeof import('child_process');
-      execFileSync('which', [adapter.binary], { stdio: 'ignore' });
-      availableBackends.add(backend);
-    } catch {
-      // binary not installed — skip
-    }
+    if (checkBinary(adapter.binary)) availableBackends.add(backend);
   }
 
   return {
@@ -906,6 +908,13 @@ function createScheduler(config: SchedulerConfig | undefined): Scheduler | null 
             markComplete(state);
             recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
 
+            // Periodic persistence: every 10 samples across all backends
+            const totalSamples = Array.from(states.values()).reduce((sum, s) => sum + s.samples.length, 0);
+            if (totalSamples % 10 === 0 && opts.cwd) {
+              const { join } = require('path') as typeof import('path');
+              this.persistState(join(opts.cwd, '.planning'));
+            }
+
             resolve({
               exitCode: exitCode as number,
               stdout: stdout || undefined,
@@ -917,6 +926,17 @@ function createScheduler(config: SchedulerConfig | undefined): Scheduler | null 
             });
           });
         });
+
+        // Rate limit retry: if rate-limited despite prediction, retry on next backend
+        if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
+          state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000;
+          // Recurse with remaining priority (excluding failed backend)
+          const remainingPriority = filteredPriority.filter((b) => b !== backend);
+          if (remainingPriority.length > 0 || config.free_fallback.backend !== backend) {
+            return this.spawn(prompt, opts); // pickBackend will skip cooled-down backend
+          }
+        }
+
         return result;
       } catch (err) {
         markComplete(state);
@@ -1097,7 +1117,18 @@ if (scheduler) {
 }
 ```
 
-- [ ] **Step 3: Replace spawnClaudeAsync in planning (line ~598)**
+- [ ] **Step 3: Add a helper that normalizes scheduler result to SpawnResult**
+
+Add at the top of the autopilot integration section:
+
+```typescript
+/** Normalize SchedulerSpawnResult to SpawnResult for drop-in compatibility */
+function toSpawnResult(sr: SchedulerSpawnResult): SpawnResult {
+  return { exitCode: sr.exitCode, timedOut: sr.timedOut, stdout: sr.stdout, stderr: sr.stderr };
+}
+```
+
+- [ ] **Step 4: Replace spawnClaudeAsync in planning (line ~600)**
 
 Replace:
 ```typescript
@@ -1106,12 +1137,12 @@ const result = await spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), { ... });
 With:
 ```typescript
 const planOpts = { ...spawnOpts, cwd, workItemId: `phase-${phaseNum}-plan` };
-const result = scheduler
-  ? await scheduler.spawn(buildPlanPrompt(phaseNum), planOpts)
+const result: SpawnResult = scheduler
+  ? toSpawnResult(await scheduler.spawn(buildPlanPrompt(phaseNum), planOpts))
   : await spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), spawnOpts);
 ```
 
-- [ ] **Step 4: Replace spawnClaude in execution (line ~635)**
+- [ ] **Step 5: Replace spawnClaude in execution (line ~683)**
 
 Replace:
 ```typescript
@@ -1120,12 +1151,12 @@ const result = spawnClaude(cwd, buildExecutePrompt(phaseNum), { ... });
 With:
 ```typescript
 const execOpts = { ...spawnOpts, cwd, workItemId: `phase-${phaseNum}-execute` };
-const result = scheduler
-  ? await scheduler.spawn(buildExecutePrompt(phaseNum), execOpts)
+const result: SpawnResult = scheduler
+  ? toSpawnResult(await scheduler.spawn(buildExecutePrompt(phaseNum), execOpts))
   : spawnClaude(cwd, buildExecutePrompt(phaseNum), spawnOpts);
 ```
 
-Note: When scheduler is active, execution becomes async. The outer function already handles promises.
+Note: When scheduler is active, the sync `spawnClaude` path becomes async via `scheduler.spawn()`. The `toSpawnResult()` helper normalizes the return type so all downstream code works unchanged. The surrounding code in `runAutopilot()` is already inside an async function.
 
 - [ ] **Step 5: Persist state on autopilot completion**
 
