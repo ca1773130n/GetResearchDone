@@ -132,11 +132,99 @@ export interface GrdConfig {
   ceremony: CeremonyConfig | undefined;
   timeouts: GrdTimeouts;
   evolve: EvolveConfig | undefined;
+  scheduler?: SchedulerConfig;
 }
 
 export interface EvolveConfig {
   auto_commit: boolean;
   create_pr: boolean;
+}
+
+// ─── Scheduler Types ─────────────────────────────────────────────────────────
+
+/**
+ * Options for spawning a backend subprocess.
+ * Used by BackendAdapter and the scheduler spawn path.
+ */
+export interface SpawnOpts {
+  timeout?: number;
+  maxTurns?: number;
+  model?: string;
+  outputFormat?: string;
+  captureOutput?: boolean;
+  captureStderr?: boolean;
+  cwd?: string;
+  workItemId?: string;
+}
+
+/**
+ * Configuration for the cross-backend rate limit scheduler.
+ * Controls backend priority, fallback, rate limits, and prediction parameters.
+ */
+export interface SchedulerConfig {
+  backend_priority: BackendId[];
+  free_fallback: { backend: BackendId; model?: string };
+  backend_limits?: Record<string, { tpm: number; rpm?: number }>;
+  prediction: {
+    window_minutes: number;
+    ewma_alpha: number;
+    safety_margin_tasks: number;
+    min_samples: number;
+  };
+}
+
+/**
+ * A single recorded usage sample from a backend spawn.
+ * Used for EWMA token prediction and rate limit tracking.
+ */
+export interface UsageSample {
+  backend: BackendId;
+  timestamp: number;
+  duration: number;
+  tokenEstimate: number;
+  exitCode: number;
+  workItemId: string;
+}
+
+/**
+ * Per-backend usage state tracked by the scheduler.
+ * Maintains sliding-window samples, EWMA estimates, and in-flight reservations.
+ */
+export interface BackendUsageState {
+  samples: UsageSample[];
+  ewma_tokens_per_task: number;
+  tokens_consumed_in_window: number;
+  tokens_reserved: number;
+  in_flight_count: number;
+  token_budget: number;
+  budget_learned: boolean;
+  budget_confidence: number;
+  cooldown_until?: number;
+}
+
+/**
+ * Result returned by the scheduler after a backend spawn completes.
+ * Extends basic exit-code info with backend identity and token accounting.
+ */
+export interface SchedulerSpawnResult {
+  exitCode: number;
+  stdout?: string;
+  stderr?: string;
+  timedOut: boolean;
+  backend: BackendId;
+  tokensUsed: number;
+  workItemId: string;
+}
+
+/**
+ * Adapter interface for a backend CLI (claude, codex, gemini, opencode, overstory).
+ * Encapsulates binary name, argument building, token parsing, and rate-limit detection.
+ */
+export interface BackendAdapter {
+  binary: string;
+  buildArgs(prompt: string, opts: SpawnOpts): string[];
+  parseTokenUsage(stderr: string): number | null;
+  isRateLimited(exitCode: number, stderr: string): boolean;
 }
 
 // ─── Phase and Milestone Types ───────────────────────────────────────────────
