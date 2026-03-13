@@ -1,6 +1,6 @@
 'use strict';
 
-import type { BackendId, BackendAdapter, SpawnOpts } from './types';
+import type { BackendId, BackendAdapter, BackendUsageState, UsageSample, SpawnOpts } from './types';
 
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
 
@@ -112,4 +112,91 @@ export const ADAPTERS: Record<BackendId, BackendAdapter> = {
   },
 };
 
-module.exports = { ADAPTERS };
+// ─── EWMA and Rolling Window ──────────────────────────────────────────────────
+
+/** Default token-per-minute budget for backends with no explicit limit configured. */
+export const DEFAULT_BUDGET_TPM = 40000;
+
+/** Token-per-minute budget for the free-fallback backend (effectively unlimited). */
+export const FREE_FALLBACK_BUDGET = 1000000;
+
+/**
+ * Creates a fresh BackendUsageState with the given token budget.
+ *
+ * @param tokenBudget - tokens-per-minute budget for this backend
+ * @returns initialized state with zeroed counters
+ */
+export function createBackendState(tokenBudget: number): BackendUsageState {
+  return {
+    samples: [],
+    ewma_tokens_per_task: 0,
+    tokens_consumed_in_window: 0,
+    tokens_reserved: 0,
+    in_flight_count: 0,
+    token_budget: tokenBudget,
+    budget_learned: false,
+    budget_confidence: 0,
+    cooldown_until: undefined,
+  };
+}
+
+/**
+ * Updates the EWMA estimate in-place with a new token observation.
+ * On first observation (ewma === 0), sets directly to the observed value.
+ *
+ * @param state - backend usage state to update
+ * @param tokens - observed token count for the latest task
+ * @param alpha - EWMA smoothing factor (0 < alpha < 1)
+ */
+export function updateEWMA(state: BackendUsageState, tokens: number, alpha: number): void {
+  if (state.ewma_tokens_per_task === 0) {
+    state.ewma_tokens_per_task = tokens;
+  } else {
+    state.ewma_tokens_per_task = alpha * tokens + (1 - alpha) * state.ewma_tokens_per_task;
+  }
+}
+
+/**
+ * Removes samples older than windowMinutes from state and recalculates
+ * tokens_consumed_in_window from the remaining samples.
+ *
+ * @param state - backend usage state to mutate
+ * @param windowMinutes - rolling window duration in minutes
+ */
+export function evictExpiredSamples(state: BackendUsageState, windowMinutes: number): void {
+  const cutoff = Date.now() - windowMinutes * 60 * 1000;
+  state.samples = state.samples.filter((s) => s.timestamp >= cutoff);
+  state.tokens_consumed_in_window = state.samples.reduce((sum, s) => sum + s.tokenEstimate, 0);
+}
+
+/**
+ * Records a completed usage sample, evicts stale samples from the window,
+ * updates EWMA, and recalculates budget_confidence.
+ *
+ * @param state - backend usage state to update
+ * @param sample - new usage sample to record
+ * @param windowMinutes - rolling window duration in minutes
+ * @param alpha - EWMA smoothing factor
+ */
+export function recordSample(
+  state: BackendUsageState,
+  sample: UsageSample,
+  windowMinutes: number,
+  alpha: number,
+): void {
+  state.samples.push(sample);
+  evictExpiredSamples(state, windowMinutes);
+  state.tokens_consumed_in_window = state.samples.reduce((sum, s) => sum + s.tokenEstimate, 0);
+  updateEWMA(state, sample.tokenEstimate, alpha);
+  state.budget_confidence = 1 - 1 / (1 + state.samples.length * 0.2);
+}
+
+module.exports = {
+  ADAPTERS,
+  DEFAULT_BUDGET_TPM,
+  FREE_FALLBACK_BUDGET,
+  createBackendState,
+  updateEWMA,
+  evictExpiredSamples,
+  recordSample,
+};

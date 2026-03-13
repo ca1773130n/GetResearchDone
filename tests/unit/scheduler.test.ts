@@ -11,6 +11,10 @@ import type {
 
 import {
   ADAPTERS,
+  createBackendState,
+  updateEWMA,
+  recordSample,
+  evictExpiredSamples,
 } from '../../lib/scheduler';
 
 describe('scheduler types', () => {
@@ -129,5 +133,56 @@ describe('backend adapters', () => {
     it('uses ov binary', () => {
       expect(ADAPTERS.overstory.binary).toBe('ov');
     });
+  });
+});
+
+describe('EWMA prediction', () => {
+  it('initializes with default values', () => {
+    const state = createBackendState(80000);
+    expect(state.ewma_tokens_per_task).toBe(0);
+    expect(state.tokens_consumed_in_window).toBe(0);
+    expect(state.token_budget).toBe(80000);
+    expect(state.budget_learned).toBe(false);
+  });
+  it('computes EWMA correctly with alpha=0.3', () => {
+    const state = createBackendState(80000);
+    state.ewma_tokens_per_task = 10000;
+    updateEWMA(state, 14000, 0.3);
+    expect(state.ewma_tokens_per_task).toBe(11200);
+  });
+  it('sets EWMA to first value when no prior data', () => {
+    const state = createBackendState(80000);
+    updateEWMA(state, 12000, 0.3);
+    expect(state.ewma_tokens_per_task).toBe(12000);
+  });
+  it('evicts samples older than window', () => {
+    const state = createBackendState(80000);
+    const now = Date.now();
+    state.samples = [
+      { backend: 'claude', timestamp: now - 20 * 60 * 1000, duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: 'old' },
+      { backend: 'claude', timestamp: now - 5 * 60 * 1000, duration: 5000, tokenEstimate: 12000, exitCode: 0, workItemId: 'recent' },
+    ];
+    state.tokens_consumed_in_window = 22000;
+    evictExpiredSamples(state, 15);
+    expect(state.samples).toHaveLength(1);
+    expect(state.samples[0].workItemId).toBe('recent');
+    expect(state.tokens_consumed_in_window).toBe(12000);
+  });
+  it('recordSample updates consumed tokens and EWMA', () => {
+    const state = createBackendState(80000);
+    const sample = { backend: 'claude' as const, timestamp: Date.now(), duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: 'test-1' };
+    recordSample(state, sample, 15, 0.3);
+    expect(state.tokens_consumed_in_window).toBe(10000);
+    expect(state.ewma_tokens_per_task).toBe(10000);
+    expect(state.samples).toHaveLength(1);
+  });
+  it('budget_confidence increases with sample count', () => {
+    const state = createBackendState(80000);
+    state.samples = new Array(5).fill(null).map((_, i) => ({
+      backend: 'claude' as const, timestamp: Date.now(), duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: `test-${i}`,
+    }));
+    expect(state.budget_confidence).toBe(0);
+    recordSample(state, state.samples[0], 15, 0.3);
+    expect(state.budget_confidence).toBeGreaterThan(0);
   });
 });
