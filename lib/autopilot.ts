@@ -334,15 +334,21 @@ function spawnClaudeAsync(
 
     let timedOut: boolean = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
     if (timeout) {
       timer = setTimeout(() => {
         timedOut = true;
-        child.kill();
+        child.kill('SIGTERM');
+        // Escalate to SIGKILL if process doesn't exit within 5 seconds
+        killTimer = setTimeout(() => {
+          try { child.kill('SIGKILL'); } catch (_e) { /* already dead */ }
+        }, 5000);
       }, timeout);
     }
 
     child.on('close', (code: number | null) => {
       if (timer) clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
       const result: SpawnResult = {
         exitCode: timedOut ? 124 : (code ?? 1),
         timedOut,
@@ -358,6 +364,7 @@ function spawnClaudeAsync(
 
     child.on('error', () => {
       if (timer) clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
       const result: SpawnResult = { exitCode: 1, timedOut: false };
       if (captureOutput) {
         result.stdout = stdoutBuf;

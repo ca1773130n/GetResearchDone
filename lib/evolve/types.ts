@@ -201,7 +201,7 @@ export interface IterationContext {
   worktreeInfo: WorktreeInfo | null;
   effectivePickPct: number;
   dryRun: boolean;
-  timeoutMs: number | undefined;
+  timeoutMs: number;
   maxTurns: number | undefined;
   cwd: string;
   log: (msg: string) => void;

@@ -1,8 +1,8 @@
 {
-  "model_profile": "quality",
+  "model_profile": "balanced",
   "commit_docs": true,
   "search_gitignored": false,
-  "branching_strategy": "phase",
+  "branching_strategy": "none",
   "phase_branch_template": "grd/{milestone}/{phase}-{slug}",
   "milestone_branch_template": "grd/{milestone}-{slug}",
   "workflow": {
@@ -15,9 +15,15 @@
   "_saved_research_gates": {
     "verification_design": false,
     "method_selection": false,
-    "baseline_review": true
+    "baseline_review": false
   },
-  "_saved_confirmation_gates": {},
+  "_saved_confirmation_gates": {
+    "commit_confirmation": false,
+    "file_deletion": true,
+    "phase_completion": true,
+    "target_adjustment": false,
+    "approach_change": true
+  },
   "research_gates": {
     "survey_approval": false,
     "deep_dive_approval": false,
@@ -47,11 +53,11 @@
   "execution": {
     "use_teams": true,
     "team_timeout_minutes": 30,
-    "max_concurrent_teammates": 3
+    "max_concurrent_teammates": 4
   },
   "code_review": {
     "enabled": true,
-    "timing": "per_wave",
+    "timing": "per_phase",
     "severity_gate": "blocker",
     "auto_fix_warnings": true
   }

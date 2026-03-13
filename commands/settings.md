@@ -1,16 +1,17 @@
 ---
-description: Configure GRD workflow agents, model profile, git isolation, execution teams, code review, confirmation gates, research gates, autonomous mode, and evolve settings
-argument-hint: "[yolo | profile | ceremony | evolve]"
+description: Configure GRD workflow agents, model profile, git isolation, execution backend (overstory), execution teams, code review, confirmation gates, research gates, autonomous mode, and evolve settings
+argument-hint: "[yolo | profile | ceremony | evolve | overstory]"
 ---
 
 <purpose>
-Interactive configuration of all GRD settings via multi-question prompt: workflow agents (research, plan_check, verifier), model profile, git worktree isolation, execution teams, code review (timing, severity, auto-fix), confirmation gates, research gates, autonomous mode, and tracker integration. Updates .planning/config.json with user preferences.
+Interactive configuration of all GRD settings via multi-question prompt: workflow agents (research, plan_check, verifier), model profile, git worktree isolation, execution backend (overstory), execution teams, code review (timing, severity, auto-fix), confirmation gates, research gates, autonomous mode, and tracker integration. Updates .planning/config.json with user preferences.
 
 Supports quick toggle subcommands:
 - `/grd:settings yolo [on|off|status]` — toggle autonomous mode (same as former /grd:yolo)
 - `/grd:settings profile [quality|balanced|budget]` — switch model profile (same as former /grd:set-profile)
 - `/grd:settings ceremony [full|standard|minimal]` — set default ceremony level
 - `/grd:settings evolve [auto-commit|create-pr] [on|off|status]` — toggle evolve settings
+- `/grd:settings overstory [runtime|merge|poll] [value]` — configure execution backend
 - `/grd:settings` (no args) — full interactive settings flow
 </purpose>
 
@@ -561,6 +562,9 @@ Parse current values:
 - `research_gates.verification_design` — pause for EVAL.md review (default: `false`)
 - `research_gates.method_selection` — pause for method choice review (default: `false`)
 - `research_gates.baseline_review` — pause for baseline review (default: `false`)
+- `overstory.runtime` — execution backend runtime adapter (default: `"claude"`)
+- `overstory.merge_strategy` — merge strategy for agent results (default: `"auto"`)
+- `overstory.poll_interval_ms` — status polling frequency in ms (default: `5000`)
 </step>
 
 <step name="present_settings">
@@ -630,6 +634,15 @@ AskUserQuestion([
     options: [
       { label: "No (Default)", description: "Execute plans sequentially in a single agent" },
       { label: "Yes", description: "Spawn parallel teammate agents for each wave" }
+    ]
+  },
+  {
+    question: "Execution backend for parallel workers?",
+    header: "Exec Backend",
+    multiSelect: false,
+    options: [
+      { label: "Claude Code (Default)", description: "Use Claude Code native teammates for parallel execution" },
+      { label: "Overstory", description: "Use Overstory runtime for multi-agent orchestration (claude, codex, pi, copilot, cursor)" }
     ]
   },
   {
@@ -745,6 +758,45 @@ AskUserQuestion([
   }
 ])
 ```
+
+**Conditional: Overstory sub-options (if user selected "Overstory" for Execution Backend)**
+
+If user selected "Overstory" for Execution Backend, ask follow-up questions:
+
+```
+AskUserQuestion([
+  {
+    question: "Overstory runtime adapter for workers?",
+    header: "Runtime",
+    multiSelect: false,
+    options: [
+      { label: "claude (Default)", description: "Claude Code as the worker runtime" },
+      { label: "codex", description: "OpenAI Codex as the worker runtime" },
+      { label: "cursor", description: "Cursor as the worker runtime" },
+      { label: "copilot", description: "GitHub Copilot as the worker runtime" }
+    ]
+  },
+  {
+    question: "Merge strategy for completed agent results?",
+    header: "Merge Strategy",
+    multiSelect: false,
+    options: [
+      { label: "Auto (Default)", description: "FIFO merge queue — automatically merge results as agents complete" },
+      { label: "Manual", description: "Prompt for confirmation before merging each agent's results" }
+    ]
+  },
+  {
+    question: "Status polling interval during wave execution?",
+    header: "Poll Interval",
+    multiSelect: false,
+    options: [
+      { label: "3000ms", description: "Faster updates, slightly higher overhead" },
+      { label: "5000ms (Default)", description: "Balanced polling frequency" },
+      { label: "10000ms", description: "Less frequent updates, lower overhead" }
+    ]
+  }
+])
+```
 </step>
 
 <step name="update_config">
@@ -787,6 +839,11 @@ Merge new settings into existing config.json:
     "method_selection": true/false,
     "baseline_review": true/false
   },
+  "overstory": {
+    "runtime": "claude" | "codex" | "cursor" | "copilot",
+    "merge_strategy": "auto" | "manual",
+    "poll_interval_ms": 3000 | 5000 | 10000
+  },
   "tracker": {
     "provider": "none" | "github" | "mcp-atlassian"
   }
@@ -812,6 +869,25 @@ Completion Action:
 Execution Teams:
 - "Yes" -> `use_teams: true`, write `max_concurrent_teammates` from follow-up
 - "No" -> `use_teams: false`
+
+Execution Backend:
+- "Claude Code (Default)" -> omit `overstory` section (use native teammates)
+- "Overstory" -> write `overstory` section with runtime, merge_strategy, poll_interval_ms from follow-ups
+
+Overstory Runtime:
+- "claude (Default)" -> `runtime: "claude"`
+- "codex" -> `runtime: "codex"`
+- "cursor" -> `runtime: "cursor"`
+- "copilot" -> `runtime: "copilot"`
+
+Overstory Merge Strategy:
+- "Auto (Default)" -> `merge_strategy: "auto"`
+- "Manual" -> `merge_strategy: "manual"`
+
+Overstory Poll Interval:
+- "3000ms" -> `poll_interval_ms: 3000`
+- "5000ms (Default)" -> `poll_interval_ms: 5000`
+- "10000ms" -> `poll_interval_ms: 10000`
 
 Code Review Timing:
 - "Per Wave (Default)" -> `timing: "per_wave"`, `enabled: true`
@@ -853,6 +929,10 @@ Display:
 | Completion Action    | {ask/merge/pr/keep or N/A} |
 | Agent Teams          | {On/Off} |
 | Max Teammates        | {N or N/A} |
+| Execution Backend    | {Claude Code/Overstory} |
+| Overstory Runtime    | {runtime or N/A} |
+| Overstory Merge      | {auto/manual or N/A} |
+| Overstory Poll       | {Nms or N/A} |
 | Code Review          | {Per Wave/Per Phase/Off} |
 | Severity Gate        | {blocker/critical/warning} |
 | Auto-fix Warnings    | {On/Off} |
@@ -873,6 +953,7 @@ Quick commands:
 - /grd:settings profile <profile> — switch model profile
 - /grd:settings yolo — toggle autonomous mode
 - /grd:settings ceremony <level> — set ceremony level
+- /grd:settings overstory [runtime|merge|poll] — configure execution backend
 - /grd:plan-phase --research — force research
 - /grd:plan-phase --skip-research — skip research
 - /grd:plan-phase --skip-verify — skip plan check
@@ -882,10 +963,10 @@ Quick commands:
 </process>
 
 <success_criteria>
-- [ ] Current config read with all sections (workflow, git, execution, code_review, confirmation_gates, research_gates, tracker)
-- [ ] User presented with 13+ questions (profile + 3 workflow toggles + git isolation + autonomous mode + execution teams + 3 code review + confirmation gates + research gates + tracker)
-- [ ] Conditional sub-options asked for worktree (directory + completion action) and teams (max teammates)
-- [ ] Config updated with all sections: git (branching_strategy, worktree_dir, default_completion_action), execution (use_teams, max_concurrent_teammates), code_review (enabled, timing, severity_gate, auto_fix_warnings), confirmation_gates (5 toggles), research_gates, tracker
+- [ ] Current config read with all sections (workflow, git, execution, overstory, code_review, confirmation_gates, research_gates, tracker)
+- [ ] User presented with 14+ questions (profile + 3 workflow toggles + git isolation + execution backend + autonomous mode + execution teams + 3 code review + confirmation gates + research gates + tracker)
+- [ ] Conditional sub-options asked for worktree (directory + completion action), teams (max teammates), and overstory (runtime + merge strategy + poll interval)
+- [ ] Config updated with all sections: git (branching_strategy, worktree_dir, default_completion_action), execution (use_teams, max_concurrent_teammates), overstory (runtime, merge_strategy, poll_interval_ms), code_review (enabled, timing, severity_gate, auto_fix_warnings), confirmation_gates (5 toggles), research_gates, tracker
 - [ ] All settings displayed in confirmation summary table
 - [ ] Changes confirmed to user
 </success_criteria>

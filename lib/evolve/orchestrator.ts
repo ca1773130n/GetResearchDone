@@ -437,7 +437,8 @@ function writeEvolutionNotes(cwd: string, iterationData: EvolutionNotesData): vo
 async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<EvolveResult> {
   const { iterations = 1, pickPct, timeout, maxTurns, dryRun = false, autoCommit = true, createPr = true } = options;
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;
-  const timeoutMs: number | undefined = timeout ? timeout * 60 * 1000 : undefined;
+  const DEFAULT_TIMEOUT_MINUTES: number = 10;
+  const timeoutMs: number = timeout ? timeout * 60 * 1000 : DEFAULT_TIMEOUT_MINUTES * 60 * 1000;
   const unlimited: boolean = iterations === 0;
 
   // Auto-detect worktree usage from config if not explicitly set

@@ -382,4 +382,4 @@ Deterministic operations delegated from commands to `bin/grd-tools.js`. All comm
 - `bin/grd-manifest.ts` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
 
 
-*Last synced by HarnessSync: 2026-03-12 21:46:50 UTC*
+*Last synced by HarnessSync: 2026-03-13 05:14:36 UTC*
