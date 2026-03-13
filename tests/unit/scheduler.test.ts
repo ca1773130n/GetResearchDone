@@ -15,6 +15,9 @@ import {
   updateEWMA,
   recordSample,
   evictExpiredSamples,
+  pickBackend,
+  markInFlight,
+  markComplete,
 } from '../../lib/scheduler';
 
 describe('scheduler types', () => {
@@ -184,5 +187,67 @@ describe('EWMA prediction', () => {
     expect(state.budget_confidence).toBe(0);
     recordSample(state, state.samples[0], 15, 0.3);
     expect(state.budget_confidence).toBeGreaterThan(0);
+  });
+});
+
+describe('backend selection', () => {
+  function makeStates(): Map<string, BackendUsageState> {
+    const states = new Map<string, BackendUsageState>();
+    const claude = createBackendState(80000);
+    claude.tokens_consumed_in_window = 70000;
+    claude.ewma_tokens_per_task = 10000;
+    states.set('claude', claude);
+    const codex = createBackendState(100000);
+    codex.tokens_consumed_in_window = 20000;
+    codex.ewma_tokens_per_task = 10000;
+    states.set('codex', codex);
+    return states;
+  }
+  it('picks first backend with sufficient headroom', () => {
+    const states = makeStates();
+    const result = pickBackend(['claude', 'codex'], states, 1.5, { backend: 'opencode' });
+    expect(result).toBe('codex');
+  });
+  it('falls back to free_fallback when all backends exhausted', () => {
+    const states = makeStates();
+    states.get('codex')!.tokens_consumed_in_window = 95000;
+    const result = pickBackend(['claude', 'codex'], states, 1.5, { backend: 'opencode' });
+    expect(result).toBe('opencode');
+  });
+  it('skips backends in cooldown', () => {
+    const states = makeStates();
+    states.get('codex')!.cooldown_until = Date.now() + 60000;
+    const result = pickBackend(['codex', 'claude'], states, 1.5, { backend: 'opencode' });
+    expect(result).toBe('opencode');
+  });
+});
+
+describe('concurrency accounting', () => {
+  it('markInFlight reserves tokens', () => {
+    const state = createBackendState(80000);
+    state.ewma_tokens_per_task = 10000;
+    markInFlight(state);
+    expect(state.in_flight_count).toBe(1);
+    expect(state.tokens_reserved).toBe(10000);
+  });
+  it('markComplete recalculates tokens_reserved', () => {
+    const state = createBackendState(80000);
+    state.ewma_tokens_per_task = 10000;
+    state.in_flight_count = 3;
+    state.tokens_reserved = 30000;
+    markComplete(state);
+    expect(state.in_flight_count).toBe(2);
+    expect(state.tokens_reserved).toBe(20000);
+  });
+  it('markInFlight accounts for reserved tokens in headroom', () => {
+    const states = new Map<string, BackendUsageState>();
+    const claude = createBackendState(80000);
+    claude.tokens_consumed_in_window = 50000;
+    claude.ewma_tokens_per_task = 10000;
+    claude.tokens_reserved = 20000;
+    claude.in_flight_count = 2;
+    states.set('claude', claude);
+    const result = pickBackend(['claude'], states, 1.5, { backend: 'opencode' });
+    expect(result).toBe('opencode');
   });
 });

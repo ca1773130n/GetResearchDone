@@ -191,6 +191,61 @@ export function recordSample(
   state.budget_confidence = 1 - 1 / (1 + state.samples.length * 0.2);
 }
 
+// ─── Backend Picker with Concurrency Accounting ───────────────────────────────
+
+/**
+ * Selects the highest-priority backend that has sufficient token headroom.
+ * Skips backends in cooldown or without enough remaining capacity (accounting
+ * for in-flight reservations). Falls back to freeFallback if none qualify.
+ *
+ * @param priority - ordered list of backend IDs to try
+ * @param states - map of backend ID to usage state
+ * @param safetyMargin - minimum remaining tasks before a backend is considered full
+ * @param freeFallback - fallback backend used when all priority backends are exhausted
+ * @returns selected BackendId
+ */
+export function pickBackend(
+  priority: BackendId[],
+  states: Map<string, BackendUsageState>,
+  safetyMargin: number,
+  freeFallback: { backend: BackendId },
+): BackendId {
+  const now = Date.now();
+  for (const backend of priority) {
+    const state = states.get(backend);
+    if (!state) continue;
+    if (state.cooldown_until && state.cooldown_until > now) continue;
+    if (state.ewma_tokens_per_task === 0) return backend;
+    const effective = state.tokens_consumed_in_window + state.tokens_reserved;
+    const remaining = state.token_budget - effective;
+    const tasksRemaining = remaining / state.ewma_tokens_per_task;
+    if (tasksRemaining >= safetyMargin) return backend;
+  }
+  return freeFallback.backend;
+}
+
+/**
+ * Marks one task as in-flight, incrementing the in-flight counter and
+ * reserving the EWMA-predicted token cost.
+ *
+ * @param state - backend usage state to mutate
+ */
+export function markInFlight(state: BackendUsageState): void {
+  state.in_flight_count += 1;
+  state.tokens_reserved += state.ewma_tokens_per_task;
+}
+
+/**
+ * Marks one in-flight task as complete, decrementing the counter and
+ * recalculating tokens_reserved from the updated in-flight count.
+ *
+ * @param state - backend usage state to mutate
+ */
+export function markComplete(state: BackendUsageState): void {
+  state.in_flight_count = Math.max(0, state.in_flight_count - 1);
+  state.tokens_reserved = state.ewma_tokens_per_task * state.in_flight_count;
+}
+
 module.exports = {
   ADAPTERS,
   DEFAULT_BUDGET_TPM,
@@ -199,4 +254,7 @@ module.exports = {
   updateEWMA,
   evictExpiredSamples,
   recordSample,
+  pickBackend,
+  markInFlight,
+  markComplete,
 };
