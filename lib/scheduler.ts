@@ -186,7 +186,6 @@ export function recordSample(
 ): void {
   state.samples.push(sample);
   evictExpiredSamples(state, windowMinutes);
-  state.tokens_consumed_in_window = state.samples.reduce((sum, s) => sum + s.tokenEstimate, 0);
   updateEWMA(state, sample.tokenEstimate, alpha);
   state.budget_confidence = 1 - 1 / (1 + state.samples.length * 0.2);
 }
@@ -246,6 +245,21 @@ export function markComplete(state: BackendUsageState): void {
   state.tokens_reserved = state.ewma_tokens_per_task * state.in_flight_count;
 }
 
+// ─── Shared Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Checks whether a CLI binary is available on the system PATH.
+ */
+export function checkBinary(binary: string): boolean {
+  try {
+    const { execFileSync } = require('child_process') as typeof import('child_process');
+    execFileSync('which', [binary], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Scheduler Interface and Factory ─────────────────────────────────────────
 
 import type { SchedulerConfig, SchedulerSpawnResult } from './types';
@@ -254,7 +268,7 @@ import type { SchedulerConfig, SchedulerSpawnResult } from './types';
  * High-level scheduler that selects backends, spawns CLI processes,
  * records usage samples, and persists learned state across sessions.
  */
-interface Scheduler {
+export interface Scheduler {
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
   getState(backend: string): BackendUsageState | undefined;
   persistState(planningDir: string): void;
@@ -285,15 +299,6 @@ export function createScheduler(config: SchedulerConfig | undefined): Scheduler 
 
   // Check which backend binaries are available
   const availableBackends = new Set<string>();
-  const checkBinary = (binary: string): boolean => {
-    try {
-      const { execFileSync } = require('child_process') as typeof import('child_process');
-      execFileSync('which', [binary], { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  };
   for (const backend of new Set(allBackends)) {
     const adapter = ADAPTERS[backend as BackendId];
     if (adapter && checkBinary(adapter.binary)) availableBackends.add(backend);
@@ -418,34 +423,28 @@ export function createScheduler(config: SchedulerConfig | undefined): Scheduler 
     },
 
     loadPersistedState(planningDir: string): void {
-      const { readFileSync, existsSync } = require('fs') as typeof import('fs');
+      const { safeReadJSON }: { safeReadJSON: (p: string, d?: unknown) => unknown } = require('./utils');
       const { join } = require('path') as typeof import('path');
-      const filePath = join(planningDir, 'scheduler-state.json');
-      if (!existsSync(filePath)) return;
-      try {
-        const raw = JSON.parse(readFileSync(filePath, 'utf-8')) as {
-          version: number;
-          backends: Record<
-            string,
-            {
-              token_budget: number;
-              ewma_tokens_per_task: number;
-              budget_learned: boolean;
-              budget_confidence: number;
-            }
-          >;
-        };
-        if (raw.version !== 1) return;
-        for (const [key, saved] of Object.entries(raw.backends)) {
-          const state = states.get(key);
-          if (!state) continue;
-          if (saved.budget_learned) state.token_budget = saved.token_budget;
-          state.ewma_tokens_per_task = saved.ewma_tokens_per_task;
-          state.budget_learned = saved.budget_learned;
-          state.budget_confidence = saved.budget_confidence;
-        }
-      } catch {
-        // corrupted file — ignore, start fresh
+      const raw = safeReadJSON(join(planningDir, 'scheduler-state.json')) as {
+        version?: number;
+        backends?: Record<
+          string,
+          {
+            token_budget: number;
+            ewma_tokens_per_task: number;
+            budget_learned: boolean;
+            budget_confidence: number;
+          }
+        >;
+      } | null;
+      if (!raw || raw.version !== 1 || !raw.backends) return;
+      for (const [key, saved] of Object.entries(raw.backends)) {
+        const state = states.get(key);
+        if (!state) continue;
+        if (saved.budget_learned) state.token_budget = saved.token_budget;
+        state.ewma_tokens_per_task = saved.ewma_tokens_per_task;
+        state.budget_learned = saved.budget_learned;
+        state.budget_confidence = saved.budget_confidence;
       }
     },
   };
@@ -457,6 +456,7 @@ module.exports = {
   ADAPTERS,
   DEFAULT_BUDGET_TPM,
   FREE_FALLBACK_BUDGET,
+  checkBinary,
   createBackendState,
   updateEWMA,
   evictExpiredSamples,

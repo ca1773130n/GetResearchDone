@@ -39,8 +39,9 @@ const path = require('path');
 const { loadConfig }: {
   loadConfig: (cwd: string) => GrdConfig;
 } = require('../utils');
+import type { Scheduler } from '../scheduler';
 const { createScheduler }: {
-  createScheduler: (config: import('../types').SchedulerConfig | undefined) => { spawn: (prompt: string, opts: Record<string, unknown>) => Promise<{ exitCode: number; timedOut: boolean; stdout?: string; stderr?: string; backend: string; tokensUsed: number; workItemId: string }>; getState: (backend: string) => unknown; persistState: (dir: string) => void; loadPersistedState: (dir: string) => void } | null;
+  createScheduler: (config: import('../types').SchedulerConfig | undefined) => Scheduler | null;
 } = require('../scheduler');
 const { execGit }: {
   execGit: (
