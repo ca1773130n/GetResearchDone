@@ -64,11 +64,13 @@ describe('package.json npm configuration', () => {
     expect(pkg.engines.node).toBe('>=18');
   });
 
-  test('dependencies field is absent or empty (zero runtime deps)', () => {
+  test('dependencies field contains only tsx (TS loader)', () => {
     if (pkg.dependencies) {
-      expect(Object.keys(pkg.dependencies)).toHaveLength(0);
+      const deps = Object.keys(pkg.dependencies);
+      expect(deps).toEqual(['tsx']);
     } else {
-      expect(pkg.dependencies).toBeUndefined();
+      // tsx should be present as a runtime dependency
+      expect(pkg.dependencies).toBeDefined();
     }
   });
 

@@ -634,21 +634,21 @@ describe('Integration with Phase Execution Context', () => {
 // ─── Test Group 8: Verify cleanup functions are not imported in hot paths ─────
 
 describe('Verify cleanup functions are not imported in hot paths', () => {
-  test('lib/context.js does NOT import from lib/cleanup.js', () => {
-    const contextPath = path.resolve(__dirname, '../../lib/context.js');
+  test('lib/context/index.ts does NOT import from lib/cleanup', () => {
+    const contextPath = path.resolve(__dirname, '../../lib/context/index.ts');
     const content = fs.readFileSync(contextPath, 'utf-8');
 
     // Check for require('cleanup'), require('./cleanup'), require('../cleanup'), etc.
     const cleanupImportPattern = /require\s*\(\s*['"][^'"]*cleanup[^'"]*['"]\s*\)/g;
     const matches = content.match(cleanupImportPattern);
 
-    // context.js should NOT import cleanup.js
+    // context should NOT import cleanup
     // The cleanup integration happens in bin/grd-tools.js cmdPhaseComplete, not in context init
     expect(matches).toBeNull();
   });
 
-  test('lib/context.js import list does not reference cleanup module', () => {
-    const contextPath = path.resolve(__dirname, '../../lib/context.js');
+  test('lib/context/index.ts import list does not reference cleanup module', () => {
+    const contextPath = path.resolve(__dirname, '../../lib/context/index.ts');
     const content = fs.readFileSync(contextPath, 'utf-8');
 
     // Also check for dynamic imports or destructured requires mentioning cleanup functions

@@ -108,11 +108,10 @@ describe('npm pack validation', () => {
     expect(dryRunFilePaths).toContain('bin/grd-mcp-server.js');
     expect(dryRunFilePaths).toContain('bin/postinstall.js');
 
-    // lib/ files (spot-check key modules — both .ts source and .js CJS proxy)
+    // lib/ files (spot-check key .ts modules — no .js proxies after tsx migration)
     expect(dryRunFilePaths).toContain('lib/backend.ts');
-    expect(dryRunFilePaths).toContain('lib/backend.js');
     expect(dryRunFilePaths).toContain('lib/mcp-server.ts');
-    expect(dryRunFilePaths).toContain('lib/mcp-server.js');
+    expect(dryRunFilePaths).toContain('lib/utils.ts');
 
     // dist/ compiled output
     const distFiles = dryRunFilePaths.filter((p) => p.startsWith('dist/'));

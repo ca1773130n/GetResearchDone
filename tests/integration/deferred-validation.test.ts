@@ -22,19 +22,19 @@ describe('Deferred Validations (Phase 65)', () => {
     });
   });
 
-  describe('DEFER-59-01: CJS interop with downstream consumers', () => {
-    test('all lib/ .js proxies can be required via plain Node', () => {
-      // Each .js proxy should load without error
-      const proxies = fs
+  describe('DEFER-59-01: TypeScript modules load via tsx', () => {
+    test('all lib/ .ts modules can be required via tsx', () => {
+      // With tsx/cjs registered, extensionless require resolves to .ts files
+      const tsModules = fs
         .readdirSync(path.join(ROOT, 'lib'))
         .filter(
           (f: string) =>
-            f.endsWith('.js') && !f.endsWith('.d.ts') && !f.endsWith('.d.js')
+            f.endsWith('.ts') && !f.endsWith('.d.ts') && f !== 'types.ts'
         );
-      expect(proxies.length).toBeGreaterThanOrEqual(20);
-      for (const proxy of proxies) {
+      expect(tsModules.length).toBeGreaterThanOrEqual(20);
+      for (const mod of tsModules) {
         expect(() => {
-          require(path.join(ROOT, 'lib', proxy));
+          require(path.join(ROOT, 'lib', mod));
         }).not.toThrow();
       }
     });
@@ -50,10 +50,13 @@ describe('Deferred Validations (Phase 65)', () => {
       'evolve',
     ];
     test.each(phase61Modules)(
-      'lib/%s.js proxy loads under plain Node',
+      'lib/%s.ts loads correctly',
       (mod) => {
+        const modPath = mod === 'evolve'
+          ? path.join(ROOT, 'lib', 'evolve', 'index.ts')
+          : path.join(ROOT, 'lib', `${mod}.ts`);
         expect(() => {
-          require(path.join(ROOT, 'lib', `${mod}.js`));
+          require(modPath);
         }).not.toThrow();
       }
     );
@@ -61,19 +64,19 @@ describe('Deferred Validations (Phase 65)', () => {
 
   describe('DEFER-61-02: Subprocess typed interfaces', () => {
     test('tracker.ts exports have proper function signatures', () => {
-      const tracker = require(path.join(ROOT, 'lib', 'tracker.js'));
+      const tracker = require(path.join(ROOT, 'lib', 'tracker.ts'));
       expect(typeof tracker.cmdTracker).toBe('function');
       expect(typeof tracker.createTracker).toBe('function');
       expect(typeof tracker.loadTrackerConfig).toBe('function');
     });
     test('worktree.ts exports have proper function signatures', () => {
-      const worktree = require(path.join(ROOT, 'lib', 'worktree.js'));
+      const worktree = require(path.join(ROOT, 'lib', 'worktree.ts'));
       expect(typeof worktree.cmdWorktreeCreate).toBe('function');
       expect(typeof worktree.cmdWorktreeRemove).toBe('function');
       expect(typeof worktree.cmdWorktreeList).toBe('function');
     });
     test('autopilot.ts exports have proper function signatures', () => {
-      const autopilot = require(path.join(ROOT, 'lib', 'autopilot.js'));
+      const autopilot = require(path.join(ROOT, 'lib', 'autopilot.ts'));
       expect(typeof autopilot.cmdAutopilot).toBe('function');
       expect(typeof autopilot.cmdInitAutopilot).toBe('function');
     });
@@ -85,7 +88,7 @@ describe('Deferred Validations (Phase 65)', () => {
       // Create .planning subdir (writeEvolveState writes to cwd/.planning/EVOLVE-STATE.json)
       fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
 
-      // Load the actual evolve/state module (via CJS proxy chain)
+      // Load the actual evolve/state module
       const evolveState = require(path.join(
         ROOT,
         'lib',
@@ -103,8 +106,6 @@ describe('Deferred Validations (Phase 65)', () => {
       const loaded = evolveState.readEvolveState(tmpDir);
 
       // Validate ALL fields from the EvolveState interface (lib/evolve/types.ts):
-      // iteration, timestamp, milestone, items_per_iteration, selected, remaining,
-      // bugfix, completed, failed, history
       const expectedFields = [
         'iteration',
         'timestamp',
@@ -132,8 +133,8 @@ describe('Deferred Validations (Phase 65)', () => {
   });
 
   describe('DEFER-62-01: Barrel re-export backward compatibility', () => {
-    test('lib/commands.js re-exports all command functions', () => {
-      const commands = require(path.join(ROOT, 'lib', 'commands.js'));
+    test('lib/commands/index.ts re-exports all command functions', () => {
+      const commands = require(path.join(ROOT, 'lib', 'commands', 'index.ts'));
       // Should export key command functions used by bin/grd-tools.ts
       expect(typeof commands.cmdCurrentTimestamp).toBe('function');
       expect(typeof commands.cmdGenerateSlug).toBe('function');
@@ -148,8 +149,8 @@ describe('Deferred Validations (Phase 65)', () => {
       );
       expect(fnKeys.length).toBeGreaterThanOrEqual(30);
     });
-    test('lib/context.js re-exports all context functions', () => {
-      const ctx = require(path.join(ROOT, 'lib', 'context.js'));
+    test('lib/context/index.ts re-exports all context functions', () => {
+      const ctx = require(path.join(ROOT, 'lib', 'context', 'index.ts'));
       expect(typeof ctx.cmdInitExecutePhase).toBe('function');
       expect(typeof ctx.cmdInitPlanPhase).toBe('function');
       expect(typeof ctx.cmdInitNewProject).toBe('function');
@@ -161,8 +162,8 @@ describe('Deferred Validations (Phase 65)', () => {
       );
       expect(fnKeys.length).toBeGreaterThanOrEqual(40);
     });
-    test('lib/evolve.js re-exports all evolve functions', () => {
-      const evolve = require(path.join(ROOT, 'lib', 'evolve.js'));
+    test('lib/evolve/index.ts re-exports all evolve functions', () => {
+      const evolve = require(path.join(ROOT, 'lib', 'evolve', 'index.ts'));
       expect(typeof evolve.cmdEvolveDiscover).toBe('function');
       expect(typeof evolve.cmdEvolve).toBe('function');
       expect(typeof evolve.cmdEvolveState).toBe('function');
@@ -177,25 +178,19 @@ describe('Deferred Validations (Phase 65)', () => {
   });
 
   describe('DEFER-63-01: Plugin manifest with dist/ paths', () => {
-    // NOTE: The SessionStart hook continues to use the CJS proxy
-    // (bin/grd-tools.js -> bin/grd-tools.ts) in source mode. This is correct
-    // because plugin.json runs in the source context, not the dist/ context.
-    // The "dist/ path" portion of DEFER-63-01 is validated by the separate
-    // dist/ CLI functional test below, not by modifying plugin.json to
-    // reference dist/ paths.
     test('plugin.json exists and has valid structure', () => {
       const pluginPath = path.join(ROOT, '.claude-plugin', 'plugin.json');
       const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
       expect(plugin.hooks).toBeDefined();
       expect(plugin.hooks.SessionStart).toBeDefined();
     });
-    test('SessionStart hook command references existing CJS proxy file', () => {
+    test('SessionStart hook command references existing bin entry point', () => {
       const pluginPath = path.join(ROOT, '.claude-plugin', 'plugin.json');
       const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
       const cmd = plugin.hooks.SessionStart[0].hooks[0].command;
-      // Command references bin/grd-tools.js (the CJS proxy) -- verify it exists
+      // Command references bin/grd-tools.js -- verify it exists
       expect(cmd).toContain('grd-tools.js');
-      // Verify the CJS proxy file actually exists on disk
+      // Verify the entry point file actually exists on disk
       const proxyPath = path.join(ROOT, 'bin', 'grd-tools.js');
       expect(fs.existsSync(proxyPath)).toBe(true);
     });
