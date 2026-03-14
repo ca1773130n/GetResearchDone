@@ -4,17 +4,30 @@ Prefer the **context-mode** MCP server for file reading, searching, and codebase
 
 ## Commands
 
+### Dev
 | Command | Description |
 |---------|-------------|
 | `npm test` | Run all tests with coverage |
 | `npm run test:unit` | Unit tests only |
-| `npm run test:integration` | Integration + E2E tests |
 | `npm run lint` | ESLint on `bin/` and `lib/` |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run build:check` | Type-check without emitting (`tsc --noEmit`) |
+| `npm run build:check` | Type-check (`tsc --noEmit`) |
 
 Single test: `npx jest tests/unit/state.test.ts`
 By name: `npx jest -t "should parse frontmatter"`
+
+### GD CLI (`gd <command> [args] [--json]`)
+| Command | Description |
+|---------|-------------|
+| `gd progress` | Project status and next action |
+| `gd state load` | Load full project config + state |
+| `gd plan-phase <N>` | Plan a phase |
+| `gd execute-phase <N>` | Execute a phase |
+| `gd autopilot` | Run phases autonomously |
+| `gd evolve` | Self-improvement loop |
+| `gd quick <desc>` | Ad-hoc task with GRD guarantees |
+| `gd health` | Blockers, velocity, risk |
+| `gd settings` | Configure workflow |
+| `gd help` | Full command reference |
 
 ## Architecture
 
@@ -42,6 +55,6 @@ By name: `npx jest -t "should parse frontmatter"`
 
 ## Gotchas
 
-- **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `grd-tools.js` subcommands instead of ad-hoc JSON parsing.
-- **CLI output**: All `grd-tools.js` commands output JSON by default (`--raw` for plain text).
+- **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
+- **CLI output**: `gd` tool commands output JSON by default (`--json` flag, `--raw` for plain text via grd-tools).
 - **Config**: `.planning/config.json` controls all workflow behavior (gates, scheduler, ceremony, tracker, code review).
