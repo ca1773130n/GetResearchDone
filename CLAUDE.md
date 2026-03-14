@@ -1,8 +1,19 @@
 # GRD — Get Research Done
 
-Prefer the **context-mode** MCP server for file reading, searching, and codebase navigation.
-
 ## Commands
+
+### Context-Mode MCP (prefer over Bash/Read for large output)
+| Tool | Use Instead Of | Description |
+|------|---------------|-------------|
+| `ctx_batch_execute` | Multiple Bash calls | Run multiple commands + search results in ONE call |
+| `ctx_execute` | Bash (>20 lines output) | Run code in sandbox; only printed summary enters context |
+| `ctx_execute_file` | Read/cat for analysis | Read file into sandbox; process and print summary only |
+| `ctx_search` | Grep (follow-up) | Search previously indexed content with multiple queries |
+| `ctx_index` | Read (large docs) | Index markdown/docs into searchable knowledge base |
+| `ctx_fetch_and_index` | WebFetch | Fetch URL, convert to markdown, index for search |
+| `ctx_stats` | — | Show session context consumption statistics |
+| `ctx_doctor` | — | Diagnose context-mode installation |
+| `ctx_upgrade` | — | Upgrade context-mode to latest version |
 
 ### Dev
 | Command | Description |
