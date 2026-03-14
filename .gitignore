@@ -23,6 +23,8 @@ Thumbs.db
 grd-local-patches/
 .worktrees/
 .planning/autopilot/evolve.log
+.planning/monitor/
+.planning/scheduler-state.json
 
 # Build/coverage artifacts
 coverage/
@@ -35,11 +37,24 @@ build/
 
 # Test artifacts
 tmp/
+testbed/
 
 # Claude Code local settings
 .claude/
-testbed/
-.planning/monitor/
 
-# Scheduler learned state (per-machine, transient)
-.planning/scheduler-state.json
+# HarnessSync targets (auto-generated, per-machine)
+.aider.conf.yml
+.avante/
+.clinerules
+.codecompanion/
+.codex/
+.continue/
+.cursor/
+.harness-sync/
+.opencode/
+.prettierrc
+.prettierignore
+.roo/
+.serena/
+.zed/
+GEMINI.md

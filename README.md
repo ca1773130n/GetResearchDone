@@ -2,107 +2,46 @@
 
 [![CI](https://github.com/ca1773130n/GRD/actions/workflows/ci.yml/badge.svg)](https://github.com/ca1773130n/GRD/actions/workflows/ci.yml)
 
-R&D workflow automation plugin for [Claude Code](https://claude.com/claude-code). Forked from [GSD (Get Shit Done)](https://github.com/coleam00/get-shit-done) and extended for research-grade development.
+R&D workflow automation plugin for [Claude Code](https://claude.com/claude-code). Built for projects where research papers drive implementation, quantitative evaluation matters, and autonomous iteration is the norm.
 
 ## What is GRD?
 
-GRD brings research rigor to AI-assisted software development. While GSD excels at shipping features fast, GRD is designed for projects where:
+GRD brings research rigor to AI-assisted software development:
 
-- **External papers and research** drive implementation decisions
-- **Quantitative evaluation** (PSNR, SSIM, LPIPS, FID) matters more than "it works"
-- **Iterative experimentation** is the norm — try, measure, pivot
-- **Paper-to-production gaps** need explicit management
-- **Autonomous operation** lets the agent iterate without constant supervision
+- **Paper-driven development** — survey SoTA, deep-dive papers, assess feasibility before coding
+- **Tiered verification** — sanity checks in-phase, proxy metrics for quick feedback, deferred evaluation at integration
+- **Autonomous iteration** — YOLO mode lets the agent plan, execute, evaluate, and iterate without supervision
+- **Multi-backend scheduling** — rate-limit-aware routing across Claude, Codex, Gemini, OpenCode, and Overstory with EWMA token prediction
+- **Scale-adaptive ceremony** — light/standard/full agent configurations based on phase complexity
 
-## Core Concepts
+## Quick Start
 
-### Research Knowledge Base (`.planning/research/`)
+```bash
+# Install as Claude Code plugin
+claude plugin add https://github.com/ca1773130n/GRD.git
 
-Persistent research knowledge that accumulates across phases:
+# Initialize a new R&D project
+/grd:new-project
 
-| File | Purpose |
-|------|---------|
-| `LANDSCAPE.md` | SoTA map — methods, benchmarks, trends |
-| `PAPERS.md` | Paper index with summaries |
-| `BENCHMARKS.md` | Evaluation metrics and datasets |
-| `KNOWHOW.md` | Paper→production gap knowledge |
-| `deep-dives/*.md` | Individual paper deep analyses |
-
-### Tiered Verification
-
-Not every phase can be fully evaluated independently:
-
-| Level | Name | Example |
-|-------|------|---------|
-| Sanity | Always doable | Format checks, crash tests |
-| Proxy | Indirect measure | Small-subset eval, ablation reproduction |
-| Deferred | Needs integration | Full pipeline PSNR/SSIM |
-
-Deferred validations are tracked and automatically collected at integration phases.
-
-### Long-Term Roadmap (LT Milestones)
-
-GRD supports a flat, ordered list of long-term milestones for multi-milestone planning:
-
-```
-LONG-TERM-ROADMAP.md
-  ├── LT-1: Foundation & Stability    [completed]  → v0.0.5 … v0.1.6
-  ├── LT-2: Distribution & Polish     [active]     → v0.2.0 (planned)
-  ├── LT-3: Advanced Workflows        [planned]    → (none yet)
-  └── LT-4: Production Release        [planned]    → v1.0.0 (planned)
+# Or jump straight in
+/grd:survey "topic"          # Survey state of the art
+/grd:plan-phase 1            # Plan the first phase
+/grd:execute-phase 1         # Execute it
+/grd:autopilot               # Let it run autonomously
 ```
 
-Each LT milestone groups normal milestones from `ROADMAP.md` with full traceability. Protection rules prevent removing shipped milestones or unlinking shipped versions. See [Long-Term Roadmap Tutorial](docs/long-term-roadmap-tutorial.md) for a walkthrough.
+### Prerequisites
 
-### Multi-Backend Support
+- Node.js 18+
+- Claude Code CLI (or any supported backend)
 
-GRD detects and adapts to multiple AI coding CLIs:
+### Optional Integrations
 
-| Backend | Detection | Model Resolution |
-|---------|-----------|-----------------|
-| Claude Code | `CLAUDE_CODE_*` env vars | Native tier names |
-| Codex CLI | `CODEX_HOME` env var | GPT-5.3 model names |
-| Gemini CLI | `GEMINI_CLI_HOME` env var | Gemini model names |
-| OpenCode | `OPENCODE` env var | Dynamic detection via `opencode models` |
+- GitHub CLI (`gh`) — for issue tracking
+- MCP Atlassian — for Jira integration
+- Overstory — for multi-agent orchestration
 
-Resolution priority: config overrides > dynamically detected models > hardcoded defaults. OpenCode is the only backend that supports runtime model discovery; others use static mappings.
-
-### Autonomous Mode (YOLO)
-
-Toggle headless operation where the agent:
-- Makes all decisions using available context
-- Skips human confirmation gates
-- Logs all decisions for later review
-- Enables continuous iteration loops
-
-### Code Review
-
-Automatic two-stage code review after execution:
-- **Stage 1 — Spec compliance:** Plan alignment, research methodology match, pitfall avoidance, eval coverage
-- **Stage 2 — Code quality:** Architecture consistency, reproducibility, documentation, deviation documentation
-- Output: REVIEW.md with BLOCKER/WARNING/INFO severity levels
-
-### Quality Analysis
-
-Optional phase-boundary quality analysis (disabled by default):
-- ESLint complexity violation detection
-- Dead export scanning
-- File size threshold checks
-- Doc drift detection (changelog staleness, broken README links, JSDoc mismatches)
-- Test coverage gap detection (exports without test mentions)
-- Export consistency checking (stale imports referencing removed exports)
-- Doc staleness detection (CLAUDE.md CLI docs vs actual COMMAND_DESCRIPTORS)
-- Config schema drift analysis (documented vs actual config keys)
-- Integrated into phase completion flow with auto-generated cleanup plans
-
-### Agent Teams (Experimental)
-
-Opt-in parallel execution using Claude Code Agent Teams:
-- Named executor teammates per plan
-- Team lead mediates checkpoints
-- Configurable concurrency and timeouts
-
-## R&D Workflow
+## Core Workflow
 
 ```
 Idea → Survey → Feasibility → Product Plan → Roadmap
@@ -110,7 +49,7 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
   → Integration → Product Verification → Done
 ```
 
-## Commands (45 slash commands)
+## Commands (45+)
 
 ### Research
 | Command | Description |
@@ -118,100 +57,73 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | `/grd:survey <topic>` | SoTA landscape scan |
 | `/grd:deep-dive <paper>` | Paper deep analysis |
 | `/grd:compare-methods` | Method comparison matrix |
-| `/grd:feasibility <approach>` | Paper→production gap analysis |
-| `/grd:research-phase <N>` | Research how to implement a phase |
+| `/grd:feasibility <approach>` | Paper-to-production gap analysis |
 
 ### Planning & Execution
 | Command | Description |
 |---------|-------------|
 | `/grd:new-project` | Initialize R&D project |
-| `/grd:new-milestone` | Start a new milestone cycle |
-| `/grd:product-plan` | Product-level planning |
-| `/grd:discuss-phase <N>` | Extract implementation decisions before planning |
-| `/grd:list-phase-assumptions <N>` | Surface Claude's assumptions before planning |
 | `/grd:plan-phase <N>` | Phase planning with research context |
 | `/grd:execute-phase <N>` | Phase execution with wave parallelization |
+| `/grd:autopilot` | Multi-phase autonomous execution |
 | `/grd:quick <desc>` | Quick task with GRD guarantees |
-
-### Long-Term Roadmap
-| Command | Description |
-|---------|-------------|
-| `/grd:long-term-roadmap list` | List all LT milestones |
-| `/grd:long-term-roadmap add` | Add a new LT milestone |
-| `/grd:long-term-roadmap remove` | Remove an LT milestone (protected) |
-| `/grd:long-term-roadmap update` | Update LT milestone fields |
-| `/grd:long-term-roadmap refine` | Output context for AI discussion |
-| `/grd:long-term-roadmap link` | Link normal milestone to LT |
-| `/grd:long-term-roadmap unlink` | Unlink (protected if shipped) |
-| `/grd:long-term-roadmap display` | Formatted TUI view |
-| `/grd:long-term-roadmap init` | Auto-group existing milestones |
-
-### Phase & Milestone Management
-| Command | Description |
-|---------|-------------|
-| `/grd:add-phase <name>` | Add a new phase to the end of the milestone |
-| `/grd:insert-phase <N> <name>` | Insert a decimal phase between existing phases |
-| `/grd:remove-phase <N>` | Remove an unstarted phase and renumber |
-| `/grd:audit-milestone` | Verify milestone definition of done |
-| `/grd:complete-milestone` | Mark milestone as complete and archive |
-| `/grd:plan-milestone-gaps` | Create phases to close gaps from milestone audit |
 
 ### Evaluation
 | Command | Description |
 |---------|-------------|
 | `/grd:assess-baseline` | Current performance baseline |
-| `/grd:eval-plan <N>` | Design tiered evaluation |
 | `/grd:eval-report <N>` | Collect and analyze results |
 | `/grd:iterate <N>` | Iteration loop on failed metrics |
 
-### Verification & Testing
-| Command | Description |
-|---------|-------------|
-| `/grd:verify-phase <N>` | Tiered phase verification |
-| `/grd:verify-work <N>` | Conversational feature testing with metrics |
-
-### Requirements
-| Command | Description |
-|---------|-------------|
-| `/grd:requirement <subcommand>` | Look up, list, trace, or update requirements |
-
-### Integration
-| Command | Description |
-|---------|-------------|
-| `/grd:sync [roadmap\|phase N\|reschedule]` | Sync GRD state to issue tracker |
-| `/grd:tracker-setup` | Configure GitHub Issues or MCP Atlassian |
-
-### Navigation & Status
+### Navigation
 | Command | Description |
 |---------|-------------|
 | `/grd:progress` | Project progress and smart routing |
-| `/grd:dashboard` | Full graphical TUI overview |
-| `/grd:phase-detail <N>` | Drill-down view for a single phase |
-| `/grd:health` | Blockers, velocity, stale phases, risk register |
-| `/grd:map-codebase` | Analyze codebase architecture |
-
-### Session Management
-| Command | Description |
-|---------|-------------|
-| `/grd:pause-work` | Save work state for session continuity |
-| `/grd:resume-project` | Restore full project context |
-| `/grd:add-todo <desc>` | Capture idea as structured todo |
-| `/grd:check-todos` | List and route pending todos |
-| `/grd:debug <desc>` | Systematic debugging with persistent state |
-
-### Configuration
-| Command | Description |
-|---------|-------------|
-| `/grd:settings` | Configure workflow agents and preferences |
-| `/grd:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
-| `/grd:yolo` | Toggle autonomous mode |
+| `/grd:settings` | Configure workflow and preferences |
 | `/grd:help` | Full command reference |
-| `/grd:update` | Check for updates |
-| `/grd:reapply-patches` | Restore local modifications after update |
+
+## Architecture
+
+GRD uses a thin orchestrator pattern: markdown skill files handle orchestration intelligence, while `bin/grd-tools.ts` handles all deterministic operations (state management, verification, scaffolding, tracker sync). The `gd` CLI provides a unified entry point for both tool and agent commands across backends.
+
+```
+bin/
+├── grd-tools.ts        # Deterministic CLI (state, verify, scaffold, tracker)
+├── gd.ts               # Unified CLI (agent + tool routing)
+├── grd-mcp-server.ts   # MCP server exposing all tools
+└── *.js                # Entry points (register tsx for .ts resolution)
+lib/
+├── scheduler.ts        # Cross-backend rate limit scheduler
+├── autopilot.ts        # Multi-phase orchestration
+├── evolve/             # Self-evolution loop
+├── commands/           # CLI command handlers
+├── context/            # Context optimization for agents
+└── ...                 # 25+ TypeScript modules
+```
+
+All source is TypeScript with `strict: true`. Entry points use [tsx](https://github.com/privatenumber/tsx) for direct `.ts` resolution — no compilation needed for development.
+
+## Configuration
+
+`.planning/config.json` controls all behavior:
+
+```json
+{
+  "autonomous_mode": false,
+  "ceremony": { "default_level": "auto" },
+  "code_review": { "enabled": true },
+  "scheduler": {
+    "backend_priority": ["claude", "gemini"],
+    "free_fallback": { "backend": "opencode" }
+  }
+}
+```
+
+See `/grd:settings` for interactive configuration or `/grd:help` for full reference.
 
 ## MCP Server
 
-GRD includes an MCP server (`grd-mcp-server`) that exposes all 105 CLI commands as structured tools over the Model Context Protocol. Any MCP-compatible client can call GRD operations directly.
+GRD includes an MCP server exposing all CLI commands as structured tools:
 
 ```json
 {
@@ -220,132 +132,6 @@ GRD includes an MCP server (`grd-mcp-server`) that exposes all 105 CLI commands 
   }
 }
 ```
-
-See [docs/mcp-server.md](docs/mcp-server.md) for full setup, tool reference, and examples.
-
-## Installation
-
-```bash
-claude plugin add /path/to/GRD
-```
-
-Or from a remote repository:
-
-```bash
-claude plugin add https://github.com/ca1773130n/GRD.git
-```
-
-### Prerequisites
-
-- Node.js 18+
-- Claude Code CLI
-- GitHub CLI (`gh`) — for GitHub Issues integration (optional)
-- `gh-sub-issue` extension — for parent/child issues (optional)
-- `mcp-atlassian` MCP server — for Jira integration (optional)
-
-### Issue Tracker Setup
-
-**GitHub Issues:**
-```bash
-gh auth login
-gh extension install github/gh-sub-issue  # optional, for parent/child linking
-# Configure via /grd:tracker-setup or set in .planning/config.json:
-# "tracker": { "provider": "github" }
-```
-
-**MCP Atlassian (Jira):**
-```bash
-# 1. Add mcp-atlassian to your Claude Code MCP server configuration
-# 2. Configure it with your Atlassian credentials (see mcp-atlassian docs)
-# 3. Configure via /grd:tracker-setup or set in .planning/config.json:
-# "tracker": { "provider": "mcp-atlassian", "mcp_atlassian": { "project_key": "PROJ" } }
-```
-
-## Configuration
-
-`.planning/config.json` controls all behavior:
-
-```json
-{
-  "research_gates": {
-    "verification_design": true,
-    "after_eval": true,
-    "feasibility": true
-  },
-  "autonomous_mode": false,
-  "tracker": {
-    "provider": "none",
-    "auto_sync": true,
-    "github": { "default_labels": ["research", "implementation", "evaluation", "integration"] },
-    "mcp_atlassian": { "project_key": "", "milestone_issue_type": "Epic", "phase_issue_type": "Task", "plan_issue_type": "Sub-task", "start_date_field": "customfield_10015", "default_duration_days": 7 }
-  },
-  "eval_config": {
-    "default_metrics": ["PSNR", "SSIM", "LPIPS"],
-    "baseline_tracking": true
-  },
-  "code_review": {
-    "enabled": true,
-    "timing": "per_wave",
-    "severity_gate": "blocker"
-  },
-  "execution": {
-    "use_teams": false,
-    "team_timeout_minutes": 30,
-    "max_concurrent_teammates": 4
-  },
-  "phase_cleanup": {
-    "enabled": false,
-    "refactoring": false,
-    "doc_sync": false
-  },
-  "backend": "auto",
-  "backend_models": {
-    "opencode": { "opus": "anthropic/claude-opus-4-5" }
-  }
-}
-```
-
-### Research Gates
-
-Control where human review is required:
-
-| Gate | Default | Purpose |
-|------|---------|---------|
-| `verification_design` | `true` | Review EVAL.md before execution |
-| `after_eval` | `true` | Review eval results interpretation |
-| `feasibility` | `true` | Review paper→production gap analysis |
-
-In YOLO mode, all gates are bypassed.
-
-## Tooling Architecture
-
-GRD uses a thin orchestrator pattern. Commands (`.md` prompt files) delegate deterministic operations to `bin/grd-tools.js`, keeping command files focused on orchestration intelligence while mechanical work happens in reliable Node.js code.
-
-### `grd-tools.js` Capabilities
-
-| Category | Commands | Purpose |
-|----------|----------|---------|
-| State | `state load/get/patch/advance-plan/record-metric/add-decision` | Atomic STATE.md operations |
-| Verify | `verify plan-structure/phase-completeness/references/commits/artifacts/key-links` | Deterministic structural checks |
-| Phase | `phase add/insert/remove/complete` | Phase lifecycle management |
-| Roadmap | `roadmap get-phase/analyze` | Roadmap queries and analysis |
-| Scaffold | `scaffold context/uat/verification/phase-dir/research-dir/eval/baseline` | Template generation |
-| Progress | `progress json/table/bar` | Multi-format progress rendering |
-| Parsers | `phase-plan-index/state-snapshot/summary-extract/history-digest` | Context-optimized data extraction |
-| Frontmatter | `frontmatter get/set/merge/validate` | YAML frontmatter CRUD |
-| Tracker | `tracker get-config/sync-roadmap/sync-phase/update-status/add-comment/prepare-*/schedule/prepare-reschedule` | GitHub/MCP Atlassian integration |
-| Long-Term Roadmap | `long-term-roadmap list/add/remove/update/refine/link/unlink/display/init/history/parse/validate` | LT milestone CRUD with protection rules |
-| Backend | `detect-backend` | Backend detection with dynamic model resolution |
-| Quality | `quality-analysis --phase N` | Phase-boundary code quality checks |
-| Requirements | `requirement get/list/traceability/update-status` | Requirement queries and status management |
-| Search | `search <query>` | Full-text search across planning documents |
-| Init | 21 workflow initializers | Context loading for commands |
-
-All outputs are JSON by default (pass `--raw` for plain text). All tracker calls are non-blocking.
-
-### Self-Update
-
-GRD includes a self-update system for git-cloned installations. Uses SHA256 manifests (`bin/grd-manifest.js`) to detect local modifications before updating, backs them up to `grd-local-patches/`, and supports intelligent merge after update. See `/grd:update` and `/grd:reapply-patches`.
 
 ## Credits
 
