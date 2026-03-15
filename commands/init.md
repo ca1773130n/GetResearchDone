@@ -66,7 +66,12 @@ INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init new-project)
 
 Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `autonomous_mode`, `research_dir`, `phases_dir`, `codebase_dir`.
 
-**If `project_exists` is true:** Error — project already initialized. Use `/grd:progress`.
+**If `project_exists` is true:** Skip to **Step 5 (Workflow Preferences)** — reconfigure settings with existing values pre-populated. Show the user:
+
+```
+Project already initialized. Entering configuration mode.
+Current settings will be shown as defaults — change what you need.
+```
 
 **If `has_git` is false:** Initialize git:
 ```bash
@@ -326,6 +331,8 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs: initialize research la
 
 ## 5. Workflow Preferences
 
+**Pre-population from existing config:** If `.planning/config.json` already exists, read it first. For each question below, pre-select the option matching the current config value. This lets users see and confirm or change their current settings. When presenting questions, indicate the current value with "(current)" appended to the matching option label.
+
 **If YOLO mode:** Auto-set config with defaults and skip to Step 5.5:
 ```json
 {
@@ -463,6 +470,90 @@ questions: [
 ]
 ```
 
+**Round 4 — Execution backend:**
+
+```
+questions: [
+  {
+    header: "Execution Backend",
+    question: "How should GRD execute work?",
+    multiSelect: false,
+    options: [
+      { label: "GRD (Default)", description: "Use GRD's own commands/skills with the configured AI backend" },
+      { label: "Superpowers", description: "Use Superpowers plugin system — supports multi-account rotation across AI backends" },
+      { label: "Overstory", description: "Use Overstory multi-agent orchestration — tmux + git worktrees" },
+      { label: "Claude Code", description: "Use Claude Code native subagents directly" },
+      { label: "Codex", description: "Use OpenAI Codex CLI" },
+      { label: "Gemini", description: "Use Google Gemini CLI" },
+      { label: "OpenCode", description: "Use OpenCode CLI (provider-agnostic)" }
+    ]
+  }
+]
+```
+
+Backend mapping:
+- "GRD (Default)" → `backend: "grd"`
+- "Superpowers" → `backend: "superpowers"`
+- "Overstory" → `backend: "overstory"`
+- "Claude Code" → `backend: "claude"`
+- "Codex" → `backend: "codex"`
+- "Gemini" → `backend: "gemini"`
+- "OpenCode" → `backend: "opencode"`
+
+**Conditional: If "Superpowers" selected, ask sub-options:**
+
+```
+questions: [
+  {
+    header: "Superpowers AI Backend",
+    question: "Which AI CLI backend should Superpowers use by default?",
+    multiSelect: false,
+    options: [
+      { label: "Claude Code (Default)", description: "Anthropic Claude Code CLI" },
+      { label: "Codex", description: "OpenAI Codex CLI" },
+      { label: "Gemini", description: "Google Gemini CLI" },
+      { label: "OpenCode", description: "Provider-agnostic CLI" }
+    ]
+  },
+  {
+    header: "Account Rotation",
+    question: "Enable automatic account rotation based on token usage?",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Auto-switch accounts when approaching rate limits" },
+      { label: "No", description: "Use a single account" }
+    ]
+  }
+]
+```
+
+**Conditional: If "Overstory" selected, ask sub-options:**
+
+```
+questions: [
+  {
+    header: "Runtime",
+    question: "Overstory runtime adapter for workers?",
+    multiSelect: false,
+    options: [
+      { label: "claude (Default)", description: "Claude Code as the worker runtime" },
+      { label: "codex", description: "OpenAI Codex as the worker runtime" },
+      { label: "cursor", description: "Cursor as the worker runtime" },
+      { label: "copilot", description: "GitHub Copilot as the worker runtime" }
+    ]
+  },
+  {
+    header: "Merge Strategy",
+    question: "Merge strategy for completed agent results?",
+    multiSelect: false,
+    options: [
+      { label: "Auto (Default)", description: "FIFO merge queue — automatically merge as agents complete" },
+      { label: "Manual", description: "Prompt for confirmation before each merge" }
+    ]
+  }
+]
+```
+
 Create `.planning/config.json` with all settings:
 
 ```json
@@ -473,6 +564,7 @@ Create `.planning/config.json` with all settings:
   "commit_docs": true|false,
   "model_profile": "quality|balanced|budget",
   "autonomous_mode": false,
+  "backend": "grd|superpowers|overstory|claude|codex|gemini|opencode",
   "workflow": {
     "research": true|false,
     "plan_check": true|false,
@@ -482,9 +574,22 @@ Create `.planning/config.json` with all settings:
     "verification_design": true|false,
     "method_selection": true|false,
     "baseline_review": true|false
+  },
+  "superpowers": {
+    "default_backend": "claude|codex|gemini|opencode",
+    "account_rotation": true|false
+  },
+  "overstory": {
+    "runtime": "claude|codex|cursor|copilot",
+    "merge_strategy": "auto|manual",
+    "poll_interval_ms": 5000
   }
 }
 ```
+
+Include `superpowers` section only when backend is "superpowers".
+Include `overstory` section only when backend is "overstory".
+When reconfiguring an existing project (`project_exists` is true), merge new values into existing config — do not overwrite unrelated fields.
 
 **If commit_docs = No:**
 - Set `commit_docs: false` in config.json

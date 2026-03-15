@@ -549,6 +549,17 @@ export interface AutoplanResult {
   reason?: string; // Failure reason if status is 'failed'
 }
 
+// ─── Superpowers Types ───────────────────────────────────────────────────────
+
+/**
+ * Configuration for the Superpowers execution backend.
+ * Superpowers orchestrates any AI CLI backend with account rotation.
+ */
+export interface SuperpowersConfig {
+  default_backend: 'claude' | 'codex' | 'gemini' | 'opencode';
+  account_rotation: boolean;
+}
+
 // ─── Overstory Types (from overstory.ts) ─────────────────────────────────────
 
 export interface OverstoryInfo {

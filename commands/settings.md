@@ -641,8 +641,13 @@ AskUserQuestion([
     header: "Exec Backend",
     multiSelect: false,
     options: [
-      { label: "Claude Code (Default)", description: "Use Claude Code native teammates for parallel execution" },
-      { label: "Overstory", description: "Use Overstory runtime for multi-agent orchestration (claude, codex, pi, copilot, cursor)" }
+      { label: "GRD (Default)", description: "Use GRD's own commands/skills with the configured AI backend" },
+      { label: "Superpowers", description: "Use Superpowers plugin system — multi-account rotation across AI backends" },
+      { label: "Overstory", description: "Use Overstory multi-agent orchestration (tmux + git worktrees)" },
+      { label: "Claude Code", description: "Use Claude Code native teammates directly" },
+      { label: "Codex", description: "Use OpenAI Codex CLI" },
+      { label: "Gemini", description: "Use Google Gemini CLI" },
+      { label: "OpenCode", description: "Use OpenCode CLI (provider-agnostic)" }
     ]
   },
   {
@@ -759,6 +764,35 @@ AskUserQuestion([
 ])
 ```
 
+**Conditional: Superpowers sub-options (if user selected "Superpowers" for Execution Backend)**
+
+If user selected "Superpowers" for Execution Backend, ask follow-up questions:
+
+```
+AskUserQuestion([
+  {
+    question: "Which AI CLI backend should Superpowers use by default?",
+    header: "Superpowers AI Backend",
+    multiSelect: false,
+    options: [
+      { label: "Claude Code (Default)", description: "Anthropic Claude Code CLI" },
+      { label: "Codex", description: "OpenAI Codex CLI" },
+      { label: "Gemini", description: "Google Gemini CLI" },
+      { label: "OpenCode", description: "Provider-agnostic CLI" }
+    ]
+  },
+  {
+    question: "Enable automatic account rotation based on token usage?",
+    header: "Account Rotation",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recommended)", description: "Auto-switch accounts when approaching rate limits" },
+      { label: "No", description: "Use a single account" }
+    ]
+  }
+])
+```
+
 **Conditional: Overstory sub-options (if user selected "Overstory" for Execution Backend)**
 
 If user selected "Overstory" for Execution Backend, ask follow-up questions:
@@ -839,6 +873,11 @@ Merge new settings into existing config.json:
     "method_selection": true/false,
     "baseline_review": true/false
   },
+  "backend": "grd" | "superpowers" | "overstory" | "claude" | "codex" | "gemini" | "opencode",
+  "superpowers": {
+    "default_backend": "claude" | "codex" | "gemini" | "opencode",
+    "account_rotation": true/false
+  },
   "overstory": {
     "runtime": "claude" | "codex" | "cursor" | "copilot",
     "merge_strategy": "auto" | "manual",
@@ -871,8 +910,23 @@ Execution Teams:
 - "No" -> `use_teams: false`
 
 Execution Backend:
-- "Claude Code (Default)" -> omit `overstory` section (use native teammates)
-- "Overstory" -> write `overstory` section with runtime, merge_strategy, poll_interval_ms from follow-ups
+- "GRD (Default)" -> `backend: "grd"`
+- "Superpowers" -> `backend: "superpowers"`, write `superpowers` section from follow-ups
+- "Overstory" -> `backend: "overstory"`, write `overstory` section with runtime, merge_strategy, poll_interval_ms from follow-ups
+- "Claude Code" -> `backend: "claude"`
+- "Codex" -> `backend: "codex"`
+- "Gemini" -> `backend: "gemini"`
+- "OpenCode" -> `backend: "opencode"`
+
+Superpowers AI Backend:
+- "Claude Code (Default)" -> `superpowers.default_backend: "claude"`
+- "Codex" -> `superpowers.default_backend: "codex"`
+- "Gemini" -> `superpowers.default_backend: "gemini"`
+- "OpenCode" -> `superpowers.default_backend: "opencode"`
+
+Superpowers Account Rotation:
+- "Yes (Recommended)" -> `superpowers.account_rotation: true`
+- "No" -> `superpowers.account_rotation: false`
 
 Overstory Runtime:
 - "claude (Default)" -> `runtime: "claude"`
@@ -929,7 +983,9 @@ Display:
 | Completion Action    | {ask/merge/pr/keep or N/A} |
 | Agent Teams          | {On/Off} |
 | Max Teammates        | {N or N/A} |
-| Execution Backend    | {Claude Code/Overstory} |
+| Execution Backend    | {GRD/Superpowers/Overstory/Claude Code/Codex/Gemini/OpenCode} |
+| SP Default Backend   | {claude/codex/gemini/opencode or N/A} |
+| SP Account Rotation  | {On/Off or N/A} |
 | Overstory Runtime    | {runtime or N/A} |
 | Overstory Merge      | {auto/manual or N/A} |
 | Overstory Poll       | {Nms or N/A} |
