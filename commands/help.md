@@ -59,8 +59,8 @@ RESEARCH — Survey, analyze, and compare state-of-the-art
 PLANNING — Strategic and tactical planning
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  /grd:new-project              Initialize new R&D project with deep
-                                context gathering and research setup.
+  /grd:init                      Initialize new R&D project with deep
+    (alias: new-project)          context gathering and research setup.
 
   /grd:product-plan <goals>     Product-level roadmap from research
                                 findings. Gap analysis, phase breakdown.
@@ -290,7 +290,7 @@ QUICK START
 ━━━━━━━━━━━
 
   New R&D project:
-    1. /grd:new-project
+    1. /grd:init
     2. /grd:survey "your research topic"
     3. /grd:deep-dive "promising paper"
     4. /grd:feasibility "chosen method"

@@ -39,7 +39,7 @@ Parse JSON for: `roadmap_exists`, `phases_dir`, `commit_docs`.
 Check `roadmap_exists` from init JSON. If false:
 ```
 ERROR: No roadmap found (.planning/ROADMAP.md)
-Run /grd:new-project to initialize.
+Run /grd:init to initialize.
 ```
 Exit.
 </step>

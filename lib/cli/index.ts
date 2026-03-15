@@ -27,8 +27,18 @@ export const TOOL_COMMANDS = new Set([
   'overstory', 'progress',
 ]);
 
+const INIT_TOOL_SUBS = new Set([
+  'execute-phase', 'execute-parallel', 'plan-phase', 'new-project', 'new-milestone',
+  'quick', 'resume', 'verify-work', 'phase-op', 'todos', 'milestone-op',
+  'plan-milestone-gaps', 'map-codebase', 'progress', 'survey', 'deep-dive',
+  'feasibility', 'eval-plan', 'eval-report', 'assess-baseline', 'product-plan',
+  'iterate', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'evolve',
+  'debug', 'integration-check', 'migrate', 'plan-check', 'phase-research',
+  'code-review', 'project-researcher', 'research-synthesizer', 'roadmapper', 'verifier',
+]);
+
 export const AGENT_COMMANDS = new Set([
-  'new-project', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
+  'init', 'new-project', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
   'autopilot', 'autoplan', 'evolve', 'resume-project', 'pause-work', 'quick',
   'migrate', 'survey', 'deep-dive', 'compare-methods', 'feasibility',
   'product-plan', 'discuss-phase', 'list-phase-assumptions', 'long-term-roadmap',
@@ -74,6 +84,11 @@ export function parseFlags(argv: string[]): Flags {
 export function classifyCommand(command: string, subcommand?: string): 'tool' | 'agent' | 'unknown' {
   if (command === 'evolve' && subcommand && EVOLVE_TOOL_SUBS.has(subcommand)) {
     return 'tool';
+  }
+  // `gd init <workflow>` → tool (init context), `gd init` (no args) → agent (project init)
+  if (command === 'init') {
+    if (subcommand && INIT_TOOL_SUBS.has(subcommand)) return 'tool';
+    return 'agent';
   }
   if (TOOL_COMMANDS.has(command)) return 'tool';
   if (AGENT_COMMANDS.has(command)) return 'agent';

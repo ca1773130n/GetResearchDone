@@ -207,18 +207,18 @@ If `project_exists` is false (no `.planning/` directory):
 ```
 No planning structure found.
 
-Run /grd:new-project to start a new project.
+Run /grd:init to start a new project.
 ```
 
 Exit.
 
-If missing STATE.md: suggest `/grd:new-project`.
+If missing STATE.md: suggest `/grd:init`.
 
 **If ROADMAP.md missing but PROJECT.md exists:**
 
 This means a milestone was completed and archived. Go to **Route F** (between milestones).
 
-If missing both ROADMAP.md and PROJECT.md: suggest `/grd:new-project`.
+If missing both ROADMAP.md and PROJECT.md: suggest `/grd:init`.
 </step>
 
 <step name="load">

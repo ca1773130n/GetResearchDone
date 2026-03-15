@@ -56,7 +56,7 @@ Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_
 
 **File contents (from --include):** `state_content`, `roadmap_content`, `requirements_content`, `context_content`, `research_content`, `verification_content`, `uat_content`. These are null if files don't exist.
 
-**If `planning_exists` is false:** Error — run `/grd:new-project` first.
+**If `planning_exists` is false:** Error — run `/grd:init` first.
 
 ## 1.5. Load Research Landscape Context
 

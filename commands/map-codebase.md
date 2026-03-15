@@ -92,7 +92,7 @@ Created ${codebase_dir}/:
 
 **Initialize project** — use codebase context for planning
 
-`/grd:new-project`
+`/grd:init`
 
 <sub>`/clear` first -> fresh context window</sub>
 

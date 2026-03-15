@@ -38,7 +38,7 @@ INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init quick "$DESCRIPTION")
 
 Parse JSON for: `planner_model`, `executor_model`, `commit_docs`, `next_num`, `slug`, `date`, `timestamp`, `quick_dir`, `task_dir`, `roadmap_exists`, `planning_exists`.
 
-**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/grd:new-project` first.
+**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/grd:init` first.
 
 ---
 

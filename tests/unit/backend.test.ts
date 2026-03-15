@@ -87,19 +87,19 @@ describe('lib/backend.js', () => {
       expect(Array.isArray(VALID_BACKENDS)).toBe(true);
     });
 
-    test('contains exactly 5 backends', () => {
-      expect(VALID_BACKENDS).toHaveLength(5);
+    test('contains exactly 7 backends', () => {
+      expect(VALID_BACKENDS).toHaveLength(7);
     });
 
-    test('contains claude, codex, gemini, opencode, overstory', () => {
-      expect(VALID_BACKENDS).toEqual(['claude', 'codex', 'gemini', 'opencode', 'overstory']);
+    test('contains claude, codex, gemini, opencode, overstory, superpowers, grd', () => {
+      expect(VALID_BACKENDS).toEqual(['claude', 'codex', 'gemini', 'opencode', 'overstory', 'superpowers', 'grd']);
     });
   });
 
   // ─── DEFAULT_BACKEND_MODELS ─────────────────────────────────────────────
 
   describe('DEFAULT_BACKEND_MODELS', () => {
-    test('has entries for all 5 backends', () => {
+    test('has entries for all backends', () => {
       for (const backend of VALID_BACKENDS) {
         expect(DEFAULT_BACKEND_MODELS).toHaveProperty(backend);
       }
@@ -157,7 +157,7 @@ describe('lib/backend.js', () => {
   // ─── BACKEND_CAPABILITIES ──────────────────────────────────────────────
 
   describe('BACKEND_CAPABILITIES', () => {
-    test('has entries for all 5 backends', () => {
+    test('has entries for all backends', () => {
       for (const backend of VALID_BACKENDS) {
         expect(BACKEND_CAPABILITIES).toHaveProperty(backend);
       }

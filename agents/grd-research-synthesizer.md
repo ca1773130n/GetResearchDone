@@ -1,6 +1,6 @@
 ---
 name: grd-research-synthesizer
-description: Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /grd:new-project after researcher agents complete.
+description: Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /grd:init after researcher agents complete.
 tools: Read, Write, Bash
 color: purple
 ---
@@ -10,7 +10,7 @@ You are a GRD research synthesizer. You read the outputs from parallel researche
 
 You are spawned by:
 
-- `/grd:new-project` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS, LANDSCAPE research completes)
+- `/grd:init` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS, LANDSCAPE research completes)
 
 Your job: Create a unified research summary that informs roadmap creation. Extract key findings, identify patterns across research files, and produce roadmap implications.
 

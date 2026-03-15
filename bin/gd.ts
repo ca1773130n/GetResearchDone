@@ -97,7 +97,7 @@ function printHelp(): void {
 Usage: gd <command> [args] [--json] [--help] [--version]
 
 Workflow:
-  new-project          Initialize a new R&D project
+  init                 Initialize a new R&D project (alias: new-project)
   new-milestone        Start a new milestone cycle
   plan-phase <N>       Plan a phase
   execute-phase <N>    Execute a phase
@@ -143,7 +143,7 @@ Tools (deterministic, fast):
   frontmatter <sub>    YAML frontmatter CRUD
   tracker <sub>        Issue tracker sync
   roadmap <sub>        Roadmap queries
-  init <sub>           Workflow init contexts
+  init <sub>           Workflow init contexts (internal)
   dashboard            Dashboard view
   health               Health check
   version              Print version
@@ -163,9 +163,11 @@ Run "gd <command> --help" for command-specific usage.
 }
 
 function printCommandHelp(cmd: string): void {
+  // Resolve aliases: new-project → init
+  const resolvedCmd = cmd === 'new-project' ? 'init' : cmd;
   // Handle both bin/ (source) and dist/bin/ (compiled) locations
-  let cmdFile = join(__dirname, '..', 'commands', `${cmd}.md`);
-  if (!existsSync(cmdFile)) cmdFile = join(__dirname, '..', '..', 'commands', `${cmd}.md`);
+  let cmdFile = join(__dirname, '..', 'commands', `${resolvedCmd}.md`);
+  if (!existsSync(cmdFile)) cmdFile = join(__dirname, '..', '..', 'commands', `${resolvedCmd}.md`);
   if (existsSync(cmdFile)) {
     const content = readFileSync(cmdFile, 'utf-8');
     const match = content.match(/description:\s*(.+)/);

@@ -18,7 +18,7 @@
 /**
  * Valid backend identifiers for AI coding CLI detection.
  */
-export type BackendId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'overstory';
+export type BackendId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'overstory' | 'superpowers' | 'grd';
 
 /**
  * Abstract model tiers mapped to backend-specific model names.
@@ -217,7 +217,7 @@ export interface SchedulerSpawnResult {
 }
 
 /**
- * Adapter interface for a backend CLI (claude, codex, gemini, opencode, overstory).
+ * Adapter interface for a backend CLI (claude, codex, gemini, opencode, overstory, superpowers, grd).
  * Encapsulates binary name, argument building, token parsing, and rate-limit detection.
  */
 export interface BackendAdapter {

@@ -303,7 +303,7 @@ Display results.
 | Default Duration | {default_duration_days}d |
 
 Tracker will auto-sync during:
-- Roadmap creation (/grd:new-project)
+- Roadmap creation (/grd:init)
 - Phase planning (/grd:plan-phase)
 - Phase execution (/grd:execute-phase)
 - Verification (/grd:verify-phase)

@@ -11,6 +11,8 @@
  *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark)
  *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3 Flash, 3.1 Flash-Lite)
  *   - OpenCode v1.2.21 — Provider-agnostic CLI by anomalyco (actively maintained, 70K+ stars)
+ *   - Superpowers — Plugin/skill layer that orchestrates any AI CLI backend with account rotation
+ *   - GRD — Native mode using GRD's own commands/skills with the configured AI backend
  *
  * This module reads config.json directly with fs.readFileSync to avoid
  * circular dependency with lib/utils.js (which will later import from here).
@@ -50,6 +52,8 @@ const VALID_BACKENDS: readonly BackendId[] = [
   'gemini',
   'opencode',
   'overstory',
+  'superpowers',
+  'grd',
 ];
 
 /**
@@ -75,6 +79,8 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
     haiku: 'anthropic/claude-haiku-4-5',
   },
   overstory: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku' },
+  superpowers: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku' },
+  grd: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku' },
 };
 
 /**
@@ -134,6 +140,28 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     mcp: true,
     native_worktree_isolation: true,
     effort: false,
+    http_hooks: false,
+    cron: false,
+  },
+  superpowers: {
+    subagents: true,
+    parallel: true,
+    teams: true,
+    hooks: true,
+    mcp: true,
+    native_worktree_isolation: true,
+    effort: true,
+    http_hooks: false,
+    cron: false,
+  },
+  grd: {
+    subagents: true,
+    parallel: true,
+    teams: true,
+    hooks: true,
+    mcp: true,
+    native_worktree_isolation: true,
+    effort: true,
     http_hooks: false,
     cron: false,
   },
@@ -267,6 +295,9 @@ function detectBackend(cwd: string): BackendId {
   }
 
   // Step 2: Environment variable detection
+  // Superpowers detection (highest env priority — orchestrates other backends)
+  if (process.env.SUPERPOWERS_HOME || process.env.SUPERPOWERS_SESSION)
+    return 'superpowers';
   // Overstory detection (before Claude — takes priority when both present)
   if (process.env.OVERSTORY_HOME || process.env.OVERSTORY_SESSION)
     return 'overstory';
@@ -281,6 +312,8 @@ function detectBackend(cwd: string): BackendId {
   if (process.env.OPENCODE) return 'opencode';
 
   // Step 3: Filesystem clues
+  if (fileExists(path.join(cwd, '.superpowers', 'config.json')))
+    return 'superpowers';
   if (fileExists(path.join(cwd, '.overstory', 'config.yaml')))
     return 'overstory';
   if (fileExists(path.join(cwd, '.claude-plugin', 'plugin.json')))

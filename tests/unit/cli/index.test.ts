@@ -60,6 +60,7 @@ describe('command classification', () => {
 
   it('classifies agent commands', () => {
     expect(classifyCommand('new-project')).toBe('agent');
+    expect(classifyCommand('init')).toBe('agent');
     expect(classifyCommand('plan-phase')).toBe('agent');
     expect(classifyCommand('execute-phase')).toBe('agent');
     expect(classifyCommand('autopilot')).toBe('agent');
@@ -71,6 +72,13 @@ describe('command classification', () => {
     expect(classifyCommand('evolve', 'discover')).toBe('tool');
     expect(classifyCommand('evolve', 'state')).toBe('tool');
     expect(classifyCommand('evolve', undefined)).toBe('agent');
+  });
+
+  it('classifies init with tool subcommand as tool, bare init as agent', () => {
+    expect(classifyCommand('init', 'new-project')).toBe('tool');
+    expect(classifyCommand('init', 'plan-phase')).toBe('tool');
+    expect(classifyCommand('init', 'execute-phase')).toBe('tool');
+    expect(classifyCommand('init', undefined)).toBe('agent');
   });
 
   it('returns unknown for unrecognized commands', () => {

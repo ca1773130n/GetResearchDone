@@ -69,7 +69,7 @@ INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js long-term-roadmap init --proj
 
 If ROADMAP.md exists, this auto-groups all existing milestones into LT-1. Write the result to `.planning/LONG-TERM-ROADMAP.md`.
 
-If no ROADMAP.md either, ask the user to create their first milestone with `/grd:new-project`.
+If no ROADMAP.md either, ask the user to create their first milestone with `/grd:init`.
 
 **Then offer to add more LT milestones:**
 
