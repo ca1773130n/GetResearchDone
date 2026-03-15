@@ -31,6 +31,7 @@ const {
   detectOverstory,
   installOverstory,
   slingPlan,
+  slingPlanAsync,
   getAgentStatus,
   getFleetStatus,
   mergeAgent,
@@ -724,5 +725,232 @@ describe('generateOverlay', () => {
     const contextAlt = { ...context, plan_id: '07-03' };
     const overlay = generateOverlay(planContent, contextAlt);
     expect(overlay).toContain('07-03-SUMMARY.md');
+  });
+});
+
+// ─── slingPlanAsync ───────────────────────────────────────────────────────────
+
+describe('slingPlanAsync', () => {
+  let tmpDir: string;
+
+  const baseSlingOpts = {
+    plan_path: '/tmp/plan.md',
+    overlay_path: '/tmp/overlay.md',
+    runtime: 'claude',
+    model: 'claude-opus-4-5',
+    phase_number: '05',
+    plan_id: '05-01',
+    milestone: 'v1.0.0',
+    timeout_minutes: 30,
+  };
+
+  const slingResultFixture = {
+    agent_id: 'ov-agent-async-001',
+    worktree_path: '/tmp/worktrees/async-001',
+    branch: 'grd/v1.0.0/05-plan',
+    tmux_session: 'ov-async-001',
+    runtime: 'claude',
+  };
+
+  const mergeResultFixture = {
+    merged: true,
+    conflicts: [],
+    branch: 'grd/v1.0.0/05-plan',
+    commit_sha: 'deadbeef',
+    error: null,
+  };
+
+  beforeEach(() => {
+    tmpDir = createTempDir();
+    mockExecFileSync.mockReset();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    cleanupTempDir(tmpDir);
+  });
+
+  test('should dispatch, poll, and return on done state', async () => {
+    // Call 1: slingPlan -> returns SlingResult
+    // Call 2: getAgentStatus -> state='running'
+    // Call 3: getAgentStatus -> state='done', exit_code=0
+    // Call 4: mergeAgent -> returns MergeResult
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'running',
+        exit_code: null,
+        duration_ms: 5000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'done',
+        exit_code: 0,
+        duration_ms: 30000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }))
+      .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
+
+    // Advance past two poll intervals (running, then done)
+    await jest.advanceTimersByTimeAsync(100);
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(0);
+    expect(result.duration).toBeGreaterThanOrEqual(0);
+    expect(result.agentId).toBe('ov-agent-async-001');
+
+    // Verify slingPlan was called (call 1)
+    expect(mockExecFileSync.mock.calls[0][1][0]).toBe('sling');
+    // Verify getAgentStatus was called (calls 2-3)
+    expect(mockExecFileSync.mock.calls[1][1]).toEqual(['status', 'ov-agent-async-001', '--json']);
+    expect(mockExecFileSync.mock.calls[2][1]).toEqual(['status', 'ov-agent-async-001', '--json']);
+    // Verify mergeAgent was called (call 4) — strategy is 'auto'
+    expect(mockExecFileSync.mock.calls[3][1]).toEqual(['merge', 'ov-agent-async-001', '--json']);
+  });
+
+  test('should handle failed agent', async () => {
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'failed',
+        exit_code: 1,
+        duration_ms: 10000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }))
+      .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(1);
+    expect(result.agentId).toBe('ov-agent-async-001');
+    expect(result.duration).toBeGreaterThanOrEqual(0);
+
+    // mergeAgent should still be called because strategy is 'auto'
+    expect(mockExecFileSync).toHaveBeenCalledTimes(3);
+  });
+
+  test('should skip merge when strategy is manual', async () => {
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'done',
+        exit_code: 0,
+        duration_ms: 20000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(0);
+    expect(result.agentId).toBe('ov-agent-async-001');
+
+    // Only 2 calls: slingPlan + getAgentStatus — no mergeAgent
+    expect(mockExecFileSync).toHaveBeenCalledTimes(2);
+    // Verify no 'merge' call was made
+    const allCmds = mockExecFileSync.mock.calls.map((c: unknown[]) => (c[1] as string[])[0]);
+    expect(allCmds).not.toContain('merge');
+  });
+
+  test('should call mergeAgent when strategy is auto', async () => {
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'done',
+        exit_code: 0,
+        duration_ms: 20000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }))
+      .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(0);
+    // 3 calls: slingPlan + getAgentStatus + mergeAgent
+    expect(mockExecFileSync).toHaveBeenCalledTimes(3);
+    // Verify the merge call
+    expect(mockExecFileSync.mock.calls[2][1]).toEqual(['merge', 'ov-agent-async-001', '--json']);
+  });
+
+  test('should default exit_code to 0 when done state has null exit_code', async () => {
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'done',
+        exit_code: null,
+        duration_ms: 20000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('should default exit_code to 1 when failed state has null exit_code', async () => {
+    mockExecFileSync
+      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
+      .mockReturnValueOnce(JSON.stringify({
+        agent_id: 'ov-agent-async-001',
+        state: 'failed',
+        exit_code: null,
+        duration_ms: 20000,
+        worktree_path: '/tmp/worktrees/async-001',
+        branch: 'grd/v1.0.0/05-plan',
+        runtime: 'claude',
+        model: 'claude-opus-4-5',
+      }));
+
+    const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    const result = await promise;
+
+    expect(result.exitCode).toBe(1);
   });
 });

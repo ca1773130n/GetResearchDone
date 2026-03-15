@@ -1304,4 +1304,5 @@ module.exports = {
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
   startHeartbeat,
+  _getSchedulerStates,
 };

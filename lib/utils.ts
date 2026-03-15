@@ -276,6 +276,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'overstory',
   // Scheduler config
   'scheduler',
+  // Superpowers config
+  'superpowers',
 ]);
 
 /**
@@ -433,6 +435,10 @@ function loadConfig(cwd: string): GrdConfig {
           create_pr: (e.create_pr ?? true) as boolean,
         };
       })(),
+      // Scheduler config (pass-through)
+      scheduler: (parsed.scheduler || undefined) as GrdConfig['scheduler'],
+      // Superpowers config (pass-through)
+      superpowers: (parsed.superpowers || undefined) as GrdConfig['superpowers'],
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> = parsed.timeouts && typeof parsed.timeouts === 'object' ? parsed.timeouts as Record<string, unknown> : {};

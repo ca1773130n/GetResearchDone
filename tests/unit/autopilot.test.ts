@@ -38,6 +38,7 @@ const {
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
   startHeartbeat,
+  _getSchedulerStates,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -636,6 +637,35 @@ describe('lib/autopilot', () => {
       jest.useRealTimers();
     });
 
+    it('escalates to SIGKILL when process does not exit after SIGTERM', async () => {
+      jest.useFakeTimers();
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn().mockImplementation((signal: string) => {
+          if (signal === 'SIGKILL') {
+            // Process dies after SIGKILL
+            process.nextTick(() => child.emit('close', null));
+          }
+          // SIGTERM is ignored — process does not exit
+        });
+        return child;
+      });
+
+      const promise = spawnClaudeAsync('/test', 'Run something', { timeout: 1000 });
+      // Advance past the timeout (1000ms) to trigger SIGTERM
+      jest.advanceTimersByTime(1000);
+      // Advance past the 5s SIGKILL escalation window
+      jest.advanceTimersByTime(5000);
+      const result = await promise;
+
+      expect(result.exitCode).toBe(124);
+      expect(result.timedOut).toBe(true);
+      // Should have been called twice: once with SIGTERM, once with SIGKILL
+      expect(spawnSpy.mock.results[0].value.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(spawnSpy.mock.results[0].value.kill).toHaveBeenCalledWith('SIGKILL');
+      jest.useRealTimers();
+    });
+
     it('handles spawn error', async () => {
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const child = new EventEmitter();
@@ -647,6 +677,70 @@ describe('lib/autopilot', () => {
       const result = await spawnClaudeAsync('/test', 'Run something');
       expect(result.exitCode).toBe(1);
       expect(result.timedOut).toBe(false);
+    });
+
+    it('streams stdout to process.stdout when captureOutput is false', async () => {
+      const stdoutChunks: string[] = [];
+      const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
+        stdoutChunks.push(String(data));
+        return true;
+      });
+
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => {
+          child.stdout.emit('data', Buffer.from('streamed output'));
+          child.emit('close', 0);
+        });
+        return child;
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something');
+      stdoutSpy.mockRestore();
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBeUndefined();
+      expect(stdoutChunks.some((c: string) => c.includes('streamed output'))).toBe(true);
+    });
+
+    it('captures stdout when captureOutput is true', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => {
+          child.stdout.emit('data', Buffer.from('captured output'));
+          child.emit('close', 0);
+        });
+        return child;
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something', { captureOutput: true });
+      expect(result.stdout).toBe('captured output');
+      expect(result.exitCode).toBe(0);
+    });
+
+    it('captures stdout on error when captureOutput is true', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        const child = new EventEmitter();
+        child.kill = jest.fn();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => {
+          child.stdout.emit('data', Buffer.from('partial output'));
+          child.emit('error', new Error('spawn ENOENT'));
+        });
+        return child;
+      });
+
+      const result = await spawnClaudeAsync('/test', 'Run something', { captureOutput: true, captureStderr: true });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('partial output');
+      expect(result.stderr).toBe('');
     });
 
     it('captures stderr AND forwards to parent when captureStderr is true', async () => {
@@ -2110,6 +2204,39 @@ describe('lib/autopilot', () => {
       // or dry-run for incomplete phases
     });
 
+    it('creates scheduler for multi-milestone when scheduler config is present', async () => {
+      tmpDir = createMultiMilestoneFixture({
+        ltRoadmap:
+          '# Long-Term Roadmap\n\n' +
+          '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build it\n**Normal milestones:** v1.0\n\n',
+      });
+
+      // Add scheduler config
+      const planning = path.join(tmpDir, '.planning');
+      const config = JSON.parse(fs.readFileSync(path.join(planning, 'config.json'), 'utf-8'));
+      config.scheduler = {
+        backend_priority: ['claude'],
+        free_fallback: { backend: 'codex' },
+        prediction: { window_minutes: 60, ewma_alpha: 0.3, safety_margin_tasks: 2, min_samples: 3 },
+      };
+      fs.writeFileSync(path.join(planning, 'config.json'), JSON.stringify(config));
+
+      // Mock spawnSync for checkBinary inside createScheduler
+      const spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      try {
+        const result = await runMultiMilestoneAutopilot(tmpDir, { dryRun: true });
+        expect(result.milestones_attempted).toBeGreaterThanOrEqual(1);
+        // scheduler-state.json should be written by persistState
+        expect(fs.existsSync(path.join(planning, 'scheduler-state.json'))).toBe(true);
+      } finally {
+        spawnSyncSpy.mockRestore();
+      }
+    });
+
     it('stops when no next milestone exists', async () => {
       tmpDir = createMultiMilestoneFixture({
         // No LT roadmap — no next milestone available
@@ -2582,6 +2709,401 @@ describe('lib/autopilot', () => {
       // In raw mode, output function uses rawValue which is JSON.stringify(result)
       // The raw string will be a JSON representation
       expect(stdout.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ─── _getSchedulerStates ──────────────────────────────────────────────────
+
+  describe('_getSchedulerStates', () => {
+    it('returns empty map when scheduler has no state for any account', () => {
+      const mockScheduler = {
+        getState: jest.fn().mockReturnValue(undefined),
+        spawn: jest.fn(),
+        recordExternalSample: jest.fn(),
+        persistState: jest.fn(),
+        loadPersistedState: jest.fn(),
+      };
+
+      const schedulerConfig = {
+        backend_priority: ['claude' as const],
+        free_fallback: { backend: 'codex' as const },
+        prediction: {
+          window_minutes: 60,
+          ewma_alpha: 0.3,
+          safety_margin_tasks: 2,
+          min_samples: 3,
+        },
+      };
+
+      const superpowersConfig = {
+        default_backend: 'claude' as const,
+        account_rotation: true,
+        accounts: {
+          claude: [{ config_dir: '~/.claude-personal' }],
+        },
+      };
+
+      const states = _getSchedulerStates(mockScheduler, schedulerConfig, superpowersConfig);
+      expect(states.size).toBe(0);
+      // Should have tried: claude/~/.claude-personal, codex (fallback), claude (default)
+      expect(mockScheduler.getState).toHaveBeenCalledWith('claude/~/.claude-personal');
+      expect(mockScheduler.getState).toHaveBeenCalledWith('codex');
+      expect(mockScheduler.getState).toHaveBeenCalledWith('claude');
+    });
+
+    it('collects state for accounts that exist in scheduler', () => {
+      const mockState = {
+        samples: [],
+        ewma_tokens_per_task: 1000,
+        tokens_consumed_in_window: 0,
+        tokens_reserved: 0,
+        in_flight_count: 0,
+        token_budget: 50000,
+        budget_learned: false,
+        budget_confidence: 0,
+      };
+
+      const mockScheduler = {
+        getState: jest.fn().mockImplementation((key: string) => {
+          if (key === 'claude/~/.claude-personal') return mockState;
+          if (key === 'claude/~/.claude-work') return { ...mockState, ewma_tokens_per_task: 2000 };
+          return undefined;
+        }),
+        spawn: jest.fn(),
+        recordExternalSample: jest.fn(),
+        persistState: jest.fn(),
+        loadPersistedState: jest.fn(),
+      };
+
+      const schedulerConfig = {
+        backend_priority: ['claude' as const, 'codex' as const],
+        free_fallback: { backend: 'gemini' as const },
+        prediction: {
+          window_minutes: 60,
+          ewma_alpha: 0.3,
+          safety_margin_tasks: 2,
+          min_samples: 3,
+        },
+      };
+
+      const superpowersConfig = {
+        default_backend: 'claude' as const,
+        account_rotation: true,
+        accounts: {
+          claude: [
+            { config_dir: '~/.claude-personal' },
+            { config_dir: '~/.claude-work' },
+          ],
+          codex: [{ config_dir: '~/.codex-main' }],
+        },
+      };
+
+      const states = _getSchedulerStates(mockScheduler, schedulerConfig, superpowersConfig);
+      expect(states.size).toBe(2);
+      expect(states.has('claude/~/.claude-personal')).toBe(true);
+      expect(states.has('claude/~/.claude-work')).toBe(true);
+      expect(states.get('claude/~/.claude-personal')!.ewma_tokens_per_task).toBe(1000);
+      expect(states.get('claude/~/.claude-work')!.ewma_tokens_per_task).toBe(2000);
+    });
+
+    it('includes fallback backend state when present', () => {
+      const fallbackState = {
+        samples: [],
+        ewma_tokens_per_task: 500,
+        tokens_consumed_in_window: 0,
+        tokens_reserved: 0,
+        in_flight_count: 0,
+        token_budget: 10000,
+        budget_learned: false,
+        budget_confidence: 0,
+      };
+
+      const mockScheduler = {
+        getState: jest.fn().mockImplementation((key: string) => {
+          if (key === 'gemini') return fallbackState;
+          return undefined;
+        }),
+        spawn: jest.fn(),
+        recordExternalSample: jest.fn(),
+        persistState: jest.fn(),
+        loadPersistedState: jest.fn(),
+      };
+
+      const schedulerConfig = {
+        backend_priority: ['claude' as const],
+        free_fallback: { backend: 'gemini' as const },
+        prediction: {
+          window_minutes: 60,
+          ewma_alpha: 0.3,
+          safety_margin_tasks: 2,
+          min_samples: 3,
+        },
+      };
+
+      const superpowersConfig = {
+        default_backend: 'claude' as const,
+        account_rotation: true,
+        accounts: {
+          claude: [{ config_dir: '~/.claude-personal' }],
+        },
+      };
+
+      const states = _getSchedulerStates(mockScheduler, schedulerConfig, superpowersConfig);
+      expect(states.has('gemini')).toBe(true);
+      expect(states.get('gemini')!.ewma_tokens_per_task).toBe(500);
+    });
+
+    it('includes default backend state when present', () => {
+      const defaultState = {
+        samples: [],
+        ewma_tokens_per_task: 800,
+        tokens_consumed_in_window: 0,
+        tokens_reserved: 0,
+        in_flight_count: 0,
+        token_budget: 30000,
+        budget_learned: false,
+        budget_confidence: 0,
+      };
+
+      const mockScheduler = {
+        getState: jest.fn().mockImplementation((key: string) => {
+          if (key === 'opencode') return defaultState;
+          return undefined;
+        }),
+        spawn: jest.fn(),
+        recordExternalSample: jest.fn(),
+        persistState: jest.fn(),
+        loadPersistedState: jest.fn(),
+      };
+
+      const schedulerConfig = {
+        backend_priority: ['claude' as const],
+        free_fallback: { backend: 'codex' as const },
+        prediction: {
+          window_minutes: 60,
+          ewma_alpha: 0.3,
+          safety_margin_tasks: 2,
+          min_samples: 3,
+        },
+      };
+
+      const superpowersConfig = {
+        default_backend: 'opencode' as const,
+        account_rotation: true,
+        accounts: {
+          claude: [{ config_dir: '~/.claude-personal' }],
+        },
+      };
+
+      const states = _getSchedulerStates(mockScheduler, schedulerConfig, superpowersConfig);
+      expect(states.has('opencode')).toBe(true);
+      expect(states.get('opencode')!.ewma_tokens_per_task).toBe(800);
+    });
+
+    it('skips backends with no accounts configured', () => {
+      const mockScheduler = {
+        getState: jest.fn().mockReturnValue(undefined),
+        spawn: jest.fn(),
+        recordExternalSample: jest.fn(),
+        persistState: jest.fn(),
+        loadPersistedState: jest.fn(),
+      };
+
+      const schedulerConfig = {
+        backend_priority: ['claude' as const, 'codex' as const],
+        free_fallback: { backend: 'gemini' as const },
+        prediction: {
+          window_minutes: 60,
+          ewma_alpha: 0.3,
+          safety_margin_tasks: 2,
+          min_samples: 3,
+        },
+      };
+
+      const superpowersConfig = {
+        default_backend: 'claude' as const,
+        account_rotation: true,
+        accounts: {
+          // claude has accounts but codex does not
+          claude: [{ config_dir: '~/.claude-personal' }],
+        },
+      };
+
+      _getSchedulerStates(mockScheduler, schedulerConfig, superpowersConfig);
+      // getState should be called for: claude/~/.claude-personal, gemini (fallback), claude (default)
+      // But NOT for codex accounts since none are configured
+      const calls = mockScheduler.getState.mock.calls.map((c: unknown[]) => c[0]);
+      expect(calls).not.toContain('codex/');
+      expect(calls).toContain('claude/~/.claude-personal');
+    });
+  });
+
+  // ─── runAutopilot with scheduler config ──────────────────────────────────
+
+  describe('runAutopilot with scheduler config', () => {
+    let tmpDir: string;
+    let spawnSpy: any;
+    let spawnSyncSpy: any;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = undefined;
+      }
+    });
+
+    it('creates scheduler with superpowers config when both are in config.json', async () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [{ dir: '48-first-feature', files: {} }],
+      });
+
+      // Write scheduler + superpowers config
+      const planning = path.join(tmpDir, '.planning');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          autonomous_mode: true,
+          scheduler: {
+            backend_priority: ['claude'],
+            free_fallback: { backend: 'codex' },
+            prediction: {
+              window_minutes: 60,
+              ewma_alpha: 0.3,
+              safety_margin_tasks: 2,
+              min_samples: 3,
+            },
+          },
+          superpowers: {
+            default_backend: 'claude',
+            account_rotation: false,
+            accounts: {
+              claude: [{ config_dir: '~/.claude-personal' }],
+            },
+          },
+        })
+      );
+
+      // Mock spawnSync for checkBinary inside createScheduler
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      // Use dryRun to exercise scheduler initialization path without actually spawning
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48', dryRun: true });
+      expect(result.phases_completed).toBe(1);
+      expect(result.stopped_at).toBeNull();
+      // Verify scheduler-state.json was written by persistState
+      expect(fs.existsSync(path.join(planning, 'scheduler-state.json'))).toBe(true);
+    });
+
+    it('uses scheduler spawn and toSpawnResult for plan step when scheduler is active', async () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [{ dir: '48-first-feature', files: {} }],
+      });
+
+      // Write scheduler config without account_rotation (simple scheduler path)
+      const planning = path.join(tmpDir, '.planning');
+      fs.writeFileSync(
+        path.join(planning, 'config.json'),
+        JSON.stringify({
+          model_profile: 'balanced',
+          autonomous_mode: true,
+          scheduler: {
+            backend_priority: ['claude'],
+            free_fallback: { backend: 'codex' },
+            prediction: {
+              window_minutes: 60,
+              ewma_alpha: 0.3,
+              safety_margin_tasks: 2,
+              min_samples: 3,
+            },
+          },
+        })
+      );
+
+      // Mock spawnSync for checkBinary inside createScheduler
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      // Mock execFile for the scheduler's internal spawn mechanism
+      const execFileSpy = jest.spyOn(childProcess, 'execFile').mockImplementation(
+        ((...args: unknown[]) => {
+          // execFile(cmd, args, opts, callback)
+          const callback = args[args.length - 1] as (...cbArgs: unknown[]) => void;
+          process.nextTick(() => callback(null, 'ok', ''));
+          const child = new EventEmitter();
+          child.kill = jest.fn();
+          return child;
+        }) as unknown as typeof childProcess.execFile
+      );
+
+      try {
+        const result = await runAutopilot(tmpDir, { from: '48', to: '48', skipExecute: true });
+        expect(result.stopped_at).toBeNull();
+        // Plan step should have completed via scheduler path
+        const planResult = result.results.find((r: any) => r.step === 'plan');
+        expect(planResult.status).toBe('completed');
+      } finally {
+        execFileSpy.mockRestore();
+      }
+    });
+
+    it('runs without scheduler when no scheduler config present', async () => {
+      tmpDir = createAutopilotFixture({
+        phaseDirs: [{ dir: '48-first-feature', files: {} }],
+      });
+
+      // Plan step (async)
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0);
+      });
+
+      // Execute step (sync)
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      const result = await runAutopilot(tmpDir, { from: '48', to: '48' });
+      expect(result.phases_completed).toBe(1);
+      expect(result.stopped_at).toBeNull();
+    });
+  });
+
+  // ─── spawnClaude with outputFormat ───────────────────────────────────────
+
+  describe('spawnClaude outputFormat flag', () => {
+    let spawnSyncSpy: any;
+
+    afterEach(() => {
+      if (spawnSyncSpy) {
+        spawnSyncSpy.mockRestore();
+        spawnSyncSpy = undefined;
+      }
+    });
+
+    it('passes --output-format flag when outputFormat option is set', () => {
+      spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        status: 0,
+        error: null,
+      });
+
+      spawnClaude('/test', 'Run something', { outputFormat: 'json' });
+      const callArgs = spawnSyncSpy.mock.calls[0][1];
+      expect(callArgs).toContain('--output-format');
+      expect(callArgs).toContain('json');
     });
   });
 });
