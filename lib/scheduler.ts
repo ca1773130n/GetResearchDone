@@ -1,6 +1,17 @@
 'use strict';
 
-import type { BackendId, BackendAdapter, BackendUsageState, UsageSample, SpawnOpts } from './types';
+import type {
+  BackendId,
+  AdapterBackendId,
+  BackendAdapter,
+  BackendUsageState,
+  UsageSample,
+  SpawnOpts,
+  AccountResolution,
+  SuperpowersConfig,
+  SchedulerConfig,
+  SchedulerSpawnResult,
+} from './types';
 
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
 
@@ -8,10 +19,9 @@ import type { BackendId, BackendAdapter, BackendUsageState, UsageSample, SpawnOp
  * Map of backend adapters for all supported CLI backends.
  * Each adapter encapsulates binary name, argument building, token parsing,
  * and rate-limit detection for a specific backend CLI.
- */
-/**
- * Claude Code adapter — shared by superpowers backend (which delegates to
- * claude CLI with account rotation managed externally via CLAUDE_CONFIG_DIR).
+ *
+ * Meta-backends (superpowers, grd) are not included — they are scheduling
+ * strategies that resolve to one of these real adapters at spawn time.
  */
 const _claudeAdapter: BackendAdapter = {
   binary: 'claude',
@@ -42,7 +52,7 @@ const _claudeAdapter: BackendAdapter = {
   },
 };
 
-export const ADAPTERS: Record<BackendId, BackendAdapter> = {
+export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
   claude: _claudeAdapter,
 
   codex: {
@@ -116,16 +126,18 @@ export const ADAPTERS: Record<BackendId, BackendAdapter> = {
       return /rate.limit|429|quota/i.test(stderr);
     },
   },
+};
 
-  // Superpowers delegates to the claude adapter; account rotation is handled
-  // externally by the scheduler setting CLAUDE_CONFIG_DIR before spawning.
-  superpowers: _claudeAdapter,
-
-  // GRD is a meta-backend — it uses GRD's own commands/skills as execution
-  // primitives via whatever AI backend is configured. The adapter delegates to
-  // claude by default; the scheduler resolves the actual underlying backend at
-  // spawn time based on config.superpowers.default_backend or config.backend.
-  grd: _claudeAdapter,
+/**
+ * Maps each adapter backend to its config-directory environment variable.
+ * Used by account rotation to override which account a CLI binary uses.
+ */
+const ENV_VAR_MAP: Record<AdapterBackendId, string> = {
+  claude: 'CLAUDE_CONFIG_DIR',
+  codex: 'CODEX_HOME',
+  gemini: 'GEMINI_CLI_HOME',
+  opencode: 'OPENCODE_CONFIG_DIR',
+  overstory: 'OVERSTORY_HOME',
 };
 
 // ─── EWMA and Rolling Window ──────────────────────────────────────────────────
@@ -239,6 +251,97 @@ export function pickBackend(
   return freeFallback.backend;
 }
 
+// ─── Account Resolution Waterfall ─────────────────────────────────────────────
+
+/**
+ * Checks whether a single account state key has sufficient headroom for
+ * scheduling, considering EWMA prediction, in-flight reservations, and cooldown.
+ *
+ * @param state - the account's usage state
+ * @param safetyMargin - minimum remaining tasks before considered full
+ * @returns true if the account has capacity or no EWMA data yet
+ */
+function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
+  const now = Date.now();
+  if (state.cooldown_until && state.cooldown_until > now) return false;
+  if (state.ewma_tokens_per_task === 0) return true;
+  const effective = state.tokens_consumed_in_window + state.tokens_reserved;
+  const remaining = state.token_budget - effective;
+  const tasksRemaining = remaining / state.ewma_tokens_per_task;
+  return tasksRemaining >= safetyMargin;
+}
+
+/**
+ * Resolves which backend and account to use for the next scheduled task.
+ * Walks the backend_priority list, and within each backend tries every
+ * configured account in order. Falls back to the free_fallback backend
+ * when all priority accounts are exhausted.
+ *
+ * Edge cases:
+ * - Empty accounts ({}) — returns default_backend with no config dir override
+ * - Empty account array ([]) — skips that backend
+ * - Backend in priority but missing from accounts — skipped
+ *
+ * @param superpowersConfig - superpowers configuration with accounts
+ * @param schedulerConfig - scheduler configuration with priority and fallback
+ * @param states - map of compound state keys to usage state
+ * @param safetyMargin - minimum remaining tasks before an account is considered full
+ * @returns resolved backend, account, and state key
+ */
+export function resolveAccount(
+  superpowersConfig: SuperpowersConfig,
+  schedulerConfig: SchedulerConfig,
+  states: Map<string, BackendUsageState>,
+  safetyMargin: number,
+): AccountResolution {
+  const accounts = superpowersConfig.accounts;
+
+  // Edge case: accounts is empty — use default_backend with no config dir
+  const hasAnyAccounts = Object.keys(accounts).some(
+    (k) => (accounts[k as AdapterBackendId] || []).length > 0,
+  );
+  if (!hasAnyAccounts) {
+    return {
+      backend: superpowersConfig.default_backend as AdapterBackendId,
+      account: { config_dir: '' },
+      stateKey: superpowersConfig.default_backend,
+    };
+  }
+
+  // Walk priority list, try each account within each backend
+  for (const backend of schedulerConfig.backend_priority) {
+    const backendAccounts = accounts[backend];
+    if (!backendAccounts || backendAccounts.length === 0) continue;
+
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state) continue;
+      if (_hasHeadroom(state, safetyMargin)) {
+        return { backend, account, stateKey };
+      }
+    }
+  }
+
+  // Exhaustion fallback: use free_fallback backend
+  const fallbackBackend = schedulerConfig.free_fallback.backend;
+  const fallbackAccounts = accounts[fallbackBackend];
+  if (fallbackAccounts && fallbackAccounts.length > 0) {
+    return {
+      backend: fallbackBackend,
+      account: fallbackAccounts[0],
+      stateKey: `${fallbackBackend}/${fallbackAccounts[0].config_dir}`,
+    };
+  }
+
+  // No accounts configured for fallback — use default account (empty config_dir)
+  return {
+    backend: fallbackBackend,
+    account: { config_dir: '' },
+    stateKey: fallbackBackend,
+  };
+}
+
 /**
  * Marks one task as in-flight, incrementing the in-flight counter and
  * reserving the EWMA-predicted token cost.
@@ -278,144 +381,293 @@ export function checkBinary(binary: string): boolean {
 
 // ─── Scheduler Interface and Factory ─────────────────────────────────────────
 
-import type { SchedulerConfig, SchedulerSpawnResult } from './types';
-
 /**
  * High-level scheduler that selects backends, spawns CLI processes,
  * records usage samples, and persists learned state across sessions.
  */
 export interface Scheduler {
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
-  getState(backend: string): BackendUsageState | undefined;
+  getState(stateKey: string): BackendUsageState | undefined;
+  recordExternalSample(stateKey: string, sample: UsageSample): void;
   persistState(planningDir: string): void;
   loadPersistedState(planningDir: string): void;
+}
+
+/**
+ * Initializes per-account states when account rotation is enabled.
+ * Creates a BackendUsageState for each account across all priority backends
+ * and the fallback backend, using compound keys like "claude/~/.claude-personal".
+ *
+ * @param states - state map to populate
+ * @param schedulerConfig - scheduler configuration with priority and fallback
+ * @param superpowersConfig - superpowers configuration with accounts
+ */
+function _initAccountStates(
+  states: Map<string, BackendUsageState>,
+  schedulerConfig: SchedulerConfig,
+  superpowersConfig: SuperpowersConfig,
+): void {
+  const accounts = superpowersConfig.accounts;
+  const allBackends = new Set([
+    ...schedulerConfig.backend_priority,
+    schedulerConfig.free_fallback.backend,
+  ]);
+
+  for (const backend of allBackends) {
+    const backendAccounts = accounts[backend];
+    if (!backendAccounts || backendAccounts.length === 0) continue;
+
+    const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
+    const isFallback = backend === schedulerConfig.free_fallback.backend;
+    const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
+
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      states.set(stateKey, createBackendState(budget));
+    }
+  }
+}
+
+/**
+ * Computes the maximum number of 429 retries allowed for account rotation.
+ * Equals total number of accounts across all priority backends.
+ *
+ * @param schedulerConfig - scheduler configuration with priority
+ * @param superpowersConfig - superpowers configuration with accounts
+ * @returns maximum retry count
+ */
+function _computeMaxRetries(
+  schedulerConfig: SchedulerConfig,
+  superpowersConfig: SuperpowersConfig,
+): number {
+  let maxAccountsPerBackend = 0;
+  for (const backend of schedulerConfig.backend_priority) {
+    const backendAccounts = superpowersConfig.accounts[backend];
+    if (backendAccounts) {
+      maxAccountsPerBackend = Math.max(maxAccountsPerBackend, backendAccounts.length);
+    }
+  }
+  return schedulerConfig.backend_priority.length * Math.max(maxAccountsPerBackend, 1);
 }
 
 /**
  * Creates a Scheduler instance from the given config, or returns null
  * when no config is provided (pass-through / disabled mode).
  *
+ * When superpowersConfig is provided with account_rotation enabled, the
+ * scheduler tracks per-account state and uses resolveAccount() for backend
+ * selection. Otherwise, it uses the simple pickBackend() flow.
+ *
  * @param config - scheduler configuration, or undefined to disable
+ * @param superpowersConfig - optional superpowers configuration for account rotation
  * @returns Scheduler instance, or null if config is absent
  */
-export function createScheduler(config: SchedulerConfig | undefined): Scheduler | null {
+export function createScheduler(
+  config: SchedulerConfig | undefined,
+  superpowersConfig?: SuperpowersConfig,
+): Scheduler | null {
   if (!config) return null;
 
+  // Re-bind after guard so closures see the narrowed SchedulerConfig type
+  const schedulerConfig = config;
   const states = new Map<string, BackendUsageState>();
-  const prediction = config.prediction;
+  const prediction = schedulerConfig.prediction;
+  const accountRotation = !!(superpowersConfig?.account_rotation);
 
-  // Initialize state for each backend in priority + fallback
-  const allBackends = [...config.backend_priority, config.free_fallback.backend];
-  for (const backend of new Set(allBackends)) {
-    const limit = config.backend_limits?.[backend]?.tpm;
-    const isFallback = backend === config.free_fallback.backend;
-    const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
-    states.set(backend, createBackendState(budget));
+  if (accountRotation && superpowersConfig) {
+    // Per-account state initialization
+    _initAccountStates(states, schedulerConfig, superpowersConfig);
+
+    // Also initialize fallback backend with no config_dir for the exhaustion case
+    const fallbackBackend = schedulerConfig.free_fallback.backend;
+    if (!states.has(fallbackBackend)) {
+      const limit = schedulerConfig.backend_limits?.[fallbackBackend]?.tpm;
+      const budget = limit ?? FREE_FALLBACK_BUDGET;
+      states.set(fallbackBackend, createBackendState(budget));
+    }
+
+    // If no accounts at all, initialize default_backend with no config_dir
+    const hasAnyAccounts = Object.keys(superpowersConfig.accounts).some(
+      (k) => (superpowersConfig.accounts[k as AdapterBackendId] || []).length > 0,
+    );
+    if (!hasAnyAccounts) {
+      const defaultBackend = superpowersConfig.default_backend as AdapterBackendId;
+      if (!states.has(defaultBackend)) {
+        const limit = schedulerConfig.backend_limits?.[defaultBackend]?.tpm;
+        const budget = limit ?? DEFAULT_BUDGET_TPM;
+        states.set(defaultBackend, createBackendState(budget));
+      }
+    }
+  } else {
+    // Simple per-backend state initialization (existing behavior)
+    const allBackends = [...schedulerConfig.backend_priority, schedulerConfig.free_fallback.backend];
+    for (const backend of new Set(allBackends)) {
+      const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
+      const isFallback = backend === schedulerConfig.free_fallback.backend;
+      const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
+      states.set(backend, createBackendState(budget));
+    }
   }
 
   // Check which backend binaries are available
   const availableBackends = new Set<string>();
-  for (const backend of new Set(allBackends)) {
-    const adapter = ADAPTERS[backend as BackendId];
+  const allBackendIds = new Set([...schedulerConfig.backend_priority, schedulerConfig.free_fallback.backend]);
+  for (const backend of allBackendIds) {
+    const adapter = ADAPTERS[backend];
     if (adapter && checkBinary(adapter.binary)) availableBackends.add(backend);
   }
 
-  const scheduler: Scheduler = {
-    getState(backend: string): BackendUsageState | undefined {
-      return states.get(backend);
-    },
+  const maxRetries = accountRotation && superpowersConfig
+    ? _computeMaxRetries(schedulerConfig, superpowersConfig)
+    : schedulerConfig.backend_priority.length;
 
-    async spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> {
-      const filteredPriority = config.backend_priority.filter((b) => availableBackends.has(b));
-      const backend = pickBackend(
+  /**
+   * Internal spawn implementation with retry counter for 429 rate-limit retries.
+   * Capped at maxRetries to prevent infinite loops when all accounts are exhausted.
+   */
+  async function _spawnWithRetry(
+    prompt: string,
+    opts: SpawnOpts,
+    retryCount: number,
+  ): Promise<SchedulerSpawnResult> {
+    let backend: AdapterBackendId;
+    let stateKey: string;
+    const envOverrides: Record<string, string> = {};
+
+    if (accountRotation && superpowersConfig) {
+      // Account-rotation path: resolve backend + account
+      const resolution = resolveAccount(
+        superpowersConfig,
+        schedulerConfig,
+        states,
+        prediction.safety_margin_tasks,
+      );
+      backend = resolution.backend;
+      stateKey = resolution.stateKey;
+
+      // Set env var for the account's config directory
+      if (resolution.account.config_dir) {
+        envOverrides[ENV_VAR_MAP[backend]] = resolution.account.config_dir;
+      }
+    } else {
+      // Simple backend picker path (existing behavior)
+      const filteredPriority = schedulerConfig.backend_priority.filter((b) => availableBackends.has(b));
+      backend = pickBackend(
         filteredPriority,
         states,
         prediction.safety_margin_tasks,
-        config.free_fallback,
-      );
+        schedulerConfig.free_fallback,
+      ) as AdapterBackendId;
+      stateKey = backend;
+    }
 
-      const adapter = ADAPTERS[backend as BackendId] || ADAPTERS.claude;
-      const state = states.get(backend) || createBackendState(DEFAULT_BUDGET_TPM);
-      const args = adapter.buildArgs(prompt, opts);
-      const workItemId = opts.workItemId || `task-${Date.now()}`;
+    const adapter = ADAPTERS[backend] || ADAPTERS.claude;
+    const state = states.get(stateKey) || createBackendState(DEFAULT_BUDGET_TPM);
+    const args = adapter.buildArgs(prompt, opts);
+    const workItemId = opts.workItemId || `task-${Date.now()}`;
 
-      markInFlight(state);
-      const startTime = Date.now();
+    markInFlight(state);
+    const startTime = Date.now();
 
-      try {
-        const { execFile } = require('child_process') as typeof import('child_process');
-        const result = await new Promise<SchedulerSpawnResult>((resolve) => {
-          const child = execFile(
-            adapter.binary,
-            args,
-            {
-              cwd: opts.cwd || process.cwd(),
-              maxBuffer: 50 * 1024 * 1024,
-              timeout: opts.timeout || 120 * 60 * 1000,
-              env: { ...process.env },
-            },
-            (error, stdout, stderr) => {
-              const duration = Date.now() - startTime;
-              const timedOut = !!(
-                error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
-              );
-              const exitCode = error ? (child.exitCode || 1) : 0;
+    try {
+      const { execFile } = require('child_process') as typeof import('child_process');
+      const result = await new Promise<SchedulerSpawnResult>((resolve) => {
+        const child = execFile(
+          adapter.binary,
+          args,
+          {
+            cwd: opts.cwd || process.cwd(),
+            maxBuffer: 50 * 1024 * 1024,
+            timeout: opts.timeout || 120 * 60 * 1000,
+            env: { ...process.env, ...envOverrides },
+          },
+          (error, stdout, stderr) => {
+            const duration = Date.now() - startTime;
+            const timedOut = !!(
+              error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+            );
+            const exitCode = error ? (child.exitCode || 1) : 0;
 
-              const tokens =
-                adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
+            const tokens =
+              adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
 
-              const sample: UsageSample = {
-                backend: backend as BackendId,
-                timestamp: Date.now(),
-                duration,
-                tokenEstimate: tokens,
-                exitCode,
-                workItemId,
-              };
+            const sample: UsageSample = {
+              backend: backend as BackendId,
+              stateKey,
+              timestamp: Date.now(),
+              duration,
+              tokenEstimate: tokens,
+              exitCode,
+              workItemId,
+            };
 
-              markComplete(state);
-              recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
+            markComplete(state);
+            recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
 
-              // Periodic persistence: every 10 samples across all backends
-              const totalSamples = Array.from(states.values()).reduce(
-                (sum, s) => sum + s.samples.length,
-                0,
-              );
-              if (totalSamples % 10 === 0 && opts.cwd) {
-                const { join } = require('path') as typeof import('path');
-                scheduler.persistState(join(opts.cwd, '.planning'));
-              }
+            // Periodic persistence: every 10 samples across all backends
+            const totalSamples = Array.from(states.values()).reduce(
+              (sum, s) => sum + s.samples.length,
+              0,
+            );
+            if (totalSamples % 10 === 0 && opts.cwd) {
+              const { join } = require('path') as typeof import('path');
+              scheduler.persistState(join(opts.cwd, '.planning'));
+            }
 
-              resolve({
-                exitCode,
-                stdout: stdout || undefined,
-                stderr: stderr || undefined,
-                timedOut,
-                backend: backend as BackendId,
-                tokensUsed: tokens,
-                workItemId,
-              });
-            },
-          );
-        });
+            resolve({
+              exitCode,
+              stdout: stdout || undefined,
+              stderr: stderr || undefined,
+              timedOut,
+              backend: backend as BackendId,
+              tokensUsed: tokens,
+              workItemId,
+            });
+          },
+        );
+      });
 
-        // Rate limit retry: if rate-limited despite prediction, cooldown and retry
-        if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
-          state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000;
-          return scheduler.spawn(prompt, opts); // pickBackend will skip cooled-down backend
+      // Rate limit retry: if rate-limited despite prediction, cooldown and retry
+      if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
+        state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000;
+
+        // Max retry guard: cap recursive retries
+        if (retryCount >= maxRetries) {
+          return result; // Exhausted all retries, return last result
         }
 
-        return result;
-      } catch (_err) {
-        markComplete(state);
-        return {
-          exitCode: 1,
-          timedOut: false,
-          backend: backend as BackendId,
-          tokensUsed: 0,
-          workItemId,
-        };
+        return _spawnWithRetry(prompt, opts, retryCount + 1);
       }
+
+      return result;
+    } catch (_err) {
+      markComplete(state);
+      return {
+        exitCode: 1,
+        timedOut: false,
+        backend: backend as BackendId,
+        tokensUsed: 0,
+        workItemId,
+      };
+    }
+  }
+
+  const scheduler: Scheduler = {
+    getState(stateKey: string): BackendUsageState | undefined {
+      return states.get(stateKey);
+    },
+
+    recordExternalSample(stateKey: string, sample: UsageSample): void {
+      let state = states.get(stateKey);
+      if (!state) {
+        state = createBackendState(DEFAULT_BUDGET_TPM);
+        states.set(stateKey, state);
+      }
+      recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
+    },
+
+    async spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> {
+      return _spawnWithRetry(prompt, opts, 0);
     },
 
     persistState(planningDir: string): void {
@@ -470,6 +722,7 @@ export function createScheduler(config: SchedulerConfig | undefined): Scheduler 
 
 module.exports = {
   ADAPTERS,
+  ENV_VAR_MAP,
   DEFAULT_BUDGET_TPM,
   FREE_FALLBACK_BUDGET,
   checkBinary,
@@ -478,6 +731,7 @@ module.exports = {
   evictExpiredSamples,
   recordSample,
   pickBackend,
+  resolveAccount,
   markInFlight,
   markComplete,
   createScheduler,
