@@ -63,9 +63,15 @@ const { parseLongTermRoadmap }: {
   } | null;
 } = require('./long-term-roadmap');
 import type { Scheduler } from './scheduler';
-const { createScheduler }: {
-  createScheduler: (config: import('./types').SchedulerConfig | undefined) => Scheduler | null;
+const { createScheduler, resolveAccount }: {
+  createScheduler: (config: import('./types').SchedulerConfig | undefined, superpowersConfig?: import('./types').SuperpowersConfig) => Scheduler | null;
+  resolveAccount: (superpowersConfig: import('./types').SuperpowersConfig, schedulerConfig: import('./types').SchedulerConfig, states: Map<string, import('./types').BackendUsageState>, safetyMargin: number) => import('./types').AccountResolution;
 } = require('./scheduler');
+const { slingPlanAsync, loadOverstoryConfig, generateOverlay }: {
+  slingPlanAsync: (cwd: string, opts: import('./types').SlingOpts, pollIntervalMs: number, mergeStrategy: 'auto' | 'manual') => Promise<{ exitCode: number; duration: number; agentId: string }>;
+  loadOverstoryConfig: (cwd: string) => import('./types').OverstoryConfig;
+  generateOverlay: (planContent: string, context: { phase_number: string; plan_id: string; milestone: string; phase_dir: string }) => string;
+} = require('./overstory');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -152,6 +158,54 @@ interface ResolvePhaseRangeResult {
     depends_on?: string | null;
   }>;
   error: string | null;
+}
+
+// ─── Scheduler State Helpers ────────────────────────────────────────────────
+
+/**
+ * Build a states map from the scheduler for use with resolveAccount().
+ * Enumerates all configured account state keys and queries the scheduler
+ * for each, collecting only those that exist.
+ */
+function _getSchedulerStates(
+  scheduler: Scheduler,
+  schedulerConfig: import('./types').SchedulerConfig,
+  superpowersConfig: import('./types').SuperpowersConfig,
+): Map<string, import('./types').BackendUsageState> {
+  const states = new Map<string, import('./types').BackendUsageState>();
+  const accounts = superpowersConfig.accounts;
+  const allBackends = new Set([
+    ...schedulerConfig.backend_priority,
+    schedulerConfig.free_fallback.backend,
+  ]);
+
+  for (const backend of allBackends) {
+    const backendAccounts = accounts[backend as import('./types').AdapterBackendId];
+    if (!backendAccounts || backendAccounts.length === 0) continue;
+
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = scheduler.getState(stateKey);
+      if (state) {
+        states.set(stateKey, state);
+      }
+    }
+  }
+
+  // Also check the fallback backend with no config_dir
+  const fallbackState = scheduler.getState(schedulerConfig.free_fallback.backend);
+  if (fallbackState) {
+    states.set(schedulerConfig.free_fallback.backend, fallbackState);
+  }
+
+  // Check default_backend with no config_dir
+  const defaultBackend = superpowersConfig.default_backend;
+  const defaultState = scheduler.getState(defaultBackend);
+  if (defaultState) {
+    states.set(defaultBackend, defaultState);
+  }
+
+  return states;
 }
 
 // ─── Pure Helper Functions ──────────────────────────────────────────────────
@@ -561,7 +615,7 @@ async function runAutopilot(
   const stoppedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
-  const scheduler = createScheduler(config.scheduler);
+  const scheduler = createScheduler(config.scheduler, config.superpowers);
   if (scheduler) {
     scheduler.loadPersistedState(path.join(cwd, '.planning'));
   }
@@ -612,9 +666,72 @@ async function runAutopilot(
           writeStatusMarker(cwd, phaseNum, 'plan', 'started');
           updateStateProgress(cwd, phaseNum, 'planning');
 
-          const promise: Promise<SpawnResult> = scheduler
-            ? scheduler.spawn(buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model, cwd, workItemId: `phase-${phaseNum}-plan` }).then(toSpawnResult)
-            : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model });
+          // Check for overstory sling path: parallel wave + account rotation + native worktree isolation
+          let promise: Promise<SpawnResult>;
+          if (
+            config.superpowers?.account_rotation &&
+            scheduler &&
+            config.scheduler
+          ) {
+            const resolution = resolveAccount(
+              config.superpowers,
+              config.scheduler,
+              _getSchedulerStates(scheduler, config.scheduler, config.superpowers),
+              config.scheduler.prediction.safety_margin_tasks,
+            );
+            const caps = getBackendCapabilities(resolution.backend);
+            if (caps.native_worktree_isolation) {
+              // Overstory sling path: bypass scheduler.spawn() for parallel wave planning
+              const ovConfig = loadOverstoryConfig(cwd);
+              const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+              const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
+              const phaseDir: string = phaseInfo?.directory || path.join(cwd, '.planning', 'milestones', milestoneInfo.version, 'phases', `phase-${phaseNum}`);
+              const planId: string = `phase-${phaseNum}-plan`;
+              const overlayContent: string = generateOverlay(
+                buildPlanPrompt(phaseNum),
+                { phase_number: phaseNum, plan_id: planId, milestone: milestoneInfo.version, phase_dir: phaseDir },
+              );
+              const overlayDir: string = path.join(cwd, '.planning', 'autopilot', 'overlays');
+              fs.mkdirSync(overlayDir, { recursive: true });
+              const overlayPath: string = path.join(overlayDir, `overlay-${phaseNum}.md`);
+              fs.writeFileSync(overlayPath, overlayContent);
+
+              const slingOpts: import('./types').SlingOpts = {
+                plan_path: phaseDir,
+                overlay_path: overlayPath,
+                runtime: ovConfig.runtime,
+                model: model || 'default',
+                phase_number: phaseNum,
+                plan_id: planId,
+                milestone: milestoneInfo.version,
+                timeout_minutes: timeout || DEFAULT_TIMEOUT_MINUTES,
+              };
+
+              log(`Phase ${phaseNum}: using overstory sling path (backend: ${resolution.backend})`);
+              promise = slingPlanAsync(cwd, slingOpts, ovConfig.poll_interval_ms, ovConfig.merge_strategy)
+                .then((slingResult): SpawnResult => {
+                  // Record the sample back to the scheduler
+                  const sample: import('./types').UsageSample = {
+                    backend: resolution.backend as import('./types').BackendId,
+                    stateKey: resolution.stateKey,
+                    timestamp: Date.now(),
+                    duration: slingResult.duration,
+                    tokenEstimate: Math.round(slingResult.duration * 10), // fallback estimate
+                    exitCode: slingResult.exitCode,
+                    workItemId: `phase-${phaseNum}-plan`,
+                  };
+                  scheduler.recordExternalSample(resolution.stateKey, sample);
+                  return { exitCode: slingResult.exitCode, timedOut: false };
+                });
+            } else {
+              // Non-overstory backend with account rotation: use scheduler.spawn
+              promise = scheduler.spawn(buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model, cwd, workItemId: `phase-${phaseNum}-plan` }).then(toSpawnResult);
+            }
+          } else {
+            promise = scheduler
+              ? scheduler.spawn(buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model, cwd, workItemId: `phase-${phaseNum}-plan` }).then(toSpawnResult)
+              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), { timeout: timeoutMs, maxTurns, model });
+          }
           planTasks.push({ phaseNum, skipped: false, promise });
         }
       }
@@ -783,7 +900,7 @@ async function runMultiMilestoneAutopilot(
   log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
 
   const mmConfig: GrdConfig = loadConfig(cwd);
-  const mmScheduler = createScheduler(mmConfig.scheduler);
+  const mmScheduler = createScheduler(mmConfig.scheduler, mmConfig.superpowers);
   if (mmScheduler) {
     mmScheduler.loadPersistedState(path.join(cwd, '.planning'));
   }
