@@ -133,6 +133,7 @@ export interface GrdConfig {
   timeouts: GrdTimeouts;
   evolve: EvolveConfig | undefined;
   scheduler?: SchedulerConfig;
+  superpowers?: SuperpowersConfig;
 }
 
 export interface EvolveConfig {
@@ -155,6 +156,7 @@ export interface SpawnOpts {
   captureStderr?: boolean;
   cwd?: string;
   workItemId?: string;
+  parallel?: boolean;
 }
 
 /**
@@ -162,8 +164,8 @@ export interface SpawnOpts {
  * Controls backend priority, fallback, rate limits, and prediction parameters.
  */
 export interface SchedulerConfig {
-  backend_priority: BackendId[];
-  free_fallback: { backend: BackendId; model?: string };
+  backend_priority: AdapterBackendId[];
+  free_fallback: { backend: AdapterBackendId; model?: string };
   backend_limits?: Record<string, { tpm: number; rpm?: number }>;
   prediction: {
     window_minutes: number;
@@ -179,6 +181,7 @@ export interface SchedulerConfig {
  */
 export interface UsageSample {
   backend: BackendId;
+  stateKey?: string; // compound key for per-account state, e.g. "claude/~/.claude-personal"
   timestamp: number;
   duration: number;
   tokenEstimate: number;
@@ -217,7 +220,7 @@ export interface SchedulerSpawnResult {
 }
 
 /**
- * Adapter interface for a backend CLI (claude, codex, gemini, opencode, overstory, superpowers, grd).
+ * Adapter interface for a backend CLI (claude, codex, gemini, opencode, overstory).
  * Encapsulates binary name, argument building, token parsing, and rate-limit detection.
  */
 export interface BackendAdapter {
@@ -554,13 +557,38 @@ export interface AutoplanResult {
 /**
  * Meta-backends that orchestrate other backends — cannot be used as
  * Superpowers' underlying default_backend target.
+ * overstory is excluded because it has a real CLI adapter.
  */
-export type MetaBackendId = 'superpowers' | 'grd' | 'overstory';
+export type MetaBackendId = 'superpowers' | 'grd';
+
+/**
+ * Direct AI CLI backends that have adapter implementations and can serve as
+ * a Superpowers target (excludes meta-backends superpowers and grd).
+ */
+export type AdapterBackendId = Exclude<BackendId, MetaBackendId>;
 
 /**
  * Direct AI CLI backends that can serve as a Superpowers target.
+ * @deprecated Use AdapterBackendId instead.
  */
-export type DirectBackendId = Exclude<BackendId, MetaBackendId>;
+export type DirectBackendId = AdapterBackendId;
+
+/**
+ * Configuration for a single AI CLI account with its config directory.
+ */
+export interface AccountConfig {
+  config_dir: string;
+}
+
+/**
+ * Result of resolving which backend account to use for a scheduled task.
+ * Combines backend identity, account config, and a compound state key.
+ */
+export interface AccountResolution {
+  backend: AdapterBackendId;
+  account: AccountConfig;
+  stateKey: string; // e.g. "claude/~/.claude-personal"
+}
 
 /**
  * Configuration for the Superpowers execution backend.
@@ -569,6 +597,7 @@ export type DirectBackendId = Exclude<BackendId, MetaBackendId>;
 export interface SuperpowersConfig {
   default_backend: DirectBackendId;
   account_rotation: boolean;
+  accounts: Partial<Record<AdapterBackendId, AccountConfig[]>>;
 }
 
 // ─── Overstory Types (from overstory.ts) ─────────────────────────────────────
