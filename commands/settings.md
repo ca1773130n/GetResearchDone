@@ -793,6 +793,44 @@ AskUserQuestion([
 ])
 ```
 
+**Conditional: If account rotation = "Yes", ask for account configuration:**
+
+```
+AskUserQuestion([
+  {
+    header: "Account Configuration",
+    question: "Configure account config directories for each backend. Enter comma-separated paths for each backend you want to rotate (leave empty to skip).",
+    multiSelect: false,
+    freeform: true,
+    subQuestions: [
+      { label: "Claude accounts", placeholder: "~/.claude-personal, ~/.claude-work", description: "CLAUDE_CONFIG_DIR paths" },
+      { label: "Codex accounts", placeholder: "~/.codex-main", description: "CODEX_HOME paths" },
+      { label: "Gemini accounts", placeholder: "~/.gemini-default", description: "GEMINI_CLI_HOME paths" },
+      { label: "OpenCode accounts", placeholder: "~/.opencode-free", description: "OPENCODE_CONFIG_DIR paths" }
+    ]
+  },
+  {
+    header: "Backend Priority",
+    question: "Order backends by priority for account rotation (first = preferred, last = fallback):",
+    multiSelect: false,
+    freeform: true,
+    placeholder: "claude, codex, gemini, opencode",
+    description: "Comma-separated backend names in priority order"
+  },
+  {
+    header: "Free Fallback",
+    question: "Which backend should be used when all accounts are exhausted?",
+    multiSelect: false,
+    options: [
+      { label: "OpenCode (Default)", description: "Free tier — effectively unlimited" },
+      { label: "Claude Code", description: "Use Claude Code as fallback" },
+      { label: "Codex", description: "Use Codex as fallback" },
+      { label: "Gemini", description: "Use Gemini as fallback" }
+    ]
+  }
+])
+```
+
 **Conditional: Overstory sub-options (if user selected "Overstory" for Execution Backend)**
 
 If user selected "Overstory" for Execution Backend, ask follow-up questions:
@@ -876,7 +914,21 @@ Merge new settings into existing config.json:
   "backend": "grd" | "superpowers" | "overstory" | "claude" | "codex" | "gemini" | "opencode",
   "superpowers": {
     "default_backend": "claude" | "codex" | "gemini" | "opencode",
-    "account_rotation": true/false
+    "account_rotation": true/false,
+    "accounts": {
+      "claude": [{ "config_dir": "~/.claude-personal" }, { "config_dir": "~/.claude-work" }],
+      "codex": [{ "config_dir": "~/.codex-main" }]
+    }
+  },
+  "scheduler": {
+    "backend_priority": ["claude", "codex", "gemini", "opencode"],
+    "free_fallback": { "backend": "opencode" },
+    "prediction": {
+      "window_minutes": 15,
+      "ewma_alpha": 0.3,
+      "safety_margin_tasks": 1.5,
+      "min_samples": 3
+    }
   },
   "overstory": {
     "runtime": "claude" | "codex" | "cursor" | "copilot",
@@ -927,6 +979,24 @@ Superpowers AI Backend:
 Superpowers Account Rotation:
 - "Yes (Recommended)" -> `superpowers.account_rotation: true`
 - "No" -> `superpowers.account_rotation: false`
+
+Superpowers Accounts:
+- Parse comma-separated paths for each backend
+- For each non-empty backend, create `superpowers.accounts.<backend>` array of `{ config_dir: "<path>" }` objects
+- Empty entries are omitted from config
+
+Backend Priority:
+- Parse comma-separated backend names → `scheduler.backend_priority` array
+- Only include backends that have accounts configured
+
+Free Fallback:
+- "OpenCode (Default)" → `scheduler.free_fallback: { "backend": "opencode" }`
+- "Claude Code" → `scheduler.free_fallback: { "backend": "claude" }`
+- "Codex" → `scheduler.free_fallback: { "backend": "codex" }`
+- "Gemini" → `scheduler.free_fallback: { "backend": "gemini" }`
+
+Include `scheduler` section only when backend is "superpowers" and account_rotation is true.
+Prediction defaults are always included in `scheduler.prediction` — these are sensible defaults that users rarely need to change.
 
 Overstory Runtime:
 - "claude (Default)" -> `runtime: "claude"`
