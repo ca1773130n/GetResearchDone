@@ -552,11 +552,22 @@ export interface AutoplanResult {
 // ─── Superpowers Types ───────────────────────────────────────────────────────
 
 /**
+ * Meta-backends that orchestrate other backends — cannot be used as
+ * Superpowers' underlying default_backend target.
+ */
+export type MetaBackendId = 'superpowers' | 'grd' | 'overstory';
+
+/**
+ * Direct AI CLI backends that can serve as a Superpowers target.
+ */
+export type DirectBackendId = Exclude<BackendId, MetaBackendId>;
+
+/**
  * Configuration for the Superpowers execution backend.
  * Superpowers orchestrates any AI CLI backend with account rotation.
  */
 export interface SuperpowersConfig {
-  default_backend: 'claude' | 'codex' | 'gemini' | 'opencode';
+  default_backend: DirectBackendId;
   account_rotation: boolean;
 }
 

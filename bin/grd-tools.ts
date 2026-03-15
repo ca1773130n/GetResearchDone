@@ -460,44 +460,7 @@ const TRACKER_SUBS: readonly string[] = [
 ];
 const REQUIREMENT_SUBS: readonly string[] = ['get', 'list', 'traceability', 'update-status'];
 const WORKTREE_SUBS: readonly string[] = ['create', 'remove', 'list', 'push-pr', 'ensure-milestone-branch', 'merge', 'hook'];
-const INIT_WORKFLOWS: readonly string[] = [
-  'execute-phase',
-  'execute-parallel',
-  'plan-phase',
-  'new-project',
-  'new-milestone',
-  'quick',
-  'resume',
-  'verify-work',
-  'phase-op',
-  'todos',
-  'milestone-op',
-  'plan-milestone-gaps',
-  'map-codebase',
-  'progress',
-  'survey',
-  'deep-dive',
-  'feasibility',
-  'eval-plan',
-  'eval-report',
-  'assess-baseline',
-  'product-plan',
-  'iterate',
-  'autopilot',
-  'multi-milestone-autopilot',
-  'autoplan',
-  'evolve',
-  'debug',
-  'integration-check',
-  'migrate',
-  'plan-check',
-  'phase-research',
-  'code-review',
-  'project-researcher',
-  'research-synthesizer',
-  'roadmapper',
-  'verifier',
-];
+const { INIT_WORKFLOWS } = require('../lib/cli/index') as { INIT_WORKFLOWS: readonly string[] };
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 

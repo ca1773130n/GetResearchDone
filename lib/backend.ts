@@ -161,7 +161,7 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     hooks: true,
     mcp: true,
     native_worktree_isolation: true,
-    effort: true,
+    effort: false,
     http_hooks: false,
     cron: false,
   },

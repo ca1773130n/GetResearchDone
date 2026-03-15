@@ -27,7 +27,12 @@ export const TOOL_COMMANDS = new Set([
   'overstory', 'progress',
 ]);
 
-const INIT_TOOL_SUBS = new Set([
+/**
+ * Canonical list of init workflow names. Used by both cli/index.ts (for
+ * classifyCommand disambiguation) and bin/grd-tools.ts (for init subcommand
+ * validation). Single source of truth — do not duplicate.
+ */
+export const INIT_WORKFLOWS: readonly string[] = [
   'execute-phase', 'execute-parallel', 'plan-phase', 'new-project', 'new-milestone',
   'quick', 'resume', 'verify-work', 'phase-op', 'todos', 'milestone-op',
   'plan-milestone-gaps', 'map-codebase', 'progress', 'survey', 'deep-dive',
@@ -35,7 +40,9 @@ const INIT_TOOL_SUBS = new Set([
   'iterate', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'evolve',
   'debug', 'integration-check', 'migrate', 'plan-check', 'phase-research',
   'code-review', 'project-researcher', 'research-synthesizer', 'roadmapper', 'verifier',
-]);
+];
+
+const INIT_TOOL_SUBS = new Set(INIT_WORKFLOWS);
 
 export const AGENT_COMMANDS = new Set([
   'init', 'new-project', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
@@ -95,4 +102,4 @@ export function classifyCommand(command: string, subcommand?: string): 'tool' | 
   return 'unknown';
 }
 
-module.exports = { parseFlags, classifyCommand, TOOL_COMMANDS, AGENT_COMMANDS };
+module.exports = { parseFlags, classifyCommand, TOOL_COMMANDS, AGENT_COMMANDS, INIT_WORKFLOWS };
