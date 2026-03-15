@@ -60,7 +60,7 @@ PLANNING — Strategic and tactical planning
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   /grd:init                      Initialize new R&D project with deep
-    (alias: new-project)          context gathering and research setup.
+                                  context gathering and research setup.
 
   /grd:product-plan <goals>     Product-level roadmap from research
                                 findings. Gap analysis, phase breakdown.

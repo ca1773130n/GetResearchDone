@@ -97,7 +97,7 @@ function printHelp(): void {
 Usage: gd <command> [args] [--json] [--help] [--version]
 
 Workflow:
-  init                 Initialize a new R&D project (alias: new-project)
+  init                 Initialize a new R&D project
   new-milestone        Start a new milestone cycle
   plan-phase <N>       Plan a phase
   execute-phase <N>    Execute a phase
@@ -163,8 +163,7 @@ Run "gd <command> --help" for command-specific usage.
 }
 
 function printCommandHelp(cmd: string): void {
-  // Resolve aliases: new-project → init
-  const resolvedCmd = cmd === 'new-project' ? 'init' : cmd;
+  const resolvedCmd = cmd;
   // Handle both bin/ (source) and dist/bin/ (compiled) locations
   let cmdFile = join(__dirname, '..', 'commands', `${resolvedCmd}.md`);
   if (!existsSync(cmdFile)) cmdFile = join(__dirname, '..', '..', 'commands', `${resolvedCmd}.md`);

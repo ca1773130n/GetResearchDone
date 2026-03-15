@@ -530,7 +530,6 @@
     "commands/map-codebase.md": "0fccd7e85128b5a794f693e39921a8f71e1691daa3f48571b0aca0c93dddf721",
     "commands/migrate.md": "bfb159507008aa35fe9c57e7dee28b895abb513451f0114fbe73d0782786f35e",
     "commands/new-milestone.md": "81a910ae6371b4605dac5c632316038953392b4f944c518676e7b6a2c65164ab",
-    "commands/new-project.md": "b694719e2c1b51acaa6619fb36e6de79dcc8dadbd2aebeaa4875254d8263c781",
     "commands/pause-work.md": "e8a2270c1047b4d961fc8a379a0a0b8d9b448000f10b2989b7e922b7ba5d42ae",
     "commands/plan-milestone-gaps.md": "0f8e179779f7e4813a28952ed9b0e0592db6d72fcfbf3000b696f57f86580500",
     "commands/plan-phase.md": "7312031adcd9ec3b27498e388ba93e1294f58b8b97d878ae7b24646b7983717b",

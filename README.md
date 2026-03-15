@@ -21,7 +21,7 @@ GRD brings research rigor to AI-assisted software development:
 claude plugin add https://github.com/ca1773130n/GRD.git
 
 # Initialize a new R&D project
-/grd:new-project
+/grd:init
 
 # Or jump straight in
 /grd:survey "topic"          # Survey state of the art
@@ -62,7 +62,7 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 ### Planning & Execution
 | Command | Description |
 |---------|-------------|
-| `/grd:new-project` | Initialize R&D project |
+| `/grd:init` | Initialize R&D project |
 | `/grd:plan-phase <N>` | Phase planning with research context |
 | `/grd:execute-phase <N>` | Phase execution with wave parallelization |
 | `/grd:autopilot` | Multi-phase autonomous execution |

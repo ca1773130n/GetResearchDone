@@ -35,7 +35,7 @@ describe('gd CLI integration', () => {
     const { stdout, exitCode } = runGd(['--help']);
     expect(exitCode).toBe(0);
     expect(stdout).toContain('gd — Get Research Done CLI');
-    expect(stdout).toContain('new-project');
+    expect(stdout).toContain('init');
     expect(stdout).toContain('autopilot');
   });
 

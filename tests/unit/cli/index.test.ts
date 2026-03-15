@@ -59,7 +59,6 @@ describe('command classification', () => {
   });
 
   it('classifies agent commands', () => {
-    expect(classifyCommand('new-project')).toBe('agent');
     expect(classifyCommand('init')).toBe('agent');
     expect(classifyCommand('plan-phase')).toBe('agent');
     expect(classifyCommand('execute-phase')).toBe('agent');

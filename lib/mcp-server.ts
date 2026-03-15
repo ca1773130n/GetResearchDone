@@ -1277,7 +1277,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_new_project',
-    description: 'Initialize context for new-project workflow',
+    description: 'Initialize context for init workflow',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdInitNewProject(cwd, false),
   },

@@ -45,7 +45,7 @@ export const INIT_WORKFLOWS: readonly string[] = [
 const INIT_TOOL_SUBS = new Set(INIT_WORKFLOWS);
 
 export const AGENT_COMMANDS = new Set([
-  'init', 'new-project', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
+  'init', 'new-milestone', 'plan-phase', 'execute-phase', 'verify-phase',
   'autopilot', 'autoplan', 'evolve', 'resume-project', 'pause-work', 'quick',
   'migrate', 'survey', 'deep-dive', 'compare-methods', 'feasibility',
   'product-plan', 'discuss-phase', 'list-phase-assumptions', 'long-term-roadmap',

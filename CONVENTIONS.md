@@ -255,7 +255,7 @@ When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
 - `/grd:feasibility <approach>` — Paper→production gap analysis
 
 ### Planning & Execution
-- `/grd:new-project` — Initialize R&D project
+- `/grd:init` — Initialize R&D project
 - `/grd:product-plan` — Product-level planning
 - `/grd:long-term-roadmap [list|add|remove|update|refine|link|unlink|display|init]` — Manage LT milestones
 - `/grd:discuss-phase <N>` — Brainstorming with no-solutions-before-questions protocol
