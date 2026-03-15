@@ -129,6 +129,47 @@ function slingPlan(cwd: string, opts: SlingOpts): SlingResult {
   return JSON.parse(ovExec(cwd, args, 60000)) as SlingResult;
 }
 
+/**
+ * Dispatch a plan via sling and poll until the agent reaches a terminal state.
+ *
+ * @param cwd - Working directory (project root)
+ * @param opts - Sling dispatch options (plan id, runtime, model, overlay path)
+ * @param pollIntervalMs - Milliseconds between each status poll
+ * @param mergeStrategy - 'auto' triggers mergeAgent() on completion; 'manual' skips it
+ * @returns Resolved promise with exit code, wall-clock duration, and agent id
+ */
+async function slingPlanAsync(
+  cwd: string,
+  opts: SlingOpts,
+  pollIntervalMs: number,
+  mergeStrategy: 'auto' | 'manual',
+): Promise<{ exitCode: number; duration: number; agentId: string }> {
+  const startTime = Date.now();
+  const result: SlingResult = slingPlan(cwd, opts);
+  const agentId = result.agent_id;
+
+  let exitCode: number;
+  while (true) {
+    await new Promise<void>(resolve => setTimeout(resolve, pollIntervalMs));
+    const status: AgentStatus = getAgentStatus(cwd, agentId);
+    if (status.state === 'done') {
+      exitCode = status.exit_code ?? 0;
+      break;
+    }
+    if (status.state === 'failed') {
+      exitCode = status.exit_code ?? 1;
+      break;
+    }
+  }
+
+  if (mergeStrategy === 'auto') {
+    mergeAgent(cwd, agentId);
+  }
+
+  const duration = Date.now() - startTime;
+  return { exitCode, duration, agentId };
+}
+
 function getAgentStatus(cwd: string, agentId: string): AgentStatus {
   return JSON.parse(ovExec(cwd, ['status', agentId, '--json'], 10000)) as AgentStatus;
 }
@@ -213,6 +254,7 @@ module.exports = {
   detectOverstory,
   installOverstory,
   slingPlan,
+  slingPlanAsync,
   getAgentStatus,
   getFleetStatus,
   mergeAgent,
