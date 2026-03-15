@@ -132,7 +132,7 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
  * Maps each adapter backend to its config-directory environment variable.
  * Used by account rotation to override which account a CLI binary uses.
  */
-const ENV_VAR_MAP: Record<AdapterBackendId, string> = {
+export const ENV_VAR_MAP: Record<AdapterBackendId, string> = {
   claude: 'CLAUDE_CONFIG_DIR',
   codex: 'CODEX_HOME',
   gemini: 'GEMINI_CLI_HOME',

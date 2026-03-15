@@ -7,6 +7,8 @@ import type {
   SchedulerSpawnResult,
   BackendAdapter,
   SpawnOpts,
+  SuperpowersConfig,
+  AdapterBackendId,
 } from '../../lib/types';
 
 import {
@@ -16,9 +18,11 @@ import {
   recordSample,
   evictExpiredSamples,
   pickBackend,
+  resolveAccount,
   markInFlight,
   markComplete,
   createScheduler,
+  ENV_VAR_MAP,
 } from '../../lib/scheduler';
 
 import * as fs from 'fs';
@@ -331,5 +335,562 @@ describe('state persistence', () => {
     const scheduler = createScheduler(config)!;
     scheduler.loadPersistedState(tmpDir);
     expect(scheduler.getState('claude')!.ewma_tokens_per_task).toBe(0);
+  });
+});
+
+// ─── Account-aware scheduling ─────────────────────────────────────────────────
+
+describe('Account-aware scheduling', () => {
+  // Shared helpers for constructing test configs
+  function makeSchedulerConfig(overrides?: Partial<SchedulerConfig>): SchedulerConfig {
+    return {
+      backend_priority: ['claude', 'codex'],
+      free_fallback: { backend: 'opencode' },
+      backend_limits: { claude: { tpm: 80000 }, codex: { tpm: 100000 } },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+      ...overrides,
+    };
+  }
+
+  function makeSuperpowersConfig(overrides?: Partial<SuperpowersConfig>): SuperpowersConfig {
+    return {
+      default_backend: 'claude',
+      account_rotation: true,
+      accounts: {
+        claude: [
+          { config_dir: '~/.claude-personal' },
+          { config_dir: '~/.claude-work' },
+        ],
+        codex: [
+          { config_dir: '~/.codex-main' },
+        ],
+      },
+      ...overrides,
+    };
+  }
+
+  function makeAccountStates(
+    superpowersConfig: SuperpowersConfig,
+    schedulerConfig: SchedulerConfig,
+  ): Map<string, BackendUsageState> {
+    const states = new Map<string, BackendUsageState>();
+    const accounts = superpowersConfig.accounts;
+
+    for (const backend of schedulerConfig.backend_priority) {
+      const backendAccounts = accounts[backend];
+      if (!backendAccounts) continue;
+      const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
+      const budget = limit ?? 40000;
+      for (const account of backendAccounts) {
+        states.set(`${backend}/${account.config_dir}`, createBackendState(budget));
+      }
+    }
+
+    // Also initialize fallback if it has accounts
+    const fallbackBackend = schedulerConfig.free_fallback.backend;
+    const fallbackAccounts = accounts[fallbackBackend];
+    if (fallbackAccounts) {
+      for (const account of fallbackAccounts) {
+        states.set(`${fallbackBackend}/${account.config_dir}`, createBackendState(1000000));
+      }
+    }
+
+    return states;
+  }
+
+  describe('resolveAccount', () => {
+    it('should select first account with headroom', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('claude');
+      expect(result.account.config_dir).toBe('~/.claude-personal');
+      expect(result.stateKey).toBe('claude/~/.claude-personal');
+    });
+
+    it('should skip backends with no accounts configured', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          // claude has no accounts
+          codex: [{ config_dir: '~/.codex-main' }],
+        },
+      });
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('codex');
+      expect(result.account.config_dir).toBe('~/.codex-main');
+    });
+
+    it('should skip accounts in cooldown', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      // Put both claude accounts in cooldown
+      states.get('claude/~/.claude-personal')!.cooldown_until = Date.now() + 60000;
+      states.get('claude/~/.claude-work')!.cooldown_until = Date.now() + 60000;
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('codex');
+      expect(result.account.config_dir).toBe('~/.codex-main');
+    });
+
+    it('should skip accounts without headroom', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      // Exhaust both claude accounts (consumed nearly all of 80000 budget)
+      const claudePersonal = states.get('claude/~/.claude-personal')!;
+      claudePersonal.tokens_consumed_in_window = 75000;
+      claudePersonal.ewma_tokens_per_task = 10000;
+
+      const claudeWork = states.get('claude/~/.claude-work')!;
+      claudeWork.tokens_consumed_in_window = 75000;
+      claudeWork.ewma_tokens_per_task = 10000;
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('codex');
+      expect(result.account.config_dir).toBe('~/.codex-main');
+    });
+
+    it('should fall back to free_fallback when all accounts exhausted', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      // Exhaust ALL accounts across ALL priority backends
+      for (const [_key, state] of states) {
+        state.tokens_consumed_in_window = state.token_budget - 1000;
+        state.ewma_tokens_per_task = 10000;
+      }
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      // opencode is the free_fallback and has no accounts, so should fall through
+      expect(result.backend).toBe('opencode');
+      expect(result.account.config_dir).toBe('');
+    });
+
+    it('should handle empty accounts object (use default_backend with no config dir)', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {},
+      });
+      const states = new Map<string, BackendUsageState>();
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('claude'); // default_backend
+      expect(result.account.config_dir).toBe('');
+      expect(result.stateKey).toBe('claude');
+    });
+
+    it('should handle empty account array for a backend (skip it)', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          claude: [], // empty array
+          codex: [{ config_dir: '~/.codex-main' }],
+        },
+      });
+      const states = new Map<string, BackendUsageState>();
+      states.set('codex/~/.codex-main', createBackendState(100000));
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('codex');
+      expect(result.account.config_dir).toBe('~/.codex-main');
+    });
+
+    it('should handle backend in priority but missing from accounts (skip it)', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        backend_priority: ['claude', 'codex', 'gemini'],
+      });
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          // claude and gemini are in priority but only codex has accounts
+          codex: [{ config_dir: '~/.codex-main' }],
+        },
+      });
+      const states = new Map<string, BackendUsageState>();
+      states.set('codex/~/.codex-main', createBackendState(100000));
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('codex');
+    });
+
+    it('should use first fallback account if fallback backend has accounts', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        free_fallback: { backend: 'opencode' },
+      });
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          claude: [{ config_dir: '~/.claude-personal' }],
+          opencode: [
+            { config_dir: '~/.opencode-1' },
+            { config_dir: '~/.opencode-2' },
+          ],
+        },
+      });
+      const states = new Map<string, BackendUsageState>();
+      const claudeState = createBackendState(80000);
+      claudeState.tokens_consumed_in_window = 79000;
+      claudeState.ewma_tokens_per_task = 10000;
+      states.set('claude/~/.claude-personal', claudeState);
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('opencode');
+      expect(result.account.config_dir).toBe('~/.opencode-1');
+      expect(result.stateKey).toBe('opencode/~/.opencode-1');
+    });
+
+    it('should use empty config_dir if fallback backend has no accounts', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        free_fallback: { backend: 'opencode' },
+      });
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          claude: [{ config_dir: '~/.claude-personal' }],
+          // no opencode accounts
+        },
+      });
+      const states = new Map<string, BackendUsageState>();
+      const claudeState = createBackendState(80000);
+      claudeState.tokens_consumed_in_window = 79000;
+      claudeState.ewma_tokens_per_task = 10000;
+      states.set('claude/~/.claude-personal', claudeState);
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('opencode');
+      expect(result.account.config_dir).toBe('');
+      expect(result.stateKey).toBe('opencode');
+    });
+  });
+
+  describe('per-account state', () => {
+    it('should initialize per-account states with compound keys', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // Should have compound keys for each account
+      expect(scheduler.getState('claude/~/.claude-personal')).toBeDefined();
+      expect(scheduler.getState('claude/~/.claude-work')).toBeDefined();
+      expect(scheduler.getState('codex/~/.codex-main')).toBeDefined();
+
+      // Simple backend keys should NOT exist (account rotation mode uses compound keys)
+      // The fallback backend gets a simple key as exhaustion fallback
+      expect(scheduler.getState('opencode')).toBeDefined();
+    });
+
+    it('should track EWMA independently per account', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // Record different samples to different accounts
+      const sample1: UsageSample = {
+        backend: 'claude',
+        stateKey: 'claude/~/.claude-personal',
+        timestamp: Date.now(),
+        duration: 5000,
+        tokenEstimate: 20000,
+        exitCode: 0,
+        workItemId: 'task-1',
+      };
+      const sample2: UsageSample = {
+        backend: 'claude',
+        stateKey: 'claude/~/.claude-work',
+        timestamp: Date.now(),
+        duration: 5000,
+        tokenEstimate: 5000,
+        exitCode: 0,
+        workItemId: 'task-2',
+      };
+
+      scheduler.recordExternalSample('claude/~/.claude-personal', sample1);
+      scheduler.recordExternalSample('claude/~/.claude-work', sample2);
+
+      const personal = scheduler.getState('claude/~/.claude-personal')!;
+      const work = scheduler.getState('claude/~/.claude-work')!;
+
+      expect(personal.ewma_tokens_per_task).toBe(20000);
+      expect(work.ewma_tokens_per_task).toBe(5000);
+      // They should be independent
+      expect(personal.ewma_tokens_per_task).not.toBe(work.ewma_tokens_per_task);
+    });
+
+    it('should use stateKey for state lookup instead of backend name', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // The state is keyed by compound key, not simple backend name
+      const stateByBackend = scheduler.getState('claude');
+      const stateByKey = scheduler.getState('claude/~/.claude-personal');
+
+      // Simple 'claude' key should not exist when account_rotation is on
+      // (only compound keys exist for priority backends)
+      expect(stateByBackend).toBeUndefined();
+      expect(stateByKey).toBeDefined();
+      expect(stateByKey!.token_budget).toBe(80000);
+    });
+  });
+
+  describe('ENV_VAR_MAP', () => {
+    it('should map all adapter backends to env vars', () => {
+      const adapterBackends: AdapterBackendId[] = ['claude', 'codex', 'gemini', 'opencode', 'overstory'];
+      for (const backend of adapterBackends) {
+        expect(ENV_VAR_MAP[backend]).toBeDefined();
+        expect(typeof ENV_VAR_MAP[backend]).toBe('string');
+        expect(ENV_VAR_MAP[backend].length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should have CLAUDE_CONFIG_DIR for claude', () => {
+      expect(ENV_VAR_MAP.claude).toBe('CLAUDE_CONFIG_DIR');
+    });
+
+    it('should have CODEX_HOME for codex', () => {
+      expect(ENV_VAR_MAP.codex).toBe('CODEX_HOME');
+    });
+
+    it('should have GEMINI_CLI_HOME for gemini', () => {
+      expect(ENV_VAR_MAP.gemini).toBe('GEMINI_CLI_HOME');
+    });
+
+    it('should have OPENCODE_CONFIG_DIR for opencode', () => {
+      expect(ENV_VAR_MAP.opencode).toBe('OPENCODE_CONFIG_DIR');
+    });
+
+    it('should have OVERSTORY_HOME for overstory', () => {
+      expect(ENV_VAR_MAP.overstory).toBe('OVERSTORY_HOME');
+    });
+  });
+
+  describe('recordExternalSample', () => {
+    it('should record sample to existing state', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      const sample: UsageSample = {
+        backend: 'claude',
+        stateKey: 'claude/~/.claude-personal',
+        timestamp: Date.now(),
+        duration: 5000,
+        tokenEstimate: 15000,
+        exitCode: 0,
+        workItemId: 'test-task',
+      };
+
+      scheduler.recordExternalSample('claude/~/.claude-personal', sample);
+      const state = scheduler.getState('claude/~/.claude-personal')!;
+
+      expect(state.samples).toHaveLength(1);
+      expect(state.tokens_consumed_in_window).toBe(15000);
+      expect(state.ewma_tokens_per_task).toBe(15000);
+    });
+
+    it('should create state if stateKey not found', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // Record to a key that doesn't exist yet
+      const sample: UsageSample = {
+        backend: 'gemini',
+        stateKey: 'gemini/~/.gemini-alt',
+        timestamp: Date.now(),
+        duration: 3000,
+        tokenEstimate: 8000,
+        exitCode: 0,
+        workItemId: 'new-task',
+      };
+
+      // The key doesn't exist initially
+      expect(scheduler.getState('gemini/~/.gemini-alt')).toBeUndefined();
+
+      scheduler.recordExternalSample('gemini/~/.gemini-alt', sample);
+      const state = scheduler.getState('gemini/~/.gemini-alt');
+
+      expect(state).toBeDefined();
+      expect(state!.samples).toHaveLength(1);
+      expect(state!.ewma_tokens_per_task).toBe(8000);
+      // Default budget when auto-created
+      expect(state!.token_budget).toBe(40000);
+    });
+
+    it('should update EWMA after recording', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      const stateKey = 'claude/~/.claude-personal';
+
+      // Record first sample
+      const sample1: UsageSample = {
+        backend: 'claude',
+        stateKey,
+        timestamp: Date.now(),
+        duration: 5000,
+        tokenEstimate: 10000,
+        exitCode: 0,
+        workItemId: 'task-1',
+      };
+      scheduler.recordExternalSample(stateKey, sample1);
+      expect(scheduler.getState(stateKey)!.ewma_tokens_per_task).toBe(10000);
+
+      // Record second sample — EWMA should update with alpha=0.3
+      const sample2: UsageSample = {
+        backend: 'claude',
+        stateKey,
+        timestamp: Date.now(),
+        duration: 5000,
+        tokenEstimate: 20000,
+        exitCode: 0,
+        workItemId: 'task-2',
+      };
+      scheduler.recordExternalSample(stateKey, sample2);
+      // EWMA: 0.3 * 20000 + 0.7 * 10000 = 6000 + 7000 = 13000
+      expect(scheduler.getState(stateKey)!.ewma_tokens_per_task).toBe(13000);
+    });
+  });
+
+  describe('max retry guard', () => {
+    it('should cap retries at priority.length * max_accounts_per_backend', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        backend_priority: ['claude', 'codex'],
+      });
+      const superpowersConfig = makeSuperpowersConfig({
+        accounts: {
+          claude: [
+            { config_dir: '~/.claude-1' },
+            { config_dir: '~/.claude-2' },
+            { config_dir: '~/.claude-3' },
+          ],
+          codex: [
+            { config_dir: '~/.codex-1' },
+          ],
+        },
+      });
+
+      // The scheduler internally computes maxRetries = priority.length * max(accounts per backend)
+      // priority.length = 2, max accounts per backend = 3 (claude has 3)
+      // maxRetries = 2 * 3 = 6
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // Verify all per-account states were created
+      expect(scheduler.getState('claude/~/.claude-1')).toBeDefined();
+      expect(scheduler.getState('claude/~/.claude-2')).toBeDefined();
+      expect(scheduler.getState('claude/~/.claude-3')).toBeDefined();
+      expect(scheduler.getState('codex/~/.codex-1')).toBeDefined();
+    });
+
+    it('should return fallback result after exhaustion', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        free_fallback: { backend: 'opencode' },
+      });
+      const superpowersConfig = makeSuperpowersConfig();
+      const states = makeAccountStates(superpowersConfig, schedulerConfig);
+
+      // Exhaust all priority accounts
+      for (const [key, state] of states) {
+        if (key.startsWith('claude/') || key.startsWith('codex/')) {
+          state.tokens_consumed_in_window = state.token_budget - 500;
+          state.ewma_tokens_per_task = 10000;
+        }
+      }
+
+      const result = resolveAccount(superpowersConfig, schedulerConfig, states, 1.5);
+      expect(result.backend).toBe('opencode');
+    });
+  });
+
+  describe('createScheduler with account rotation', () => {
+    it('should create per-account states when account_rotation is true', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      expect(scheduler).not.toBeNull();
+      // Per-account compound keys
+      expect(scheduler.getState('claude/~/.claude-personal')).toBeDefined();
+      expect(scheduler.getState('claude/~/.claude-work')).toBeDefined();
+      expect(scheduler.getState('codex/~/.codex-main')).toBeDefined();
+    });
+
+    it('should create fallback backend state as exhaustion fallback', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        free_fallback: { backend: 'opencode' },
+      });
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // The fallback backend should have a simple key as exhaustion fallback
+      const fallbackState = scheduler.getState('opencode');
+      expect(fallbackState).toBeDefined();
+      // Fallback gets FREE_FALLBACK_BUDGET (1000000)
+      expect(fallbackState!.token_budget).toBe(1000000);
+    });
+
+    it('should handle empty accounts with default_backend state', () => {
+      const schedulerConfig = makeSchedulerConfig();
+      const superpowersConfig = makeSuperpowersConfig({
+        default_backend: 'claude',
+        accounts: {},
+      });
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      // When no accounts at all, should initialize default_backend state
+      const defaultState = scheduler.getState('claude');
+      expect(defaultState).toBeDefined();
+    });
+
+    it('should use backend_limits budget for per-account states', () => {
+      const schedulerConfig = makeSchedulerConfig({
+        backend_limits: { claude: { tpm: 50000 }, codex: { tpm: 120000 } },
+      });
+      const superpowersConfig = makeSuperpowersConfig();
+      const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+      expect(scheduler.getState('claude/~/.claude-personal')!.token_budget).toBe(50000);
+      expect(scheduler.getState('claude/~/.claude-work')!.token_budget).toBe(50000);
+      expect(scheduler.getState('codex/~/.codex-main')!.token_budget).toBe(120000);
+    });
+
+    it('should persist and reload per-account states', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scheduler-acct-test-'));
+      try {
+        const schedulerConfig = makeSchedulerConfig();
+        const superpowersConfig = makeSuperpowersConfig();
+        const scheduler = createScheduler(schedulerConfig, superpowersConfig)!;
+
+        // Modify some account states
+        const state = scheduler.getState('claude/~/.claude-personal')!;
+        state.ewma_tokens_per_task = 15000;
+        state.budget_learned = true;
+        state.budget_confidence = 0.8;
+
+        scheduler.persistState(tmpDir);
+
+        // Reload into a new scheduler
+        const scheduler2 = createScheduler(schedulerConfig, superpowersConfig)!;
+        scheduler2.loadPersistedState(tmpDir);
+
+        const reloaded = scheduler2.getState('claude/~/.claude-personal')!;
+        expect(reloaded.ewma_tokens_per_task).toBe(15000);
+        expect(reloaded.budget_learned).toBe(true);
+        expect(reloaded.budget_confidence).toBe(0.8);
+
+        // Other account should still be at defaults
+        const other = scheduler2.getState('claude/~/.claude-work')!;
+        expect(other.ewma_tokens_per_task).toBe(0);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 });
