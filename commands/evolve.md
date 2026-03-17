@@ -9,16 +9,16 @@ Run the evolve command to discover improvements and execute them autonomously:
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js evolve run $ARGUMENTS
 ```
 
-The evolve loop:
-1. Discovers improvement opportunities across the codebase (productivity, quality, usability, consistency, stability, new features)
-2. Groups items by theme (test-coverage, jsdoc-gaps, code-markers, etc.) into WorkItemGroups
-3. Selects top priority groups using `--pick-pct` (default 50% of total groups per iteration)
-4. Batch-executes ALL selected groups in a single subprocess call (1 call for all items)
-5. Runs a single review/verification pass after all execution is done (1 call per iteration)
-6. Writes evolution notes to `.planning/EVOLUTION.md`
-7. Persists remaining groups to the evolve state file for the next iteration
+The evolve loop uses a paired discover→execute architecture per iteration:
+1. Discovers 5-10 specific, immediately implementable improvements on the current codebase state
+2. Groups items by theme and selects top priority groups using `--pick-pct` (default 50%)
+3. Executes selected groups in a single subprocess call (max 10 items)
+4. Runs a review/verification pass
+5. Writes evolution notes and commits changes
+6. Next iteration discovers again on the NOW-EVOLVED codebase (sees its own changes)
+7. Repeats — each iteration builds on the previous one's improvements
 
-This means each iteration uses only 2 subprocess calls total (execute + review), regardless of how many groups are selected.
+This means each iteration is a tight discover→execute→discover cycle that progressively improves the codebase.
 
 Flags:
 - `--iterations N` — Number of iterations (0 = unlimited, runs until all groups done)

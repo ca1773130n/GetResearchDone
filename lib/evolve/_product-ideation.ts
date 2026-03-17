@@ -241,11 +241,14 @@ function buildProductIdeationPrompt(context: ProductIdeationContext): string {
   sections.push(
     '- Each idea should solve a real user problem or unlock a new capability'
   );
-  sections.push('- Be creative but realistic -- ideas should be implementable');
+  sections.push('- Be creative but realistic -- ideas must be directly implementable as code');
   sections.push(
     '- Include the "why" -- what user pain point does this address?'
   );
-  sections.push('- 15-40 items');
+  sections.push('- Each description MUST specify: which files to create/modify, what the implementation looks like, entry point');
+  sections.push('- Bad: "Add a dashboard for metrics" (too vague)');
+  sections.push('- Good: "Add `gd metrics` CLI command in bin/grd-tools.ts that reads .planning/EVOLVE-STATE.json and outputs iteration success rate, avg items/iteration, and top themes — helps users understand evolve effectiveness"');
+  sections.push('- 3-5 items only — each must be specific enough to implement in one session');
   sections.push('- ONLY the JSON array, no other text');
   sections.push(
     '- Every item MUST have dimension "product-ideation"'
@@ -333,7 +336,7 @@ function parseProductIdeationOutput(raw: string): WorkItem[] {
  * Discover product-level feature ideas by spawning Claude with a product-manager prompt.
  * Returns empty array on failure (graceful fallback, no crash).
  */
-async function discoverProductIdeationItems(cwd: string): Promise<WorkItem[]> {
+async function discoverProductIdeationItems(cwd: string, timeoutMs?: number): Promise<WorkItem[]> {
   const context: ProductIdeationContext = gatherProductContext(cwd);
 
   // If no PROJECT.md found, skip product ideation entirely
@@ -344,6 +347,8 @@ async function discoverProductIdeationItems(cwd: string): Promise<WorkItem[]> {
     return [];
   }
 
+  const DEFAULT_IDEATION_TIMEOUT: number = 1_800_000; // 30 minutes
+  const effectiveTimeout: number = timeoutMs || DEFAULT_IDEATION_TIMEOUT;
   const prompt: string = buildProductIdeationPrompt(context);
 
   try {
@@ -351,13 +356,13 @@ async function discoverProductIdeationItems(cwd: string): Promise<WorkItem[]> {
       captureOutput: true,
       model: SONNET_MODEL,
       maxTurns: 15,
-      timeout: 120_000,
+      timeout: effectiveTimeout,
       outputFormat: 'text',
     });
 
     if (result.timedOut) {
       process.stderr.write(
-        '[evolve] Product ideation timed out after 120s, returning empty\n'
+        `[evolve] Product ideation timed out after ${Math.round(effectiveTimeout / 1000)}s, returning empty\n`
       );
       return [];
     }

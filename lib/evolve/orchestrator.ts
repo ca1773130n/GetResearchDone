@@ -96,7 +96,8 @@ const { runGroupDiscovery }: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
-    pickPct?: number
+    pickPct?: number,
+    timeoutMs?: number
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
@@ -131,11 +132,12 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
   let { useWorktree, worktreeInfo, executionCwd } = iterCtx;
 
-  // 1. Discover and group (always from original cwd)
+  // 1. Discover and group (on executionCwd so we see evolved code)
   const discovery: GroupDiscoveryResult = await runGroupDiscovery(
     discoveryCwd,
     state,
-    effectivePickPct
+    effectivePickPct,
+    timeoutMs
   );
   log(
     `Discovered ${discovery.all_items_count} new + ${discovery.merged_items_count - discovery.all_items_count} carried-over = ${discovery.merged_items_count} total items, ${discovery.groups_count} groups, selected ${discovery.selected_groups.length}`
@@ -165,8 +167,8 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   // 2. All groups are executable — product-ideation items are real feature work
   const outcomes: GroupOutcome[] = [];
   const allGroups: WorkGroup[] = discovery.selected_groups;
-  // Cap items per batch to keep subprocess focused (max 30 items)
-  const MAX_BATCH_ITEMS: number = 30;
+  // Cap items per batch to keep subprocess focused (max 10 items for tight discover→execute cycles)
+  const MAX_BATCH_ITEMS: number = 10;
   let cappedGroups: WorkGroup[] = allGroups;
   let totalItems: number = allGroups.reduce((sum, g) => sum + g.items.length, 0);
   if (totalItems > MAX_BATCH_ITEMS) {
@@ -195,13 +197,17 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   const executePrompt: string = buildBatchExecutePrompt(cappedGroups, iterationNum);
   const execResult = scheduler
     ? await scheduler.spawn(executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, cwd: executionCwd, workItemId: `evolve-iter-${iterationNum}-execute` })
-    : await spawnClaudeAsync(executionCwd, executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns });
+    : await spawnClaudeAsync(executionCwd, executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, captureStderr: true });
 
   let feedback: IterationFeedback | null = null;
 
   if (execResult.exitCode !== 0) {
     const reason: string = execResult.timedOut ? 'timeout' : `exit ${execResult.exitCode}`;
     log(`Batch execute FAILED (${reason})`);
+    if (execResult.stderr) {
+      const stderrTail: string = execResult.stderr.trim().split('\n').slice(-10).join('\n');
+      log(`Subprocess stderr (last 10 lines):\n${stderrTail}`);
+    }
     for (const group of cappedGroups) {
       outcomes.push({ group: group.id, status: 'fail', step: 'execute', reason });
     }
@@ -438,7 +444,7 @@ function writeEvolutionNotes(cwd: string, iterationData: EvolutionNotesData): vo
 async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<EvolveResult> {
   const { iterations = 1, pickPct, timeout, maxTurns, dryRun = false, autoCommit = true, createPr = true } = options;
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;
-  const DEFAULT_TIMEOUT_MINUTES: number = 10;
+  const DEFAULT_TIMEOUT_MINUTES: number = 30;
   const timeoutMs: number = timeout ? timeout * 60 * 1000 : DEFAULT_TIMEOUT_MINUTES * 60 * 1000;
   const unlimited: boolean = iterations === 0;
 
@@ -463,9 +469,8 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     fs.appendFileSync(logFile, line);
   };
 
-  // Two cwd variables: discovery always scans the original cwd,
-  // execution may run in a worktree
-  const discoveryCwd: string = cwd;
+  // Discovery runs on executionCwd so it sees evolved code after each iteration.
+  // On the first iteration (before worktree exists), this equals cwd.
   let executionCwd: string = cwd;
   let worktreeInfo: WorktreeInfo | null = null;
 
@@ -478,7 +483,7 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     log(`Starting iteration ${iterNum}`);
 
     const stepResult: IterationStepResult = await _runIterationStep({
-      discoveryCwd,
+      discoveryCwd: executionCwd,
       executionCwd,
       state,
       useWorktree,
@@ -716,7 +721,8 @@ async function runInfiniteEvolve(
     const state: EvolveGroupState | EvolveState | null = readEvolveState(cwd);
     let discovery: GroupDiscoveryResult;
     try {
-      discovery = await runGroupDiscovery(cwd, state, effectivePickPct);
+      const infiniteTimeoutMs: number = options.timeout ? options.timeout * 60 * 1000 : 0;
+      discovery = await runGroupDiscovery(cwd, state, effectivePickPct, infiniteTimeoutMs || undefined);
     } catch (err) {
       const reason: string = `Discovery failed: ${(err as Error).message}`;
       log(reason);
