@@ -18,6 +18,7 @@ import type {
   GroupDiscoveryResult,
   WorkGroup,
 } from './types';
+import type { Scheduler } from '../scheduler';
 
 const path = require('path');
 const { safeReadFile }: {
@@ -69,7 +70,7 @@ const { analyzeCodebaseForItems }: {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 } = require('./_dimensions');
 const { discoverProductIdeationItems }: {
-  discoverProductIdeationItems: (cwd: string, timeoutMs?: number) => Promise<WorkItem[]>;
+  discoverProductIdeationItems: (cwd: string, timeoutMs?: number, scheduler?: Scheduler | null) => Promise<WorkItem[]>;
 } = require('./_product-ideation');
 const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups }: {
     selectPriorityItems: (
@@ -204,17 +205,27 @@ Rules:
  * Discover code-quality improvement opportunities by running Claude as a subprocess.
  * (Renamed from discoverWithClaude -- handles the code-quality dimension only.)
  */
-async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number): Promise<WorkItem[]> {
+async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
   try {
     const DEFAULT_DISCOVERY_TIMEOUT: number = 1_800_000; // 30 minutes
+    const effectiveTimeout: number = timeoutMs || DEFAULT_DISCOVERY_TIMEOUT;
     const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
-    const result = await spawnClaudeAsync(cwd, prompt, {
-      captureOutput: true,
-      model: SONNET_MODEL,
-      maxTurns: 15,
-      timeout: timeoutMs || DEFAULT_DISCOVERY_TIMEOUT,
-      outputFormat: 'text',
-    });
+    const result = scheduler
+      ? await scheduler.spawn(prompt, {
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          captureOutput: true,
+          cwd,
+          workItemId: `evolve-discovery-code-quality-${Date.now()}`,
+        })
+      : await spawnClaudeAsync(cwd, prompt, {
+          captureOutput: true,
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          outputFormat: 'text',
+        });
 
     if (result.exitCode !== 0 || !result.stdout) {
       if (result.timedOut) {
@@ -257,14 +268,14 @@ async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: str
  * Discover ALL improvement opportunities: code-quality AND product ideation.
  * Runs both discovery pathways in parallel and merges the results.
  */
-async function discoverWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number): Promise<WorkItem[]> {
+async function discoverWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
   // Run both discovery pathways in parallel.
   // IMPORTANT: Wrap discoverProductIdeationItems in .catch so an unexpected
   // throw (as opposed to the graceful empty-array return it already does
   // internally) cannot reject the Promise.all and crash the whole pipeline.
   const [codeQualityItems, productIdeationItems] = await Promise.all([
-    _discoverCodeQualityWithClaude(cwd, completedTitles, timeoutMs),
-    discoverProductIdeationItems(cwd, timeoutMs).catch(() => [] as WorkItem[]),
+    _discoverCodeQualityWithClaude(cwd, completedTitles, timeoutMs, scheduler),
+    discoverProductIdeationItems(cwd, timeoutMs, scheduler).catch(() => [] as WorkItem[]),
   ]);
 
   // Merge: product ideation items come first (they have higher dimension weight)
@@ -395,7 +406,8 @@ async function runGroupDiscovery(
   cwd: string,
   previousState: EvolveGroupState | EvolveState | null,
   pickPct?: number,
-  timeoutMs?: number
+  timeoutMs?: number,
+  scheduler?: Scheduler | null
 ): Promise<GroupDiscoveryResult> {
   // Extract completed titles from history to prevent rediscovery
   const stateAsLegacy = previousState as EvolveState | null;
@@ -404,7 +416,7 @@ async function runGroupDiscovery(
     ? stateAsGroup.completed_groups.flatMap((g) => g.items.map((i: WorkItem) => i.title))
     : [];
 
-  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles, timeoutMs);
+  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles, timeoutMs, scheduler);
   const allItemsCount: number = freshItems.length;
 
   let mergePool: WorkItem[] = freshItems;

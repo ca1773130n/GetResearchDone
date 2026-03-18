@@ -37,7 +37,8 @@ const { runGroupDiscovery }: {
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number,
-    timeoutMs?: number
+    timeoutMs?: number,
+    scheduler?: import('./scheduler').Scheduler | null
   ) => Promise<GroupDiscoveryResult>;
 } = require('./evolve/discovery');
 const { readEvolveState }: {

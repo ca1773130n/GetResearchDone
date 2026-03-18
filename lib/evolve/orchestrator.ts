@@ -97,7 +97,8 @@ const { runGroupDiscovery }: {
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number,
-    timeoutMs?: number
+    timeoutMs?: number,
+    scheduler?: Scheduler | null
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
@@ -137,7 +138,8 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     discoveryCwd,
     state,
     effectivePickPct,
-    timeoutMs
+    timeoutMs,
+    scheduler
   );
   log(
     `Discovered ${discovery.all_items_count} new + ${discovery.merged_items_count - discovery.all_items_count} carried-over = ${discovery.merged_items_count} total items, ${discovery.groups_count} groups, selected ${discovery.selected_groups.length}`

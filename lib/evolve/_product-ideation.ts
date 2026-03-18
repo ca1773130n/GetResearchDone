@@ -14,6 +14,7 @@
  */
 
 import type { WorkItem, WorkItemEffort, ProductIdeationContext } from './types';
+import type { Scheduler } from '../scheduler';
 
 const path = require('path') as typeof import('path');
 const fs = require('fs') as typeof import('fs');
@@ -336,7 +337,7 @@ function parseProductIdeationOutput(raw: string): WorkItem[] {
  * Discover product-level feature ideas by spawning Claude with a product-manager prompt.
  * Returns empty array on failure (graceful fallback, no crash).
  */
-async function discoverProductIdeationItems(cwd: string, timeoutMs?: number): Promise<WorkItem[]> {
+async function discoverProductIdeationItems(cwd: string, timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
   const context: ProductIdeationContext = gatherProductContext(cwd);
 
   // If no PROJECT.md found, skip product ideation entirely
@@ -352,13 +353,22 @@ async function discoverProductIdeationItems(cwd: string, timeoutMs?: number): Pr
   const prompt: string = buildProductIdeationPrompt(context);
 
   try {
-    const result = await spawnClaudeAsync(cwd, prompt, {
-      captureOutput: true,
-      model: SONNET_MODEL,
-      maxTurns: 15,
-      timeout: effectiveTimeout,
-      outputFormat: 'text',
-    });
+    const result = scheduler
+      ? await scheduler.spawn(prompt, {
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          captureOutput: true,
+          cwd,
+          workItemId: `evolve-discovery-product-ideation-${Date.now()}`,
+        })
+      : await spawnClaudeAsync(cwd, prompt, {
+          captureOutput: true,
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          outputFormat: 'text',
+        });
 
     if (result.timedOut) {
       process.stderr.write(
