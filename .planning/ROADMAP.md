@@ -26,7 +26,8 @@
 - v0.3.4 Evolve Auto-Commit & PR Creation (shipped 2026-03-03)
 - v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
 - v0.3.6 Backend Ecosystem Sync - Phases 69-70 (shipped 2026-03-11)
-- **v0.3.7 Claude Code Feature Sync - Phases 71-73 (active)**
+- v0.3.7 Claude Code Feature Sync - Phases 71-73 (shipped 2026-03-12)
+- **v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (active)**
 
 ## Phases
 
@@ -174,71 +175,117 @@ Phases 69-70 updated model mappings, capability flags, and detection logic for a
 
 </details>
 
-### v0.3.7 Claude Code Feature Sync (Active)
+<details>
+<summary>v0.3.7 Claude Code Feature Sync (Phases 71-73) - SHIPPED 2026-03-12</summary>
 
-Adopt Claude Code features added since v2.1.50: effort levels, new hook events, HTTP hooks, `${CLAUDE_SKILL_DIR}`, `ExitWorktree` tool, cron/loop awareness, and auto-memory documentation.
+Phases 71-73 adopted Claude Code features added in v2.1.50-v2.1.72: effort levels (low/medium/high) as a second dimension alongside model tier, new capability flags (effort, http_hooks, cron), new hook events (TeammateIdle, TaskCompleted, InstructionsLoaded), ExitWorktree tool integration, CLAUDE_SKILL_DIR variable awareness, and auto-memory documentation. All init functions enriched with effort_level and cron_available fields. See `.planning/milestones/v0.3.7/` for details.
 
-#### Phase 71: Effort Levels & Capability Flags
+</details>
 
-**Goal:** GRD's agent spawning system supports effort levels as a second dimension alongside model tier, and all new capability flags (effort, http_hooks, cron) are registered in BACKEND_CAPABILITIES.
+### v0.3.12 Multi-Backend Feature Sync (Active)
+
+Sync GRD with latest features from Claude Code (2.1.73-2.1.79), Codex CLI (0.115.0+), Gemini CLI (v0.31-v0.34), and OpenCode (v1.2.25-v1.2.27). Update model mappings, capability flags, hook events, agent frontmatter, and backend detection across all four supported backends.
+
+#### Phase 74: Model Mappings and Capability Flags
+
+**Goal:** All four backends have accurate model mappings and capability flags reflecting the latest releases — Opus 4.6 / Sonnet 4.6 output token limits documented, GPT-5.4-mini added for Codex haiku tier, Gemini 3.1 Pro / Flash mappings updated, OpenCode model list updated, and new capability flags registered (smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation, model_overrides, max_output_tokens).
 
 **Dependencies:** None
 
-**Requirements:** REQ-91, REQ-92, REQ-95, REQ-98
+**Requirements:** REQ-107, REQ-110, REQ-111, REQ-113, REQ-114, REQ-116
 
 **Verification Level:** sanity
 
 **Success Criteria:**
 
-1. `BACKEND_CAPABILITIES.claude.effort` is `true`; other backends have `effort: false`
-2. `BACKEND_CAPABILITIES.claude.http_hooks` is `true`; other backends have `http_hooks: false`
-3. `BACKEND_CAPABILITIES.claude.cron` is `true`; other backends have `cron: false`
-4. `resolveEffortLevel(agentRole, profile)` returns correct effort for each agent/profile combination (e.g., planner+quality returns `'high'`, verifier+budget returns `'low'`)
-5. All `cmdInit*` functions include `effort_level` field in JSON output when backend supports effort
-6. `cmdInitAutopilot` includes `cron_available` field in JSON output
+1. `MODEL_NAMES.codex.haiku` is `"gpt-5.4-mini"`; `DEFAULT_MODEL_NAMES.codex` includes the mini model entry
+2. `DEFAULT_MODEL_NAMES.gemini.opus` is `"gemini-3.1-pro"` and `DEFAULT_MODEL_NAMES.gemini.sonnet` is `"gemini-3.1-flash"`
+3. `BACKEND_CAPABILITIES.codex.smart_approvals` is `true`; all other backends have `smart_approvals: false`
+4. `BACKEND_CAPABILITIES.gemini.plan_mode`, `sandbox_gvisor`, and `sandbox_lxc` flags are present and set correctly
+5. `BACKEND_CAPABILITIES.claude.mcp_elicitation` is `true`; `model_overrides_available` field appears in `cmdInit*` JSON output when backend supports it
+6. `max_output_tokens` for claude opus/sonnet models is documented in `BACKEND_CAPABILITIES` or model config (64k default, 128k upper bound)
+7. `DEFAULT_MODEL_NAMES.opencode` reflects current GPT-5.4 availability; backend detection unaffected
 
-#### Phase 72: Hook Events & Tool Updates
-
-**Goal:** Plugin.json registers new hook events (TeammateIdle, TaskCompleted, InstructionsLoaded), worktree completion uses ExitWorktree when available, and command files use `${CLAUDE_SKILL_DIR}` where appropriate.
-
-**Dependencies:** Phase 71
-
-**Requirements:** REQ-93, REQ-94, REQ-96, REQ-97
-
-**Verification Level:** sanity
-
-**Success Criteria:**
-
-1. `plugin.json` registers `TeammateIdle`, `TaskCompleted`, and `InstructionsLoaded` hook events with correct handler commands
-2. Hook handler commands can access `agent_id` and `agent_type` metadata from hook event payloads
-3. `execute-phase.md` and `grd-executor.md` include an `ExitWorktree` call before completion flow when `isolation_mode` is `"native"`
-4. Command `.md` files that only need self-relative paths use `${CLAUDE_SKILL_DIR}` instead of `${CLAUDE_PLUGIN_ROOT}` (while `grd-tools.js` references retain `${CLAUDE_PLUGIN_ROOT}` since grd-tools lives in `bin/`, not the skill directory)
-
-#### Phase 73: Testing & Documentation
-
-**Goal:** All new capabilities have test coverage, CLAUDE.md reflects the updated feature set, and auto-memory interaction is documented.
-
-**Dependencies:** Phase 72
-
-**Requirements:** REQ-99, REQ-100, REQ-101
-
-**Verification Level:** sanity
-
-**Plans:** 2 plans
+**Plans:** TBD
 
 Plans:
-- [x] 73-01-PLAN.md — Backend capability flag + effort level resolution tests
-- [x] 73-02-PLAN.md — Init context tests + CLAUDE.md documentation updates
+- [ ] 74-01: Model mapping updates (Codex gpt-5.4-mini, Gemini 3.1, OpenCode GPT-5.4)
+- [ ] 74-02: Capability flag additions (smart_approvals, plan_mode, sandboxing, mcp_elicitation, max_output_tokens)
+
+#### Phase 75: Hook Events and Plugin Infrastructure
+
+**Goal:** Plugin.json registers StopFailure and PostCompact hook events, and CLAUDE_PLUGIN_DATA usage is documented with a clear boundary between project state (.planning/) and plugin state (CLAUDE_PLUGIN_DATA).
+
+**Dependencies:** Phase 74
+
+**Requirements:** REQ-102, REQ-103, REQ-108
+
+**Verification Level:** sanity
 
 **Success Criteria:**
 
-1. `backend.test.ts` verifies `effort`, `http_hooks`, and `cron` capability flags for all backends
-2. Tests verify effort level resolution returns correct values for all 3 profiles (quality/balanced/budget) across key agent roles
-3. Init context tests verify `effort_level` and `cron_available` fields in JSON output
-4. CLAUDE.md agent model profiles table includes an effort column
-5. CLAUDE.md documents new hook events (TeammateIdle, TaskCompleted, InstructionsLoaded)
-6. CLAUDE.md includes a memory model section clarifying STATE.md vs auto-memory interaction
-7. `npm test` passes with 0 failures across the full test suite
+1. `plugin.json` registers `StopFailure` hook event with a handler that logs failures in evolve/autopilot subprocesses
+2. `plugin.json` registers `PostCompact` hook event (informational; handler acknowledges and continues)
+3. `allowRead` sandbox setting awareness is noted in plugin.json or relevant handler comments
+4. CLAUDE_PLUGIN_DATA integration is documented: `.planning/` = project state, `CLAUDE_PLUGIN_DATA` = cross-project plugin state
+5. At least one cross-project config path (e.g., scheduler state, evolve global config) references `CLAUDE_PLUGIN_DATA` in documentation or code comments
+
+**Plans:** TBD
+
+Plans:
+- [ ] 75-01: StopFailure and PostCompact hook registration in plugin.json
+- [ ] 75-02: CLAUDE_PLUGIN_DATA documentation and usage boundary
+
+#### Phase 76: Agent Frontmatter and MCP Elicitation
+
+**Goal:** All 20 GRD agent definitions have `effort`, `maxTurns`, and `disallowedTools` frontmatter fields set appropriately, and init context includes `mcp_elicitation_available` and `model_overrides_available` fields so agents know their execution environment.
+
+**Dependencies:** Phase 74
+
+**Requirements:** REQ-104, REQ-105, REQ-106
+
+**Verification Level:** sanity
+
+**Success Criteria:**
+
+1. All 20 agent `.md` files have `effort` frontmatter (low/medium/high) matching GRD's model profile system (planner=high, verifier=medium, code-reviewer=medium, etc.)
+2. Bounded agents have `maxTurns` set (e.g., code-reviewer: 15, verifier: 10, eval-planner: 20)
+3. `disallowedTools` is present on agents that should be restricted (e.g., agents that must not write to disk directly)
+4. `cmdInitExecutePhase` JSON output includes `mcp_elicitation_available` field (`true` for Claude backend, `false` otherwise)
+5. `cmdInitExecutePhase` JSON output includes `model_overrides_available` field when backend supports model overrides
+
+**Plans:** TBD
+
+Plans:
+- [ ] 76-01: Agent frontmatter audit — effort and maxTurns for all 20 agents
+- [ ] 76-02: MCP elicitation and modelOverrides awareness in init context
+
+#### Phase 77: Testing and Documentation
+
+**Goal:** Unit tests cover all new model mappings, capability flags, and init context fields; CLAUDE.md documents all changes; and backend-specific documentation (Codex realtime/filesystem RPC, Gemini tracker/A2A, OpenCode worktree fix) is recorded.
+
+**Dependencies:** Phase 75, Phase 76
+
+**Requirements:** REQ-109, REQ-112, REQ-115, REQ-117, REQ-118, REQ-119
+
+**Verification Level:** sanity
+
+**Success Criteria:**
+
+1. `backend.test.ts` verifies `smart_approvals`, `plan_mode`, `sandbox_gvisor`, `sandbox_lxc`, `mcp_elicitation`, and `max_output_tokens` flags for all four backends
+2. Tests verify new model mappings: `gpt-5.4-mini` for Codex haiku, `gemini-3.1-pro`/`gemini-3.1-flash` for Gemini, GPT-5.4 for OpenCode
+3. Init context tests verify `mcp_elicitation_available` and `model_overrides_available` fields in JSON output
+4. Tests verify `StopFailure` and `PostCompact` hook registrations in plugin.json
+5. CLAUDE.md documents the `/effort` slash command interaction with GRD's effort profile system
+6. CLAUDE.md updated with new capability flags table, agent frontmatter fields (effort/maxTurns/disallowedTools), and CLAUDE_PLUGIN_DATA usage
+7. CLAUDE.md or inline comments document Codex realtime websocket sessions, Gemini tracker tools and A2A timeout, and OpenCode worktree session fix
+8. `npm test` passes with 0 failures across the full test suite
+
+**Plans:** TBD
+
+Plans:
+- [ ] 77-01: Unit tests for model mappings, capability flags, and init context fields
+- [ ] 77-02: CLAUDE.md documentation updates and backend-specific notes
 
 ### Progress
 
@@ -247,3 +294,19 @@ Plans:
 | 71 | Effort Levels & Capability Flags | Complete | 2026-03-11 |
 | 72 | Hook Events & Tool Updates | Complete | 2026-03-11 |
 | 73 | Testing & Documentation | Complete | 2026-03-11 |
+| 74 | Model Mappings and Capability Flags | Not started | - |
+| 75 | Hook Events and Plugin Infrastructure | Not started | - |
+| 76 | Agent Frontmatter and MCP Elicitation | Not started | - |
+| 77 | Testing and Documentation | Not started | - |
+
+## Deferred Validations
+
+| Deferred From | Validation | Must Resolve By | Status |
+|---------------|-----------|-----------------|--------|
+| Phase 8 | User acceptance testing of TUI dashboard commands | post-v1.0 | Pending |
+| Phase 30 | Full parallel execution with real teammate spawning on Claude Code | Future | Partially resolved |
+| Phase 43 | Live MCP detection and code reviewer validation | Live run | Pending |
+| Phase 44 | Live WebMCP workflow validation (3 items) | Live MCP env | Pending |
+| Phase 54 | Markdown splitting on real-world large files | Future | Cannot validate |
+| Phase 56 | Full evolve loop with sonnet-tier models | Future | Partially resolved |
+| Phase 68 | Real Claude subprocess for product ideation + autoplan end-to-end (2 items) | Next real evolve cycle | Pending |
