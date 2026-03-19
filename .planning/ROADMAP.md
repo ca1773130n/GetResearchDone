@@ -230,11 +230,11 @@ Plans:
 4. CLAUDE_PLUGIN_DATA integration is documented: `.planning/` = project state, `CLAUDE_PLUGIN_DATA` = cross-project plugin state
 5. At least one cross-project config path (e.g., scheduler state, evolve global config) references `CLAUDE_PLUGIN_DATA` in documentation or code comments
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 75-01: StopFailure and PostCompact hook registration in plugin.json
-- [ ] 75-02: CLAUDE_PLUGIN_DATA documentation and usage boundary
+- [ ] 75-01-PLAN.md — StopFailure and PostCompact hook registration in plugin.json with handler implementations
+- [ ] 75-02-PLAN.md — CLAUDE_PLUGIN_DATA documentation and usage boundary in evolve/autopilot modules
 
 #### Phase 76: Agent Frontmatter and MCP Elicitation
 
