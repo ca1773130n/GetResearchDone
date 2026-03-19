@@ -344,6 +344,44 @@ describe('cmdInitExecutePhase', () => {
       expect(BACKEND_CAPABILITIES.opencode.cron).toBe(false);
     });
   });
+
+  describe('mcp_elicitation_available and model_overrides_available fields', () => {
+    test('mcp_elicitation_available is present in init context JSON', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mcp_elicitation_available).toBeDefined();
+      expect(typeof parsed.mcp_elicitation_available).toBe('boolean');
+    });
+
+    test('model_overrides_available is present in init context JSON', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const parsed = JSON.parse(stdout);
+      expect(parsed.model_overrides_available).toBeDefined();
+      expect(typeof parsed.model_overrides_available).toBe('boolean');
+    });
+
+    test('mcp_elicitation_available is true for claude backend (fixture default)', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const parsed = JSON.parse(stdout);
+      // The fixture uses claude backend by default (no env override), so mcp_elicitation_available = true
+      expect(parsed.mcp_elicitation_available).toBe(true);
+    });
+
+    test('both fields are not undefined in the JSON output', () => {
+      const { stdout } = captureOutput(() =>
+        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
+      );
+      const parsed = JSON.parse(stdout);
+      expect(parsed.mcp_elicitation_available).not.toBeUndefined();
+      expect(parsed.model_overrides_available).not.toBeUndefined();
+    });
+  });
 });
 
 // ─── cmdInitPlanPhase ────────────────────────────────────────────────────────

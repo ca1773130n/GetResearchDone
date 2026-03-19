@@ -3,6 +3,9 @@ name: grd-plan-checker
 description: Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /grd:plan-phase orchestrator.
 tools: Read, Bash, Glob, Grep
 color: green
+effort: medium
+maxTurns: 15
+disallowedTools: Write, Edit
 ---
 
 <role>

@@ -3,6 +3,8 @@ name: grd-eval-reporter
 description: Collects and reports quantitative evaluation results after phase execution. Runs scripts, compares against baselines and targets, updates EVAL.md.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: green
+effort: medium
+maxTurns: 25
 ---
 
 <role>

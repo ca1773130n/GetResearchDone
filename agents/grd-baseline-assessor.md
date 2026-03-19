@@ -3,6 +3,8 @@ name: grd-baseline-assessor
 description: Assesses current quality and establishes performance baselines. Runs benchmarks, collects metrics, and records results in BASELINE.md for gap analysis.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: cyan
+effort: medium
+maxTurns: 30
 ---
 
 <role>

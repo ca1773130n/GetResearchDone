@@ -3,6 +3,9 @@ name: grd-verifier
 description: Verifies phase goal achievement through tiered verification (sanity/proxy/deferred). Checks codebase delivers what phase promised with quantitative experiment results. Creates VERIFICATION.md report.
 tools: Read, Bash, Grep, Glob
 color: green
+effort: low
+maxTurns: 20
+disallowedTools: Write, Edit
 ---
 
 <role>
