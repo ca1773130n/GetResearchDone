@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { extractFrontmatter }: {
+  extractFrontmatter: (content: string) => Record<string, unknown>;
+} = require('../../lib/frontmatter');
 
 describe('Agent frontmatter audit', () => {
   const agentDir = path.join(__dirname, '../../agents');
@@ -206,25 +209,11 @@ describe('Agent frontmatter — effort, maxTurns, disallowedTools', () => {
     .readdirSync(agentDir)
     .filter((f: any) => f.startsWith('grd-') && f.endsWith('.md'));
 
-  function parseFrontmatter(content: string): Record<string, string> {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!match) return {};
-    const result: Record<string, string> = {};
-    for (const line of match[1].split('\n')) {
-      const colonIdx = line.indexOf(':');
-      if (colonIdx === -1) continue;
-      const key = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trim();
-      result[key] = value;
-    }
-    return result;
-  }
-
   test('all agents have effort field in frontmatter', () => {
     const validLevels = ['low', 'medium', 'high'];
     for (const file of agentFiles) {
       const content = fs.readFileSync(path.join(agentDir, file), 'utf-8');
-      const fm = parseFrontmatter(content);
+      const fm = extractFrontmatter(content);
       expect(fm.effort).toBeDefined();
       expect(validLevels).toContain(fm.effort);
     }
@@ -234,7 +223,7 @@ describe('Agent frontmatter — effort, maxTurns, disallowedTools', () => {
     let countWithMaxTurns = 0;
     for (const file of agentFiles) {
       const content = fs.readFileSync(path.join(agentDir, file), 'utf-8');
-      const fm = parseFrontmatter(content);
+      const fm = extractFrontmatter(content);
       if (fm.maxTurns !== undefined) {
         countWithMaxTurns++;
       }
