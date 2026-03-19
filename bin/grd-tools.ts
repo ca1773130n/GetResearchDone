@@ -187,6 +187,8 @@ const {
   cmdTeammateIdleHook,
   cmdTaskCompletedHook,
   cmdInstructionsLoadedHook,
+  cmdStopFailureHook,
+  cmdPostCompactHook,
 }: {
   cmdWorktreeCreate: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
@@ -208,6 +210,8 @@ const {
   cmdTeammateIdleHook: (cwd: string, raw: boolean) => void;
   cmdTaskCompletedHook: (cwd: string, raw: boolean) => void;
   cmdInstructionsLoadedHook: (cwd: string, raw: boolean) => void;
+  cmdStopFailureHook: (cwd: string, raw: boolean) => void;
+  cmdPostCompactHook: (cwd: string, raw: boolean) => void;
 } = require('../lib/worktree');
 
 const {
@@ -625,6 +629,8 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     command: 'instructions-loaded-hook',
     handler: (_args, cwd, raw) => cmdInstructionsLoadedHook(cwd, raw),
   },
+  { command: 'stop-failure-hook', handler: (_args, cwd, raw) => cmdStopFailureHook(cwd, raw) },
+  { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1472,6 +1478,8 @@ async function routeCommand(
         'teammate-idle-hook',
         'task-completed-hook',
         'instructions-loaded-hook',
+        'stop-failure-hook',
+        'post-compact-hook',
         'coverage-report',
         'health-check',
         'markdown-split',

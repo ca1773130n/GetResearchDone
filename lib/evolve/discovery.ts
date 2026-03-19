@@ -17,6 +17,7 @@ import type {
   EvolveGroupState,
   GroupDiscoveryResult,
   WorkGroup,
+  DiscoveryOptions,
 } from './types';
 
 const path = require('path');
@@ -77,8 +78,11 @@ const {
 const {
   discoverProductIdeationItems,
 }: {
-  discoverProductIdeationItems: (cwd: string) => Promise<WorkItem[]>;
+  discoverProductIdeationItems: (cwd: string, opts?: DiscoveryOptions) => Promise<WorkItem[]>;
 } = require('./_product-ideation');
+
+/** Default timeout for discovery subprocesses (3 hours). */
+const DEFAULT_DISCOVERY_TIMEOUT: number = 10_800_000;
 const {
   selectPriorityItems,
   groupDiscoveredItems,
@@ -229,22 +233,23 @@ function buildDiscoveryPrompt(cwd: string, completedTitles?: string[]): string {
       ? `\nDo NOT rediscover these already-completed items:\n${completedTitles.map((t) => `- ${t}`).join('\n')}\n`
       : '';
 
-  return `Analyze this codebase for improvement opportunities. Read the source files you need. Here is the file tree:
+  return `Analyze this codebase for concrete, immediately implementable improvements. Read the source files you need. Here is the file tree:
 
 ${tree}
 ${exclusionBlock}
 Output ONLY a JSON array. Each item:
-{"dimension":"<dim>","slug":"<kebab-id>","title":"<short>","description":"<what+why, include file:line>","effort":"small|medium|large"}
+{"dimension":"<dim>","slug":"<kebab-id>","title":"<short>","description":"<EXACT change: which file, which function/line, what to add/change/remove, and why>","effort":"small|medium|large"}
 
-Dimensions: productivity, quality, usability, consistency, stability, improve-features, new-features, product-ideation
+Dimensions: productivity, quality, usability, consistency, stability, improve-features, new-features
 
 Rules:
-- Read source files to find real issues
-- Be specific: file paths and line numbers
-- Actionable improvements only
-- Focus on real code changes: new features, bug fixes, refactors, tests — NOT documentation stubs or markdown files
-- Do NOT suggest adding JSDoc, fixing error messages, cleaning up process.exit, splitting long functions, or adding agent init workflows — these are already done
-- 30-80 items
+- Read source files to find real, specific issues — open and read the files before suggesting changes
+- Every item MUST specify: exact file path, function/line, and what code to write or change
+- Bad example: "Add input validation to CLI commands" (too vague)
+- Good example: "Add null check for opts.timeout in lib/autopilot.ts:spawnClaudeAsync (~line 362) — currently crashes if timeout is 0 because setTimeout(fn, 0) is treated as no timeout"
+- Focus on real code changes: bug fixes, missing error handling, new utility functions, test cases, feature improvements
+- Do NOT suggest: JSDoc, documentation, markdown files, process.exit cleanup, splitting long functions, agent init workflows
+- 5-10 items only — quality over quantity, each must be directly implementable
 - ONLY the JSON array, no other text`;
 }
 
@@ -256,17 +261,29 @@ Rules:
  */
 async function _discoverCodeQualityWithClaude(
   cwd: string,
-  completedTitles?: string[]
+  completedTitles?: string[],
+  opts?: DiscoveryOptions
 ): Promise<WorkItem[]> {
   try {
+    const effectiveTimeout: number = opts?.timeoutMs || DEFAULT_DISCOVERY_TIMEOUT;
+    const scheduler = opts?.scheduler;
     const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
-    const result = await spawnClaudeAsync(cwd, prompt, {
-      captureOutput: true,
-      model: SONNET_MODEL,
-      maxTurns: 25,
-      timeout: 180_000,
-      outputFormat: 'text',
-    });
+    const result = scheduler
+      ? await scheduler.spawn(prompt, {
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          captureOutput: true,
+          cwd,
+          workItemId: `evolve-discovery-code-quality-${Date.now()}`,
+        })
+      : await spawnClaudeAsync(cwd, prompt, {
+          captureOutput: true,
+          model: SONNET_MODEL,
+          maxTurns: 15,
+          timeout: effectiveTimeout,
+          outputFormat: 'text',
+        });
 
     if (result.exitCode !== 0 || !result.stdout) {
       if (result.timedOut) {
@@ -309,14 +326,23 @@ async function _discoverCodeQualityWithClaude(
  * Discover ALL improvement opportunities: code-quality AND product ideation.
  * Runs both discovery pathways in parallel and merges the results.
  */
-async function discoverWithClaude(cwd: string, completedTitles?: string[]): Promise<WorkItem[]> {
+async function discoverWithClaude(
+  cwd: string,
+  completedTitles?: string[],
+  opts?: DiscoveryOptions
+): Promise<WorkItem[]> {
   // Run both discovery pathways in parallel.
   // IMPORTANT: Wrap discoverProductIdeationItems in .catch so an unexpected
   // throw (as opposed to the graceful empty-array return it already does
   // internally) cannot reject the Promise.all and crash the whole pipeline.
   const [codeQualityItems, productIdeationItems] = await Promise.all([
-    _discoverCodeQualityWithClaude(cwd, completedTitles),
-    discoverProductIdeationItems(cwd).catch(() => [] as WorkItem[]),
+    _discoverCodeQualityWithClaude(cwd, completedTitles, opts),
+    discoverProductIdeationItems(cwd, opts).catch((err) => {
+      process.stderr.write(
+        `[evolve] Product ideation discovery failed unexpectedly: ${(err as Error).message}\n`
+      );
+      return [] as WorkItem[];
+    }),
   ]);
 
   // Merge: product ideation items come first (they have higher dimension weight)
@@ -446,7 +472,8 @@ async function runDiscovery(
 async function runGroupDiscovery(
   cwd: string,
   previousState: EvolveGroupState | EvolveState | null,
-  pickPct?: number
+  pickPct?: number,
+  opts?: DiscoveryOptions
 ): Promise<GroupDiscoveryResult> {
   // Extract completed titles from history to prevent rediscovery
   const stateAsLegacy = previousState as EvolveState | null;
@@ -455,7 +482,7 @@ async function runGroupDiscovery(
     ? stateAsGroup.completed_groups.flatMap((g) => g.items.map((i: WorkItem) => i.title))
     : [];
 
-  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles);
+  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles, opts);
   const allItemsCount: number = freshItems.length;
 
   let mergePool: WorkItem[] = freshItems;

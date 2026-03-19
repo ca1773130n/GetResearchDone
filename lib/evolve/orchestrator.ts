@@ -118,7 +118,8 @@ const {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
-    pickPct?: number
+    pickPct?: number,
+    opts?: import('./types').DiscoveryOptions
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const {
@@ -149,25 +150,16 @@ const {
  * batch-execute, and batch-review.
  */
 async function _runIterationStep(iterCtx: IterationContext): Promise<IterationStepResult> {
-  const {
-    discoveryCwd,
-    state,
-    effectivePickPct,
-    dryRun,
-    timeoutMs,
-    maxTurns,
-    cwd,
-    log,
-    scheduler,
-  } = iterCtx;
+  const { state, effectivePickPct, dryRun, timeoutMs, maxTurns, cwd, log, scheduler } = iterCtx;
 
   let { useWorktree, worktreeInfo, executionCwd } = iterCtx;
 
-  // 1. Discover and group (always from original cwd)
+  // 1. Discover and group (on executionCwd so we see evolved code)
   const discovery: GroupDiscoveryResult = await runGroupDiscovery(
-    discoveryCwd,
+    executionCwd,
     state,
-    effectivePickPct
+    effectivePickPct,
+    { timeoutMs, scheduler }
   );
   log(
     `Discovered ${discovery.all_items_count} new + ${discovery.merged_items_count - discovery.all_items_count} carried-over = ${discovery.merged_items_count} total items, ${discovery.groups_count} groups, selected ${discovery.selected_groups.length}`
@@ -213,8 +205,8 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   // 2. All groups are executable — product-ideation items are real feature work
   const outcomes: GroupOutcome[] = [];
   const allGroups: WorkGroup[] = discovery.selected_groups;
-  // Cap items per batch to keep subprocess focused (max 30 items)
-  const MAX_BATCH_ITEMS: number = 30;
+  // Cap items per batch to keep subprocess focused (max 10 items for tight discover→execute cycles)
+  const MAX_BATCH_ITEMS: number = 10;
   let cappedGroups: WorkGroup[] = allGroups;
   let totalItems: number = allGroups.reduce((sum, g) => sum + g.items.length, 0);
   if (totalItems > MAX_BATCH_ITEMS) {
@@ -235,8 +227,20 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       }
     }
     totalItems = runningTotal;
+    // Mark excluded groups as skipped so they don't vanish from tracking
+    const cappedIds = new Set(cappedGroups.map((g) => g.id));
+    for (const group of allGroups) {
+      if (!cappedIds.has(group.id)) {
+        outcomes.push({
+          group: group.id,
+          status: 'skip',
+          step: 'execute',
+          reason: 'batch item cap exceeded',
+        });
+      }
+    }
     log(
-      `Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS})`
+      `Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS}), ${allGroups.length - cappedGroups.length} groups deferred`
     );
   }
   log(`Batch-executing ${cappedGroups.length} groups (${totalItems} items) in one subprocess`);
@@ -255,6 +259,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
         model: SONNET_MODEL,
         timeout: timeoutMs,
         maxTurns,
+        captureStderr: true,
       });
 
   let feedback: IterationFeedback | null = null;
@@ -262,6 +267,10 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   if (execResult.exitCode !== 0) {
     const reason: string = execResult.timedOut ? 'timeout' : `exit ${execResult.exitCode}`;
     log(`Batch execute FAILED (${reason})`);
+    if (execResult.stderr) {
+      const stderrTail: string = execResult.stderr.trim().split('\n').slice(-10).join('\n');
+      log(`Subprocess stderr (last 10 lines):\n${stderrTail}`);
+    }
     for (const group of cappedGroups) {
       outcomes.push({ group: group.id, status: 'fail', step: 'execute', reason });
     }
@@ -308,9 +317,10 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       (hasStagedChanges.stdout || '').trim().length > 0;
 
     if (!hasCodeChanges) {
-      // Discard any non-code changes (markdown stubs, todo files, etc.)
-      execGit(executionCwd, ['checkout', '--', '.']);
-      execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/', '*.md']);
+      // Discard non-code changes (markdown stubs, todo files, etc.)
+      // Only revert .planning/ and docs/ — avoid wiping user's uncommitted work
+      execGit(executionCwd, ['checkout', '--', '.planning/', 'docs/']);
+      execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/']);
       log(
         `Batch execute completed but NO source code changes were made — discarding markdown-only changes and marking as skip`
       );
@@ -423,19 +433,26 @@ function _handleIterationResult(
     ...prevCompleted,
     ...newlyCompleted.filter((g) => !completedIds.has(g.id)),
   ];
-  const failedGroups: WorkGroup[] = (outcomes || [])
+  const newlyFailed: WorkGroup[] = (outcomes || [])
     .filter((o) => o.status === 'fail')
     .map((o) => discovery.selected_groups.find((g) => g.id === o.group))
     .filter((g): g is WorkGroup => g !== undefined)
     .map((g) => ({ ...g, status: 'failed' }));
+  // Accumulate failed groups across iterations (like completed_groups)
+  const prevFailed: WorkGroup[] = prevState?.failed_groups || [];
+  const failedIds = new Set<string>(prevFailed.map((g) => g.id));
+  const failedGroups: WorkGroup[] = [
+    ...prevFailed,
+    ...newlyFailed.filter((g) => !failedIds.has(g.id)),
+  ];
 
   // Build new state
   const historyEntry: HistoryEntry = {
     iteration: iterNum,
     timestamp: new Date().toISOString(),
     selected_count: discovery.selected_groups.length,
-    completed_count: completedGroups.length,
-    failed_count: failedGroups.length,
+    completed_count: newlyCompleted.length,
+    failed_count: newlyFailed.length,
   };
   const newState: EvolveGroupState = {
     iteration: iterNum,
@@ -455,8 +472,8 @@ function _handleIterationResult(
     iteration: iterNum,
     status: 'completed',
     groups_attempted: (outcomes || []).length,
-    groups_passed: completedGroups.length,
-    groups_failed: failedGroups.length,
+    groups_passed: newlyCompleted.length,
+    groups_failed: newlyFailed.length,
     remaining_groups: discovery.remaining_groups.length,
   };
 
@@ -554,7 +571,7 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     createPr = true,
   } = options;
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;
-  const DEFAULT_TIMEOUT_MINUTES: number = 10;
+  const DEFAULT_TIMEOUT_MINUTES: number = 180;
   const timeoutMs: number = timeout ? timeout * 60 * 1000 : DEFAULT_TIMEOUT_MINUTES * 60 * 1000;
   const unlimited: boolean = iterations === 0;
 
@@ -579,9 +596,8 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     fs.appendFileSync(logFile, line);
   };
 
-  // Two cwd variables: discovery always scans the original cwd,
-  // execution may run in a worktree
-  const discoveryCwd: string = cwd;
+  // Discovery runs on executionCwd so it sees evolved code after each iteration.
+  // On the first iteration (before worktree exists), this equals cwd.
   let executionCwd: string = cwd;
   let worktreeInfo: WorktreeInfo | null = null;
 
@@ -594,7 +610,6 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     log(`Starting iteration ${iterNum}`);
 
     const stepResult: IterationStepResult = await _runIterationStep({
-      discoveryCwd,
       executionCwd,
       state,
       useWorktree,
@@ -834,7 +849,12 @@ async function runInfiniteEvolve(
     const state: EvolveGroupState | EvolveState | null = readEvolveState(cwd);
     let discovery: GroupDiscoveryResult;
     try {
-      discovery = await runGroupDiscovery(cwd, state, effectivePickPct);
+      const infiniteTimeoutMs: number | undefined = options.timeout
+        ? options.timeout * 60 * 1000
+        : undefined;
+      discovery = await runGroupDiscovery(cwd, state, effectivePickPct, {
+        timeoutMs: infiniteTimeoutMs,
+      });
     } catch (err) {
       const reason: string = `Discovery failed: ${(err as Error).message}`;
       log(reason);

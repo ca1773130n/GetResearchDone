@@ -3,6 +3,7 @@ name: grd-project-researcher
 description: Researches domain ecosystem and research landscape before roadmap creation. Produces research files consumed during planning. Spawned by init or new-milestone.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*, mcp__research__*
 color: cyan
+effort: medium
 ---
 
 <role>

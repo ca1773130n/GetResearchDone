@@ -648,14 +648,14 @@ describe('Backend-aware model resolution', () => {
       expect(model).toBe('gpt-5.3-codex-spark');
     });
 
-    test('returns gemini-3-flash for grd-executor on gemini backend (GEMINI_CLI_HOME set)', () => {
+    test('returns gemini-3.1-flash for grd-executor on gemini backend (GEMINI_CLI_HOME set)', () => {
       fs.writeFileSync(
         path.join(tmpDir, '.planning', 'config.json'),
         JSON.stringify({ model_profile: 'balanced' })
       );
       process.env.GEMINI_CLI_HOME = '/tmp/gemini';
       const model = resolveModelInternal(tmpDir, 'grd-executor');
-      expect(model).toBe('gemini-3-flash');
+      expect(model).toBe('gemini-3.1-flash');
     });
 
     test('returns sonnet-tier model for grd-executor on opencode backend (OPENCODE set)', () => {

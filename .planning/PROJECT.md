@@ -1,11 +1,13 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-12
+**Updated:** 2026-03-19
 
-## Current Milestone: (none — v0.3.7 shipped)
+## Current Milestone: v0.3.12 Multi-Backend Feature Sync
 
 **Previous:** v0.3.7 Claude Code Feature Sync (shipped 2026-03-12)
+
+**Goal:** Sync GRD with latest features from Claude Code (2.1.73-2.1.79), Codex CLI (0.115.0+), Gemini CLI (v0.31-v0.34), and OpenCode (v1.2.25-v1.2.27). Update model mappings, capability flags, hook events, and backend detection.
 
 ## Vision
 

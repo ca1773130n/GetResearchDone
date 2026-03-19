@@ -194,7 +194,6 @@ export interface EvolutionNotesData {
 
 /** Context for _runIterationStep. */
 export interface IterationContext {
-  discoveryCwd: string;
   executionCwd: string;
   state: EvolveGroupState | EvolveState | null;
   useWorktree: boolean;
@@ -246,6 +245,14 @@ export interface ProductIdeationContext {
   existingAgents: string[];
   recentPhases: string | null;
   productQuality: string | null;
+}
+
+// ── Discovery Options ────────────────────────────────────────────────────────
+
+/** Options passed through the discovery call chain. */
+export interface DiscoveryOptions {
+  timeoutMs?: number;
+  scheduler?: import('../scheduler').Scheduler | null;
 }
 
 // ── Infinite Evolve Types ────────────────────────────────────────────────────

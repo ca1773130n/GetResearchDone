@@ -1,31 +1,32 @@
 # State
 
-**Updated:** 2026-03-11
+**Updated:** 2026-03-19
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.7 Claude Code Feature Sync — adopt effort levels, new hooks, ExitWorktree, SKILL_DIR, cron awareness
-**Previous:** v0.3.6 Backend Ecosystem Sync (shipped 2026-03-11)
+**Current focus:** v0.3.12 Multi-Backend Feature Sync — Phases 74-77
+**Previous:** v0.3.7 Claude Code Feature Sync (shipped 2026-03-12)
 
 ## Current Position
 
-- **Active phase:** Phase 73 — Testing & Documentation
-- **Current plan:** Plan 2 of 2 complete
-- **Milestone:** v0.3.7 Claude Code Feature Sync
-- **Status:** v0.3.7 Claude Code Feature Sync milestone complete
+- **Active phase:** 77 — Testing and Documentation
+- **Current plan:** —
+- **Milestone:** v0.3.12 Multi-Backend Feature Sync
+- **Status:** In progress
 - **Progress:** [██████████] 100%
-- **Next:** Complete milestone v0.3.7
+- **Next:** Complete remaining Phase 77 plans
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 71 | Effort Levels & Capability Flags | Complete (3/3 plans) |
-| 72 | Hook Events & Tool Updates | Complete (3/3 plans) |
-| 73 | Testing & Documentation | Complete (2/2 plans) |
+| 74 | Model Mappings and Capability Flags | Complete |
+| 75 | Hook Events and Plugin Infrastructure | Complete |
+| 76 | Agent Frontmatter and MCP Elicitation | Complete |
+| 77 | Testing and Documentation | In progress |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -38,6 +39,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 | v0.3.4 | Evolve Auto-Commit & PR Creation | Shipped (feature) |
 | v0.3.5 | Evolve Stabilization & Product Ideation | Shipped (feature) |
 | v0.3.6 | Backend Ecosystem Sync | Shipped (Phases 69-70, 4 plans) |
+| v0.3.7 | Claude Code Feature Sync | Shipped (Phases 71-73, 5 plans) |
 
 ## Deferred Validations
 
@@ -58,7 +60,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 24 (v0.0.5 through v0.3.6)
+- Milestones shipped: 25 (v0.0.5 through v0.3.7)
 - Total tests: ~2,930
 - Total lib/ modules: 25 (22 top-level .ts + 3 decomposed sub-module directories)
 - Total commands: 40
@@ -72,20 +74,23 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 - **[70-02]** CODEX_THREAD_ID kept for backward compat despite possible deprecation
 - **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
 - **[71-01]** Only Claude gets true for effort/http_hooks/cron capability flags; other backends false
-- **[71-01]** Removed premature unused imports from backend.ts to pass lint
 - **[71-02]** EffortLevel types in Backend Types section (not Utility) since effort is a backend capability
 - **[71-02]** Unknown agents default to 'medium' effort; resolveEffortForAgent returns null for unsupported backends
-- **[71-02]** Used untyped require for backend imports in utils.ts to match existing codebase patterns
 - **[71-03]** Every X_model field paired with X_effort field using resolveEffortForAgent
-- **[71-03]** Effort fields null (not omitted) when backend lacks effort support
-- **[71-03]** cron_available placed after claude_available in autopilot init as related capability flag
-- [Phase 72]: ExitWorktree placed before completion options to ensure main repo context for merge/PR/keep/discard
-- [Phase 72]: CLAUDE_SKILL_DIR documented via HTML comments (invisible to agents, visible to maintainers)
-- [Phase 72]: Hook handlers placed in lib/worktree.ts alongside existing hook handlers for colocation
-- [Phase 72]: Used ROUTE_DESCRIPTORS for CLI routing; all hooks default to continue/acknowledge
+- [Phase 72]: ExitWorktree placed before completion options; CLAUDE_SKILL_DIR documented via HTML comments
 - **[72-03]** No CLAUDE_SKILL_DIR migration needed — all CLAUDE_PLUGIN_ROOT usages are cross-directory refs
 - **[73-02]** Effort values in CLAUDE.md sourced from EFFORT_PROFILES in backend.ts for accuracy
-- **[73-02]** cron_available tested via backend_capabilities in context init (covers all backends)
+- [Phase 74]: codex.haiku mapped to gpt-5.4-mini (2x faster than gpt-5.4, ideal for subagent/discovery work, REQ-110)
+- [Phase 74]: gemini.sonnet mapped to gemini-3.1-flash (updated Gemini 3.1 Flash sonnet-equivalent, REQ-113)
+- [Phase 74]: opencode mappings verified unchanged: anthropic/claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (REQ-116)
+- [Phase 74]: max_output_tokens typed as nullable; model_overrides_available uses strict equality; grd backend has model_overrides: false
+- [Phase 75]: plugin_data_available added to both cmdInitExecutePhase and cmdInitPlanPhase; plugin_data_dir included alongside for consumer convenience; documentation-only changes in evolve/state.ts and autopilot.ts
+- [Phase 75]: StopFailure handler checks autopilot.log presence to determine if logging is needed; PostCompact is minimal/informational; both hooks use 2>/dev/null for silent failure
+- [Phase 76]: model_overrides_available uses runtime settings.json detection (not capability flag) to reflect actual user configuration (REQ-106)
+- [Phase 76]: mcp_elicitation_available added to both cmdInitExecutePhase and cmdInitPlanPhase; derived from backendCaps.mcp_elicitation (REQ-105)
+- [Phase 77]: CLAUDE.md updated with Backend Capabilities table (15 flags, 4 backends), Agent Frontmatter docs, /effort interaction, Plugin Data boundary, and backend-specific notes for Codex/Gemini/OpenCode
+- [Phase 77]: maxTurns added to 7 bounded agents; disallowedTools added to 4 restricted agents; effort added to grd-code-reviewer and grd-migrator
+- [Phase 76-01]: grd-verifier disallows only Edit (not Write) to retain Write for VERIFICATION.md; grd-migrator uses effort: medium as safe default; disallowedTools uses YAML array format
 
 ## Known Bugs
 
@@ -97,29 +102,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed 73-02 (context tests & CLAUDE.md documentation updates)
-- **Stopped at:** Completed 73-02-PLAN.md
-- **Next action:** Complete milestone v0.3.7
-- **Context needed:** All 3 phases complete (71, 72, 73); ready for milestone completion
-
-## Accumulated Context
-
-### v0.3.x Release History
-- v0.3.0: Full TypeScript migration (Phases 58-68, 44 plans)
-- v0.3.1-v0.3.5: Incremental bugfix and feature releases
-- v0.3.6: Backend ecosystem sync — model mappings, capability flags, OpenCode status
-
-### Claude Code Features Research (v2.1.50-v2.1.72)
-- Effort levels: low/medium/high (v2.1.68/72), Opus 4.6 defaults medium, "ultrathink" for high
-- HTTP hooks: POST JSON to URL (v2.1.63)
-- New hook events: InstructionsLoaded, TeammateIdle/TaskCompleted with stop control (v2.1.69)
-- agent_id/agent_type in hook events (v2.1.69)
-- ${CLAUDE_SKILL_DIR} variable for skill self-reference (v2.1.69)
-- ExitWorktree tool (v2.1.72)
-- Auto-memory with /memory (v2.1.59)
-- Cron/loop scheduling (v2.1.71)
+- **Last action:** Executed Phase 75 (Hook Events and Plugin Infrastructure)
+- **Stopped at:** Completed 76-01-PLAN.md
+- **Next action:** Plan Phase 76 (`/grd:plan-phase 76`)
+- **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-19*

@@ -3,6 +3,7 @@ name: grd-phase-researcher
 description: Researches how to implement a phase before planning. Produces RESEARCH.md with paper-backed recommendations, experiment design, and verification strategy. Spawned by /grd:plan-phase orchestrator.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*, mcp__research__*
 color: cyan
+effort: medium
 ---
 
 <role>

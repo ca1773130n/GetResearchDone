@@ -8,8 +8,8 @@
  *
  * Supported backends (March 2026):
  *   - Claude Code v2.1.71 — Anthropic's native CLI (opus/sonnet/haiku tiers)
- *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark)
- *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3 Flash, 3.1 Flash-Lite)
+ *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark, GPT-5.4-mini)
+ *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3.1 Flash, 3.1 Flash-Lite)
  *   - OpenCode v1.2.21 — Provider-agnostic CLI by anomalyco (actively maintained, 70K+ stars)
  *   - Superpowers — Plugin/skill layer that orchestrates any AI CLI backend with account rotation
  *   - GRD — Native mode using GRD's own commands/skills with the configured AI backend
@@ -66,11 +66,11 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
   codex: {
     opus: 'gpt-5.4',
     sonnet: 'gpt-5.3-codex-spark',
-    haiku: 'gpt-5.3-codex-spark',
+    haiku: 'gpt-5.4-mini',
   },
   gemini: {
     opus: 'gemini-3.1-pro',
-    sonnet: 'gemini-3-flash',
+    sonnet: 'gemini-3.1-flash',
     haiku: 'gemini-3.1-flash-lite',
   },
   opencode: {
@@ -98,6 +98,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: true,
     http_hooks: true,
     cron: true,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: true,
+    model_overrides: true,
+    max_output_tokens: { default: 64000, upper_bound: 128000 },
   },
   codex: {
     subagents: true,
@@ -109,6 +116,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: false,
     http_hooks: false,
     cron: false,
+    smart_approvals: true,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
   },
   gemini: {
     subagents: true,
@@ -120,6 +134,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: false,
     http_hooks: false,
     cron: false,
+    smart_approvals: false,
+    plan_mode: true,
+    sandbox_gvisor: true,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
   },
   opencode: {
     subagents: true,
@@ -131,6 +152,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: false,
     http_hooks: false,
     cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
   },
   overstory: {
     subagents: true,
@@ -142,6 +170,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: false,
     http_hooks: false,
     cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
   },
   superpowers: {
     subagents: true,
@@ -153,6 +188,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: true,
     http_hooks: false,
     cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
   },
   grd: {
     subagents: true,
@@ -164,6 +206,13 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     effort: false,
     http_hooks: false,
     cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: false,
+    max_output_tokens: null,
   },
 };
 
@@ -470,13 +519,36 @@ function resolveBackendModel(
  * Get capability flags for a backend.
  *
  * Returns an object describing what orchestration features the backend supports.
- * Unknown backends return claude capabilities as a safe default.
+ * Unknown backends get minimal capabilities (all false) to prevent
+ * accidentally enabling features like native_worktree_isolation or effort.
  *
  * @param backend - The backend identifier (e.g. 'claude', 'codex', 'gemini', 'opencode')
  * @returns A BackendCapabilities object describing which orchestration features are supported
  */
 function getBackendCapabilities(backend: string): BackendCapabilities {
-  return BACKEND_CAPABILITIES[backend as BackendId] || BACKEND_CAPABILITIES.claude;
+  if (BACKEND_CAPABILITIES[backend as BackendId]) {
+    return BACKEND_CAPABILITIES[backend as BackendId];
+  }
+  // Unknown backend: warn and return minimal capabilities
+  process.stderr.write(`[grd] WARNING: unknown backend "${backend}", using minimal capabilities\n`);
+  return {
+    subagents: true,
+    parallel: false,
+    teams: false,
+    hooks: false,
+    mcp: false,
+    native_worktree_isolation: false,
+    effort: false,
+    http_hooks: false,
+    cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: false,
+    max_output_tokens: null,
+  };
 }
 
 // --- WebMCP Detection --------------------------------------------------------

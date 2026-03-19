@@ -3,6 +3,8 @@ name: grd-migrator
 description: Migrates complex .planning/ layout items that the deterministic CLI cannot handle. Moves flat milestone files, legacy phase dirs, and orphan docs.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: magenta
+effort: medium
+maxTurns: 15
 ---
 
 <role>

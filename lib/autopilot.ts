@@ -647,7 +647,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   const results: PhaseStepResult[] = [];
   let phasesAttempted: number = 0;
   let phasesCompleted: number = 0;
-  const stoppedAt: string | null = null;
+  let stoppedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
   const scheduler = createScheduler(config.scheduler, config.superpowers);
@@ -655,6 +655,12 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
     scheduler.loadPersistedState(path.join(cwd, '.planning'));
   }
 
+  // autopilot.log is project-scoped (.planning/autopilot/).
+  // Cross-project scheduler state (e.g., global phase timing stats,
+  // retry policies) could use CLAUDE_PLUGIN_DATA when available:
+  //   const globalSchedulerDir = process.env.CLAUDE_PLUGIN_DATA
+  //     ? path.join(process.env.CLAUDE_PLUGIN_DATA, 'grd', 'scheduler')
+  //     : null;
   const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
   const log: (msg: string) => void = (msg: string): void => {
@@ -815,6 +821,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           log(`Phase ${task.phaseNum}: plan FAILED (${reason})`);
           writeStatusMarker(cwd, task.phaseNum, 'plan', 'failed');
           results.push({ phase: task.phaseNum, step: 'plan', status: 'failed', reason });
+          stoppedAt = `Phase ${task.phaseNum} plan failed: ${reason}`;
           continue;
         }
 
@@ -899,6 +906,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             log(`Phase ${phaseNum}: execute FAILED (${reason})`);
             writeStatusMarker(cwd, phaseNum, 'execute', 'failed');
             results.push({ phase: phaseNum, step: 'execute', status: 'failed', reason });
+            stoppedAt = `Phase ${phaseNum} execute failed: ${reason}`;
             continue;
           }
 

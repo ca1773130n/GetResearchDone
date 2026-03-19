@@ -115,6 +115,38 @@ const {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Detect whether modelOverrides is configured in Claude settings. */
+function _detectModelOverridesActive(cwd: string): boolean {
+  try {
+    const locations = [
+      path.join(cwd, '.claude', 'settings.json'),
+      path.join(process.env.HOME || '', '.claude', 'settings.json'),
+    ];
+    for (const loc of locations) {
+      if (!fs.existsSync(loc)) continue;
+      const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
+      if (
+        data &&
+        typeof data === 'object' &&
+        data.modelOverrides &&
+        typeof data.modelOverrides === 'object' &&
+        Object.keys(data.modelOverrides).length > 0
+      ) {
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR' && !(err instanceof SyntaxError)) {
+      process.stderr.write(
+        `[grd] WARNING: failed to detect model overrides: ${(err as Error).message}\n`
+      );
+    }
+    return false;
+  }
+}
+
 /** Try to find and read a file matching a suffix in a phase directory. */
 function _readPhaseFile(cwd: string, phaseDir: string, suffix: string): string | null {
   const phaseDirFull = path.join(cwd, phaseDir);
@@ -166,6 +198,10 @@ function cmdInitExecutePhase(
     backend,
     backend_capabilities: backendCaps,
 
+    // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
+    mcp_elicitation_available: backendCaps.mcp_elicitation === true,
+    model_overrides_available: _detectModelOverridesActive(cwd),
+
     // Models
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
     verifier_model: resolveModelInternal(cwd, 'grd-verifier'),
@@ -213,12 +249,12 @@ function cmdInitExecutePhase(
     // Branch name (pre-computed)
     branch_name:
       config.branching_strategy === 'phase' && phaseInfo
-        ? config.phase_branch_template
+        ? (config.phase_branch_template || 'grd/{milestone}/{phase}-{slug}')
             .replace('{milestone}', milestone.version)
             .replace('{phase}', phaseInfo.phase_number)
             .replace('{slug}', phaseInfo.phase_slug || 'phase')
         : config.branching_strategy === 'milestone'
-          ? config.milestone_branch_template
+          ? (config.milestone_branch_template || 'grd/{milestone}-{slug}')
               .replace('{milestone}', milestone.version)
               .replace('{slug}', generateSlugInternal(milestone.name) || 'milestone')
           : null,
@@ -324,7 +360,26 @@ function cmdInitExecutePhase(
           : backendCaps.native_worktree_isolation === true
             ? 'native'
             : 'manual',
-    main_repo_path: config.branching_strategy !== 'none' ? fs.realpathSync(cwd) : null,
+    main_repo_path:
+      config.branching_strategy !== 'none'
+        ? (() => {
+            try {
+              return fs.realpathSync(cwd);
+            } catch (err) {
+              process.stderr.write(
+                `[grd] WARNING: realpathSync failed: ${(err as Error).message}, using raw cwd\n`
+              );
+              return cwd;
+            }
+          })()
+        : null,
+
+    // CLAUDE_PLUGIN_DATA (v2.1.78): persistent directory for cross-project plugin state.
+    // When available, agents can use this for state that should survive plugin updates
+    // and be shared across projects (e.g., global scheduler config, evolve history).
+    // .planning/ remains the source of truth for project-scoped state.
+    plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
+    plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
   };
 
   // Include gate warnings if any
@@ -378,13 +433,18 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
 
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
+  const backendCaps = getBackendCapabilities(backend);
   const phaseInfo = findPhaseInternal(cwd, phase);
   const webmcp = detectWebMcp(cwd);
 
   const result: Record<string, unknown> = {
     // Backend
     backend,
-    backend_capabilities: getBackendCapabilities(backend),
+    backend_capabilities: backendCaps,
+
+    // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
+    mcp_elicitation_available: backendCaps.mcp_elicitation === true,
+    model_overrides_available: _detectModelOverridesActive(cwd),
 
     // Models
     researcher_model: resolveModelInternal(cwd, 'grd-phase-researcher'),
@@ -435,6 +495,13 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // WebMCP availability (REQ-96)
     webmcp_available: webmcp.available,
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
+
+    // CLAUDE_PLUGIN_DATA (v2.1.78): persistent directory for cross-project plugin state.
+    // When available, agents can use this for state that should survive plugin updates
+    // and be shared across projects (e.g., global scheduler config, evolve history).
+    // .planning/ remains the source of truth for project-scoped state.
+    plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
+    plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
   };
 
   if (gates.warnings.length > 0) {
@@ -508,6 +575,8 @@ function cmdInitVerifyWork(cwd: string, phase: string, raw: boolean): void {
     codebase_dir: path.relative(cwd, getCodebaseDirPath(cwd)),
     quick_dir: path.relative(cwd, getQuickDirPath(cwd)),
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
+    standards_dir: path.relative(cwd, getStandardsDirPath(cwd)),
+    standards_exists: fs.existsSync(path.join(getStandardsDirPath(cwd), 'index.yml')),
     webmcp_available: webmcp.available,
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
   };
@@ -589,7 +658,7 @@ function cmdInitPhaseResearch(
   const result: Record<string, unknown> = {
     backend,
     backend_capabilities: getBackendCapabilities(backend),
-    researcher_model: resolveModelForAgent(config, 'researcher'),
+    researcher_model: resolveModelForAgent(config, 'grd-phase-researcher'),
     researcher_effort: resolveEffortForAgent(config, 'grd-phase-researcher', cwd),
     phase_found: !!phaseInfo,
     phase_dir: phaseInfo?.directory || null,

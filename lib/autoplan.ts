@@ -44,7 +44,8 @@ const {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
-    pickPct?: number
+    pickPct?: number,
+    opts?: import('./evolve/types').DiscoveryOptions
   ) => Promise<GroupDiscoveryResult>;
 } = require('./evolve/discovery');
 const {

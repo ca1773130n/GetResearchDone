@@ -3,6 +3,8 @@ name: grd-eval-planner
 description: Designs evaluation plans with tiered verification (sanity/proxy/deferred). Produces EVAL.md with metrics, datasets, baselines, and targets for R&D phases.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: green
+effort: medium
+maxTurns: 20
 ---
 
 <role>

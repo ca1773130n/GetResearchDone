@@ -3,6 +3,7 @@ name: grd-roadmapper
 description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria, coverage validation, and tracker integration. Spawned by init.
 tools: Read, Write, Bash, Glob, Grep
 color: purple
+effort: medium
 ---
 
 <role>

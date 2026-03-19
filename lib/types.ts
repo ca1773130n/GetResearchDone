@@ -72,6 +72,13 @@ export interface BackendCapabilities {
   effort: boolean;
   http_hooks: boolean;
   cron: boolean;
+  smart_approvals: boolean;
+  plan_mode: boolean;
+  sandbox_gvisor: boolean;
+  sandbox_lxc: boolean;
+  mcp_elicitation: boolean;
+  model_overrides: boolean;
+  max_output_tokens: { default: number; upper_bound: number } | null;
 }
 
 /**

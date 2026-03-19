@@ -26,6 +26,24 @@ const {
   safeReadFile: (filePath: string) => string | null;
 } = require('../utils');
 
+// ─── Plugin State Boundary ─────────────────────────────────────────────────
+// GRD uses two distinct state scopes:
+//
+// .planning/              — Project-scoped state (per-project, per-milestone)
+//                           STATE.md, ROADMAP.md, config.json, phase plans,
+//                           EVOLVE-STATE.json, autopilot markers
+//
+// CLAUDE_PLUGIN_DATA      — Cross-project plugin state (survives plugin updates)
+//                           Future: scheduler state, evolve global config,
+//                           cross-project improvement history, plugin preferences
+//
+// Current: All GRD state lives in .planning/ (project-scoped).
+// When CLAUDE_PLUGIN_DATA becomes available, cross-project concerns
+// (e.g., global evolve history, scheduler preferences, model usage stats)
+// should migrate to ${CLAUDE_PLUGIN_DATA}/grd/ while project-specific
+// state remains in .planning/.
+// ──────────────────────────────────────────────────────────────────────────
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const EVOLVE_STATE_FILENAME: string = 'EVOLVE-STATE.json';
@@ -163,6 +181,13 @@ function createWorkItem(
 
 /**
  * Return the absolute path to the evolve state file.
+ *
+ * EVOLVE-STATE.json is project-scoped (.planning/).
+ * Cross-project evolve history (e.g., global improvement patterns, model
+ * performance stats) should use CLAUDE_PLUGIN_DATA when available:
+ *   const globalEvolveDir = process.env.CLAUDE_PLUGIN_DATA
+ *     ? path.join(process.env.CLAUDE_PLUGIN_DATA, 'grd', 'evolve')
+ *     : null;
  */
 function evolveStatePath(cwd: string): string {
   return path.join(cwd, '.planning', EVOLVE_STATE_FILENAME);

@@ -64,6 +64,85 @@ By name: `npx jest -t "should parse frontmatter"`
 - Pre-commit hook runs lint — commits fail on lint errors
 - Timeout: 15s
 
+## Backend Capabilities
+
+Capability flags per backend. Source: `BACKEND_CAPABILITIES` in `lib/backend.ts`.
+
+| Flag | claude | codex | gemini | opencode |
+|------|--------|-------|--------|----------|
+| `subagents` | true | true | true | true |
+| `parallel` | true | true | true | true |
+| `teams` | true | true | false | false |
+| `hooks` | true | true | true | true |
+| `mcp` | true | true | true | true |
+| `native_worktree_isolation` | true | false | false | false |
+| `effort` | true | false | false | false |
+| `http_hooks` | true | false | false | false |
+| `cron` | true | false | false | false |
+| `smart_approvals` | false | true | false | false |
+| `plan_mode` | false | false | true | false |
+| `sandbox_gvisor` | false | false | true | false |
+| `sandbox_lxc` | false | false | false | false |
+| `mcp_elicitation` | true | false | false | false |
+| `model_overrides` | true | true | true | true |
+| `max_output_tokens` | 64K/128K | null | null | null |
+
+## Agent Frontmatter
+
+Three fields control per-agent behavior (Claude Code v2.1.68+ for `effort`):
+
+- **`effort`** (`low` / `medium` / `high`) — Controls reasoning depth. Set per agent per profile from `EFFORT_PROFILES` in `lib/backend.ts`.
+- **`maxTurns`** — Caps the number of turns an agent can take before stopping.
+- **`disallowedTools`** — Restricts which tools an agent may call (e.g. `["Bash", "Write"]`).
+
+### Effort Profiles (from EFFORT_PROFILES)
+
+| Agent | quality | balanced | budget |
+|-------|---------|----------|--------|
+| grd-planner | high | high | low |
+| grd-executor | high | medium | low |
+| grd-verifier | medium | low | low |
+| grd-debugger | high | medium | low |
+| grd-codebase-mapper | medium | low | low |
+| (others) | high/medium | medium/low | low |
+
+### /effort Slash Command
+
+- `/effort` (Claude Code v2.1.76+) lets users override effort level mid-session.
+- GRD sets effort via agent frontmatter using `EFFORT_PROFILES`; user `/effort` overrides take precedence.
+- A user can lower effort for fast iteration or raise it for thorough analysis, independent of GRD's profile system.
+
+## Plugin Data
+
+Clear boundary between project state and plugin state:
+
+- **`.planning/`** — Project-scoped state: plans, roadmap, config, research, state. Lives in the repo, committed with the project.
+- **`CLAUDE_PLUGIN_DATA`** — Plugin-scoped state that survives plugin updates. Used for cross-project config (scheduler state, evolve global config). Set by Claude Code, points to a persistent directory outside the project.
+- Rule: project artifacts go in `.planning/`; plugin infrastructure goes in `CLAUDE_PLUGIN_DATA`.
+
+## Backend-Specific Notes
+
+### Codex CLI (v0.115.0+)
+
+- Realtime websocket sessions and filesystem RPC capabilities are available but not currently used by GRD.
+- Smart approvals (`smart_approvals: true`) route code review requests through a guardian subagent before applying changes.
+- `CODEX_THREAD_ID` kept for backward compatibility; may be deprecated in newer versions.
+
+### Gemini CLI (v0.31–v0.34)
+
+- **v0.34**: Tracker CRUD MCP tools added; plan mode enabled by default (`plan_mode: true`).
+- **v0.32**: Generalist agent added.
+- **v0.31**: Browser agent added (experimental).
+- A2A agent timeout increased to 30 minutes (was shorter in earlier versions).
+- gVisor sandboxing available (`sandbox_gvisor: true`); LXC sandboxing not yet supported.
+
+### OpenCode (v1.2.25–v1.2.27)
+
+- **v1.2.27**: Fix for lost sessions across worktrees and orphan branches — directly relevant to GRD's worktree isolation mode.
+- 5-minute chunk timeout (increased from 2 minutes in earlier versions).
+- Multi-account workspace authentication support.
+- Non-OpenAI Azure completions endpoint support.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.

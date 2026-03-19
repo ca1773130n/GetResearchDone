@@ -3,6 +3,11 @@ name: grd-code-reviewer
 description: Two-stage code review combining spec compliance with code quality. Reviews plan alignment and reproducibility. Produces REVIEW.md with severity levels.
 tools: Read, Bash, Grep, Glob
 color: blue
+effort: medium
+maxTurns: 15
+disallowedTools:
+  - Edit
+  - Write
 ---
 
 <role>

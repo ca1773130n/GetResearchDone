@@ -895,9 +895,14 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   ]);
 
   if (mergeResult.exitCode !== 0) {
-    // Merge conflict — abort and restore
+    // Merge conflict — abort and restore original branch
     execGit(cwd, ['merge', '--abort']);
-    execGit(cwd, ['checkout', originalBranch]);
+    const abortRestore = execGit(cwd, ['checkout', originalBranch]);
+    if (abortRestore.exitCode !== 0) {
+      process.stderr.write(
+        `[grd] WARNING: failed to restore branch ${originalBranch} after merge abort\n`
+      );
+    }
     output(
       {
         error: 'Merge conflict',
@@ -916,7 +921,11 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   }
 
   // Restore original branch
-  execGit(cwd, ['checkout', originalBranch]);
+  const restoreResult = execGit(cwd, ['checkout', originalBranch]);
+  const restoredBranch = restoreResult.exitCode === 0;
+  if (!restoredBranch) {
+    process.stderr.write(`[grd] WARNING: failed to restore branch ${originalBranch} after merge\n`);
+  }
 
   output(
     {
@@ -925,6 +934,7 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
       phase_branch: phaseBranch,
       phase,
       branch_deleted: !!deleteBranch,
+      original_branch_restored: restoredBranch,
     },
     raw
   );
@@ -1178,6 +1188,99 @@ function cmdInstructionsLoadedHook(cwd: string, raw: boolean): void {
   }
 }
 
+/**
+ * Hook handler for StopFailure events (Claude Code v2.1.78+).
+ *
+ * Fires when a turn ends due to an API-level failure (rate limit, auth failure,
+ * network error). GRD uses this to log failures to autopilot.log so the
+ * autopilot/evolve retry logic can detect and act on them.
+ *
+ * Environment variables from hook payload:
+ * - STOP_REASON: reason the turn stopped (e.g., "rate_limit", "auth_failure", "api_error")
+ * - ERROR_MESSAGE: error message text (optional)
+ * - AGENT_ID: unique identifier of the affected agent (optional)
+ *
+ * Note: allowRead sandbox setting (v2.1.77) can re-allow read access within
+ * denyRead regions — relevant for plugin data paths that need to check autopilot.log.
+ *
+ * @param cwd - Project working directory
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout)
+ */
+function cmdStopFailureHook(cwd: string, raw: boolean): void {
+  const stopReason = process.env.STOP_REASON || 'unknown';
+  const errorMessage = process.env.ERROR_MESSAGE || '';
+  const agentId = process.env.AGENT_ID || 'unknown';
+
+  // Check if autopilot.log exists — indicates an active autopilot/evolve session
+  const autopilotLogPath = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
+  const autopilotActive = fs.existsSync(autopilotLogPath);
+
+  let logged = false;
+  if (autopilotActive) {
+    // Append timestamped failure entry to autopilot.log
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] STOP_FAILURE: reason=${stopReason} error=${errorMessage || '(none)'} agent=${agentId}\n`;
+    try {
+      fs.appendFileSync(autopilotLogPath, logEntry, 'utf-8');
+      logged = true;
+    } catch (writeErr) {
+      process.stderr.write(
+        `[grd] WARNING: failed to write StopFailure to autopilot.log: ${(writeErr as Error).message}\n`
+      );
+    }
+  }
+
+  const result = {
+    ok: true,
+    hook: 'StopFailure',
+    stop_reason: stopReason,
+    error_message: errorMessage,
+    agent_id: agentId,
+    logged,
+  };
+
+  if (raw) {
+    process.stdout.write(`StopFailure: reason=${stopReason} agent=${agentId} logged=${logged}\n`);
+  } else {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }
+}
+
+/**
+ * Hook handler for PostCompact events (Claude Code v2.1.76+).
+ *
+ * Fires after context compaction completes. GRD acknowledges the event and
+ * continues — this hook is informational only. Future use: could trigger
+ * context reload or state refresh to account for compacted history.
+ *
+ * Environment variables from hook payload:
+ * - AGENT_ID: unique identifier of the agent (optional)
+ * - AGENT_TYPE: type of the agent (optional)
+ *
+ * @param _cwd - Project working directory (unused — compaction is informational)
+ * @param raw - If true, output raw text instead of JSON
+ * @returns void (outputs JSON or raw text to stdout)
+ */
+function cmdPostCompactHook(_cwd: string, raw: boolean): void {
+  const agentId = process.env.AGENT_ID || 'unknown';
+  const agentType = process.env.AGENT_TYPE || 'unknown';
+
+  const result = {
+    ok: true,
+    hook: 'PostCompact',
+    agent_id: agentId,
+    agent_type: agentType,
+    acknowledged: true,
+  };
+
+  if (raw) {
+    process.stdout.write(`PostCompact: agent=${agentId} type=${agentType} acknowledged=true\n`);
+  } else {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  }
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1199,4 +1302,6 @@ module.exports = {
   cmdTeammateIdleHook,
   cmdTaskCompletedHook,
   cmdInstructionsLoadedHook,
+  cmdStopFailureHook,
+  cmdPostCompactHook,
 };
