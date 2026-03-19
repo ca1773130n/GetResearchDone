@@ -231,9 +231,10 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       || (hasStagedChanges.stdout || '').trim().length > 0;
 
     if (!hasCodeChanges) {
-      // Discard any non-code changes (markdown stubs, todo files, etc.)
-      execGit(executionCwd, ['checkout', '--', '.']);
-      execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/', '*.md']);
+      // Discard non-code changes (markdown stubs, todo files, etc.)
+      // Only revert .planning/ and docs/ — avoid wiping user's uncommitted work
+      execGit(executionCwd, ['checkout', '--', '.planning/', 'docs/']);
+      execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/']);
       log(`Batch execute completed but NO source code changes were made — discarding markdown-only changes and marking as skip`);
       for (const group of cappedGroups) {
         outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'no source code changes' });
@@ -321,19 +322,26 @@ function _handleIterationResult(
     ...prevCompleted,
     ...newlyCompleted.filter((g) => !completedIds.has(g.id)),
   ];
-  const failedGroups: WorkGroup[] = (outcomes || [])
+  const newlyFailed: WorkGroup[] = (outcomes || [])
     .filter((o) => o.status === 'fail')
     .map((o) => discovery.selected_groups.find((g) => g.id === o.group))
     .filter((g): g is WorkGroup => g !== undefined)
     .map((g) => ({ ...g, status: 'failed' }));
+  // Accumulate failed groups across iterations (like completed_groups)
+  const prevFailed: WorkGroup[] = prevState?.failed_groups || [];
+  const failedIds = new Set<string>(prevFailed.map((g) => g.id));
+  const failedGroups: WorkGroup[] = [
+    ...prevFailed,
+    ...newlyFailed.filter((g) => !failedIds.has(g.id)),
+  ];
 
   // Build new state
   const historyEntry: HistoryEntry = {
     iteration: iterNum,
     timestamp: new Date().toISOString(),
     selected_count: discovery.selected_groups.length,
-    completed_count: completedGroups.length,
-    failed_count: failedGroups.length,
+    completed_count: newlyCompleted.length,
+    failed_count: newlyFailed.length,
   };
   const newState: EvolveGroupState = {
     iteration: iterNum,
@@ -353,8 +361,8 @@ function _handleIterationResult(
     iteration: iterNum,
     status: 'completed',
     groups_attempted: (outcomes || []).length,
-    groups_passed: completedGroups.length,
-    groups_failed: failedGroups.length,
+    groups_passed: newlyCompleted.length,
+    groups_failed: newlyFailed.length,
     remaining_groups: discovery.remaining_groups.length,
   };
 
