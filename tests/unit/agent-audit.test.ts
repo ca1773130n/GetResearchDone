@@ -10,7 +10,7 @@ describe('Agent frontmatter audit', () => {
   const agentDir = path.join(__dirname, '../../agents');
   const agentFiles = fs
     .readdirSync(agentDir)
-    .filter((f: any) => f.startsWith('grd-') && f.endsWith('.md'));
+    .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'));
 
   test('agent count is 20', () => {
     expect(agentFiles.length).toBe(20);
@@ -73,7 +73,8 @@ describe('Agent frontmatter audit', () => {
 
 describe('plugin.json hook registration', () => {
   const pluginJsonPath = path.join(__dirname, '..', '..', '.claude-plugin', 'plugin.json');
-  let pluginJson: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pluginJson: Record<string, any>;
 
   beforeAll(() => {
     pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
@@ -131,8 +132,8 @@ describe('plugin.json hook registration', () => {
     expect(entry.hooks).toBeDefined();
     expect(Array.isArray(entry.hooks)).toBe(true);
 
-    const commands = entry.hooks.map((h: any) => h.command);
-    const hasVerifyPath = commands.some((cmd: any) => cmd.includes('verify-path-exists'));
+    const commands = entry.hooks.map((h: Record<string, unknown>) => h.command);
+    const hasVerifyPath = commands.some((cmd: string) => cmd.includes('verify-path-exists'));
     expect(hasVerifyPath).toBe(true);
   });
 
@@ -207,7 +208,7 @@ describe('Agent frontmatter — effort, maxTurns, disallowedTools', () => {
   const agentDir = path.join(__dirname, '../../agents');
   const agentFiles = fs
     .readdirSync(agentDir)
-    .filter((f: any) => f.startsWith('grd-') && f.endsWith('.md'));
+    .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'));
 
   test('all agents have effort field in frontmatter', () => {
     const validLevels = ['low', 'medium', 'high'];

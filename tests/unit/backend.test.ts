@@ -690,22 +690,38 @@ describe('lib/backend.js', () => {
 
     test('returns minimal capabilities for unknown backend (safe default)', () => {
       const caps = getBackendCapabilities('unknown');
-      expect(caps.native_worktree_isolation).toBe(false);
-      expect(caps.effort).toBe(false);
-      expect(caps.mcp_elicitation).toBe(false);
-      expect(caps.subagents).toBe(true);
+      expect(caps).toEqual({
+        subagents: true,
+        parallel: false,
+        teams: false,
+        hooks: false,
+        mcp: false,
+        native_worktree_isolation: false,
+        effort: false,
+        http_hooks: false,
+        cron: false,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: false,
+        max_output_tokens: null,
+      });
     });
 
     test('returns minimal capabilities for undefined backend', () => {
       const caps = getBackendCapabilities(undefined);
       expect(caps.native_worktree_isolation).toBe(false);
       expect(caps.effort).toBe(false);
+      expect(caps.subagents).toBe(true);
     });
 
     test('returns minimal capabilities for null backend', () => {
       const caps = getBackendCapabilities(null);
       expect(caps.native_worktree_isolation).toBe(false);
       expect(caps.effort).toBe(false);
+      expect(caps.subagents).toBe(true);
     });
 
     test('overstory backend gets parallel mode support (teams: true, native_worktree_isolation: true)', () => {
