@@ -238,12 +238,12 @@ function cmdInitExecutePhase(
     // Branch name (pre-computed)
     branch_name:
       config.branching_strategy === 'phase' && phaseInfo
-        ? config.phase_branch_template
+        ? (config.phase_branch_template || 'grd/{milestone}/{phase}-{slug}')
             .replace('{milestone}', milestone.version)
             .replace('{phase}', phaseInfo.phase_number)
             .replace('{slug}', phaseInfo.phase_slug || 'phase')
         : config.branching_strategy === 'milestone'
-          ? config.milestone_branch_template
+          ? (config.milestone_branch_template || 'grd/{milestone}-{slug}')
               .replace('{milestone}', milestone.version)
               .replace('{slug}', generateSlugInternal(milestone.name) || 'milestone')
           : null,

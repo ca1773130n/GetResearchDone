@@ -189,7 +189,14 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       }
     }
     totalItems = runningTotal;
-    log(`Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS})`);
+    // Mark excluded groups as skipped so they don't vanish from tracking
+    const cappedIds = new Set(cappedGroups.map((g) => g.id));
+    for (const group of allGroups) {
+      if (!cappedIds.has(group.id)) {
+        outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'batch item cap exceeded' });
+      }
+    }
+    log(`Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS}), ${allGroups.length - cappedGroups.length} groups deferred`);
   }
   log(`Batch-executing ${cappedGroups.length} groups (${totalItems} items) in one subprocess`);
 

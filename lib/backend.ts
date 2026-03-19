@@ -547,15 +547,36 @@ function resolveBackendModel(
  * Get capability flags for a backend.
  *
  * Returns an object describing what orchestration features the backend supports.
- * Unknown backends return claude capabilities as a safe default.
+ * Unknown backends get minimal capabilities (all false) to prevent
+ * accidentally enabling features like native_worktree_isolation or effort.
  *
  * @param backend - The backend identifier (e.g. 'claude', 'codex', 'gemini', 'opencode')
  * @returns A BackendCapabilities object describing which orchestration features are supported
  */
 function getBackendCapabilities(backend: string): BackendCapabilities {
-  return (
-    BACKEND_CAPABILITIES[backend as BackendId] || BACKEND_CAPABILITIES.claude
-  );
+  if (BACKEND_CAPABILITIES[backend as BackendId]) {
+    return BACKEND_CAPABILITIES[backend as BackendId];
+  }
+  // Unknown backend: warn and return minimal capabilities
+  process.stderr.write(`[grd] WARNING: unknown backend "${backend}", using minimal capabilities\n`);
+  return {
+    subagents: true,
+    parallel: false,
+    teams: false,
+    hooks: false,
+    mcp: false,
+    native_worktree_isolation: false,
+    effort: false,
+    http_hooks: false,
+    cron: false,
+    smart_approvals: false,
+    plan_mode: false,
+    sandbox_gvisor: false,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: false,
+    max_output_tokens: null,
+  };
 }
 
 // --- WebMCP Detection --------------------------------------------------------

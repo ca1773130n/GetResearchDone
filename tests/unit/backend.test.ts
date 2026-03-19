@@ -688,16 +688,24 @@ describe('lib/backend.js', () => {
       expect(getBackendCapabilities('codex').native_worktree_isolation).toBe(false);
     });
 
-    test('returns claude capabilities for unknown backend (safe default)', () => {
-      expect(getBackendCapabilities('unknown')).toEqual(BACKEND_CAPABILITIES.claude);
+    test('returns minimal capabilities for unknown backend (safe default)', () => {
+      const caps = getBackendCapabilities('unknown');
+      expect(caps.native_worktree_isolation).toBe(false);
+      expect(caps.effort).toBe(false);
+      expect(caps.mcp_elicitation).toBe(false);
+      expect(caps.subagents).toBe(true);
     });
 
-    test('returns claude capabilities for undefined backend', () => {
-      expect(getBackendCapabilities(undefined)).toEqual(BACKEND_CAPABILITIES.claude);
+    test('returns minimal capabilities for undefined backend', () => {
+      const caps = getBackendCapabilities(undefined);
+      expect(caps.native_worktree_isolation).toBe(false);
+      expect(caps.effort).toBe(false);
     });
 
-    test('returns claude capabilities for null backend', () => {
-      expect(getBackendCapabilities(null)).toEqual(BACKEND_CAPABILITIES.claude);
+    test('returns minimal capabilities for null backend', () => {
+      const caps = getBackendCapabilities(null);
+      expect(caps.native_worktree_isolation).toBe(false);
+      expect(caps.effort).toBe(false);
     });
 
     test('overstory backend gets parallel mode support (teams: true, native_worktree_isolation: true)', () => {
@@ -1091,8 +1099,8 @@ describe('lib/backend.js', () => {
       expect(getBackendCapabilities('codex').native_worktree_isolation).toBe(false);
     });
 
-    test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (returns true)', () => {
-      expect(getBackendCapabilities('unknown-backend').native_worktree_isolation).toBe(true);
+    test('getBackendCapabilities("unknown-backend") returns minimal capabilities (returns false)', () => {
+      expect(getBackendCapabilities('unknown-backend').native_worktree_isolation).toBe(false);
     });
   });
 
@@ -1131,8 +1139,8 @@ describe('lib/backend.js', () => {
       expect(getBackendCapabilities('codex').effort).toBe(false);
     });
 
-    test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (effort: true)', () => {
-      expect(getBackendCapabilities('unknown-backend').effort).toBe(true);
+    test('getBackendCapabilities("unknown-backend") returns minimal capabilities (effort: false)', () => {
+      expect(getBackendCapabilities('unknown-backend').effort).toBe(false);
     });
   });
 
