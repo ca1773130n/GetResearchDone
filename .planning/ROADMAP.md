@@ -206,11 +206,11 @@ Sync GRD with latest features from Claude Code (2.1.73-2.1.79), Codex CLI (0.115
 6. `max_output_tokens` for claude opus/sonnet models is documented in `BACKEND_CAPABILITIES` or model config (64k default, 128k upper bound)
 7. `DEFAULT_MODEL_NAMES.opencode` reflects current GPT-5.4 availability; backend detection unaffected
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 74-01: Model mapping updates (Codex gpt-5.4-mini, Gemini 3.1, OpenCode GPT-5.4)
-- [ ] 74-02: Capability flag additions (smart_approvals, plan_mode, sandboxing, mcp_elicitation, max_output_tokens)
+- [ ] 74-01-PLAN.md — Update DEFAULT_BACKEND_MODELS: Codex haiku to gpt-5.4-mini, Gemini sonnet to gemini-3.1-flash, verify OpenCode
+- [ ] 74-02-PLAN.md — Add capability flags: smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation, model_overrides, max_output_tokens
 
 #### Phase 75: Hook Events and Plugin Infrastructure
 
