@@ -8,8 +8,8 @@
  *
  * Supported backends (March 2026):
  *   - Claude Code v2.1.71 — Anthropic's native CLI (opus/sonnet/haiku tiers)
- *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark)
- *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3 Flash, 3.1 Flash-Lite)
+ *   - Codex CLI v0.112.0 — OpenAI's CLI (GPT-5.4, GPT-5.3-Codex-Spark, GPT-5.4-mini)
+ *   - Gemini CLI v0.32.1 — Google's CLI (Gemini 3.1 Pro, 3.1 Flash, 3.1 Flash-Lite)
  *   - OpenCode v1.2.21 — Provider-agnostic CLI by anomalyco (actively maintained, 70K+ stars)
  *   - Superpowers — Plugin/skill layer that orchestrates any AI CLI backend with account rotation
  *   - GRD — Native mode using GRD's own commands/skills with the configured AI backend
@@ -66,11 +66,11 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
   codex: {
     opus: 'gpt-5.4',
     sonnet: 'gpt-5.3-codex-spark',
-    haiku: 'gpt-5.3-codex-spark',
+    haiku: 'gpt-5.4-mini',
   },
   gemini: {
     opus: 'gemini-3.1-pro',
-    sonnet: 'gemini-3-flash',
+    sonnet: 'gemini-3.1-flash',
     haiku: 'gemini-3.1-flash-lite',
   },
   opencode: {
