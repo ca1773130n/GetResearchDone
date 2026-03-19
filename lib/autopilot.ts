@@ -620,6 +620,12 @@ async function runAutopilot(
     scheduler.loadPersistedState(path.join(cwd, '.planning'));
   }
 
+  // autopilot.log is project-scoped (.planning/autopilot/).
+  // Cross-project scheduler state (e.g., global phase timing stats,
+  // retry policies) could use CLAUDE_PLUGIN_DATA when available:
+  //   const globalSchedulerDir = process.env.CLAUDE_PLUGIN_DATA
+  //     ? path.join(process.env.CLAUDE_PLUGIN_DATA, 'grd', 'scheduler')
+  //     : null;
   const logFile: string = path.join(cwd, '.planning', 'autopilot', 'autopilot.log');
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
   const log: (msg: string) => void = (msg: string): void => {
