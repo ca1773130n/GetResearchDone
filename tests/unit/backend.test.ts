@@ -1188,6 +1188,78 @@ describe('lib/backend.js', () => {
     });
   });
 
+  // ─── v0.3.12 capability flags ───────────────────────────────────────────
+
+  describe('v0.3.12 capability flags', () => {
+    test('smart_approvals is true only for codex', () => {
+      expect(BACKEND_CAPABILITIES.codex.smart_approvals).toBe(true);
+      expect(BACKEND_CAPABILITIES.claude.smart_approvals).toBe(false);
+      expect(BACKEND_CAPABILITIES.gemini.smart_approvals).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.smart_approvals).toBe(false);
+    });
+
+    test('plan_mode is true only for gemini', () => {
+      expect(BACKEND_CAPABILITIES.gemini.plan_mode).toBe(true);
+      expect(BACKEND_CAPABILITIES.claude.plan_mode).toBe(false);
+      expect(BACKEND_CAPABILITIES.codex.plan_mode).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.plan_mode).toBe(false);
+    });
+
+    test('sandbox_gvisor is true only for gemini', () => {
+      expect(BACKEND_CAPABILITIES.gemini.sandbox_gvisor).toBe(true);
+      expect(BACKEND_CAPABILITIES.claude.sandbox_gvisor).toBe(false);
+      expect(BACKEND_CAPABILITIES.codex.sandbox_gvisor).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.sandbox_gvisor).toBe(false);
+    });
+
+    test('sandbox_lxc is false for all four primary backends', () => {
+      expect(BACKEND_CAPABILITIES.claude.sandbox_lxc).toBe(false);
+      expect(BACKEND_CAPABILITIES.codex.sandbox_lxc).toBe(false);
+      expect(BACKEND_CAPABILITIES.gemini.sandbox_lxc).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.sandbox_lxc).toBe(false);
+    });
+
+    test('mcp_elicitation is true only for claude', () => {
+      expect(BACKEND_CAPABILITIES.claude.mcp_elicitation).toBe(true);
+      expect(BACKEND_CAPABILITIES.codex.mcp_elicitation).toBe(false);
+      expect(BACKEND_CAPABILITIES.gemini.mcp_elicitation).toBe(false);
+      expect(BACKEND_CAPABILITIES.opencode.mcp_elicitation).toBe(false);
+    });
+
+    test('max_output_tokens for claude equals { default: 64000, upper_bound: 128000 }', () => {
+      expect(BACKEND_CAPABILITIES.claude.max_output_tokens).toEqual({
+        default: 64000,
+        upper_bound: 128000,
+      });
+    });
+
+    test('max_output_tokens is null for codex, gemini, and opencode', () => {
+      expect(BACKEND_CAPABILITIES.codex.max_output_tokens).toBeNull();
+      expect(BACKEND_CAPABILITIES.gemini.max_output_tokens).toBeNull();
+      expect(BACKEND_CAPABILITIES.opencode.max_output_tokens).toBeNull();
+    });
+  });
+
+  // ─── v0.3.12 model mappings ─────────────────────────────────────────────
+
+  describe('v0.3.12 model mappings', () => {
+    test('codex haiku maps to gpt-5.4-mini', () => {
+      expect(DEFAULT_BACKEND_MODELS.codex.haiku).toBe('gpt-5.4-mini');
+    });
+
+    test('gemini opus maps to gemini-3.1-pro', () => {
+      expect(DEFAULT_BACKEND_MODELS.gemini.opus).toBe('gemini-3.1-pro');
+    });
+
+    test('gemini sonnet maps to gemini-3.1-flash', () => {
+      expect(DEFAULT_BACKEND_MODELS.gemini.sonnet).toBe('gemini-3.1-flash');
+    });
+
+    test('opencode opus maps to anthropic/claude-opus-4-6 (GPT-5.4 equivalent via OpenCode)', () => {
+      expect(DEFAULT_BACKEND_MODELS.opencode.opus).toBe('anthropic/claude-opus-4-6');
+    });
+  });
+
   // ─── EFFORT_PROFILES ────────────────────────────────────────────────────
 
   describe('EFFORT_PROFILES', () => {
