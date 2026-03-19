@@ -1,23 +1,23 @@
 # State
 
-**Updated:** 2026-03-11
+**Updated:** 2026-03-19
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.7 Claude Code Feature Sync — adopt effort levels, new hooks, ExitWorktree, SKILL_DIR, cron awareness
-**Previous:** v0.3.6 Backend Ecosystem Sync (shipped 2026-03-11)
+**Current focus:** v0.3.12 Multi-Backend Feature Sync — sync with Claude Code 2.1.73-79, Codex 0.115+, Gemini CLI v0.31-34, OpenCode v1.2.25-27
+**Previous:** v0.3.7 Claude Code Feature Sync (shipped 2026-03-12)
 
 ## Current Position
 
-- **Active phase:** Phase 73 — Testing & Documentation
-- **Current plan:** Plan 2 of 2 complete
-- **Milestone:** v0.3.7 Claude Code Feature Sync
-- **Status:** v0.3.7 Claude Code Feature Sync milestone complete
-- **Progress:** [██████████] 100%
-- **Next:** Complete milestone v0.3.7
+- **Active phase:** Not started (defining requirements)
+- **Current plan:** —
+- **Milestone:** v0.3.12 Multi-Backend Feature Sync
+- **Status:** Defining requirements
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements and create roadmap
 
 ## Phase Summary
 
