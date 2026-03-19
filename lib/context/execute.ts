@@ -326,6 +326,13 @@ function cmdInitExecutePhase(
             ? 'native'
             : 'manual',
     main_repo_path: config.branching_strategy !== 'none' ? fs.realpathSync(cwd) : null,
+
+    // CLAUDE_PLUGIN_DATA (v2.1.78): persistent directory for cross-project plugin state.
+    // When available, agents can use this for state that should survive plugin updates
+    // and be shared across projects (e.g., global scheduler config, evolve history).
+    // .planning/ remains the source of truth for project-scoped state.
+    plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
+    plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
   };
 
   // Include gate warnings if any
@@ -436,6 +443,13 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // WebMCP availability (REQ-96)
     webmcp_available: webmcp.available,
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
+
+    // CLAUDE_PLUGIN_DATA (v2.1.78): persistent directory for cross-project plugin state.
+    // When available, agents can use this for state that should survive plugin updates
+    // and be shared across projects (e.g., global scheduler config, evolve history).
+    // .planning/ remains the source of truth for project-scoped state.
+    plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
+    plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
   };
 
   if (gates.warnings.length > 0) {
