@@ -12,19 +12,19 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Current Position
 
-- **Active phase:** 74 — Model Mappings and Capability Flags
-- **Current plan:** —
+- **Active phase:** 75 — Hook Events and Plugin Infrastructure
+- **Current plan:** 01 complete
 - **Milestone:** v0.3.12 Multi-Backend Feature Sync
-- **Status:** Ready to plan
-- **Progress:** [████░░░░░░] 38%
-- **Next:** Plan and execute Phase 74
+- **Status:** In progress
+- **Progress:** [█████░░░░░] 50%
+- **Next:** Execute Phase 75 Plan 02
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 74 | Model Mappings and Capability Flags | Not started |
-| 75 | Hook Events and Plugin Infrastructure | Not started |
+| 74 | Model Mappings and Capability Flags | Complete |
+| 75 | Hook Events and Plugin Infrastructure | In progress (01/02 done) |
 | 76 | Agent Frontmatter and MCP Elicitation | Not started |
 | 77 | Testing and Documentation | Not started |
 
@@ -85,6 +85,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 74]: opencode mappings verified unchanged: anthropic/claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (REQ-116)
 - [Phase 74]: max_output_tokens typed as nullable; model_overrides_available uses strict equality; grd backend has model_overrides: false
 - [Phase 75]: plugin_data_available added to both cmdInitExecutePhase and cmdInitPlanPhase; plugin_data_dir included alongside for consumer convenience; documentation-only changes in evolve/state.ts and autopilot.ts
+- [Phase 75]: StopFailure handler checks autopilot.log presence to determine if logging is needed; PostCompact is minimal/informational; both hooks use 2>/dev/null for silent failure
 
 ## Known Bugs
 
@@ -97,7 +98,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Created roadmap for v0.3.12 Multi-Backend Feature Sync (Phases 74-77)
-- **Stopped at:** Completed 75-02-PLAN.md
+- **Stopped at:** Completed 75-01-PLAN.md
 - **Next action:** Plan Phase 74 (`/grd:plan-phase 74`)
 - **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
