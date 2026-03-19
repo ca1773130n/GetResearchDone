@@ -137,6 +137,8 @@ const {
   cmdTeammateIdleHook,
   cmdTaskCompletedHook,
   cmdInstructionsLoadedHook,
+  cmdStopFailureHook,
+  cmdPostCompactHook,
 }: {
   cmdWorktreeCreate: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdWorktreeRemove: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
@@ -150,6 +152,8 @@ const {
   cmdTeammateIdleHook: (cwd: string, raw: boolean) => void;
   cmdTaskCompletedHook: (cwd: string, raw: boolean) => void;
   cmdInstructionsLoadedHook: (cwd: string, raw: boolean) => void;
+  cmdStopFailureHook: (cwd: string, raw: boolean) => void;
+  cmdPostCompactHook: (cwd: string, raw: boolean) => void;
 } = require('../lib/worktree');
 
 const { cmdPhaseAnalyzeDeps }: {
@@ -411,6 +415,8 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'teammate-idle-hook', handler: (_args, cwd, raw) => cmdTeammateIdleHook(cwd, raw) },
   { command: 'task-completed-hook', handler: (_args, cwd, raw) => cmdTaskCompletedHook(cwd, raw) },
   { command: 'instructions-loaded-hook', handler: (_args, cwd, raw) => cmdInstructionsLoadedHook(cwd, raw) },
+  { command: 'stop-failure-hook', handler: (_args, cwd, raw) => cmdStopFailureHook(cwd, raw) },
+  { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1198,6 +1204,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
         'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
         'evolve', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'worktree-hook-create', 'worktree-hook-remove',
         'teammate-idle-hook', 'task-completed-hook', 'instructions-loaded-hook',
+        'stop-failure-hook', 'post-compact-hook',
         'coverage-report', 'health-check', 'markdown-split', 'parallel-progress', 'overstory',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
