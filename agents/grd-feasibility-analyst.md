@@ -3,6 +3,7 @@ name: grd-feasibility-analyst
 description: Analyzes paper-to-production gap. Assesses whether a research method can be integrated into the current system considering dependencies, scale, infrastructure, licensing, and codebase constraints.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: yellow
+effort: medium
 ---
 
 <role>

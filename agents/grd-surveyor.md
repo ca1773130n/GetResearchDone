@@ -3,6 +3,7 @@ name: grd-surveyor
 description: Surveys state-of-the-art for a research topic. Scans arXiv, GitHub repos, Papers with Code. Produces LANDSCAPE.md with structured method comparison tables.
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
 color: cyan
+effort: medium
 ---
 
 <role>

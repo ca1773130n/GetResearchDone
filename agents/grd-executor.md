@@ -3,6 +3,7 @@ name: grd-executor
 description: Executes GRD plans with atomic commits, deviation handling, checkpoint protocols, experiment tracking, and state management. Spawned by execute-phase.
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: yellow
+effort: medium
 ---
 
 <!-- Variable reference guide:

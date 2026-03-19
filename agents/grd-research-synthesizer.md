@@ -3,6 +3,7 @@ name: grd-research-synthesizer
 description: Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /grd:init after researcher agents complete.
 tools: Read, Write, Bash
 color: purple
+effort: medium
 ---
 
 <role>
