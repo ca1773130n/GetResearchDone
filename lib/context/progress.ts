@@ -9,16 +9,19 @@
 
 'use strict';
 
-import type {
-  GrdConfig,
-  MilestoneInfo,
-  BackendCapabilities,
-} from '../types';
+import type { GrdConfig, MilestoneInfo, BackendCapabilities } from '../types';
 
 const {
-  fs, path, safeReadFile, safeReadMarkdown, loadConfig,
-  resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveEffortForAgent, output,
+  fs,
+  path,
+  safeReadFile,
+  safeReadMarkdown,
+  loadConfig,
+  resolveModelInternal,
+  pathExistsInternal,
+  getMilestoneInfo,
+  resolveEffortForAgent,
+  output,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -32,15 +35,21 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 
-const { detectBackend, getBackendCapabilities }: {
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
 } = require('../backend');
 
 const {
-  planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
-  researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
-  todosDir: getTodosDirPath, quickDir: getQuickDirPath,
+  planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  researchDir: getResearchDirPath,
+  codebaseDir: getCodebaseDirPath,
+  todosDir: getTodosDirPath,
+  quickDir: getQuickDirPath,
 }: {
   planningDir: (cwd: string) => string;
   phasesDir: (cwd: string) => string;
@@ -117,7 +126,11 @@ function cmdInitProgress(
       // Cache miss or invalid -- recompute
     }
     if (cachedHit) {
-      output(cachedHit.data, raw, `Backend: ${cachedHit.data.backend}, milestone: ${cachedHit.data.milestone_version}, ${cachedHit.data.completed_count}/${cachedHit.data.phase_count} phases complete`);
+      output(
+        cachedHit.data,
+        raw,
+        `Backend: ${cachedHit.data.backend}, milestone: ${cachedHit.data.milestone_version}, ${cachedHit.data.completed_count}/${cachedHit.data.phase_count} phases complete`
+      );
       return;
     }
   }
@@ -133,9 +146,13 @@ function cmdInitProgress(
   let nextPhase: ProgressPhaseInfo | null = null;
 
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] =
-      fs.readdirSync(phasesDir, { withFileTypes: true });
-    const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
+    const dirs = entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
 
     for (const dir of dirs) {
       const match = dir.match(/^(\d+(?:\.\d+)?)-?(.*)/);
@@ -145,8 +162,12 @@ function cmdInitProgress(
       const phaseFiles: string[] = fs.readdirSync(phasePath);
 
       const plans = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md');
-      const summaries = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
-      const hasResearch = phaseFiles.some((f: string) => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md');
+      const summaries = phaseFiles.filter(
+        (f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'
+      );
+      const hasResearch = phaseFiles.some(
+        (f: string) => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md'
+      );
 
       const status =
         summaries.length >= plans.length && plans.length > 0
@@ -242,7 +263,11 @@ function cmdInitProgress(
     }
   }
 
-  output(result, raw, `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.completed_count}/${result.phase_count} phases complete`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.completed_count}/${result.phase_count} phases complete`
+  );
 }
 
 module.exports = {

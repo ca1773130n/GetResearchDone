@@ -350,8 +350,7 @@ function parseMustHavesBlock(
           const existing = (current as Record<string, unknown>)[lastKey];
           (current as Record<string, unknown>)[lastKey] = existing ? [existing] : [];
         }
-        if (lastKey)
-          ((current as Record<string, unknown>)[lastKey] as unknown[]).push(arrMatch[1]);
+        if (lastKey) ((current as Record<string, unknown>)[lastKey] as unknown[]).push(arrMatch[1]);
       }
     }
   }
@@ -369,7 +368,12 @@ function parseMustHavesBlock(
  * @param field - Specific field to extract, or null for all fields
  * @param raw - Output raw text instead of JSON
  */
-function cmdFrontmatterGet(cwd: string, filePath: string, field: string | null, raw: boolean): void {
+function cmdFrontmatterGet(
+  cwd: string,
+  filePath: string,
+  field: string | null,
+  raw: boolean
+): void {
   if (!filePath) {
     error('file path required');
   }
@@ -401,7 +405,13 @@ function cmdFrontmatterGet(cwd: string, filePath: string, field: string | null, 
  * @param raw - Output raw text instead of JSON
  * @returns void — writes the updated file to disk and outputs result via the output helper
  */
-function cmdFrontmatterSet(cwd: string, filePath: string, field: string, value: string, raw: boolean): void {
+function cmdFrontmatterSet(
+  cwd: string,
+  filePath: string,
+  field: string,
+  value: string,
+  raw: boolean
+): void {
   if (!filePath || !field || value === undefined) {
     error('file, field, and value required. Usage: frontmatter set <file> <field> <value>');
   }
@@ -464,7 +474,12 @@ function cmdFrontmatterMerge(cwd: string, filePath: string, data: string, raw: b
  * @param raw - Output raw text instead of JSON
  * @returns void — outputs validation result (valid/invalid, missing fields) via the output helper
  */
-function cmdFrontmatterValidate(cwd: string, filePath: string, schemaName: string, raw: boolean): void {
+function cmdFrontmatterValidate(
+  cwd: string,
+  filePath: string,
+  schemaName: string,
+  raw: boolean
+): void {
   if (!filePath || !schemaName) {
     error('file and schema required');
   }
@@ -489,11 +504,7 @@ function cmdFrontmatterValidate(cwd: string, filePath: string, schemaName: strin
     present,
     schema: schemaName,
   };
-  output(
-    result,
-    raw,
-    missing.length === 0 ? 'valid' : 'invalid'
-  );
+  output(result, raw, missing.length === 0 ? 'valid' : 'invalid');
 }
 
 // ─── Phase Roadmap Metadata ───────────────────────────────────────────────────

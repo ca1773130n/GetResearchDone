@@ -16,10 +16,15 @@ import type { WorkItem } from './types';
 
 const fs = require('fs');
 const path = require('path');
-const { safeReadFile }: {
+const {
+  safeReadFile,
+}: {
   safeReadFile: (filePath: string) => string | null;
 } = require('../utils');
-const { createWorkItem, readLibFileCached }: {
+const {
+  createWorkItem,
+  readLibFileCached,
+}: {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -86,8 +91,7 @@ function discoverProductivityItems(cwd: string): WorkItem[] {
       if (!content) continue;
 
       // Check for long functions (>80 lines)
-      const funcPattern =
-        /^(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:function|\())/gm;
+      const funcPattern = /^(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:function|\())/gm;
       let funcMatch: RegExpExecArray | null;
       while ((funcMatch = funcPattern.exec(content)) !== null) {
         const funcName: string = funcMatch[1] || funcMatch[2];
@@ -101,10 +105,17 @@ function discoverProductivityItems(cwd: string): WorkItem[] {
         for (let i = startLine - 1; i < lines.length; i++) {
           const line: string = lines[i];
           for (const ch of line) {
-            if (ch === '{') { depth++; foundOpen = true; }
-            else if (ch === '}') { depth--; }
+            if (ch === '{') {
+              depth++;
+              foundOpen = true;
+            } else if (ch === '}') {
+              depth--;
+            }
           }
-          if (foundOpen && depth <= 0) { endLine = i + 1; break; }
+          if (foundOpen && depth <= 0) {
+            endLine = i + 1;
+            break;
+          }
         }
 
         const funcLength: number = endLine - startLine + 1;
@@ -122,7 +133,12 @@ function discoverProductivityItems(cwd: string): WorkItem[] {
       }
     }
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    )
+      throw err;
   }
 
   return items;
@@ -147,10 +163,30 @@ function discoverQualityItems(cwd: string): WorkItem[] {
       const testPath: string = path.join(testDir, testFileName);
       const testPathJs: string = path.join(testDir, testFileNameJs);
       let hasTest: boolean = false;
-      try { fs.statSync(testPath); hasTest = true; } catch { /* */ }
-      if (!hasTest) { try { fs.statSync(testPathJs); hasTest = true; } catch { /* */ } }
+      try {
+        fs.statSync(testPath);
+        hasTest = true;
+      } catch {
+        /* */
+      }
       if (!hasTest) {
-        items.push(createWorkItem('quality', `add-tests-${base}`, `Add test file for ${file}`, `lib/${file} has no corresponding test file at tests/unit/${testFileName}. Add unit tests to ensure code correctness.`, { effort: 'medium' }));
+        try {
+          fs.statSync(testPathJs);
+          hasTest = true;
+        } catch {
+          /* */
+        }
+      }
+      if (!hasTest) {
+        items.push(
+          createWorkItem(
+            'quality',
+            `add-tests-${base}`,
+            `Add test file for ${file}`,
+            `lib/${file} has no corresponding test file at tests/unit/${testFileName}. Add unit tests to ensure code correctness.`,
+            { effort: 'medium' }
+          )
+        );
       }
 
       const content: string | null = readLibFileCached(path.join(libDir, file));
@@ -163,11 +199,24 @@ function discoverQualityItems(cwd: string): WorkItem[] {
         const desc: string = todoMatch[2].trim().substring(0, 80);
         const lineNum: number = content.substring(0, todoMatch.index).split('\n').length;
         const slug: string = `resolve-${tag.toLowerCase()}-${base}-L${lineNum}`;
-        items.push(createWorkItem('quality', slug, `Resolve ${tag} in ${file} line ${lineNum}`, `${tag} comment found in lib/${file} at line ${lineNum}: "${desc}". Review and resolve this marker.`, { effort: 'small' }));
+        items.push(
+          createWorkItem(
+            'quality',
+            slug,
+            `Resolve ${tag} in ${file} line ${lineNum}`,
+            `${tag} comment found in lib/${file} at line ${lineNum}: "${desc}". Review and resolve this marker.`,
+            { effort: 'small' }
+          )
+        );
       }
     }
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    )
+      throw err;
   }
 
   try {
@@ -179,11 +228,21 @@ function discoverQualityItems(cwd: string): WorkItem[] {
         const moduleName: string = thresholdMatch[1];
         const linesCoverage: number = parseInt(thresholdMatch[2], 10);
         if (linesCoverage < 90) {
-          items.push(createWorkItem('quality', `improve-coverage-${path.basename(moduleName, '.js')}`, `Improve test coverage for ${moduleName}`, `lib/${moduleName} has a coverage threshold of ${linesCoverage}% lines (target: 90%). Increase test coverage to strengthen code quality.`, { effort: 'medium' }));
+          items.push(
+            createWorkItem(
+              'quality',
+              `improve-coverage-${path.basename(moduleName, '.js')}`,
+              `Improve test coverage for ${moduleName}`,
+              `lib/${moduleName} has a coverage threshold of ${linesCoverage}% lines (target: 90%). Increase test coverage to strengthen code quality.`,
+              { effort: 'medium' }
+            )
+          );
         }
       }
     }
-  } catch { /* jest.config.js not found */ }
+  } catch {
+    /* jest.config.js not found */
+  }
 
   return items;
 }
@@ -196,7 +255,10 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
   const cmdDir: string = path.join(cwd, 'commands');
 
   try {
-    const cmdFiles: string[] = fs.readdirSync(cmdDir, { withFileTypes: true }).filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.md')).map((e: { name: string }) => e.name);
+    const cmdFiles: string[] = fs
+      .readdirSync(cmdDir, { withFileTypes: true })
+      .filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.md'))
+      .map((e: { name: string }) => e.name);
     for (const file of cmdFiles) {
       const content: string | null = safeReadFile(path.join(cmdDir, file));
       if (!content) continue;
@@ -204,11 +266,21 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
       if (fmMatch) {
         const frontmatter: string = fmMatch[1];
         if (!frontmatter.includes('description:') || frontmatter.match(/description:\s*$/m)) {
-          items.push(createWorkItem('usability', `add-description-${path.basename(file, '.md')}`, `Add description to command ${file}`, `Command file commands/${file} is missing a description in its frontmatter. Add a clear description to improve discoverability.`, { effort: 'small' }));
+          items.push(
+            createWorkItem(
+              'usability',
+              `add-description-${path.basename(file, '.md')}`,
+              `Add description to command ${file}`,
+              `Command file commands/${file} is missing a description in its frontmatter. Add a clear description to improve discoverability.`,
+              { effort: 'small' }
+            )
+          );
         }
       }
     }
-  } catch { /* commands/ directory missing */ }
+  } catch {
+    /* commands/ directory missing */
+  }
 
   const libDir: string = path.join(cwd, 'lib');
   try {
@@ -216,9 +288,19 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
     for (const file of libFiles) {
       const content: string | null = readLibFileCached(path.join(libDir, file));
       if (!content) continue;
-      const exportBlock: RegExpMatchArray | null = content.match(/module\.exports\s*=\s*\{([^}]+)\}/s);
+      const exportBlock: RegExpMatchArray | null = content.match(
+        /module\.exports\s*=\s*\{([^}]+)\}/s
+      );
       if (!exportBlock) continue;
-      const exportedNames: string[] = exportBlock[1].split(',').map((s: string) => s.trim()).filter(Boolean).map((s: string) => { const m = s.match(/^(\w+)/); return m ? m[1] : ''; }).filter(Boolean);
+      const exportedNames: string[] = exportBlock[1]
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => {
+          const m = s.match(/^(\w+)/);
+          return m ? m[1] : '';
+        })
+        .filter(Boolean);
       for (const name of exportedNames) {
         const funcIdx: number = content.indexOf(`function ${name}(`);
         if (funcIdx === -1) continue;
@@ -227,12 +309,25 @@ function discoverUsabilityItems(cwd: string): WorkItem[] {
         const startCheck: number = Math.max(0, beforeLines.length - 6);
         const contextLines: string = beforeLines.slice(startCheck).join('\n');
         if (!contextLines.includes('/**')) {
-          items.push(createWorkItem('usability', `add-jsdoc-${stripExt(file)}-${name}`, `Add JSDoc to ${name} in ${file}`, `Exported function ${name} in lib/${file} lacks JSDoc documentation. Add parameter and return type annotations.`, { effort: 'small' }));
+          items.push(
+            createWorkItem(
+              'usability',
+              `add-jsdoc-${stripExt(file)}-${name}`,
+              `Add JSDoc to ${name} in ${file}`,
+              `Exported function ${name} in lib/${file} lacks JSDoc documentation. Add parameter and return type annotations.`,
+              { effort: 'small' }
+            )
+          );
         }
       }
     }
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    )
+      throw err;
   }
 
   return items;
@@ -251,15 +346,36 @@ function discoverConsistencyItems(cwd: string): WorkItem[] {
       const content: string | null = readLibFileCached(path.join(libDir, file));
       if (!content) continue;
       if (content.includes('process.exit(')) {
-        items.push(createWorkItem('consistency', `remove-process-exit-${stripExt(file)}`, `Replace process.exit calls in ${file}`, `lib/${file} uses process.exit() directly. Use the error() utility function instead for consistent error handling.`, { effort: 'small' }));
+        items.push(
+          createWorkItem(
+            'consistency',
+            `remove-process-exit-${stripExt(file)}`,
+            `Replace process.exit calls in ${file}`,
+            `lib/${file} uses process.exit() directly. Use the error() utility function instead for consistent error handling.`,
+            { effort: 'small' }
+          )
+        );
       }
       const firstLines: string = content.split('\n').slice(0, 5).join('\n');
       if (!firstLines.includes('/**')) {
-        items.push(createWorkItem('consistency', `add-module-header-${stripExt(file)}`, `Add module JSDoc header to ${file}`, `lib/${file} is missing the standard JSDoc module header comment at the top of the file.`, { effort: 'small' }));
+        items.push(
+          createWorkItem(
+            'consistency',
+            `add-module-header-${stripExt(file)}`,
+            `Add module JSDoc header to ${file}`,
+            `lib/${file} is missing the standard JSDoc module header comment at the top of the file.`,
+            { effort: 'small' }
+          )
+        );
       }
     }
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    )
+      throw err;
   }
 
   return items;
@@ -282,19 +398,40 @@ function discoverStabilityItems(cwd: string): WorkItem[] {
       let catchMatch: RegExpExecArray | null;
       while ((catchMatch = emptyCatchPattern.exec(content)) !== null) {
         const lineNum: number = content.substring(0, catchMatch.index).split('\n').length;
-        items.push(createWorkItem('stability', `fix-empty-catch-${base}-L${lineNum}`, `Handle error in empty catch block in ${file} line ${lineNum}`, `lib/${file} has an empty catch block at line ${lineNum} that silently swallows errors. Add error logging or explicit comment explaining why the error is intentionally ignored.`, { effort: 'small' }));
+        items.push(
+          createWorkItem(
+            'stability',
+            `fix-empty-catch-${base}-L${lineNum}`,
+            `Handle error in empty catch block in ${file} line ${lineNum}`,
+            `lib/${file} has an empty catch block at line ${lineNum} that silently swallows errors. Add error logging or explicit comment explaining why the error is intentionally ignored.`,
+            { effort: 'small' }
+          )
+        );
       }
       if (base !== 'paths' && base !== 'evolve') {
         const hardcodedPathPattern = /['"]\.planning\//g;
         let pathMatch: RegExpExecArray | null;
         while ((pathMatch = hardcodedPathPattern.exec(content)) !== null) {
           const lineNum: number = content.substring(0, pathMatch.index).split('\n').length;
-          items.push(createWorkItem('stability', `use-paths-module-${base}-L${lineNum}`, `Use paths module instead of hardcoded path in ${file}`, `lib/${file} has a hardcoded ".planning/" path at line ${lineNum}. Use lib/paths module functions for path resolution to ensure consistency across environments.`, { effort: 'small' }));
+          items.push(
+            createWorkItem(
+              'stability',
+              `use-paths-module-${base}-L${lineNum}`,
+              `Use paths module instead of hardcoded path in ${file}`,
+              `lib/${file} has a hardcoded ".planning/" path at line ${lineNum}. Use lib/paths module functions for path resolution to ensure consistency across environments.`,
+              { effort: 'small' }
+            )
+          );
         }
       }
     }
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    )
+      throw err;
   }
 
   return items;
@@ -305,12 +442,22 @@ function discoverStabilityItems(cwd: string): WorkItem[] {
 /**
  * Run a single dimension discoverer defensively.
  */
-function _discoverDimension(name: string, finder: (cwd: string) => WorkItem[], cwd: string): WorkItem[] {
+function _discoverDimension(
+  name: string,
+  finder: (cwd: string) => WorkItem[],
+  cwd: string
+): WorkItem[] {
   try {
     return finder(cwd);
   } catch (err) {
-    if (err && (err as NodeJS.ErrnoException).code && (err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      process.stderr.write(`[evolve] discoverer error (${name}, ${(err as NodeJS.ErrnoException).code}): ${(err as Error).message}\n`);
+    if (
+      err &&
+      (err as NodeJS.ErrnoException).code &&
+      (err as NodeJS.ErrnoException).code !== 'ENOENT'
+    ) {
+      process.stderr.write(
+        `[evolve] discoverer error (${name}, ${(err as NodeJS.ErrnoException).code}): ${(err as Error).message}\n`
+      );
     }
     return [];
   }
@@ -320,7 +467,10 @@ function _discoverDimension(name: string, finder: (cwd: string) => WorkItem[], c
  * Analyze the codebase and produce categorized work items across all 7 dimensions.
  */
 function analyzeCodebaseForItems(cwd: string): WorkItem[] {
-  const { discoverImproveFeatureItems, discoverNewFeatureItems }: {
+  const {
+    discoverImproveFeatureItems,
+    discoverNewFeatureItems,
+  }: {
     discoverImproveFeatureItems: (cwd: string) => WorkItem[];
     discoverNewFeatureItems: (cwd: string) => WorkItem[];
   } = require('./_dimensions-features');

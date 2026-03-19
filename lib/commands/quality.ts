@@ -4,19 +4,36 @@
 
 const fs = require('fs');
 const path = require('path');
-const { output, error }: {
+const {
+  output,
+  error,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('../utils');
-const { runQualityAnalysis }: {
+const {
+  runQualityAnalysis,
+}: {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityReport;
 } = require('../cleanup');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
-interface ComplexityViolation { file: string; line: number; functionName: string; complexity: number; }
-interface DeadExportViolation { file: string; exportName: string; }
-interface FileSizeViolation { file: string; lines: number; threshold: number; }
+interface ComplexityViolation {
+  file: string;
+  line: number;
+  functionName: string;
+  complexity: number;
+}
+interface DeadExportViolation {
+  file: string;
+  exportName: string;
+}
+interface FileSizeViolation {
+  file: string;
+  lines: number;
+  threshold: number;
+}
 interface QualityReport {
   skipped?: boolean;
   reason?: string;
@@ -49,15 +66,21 @@ function flag(args: string[], name: string, fallback?: string): string | undefin
 function cmdQualityAnalysis(cwd: string, args: string[], raw: boolean): void {
   const phaseNum = flag(args, '--phase');
   if (!phaseNum) {
-    error('--phase flag required for quality-analysis. Usage: quality-analysis --phase <phase-number>. Add the --phase flag, e.g.: quality-analysis --phase 2');
+    error(
+      '--phase flag required for quality-analysis. Usage: quality-analysis --phase <phase-number>. Add the --phase flag, e.g.: quality-analysis --phase 2'
+    );
     return;
   }
   const report = runQualityAnalysis(cwd, phaseNum);
-  if (report.skipped) { output(report, raw, report.reason); return; }
+  if (report.skipped) {
+    output(report, raw, report.reason);
+    return;
+  }
 
   const lines: string[] = [
     `Quality Analysis - Phase ${report.phase}`,
-    `Date: ${report.timestamp}`, '',
+    `Date: ${report.timestamp}`,
+    '',
     `Total issues: ${report.summary?.total_issues}`,
     `  Complexity violations: ${report.summary?.complexity_violations}`,
     `  Dead exports: ${report.summary?.dead_exports}`,
@@ -70,8 +93,7 @@ function cmdQualityAnalysis(cwd: string, args: string[], raw: boolean): void {
   }
   if (report.details?.dead_exports && report.details.dead_exports.length > 0) {
     lines.push('', 'Dead Exports:');
-    for (const v of report.details.dead_exports)
-      lines.push(`  ${v.file} - ${v.exportName}`);
+    for (const v of report.details.dead_exports) lines.push(`  ${v.file} - ${v.exportName}`);
   }
   if (report.details?.file_size && report.details.file_size.length > 0) {
     lines.push('', 'Oversized Files:');
@@ -102,7 +124,8 @@ function cmdSetup(_cwd: string, raw: boolean): void {
   const rawText = [
     'GRD plugin configured.',
     `Package root: ${packageRoot}`,
-    `Plugin config: ${pluginJsonPath}`, '',
+    `Plugin config: ${pluginJsonPath}`,
+    '',
     'To use with Claude Code, add this plugin path to your Claude Code configuration:',
     `  ${pluginDir}`,
   ].join('\n');

@@ -158,7 +158,9 @@ function _collectMarkdownFiles(dir: string): string[] {
         results.push(fullPath);
       }
     }
-  } catch { /* Directory doesn't exist */ }
+  } catch {
+    /* Directory doesn't exist */
+  }
   return results;
 }
 
@@ -166,7 +168,8 @@ function _collectMarkdownFiles(dir: string): string[] {
 function _listPhaseDirs(cwd: string): string[] {
   const phasesPath = getPhasesDirPath(cwd);
   try {
-    return fs.readdirSync(phasesPath, { withFileTypes: true })
+    return fs
+      .readdirSync(phasesPath, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => path.join(phasesPath, e.name));
   } catch {
@@ -177,7 +180,8 @@ function _listPhaseDirs(cwd: string): string[] {
 /** Collect all PLAN.md files in a specific phase directory. */
 function _collectPlanFiles(phasePath: string): string[] {
   try {
-    return fs.readdirSync(phasePath)
+    return fs
+      .readdirSync(phasePath)
       .filter((f: string) => f.endsWith('-PLAN.md'))
       .map((f: string) => path.join(phasePath, f));
   } catch {
@@ -190,10 +194,13 @@ function _findPhaseDirByNumber(cwd: string, phaseNum: string): string | null {
   const phasesPath = getPhasesDirPath(cwd);
   const normalized = phaseNum.padStart(2, '0');
   try {
-    const entries: { isDirectory: () => boolean; name: string }[] =
-      fs.readdirSync(phasesPath, { withFileTypes: true });
+    const entries: { isDirectory: () => boolean; name: string }[] = fs.readdirSync(phasesPath, {
+      withFileTypes: true,
+    });
     const match = entries.find(
-      e => e.isDirectory() && (e.name.startsWith(normalized + '-') || e.name.startsWith(phaseNum + '-'))
+      (e) =>
+        e.isDirectory() &&
+        (e.name.startsWith(normalized + '-') || e.name.startsWith(phaseNum + '-'))
     );
     return match ? path.join(phasesPath, match.name) : null;
   } catch {
@@ -203,8 +210,18 @@ function _findPhaseDirByNumber(cwd: string, phaseNum: string): string | null {
 
 /** Compute Jaccard similarity between two sets of words. */
 function _jaccardSimilarity(a: string, b: string): number {
-  const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(w => w.length > 2));
-  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(w => w.length > 2));
+  const wordsA = new Set(
+    a
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 2)
+  );
+  const wordsB = new Set(
+    b
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 2)
+  );
   if (wordsA.size === 0 || wordsB.size === 0) return 0;
   let intersection = 0;
   for (const w of wordsA) {
@@ -227,7 +244,8 @@ function _extractTodoTitle(content: string): string {
 /** Parse numeric metrics from EVAL.md or SUMMARY.md content using matchAll. */
 function _parseMetricsFromContent(content: string): Record<string, number> {
   const metrics: Record<string, number> = {};
-  const metricPattern = /\b([A-Za-z][A-Za-z0-9_\-/ ]{0,30}):\s*([\d]+(?:\.[\d]+)?)\s*(?:%|dB|ms|s|min)?\b/g;
+  const metricPattern =
+    /\b([A-Za-z][A-Za-z0-9_\-/ ]{0,30}):\s*([\d]+(?:\.[\d]+)?)\s*(?:%|dB|ms|s|min)?\b/g;
   for (const m of content.matchAll(metricPattern)) {
     const key = m[1].trim().toLowerCase().replace(/\s+/g, '_');
     const val = parseFloat(m[2]);
@@ -241,9 +259,9 @@ function _parseMetricsFromContent(content: string): Record<string, number> {
 /** Explain what a config key change means for agent behavior. */
 function _explainConfigChange(key: string, oldVal: unknown, newVal: unknown): string {
   const explanations: Record<string, string> = {
-    'autonomous_mode': 'Controls YOLO mode — disables all gates when enabled',
+    autonomous_mode: 'Controls YOLO mode — disables all gates when enabled',
     'ceremony.default_level': 'Controls which agents run (light/standard/full)',
-    'research_gates': 'Human review points for research decisions',
+    research_gates: 'Human review points for research decisions',
     'code_review.enabled': 'Toggles automatic code review after execution',
     'execution.agent_teams': 'Enables parallel agent team execution',
     'git.enabled': 'Enables isolated git worktree per phase',
@@ -282,11 +300,25 @@ function _flattenObject(obj: Record<string, unknown>, prefix = ''): Record<strin
  * @param raw - Raw output flag
  */
 function cmdPhaseRiskAssessment(cwd: string, phase: string, raw: boolean): void {
-  if (!phase) { error('Phase number required'); return; }
+  if (!phase) {
+    error('Phase number required');
+    return;
+  }
 
   const phaseDir = _findPhaseDirByNumber(cwd, phase);
   if (!phaseDir) {
-    output({ error: `Phase ${phase} directory not found`, phase, signals: [], risk_score: 0, risk_level: 'low', plan_count: 0, plans_analyzed: [] }, raw);
+    output(
+      {
+        error: `Phase ${phase} directory not found`,
+        phase,
+        signals: [],
+        risk_score: 0,
+        risk_level: 'low',
+        plan_count: 0,
+        plans_analyzed: [],
+      },
+      raw
+    );
     return;
   }
 
@@ -302,16 +334,21 @@ function cmdPhaseRiskAssessment(cwd: string, phase: string, raw: boolean): void 
     const lower = content.toLowerCase();
 
     // Risk: vague success criteria (no numbers in success section)
-    const successSection = content.match(/##\s+(?:success|acceptance|criteria|must[_\s]haves?)[^\n]*\n([\s\S]*?)(?=\n##|$)/i);
+    const successSection = content.match(
+      /##\s+(?:success|acceptance|criteria|must[_\s]haves?)[^\n]*\n([\s\S]*?)(?=\n##|$)/i
+    );
     if (successSection) {
       const hasNumbers = /\d+(?:\.\d+)?/.test(successSection[1]);
-      const hasSpecificTerms = /must|shall|exactly|at least|no more than|< |> |>=|<=/i.test(successSection[1]);
+      const hasSpecificTerms = /must|shall|exactly|at least|no more than|< |> |>=|<=/i.test(
+        successSection[1]
+      );
       if (!hasNumbers && !hasSpecificTerms) {
         signals.push({
           category: 'success_criteria',
           signal: `${filename}: Success criteria lack quantitative targets`,
           severity: 'high',
-          remediation: 'Add specific numeric thresholds (e.g., "accuracy >= 85%", "latency < 200ms")',
+          remediation:
+            'Add specific numeric thresholds (e.g., "accuracy >= 85%", "latency < 200ms")',
         });
       }
     } else {
@@ -324,12 +361,17 @@ function cmdPhaseRiskAssessment(cwd: string, phase: string, raw: boolean): void 
     }
 
     // Risk: missing baseline reference
-    if (!lower.includes('baseline') && !lower.includes('comparison') && !lower.includes('benchmark')) {
+    if (
+      !lower.includes('baseline') &&
+      !lower.includes('comparison') &&
+      !lower.includes('benchmark')
+    ) {
       signals.push({
         category: 'baseline',
         signal: `${filename}: No baseline or comparison reference`,
         severity: 'medium',
-        remediation: 'Reference a baseline metric so evaluation can measure improvement (see BASELINE.md)',
+        remediation:
+          'Reference a baseline metric so evaluation can measure improvement (see BASELINE.md)',
       });
     }
 
@@ -345,22 +387,34 @@ function cmdPhaseRiskAssessment(cwd: string, phase: string, raw: boolean): void 
     }
 
     // Risk: no fallback strategy
-    if (!lower.includes('fallback') && !lower.includes('alternative') && !lower.includes('if this fails') && !lower.includes('rollback')) {
+    if (
+      !lower.includes('fallback') &&
+      !lower.includes('alternative') &&
+      !lower.includes('if this fails') &&
+      !lower.includes('rollback')
+    ) {
       signals.push({
         category: 'fallback',
         signal: `${filename}: No fallback or rollback strategy mentioned`,
         severity: 'low',
-        remediation: 'Add a fallback plan for if the primary approach fails (e.g., simpler model, cached results)',
+        remediation:
+          'Add a fallback plan for if the primary approach fails (e.g., simpler model, cached results)',
       });
     }
 
     // Risk: unclear dependencies
-    if (!lower.includes('depend') && !lower.includes('requires') && !lower.includes('prerequisite') && !lower.includes('phase')) {
+    if (
+      !lower.includes('depend') &&
+      !lower.includes('requires') &&
+      !lower.includes('prerequisite') &&
+      !lower.includes('phase')
+    ) {
       signals.push({
         category: 'dependencies',
         signal: `${filename}: No explicit dependencies stated`,
         severity: 'low',
-        remediation: 'List phase/plan prerequisites explicitly so blockers are visible before execution starts',
+        remediation:
+          'List phase/plan prerequisites explicitly so blockers are visible before execution starts',
       });
     }
   }
@@ -394,7 +448,11 @@ function cmdPhaseRiskAssessment(cwd: string, phase: string, raw: boolean): void 
     plans_analyzed: plansAnalyzed,
   };
 
-  output(result, raw, `Phase ${phase} risk: ${risk_level} (score=${risk_score}, signals=${signals.length})`);
+  output(
+    result,
+    raw,
+    `Phase ${phase} risk: ${risk_level} (score=${risk_score}, signals=${signals.length})`
+  );
 }
 
 // ─── CLI: Citation Backlink Tracker ──────────────────────────────────────────
@@ -420,17 +478,24 @@ function cmdCitationBacklinks(cwd: string, raw: boolean): void {
   const papers: Array<{ id: string; title: string }> = [];
   for (const m of papersContent.matchAll(/^##\s+(.+)$/gm)) {
     const title = m[1].trim();
-    const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+    const id = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 50);
     if (id) papers.push({ id, title });
   }
   // Also match slug-style entries: **[slug]**
   for (const m of papersContent.matchAll(/\*\*\[([a-z0-9-]+)\]\*\*/g)) {
     const id = m[1].trim();
-    if (!papers.find(p => p.id === id)) papers.push({ id, title: id });
+    if (!papers.find((p) => p.id === id)) papers.push({ id, title: id });
   }
 
   if (papers.length === 0) {
-    output({ milestone, papers_found: 0, backlinks: [], note: 'No paper headings found in PAPERS.md' }, raw);
+    output(
+      { milestone, papers_found: 0, backlinks: [], note: 'No paper headings found in PAPERS.md' },
+      raw
+    );
     return;
   }
 
@@ -441,7 +506,7 @@ function cmdCitationBacklinks(cwd: string, raw: boolean): void {
 
   for (const paper of papers) {
     const refs: CitationBacklink['references'] = [];
-    const searchTerms = [paper.id, ...paper.title.split(/\s+/).filter(w => w.length > 4)];
+    const searchTerms = [paper.id, ...paper.title.split(/\s+/).filter((w) => w.length > 4)];
 
     for (const mdFile of allMdFiles) {
       if (mdFile === papersPath) continue;
@@ -451,7 +516,7 @@ function cmdCitationBacklinks(cwd: string, raw: boolean): void {
 
       for (let i = 0; i < lines.length; i++) {
         const lineLower = lines[i].toLowerCase();
-        const matched = searchTerms.some(term => lineLower.includes(term.toLowerCase()));
+        const matched = searchTerms.some((term) => lineLower.includes(term.toLowerCase()));
         if (matched) {
           refs.push({
             file: path.relative(planningPath, mdFile),
@@ -472,15 +537,18 @@ function cmdCitationBacklinks(cwd: string, raw: boolean): void {
   }
 
   backlinks.sort((a, b) => b.reference_count - a.reference_count);
-  const unreferenced = backlinks.filter(b => b.reference_count === 0);
+  const unreferenced = backlinks.filter((b) => b.reference_count === 0);
 
-  output({
-    milestone,
-    papers_indexed: papers.length,
-    total_references: backlinks.reduce((s, b) => s + b.reference_count, 0),
-    unreferenced_count: unreferenced.length,
-    backlinks,
-  }, raw);
+  output(
+    {
+      milestone,
+      papers_indexed: papers.length,
+      total_references: backlinks.reduce((s, b) => s + b.reference_count, 0),
+      unreferenced_count: unreferenced.length,
+      backlinks,
+    },
+    raw
+  );
 }
 
 // ─── CLI: Eval Regression Check ───────────────────────────────────────────────
@@ -494,21 +562,37 @@ function cmdCitationBacklinks(cwd: string, raw: boolean): void {
  * @param thresholdPct - Regression threshold percentage (default 5%)
  */
 function cmdEvalRegressionCheck(cwd: string, phase: string, raw: boolean, thresholdPct = 5): void {
-  if (!phase) { error('Phase number required'); return; }
+  if (!phase) {
+    error('Phase number required');
+    return;
+  }
 
   const phaseDir = _findPhaseDirByNumber(cwd, phase);
   if (!phaseDir) {
-    output({ error: `Phase ${phase} not found`, phase, has_regressions: false, regressions: [] }, raw);
+    output(
+      { error: `Phase ${phase} not found`, phase, has_regressions: false, regressions: [] },
+      raw
+    );
     return;
   }
 
   let evalFiles: string[] = [];
   try {
     evalFiles = fs.readdirSync(phaseDir).filter((f: string) => f.endsWith('-EVAL.md'));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   if (evalFiles.length === 0) {
-    output({ phase, note: 'No EVAL.md found in phase directory', has_regressions: false, regressions: [] }, raw);
+    output(
+      {
+        phase,
+        note: 'No EVAL.md found in phase directory',
+        has_regressions: false,
+        regressions: [],
+      },
+      raw
+    );
     return;
   }
 
@@ -539,7 +623,13 @@ function cmdEvalRegressionCheck(cwd: string, phase: string, raw: boolean, thresh
     const regressed = delta < 0 && deltaPct > thresholdPct;
     const improved = delta > 0 && deltaPct > thresholdPct;
 
-    const entry: EvalMetric = { name, value, baseline, regression: regressed, delta: parseFloat(delta.toFixed(4)) };
+    const entry: EvalMetric = {
+      name,
+      value,
+      baseline,
+      regression: regressed,
+      delta: parseFloat(delta.toFixed(4)),
+    };
     if (regressed) regressions.push(entry);
     else if (improved) improvements.push(entry);
     else stable.push(entry);
@@ -554,9 +644,12 @@ function cmdEvalRegressionCheck(cwd: string, phase: string, raw: boolean, thresh
     has_regressions: regressions.length > 0,
   };
 
-  output(result, raw, regressions.length > 0
-    ? `WARNING: ${regressions.length} metric(s) regressed in phase ${phase}`
-    : `Phase ${phase}: No eval regressions detected`
+  output(
+    result,
+    raw,
+    regressions.length > 0
+      ? `WARNING: ${regressions.length} metric(s) regressed in phase ${phase}`
+      : `Phase ${phase}: No eval regressions detected`
   );
 }
 
@@ -626,26 +719,33 @@ function cmdPhaseTimeBudget(cwd: string, raw: boolean): void {
       const actual = actualByPhase[entry.phase] ?? null;
       if (actual !== null) {
         entry.actual_min = actual;
-        entry.variance_pct = entry.estimated_min > 0
-          ? parseFloat(((actual - entry.estimated_min) / entry.estimated_min * 100).toFixed(1))
-          : null;
+        entry.variance_pct =
+          entry.estimated_min > 0
+            ? parseFloat((((actual - entry.estimated_min) / entry.estimated_min) * 100).toFixed(1))
+            : null;
         entry.over_budget = entry.variance_pct !== null && entry.variance_pct > 20;
       }
     }
   }
 
-  const over = phases.filter(p => p.over_budget);
-  const tracked = phases.filter(p => p.actual_min !== null);
+  const over = phases.filter((p) => p.over_budget);
+  const tracked = phases.filter((p) => p.actual_min !== null);
 
-  output({
-    total_phases: phases.length,
-    tracked_phases: tracked.length,
-    over_budget_count: over.length,
-    avg_variance_pct: tracked.length > 0
-      ? parseFloat((tracked.reduce((s, p) => s + (p.variance_pct ?? 0), 0) / tracked.length).toFixed(1))
-      : null,
-    phases,
-  }, raw);
+  output(
+    {
+      total_phases: phases.length,
+      tracked_phases: tracked.length,
+      over_budget_count: over.length,
+      avg_variance_pct:
+        tracked.length > 0
+          ? parseFloat(
+              (tracked.reduce((s, p) => s + (p.variance_pct ?? 0), 0) / tracked.length).toFixed(1)
+            )
+          : null,
+      phases,
+    },
+    raw
+  );
 }
 
 // ─── CLI: Config Change Diff Viewer ──────────────────────────────────────────
@@ -670,14 +770,28 @@ function cmdConfigDiff(cwd: string, raw: boolean, reset = false): void {
 
   if (reset || !fs.existsSync(snapshotPath)) {
     fs.writeFileSync(snapshotPath, JSON.stringify(currentConfig, null, 2));
-    output({ action: 'snapshot_saved', message: 'Config snapshot saved. Run again to see diffs.', path: snapshotPath }, raw);
+    output(
+      {
+        action: 'snapshot_saved',
+        message: 'Config snapshot saved. Run again to see diffs.',
+        path: snapshotPath,
+      },
+      raw
+    );
     return;
   }
 
   const snapshot = safeReadJSON(snapshotPath, null) as Record<string, unknown> | null;
   if (!snapshot) {
     fs.writeFileSync(snapshotPath, JSON.stringify(currentConfig, null, 2));
-    output({ action: 'snapshot_saved', message: 'Config snapshot saved (previous was unreadable).', path: snapshotPath }, raw);
+    output(
+      {
+        action: 'snapshot_saved',
+        message: 'Config snapshot saved (previous was unreadable).',
+        path: snapshotPath,
+      },
+      raw
+    );
     return;
   }
 
@@ -700,14 +814,17 @@ function cmdConfigDiff(cwd: string, raw: boolean, reset = false): void {
     }
   }
 
-  output({
-    changes_count: changes.length,
-    has_changes: changes.length > 0,
-    changes,
-    snapshot_path: snapshotPath,
-  }, raw, changes.length > 0
-    ? `${changes.length} config change(s) detected since last snapshot`
-    : 'No config changes since last snapshot'
+  output(
+    {
+      changes_count: changes.length,
+      has_changes: changes.length > 0,
+      changes,
+      snapshot_path: snapshotPath,
+    },
+    raw,
+    changes.length > 0
+      ? `${changes.length} config change(s) detected since last snapshot`
+      : 'No config changes since last snapshot'
   );
 }
 
@@ -721,7 +838,10 @@ function cmdConfigDiff(cwd: string, raw: boolean, reset = false): void {
  * @param raw - Raw output flag
  */
 function cmdPhaseReadiness(cwd: string, phase: string, raw: boolean): void {
-  if (!phase) { error('Phase number required'); return; }
+  if (!phase) {
+    error('Phase number required');
+    return;
+  }
 
   const phaseDir = _findPhaseDirByNumber(cwd, phase);
   const checks: ReadinessCheck[] = [];
@@ -750,16 +870,21 @@ function cmdPhaseReadiness(cwd: string, phase: string, raw: boolean): void {
   checks.push({
     name: 'Baseline metrics captured',
     passed: baselineExists,
-    detail: baselineExists ? 'BASELINE.md exists' : 'BASELINE.md missing — run /grd:assess-baseline',
+    detail: baselineExists
+      ? 'BASELINE.md exists'
+      : 'BASELINE.md missing — run /grd:assess-baseline',
   });
-  if (!baselineExists) blockers.push('No baseline metrics — run /grd:assess-baseline before executing');
+  if (!baselineExists)
+    blockers.push('No baseline metrics — run /grd:assess-baseline before executing');
 
   // Check 4: EVAL plan exists for this phase
   let evalFile: string | undefined;
   if (phaseDir) {
     try {
       evalFile = fs.readdirSync(phaseDir).find((f: string) => f.endsWith('-EVAL.md'));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   checks.push({
     name: 'Eval plan written',
@@ -772,18 +897,22 @@ function cmdPhaseReadiness(cwd: string, phase: string, raw: boolean): void {
   const stateContent = safeReadFile(statePath) || '';
   const blockerSection = stateContent.match(/##\s+Blockers?\s*\n([\s\S]*?)(?=\n##|$)/i);
   const activeBlockers = blockerSection
-    ? blockerSection[1].split('\n').filter((l: string) =>
-        l.trim().startsWith('-') && !l.includes('[x]') && l.trim().length > 2
-      )
+    ? blockerSection[1]
+        .split('\n')
+        .filter(
+          (l: string) => l.trim().startsWith('-') && !l.includes('[x]') && l.trim().length > 2
+        )
     : [];
   checks.push({
     name: 'No active blockers in STATE.md',
     passed: activeBlockers.length === 0,
-    detail: activeBlockers.length > 0
-      ? `${activeBlockers.length} blocker(s): ${activeBlockers[0]?.trim().slice(0, 60)}`
-      : 'No active blockers',
+    detail:
+      activeBlockers.length > 0
+        ? `${activeBlockers.length} blocker(s): ${activeBlockers[0]?.trim().slice(0, 60)}`
+        : 'No active blockers',
   });
-  if (activeBlockers.length > 0) blockers.push(`${activeBlockers.length} active blocker(s) in STATE.md`);
+  if (activeBlockers.length > 0)
+    blockers.push(`${activeBlockers.length} active blocker(s) in STATE.md`);
 
   // Check 6: Prior phase is complete (if phase > 1)
   const phaseNum = parseFloat(phase);
@@ -792,7 +921,9 @@ function cmdPhaseReadiness(cwd: string, phase: string, raw: boolean): void {
     const priorDir = _findPhaseDirByNumber(cwd, String(priorPhaseNum));
     if (priorDir) {
       const priorPlans = _collectPlanFiles(priorDir);
-      const priorSummaries = priorPlans.filter(p => fs.existsSync(p.replace('-PLAN.md', '-SUMMARY.md')));
+      const priorSummaries = priorPlans.filter((p) =>
+        fs.existsSync(p.replace('-PLAN.md', '-SUMMARY.md'))
+      );
       const priorComplete = priorPlans.length === 0 || priorSummaries.length >= priorPlans.length;
       checks.push({
         name: `Prior phase (${priorPhaseNum}) complete`,
@@ -805,15 +936,18 @@ function cmdPhaseReadiness(cwd: string, phase: string, raw: boolean): void {
     }
   }
 
-  const passed = checks.filter(c => c.passed).length;
+  const passed = checks.filter((c) => c.passed).length;
   const total = checks.length;
   const score = Math.round((passed / total) * 100);
   const ready = blockers.length === 0;
 
   const result: PhaseReadinessResult = { phase, ready, score, checks, blockers };
-  output(result, raw, ready
-    ? `Phase ${phase} is READY to execute (${score}% checks passed)`
-    : `Phase ${phase} NOT ready: ${blockers.length} blocker(s) (${score}% passed)`
+  output(
+    result,
+    raw,
+    ready
+      ? `Phase ${phase} is READY to execute (${score}% checks passed)`
+      : `Phase ${phase} NOT ready: ${blockers.length} blocker(s) (${score}% passed)`
   );
 }
 
@@ -835,17 +969,20 @@ function cmdMilestoneHealth(cwd: string, raw: boolean): void {
   let totalPhases = 0;
   let completedPhases = 0;
   try {
-    const phaseDirs: string[] = fs.readdirSync(phasesPath, { withFileTypes: true })
+    const phaseDirs: string[] = fs
+      .readdirSync(phasesPath, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name);
     totalPhases = phaseDirs.length;
     for (const dir of phaseDirs) {
       const plans = _collectPlanFiles(path.join(phasesPath, dir));
       if (plans.length === 0) continue;
-      const summaries = plans.filter(p => fs.existsSync(p.replace('-PLAN.md', '-SUMMARY.md')));
+      const summaries = plans.filter((p) => fs.existsSync(p.replace('-PLAN.md', '-SUMMARY.md')));
       if (summaries.length === plans.length) completedPhases++;
     }
-  } catch { /* no phases dir */ }
+  } catch {
+    /* no phases dir */
+  }
 
   const completionRate = totalPhases > 0 ? completedPhases / totalPhases : 0;
   const completionScore = Math.round(completionRate * 40);
@@ -853,9 +990,11 @@ function cmdMilestoneHealth(cwd: string, raw: boolean): void {
   // Component 2: Blocker penalty (20 pts max, deduct per blocker)
   const blockerMatch = stateContent.match(/##\s+Blockers?\s*\n([\s\S]*?)(?=\n##|$)/i);
   const activeBlockerCount = blockerMatch
-    ? blockerMatch[1].split('\n').filter((l: string) =>
-        l.trim().startsWith('-') && !l.includes('[x]') && l.trim().length > 2
-      ).length
+    ? blockerMatch[1]
+        .split('\n')
+        .filter(
+          (l: string) => l.trim().startsWith('-') && !l.includes('[x]') && l.trim().length > 2
+        ).length
     : 0;
   const blockerPenalty = Math.min(20, activeBlockerCount * 5);
   const blockerScore = 20 - blockerPenalty;
@@ -863,7 +1002,7 @@ function cmdMilestoneHealth(cwd: string, raw: boolean): void {
   // Component 3: Eval hit rate (30 pts)
   let evalTargetsTotal = 0;
   let evalTargetsMet = 0;
-  const evalFiles = _collectMarkdownFiles(phasesPath).filter(f => f.endsWith('-EVAL.md'));
+  const evalFiles = _collectMarkdownFiles(phasesPath).filter((f) => f.endsWith('-EVAL.md'));
   for (const ef of evalFiles) {
     const content = safeReadFile(ef);
     if (!content) continue;
@@ -881,7 +1020,15 @@ function cmdMilestoneHealth(cwd: string, raw: boolean): void {
 
   const totalScore = completionScore + blockerScore + evalScore + estimateScore;
   const grade: MilestoneHealthResult['grade'] =
-    totalScore >= 90 ? 'A' : totalScore >= 75 ? 'B' : totalScore >= 60 ? 'C' : totalScore >= 45 ? 'D' : 'F';
+    totalScore >= 90
+      ? 'A'
+      : totalScore >= 75
+        ? 'B'
+        : totalScore >= 60
+          ? 'C'
+          : totalScore >= 45
+            ? 'D'
+            : 'F';
 
   const result: MilestoneHealthResult = {
     milestone,
@@ -913,18 +1060,34 @@ function cmdDecisionTimeline(cwd: string, raw: boolean): void {
   // Parse decisions from STATE.md
   const statePath = path.join(getPlanningDir(cwd), 'STATE.md');
   const stateContent = safeReadFile(statePath) || '';
-  const decisionSection = stateContent.match(/##\s+(?:Key\s+)?Decisions?\s*\n([\s\S]*?)(?=\n##|$)/i);
+  const decisionSection = stateContent.match(
+    /##\s+(?:Key\s+)?Decisions?\s*\n([\s\S]*?)(?=\n##|$)/i
+  );
   if (decisionSection) {
     const lines = decisionSection[1].split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      const datePhaseMatch = trimmed.match(/^[-*]\s+\[?(\d{4}-\d{2}-\d{2})\]?\s+(?:Phase\s+(\d+(?:\.\d+)?)[:\s]+)?(.+)/);
+      const datePhaseMatch = trimmed.match(
+        /^[-*]\s+\[?(\d{4}-\d{2}-\d{2})\]?\s+(?:Phase\s+(\d+(?:\.\d+)?)[:\s]+)?(.+)/
+      );
       const phaseMatch = trimmed.match(/^[-*]\s+(?:Phase\s+(\d+(?:\.\d+)?)[:\s]+)?(.+)/);
       if (datePhaseMatch) {
-        decisions.push({ phase: datePhaseMatch[2] || null, date: datePhaseMatch[1], summary: datePhaseMatch[3].trim(), rationale: '', source: 'STATE.md' });
+        decisions.push({
+          phase: datePhaseMatch[2] || null,
+          date: datePhaseMatch[1],
+          summary: datePhaseMatch[3].trim(),
+          rationale: '',
+          source: 'STATE.md',
+        });
       } else if (phaseMatch && trimmed.startsWith('-')) {
-        decisions.push({ phase: phaseMatch[1] || null, date: null, summary: phaseMatch[2].trim(), rationale: '', source: 'STATE.md' });
+        decisions.push({
+          phase: phaseMatch[1] || null,
+          date: null,
+          summary: phaseMatch[2].trim(),
+          rationale: '',
+          source: 'STATE.md',
+        });
       }
     }
   }
@@ -939,17 +1102,27 @@ function cmdDecisionTimeline(cwd: string, raw: boolean): void {
     let ctxFiles: string[] = [];
     try {
       ctxFiles = fs.readdirSync(phaseDir).filter((f: string) => f.endsWith('-CONTEXT.md'));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     for (const ctxFile of ctxFiles) {
       const content = safeReadFile(path.join(phaseDir, ctxFile));
       if (!content) continue;
-      const section = content.match(/##\s+(?:Decisions?|Choices?|Resolution)\s*\n([\s\S]*?)(?=\n##|$)/i);
+      const section = content.match(
+        /##\s+(?:Decisions?|Choices?|Resolution)\s*\n([\s\S]*?)(?=\n##|$)/i
+      );
       if (section) {
         for (const line of section[1].split('\n')) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('-')) continue;
-          decisions.push({ phase: phaseNum, date: null, summary: trimmed.replace(/^[-*]\s+/, '').slice(0, 120), rationale: '', source: `${phaseName}/${ctxFile}` });
+          decisions.push({
+            phase: phaseNum,
+            date: null,
+            summary: trimmed.replace(/^[-*]\s+/, '').slice(0, 120),
+            rationale: '',
+            source: `${phaseName}/${ctxFile}`,
+          });
         }
       }
     }
@@ -959,10 +1132,17 @@ function cmdDecisionTimeline(cwd: string, raw: boolean): void {
     if (a.date && b.date) return a.date.localeCompare(b.date);
     if (a.date) return -1;
     if (b.date) return 1;
-    return (parseFloat(a.phase || '999') - parseFloat(b.phase || '999'));
+    return parseFloat(a.phase || '999') - parseFloat(b.phase || '999');
   });
 
-  output({ total_decisions: decisions.length, decisions_with_dates: decisions.filter(d => d.date !== null).length, timeline: decisions }, raw);
+  output(
+    {
+      total_decisions: decisions.length,
+      decisions_with_dates: decisions.filter((d) => d.date !== null).length,
+      timeline: decisions,
+    },
+    raw
+  );
 }
 
 // ─── CLI: Cross-Project Knowledge Import ─────────────────────────────────────
@@ -976,8 +1156,17 @@ function cmdDecisionTimeline(cwd: string, raw: boolean): void {
  * @param raw - Raw output flag
  * @param force - If true, overwrite existing files
  */
-function cmdImportKnowledge(cwd: string, sourcePath: string, types: string, raw: boolean, force = false): void {
-  if (!sourcePath) { error('Source project path required'); return; }
+function cmdImportKnowledge(
+  cwd: string,
+  sourcePath: string,
+  types: string,
+  raw: boolean,
+  force = false
+): void {
+  if (!sourcePath) {
+    error('Source project path required');
+    return;
+  }
 
   const absoluteSource = path.resolve(cwd, sourcePath);
   if (!fs.existsSync(absoluteSource)) {
@@ -985,9 +1174,10 @@ function cmdImportKnowledge(cwd: string, sourcePath: string, types: string, raw:
     return;
   }
 
-  const requestedTypes = !types || types === 'all'
-    ? ['landscape', 'papers', 'knowhow']
-    : types.split(',').map((t: string) => t.trim().toLowerCase());
+  const requestedTypes =
+    !types || types === 'all'
+      ? ['landscape', 'papers', 'knowhow']
+      : types.split(',').map((t: string) => t.trim().toLowerCase());
 
   const fileMap: Record<string, string> = {
     landscape: 'LANDSCAPE.md',
@@ -1003,7 +1193,10 @@ function cmdImportKnowledge(cwd: string, sourcePath: string, types: string, raw:
   ];
   let sourceResearchDir: string | null = null;
   for (const dir of candidateDirs) {
-    if (fs.existsSync(dir)) { sourceResearchDir = dir; break; }
+    if (fs.existsSync(dir)) {
+      sourceResearchDir = dir;
+      break;
+    }
   }
 
   if (!sourceResearchDir) {
@@ -1019,7 +1212,14 @@ function cmdImportKnowledge(cwd: string, sourcePath: string, types: string, raw:
   for (const type of requestedTypes) {
     const filename = fileMap[type];
     if (!filename) {
-      results.push({ source: sourcePath, type, destination: '', imported: false, conflict: false, message: `Unknown type: ${type}` });
+      results.push({
+        source: sourcePath,
+        type,
+        destination: '',
+        imported: false,
+        conflict: false,
+        message: `Unknown type: ${type}`,
+      });
       continue;
     }
 
@@ -1027,32 +1227,64 @@ function cmdImportKnowledge(cwd: string, sourcePath: string, types: string, raw:
     const destFile = path.join(destResearchDir, filename);
 
     if (!fs.existsSync(srcFile)) {
-      results.push({ source: srcFile, type, destination: destFile, imported: false, conflict: false, message: `Source file not found: ${filename}` });
+      results.push({
+        source: srcFile,
+        type,
+        destination: destFile,
+        imported: false,
+        conflict: false,
+        message: `Source file not found: ${filename}`,
+      });
       continue;
     }
 
     const destExists = fs.existsSync(destFile);
     if (destExists && !force) {
-      results.push({ source: srcFile, type, destination: destFile, imported: false, conflict: true, message: `${filename} already exists — use --force to overwrite` });
+      results.push({
+        source: srcFile,
+        type,
+        destination: destFile,
+        imported: false,
+        conflict: true,
+        message: `${filename} already exists — use --force to overwrite`,
+      });
       continue;
     }
 
     try {
       fs.cpSync(srcFile, destFile);
-      results.push({ source: srcFile, type, destination: destFile, imported: true, conflict: destExists, message: destExists ? `Overwrote existing ${filename}` : `Imported ${filename}` });
+      results.push({
+        source: srcFile,
+        type,
+        destination: destFile,
+        imported: true,
+        conflict: destExists,
+        message: destExists ? `Overwrote existing ${filename}` : `Imported ${filename}`,
+      });
     } catch (err: unknown) {
-      results.push({ source: srcFile, type, destination: destFile, imported: false, conflict: false, message: `Copy failed: ${(err as Error).message}` });
+      results.push({
+        source: srcFile,
+        type,
+        destination: destFile,
+        imported: false,
+        conflict: false,
+        message: `Copy failed: ${(err as Error).message}`,
+      });
     }
   }
 
-  const importedCount = results.filter(r => r.imported).length;
-  output({
-    source_project: absoluteSource,
-    destination_project: cwd,
-    imported_count: importedCount,
-    conflict_count: results.filter(r => r.conflict && !r.imported).length,
-    results,
-  }, raw, `${importedCount}/${requestedTypes.length} file(s) imported from ${sourcePath}`);
+  const importedCount = results.filter((r) => r.imported).length;
+  output(
+    {
+      source_project: absoluteSource,
+      destination_project: cwd,
+      imported_count: importedCount,
+      conflict_count: results.filter((r) => r.conflict && !r.imported).length,
+      results,
+    },
+    raw,
+    `${importedCount}/${requestedTypes.length} file(s) imported from ${sourcePath}`
+  );
 }
 
 // ─── CLI: Semantic Todo Duplicate Detector ────────────────────────────────────
@@ -1070,7 +1302,8 @@ function cmdTodoDuplicates(cwd: string, raw: boolean, threshold = 0.4): void {
 
   let todoFiles: string[];
   try {
-    todoFiles = fs.readdirSync(pendingDir)
+    todoFiles = fs
+      .readdirSync(pendingDir)
       .filter((f: string) => f.endsWith('.md') || f.endsWith('.txt'))
       .map((f: string) => path.join(pendingDir, f));
   } catch {
@@ -1079,7 +1312,10 @@ function cmdTodoDuplicates(cwd: string, raw: boolean, threshold = 0.4): void {
   }
 
   if (todoFiles.length < 2) {
-    output({ total_todos: todoFiles.length, duplicates: [], note: 'Not enough todos to compare' }, raw);
+    output(
+      { total_todos: todoFiles.length, duplicates: [], note: 'Not enough todos to compare' },
+      raw
+    );
     return;
   }
 
@@ -1098,20 +1334,30 @@ function cmdTodoDuplicates(cwd: string, raw: boolean, threshold = 0.4): void {
         todos[j].title + ' ' + todos[j].content.slice(0, 300)
       );
       if (sim >= threshold) {
-        pairs.push({ a: todos[i].file, b: todos[j].file, similarity: parseFloat(sim.toFixed(3)), a_title: todos[i].title, b_title: todos[j].title });
+        pairs.push({
+          a: todos[i].file,
+          b: todos[j].file,
+          similarity: parseFloat(sim.toFixed(3)),
+          a_title: todos[i].title,
+          b_title: todos[j].title,
+        });
       }
     }
   }
 
   pairs.sort((a, b) => b.similarity - a.similarity);
 
-  output({
-    total_todos: todos.length,
-    threshold,
-    duplicate_pairs: pairs.length,
-    duplicates: pairs,
-    unique_todos_at_risk: new Set(pairs.flatMap(p => [p.a, p.b])).size,
-  }, raw, `Found ${pairs.length} potential duplicate pair(s) among ${todos.length} todos (threshold=${threshold})`);
+  output(
+    {
+      total_todos: todos.length,
+      threshold,
+      duplicate_pairs: pairs.length,
+      duplicates: pairs,
+      unique_todos_at_risk: new Set(pairs.flatMap((p) => [p.a, p.b])).size,
+    },
+    raw,
+    `Found ${pairs.length} potential duplicate pair(s) among ${todos.length} todos (threshold=${threshold})`
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

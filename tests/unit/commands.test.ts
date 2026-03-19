@@ -355,7 +355,9 @@ describe('cmdConfigEnsureSection', () => {
 
   test('creates config with mcp_atlassian key instead of obsolete jira key', () => {
     fs.unlinkSync(path.join(fixtureDir, '.planning', 'config.json'));
-    captureOutput(() => { cmdConfigEnsureSection(fixtureDir, false); });
+    captureOutput(() => {
+      cmdConfigEnsureSection(fixtureDir, false);
+    });
     const config = JSON.parse(
       fs.readFileSync(path.join(fixtureDir, '.planning', 'config.json'), 'utf-8')
     );
@@ -3085,13 +3087,21 @@ describe('cmdRequirementUpdateStatus', () => {
     const after = fs.readFileSync(reqPath, 'utf-8');
 
     // REQ-01 row should be unchanged (still Done)
-    const req01Before = before.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
-    const req01After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
+    const req01Before = before
+      .split('\n')
+      .find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
+    const req01After = after
+      .split('\n')
+      .find((l: any) => l.startsWith('|') && l.includes('REQ-01'));
     expect(req01After).toBe(req01Before);
 
     // REQ-03 row should be unchanged (still In Progress)
-    const req03Before = before.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
-    const req03After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
+    const req03Before = before
+      .split('\n')
+      .find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
+    const req03After = after
+      .split('\n')
+      .find((l: any) => l.startsWith('|') && l.includes('REQ-03'));
     expect(req03After).toBe(req03Before);
 
     // Content above Traceability Matrix section is unchanged
@@ -3099,7 +3109,9 @@ describe('cmdRequirementUpdateStatus', () => {
     expect(after.substring(0, matrixIdx(after))).toBe(before.substring(0, matrixIdx(before)));
 
     // REQ-02 Feature and Priority columns preserved
-    const req02After = after.split('\n').find((l: any) => l.startsWith('|') && l.includes('REQ-02'));
+    const req02After = after
+      .split('\n')
+      .find((l: any) => l.startsWith('|') && l.includes('REQ-02'));
     expect(req02After).toContain('CLI Feature');
     expect(req02After).toContain('P1');
   });
@@ -3714,7 +3726,7 @@ describe('cmdHealthCheck', () => {
     child_process.execFileSync = (cmd: string, args: string[]) => {
       if (args && args[0] === 'jest') {
         const err = new Error('Tests failed');
-        (err as any).stdout ='Tests:  3 failed, 97 passed, 100 total';
+        (err as any).stdout = 'Tests:  3 failed, 97 passed, 100 total';
         throw err;
       }
       if (args && args[0] === 'eslint') {
@@ -3748,7 +3760,7 @@ describe('cmdHealthCheck', () => {
       if (args && args[0] === 'jest') return 'Tests:  50 passed, 50 total';
       if (args && args[0] === 'eslint') {
         const err = new Error('Lint failed');
-        (err as any).stdout =JSON.stringify([
+        (err as any).stdout = JSON.stringify([
           { filePath: 'lib/a.js', errorCount: 2, warningCount: 1, messages: [] },
           { filePath: 'lib/b.js', errorCount: 0, warningCount: 3, messages: [] },
         ]);
@@ -3813,7 +3825,7 @@ describe('cmdHealthCheck', () => {
       if (args && args[0] === 'jest') return 'Tests:  10 passed, 10 total';
       if (args && args[0] === 'eslint') {
         const err = new Error('Lint crashed');
-        (err as any).stdout ='not valid json';
+        (err as any).stdout = 'not valid json';
         throw err;
       }
       if (args && args[0] === 'prettier') return '';

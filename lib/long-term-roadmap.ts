@@ -12,7 +12,9 @@
 
 import type { FrontmatterObject } from './types';
 
-const { extractFrontmatter }: {
+const {
+  extractFrontmatter,
+}: {
   extractFrontmatter: (content: string) => FrontmatterObject;
 } = require('./frontmatter');
 
@@ -186,9 +188,7 @@ function updateRefinementHistory(content: string, action: string, details: strin
  * @param fieldText - The field text after "Normal milestones:"
  * @returns Array of { version, note? } objects
  */
-function parseNormalMilestoneList(
-  fieldText: string | null | undefined
-): NormalMilestoneEntry[] {
+function parseNormalMilestoneList(fieldText: string | null | undefined): NormalMilestoneEntry[] {
   if (!fieldText || fieldText.trim() === '' || /\(none\s*yet\)/i.test(fieldText)) return [];
 
   return fieldText
@@ -213,9 +213,7 @@ function parseNormalMilestoneList(
  * @param milestones - Array of { version, note? }
  * @returns Formatted string
  */
-function formatNormalMilestoneList(
-  milestones: NormalMilestoneEntry[] | null | undefined
-): string {
+function formatNormalMilestoneList(milestones: NormalMilestoneEntry[] | null | undefined): string {
   if (!milestones || milestones.length === 0) return '(none yet)';
   return milestones.map((m) => (m.note ? `${m.version} (${m.note})` : m.version)).join(', ');
 }
@@ -415,8 +413,7 @@ function formatLongTermRoadmap(parsed: LongTermRoadmap | null): string {
   if (!parsed) return '';
 
   const lines: string[] = [];
-  const project =
-    (parsed.frontmatter?.project as string | undefined) || 'Unknown Project';
+  const project = (parsed.frontmatter?.project as string | undefined) || 'Unknown Project';
 
   lines.push(`Long-Term Roadmap: ${project}`);
   lines.push('');
@@ -484,11 +481,7 @@ function nextLtId(parsed: LongTermRoadmap | null | undefined): string {
  * @param goal - LT milestone goal
  * @returns Updated content and new ID
  */
-function addLtMilestone(
-  content: string,
-  name: string,
-  goal: string
-): AddLtMilestoneResult {
+function addLtMilestone(content: string, name: string, goal: string): AddLtMilestoneResult {
   const parsed = parseLongTermRoadmap(content);
   const id = nextLtId(parsed);
 
@@ -606,9 +599,7 @@ function updateLtMilestone(
       const afterSection = result.slice(sectionStart.index);
       const nextH2 = afterSection.match(/\n##\s/);
       const sectionEnd =
-        nextH2 && nextH2.index !== undefined
-          ? sectionStart.index + nextH2.index
-          : result.length;
+        nextH2 && nextH2.index !== undefined ? sectionStart.index + nextH2.index : result.length;
       const section = result.slice(sectionStart.index, sectionEnd);
       const updatedSection = section.replace(
         /\*\*Status:\*\*\s*.+/,
@@ -626,9 +617,7 @@ function updateLtMilestone(
       const afterSection = result.slice(sectionStart.index);
       const nextH2 = afterSection.match(/\n##\s/);
       const sectionEnd =
-        nextH2 && nextH2.index !== undefined
-          ? sectionStart.index + nextH2.index
-          : result.length;
+        nextH2 && nextH2.index !== undefined ? sectionStart.index + nextH2.index : result.length;
       const section = result.slice(sectionStart.index, sectionEnd);
       const updatedSection = section.replace(/\*\*Goal:\*\*\s*.+/, `**Goal:** ${updates.goal}`);
       result = result.slice(0, sectionStart.index) + updatedSection + result.slice(sectionEnd);
@@ -786,9 +775,7 @@ function replaceFieldInSection(
   const afterSection = content.slice(sectionStart.index);
   const nextH2 = afterSection.match(/\n##\s/);
   const sectionEnd =
-    nextH2 && nextH2.index !== undefined
-      ? sectionStart.index + nextH2.index
-      : content.length;
+    nextH2 && nextH2.index !== undefined ? sectionStart.index + nextH2.index : content.length;
 
   const section = content.slice(sectionStart.index, sectionEnd);
   const fieldPattern = new RegExp(`\\*\\*${fieldName}:\\*\\*\\s*.+`);

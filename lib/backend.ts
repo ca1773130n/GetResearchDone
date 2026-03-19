@@ -180,25 +180,25 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
  *   budget   => everything low (fast, minimal reasoning)
  */
 const EFFORT_PROFILES: AgentEffortProfiles = {
-  'grd-planner':              { quality: 'high',   balanced: 'high',   budget: 'low' },
-  'grd-roadmapper':           { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-executor':             { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-phase-researcher':     { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-project-researcher':   { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-planner': { quality: 'high', balanced: 'high', budget: 'low' },
+  'grd-roadmapper': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-executor': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-phase-researcher': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-project-researcher': { quality: 'high', balanced: 'medium', budget: 'low' },
   'grd-research-synthesizer': { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-debugger':             { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-codebase-mapper':      { quality: 'medium', balanced: 'low',    budget: 'low' },
-  'grd-verifier':             { quality: 'medium', balanced: 'low',    budget: 'low' },
-  'grd-plan-checker':         { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-integration-checker':  { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-surveyor':             { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-deep-diver':           { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-feasibility-analyst':  { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-eval-planner':         { quality: 'high',   balanced: 'medium', budget: 'low' },
-  'grd-eval-reporter':        { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-product-owner':        { quality: 'high',   balanced: 'high',   budget: 'low' },
-  'grd-baseline-assessor':    { quality: 'medium', balanced: 'medium', budget: 'low' },
-  'grd-code-reviewer':        { quality: 'high',   balanced: 'medium', budget: 'low' },
+  'grd-debugger': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-codebase-mapper': { quality: 'medium', balanced: 'low', budget: 'low' },
+  'grd-verifier': { quality: 'medium', balanced: 'low', budget: 'low' },
+  'grd-plan-checker': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-integration-checker': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-surveyor': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-deep-diver': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-feasibility-analyst': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-eval-planner': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-eval-reporter': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-product-owner': { quality: 'high', balanced: 'high', budget: 'low' },
+  'grd-baseline-assessor': { quality: 'medium', balanced: 'medium', budget: 'low' },
+  'grd-code-reviewer': { quality: 'high', balanced: 'medium', budget: 'low' },
 };
 
 /**
@@ -286,21 +286,15 @@ function fileExists(filePath: string): boolean {
 function detectBackend(cwd: string): BackendId {
   // Step 1: Config override (highest priority)
   const config = readConfig(cwd);
-  if (
-    config &&
-    config.backend &&
-    VALID_BACKENDS.includes(config.backend as BackendId)
-  ) {
+  if (config && config.backend && VALID_BACKENDS.includes(config.backend as BackendId)) {
     return config.backend as BackendId;
   }
 
   // Step 2: Environment variable detection
   // Superpowers detection (highest env priority — orchestrates other backends)
-  if (process.env.SUPERPOWERS_HOME || process.env.SUPERPOWERS_SESSION)
-    return 'superpowers';
+  if (process.env.SUPERPOWERS_HOME || process.env.SUPERPOWERS_SESSION) return 'superpowers';
   // Overstory detection (before Claude — takes priority when both present)
-  if (process.env.OVERSTORY_HOME || process.env.OVERSTORY_SESSION)
-    return 'overstory';
+  if (process.env.OVERSTORY_HOME || process.env.OVERSTORY_SESSION) return 'overstory';
   if (hasEnvPrefix('CLAUDE_CODE_')) return 'claude';
   // CODEX_THREAD_ID: may be deprecated in newer Codex CLI versions (no docs mention
   // as of March 2026), but kept for backward compatibility with older installations.
@@ -312,12 +306,9 @@ function detectBackend(cwd: string): BackendId {
   if (process.env.OPENCODE) return 'opencode';
 
   // Step 3: Filesystem clues
-  if (fileExists(path.join(cwd, '.superpowers', 'config.json')))
-    return 'superpowers';
-  if (fileExists(path.join(cwd, '.overstory', 'config.yaml')))
-    return 'overstory';
-  if (fileExists(path.join(cwd, '.claude-plugin', 'plugin.json')))
-    return 'claude';
+  if (fileExists(path.join(cwd, '.superpowers', 'config.json'))) return 'superpowers';
+  if (fileExists(path.join(cwd, '.overstory', 'config.yaml'))) return 'overstory';
+  if (fileExists(path.join(cwd, '.claude-plugin', 'plugin.json'))) return 'claude';
   if (fileExists(path.join(cwd, '.codex', 'config.toml'))) return 'codex';
   if (fileExists(path.join(cwd, '.gemini', 'settings.json'))) return 'gemini';
   if (fileExists(path.join(cwd, 'opencode.json'))) return 'opencode';
@@ -344,13 +335,7 @@ function parseOpenCodeModels(stdout: string): DetectedModels | null {
   const lines: string[] = stdout
     .split('\n')
     .map((l) => l.trim())
-    .filter(
-      (l) =>
-        l &&
-        !l.startsWith('Available') &&
-        !l.startsWith('---') &&
-        !l.startsWith('#'),
-    );
+    .filter((l) => l && !l.startsWith('Available') && !l.startsWith('---') && !l.startsWith('#'));
 
   const result: DetectedModels = { opus: null, sonnet: null, haiku: null };
   let matched = false;
@@ -379,11 +364,7 @@ function parseOpenCodeModels(stdout: string): DetectedModels | null {
         result.opus = model;
         matched = true;
       }
-    } else if (
-      /flash/i.test(model) ||
-      /mini/i.test(model) ||
-      /spark/i.test(model)
-    ) {
+    } else if (/flash/i.test(model) || /mini/i.test(model) || /spark/i.test(model)) {
       if (!result.haiku) {
         result.haiku = model;
         matched = true;
@@ -405,9 +386,7 @@ function detectModels(backend: string, cwd?: string): DetectedModels | null {
   const cfg = readConfig(effectiveCwd);
   const timeouts = cfg?.timeouts as Record<string, unknown> | undefined;
   const timeout: number =
-    typeof timeouts?.backend_detect_ms === 'number'
-      ? timeouts.backend_detect_ms
-      : 10000;
+    typeof timeouts?.backend_detect_ms === 'number' ? timeouts.backend_detect_ms : 10000;
   try {
     const stdout: string = execFileSync('opencode', ['models'], {
       cwd: effectiveCwd,
@@ -427,10 +406,7 @@ const MODEL_CACHE_TTL_MS: number = 5 * 60 * 1000;
 /**
  * Get cached detected models for a backend, refreshing if TTL expired.
  */
-function getCachedModels(
-  backend: string,
-  cwd?: string,
-): DetectedModels | null {
+function getCachedModels(backend: string, cwd?: string): DetectedModels | null {
   const entry: ModelCacheEntry | undefined = _modelCache.get(backend);
   const now: number = Date.now();
   if (entry && now - entry.ts < MODEL_CACHE_TTL_MS) {
@@ -465,14 +441,11 @@ function resolveBackendModel(
   backend: string,
   tier: ModelTier,
   config?: Record<string, unknown>,
-  cwd?: string,
+  cwd?: string
 ): string | undefined {
   // Check user override from config (highest priority)
   if (config && config.backend_models) {
-    const backendModelsConfig = config.backend_models as Record<
-      string,
-      Record<string, string>
-    >;
+    const backendModelsConfig = config.backend_models as Record<string, Record<string, string>>;
     const backendOverrides = backendModelsConfig[backend];
     if (backendOverrides && backendOverrides[tier] !== undefined) {
       return backendOverrides[tier];
@@ -489,8 +462,7 @@ function resolveBackendModel(
 
   // Use built-in defaults, falling back to claude for unknown backends
   const backendModels: ModelTierMap =
-    DEFAULT_BACKEND_MODELS[backend as BackendId] ||
-    DEFAULT_BACKEND_MODELS.claude;
+    DEFAULT_BACKEND_MODELS[backend as BackendId] || DEFAULT_BACKEND_MODELS.claude;
   return backendModels[tier];
 }
 
@@ -504,9 +476,7 @@ function resolveBackendModel(
  * @returns A BackendCapabilities object describing which orchestration features are supported
  */
 function getBackendCapabilities(backend: string): BackendCapabilities {
-  return (
-    BACKEND_CAPABILITIES[backend as BackendId] || BACKEND_CAPABILITIES.claude
-  );
+  return BACKEND_CAPABILITIES[backend as BackendId] || BACKEND_CAPABILITIES.claude;
 }
 
 // --- WebMCP Detection --------------------------------------------------------
@@ -541,8 +511,7 @@ function detectWebMcp(cwd: string): WebMcpResult {
   }
 
   // Step 2: Environment variable check
-  const chromeDevToolsMcp: string | undefined =
-    process.env.CHROME_DEVTOOLS_MCP;
+  const chromeDevToolsMcp: string | undefined = process.env.CHROME_DEVTOOLS_MCP;
   const webmcpAvailable: string | undefined = process.env.WEBMCP_AVAILABLE;
 
   if (chromeDevToolsMcp !== undefined) {
@@ -578,11 +547,9 @@ function detectWebMcp(cwd: string): WebMcpResult {
     const raw: string = fs.readFileSync(claudeConfigPath, 'utf-8');
     const claudeConfig = JSON.parse(raw) as Record<string, unknown>;
     if (claudeConfig && claudeConfig.mcpServers) {
-      const serverNames: string[] = Object.keys(
-        claudeConfig.mcpServers as Record<string, unknown>,
-      );
+      const serverNames: string[] = Object.keys(claudeConfig.mcpServers as Record<string, unknown>);
       const hasBrowserMcp: boolean = serverNames.some((name) =>
-        /chrome|devtools|playwright|browser/i.test(name),
+        /chrome|devtools|playwright|browser/i.test(name)
       );
       if (hasBrowserMcp) {
         return { available: true, source: 'mcp-config' };
@@ -596,8 +563,7 @@ function detectWebMcp(cwd: string): WebMcpResult {
   return {
     available: false,
     source: 'default',
-    reason:
-      'Chrome DevTools MCP not detected in config, environment, or MCP server settings',
+    reason: 'Chrome DevTools MCP not detected in config, environment, or MCP server settings',
   };
 }
 

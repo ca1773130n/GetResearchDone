@@ -2,7 +2,10 @@
 
 'use strict';
 
-const { output, error }: {
+const {
+  output,
+  error,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('../utils');

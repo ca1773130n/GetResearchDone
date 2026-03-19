@@ -75,13 +75,12 @@ describe('checkOrphanedPhases', () => {
       fs.mkdirSync(anonymousDir, { recursive: true });
       // Create phases as a FILE instead of directory → EISDIR when readdirSync is called
       fs.writeFileSync(path.join(anonymousDir, 'phases'), 'not a dir');
-      fs.writeFileSync(
-        path.join(planningDir, 'ROADMAP.md'),
-        '# Roadmap\n### Phase 1: Test\n'
-      );
+      fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), '# Roadmap\n### Phase 1: Test\n');
 
       const stderrLines: string[] = [];
-      const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation((data: string) => {
+      const stderrSpy = (
+        jest.spyOn(process.stderr, 'write') as jest.SpyInstance
+      ).mockImplementation((data: string) => {
         stderrLines.push(String(data));
         return true;
       });
@@ -434,7 +433,9 @@ describe('gates with shipped milestone sections', () => {
       { recursive: true }
     );
     const violations = checkOrphanedPhases(tmpDir);
-    const orphanNums = violations.map((v: { context: { phase_number: string } }) => v.context.phase_number);
+    const orphanNums = violations.map(
+      (v: { context: { phase_number: string } }) => v.context.phase_number
+    );
     expect(orphanNums).not.toContain('29');
   });
 
@@ -447,7 +448,9 @@ describe('gates with shipped milestone sections', () => {
     // Phase 1 dir exists from fixture but Phase 1 is inside <details> in new roadmap
     // The fixture has Phase 1 and Phase 2 dirs — they should now appear orphaned
     const violations = checkOrphanedPhases(tmpDir);
-    const orphanNums = violations.map((v: { context: { phase_number: string } }) => v.context.phase_number);
+    const orphanNums = violations.map(
+      (v: { context: { phase_number: string } }) => v.context.phase_number
+    );
     // Phase 1 and 2 are inside <details> so not recognized in active content
     expect(orphanNums).toContain('01');
   });

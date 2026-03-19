@@ -180,9 +180,7 @@ describe('cmdPhaseAdd', () => {
       'utf-8'
     );
 
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdPhaseAdd(tmpDir, 'After H2 Phases', false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseAdd(tmpDir, 'After H2 Phases', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.phase_number).toBe(3);
@@ -193,23 +191,23 @@ describe('cmdPhaseAdd', () => {
     const content = fs.readFileSync(roadmapPath, 'utf-8');
     // Wrap Phase 1 in <details> (shipped) and keep Phase 2 active
     const shipped = `<details><summary>Shipped</summary>\n\n### Phase 1: Test Phase -- Setup and configuration\n- Completed\n\n</details>\n`;
-    const updated = content.replace(
-      /### Phase 1:.*?(?=### Phase 2)/s,
-      shipped
-    );
+    const updated = content.replace(/### Phase 1:.*?(?=### Phase 2)/s, shipped);
     fs.writeFileSync(roadmapPath, updated, 'utf-8');
 
     // Remove Phase 1 directory from disk (simulates archived/shipped milestone cleanup)
     const phase1Dir = path.join(
-      tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
     );
     if (fs.existsSync(phase1Dir)) {
       fs.rmSync(phase1Dir, { recursive: true });
     }
 
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdPhaseAdd(tmpDir, 'After Shipped', false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseAdd(tmpDir, 'After Shipped', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // Should be Phase 3 because Phase 1 (shipped) is still counted in full content
@@ -437,9 +435,7 @@ describe('cmdPhaseRemove', () => {
     expect(stderr).toContain('ROADMAP');
     // Phase directories must NOT have been deleted (abort happened before mutations)
     expect(
-      fs.existsSync(
-        path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test')
-      )
+      fs.existsSync(path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test'))
     ).toBe(true);
   });
 });
@@ -1359,9 +1355,7 @@ describe('cmdPhaseRemove --dry-run', () => {
   });
 
   test('lists phases that would be renumbered in dry-run output', () => {
-    const { stdout } = captureOutput(() =>
-      cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false)
-    );
+    const { stdout } = captureOutput(() => cmdPhaseRemove(tmpDir, '1', { dryRun: true }, false));
     const result = JSON.parse(stdout);
     // Phase 2 would be renumbered to 1
     expect(result.would_renumber).toBeInstanceOf(Array);
@@ -1447,9 +1441,7 @@ describe('cmdValidateConsistency --fix', () => {
   });
 
   test('accepts options parameter without error', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdValidateConsistency(tmpDir, false, {})
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false, {}));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.passed).toBe(true);
@@ -1457,14 +1449,7 @@ describe('cmdValidateConsistency --fix', () => {
 
   test('removes orphaned summaries when fix is true', () => {
     // Create a summary without a matching plan
-    const phaseDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases',
-      '01-test'
-    );
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const orphanSummary = path.join(phaseDir, '01-99-SUMMARY.md');
     fs.writeFileSync(orphanSummary, '---\nphase: 01\nplan: 99\n---\n');
 
@@ -1478,14 +1463,7 @@ describe('cmdValidateConsistency --fix', () => {
 
   test('reports what would be fixed in dry run (no fix option)', () => {
     // Create an orphaned summary
-    const phaseDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases',
-      '01-test'
-    );
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     const orphanSummary = path.join(phaseDir, '01-98-SUMMARY.md');
     fs.writeFileSync(orphanSummary, '---\nphase: 01\nplan: 98\n---\n');
 
@@ -1516,9 +1494,7 @@ describe('cmdPhaseBatchComplete', () => {
   });
 
   test('returns error when phases list is empty', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdPhaseBatchComplete(tmpDir, [], {}, false)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdPhaseBatchComplete(tmpDir, [], {}, false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toBeDefined();
@@ -1548,9 +1524,7 @@ describe('cmdPhaseBatchComplete', () => {
   });
 
   test('includes total_phases and completed_count in result', () => {
-    const { stdout } = captureOutput(() =>
-      cmdPhaseBatchComplete(tmpDir, ['1'], {}, false)
-    );
+    const { stdout } = captureOutput(() => cmdPhaseBatchComplete(tmpDir, ['1'], {}, false));
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('total_phases');
     expect(result).toHaveProperty('completed_count');
@@ -1573,12 +1547,10 @@ describe('cmdPhaseRemove — error logging in renumber path', () => {
 
   test('logs to stderr when readdirSync fails unexpectedly during renumbering', () => {
     const stderrLines = [];
-    const stderrSpy = jest
-      .spyOn(process.stderr, 'write')
-      .mockImplementation((data) => {
-        stderrLines.push(String(data));
-        return true;
-      });
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrLines.push(String(data));
+      return true;
+    });
 
     let callCount = 0;
     const origFsReaddirSync = fs.readdirSync.bind(fs);

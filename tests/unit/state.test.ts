@@ -834,11 +834,9 @@ describe('cmdStateSnapshot --since diff mode', () => {
   });
 
   test('saves snapshot file on normal (no --since) call', () => {
-    const stateContent = [
-      '# STATE',
-      '- **Current Phase:** 1',
-      '- **Status:** In Progress',
-    ].join('\n');
+    const stateContent = ['# STATE', '- **Current Phase:** 1', '- **Status:** In Progress'].join(
+      '\n'
+    );
     const statePath = path.join(tmpDir, '.planning', 'STATE.md');
     fs.writeFileSync(statePath, stateContent, 'utf-8');
 
@@ -851,11 +849,9 @@ describe('cmdStateSnapshot --since diff mode', () => {
   });
 
   test('returns diff when --since matches saved snapshot', () => {
-    const stateContent = [
-      '# STATE',
-      '- **Current Phase:** 1',
-      '- **Status:** In Progress',
-    ].join('\n');
+    const stateContent = ['# STATE', '- **Current Phase:** 1', '- **Status:** In Progress'].join(
+      '\n'
+    );
     const statePath = path.join(tmpDir, '.planning', 'STATE.md');
     fs.writeFileSync(statePath, stateContent, 'utf-8');
 
@@ -864,7 +860,11 @@ describe('cmdStateSnapshot --since diff mode', () => {
     fs.mkdirSync(snapshotsDir, { recursive: true });
     const baselineTs = '2020-01-01T00:00:00.000Z';
     const baseline = { current_phase: '0', status: 'Not Started', decisions: [], blockers: [] };
-    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
+    fs.writeFileSync(
+      path.join(snapshotsDir, `${baselineTs}.json`),
+      JSON.stringify(baseline),
+      'utf-8'
+    );
 
     // Request diff since the baseline timestamp
     const { stdout, exitCode } = captureOutput(() =>
@@ -881,11 +881,9 @@ describe('cmdStateSnapshot --since diff mode', () => {
   });
 
   test('returns error with full_snapshot when no baseline snapshot found', () => {
-    const stateContent = [
-      '# STATE',
-      '- **Current Phase:** 1',
-      '- **Status:** In Progress',
-    ].join('\n');
+    const stateContent = ['# STATE', '- **Current Phase:** 1', '- **Status:** In Progress'].join(
+      '\n'
+    );
     fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), stateContent, 'utf-8');
 
     const { stdout, exitCode } = captureOutput(() =>
@@ -898,22 +896,22 @@ describe('cmdStateSnapshot --since diff mode', () => {
   });
 
   test('detects changed scalar fields in diff', () => {
-    const stateContent = [
-      '# STATE',
-      '- **Current Phase:** 2',
-      '- **Status:** In Progress',
-    ].join('\n');
+    const stateContent = ['# STATE', '- **Current Phase:** 2', '- **Status:** In Progress'].join(
+      '\n'
+    );
     fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), stateContent, 'utf-8');
 
     const snapshotsDir = path.join(tmpDir, '.planning', '.snapshots');
     fs.mkdirSync(snapshotsDir, { recursive: true });
     const baselineTs = '2020-01-01T00:00:00.000Z';
     const baseline = { current_phase: '1', status: 'Not Started', decisions: [], blockers: [] };
-    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
-
-    const { stdout } = captureOutput(() =>
-      cmdStateSnapshot(tmpDir, false, { since: baselineTs })
+    fs.writeFileSync(
+      path.join(snapshotsDir, `${baselineTs}.json`),
+      JSON.stringify(baseline),
+      'utf-8'
     );
+
+    const { stdout } = captureOutput(() => cmdStateSnapshot(tmpDir, false, { since: baselineTs }));
     const result = JSON.parse(stdout);
     expect(result.has_changes).toBe(true);
     expect(result.changed_fields).toHaveProperty('status');
@@ -946,11 +944,13 @@ describe('cmdStateSnapshot --since diff mode', () => {
       decisions: [{ phase: '1', summary: 'Old decision', rationale: 'old' }],
       blockers: ['Old blocker resolved'],
     };
-    fs.writeFileSync(path.join(snapshotsDir, `${baselineTs}.json`), JSON.stringify(baseline), 'utf-8');
-
-    const { stdout } = captureOutput(() =>
-      cmdStateSnapshot(tmpDir, false, { since: baselineTs })
+    fs.writeFileSync(
+      path.join(snapshotsDir, `${baselineTs}.json`),
+      JSON.stringify(baseline),
+      'utf-8'
     );
+
+    const { stdout } = captureOutput(() => cmdStateSnapshot(tmpDir, false, { since: baselineTs }));
     const result = JSON.parse(stdout);
     expect(result.has_changes).toBe(true);
     // new_decisions = decisions in current that aren't in baseline
@@ -1206,6 +1206,8 @@ describe('cmdStatePatch audit trail', () => {
     const content = fs.readFileSync(path.join(fixtureDir, '.planning', 'STATE.md'), 'utf-8');
     // Both patches should appear in the audit log
     const auditSection = content.split('## Audit Log')[1] || '';
-    expect(auditSection.split('\n').filter((l: string) => l.startsWith('- ')).length).toBeGreaterThanOrEqual(2);
+    expect(
+      auditSection.split('\n').filter((l: string) => l.startsWith('- ')).length
+    ).toBeGreaterThanOrEqual(2);
   });
 });

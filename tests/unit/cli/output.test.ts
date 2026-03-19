@@ -4,7 +4,11 @@ import { formatJson, formatError } from '../../../lib/cli/output';
 
 describe('cli output formatting', () => {
   it('formatJson wraps data in envelope', () => {
-    const result = formatJson({ status: 'ok', data: { phase: 3 }, meta: { backend: 'claude', duration_ms: 1500 } });
+    const result = formatJson({
+      status: 'ok',
+      data: { phase: 3 },
+      meta: { backend: 'claude', duration_ms: 1500 },
+    });
     const parsed = JSON.parse(result);
     expect(parsed.status).toBe('ok');
     expect(parsed.data.phase).toBe(3);

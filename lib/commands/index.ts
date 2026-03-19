@@ -28,7 +28,12 @@ const _phaseInfo: {
   cmdDetectBackend: (cwd: string, raw: boolean) => void;
   cmdCommit: (cwd: string, message: string, files: string[], raw: boolean, amend?: boolean) => void;
   cmdPhasePlanIndex: (cwd: string, phase: string, raw: boolean) => void;
-  cmdSummaryExtract: (cwd: string, summaryPath: string, fields: string[] | null, raw: boolean) => void;
+  cmdSummaryExtract: (
+    cwd: string,
+    summaryPath: string,
+    fields: string[] | null,
+    raw: boolean
+  ) => void;
   cmdHistoryDigest: (cwd: string, raw: boolean) => void;
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
@@ -43,7 +48,10 @@ const _cmdProgress: {
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 const _dashboard: {
   buildDashboardData: (cwd: string) => Record<string, unknown> | null;
-  renderDashboard: (data: Record<string, unknown>, options?: Record<string, unknown>) => { jsonResult: Record<string, unknown>; tui: string };
+  renderDashboard: (
+    data: Record<string, unknown>,
+    options?: Record<string, unknown>
+  ) => { jsonResult: Record<string, unknown>; tui: string };
   cmdDashboard: (cwd: string, raw: boolean, options?: Record<string, unknown>) => void;
   cmdPhaseDetail: (cwd: string, phase: string, raw: boolean) => void;
 } = require('./dashboard');
@@ -82,7 +90,13 @@ const _analysis: {
   cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
   cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
   cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
-  cmdImportKnowledge: (cwd: string, sourcePath: string, types: string, raw: boolean, force?: boolean) => void;
+  cmdImportKnowledge: (
+    cwd: string,
+    sourcePath: string,
+    types: string,
+    raw: boolean,
+    force?: boolean
+  ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
 } = require('./analysis');
 

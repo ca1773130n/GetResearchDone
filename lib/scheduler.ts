@@ -210,7 +210,7 @@ export function recordSample(
   state: BackendUsageState,
   sample: UsageSample,
   windowMinutes: number,
-  alpha: number,
+  alpha: number
 ): void {
   state.samples.push(sample);
   evictExpiredSamples(state, windowMinutes);
@@ -235,7 +235,7 @@ export function pickBackend(
   priority: BackendId[],
   states: Map<string, BackendUsageState>,
   safetyMargin: number,
-  freeFallback: { backend: BackendId },
+  freeFallback: { backend: BackendId }
 ): BackendId {
   const now = Date.now();
   for (const backend of priority) {
@@ -292,13 +292,13 @@ export function resolveAccount(
   superpowersConfig: SuperpowersConfig,
   schedulerConfig: SchedulerConfig,
   states: Map<string, BackendUsageState>,
-  safetyMargin: number,
+  safetyMargin: number
 ): AccountResolution {
   const accounts = superpowersConfig.accounts;
 
   // Edge case: accounts is empty — use default_backend with no config dir
   const hasAnyAccounts = Object.keys(accounts).some(
-    (k) => (accounts[k as AdapterBackendId] || []).length > 0,
+    (k) => (accounts[k as AdapterBackendId] || []).length > 0
   );
   if (!hasAnyAccounts) {
     return {
@@ -405,7 +405,7 @@ export interface Scheduler {
 function _initAccountStates(
   states: Map<string, BackendUsageState>,
   schedulerConfig: SchedulerConfig,
-  superpowersConfig: SuperpowersConfig,
+  superpowersConfig: SuperpowersConfig
 ): void {
   const accounts = superpowersConfig.accounts;
   const allBackends = new Set([
@@ -438,7 +438,7 @@ function _initAccountStates(
  */
 function _computeMaxRetries(
   schedulerConfig: SchedulerConfig,
-  superpowersConfig: SuperpowersConfig,
+  superpowersConfig: SuperpowersConfig
 ): number {
   let maxAccountsPerBackend = 0;
   for (const backend of schedulerConfig.backend_priority) {
@@ -464,7 +464,7 @@ function _computeMaxRetries(
  */
 export function createScheduler(
   config: SchedulerConfig | undefined,
-  superpowersConfig?: SuperpowersConfig,
+  superpowersConfig?: SuperpowersConfig
 ): Scheduler | null {
   if (!config) return null;
 
@@ -472,7 +472,7 @@ export function createScheduler(
   const schedulerConfig = config;
   const states = new Map<string, BackendUsageState>();
   const prediction = schedulerConfig.prediction;
-  const accountRotation = !!(superpowersConfig?.account_rotation);
+  const accountRotation = !!superpowersConfig?.account_rotation;
 
   if (accountRotation && superpowersConfig) {
     // Per-account state initialization
@@ -488,7 +488,7 @@ export function createScheduler(
 
     // If no accounts at all, initialize default_backend with no config_dir
     const hasAnyAccounts = Object.keys(superpowersConfig.accounts).some(
-      (k) => (superpowersConfig.accounts[k as AdapterBackendId] || []).length > 0,
+      (k) => (superpowersConfig.accounts[k as AdapterBackendId] || []).length > 0
     );
     if (!hasAnyAccounts) {
       const defaultBackend = superpowersConfig.default_backend as AdapterBackendId;
@@ -500,7 +500,10 @@ export function createScheduler(
     }
   } else {
     // Simple per-backend state initialization (existing behavior)
-    const allBackends = [...schedulerConfig.backend_priority, schedulerConfig.free_fallback.backend];
+    const allBackends = [
+      ...schedulerConfig.backend_priority,
+      schedulerConfig.free_fallback.backend,
+    ];
     for (const backend of new Set(allBackends)) {
       const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
       const isFallback = backend === schedulerConfig.free_fallback.backend;
@@ -511,15 +514,19 @@ export function createScheduler(
 
   // Check which backend binaries are available
   const availableBackends = new Set<string>();
-  const allBackendIds = new Set([...schedulerConfig.backend_priority, schedulerConfig.free_fallback.backend]);
+  const allBackendIds = new Set([
+    ...schedulerConfig.backend_priority,
+    schedulerConfig.free_fallback.backend,
+  ]);
   for (const backend of allBackendIds) {
     const adapter = ADAPTERS[backend];
     if (adapter && checkBinary(adapter.binary)) availableBackends.add(backend);
   }
 
-  const maxRetries = accountRotation && superpowersConfig
-    ? _computeMaxRetries(schedulerConfig, superpowersConfig)
-    : schedulerConfig.backend_priority.length;
+  const maxRetries =
+    accountRotation && superpowersConfig
+      ? _computeMaxRetries(schedulerConfig, superpowersConfig)
+      : schedulerConfig.backend_priority.length;
 
   /**
    * Internal spawn implementation with retry counter for 429 rate-limit retries.
@@ -528,7 +535,7 @@ export function createScheduler(
   async function _spawnWithRetry(
     prompt: string,
     opts: SpawnOpts,
-    retryCount: number,
+    retryCount: number
   ): Promise<SchedulerSpawnResult> {
     let backend: AdapterBackendId;
     let stateKey: string;
@@ -540,7 +547,7 @@ export function createScheduler(
         superpowersConfig,
         schedulerConfig,
         states,
-        prediction.safety_margin_tasks,
+        prediction.safety_margin_tasks
       );
       backend = resolution.backend;
       stateKey = resolution.stateKey;
@@ -551,12 +558,14 @@ export function createScheduler(
       }
     } else {
       // Simple backend picker path (existing behavior)
-      const filteredPriority = schedulerConfig.backend_priority.filter((b) => availableBackends.has(b));
+      const filteredPriority = schedulerConfig.backend_priority.filter((b) =>
+        availableBackends.has(b)
+      );
       backend = pickBackend(
         filteredPriority,
         states,
         prediction.safety_margin_tasks,
-        schedulerConfig.free_fallback,
+        schedulerConfig.free_fallback
       ) as AdapterBackendId;
       stateKey = backend;
     }
@@ -583,13 +592,10 @@ export function createScheduler(
           },
           (error, stdout, stderr) => {
             const duration = Date.now() - startTime;
-            const timedOut = !!(
-              error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
-            );
-            const exitCode = error ? (child.exitCode || 1) : 0;
+            const timedOut = !!(error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT');
+            const exitCode = error ? child.exitCode || 1 : 0;
 
-            const tokens =
-              adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
+            const tokens = adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
 
             const sample: UsageSample = {
               backend: backend as BackendId,
@@ -607,7 +613,7 @@ export function createScheduler(
             // Periodic persistence: every 10 samples across all backends
             const totalSamples = Array.from(states.values()).reduce(
               (sum, s) => sum + s.samples.length,
-              0,
+              0
             );
             if (totalSamples % 10 === 0 && opts.cwd) {
               const { join } = require('path') as typeof import('path');
@@ -623,7 +629,7 @@ export function createScheduler(
               tokensUsed: tokens,
               workItemId,
             });
-          },
+          }
         );
       });
 
@@ -686,12 +692,14 @@ export function createScheduler(
       }
       writeFileSync(
         join(planningDir, 'scheduler-state.json'),
-        JSON.stringify(data, null, 2) + '\n',
+        JSON.stringify(data, null, 2) + '\n'
       );
     },
 
     loadPersistedState(planningDir: string): void {
-      const { safeReadJSON }: { safeReadJSON: (p: string, d?: unknown) => unknown } = require('./utils');
+      const {
+        safeReadJSON,
+      }: { safeReadJSON: (p: string, d?: unknown) => unknown } = require('./utils');
       const { join } = require('path') as typeof import('path');
       const raw = safeReadJSON(join(planningDir, 'scheduler-state.json')) as {
         version?: number;

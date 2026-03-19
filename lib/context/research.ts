@@ -21,9 +21,18 @@ import type {
 } from '../types';
 
 const {
-  fs, path, safeReadFile, safeReadMarkdown, loadConfig,
-  findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveModelForAgent, resolveEffortForAgent, output,
+  fs,
+  path,
+  safeReadFile,
+  safeReadMarkdown,
+  loadConfig,
+  findPhaseInternal,
+  resolveModelInternal,
+  pathExistsInternal,
+  getMilestoneInfo,
+  resolveModelForAgent,
+  resolveEffortForAgent,
+  output,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -39,15 +48,21 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 
-const { detectBackend, getBackendCapabilities }: {
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
 } = require('../backend');
 
 const {
-  planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
-  researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
-  todosDir: getTodosDirPath, quickDir: getQuickDirPath,
+  planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  researchDir: getResearchDirPath,
+  codebaseDir: getCodebaseDirPath,
+  todosDir: getTodosDirPath,
+  quickDir: getQuickDirPath,
   milestonesDir: getMilestonesDirPath,
 }: {
   planningDir: (cwd: string) => string;
@@ -59,7 +74,9 @@ const {
   milestonesDir: (cwd: string) => string;
 } = require('../paths');
 
-const { buildInitContext }: {
+const {
+  buildInitContext,
+}: {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
 } = require('./base');
 
@@ -145,7 +162,11 @@ function cmdInitResearchWorkflow(
     result.config_content = safeReadFile(path.join(planningDir, 'config.json'));
   }
 
-  output(result, raw, `Backend: ${result.backend}, workflow: ${result.workflow}${result.topic ? ', topic: ' + result.topic : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, workflow: ${result.workflow}${result.topic ? ', topic: ' + result.topic : ''}`
+  );
 }
 
 // ─── Plan-Milestone-Gaps Init ────────────────────────────────────────────────
@@ -163,7 +184,8 @@ function cmdInitPlanMilestoneGaps(cwd: string, raw: boolean): void {
   let auditFile: string | null = null;
   let auditGaps: unknown = null;
   try {
-    const entries = fs.readdirSync(planningDir)
+    const entries = fs
+      .readdirSync(planningDir)
       .filter((f: string) => /^v.*-MILESTONE-AUDIT\.md$/i.test(f))
       .sort()
       .reverse();
@@ -171,7 +193,9 @@ function cmdInitPlanMilestoneGaps(cwd: string, raw: boolean): void {
       auditFile = entries[0];
       const content = safeReadFile(path.join(planningDir, auditFile));
       if (content) {
-        const { extractFrontmatter }: {
+        const {
+          extractFrontmatter,
+        }: {
           extractFrontmatter: (content: string) => FrontmatterObject;
         } = require('../frontmatter');
         const fm = extractFrontmatter(content);
@@ -187,7 +211,8 @@ function cmdInitPlanMilestoneGaps(cwd: string, raw: boolean): void {
   let highestPhase = 0;
   const phasesDir = getPhasesDirPath(cwd);
   try {
-    const dirs = fs.readdirSync(phasesDir, { withFileTypes: true })
+    const dirs = fs
+      .readdirSync(phasesDir, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name);
     phaseCount = dirs.length;
@@ -219,7 +244,11 @@ function cmdInitPlanMilestoneGaps(cwd: string, raw: boolean): void {
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
   };
 
-  output(result, raw, `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.phase_count} phases`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.phase_count} phases`
+  );
 }
 
 // ─── Assess-Baseline Init ────────────────────────────────────────────────────
@@ -255,22 +284,30 @@ function cmdInitDeepDive(cwd: string, topic: string, raw: boolean): void {
     if (fs.existsSync(deepDivesDir)) {
       deepDives = fs.readdirSync(deepDivesDir).filter((f: string) => f.endsWith('.md'));
     }
-  } catch { deepDives = []; }
+  } catch {
+    deepDives = [];
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     deep_diver_model: resolveModelInternal(cwd, 'grd-deep-diver'),
     deep_diver_effort: resolveEffortForAgent(config, 'grd-deep-diver', cwd),
     topic: topic || null,
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
-    deep_dives: deepDives, deep_dives_count: deepDives.length,
+    deep_dives: deepDives,
+    deep_dives_count: deepDives.length,
     autonomous_mode: config.autonomous_mode || false,
     research_gates: (config as unknown as Record<string, unknown>).research_gates || {},
     research_dir: path.relative(cwd, researchDir),
     deep_dives_dir: path.relative(cwd, deepDivesDir),
   };
-  output(result, raw, `Backend: ${result.backend}, deep-diver ready${topic ? ', topic: ' + topic : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, deep-diver ready${topic ? ', topic: ' + topic : ''}`
+  );
 }
 
 // ─── Eval-Plan Init ──────────────────────────────────────────────────────────
@@ -283,7 +320,8 @@ function cmdInitEvalPlan(cwd: string, phase: string | null, raw: boolean): void 
   const phaseInfo = phase ? findPhaseInternal(cwd, phase) : null;
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     eval_planner_model: resolveModelInternal(cwd, 'grd-eval-planner'),
     eval_planner_effort: resolveEffortForAgent(config, 'grd-eval-planner', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
@@ -298,7 +336,11 @@ function cmdInitEvalPlan(cwd: string, phase: string | null, raw: boolean): void 
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
   };
-  output(result, raw, `Backend: ${result.backend}, eval-planner ready${phase ? ', phase: ' + phase : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, eval-planner ready${phase ? ', phase: ' + phase : ''}`
+  );
 }
 
 // ─── Eval-Report Init ────────────────────────────────────────────────────────
@@ -311,21 +353,27 @@ function cmdInitEvalReport(cwd: string, phase: string | null, raw: boolean): voi
   const phaseInfo = phase ? findPhaseInternal(cwd, phase) : null;
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     eval_reporter_model: resolveModelInternal(cwd, 'grd-eval-reporter'),
     eval_reporter_effort: resolveEffortForAgent(config, 'grd-eval-reporter', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
     phase_name: phaseInfo?.phase_name || null,
-    plans: phaseInfo?.plans || [], summaries: phaseInfo?.summaries || [],
+    plans: phaseInfo?.plans || [],
+    summaries: phaseInfo?.summaries || [],
     eval_config: (config as unknown as Record<string, unknown>).eval_config || {},
     baseline_exists: pathExistsInternal(cwd, path.join(planningDir, 'BASELINE.md')),
     benchmarks_exists: pathExistsInternal(cwd, path.join(researchDir, 'BENCHMARKS.md')),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
   };
-  output(result, raw, `Backend: ${result.backend}, eval-reporter ready${phase ? ', phase: ' + phase : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, eval-reporter ready${phase ? ', phase: ' + phase : ''}`
+  );
 }
 
 // ─── Feasibility Init ────────────────────────────────────────────────────────
@@ -337,23 +385,35 @@ function cmdInitFeasibility(cwd: string, topic: string, raw: boolean): void {
   const researchDir = getResearchDirPath(cwd);
   const deepDivesDir = path.join(researchDir, 'deep-dives');
   let deepDives: string[] = [];
-  try { if (fs.existsSync(deepDivesDir)) { deepDives = fs.readdirSync(deepDivesDir).filter((f: string) => f.endsWith('.md')); } } catch { deepDives = []; }
+  try {
+    if (fs.existsSync(deepDivesDir)) {
+      deepDives = fs.readdirSync(deepDivesDir).filter((f: string) => f.endsWith('.md'));
+    }
+  } catch {
+    deepDives = [];
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     feasibility_model: resolveModelInternal(cwd, 'grd-feasibility-analyst'),
     feasibility_effort: resolveEffortForAgent(config, 'grd-feasibility-analyst', cwd),
     topic: topic || null,
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
     knowhow_exists: pathExistsInternal(cwd, path.join(planningDir, 'KNOWHOW.md')),
-    deep_dives: deepDives, deep_dives_count: deepDives.length,
+    deep_dives: deepDives,
+    deep_dives_count: deepDives.length,
     autonomous_mode: config.autonomous_mode || false,
     research_dir: path.relative(cwd, researchDir),
     deep_dives_dir: path.relative(cwd, deepDivesDir),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, feasibility-analyst ready${topic ? ', topic: ' + topic : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, feasibility-analyst ready${topic ? ', topic: ' + topic : ''}`
+  );
 }
 
 // ─── Product-Owner Init ──────────────────────────────────────────────────────
@@ -389,7 +449,8 @@ function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): voi
   const milestone = getMilestoneInfo(cwd);
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
     researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     topic: topic || null,
@@ -403,7 +464,11 @@ function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): voi
     research_dir: path.relative(cwd, researchDir),
     milestones_dir: path.relative(cwd, getMilestonesDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, project-researcher ready${topic ? ', topic: ' + topic : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, project-researcher ready${topic ? ', topic: ' + topic : ''}`
+  );
 }
 
 // ─── Research-Synthesizer Init ───────────────────────────────────────────────
@@ -417,7 +482,9 @@ function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void {
     if (fs.existsSync(deepDivesDir)) {
       deepDives = fs.readdirSync(deepDivesDir).filter((f: string) => f.endsWith('.md'));
     }
-  } catch { deepDives = []; }
+  } catch {
+    deepDives = [];
+  }
 
   const result = buildInitContext(cwd, {
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
@@ -425,7 +492,8 @@ function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void {
     landscape_exists: fs.existsSync(path.join(researchDir, 'LANDSCAPE.md')),
     papers_exists: fs.existsSync(path.join(researchDir, 'PAPERS.md')),
     benchmarks_exists: fs.existsSync(path.join(researchDir, 'BENCHMARKS.md')),
-    deep_dives: deepDives, deep_dives_count: deepDives.length,
+    deep_dives: deepDives,
+    deep_dives_count: deepDives.length,
     autonomous_mode: config.autonomous_mode || false,
     deep_dives_dir: path.relative(cwd, path.join(researchDir, 'deep-dives')),
   });
@@ -461,7 +529,8 @@ function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void {
   const planningDir = getPlanningDir(cwd);
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     surveyor_model: resolveModelInternal(cwd, 'grd-surveyor'),
     surveyor_effort: resolveEffortForAgent(config, 'grd-surveyor', cwd),
     topic: topic || null,
@@ -474,7 +543,11 @@ function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void {
     milestones_dir: path.relative(cwd, getMilestonesDirPath(cwd)),
     project_exists: pathExistsInternal(cwd, path.join(planningDir, 'PROJECT.md')),
   };
-  output(result, raw, `Backend: ${result.backend}, surveyor ready${topic ? ', topic: ' + topic : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, surveyor ready${topic ? ', topic: ' + topic : ''}`
+  );
 }
 
 // ─── Verifier Init ───────────────────────────────────────────────────────────
@@ -487,21 +560,27 @@ function cmdInitVerifier(cwd: string, phase: string | null, raw: boolean): void 
   const phaseInfo = phase ? findPhaseInternal(cwd, phase) : null;
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     verifier_model: resolveModelInternal(cwd, 'grd-verifier'),
     verifier_effort: resolveEffortForAgent(config, 'grd-verifier', cwd),
     phase_found: phaseInfo ? (phaseInfo as unknown as Record<string, unknown>).found : false,
     phase_dir: phaseInfo?.directory || null,
     phase_number: phaseInfo?.phase_number || null,
     phase_name: phaseInfo?.phase_name || null,
-    plans: phaseInfo?.plans || [], summaries: phaseInfo?.summaries || [],
+    plans: phaseInfo?.plans || [],
+    summaries: phaseInfo?.summaries || [],
     baseline_exists: pathExistsInternal(cwd, path.join(planningDir, 'BASELINE.md')),
     benchmarks_exists: pathExistsInternal(cwd, path.join(researchDir, 'BENCHMARKS.md')),
     eval_config: (config as unknown as Record<string, unknown>).eval_config || {},
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
   };
-  output(result, raw, `Backend: ${result.backend}, verifier ready${phase ? ', phase: ' + phase : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, verifier ready${phase ? ', phase: ' + phase : ''}`
+  );
 }
 
 module.exports = {

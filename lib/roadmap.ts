@@ -221,11 +221,12 @@ function computeSchedule(cwd: string): ScheduleResult {
     const restContent: string = activeContent.slice(sectionStart + pMatch[0].length);
     const nextHeading: RegExpMatchArray | null = restContent.match(/\n#{2,}[ \t]/);
     const sectionText: string = nextHeading
-      ? activeContent.slice(sectionStart, sectionStart + pMatch[0].length + (nextHeading.index as number))
+      ? activeContent.slice(
+          sectionStart,
+          sectionStart + pMatch[0].length + (nextHeading.index as number)
+        )
       : activeContent.slice(sectionStart);
-    const durationMatch: RegExpMatchArray | null = sectionText.match(
-      /\*\*Duration:\*\*\s*(\d+)d/
-    );
+    const durationMatch: RegExpMatchArray | null = sectionText.match(/\*\*Duration:\*\*\s*(\d+)d/);
     const durationDays: number = durationMatch ? parseInt(durationMatch[1], 10) : defaultDuration;
 
     // Determine milestone
@@ -339,9 +340,7 @@ function cmdRoadmapGetPhase(cwd: string, phaseNum: string, raw: boolean): void {
 
     // Find the end of this section (next ### or end of file)
     const restOfContent: string = activeContent.slice(headerIndex);
-    const nextHeaderMatch: RegExpMatchArray | null = restOfContent.match(
-      /\n#{2,}\s+Phase\s+\d/i
-    );
+    const nextHeaderMatch: RegExpMatchArray | null = restOfContent.match(/\n#{2,}\s+Phase\s+\d/i);
     const sectionEnd: number = nextHeaderMatch
       ? headerIndex + (nextHeaderMatch.index as number)
       : activeContent.length;
@@ -349,9 +348,7 @@ function cmdRoadmapGetPhase(cwd: string, phaseNum: string, raw: boolean): void {
     const section: string = activeContent.slice(headerIndex, sectionEnd).trim();
 
     // Extract goal if present
-    const goalMatch: RegExpMatchArray | null = section.match(
-      /\*\*Goal:?\*\*:?\s*([^\n]+)/i
-    );
+    const goalMatch: RegExpMatchArray | null = section.match(/\*\*Goal:?\*\*:?\s*([^\n]+)/i);
     const goal: string | null = goalMatch ? goalMatch[1].trim() : null;
 
     output(
@@ -398,10 +395,9 @@ function cmdPhaseNextDecimal(cwd: string, basePhase: string, raw: boolean): void
   }
 
   try {
-    const entries: Array<{ isDirectory: () => boolean; name: string }> = fs.readdirSync(
-      phasesDir,
-      { withFileTypes: true }
-    );
+    const entries: Array<{ isDirectory: () => boolean; name: string }> = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     const dirs: string[] = entries
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name);
@@ -523,10 +519,7 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
   while ((mMatchLocal = milestoneRegexLocal.exec(activeContent)) !== null) {
     const version = 'v' + mMatchLocal[2];
     const heading: string = mMatchLocal[1].trim();
-    const afterHeading: string = activeContent.slice(
-      mMatchLocal.index,
-      mMatchLocal.index + 500
-    );
+    const afterHeading: string = activeContent.slice(mMatchLocal.index, mMatchLocal.index + 500);
     const startMatch: RegExpMatchArray | null = afterHeading.match(
       /\*\*Start:\*\*\s*(\d{4}-\d{2}-\d{2})/
     );
@@ -541,17 +534,17 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
   // Read phases directory once before the loop to avoid N repeated readdirSync calls.
   let phasesDirNames: string[] = [];
   try {
-    const phasesDirEntries: Array<{ isDirectory: () => boolean; name: string }> =
-      fs.readdirSync(phasesDir, { withFileTypes: true });
+    const phasesDirEntries: Array<{ isDirectory: () => boolean; name: string }> = fs.readdirSync(
+      phasesDir,
+      { withFileTypes: true }
+    );
     phasesDirNames = phasesDirEntries
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name);
   } catch (dirErr: unknown) {
     const err = dirErr as { code?: string; message?: string } | null;
     if (err && err.code && err.code !== 'ENOENT') {
-      process.stderr.write(
-        `[roadmap] phases directory read error (${err.code}): ${err.message}\n`
-      );
+      process.stderr.write(`[roadmap] phases directory read error (${err.code}): ${err.message}\n`);
     }
   }
 
@@ -570,17 +563,13 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
     // Extract goal from the section
     const sectionStart: number = match.index;
     const restOfContent: string = activeContent.slice(sectionStart);
-    const nextHeader: RegExpMatchArray | null = restOfContent.match(
-      /\n#{2,}\s+Phase\s+\d/i
-    );
+    const nextHeader: RegExpMatchArray | null = restOfContent.match(/\n#{2,}\s+Phase\s+\d/i);
     const sectionEnd: number = nextHeader
       ? sectionStart + (nextHeader.index as number)
       : activeContent.length;
     const section: string = activeContent.slice(sectionStart, sectionEnd);
 
-    const goalMatch: RegExpMatchArray | null = section.match(
-      /\*\*Goal:?\*\*:?\s*([^\n]+)/i
-    );
+    const goalMatch: RegExpMatchArray | null = section.match(/\*\*Goal:?\*\*:?\s*([^\n]+)/i);
     const goal: string | null = goalMatch ? goalMatch[1].trim() : null;
 
     const dependsMatch: RegExpMatchArray | null = section.match(
@@ -589,12 +578,8 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
     const depends_on: string | null = dependsMatch ? dependsMatch[1].trim() : null;
 
     // Extract duration for schedule computation (reuse the already-sliced section text).
-    const durationMatch: RegExpMatchArray | null = section.match(
-      /\*\*Duration:\*\*\s*(\d+)d/
-    );
-    const durationDays: number = durationMatch
-      ? parseInt(durationMatch[1], 10)
-      : defaultDuration;
+    const durationMatch: RegExpMatchArray | null = section.match(/\*\*Duration:\*\*\s*(\d+)d/);
+    const durationDays: number = durationMatch ? parseInt(durationMatch[1], 10) : defaultDuration;
 
     // Determine which milestone this phase belongs to.
     let phaseMilestone: string | null =
@@ -684,9 +669,10 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
 
   // Build milestones array from already-parsed positions -- no second regex pass needed.
   // Only heading and version to preserve the original analyzeRoadmap output shape.
-  const milestones: AnalyzedMilestone[] = milestonePositions.map(
-    (ms: MilestonePosition) => ({ heading: ms.heading, version: ms.version })
-  );
+  const milestones: AnalyzedMilestone[] = milestonePositions.map((ms: MilestonePosition) => ({
+    heading: ms.heading,
+    version: ms.version,
+  }));
 
   // Compute dates inline using already-parsed milestone positions -- no second parse needed.
   const milestoneStartMap: Record<string, string> = {};

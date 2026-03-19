@@ -242,7 +242,7 @@ describe('analyzeDeadExports', () => {
     writeFile(tmpDir, 'consumer.js', "const { funcA } = require('./lib');\nfuncA();\n");
     const result = analyzeDeadExports(tmpDir, ['lib.js']);
     expect(result.length).toBe(2);
-    const names = result.map((r: any) =>  r.exportName).sort();
+    const names = result.map((r: any) => r.exportName).sort();
     expect(names).toEqual(['funcB', 'funcC']);
   });
 
@@ -524,7 +524,7 @@ describe('analyzeReadmeLinks', () => {
 
     const result = analyzeReadmeLinks(tmpDir);
     expect(result.length).toBe(2);
-    const links = result.map((r: any) =>  r.link).sort();
+    const links = result.map((r: any) => r.link).sort();
     expect(links).toEqual(['missing-a.md', 'missing-b.md']);
   });
 
@@ -569,7 +569,9 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const extraParam = result.find((r: any) =>  r.issue.includes('extra') && r.issue.includes('extra'));
+    const extraParam = result.find(
+      (r: any) => r.issue.includes('extra') && r.issue.includes('extra')
+    );
     expect(extraParam).toBeDefined();
     expect(extraParam.issue).toMatch(/extra/i);
   });
@@ -592,7 +594,7 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const missingParam = result.find((r: any) =>  r.issue.includes('missing'));
+    const missingParam = result.find((r: any) => r.issue.includes('missing'));
     expect(missingParam).toBeDefined();
     expect(missingParam.issue).toMatch(/missing/i);
   });
@@ -638,7 +640,7 @@ describe('analyzeJsdocDrift', () => {
 
     const result = analyzeJsdocDrift(tmpDir, ['lib/example.js']);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    const extra = result.find((r: any) =>  r.issue.includes('ghost'));
+    const extra = result.find((r: any) => r.issue.includes('ghost'));
     expect(extra).toBeDefined();
   });
 
@@ -760,7 +762,11 @@ describe('generateCleanupPlan', () => {
   });
 
   // Helper: create a phase directory structure
-  function createPhaseDir(phaseNum: number | string, slug: string, existingPlans: (number | string)[] = []) {
+  function createPhaseDir(
+    phaseNum: number | string,
+    slug: string,
+    existingPlans: (number | string)[] = []
+  ) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
     const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);
@@ -1117,7 +1123,7 @@ describe('analyzeTestCoverageGaps', () => {
     );
     const result = analyzeTestCoverageGaps(tmpDir, ['lib/utils.js']);
     expect(result.length).toBe(2);
-    const names = result.map((r: any) =>  r.exportName).sort();
+    const names = result.map((r: any) => r.exportName).sort();
     expect(names).toEqual(['beta', 'gamma']);
     expect(result[0].testFile).toBe(path.join('tests', 'unit', 'utils.test.js'));
   });
@@ -1241,7 +1247,7 @@ describe('analyzeDocStaleness', () => {
       "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n];\n"
     );
     const result = analyzeDocStaleness(tmpDir);
-    const notImpl = result.filter((r: any) =>  r.issue === 'documented-but-not-implemented');
+    const notImpl = result.filter((r: any) => r.issue === 'documented-but-not-implemented');
     expect(notImpl.length).toBe(1);
     expect(notImpl[0].detail).toContain('ghost command');
   });
@@ -1254,7 +1260,7 @@ describe('analyzeDocStaleness', () => {
       "const COMMAND_DESCRIPTORS = [\n  { name: 'grd_state_load', execute: () => {} },\n  { name: 'grd_secret_tool', execute: () => {} },\n];\n"
     );
     const result = analyzeDocStaleness(tmpDir);
-    const notDoc = result.filter((r: any) =>  r.issue === 'implemented-but-not-documented');
+    const notDoc = result.filter((r: any) => r.issue === 'implemented-but-not-documented');
     expect(notDoc.length).toBe(1);
     expect(notDoc[0].detail).toContain('grd_secret_tool');
   });
@@ -1312,9 +1318,9 @@ describe('analyzeConfigSchemaDrift', () => {
     );
     writeConfig(tmpDir, { some_key: true });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notInConfig = result.filter((r: any) =>  r.issue === 'documented-key-not-in-config');
+    const notInConfig = result.filter((r: any) => r.issue === 'documented-key-not-in-config');
     expect(notInConfig.length).toBe(2);
-    expect(notInConfig.map((r: any) =>  r.detail)).toEqual(
+    expect(notInConfig.map((r: any) => r.detail)).toEqual(
       expect.arrayContaining([
         expect.stringContaining('tracker'),
         expect.stringContaining('execution'),
@@ -1326,7 +1332,7 @@ describe('analyzeConfigSchemaDrift', () => {
     writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `known_key` — Known\n\n## Other\n');
     writeConfig(tmpDir, { known_key: true, secret_key: false });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notDoc = result.filter((r: any) =>  r.issue === 'config-key-not-documented');
+    const notDoc = result.filter((r: any) => r.issue === 'config-key-not-documented');
     expect(notDoc.length).toBe(1);
     expect(notDoc[0].detail).toContain('secret_key');
   });
@@ -1335,7 +1341,7 @@ describe('analyzeConfigSchemaDrift', () => {
     writeFile(tmpDir, 'CLAUDE.md', '## Configuration\n\n- `visible` — Visible\n\n## Other\n');
     writeConfig(tmpDir, { visible: true, _internal: 'hidden' });
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notDoc = result.filter((r: any) =>  r.issue === 'config-key-not-documented');
+    const notDoc = result.filter((r: any) => r.issue === 'config-key-not-documented');
     expect(notDoc).toEqual([]);
   });
 
@@ -1348,7 +1354,8 @@ describe('analyzeConfigSchemaDrift', () => {
     writeConfig(tmpDir, { alpha: 1, beta: 2 });
     const result = analyzeConfigSchemaDrift(tmpDir);
     const configIssues = result.filter(
-      (r: any) =>  r.issue === 'documented-key-not-in-config' || r.issue === 'config-key-not-documented'
+      (r: any) =>
+        r.issue === 'documented-key-not-in-config' || r.issue === 'config-key-not-documented'
     );
     expect(configIssues).toEqual([]);
   });
@@ -1368,7 +1375,7 @@ describe('analyzeConfigSchemaDrift', () => {
       ].join('\n')
     );
     const result = analyzeConfigSchemaDrift(tmpDir);
-    const notImported = result.filter((r: any) =>  r.issue === 'execute-function-not-imported');
+    const notImported = result.filter((r: any) => r.issue === 'execute-function-not-imported');
     expect(notImported.length).toBe(1);
     expect(notImported[0].detail).toContain('cmdGhost');
   });
@@ -1465,7 +1472,11 @@ describe('generateCleanupPlan new task groupings', () => {
     removeTempDir(tmpDir);
   });
 
-  function createPhaseDir(phaseNum: number | string, slug: string, existingPlans: (number | string)[] = []) {
+  function createPhaseDir(
+    phaseNum: number | string,
+    slug: string,
+    existingPlans: (number | string)[] = []
+  ) {
     const padded = String(phaseNum).padStart(2, '0');
     const dirName = `${padded}-${slug}`;
     const dirPath = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', dirName);

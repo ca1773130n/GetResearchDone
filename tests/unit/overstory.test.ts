@@ -778,26 +778,30 @@ describe('slingPlanAsync', () => {
     // Call 4: mergeAgent -> returns MergeResult
     mockExecFileSync
       .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
-        agent_id: 'ov-agent-async-001',
-        state: 'running',
-        exit_code: null,
-        duration_ms: 5000,
-        worktree_path: '/tmp/worktrees/async-001',
-        branch: 'grd/v1.0.0/05-plan',
-        runtime: 'claude',
-        model: 'claude-opus-4-5',
-      }))
-      .mockReturnValueOnce(JSON.stringify({
-        agent_id: 'ov-agent-async-001',
-        state: 'done',
-        exit_code: 0,
-        duration_ms: 30000,
-        worktree_path: '/tmp/worktrees/async-001',
-        branch: 'grd/v1.0.0/05-plan',
-        runtime: 'claude',
-        model: 'claude-opus-4-5',
-      }))
+      .mockReturnValueOnce(
+        JSON.stringify({
+          agent_id: 'ov-agent-async-001',
+          state: 'running',
+          exit_code: null,
+          duration_ms: 5000,
+          worktree_path: '/tmp/worktrees/async-001',
+          branch: 'grd/v1.0.0/05-plan',
+          runtime: 'claude',
+          model: 'claude-opus-4-5',
+        })
+      )
+      .mockReturnValueOnce(
+        JSON.stringify({
+          agent_id: 'ov-agent-async-001',
+          state: 'done',
+          exit_code: 0,
+          duration_ms: 30000,
+          worktree_path: '/tmp/worktrees/async-001',
+          branch: 'grd/v1.0.0/05-plan',
+          runtime: 'claude',
+          model: 'claude-opus-4-5',
+        })
+      )
       .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
@@ -824,16 +828,18 @@ describe('slingPlanAsync', () => {
   test('should handle failed agent', async () => {
     mockExecFileSync
       .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
-        agent_id: 'ov-agent-async-001',
-        state: 'failed',
-        exit_code: 1,
-        duration_ms: 10000,
-        worktree_path: '/tmp/worktrees/async-001',
-        branch: 'grd/v1.0.0/05-plan',
-        runtime: 'claude',
-        model: 'claude-opus-4-5',
-      }))
+      .mockReturnValueOnce(
+        JSON.stringify({
+          agent_id: 'ov-agent-async-001',
+          state: 'failed',
+          exit_code: 1,
+          duration_ms: 10000,
+          worktree_path: '/tmp/worktrees/async-001',
+          branch: 'grd/v1.0.0/05-plan',
+          runtime: 'claude',
+          model: 'claude-opus-4-5',
+        })
+      )
       .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
@@ -851,9 +857,8 @@ describe('slingPlanAsync', () => {
   });
 
   test('should skip merge when strategy is manual', async () => {
-    mockExecFileSync
-      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
+    mockExecFileSync.mockReturnValueOnce(JSON.stringify(slingResultFixture)).mockReturnValueOnce(
+      JSON.stringify({
         agent_id: 'ov-agent-async-001',
         state: 'done',
         exit_code: 0,
@@ -862,7 +867,8 @@ describe('slingPlanAsync', () => {
         branch: 'grd/v1.0.0/05-plan',
         runtime: 'claude',
         model: 'claude-opus-4-5',
-      }));
+      })
+    );
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
 
@@ -883,16 +889,18 @@ describe('slingPlanAsync', () => {
   test('should call mergeAgent when strategy is auto', async () => {
     mockExecFileSync
       .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
-        agent_id: 'ov-agent-async-001',
-        state: 'done',
-        exit_code: 0,
-        duration_ms: 20000,
-        worktree_path: '/tmp/worktrees/async-001',
-        branch: 'grd/v1.0.0/05-plan',
-        runtime: 'claude',
-        model: 'claude-opus-4-5',
-      }))
+      .mockReturnValueOnce(
+        JSON.stringify({
+          agent_id: 'ov-agent-async-001',
+          state: 'done',
+          exit_code: 0,
+          duration_ms: 20000,
+          worktree_path: '/tmp/worktrees/async-001',
+          branch: 'grd/v1.0.0/05-plan',
+          runtime: 'claude',
+          model: 'claude-opus-4-5',
+        })
+      )
       .mockReturnValueOnce(JSON.stringify(mergeResultFixture));
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'auto');
@@ -909,9 +917,8 @@ describe('slingPlanAsync', () => {
   });
 
   test('should default exit_code to 0 when done state has null exit_code', async () => {
-    mockExecFileSync
-      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
+    mockExecFileSync.mockReturnValueOnce(JSON.stringify(slingResultFixture)).mockReturnValueOnce(
+      JSON.stringify({
         agent_id: 'ov-agent-async-001',
         state: 'done',
         exit_code: null,
@@ -920,7 +927,8 @@ describe('slingPlanAsync', () => {
         branch: 'grd/v1.0.0/05-plan',
         runtime: 'claude',
         model: 'claude-opus-4-5',
-      }));
+      })
+    );
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
 
@@ -932,9 +940,8 @@ describe('slingPlanAsync', () => {
   });
 
   test('should default exit_code to 1 when failed state has null exit_code', async () => {
-    mockExecFileSync
-      .mockReturnValueOnce(JSON.stringify(slingResultFixture))
-      .mockReturnValueOnce(JSON.stringify({
+    mockExecFileSync.mockReturnValueOnce(JSON.stringify(slingResultFixture)).mockReturnValueOnce(
+      JSON.stringify({
         agent_id: 'ov-agent-async-001',
         state: 'failed',
         exit_code: null,
@@ -943,7 +950,8 @@ describe('slingPlanAsync', () => {
         branch: 'grd/v1.0.0/05-plan',
         runtime: 'claude',
         model: 'claude-opus-4-5',
-      }));
+      })
+    );
 
     const promise = slingPlanAsync(tmpDir, baseSlingOpts, 100, 'manual');
 

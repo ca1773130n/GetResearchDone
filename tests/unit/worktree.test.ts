@@ -2073,7 +2073,11 @@ describe('createEvolveWorktree', () => {
     // to trigger the "already exists" check on a second call within same second
     const resolvedCwd = fs.realpathSync(repoDir);
     const now = new Date();
-    const stamp = now.toISOString().replace(/[-:T]/g, '').replace(/\.\d+Z$/, '').slice(0, 15);
+    const stamp = now
+      .toISOString()
+      .replace(/[-:T]/g, '')
+      .replace(/\.\d+Z$/, '')
+      .slice(0, 15);
     const tag = `${stamp.slice(0, 8)}-${stamp.slice(8)}`;
     const wtPath2 = path.join(resolvedCwd, '.worktrees', `grd-evolve-${tag}`);
     fs.mkdirSync(wtPath2, { recursive: true });
@@ -2130,7 +2134,10 @@ describe('ensureWorktreesDir (export)', () => {
     const tmpRoot = fs.mkdtempSync(path.join(REAL_TMPDIR, 'grd-gitignore-perm-test-'));
     try {
       execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
-      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], {
+        cwd: tmpRoot,
+        stdio: 'pipe',
+      });
       execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpRoot, stdio: 'pipe' });
       // Make .gitignore a directory — readFileSync throws EISDIR (not ENOENT)
       fs.mkdirSync(path.join(tmpRoot, '.gitignore'), { recursive: true });
@@ -2159,22 +2166,32 @@ describe('ensureWorktreesDir (export)', () => {
       fs.chmodSync(gitignorePath, 0o444);
 
       const stderrLines: string[] = [];
-      const spy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
-        stderrLines.push(typeof msg === 'string' ? msg : String(msg));
-        return true;
-      });
+      const spy = jest
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((msg: string | Uint8Array) => {
+          stderrLines.push(typeof msg === 'string' ? msg : String(msg));
+          return true;
+        });
       let result;
       try {
         result = ensureWorktreesDir(tmpRoot);
       } finally {
         spy.mockRestore();
-        try { fs.chmodSync(gitignorePath, 0o644); } catch { /* ignore */ }
+        try {
+          fs.chmodSync(gitignorePath, 0o644);
+        } catch {
+          /* ignore */
+        }
       }
 
       expect(result).toBe(false);
       expect(stderrLines.some((l: any) => l.includes('could not update .gitignore'))).toBe(true);
     } finally {
-      try { fs.chmodSync(gitignorePath, 0o644); } catch { /* ignore */ }
+      try {
+        fs.chmodSync(gitignorePath, 0o644);
+      } catch {
+        /* ignore */
+      }
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
@@ -2197,7 +2214,10 @@ describe('pushAndCreatePR', () => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-pr-test-'));
     try {
       execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: tmpRoot, stdio: 'pipe' });
-      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['config', 'user.email', 'test@grd.dev'], {
+        cwd: tmpRoot,
+        stdio: 'pipe',
+      });
       execFileSync('git', ['config', 'user.name', 'GRD Test'], { cwd: tmpRoot, stdio: 'pipe' });
       fs.writeFileSync(path.join(tmpRoot, 'file.txt'), 'hello');
       execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -2206,13 +2226,18 @@ describe('pushAndCreatePR', () => {
       // Create worktree
       const wtPath = path.join(tmpRoot, '.worktrees', 'grd-evolve-test');
       fs.mkdirSync(path.join(tmpRoot, '.worktrees'), { recursive: true });
-      execFileSync('git', ['worktree', 'add', '-b', 'grd/evolve/test', wtPath], { cwd: tmpRoot, stdio: 'pipe' });
+      execFileSync('git', ['worktree', 'add', '-b', 'grd/evolve/test', wtPath], {
+        cwd: tmpRoot,
+        stdio: 'pipe',
+      });
 
       const result = pushAndCreatePR(tmpRoot, wtPath);
       expect(result.error).toMatch(/Failed to push branch/);
       expect(result.push_succeeded).toBe(false);
     } finally {
-      try { execFileSync('git', ['worktree', 'prune'], { cwd: tmpRoot, stdio: 'pipe' }); } catch {}
+      try {
+        execFileSync('git', ['worktree', 'prune'], { cwd: tmpRoot, stdio: 'pipe' });
+      } catch {}
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
@@ -2238,10 +2263,12 @@ describe('cmdWorktreeRemove — git error logging', () => {
     fs.writeFileSync(path.join(fakePath, 'file.txt'), 'hello');
 
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
-      stderrLines.push(String(msg));
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((msg: string | Uint8Array) => {
+        stderrLines.push(String(msg));
+        return true;
+      });
 
     try {
       // Should not throw; should log the git error to stderr

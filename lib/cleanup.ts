@@ -324,9 +324,7 @@ function analyzeComplexity(
       }
     }
     process.stderr.write(
-      '[cleanup] ESLint complexity analysis failed: ' +
-        (execErr.message || 'unknown error') +
-        '\n'
+      '[cleanup] ESLint complexity analysis failed: ' + (execErr.message || 'unknown error') + '\n'
     );
     return [];
   }
@@ -335,10 +333,7 @@ function analyzeComplexity(
 /**
  * Parse ESLint JSON output for complexity violations.
  */
-function parseEslintComplexityResults(
-  cwd: string,
-  jsonOutput: string
-): ComplexityViolation[] {
+function parseEslintComplexityResults(cwd: string, jsonOutput: string): ComplexityViolation[] {
   const results: EslintFileResult[] = JSON.parse(jsonOutput);
   const violations: ComplexityViolation[] = [];
   // Resolve cwd to real path for consistent path.relative calculation
@@ -355,16 +350,13 @@ function parseEslintComplexityResults(
       const funcMatch: RegExpMatchArray | null = msg.message.match(
         /(?:Function '(\w+)'|(\w+ function))/
       );
-      const complexityMatch: RegExpMatchArray | null =
-        msg.message.match(/complexity of (\d+)/);
+      const complexityMatch: RegExpMatchArray | null = msg.message.match(/complexity of (\d+)/);
 
       if (complexityMatch) {
         violations.push({
           file: path.relative(realCwd, fileResult.filePath),
           line: msg.line,
-          functionName: funcMatch
-            ? funcMatch[1] || funcMatch[2]
-            : 'anonymous',
+          functionName: funcMatch ? funcMatch[1] || funcMatch[2] : 'anonymous',
           complexity: parseInt(complexityMatch[1], 10),
         });
       }
@@ -512,8 +504,7 @@ function analyzeFileSize(
     const content: string | null = _cachedRead(absPath);
     if (!content) continue;
 
-    const lines: number =
-      content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
+    const lines: number = content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
 
     if (lines > maxLines) {
       violations.push({
@@ -688,15 +679,12 @@ function analyzeJsdocDrift(cwd: string, files: string[]): JsdocDriftIssue[] {
 
     while ((blockMatch = blockRe.exec(content)) !== null) {
       const blockEnd: number = blockMatch.index + blockMatch[0].length;
-      const blockStartLine: number =
-        content.substring(0, blockMatch.index).split('\n').length;
+      const blockStartLine: number = content.substring(0, blockMatch.index).split('\n').length;
 
       const docParams: string[] = _extractJsdocParams(blockMatch[0]);
       if (docParams.length === 0) continue; // No @param annotations, skip
 
-      const { funcName, paramsStr } = _parseFunctionAfterJsdoc(
-        content.substring(blockEnd)
-      );
+      const { funcName, paramsStr } = _parseFunctionAfterJsdoc(content.substring(blockEnd));
       if (!funcName || paramsStr === null || paramsStr === undefined) continue;
 
       const actualParams: string[] = _extractParamNames(paramsStr);
@@ -772,10 +760,7 @@ function _extractParamNames(paramsStr: string): string[] {
  * Detect exported functions/values with no corresponding mention in test files.
  * For each lib/foo.js, checks tests/unit/foo.test.js for references to each export.
  */
-function analyzeTestCoverageGaps(
-  cwd: string,
-  files: string[]
-): TestCoverageGap[] {
+function analyzeTestCoverageGaps(cwd: string, files: string[]): TestCoverageGap[] {
   if (!files || files.length === 0) return [];
 
   const gaps: TestCoverageGap[] = [];
@@ -825,10 +810,7 @@ function analyzeTestCoverageGaps(
  * Detect stale imports where a destructured require references a name no longer
  * exported by the target module.
  */
-function analyzeExportConsistency(
-  cwd: string,
-  files: string[]
-): ExportConsistencyIssue[] {
+function analyzeExportConsistency(cwd: string, files: string[]): ExportConsistencyIssue[] {
   if (!files || files.length === 0) return [];
 
   const issues: ExportConsistencyIssue[] = [];
@@ -839,8 +821,7 @@ function analyzeExportConsistency(
     if (!content) continue;
 
     const lines: string[] = content.split('\n');
-    const requirePattern: RegExp =
-      /const\s+\{([^}]+)\}\s*=\s*require\(['"]([^'"]+)['"]\)/;
+    const requirePattern: RegExp = /const\s+\{([^}]+)\}\s*=\s*require\(['"]([^'"]+)['"]\)/;
 
     for (let i = 0; i < lines.length; i++) {
       const match: RegExpMatchArray | null = lines[i].match(requirePattern);
@@ -853,10 +834,7 @@ function analyzeExportConsistency(
       const requirePath: string = match[2];
       if (!requirePath.startsWith('.')) continue;
 
-      let sourcePath: string = path.resolve(
-        path.dirname(absPath),
-        requirePath
-      );
+      let sourcePath: string = path.resolve(path.dirname(absPath), requirePath);
       if (!sourcePath.endsWith('.js')) sourcePath += '.js';
       const sourceContent: string | null = safeReadFile(sourcePath);
       if (!sourceContent) continue;
@@ -899,15 +877,12 @@ function analyzeDocStaleness(cwd: string): DocStalenessIssue[] {
   if (!mcpContent) return [];
 
   const issues: DocStalenessIssue[] = [];
-  const documentedCommands: DocumentedCommand[] =
-    _extractDocumentedCommands(claudeContent);
+  const documentedCommands: DocumentedCommand[] = _extractDocumentedCommands(claudeContent);
   const actualTools: Set<string> = _extractToolNames(mcpContent);
 
   // Check documented but not implemented
   for (const cmd of documentedCommands) {
-    const hasMatch: boolean = cmd.possibleNames.some((n: string) =>
-      actualTools.has(n)
-    );
+    const hasMatch: boolean = cmd.possibleNames.some((n: string) => actualTools.has(n));
     if (!hasMatch) {
       issues.push({
         file: 'CLAUDE.md',
@@ -992,16 +967,8 @@ function _generateToolNames(cleaned: string): string[] {
     const parts: string[] = cleaned.split(' / ').map((p: string) => p.trim());
     const firstParts: string[] = parts[0].split(/\s+/);
     if (firstParts.length >= 2) {
-      const base: string = firstParts
-        .slice(0, -1)
-        .join('_')
-        .replace(/-/g, '_');
-      names.push(
-        'grd_' +
-          base +
-          '_' +
-          firstParts[firstParts.length - 1].replace(/-/g, '_')
-      );
+      const base: string = firstParts.slice(0, -1).join('_').replace(/-/g, '_');
+      names.push('grd_' + base + '_' + firstParts[firstParts.length - 1].replace(/-/g, '_'));
       for (let j = 1; j < parts.length; j++) {
         names.push('grd_' + base + '_' + parts[j].replace(/-/g, '_'));
       }
@@ -1021,9 +988,7 @@ function _generateToolNames(cleaned: string): string[] {
     // Add expanded versions
     for (const sub of subs) {
       const subNorm: string = sub.replace(/-/g, '_');
-      names.push(
-        base ? 'grd_' + base + '_' + subNorm : 'grd_' + subNorm
-      );
+      names.push(base ? 'grd_' + base + '_' + subNorm : 'grd_' + subNorm);
     }
     return names;
   }
@@ -1060,8 +1025,7 @@ function analyzeConfigSchemaDrift(cwd: string): ConfigSchemaDriftIssue[] {
   const claudeContent: string | null = safeReadFile(claudeMdPath);
   if (!claudeContent) return [];
 
-  const documentedKeys: DocumentedConfigKey[] =
-    _extractDocumentedConfigKeys(claudeContent);
+  const documentedKeys: DocumentedConfigKey[] = _extractDocumentedConfigKeys(claudeContent);
 
   // 2. Read actual config.json
   const configPath: string = path.join(cwd, '.planning', 'config.json');
@@ -1088,10 +1052,7 @@ function analyzeConfigSchemaDrift(cwd: string): ConfigSchemaDriftIssue[] {
     for (const key of actualKeys) {
       if (!documentedKeySet.has(key)) {
         issues.push({
-          file: path.relative(
-            cwd,
-            path.join(getPlanningDir(cwd), 'config.json')
-          ),
+          file: path.relative(cwd, path.join(getPlanningDir(cwd), 'config.json')),
           issue: 'config-key-not-documented',
           detail: `Config key "${key}" present but not documented in CLAUDE.md`,
           line: 0,
@@ -1105,16 +1066,14 @@ function analyzeConfigSchemaDrift(cwd: string): ConfigSchemaDriftIssue[] {
   const mcpContent: string | null = safeReadFile(mcpPath);
   if (!mcpContent) return issues;
 
-  const executePattern: RegExp =
-    /execute:\s*\([^)]*\)\s*=>\s*(\w+)\(/g;
+  const executePattern: RegExp = /execute:\s*\([^)]*\)\s*=>\s*(\w+)\(/g;
   const executeFunctions: Set<string> = new Set();
   let execMatch: RegExpExecArray | null;
   while ((execMatch = executePattern.exec(mcpContent)) !== null) {
     executeFunctions.add(execMatch[1]);
   }
 
-  const preamble: string =
-    mcpContent.split('const COMMAND_DESCRIPTORS')[0] || '';
+  const preamble: string = mcpContent.split('const COMMAND_DESCRIPTORS')[0] || '';
   for (const funcName of executeFunctions) {
     if (!preamble.includes(funcName)) {
       issues.push({
@@ -1162,10 +1121,7 @@ function _extractDocumentedConfigKeys(content: string): DocumentedConfigKey[] {
  * Orchestrate all quality checks (complexity, dead exports, file size, doc drift)
  * and return a structured quality report.
  */
-function runQualityAnalysis(
-  cwd: string,
-  phaseNum: string
-): QualityAnalysisResult {
+function runQualityAnalysis(cwd: string, phaseNum: string): QualityAnalysisResult {
   const config: CleanupConfig = getCleanupConfig(cwd);
 
   if (!config.enabled) {
@@ -1178,23 +1134,12 @@ function runQualityAnalysis(
     const jsFiles: string[] = findAnalysisFiles(cwd, phaseNum);
 
     // Run core analyses
-    const complexityResults: ComplexityViolation[] = analyzeComplexity(
-      cwd,
-      jsFiles
-    );
-    const deadExportResults: DeadExportViolation[] = analyzeDeadExports(
-      cwd,
-      jsFiles
-    );
-    const fileSizeResults: FileSizeViolation[] = analyzeFileSize(
-      cwd,
-      jsFiles
-    );
+    const complexityResults: ComplexityViolation[] = analyzeComplexity(cwd, jsFiles);
+    const deadExportResults: DeadExportViolation[] = analyzeDeadExports(cwd, jsFiles);
+    const fileSizeResults: FileSizeViolation[] = analyzeFileSize(cwd, jsFiles);
 
     const baseIssues: number =
-      complexityResults.length +
-      deadExportResults.length +
-      fileSizeResults.length;
+      complexityResults.length + deadExportResults.length + fileSizeResults.length;
 
     const summary: QualityAnalysisSummary = {
       total_issues: baseIssues,
@@ -1211,18 +1156,12 @@ function runQualityAnalysis(
 
     // Run doc drift checks when doc_sync is enabled
     if (config.doc_sync) {
-      const changelogResults: ChangelogDriftViolation[] =
-        analyzeChangelogDrift(cwd);
+      const changelogResults: ChangelogDriftViolation[] = analyzeChangelogDrift(cwd);
       const readmeResults: BrokenLinkViolation[] = analyzeReadmeLinks(cwd);
-      const jsdocResults: JsdocDriftIssue[] = analyzeJsdocDrift(
-        cwd,
-        jsFiles
-      );
+      const jsdocResults: JsdocDriftIssue[] = analyzeJsdocDrift(cwd, jsFiles);
 
       const docDriftCount: number =
-        changelogResults.length +
-        readmeResults.length +
-        jsdocResults.length;
+        changelogResults.length + readmeResults.length + jsdocResults.length;
       summary.doc_drift_issues = docDriftCount;
       summary.total_issues += docDriftCount;
 
@@ -1235,8 +1174,7 @@ function runQualityAnalysis(
 
     // Run test coverage gap analysis when test_coverage is enabled
     if (config.test_coverage) {
-      const testCoverageResults: TestCoverageGap[] =
-        analyzeTestCoverageGaps(cwd, jsFiles);
+      const testCoverageResults: TestCoverageGap[] = analyzeTestCoverageGaps(cwd, jsFiles);
       summary.test_coverage_gaps = testCoverageResults.length;
       summary.total_issues += testCoverageResults.length;
       details.test_coverage = testCoverageResults;
@@ -1244,8 +1182,10 @@ function runQualityAnalysis(
 
     // Run export consistency analysis when export_consistency is enabled
     if (config.export_consistency) {
-      const exportConsistencyResults: ExportConsistencyIssue[] =
-        analyzeExportConsistency(cwd, jsFiles);
+      const exportConsistencyResults: ExportConsistencyIssue[] = analyzeExportConsistency(
+        cwd,
+        jsFiles
+      );
       summary.stale_imports = exportConsistencyResults.length;
       summary.total_issues += exportConsistencyResults.length;
       details.export_consistency = exportConsistencyResults;
@@ -1253,8 +1193,7 @@ function runQualityAnalysis(
 
     // Run doc staleness analysis when doc_staleness is enabled
     if (config.doc_staleness) {
-      const docStalenessResults: DocStalenessIssue[] =
-        analyzeDocStaleness(cwd);
+      const docStalenessResults: DocStalenessIssue[] = analyzeDocStaleness(cwd);
       summary.doc_staleness_issues = docStalenessResults.length;
       summary.total_issues += docStalenessResults.length;
       details.doc_staleness = docStalenessResults;
@@ -1262,8 +1201,7 @@ function runQualityAnalysis(
 
     // Run config schema drift analysis when config_schema is enabled
     if (config.config_schema) {
-      const configSchemaResults: ConfigSchemaDriftIssue[] =
-        analyzeConfigSchemaDrift(cwd);
+      const configSchemaResults: ConfigSchemaDriftIssue[] = analyzeConfigSchemaDrift(cwd);
       summary.config_schema_issues = configSchemaResults.length;
       summary.total_issues += configSchemaResults.length;
       details.config_schema = configSchemaResults;
@@ -1299,9 +1237,7 @@ function findAnalysisFiles(cwd: string, _phaseNum: string): string[] {
       withFileTypes: true,
     });
     return entries
-      .filter(
-        (e: import('fs').Dirent) => e.isFile() && e.name.endsWith('.js')
-      )
+      .filter((e: import('fs').Dirent) => e.isFile() && e.name.endsWith('.js'))
       .map((e: import('fs').Dirent) => path.join('lib', e.name));
   } catch {
     return [];
@@ -1324,11 +1260,7 @@ function generateCleanupPlan(
   const threshold: number = config.cleanup_threshold;
 
   // No plan needed if issues are at or below threshold
-  if (
-    !qualityReport ||
-    !qualityReport.summary ||
-    qualityReport.summary.total_issues <= threshold
-  ) {
+  if (!qualityReport || !qualityReport.summary || qualityReport.summary.total_issues <= threshold) {
     return null;
   }
 
@@ -1387,56 +1319,36 @@ function generateCleanupPlan(
   const { details } = qualityReport;
   if (details) {
     if (details.complexity) {
-      details.complexity.forEach((v: ComplexityViolation) =>
-        filesSet.add(v.file)
-      );
+      details.complexity.forEach((v: ComplexityViolation) => filesSet.add(v.file));
     }
     if (details.dead_exports) {
-      details.dead_exports.forEach((v: DeadExportViolation) =>
-        filesSet.add(v.file)
-      );
+      details.dead_exports.forEach((v: DeadExportViolation) => filesSet.add(v.file));
     }
     if (details.file_size) {
-      details.file_size.forEach((v: FileSizeViolation) =>
-        filesSet.add(v.file)
-      );
+      details.file_size.forEach((v: FileSizeViolation) => filesSet.add(v.file));
     }
     if (details.doc_drift) {
       if (details.doc_drift.changelog) {
-        details.doc_drift.changelog.forEach(
-          (v: ChangelogDriftViolation) => filesSet.add(v.file)
-        );
+        details.doc_drift.changelog.forEach((v: ChangelogDriftViolation) => filesSet.add(v.file));
       }
       if (details.doc_drift.readme_links) {
-        details.doc_drift.readme_links.forEach(
-          (v: BrokenLinkViolation) => filesSet.add(v.file)
-        );
+        details.doc_drift.readme_links.forEach((v: BrokenLinkViolation) => filesSet.add(v.file));
       }
       if (details.doc_drift.jsdoc) {
-        details.doc_drift.jsdoc.forEach((v: JsdocDriftIssue) =>
-          filesSet.add(v.file)
-        );
+        details.doc_drift.jsdoc.forEach((v: JsdocDriftIssue) => filesSet.add(v.file));
       }
     }
     if (details.test_coverage) {
-      details.test_coverage.forEach((v: TestCoverageGap) =>
-        filesSet.add(v.file)
-      );
+      details.test_coverage.forEach((v: TestCoverageGap) => filesSet.add(v.file));
     }
     if (details.export_consistency) {
-      details.export_consistency.forEach((v: ExportConsistencyIssue) =>
-        filesSet.add(v.file)
-      );
+      details.export_consistency.forEach((v: ExportConsistencyIssue) => filesSet.add(v.file));
     }
     if (details.doc_staleness) {
-      details.doc_staleness.forEach((v: DocStalenessIssue) =>
-        filesSet.add(v.file)
-      );
+      details.doc_staleness.forEach((v: DocStalenessIssue) => filesSet.add(v.file));
     }
     if (details.config_schema) {
-      details.config_schema.forEach((v: ConfigSchemaDriftIssue) =>
-        filesSet.add(v.file)
-      );
+      details.config_schema.forEach((v: ConfigSchemaDriftIssue) => filesSet.add(v.file));
     }
   }
 
@@ -1473,24 +1385,15 @@ function generateCleanupPlan(
   // Task 2: Doc drift issues
   const docIssues: string[] = [];
   if (details && details.doc_drift) {
-    if (
-      details.doc_drift.changelog &&
-      details.doc_drift.changelog.length > 0
-    ) {
+    if (details.doc_drift.changelog && details.doc_drift.changelog.length > 0) {
       docIssues.push(`- Update stale CHANGELOG.md`);
     }
-    if (
-      details.doc_drift.readme_links &&
-      details.doc_drift.readme_links.length > 0
-    ) {
+    if (details.doc_drift.readme_links && details.doc_drift.readme_links.length > 0) {
       docIssues.push(
         `- Fix ${details.doc_drift.readme_links.length} broken README link(s): ${details.doc_drift.readme_links.map((v: BrokenLinkViolation) => v.link).join(', ')}`
       );
     }
-    if (
-      details.doc_drift.jsdoc &&
-      details.doc_drift.jsdoc.length > 0
-    ) {
+    if (details.doc_drift.jsdoc && details.doc_drift.jsdoc.length > 0) {
       docIssues.push(
         `- Fix ${details.doc_drift.jsdoc.length} JSDoc mismatch(es): ${details.doc_drift.jsdoc.map((v: JsdocDriftIssue) => `${v.functionName} in ${v.file}`).join(', ')}`
       );
@@ -1509,40 +1412,23 @@ function generateCleanupPlan(
     tasks.push({
       name: 'Close test coverage gaps',
       items: details.test_coverage.map(
-        (v: TestCoverageGap) =>
-          `- Add tests for ${v.exportName} from ${v.file} in ${v.testFile}`
+        (v: TestCoverageGap) => `- Add tests for ${v.exportName} from ${v.file} in ${v.testFile}`
       ),
     });
   }
 
   // Task: Consistency and schema issues
   const consistencyIssues: string[] = [];
-  if (
-    details &&
-    details.export_consistency &&
-    details.export_consistency.length > 0
-  ) {
+  if (details && details.export_consistency && details.export_consistency.length > 0) {
     consistencyIssues.push(
       `- Fix ${details.export_consistency.length} stale import(s): ${details.export_consistency.map((v: ExportConsistencyIssue) => `${v.importedName} in ${v.file}`).join(', ')}`
     );
   }
-  if (
-    details &&
-    details.doc_staleness &&
-    details.doc_staleness.length > 0
-  ) {
-    consistencyIssues.push(
-      `- Resolve ${details.doc_staleness.length} doc staleness issue(s)`
-    );
+  if (details && details.doc_staleness && details.doc_staleness.length > 0) {
+    consistencyIssues.push(`- Resolve ${details.doc_staleness.length} doc staleness issue(s)`);
   }
-  if (
-    details &&
-    details.config_schema &&
-    details.config_schema.length > 0
-  ) {
-    consistencyIssues.push(
-      `- Fix ${details.config_schema.length} config schema drift(s)`
-    );
+  if (details && details.config_schema && details.config_schema.length > 0) {
+    consistencyIssues.push(`- Fix ${details.config_schema.length} config schema drift(s)`);
   }
   if (consistencyIssues.length > 0) {
     tasks.push({
@@ -1562,9 +1448,7 @@ function generateCleanupPlan(
   }
 
   // Build PLAN.md content
-  const filesModifiedYaml: string = filesModified
-    .map((f: string) => `  - "${f}"`)
-    .join('\n');
+  const filesModifiedYaml: string = filesModified.map((f: string) => `  - "${f}"`).join('\n');
   const taskBlocks: string = tasks
     .map((t: CleanupTask, i: number) => {
       return `<task type="auto">
@@ -1633,11 +1517,7 @@ const QUALITY_HISTORY_FILE: string = '.quality-history.json';
  * Load quality history from .planning/.quality-history.json.
  */
 function loadQualityHistory(cwd: string): QualityHistory {
-  const historyPath: string = path.join(
-    cwd,
-    '.planning',
-    QUALITY_HISTORY_FILE
-  );
+  const historyPath: string = path.join(cwd, '.planning', QUALITY_HISTORY_FILE);
   try {
     const content: string = fs.readFileSync(historyPath, 'utf-8');
     return JSON.parse(content) as QualityHistory;
@@ -1650,18 +1530,10 @@ function loadQualityHistory(cwd: string): QualityHistory {
  * Save quality metrics for a phase into .planning/.quality-history.json.
  * Accumulates entries across phases.
  */
-function saveQualityMetrics(
-  cwd: string,
-  phase: string,
-  summary: QualityAnalysisSummary
-): void {
+function saveQualityMetrics(cwd: string, phase: string, summary: QualityAnalysisSummary): void {
   const history: QualityHistory = loadQualityHistory(cwd);
   history[phase] = summary;
-  const historyPath: string = path.join(
-    cwd,
-    '.planning',
-    QUALITY_HISTORY_FILE
-  );
+  const historyPath: string = path.join(cwd, '.planning', QUALITY_HISTORY_FILE);
   fs.writeFileSync(historyPath, JSON.stringify(history, null, 2), 'utf-8');
 }
 
@@ -1678,11 +1550,11 @@ function computeTrends(
   for (const key of Object.keys(current)) {
     const currentVal = current[key];
     const previousVal = previous[key];
-    if (typeof currentVal !== 'number' || typeof previousVal !== 'number')
-      continue;
+    if (typeof currentVal !== 'number' || typeof previousVal !== 'number') continue;
     const delta: number = currentVal - previousVal;
     let arrow: string = '';
-    if (delta > 0) arrow = '\u2191'; // up arrow (regression for issues, improvement for scores)
+    if (delta > 0)
+      arrow = '\u2191'; // up arrow (regression for issues, improvement for scores)
     else if (delta < 0) arrow = '\u2193'; // down arrow
     trends[key] = {
       delta,

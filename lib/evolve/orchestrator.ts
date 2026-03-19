@@ -32,25 +32,39 @@ import type {
   InfiniteEvolveResult,
   InfiniteEvolveCycleResult,
 } from './types';
-import type { AutoplanOptions, AutoplanResult, MultiMilestoneOptions, MultiMilestoneResult, GrdConfig } from '../types';
+import type {
+  AutoplanOptions,
+  AutoplanResult,
+  MultiMilestoneOptions,
+  MultiMilestoneResult,
+  GrdConfig,
+} from '../types';
 
 const fs = require('fs');
 const path = require('path');
-const { loadConfig }: {
+const {
+  loadConfig,
+}: {
   loadConfig: (cwd: string) => GrdConfig;
 } = require('../utils');
 import type { Scheduler } from '../scheduler';
-const { createScheduler }: {
+const {
+  createScheduler,
+}: {
   createScheduler: (config: import('../types').SchedulerConfig | undefined) => Scheduler | null;
 } = require('../scheduler');
-const { execGit }: {
+const {
+  execGit,
+}: {
   execGit: (
     cwd: string,
     args: string[],
     opts?: { allowBlocked?: boolean }
   ) => { exitCode: number; stdout: string; stderr: string };
 } = require('../utils');
-const { spawnClaudeAsync }: {
+const {
+  spawnClaudeAsync,
+}: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -69,45 +83,63 @@ const { spawnClaudeAsync }: {
     timedOut: boolean;
   }>;
 } = require('../autopilot');
-const { createEvolveWorktree, removeEvolveWorktree, pushAndCreatePR }: {
-    createEvolveWorktree: (cwd: string) => {
-      path: string;
-      branch: string;
-      baseBranch: string;
-      error?: string;
-    };
-    removeEvolveWorktree: (
-      cwd: string,
-      wtPath: string
-    ) => { removed: boolean; error?: string };
-    pushAndCreatePR: (
-      cwd: string,
-      wtPath: string,
-      opts?: { base?: string }
-    ) => { pr_url?: string; error?: string };
-  } = require('../worktree');
-const { SONNET_MODEL, DEFAULT_PICK_PCT, readEvolveState, writeEvolveState }: {
-    SONNET_MODEL: string;
-    DEFAULT_PICK_PCT: number;
-    readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
-    writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
-  } = require('./state');
-const { runGroupDiscovery }: {
+const {
+  createEvolveWorktree,
+  removeEvolveWorktree,
+  pushAndCreatePR,
+}: {
+  createEvolveWorktree: (cwd: string) => {
+    path: string;
+    branch: string;
+    baseBranch: string;
+    error?: string;
+  };
+  removeEvolveWorktree: (cwd: string, wtPath: string) => { removed: boolean; error?: string };
+  pushAndCreatePR: (
+    cwd: string,
+    wtPath: string,
+    opts?: { base?: string }
+  ) => { pr_url?: string; error?: string };
+} = require('../worktree');
+const {
+  SONNET_MODEL,
+  DEFAULT_PICK_PCT,
+  readEvolveState,
+  writeEvolveState,
+}: {
+  SONNET_MODEL: string;
+  DEFAULT_PICK_PCT: number;
+  readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
+  writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
+} = require('./state');
+const {
+  runGroupDiscovery,
+}: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
-const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
+const {
+  buildBatchExecutePrompt,
+  buildBatchReviewPrompt,
+}: {
   buildBatchExecutePrompt: (groups: WorkGroup[], iterationNum?: number) => string;
   buildBatchReviewPrompt: (groups: WorkGroup[]) => string;
 } = require('./_prompts');
-const { runAutoplan }: {
+const {
+  runAutoplan,
+}: {
   runAutoplan: (cwd: string, options?: AutoplanOptions) => Promise<AutoplanResult>;
 } = require('../autoplan');
-const { runMultiMilestoneAutopilot }: {
-  runMultiMilestoneAutopilot: (cwd: string, options?: MultiMilestoneOptions) => Promise<MultiMilestoneResult>;
+const {
+  runMultiMilestoneAutopilot,
+}: {
+  runMultiMilestoneAutopilot: (
+    cwd: string,
+    options?: MultiMilestoneOptions
+  ) => Promise<MultiMilestoneResult>;
 } = require('../autopilot');
 
 // ─── Evolve Loop Helpers ─────────────────────────────────────────────────────
@@ -142,11 +174,27 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
   );
 
   if (dryRun) {
-    return { discovery, outcomes: [], worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: true };
+    return {
+      discovery,
+      outcomes: [],
+      worktreeInfo,
+      executionCwd,
+      feedback: null,
+      useWorktree,
+      isDryRun: true,
+    };
   }
 
   if (discovery.selected_groups.length === 0) {
-    return { discovery, outcomes: null, worktreeInfo, executionCwd, feedback: null, useWorktree, isDryRun: false };
+    return {
+      discovery,
+      outcomes: null,
+      worktreeInfo,
+      executionCwd,
+      feedback: null,
+      useWorktree,
+      isDryRun: false,
+    };
   }
 
   // Create worktree on first non-dry-run iteration if enabled
@@ -187,15 +235,27 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       }
     }
     totalItems = runningTotal;
-    log(`Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS})`);
+    log(
+      `Capped batch from ${allGroups.reduce((s, g) => s + g.items.length, 0)} to ${totalItems} items (max ${MAX_BATCH_ITEMS})`
+    );
   }
   log(`Batch-executing ${cappedGroups.length} groups (${totalItems} items) in one subprocess`);
 
   const { autoCommit, iterationNum } = iterCtx;
   const executePrompt: string = buildBatchExecutePrompt(cappedGroups, iterationNum);
   const execResult = scheduler
-    ? await scheduler.spawn(executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, cwd: executionCwd, workItemId: `evolve-iter-${iterationNum}-execute` })
-    : await spawnClaudeAsync(executionCwd, executePrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns });
+    ? await scheduler.spawn(executePrompt, {
+        model: SONNET_MODEL,
+        timeout: timeoutMs,
+        maxTurns,
+        cwd: executionCwd,
+        workItemId: `evolve-iter-${iterationNum}-execute`,
+      })
+    : await spawnClaudeAsync(executionCwd, executePrompt, {
+        model: SONNET_MODEL,
+        timeout: timeoutMs,
+        maxTurns,
+      });
 
   let feedback: IterationFeedback | null = null;
 
@@ -207,30 +267,60 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     }
   } else {
     // Read feedback JSON written by the subprocess
-    const feedbackPath: string = path.join(executionCwd, '.planning', `evolve-iteration-${iterationNum}.json`);
+    const feedbackPath: string = path.join(
+      executionCwd,
+      '.planning',
+      `evolve-iteration-${iterationNum}.json`
+    );
     try {
       const raw: string = fs.readFileSync(feedbackPath, 'utf-8');
       feedback = JSON.parse(raw) as IterationFeedback;
       fs.unlinkSync(feedbackPath);
-      log(`Read iteration feedback: ${(feedback.decisions || []).length} decisions, ${(feedback.patterns || []).length} patterns, ${(feedback.takeaways || []).length} takeaways`);
+      log(
+        `Read iteration feedback: ${(feedback.decisions || []).length} decisions, ${(feedback.patterns || []).length} patterns, ${(feedback.takeaways || []).length} takeaways`
+      );
     } catch {
       log(`No iteration feedback file found (subprocess may not have written it)`);
     }
 
     // Check if the subprocess actually changed source code files (not just markdown/docs)
-    const CODE_DIFF_FILTER: string[] = ['--', '*.ts', '*.js', '*.tsx', '*.jsx', '*.py', '*.rs', '*.go', '*.java', '*.json'];
+    const CODE_DIFF_FILTER: string[] = [
+      '--',
+      '*.ts',
+      '*.js',
+      '*.tsx',
+      '*.jsx',
+      '*.py',
+      '*.rs',
+      '*.go',
+      '*.java',
+      '*.json',
+    ];
     const diffCheck = execGit(executionCwd, ['diff', '--stat', 'HEAD', ...CODE_DIFF_FILTER]);
-    const hasStagedChanges = execGit(executionCwd, ['diff', '--cached', '--stat', ...CODE_DIFF_FILTER]);
-    const hasCodeChanges: boolean = (diffCheck.stdout || '').trim().length > 0
-      || (hasStagedChanges.stdout || '').trim().length > 0;
+    const hasStagedChanges = execGit(executionCwd, [
+      'diff',
+      '--cached',
+      '--stat',
+      ...CODE_DIFF_FILTER,
+    ]);
+    const hasCodeChanges: boolean =
+      (diffCheck.stdout || '').trim().length > 0 ||
+      (hasStagedChanges.stdout || '').trim().length > 0;
 
     if (!hasCodeChanges) {
       // Discard any non-code changes (markdown stubs, todo files, etc.)
       execGit(executionCwd, ['checkout', '--', '.']);
       execGit(executionCwd, ['clean', '-fd', '--', '.planning/', 'docs/', '*.md']);
-      log(`Batch execute completed but NO source code changes were made — discarding markdown-only changes and marking as skip`);
+      log(
+        `Batch execute completed but NO source code changes were made — discarding markdown-only changes and marking as skip`
+      );
       for (const group of cappedGroups) {
-        outcomes.push({ group: group.id, status: 'skip', step: 'execute', reason: 'no source code changes' });
+        outcomes.push({
+          group: group.id,
+          status: 'skip',
+          step: 'execute',
+          reason: 'no source code changes',
+        });
       }
     } else {
       log(`Batch execute completed (code changes detected)`);
@@ -238,8 +328,18 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
       log(`Running single review for all ${cappedGroups.length} groups`);
       const reviewPrompt: string = buildBatchReviewPrompt(cappedGroups);
       const reviewResult = scheduler
-        ? await scheduler.spawn(reviewPrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns, cwd: executionCwd, workItemId: `evolve-iter-${iterationNum}-review` })
-        : await spawnClaudeAsync(executionCwd, reviewPrompt, { model: SONNET_MODEL, timeout: timeoutMs, maxTurns });
+        ? await scheduler.spawn(reviewPrompt, {
+            model: SONNET_MODEL,
+            timeout: timeoutMs,
+            maxTurns,
+            cwd: executionCwd,
+            workItemId: `evolve-iter-${iterationNum}-review`,
+          })
+        : await spawnClaudeAsync(executionCwd, reviewPrompt, {
+            model: SONNET_MODEL,
+            timeout: timeoutMs,
+            maxTurns,
+          });
 
       if (reviewResult.exitCode !== 0) {
         const reason: string = reviewResult.timedOut ? 'timeout' : `exit ${reviewResult.exitCode}`;
@@ -267,7 +367,15 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     }
   }
 
-  return { discovery, outcomes, worktreeInfo, executionCwd, useWorktree, isDryRun: false, feedback };
+  return {
+    discovery,
+    outcomes,
+    worktreeInfo,
+    executionCwd,
+    useWorktree,
+    isDryRun: false,
+    feedback,
+  };
 }
 
 /**
@@ -436,7 +544,15 @@ function writeEvolutionNotes(cwd: string, iterationData: EvolutionNotesData): vo
  * Main evolve orchestration loop.
  */
 async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<EvolveResult> {
-  const { iterations = 1, pickPct, timeout, maxTurns, dryRun = false, autoCommit = true, createPr = true } = options;
+  const {
+    iterations = 1,
+    pickPct,
+    timeout,
+    maxTurns,
+    dryRun = false,
+    autoCommit = true,
+    createPr = true,
+  } = options;
   const effectivePickPct: number = pickPct !== undefined ? pickPct : DEFAULT_PICK_PCT;
   const DEFAULT_TIMEOUT_MINUTES: number = 10;
   const timeoutMs: number = timeout ? timeout * 60 * 1000 : DEFAULT_TIMEOUT_MINUTES * 60 * 1000;
@@ -696,7 +812,9 @@ async function runInfiniteEvolve(
   let totalItemsDiscovered: number = 0;
   let stoppedAt: string | null = null;
 
-  log(`Starting infinite evolve loop: maxCycles=${maxCycles}, timeBudget=${timeBudget}min, pickPct=${effectivePickPct}, dryRun=${dryRun}`);
+  log(
+    `Starting infinite evolve loop: maxCycles=${maxCycles}, timeBudget=${timeBudget}min, pickPct=${effectivePickPct}, dryRun=${dryRun}`
+  );
 
   for (let cycle = 0; cycle < maxCycles; cycle++) {
     // Check time budget
@@ -817,7 +935,9 @@ async function runInfiniteEvolve(
       continue; // Try next cycle
     }
 
-    log(`Autoplan completed: milestone "${autoplanResult.milestone_name}" (${autoplanResult.groups_count} groups, ${autoplanResult.items_count} items)`);
+    log(
+      `Autoplan completed: milestone "${autoplanResult.milestone_name}" (${autoplanResult.groups_count} groups, ${autoplanResult.items_count} items)`
+    );
 
     // Step 3: Autopilot -- execute newly created milestone phases
     log('Step 3: Running multi-milestone autopilot...');
@@ -846,9 +966,13 @@ async function runInfiniteEvolve(
 
     const autopilotStatus: string = autopilotResult.stopped_at ? 'failed' : 'completed';
     if (autopilotResult.stopped_at) {
-      log(`Autopilot stopped: ${autopilotResult.stopped_at} (${autopilotResult.milestones_completed}/${autopilotResult.milestones_attempted} milestones)`);
+      log(
+        `Autopilot stopped: ${autopilotResult.stopped_at} (${autopilotResult.milestones_completed}/${autopilotResult.milestones_attempted} milestones)`
+      );
     } else {
-      log(`Autopilot completed: ${autopilotResult.milestones_completed} milestones, ${autopilotResult.total_phases_completed} phases`);
+      log(
+        `Autopilot completed: ${autopilotResult.milestones_completed} milestones, ${autopilotResult.total_phases_completed} phases`
+      );
     }
 
     cycleResults.push({
@@ -866,7 +990,9 @@ async function runInfiniteEvolve(
     (c) => c.autoplan_status === 'completed' && c.autopilot_status === 'completed'
   ).length;
 
-  log(`Infinite evolve done: ${cyclesCompleted}/${cycleResults.length} cycles completed, ${totalGroupsDiscovered} groups, ${totalItemsDiscovered} items`);
+  log(
+    `Infinite evolve done: ${cyclesCompleted}/${cycleResults.length} cycles completed, ${totalGroupsDiscovered} groups, ${totalItemsDiscovered} items`
+  );
 
   return {
     cycles_completed: cyclesCompleted,

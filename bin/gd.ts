@@ -9,9 +9,15 @@ const {
   classifyCommand,
 }: {
   parseFlags: (argv: string[]) => {
-    json: boolean; help: boolean; version: boolean; verbose: boolean;
-    cwd?: string; backend?: string; model?: string;
-    positional: string[]; passthrough: string[];
+    json: boolean;
+    help: boolean;
+    version: boolean;
+    verbose: boolean;
+    cwd?: string;
+    backend?: string;
+    model?: string;
+    positional: string[];
+    passthrough: string[];
   };
   classifyCommand: (command: string, subcommand?: string) => 'tool' | 'agent' | 'unknown';
 } = require('../lib/cli/index');
@@ -20,8 +26,12 @@ const {
   runToolCommand,
 }: {
   runToolCommand: (
-    command: string, subcommand: string | undefined, extraArgs: string[],
-    jsonFlag: boolean, cwd: string, passthrough?: string[],
+    command: string,
+    subcommand: string | undefined,
+    extraArgs: string[],
+    jsonFlag: boolean,
+    cwd: string,
+    passthrough?: string[]
   ) => { exitCode: number; stdout: string; stderr: string };
 } = require('../lib/cli/tools');
 
@@ -29,10 +39,16 @@ const {
   runAgentCommand,
 }: {
   runAgentCommand: (
-    command: string, args: string[], opts: {
-      cwd: string; backend: string; json: boolean; verbose: boolean;
-      model?: string; timeout?: number;
-    },
+    command: string,
+    args: string[],
+    opts: {
+      cwd: string;
+      backend: string;
+      json: boolean;
+      verbose: boolean;
+      model?: string;
+      timeout?: number;
+    }
   ) => void;
 } = require('../lib/cli/agent');
 

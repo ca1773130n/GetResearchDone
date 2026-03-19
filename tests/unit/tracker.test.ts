@@ -90,10 +90,12 @@ describe('loadTrackerConfig', () => {
     fs.writeFileSync(configPath, '{ this is not valid json :::}', 'utf-8');
 
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrLines.push(String(data));
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrLines.push(String(data));
+        return true;
+      });
 
     const result = loadTrackerConfig(tmpDir);
 
@@ -381,7 +383,9 @@ describe('cmdTracker', () => {
   });
 
   test('sync-roadmap returns error when no tracker configured', async () => {
-    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', [], false)
+    );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('No tracker configured');
@@ -592,7 +596,9 @@ describe('cmdTracker', () => {
     config.tracker = { provider: 'mcp-atlassian', mcp_atlassian: { project_key: 'PROJ' } };
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', [], false)
+    );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('prepare-roadmap-sync');
@@ -608,7 +614,9 @@ describe('cmdTracker', () => {
     const roadmapPath = path.join(tmpDir, '.planning', 'ROADMAP.md');
     if (fs.existsSync(roadmapPath)) fs.unlinkSync(roadmapPath);
 
-    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', [], false)
+    );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('No ROADMAP.md found');
@@ -622,7 +630,9 @@ describe('cmdTracker', () => {
     // ROADMAP.md already has Phase 1 and Phase 2 headings in fixture
     // The sync will try to create issues via gh CLI, which won't be available
     // so stats.errors will increment
-    const { stdout, exitCode } = await captureOutputAsync(() => cmdTracker(tmpDir, 'sync-roadmap', [], false));
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdTracker(tmpDir, 'sync-roadmap', [], false)
+    );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // gh is likely not available, so phases that fail will be errors
@@ -1148,7 +1158,9 @@ describe('cmdTracker', () => {
     );
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
-    const skipOps = result.operations.filter((op: any) => op.action === 'skip' && op.type === 'plan');
+    const skipOps = result.operations.filter(
+      (op: any) => op.action === 'skip' && op.type === 'plan'
+    );
     expect(skipOps.length).toBe(1);
     expect(skipOps[0].reason).toBe('already_synced');
   });
@@ -1473,10 +1485,12 @@ describe('loadTrackerConfig — required field validation warning', () => {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => {
-      stderrLines.push(String(msg));
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((msg: string | Uint8Array) => {
+        stderrLines.push(String(msg));
+        return true;
+      });
     try {
       loadTrackerConfig(tmpDir);
     } finally {

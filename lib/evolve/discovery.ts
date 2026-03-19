@@ -20,10 +20,14 @@ import type {
 } from './types';
 
 const path = require('path');
-const { safeReadFile }: {
+const {
+  safeReadFile,
+}: {
   safeReadFile: (filePath: string) => string | null;
 } = require('../utils');
-const { spawnClaudeAsync }: {
+const {
+  spawnClaudeAsync,
+}: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -65,26 +69,34 @@ const {
   ) => WorkItem;
   mergeWorkItems: (existing: WorkItem[], discovered: WorkItem[]) => WorkItem[];
 } = require('./state');
-const { analyzeCodebaseForItems }: {
+const {
+  analyzeCodebaseForItems,
+}: {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 } = require('./_dimensions');
-const { discoverProductIdeationItems }: {
+const {
+  discoverProductIdeationItems,
+}: {
   discoverProductIdeationItems: (cwd: string) => Promise<WorkItem[]>;
 } = require('./_product-ideation');
-const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups }: {
-    selectPriorityItems: (
-      items: WorkItem[],
-      count: number
-    ) => { selected: WorkItem[]; remaining: WorkItem[] };
-    groupDiscoveredItems: (
-      items: WorkItem[],
-      dimensionWeights?: Record<string, number>
-    ) => WorkGroup[];
-    selectPriorityGroups: (
-      groups: WorkGroup[],
-      pickPct: number
-    ) => { selected: WorkGroup[]; remaining: WorkGroup[] };
-  } = require('./scoring');
+const {
+  selectPriorityItems,
+  groupDiscoveredItems,
+  selectPriorityGroups,
+}: {
+  selectPriorityItems: (
+    items: WorkItem[],
+    count: number
+  ) => { selected: WorkItem[]; remaining: WorkItem[] };
+  groupDiscoveredItems: (
+    items: WorkItem[],
+    dimensionWeights?: Record<string, number>
+  ) => WorkGroup[];
+  selectPriorityGroups: (
+    groups: WorkGroup[],
+    pickPct: number
+  ) => { selected: WorkGroup[]; remaining: WorkGroup[] };
+} = require('./scoring');
 
 const fs = require('fs');
 
@@ -107,16 +119,52 @@ const SATURATED_THEMES: Set<string> = new Set([
 
 /** File extensions to include in codebase digest. */
 const CODE_EXTENSIONS: Set<string> = new Set([
-  '.ts', '.js', '.tsx', '.jsx', '.py', '.rs', '.go', '.java', '.kt',
-  '.rb', '.php', '.swift', '.c', '.cpp', '.h', '.hpp', '.cs', '.vue',
-  '.svelte', '.astro', '.sql', '.sh', '.bash', '.zsh',
+  '.ts',
+  '.js',
+  '.tsx',
+  '.jsx',
+  '.py',
+  '.rs',
+  '.go',
+  '.java',
+  '.kt',
+  '.rb',
+  '.php',
+  '.swift',
+  '.c',
+  '.cpp',
+  '.h',
+  '.hpp',
+  '.cs',
+  '.vue',
+  '.svelte',
+  '.astro',
+  '.sql',
+  '.sh',
+  '.bash',
+  '.zsh',
 ]);
 
 /** Directories to always skip. */
 const SKIP_DIRS: Set<string> = new Set([
-  'node_modules', '.git', '.next', '.nuxt', 'dist', 'build', 'out',
-  '.cache', '.turbo', '.vercel', '__pycache__', '.tox', '.mypy_cache',
-  'target', 'vendor', '.worktrees', '.planning', 'coverage',
+  'node_modules',
+  '.git',
+  '.next',
+  '.nuxt',
+  'dist',
+  'build',
+  'out',
+  '.cache',
+  '.turbo',
+  '.vercel',
+  '__pycache__',
+  '.tox',
+  '.mypy_cache',
+  'target',
+  'vendor',
+  '.worktrees',
+  '.planning',
+  'coverage',
 ]);
 
 /**
@@ -142,7 +190,9 @@ function _collectSourceFiles(
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       const sub: string = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
-      results.push(..._collectSourceFiles(path.join(baseDir, entry.name), sub, depth + 1, maxDepth));
+      results.push(
+        ..._collectSourceFiles(path.join(baseDir, entry.name), sub, depth + 1, maxDepth)
+      );
     } else if (entry.isFile()) {
       const ext: string = path.extname(entry.name);
       if (!CODE_EXTENSIONS.has(ext)) continue;
@@ -174,9 +224,10 @@ function buildCodebaseDigest(cwd: string): string {
 function buildDiscoveryPrompt(cwd: string, completedTitles?: string[]): string {
   const tree: string = buildCodebaseDigest(cwd);
 
-  const exclusionBlock: string = completedTitles && completedTitles.length > 0
-    ? `\nDo NOT rediscover these already-completed items:\n${completedTitles.map((t) => `- ${t}`).join('\n')}\n`
-    : '';
+  const exclusionBlock: string =
+    completedTitles && completedTitles.length > 0
+      ? `\nDo NOT rediscover these already-completed items:\n${completedTitles.map((t) => `- ${t}`).join('\n')}\n`
+      : '';
 
   return `Analyze this codebase for improvement opportunities. Read the source files you need. Here is the file tree:
 
@@ -203,7 +254,10 @@ Rules:
  * Discover code-quality improvement opportunities by running Claude as a subprocess.
  * (Renamed from discoverWithClaude -- handles the code-quality dimension only.)
  */
-async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[]): Promise<WorkItem[]> {
+async function _discoverCodeQualityWithClaude(
+  cwd: string,
+  completedTitles?: string[]
+): Promise<WorkItem[]> {
   try {
     const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
     const result = await spawnClaudeAsync(cwd, prompt, {

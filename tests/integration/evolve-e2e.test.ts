@@ -197,7 +197,10 @@ describe('E2E: Work item discovery quality', () => {
     const second = await runDiscovery(tmpDir, priorState);
 
     // Merged count should not exceed total unique items
-    const allIds = [...second.selected.map((i: any) => i.id), ...second.remaining.map((i: any) => i.id)];
+    const allIds = [
+      ...second.selected.map((i: any) => i.id),
+      ...second.remaining.map((i: any) => i.id),
+    ];
     const uniqueIds = new Set(allIds);
     expect(uniqueIds.size).toBe(allIds.length);
   });

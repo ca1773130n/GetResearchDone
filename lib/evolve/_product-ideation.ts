@@ -17,10 +17,14 @@ import type { WorkItem, WorkItemEffort, ProductIdeationContext } from './types';
 
 const path = require('path') as typeof import('path');
 const fs = require('fs') as typeof import('fs');
-const { safeReadFile }: {
+const {
+  safeReadFile,
+}: {
   safeReadFile: (filePath: string) => string | null;
 } = require('../utils');
-const { spawnClaudeAsync }: {
+const {
+  spawnClaudeAsync,
+}: {
   spawnClaudeAsync: (
     cwd: string,
     prompt: string,
@@ -39,7 +43,10 @@ const { spawnClaudeAsync }: {
     timedOut: boolean;
   }>;
 } = require('../autopilot');
-const { createWorkItem, SONNET_MODEL }: {
+const {
+  createWorkItem,
+  SONNET_MODEL,
+}: {
   createWorkItem: (
     dimension: string,
     slug: string,
@@ -75,9 +82,7 @@ function gatherProductContext(cwd: string): ProductIdeationContext {
   // LONG-TERM-ROADMAP.md -- extract first 2000 chars
   let longTermGoals: string | null = null;
   try {
-    const raw: string | null = safeReadFile(
-      path.join(planningDir, 'LONG-TERM-ROADMAP.md')
-    );
+    const raw: string | null = safeReadFile(path.join(planningDir, 'LONG-TERM-ROADMAP.md'));
     if (raw) {
       longTermGoals = raw.substring(0, 2000);
     }
@@ -90,9 +95,7 @@ function gatherProductContext(cwd: string): ProductIdeationContext {
   // PRODUCT-QUALITY.md -- extract first 1500 chars if exists
   let productQuality: string | null = null;
   try {
-    const raw: string | null = safeReadFile(
-      path.join(planningDir, 'PRODUCT-QUALITY.md')
-    );
+    const raw: string | null = safeReadFile(path.join(planningDir, 'PRODUCT-QUALITY.md'));
     if (raw) {
       productQuality = raw.substring(0, 1500);
     }
@@ -108,10 +111,7 @@ function gatherProductContext(cwd: string): ProductIdeationContext {
     const cmdDir: string = path.join(cwd, 'commands');
     const entries = fs.readdirSync(cmdDir, { withFileTypes: true });
     existingCommands = entries
-      .filter(
-        (e: { isFile: () => boolean; name: string }) =>
-          e.isFile() && e.name.endsWith('.md')
-      )
+      .filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.md'))
       .map((e: { name: string }) => e.name.replace(/\.md$/, ''));
   } catch {
     // commands/ directory missing -- not critical
@@ -123,10 +123,7 @@ function gatherProductContext(cwd: string): ProductIdeationContext {
     const agentDir: string = path.join(cwd, 'agents');
     const entries = fs.readdirSync(agentDir, { withFileTypes: true });
     existingAgents = entries
-      .filter(
-        (e: { isFile: () => boolean; name: string }) =>
-          e.isFile() && e.name.endsWith('.md')
-      )
+      .filter((e: { isFile: () => boolean; name: string }) => e.isFile() && e.name.endsWith('.md'))
       .map((e: { name: string }) => e.name.replace(/\.md$/, ''));
   } catch {
     // agents/ directory missing -- not critical
@@ -135,9 +132,7 @@ function gatherProductContext(cwd: string): ProductIdeationContext {
   // ROADMAP.md -- extract last ~2000 chars (recent phases)
   let recentPhases: string | null = null;
   try {
-    const raw: string | null = safeReadFile(
-      path.join(planningDir, 'ROADMAP.md')
-    );
+    const raw: string | null = safeReadFile(path.join(planningDir, 'ROADMAP.md'));
     if (raw) {
       recentPhases = raw.length > 2000 ? raw.substring(raw.length - 2000) : raw;
     }
@@ -215,9 +210,7 @@ function buildProductIdeationPrompt(context: ProductIdeationContext): string {
   sections.push('');
   sections.push('## Your Task');
   sections.push('');
-  sections.push(
-    'Generate creative feature ideas across these categories:'
-  );
+  sections.push('Generate creative feature ideas across these categories:');
   sections.push('- New user-facing commands or workflows');
   sections.push('- New integrations with external tools/services');
   sections.push('- UX improvements to existing workflows');
@@ -228,9 +221,7 @@ function buildProductIdeationPrompt(context: ProductIdeationContext): string {
   sections.push('');
   sections.push('## Output Format');
   sections.push('');
-  sections.push(
-    'Output ONLY a JSON array. Each item:'
-  );
+  sections.push('Output ONLY a JSON array. Each item:');
   sections.push(
     '{"dimension":"product-ideation","slug":"<kebab-id>","title":"<short title>","description":"<what it does + why users need it + what pain point it solves>","effort":"small|medium|large"}'
   );
@@ -238,18 +229,12 @@ function buildProductIdeationPrompt(context: ProductIdeationContext): string {
   sections.push('');
   sections.push('## Rules');
   sections.push('- Think about USER VALUE, not code hygiene');
-  sections.push(
-    '- Each idea should solve a real user problem or unlock a new capability'
-  );
+  sections.push('- Each idea should solve a real user problem or unlock a new capability');
   sections.push('- Be creative but realistic -- ideas should be implementable');
-  sections.push(
-    '- Include the "why" -- what user pain point does this address?'
-  );
+  sections.push('- Include the "why" -- what user pain point does this address?');
   sections.push('- 15-40 items');
   sections.push('- ONLY the JSON array, no other text');
-  sections.push(
-    '- Every item MUST have dimension "product-ideation"'
-  );
+  sections.push('- Every item MUST have dimension "product-ideation"');
   sections.push(
     '- Slugs should be descriptive kebab-case (e.g. "auto-changelog-generation", "dependency-impact-analysis")'
   );
@@ -311,13 +296,7 @@ function parseProductIdeationOutput(raw: string): WorkItem[] {
 
     try {
       items.push(
-        createWorkItem(
-          entry.dimension,
-          entry.slug,
-          entry.title,
-          entry.description,
-          { effort }
-        )
+        createWorkItem(entry.dimension, entry.slug, entry.title, entry.description, { effort })
       );
     } catch {
       // Skip invalid items (e.g., if createWorkItem rejects the dimension)
@@ -338,9 +317,7 @@ async function discoverProductIdeationItems(cwd: string): Promise<WorkItem[]> {
 
   // If no PROJECT.md found, skip product ideation entirely
   if (context.projectVision === null) {
-    process.stderr.write(
-      '[evolve] Product ideation skipped: no PROJECT.md found\n'
-    );
+    process.stderr.write('[evolve] Product ideation skipped: no PROJECT.md found\n');
     return [];
   }
 
@@ -356,9 +333,7 @@ async function discoverProductIdeationItems(cwd: string): Promise<WorkItem[]> {
     });
 
     if (result.timedOut) {
-      process.stderr.write(
-        '[evolve] Product ideation timed out after 120s, returning empty\n'
-      );
+      process.stderr.write('[evolve] Product ideation timed out after 120s, returning empty\n');
       return [];
     }
 

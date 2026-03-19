@@ -775,10 +775,7 @@ describe('add-phase command integration', () => {
   test('phase add creates a new phase (add-phase skill coverage)', () => {
     const mutDir = createTestDir();
     try {
-      const { stdout, exitCode } = runCLI(
-        ['phase', 'add', 'test feature'],
-        mutDir
-      );
+      const { stdout, exitCode } = runCLI(['phase', 'add', 'test feature'], mutDir);
       expect(exitCode).toBe(0);
       const data = parseJSON(stdout);
       expect(data).toHaveProperty('phase_number');
@@ -827,10 +824,7 @@ describe('compare-methods command integration', () => {
 
 describe('complete-milestone command integration', () => {
   test('milestone complete --dry-run returns dry run preview (complete-milestone skill coverage)', () => {
-    const { stdout, exitCode } = runCLI(
-      ['milestone', 'complete', 'v1.0', '--dry-run'],
-      fixtureDir
-    );
+    const { stdout, exitCode } = runCLI(['milestone', 'complete', 'v1.0', '--dry-run'], fixtureDir);
     expect(exitCode).toBe(0);
     const data = parseJSON(stdout);
     expect(data.dry_run).toBe(true);
@@ -843,10 +837,7 @@ describe('insert-phase command integration', () => {
   test('phase insert creates decimal phase after specified phase (insert-phase skill coverage)', () => {
     const mutDir = createTestDir();
     try {
-      const { stdout, exitCode } = runCLI(
-        ['phase', 'insert', '1', 'new subphase'],
-        mutDir
-      );
+      const { stdout, exitCode } = runCLI(['phase', 'insert', '1', 'new subphase'], mutDir);
       expect(exitCode).toBe(0);
       const data = parseJSON(stdout);
       expect(data).toHaveProperty('phase_number');
@@ -862,10 +853,7 @@ describe('remove-phase command integration', () => {
   test('phase remove --dry-run previews removal (remove-phase skill coverage)', () => {
     const mutDir = createTestDir();
     try {
-      const { stdout, exitCode } = runCLI(
-        ['phase', 'remove', '2', '--dry-run'],
-        mutDir
-      );
+      const { stdout, exitCode } = runCLI(['phase', 'remove', '2', '--dry-run'], mutDir);
       expect(exitCode).toBe(0);
       const data = parseJSON(stdout);
       expect(data.dry_run).toBe(true);
@@ -2317,8 +2305,10 @@ describe('pause-work command integration', () => {
     expect(data).toHaveProperty('phases_dir');
     expect(data).toHaveProperty('commit_docs');
     // phase_dir may be null when no active plan is found, but field must exist
-    expect(Object.prototype.hasOwnProperty.call(data, 'phase_found') ||
-           Object.prototype.hasOwnProperty.call(data, 'phases_dir')).toBe(true);
+    expect(
+      Object.prototype.hasOwnProperty.call(data, 'phase_found') ||
+        Object.prototype.hasOwnProperty.call(data, 'phases_dir')
+    ).toBe(true);
   });
 
   test('current-timestamp full returns ISO timestamp for pause-work handoff file (pause-work write step)', () => {
@@ -2489,10 +2479,7 @@ describe('reapply-patches command integration', () => {
         additions: [],
         deletions: [],
       };
-      fs.writeFileSync(
-        path.join(patchDir, 'backup-meta.json'),
-        JSON.stringify(meta, null, 2)
-      );
+      fs.writeFileSync(path.join(patchDir, 'backup-meta.json'), JSON.stringify(meta, null, 2));
 
       const { stdout, exitCode } = runManifest(['load-patches', '--dir', patchDir]);
       expect(exitCode).toBe(0);
@@ -2593,5 +2580,4 @@ describe('autoplan command', () => {
     expect(data.evolve_state.remaining_groups_count).toBe(1);
     expect(data.evolve_state.all_items_count).toBe(10);
   });
-
 });

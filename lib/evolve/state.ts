@@ -20,7 +20,9 @@ import type {
 
 const fs = require('fs');
 const path = require('path');
-const { safeReadFile }: {
+const {
+  safeReadFile,
+}: {
   safeReadFile: (filePath: string) => string | null;
 } = require('../utils');
 

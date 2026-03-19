@@ -320,14 +320,8 @@ function cmdStatePatch(
         // Try underscore-to-space mapping (e.g., "current_plan" -> "Current plan")
         const normalizedField: string = field.replace(/_/g, ' ');
         if (normalizedField !== field) {
-          const normalizedEscaped: string = normalizedField.replace(
-            /[.*+?^${}()|[\]\\]/g,
-            '\\$&'
-          );
-          const normalizedPattern = new RegExp(
-            `(\\*\\*${normalizedEscaped}:\\*\\*\\s*)(.*)`,
-            'i'
-          );
+          const normalizedEscaped: string = normalizedField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const normalizedPattern = new RegExp(`(\\*\\*${normalizedEscaped}:\\*\\*\\s*)(.*)`, 'i');
           if (normalizedPattern.test(content)) {
             content = content.replace(normalizedPattern, `$1${value}`);
             results.updated.push(field);
@@ -389,14 +383,8 @@ function cmdStateUpdate(cwd: string, field: string, value: string): void {
       // Try underscore-to-space mapping (e.g., "current_plan" -> "Current plan")
       const normalizedField: string = field.replace(/_/g, ' ');
       if (normalizedField !== field) {
-        const normalizedEscaped: string = normalizedField.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&'
-        );
-        const normalizedPattern = new RegExp(
-          `(\\*\\*${normalizedEscaped}:\\*\\*\\s*)(.*)`,
-          'i'
-        );
+        const normalizedEscaped: string = normalizedField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const normalizedPattern = new RegExp(`(\\*\\*${normalizedEscaped}:\\*\\*\\s*)(.*)`, 'i');
         if (normalizedPattern.test(content)) {
           content = content.replace(normalizedPattern, `$1${value}`);
           writeStateFile(statePath, content);
@@ -430,17 +418,11 @@ function cmdStateAdvancePlan(cwd: string, raw: boolean): void {
     return;
   }
   const currentPlan: number = parseInt(stateExtractField(content, 'Current Plan') || '', 10);
-  const totalPlans: number = parseInt(
-    stateExtractField(content, 'Total Plans in Phase') || '',
-    10
-  );
+  const totalPlans: number = parseInt(stateExtractField(content, 'Total Plans in Phase') || '', 10);
   const today: string = new Date().toISOString().split('T')[0];
 
   if (isNaN(currentPlan) || isNaN(totalPlans)) {
-    output(
-      { error: 'Cannot parse Current Plan or Total Plans in Phase from STATE.md' },
-      raw
-    );
+    output({ error: 'Cannot parse Current Plan or Total Plans in Phase from STATE.md' }, raw);
     return;
   }
 
@@ -722,11 +704,7 @@ function cmdStateResolveBlocker(cwd: string, text: string, raw: boolean): void {
  * @param options - Session options (stopped_at, resume_file)
  * @param raw - Output raw text instead of JSON
  */
-function cmdStateRecordSession(
-  cwd: string,
-  options: RecordSessionOptions,
-  raw: boolean
-): void {
+function cmdStateRecordSession(cwd: string, options: RecordSessionOptions, raw: boolean): void {
   const statePath: string = path.join(cwd, '.planning', 'STATE.md');
   let content: string;
   try {
@@ -805,8 +783,7 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
   };
 
   // Extract basic fields -- support both "Active phase" and legacy "Current Phase" formats
-  let currentPhase: string | null =
-    extractField('Active phase') || extractField('Current Phase');
+  let currentPhase: string | null = extractField('Active phase') || extractField('Current Phase');
   let currentPhaseName: string | null = extractField('Current Phase Name');
   let totalPhasesRaw: string | null = extractField('Total Phases');
 
@@ -822,8 +799,7 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
     }
   }
 
-  const currentPlan: string | null =
-    extractField('Current plan') || extractField('Current Plan');
+  const currentPlan: string | null = extractField('Current plan') || extractField('Current Plan');
   const totalPlansRaw: string | null = extractField('Total Plans in Phase');
   const status: string | null = extractField('Status');
   const progressRaw: string | null = extractField('Progress');
@@ -833,9 +809,7 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
 
   // Parse numeric fields
   const totalPhases: number | null = totalPhasesRaw ? parseInt(totalPhasesRaw, 10) : null;
-  const totalPlansInPhase: number | null = totalPlansRaw
-    ? parseInt(totalPlansRaw, 10)
-    : null;
+  const totalPlansInPhase: number | null = totalPlansRaw ? parseInt(totalPlansRaw, 10) : null;
   const progressPercent: number | null = progressRaw
     ? parseInt(progressRaw.replace('%', ''), 10)
     : null;
@@ -893,9 +867,8 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
   );
   if (sessionMatch) {
     const sessionSection: string = sessionMatch[1];
-    const lastDateMatch: RegExpMatchArray | null = sessionSection.match(
-      /\*\*Last Date:\*\*\s*(.+)/i
-    );
+    const lastDateMatch: RegExpMatchArray | null =
+      sessionSection.match(/\*\*Last Date:\*\*\s*(.+)/i);
     const stoppedAtMatch: RegExpMatchArray | null = sessionSection.match(
       /\*\*Stopped At:\*\*\s*(.+)/i
     );
@@ -935,11 +908,7 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
       decisions,
       blockers,
     };
-    fs.writeFileSync(
-      path.join(snapshotsDir, `${ts}.json`),
-      JSON.stringify(snapshotData),
-      'utf-8'
-    );
+    fs.writeFileSync(path.join(snapshotsDir, `${ts}.json`), JSON.stringify(snapshotData), 'utf-8');
   } catch {
     // Non-blocking: snapshot save failure doesn't break the command
   }
@@ -1002,7 +971,11 @@ function cmdStateSnapshot(cwd: string, raw: boolean, opts?: SnapshotOptions): vo
       has_changes,
     };
 
-    output(diffResult, raw, `${has_changes ? `Changes since ${options.since}: ${Object.keys(changed_fields).length} field(s), ${new_decisions.length} decision(s)` : `No changes since ${options.since}`}`);
+    output(
+      diffResult,
+      raw,
+      `${has_changes ? `Changes since ${options.since}: ${Object.keys(changed_fields).length} field(s), ${new_decisions.length} decision(s)` : `No changes since ${options.since}`}`
+    );
     return;
   }
 

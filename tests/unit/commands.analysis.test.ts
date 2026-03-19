@@ -45,36 +45,49 @@ function setupPlanning(root: string, milestone = 'v0.1.0'): void {
   fs.mkdirSync(path.join(milestonePath, 'research'), { recursive: true });
   fs.mkdirSync(path.join(milestonePath, 'todos', 'pending'), { recursive: true });
 
-  fs.writeFileSync(path.join(planningDir, 'STATE.md'), [
-    '# State',
-    '',
-    '**Milestone:** v0.1.0',
-    '',
-    '## Current Position',
-    '- **Active phase:** 1',
-    '',
-    '## Key Decisions',
-    '- [2026-01-01] Phase 1: Use TypeScript for type safety',
-    '- Phase 2: Switch to CJS modules',
-    '',
-    '## Blockers',
-    'None.',
-  ].join('\n'));
+  fs.writeFileSync(
+    path.join(planningDir, 'STATE.md'),
+    [
+      '# State',
+      '',
+      '**Milestone:** v0.1.0',
+      '',
+      '## Current Position',
+      '- **Active phase:** 1',
+      '',
+      '## Key Decisions',
+      '- [2026-01-01] Phase 1: Use TypeScript for type safety',
+      '- Phase 2: Switch to CJS modules',
+      '',
+      '## Blockers',
+      'None.',
+    ].join('\n')
+  );
 
-  fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), [
-    '# Roadmap',
-    '- v0.1.0 Foundation (in progress)',
-    '- Phase 1: Setup',
-    '  **Duration:** 2d',
-    '- Phase 2: Core',
-    '  **Duration:** 3d',
-  ].join('\n'));
+  fs.writeFileSync(
+    path.join(planningDir, 'ROADMAP.md'),
+    [
+      '# Roadmap',
+      '- v0.1.0 Foundation (in progress)',
+      '- Phase 1: Setup',
+      '  **Duration:** 2d',
+      '- Phase 2: Core',
+      '  **Duration:** 3d',
+    ].join('\n')
+  );
 
-  fs.writeFileSync(path.join(planningDir, 'config.json'), JSON.stringify({
-    autonomous_mode: false,
-    ceremony: { default_level: 'standard' },
-    tracker: { provider: 'none' },
-  }, null, 2));
+  fs.writeFileSync(
+    path.join(planningDir, 'config.json'),
+    JSON.stringify(
+      {
+        autonomous_mode: false,
+        ceremony: { default_level: 'standard' },
+        tracker: { provider: 'none' },
+      },
+      null,
+      2
+    )
+  );
 }
 
 function addPhaseDir(root: string, phaseNum: string, milestone = 'v0.1.0'): string {
@@ -130,45 +143,53 @@ describe('cmdPhaseRiskAssessment', () => {
     const result = parseOutput(stdout);
     expect(result.risk_score).toBeGreaterThan(0);
     const signals = result.signals as Array<{ category: string; severity: string }>;
-    expect(signals.some(s => s.category === 'plans')).toBe(true);
-    expect(signals.some(s => s.severity === 'high')).toBe(true);
+    expect(signals.some((s) => s.category === 'plans')).toBe(true);
+    expect(signals.some((s) => s.severity === 'high')).toBe(true);
   });
 
   it('flags vague success criteria', () => {
     const phaseDir = addPhaseDir(tmpDir, '1');
-    addPlan(phaseDir, '01', [
-      '---',
-      'title: Test Plan',
-      '---',
-      '## Goal',
-      'Do stuff.',
-      '## Tasks',
-      '- [ ] Implement feature',
-      '## Success Criteria',
-      'It should work.',
-    ].join('\n'));
+    addPlan(
+      phaseDir,
+      '01',
+      [
+        '---',
+        'title: Test Plan',
+        '---',
+        '## Goal',
+        'Do stuff.',
+        '## Tasks',
+        '- [ ] Implement feature',
+        '## Success Criteria',
+        'It should work.',
+      ].join('\n')
+    );
     const { stdout } = captureOutput(() => cmdPhaseRiskAssessment(tmpDir, '1', false));
     const result = parseOutput(stdout);
     const signals = result.signals as Array<{ category: string }>;
-    expect(signals.some(s => s.category === 'success_criteria')).toBe(true);
+    expect(signals.some((s) => s.category === 'success_criteria')).toBe(true);
     expect(result.plans_analyzed).toHaveLength(1);
   });
 
   it('has lower risk for well-structured plans', () => {
     const phaseDir = addPhaseDir(tmpDir, '1');
-    addPlan(phaseDir, '01', [
-      '## Goal',
-      'Implement feature.',
-      '## Dependencies',
-      'Requires phase 0 complete.',
-      '## Success Criteria',
-      '- accuracy >= 90%',
-      '- latency < 200ms',
-      '## Tasks',
-      '- [ ] Build baseline with benchmark data',
-      '## Fallback',
-      'If primary approach fails, use simpler model.',
-    ].join('\n'));
+    addPlan(
+      phaseDir,
+      '01',
+      [
+        '## Goal',
+        'Implement feature.',
+        '## Dependencies',
+        'Requires phase 0 complete.',
+        '## Success Criteria',
+        '- accuracy >= 90%',
+        '- latency < 200ms',
+        '## Tasks',
+        '- [ ] Build baseline with benchmark data',
+        '## Fallback',
+        'If primary approach fails, use simpler model.',
+      ].join('\n')
+    );
     const { stdout } = captureOutput(() => cmdPhaseRiskAssessment(tmpDir, '1', false));
     const result = parseOutput(stdout);
     expect(result.risk_level).not.toBe('critical');
@@ -177,7 +198,11 @@ describe('cmdPhaseRiskAssessment', () => {
 
   it('returns raw string output when raw=true', () => {
     const phaseDir = addPhaseDir(tmpDir, '1');
-    addPlan(phaseDir, '01', '## Success Criteria\naccuracy >= 90%\n## Dependencies\nPhase 1.\n## Fallback\nUse simpler approach.\n');
+    addPlan(
+      phaseDir,
+      '01',
+      '## Success Criteria\naccuracy >= 90%\n## Dependencies\nPhase 1.\n## Fallback\nUse simpler approach.\n'
+    );
     const { stdout } = captureOutput(() => cmdPhaseRiskAssessment(tmpDir, '1', true));
     expect(typeof stdout).toBe('string');
     expect(stdout.length).toBeGreaterThan(0);
@@ -204,17 +229,23 @@ describe('cmdCitationBacklinks', () => {
 
   it('indexes papers and finds references', () => {
     const researchDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'research');
-    fs.writeFileSync(path.join(researchDir, 'PAPERS.md'), [
-      '## Attention Is All You Need',
-      'Vaswani et al., 2017.',
-      '',
-      '## BERT: Pre-training',
-      'Devlin et al., 2018.',
-    ].join('\n'));
+    fs.writeFileSync(
+      path.join(researchDir, 'PAPERS.md'),
+      [
+        '## Attention Is All You Need',
+        'Vaswani et al., 2017.',
+        '',
+        '## BERT: Pre-training',
+        'Devlin et al., 2018.',
+      ].join('\n')
+    );
 
     // Add a plan that references the first paper
     const phaseDir = addPhaseDir(tmpDir, '1');
-    fs.writeFileSync(path.join(phaseDir, 'notes.md'), 'We use attention is all you need as our baseline.');
+    fs.writeFileSync(
+      path.join(phaseDir, 'notes.md'),
+      'We use attention is all you need as our baseline.'
+    );
 
     const { stdout } = captureOutput(() => cmdCitationBacklinks(tmpDir, false));
     const result = parseOutput(stdout);
@@ -226,7 +257,10 @@ describe('cmdCitationBacklinks', () => {
 
   it('reports all unreferenced when no mentions in other files', () => {
     const researchDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'research');
-    fs.writeFileSync(path.join(researchDir, 'PAPERS.md'), '## Obscure Paper Title XYZ\nUnrelated content.\n');
+    fs.writeFileSync(
+      path.join(researchDir, 'PAPERS.md'),
+      '## Obscure Paper Title XYZ\nUnrelated content.\n'
+    );
 
     const { stdout } = captureOutput(() => cmdCitationBacklinks(tmpDir, false));
     const result = parseOutput(stdout);
@@ -303,13 +337,16 @@ describe('cmdPhaseTimeBudget', () => {
   });
 
   it('parses duration entries from ROADMAP.md', () => {
-    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), [
-      '# Roadmap',
-      '- Phase 1: Setup',
-      '  **Duration:** 2d',
-      '- Phase 2: Core',
-      '  **Duration:** 5d',
-    ].join('\n'));
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'ROADMAP.md'),
+      [
+        '# Roadmap',
+        '- Phase 1: Setup',
+        '  **Duration:** 2d',
+        '- Phase 2: Core',
+        '  **Duration:** 5d',
+      ].join('\n')
+    );
     const { stdout } = captureOutput(() => cmdPhaseTimeBudget(tmpDir, false));
     const result = parseOutput(stdout);
     expect(result.total_phases).toBe(2);
@@ -363,14 +400,25 @@ describe('cmdConfigDiff', () => {
 
     // Modify config
     const configPath = path.join(tmpDir, '.planning', 'config.json');
-    fs.writeFileSync(configPath, JSON.stringify({ autonomous_mode: true, ceremony: { default_level: 'full' }, tracker: { provider: 'github' } }, null, 2));
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify(
+        {
+          autonomous_mode: true,
+          ceremony: { default_level: 'full' },
+          tracker: { provider: 'github' },
+        },
+        null,
+        2
+      )
+    );
 
     const { stdout } = captureOutput(() => cmdConfigDiff(tmpDir, false));
     const result = parseOutput(stdout);
     expect(result.has_changes).toBe(true);
     expect(result.changes_count).toBeGreaterThan(0);
     const changes = result.changes as Array<{ key: string }>;
-    expect(changes.some(c => c.key.includes('autonomous_mode'))).toBe(true);
+    expect(changes.some((c) => c.key.includes('autonomous_mode'))).toBe(true);
   });
 
   it('resets snapshot with --reset flag', () => {
@@ -426,7 +474,7 @@ describe('cmdPhaseReadiness', () => {
     const { stdout } = captureOutput(() => cmdPhaseReadiness(tmpDir, '1', false));
     const result = parseOutput(stdout);
     const checks = result.checks as Array<{ name: string; passed: boolean }>;
-    const baselineCheck = checks.find(c => c.name.includes('Baseline'));
+    const baselineCheck = checks.find((c) => c.name.includes('Baseline'));
     expect(baselineCheck?.passed).toBe(true);
   });
 
@@ -485,7 +533,10 @@ describe('cmdMilestoneHealth', () => {
     // Add active blocker to STATE.md
     const statePath = path.join(tmpDir, '.planning', 'STATE.md');
     const content = fs.readFileSync(statePath, 'utf-8');
-    fs.writeFileSync(statePath, content.replace('None.', '- Blocked on external API\n- Blocked on team availability'));
+    fs.writeFileSync(
+      statePath,
+      content.replace('None.', '- Blocked on external API\n- Blocked on team availability')
+    );
 
     const { stdout: stdout1 } = captureOutput(() => cmdMilestoneHealth(tmpDir, false));
     const result1 = parseOutput(stdout1);
@@ -524,24 +575,27 @@ describe('cmdDecisionTimeline', () => {
     // The fixture STATE.md has "- [2026-01-01] Phase 1: Use TypeScript for type safety"
     expect(result.decisions_with_dates).toBeGreaterThanOrEqual(1);
     const timeline = result.timeline as Array<{ date: string | null; summary: string }>;
-    const datedEntry = timeline.find(d => d.date === '2026-01-01');
+    const datedEntry = timeline.find((d) => d.date === '2026-01-01');
     expect(datedEntry).toBeDefined();
     expect(datedEntry?.summary).toContain('TypeScript');
   });
 
   it('parses decisions from CONTEXT.md files', () => {
     const phaseDir = addPhaseDir(tmpDir, '1');
-    fs.writeFileSync(path.join(phaseDir, '01-CONTEXT.md'), [
-      '# Phase 1 Context',
-      '## Decisions',
-      '- Use Redis for caching instead of memcached',
-      '- Deploy on Kubernetes',
-    ].join('\n'));
+    fs.writeFileSync(
+      path.join(phaseDir, '01-CONTEXT.md'),
+      [
+        '# Phase 1 Context',
+        '## Decisions',
+        '- Use Redis for caching instead of memcached',
+        '- Deploy on Kubernetes',
+      ].join('\n')
+    );
 
     const { stdout } = captureOutput(() => cmdDecisionTimeline(tmpDir, false));
     const result = parseOutput(stdout);
     const timeline = result.timeline as Array<{ summary: string; source: string }>;
-    const ctxDecisions = timeline.filter(d => d.source.includes('CONTEXT.md'));
+    const ctxDecisions = timeline.filter((d) => d.source.includes('CONTEXT.md'));
     expect(ctxDecisions.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -549,8 +603,8 @@ describe('cmdDecisionTimeline', () => {
     const { stdout } = captureOutput(() => cmdDecisionTimeline(tmpDir, false));
     const result = parseOutput(stdout);
     const timeline = result.timeline as Array<{ date: string | null }>;
-    const datedIdx = timeline.findIndex(d => d.date !== null);
-    const undatedIdx = timeline.findIndex(d => d.date === null);
+    const datedIdx = timeline.findIndex((d) => d.date !== null);
+    const undatedIdx = timeline.findIndex((d) => d.date === null);
     if (datedIdx !== -1 && undatedIdx !== -1) {
       expect(datedIdx).toBeLessThan(undatedIdx);
     }
@@ -576,19 +630,33 @@ describe('cmdImportKnowledge', () => {
   });
 
   it('returns error for non-existent source path', () => {
-    const { stdout } = captureOutput(() => cmdImportKnowledge(tmpDir, '/nonexistent/path', 'all', false));
+    const { stdout } = captureOutput(() =>
+      cmdImportKnowledge(tmpDir, '/nonexistent/path', 'all', false)
+    );
     const result = parseOutput(stdout);
     expect(result.error).toBeDefined();
   });
 
   it('imports LANDSCAPE.md from source project', () => {
     const srcResearch = path.join(sourceDir, '.planning', 'milestones', 'v0.1.0', 'research');
-    fs.writeFileSync(path.join(srcResearch, 'LANDSCAPE.md'), '# Landscape\nSome research findings.\n');
+    fs.writeFileSync(
+      path.join(srcResearch, 'LANDSCAPE.md'),
+      '# Landscape\nSome research findings.\n'
+    );
 
-    const { stdout } = captureOutput(() => cmdImportKnowledge(tmpDir, sourceDir, 'landscape', false));
+    const { stdout } = captureOutput(() =>
+      cmdImportKnowledge(tmpDir, sourceDir, 'landscape', false)
+    );
     const result = parseOutput(stdout);
     expect(result.imported_count).toBe(1);
-    const destFile = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'research', 'LANDSCAPE.md');
+    const destFile = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'v0.1.0',
+      'research',
+      'LANDSCAPE.md'
+    );
     expect(fs.existsSync(destFile)).toBe(true);
   });
 
@@ -612,7 +680,9 @@ describe('cmdImportKnowledge', () => {
     // First import
     captureOutput(() => cmdImportKnowledge(tmpDir, sourceDir, 'papers', false));
     // Second import with force
-    const { stdout } = captureOutput(() => cmdImportKnowledge(tmpDir, sourceDir, 'papers', false, true));
+    const { stdout } = captureOutput(() =>
+      cmdImportKnowledge(tmpDir, sourceDir, 'papers', false, true)
+    );
     const result = parseOutput(stdout);
     expect(result.imported_count).toBe(1);
   });
@@ -649,7 +719,10 @@ describe('cmdTodoDuplicates', () => {
 
   it('reports not enough todos when only one todo', () => {
     const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'todos', 'pending');
-    fs.writeFileSync(path.join(pendingDir, '001-feature.md'), '# Add feature\n## Problem\nMissing feature.\n');
+    fs.writeFileSync(
+      path.join(pendingDir, '001-feature.md'),
+      '# Add feature\n## Problem\nMissing feature.\n'
+    );
     const { stdout } = captureOutput(() => cmdTodoDuplicates(tmpDir, false));
     const result = parseOutput(stdout);
     expect(result.note).toBeDefined();
@@ -657,10 +730,14 @@ describe('cmdTodoDuplicates', () => {
 
   it('detects highly similar todos', () => {
     const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'todos', 'pending');
-    fs.writeFileSync(path.join(pendingDir, '001-cache.md'),
-      '# Add Redis caching layer\n## Problem\nApplication is slow without caching layer.\n## Solution\nImplement Redis cache.\n');
-    fs.writeFileSync(path.join(pendingDir, '002-cache.md'),
-      '# Add Redis caching layer for application\n## Problem\nApplication is slow without caching layer.\n## Solution\nUse Redis cache.\n');
+    fs.writeFileSync(
+      path.join(pendingDir, '001-cache.md'),
+      '# Add Redis caching layer\n## Problem\nApplication is slow without caching layer.\n## Solution\nImplement Redis cache.\n'
+    );
+    fs.writeFileSync(
+      path.join(pendingDir, '002-cache.md'),
+      '# Add Redis caching layer for application\n## Problem\nApplication is slow without caching layer.\n## Solution\nUse Redis cache.\n'
+    );
 
     const { stdout } = captureOutput(() => cmdTodoDuplicates(tmpDir, false, 0.3));
     const result = parseOutput(stdout);
@@ -671,10 +748,14 @@ describe('cmdTodoDuplicates', () => {
 
   it('returns no duplicates for completely different todos', () => {
     const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'todos', 'pending');
-    fs.writeFileSync(path.join(pendingDir, '001-alpha.md'),
-      '# Database migration\n## Problem\nNeed schema update.\n');
-    fs.writeFileSync(path.join(pendingDir, '002-beta.md'),
-      '# UI color theme\n## Problem\nButtons lack visual contrast.\n');
+    fs.writeFileSync(
+      path.join(pendingDir, '001-alpha.md'),
+      '# Database migration\n## Problem\nNeed schema update.\n'
+    );
+    fs.writeFileSync(
+      path.join(pendingDir, '002-beta.md'),
+      '# UI color theme\n## Problem\nButtons lack visual contrast.\n'
+    );
 
     const { stdout } = captureOutput(() => cmdTodoDuplicates(tmpDir, false, 0.5));
     const result = parseOutput(stdout);
@@ -683,10 +764,14 @@ describe('cmdTodoDuplicates', () => {
 
   it('respects custom threshold', () => {
     const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'v0.1.0', 'todos', 'pending');
-    fs.writeFileSync(path.join(pendingDir, '001-similar.md'),
-      '# Add logging feature\n## Problem\nLogging is missing.\n');
-    fs.writeFileSync(path.join(pendingDir, '002-similar.md'),
-      '# Add logging system\n## Problem\nLogging feature is missing.\n');
+    fs.writeFileSync(
+      path.join(pendingDir, '001-similar.md'),
+      '# Add logging feature\n## Problem\nLogging is missing.\n'
+    );
+    fs.writeFileSync(
+      path.join(pendingDir, '002-similar.md'),
+      '# Add logging system\n## Problem\nLogging feature is missing.\n'
+    );
 
     // Low threshold should find it
     const { stdout: out1 } = captureOutput(() => cmdTodoDuplicates(tmpDir, false, 0.1));

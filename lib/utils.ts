@@ -23,7 +23,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
-const { detectBackend, resolveBackendModel, resolveEffortLevel, getBackendCapabilities } = require('./backend');
+const {
+  detectBackend,
+  resolveBackendModel,
+  resolveEffortLevel,
+  getBackendCapabilities,
+} = require('./backend');
 const { phasesDir: getPhasesDirPath } = require('./paths');
 
 // ─── Git Operation Whitelist ────────────────────────────────────────────────
@@ -146,7 +151,11 @@ function safeReadJSON(filePath: string, defaultValue: unknown = null): unknown {
  * @param level - Heading level (2 for ##, 3 for ###)
  * @returns Section content (without the heading line), or null if not found
  */
-function extractMarkdownSection(content: string, heading: string, level: number = 2): string | null {
+function extractMarkdownSection(
+  content: string,
+  heading: string,
+  level: number = 2
+): string | null {
   const prefix: string = '#'.repeat(level);
   const regex: RegExp = new RegExp(
     `${prefix}\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n([\\s\\S]*?)(?=\\n${prefix}\\s|$)`,
@@ -346,7 +355,10 @@ function loadConfig(cwd: string): GrdConfig {
 
     // Warn about invalid model_profile values
     const validProfiles: string[] = ['quality', 'balanced', 'budget'];
-    if (parsed.model_profile !== undefined && !validProfiles.includes(parsed.model_profile as string)) {
+    if (
+      parsed.model_profile !== undefined &&
+      !validProfiles.includes(parsed.model_profile as string)
+    ) {
       process.stderr.write(
         `Warning: Invalid model_profile value "${parsed.model_profile}" in .planning/config.json. Valid values: ${validProfiles.join(', ')}\n`
       );
@@ -366,59 +378,66 @@ function loadConfig(cwd: string): GrdConfig {
     const parallelization: boolean = ((): boolean => {
       const val: unknown = get('parallelization');
       if (typeof val === 'boolean') return val;
-      if (typeof val === 'object' && val !== null && 'enabled' in (val as Record<string, unknown>)) return (val as Record<string, unknown>).enabled as boolean;
+      if (typeof val === 'object' && val !== null && 'enabled' in (val as Record<string, unknown>))
+        return (val as Record<string, unknown>).enabled as boolean;
       return defaults.parallelization;
     })();
 
     return {
       model_profile: (get('model_profile') ?? defaults.model_profile) as ModelProfileName,
-      commit_docs:
-        (get('commit_docs', { section: 'planning', field: 'commit_docs' }) ?? defaults.commit_docs) as boolean,
-      search_gitignored:
-        (get('search_gitignored', { section: 'planning', field: 'search_gitignored' }) ??
-        defaults.search_gitignored) as boolean,
-      branching_strategy:
-        (get('branching_strategy', { section: 'git', field: 'branching_strategy' }) ??
-        defaults.branching_strategy) as string,
-      phase_branch_template:
-        (get('phase_branch_template', { section: 'git', field: 'phase_branch_template' }) ??
-        defaults.phase_branch_template) as string,
-      milestone_branch_template:
-        (get('milestone_branch_template', { section: 'git', field: 'milestone_branch_template' }) ??
-        defaults.milestone_branch_template) as string,
-      base_branch:
-        (get('base_branch', { section: 'git', field: 'base_branch' }) ?? defaults.base_branch) as string,
-      research: (get('research', { section: 'workflow', field: 'research' }) ?? defaults.research) as boolean,
-      plan_checker:
-        (get('plan_checker', { section: 'workflow', field: 'plan_check' }) ?? defaults.plan_checker) as boolean,
-      verifier: (get('verifier', { section: 'workflow', field: 'verifier' }) ?? defaults.verifier) as boolean,
+      commit_docs: (get('commit_docs', { section: 'planning', field: 'commit_docs' }) ??
+        defaults.commit_docs) as boolean,
+      search_gitignored: (get('search_gitignored', {
+        section: 'planning',
+        field: 'search_gitignored',
+      }) ?? defaults.search_gitignored) as boolean,
+      branching_strategy: (get('branching_strategy', {
+        section: 'git',
+        field: 'branching_strategy',
+      }) ?? defaults.branching_strategy) as string,
+      phase_branch_template: (get('phase_branch_template', {
+        section: 'git',
+        field: 'phase_branch_template',
+      }) ?? defaults.phase_branch_template) as string,
+      milestone_branch_template: (get('milestone_branch_template', {
+        section: 'git',
+        field: 'milestone_branch_template',
+      }) ?? defaults.milestone_branch_template) as string,
+      base_branch: (get('base_branch', { section: 'git', field: 'base_branch' }) ??
+        defaults.base_branch) as string,
+      research: (get('research', { section: 'workflow', field: 'research' }) ??
+        defaults.research) as boolean,
+      plan_checker: (get('plan_checker', { section: 'workflow', field: 'plan_check' }) ??
+        defaults.plan_checker) as boolean,
+      verifier: (get('verifier', { section: 'workflow', field: 'verifier' }) ??
+        defaults.verifier) as boolean,
       parallelization,
       // Code review config
-      code_review_enabled:
-        (get('code_review_enabled', { section: 'code_review', field: 'enabled' }) ??
-        defaults.code_review_enabled) as boolean,
-      code_review_timing:
-        (get('code_review_timing', { section: 'code_review', field: 'timing' }) ??
+      code_review_enabled: (get('code_review_enabled', {
+        section: 'code_review',
+        field: 'enabled',
+      }) ?? defaults.code_review_enabled) as boolean,
+      code_review_timing: (get('code_review_timing', { section: 'code_review', field: 'timing' }) ??
         defaults.code_review_timing) as string,
-      code_review_severity_gate:
-        (get('code_review_severity_gate', { section: 'code_review', field: 'severity_gate' }) ??
-        defaults.code_review_severity_gate) as string,
-      code_review_auto_fix_warnings:
-        (get('code_review_auto_fix_warnings', {
-          section: 'code_review',
-          field: 'auto_fix_warnings',
-        }) ?? defaults.code_review_auto_fix_warnings) as boolean,
+      code_review_severity_gate: (get('code_review_severity_gate', {
+        section: 'code_review',
+        field: 'severity_gate',
+      }) ?? defaults.code_review_severity_gate) as string,
+      code_review_auto_fix_warnings: (get('code_review_auto_fix_warnings', {
+        section: 'code_review',
+        field: 'auto_fix_warnings',
+      }) ?? defaults.code_review_auto_fix_warnings) as boolean,
       // Execution config
-      use_teams:
-        (get('use_teams', { section: 'execution', field: 'use_teams' }) ?? defaults.use_teams) as boolean,
-      team_timeout_minutes:
-        (get('team_timeout_minutes', { section: 'execution', field: 'team_timeout_minutes' }) ??
-        defaults.team_timeout_minutes) as number,
-      max_concurrent_teammates:
-        (get('max_concurrent_teammates', {
-          section: 'execution',
-          field: 'max_concurrent_teammates',
-        }) ?? defaults.max_concurrent_teammates) as number,
+      use_teams: (get('use_teams', { section: 'execution', field: 'use_teams' }) ??
+        defaults.use_teams) as boolean,
+      team_timeout_minutes: (get('team_timeout_minutes', {
+        section: 'execution',
+        field: 'team_timeout_minutes',
+      }) ?? defaults.team_timeout_minutes) as number,
+      max_concurrent_teammates: (get('max_concurrent_teammates', {
+        section: 'execution',
+        field: 'max_concurrent_teammates',
+      }) ?? defaults.max_concurrent_teammates) as number,
       // Backend config (pass-through, no defaults)
       backend: (parsed.backend || undefined) as string | undefined,
       backend_models: (parsed.backend_models || undefined) as GrdConfig['backend_models'],
@@ -428,7 +447,10 @@ function loadConfig(cwd: string): GrdConfig {
       ceremony: (parsed.ceremony || undefined) as GrdConfig['ceremony'],
       // Evolve config
       evolve: ((): GrdConfig['evolve'] => {
-        const e = parsed.evolve && typeof parsed.evolve === 'object' ? parsed.evolve as Record<string, unknown> : null;
+        const e =
+          parsed.evolve && typeof parsed.evolve === 'object'
+            ? (parsed.evolve as Record<string, unknown>)
+            : null;
         if (!e) return undefined;
         return {
           auto_commit: (e.auto_commit ?? true) as boolean,
@@ -441,7 +463,10 @@ function loadConfig(cwd: string): GrdConfig {
       superpowers: (parsed.superpowers || undefined) as GrdConfig['superpowers'],
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
-        const t: Record<string, unknown> = parsed.timeouts && typeof parsed.timeouts === 'object' ? parsed.timeouts as Record<string, unknown> : {};
+        const t: Record<string, unknown> =
+          parsed.timeouts && typeof parsed.timeouts === 'object'
+            ? (parsed.timeouts as Record<string, unknown>)
+            : {};
         const d: GrdTimeouts = defaultTimeouts;
         return {
           jest_ms: (t.jest_ms ?? d.jest_ms) as number,
@@ -486,7 +511,11 @@ function isGitIgnored(cwd: string, targetPath: string): boolean {
  * @param opts - Options object
  * @returns Command result with exit code and output
  */
-function execGit(cwd: string, args: string[], opts: { allowBlocked?: boolean } = {}): ExecGitResult {
+function execGit(
+  cwd: string,
+  args: string[],
+  opts: { allowBlocked?: boolean } = {}
+): ExecGitResult {
   // Git operation whitelist enforcement
   const subcommand: string | undefined = args[0];
   if (subcommand && GIT_BLOCKED_COMMANDS.has(subcommand) && !opts.allowBlocked) {
@@ -543,7 +572,15 @@ function normalizePhaseName(phase: string): string {
   return parts.length > 1 ? `${padded}.${parts[1]}` : padded;
 }
 
-const CODE_EXTENSIONS: Set<string> = new Set(['.ts', '.js', '.py', '.go', '.rs', '.swift', '.java']);
+const CODE_EXTENSIONS: Set<string> = new Set([
+  '.ts',
+  '.js',
+  '.py',
+  '.go',
+  '.rs',
+  '.swift',
+  '.java',
+]);
 
 /**
  * Recursively find code files up to a maximum depth, capped at 5 results.
@@ -785,7 +822,9 @@ function createRunCache(): RunCache {
 function findPhaseDir(phasesDir: string, phaseArg: string): string | null {
   const normalized: string = normalizePhaseName(phaseArg);
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     const dirs: string[] = entries
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name)
@@ -823,7 +862,12 @@ function walkJsFiles(rootDir: string, excludePatterns: string[] = []): string[] 
   return results;
 }
 
-function _walkJsDir(rootDir: string, currentDir: string, results: string[], excludePatterns: string[]): void {
+function _walkJsDir(
+  rootDir: string,
+  currentDir: string,
+  results: string[],
+  excludePatterns: string[]
+): void {
   let entries: { name: string; isDirectory: () => boolean; isFile: () => boolean }[];
   try {
     entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -862,7 +906,8 @@ function resolveModelInternal(cwd: string, agentType: string): string {
     const backend: unknown = detectBackend(cwd);
     return resolveBackendModel(backend, 'sonnet', config, cwd) as string;
   }
-  const tier: ModelTier = agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet';
+  const tier: ModelTier =
+    agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet';
   const backend: unknown = detectBackend(cwd);
   return resolveBackendModel(backend, tier, config, cwd) as string;
 }
@@ -880,12 +925,16 @@ function findPhaseInternal(cwd: string, phase: string): PhaseInfo | null {
   const normalized: string = normalizePhaseName(phase);
 
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     const dirs: string[] = entries
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name)
       .sort();
-    const match: string | undefined = dirs.find((d: string) => d.startsWith(normalized + '-') || d === normalized);
+    const match: string | undefined = dirs.find(
+      (d: string) => d.startsWith(normalized + '-') || d === normalized
+    );
     if (!match) return null;
 
     const dirMatch: RegExpMatchArray | null = match.match(/^(\d+(?:\.\d+)?)-?(.*)/);
@@ -894,12 +943,18 @@ function findPhaseInternal(cwd: string, phase: string): PhaseInfo | null {
     const phaseDir: string = path.join(phasesDir, match);
     const phaseFiles: string[] = fs.readdirSync(phaseDir);
 
-    const plans: string[] = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').sort();
+    const plans: string[] = phaseFiles
+      .filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md')
+      .sort();
     const summaries: string[] = phaseFiles
       .filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md')
       .sort();
-    const hasResearch: boolean = phaseFiles.some((f: string) => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md');
-    const hasContext: boolean = phaseFiles.some((f: string) => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md');
+    const hasResearch: boolean = phaseFiles.some(
+      (f: string) => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md'
+    );
+    const hasContext: boolean = phaseFiles.some(
+      (f: string) => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md'
+    );
     const hasVerification: boolean = phaseFiles.some(
       (f: string) => f.endsWith('-VERIFICATION.md') || f === 'VERIFICATION.md'
     );
@@ -919,7 +974,10 @@ function findPhaseInternal(cwd: string, phase: string): PhaseInfo | null {
       const roadmapPath: string = path.join(cwd, '.planning', 'ROADMAP.md');
       const roadmapContent: string = fs.readFileSync(roadmapPath, 'utf-8');
       const unpadded: string = String(parseInt(phaseNumber, 10));
-      const phasePattern: RegExp = new RegExp(`#{2,}\\s*Phase\\s+(?:${phaseNumber}|${unpadded})\\s*:`, 'i');
+      const phasePattern: RegExp = new RegExp(
+        `#{2,}\\s*Phase\\s+(?:${phaseNumber}|${unpadded})\\s*:`,
+        'i'
+      );
       if (!phasePattern.test(roadmapContent)) {
         consistencyWarning = `Phase ${phaseNumber} found on disk but not in ROADMAP.md — may be from a previous milestone`;
       }
@@ -1003,7 +1061,9 @@ function getMilestoneInfo(cwd: string): MilestoneInfo {
     const active: string = stripShippedSections(roadmap);
 
     // Strategy 1: Find "(in progress)" milestone from bullet list
-    const inProgressMatch: RegExpMatchArray | null = active.match(/-\s+(v[\d.]+)\s+([^\n(]+?)\s*\(in progress\)/im);
+    const inProgressMatch: RegExpMatchArray | null = active.match(
+      /-\s+(v[\d.]+)\s+([^\n(]+?)\s*\(in progress\)/im
+    );
     if (inProgressMatch) {
       return { version: inProgressMatch[1], name: inProgressMatch[2].trim() };
     }
@@ -1021,7 +1081,9 @@ function getMilestoneInfo(cwd: string): MilestoneInfo {
     if (lastNonShipped) return lastNonShipped;
 
     // Strategy 3: Active heading "## ... vX.Y.Z ... (In Progress)"
-    const headingMatch: RegExpMatchArray | null = active.match(/##\s*.*?(v\d+\.\d+(?:\.\d+)?)\s*[:\s]+([^\n(]+)/);
+    const headingMatch: RegExpMatchArray | null = active.match(
+      /##\s*.*?(v\d+\.\d+(?:\.\d+)?)\s*[:\s]+([^\n(]+)/
+    );
     if (headingMatch) {
       return { version: headingMatch[1], name: headingMatch[2].trim() };
     }
@@ -1049,7 +1111,9 @@ function getMilestoneInfo(cwd: string): MilestoneInfo {
 function resolveModelForAgent(config: GrdConfig, agentType: string, cwd?: string): string {
   const profile: string = (config.model_profile || 'balanced').toLowerCase();
   const agentModels: Record<ModelProfileName, ModelTier> | undefined = MODEL_PROFILES[agentType];
-  const tier: ModelTier = agentModels ? agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet' : 'sonnet';
+  const tier: ModelTier = agentModels
+    ? agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet'
+    : 'sonnet';
   // If cwd provided, resolve to backend-specific model name
   if (cwd) {
     const backend: unknown = detectBackend(cwd);

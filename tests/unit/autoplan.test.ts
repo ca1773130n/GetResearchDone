@@ -211,7 +211,17 @@ describe('buildAutoplanPrompt', () => {
         theme: 'new-commands',
         dimension: 'product-ideation',
         items: [
-          { id: 'pi/snap', dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Snapshot', description: 'Capture state', effort: 'small' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+          {
+            id: 'pi/snap',
+            dimension: 'product-ideation',
+            slug: 'new-cmd-snapshot',
+            title: 'Snapshot',
+            description: 'Capture state',
+            effort: 'small' as const,
+            source: 'discovery' as const,
+            status: 'pending' as const,
+            iteration_added: 1,
+          },
         ],
         priority: 11,
         effort: 'small' as const,
@@ -229,7 +239,17 @@ describe('buildAutoplanPrompt', () => {
         theme: 'test-coverage',
         dimension: 'quality',
         items: [
-          { id: 'q/tests', dimension: 'quality', slug: 'improve-coverage-state', title: 'Coverage', description: 'Improve coverage', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+          {
+            id: 'q/tests',
+            dimension: 'quality',
+            slug: 'improve-coverage-state',
+            title: 'Coverage',
+            description: 'Improve coverage',
+            effort: 'medium' as const,
+            source: 'discovery' as const,
+            status: 'pending' as const,
+            iteration_added: 1,
+          },
         ],
         priority: 4,
         effort: 'medium' as const,
@@ -246,7 +266,17 @@ describe('buildAutoplanPrompt', () => {
         theme: 'new-workflows',
         dimension: 'product-ideation',
         items: [
-          { id: 'pi/wf', dimension: 'product-ideation', slug: 'new-workflow-a', title: 'Workflow', description: 'New workflow', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+          {
+            id: 'pi/wf',
+            dimension: 'product-ideation',
+            slug: 'new-workflow-a',
+            title: 'Workflow',
+            description: 'New workflow',
+            effort: 'medium' as const,
+            source: 'discovery' as const,
+            status: 'pending' as const,
+            iteration_added: 1,
+          },
         ],
         priority: 11,
         effort: 'medium' as const,
@@ -256,7 +286,17 @@ describe('buildAutoplanPrompt', () => {
         theme: 'test-coverage',
         dimension: 'quality',
         items: [
-          { id: 'q/tests', dimension: 'quality', slug: 'improve-coverage-state', title: 'Coverage', description: 'Improve coverage', effort: 'medium' as const, source: 'discovery' as const, status: 'pending' as const, iteration_added: 1 },
+          {
+            id: 'q/tests',
+            dimension: 'quality',
+            slug: 'improve-coverage-state',
+            title: 'Coverage',
+            description: 'Improve coverage',
+            effort: 'medium' as const,
+            source: 'discovery' as const,
+            status: 'pending' as const,
+            iteration_added: 1,
+          },
         ],
         priority: 4,
         effort: 'medium' as const,
@@ -333,11 +373,7 @@ describe('runAutoplan', () => {
     });
 
     await runAutoplan('/tmp/test', { pickPct: 25 });
-    expect(mockRunGroupDiscovery).toHaveBeenCalledWith(
-      '/tmp/test',
-      null,
-      25
-    );
+    expect(mockRunGroupDiscovery).toHaveBeenCalledWith('/tmp/test', null, 25);
   });
 
   test('returns completed result when spawnClaude exits 0', async () => {
@@ -382,15 +418,11 @@ describe('runAutoplan', () => {
       model: 'sonnet',
     });
 
-    expect(mockSpawnClaude).toHaveBeenCalledWith(
-      '/tmp/test',
-      expect.any(String),
-      {
-        timeout: 600000, // 10 * 60 * 1000
-        maxTurns: 5,
-        model: 'sonnet',
-      }
-    );
+    expect(mockSpawnClaude).toHaveBeenCalledWith('/tmp/test', expect.any(String), {
+      timeout: 600000, // 10 * 60 * 1000
+      maxTurns: 5,
+      model: 'sonnet',
+    });
   });
 
   test('derives milestone name from highest-priority group theme', async () => {
@@ -461,15 +493,11 @@ describe('runAutoplan', () => {
       groups: [makeSimplifiedGroup()],
     });
 
-    expect(mockSpawnClaude).toHaveBeenCalledWith(
-      '/tmp/test',
-      expect.any(String),
-      {
-        timeout: undefined,
-        maxTurns: undefined,
-        model: undefined,
-      }
-    );
+    expect(mockSpawnClaude).toHaveBeenCalledWith('/tmp/test', expect.any(String), {
+      timeout: undefined,
+      maxTurns: undefined,
+      model: undefined,
+    });
   });
 
   test('reads evolve state for discovery', async () => {
@@ -563,11 +591,7 @@ describe('cmdAutoplan', () => {
     });
 
     await cmdAutoplan('/tmp/test', ['--pick-pct', '30'], false);
-    expect(mockRunGroupDiscovery).toHaveBeenCalledWith(
-      '/tmp/test',
-      null,
-      30
-    );
+    expect(mockRunGroupDiscovery).toHaveBeenCalledWith('/tmp/test', null, 30);
   });
 
   test('parses --name flag', async () => {
@@ -714,11 +738,7 @@ describe('cmdInitAutoplan', () => {
     mockReadEvolveState.mockReturnValueOnce(null);
 
     cmdInitAutoplan('/tmp/test', true);
-    expect(mockOutput).toHaveBeenCalledWith(
-      expect.any(Object),
-      true,
-      expect.any(String)
-    );
+    expect(mockOutput).toHaveBeenCalledWith(expect.any(Object), true, expect.any(String));
   });
 
   test('handles evolve state without remaining_groups field', () => {

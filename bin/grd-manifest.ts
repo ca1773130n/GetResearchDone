@@ -130,11 +130,7 @@ function generateManifest(pluginRoot: string): ManifestData {
   };
 
   const manifestPath: string = path.join(pluginRoot, MANIFEST_FILE);
-  fs.writeFileSync(
-    manifestPath,
-    JSON.stringify(manifest, null, 2) + '\n',
-    'utf-8'
-  );
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf-8');
   return manifest;
 }
 
@@ -150,9 +146,7 @@ function detectModifications(pluginRoot: string): DetectionResult {
     };
   }
 
-  const manifest: ManifestData = JSON.parse(
-    fs.readFileSync(manifestPath, 'utf-8')
-  );
+  const manifest: ManifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
   const modifications: Modification[] = [];
   const additions: string[] = [];
   const deletions: string[] = [];
@@ -188,23 +182,16 @@ function detectModifications(pluginRoot: string): DetectionResult {
     modifications,
     additions,
     deletions,
-    clean:
-      modifications.length === 0 &&
-      additions.length === 0 &&
-      deletions.length === 0,
+    clean: modifications.length === 0 && additions.length === 0 && deletions.length === 0,
   };
 }
 
-function savePatches(
-  pluginRoot: string,
-  patchDirOverride?: string | null
-): PatchSaveResult {
+function savePatches(pluginRoot: string, patchDirOverride?: string | null): PatchSaveResult {
   const detection: DetectionResult = detectModifications(pluginRoot);
   if (detection.error) return { saved: false, error: detection.error };
   if (detection.clean) return { saved: false, reason: 'No modifications detected' };
 
-  const patchDir: string =
-    patchDirOverride || path.join(pluginRoot, PATCH_DIR);
+  const patchDir: string = patchDirOverride || path.join(pluginRoot, PATCH_DIR);
   fs.mkdirSync(patchDir, { recursive: true });
 
   const savedFiles: string[] = [];
@@ -225,29 +212,22 @@ function savePatches(
     deletions: detection.deletions,
   };
 
-  fs.writeFileSync(
-    path.join(patchDir, BACKUP_META),
-    JSON.stringify(meta, null, 2) + '\n',
-    'utf-8'
-  );
+  fs.writeFileSync(path.join(patchDir, BACKUP_META), JSON.stringify(meta, null, 2) + '\n', 'utf-8');
 
   return { saved: true, patch_dir: patchDir, ...meta };
 }
 
-function loadPatches(
-  pluginRoot: string,
-  patchDirOverride?: string | null
-): PatchLoadResult {
-  const patchDir: string =
-    patchDirOverride || path.join(pluginRoot, PATCH_DIR);
+function loadPatches(pluginRoot: string, patchDirOverride?: string | null): PatchLoadResult {
+  const patchDir: string = patchDirOverride || path.join(pluginRoot, PATCH_DIR);
   const metaPath: string = path.join(patchDir, BACKUP_META);
 
   if (!fs.existsSync(metaPath)) {
     return { found: false, reason: `No patches found at ${patchDir}` };
   }
 
-  const meta: { from_version?: string; timestamp?: string; files?: string[] } =
-    JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+  const meta: { from_version?: string; timestamp?: string; files?: string[] } = JSON.parse(
+    fs.readFileSync(metaPath, 'utf-8')
+  );
   return { found: true, patch_dir: patchDir, ...meta };
 }
 
@@ -259,14 +239,9 @@ function main(): void {
   const pluginRoot: string = getPluginRoot();
 
   const dirIndex: number = args.indexOf('--dir');
-  const dirOverride: string | null =
-    dirIndex !== -1 ? args[dirIndex + 1] : null;
+  const dirOverride: string | null = dirIndex !== -1 ? args[dirIndex + 1] : null;
 
-  let result:
-    | ManifestData
-    | DetectionResult
-    | PatchSaveResult
-    | PatchLoadResult;
+  let result: ManifestData | DetectionResult | PatchSaveResult | PatchLoadResult;
 
   switch (command) {
     case 'generate':
@@ -303,9 +278,7 @@ function main(): void {
       break;
 
     default:
-      console.error(
-        'Usage: node grd-manifest.js <generate|detect|save-patches|load-patches>'
-      );
+      console.error('Usage: node grd-manifest.js <generate|detect|save-patches|load-patches>');
       process.exit(1);
   }
 }

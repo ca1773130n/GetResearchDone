@@ -31,16 +31,16 @@ interface JsonRpcResponse {
 
 /** McpServer class shape for typed instantiation */
 interface McpServerInstance {
-  handleMessage(
-    message: JsonRpcMessage
-  ): JsonRpcResponse | Promise<JsonRpcResponse> | null;
+  handleMessage(message: JsonRpcMessage): JsonRpcResponse | Promise<JsonRpcResponse> | null;
 }
 
 interface McpServerConstructor {
   new (options?: { cwd?: string }): McpServerInstance;
 }
 
-const { McpServer }: {
+const {
+  McpServer,
+}: {
   McpServer: McpServerConstructor;
 } = require('../lib/mcp-server');
 

@@ -20,26 +20,36 @@ import type {
   EvolveState,
 } from './evolve/types';
 
-const { loadConfig, output, getMilestoneInfo }: {
+const {
+  loadConfig,
+  output,
+  getMilestoneInfo,
+}: {
   loadConfig: (cwd: string) => GrdConfig;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('./utils');
-const { spawnClaude }: {
+const {
+  spawnClaude,
+}: {
   spawnClaude: (
     cwd: string,
     prompt: string,
     opts?: { timeout?: number; maxTurns?: number; model?: string }
   ) => { exitCode: number; timedOut: boolean };
 } = require('./autopilot');
-const { runGroupDiscovery }: {
+const {
+  runGroupDiscovery,
+}: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number
   ) => Promise<GroupDiscoveryResult>;
 } = require('./evolve/discovery');
-const { readEvolveState }: {
+const {
+  readEvolveState,
+}: {
   readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
 } = require('./evolve/state');
 
@@ -93,10 +103,7 @@ ${groupSummaries}${productIdeationGuidance}
  * Run the autoplan workflow: discover work groups (or use provided ones),
  * build a prompt, and spawn a `claude -p` subprocess to create a milestone.
  */
-async function runAutoplan(
-  cwd: string,
-  options: AutoplanOptions = {}
-): Promise<AutoplanResult> {
+async function runAutoplan(cwd: string, options: AutoplanOptions = {}): Promise<AutoplanResult> {
   let groups: WorkGroup[];
 
   // Use provided groups or run discovery
@@ -174,9 +181,7 @@ async function runAutoplan(
   });
 
   if (spawnResult.exitCode !== 0) {
-    const reason: string = spawnResult.timedOut
-      ? 'timeout'
-      : `exit code ${spawnResult.exitCode}`;
+    const reason: string = spawnResult.timedOut ? 'timeout' : `exit code ${spawnResult.exitCode}`;
     return {
       status: 'failed',
       groups_count: groups.length,
@@ -257,7 +262,11 @@ function cmdInitAutoplan(cwd: string, raw: boolean): void {
     },
   };
 
-  output(result, raw, `Milestone: ${result.current_milestone.version}, evolve_state: iteration ${result.evolve_state.iteration}${result.evolve_state.exists ? ' (active)' : ''}`);
+  output(
+    result,
+    raw,
+    `Milestone: ${result.current_milestone.version}, evolve_state: iteration ${result.evolve_state.iteration}${result.evolve_state.exists ? ' (active)' : ''}`
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

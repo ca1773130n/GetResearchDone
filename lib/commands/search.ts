@@ -7,7 +7,10 @@ const path = require('path');
 const child_process = require('child_process');
 
 const {
-  safeReadFile, loadConfig, output, error,
+  safeReadFile,
+  loadConfig,
+  output,
+  error,
 }: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
@@ -15,7 +18,8 @@ const {
   error: (message: string) => never;
 } = require('../utils');
 const {
-  currentMilestone, planningDir: getPlanningDir,
+  currentMilestone,
+  planningDir: getPlanningDir,
 }: {
   currentMilestone: (cwd: string) => string;
   planningDir: (cwd: string) => string;
@@ -66,7 +70,9 @@ function collectMarkdownFiles(dir: string): string[] {
         results.push(fullPath);
       }
     }
-  } catch { /* Directory doesn't exist or can't be read */ }
+  } catch {
+    /* Directory doesn't exist or can't be read */
+  }
   return results;
 }
 
@@ -77,7 +83,10 @@ function collectMarkdownFiles(dir: string): string[] {
  * Returns file paths, line numbers, and matching lines.
  */
 function cmdSearch(cwd: string, query: string, raw: boolean): void {
-  if (!query) { error('Search query is required'); return; }
+  if (!query) {
+    error('Search query is required');
+    return;
+  }
 
   const planningDir = getPlanningDir(cwd) as string;
   const mdFiles = collectMarkdownFiles(planningDir);
@@ -90,7 +99,11 @@ function cmdSearch(cwd: string, query: string, raw: boolean): void {
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].toLowerCase().includes(queryLower)) {
-        matches.push({ file: path.relative(planningDir, filePath), line: i + 1, content: lines[i] });
+        matches.push({
+          file: path.relative(planningDir, filePath),
+          line: i + 1,
+          content: lines[i],
+        });
       }
     }
   }
@@ -122,11 +135,22 @@ function cmdMigrateDirs(cwd: string, raw: boolean, dryRun?: boolean): void {
 
   for (const entry of migrationMap) {
     const oldDir = path.join(planningDir, entry.name);
-    if (!fs.existsSync(oldDir)) { skipped.push(entry.name); continue; }
+    if (!fs.existsSync(oldDir)) {
+      skipped.push(entry.name);
+      continue;
+    }
 
     let contents: string[];
-    try { contents = fs.readdirSync(oldDir); } catch { skipped.push(entry.name); continue; }
-    if (contents.length === 0) { skipped.push(entry.name); continue; }
+    try {
+      contents = fs.readdirSync(oldDir);
+    } catch {
+      skipped.push(entry.name);
+      continue;
+    }
+    if (contents.length === 0) {
+      skipped.push(entry.name);
+      continue;
+    }
 
     const targetDir = path.join(planningDir, 'milestones', entry.target, entry.name);
 
@@ -134,7 +158,9 @@ function cmdMigrateDirs(cwd: string, raw: boolean, dryRun?: boolean): void {
       movedDirectories.push({
         from: entry.name,
         to: path.join('milestones', entry.target, entry.name),
-        entries_to_move: contents.filter((item: string) => !fs.existsSync(path.join(targetDir, item))).length,
+        entries_to_move: contents.filter(
+          (item: string) => !fs.existsSync(path.join(targetDir, item))
+        ).length,
       });
       continue;
     }
@@ -148,8 +174,11 @@ function cmdMigrateDirs(cwd: string, raw: boolean, dryRun?: boolean): void {
       if (fs.existsSync(destPath)) continue;
       try {
         const srcStats = fs.statSync(srcPath);
-        if (srcStats.isDirectory()) { fs.cpSync(srcPath, destPath, { recursive: true }); }
-        else { fs.cpSync(srcPath, destPath); }
+        if (srcStats.isDirectory()) {
+          fs.cpSync(srcPath, destPath, { recursive: true });
+        } else {
+          fs.cpSync(srcPath, destPath);
+        }
         fs.rmSync(srcPath, { recursive: true, force: true });
         entriesMoved++;
       } catch (err: unknown) {
@@ -168,11 +197,20 @@ function cmdMigrateDirs(cwd: string, raw: boolean, dryRun?: boolean): void {
 
   const alreadyMigrated = movedDirectories.length === 0;
   const result = {
-    milestone, moved_directories: movedDirectories, skipped,
-    already_migrated: alreadyMigrated, errors,
+    milestone,
+    moved_directories: movedDirectories,
+    skipped,
+    already_migrated: alreadyMigrated,
+    errors,
     ...(dryRun ? { dry_run: true } : {}),
   };
-  output(result, raw, dryRun ? `dry-run: would migrate ${movedDirectories.length} directory(ies)` : JSON.stringify(result));
+  output(
+    result,
+    raw,
+    dryRun
+      ? `dry-run: would migrate ${movedDirectories.length} directory(ies)`
+      : JSON.stringify(result)
+  );
 }
 
 // ─── CLI: Coverage Report ───────────────────────────────────────────────────
@@ -186,7 +224,15 @@ function cmdCoverageReport(cwd: string, options: { threshold?: number }, raw: bo
   const config = loadConfig(cwd);
 
   const summaryPath = path.join(cwd, 'coverage', 'coverage-summary.json');
-  let coverageData: Record<string, { lines: { pct: number }; branches: { pct: number }; functions: { pct: number }; statements: { pct: number } }>;
+  let coverageData: Record<
+    string,
+    {
+      lines: { pct: number };
+      branches: { pct: number };
+      functions: { pct: number };
+      statements: { pct: number };
+    }
+  >;
   let summaryContent: string | undefined;
   try {
     child_process.execFileSync(
@@ -215,8 +261,11 @@ function cmdCoverageReport(cwd: string, options: { threshold?: number }, raw: bo
     if (!relativePath.startsWith('lib/')) continue;
 
     const entry: CoverageEntry = {
-      module: relativePath, lines: data.lines.pct, branches: data.branches.pct,
-      functions: data.functions.pct, statements: data.statements.pct,
+      module: relativePath,
+      lines: data.lines.pct,
+      branches: data.branches.pct,
+      functions: data.functions.pct,
+      statements: data.statements.pct,
     };
     modules.push(entry);
 
@@ -228,12 +277,17 @@ function cmdCoverageReport(cwd: string, options: { threshold?: number }, raw: bo
   modules.sort((a, b) => a.lines - b.lines);
   belowThreshold.sort((a, b) => a.lines - b.lines);
 
-  output({
-    threshold, total_modules: modules.length,
-    below_threshold_count: belowThreshold.length,
-    all_above: belowThreshold.length === 0,
-    below_threshold: belowThreshold, modules,
-  }, raw);
+  output(
+    {
+      threshold,
+      total_modules: modules.length,
+      below_threshold_count: belowThreshold.length,
+      all_above: belowThreshold.length === 0,
+      below_threshold: belowThreshold,
+      modules,
+    },
+    raw
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

@@ -182,7 +182,8 @@ describe('currentMilestone', () => {
     tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
     fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v0.3.0'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.planning', 'milestones', 'v0.4.0'), { recursive: true });
-    const roadmap = '# Roadmap\n\n- v0.3.0 Foundation (shipped)\n- v0.4.0 Verification (in progress)\n';
+    const roadmap =
+      '# Roadmap\n\n- v0.3.0 Foundation (shipped)\n- v0.4.0 Verification (in progress)\n';
     fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
     expect(currentMilestone(tmpDir)).toBe('v0.4.0');
   });
@@ -272,9 +273,7 @@ describe('phasesDir', () => {
   });
 
   test('throws when milestone would escape .planning directory', () => {
-    expect(() => phasesDir('/project', '../etc')).toThrow(
-      /Invalid milestone.*path would escape/
-    );
+    expect(() => phasesDir('/project', '../etc')).toThrow(/Invalid milestone.*path would escape/);
   });
 });
 
@@ -381,9 +380,7 @@ describe('todosDir', () => {
 
   test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(todosDir(tmpDir)).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'todos')
-    );
+    expect(todosDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'todos'));
   });
 });
 
@@ -399,9 +396,7 @@ describe('quickDir', () => {
 
   test('returns milestone-scoped path even when milestone dir does not exist', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
-    expect(quickDir(tmpDir)).toBe(
-      path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick')
-    );
+    expect(quickDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'quick'));
   });
 
   test('accepts an optional milestone parameter', () => {

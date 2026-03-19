@@ -142,7 +142,7 @@ async function slingPlanAsync(
   cwd: string,
   opts: SlingOpts,
   pollIntervalMs: number,
-  mergeStrategy: 'auto' | 'manual',
+  mergeStrategy: 'auto' | 'manual'
 ): Promise<{ exitCode: number; duration: number; agentId: string }> {
   const startTime = Date.now();
   const result: SlingResult = slingPlan(cwd, opts);
@@ -150,7 +150,7 @@ async function slingPlanAsync(
 
   let exitCode: number;
   while (true) {
-    await new Promise<void>(resolve => setTimeout(resolve, pollIntervalMs));
+    await new Promise<void>((resolve) => setTimeout(resolve, pollIntervalMs));
     const status: AgentStatus = getAgentStatus(cwd, agentId);
     if (status.state === 'done') {
       exitCode = status.exit_code ?? 0;

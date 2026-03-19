@@ -338,8 +338,14 @@ describe('Context init backward compatibility (DEFER-10-01)', () => {
 
   describe('all 14 functions produce valid JSON with backend fields', () => {
     const functions: Array<{ name: string; fn: (dir: string) => void }> = [
-      { name: 'cmdInitExecutePhase', fn: (dir: string) => cmdInitExecutePhase(dir, '1', new Set(), false) },
-      { name: 'cmdInitPlanPhase', fn: (dir: string) => cmdInitPlanPhase(dir, '1', new Set(), false) },
+      {
+        name: 'cmdInitExecutePhase',
+        fn: (dir: string) => cmdInitExecutePhase(dir, '1', new Set(), false),
+      },
+      {
+        name: 'cmdInitPlanPhase',
+        fn: (dir: string) => cmdInitPlanPhase(dir, '1', new Set(), false),
+      },
       { name: 'cmdInitNewProject', fn: (dir: string) => cmdInitNewProject(dir, false) },
       { name: 'cmdInitNewMilestone', fn: (dir: string) => cmdInitNewMilestone(dir, false) },
       { name: 'cmdInitQuick', fn: (dir: string) => cmdInitQuick(dir, 'test', false) },
@@ -354,7 +360,10 @@ describe('Context init backward compatibility (DEFER-10-01)', () => {
         name: 'cmdInitResearchWorkflow',
         fn: (dir: string) => cmdInitResearchWorkflow(dir, 'survey', null, new Set(), false),
       },
-      { name: 'cmdInitPlanMilestoneGaps', fn: (dir: string) => cmdInitPlanMilestoneGaps(dir, false) },
+      {
+        name: 'cmdInitPlanMilestoneGaps',
+        fn: (dir: string) => cmdInitPlanMilestoneGaps(dir, false),
+      },
     ];
 
     test.each(functions.map((f) => [f.name, f.fn]))(

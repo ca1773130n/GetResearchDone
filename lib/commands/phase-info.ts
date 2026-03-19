@@ -3,15 +3,26 @@
 'use strict';
 
 import type {
-  GrdConfig, BackendId, BackendCapabilities, ModelTier,
-  FrontmatterObject, AgentModelProfiles, ExecGitResult,
+  GrdConfig,
+  BackendId,
+  BackendCapabilities,
+  ModelTier,
+  FrontmatterObject,
+  AgentModelProfiles,
+  ExecGitResult,
 } from '../types';
 
 const fs = require('fs');
 const path = require('path');
 const {
-  safeReadFile, loadConfig, isGitIgnored, execGit,
-  normalizePhaseName, MODEL_PROFILES, output, error,
+  safeReadFile,
+  loadConfig,
+  isGitIgnored,
+  execGit,
+  normalizePhaseName,
+  MODEL_PROFILES,
+  output,
+  error,
 }: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => GrdConfig;
@@ -22,18 +33,31 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('../utils');
-const { extractFrontmatter }: {
+const {
+  extractFrontmatter,
+}: {
   extractFrontmatter: (content: string) => FrontmatterObject;
 } = require('../frontmatter');
 const {
-  detectBackend, resolveBackendModel, getBackendCapabilities, getCachedModels,
+  detectBackend,
+  resolveBackendModel,
+  getBackendCapabilities,
+  getCachedModels,
 }: {
   detectBackend: (cwd: string) => BackendId;
-  resolveBackendModel: (b: string, t: ModelTier, c?: Record<string, unknown>, cwd?: string) => string | undefined;
+  resolveBackendModel: (
+    b: string,
+    t: ModelTier,
+    c?: Record<string, unknown>,
+    cwd?: string
+  ) => string | undefined;
   getBackendCapabilities: (b: string) => BackendCapabilities;
   getCachedModels: (b: string, cwd?: string) => Record<string, string> | null;
 } = require('../backend');
-const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir }: {
+const {
+  phasesDir: getPhasesDirPath,
+  planningDir: getPlanningDir,
+}: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
 } = require('../paths');
@@ -41,10 +65,18 @@ const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir }: {
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
 interface PlanIndexEntry {
-  id: string; wave: number; autonomous: boolean; objective: string | null;
-  files_modified: string[]; task_count: number; has_summary: boolean;
+  id: string;
+  wave: number;
+  autonomous: boolean;
+  objective: string | null;
+  files_modified: string[];
+  task_count: number;
+  has_summary: boolean;
 }
-interface SummaryDecision { summary: string; rationale: string | null; }
+interface SummaryDecision {
+  summary: string;
+  rationale: string | null;
+}
 interface DigestPhaseEntry {
   name: string;
   provides: Set<string> | string[];
@@ -95,13 +127,16 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
   }
 
   try {
-    const phaseDirs: string[] = fs.readdirSync(phasesDir, { withFileTypes: true })
+    const phaseDirs: string[] = fs
+      .readdirSync(phasesDir, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
-      .map((e: { name: string }) => e.name).sort();
+      .map((e: { name: string }) => e.name)
+      .sort();
 
     for (const dir of phaseDirs) {
       const dirPath = path.join(phasesDir, dir);
-      const summaries: string[] = fs.readdirSync(dirPath)
+      const summaries: string[] = fs
+        .readdirSync(dirPath)
         .filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
 
       for (const summary of summaries) {
@@ -113,7 +148,9 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
           if (!digest.phases[phaseNum]) {
             digest.phases[phaseNum] = {
               name: (fm.name as string) || dir.split('-').slice(1).join(' ') || 'Unknown',
-              provides: new Set<string>(), affects: new Set<string>(), patterns: new Set<string>(),
+              provides: new Set<string>(),
+              affects: new Set<string>(),
+              patterns: new Set<string>(),
             };
           }
           const pe = digest.phases[phaseNum];
@@ -121,7 +158,9 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
           const aff = pe.affects as Set<string>;
           const pats = pe.patterns as Set<string>;
 
-          const dg = fm['dependency-graph'] as { provides?: string[]; affects?: string[] } | undefined;
+          const dg = fm['dependency-graph'] as
+            | { provides?: string[]; affects?: string[] }
+            | undefined;
           if (dg && dg.provides) dg.provides.forEach((p: string) => prov.add(p));
           else if (fm.provides && Array.isArray(fm.provides))
             (fm.provides as string[]).forEach((p: string) => prov.add(p));
@@ -131,12 +170,19 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
           if (pe2) pe2.forEach((p: string) => pats.add(p));
 
           const kd = fm['key-decisions'] as string[] | undefined;
-          if (kd) kd.forEach((d: string) => { digest.decisions.push({ phase: phaseNum, decision: d }); });
+          if (kd)
+            kd.forEach((d: string) => {
+              digest.decisions.push({ phase: phaseNum, decision: d });
+            });
 
           const ts = fm['tech-stack'] as { added?: (string | { name: string })[] } | undefined;
           if (ts && ts.added)
-            ts.added.forEach((t) => (digest.tech_stack as Set<string>).add(typeof t === 'string' ? t : t.name));
-        } catch { /* skip malformed summaries */ }
+            ts.added.forEach((t) =>
+              (digest.tech_stack as Set<string>).add(typeof t === 'string' ? t : t.name)
+            );
+        } catch {
+          /* skip malformed summaries */
+        }
       }
     }
 
@@ -147,7 +193,9 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
       e.affects = Array.from(e.affects as Set<string>);
       e.patterns = Array.from(e.patterns as Set<string>);
     });
-    (digest as unknown as Record<string, unknown>).tech_stack = Array.from(digest.tech_stack as Set<string>);
+    (digest as unknown as Record<string, unknown>).tech_stack = Array.from(
+      digest.tech_stack as Set<string>
+    );
 
     const phaseCount = Object.keys(digest.phases).length;
     const techArr = digest.tech_stack as string[];
@@ -162,11 +210,17 @@ function cmdHistoryDigest(cwd: string, raw: boolean): void {
 
 /** Resolve the model name for a given agent type from project configuration. */
 function cmdResolveModel(cwd: string, agentType: string, raw: boolean): void {
-  if (!agentType) { error('agent-type required'); return; }
+  if (!agentType) {
+    error('agent-type required');
+    return;
+  }
   const config = loadConfig(cwd);
   const profile = config.model_profile || 'balanced';
   const agentModels = MODEL_PROFILES[agentType] as Record<string, string> | undefined;
-  if (!agentModels) { output({ model: 'sonnet', profile, unknown_agent: true }, raw, 'sonnet'); return; }
+  if (!agentModels) {
+    output({ model: 'sonnet', profile, unknown_agent: true }, raw, 'sonnet');
+    return;
+  }
   const model = agentModels[profile] || agentModels['balanced'] || 'sonnet';
   output({ model, profile }, raw, model);
 }
@@ -175,34 +229,59 @@ function cmdResolveModel(cwd: string, agentType: string, raw: boolean): void {
 
 /** Find a phase directory by number and list its plans and summaries. */
 function cmdFindPhase(cwd: string, phase: string, raw: boolean): void {
-  if (!phase) { error('phase identifier required'); return; }
+  if (!phase) {
+    error('phase identifier required');
+    return;
+  }
   const phasesDir = getPhasesDirPath(cwd) as string;
   const normalized = normalizePhaseName(phase);
   const notFound = {
-    found: false, directory: null as string | null,
-    phase_number: null as string | null, phase_name: null as string | null,
-    plans: [] as string[], summaries: [] as string[],
+    found: false,
+    directory: null as string | null,
+    phase_number: null as string | null,
+    phase_name: null as string | null,
+    plans: [] as string[],
+    summaries: [] as string[],
   };
 
   try {
-    const dirs: string[] = fs.readdirSync(phasesDir, { withFileTypes: true })
+    const dirs: string[] = fs
+      .readdirSync(phasesDir, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
-      .map((e: { name: string }) => e.name).sort();
+      .map((e: { name: string }) => e.name)
+      .sort();
     const match = dirs.find((d: string) => d.startsWith(normalized + '-') || d === normalized);
-    if (!match) { output(notFound, raw, ''); return; }
+    if (!match) {
+      output(notFound, raw, '');
+      return;
+    }
 
     const dm = match.match(/^(\d+(?:\.\d+)?)-?(.*)/);
     const phaseNumber = dm ? dm[1] : normalized;
     const phaseName = dm && dm[2] ? dm[2] : null;
     const phaseDir = path.join(phasesDir, match);
     const phaseFiles: string[] = fs.readdirSync(phaseDir);
-    const plans = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').sort();
-    const summaries = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md').sort();
-    output({
-      found: true, directory: path.relative(cwd, path.join(phasesDir, match)),
-      phase_number: phaseNumber, phase_name: phaseName, plans, summaries,
-    }, raw, path.relative(cwd, path.join(phasesDir, match)));
-  } catch { output(notFound, raw, ''); }
+    const plans = phaseFiles
+      .filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md')
+      .sort();
+    const summaries = phaseFiles
+      .filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md')
+      .sort();
+    output(
+      {
+        found: true,
+        directory: path.relative(cwd, path.join(phasesDir, match)),
+        phase_number: phaseNumber,
+        phase_name: phaseName,
+        plans,
+        summaries,
+      },
+      raw,
+      path.relative(cwd, path.join(phasesDir, match))
+    );
+  } catch {
+    output(notFound, raw, '');
+  }
 }
 
 // ─── Detect Backend ─────────────────────────────────────────────────────────
@@ -226,8 +305,17 @@ function cmdDetectBackend(cwd: string, raw: boolean): void {
 // ─── Commit ─────────────────────────────────────────────────────────────────
 
 /** Create a git commit with specified files, respecting commit_docs and gitignore config. */
-function cmdCommit(cwd: string, message: string, files: string[], raw: boolean, amend?: boolean): void {
-  if (!message && !amend) { error('commit message required'); return; }
+function cmdCommit(
+  cwd: string,
+  message: string,
+  files: string[],
+  raw: boolean,
+  amend?: boolean
+): void {
+  if (!message && !amend) {
+    error('commit message required');
+    return;
+  }
   const config = loadConfig(cwd);
 
   if (!config.commit_docs) {
@@ -245,14 +333,23 @@ function cmdCommit(cwd: string, message: string, files: string[], raw: boolean, 
   const commitArgs = amend ? ['commit', '--amend', '--no-edit'] : ['commit', '-m', message];
   const commitResult = execGit(cwd, commitArgs);
   if (commitResult.exitCode !== 0) {
-    if (commitResult.stdout.includes('nothing to commit') || commitResult.stderr.includes('nothing to commit')) {
+    if (
+      commitResult.stdout.includes('nothing to commit') ||
+      commitResult.stderr.includes('nothing to commit')
+    ) {
       output({ committed: false, hash: null, reason: 'nothing_to_commit' }, raw, 'nothing');
       return;
     }
-    output({
-      committed: false, hash: null as string | null, reason: 'commit_failed',
-      error: commitResult.stderr || commitResult.stdout,
-    }, raw, 'failed');
+    output(
+      {
+        committed: false,
+        hash: null as string | null,
+        reason: 'commit_failed',
+        error: commitResult.stderr || commitResult.stdout,
+      },
+      raw,
+      'failed'
+    );
     return;
   }
 
@@ -266,7 +363,9 @@ function cmdCommit(cwd: string, message: string, files: string[], raw: boolean, 
 /** Index plans in a phase with wave grouping, completion status, and checkpoint detection. */
 function cmdPhasePlanIndex(cwd: string, phase: string, raw: boolean): void {
   if (!phase) {
-    error('phase required for phase-plan-index. Usage: phase-plan-index <phase-number>. Run `grd-tools phase list` to see available phases, then pass a phase number, e.g.: phase-plan-index 2');
+    error(
+      'phase required for phase-plan-index. Usage: phase-plan-index <phase-number>. Run `grd-tools phase list` to see available phases, then pass a phase number, e.g.: phase-plan-index 2'
+    );
     return;
   }
   const phasesDir = getPhasesDirPath(cwd) as string;
@@ -274,22 +373,42 @@ function cmdPhasePlanIndex(cwd: string, phase: string, raw: boolean): void {
 
   let phaseDir: string | null = null;
   try {
-    const dirs: string[] = fs.readdirSync(phasesDir, { withFileTypes: true })
+    const dirs: string[] = fs
+      .readdirSync(phasesDir, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
-      .map((e: { name: string }) => e.name).sort();
+      .map((e: { name: string }) => e.name)
+      .sort();
     const match = dirs.find((d: string) => d.startsWith(normalized + '-') || d === normalized);
     if (match) phaseDir = path.join(phasesDir, match);
-  } catch { /* phases dir doesn't exist */ }
+  } catch {
+    /* phases dir doesn't exist */
+  }
 
   if (!phaseDir) {
-    output({ phase: normalized, error: 'Phase not found', plans: [], waves: {}, incomplete: [], has_checkpoints: false }, raw);
+    output(
+      {
+        phase: normalized,
+        error: 'Phase not found',
+        plans: [],
+        waves: {},
+        incomplete: [],
+        has_checkpoints: false,
+      },
+      raw
+    );
     return;
   }
 
   const phaseFiles: string[] = fs.readdirSync(phaseDir);
-  const planFiles = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').sort();
-  const summaryFiles = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
-  const completedPlanIds = new Set(summaryFiles.map((s: string) => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', '')));
+  const planFiles = phaseFiles
+    .filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md')
+    .sort();
+  const summaryFiles = phaseFiles.filter(
+    (f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'
+  );
+  const completedPlanIds = new Set(
+    summaryFiles.map((s: string) => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
+  );
 
   const plans: PlanIndexEntry[] = [];
   const waves: Record<string, string[]> = {};
@@ -312,8 +431,10 @@ function cmdPhasePlanIndex(cwd: string, phase: string, raw: boolean): void {
     if (!autonomous) hasCheckpoints = true;
 
     let filesModified: string[] = [];
-    const rawFm = (fm as Record<string, unknown>).files_modified || (fm as Record<string, unknown>)['files-modified'];
-    if (rawFm) filesModified = Array.isArray(rawFm) ? rawFm as string[] : [rawFm as string];
+    const rawFm =
+      (fm as Record<string, unknown>).files_modified ||
+      (fm as Record<string, unknown>)['files-modified'];
+    if (rawFm) filesModified = Array.isArray(rawFm) ? (rawFm as string[]) : [rawFm as string];
 
     const hasSummary = completedPlanIds.has(planId);
     if (!hasSummary) incomplete.push(planId);
@@ -326,26 +447,47 @@ function cmdPhasePlanIndex(cwd: string, phase: string, raw: boolean): void {
       if (objMatch) objective = objMatch[1].trim().split('\n')[0].trim();
     }
 
-    plans.push({ id: planId, wave, autonomous, objective, files_modified: filesModified, task_count: taskCount, has_summary: hasSummary });
+    plans.push({
+      id: planId,
+      wave,
+      autonomous,
+      objective,
+      files_modified: filesModified,
+      task_count: taskCount,
+      has_summary: hasSummary,
+    });
     const waveKey = String(wave);
     if (!waves[waveKey]) waves[waveKey] = [];
     waves[waveKey].push(planId);
   }
 
-  output({ phase: normalized, plans, waves, incomplete, has_checkpoints: hasCheckpoints }, raw,
-    `Phase ${normalized}: ${plans.length} plans, ${incomplete.length} incomplete`);
+  output(
+    { phase: normalized, plans, waves, incomplete, has_checkpoints: hasCheckpoints },
+    raw,
+    `Phase ${normalized}: ${plans.length} plans, ${incomplete.length} incomplete`
+  );
 }
 
 // ─── Summary Extract ────────────────────────────────────────────────────────
 
 /** Extract structured data from a SUMMARY.md file. */
-function cmdSummaryExtract(cwd: string, summaryPath: string, fields: string[] | null, raw: boolean): void {
+function cmdSummaryExtract(
+  cwd: string,
+  summaryPath: string,
+  fields: string[] | null,
+  raw: boolean
+): void {
   if (!summaryPath) {
-    error('summary-path required for summary-extract. Usage: summary-extract <path-to-SUMMARY.md>. Provide the relative path to a SUMMARY.md file, e.g.: summary-extract .planning/milestones/v1.0/phases/01-init/01-01-SUMMARY.md');
+    error(
+      'summary-path required for summary-extract. Usage: summary-extract <path-to-SUMMARY.md>. Provide the relative path to a SUMMARY.md file, e.g.: summary-extract .planning/milestones/v1.0/phases/01-init/01-01-SUMMARY.md'
+    );
     return;
   }
   const fullPath = path.join(cwd, summaryPath);
-  if (!fs.existsSync(fullPath)) { output({ error: 'File not found', path: summaryPath }, raw); return; }
+  if (!fs.existsSync(fullPath)) {
+    output({ error: 'File not found', path: summaryPath }, raw);
+    return;
+  }
 
   const content: string = fs.readFileSync(fullPath, 'utf-8');
   const fm = extractFrontmatter(content) as Record<string, unknown>;
@@ -373,8 +515,14 @@ function cmdSummaryExtract(cwd: string, summaryPath: string, fields: string[] | 
   if (fields && fields.length > 0) {
     const filtered: Record<string, unknown> = { path: summaryPath };
     const src = fullResult as unknown as Record<string, unknown>;
-    for (const field of fields) { if (src[field] !== undefined) filtered[field] = src[field]; }
-    output(filtered, raw, (filtered as { one_liner?: string }).one_liner || path.basename(summaryPath));
+    for (const field of fields) {
+      if (src[field] !== undefined) filtered[field] = src[field];
+    }
+    output(
+      filtered,
+      raw,
+      (filtered as { one_liner?: string }).one_liner || path.basename(summaryPath)
+    );
     return;
   }
   output(fullResult, raw, fullResult.one_liner || path.basename(summaryPath));
@@ -383,7 +531,15 @@ function cmdSummaryExtract(cwd: string, summaryPath: string, fields: string[] | 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
-  readCachedRoadmap, readCachedState, _roadmapContentCache, _stateContentCache,
-  cmdHistoryDigest, cmdResolveModel, cmdFindPhase, cmdDetectBackend,
-  cmdCommit, cmdPhasePlanIndex, cmdSummaryExtract,
+  readCachedRoadmap,
+  readCachedState,
+  _roadmapContentCache,
+  _stateContentCache,
+  cmdHistoryDigest,
+  cmdResolveModel,
+  cmdFindPhase,
+  cmdDetectBackend,
+  cmdCommit,
+  cmdPhasePlanIndex,
+  cmdSummaryExtract,
 };

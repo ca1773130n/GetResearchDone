@@ -50,11 +50,7 @@ beforeAll(() => {
   // Create minimal consumer package.json
   fs.writeFileSync(
     path.join(consumerDir, 'package.json'),
-    JSON.stringify(
-      { name: 'test-consumer', version: '1.0.0', private: true },
-      null,
-      2,
-    ) + '\n',
+    JSON.stringify({ name: 'test-consumer', version: '1.0.0', private: true }, null, 2) + '\n'
   );
 
   // Install from tarball with --ignore-scripts to avoid postinstall requiring
@@ -126,9 +122,7 @@ describe('npm pack validation', () => {
     const agentFiles = dryRunFilePaths.filter((p) => p.startsWith('agents/'));
     expect(agentFiles.length).toBeGreaterThan(0);
 
-    const commandFiles = dryRunFilePaths.filter((p) =>
-      p.startsWith('commands/'),
-    );
+    const commandFiles = dryRunFilePaths.filter((p) => p.startsWith('commands/'));
     expect(commandFiles.length).toBeGreaterThan(0);
   });
 
@@ -138,7 +132,7 @@ describe('npm pack validation', () => {
         p.startsWith('tests/') ||
         p.startsWith('.planning/') ||
         p.startsWith('.github/') ||
-        p.startsWith('coverage/'),
+        p.startsWith('coverage/')
     );
     expect(excluded).toEqual([]);
   });
@@ -163,9 +157,7 @@ describe('npm install from tarball', () => {
   test('grd-mcp-server bin symlink exists', () => {
     const binDir = path.join(consumerDir, 'node_modules', '.bin');
     const entries = fs.readdirSync(binDir) as string[];
-    const hasMcpServer = entries.some((e: string) =>
-      e.startsWith('grd-mcp-server'),
-    );
+    const hasMcpServer = entries.some((e: string) => e.startsWith('grd-mcp-server'));
     expect(hasMcpServer).toBe(true);
   });
 
@@ -189,7 +181,7 @@ describe('bin entry execution', () => {
       'grd-tools',
       'dist',
       'bin',
-      'grd-tools.js',
+      'grd-tools.js'
     );
 
     try {
@@ -214,7 +206,7 @@ describe('bin entry execution', () => {
       'grd-tools',
       'dist',
       'bin',
-      'grd-mcp-server.js',
+      'grd-mcp-server.js'
     );
 
     // Send initialize message via stdin using input option (synchronous, no open handles)
@@ -249,7 +241,7 @@ describe('bin entry execution', () => {
       'node_modules',
       'grd-tools',
       'bin',
-      'postinstall.js',
+      'postinstall.js'
     );
     const content = fs.readFileSync(postinstallPath, 'utf-8');
     expect(content.startsWith('#!/usr/bin/env node')).toBe(true);
@@ -265,7 +257,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     expect(fs.existsSync(pluginPath)).toBe(true);
   });
@@ -276,7 +268,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     const content = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
     expect(content.name).toBeDefined();
@@ -290,7 +282,7 @@ describe('plugin.json path resolution', () => {
       'node_modules',
       'grd-tools',
       '.claude-plugin',
-      'plugin.json',
+      'plugin.json'
     );
     const raw = fs.readFileSync(pluginPath, 'utf-8');
     expect(raw).toContain('${CLAUDE_PLUGIN_ROOT}');

@@ -9,28 +9,71 @@
  */
 'use strict';
 
-import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities, PreflightResult } from '../types';
+import type {
+  GrdConfig,
+  PhaseInfo,
+  MilestoneInfo,
+  BackendCapabilities,
+  PreflightResult,
+} from '../types';
 
-const { fs, path, safeReadFile, loadConfig, findPhaseInternal, resolveModelInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, findCodeFiles, resolveEffortForAgent, output }: {
-  fs: typeof import('fs'); path: typeof import('path');
-  safeReadFile: (p: string) => string | null; loadConfig: (cwd: string) => GrdConfig;
+const {
+  fs,
+  path,
+  safeReadFile,
+  loadConfig,
+  findPhaseInternal,
+  resolveModelInternal,
+  pathExistsInternal,
+  generateSlugInternal,
+  getMilestoneInfo,
+  findCodeFiles,
+  resolveEffortForAgent,
+  output,
+}: {
+  fs: typeof import('fs');
+  path: typeof import('path');
+  safeReadFile: (p: string) => string | null;
+  loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
-  resolveModelInternal: (cwd: string, agent: string) => string; pathExistsInternal: (cwd: string, target: string) => boolean;
-  generateSlugInternal: (text: string) => string | null; getMilestoneInfo: (cwd: string) => MilestoneInfo;
+  resolveModelInternal: (cwd: string, agent: string) => string;
+  pathExistsInternal: (cwd: string, target: string) => boolean;
+  generateSlugInternal: (text: string) => string | null;
+  getMilestoneInfo: (cwd: string) => MilestoneInfo;
   findCodeFiles: (dir: string, maxDepth: number, found: string[], depth: number) => string[];
   resolveEffortForAgent: (config: GrdConfig, agentType: string, cwd?: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
-const { detectBackend, getBackendCapabilities }: {
-  detectBackend: (cwd: string) => string; getBackendCapabilities: (b: string) => BackendCapabilities;
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
+  detectBackend: (cwd: string) => string;
+  getBackendCapabilities: (b: string) => BackendCapabilities;
 } = require('../backend');
-const { runPreflightGates }: {
+const {
+  runPreflightGates,
+}: {
   runPreflightGates: (cwd: string, cmd: string, opts?: Record<string, unknown>) => PreflightResult;
 } = require('../gates');
-const { planningDir: getPlanningDir, phasesDir: getPhasesDirPath, researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath, todosDir: getTodosDirPath, quickDir: getQuickDirPath, milestonesDir: getMilestonesDirPath, standardsDir: getStandardsDirPath }: {
-  planningDir: (cwd: string) => string; phasesDir: (cwd: string) => string; researchDir: (cwd: string) => string;
-  codebaseDir: (cwd: string) => string; todosDir: (cwd: string) => string; quickDir: (cwd: string) => string;
-  milestonesDir: (cwd: string) => string; standardsDir: (cwd: string) => string;
+const {
+  planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  researchDir: getResearchDirPath,
+  codebaseDir: getCodebaseDirPath,
+  todosDir: getTodosDirPath,
+  quickDir: getQuickDirPath,
+  milestonesDir: getMilestonesDirPath,
+  standardsDir: getStandardsDirPath,
+}: {
+  planningDir: (cwd: string) => string;
+  phasesDir: (cwd: string) => string;
+  researchDir: (cwd: string) => string;
+  codebaseDir: (cwd: string) => string;
+  todosDir: (cwd: string) => string;
+  quickDir: (cwd: string) => string;
+  milestonesDir: (cwd: string) => string;
+  standardsDir: (cwd: string) => string;
 } = require('../paths');
 
 // ─── New-Project Init ────────────────────────────────────────────────────────
@@ -39,12 +82,22 @@ function cmdInitNewProject(cwd: string, raw: boolean): void {
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
   let hasCode = false;
-  try { const codeFiles = findCodeFiles(cwd, 3, [], 0); hasCode = codeFiles.length > 0; } catch { /* scan failed */ }
-  const hasPackageFile = pathExistsInternal(cwd, 'package.json') || pathExistsInternal(cwd, 'requirements.txt') ||
-    pathExistsInternal(cwd, 'Cargo.toml') || pathExistsInternal(cwd, 'go.mod') || pathExistsInternal(cwd, 'Package.swift');
+  try {
+    const codeFiles = findCodeFiles(cwd, 3, [], 0);
+    hasCode = codeFiles.length > 0;
+  } catch {
+    /* scan failed */
+  }
+  const hasPackageFile =
+    pathExistsInternal(cwd, 'package.json') ||
+    pathExistsInternal(cwd, 'requirements.txt') ||
+    pathExistsInternal(cwd, 'Cargo.toml') ||
+    pathExistsInternal(cwd, 'go.mod') ||
+    pathExistsInternal(cwd, 'Package.swift');
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
     researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
@@ -57,7 +110,8 @@ function cmdInitNewProject(cwd: string, raw: boolean): void {
     planning_exists: pathExistsInternal(cwd, '.planning'),
     principles_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'PRINCIPLES.md')),
     standards_exists: fs.existsSync(path.join(getStandardsDirPath(cwd), 'index.yml')),
-    has_existing_code: hasCode, has_package_file: hasPackageFile,
+    has_existing_code: hasCode,
+    has_package_file: hasPackageFile,
     is_brownfield: hasCode || hasPackageFile,
     needs_codebase_map: (hasCode || hasPackageFile) && !fs.existsSync(getCodebaseDirPath(cwd)),
     has_git: pathExistsInternal(cwd, '.git'),
@@ -75,7 +129,10 @@ function cmdInitNewProject(cwd: string, raw: boolean): void {
 
 function cmdInitNewMilestone(cwd: string, raw: boolean): void {
   const gates = runPreflightGates(cwd, 'new-milestone');
-  if (!gates.passed) { output({ gate_failed: true, gate_errors: gates.errors, gate_warnings: gates.warnings }, raw); return; }
+  if (!gates.passed) {
+    output({ gate_failed: true, gate_errors: gates.errors, gate_warnings: gates.warnings }, raw);
+    return;
+  }
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
   const milestone = getMilestoneInfo(cwd);
@@ -85,48 +142,75 @@ function cmdInitNewMilestone(cwd: string, raw: boolean): void {
   const phasesDir = getPhasesDirPath(cwd);
 
   try {
-    const milestoneEntries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(milestonesDir, { withFileTypes: true });
+    const milestoneEntries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(
+      milestonesDir,
+      { withFileTypes: true }
+    );
     for (const entry of milestoneEntries) {
       if (entry.isDirectory() && entry.name.endsWith('-phases')) {
         const archivedPhases: string[] = fs.readdirSync(path.join(milestonesDir, entry.name));
         for (const dir of archivedPhases) {
           const dm = dir.match(/^(\d+)/);
-          if (dm) { const num = parseInt(dm[1], 10); if (num > highestArchivedPhase) highestArchivedPhase = num; }
+          if (dm) {
+            const num = parseInt(dm[1], 10);
+            if (num > highestArchivedPhase) highestArchivedPhase = num;
+          }
         }
       }
       const newStylePhasesDir = path.join(milestonesDir, entry.name, 'phases');
-      if (entry.isDirectory() && entry.name.startsWith('v') && !entry.name.endsWith('-phases') && fs.existsSync(newStylePhasesDir)) {
+      if (
+        entry.isDirectory() &&
+        entry.name.startsWith('v') &&
+        !entry.name.endsWith('-phases') &&
+        fs.existsSync(newStylePhasesDir)
+      ) {
         const newStylePhases: string[] = fs.readdirSync(newStylePhasesDir);
         for (const dir of newStylePhases) {
           const dm2 = dir.match(/^(\d+)/);
-          if (dm2) { const num = parseInt(dm2[1], 10); if (num > highestArchivedPhase) highestArchivedPhase = num; }
+          if (dm2) {
+            const num = parseInt(dm2[1], 10);
+            if (num > highestArchivedPhase) highestArchivedPhase = num;
+          }
         }
       }
     }
-  } catch { /* milestones dir may not exist */ }
+  } catch {
+    /* milestones dir may not exist */
+  }
 
   try {
-    const phaseEntries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const phaseEntries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     for (const entry of phaseEntries) {
       if (entry.isDirectory()) {
         const dm = entry.name.match(/^(\d+)/);
-        if (dm) { const num = parseInt(dm[1], 10); if (num > highestCurrentPhase) highestCurrentPhase = num; }
+        if (dm) {
+          const num = parseInt(dm[1], 10);
+          if (num > highestCurrentPhase) highestCurrentPhase = num;
+        }
       }
     }
-  } catch { /* phases dir may not exist */ }
+  } catch {
+    /* phases dir may not exist */
+  }
 
   const suggestedStartPhase = Math.max(highestArchivedPhase, highestCurrentPhase) + 1;
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     researcher_model: resolveModelInternal(cwd, 'grd-project-researcher'),
     researcher_effort: resolveEffortForAgent(config, 'grd-project-researcher', cwd),
     synthesizer_model: resolveModelInternal(cwd, 'grd-research-synthesizer'),
     synthesizer_effort: resolveEffortForAgent(config, 'grd-research-synthesizer', cwd),
     roadmapper_model: resolveModelInternal(cwd, 'grd-roadmapper'),
     roadmapper_effort: resolveEffortForAgent(config, 'grd-roadmapper', cwd),
-    commit_docs: config.commit_docs, research_enabled: config.research,
-    current_milestone: milestone.version, current_milestone_name: milestone.name,
-    highest_archived_phase: highestArchivedPhase, highest_current_phase: highestCurrentPhase,
+    commit_docs: config.commit_docs,
+    research_enabled: config.research,
+    current_milestone: milestone.version,
+    current_milestone_name: milestone.name,
+    highest_archived_phase: highestArchivedPhase,
+    highest_current_phase: highestCurrentPhase,
     suggested_start_phase: suggestedStartPhase,
     ...(gates.warnings.length > 0 ? { gate_warnings: gates.warnings } : {}),
     project_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'PROJECT.md')),
@@ -151,20 +235,31 @@ function cmdInitQuick(cwd: string, description: string | null, raw: boolean): vo
   const quickDir = getQuickDirPath(cwd);
   let nextNum = 1;
   try {
-    const existing = fs.readdirSync(quickDir).filter((f: string) => /^\d+-/.test(f))
-      .map((f: string) => parseInt(f.split('-')[0], 10)).filter((n: number) => !isNaN(n));
-    if (existing.length > 0) { nextNum = Math.max(...existing) + 1; }
-  } catch { /* Quick directory may not exist yet */ }
+    const existing = fs
+      .readdirSync(quickDir)
+      .filter((f: string) => /^\d+-/.test(f))
+      .map((f: string) => parseInt(f.split('-')[0], 10))
+      .filter((n: number) => !isNaN(n));
+    if (existing.length > 0) {
+      nextNum = Math.max(...existing) + 1;
+    }
+  } catch {
+    /* Quick directory may not exist yet */
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     planner_model: resolveModelInternal(cwd, 'grd-planner'),
     planner_effort: resolveEffortForAgent(config, 'grd-planner', cwd),
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
     executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
     commit_docs: config.commit_docs,
-    next_num: nextNum, slug, description: description || null,
-    date: now.toISOString().split('T')[0], timestamp: now.toISOString(),
+    next_num: nextNum,
+    slug,
+    description: description || null,
+    date: now.toISOString().split('T')[0],
+    timestamp: now.toISOString(),
     quick_dir: path.relative(cwd, quickDir),
     task_dir: slug ? path.relative(cwd, path.join(quickDir, `${nextNum}-${slug}`)) : null,
     roadmap_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'ROADMAP.md')),
@@ -177,7 +272,11 @@ function cmdInitQuick(cwd: string, description: string | null, raw: boolean): vo
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
     standards_dir: path.relative(cwd, getStandardsDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, task #${result.next_num}${result.slug ? ': ' + result.slug : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, task #${result.next_num}${result.slug ? ': ' + result.slug : ''}`
+  );
 }
 
 // ─── Resume Init ─────────────────────────────────────────────────────────────
@@ -185,15 +284,18 @@ function cmdInitQuick(cwd: string, description: string | null, raw: boolean): vo
 function cmdInitResume(cwd: string, raw: boolean): void {
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
-  const interruptedAgentId = (safeReadFile(path.join(cwd, '.planning', 'current-agent-id.txt')) || '').trim() || null;
+  const interruptedAgentId =
+    (safeReadFile(path.join(cwd, '.planning', 'current-agent-id.txt')) || '').trim() || null;
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     state_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'STATE.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'ROADMAP.md')),
     project_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'PROJECT.md')),
     planning_exists: pathExistsInternal(cwd, '.planning'),
-    has_interrupted_agent: !!interruptedAgentId, interrupted_agent_id: interruptedAgentId,
+    has_interrupted_agent: !!interruptedAgentId,
+    interrupted_agent_id: interruptedAgentId,
     commit_docs: config.commit_docs,
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, getResearchDirPath(cwd)),
@@ -201,7 +303,11 @@ function cmdInitResume(cwd: string, raw: boolean): void {
     quick_dir: path.relative(cwd, getQuickDirPath(cwd)),
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}${result.has_interrupted_agent ? ', interrupted agent detected' : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}${result.has_interrupted_agent ? ', interrupted agent detected' : ''}`
+  );
 }
 
 // ─── Phase-Op Init ───────────────────────────────────────────────────────────
@@ -212,13 +318,19 @@ function cmdInitPhaseOp(cwd: string, phase: string, raw: boolean): void {
   const phaseInfo = findPhaseInternal(cwd, phase);
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     commit_docs: config.commit_docs,
-    phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
-    phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
-    phase_slug: phaseInfo?.phase_slug || null, padded_phase: phaseInfo?.phase_number?.padStart(2, '0') || null,
-    has_research: phaseInfo?.has_research || false, has_context: phaseInfo?.has_context || false,
-    has_plans: (phaseInfo?.plans?.length || 0) > 0, has_verification: phaseInfo?.has_verification || false,
+    phase_found: !!phaseInfo,
+    phase_dir: phaseInfo?.directory || null,
+    phase_number: phaseInfo?.phase_number || null,
+    phase_name: phaseInfo?.phase_name || null,
+    phase_slug: phaseInfo?.phase_slug || null,
+    padded_phase: phaseInfo?.phase_number?.padStart(2, '0') || null,
+    has_research: phaseInfo?.has_research || false,
+    has_context: phaseInfo?.has_context || false,
+    has_plans: (phaseInfo?.plans?.length || 0) > 0,
+    has_verification: phaseInfo?.has_verification || false,
     plan_count: phaseInfo?.plans?.length || 0,
     roadmap_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'ROADMAP.md')),
     planning_exists: pathExistsInternal(cwd, '.planning'),
@@ -233,7 +345,13 @@ function cmdInitPhaseOp(cwd: string, phase: string, raw: boolean): void {
 
 // ─── Todos Init ──────────────────────────────────────────────────────────────
 
-interface TodoItem { file: string; created: string; title: string; area: string; path: string; }
+interface TodoItem {
+  file: string;
+  created: string;
+  title: string;
+  area: string;
+  path: string;
+}
 
 function cmdInitTodos(cwd: string, area: string | null, raw: boolean): void {
   const config = loadConfig(cwd);
@@ -255,20 +373,35 @@ function cmdInitTodos(cwd: string, area: string | null, raw: boolean): void {
         const todoArea = areaMatch ? areaMatch[1].trim() : 'general';
         if (area && todoArea !== area) continue;
         count++;
-        todos.push({ file, created: createdMatch ? createdMatch[1].trim() : 'unknown', title: titleMatch ? titleMatch[1].trim() : 'Untitled', area: todoArea, path: path.relative(cwd, path.join(pendingDir, file)) });
-      } catch { /* unreadable todo file */ }
+        todos.push({
+          file,
+          created: createdMatch ? createdMatch[1].trim() : 'unknown',
+          title: titleMatch ? titleMatch[1].trim() : 'Untitled',
+          area: todoArea,
+          path: path.relative(cwd, path.join(pendingDir, file)),
+        });
+      } catch {
+        /* unreadable todo file */
+      }
     }
-  } catch { /* todos directory may not exist */ }
+  } catch {
+    /* todos directory may not exist */
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     commit_docs: config.commit_docs,
-    date: now.toISOString().split('T')[0], timestamp: now.toISOString(),
-    todo_count: count, todos, area_filter: area || null,
+    date: now.toISOString().split('T')[0],
+    timestamp: now.toISOString(),
+    todo_count: count,
+    todos,
+    area_filter: area || null,
     pending_dir: path.relative(cwd, pendingDir),
     completed_dir: path.relative(cwd, path.join(todosBase, 'completed')),
     planning_exists: pathExistsInternal(cwd, '.planning'),
-    todos_dir_exists: fs.existsSync(todosBase), pending_dir_exists: fs.existsSync(pendingDir),
+    todos_dir_exists: fs.existsSync(todosBase),
+    pending_dir_exists: fs.existsSync(pendingDir),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, getResearchDirPath(cwd)),
     codebase_dir: path.relative(cwd, getCodebaseDirPath(cwd)),
@@ -288,32 +421,47 @@ function cmdInitMilestoneOp(cwd: string, raw: boolean): void {
   let completedPhases = 0;
   const phasesDir = getPhasesDirPath(cwd);
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
     phaseCount = dirs.length;
     for (const dir of dirs) {
       try {
         const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, dir));
-        if (phaseFiles.some((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md')) completedPhases++;
-      } catch { /* skip unreadable */ }
+        if (phaseFiles.some((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'))
+          completedPhases++;
+      } catch {
+        /* skip unreadable */
+      }
     }
-  } catch { /* phases dir may not exist */ }
+  } catch {
+    /* phases dir may not exist */
+  }
 
   const archiveDir = path.join(cwd, '.planning', 'archive');
   let archivedMilestones: string[] = [];
   try {
-    archivedMilestones = fs.readdirSync(archiveDir, { withFileTypes: true })
-      .filter((e: { isDirectory: () => boolean }) => e.isDirectory()).map((e: { name: string }) => e.name);
-  } catch { /* archive may not exist */ }
+    archivedMilestones = fs
+      .readdirSync(archiveDir, { withFileTypes: true })
+      .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
+      .map((e: { name: string }) => e.name);
+  } catch {
+    /* archive may not exist */
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     commit_docs: config.commit_docs,
-    milestone_version: milestone.version, milestone_name: milestone.name,
+    milestone_version: milestone.version,
+    milestone_name: milestone.name,
     milestone_slug: generateSlugInternal(milestone.name),
-    phase_count: phaseCount, completed_phases: completedPhases,
+    phase_count: phaseCount,
+    completed_phases: completedPhases,
     all_phases_complete: phaseCount > 0 && phaseCount === completedPhases,
-    archived_milestones: archivedMilestones, archive_count: archivedMilestones.length,
+    archived_milestones: archivedMilestones,
+    archive_count: archivedMilestones.length,
     project_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'PROJECT.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'ROADMAP.md')),
     state_exists: pathExistsInternal(cwd, path.join(getPlanningDir(cwd), 'STATE.md')),
@@ -325,7 +473,11 @@ function cmdInitMilestoneOp(cwd: string, raw: boolean): void {
     quick_dir: path.relative(cwd, getQuickDirPath(cwd)),
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.phase_count} phases`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${result.phase_count} phases`
+  );
 }
 
 // ─── Map-Codebase Init ───────────────────────────────────────────────────────
@@ -335,16 +487,23 @@ function cmdInitMapCodebase(cwd: string, raw: boolean): void {
   const backend = detectBackend(cwd);
   const codebaseDir = getCodebaseDirPath(cwd);
   let existingMaps: string[] = [];
-  try { existingMaps = fs.readdirSync(codebaseDir).filter((f: string) => f.endsWith('.md')); } catch { /* may not exist */ }
+  try {
+    existingMaps = fs.readdirSync(codebaseDir).filter((f: string) => f.endsWith('.md'));
+  } catch {
+    /* may not exist */
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     mapper_model: resolveModelInternal(cwd, 'grd-codebase-mapper'),
     mapper_effort: resolveEffortForAgent(config, 'grd-codebase-mapper', cwd),
-    commit_docs: config.commit_docs, search_gitignored: config.search_gitignored,
+    commit_docs: config.commit_docs,
+    search_gitignored: config.search_gitignored,
     parallelization: config.parallelization,
     codebase_dir: path.relative(cwd, codebaseDir),
-    existing_maps: existingMaps, has_maps: existingMaps.length > 0,
+    existing_maps: existingMaps,
+    has_maps: existingMaps.length > 0,
     planning_exists: pathExistsInternal(cwd, '.planning'),
     codebase_dir_exists: fs.existsSync(codebaseDir),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
@@ -352,7 +511,11 @@ function cmdInitMapCodebase(cwd: string, raw: boolean): void {
     quick_dir: path.relative(cwd, getQuickDirPath(cwd)),
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, ${(result.existing_maps as string[]).length} existing map(s)`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, ${(result.existing_maps as string[]).length} existing map(s)`
+  );
 }
 
 module.exports = {
