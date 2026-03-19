@@ -207,7 +207,7 @@ Rules:
  */
 async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
   try {
-    const DEFAULT_DISCOVERY_TIMEOUT: number = 1_800_000; // 30 minutes
+    const DEFAULT_DISCOVERY_TIMEOUT: number = 10_800_000; // 3 hours
     const effectiveTimeout: number = timeoutMs || DEFAULT_DISCOVERY_TIMEOUT;
     const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
     const result = scheduler

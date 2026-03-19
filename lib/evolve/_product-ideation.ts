@@ -348,7 +348,7 @@ async function discoverProductIdeationItems(cwd: string, timeoutMs?: number, sch
     return [];
   }
 
-  const DEFAULT_IDEATION_TIMEOUT: number = 1_800_000; // 30 minutes
+  const DEFAULT_IDEATION_TIMEOUT: number = 10_800_000; // 3 hours
   const effectiveTimeout: number = timeoutMs || DEFAULT_IDEATION_TIMEOUT;
   const prompt: string = buildProductIdeationPrompt(context);
 
