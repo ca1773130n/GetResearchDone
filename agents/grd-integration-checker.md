@@ -4,8 +4,10 @@ description: Verifies cross-phase integration and E2E flows. Checks that phases 
 tools: Read, Bash, Grep, Glob
 color: blue
 effort: medium
-maxTurns: 20
-disallowedTools: Write, Edit
+maxTurns: 10
+disallowedTools:
+  - Edit
+  - Write
 ---
 
 <role>

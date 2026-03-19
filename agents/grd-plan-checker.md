@@ -5,7 +5,9 @@ tools: Read, Bash, Glob, Grep
 color: green
 effort: medium
 maxTurns: 15
-disallowedTools: Write, Edit
+disallowedTools:
+  - Edit
+  - Write
 ---
 
 <role>

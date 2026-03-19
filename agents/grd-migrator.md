@@ -4,6 +4,7 @@ description: Migrates complex .planning/ layout items that the deterministic CLI
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: magenta
 effort: medium
+maxTurns: 15
 ---
 
 <role>

@@ -4,8 +4,10 @@ description: Two-stage code review combining spec compliance with code quality. 
 tools: Read, Bash, Grep, Glob
 color: blue
 effort: medium
-maxTurns: 20
-disallowedTools: Write, Edit
+maxTurns: 15
+disallowedTools:
+  - Edit
+  - Write
 ---
 
 <role>

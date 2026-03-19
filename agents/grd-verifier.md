@@ -4,8 +4,9 @@ description: Verifies phase goal achievement through tiered verification (sanity
 tools: Read, Bash, Grep, Glob
 color: green
 effort: low
-maxTurns: 20
-disallowedTools: Write, Edit
+maxTurns: 10
+disallowedTools:
+  - Edit
 ---
 
 <role>

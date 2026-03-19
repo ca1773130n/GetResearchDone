@@ -4,7 +4,7 @@ description: Assesses current quality and establishes performance baselines. Run
 tools: Read, Write, Edit, Bash, Grep, Glob
 color: cyan
 effort: medium
-maxTurns: 30
+maxTurns: 15
 ---
 
 <role>

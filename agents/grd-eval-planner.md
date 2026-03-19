@@ -4,6 +4,7 @@ description: Designs evaluation plans with tiered verification (sanity/proxy/def
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 color: green
 effort: medium
+maxTurns: 20
 ---
 
 <role>
