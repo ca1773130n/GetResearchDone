@@ -165,7 +165,28 @@ function cmdInitExecutePhase(
     // Backend
     backend,
     backend_capabilities: backendCaps,
-    model_overrides_available: backendCaps.model_overrides === true,
+
+    // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
+    mcp_elicitation_available: backendCaps.mcp_elicitation === true,
+    model_overrides_available: (() => {
+      try {
+        const locations = [
+          path.join(cwd, '.claude', 'settings.json'),
+          path.join(process.env.HOME || '', '.claude', 'settings.json'),
+        ];
+        for (const loc of locations) {
+          if (!fs.existsSync(loc)) continue;
+          const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
+          if (data && typeof data === 'object' && data.modelOverrides &&
+              typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
+            return true;
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    })(),
 
     // Models
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
@@ -393,6 +414,28 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // Backend
     backend,
     backend_capabilities: getBackendCapabilities(backend),
+
+    // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
+    mcp_elicitation_available: getBackendCapabilities(backend).mcp_elicitation === true,
+    model_overrides_available: (() => {
+      try {
+        const locations = [
+          path.join(cwd, '.claude', 'settings.json'),
+          path.join(process.env.HOME || '', '.claude', 'settings.json'),
+        ];
+        for (const loc of locations) {
+          if (!fs.existsSync(loc)) continue;
+          const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
+          if (data && typeof data === 'object' && data.modelOverrides &&
+              typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
+            return true;
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    })(),
 
     // Models
     researcher_model: resolveModelInternal(cwd, 'grd-phase-researcher'),
