@@ -5,11 +5,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const { output, error }: {
+const {
+  output,
+  error,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('../utils');
-const { planningDir: getPlanningDir }: {
+const {
+  planningDir: getPlanningDir,
+}: {
   planningDir: (cwd: string) => string;
 } = require('../paths');
 
@@ -83,9 +88,7 @@ function cmdVerifyPathExists(
     return;
   }
 
-  const fullPath: string = path.isAbsolute(targetPath)
-    ? targetPath
-    : path.join(cwd, targetPath);
+  const fullPath: string = path.isAbsolute(targetPath) ? targetPath : path.join(cwd, targetPath);
 
   if (dryRun) {
     output(
@@ -98,11 +101,7 @@ function cmdVerifyPathExists(
 
   try {
     const stats = fs.statSync(fullPath);
-    const type: string = stats.isDirectory()
-      ? 'directory'
-      : stats.isFile()
-        ? 'file'
-        : 'other';
+    const type: string = stats.isDirectory() ? 'directory' : stats.isFile() ? 'file' : 'other';
     const result = { exists: true, type };
     output(result, raw, 'true');
   } catch {
@@ -119,11 +118,7 @@ function cmdVerifyPathExists(
  * @param raw - Output raw 'created'/'exists' instead of JSON
  * @param dryRun - If true, preview changes without writing
  */
-function cmdConfigEnsureSection(
-  cwd: string,
-  raw: boolean,
-  dryRun?: boolean
-): void {
+function cmdConfigEnsureSection(cwd: string, raw: boolean, dryRun?: boolean): void {
   const planningDir: string = getPlanningDir(cwd);
   const configPath: string = path.join(planningDir, 'config.json');
 
@@ -133,9 +128,7 @@ function cmdConfigEnsureSection(
       fs.mkdirSync(planningDir, { recursive: true });
     }
   } catch (err: unknown) {
-    error(
-      'Failed to create .planning directory: ' + (err as Error).message
-    );
+    error('Failed to create .planning directory: ' + (err as Error).message);
     return;
   }
 
@@ -180,12 +173,7 @@ function cmdConfigEnsureSection(
       github: {
         project_board: '',
         default_assignee: '',
-        default_labels: [
-          'research',
-          'implementation',
-          'evaluation',
-          'integration',
-        ],
+        default_labels: ['research', 'implementation', 'evaluation', 'integration'],
         auto_issues: true,
         pr_per_phase: false,
       },
@@ -251,10 +239,7 @@ function cmdConfigSet(
   let config: Record<string, unknown> = {};
   try {
     if (fs.existsSync(configPath)) {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
-        string,
-        unknown
-      >;
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
     }
   } catch (err: unknown) {
     error('Failed to read config.json: ' + (err as Error).message);
@@ -266,10 +251,7 @@ function cmdConfigSet(
   let current: Record<string, unknown> = config;
   for (let i = 0; i < keys.length - 1; i++) {
     const key: string = keys[i];
-    if (
-      current[key] === undefined ||
-      typeof current[key] !== 'object'
-    ) {
+    if (current[key] === undefined || typeof current[key] !== 'object') {
       current[key] = {};
     }
     current = current[key] as Record<string, unknown>;

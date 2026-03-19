@@ -147,9 +147,7 @@ function buildBatchExecutePrompt(groups: WorkGroup[], iterationNum?: number): st
  * Build a single review prompt for ALL groups after batch execution.
  */
 function buildBatchReviewPrompt(groups: WorkGroup[]): string {
-  const groupList: string = groups
-    .map((g) => `- ${g.title} (${g.items.length} items)`)
-    .join('\n');
+  const groupList: string = groups.map((g) => `- ${g.title} (${g.items.length} items)`).join('\n');
 
   return [
     `Review ALL improvements that were just made across ${groups.length} groups:`,

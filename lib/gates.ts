@@ -175,14 +175,10 @@ function checkPhaseHasPlans(cwd: string, phase: string): GateViolation[] {
     const dirs: string[] = entries
       .filter((e: import('fs').Dirent) => e.isDirectory())
       .map((e: import('fs').Dirent) => e.name);
-    const match: string | undefined = dirs.find((d: string) =>
-      d.startsWith(normalized)
-    );
+    const match: string | undefined = dirs.find((d: string) => d.startsWith(normalized));
     if (!match) return violations;
 
-    const phaseFiles: string[] = fs.readdirSync(
-      path.join(phasesDir, match)
-    );
+    const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, match));
     const plans: string[] = phaseFiles.filter(
       (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
     );
@@ -220,14 +216,10 @@ function checkNoStaleArtifacts(cwd: string, phase: string): GateViolation[] {
     const dirs: string[] = entries
       .filter((e: import('fs').Dirent) => e.isDirectory())
       .map((e: import('fs').Dirent) => e.name);
-    const match: string | undefined = dirs.find((d: string) =>
-      d.startsWith(normalized)
-    );
+    const match: string | undefined = dirs.find((d: string) => d.startsWith(normalized));
     if (!match) return violations;
 
-    const phaseFiles: string[] = fs.readdirSync(
-      path.join(phasesDir, match)
-    );
+    const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, match));
     const plans: Set<string> = new Set(
       phaseFiles
         .filter((f: string) => f.endsWith('-PLAN.md'))
@@ -307,9 +299,7 @@ function checkMilestoneStateCoherence(cwd: string): GateViolation[] {
   if (!stateContent) return violations;
 
   const roadmapContent: string | null = _gatesCachedRead(roadmapPath);
-  const activeContent: string | null = roadmapContent
-    ? stripShippedSections(roadmapContent)
-    : null;
+  const activeContent: string | null = roadmapContent ? stripShippedSections(roadmapContent) : null;
 
   // Check: STATE references a phase that doesn't exist in ROADMAP
   const activePhaseMatch: RegExpMatchArray | null = stateContent.match(
@@ -343,11 +333,7 @@ function checkMilestoneStateCoherence(cwd: string): GateViolation[] {
  */
 const GATE_REGISTRY: GateRegistryMap = {
   'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans'],
-  'plan-phase': [
-    'orphaned-phases',
-    'phase-in-roadmap',
-    'no-stale-artifacts',
-  ],
+  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts'],
   'new-milestone': ['old-phases-archived', 'milestone-state-coherence'],
   'phase-add': ['orphaned-phases'],
   'phase-insert': ['orphaned-phases'],
@@ -364,13 +350,11 @@ const GATE_CHECKS: GateCheckMap = {
   'orphaned-phases': (cwd: string) => checkOrphanedPhases(cwd),
   'phase-in-roadmap': (cwd: string, opts: GateOptions) =>
     checkPhaseInRoadmap(cwd, opts.phase || ''),
-  'phase-has-plans': (cwd: string, opts: GateOptions) =>
-    checkPhaseHasPlans(cwd, opts.phase || ''),
+  'phase-has-plans': (cwd: string, opts: GateOptions) => checkPhaseHasPlans(cwd, opts.phase || ''),
   'no-stale-artifacts': (cwd: string, opts: GateOptions) =>
     checkNoStaleArtifacts(cwd, opts.phase || ''),
   'old-phases-archived': (cwd: string) => checkOldPhasesArchived(cwd),
-  'milestone-state-coherence': (cwd: string) =>
-    checkMilestoneStateCoherence(cwd),
+  'milestone-state-coherence': (cwd: string) => checkMilestoneStateCoherence(cwd),
 };
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────

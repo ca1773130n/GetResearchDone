@@ -6,15 +6,23 @@ import type { MilestoneInfo } from '../types';
 
 const fs = require('fs');
 const path = require('path');
-const { output, getMilestoneInfo }: {
+const {
+  output,
+  getMilestoneInfo,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('../utils');
-const { phasesDir: getPhasesDirPath, planningDir: getPlanningDir }: {
+const {
+  phasesDir: getPhasesDirPath,
+  planningDir: getPlanningDir,
+}: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
 } = require('../paths');
-const { readCachedState }: {
+const {
+  readCachedState,
+}: {
   readCachedState: (statePath: string) => string | null;
 } = require('./phase-info');
 
@@ -39,7 +47,8 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
   let totalSummaries = 0;
 
   try {
-    const dirs: string[] = fs.readdirSync(phasesDir, { withFileTypes: true })
+    const dirs: string[] = fs
+      .readdirSync(phasesDir, { withFileTypes: true })
       .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
       .map((e: { name: string }) => e.name)
       .sort((a: string, b: string) => {
@@ -53,8 +62,12 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
       const phaseNum = dm ? dm[1] : dir;
       const phaseName = dm && dm[2] ? dm[2].replace(/-/g, ' ') : '';
       const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, dir));
-      const plans = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').length;
-      const summaries = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md').length;
+      const plans = phaseFiles.filter(
+        (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
+      ).length;
+      const summaries = phaseFiles.filter(
+        (f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'
+      ).length;
       totalPlans += plans;
       totalSummaries += summaries;
 
@@ -66,7 +79,9 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
 
       phases.push({ number: phaseNum, name: phaseName, plans, summaries, status });
     }
-  } catch { /* phases dir may not exist */ }
+  } catch {
+    /* phases dir may not exist */
+  }
 
   const percent = totalPlans > 0 ? Math.round((totalSummaries / totalPlans) * 100) : 0;
 
@@ -83,7 +98,9 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
         for (const item of items) blockerItems.push(item.replace(/^-\s+/, '').trim());
       }
     }
-  } catch { /* STATE.md may not exist */ }
+  } catch {
+    /* STATE.md may not exist */
+  }
 
   if (format === 'table') {
     const barWidth = 10;
@@ -97,7 +114,8 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
       out += `\n`;
     }
     out += `| Phase | Name | Plans | Status |\n|-------|------|-------|--------|\n`;
-    for (const p of phases) out += `| ${p.number} | ${p.name} | ${p.summaries}/${p.plans} | ${p.status} |\n`;
+    for (const p of phases)
+      out += `| ${p.number} | ${p.name} | ${p.summaries}/${p.plans} | ${p.status} |\n`;
     output({ rendered: out }, raw, out);
   } else if (format === 'bar') {
     const barWidth = 20;
@@ -107,11 +125,20 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
     output({ bar: text, percent, completed: totalSummaries, total: totalPlans }, raw, text);
   } else {
     const humanSummary = `${milestone.version} ${milestone.name}: ${totalSummaries}/${totalPlans} plans (${percent}%)`;
-    output({
-      milestone_version: milestone.version, milestone_name: milestone.name,
-      phases, total_plans: totalPlans, total_summaries: totalSummaries, percent,
-      active_blockers: blockerItems.length, blocker_items: blockerItems,
-    }, raw, humanSummary);
+    output(
+      {
+        milestone_version: milestone.version,
+        milestone_name: milestone.name,
+        phases,
+        total_plans: totalPlans,
+        total_summaries: totalSummaries,
+        percent,
+        active_blockers: blockerItems.length,
+        blocker_items: blockerItems,
+      },
+      raw,
+      humanSummary
+    );
   }
 }
 

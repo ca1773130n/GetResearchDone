@@ -17,17 +17,21 @@
 
 'use strict';
 
-import type {
-  GrdConfig,
-  PhaseInfo,
-  MilestoneInfo,
-  BackendCapabilities,
-} from '../types';
+import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities } from '../types';
 
 const {
-  fs, path, safeReadMarkdown, loadConfig,
-  findPhaseInternal, resolveModelInternal, pathExistsInternal,
-  getMilestoneInfo, resolveModelForAgent, resolveEffortForAgent, output, error,
+  fs,
+  path,
+  safeReadMarkdown,
+  loadConfig,
+  findPhaseInternal,
+  resolveModelInternal,
+  pathExistsInternal,
+  getMilestoneInfo,
+  resolveModelForAgent,
+  resolveEffortForAgent,
+  output,
+  error,
 }: {
   fs: typeof import('fs');
   path: typeof import('path');
@@ -43,14 +47,19 @@ const {
   error: (msg: string) => never;
 } = require('../utils');
 
-const { detectBackend, getBackendCapabilities }: {
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
 } = require('../backend');
 
 const {
-  planningDir: getPlanningDir, phasesDir: getPhasesDirPath,
-  researchDir: getResearchDirPath, codebaseDir: getCodebaseDirPath,
+  planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  researchDir: getResearchDirPath,
+  codebaseDir: getCodebaseDirPath,
   milestonesDir: getMilestonesDirPath,
 }: {
   planningDir: (cwd: string) => string;
@@ -60,23 +69,33 @@ const {
   milestonesDir: (cwd: string) => string;
 } = require('../paths');
 
-const { buildInitContext }: {
+const {
+  buildInitContext,
+}: {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
 } = require('./base');
 
 // Import sibling module functions for agent aliases
-const { cmdInitCodeReview, cmdInitPhaseResearch }: {
+const {
+  cmdInitCodeReview,
+  cmdInitPhaseResearch,
+}: {
   cmdInitCodeReview: (cwd: string, phase: string, raw: boolean) => void;
   cmdInitPhaseResearch: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
 } = require('./execute');
 
-const { cmdInitMapCodebase }: {
+const {
+  cmdInitMapCodebase,
+}: {
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
 } = require('./project');
 
 const {
-  cmdInitAssessBaseline, cmdInitDeepDive, cmdInitEvalPlan,
-  cmdInitEvalReport, cmdInitFeasibility,
+  cmdInitAssessBaseline,
+  cmdInitDeepDive,
+  cmdInitEvalPlan,
+  cmdInitEvalReport,
+  cmdInitFeasibility,
   cmdInitProductOwner: _cmdInitProductOwner,
   cmdInitProjectResearcher: _cmdInitProjectResearcher,
   cmdInitResearchSynthesizer: _cmdInitResearchSynthesizer,
@@ -117,18 +136,27 @@ function cmdInitDebug(cwd: string, phase: string | null, raw: boolean): void {
   }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
-    phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
-    phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
+    phase_found: !!phaseInfo,
+    phase_dir: phaseInfo?.directory || null,
+    phase_number: phaseInfo?.phase_number || null,
+    phase_name: phaseInfo?.phase_name || null,
     debug_files: debugFiles,
-    active_debug_file: debugFiles.length > 0 ? path.join('.planning', debugFiles[debugFiles.length - 1]) : null,
-    milestone_version: milestone.version, milestone_name: milestone.name,
+    active_debug_file:
+      debugFiles.length > 0 ? path.join('.planning', debugFiles[debugFiles.length - 1]) : null,
+    milestone_version: milestone.version,
+    milestone_name: milestone.name,
     state_exists: pathExistsInternal(cwd, path.join(planningDir, 'STATE.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(planningDir, 'ROADMAP.md')),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, getResearchDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, debug_files: ${debugFiles.length}${phase ? ', phase: ' + phase : ''}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, debug_files: ${debugFiles.length}${phase ? ', phase: ' + phase : ''}`
+  );
 }
 
 // ─── Integration-Check Init ──────────────────────────────────────────────────
@@ -146,23 +174,34 @@ function cmdInitIntegrationCheck(cwd: string, phase: string | null, raw: boolean
   let phaseCount = 0;
   let summaryCount = 0;
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
     const phaseDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
     phaseCount = phaseDirs.length;
     for (const d of phaseDirs) {
       try {
         const files: string[] = fs.readdirSync(path.join(phasesDir, d));
         summaryCount += files.filter((f: string) => f.endsWith('-SUMMARY.md')).length;
-      } catch { /* skip unreadable dirs */ }
+      } catch {
+        /* skip unreadable dirs */
+      }
     }
-  } catch { /* phases dir may not exist */ }
+  } catch {
+    /* phases dir may not exist */
+  }
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
-    phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
-    phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
-    phase_count: phaseCount, summary_count: summaryCount,
-    milestone_version: milestone.version, milestone_name: milestone.name,
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
+    phase_found: !!phaseInfo,
+    phase_dir: phaseInfo?.directory || null,
+    phase_number: phaseInfo?.phase_number || null,
+    phase_name: phaseInfo?.phase_name || null,
+    phase_count: phaseCount,
+    summary_count: summaryCount,
+    milestone_version: milestone.version,
+    milestone_name: milestone.name,
     state_exists: pathExistsInternal(cwd, path.join(planningDir, 'STATE.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(planningDir, 'ROADMAP.md')),
     baseline_exists: pathExistsInternal(cwd, path.join(planningDir, 'BASELINE.md')),
@@ -170,7 +209,11 @@ function cmdInitIntegrationCheck(cwd: string, phase: string | null, raw: boolean
     research_dir: path.relative(cwd, getResearchDirPath(cwd)),
     codebase_dir: path.relative(cwd, getCodebaseDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${phaseCount} phases`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, milestone: ${result.milestone_version}, ${phaseCount} phases`
+  );
 }
 
 // ─── Migrate Init ────────────────────────────────────────────────────────────
@@ -184,17 +227,27 @@ function cmdInitMigrate(cwd: string, raw: boolean): void {
 
   let flatMilestoneFiles: string[] = [];
   try {
-    const entries: { name: string; isFile: () => boolean }[] = fs.readdirSync(milestonesDir, { withFileTypes: true });
-    flatMilestoneFiles = entries.filter((e) => e.isFile() && e.name.endsWith('.md'))
+    const entries: { name: string; isFile: () => boolean }[] = fs.readdirSync(milestonesDir, {
+      withFileTypes: true,
+    });
+    flatMilestoneFiles = entries
+      .filter((e) => e.isFile() && e.name.endsWith('.md'))
       .map((e) => path.join(path.relative(cwd, milestonesDir), e.name));
-  } catch { /* milestones dir may not exist */ }
+  } catch {
+    /* milestones dir may not exist */
+  }
 
   let legacyPhaseDirs: string[] = [];
   try {
-    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(milestonesDir, { withFileTypes: true });
-    legacyPhaseDirs = entries.filter((e) => e.isDirectory() && /^\d{2}-/.test(e.name))
+    const entries: { name: string; isDirectory: () => boolean }[] = fs.readdirSync(milestonesDir, {
+      withFileTypes: true,
+    });
+    legacyPhaseDirs = entries
+      .filter((e) => e.isDirectory() && /^\d{2}-/.test(e.name))
       .map((e) => path.join(path.relative(cwd, milestonesDir), e.name));
-  } catch { /* milestones dir may not exist */ }
+  } catch {
+    /* milestones dir may not exist */
+  }
 
   const result = buildInitContext(cwd, {
     flat_milestone_files: flatMilestoneFiles,
@@ -215,7 +268,9 @@ function cmdInitMigrate(cwd: string, raw: boolean): void {
  */
 function cmdInitPlanCheck(cwd: string, phase: string, raw: boolean): void {
   if (!phase) {
-    error('phase required for init plan-check. Usage: init plan-check <phase-number>. Provide a phase number, e.g.: init plan-check 2');
+    error(
+      'phase required for init plan-check. Usage: init plan-check <phase-number>. Provide a phase number, e.g.: init plan-check 2'
+    );
     return;
   }
 
@@ -225,12 +280,16 @@ function cmdInitPlanCheck(cwd: string, phase: string, raw: boolean): void {
   const planningDir = getPlanningDir(cwd);
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     checker_model: resolveModelForAgent(config, 'planner'),
     checker_effort: resolveEffortForAgent(config, 'grd-plan-checker', cwd),
-    phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
-    phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
-    plans: phaseInfo?.plans || [], plan_count: phaseInfo?.plans?.length || 0,
+    phase_found: !!phaseInfo,
+    phase_dir: phaseInfo?.directory || null,
+    phase_number: phaseInfo?.phase_number || null,
+    phase_name: phaseInfo?.phase_name || null,
+    plans: phaseInfo?.plans || [],
+    plan_count: phaseInfo?.plans?.length || 0,
     has_research: phaseInfo?.has_research || false,
     has_context: phaseInfo?.has_context || false,
     has_eval: (phaseInfo as unknown as Record<string, unknown> | null)?.has_eval || false,
@@ -238,7 +297,11 @@ function cmdInitPlanCheck(cwd: string, phase: string, raw: boolean): void {
     requirements_exists: pathExistsInternal(cwd, path.join(planningDir, 'REQUIREMENTS.md')),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
   };
-  output(result, raw, `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`
+  );
 }
 
 // ─── Executor Init ───────────────────────────────────────────────────────────
@@ -248,7 +311,9 @@ function cmdInitPlanCheck(cwd: string, phase: string, raw: boolean): void {
  */
 function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw: boolean): void {
   if (!phase) {
-    error('phase required for init executor. Usage: init executor <phase-number>. Provide a phase number, e.g.: init executor 2');
+    error(
+      'phase required for init executor. Usage: init executor <phase-number>. Provide a phase number, e.g.: init executor 2'
+    );
     return;
   }
 
@@ -259,18 +324,26 @@ function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw:
   const planningDir = getPlanningDir(cwd);
 
   const result: Record<string, unknown> = {
-    backend, backend_capabilities: getBackendCapabilities(backend),
+    backend,
+    backend_capabilities: getBackendCapabilities(backend),
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
     executor_effort: resolveEffortForAgent(config, 'grd-executor', cwd),
-    commit_docs: config.commit_docs, parallelization: config.parallelization,
-    use_teams: config.use_teams, team_timeout_minutes: config.team_timeout_minutes,
-    phase_found: !!phaseInfo, phase_dir: phaseInfo?.directory || null,
-    phase_number: phaseInfo?.phase_number || null, phase_name: phaseInfo?.phase_name || null,
+    commit_docs: config.commit_docs,
+    parallelization: config.parallelization,
+    use_teams: config.use_teams,
+    team_timeout_minutes: config.team_timeout_minutes,
+    phase_found: !!phaseInfo,
+    phase_dir: phaseInfo?.directory || null,
+    phase_number: phaseInfo?.phase_number || null,
+    phase_name: phaseInfo?.phase_name || null,
     phase_slug: phaseInfo?.phase_slug || null,
-    plans: phaseInfo?.plans || [], summaries: phaseInfo?.summaries || [],
+    plans: phaseInfo?.plans || [],
+    summaries: phaseInfo?.summaries || [],
     incomplete_plans: phaseInfo?.incomplete_plans || [],
-    plan_count: phaseInfo?.plans?.length || 0, incomplete_count: phaseInfo?.incomplete_plans?.length || 0,
-    milestone_version: milestone.version, milestone_name: milestone.name,
+    plan_count: phaseInfo?.plans?.length || 0,
+    incomplete_count: phaseInfo?.incomplete_plans?.length || 0,
+    milestone_version: milestone.version,
+    milestone_name: milestone.name,
     state_exists: pathExistsInternal(cwd, path.join(planningDir, 'STATE.md')),
     roadmap_exists: pathExistsInternal(cwd, path.join(planningDir, 'ROADMAP.md')),
     principles_exists: pathExistsInternal(cwd, path.join(planningDir, 'PRINCIPLES.md')),
@@ -284,30 +357,75 @@ function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw:
   if (includes && includes.has('roadmap')) {
     result.roadmap_content = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   }
-  output(result, raw, `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`);
+  output(
+    result,
+    raw,
+    `Backend: ${result.backend}, phase: ${result.phase_number || 'unknown'}, plans: ${result.plan_count}`
+  );
 }
 
 // ─── Agent Aliases ───────────────────────────────────────────────────────────
 // Thin wrappers delegating to canonical cmdInit* functions in sibling modules.
 
-function cmdInitBaselineAssessor(cwd: string, raw: boolean): void { return cmdInitAssessBaseline(cwd, raw); }
-function cmdInitCodeReviewer(cwd: string, phase: string, raw: boolean): void { return cmdInitCodeReview(cwd, phase, raw); }
-function cmdInitCodebaseMapper(cwd: string, raw: boolean): void { return cmdInitMapCodebase(cwd, raw); }
-function cmdInitDebugger(cwd: string, phase: string | null, raw: boolean): void { return cmdInitDebug(cwd, phase, raw); }
-function cmdInitDeepDiver(cwd: string, topic: string, raw: boolean): void { return cmdInitDeepDive(cwd, topic, raw); }
-function cmdInitEvalPlanner(cwd: string, phase: string | null, raw: boolean): void { return cmdInitEvalPlan(cwd, phase, raw); }
-function cmdInitEvalReporter(cwd: string, phase: string | null, raw: boolean): void { return cmdInitEvalReport(cwd, phase, raw); }
-function cmdInitFeasibilityAnalyst(cwd: string, topic: string, raw: boolean): void { return cmdInitFeasibility(cwd, topic, raw); }
-function cmdInitIntegrationChecker(cwd: string, phase: string | null, raw: boolean): void { return cmdInitIntegrationCheck(cwd, phase, raw); }
-function cmdInitMigrator(cwd: string, raw: boolean): void { return cmdInitMigrate(cwd, raw); }
-function cmdInitPhaseResearcher(cwd: string, phase: string, includes: Set<string>, raw: boolean): void { return cmdInitPhaseResearch(cwd, phase, includes, raw); }
-function cmdInitPlanChecker(cwd: string, phase: string, raw: boolean): void { return cmdInitPlanCheck(cwd, phase, raw); }
-function cmdInitProductOwner(cwd: string, raw: boolean): void { return _cmdInitProductOwner(cwd, raw); }
-function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): void { return _cmdInitProjectResearcher(cwd, topic, raw); }
-function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void { return _cmdInitResearchSynthesizer(cwd, raw); }
-function cmdInitRoadmapper(cwd: string, raw: boolean): void { return _cmdInitRoadmapper(cwd, raw); }
-function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void { return _cmdInitSurveyor(cwd, topic, raw); }
-function cmdInitVerifier(cwd: string, phase: string | null, raw: boolean): void { return _cmdInitVerifier(cwd, phase, raw); }
+function cmdInitBaselineAssessor(cwd: string, raw: boolean): void {
+  return cmdInitAssessBaseline(cwd, raw);
+}
+function cmdInitCodeReviewer(cwd: string, phase: string, raw: boolean): void {
+  return cmdInitCodeReview(cwd, phase, raw);
+}
+function cmdInitCodebaseMapper(cwd: string, raw: boolean): void {
+  return cmdInitMapCodebase(cwd, raw);
+}
+function cmdInitDebugger(cwd: string, phase: string | null, raw: boolean): void {
+  return cmdInitDebug(cwd, phase, raw);
+}
+function cmdInitDeepDiver(cwd: string, topic: string, raw: boolean): void {
+  return cmdInitDeepDive(cwd, topic, raw);
+}
+function cmdInitEvalPlanner(cwd: string, phase: string | null, raw: boolean): void {
+  return cmdInitEvalPlan(cwd, phase, raw);
+}
+function cmdInitEvalReporter(cwd: string, phase: string | null, raw: boolean): void {
+  return cmdInitEvalReport(cwd, phase, raw);
+}
+function cmdInitFeasibilityAnalyst(cwd: string, topic: string, raw: boolean): void {
+  return cmdInitFeasibility(cwd, topic, raw);
+}
+function cmdInitIntegrationChecker(cwd: string, phase: string | null, raw: boolean): void {
+  return cmdInitIntegrationCheck(cwd, phase, raw);
+}
+function cmdInitMigrator(cwd: string, raw: boolean): void {
+  return cmdInitMigrate(cwd, raw);
+}
+function cmdInitPhaseResearcher(
+  cwd: string,
+  phase: string,
+  includes: Set<string>,
+  raw: boolean
+): void {
+  return cmdInitPhaseResearch(cwd, phase, includes, raw);
+}
+function cmdInitPlanChecker(cwd: string, phase: string, raw: boolean): void {
+  return cmdInitPlanCheck(cwd, phase, raw);
+}
+function cmdInitProductOwner(cwd: string, raw: boolean): void {
+  return _cmdInitProductOwner(cwd, raw);
+}
+function cmdInitProjectResearcher(cwd: string, topic: string, raw: boolean): void {
+  return _cmdInitProjectResearcher(cwd, topic, raw);
+}
+function cmdInitResearchSynthesizer(cwd: string, raw: boolean): void {
+  return _cmdInitResearchSynthesizer(cwd, raw);
+}
+function cmdInitRoadmapper(cwd: string, raw: boolean): void {
+  return _cmdInitRoadmapper(cwd, raw);
+}
+function cmdInitSurveyor(cwd: string, topic: string, raw: boolean): void {
+  return _cmdInitSurveyor(cwd, topic, raw);
+}
+function cmdInitVerifier(cwd: string, phase: string | null, raw: boolean): void {
+  return _cmdInitVerifier(cwd, phase, raw);
+}
 
 module.exports = {
   cmdInitDebug,

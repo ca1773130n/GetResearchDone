@@ -221,9 +221,7 @@ describe('splitMarkdown — above threshold', () => {
   test('each part has filename matching BASENAME-partN.md pattern', () => {
     const result = splitMarkdown(largeContent);
     for (let i = 0; i < result.parts.length; i++) {
-      expect(result.parts[i].filename).toMatch(
-        new RegExp(`^DOC-part${i + 1}\\.md$`)
-      );
+      expect(result.parts[i].filename).toMatch(new RegExp(`^DOC-part${i + 1}\\.md$`));
     }
   });
 
@@ -400,7 +398,9 @@ describe('safeReadMarkdown integration', () => {
 
   test('safeReadMarkdown returns null for missing files', () => {
     const { safeReadMarkdown } = require('../../lib/utils');
-    expect(safeReadMarkdown(path.join(os.tmpdir(), 'nonexistent-' + Date.now() + '.md'))).toBeNull();
+    expect(
+      safeReadMarkdown(path.join(os.tmpdir(), 'nonexistent-' + Date.now() + '.md'))
+    ).toBeNull();
   });
 
   test('safeReadMarkdown reassembles from index files', () => {
@@ -413,7 +413,9 @@ describe('safeReadMarkdown integration', () => {
     ).join('\n\n');
     const result = splitMarkdown(content, { threshold: 1000, basename: 'TEST' });
     fs.writeFileSync(path.join(tmpDir, 'TEST.md'), result.index_content);
-    result.parts.forEach((p: { filename: string; content: string }) => fs.writeFileSync(path.join(tmpDir, p.filename), p.content));
+    result.parts.forEach((p: { filename: string; content: string }) =>
+      fs.writeFileSync(path.join(tmpDir, p.filename), p.content)
+    );
     const reassembled = safeReadMarkdown(path.join(tmpDir, 'TEST.md'));
     expect(reassembled.trim()).toBe(content.trim());
   });
@@ -517,9 +519,11 @@ describe('readMarkdownWithPartials — missing partial error handling', () => {
     fs.writeFileSync(indexPath, indexContent);
 
     const stderrLines: string[] = [];
-    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation((msg: string) => {
-      stderrLines.push(msg);
-    });
+    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation(
+      (msg: string) => {
+        stderrLines.push(msg);
+      }
+    );
     try {
       readMarkdownWithPartials(indexPath);
     } catch (_e) {

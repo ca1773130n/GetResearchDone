@@ -370,8 +370,22 @@ describe('E2E: Parallel execution of independent phases', () => {
       'utf-8'
     );
 
-    const phase1Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '01-alpha-phase');
-    const phase2Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '02-beta-phase');
+    const phase1Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-alpha-phase'
+    );
+    const phase2Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '02-beta-phase'
+    );
     fs.mkdirSync(phase1Dir, { recursive: true });
     fs.mkdirSync(phase2Dir, { recursive: true });
     fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');
@@ -580,8 +594,22 @@ describe('E2E: Sequential fallback equivalence', () => {
       'utf-8'
     );
 
-    const phase1Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '01-alpha-phase');
-    const phase2Dir = path.join(dir, '.planning', 'milestones', 'anonymous', 'phases', '02-beta-phase');
+    const phase1Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-alpha-phase'
+    );
+    const phase2Dir = path.join(
+      dir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '02-beta-phase'
+    );
     fs.mkdirSync(phase1Dir, { recursive: true });
     fs.mkdirSync(phase2Dir, { recursive: true });
     fs.writeFileSync(path.join(phase1Dir, '01-01-PLAN.md'), '---\nphase: 01\nplan: 01\n---\n');

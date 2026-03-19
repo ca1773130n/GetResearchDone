@@ -11,12 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const FIXTURE_SOURCE: string = path.join(
-  __dirname,
-  '..',
-  'fixtures',
-  'planning',
-);
+const FIXTURE_SOURCE: string = path.join(__dirname, '..', 'fixtures', 'planning');
 
 /**
  * Create a temp directory with a copy of the fixture .planning/ structure.

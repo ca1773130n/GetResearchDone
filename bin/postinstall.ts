@@ -68,17 +68,12 @@ try {
   // Create default config.json
   const configPath: string = path.join(PLANNING_DIR, 'config.json');
   if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(
-      configPath,
-      JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n'
-    );
+    fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
   }
 
   console.log('GRD: Created .planning/ directory structure');
 } catch (err: unknown) {
   // Never fail postinstall — print warning and exit cleanly
-  process.stderr.write(
-    `GRD postinstall warning: ${(err as Error).message}\n`
-  );
+  process.stderr.write(`GRD postinstall warning: ${(err as Error).message}\n`);
   process.exit(0);
 }

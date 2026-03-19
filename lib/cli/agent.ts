@@ -25,11 +25,17 @@ export function buildPromptForCommand(command: string, args: string[]): string {
  * Execute an agent command by spawning a backend subprocess.
  */
 export function runAgentCommand(command: string, args: string[], opts: AgentOpts): void {
-  const { getAdapter, checkBackendAvailable }: {
+  const {
+    getAdapter,
+    checkBackendAvailable,
+  }: {
     getAdapter: (backend: string) => CliAdapter;
     checkBackendAvailable: (backend: string) => boolean;
   } = require('./adapters');
-  const { formatJson, formatError }: {
+  const {
+    formatJson,
+    formatError,
+  }: {
     formatJson: (envelope: JsonEnvelope) => string;
     formatError: (message: string, backend: string, exitCode: number) => string;
   } = require('./output');
@@ -62,11 +68,13 @@ export function runAgentCommand(command: string, args: string[], opts: AgentOpts
 
   if (opts.json) {
     const stdout = result.stdout?.toString() || '';
-    process.stdout.write(formatJson({
-      status: exitCode === 0 ? 'ok' : 'error',
-      output: stdout,
-      meta: { backend: opts.backend, duration_ms: duration, exit_code: exitCode },
-    }) + '\n');
+    process.stdout.write(
+      formatJson({
+        status: exitCode === 0 ? 'ok' : 'error',
+        output: stdout,
+        meta: { backend: opts.backend, duration_ms: duration, exit_code: exitCode },
+      }) + '\n'
+    );
   }
 
   process.exit(exitCode);

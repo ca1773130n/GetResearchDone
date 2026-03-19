@@ -26,7 +26,9 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('./utils');
-const { reconstructFrontmatter }: {
+const {
+  reconstructFrontmatter,
+}: {
   reconstructFrontmatter: (obj: FrontmatterObject) => string;
 } = require('./frontmatter');
 const {
@@ -162,9 +164,16 @@ function cmdTemplateSelect(cwd: string, planPath: string, raw: boolean): void {
  * @param options - Template options
  * @param raw - Output raw file path instead of JSON
  */
-function cmdTemplateFill(cwd: string, templateType: string, options: TemplateFillOptions, raw: boolean): void {
+function cmdTemplateFill(
+  cwd: string,
+  templateType: string,
+  options: TemplateFillOptions,
+  raw: boolean
+): void {
   if (!templateType) {
-    error('template type required: summary, plan, or verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Specify a template type, e.g.: scaffold summary. Valid types: summary, plan, verification, context, uat, baseline. To list available templates: scaffold template-select <type>');
+    error(
+      'template type required: summary, plan, or verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Specify a template type, e.g.: scaffold summary. Valid types: summary, plan, verification, context, uat, baseline. To list available templates: scaffold template-select <type>'
+    );
   }
   if (!options.phase) {
     error('--phase required');
@@ -322,7 +331,9 @@ function cmdTemplateFill(cwd: string, templateType: string, options: TemplateFil
       break;
     }
     default:
-      error(`Unknown template type: ${templateType}. Available: summary, plan, verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Use one of: summary, plan, or verification.`);
+      error(
+        `Unknown template type: ${templateType}. Available: summary, plan, verification. Usage: scaffold <summary|plan|verification> --phase <N> --plan <M>. Use one of: summary, plan, or verification.`
+      );
       return;
   }
 
@@ -359,7 +370,9 @@ function cmdScaffold(cwd: string, type: string, options: ScaffoldOptions, raw: b
   const phaseDir: string | null = phaseInfo ? path.join(cwd, phaseInfo.directory) : null;
 
   if (phase && !phaseDir && type !== 'phase-dir') {
-    error(`Phase ${phase} directory not found. Run "scaffold phase-dir --phase ${phase} --name <description>" to create it, or check .planning/milestones/ for existing phases`);
+    error(
+      `Phase ${phase} directory not found. Run "scaffold phase-dir --phase ${phase} --name <description>" to create it, or check .planning/milestones/ for existing phases`
+    );
   }
 
   let filePath: string | undefined;
@@ -383,7 +396,9 @@ function cmdScaffold(cwd: string, type: string, options: ScaffoldOptions, raw: b
     }
     case 'phase-dir': {
       if (!phase || !name) {
-        error('phase and name required for phase-dir scaffold. Usage: scaffold phase-dir --phase <N> --name <description>. Provide both flags, e.g.: scaffold phase-dir --phase 3 --name "Data Preprocessing"');
+        error(
+          'phase and name required for phase-dir scaffold. Usage: scaffold phase-dir --phase <N> --name <description>. Provide both flags, e.g.: scaffold phase-dir --phase 3 --name "Data Preprocessing"'
+        );
       }
       const slug: string | null = generateSlugInternal(name as string);
       const dirName = `${padded}-${slug}`;
@@ -391,7 +406,11 @@ function cmdScaffold(cwd: string, type: string, options: ScaffoldOptions, raw: b
       fs.mkdirSync(phasesParent, { recursive: true });
       const dirPath: string = path.join(phasesParent, dirName);
       fs.mkdirSync(dirPath, { recursive: true });
-      const result: ScaffoldResult = { created: true, directory: path.relative(cwd, dirPath), path: dirPath };
+      const result: ScaffoldResult = {
+        created: true,
+        directory: path.relative(cwd, dirPath),
+        path: dirPath,
+      };
       output(result, raw, dirPath);
       return;
     }
@@ -399,7 +418,10 @@ function cmdScaffold(cwd: string, type: string, options: ScaffoldOptions, raw: b
       const researchDir: string = getResearchDirPath(cwd);
       const deepDivesDir: string = path.join(researchDir, 'deep-dives');
       fs.mkdirSync(deepDivesDir, { recursive: true });
-      const result: ScaffoldResult = { created: true, directory: path.relative(cwd, researchDir) + '/' };
+      const result: ScaffoldResult = {
+        created: true,
+        directory: path.relative(cwd, researchDir) + '/',
+      };
       output(result, raw, researchDir);
       return;
     }
@@ -411,13 +433,20 @@ function cmdScaffold(cwd: string, type: string, options: ScaffoldOptions, raw: b
     case 'baseline': {
       const baselinePath: string = path.join(cwd, '.planning', 'BASELINE.md');
       if (fs.existsSync(baselinePath)) {
-        const result: ScaffoldResult = { created: false, reason: 'already_exists', path: baselinePath };
+        const result: ScaffoldResult = {
+          created: false,
+          reason: 'already_exists',
+          path: baselinePath,
+        };
         output(result, raw, 'exists');
         return;
       }
       const baselineContent = `# Baseline Assessment\n\n**Assessed:** ${today}\n\n## Current Metrics\n\n| Metric | Value | Method | Notes |\n|--------|-------|--------|-------|\n\n## Environment\n\n## Quality Summary\n`;
       fs.writeFileSync(baselinePath, baselineContent, 'utf-8');
-      const result: ScaffoldResult = { created: true, path: path.relative(cwd, path.join(getPlanningDir(cwd), 'BASELINE.md')) };
+      const result: ScaffoldResult = {
+        created: true,
+        path: path.relative(cwd, path.join(getPlanningDir(cwd), 'BASELINE.md')),
+      };
       output(result, raw, baselinePath);
       return;
     }

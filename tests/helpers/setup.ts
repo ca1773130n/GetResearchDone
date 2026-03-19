@@ -125,9 +125,7 @@ function captureError(fn: () => void): CaptureErrorResult {
  * @param fn - Async function to execute (returns a Promise)
  * @returns Promise resolving to object with captured stdout and exitCode
  */
-async function captureOutputAsync(
-  fn: () => Promise<void>,
-): Promise<CaptureResult> {
+async function captureOutputAsync(fn: () => Promise<void>): Promise<CaptureResult> {
   let captured = '';
   let exitCode: number | null = null;
 

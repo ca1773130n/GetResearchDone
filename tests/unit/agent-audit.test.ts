@@ -2,7 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { extractFrontmatter }: {
+const {
+  extractFrontmatter,
+}: {
   extractFrontmatter: (content: string) => Record<string, unknown>;
 } = require('../../lib/frontmatter');
 
@@ -176,7 +178,13 @@ describe('plugin.json hook registration', () => {
   });
 
   test('all hooks have error suppression (2>/dev/null || true)', () => {
-    const hookNames = ['WorktreeCreate', 'WorktreeRemove', 'SessionStart', 'StopFailure', 'PostCompact'];
+    const hookNames = [
+      'WorktreeCreate',
+      'WorktreeRemove',
+      'SessionStart',
+      'StopFailure',
+      'PostCompact',
+    ];
     for (const hookName of hookNames) {
       const entries = pluginJson.hooks[hookName];
       expect(entries).toBeDefined();
@@ -189,7 +197,13 @@ describe('plugin.json hook registration', () => {
   });
 
   test('hook timeout values are reasonable (between 1 and 60 seconds)', () => {
-    const hookNames = ['WorktreeCreate', 'WorktreeRemove', 'SessionStart', 'StopFailure', 'PostCompact'];
+    const hookNames = [
+      'WorktreeCreate',
+      'WorktreeRemove',
+      'SessionStart',
+      'StopFailure',
+      'PostCompact',
+    ];
     for (const hookName of hookNames) {
       const entries = pluginJson.hooks[hookName];
       for (const entry of entries) {

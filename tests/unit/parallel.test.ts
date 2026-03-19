@@ -680,7 +680,9 @@ describe('CLI integration -- init execute-parallel', () => {
   });
 
   test('MCP descriptor grd_init_execute_parallel exists with correct params', () => {
-    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find(
+      (d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel'
+    );
     expect(descriptor).toBeDefined();
     expect(descriptor.params).toBeInstanceOf(Array);
 
@@ -688,7 +690,9 @@ describe('CLI integration -- init execute-parallel', () => {
     expect(phasesParam).toBeDefined();
     expect(phasesParam.required).toBe(true);
 
-    const includeParam = descriptor.params.find((p: Record<string, unknown>) => p.name === 'include');
+    const includeParam = descriptor.params.find(
+      (p: Record<string, unknown>) => p.name === 'include'
+    );
     expect(includeParam).toBeDefined();
     expect(includeParam.required).toBe(false);
 
@@ -701,7 +705,9 @@ describe('CLI integration -- init execute-parallel', () => {
     ensurePhaseDir(fixtureDir, 1, 'Alpha');
     writeConfig(fixtureDir, { autonomous_mode: true });
 
-    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel');
+    const descriptor = COMMAND_DESCRIPTORS.find(
+      (d: Record<string, unknown>) => d.name === 'grd_init_execute_parallel'
+    );
     expect(descriptor).toBeDefined();
 
     // Should not throw; may output error JSON for bad phase, but should not crash
@@ -1014,10 +1020,12 @@ describe('formatProgressBar', () => {
 describe('streamPhaseProgress', () => {
   test('writes formatted progress to stderr', () => {
     const stderrWrites: (string | Uint8Array)[] = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrWrites.push(data);
-      return true;
-    });
+    const spy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrWrites.push(data);
+        return true;
+      });
     streamPhaseProgress('3', 2, 5);
     spy.mockRestore();
     expect(stderrWrites.length).toBeGreaterThan(0);
@@ -1028,10 +1036,12 @@ describe('streamPhaseProgress', () => {
 
   test('includes optional status label', () => {
     const stderrWrites: (string | Uint8Array)[] = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrWrites.push(data);
-      return true;
-    });
+    const spy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrWrites.push(data);
+        return true;
+      });
     streamPhaseProgress('1', 1, 3, 'complete');
     spy.mockRestore();
     const output = stderrWrites.join('');
@@ -1044,10 +1054,12 @@ describe('streamPhaseProgress', () => {
 describe('cmdParallelProgress', () => {
   test('writes to stderr in default mode', () => {
     const stderrWrites: (string | Uint8Array)[] = [];
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrWrites.push(data);
-      return true;
-    });
+    const spy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrWrites.push(data);
+        return true;
+      });
     cmdParallelProgress(['--phase', '2', '--plan', '1', '--total-plans', '3'], false);
     spy.mockRestore();
     expect(stderrWrites.join('')).toContain('Phase 02');
@@ -1066,9 +1078,7 @@ describe('cmdParallelProgress', () => {
   });
 
   test('returns error when required args missing', () => {
-    const { stdout, exitCode } = captureOutput(() =>
-      cmdParallelProgress([], true)
-    );
+    const { stdout, exitCode } = captureOutput(() => cmdParallelProgress([], true));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.error).toContain('Usage');
@@ -1076,7 +1086,10 @@ describe('cmdParallelProgress', () => {
 
   test('includes optional status in raw output', () => {
     const { stdout } = captureOutput(() =>
-      cmdParallelProgress(['--phase', '1', '--plan', '1', '--total-plans', '2', '--status', 'done'], true)
+      cmdParallelProgress(
+        ['--phase', '1', '--plan', '1', '--total-plans', '2', '--status', 'done'],
+        true
+      )
     );
     const result = JSON.parse(stdout);
     expect(result.status).toBe('done');

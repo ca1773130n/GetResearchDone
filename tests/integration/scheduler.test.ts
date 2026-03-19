@@ -21,7 +21,8 @@ describe('scheduler integration', () => {
     const codex = scheduler.getState('codex')!;
     expect(codex.tokens_consumed_in_window).toBe(0);
 
-    const claudeHeadroom = (claude.token_budget - claude.tokens_consumed_in_window) / claude.ewma_tokens_per_task;
+    const claudeHeadroom =
+      (claude.token_budget - claude.tokens_consumed_in_window) / claude.ewma_tokens_per_task;
     expect(claudeHeadroom).toBeLessThan(1.5);
   });
 

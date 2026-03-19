@@ -37,7 +37,13 @@ const {
   cmdFrontmatterValidate,
 }: {
   cmdFrontmatterGet: (cwd: string, filePath: string, field: string | null, raw: boolean) => void;
-  cmdFrontmatterSet: (cwd: string, filePath: string, field: string, value: string, raw: boolean) => void;
+  cmdFrontmatterSet: (
+    cwd: string,
+    filePath: string,
+    field: string,
+    value: string,
+    raw: boolean
+  ) => void;
   cmdFrontmatterMerge: (cwd: string, filePath: string, data: string, raw: boolean) => void;
   cmdFrontmatterValidate: (cwd: string, filePath: string, schemaName: string, raw: boolean) => void;
 } = require('../lib/frontmatter');
@@ -66,20 +72,42 @@ const {
   cmdStateAddDecision: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdStateAddBlocker: (cwd: string, text: string, raw: boolean) => void;
   cmdStateResolveBlocker: (cwd: string, text: string, raw: boolean) => void;
-  cmdStateRecordSession: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
+  cmdStateRecordSession: (
+    cwd: string,
+    options: Record<string, string | null>,
+    raw: boolean
+  ) => void;
   cmdStateSnapshot: (cwd: string, raw: boolean, opts?: Record<string, string | undefined>) => void;
 } = require('../lib/state');
 
-const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze }: {
+const {
+  cmdRoadmapGetPhase,
+  cmdPhaseNextDecimal,
+  cmdRoadmapAnalyze,
+}: {
   cmdRoadmapGetPhase: (cwd: string, phaseNum: string, raw: boolean) => void;
   cmdPhaseNextDecimal: (cwd: string, basePhase: string, raw: boolean) => void;
   cmdRoadmapAnalyze: (cwd: string, raw: boolean) => void;
 } = require('../lib/roadmap');
 
-const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold }: {
+const {
+  cmdTemplateSelect,
+  cmdTemplateFill,
+  cmdScaffold,
+}: {
   cmdTemplateSelect: (cwd: string, planPath: string, raw: boolean) => void;
-  cmdTemplateFill: (cwd: string, templateType: string, options: Record<string, unknown>, raw: boolean) => void;
-  cmdScaffold: (cwd: string, type: string, options: Record<string, string | null>, raw: boolean) => void;
+  cmdTemplateFill: (
+    cwd: string,
+    templateType: string,
+    options: Record<string, unknown>,
+    raw: boolean
+  ) => void;
+  cmdScaffold: (
+    cwd: string,
+    type: string,
+    options: Record<string, string | null>,
+    raw: boolean
+  ) => void;
 } = require('../lib/scaffold');
 
 const {
@@ -91,7 +119,12 @@ const {
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
 }: {
-  cmdVerifySummary: (cwd: string, summaryPath: string, checkFileCount: number, raw: boolean) => void;
+  cmdVerifySummary: (
+    cwd: string,
+    summaryPath: string,
+    checkFileCount: number,
+    raw: boolean
+  ) => void;
   cmdVerifyPlanStructure: (cwd: string, filePath: string, raw: boolean) => void;
   cmdVerifyPhaseCompleteness: (cwd: string, phase: string, raw: boolean) => void;
   cmdVerifyReferences: (cwd: string, filePath: string, raw: boolean) => void;
@@ -113,14 +146,31 @@ const {
   cmdPhasesList: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
   cmdPhaseAdd: (cwd: string, name: string, raw: boolean, context?: string) => void;
   cmdPhaseInsert: (cwd: string, phase: string, name: string, raw: boolean) => void;
-  cmdPhaseRemove: (cwd: string, phase: string, options: Record<string, boolean>, raw: boolean) => void;
-  cmdPhaseComplete: (cwd: string, phase: string, raw: boolean, options?: Record<string, boolean>) => void;
-  cmdMilestoneComplete: (cwd: string, version: string | null, options: Record<string, string | boolean | null>, raw: boolean) => void;
+  cmdPhaseRemove: (
+    cwd: string,
+    phase: string,
+    options: Record<string, boolean>,
+    raw: boolean
+  ) => void;
+  cmdPhaseComplete: (
+    cwd: string,
+    phase: string,
+    raw: boolean,
+    options?: Record<string, boolean>
+  ) => void;
+  cmdMilestoneComplete: (
+    cwd: string,
+    version: string | null,
+    options: Record<string, string | boolean | null>,
+    raw: boolean
+  ) => void;
   cmdValidateConsistency: (cwd: string, raw: boolean) => void;
   cmdVersionBump: (cwd: string, version: string, raw: boolean) => void;
 } = require('../lib/phase');
 
-const { cmdTracker }: {
+const {
+  cmdTracker,
+}: {
   cmdTracker: (cwd: string, sub: string, args: string[], raw: boolean) => Promise<void>;
 } = require('../lib/tracker');
 
@@ -145,8 +195,16 @@ const {
   cmdWorktreeList: (cwd: string, raw: boolean) => void;
   cmdWorktreeRemoveStale: (cwd: string, raw: boolean) => void;
   cmdWorktreePushAndPR: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
-  cmdWorktreeEnsureMilestoneBranch: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
-  cmdWorktreeMerge: (cwd: string, options: Record<string, string | boolean | null>, raw: boolean) => void;
+  cmdWorktreeEnsureMilestoneBranch: (
+    cwd: string,
+    options: Record<string, string | null>,
+    raw: boolean
+  ) => void;
+  cmdWorktreeMerge: (
+    cwd: string,
+    options: Record<string, string | boolean | null>,
+    raw: boolean
+  ) => void;
   cmdWorktreeHookCreate: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
   cmdWorktreeHookRemove: (cwd: string, wtPath: string, wtBranch: string, raw: boolean) => void;
   cmdTeammateIdleHook: (cwd: string, raw: boolean) => void;
@@ -156,23 +214,36 @@ const {
   cmdPostCompactHook: (cwd: string, raw: boolean) => void;
 } = require('../lib/worktree');
 
-const { cmdPhaseAnalyzeDeps }: {
+const {
+  cmdPhaseAnalyzeDeps,
+}: {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 } = require('../lib/deps');
 
-const { detectOverstory, installOverstory }: {
+const {
+  detectOverstory,
+  installOverstory,
+}: {
   detectOverstory: (cwd: string) => Record<string, unknown> | null;
   installOverstory: (cwd: string) => void;
 } = require('../lib/overstory');
 
-const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot }: {
+const {
+  cmdAutopilot,
+  cmdInitAutopilot,
+  cmdMultiMilestoneAutopilot,
+  cmdInitMultiMilestoneAutopilot,
+}: {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
   cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
 } = require('../lib/autopilot');
 
-const { cmdAutoplan, cmdInitAutoplan }: {
+const {
+  cmdAutoplan,
+  cmdInitAutoplan,
+}: {
   cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutoplan: (cwd: string, raw: boolean) => void;
 } = require('../lib/autoplan');
@@ -193,13 +264,28 @@ const {
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
 } = require('../lib/evolve/index');
 
-const { cmdInitExecuteParallel, cmdParallelProgress }: {
-  cmdInitExecuteParallel: (cwd: string, phases: string[], includes: Set<string>, raw: boolean) => void;
+const {
+  cmdInitExecuteParallel,
+  cmdParallelProgress,
+}: {
+  cmdInitExecuteParallel: (
+    cwd: string,
+    phases: string[],
+    includes: Set<string>,
+    raw: boolean
+  ) => void;
   cmdParallelProgress: (args: string[], raw: boolean) => void;
 } = require('../lib/parallel');
 
-const { splitMarkdown, isIndexFile, estimateTokens }: {
-  splitMarkdown: (content: string, options?: { threshold?: number; basename?: string }) => {
+const {
+  splitMarkdown,
+  isIndexFile,
+  estimateTokens,
+}: {
+  splitMarkdown: (
+    content: string,
+    options?: { threshold?: number; basename?: string }
+  ) => {
     split_performed: boolean;
     reason?: string;
     index_content?: string;
@@ -254,7 +340,13 @@ const {
   cmdInitMilestoneOp: (cwd: string, raw: boolean) => void;
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
   cmdInitProgress: (cwd: string, includes: Set<string>, raw: boolean, refresh?: boolean) => void;
-  cmdInitResearchWorkflow: (cwd: string, workflow: string, topic: string, includes: Set<string>, raw: boolean) => void;
+  cmdInitResearchWorkflow: (
+    cwd: string,
+    workflow: string,
+    topic: string,
+    includes: Set<string>,
+    raw: boolean
+  ) => void;
   cmdInitPlanMilestoneGaps: (cwd: string, raw: boolean) => void;
   cmdInitDebug: (cwd: string, phase: string | null, raw: boolean) => void;
   cmdInitIntegrationCheck: (cwd: string, phase: string | null, raw: boolean) => void;
@@ -328,7 +420,12 @@ const {
   cmdFindPhase: (cwd: string, phase: string, raw: boolean) => void;
   cmdCommit: (cwd: string, message: string, files: string[], raw: boolean, amend?: boolean) => void;
   cmdPhasePlanIndex: (cwd: string, phase: string, raw: boolean) => void;
-  cmdSummaryExtract: (cwd: string, summaryPath: string, fields: string[] | null, raw: boolean) => void;
+  cmdSummaryExtract: (
+    cwd: string,
+    summaryPath: string,
+    fields: string[] | null,
+    raw: boolean
+  ) => void;
   cmdProgressRender: (cwd: string, format: string, raw: boolean) => void;
   cmdDashboard: (cwd: string, raw: boolean, options?: Record<string, unknown>) => void;
   cmdPhaseDetail: (cwd: string, phase: string, raw: boolean) => void;
@@ -338,9 +435,23 @@ const {
   cmdQualityAnalysis: (cwd: string, args: string[], raw: boolean) => void;
   cmdSetup: (cwd: string, raw: boolean) => void;
   cmdRequirementGet: (cwd: string, reqId: string, raw: boolean) => void;
-  cmdRequirementList: (cwd: string, options: Record<string, string | boolean | null>, raw: boolean) => void;
-  cmdRequirementTraceability: (cwd: string, options: Record<string, string | null>, raw: boolean) => void;
-  cmdRequirementUpdateStatus: (cwd: string, reqId: string, status: string, raw: boolean, dryRun?: boolean) => void;
+  cmdRequirementList: (
+    cwd: string,
+    options: Record<string, string | boolean | null>,
+    raw: boolean
+  ) => void;
+  cmdRequirementTraceability: (
+    cwd: string,
+    options: Record<string, string | null>,
+    raw: boolean
+  ) => void;
+  cmdRequirementUpdateStatus: (
+    cwd: string,
+    reqId: string,
+    status: string,
+    raw: boolean,
+    dryRun?: boolean
+  ) => void;
   cmdSearch: (cwd: string, query: string, raw: boolean) => void;
   cmdMigrateDirs: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdCoverageReport: (cwd: string, options: Record<string, unknown>, raw: boolean) => void;
@@ -353,7 +464,13 @@ const {
   cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
   cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
   cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
-  cmdImportKnowledge: (cwd: string, sourcePath: string, types: string, raw: boolean, force?: boolean) => void;
+  cmdImportKnowledge: (
+    cwd: string,
+    sourcePath: string,
+    types: string,
+    raw: boolean,
+    force?: boolean
+  ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
 } = require('../lib/commands/index');
 
@@ -381,40 +498,137 @@ interface RouteDescriptor {
  */
 const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'generate-slug', handler: (args, _cwd, raw) => cmdGenerateSlug(args[1], raw) },
-  { command: 'current-timestamp', handler: (args, _cwd, raw) => cmdCurrentTimestamp(args[1] || 'full', raw) },
+  {
+    command: 'current-timestamp',
+    handler: (args, _cwd, raw) => cmdCurrentTimestamp(args[1] || 'full', raw),
+  },
   { command: 'list-todos', handler: (args, cwd, raw) => cmdListTodos(cwd, args[1], raw) },
-  { command: 'verify-path-exists', handler: (args, cwd, raw) => cmdVerifyPathExists(cwd, args[1], raw, args.includes('--dry-run')) },
-  { command: 'config-ensure-section', handler: (args, cwd, raw) => cmdConfigEnsureSection(cwd, raw, args.includes('--dry-run')) },
-  { command: 'config-set', handler: (args, cwd, raw) => cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run')) },
+  {
+    command: 'verify-path-exists',
+    handler: (args, cwd, raw) => cmdVerifyPathExists(cwd, args[1], raw, args.includes('--dry-run')),
+  },
+  {
+    command: 'config-ensure-section',
+    handler: (args, cwd, raw) => cmdConfigEnsureSection(cwd, raw, args.includes('--dry-run')),
+  },
+  {
+    command: 'config-set',
+    handler: (args, cwd, raw) =>
+      cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run')),
+  },
   { command: 'history-digest', handler: (_args, cwd, raw) => cmdHistoryDigest(cwd, raw) },
-  { command: 'progress', handler: (args, cwd, raw) => cmdProgressRender(cwd, args[1] || 'json', raw) },
-  { command: 'migrate-dirs', handler: (args, cwd, raw) => cmdMigrateDirs(cwd, raw, args.includes('--dry-run')) },
+  {
+    command: 'progress',
+    handler: (args, cwd, raw) => cmdProgressRender(cwd, args[1] || 'json', raw),
+  },
+  {
+    command: 'migrate-dirs',
+    handler: (args, cwd, raw) => cmdMigrateDirs(cwd, raw, args.includes('--dry-run')),
+  },
   { command: 'dashboard', handler: (_args, cwd, raw) => cmdDashboard(cwd, raw) },
   { command: 'health', handler: (_args, cwd, raw) => cmdHealth(cwd, raw) },
   { command: 'detect-backend', handler: (_args, cwd, raw) => cmdDetectBackend(cwd, raw) },
-  { command: 'quality-analysis', handler: (args, cwd, raw) => cmdQualityAnalysis(cwd, args.slice(1), raw) },
+  {
+    command: 'quality-analysis',
+    handler: (args, cwd, raw) => cmdQualityAnalysis(cwd, args.slice(1), raw),
+  },
   { command: 'setup', handler: (_args, cwd, raw) => cmdSetup(cwd, raw) },
-  { command: 'parallel-progress', handler: (args, _cwd, raw) => cmdParallelProgress(args.slice(1), raw) },
+  {
+    command: 'parallel-progress',
+    handler: (args, _cwd, raw) => cmdParallelProgress(args.slice(1), raw),
+  },
   { command: 'resolve-model', handler: (args, cwd, raw) => cmdResolveModel(cwd, args[1], raw) },
   { command: 'find-phase', handler: (args, cwd, raw) => cmdFindPhase(cwd, args[1], raw) },
-  { command: 'coverage-report', handler: (args, cwd, raw) => cmdCoverageReport(cwd, { threshold: parseInt(flag(args, '--threshold', '85') as string, 10) }, raw) },
-  { command: 'health-check', handler: (args, cwd, raw) => cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw) },
-  { command: 'phase-detail', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseDetail(cwd, args[1], raw); } },
-  { command: 'phase-plan-index', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhasePlanIndex(cwd, args[1], raw); } },
-  { command: 'search', handler: (args, cwd, raw) => { if (!args[1]) error('Search query is required'); return cmdSearch(cwd, args[1], raw); } },
-  { command: 'phase-risk', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseRiskAssessment(cwd, args[1], raw); } },
+  {
+    command: 'coverage-report',
+    handler: (args, cwd, raw) =>
+      cmdCoverageReport(
+        cwd,
+        { threshold: parseInt(flag(args, '--threshold', '85') as string, 10) },
+        raw
+      ),
+  },
+  {
+    command: 'health-check',
+    handler: (args, cwd, raw) => cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw),
+  },
+  {
+    command: 'phase-detail',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      return cmdPhaseDetail(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'phase-plan-index',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      return cmdPhasePlanIndex(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'search',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('Search query is required');
+      return cmdSearch(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'phase-risk',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      return cmdPhaseRiskAssessment(cwd, args[1], raw);
+    },
+  },
   { command: 'citation-backlinks', handler: (_args, cwd, raw) => cmdCitationBacklinks(cwd, raw) },
-  { command: 'eval-regression-check', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); const t = flag(args, '--threshold'); return cmdEvalRegressionCheck(cwd, args[1], raw, t ? parseFloat(t) : undefined); } },
+  {
+    command: 'eval-regression-check',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      const t = flag(args, '--threshold');
+      return cmdEvalRegressionCheck(cwd, args[1], raw, t ? parseFloat(t) : undefined);
+    },
+  },
   { command: 'phase-time-budget', handler: (_args, cwd, raw) => cmdPhaseTimeBudget(cwd, raw) },
-  { command: 'config-diff', handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset')) },
-  { command: 'phase-readiness', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdPhaseReadiness(cwd, args[1], raw); } },
+  {
+    command: 'config-diff',
+    handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset')),
+  },
+  {
+    command: 'phase-readiness',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      return cmdPhaseReadiness(cwd, args[1], raw);
+    },
+  },
   { command: 'milestone-health', handler: (_args, cwd, raw) => cmdMilestoneHealth(cwd, raw) },
   { command: 'decision-timeline', handler: (_args, cwd, raw) => cmdDecisionTimeline(cwd, raw) },
-  { command: 'import-knowledge', handler: (args, cwd, raw) => { if (!args[1]) error('Source path required'); return cmdImportKnowledge(cwd, args[1], flag(args, '--types') || 'all', raw, args.includes('--force')); } },
-  { command: 'todo-duplicates', handler: (args, cwd, raw) => { const t = flag(args, '--threshold'); return cmdTodoDuplicates(cwd, raw, t ? parseFloat(t) : undefined); } },
+  {
+    command: 'import-knowledge',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('Source path required');
+      return cmdImportKnowledge(
+        cwd,
+        args[1],
+        flag(args, '--types') || 'all',
+        raw,
+        args.includes('--force')
+      );
+    },
+  },
+  {
+    command: 'todo-duplicates',
+    handler: (args, cwd, raw) => {
+      const t = flag(args, '--threshold');
+      return cmdTodoDuplicates(cwd, raw, t ? parseFloat(t) : undefined);
+    },
+  },
   { command: 'teammate-idle-hook', handler: (_args, cwd, raw) => cmdTeammateIdleHook(cwd, raw) },
   { command: 'task-completed-hook', handler: (_args, cwd, raw) => cmdTaskCompletedHook(cwd, raw) },
-  { command: 'instructions-loaded-hook', handler: (_args, cwd, raw) => cmdInstructionsLoadedHook(cwd, raw) },
+  {
+    command: 'instructions-loaded-hook',
+    handler: (_args, cwd, raw) => cmdInstructionsLoadedHook(cwd, raw),
+  },
   { command: 'stop-failure-hook', handler: (_args, cwd, raw) => cmdStopFailureHook(cwd, raw) },
   { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
 ];
@@ -446,7 +660,14 @@ const VERIFY_SUBS: readonly string[] = [
 ];
 const PHASES_SUBS: readonly string[] = ['list'];
 const ROADMAP_SUBS: readonly string[] = ['get-phase', 'analyze'];
-const PHASE_SUBS: readonly string[] = ['next-decimal', 'add', 'insert', 'remove', 'complete', 'analyze-deps'];
+const PHASE_SUBS: readonly string[] = [
+  'next-decimal',
+  'add',
+  'insert',
+  'remove',
+  'complete',
+  'analyze-deps',
+];
 const MILESTONE_SUBS: readonly string[] = ['complete'];
 const VALIDATE_SUBS: readonly string[] = ['consistency'];
 const TODO_SUBS: readonly string[] = ['complete'];
@@ -465,7 +686,15 @@ const TRACKER_SUBS: readonly string[] = [
   'record-status',
 ];
 const REQUIREMENT_SUBS: readonly string[] = ['get', 'list', 'traceability', 'update-status'];
-const WORKTREE_SUBS: readonly string[] = ['create', 'remove', 'list', 'push-pr', 'ensure-milestone-branch', 'merge', 'hook'];
+const WORKTREE_SUBS: readonly string[] = [
+  'create',
+  'remove',
+  'list',
+  'push-pr',
+  'ensure-milestone-branch',
+  'merge',
+  'hook',
+];
 const { INIT_WORKFLOWS } = require('../lib/cli/index') as { INIT_WORKFLOWS: readonly string[] };
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -494,9 +723,14 @@ async function main(): Promise<void> {
 // ─── Route Command ──────────────────────────────────────────────────────────
 
 /** Validate and route CLI commands */
-async function routeCommand(command: string, args: string[], cwd: string, raw: boolean): Promise<void> {
+async function routeCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  raw: boolean
+): Promise<void> {
   // Descriptor-based dispatch: check ROUTE_DESCRIPTORS before falling through to switch
-  const descriptor = ROUTE_DESCRIPTORS.find(d => d.command === command);
+  const descriptor = ROUTE_DESCRIPTORS.find((d) => d.command === command);
   if (descriptor) {
     return descriptor.handler(args, cwd, raw) as void;
   }
@@ -565,7 +799,9 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
       cmdCommit(
         cwd,
         args[1],
-        filesIndex !== -1 ? args.slice(filesIndex + 1).filter((a: string) => !a.startsWith('--')) : [],
+        filesIndex !== -1
+          ? args.slice(filesIndex + 1).filter((a: string) => !a.startsWith('--'))
+          : [],
         raw,
         args.includes('--amend')
       );
@@ -605,13 +841,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
       validateFileArg(file, cwd);
       if (sub === 'get') cmdFrontmatterGet(cwd, file, flag(args, '--field') ?? null, raw);
       else if (sub === 'set')
-        cmdFrontmatterSet(
-          cwd,
-          file,
-          flag(args, '--field') ?? '',
-          flag(args, '--value') ?? '',
-          raw
-        );
+        cmdFrontmatterSet(cwd, file, flag(args, '--field') ?? '', flag(args, '--value') ?? '', raw);
       else if (sub === 'merge') cmdFrontmatterMerge(cwd, file, flag(args, '--data') ?? '', raw);
       else if (sub === 'validate')
         cmdFrontmatterValidate(cwd, file, flag(args, '--schema') ?? '', raw);
@@ -687,8 +917,7 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
           args.splice(ctxIdx);
         }
         cmdPhaseAdd(cwd, args.slice(2).join(' '), raw, context);
-      }
-      else if (sub === 'insert') {
+      } else if (sub === 'insert') {
         validatePhaseArg(args[2]);
         cmdPhaseInsert(cwd, args[2], args.slice(3).join(' '), raw);
       } else if (sub === 'remove') {
@@ -712,7 +941,8 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
       validateSubcommand(sub, MILESTONE_SUBS as string[], 'milestone');
       if (sub === 'complete') {
         const ni: number = args.indexOf('--name');
-        const version: string | null = args.slice(2).find((a: string) => !a.startsWith('--')) || null;
+        const version: string | null =
+          args.slice(2).find((a: string) => !a.startsWith('--')) || null;
         cmdMilestoneComplete(
           cwd,
           version,
@@ -898,7 +1128,8 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
       break;
     case 'state-snapshot': {
       const sinceIdx: number = args.indexOf('--since');
-      const snapshotOptions: Record<string, string | undefined> = sinceIdx !== -1 ? { since: args[sinceIdx + 1] } : {};
+      const snapshotOptions: Record<string, string | undefined> =
+        sinceIdx !== -1 ? { since: args[sinceIdx + 1] } : {};
       cmdStateSnapshot(cwd, raw, snapshotOptions);
       break;
     }
@@ -1098,7 +1329,11 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
       cmdWorktreeHookRemove(cwd, args[1], args[2], raw);
       break;
     case 'coverage-report':
-      cmdCoverageReport(cwd, { threshold: parseInt(flag(args, '--threshold', '85') as string, 10) }, raw);
+      cmdCoverageReport(
+        cwd,
+        { threshold: parseInt(flag(args, '--threshold', '85') as string, 10) },
+        raw
+      );
       break;
     case 'health-check':
       cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw);
@@ -1194,18 +1429,62 @@ async function routeCommand(command: string, args: string[], cwd: string, raw: b
     }
     default: {
       const TOP_LEVEL_COMMANDS: readonly string[] = [
-        'state', 'resolve-model', 'find-phase', 'commit', 'verify-summary',
-        'template', 'frontmatter', 'verify', 'generate-slug', 'current-timestamp',
-        'list-todos', 'verify-path-exists', 'config-ensure-section', 'config-set',
-        'history-digest', 'phases', 'roadmap', 'phase', 'milestone', 'version',
-        'validate', 'progress', 'todo', 'scaffold', 'migrate-dirs', 'init',
-        'phase-plan-index', 'state-snapshot', 'summary-extract', 'tracker',
-        'dashboard', 'phase-detail', 'health', 'detect-backend', 'long-term-roadmap',
-        'quality-analysis', 'setup', 'search', 'requirement', 'worktree',
-        'evolve', 'autopilot', 'multi-milestone-autopilot', 'autoplan', 'worktree-hook-create', 'worktree-hook-remove',
-        'teammate-idle-hook', 'task-completed-hook', 'instructions-loaded-hook',
-        'stop-failure-hook', 'post-compact-hook',
-        'coverage-report', 'health-check', 'markdown-split', 'parallel-progress', 'overstory',
+        'state',
+        'resolve-model',
+        'find-phase',
+        'commit',
+        'verify-summary',
+        'template',
+        'frontmatter',
+        'verify',
+        'generate-slug',
+        'current-timestamp',
+        'list-todos',
+        'verify-path-exists',
+        'config-ensure-section',
+        'config-set',
+        'history-digest',
+        'phases',
+        'roadmap',
+        'phase',
+        'milestone',
+        'version',
+        'validate',
+        'progress',
+        'todo',
+        'scaffold',
+        'migrate-dirs',
+        'init',
+        'phase-plan-index',
+        'state-snapshot',
+        'summary-extract',
+        'tracker',
+        'dashboard',
+        'phase-detail',
+        'health',
+        'detect-backend',
+        'long-term-roadmap',
+        'quality-analysis',
+        'setup',
+        'search',
+        'requirement',
+        'worktree',
+        'evolve',
+        'autopilot',
+        'multi-milestone-autopilot',
+        'autoplan',
+        'worktree-hook-create',
+        'worktree-hook-remove',
+        'teammate-idle-hook',
+        'task-completed-hook',
+        'instructions-loaded-hook',
+        'stop-failure-hook',
+        'post-compact-hook',
+        'coverage-report',
+        'health-check',
+        'markdown-split',
+        'parallel-progress',
+        'overstory',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

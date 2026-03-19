@@ -12,7 +12,7 @@ export function buildToolArgs(
   subcommand: string | undefined,
   extraArgs: string[],
   jsonFlag: boolean,
-  passthrough: string[] = [],
+  passthrough: string[] = []
 ): string[] {
   const args: string[] = [command];
   if (subcommand) args.push(subcommand);
@@ -32,7 +32,7 @@ export function runToolCommand(
   extraArgs: string[],
   jsonFlag: boolean,
   cwd: string,
-  passthrough: string[] = [],
+  passthrough: string[] = []
 ): { exitCode: number; stdout: string; stderr: string } {
   const args = buildToolArgs(command, subcommand, extraArgs, jsonFlag, passthrough);
   const grdTools = join(__dirname, '..', '..', 'bin', 'grd-tools.js');

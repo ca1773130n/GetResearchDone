@@ -40,9 +40,7 @@ function currentMilestone(cwd: string): string {
   }
 
   // Extract the **Milestone:** field value
-  const fieldMatch: RegExpMatchArray | null = content.match(
-    /\*\*Milestone:\*\*\s*(.+)/i,
-  );
+  const fieldMatch: RegExpMatchArray | null = content.match(/\*\*Milestone:\*\*\s*(.+)/i);
   if (!fieldMatch) return inferMilestoneFromDisk(cwd);
 
   const fieldValue: string = fieldMatch[1].trim();
@@ -70,10 +68,7 @@ function inferMilestoneFromDisk(cwd: string): string {
     const entries: Dirent[] = fs.readdirSync(msDir, { withFileTypes: true });
     activeDirs = entries
       .filter(
-        (e: Dirent) =>
-          e.isDirectory() &&
-          !e.name.endsWith('-phases') &&
-          e.name !== 'anonymous',
+        (e: Dirent) => e.isDirectory() && !e.name.endsWith('-phases') && e.name !== 'anonymous'
       )
       .map((e: Dirent) => e.name);
   } catch {
@@ -99,21 +94,17 @@ function inferMilestoneFromDisk(cwd: string): string {
  */
 function parseRoadmapMilestone(cwd: string): string | null {
   try {
-    const raw: string = fs.readFileSync(
-      path.join(cwd, '.planning', 'ROADMAP.md'),
-      'utf-8',
-    );
+    const raw: string = fs.readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf-8');
     const roadmap: string = raw.replace(/<details>[\s\S]*?<\/details>/gi, '');
 
     // Strategy 1: "(in progress)" milestone bullet
     const inProgress: RegExpMatchArray | null = roadmap.match(
-      /-\s+(v[\d.]+)\s+[^\n(]+?\s*\(in progress\)/im,
+      /-\s+(v[\d.]+)\s+[^\n(]+?\s*\(in progress\)/im
     );
     if (inProgress) return inProgress[1];
 
     // Strategy 2: Last non-shipped milestone bullet
-    const bulletRegex =
-      /-\s+(v[\d.]+)\s+[^\n(]+?(?:\s*\(([^)]*)\))?\s*$/gim;
+    const bulletRegex = /-\s+(v[\d.]+)\s+[^\n(]+?(?:\s*\(([^)]*)\))?\s*$/gim;
     let lastNonShipped: string | null = null;
     let m: RegExpExecArray | null;
     while ((m = bulletRegex.exec(roadmap)) !== null) {
@@ -123,7 +114,7 @@ function parseRoadmapMilestone(cwd: string): string | null {
 
     // Strategy 3: Heading format "## vX.Y.Z: Name"
     const headingMatch: RegExpMatchArray | null = roadmap.match(
-      /^##\s+(?!#).*?(v\d+\.\d+(?:\.\d+)?)\s*[:\s]+([^\n(]+)/m,
+      /^##\s+(?!#).*?(v\d+\.\d+(?:\.\d+)?)\s*[:\s]+([^\n(]+)/m
     );
     if (headingMatch) return headingMatch[1];
   } catch {
@@ -164,17 +155,9 @@ function phasesDir(cwd: string, milestone?: string | null): string {
     milestone = currentMilestone(cwd);
   }
   const milestonesBase: string = path.join(cwd, '.planning', 'milestones');
-  const resolved: string = path.join(
-    milestoneRoot(cwd, milestone),
-    'phases',
-  );
-  if (
-    !resolved.startsWith(milestonesBase + path.sep) &&
-    resolved !== milestonesBase
-  ) {
-    throw new Error(
-      `Invalid milestone: path would escape .planning directory`,
-    );
+  const resolved: string = path.join(milestoneRoot(cwd, milestone), 'phases');
+  if (!resolved.startsWith(milestonesBase + path.sep) && resolved !== milestonesBase) {
+    throw new Error(`Invalid milestone: path would escape .planning directory`);
   }
   return resolved;
 }
@@ -184,17 +167,11 @@ function phasesDir(cwd: string, milestone?: string | null): string {
  *
  * Uses phasesDir() for the base path, inheriting its backward-compatible fallback.
  */
-function phaseDir(
-  cwd: string,
-  milestone: string | undefined,
-  phaseDirName: string,
-): string {
+function phaseDir(cwd: string, milestone: string | undefined, phaseDirName: string): string {
   const base: string = phasesDir(cwd, milestone);
   const resolved: string = path.join(base, phaseDirName);
   if (!resolved.startsWith(base + path.sep) && resolved !== base) {
-    throw new Error(
-      `Invalid phase directory: path would escape phases directory`,
-    );
+    throw new Error(`Invalid phase directory: path would escape phases directory`);
   }
   return resolved;
 }
@@ -253,13 +230,8 @@ function quickDir(cwd: string, milestone?: string | null): string {
 function archivedPhasesDir(cwd: string, version: string): string {
   const milestonesBase: string = path.join(cwd, '.planning', 'milestones');
   const resolved: string = path.join(milestonesBase, version + '-phases');
-  if (
-    !resolved.startsWith(milestonesBase + path.sep) &&
-    resolved !== milestonesBase
-  ) {
-    throw new Error(
-      `Invalid version: path would escape .planning directory`,
-    );
+  if (!resolved.startsWith(milestonesBase + path.sep) && resolved !== milestonesBase) {
+    throw new Error(`Invalid version: path would escape .planning directory`);
   }
   return resolved;
 }

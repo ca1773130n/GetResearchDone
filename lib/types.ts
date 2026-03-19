@@ -18,7 +18,14 @@
 /**
  * Valid backend identifiers for AI coding CLI detection.
  */
-export type BackendId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'overstory' | 'superpowers' | 'grd';
+export type BackendId =
+  | 'claude'
+  | 'codex'
+  | 'gemini'
+  | 'opencode'
+  | 'overstory'
+  | 'superpowers'
+  | 'grd';
 
 /**
  * Abstract model tiers mapped to backend-specific model names.
@@ -40,10 +47,7 @@ export type EffortLevel = 'low' | 'medium' | 'high';
  * Maps agent types to effort level selections per model profile.
  * Parallels AgentModelProfiles but for the effort dimension.
  */
-export type AgentEffortProfiles = Record<
-  string,
-  Record<ModelProfileName, EffortLevel>
->;
+export type AgentEffortProfiles = Record<string, Record<ModelProfileName, EffortLevel>>;
 
 /**
  * Maps abstract model tiers to backend-specific model name strings.
@@ -357,10 +361,7 @@ export interface RunCache {
  * Model profile table mapping agent types to tier selections per profile.
  * Used by MODEL_PROFILES constant in utils.js.
  */
-export type AgentModelProfiles = Record<
-  string,
-  Record<ModelProfileName, ModelTier>
->;
+export type AgentModelProfiles = Record<string, Record<ModelProfileName, ModelTier>>;
 
 // ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
 

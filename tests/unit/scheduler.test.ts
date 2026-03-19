@@ -171,8 +171,22 @@ describe('EWMA prediction', () => {
     const state = createBackendState(80000);
     const now = Date.now();
     state.samples = [
-      { backend: 'claude', timestamp: now - 20 * 60 * 1000, duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: 'old' },
-      { backend: 'claude', timestamp: now - 5 * 60 * 1000, duration: 5000, tokenEstimate: 12000, exitCode: 0, workItemId: 'recent' },
+      {
+        backend: 'claude',
+        timestamp: now - 20 * 60 * 1000,
+        duration: 5000,
+        tokenEstimate: 10000,
+        exitCode: 0,
+        workItemId: 'old',
+      },
+      {
+        backend: 'claude',
+        timestamp: now - 5 * 60 * 1000,
+        duration: 5000,
+        tokenEstimate: 12000,
+        exitCode: 0,
+        workItemId: 'recent',
+      },
     ];
     state.tokens_consumed_in_window = 22000;
     evictExpiredSamples(state, 15);
@@ -182,7 +196,14 @@ describe('EWMA prediction', () => {
   });
   it('recordSample updates consumed tokens and EWMA', () => {
     const state = createBackendState(80000);
-    const sample = { backend: 'claude' as const, timestamp: Date.now(), duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: 'test-1' };
+    const sample = {
+      backend: 'claude' as const,
+      timestamp: Date.now(),
+      duration: 5000,
+      tokenEstimate: 10000,
+      exitCode: 0,
+      workItemId: 'test-1',
+    };
     recordSample(state, sample, 15, 0.3);
     expect(state.tokens_consumed_in_window).toBe(10000);
     expect(state.ewma_tokens_per_task).toBe(10000);
@@ -191,7 +212,12 @@ describe('EWMA prediction', () => {
   it('budget_confidence increases with sample count', () => {
     const state = createBackendState(80000);
     state.samples = new Array(5).fill(null).map((_, i) => ({
-      backend: 'claude' as const, timestamp: Date.now(), duration: 5000, tokenEstimate: 10000, exitCode: 0, workItemId: `test-${i}`,
+      backend: 'claude' as const,
+      timestamp: Date.now(),
+      duration: 5000,
+      tokenEstimate: 10000,
+      exitCode: 0,
+      workItemId: `test-${i}`,
     }));
     expect(state.budget_confidence).toBe(0);
     recordSample(state, state.samples[0], 15, 0.3);
@@ -357,13 +383,8 @@ describe('Account-aware scheduling', () => {
       default_backend: 'claude',
       account_rotation: true,
       accounts: {
-        claude: [
-          { config_dir: '~/.claude-personal' },
-          { config_dir: '~/.claude-work' },
-        ],
-        codex: [
-          { config_dir: '~/.codex-main' },
-        ],
+        claude: [{ config_dir: '~/.claude-personal' }, { config_dir: '~/.claude-work' }],
+        codex: [{ config_dir: '~/.codex-main' }],
       },
       ...overrides,
     };
@@ -371,7 +392,7 @@ describe('Account-aware scheduling', () => {
 
   function makeAccountStates(
     superpowersConfig: SuperpowersConfig,
-    schedulerConfig: SchedulerConfig,
+    schedulerConfig: SchedulerConfig
   ): Map<string, BackendUsageState> {
     const states = new Map<string, BackendUsageState>();
     const accounts = superpowersConfig.accounts;
@@ -528,10 +549,7 @@ describe('Account-aware scheduling', () => {
       const superpowersConfig = makeSuperpowersConfig({
         accounts: {
           claude: [{ config_dir: '~/.claude-personal' }],
-          opencode: [
-            { config_dir: '~/.opencode-1' },
-            { config_dir: '~/.opencode-2' },
-          ],
+          opencode: [{ config_dir: '~/.opencode-1' }, { config_dir: '~/.opencode-2' }],
         },
       });
       const states = new Map<string, BackendUsageState>();
@@ -641,7 +659,13 @@ describe('Account-aware scheduling', () => {
 
   describe('ENV_VAR_MAP', () => {
     it('should map all adapter backends to env vars', () => {
-      const adapterBackends: AdapterBackendId[] = ['claude', 'codex', 'gemini', 'opencode', 'overstory'];
+      const adapterBackends: AdapterBackendId[] = [
+        'claude',
+        'codex',
+        'gemini',
+        'opencode',
+        'overstory',
+      ];
       for (const backend of adapterBackends) {
         expect(ENV_VAR_MAP[backend]).toBeDefined();
         expect(typeof ENV_VAR_MAP[backend]).toBe('string');
@@ -771,9 +795,7 @@ describe('Account-aware scheduling', () => {
             { config_dir: '~/.claude-2' },
             { config_dir: '~/.claude-3' },
           ],
-          codex: [
-            { config_dir: '~/.codex-1' },
-          ],
+          codex: [{ config_dir: '~/.codex-1' }],
         },
       });
 

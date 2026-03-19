@@ -14,14 +14,62 @@ const path = require('path');
 // Default mock discovery items — returned by spawnClaudeAsync as valid Claude output.
 // These replace the old hardcoded GRD-specific fallback (analyzeCodebaseForItems).
 const MOCK_DISCOVERY_ITEMS = [
-  { dimension: 'quality', slug: 'todo-alpha-L6', title: 'TODO marker in alpha.js', description: 'lib/alpha.js line 6 has a TODO comment that should be resolved.', effort: 'small' },
-  { dimension: 'usability', slug: 'jsdoc-beta-doOther', title: 'Missing JSDoc on doOther', description: 'lib/beta.js function doOther lacks JSDoc documentation.', effort: 'small' },
-  { dimension: 'stability', slug: 'empty-catch-gamma-L5', title: 'Empty catch block in gamma.js', description: 'lib/gamma.js line 5 has an empty catch block that swallows errors.', effort: 'small' },
-  { dimension: 'consistency', slug: 'process-exit-gamma-L10', title: 'Process.exit call in gamma.js', description: 'lib/gamma.js line 10 calls process.exit() — should throw instead.', effort: 'medium' },
-  { dimension: 'productivity', slug: 'long-func-alpha-doSomething', title: 'Long function doSomething', description: 'lib/alpha.js function doSomething could be refactored for clarity.', effort: 'medium' },
-  { dimension: 'improve-features', slug: 'improve-output-alpha-L8', title: 'Improve output in alpha.js', description: 'lib/alpha.js line 8 output could include human-readable format.', effort: 'small' },
-  { dimension: 'new-features', slug: 'add-dry-run-alpha', title: 'Add dry-run to alpha', description: 'lib/alpha.js doSomething could support a --dry-run flag.', effort: 'medium' },
-  { dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Add snapshot command', description: 'New /grd:snapshot command that captures full project state for comparison.', effort: 'medium' },
+  {
+    dimension: 'quality',
+    slug: 'todo-alpha-L6',
+    title: 'TODO marker in alpha.js',
+    description: 'lib/alpha.js line 6 has a TODO comment that should be resolved.',
+    effort: 'small',
+  },
+  {
+    dimension: 'usability',
+    slug: 'jsdoc-beta-doOther',
+    title: 'Missing JSDoc on doOther',
+    description: 'lib/beta.js function doOther lacks JSDoc documentation.',
+    effort: 'small',
+  },
+  {
+    dimension: 'stability',
+    slug: 'empty-catch-gamma-L5',
+    title: 'Empty catch block in gamma.js',
+    description: 'lib/gamma.js line 5 has an empty catch block that swallows errors.',
+    effort: 'small',
+  },
+  {
+    dimension: 'consistency',
+    slug: 'process-exit-gamma-L10',
+    title: 'Process.exit call in gamma.js',
+    description: 'lib/gamma.js line 10 calls process.exit() — should throw instead.',
+    effort: 'medium',
+  },
+  {
+    dimension: 'productivity',
+    slug: 'long-func-alpha-doSomething',
+    title: 'Long function doSomething',
+    description: 'lib/alpha.js function doSomething could be refactored for clarity.',
+    effort: 'medium',
+  },
+  {
+    dimension: 'improve-features',
+    slug: 'improve-output-alpha-L8',
+    title: 'Improve output in alpha.js',
+    description: 'lib/alpha.js line 8 output could include human-readable format.',
+    effort: 'small',
+  },
+  {
+    dimension: 'new-features',
+    slug: 'add-dry-run-alpha',
+    title: 'Add dry-run to alpha',
+    description: 'lib/alpha.js doSomething could support a --dry-run flag.',
+    effort: 'medium',
+  },
+  {
+    dimension: 'product-ideation',
+    slug: 'new-cmd-snapshot',
+    title: 'Add snapshot command',
+    description: 'New /grd:snapshot command that captures full project state for comparison.',
+    effort: 'medium',
+  },
 ];
 
 // Mock spawnClaude before any require of lib/evolve.js (which destructures it at load time)
@@ -664,38 +712,94 @@ describe('parseDiscoveryOutput', () => {
   test('emits stderr warning when >50% items have off-theme slugs', () => {
     // 3 off-theme slugs out of 4 total (75%) — should trigger warning
     const raw = JSON.stringify([
-      { dimension: 'quality', slug: 'improve-coverage-a', title: 'A', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'completely-random-1', title: 'B', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'completely-random-2', title: 'C', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'completely-random-3', title: 'D', description: 'D', effort: 'small' },
+      {
+        dimension: 'quality',
+        slug: 'improve-coverage-a',
+        title: 'A',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'completely-random-1',
+        title: 'B',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'completely-random-2',
+        title: 'C',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'completely-random-3',
+        title: 'D',
+        description: 'D',
+        effort: 'small',
+      },
     ]);
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrLines.push(String(data));
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrLines.push(String(data));
+        return true;
+      });
     const items = parseDiscoveryOutput(raw);
     stderrSpy.mockRestore();
     expect(items).toHaveLength(4);
-    expect(stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(true);
+    expect(
+      stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))
+    ).toBe(true);
   });
 
   test('does not warn when <=50% items are off-theme', () => {
     // 1 off-theme slug out of 4 total (25%) — should NOT trigger warning
     const raw = JSON.stringify([
-      { dimension: 'quality', slug: 'improve-coverage-a', title: 'A', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'improve-coverage-b', title: 'B', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'improve-coverage-c', title: 'C', description: 'D', effort: 'small' },
-      { dimension: 'quality', slug: 'completely-random', title: 'D', description: 'D', effort: 'small' },
+      {
+        dimension: 'quality',
+        slug: 'improve-coverage-a',
+        title: 'A',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'improve-coverage-b',
+        title: 'B',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'improve-coverage-c',
+        title: 'C',
+        description: 'D',
+        effort: 'small',
+      },
+      {
+        dimension: 'quality',
+        slug: 'completely-random',
+        title: 'D',
+        description: 'D',
+        effort: 'small',
+      },
     ]);
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrLines.push(String(data));
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrLines.push(String(data));
+        return true;
+      });
     parseDiscoveryOutput(raw);
     stderrSpy.mockRestore();
-    expect(stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))).toBe(false);
+    expect(
+      stderrLines.some((l: any) => l.includes('[evolve] WARNING') && l.includes('theme pattern'))
+    ).toBe(false);
   });
 });
 
@@ -754,7 +858,12 @@ describe('discoverWithClaude', () => {
     const fixture = createDiscoveryFixture();
 
     const stderrLines: string[] = [];
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((msg: string | Uint8Array) => { stderrLines.push(String(msg)); return true; });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((msg: string | Uint8Array) => {
+        stderrLines.push(String(msg));
+        return true;
+      });
     try {
       await discoverWithClaude(fixture);
     } finally {
@@ -770,16 +879,24 @@ describe('discoverWithClaude', () => {
 // ─── Product Ideation Discovery ─────────────────────────────────────────────
 
 describe('product ideation discovery', () => {
-
   describe('gatherProductContext', () => {
     test('returns ProductIdeationContext with all fields', () => {
       const dir = createTmpDir();
       // Create minimal planning files
       const planningDir = path.join(dir, '.planning');
       fs.mkdirSync(planningDir, { recursive: true });
-      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild great tools');
-      fs.writeFileSync(path.join(planningDir, 'LONG-TERM-ROADMAP.md'), '# LT Roadmap\n\n## LT-1: Foundation');
-      fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n### Phase 1\n\nDone');
+      fs.writeFileSync(
+        path.join(planningDir, 'PROJECT.md'),
+        '# Project\n\n## Vision\n\nBuild great tools'
+      );
+      fs.writeFileSync(
+        path.join(planningDir, 'LONG-TERM-ROADMAP.md'),
+        '# LT Roadmap\n\n## LT-1: Foundation'
+      );
+      fs.writeFileSync(
+        path.join(planningDir, 'ROADMAP.md'),
+        '# Roadmap\n\n## Phases\n\n### Phase 1\n\nDone'
+      );
 
       // Create commands and agents directories
       const cmdDir = path.join(dir, 'commands');
@@ -822,7 +939,10 @@ describe('product ideation discovery', () => {
       const dir = createTmpDir();
       const planningDir = path.join(dir, '.planning');
       fs.mkdirSync(planningDir, { recursive: true });
-      fs.writeFileSync(path.join(planningDir, 'PRODUCT-QUALITY.md'), '# Quality\n\nGap: missing onboarding');
+      fs.writeFileSync(
+        path.join(planningDir, 'PRODUCT-QUALITY.md'),
+        '# Quality\n\nGap: missing onboarding'
+      );
       const context = gatherProductContext(dir);
       expect(context.productQuality).toContain('missing onboarding');
     });
@@ -900,8 +1020,20 @@ describe('product ideation discovery', () => {
   describe('parseProductIdeationOutput', () => {
     test('parses valid JSON array with product-ideation items', () => {
       const raw = JSON.stringify([
-        { dimension: 'product-ideation', slug: 'new-cmd-snapshot', title: 'Snapshot', description: 'Capture state', effort: 'medium' },
-        { dimension: 'product-ideation', slug: 'new-workflow-review', title: 'Review Flow', description: 'Automated review', effort: 'small' },
+        {
+          dimension: 'product-ideation',
+          slug: 'new-cmd-snapshot',
+          title: 'Snapshot',
+          description: 'Capture state',
+          effort: 'medium',
+        },
+        {
+          dimension: 'product-ideation',
+          slug: 'new-workflow-review',
+          title: 'Review Flow',
+          description: 'Automated review',
+          effort: 'small',
+        },
       ]);
       const items = parseProductIdeationOutput(raw);
       expect(items).toHaveLength(2);
@@ -911,7 +1043,13 @@ describe('product ideation discovery', () => {
 
     test('rejects items with wrong dimension', () => {
       const raw = JSON.stringify([
-        { dimension: 'product-ideation', slug: 'new-cmd-a', title: 'A', description: 'Desc A', effort: 'small' },
+        {
+          dimension: 'product-ideation',
+          slug: 'new-cmd-a',
+          title: 'A',
+          description: 'Desc A',
+          effort: 'small',
+        },
         { dimension: 'quality', slug: 'fix-b', title: 'B', description: 'Desc B', effort: 'small' },
       ]);
       const items = parseProductIdeationOutput(raw);
@@ -925,16 +1063,31 @@ describe('product ideation discovery', () => {
     });
 
     test('strips markdown fences before parsing', () => {
-      const raw = '```json\n' + JSON.stringify([
-        { dimension: 'product-ideation', slug: 'new-cmd-x', title: 'X', description: 'Desc', effort: 'small' },
-      ]) + '\n```';
+      const raw =
+        '```json\n' +
+        JSON.stringify([
+          {
+            dimension: 'product-ideation',
+            slug: 'new-cmd-x',
+            title: 'X',
+            description: 'Desc',
+            effort: 'small',
+          },
+        ]) +
+        '\n```';
       const items = parseProductIdeationOutput(raw);
       expect(items).toHaveLength(1);
     });
 
     test('defaults effort to medium for invalid values', () => {
       const raw = JSON.stringify([
-        { dimension: 'product-ideation', slug: 'new-cmd-y', title: 'Y', description: 'Desc', effort: 'invalid' },
+        {
+          dimension: 'product-ideation',
+          slug: 'new-cmd-y',
+          title: 'Y',
+          description: 'Desc',
+          effort: 'invalid',
+        },
       ]);
       const items = parseProductIdeationOutput(raw);
       expect(items).toHaveLength(1);
@@ -958,11 +1111,20 @@ describe('product ideation discovery', () => {
       const dir = createTmpDir();
       const planningDir = path.join(dir, '.planning');
       fs.mkdirSync(planningDir, { recursive: true });
-      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+      fs.writeFileSync(
+        path.join(planningDir, 'PROJECT.md'),
+        '# Project\n\n## Vision\n\nBuild tools'
+      );
 
       // Mock spawnClaudeAsync to return product ideation items
       const mockItems = [
-        { dimension: 'product-ideation', slug: 'new-cmd-test', title: 'Test Cmd', description: 'A new command', effort: 'small' },
+        {
+          dimension: 'product-ideation',
+          slug: 'new-cmd-test',
+          title: 'Test Cmd',
+          description: 'A new command',
+          effort: 'small',
+        },
       ];
       autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
         exitCode: 0,
@@ -979,7 +1141,10 @@ describe('product ideation discovery', () => {
       const dir = createTmpDir();
       const planningDir = path.join(dir, '.planning');
       fs.mkdirSync(planningDir, { recursive: true });
-      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+      fs.writeFileSync(
+        path.join(planningDir, 'PROJECT.md'),
+        '# Project\n\n## Vision\n\nBuild tools'
+      );
 
       autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
         exitCode: 1,
@@ -995,7 +1160,10 @@ describe('product ideation discovery', () => {
       const dir = createTmpDir();
       const planningDir = path.join(dir, '.planning');
       fs.mkdirSync(planningDir, { recursive: true });
-      fs.writeFileSync(path.join(planningDir, 'PROJECT.md'), '# Project\n\n## Vision\n\nBuild tools');
+      fs.writeFileSync(
+        path.join(planningDir, 'PROJECT.md'),
+        '# Project\n\n## Vision\n\nBuild tools'
+      );
 
       autopilotModule.spawnClaudeAsync.mockResolvedValueOnce({
         exitCode: 0,
@@ -1212,15 +1380,19 @@ function captureOutput(fn: () => void) {
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
-    stdout += data;
-    return true;
-  });
+  const stdoutSpy = jest
+    .spyOn(process.stdout, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stdout += data;
+      return true;
+    });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-    stderr += data;
-    return true;
-  });
+  const stderrSpy = jest
+    .spyOn(process.stderr, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stderr += data;
+      return true;
+    });
 
   try {
     fn();
@@ -1253,15 +1425,19 @@ async function captureOutputAsync(fn: () => Promise<void>) {
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
-    stdout += data;
-    return true;
-  });
+  const stdoutSpy = jest
+    .spyOn(process.stdout, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stdout += data;
+      return true;
+    });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-    stderr += data;
-    return true;
-  });
+  const stderrSpy = jest
+    .spyOn(process.stderr, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stderr += data;
+      return true;
+    });
 
   try {
     await fn();
@@ -1610,8 +1786,14 @@ describe('groupDiscoveredItems', () => {
   test('custom dimensionWeights override default scoring', () => {
     // With custom weights: quality=100 (high), stability=1 (low)
     const items = [
-      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', { effort: 'medium', source: 'discovery' }),
-      createWorkItem('stability', 'fix-empty-catch-b-L5', 'B', 'D', { effort: 'medium', source: 'discovery' }),
+      createWorkItem('quality', 'improve-coverage-a', 'A', 'D', {
+        effort: 'medium',
+        source: 'discovery',
+      }),
+      createWorkItem('stability', 'fix-empty-catch-b-L5', 'B', 'D', {
+        effort: 'medium',
+        source: 'discovery',
+      }),
     ];
     const defaultGroups = groupDiscoveredItems(items);
     const customGroups = groupDiscoveredItems(items, { quality: 100, stability: 1 });
@@ -2054,7 +2236,9 @@ describe('runEvolve', () => {
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
     autopilotModule.spawnClaudeAsync.mockReset();
     autopilotModule.spawnClaudeAsync.mockResolvedValue({
-      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     });
   });
 
@@ -2128,7 +2312,9 @@ describe('cmdEvolve', () => {
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
     autopilotModule.spawnClaudeAsync.mockReset();
     autopilotModule.spawnClaudeAsync.mockResolvedValue({
-      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     });
   });
 
@@ -2191,7 +2377,9 @@ describe('runEvolve (grouped)', () => {
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
     autopilotModule.spawnClaudeAsync.mockReset();
     autopilotModule.spawnClaudeAsync.mockResolvedValue({
-      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     });
   });
 
@@ -2254,7 +2442,11 @@ describe('runEvolve (grouped)', () => {
     // Call 1: discovery (returns valid items from default mock)
     // Call 2: execute group 1 (should fail)
     // Remaining calls: pass
-    const defaultResult = { exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS) };
+    const defaultResult = {
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    };
     autopilotModule.spawnClaudeAsync
       .mockResolvedValueOnce(defaultResult) // discovery: succeed
       .mockResolvedValueOnce({ exitCode: 1, timedOut: false }) // execute group 1: fail
@@ -2606,7 +2798,9 @@ describe('runEvolve (worktree isolation)', () => {
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
     autopilotModule.spawnClaudeAsync.mockReset();
     autopilotModule.spawnClaudeAsync.mockResolvedValue({
-      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     });
     worktreeModule.createEvolveWorktree.mockReset();
     worktreeModule.removeEvolveWorktree.mockReset();
@@ -2732,7 +2926,9 @@ describe('cmdEvolve (--no-worktree flag)', () => {
     autopilotModule.spawnClaude.mockReturnValue({ exitCode: 0, timedOut: false });
     autopilotModule.spawnClaudeAsync.mockReset();
     autopilotModule.spawnClaudeAsync.mockResolvedValue({
-      exitCode: 0, timedOut: false, stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
     });
     worktreeModule.createEvolveWorktree.mockReset();
   });
@@ -2768,15 +2964,19 @@ async function captureAsyncOutput(fn: () => Promise<void>) {
     throw err;
   });
 
-  const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((data: string | Uint8Array) => {
-    stdout += data;
-    return true;
-  });
+  const stdoutSpy = jest
+    .spyOn(process.stdout, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stdout += data;
+      return true;
+    });
 
-  const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-    stderr += data;
-    return true;
-  });
+  const stderrSpy = jest
+    .spyOn(process.stderr, 'write')
+    .mockImplementation((data: string | Uint8Array) => {
+      stderr += data;
+      return true;
+    });
 
   try {
     await fn();
@@ -2798,10 +2998,12 @@ async function captureAsyncOutput(fn: () => Promise<void>) {
 describe('analyzeCodebaseForItems — logs to stderr on unexpected discoverer errors', () => {
   test('logs to stderr when lib/ is a file (ENOTDIR) instead of silently dropping errors', () => {
     let stderrOutput = '';
-    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-      stderrOutput += data;
-      return true;
-    });
+    const stderrSpy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((data: string | Uint8Array) => {
+        stderrOutput += data;
+        return true;
+      });
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-discover-err-test-'));
     try {
@@ -2857,16 +3059,21 @@ describe('writeDiscoveriesToTodos', () => {
       {
         id: 'usability/add-jsdoc',
         theme: 'jsdoc-gaps',
-        items: [
-          { title: 'Missing JSDoc on bar()', description: 'lib/bar.js is missing JSDoc' },
-        ],
+        items: [{ title: 'Missing JSDoc on bar()', description: 'lib/bar.js is missing JSDoc' }],
       },
     ];
 
     const created = writeDiscoveriesToTodos(tmpDir, groups);
     expect(created).toBe(2);
 
-    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const pendingDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending'
+    );
     const files = fs.readdirSync(pendingDir);
     expect(files.length).toBe(2);
     expect(files.some((f: any) => f.startsWith('evolve-'))).toBe(true);
@@ -2895,7 +3102,14 @@ describe('writeDiscoveriesToTodos', () => {
     const secondRun = writeDiscoveriesToTodos(tmpDir, groups);
     expect(secondRun).toBe(0);
 
-    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const pendingDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending'
+    );
     const files = fs.readdirSync(pendingDir);
     expect(files.length).toBe(1);
   });
@@ -2927,7 +3141,14 @@ describe('writeDiscoveriesToTodos', () => {
 
     writeDiscoveriesToTodos(tmpDir, groups);
 
-    const pendingDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'todos', 'pending');
+    const pendingDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending'
+    );
     const files = fs.readdirSync(pendingDir);
     const content = fs.readFileSync(path.join(pendingDir, files[0]), 'utf-8');
 
@@ -3016,12 +3237,11 @@ describe('runInfiniteEvolve', () => {
     // Actually, runInfiniteEvolve calls runGroupDiscovery from the orchestrator module
     // which calls the discovery module. Since spawnClaudeAsync is mocked, discovery
     // will use that mock. Let's override spawnClaudeAsync to return our mock items.
-    (autopilotModule.spawnClaudeAsync as jest.Mock)
-      .mockResolvedValueOnce({
-        exitCode: 0,
-        timedOut: false,
-        stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
-      });
+    (autopilotModule.spawnClaudeAsync as jest.Mock).mockResolvedValueOnce({
+      exitCode: 0,
+      timedOut: false,
+      stdout: JSON.stringify(MOCK_DISCOVERY_ITEMS),
+    });
 
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
     expect(result.cycles_attempted).toBeGreaterThanOrEqual(1);
@@ -3076,9 +3296,7 @@ describe('runInfiniteEvolve', () => {
     // Should stop because no groups were discovered
     expect(result.cycles_attempted).toBeLessThanOrEqual(2);
     // Check that some cycle had 0 discovery groups
-    const emptyDiscoveryCycle = result.cycle_results.find(
-      (c: any) => c.discovery_groups === 0
-    );
+    const emptyDiscoveryCycle = result.cycle_results.find((c: any) => c.discovery_groups === 0);
     if (emptyDiscoveryCycle) {
       expect(emptyDiscoveryCycle.autoplan_status).toBe('skipped');
       expect(emptyDiscoveryCycle.autopilot_status).toBe('skipped');
@@ -3106,9 +3324,7 @@ describe('runInfiniteEvolve', () => {
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 2 });
     // First cycle should show autoplan failure
     if (result.cycle_results.length > 0) {
-      const failedCycle = result.cycle_results.find(
-        (c: any) => c.autoplan_status === 'failed'
-      );
+      const failedCycle = result.cycle_results.find((c: any) => c.autoplan_status === 'failed');
       if (failedCycle) {
         expect(failedCycle.autopilot_status).toBe('skipped');
         expect(failedCycle.reason).toContain('Autoplan failed');
@@ -3128,9 +3344,7 @@ describe('runInfiniteEvolve', () => {
 
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
     if (result.cycle_results.length > 0) {
-      const cycle = result.cycle_results.find(
-        (c: any) => c.autopilot_status === 'failed'
-      );
+      const cycle = result.cycle_results.find((c: any) => c.autopilot_status === 'failed');
       if (cycle) {
         expect(cycle.autoplan_status).toBe('completed');
         expect(cycle.reason).toContain('Phase 1 plan failed');
@@ -3166,8 +3380,9 @@ describe('runInfiniteEvolve', () => {
   });
 
   test('handles autoplan throwing an exception', async () => {
-    (autoplanModule.runAutoplan as jest.Mock)
-      .mockRejectedValueOnce(new Error('Subprocess crashed'));
+    (autoplanModule.runAutoplan as jest.Mock).mockRejectedValueOnce(
+      new Error('Subprocess crashed')
+    );
 
     // Second discovery returns nothing to stop loop
     (autopilotModule.spawnClaudeAsync as jest.Mock)
@@ -3183,22 +3398,19 @@ describe('runInfiniteEvolve', () => {
       });
 
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 2 });
-    const failedCycle = result.cycle_results.find(
-      (c: any) => c.autoplan_status === 'failed'
-    );
+    const failedCycle = result.cycle_results.find((c: any) => c.autoplan_status === 'failed');
     if (failedCycle) {
       expect(failedCycle.reason).toContain('Subprocess crashed');
     }
   });
 
   test('handles autopilot throwing an exception', async () => {
-    (autopilotModule.runMultiMilestoneAutopilot as jest.Mock)
-      .mockRejectedValueOnce(new Error('Autopilot crashed'));
+    (autopilotModule.runMultiMilestoneAutopilot as jest.Mock).mockRejectedValueOnce(
+      new Error('Autopilot crashed')
+    );
 
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
-    const failedCycle = result.cycle_results.find(
-      (c: any) => c.autopilot_status === 'failed'
-    );
+    const failedCycle = result.cycle_results.find((c: any) => c.autopilot_status === 'failed');
     if (failedCycle) {
       expect(failedCycle.reason).toContain('Autopilot crashed');
     }
@@ -3207,12 +3419,11 @@ describe('runInfiniteEvolve', () => {
   test('handles discovery returning empty results (no improvements)', async () => {
     // When spawnClaudeAsync fails, runGroupDiscovery catches it internally
     // and returns 0 selected groups, causing runInfiniteEvolve to stop gracefully
-    (autopilotModule.spawnClaudeAsync as jest.Mock)
-      .mockResolvedValueOnce({
-        exitCode: 0,
-        timedOut: false,
-        stdout: '[]',
-      });
+    (autopilotModule.spawnClaudeAsync as jest.Mock).mockResolvedValueOnce({
+      exitCode: 0,
+      timedOut: false,
+      stdout: '[]',
+    });
 
     const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
     // Should stop because no groups were discovered

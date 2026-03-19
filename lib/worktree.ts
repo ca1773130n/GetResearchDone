@@ -181,18 +181,11 @@ function ensureWorktreesDir(cwd: string): boolean {
     // No .gitignore yet — will create
   }
   if (!gitignoreContent.includes('.worktrees')) {
-    const newline =
-      gitignoreContent.length > 0 && !gitignoreContent.endsWith('\n') ? '\n' : '';
+    const newline = gitignoreContent.length > 0 && !gitignoreContent.endsWith('\n') ? '\n' : '';
     try {
-      fs.writeFileSync(
-        gitignorePath,
-        gitignoreContent + newline + '.worktrees/\n',
-        'utf-8'
-      );
+      fs.writeFileSync(gitignorePath, gitignoreContent + newline + '.worktrees/\n', 'utf-8');
     } catch (e) {
-      process.stderr.write(
-        'Warning: could not update .gitignore: ' + (e as Error).message + '\n'
-      );
+      process.stderr.write('Warning: could not update .gitignore: ' + (e as Error).message + '\n');
       return false;
     }
   }
@@ -202,12 +195,7 @@ function ensureWorktreesDir(cwd: string): boolean {
 /**
  * Compute the branch name for a worktree using the config template.
  */
-function worktreeBranch(
-  cwd: string,
-  milestone: string,
-  phase: string,
-  slug: string
-): string {
+function worktreeBranch(cwd: string, milestone: string, phase: string, slug: string): string {
   const config: GrdConfig = loadConfig(cwd);
   const template: string = config.phase_branch_template || 'grd/{milestone}/{phase}-{slug}';
   return template
@@ -297,8 +285,7 @@ function getGrdWorktrees(cwd: string): GrdWorktreeEntry[] {
   return all
     .filter(
       (wt: WorktreeEntry) =>
-        wt.path.startsWith(worktreesDir) &&
-        path.basename(wt.path).startsWith('grd-worktree-')
+        wt.path.startsWith(worktreesDir) && path.basename(wt.path).startsWith('grd-worktree-')
     )
     .map((wt: WorktreeEntry): GrdWorktreeEntry => {
       const meta: WorktreeParsedName | null = parseWorktreeName(wt.path);
@@ -326,11 +313,7 @@ function getGrdWorktrees(cwd: string): GrdWorktreeEntry[] {
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout and exits)
  */
-function cmdWorktreeCreate(
-  cwd: string,
-  options: WorktreeCreateOptions,
-  raw: boolean
-): void {
+function cmdWorktreeCreate(cwd: string, options: WorktreeCreateOptions, raw: boolean): void {
   const { phase, slug, startPoint } = options;
   if (!phase) {
     error('phase is required for worktree create');
@@ -364,10 +347,7 @@ function cmdWorktreeCreate(
   if (startPoint) {
     const check: ExecGitResult = execGit(cwd, ['rev-parse', '--verify', startPoint]);
     if (check.exitCode !== 0) {
-      output(
-        { error: `Start point '${startPoint}' not found`, details: check.stderr },
-        raw
-      );
+      output({ error: `Start point '${startPoint}' not found`, details: check.stderr }, raw);
       return; // unreachable
     }
   }
@@ -420,11 +400,7 @@ function cmdWorktreeCreate(
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout and exits)
  */
-function cmdWorktreeRemove(
-  cwd: string,
-  options: WorktreeRemoveOptions,
-  raw: boolean
-): void {
+function cmdWorktreeRemove(cwd: string, options: WorktreeRemoveOptions, raw: boolean): void {
   let wtPath: string;
 
   if (options.path) {
@@ -448,11 +424,9 @@ function cmdWorktreeRemove(
   }
 
   // Try to remove via git worktree remove (--force for GRD-managed temp worktrees)
-  const removeResult: ExecGitResult = execGit(
-    cwd,
-    ['worktree', 'remove', wtPath, '--force'],
-    { allowBlocked: true }
-  );
+  const removeResult: ExecGitResult = execGit(cwd, ['worktree', 'remove', wtPath, '--force'], {
+    allowBlocked: true,
+  });
   if (removeResult.exitCode !== 0) {
     process.stderr.write(
       'Warning: git worktree remove failed: ' +
@@ -545,11 +519,7 @@ function cmdWorktreeRemoveStale(cwd: string, raw: boolean): void {
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout and exits)
  */
-function cmdWorktreePushAndPR(
-  cwd: string,
-  options: Record<string, string>,
-  raw: boolean
-): void {
+function cmdWorktreePushAndPR(cwd: string, options: Record<string, string>, raw: boolean): void {
   const { phase } = options;
   if (!phase) {
     output({ error: 'phase is required for worktree push-pr' }, raw);
@@ -569,11 +539,7 @@ function cmdWorktreePushAndPR(
   }
 
   // Read the actual branch name from the worktree HEAD (more robust than recomputing)
-  const headResult: ExecGitResult = execGit(wtPath, [
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD',
-  ]);
+  const headResult: ExecGitResult = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
   const branch: string =
     headResult.exitCode === 0 && headResult.stdout
       ? headResult.stdout.trim()
@@ -613,26 +579,14 @@ function cmdWorktreePushAndPR(
 
   // Build PR body
   const body: string =
-    options.body ||
-    `## Phase ${phase}\n\nMilestone: ${milestone}\nBranch: ${branch}\n`;
+    options.body || `## Phase ${phase}\n\nMilestone: ${milestone}\nBranch: ${branch}\n`;
 
   // Create PR via gh CLI
   let ghOutput: string;
   try {
     ghOutput = execFileSync(
       'gh',
-      [
-        'pr',
-        'create',
-        '--title',
-        title,
-        '--body',
-        body,
-        '--base',
-        baseBranch,
-        '--head',
-        branch,
-      ],
+      ['pr', 'create', '--title', title, '--body', body, '--base', baseBranch, '--head', branch],
       { cwd: wtPath, stdio: 'pipe', encoding: 'utf-8' }
     ) as string;
   } catch (ghErr) {
@@ -660,8 +614,7 @@ function cmdWorktreePushAndPR(
   // gh pr create outputs the PR URL on stdout
   const prUrl: string = ghOutput.trim();
   const urlParts: string[] = prUrl.split('/');
-  const prNumber: string | null =
-    urlParts.length > 0 ? urlParts[urlParts.length - 1] : null;
+  const prNumber: string | null = urlParts.length > 0 ? urlParts[urlParts.length - 1] : null;
 
   output(
     {
@@ -691,9 +644,7 @@ function cmdWorktreePushAndPR(
  * @param cwd - Project working directory
  * @returns EvolveWorktreeResult with path, branch, baseBranch, and created timestamp, or EvolveWorktreeError with error message
  */
-function createEvolveWorktree(
-  cwd: string
-): EvolveWorktreeResult | EvolveWorktreeError {
+function createEvolveWorktree(cwd: string): EvolveWorktreeResult | EvolveWorktreeError {
   // Verify git repo
   const revParse: ExecGitResult = execGit(cwd, ['rev-parse', '--git-dir']);
   if (revParse.exitCode !== 0) {
@@ -722,14 +673,7 @@ function createEvolveWorktree(
     return { error: `Worktree already exists at ${wtPath}` };
   }
 
-  const result: ExecGitResult = execGit(cwd, [
-    'worktree',
-    'add',
-    '-b',
-    branch,
-    wtPath,
-    baseBranch,
-  ]);
+  const result: ExecGitResult = execGit(cwd, ['worktree', 'add', '-b', branch, wtPath, baseBranch]);
   if (result.exitCode !== 0) {
     return { error: `Failed to create worktree: ${result.stderr}` };
   }
@@ -775,11 +719,7 @@ function pushAndCreatePR(
   options: PushPROptions = {}
 ): PushPRSuccessResult | PushPRErrorResult {
   // Read branch from worktree HEAD
-  const headResult: ExecGitResult = execGit(wtPath, [
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD',
-  ]);
+  const headResult: ExecGitResult = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
   if (headResult.exitCode !== 0) {
     return { error: 'Failed to determine worktree branch' };
   }
@@ -808,18 +748,7 @@ function pushAndCreatePR(
   try {
     ghOutput = execFileSync(
       'gh',
-      [
-        'pr',
-        'create',
-        '--title',
-        title,
-        '--body',
-        body,
-        '--base',
-        baseBranch,
-        '--head',
-        branch,
-      ],
+      ['pr', 'create', '--title', title, '--body', body, '--base', baseBranch, '--head', branch],
       { cwd: wtPath, stdio: 'pipe', encoding: 'utf-8' }
     ) as string;
   } catch (ghErr) {
@@ -846,8 +775,7 @@ function cmdWorktreeEnsureMilestoneBranch(
   options: Record<string, string>,
   raw: boolean
 ): void {
-  const milestoneVersion: string =
-    options.milestone || getMilestoneInfo(cwd).version;
+  const milestoneVersion: string = options.milestone || getMilestoneInfo(cwd).version;
   const config: GrdConfig = loadConfig(cwd);
   const baseBranch: string = options.baseBranch || config.base_branch || 'main';
   const branch: string = milestoneBranch(cwd, milestoneVersion);
@@ -860,26 +788,16 @@ function cmdWorktreeEnsureMilestoneBranch(
   }
 
   // Verify base branch exists
-  const baseCheck: ExecGitResult = execGit(cwd, [
-    'rev-parse',
-    '--verify',
-    baseBranch,
-  ]);
+  const baseCheck: ExecGitResult = execGit(cwd, ['rev-parse', '--verify', baseBranch]);
   if (baseCheck.exitCode !== 0) {
-    output(
-      { error: `Base branch '${baseBranch}' not found`, details: baseCheck.stderr },
-      raw
-    );
+    output({ error: `Base branch '${baseBranch}' not found`, details: baseCheck.stderr }, raw);
     return; // unreachable
   }
 
   // Create branch without checkout
   const result: ExecGitResult = execGit(cwd, ['branch', branch, baseBranch]);
   if (result.exitCode !== 0) {
-    output(
-      { error: 'Failed to create milestone branch', details: result.stderr },
-      raw
-    );
+    output({ error: 'Failed to create milestone branch', details: result.stderr }, raw);
     return; // unreachable
   }
 
@@ -911,8 +829,7 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
     return; // unreachable — error() calls process.exit()
   }
 
-  const milestoneVersion: string =
-    options.milestone || getMilestoneInfo(cwd).version;
+  const milestoneVersion: string = options.milestone || getMilestoneInfo(cwd).version;
   const phaseBranch: string =
     options.branch || worktreeBranch(cwd, milestoneVersion, phase, slug || phase);
 
@@ -934,35 +851,22 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   }
 
   // Verify target branch exists
-  const targetCheck: ExecGitResult = execGit(cwd, [
-    'rev-parse',
-    '--verify',
-    targetBranch,
-  ]);
+  const targetCheck: ExecGitResult = execGit(cwd, ['rev-parse', '--verify', targetBranch]);
   if (targetCheck.exitCode !== 0) {
     output({ error: `Target branch '${targetBranch}' not found` }, raw);
     return; // unreachable
   }
 
   // Verify phase branch exists
-  const phaseCheck: ExecGitResult = execGit(cwd, [
-    'rev-parse',
-    '--verify',
-    phaseBranch,
-  ]);
+  const phaseCheck: ExecGitResult = execGit(cwd, ['rev-parse', '--verify', phaseBranch]);
   if (phaseCheck.exitCode !== 0) {
     output({ error: `Phase branch '${phaseBranch}' not found` }, raw);
     return; // unreachable
   }
 
   // Record current branch
-  const headResult: ExecGitResult = execGit(cwd, [
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD',
-  ]);
-  const originalBranch: string =
-    headResult.exitCode === 0 ? headResult.stdout.trim() : 'main';
+  const headResult: ExecGitResult = execGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const originalBranch: string = headResult.exitCode === 0 ? headResult.stdout.trim() : 'main';
 
   // Checkout target branch
   const coResult: ExecGitResult = execGit(cwd, ['checkout', targetBranch]);
@@ -995,7 +899,9 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
     execGit(cwd, ['merge', '--abort']);
     const abortRestore = execGit(cwd, ['checkout', originalBranch]);
     if (abortRestore.exitCode !== 0) {
-      process.stderr.write(`[grd] WARNING: failed to restore branch ${originalBranch} after merge abort\n`);
+      process.stderr.write(
+        `[grd] WARNING: failed to restore branch ${originalBranch} after merge abort\n`
+      );
     }
     output(
       {
@@ -1049,13 +955,7 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout and exits)
  */
-function cmdWorktreeHookCreate(
-  cwd: string,
-  wtPath: string,
-  wtBranch: string,
-  raw: boolean
-): void {
-
+function cmdWorktreeHookCreate(cwd: string, wtPath: string, wtBranch: string, raw: boolean): void {
   // No-op when GRD is inactive
   if (!fs.existsSync(path.join(cwd, '.planning'))) {
     output({ skipped: true, reason: 'no .planning directory' }, raw);
@@ -1094,18 +994,12 @@ function cmdWorktreeHookCreate(
       const milestone: MilestoneInfo = getMilestoneInfo(cwd);
       const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phase);
       const slug: string = phaseInfo
-        ? generateSlugInternal(phaseInfo.phase_slug || phaseInfo.phase_name || '') ||
-          phase
+        ? generateSlugInternal(phaseInfo.phase_slug || phaseInfo.phase_name || '') || phase
         : phase;
       const grdBranch: string = worktreeBranch(cwd, milestone.version, phase, slug);
 
       if (grdBranch !== wtBranch) {
-        const renameResult: ExecGitResult = execGit(wtPath, [
-          'branch',
-          '-m',
-          wtBranch,
-          grdBranch,
-        ]);
+        const renameResult: ExecGitResult = execGit(wtPath, ['branch', '-m', wtBranch, grdBranch]);
         if (renameResult.exitCode === 0) {
           output(
             {
@@ -1168,13 +1062,7 @@ function cmdWorktreeHookCreate(
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout and exits)
  */
-function cmdWorktreeHookRemove(
-  cwd: string,
-  wtPath: string,
-  wtBranch: string,
-  raw: boolean
-): void {
-
+function cmdWorktreeHookRemove(cwd: string, wtPath: string, wtBranch: string, raw: boolean): void {
   // No-op when GRD is inactive
   if (!fs.existsSync(path.join(cwd, '.planning'))) {
     output({ skipped: true, reason: 'no .planning directory' }, raw);
@@ -1221,10 +1109,7 @@ function cmdWorktreeHookRemove(
  * - AGENT_ID: unique identifier of the idle agent
  * - AGENT_TYPE: type of the agent (e.g., "task", "teammate")
  */
-function cmdTeammateIdleHook(
-  _cwd: string,
-  raw: boolean
-): void {
+function cmdTeammateIdleHook(_cwd: string, raw: boolean): void {
   const agentId = process.env.AGENT_ID || 'unknown';
   const agentType = process.env.AGENT_TYPE || 'unknown';
 
@@ -1254,10 +1139,7 @@ function cmdTeammateIdleHook(
  * - AGENT_ID: unique identifier of the completed task agent
  * - AGENT_TYPE: type of the agent
  */
-function cmdTaskCompletedHook(
-  _cwd: string,
-  raw: boolean
-): void {
+function cmdTaskCompletedHook(_cwd: string, raw: boolean): void {
   const agentId = process.env.AGENT_ID || 'unknown';
   const agentType = process.env.AGENT_TYPE || 'unknown';
 
@@ -1285,10 +1167,7 @@ function cmdTaskCompletedHook(
  * - AGENT_ID: unique identifier of the agent loading instructions
  * - AGENT_TYPE: type of the agent
  */
-function cmdInstructionsLoadedHook(
-  cwd: string,
-  raw: boolean
-): void {
+function cmdInstructionsLoadedHook(cwd: string, raw: boolean): void {
   const agentId = process.env.AGENT_ID || 'unknown';
   const agentType = process.env.AGENT_TYPE || 'unknown';
   const planningDir = path.join(cwd, '.planning');
@@ -1328,10 +1207,7 @@ function cmdInstructionsLoadedHook(
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout)
  */
-function cmdStopFailureHook(
-  cwd: string,
-  raw: boolean
-): void {
+function cmdStopFailureHook(cwd: string, raw: boolean): void {
   const stopReason = process.env.STOP_REASON || 'unknown';
   const errorMessage = process.env.ERROR_MESSAGE || '';
   const agentId = process.env.AGENT_ID || 'unknown';
@@ -1365,9 +1241,7 @@ function cmdStopFailureHook(
   };
 
   if (raw) {
-    process.stdout.write(
-      `StopFailure: reason=${stopReason} agent=${agentId} logged=${logged}\n`
-    );
+    process.stdout.write(`StopFailure: reason=${stopReason} agent=${agentId} logged=${logged}\n`);
   } else {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   }
@@ -1388,10 +1262,7 @@ function cmdStopFailureHook(
  * @param raw - If true, output raw text instead of JSON
  * @returns void (outputs JSON or raw text to stdout)
  */
-function cmdPostCompactHook(
-  _cwd: string,
-  raw: boolean
-): void {
+function cmdPostCompactHook(_cwd: string, raw: boolean): void {
   const agentId = process.env.AGENT_ID || 'unknown';
   const agentType = process.env.AGENT_TYPE || 'unknown';
 

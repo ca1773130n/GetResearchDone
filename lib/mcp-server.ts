@@ -105,26 +105,46 @@ const {
   cmdFrontmatterValidate,
 }: {
   cmdFrontmatterGet: (cwd: string, file: string, field: string | null, raw: boolean) => void;
-  cmdFrontmatterSet: (cwd: string, file: string, field: string, value: string, raw: boolean) => void;
+  cmdFrontmatterSet: (
+    cwd: string,
+    file: string,
+    field: string,
+    value: string,
+    raw: boolean
+  ) => void;
   cmdFrontmatterMerge: (cwd: string, file: string, data: string, raw: boolean) => void;
   cmdFrontmatterValidate: (cwd: string, file: string, schema: string | null, raw: boolean) => void;
 } = require('./frontmatter');
 
-const { cmdRoadmapGetPhase, cmdPhaseNextDecimal, cmdRoadmapAnalyze }: {
+const {
+  cmdRoadmapGetPhase,
+  cmdPhaseNextDecimal,
+  cmdRoadmapAnalyze,
+}: {
   cmdRoadmapGetPhase: (cwd: string, phase: string, raw: boolean) => void;
   cmdPhaseNextDecimal: (cwd: string, phase: string, raw: boolean) => void;
   cmdRoadmapAnalyze: (cwd: string, raw: boolean) => void;
 } = require('./roadmap');
-const { cmdPhaseAnalyzeDeps }: {
+const {
+  cmdPhaseAnalyzeDeps,
+}: {
   cmdPhaseAnalyzeDeps: (cwd: string, raw: boolean) => void;
 } = require('./deps');
-const { cmdAutopilot, cmdInitAutopilot, cmdMultiMilestoneAutopilot, cmdInitMultiMilestoneAutopilot }: {
+const {
+  cmdAutopilot,
+  cmdInitAutopilot,
+  cmdMultiMilestoneAutopilot,
+  cmdInitMultiMilestoneAutopilot,
+}: {
   cmdAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitAutopilot: (cwd: string, raw: boolean) => void;
   cmdMultiMilestoneAutopilot: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitMultiMilestoneAutopilot: (cwd: string, raw: boolean) => void;
 } = require('./autopilot');
-const { cmdAutoplan, cmdInitAutoplan }: {
+const {
+  cmdAutoplan,
+  cmdInitAutoplan,
+}: {
   cmdAutoplan: (cwd: string, args: string[], raw: boolean) => Promise<void>;
   cmdInitAutoplan: (cwd: string, raw: boolean) => void;
 } = require('./autoplan');
@@ -143,8 +163,15 @@ const {
   cmdEvolveReset: (cwd: string, args: string[], raw: boolean) => void;
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
 } = require('./evolve');
-const { splitMarkdown, isIndexFile, estimateTokens }: {
-  splitMarkdown: (content: string, opts: { threshold?: number; basename: string }) => {
+const {
+  splitMarkdown,
+  isIndexFile,
+  estimateTokens,
+}: {
+  splitMarkdown: (
+    content: string,
+    opts: { threshold?: number; basename: string }
+  ) => {
     split_performed: boolean;
     reason?: string;
     index_content?: string;
@@ -153,12 +180,28 @@ const { splitMarkdown, isIndexFile, estimateTokens }: {
   isIndexFile: (content: string) => boolean;
   estimateTokens: (content: string) => number;
 } = require('./markdown-split');
-const { cmdInitExecuteParallel }: {
-  cmdInitExecuteParallel: (cwd: string, phases: string[], includes: Set<string>, raw: boolean) => void;
+const {
+  cmdInitExecuteParallel,
+}: {
+  cmdInitExecuteParallel: (
+    cwd: string,
+    phases: string[],
+    includes: Set<string>,
+    raw: boolean
+  ) => void;
 } = require('./parallel');
-const { cmdTemplateSelect, cmdTemplateFill, cmdScaffold }: {
+const {
+  cmdTemplateSelect,
+  cmdTemplateFill,
+  cmdScaffold,
+}: {
   cmdTemplateSelect: (cwd: string, type: string, raw: boolean) => void;
-  cmdTemplateFill: (cwd: string, template: string, opts: Record<string, unknown>, raw: boolean) => void;
+  cmdTemplateFill: (
+    cwd: string,
+    template: string,
+    opts: Record<string, unknown>,
+    raw: boolean
+  ) => void;
   cmdScaffold: (cwd: string, type: string, opts: Record<string, unknown>, raw: boolean) => void;
 } = require('./scaffold');
 
@@ -194,11 +237,18 @@ const {
   cmdPhaseInsert: (cwd: string, phase: string, description: string, raw: boolean) => void;
   cmdPhaseRemove: (cwd: string, phase: string, opts: Record<string, unknown>, raw: boolean) => void;
   cmdPhaseComplete: (cwd: string, phase: string, raw: boolean) => void;
-  cmdMilestoneComplete: (cwd: string, version: string, opts: Record<string, unknown>, raw: boolean) => void;
+  cmdMilestoneComplete: (
+    cwd: string,
+    version: string,
+    opts: Record<string, unknown>,
+    raw: boolean
+  ) => void;
   cmdValidateConsistency: (cwd: string, raw: boolean) => void;
 } = require('./phase');
 
-const { cmdTracker }: {
+const {
+  cmdTracker,
+}: {
   cmdTracker: (cwd: string, subcommand: string, args: string[] | unknown[], raw: boolean) => void;
 } = require('./tracker');
 
@@ -277,7 +327,13 @@ const {
   cmdInitMilestoneOp: (cwd: string, raw: boolean) => void;
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
   cmdInitProgress: (cwd: string, includes: Set<string>, raw: boolean) => void;
-  cmdInitResearchWorkflow: (cwd: string, workflow: string, topic: string, includes: Set<string>, raw: boolean) => void;
+  cmdInitResearchWorkflow: (
+    cwd: string,
+    workflow: string,
+    topic: string,
+    includes: Set<string>,
+    raw: boolean
+  ) => void;
   cmdInitPlanMilestoneGaps: (cwd: string, raw: boolean) => void;
   // Agent & operation workflows
   cmdInitDebug: (cwd: string, phase: string | null, raw: boolean) => void;
@@ -396,8 +452,7 @@ function makeSimpleCommand(
     name,
     description,
     params: [{ name: argName, type: 'string', required: true, description: argDescription }],
-    execute: (cwd: string, args: Record<string, unknown>) =>
-      handler(cwd, args[argName] as string),
+    execute: (cwd: string, args: Record<string, unknown>) => handler(cwd, args[argName] as string),
   };
 }
 
@@ -435,10 +490,8 @@ function makeStateCommand(
 
 const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   // ── State commands ──
-  makeStateCommand(
-    'grd_state_load',
-    'Load full project config, state, and roadmap status',
-    (cwd) => cmdStateLoad(cwd, false)
+  makeStateCommand('grd_state_load', 'Load full project config, state, and roadmap status', (cwd) =>
+    cmdStateLoad(cwd, false)
   ),
   {
     name: 'grd_state_get',
@@ -506,10 +559,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
         false
       ),
   },
-  makeStateCommand(
-    'grd_state_update_progress',
-    'Recalculate progress bar from disk state',
-    (cwd) => cmdStateUpdateProgress(cwd, false)
+  makeStateCommand('grd_state_update_progress', 'Recalculate progress bar from disk state', (cwd) =>
+    cmdStateUpdateProgress(cwd, false)
   ),
   {
     name: 'grd_state_add_decision',
@@ -974,12 +1025,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
-      cmdPhaseRemove(
-        cwd,
-        args.phase as string,
-        { force: (args.force as boolean) || false },
-        false
-      ),
+      cmdPhaseRemove(cwd, args.phase as string, { force: (args.force as boolean) || false }, false),
   },
   makePhaseCommand('grd_phase_complete', 'Mark a phase as complete', (cwd, phase) =>
     cmdPhaseComplete(cwd, phase, false)
@@ -1018,8 +1064,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     name: 'grd_validate_consistency',
     description: 'Validate phase numbering and disk/roadmap sync',
     params: [],
-    execute: (cwd: string, _args: Record<string, unknown>) =>
-      cmdValidateConsistency(cwd, false),
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdValidateConsistency(cwd, false),
   },
 
   // ── Progress ──
@@ -1338,8 +1383,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     name: 'grd_init_plan_milestone_gaps',
     description: 'Initialize context for plan-milestone-gaps workflow',
     params: [],
-    execute: (cwd: string, _args: Record<string, unknown>) =>
-      cmdInitPlanMilestoneGaps(cwd, false),
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitPlanMilestoneGaps(cwd, false),
   },
   {
     name: 'grd_init_map_codebase',
@@ -1580,7 +1624,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_integration_check',
-    description: 'Initialize integration-check context with phase inventory and deferred validations',
+    description:
+      'Initialize integration-check context with phase inventory and deferred validations',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1589,7 +1634,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_integration_checker',
-    description: 'Initialize grd-integration-checker agent context (alias for grd_init_integration_check)',
+    description:
+      'Initialize grd-integration-checker agent context (alias for grd_init_integration_check)',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1631,7 +1677,12 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     description: 'Initialize grd-executor agent context with phase plans, STATE, and ROADMAP',
     params: [
       { name: 'phase', type: 'string', required: true, description: 'Phase number' },
-      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items (state,roadmap)' },
+      {
+        name: 'include',
+        type: 'string',
+        required: false,
+        description: 'Comma-separated include items (state,roadmap)',
+      },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitExecutor(
@@ -1644,18 +1695,14 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   {
     name: 'grd_init_code_review',
     description: 'Initialize code-review context for a phase',
-    params: [
-      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
-    ],
+    params: [{ name: 'phase', type: 'string', required: true, description: 'Phase number' }],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitCodeReview(cwd, args.phase as string, false),
   },
   {
     name: 'grd_init_code_reviewer',
     description: 'Initialize grd-code-reviewer agent context (alias for grd_init_code_review)',
-    params: [
-      { name: 'phase', type: 'string', required: true, description: 'Phase number' },
-    ],
+    params: [{ name: 'phase', type: 'string', required: true, description: 'Phase number' }],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitCodeReviewer(cwd, args.phase as string, false),
   },
@@ -1664,7 +1711,12 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     description: 'Initialize phase-research context with research files for a phase',
     params: [
       { name: 'phase', type: 'string', required: true, description: 'Phase number' },
-      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items' },
+      {
+        name: 'include',
+        type: 'string',
+        required: false,
+        description: 'Comma-separated include items',
+      },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitPhaseResearch(
@@ -1676,10 +1728,16 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_phase_researcher',
-    description: 'Initialize grd-phase-researcher agent context (alias for grd_init_phase_research)',
+    description:
+      'Initialize grd-phase-researcher agent context (alias for grd_init_phase_research)',
     params: [
       { name: 'phase', type: 'string', required: true, description: 'Phase number' },
-      { name: 'include', type: 'string', required: false, description: 'Comma-separated include items' },
+      {
+        name: 'include',
+        type: 'string',
+        required: false,
+        description: 'Comma-separated include items',
+      },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitPhaseResearcher(
@@ -1698,7 +1756,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   // ── Research Agent Inits (direct functions) ──
   {
     name: 'grd_init_baseline_assessor',
-    description: 'Initialize grd-baseline-assessor agent context with assessor model and eval config',
+    description:
+      'Initialize grd-baseline-assessor agent context with assessor model and eval config',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdInitBaselineAssessor(cwd, false),
   },
@@ -1722,7 +1781,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_eval_reporter',
-    description: 'Initialize grd-eval-reporter agent context with phase plans, summaries, and eval config',
+    description:
+      'Initialize grd-eval-reporter agent context with phase plans, summaries, and eval config',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1731,9 +1791,15 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_feasibility_analyst',
-    description: 'Initialize grd-feasibility-analyst agent context with topic, deep dives, and research files',
+    description:
+      'Initialize grd-feasibility-analyst agent context with topic, deep dives, and research files',
     params: [
-      { name: 'topic', type: 'string', required: false, description: 'Approach or topic to analyze' },
+      {
+        name: 'topic',
+        type: 'string',
+        required: false,
+        description: 'Approach or topic to analyze',
+      },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitFeasibilityAnalyst(cwd, (args.topic as string) || '', false),
@@ -1746,18 +1812,19 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_project_researcher',
-    description: 'Initialize grd-project-researcher agent context with project docs and research landscape',
-    params: [
-      { name: 'topic', type: 'string', required: false, description: 'Research topic' },
-    ],
+    description:
+      'Initialize grd-project-researcher agent context with project docs and research landscape',
+    params: [{ name: 'topic', type: 'string', required: false, description: 'Research topic' }],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitProjectResearcher(cwd, (args.topic as string) || '', false),
   },
   {
     name: 'grd_init_research_synthesizer',
-    description: 'Initialize grd-research-synthesizer agent context with deep dives and research files',
+    description:
+      'Initialize grd-research-synthesizer agent context with deep dives and research files',
     params: [],
-    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitResearchSynthesizer(cwd, false),
+    execute: (cwd: string, _args: Record<string, unknown>) =>
+      cmdInitResearchSynthesizer(cwd, false),
   },
   {
     name: 'grd_init_roadmapper',
@@ -1767,16 +1834,16 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_surveyor',
-    description: 'Initialize grd-surveyor agent context with landscape, papers, and research config',
-    params: [
-      { name: 'topic', type: 'string', required: false, description: 'Survey topic' },
-    ],
+    description:
+      'Initialize grd-surveyor agent context with landscape, papers, and research config',
+    params: [{ name: 'topic', type: 'string', required: false, description: 'Survey topic' }],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitSurveyor(cwd, (args.topic as string) || '', false),
   },
   {
     name: 'grd_init_verifier',
-    description: 'Initialize grd-verifier agent context with phase plans, summaries, and eval config',
+    description:
+      'Initialize grd-verifier agent context with phase plans, summaries, and eval config',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1786,13 +1853,15 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   // Direct research function bindings (without the generic cmdInitResearchWorkflow wrapper)
   {
     name: 'grd_init_assess_baseline_direct',
-    description: 'Initialize assess-baseline context directly (assessor model, eval config, artifact existence)',
+    description:
+      'Initialize assess-baseline context directly (assessor model, eval config, artifact existence)',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdInitAssessBaseline(cwd, false),
   },
   {
     name: 'grd_init_deep_dive_direct',
-    description: 'Initialize deep-dive context directly (deep-diver model, existing deep dives list)',
+    description:
+      'Initialize deep-dive context directly (deep-diver model, existing deep dives list)',
     params: [
       { name: 'topic', type: 'string', required: false, description: 'Paper or topic identifier' },
     ],
@@ -1801,7 +1870,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_eval_plan_direct',
-    description: 'Initialize eval-plan context directly (eval-planner model, phase info, eval config)',
+    description:
+      'Initialize eval-plan context directly (eval-planner model, phase info, eval config)',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1810,7 +1880,8 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_init_eval_report_direct',
-    description: 'Initialize eval-report context directly (eval-reporter model, phase plans, summaries)',
+    description:
+      'Initialize eval-report context directly (eval-reporter model, phase plans, summaries)',
     params: [
       { name: 'phase', type: 'string', required: false, description: 'Optional phase number' },
     ],
@@ -1821,7 +1892,12 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     name: 'grd_init_feasibility_direct',
     description: 'Initialize feasibility context directly (feasibility model, topic, deep dives)',
     params: [
-      { name: 'topic', type: 'string', required: false, description: 'Approach or topic to analyze' },
+      {
+        name: 'topic',
+        type: 'string',
+        required: false,
+        description: 'Approach or topic to analyze',
+      },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdInitFeasibility(cwd, (args.topic as string) || '', false),
@@ -1945,12 +2021,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       },
     ],
     execute: (cwd: string, args: Record<string, unknown>) =>
-      cmdLongTermRoadmap(
-        cwd,
-        'parse',
-        (args.file as string) ? [args.file as string] : [],
-        false
-      ),
+      cmdLongTermRoadmap(cwd, 'parse', (args.file as string) ? [args.file as string] : [], false),
   },
   {
     name: 'grd_long_term_roadmap_validate',
@@ -2401,11 +2472,9 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
   },
   {
     name: 'grd_autoplan_init',
-    description:
-      'Pre-flight context for autoplan: evolve state, current milestone, config',
+    description: 'Pre-flight context for autoplan: evolve state, current milestone, config',
     params: [],
-    execute: (cwd: string, _args: Record<string, unknown>) =>
-      cmdInitAutoplan(cwd, false),
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdInitAutoplan(cwd, false),
   },
   // ── Evolve Orchestrator ──
   {
@@ -2818,9 +2887,7 @@ class McpServer {
   /**
    * Handle an incoming JSON-RPC 2.0 message and return a response (or null for notifications).
    */
-  handleMessage(
-    message: JsonRpcMessage
-  ): JsonRpcResponse | Promise<JsonRpcResponse> | null {
+  handleMessage(message: JsonRpcMessage): JsonRpcResponse | Promise<JsonRpcResponse> | null {
     // Validate basic JSON-RPC structure
     if (!message || typeof message !== 'object') {
       return this._errorResponse(null, -32600, 'Invalid Request');
@@ -2857,10 +2924,7 @@ class McpServer {
   /**
    * Handle initialize request -- return server capabilities and info.
    */
-  _handleInitialize(
-    id: number | string,
-    _params?: Record<string, unknown>
-  ): JsonRpcResponse {
+  _handleInitialize(id: number | string, _params?: Record<string, unknown>): JsonRpcResponse {
     return {
       jsonrpc: '2.0',
       id,
@@ -2912,10 +2976,7 @@ class McpServer {
     // Validate required params
     const missingParams: string[] = [];
     for (const param of descriptor.params) {
-      if (
-        param.required &&
-        (toolArgs[param.name] === undefined || toolArgs[param.name] === null)
-      ) {
+      if (param.required && (toolArgs[param.name] === undefined || toolArgs[param.name] === null)) {
         missingParams.push(param.name);
       }
     }

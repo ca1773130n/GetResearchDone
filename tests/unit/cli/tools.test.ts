@@ -29,7 +29,12 @@ describe('tool command delegation', () => {
   });
 
   it('forwards passthrough flags', () => {
-    const args = buildToolArgs('state', 'record-metric', [], false, ['--phase', '3', '--duration', '5min']);
+    const args = buildToolArgs('state', 'record-metric', [], false, [
+      '--phase',
+      '3',
+      '--duration',
+      '5min',
+    ]);
     expect(args).toEqual(['state', 'record-metric', '--phase', '3', '--duration', '5min']);
   });
 });

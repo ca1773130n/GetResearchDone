@@ -202,7 +202,9 @@ describe('golden snapshot comparisons', () => {
 
 describe('golden output structural integrity', () => {
   test('all golden JSON files contain valid JSON', () => {
-    const jsonFiles = (fs.readdirSync(GOLDEN_DIR) as string[]).filter((f: string) => f.endsWith('.json'));
+    const jsonFiles = (fs.readdirSync(GOLDEN_DIR) as string[]).filter((f: string) =>
+      f.endsWith('.json')
+    );
     for (const file of jsonFiles) {
       const content = fs.readFileSync(path.join(GOLDEN_DIR, file), 'utf-8');
       expect(() => JSON.parse(content)).not.toThrow();

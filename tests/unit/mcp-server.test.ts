@@ -237,7 +237,9 @@ describe('COMMAND_DESCRIPTORS', () => {
   });
 
   test('covers frontmatter command family', () => {
-    const fmCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_frontmatter_'));
+    const fmCommands = COMMAND_DESCRIPTORS.filter((d: any) =>
+      d.name.startsWith('grd_frontmatter_')
+    );
     expect(fmCommands.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -252,7 +254,9 @@ describe('COMMAND_DESCRIPTORS', () => {
   });
 
   test('covers tracker command family', () => {
-    const trackerCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_tracker_'));
+    const trackerCommands = COMMAND_DESCRIPTORS.filter((d: any) =>
+      d.name.startsWith('grd_tracker_')
+    );
     expect(trackerCommands.length).toBeGreaterThanOrEqual(10);
   });
 
@@ -264,7 +268,9 @@ describe('COMMAND_DESCRIPTORS', () => {
   });
 
   test('covers requirement command family', () => {
-    const reqCommands = COMMAND_DESCRIPTORS.filter((d: any) => d.name.startsWith('grd_requirement_'));
+    const reqCommands = COMMAND_DESCRIPTORS.filter((d: any) =>
+      d.name.startsWith('grd_requirement_')
+    );
     expect(reqCommands.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -1667,7 +1673,9 @@ describe('v0.2.8 evolve MCP tools', () => {
 
   test('all expected evolve tool names appear in buildToolDefinitions()', () => {
     const tools = buildToolDefinitions();
-    const evolveToolNames = tools.filter((t: any) => t.name.includes('evolve')).map((t: any) => t.name);
+    const evolveToolNames = tools
+      .filter((t: any) => t.name.includes('evolve'))
+      .map((t: any) => t.name);
 
     for (const expected of EXPECTED_EVOLVE_TOOLS) {
       expect(evolveToolNames).toContain(expected);

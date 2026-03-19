@@ -28,7 +28,10 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('./utils');
-const { extractFrontmatter, parseMustHavesBlock }: {
+const {
+  extractFrontmatter,
+  parseMustHavesBlock,
+}: {
   extractFrontmatter: (content: string) => FrontmatterObject;
   parseMustHavesBlock: (content: string, field: string) => MustHavesEntry[];
 } = require('./frontmatter');
@@ -210,7 +213,12 @@ function readFileCached(fullPath: string): string | null {
  * @param checkFileCount - Number of mentioned files to spot-check for existence
  * @param raw - Output raw 'passed'/'failed' instead of JSON
  */
-function cmdVerifySummary(cwd: string, summaryPath: string, checkFileCount: number, raw: boolean): void {
+function cmdVerifySummary(
+  cwd: string,
+  summaryPath: string,
+  checkFileCount: number,
+  raw: boolean
+): void {
   if (!summaryPath) {
     error('summary-path required');
   }
@@ -407,7 +415,9 @@ function cmdVerifyPlanStructure(cwd: string, filePath: string, raw: boolean): vo
 
   // Extract markdown headings for found_sections
   const headingPattern = /^#{1,6}\s+.+$/gm;
-  const found_sections: string[] = (content.match(headingPattern) || []).map((h: string) => h.trim());
+  const found_sections: string[] = (content.match(headingPattern) || []).map((h: string) =>
+    h.trim()
+  );
 
   const result: PlanVerifyResult = {
     valid: errors.length === 0,
@@ -547,7 +557,9 @@ function cmdVerifyReferences(cwd: string, filePath: string, raw: boolean): void 
  */
 function cmdVerifyCommits(cwd: string, hashes: string[], raw: boolean): void {
   if (!hashes || hashes.length === 0) {
-    error('At least one commit hash required. Usage: verify commits <hash1> [hash2 ...]. Run "git log --oneline" to find commit hashes');
+    error(
+      'At least one commit hash required. Usage: verify commits <hash1> [hash2 ...]. Run "git log --oneline" to find commit hashes'
+    );
   }
 
   const valid: string[] = [];
@@ -586,7 +598,9 @@ function cmdVerifyArtifacts(cwd: string, planFilePath: string, raw: boolean): vo
   if (!planFilePath) {
     error('plan file path required');
   }
-  const fullPath: string = path.isAbsolute(planFilePath) ? planFilePath : path.join(cwd, planFilePath);
+  const fullPath: string = path.isAbsolute(planFilePath)
+    ? planFilePath
+    : path.join(cwd, planFilePath);
   const content: string | null = readFileCached(fullPath);
   if (!content) {
     output({ error: 'File not found', path: planFilePath }, raw);
@@ -628,7 +642,9 @@ function cmdVerifyArtifacts(cwd: string, planFilePath: string, raw: boolean): vo
         check.issues.push(`Missing pattern: ${artTyped.contains}`);
       }
       if (artTyped.exports) {
-        const exports: string[] = Array.isArray(artTyped.exports) ? artTyped.exports : [artTyped.exports];
+        const exports: string[] = Array.isArray(artTyped.exports)
+          ? artTyped.exports
+          : [artTyped.exports];
         for (const exp of exports) {
           if (!fileContent.includes(exp)) check.issues.push(`Missing export: ${exp}`);
         }
@@ -662,7 +678,9 @@ function cmdVerifyKeyLinks(cwd: string, planFilePath: string, raw: boolean): voi
   if (!planFilePath) {
     error('plan file path required');
   }
-  const fullPath: string = path.isAbsolute(planFilePath) ? planFilePath : path.join(cwd, planFilePath);
+  const fullPath: string = path.isAbsolute(planFilePath)
+    ? planFilePath
+    : path.join(cwd, planFilePath);
   const content: string | null = readFileCached(fullPath);
   if (!content) {
     output({ error: 'File not found', path: planFilePath }, raw);

@@ -5,11 +5,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const { output, error }: {
+const {
+  output,
+  error,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('../utils');
-const { todosDir: getTodosDirPath }: {
+const {
+  todosDir: getTodosDirPath,
+}: {
   todosDir: (cwd: string) => string;
 } = require('../paths');
 
@@ -45,22 +50,14 @@ function cmdListTodos(cwd: string, area: string | null, raw: boolean): void {
   const todos: TodoItem[] = [];
 
   try {
-    const files: string[] = fs
-      .readdirSync(pendingDir)
-      .filter((f: string) => f.endsWith('.md'));
+    const files: string[] = fs.readdirSync(pendingDir).filter((f: string) => f.endsWith('.md'));
 
     for (const file of files) {
       try {
-        const content: string = fs.readFileSync(
-          path.join(pendingDir, file),
-          'utf-8'
-        );
-        const createdMatch: RegExpMatchArray | null =
-          content.match(/^created:\s*(.+)$/m);
-        const titleMatch: RegExpMatchArray | null =
-          content.match(/^title:\s*(.+)$/m);
-        const areaMatch: RegExpMatchArray | null =
-          content.match(/^area:\s*(.+)$/m);
+        const content: string = fs.readFileSync(path.join(pendingDir, file), 'utf-8');
+        const createdMatch: RegExpMatchArray | null = content.match(/^created:\s*(.+)$/m);
+        const titleMatch: RegExpMatchArray | null = content.match(/^title:\s*(.+)$/m);
+        const areaMatch: RegExpMatchArray | null = content.match(/^area:\s*(.+)$/m);
 
         const todoArea: string = areaMatch ? areaMatch[1].trim() : 'general';
 
@@ -78,9 +75,7 @@ function cmdListTodos(cwd: string, area: string | null, raw: boolean): void {
       } catch (readErr: unknown) {
         const err = readErr as { code?: string; message?: string };
         if (err && err.code && err.code !== 'ENOENT') {
-          process.stderr.write(
-            `[todos] error reading ${file} (${err.code}): ${err.message}\n`
-          );
+          process.stderr.write(`[todos] error reading ${file} (${err.code}): ${err.message}\n`);
         }
       }
     }
@@ -101,12 +96,7 @@ function cmdListTodos(cwd: string, area: string | null, raw: boolean): void {
  * @param raw - Output raw 'completed' string instead of JSON
  * @param dryRun - If true, preview changes without writing
  */
-function cmdTodoComplete(
-  cwd: string,
-  filename: string,
-  raw: boolean,
-  dryRun?: boolean
-): void {
+function cmdTodoComplete(cwd: string, filename: string, raw: boolean, dryRun?: boolean): void {
   if (!filename) {
     error(
       'filename required for todo complete. Usage: todos complete <filename> (run "todos list" to see pending filenames)'

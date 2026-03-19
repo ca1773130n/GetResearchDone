@@ -125,8 +125,13 @@ function _detectModelOverridesActive(cwd: string): boolean {
     for (const loc of locations) {
       if (!fs.existsSync(loc)) continue;
       const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
-      if (data && typeof data === 'object' && data.modelOverrides &&
-          typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
+      if (
+        data &&
+        typeof data === 'object' &&
+        data.modelOverrides &&
+        typeof data.modelOverrides === 'object' &&
+        Object.keys(data.modelOverrides).length > 0
+      ) {
         return true;
       }
     }
@@ -134,7 +139,9 @@ function _detectModelOverridesActive(cwd: string): boolean {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== 'ENOENT' && code !== 'ENOTDIR' && !(err instanceof SyntaxError)) {
-      process.stderr.write(`[grd] WARNING: failed to detect model overrides: ${(err as Error).message}\n`);
+      process.stderr.write(
+        `[grd] WARNING: failed to detect model overrides: ${(err as Error).message}\n`
+      );
     }
     return false;
   }
@@ -353,7 +360,19 @@ function cmdInitExecutePhase(
           : backendCaps.native_worktree_isolation === true
             ? 'native'
             : 'manual',
-    main_repo_path: config.branching_strategy !== 'none' ? (() => { try { return fs.realpathSync(cwd); } catch (err) { process.stderr.write(`[grd] WARNING: realpathSync failed: ${(err as Error).message}, using raw cwd\n`); return cwd; } })() : null,
+    main_repo_path:
+      config.branching_strategy !== 'none'
+        ? (() => {
+            try {
+              return fs.realpathSync(cwd);
+            } catch (err) {
+              process.stderr.write(
+                `[grd] WARNING: realpathSync failed: ${(err as Error).message}, using raw cwd\n`
+              );
+              return cwd;
+            }
+          })()
+        : null,
 
     // CLAUDE_PLUGIN_DATA (v2.1.78): persistent directory for cross-project plugin state.
     // When available, agents can use this for state that should survive plugin updates

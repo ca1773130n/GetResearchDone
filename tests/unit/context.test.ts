@@ -241,9 +241,7 @@ describe('cmdInitExecutePhase', () => {
 
   describe('effort_level fields', () => {
     test('includes effort fields when backend supports effort (claude)', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const result = JSON.parse(stdout);
       // Claude backend supports effort, so fields should be non-null strings
       expect(result.executor_effort).toBeDefined();
@@ -255,9 +253,7 @@ describe('cmdInitExecutePhase', () => {
     });
 
     test('effort_supported is true in backend_capabilities for claude', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const result = JSON.parse(stdout);
       expect(result.backend_capabilities.effort).toBe(true);
     });
@@ -307,9 +303,7 @@ describe('cmdInitExecutePhase', () => {
           milestone_branch_template: 'grd/{milestone}-{slug}',
         })
       );
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(budgetDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(budgetDir, '1', new Set(), false));
       const result = JSON.parse(stdout);
       // budget profile: executor=low, verifier=low
       expect(result.executor_effort).toBe('low');
@@ -320,9 +314,7 @@ describe('cmdInitExecutePhase', () => {
 
   describe('cron_available in backend_capabilities', () => {
     test('backend_capabilities includes cron flag', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const result = JSON.parse(stdout);
       // Claude backend has cron: true
       expect(result.backend_capabilities).toHaveProperty('cron');
@@ -330,9 +322,7 @@ describe('cmdInitExecutePhase', () => {
     });
 
     test('cron is true for claude backend', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const result = JSON.parse(stdout);
       expect(result.backend_capabilities.cron).toBe(true);
     });
@@ -347,36 +337,28 @@ describe('cmdInitExecutePhase', () => {
 
   describe('mcp_elicitation_available and model_overrides_available fields', () => {
     test('mcp_elicitation_available is present in init context JSON', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const parsed = JSON.parse(stdout);
       expect(parsed.mcp_elicitation_available).toBeDefined();
       expect(typeof parsed.mcp_elicitation_available).toBe('boolean');
     });
 
     test('model_overrides_available is present in init context JSON', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const parsed = JSON.parse(stdout);
       expect(parsed.model_overrides_available).toBeDefined();
       expect(typeof parsed.model_overrides_available).toBe('boolean');
     });
 
     test('mcp_elicitation_available is true for claude backend (fixture default)', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const parsed = JSON.parse(stdout);
       // The fixture uses claude backend by default (no env override), so mcp_elicitation_available = true
       expect(parsed.mcp_elicitation_available).toBe(true);
     });
 
     test('both fields are not undefined in the JSON output', () => {
-      const { stdout } = captureOutput(() =>
-        cmdInitExecutePhase(tmpDir, '1', new Set(), false)
-      );
+      const { stdout } = captureOutput(() => cmdInitExecutePhase(tmpDir, '1', new Set(), false));
       const parsed = JSON.parse(stdout);
       expect(parsed.mcp_elicitation_available).not.toBeUndefined();
       expect(parsed.model_overrides_available).not.toBeUndefined();
@@ -427,9 +409,7 @@ describe('cmdInitPlanPhase', () => {
   });
 
   test('includes effort fields for plan-phase agents', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitPlanPhase(tmpDir, '1', new Set(), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('researcher_effort');
     expect(result).toHaveProperty('planner_effort');
@@ -1761,7 +1741,6 @@ describe('inferCeremonyLevel overrides', () => {
     // Phase 1 has 1 plan → inferred as light
     expect(result.ceremony_level).toBe('light');
   });
-
 });
 
 // ─── gate failure paths ───────────────────────────────────────────────────────
@@ -1939,14 +1918,7 @@ describe('plan-phase include handlers', () => {
 
   beforeAll(() => {
     tmpDir = createFixtureDir();
-    const phaseDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases',
-      '01-test'
-    );
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     fs.writeFileSync(
       path.join(phaseDir, '01-CONTEXT.md'),
       '# Context\n\nPlan phase context content\n'
@@ -2020,9 +1992,7 @@ describe('plan-phase include handlers', () => {
   });
 
   test('includes uat_content when uat in includes and UAT.md exists', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitPlanPhase(tmpDir, '1', new Set(['uat']), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(['uat']), false));
     const result = JSON.parse(stdout);
     expect(result.uat_content).toBeDefined();
     expect(result.uat_content).toContain('Plan phase UAT content');
@@ -2114,27 +2084,21 @@ describe('cmdInitProgress paused state and additional includes', () => {
   });
 
   test('includes roadmap_content when roadmap in includes', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitProgress(tmpDir, new Set(['roadmap']), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(['roadmap']), false));
     const result = JSON.parse(stdout);
     expect(result.roadmap_content).toBeDefined();
     expect(result.roadmap_content).toContain('Phase 1');
   });
 
   test('includes project_content when project in includes', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitProgress(tmpDir, new Set(['project']), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(['project']), false));
     const result = JSON.parse(stdout);
     expect(result.project_content).toBeDefined();
     expect(result.project_content).toContain('Test project description');
   });
 
   test('includes config_content when config in includes', () => {
-    const { stdout } = captureOutput(() =>
-      cmdInitProgress(tmpDir, new Set(['config']), false)
-    );
+    const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(['config']), false));
     const result = JSON.parse(stdout);
     expect(result.config_content).toBeDefined();
     expect(result.config_content).not.toBeNull();
@@ -2194,7 +2158,10 @@ describe('cmdInitProgress cache behavior', () => {
     // Write a stale cache manually
     const cachePath = _progressCachePath(tmpDir);
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-    fs.writeFileSync(cachePath, JSON.stringify({ mtime_key: 99999999999, data: { phase_count: 99 } }));
+    fs.writeFileSync(
+      cachePath,
+      JSON.stringify({ mtime_key: 99999999999, data: { phase_count: 99 } })
+    );
 
     const { stdout } = captureOutput(() => cmdInitProgress(tmpDir, new Set(), false, true));
     const result = JSON.parse(stdout);
@@ -2457,7 +2424,9 @@ describe('cmdInitMigrate', () => {
     const { stdout } = captureOutput(() => cmdInitMigrate(tmpDir, false));
     const result = JSON.parse(stdout);
     // v0.9-REQUIREMENTS.md is a flat milestone file in fixture
-    expect(result.flat_milestone_files.some((f: any) => f.includes('v0.9-REQUIREMENTS.md'))).toBe(true);
+    expect(result.flat_milestone_files.some((f: any) => f.includes('v0.9-REQUIREMENTS.md'))).toBe(
+      true
+    );
   });
 
   test('includes paths', () => {
@@ -2625,7 +2594,9 @@ describe('cmdInitDeepDive', () => {
   });
 
   test('returns deep-diver context with topic', () => {
-    const { stdout } = captureOutput(() => cmdInitDeepDive(tmpDir, 'attention is all you need', false));
+    const { stdout } = captureOutput(() =>
+      cmdInitDeepDive(tmpDir, 'attention is all you need', false)
+    );
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('backend');
     expect(result).toHaveProperty('deep_diver_model');
@@ -2823,7 +2794,9 @@ describe('cmdInitProjectResearcher', () => {
   });
 
   test('returns project-researcher context with topic', () => {
-    const { stdout } = captureOutput(() => cmdInitProjectResearcher(tmpDir, 'neural compression', false));
+    const { stdout } = captureOutput(() =>
+      cmdInitProjectResearcher(tmpDir, 'neural compression', false)
+    );
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('backend');
     expect(result).toHaveProperty('researcher_model');
@@ -3002,8 +2975,12 @@ describe('cmdInitVerifier', () => {
 
 describe('cmdInitBaselineAssessor', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitAssessBaseline and returns same structure', () => {
     const { stdout } = captureOutput(() => cmdInitBaselineAssessor(tmpDir, false));
@@ -3016,8 +2993,12 @@ describe('cmdInitBaselineAssessor', () => {
 
 describe('cmdInitCodeReviewer', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitCodeReview and returns reviewer context', () => {
     const { stdout } = captureOutput(() => cmdInitCodeReviewer(tmpDir, '1', false));
@@ -3029,8 +3010,12 @@ describe('cmdInitCodeReviewer', () => {
 
 describe('cmdInitCodebaseMapper', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitMapCodebase and returns mapper context', () => {
     const { stdout } = captureOutput(() => cmdInitCodebaseMapper(tmpDir, false));
@@ -3042,8 +3027,12 @@ describe('cmdInitCodebaseMapper', () => {
 
 describe('cmdInitDebugger', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitDebug and returns debug context', () => {
     const { stdout } = captureOutput(() => cmdInitDebugger(tmpDir, null, false));
@@ -3055,8 +3044,12 @@ describe('cmdInitDebugger', () => {
 
 describe('cmdInitDeepDiver', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitDeepDive and returns deep-diver context', () => {
     const { stdout } = captureOutput(() => cmdInitDeepDiver(tmpDir, 'test topic', false));
@@ -3069,8 +3062,12 @@ describe('cmdInitDeepDiver', () => {
 
 describe('cmdInitEvalPlanner', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitEvalPlan and returns eval-planner context', () => {
     const { stdout } = captureOutput(() => cmdInitEvalPlanner(tmpDir, null, false));
@@ -3082,8 +3079,12 @@ describe('cmdInitEvalPlanner', () => {
 
 describe('cmdInitEvalReporter', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitEvalReport and returns eval-reporter context', () => {
     const { stdout } = captureOutput(() => cmdInitEvalReporter(tmpDir, null, false));
@@ -3095,8 +3096,12 @@ describe('cmdInitEvalReporter', () => {
 
 describe('cmdInitExecutor', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('returns executor context with phase info', () => {
     const { stdout } = captureOutput(() => cmdInitExecutor(tmpDir, '1', new Set(), false));
@@ -3121,8 +3126,12 @@ describe('cmdInitExecutor', () => {
 
 describe('cmdInitFeasibilityAnalyst', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitFeasibility and returns feasibility context', () => {
     const { stdout } = captureOutput(() => cmdInitFeasibilityAnalyst(tmpDir, 'ViT', false));
@@ -3134,8 +3143,12 @@ describe('cmdInitFeasibilityAnalyst', () => {
 
 describe('cmdInitIntegrationChecker', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitIntegrationCheck and returns integration context', () => {
     const { stdout } = captureOutput(() => cmdInitIntegrationChecker(tmpDir, null, false));
@@ -3148,8 +3161,12 @@ describe('cmdInitIntegrationChecker', () => {
 
 describe('cmdInitMigrator', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitMigrate and returns migrator context', () => {
     const { stdout } = captureOutput(() => cmdInitMigrator(tmpDir, false));
@@ -3162,8 +3179,12 @@ describe('cmdInitMigrator', () => {
 
 describe('cmdInitPhaseResearcher', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitPhaseResearch and returns researcher context', () => {
     const { stdout } = captureOutput(() => cmdInitPhaseResearcher(tmpDir, '1', new Set(), false));
@@ -3175,8 +3196,12 @@ describe('cmdInitPhaseResearcher', () => {
 
 describe('cmdInitPlanChecker', () => {
   let tmpDir: string;
-  beforeAll(() => { tmpDir = createFixtureDir(); });
-  afterAll(() => { cleanupFixtureDir(tmpDir); });
+  beforeAll(() => {
+    tmpDir = createFixtureDir();
+  });
+  afterAll(() => {
+    cleanupFixtureDir(tmpDir);
+  });
 
   test('delegates to cmdInitPlanCheck and returns plan-checker context', () => {
     const { stdout } = captureOutput(() => cmdInitPlanChecker(tmpDir, '1', false));

@@ -9,12 +9,7 @@
 
 'use strict';
 
-import type {
-  GrdConfig,
-  PhaseInfo,
-  MilestoneInfo,
-  BackendCapabilities,
-} from '../types';
+import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities } from '../types';
 
 const {
   path,
@@ -26,7 +21,10 @@ const {
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('../utils');
 
-const { detectBackend, getBackendCapabilities }: {
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
 } = require('../backend');
@@ -48,11 +46,7 @@ const {
  * @param cwd - Project working directory
  * @returns 'light' | 'standard' | 'full'
  */
-function inferCeremonyLevel(
-  config: GrdConfig,
-  phaseInfo: PhaseInfo | null,
-  cwd: string
-): string {
+function inferCeremonyLevel(config: GrdConfig, phaseInfo: PhaseInfo | null, cwd: string): string {
   // User override: config.ceremony.default_level
   const ceremony = config.ceremony || {};
   if (ceremony.default_level && ceremony.default_level !== 'auto') {

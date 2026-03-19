@@ -35,19 +35,22 @@ const {
   error: (message: string) => never;
 } = require('./utils');
 
-const { computeSchedule, getScheduleForPhase, getScheduleForMilestone }: {
-    computeSchedule: (cwd: string) => ScheduleResult;
-    getScheduleForPhase: (
-      schedule: ScheduleResult,
-      phaseNum: string | number
-    ) => PhaseScheduleEntry | null;
-    getScheduleForMilestone: (
-      schedule: ScheduleResult,
-      version: string
-    ) => ParsedMilestone | null;
-  } = require('./roadmap');
+const {
+  computeSchedule,
+  getScheduleForPhase,
+  getScheduleForMilestone,
+}: {
+  computeSchedule: (cwd: string) => ScheduleResult;
+  getScheduleForPhase: (
+    schedule: ScheduleResult,
+    phaseNum: string | number
+  ) => PhaseScheduleEntry | null;
+  getScheduleForMilestone: (schedule: ScheduleResult, version: string) => ParsedMilestone | null;
+} = require('./roadmap');
 
-const { phasesDir: getPhasesDirPath }: {
+const {
+  phasesDir: getPhasesDirPath,
+}: {
   phasesDir: (cwd: string, milestone?: string | null) => string;
 } = require('./paths');
 
@@ -175,19 +178,10 @@ interface GitHubTracker {
     title: string,
     parentRef: string | null
   ) => IssueCreateResult;
-  updateIssueStatus: (
-    issueRef: string,
-    status: string
-  ) => StatusUpdateResult;
-  addComment: (
-    issueRef: string,
-    markdownBody: string
-  ) => StatusUpdateResult;
+  updateIssueStatus: (issueRef: string, status: string) => StatusUpdateResult;
+  addComment: (issueRef: string, markdownBody: string) => StatusUpdateResult;
   syncRoadmap: (roadmapData: { phases: RoadmapPhaseInput[] }) => SyncStats;
-  syncPhase: (
-    phaseNum: string | number,
-    phaseData: { plans: PlanInput[] }
-  ) => SyncStats;
+  syncPhase: (phaseNum: string | number, phaseData: { plans: PlanInput[] }) => SyncStats;
 }
 
 /**
@@ -356,9 +350,7 @@ function loadTrackerConfig(cwd: string): TrackerConfig {
       if (tracker.provider === 'github' && tracker.github) {
         const gh = tracker.github as Record<string, unknown>;
         if (!gh.project_board) {
-          process.stderr.write(
-            'Warning: github tracker missing required field: project_board\n'
-          );
+          process.stderr.write('Warning: github tracker missing required field: project_board\n');
         }
       }
       return tracker as unknown as TrackerConfig;
@@ -383,11 +375,7 @@ function loadTrackerConfig(cwd: string): TrackerConfig {
     }
     return { provider: 'none' };
   } catch (e) {
-    process.stderr.write(
-      'Warning: failed to parse config.json: ' +
-        (e as Error).message +
-        '\n'
-    );
+    process.stderr.write('Warning: failed to parse config.json: ' + (e as Error).message + '\n');
     return { provider: 'none' };
   }
 }
@@ -416,12 +404,8 @@ function _splitTableRow(row: string): string[] {
 function _buildTrackerIndex(
   mapping: TrackerMapping
 ): Map<string, MilestoneMapping | PhaseMapping | PlanMapping> {
-  const index = new Map<
-    string,
-    MilestoneMapping | PhaseMapping | PlanMapping
-  >();
-  for (const [k, v] of Object.entries(mapping.milestones || {}))
-    index.set(k, v);
+  const index = new Map<string, MilestoneMapping | PhaseMapping | PlanMapping>();
+  for (const [k, v] of Object.entries(mapping.milestones || {})) index.set(k, v);
   for (const [k, v] of Object.entries(mapping.phases || {})) index.set(k, v);
   for (const [k, v] of Object.entries(mapping.plans || {})) index.set(k, v);
   return index;
@@ -445,8 +429,7 @@ function loadTrackerMapping(cwd: string): TrackerMapping {
     /* file does not exist */
   }
 
-  const cached: TrackerMappingCacheEntry | undefined =
-    _trackerMappingCache.get(cwd);
+  const cached: TrackerMappingCacheEntry | undefined = _trackerMappingCache.get(cwd);
   if (cached && cached.mtime === mtime && mtime !== null) {
     return cached.mapping;
   }
@@ -459,10 +442,7 @@ function loadTrackerMapping(cwd: string): TrackerMapping {
       milestones: {},
       phases: {},
       plans: {},
-      _trackerIndex: new Map<
-        string,
-        MilestoneMapping | PhaseMapping | PlanMapping
-      >(),
+      _trackerIndex: new Map<string, MilestoneMapping | PhaseMapping | PlanMapping>(),
     };
     // Cache the empty result keyed on null mtime so repeated misses are cheap
     _trackerMappingCache.set(cwd, { mtime: null, mapping: empty });
@@ -475,18 +455,13 @@ function loadTrackerMapping(cwd: string): TrackerMapping {
     milestones: {},
     phases: {},
     plans: {},
-    _trackerIndex: new Map<
-      string,
-      MilestoneMapping | PhaseMapping | PlanMapping
-    >(),
+    _trackerIndex: new Map<string, MilestoneMapping | PhaseMapping | PlanMapping>(),
   };
 
-  const providerMatch: RegExpMatchArray | null =
-    content.match(/^Provider:\s*(.+)$/m);
+  const providerMatch: RegExpMatchArray | null = content.match(/^Provider:\s*(.+)$/m);
   if (providerMatch) result.provider = providerMatch[1].trim();
 
-  const syncMatch: RegExpMatchArray | null =
-    content.match(/^Last Synced:\s*(.+)$/m);
+  const syncMatch: RegExpMatchArray | null = content.match(/^Last Synced:\s*(.+)$/m);
   if (syncMatch) result.last_synced = syncMatch[1].trim();
 
   // Parse milestone table (Epics) -- handles optional blank line between heading and table
@@ -577,32 +552,26 @@ function saveTrackerMapping(cwd: string, mapping: TrackerMapping): void {
   let content: string = `# Tracker Mapping\n\nProvider: ${mapping.provider || 'none'}\nLast Synced: ${timestamp}\n\n`;
 
   content += `## Milestone Issues\n\n| Milestone | Issue Ref | URL | Status |\n|-----------|-----------|-----|--------|\n`;
-  for (const [milestone, info] of Object.entries(
-    mapping.milestones || {}
-  ) as [string, MilestoneMapping][]) {
+  for (const [milestone, info] of Object.entries(mapping.milestones || {}) as [
+    string,
+    MilestoneMapping,
+  ][]) {
     content += `| ${milestone} | ${info.issueRef} | ${info.url} | ${info.status} |\n`;
   }
 
   content += `\n## Phase Issues\n\n| Phase | Issue Ref | URL | Parent Ref | Status |\n|-------|-----------|-----|------------|--------|\n`;
-  for (const [phase, info] of Object.entries(mapping.phases || {}) as [
-    string,
-    PhaseMapping,
-  ][]) {
+  for (const [phase, info] of Object.entries(mapping.phases || {}) as [string, PhaseMapping][]) {
     content += `| ${phase} | ${info.issueRef} | ${info.url} | ${info.parentRef || ''} | ${info.status} |\n`;
   }
 
   content += `\n## Plan Issues\n\n| Phase | Plan | Issue Ref | URL | Parent Ref | Status |\n|-------|------|-----------|-----|------------|--------|\n`;
-  for (const [key, info] of Object.entries(mapping.plans || {}) as [
-    string,
-    PlanMapping,
-  ][]) {
+  for (const [key, info] of Object.entries(mapping.plans || {}) as [string, PlanMapping][]) {
     const [phase, plan] = key.split('-');
     content += `| ${phase} | ${plan} | ${info.issueRef} | ${info.url} | ${info.parentRef} | ${info.status} |\n`;
   }
 
   const planningDir: string = path.join(cwd, '.planning');
-  if (!fs.existsSync(planningDir))
-    fs.mkdirSync(planningDir, { recursive: true });
+  if (!fs.existsSync(planningDir)) fs.mkdirSync(planningDir, { recursive: true });
   fs.writeFileSync(mappingPath, content, 'utf-8');
   // Invalidate cache so the next loadTrackerMapping call re-reads the updated file
   _trackerMappingCache.delete(cwd);
@@ -616,10 +585,7 @@ function saveTrackerMapping(cwd: string, mapping: TrackerMapping): void {
  * @param config - Tracker config with github sub-object for labels, assignees, etc.
  * @returns Tracker object with createPhaseIssue, createTaskIssue, updateIssueStatus, addComment, syncRoadmap, syncPhase methods
  */
-function createGitHubTracker(
-  cwd: string,
-  config: TrackerConfig
-): GitHubTracker {
+function createGitHubTracker(cwd: string, config: TrackerConfig): GitHubTracker {
   const gh: GitHubConfig = config.github || ({} as GitHubConfig);
   const mainConfig: GrdConfig = loadConfig(cwd);
 
@@ -704,10 +670,7 @@ function createGitHubTracker(
       return { issueRef: `#${issueRef}`, url };
     },
 
-    updateIssueStatus(
-      issueRef: string,
-      status: string
-    ): StatusUpdateResult {
+    updateIssueStatus(issueRef: string, status: string): StatusUpdateResult {
       if (!ghAvailable()) return { success: false };
       const num: string = String(issueRef).replace('#', '');
       const statusLabels: Record<string, string> = {
@@ -729,10 +692,7 @@ function createGitHubTracker(
       return { success: true };
     },
 
-    addComment(
-      issueRef: string,
-      markdownBody: string
-    ): StatusUpdateResult {
+    addComment(issueRef: string, markdownBody: string): StatusUpdateResult {
       if (!ghAvailable()) return { success: false };
       const num: string = String(issueRef).replace('#', '');
       ghExec(['issue', 'comment', num, '--body', markdownBody]);
@@ -778,15 +738,11 @@ function createGitHubTracker(
       return stats;
     },
 
-    syncPhase(
-      phaseNum: string | number,
-      phaseData: { plans: PlanInput[] }
-    ): SyncStats {
+    syncPhase(phaseNum: string | number, phaseData: { plans: PlanInput[] }): SyncStats {
       const mapping: TrackerMapping = loadTrackerMapping(cwd);
       mapping.provider = 'github';
       const stats: SyncStats = { created: 0, updated: 0, errors: 0 };
-      const parentRef: string | null =
-        mapping.phases[String(phaseNum)]?.issueRef || null;
+      const parentRef: string | null = mapping.phases[String(phaseNum)]?.issueRef || null;
 
       for (const plan of phaseData.plans || []) {
         const key: string = `${phaseNum}-${plan.number}`;
@@ -839,21 +795,13 @@ function createTracker(cwd: string): GitHubTracker | null {
  * Provider factory map -- maps provider names to factory functions.
  * Each factory takes (cwd, config) and returns a tracker instance.
  */
-const PROVIDERS: Record<
-  string,
-  (cwd: string, config: TrackerConfig) => GitHubTracker
-> = {
-  github: (cwd: string, config: TrackerConfig) =>
-    createGitHubTracker(cwd, config),
+const PROVIDERS: Record<string, (cwd: string, config: TrackerConfig) => GitHubTracker> = {
+  github: (cwd: string, config: TrackerConfig) => createGitHubTracker(cwd, config),
 };
 
 // ─── Tracker Subcommand Handlers ──────────────────────────────────────────────
 
-function handleGetConfig(
-  cwd: string,
-  _args: string[],
-  raw: boolean
-): void {
+function handleGetConfig(cwd: string, _args: string[], raw: boolean): void {
   const config: TrackerConfig = loadTrackerConfig(cwd);
   const mainConfig: GrdConfig = loadConfig(cwd);
   let authStatus: string = 'not_configured';
@@ -875,11 +823,7 @@ function handleGetConfig(
   output({ ...config, auth_status: authStatus }, raw);
 }
 
-function handleSyncRoadmap(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleSyncRoadmap(cwd: string, args: string[], raw: boolean): void {
   const isDryRun: boolean = args.includes('--dry-run');
   const config: TrackerConfig = loadTrackerConfig(cwd);
   if (config.provider === 'mcp-atlassian') {
@@ -910,9 +854,7 @@ function handleSyncRoadmap(
     );
     return;
   }
-  const roadmapContent: string | null = safeReadMarkdown(
-    path.join(cwd, '.planning', 'ROADMAP.md')
-  );
+  const roadmapContent: string | null = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   if (!roadmapContent) {
     output(
       {
@@ -928,8 +870,7 @@ function handleSyncRoadmap(
   }
   const activeContent: string = stripShippedSections(roadmapContent);
   const phases: RoadmapPhaseInput[] = [];
-  const phaseRegex: RegExp =
-    /^##\s+Phase\s+(\d+(?:\.\d+)?)\s*[:\-\u2014]\s*(.+)$/gm;
+  const phaseRegex: RegExp = /^##\s+Phase\s+(\d+(?:\.\d+)?)\s*[:\-\u2014]\s*(.+)$/gm;
   let match: RegExpExecArray | null;
   while ((match = phaseRegex.exec(activeContent)) !== null) {
     const number: string = match[1];
@@ -938,9 +879,7 @@ function handleSyncRoadmap(
       match.index + match[0].length,
       match.index + match[0].length + 500
     );
-    const goalMatch: RegExpMatchArray | null = afterPhase.match(
-      /(?:\*\*Goal:\*\*|Goal:)\s*(.+)/
-    );
+    const goalMatch: RegExpMatchArray | null = afterPhase.match(/(?:\*\*Goal:\*\*|Goal:)\s*(.+)/);
     phases.push({
       number,
       name,
@@ -981,14 +920,14 @@ function handleSyncRoadmap(
   }
 
   const stats: SyncStats = tracker.syncRoadmap({ phases });
-  output(stats, raw, `Roadmap synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`);
+  output(
+    stats,
+    raw,
+    `Roadmap synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`
+  );
 }
 
-function handleSyncPhase(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleSyncPhase(cwd: string, args: string[], raw: boolean): void {
   const phaseNum: string | undefined = args[0];
   if (!phaseNum) {
     error(
@@ -1012,10 +951,7 @@ function handleSyncPhase(
   }
   const tracker: GitHubTracker | null = createTracker(cwd);
   if (!tracker) {
-    output(
-      { error: 'No tracker configured', created: 0, updated: 0, errors: 0 },
-      raw
-    );
+    output({ error: 'No tracker configured', created: 0, updated: 0, errors: 0 }, raw);
     return;
   }
   const planningDir: string = getPhasesDirPath(cwd);
@@ -1023,10 +959,7 @@ function handleSyncPhase(
   try {
     const dirs: string[] = fs.readdirSync(planningDir);
     phaseDir =
-      dirs.find(
-        (d: string) =>
-          d.startsWith(`${phaseNum}-`) || d === String(phaseNum)
-      ) || null;
+      dirs.find((d: string) => d.startsWith(`${phaseNum}-`) || d === String(phaseNum)) || null;
   } catch {
     /* no phases dir */
   }
@@ -1039,17 +972,12 @@ function handleSyncPhase(
         .readdirSync(fullPhaseDir)
         .filter((f: string) => f.match(/-PLAN\.md$/));
       for (const f of files) {
-        const planMatch: RegExpMatchArray | null = f.match(
-          /(\d+)-(\d+)-PLAN\.md$/
-        );
+        const planMatch: RegExpMatchArray | null = f.match(/(\d+)-(\d+)-PLAN\.md$/);
         if (planMatch) {
-          const planContent: string | null = safeReadFile(
-            path.join(fullPhaseDir, f)
+          const planContent: string | null = safeReadFile(path.join(fullPhaseDir, f));
+          const objMatch: RegExpMatchArray | null | undefined = planContent?.match(
+            /(?:objective|title):\s*["']?(.+?)["']?\s*$/m
           );
-          const objMatch: RegExpMatchArray | null | undefined =
-            planContent?.match(
-              /(?:objective|title):\s*["']?(.+?)["']?\s*$/m
-            );
           plans.push({
             number: planMatch[2],
             objective: objMatch ? objMatch[1] : f,
@@ -1061,14 +989,14 @@ function handleSyncPhase(
     }
   }
   const stats: SyncStats = tracker.syncPhase(phaseNum, { plans });
-  output(stats, raw, `Phase ${phaseNum} synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`);
+  output(
+    stats,
+    raw,
+    `Phase ${phaseNum} synced: created ${stats.created}, updated ${stats.updated}, errors ${stats.errors}`
+  );
 }
 
-function handleUpdateStatus(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleUpdateStatus(cwd: string, args: string[], raw: boolean): void {
   const phaseNum: string | undefined = args[0];
   const status: string | undefined = args[1];
   if (!phaseNum || !status) {
@@ -1080,18 +1008,14 @@ function handleUpdateStatus(
   const config: TrackerConfig = loadTrackerConfig(cwd);
   if (config.provider === 'mcp-atlassian') {
     const mapping: TrackerMapping = loadTrackerMapping(cwd);
-    const phaseInfo: PhaseMapping | undefined =
-      mapping.phases[String(phaseNum)];
+    const phaseInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
     if (!phaseInfo) {
       output({ success: false, error: 'Phase not synced to tracker' }, raw);
       return;
     }
     phaseInfo.status = status;
     saveTrackerMapping(cwd, mapping);
-    output(
-      { success: true, issue_key: phaseInfo.issueRef, status },
-      raw
-    );
+    output({ success: true, issue_key: phaseInfo.issueRef, status }, raw);
     return;
   }
   const tracker: GitHubTracker | null = createTracker(cwd);
@@ -1100,16 +1024,12 @@ function handleUpdateStatus(
     return;
   }
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
-  const phaseInfo: PhaseMapping | undefined =
-    mapping.phases[String(phaseNum)];
+  const phaseInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
   if (!phaseInfo) {
     output({ success: false, error: 'Phase not synced to tracker' }, raw);
     return;
   }
-  const result: StatusUpdateResult = tracker.updateIssueStatus(
-    phaseInfo.issueRef,
-    status
-  );
+  const result: StatusUpdateResult = tracker.updateIssueStatus(phaseInfo.issueRef, status);
   if (result.success) {
     phaseInfo.status = status;
     saveTrackerMapping(cwd, mapping);
@@ -1117,11 +1037,7 @@ function handleUpdateStatus(
   output(result, raw, `Status ${result.success ? `updated to '${status}'` : 'update failed'}`);
 }
 
-function handleAddComment(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleAddComment(cwd: string, args: string[], raw: boolean): void {
   const phaseNum: string | undefined = args[0];
   const filePath: string | undefined = args[1];
   if (!phaseNum || !filePath) {
@@ -1131,20 +1047,14 @@ function handleAddComment(
   const config: TrackerConfig = loadTrackerConfig(cwd);
   if (config.provider === 'mcp-atlassian') {
     const mapping: TrackerMapping = loadTrackerMapping(cwd);
-    const phaseInfo: PhaseMapping | undefined =
-      mapping.phases[String(phaseNum)];
+    const phaseInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
     if (!phaseInfo) {
       output({ success: false, error: 'Phase not synced to tracker' }, raw);
       return;
     }
-    const content: string | null = safeReadFile(
-      path.join(cwd, filePath)
-    );
+    const content: string | null = safeReadFile(path.join(cwd, filePath));
     if (!content) {
-      output(
-        { success: false, error: 'File not found: ' + filePath },
-        raw
-      );
+      output({ success: false, error: 'File not found: ' + filePath }, raw);
       return;
     }
     output(
@@ -1165,26 +1075,17 @@ function handleAddComment(
     return;
   }
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
-  const phaseInfo: PhaseMapping | undefined =
-    mapping.phases[String(phaseNum)];
+  const phaseInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
   if (!phaseInfo) {
     output({ success: false, error: 'Phase not synced to tracker' }, raw);
     return;
   }
-  const content: string | null = safeReadFile(
-    path.join(cwd, filePath)
-  );
+  const content: string | null = safeReadFile(path.join(cwd, filePath));
   if (!content) {
-    output(
-      { success: false, error: 'File not found: ' + filePath },
-      raw
-    );
+    output({ success: false, error: 'File not found: ' + filePath }, raw);
     return;
   }
-  const result: StatusUpdateResult = tracker.addComment(
-    phaseInfo.issueRef,
-    content
-  );
+  const result: StatusUpdateResult = tracker.addComment(phaseInfo.issueRef, content);
   output(result, raw, `Comment ${result.success ? 'added successfully' : 'failed'}`);
 }
 
@@ -1217,8 +1118,7 @@ function _parseAllPhases(
   content: string,
   milestonePositions: MilestonePosition[]
 ): PhasePosition[] {
-  const phaseRegex: RegExp =
-    /^##\s+Phase\s+(\d+(?:\.\d+)?)\s*[:\-\u2014]\s*(.+)$/gm;
+  const phaseRegex: RegExp = /^##\s+Phase\s+(\d+(?:\.\d+)?)\s*[:\-\u2014]\s*(.+)$/gm;
   let match: RegExpExecArray | null;
   const allPhases: PhasePosition[] = [];
   while ((match = phaseRegex.exec(content)) !== null) {
@@ -1228,9 +1128,7 @@ function _parseAllPhases(
       match.index + match[0].length,
       match.index + match[0].length + 500
     );
-    const goalMatch: RegExpMatchArray | null = afterPhase.match(
-      /(?:\*\*Goal:\*\*|Goal:)\s*(.+)/
-    );
+    const goalMatch: RegExpMatchArray | null = afterPhase.match(/(?:\*\*Goal:\*\*|Goal:)\s*(.+)/);
     const goal: string = goalMatch ? goalMatch[1].trim() : '';
     let milestone: string | null =
       milestonePositions.length > 0 ? milestonePositions[0].version : null;
@@ -1267,10 +1165,7 @@ function _buildMilestoneOperations(
         reason: 'already_synced',
       });
     } else {
-      const msSchedule: ParsedMilestone | null = getScheduleForMilestone(
-        schedule,
-        ms.version
-      );
+      const msSchedule: ParsedMilestone | null = getScheduleForMilestone(schedule, ms.version);
       const op: SyncOperation = {
         action: 'create',
         type: 'milestone',
@@ -1279,8 +1174,7 @@ function _buildMilestoneOperations(
         description: `Milestone ${ms.version}`,
       };
       if (msSchedule && msSchedule.start) op.start_date = msSchedule.start;
-      if (msSchedule && msSchedule.target)
-        op.due_date = msSchedule.target;
+      if (msSchedule && msSchedule.target) op.due_date = msSchedule.target;
       operations.push(op);
     }
   }
@@ -1299,8 +1193,7 @@ function _buildMilestoneOperations(
         reason: 'already_synced',
       });
     } else {
-      const phaseSchedule: PhaseScheduleEntry | null =
-        getScheduleForPhase(schedule, phase.number);
+      const phaseSchedule: PhaseScheduleEntry | null = getScheduleForPhase(schedule, phase.number);
       const op: SyncOperation = {
         action: 'create',
         type: 'phase',
@@ -1322,11 +1215,7 @@ function _buildMilestoneOperations(
   return operations;
 }
 
-function handlePrepareRoadmapSync(
-  cwd: string,
-  _args: string[],
-  raw: boolean
-): void {
+function handlePrepareRoadmapSync(cwd: string, _args: string[], raw: boolean): void {
   const config: TrackerConfig = loadTrackerConfig(cwd);
   if (config.provider !== 'mcp-atlassian') {
     output(
@@ -1338,11 +1227,8 @@ function handlePrepareRoadmapSync(
     );
     return;
   }
-  const mcpConfig: McpAtlassianConfig =
-    config.mcp_atlassian || ({} as McpAtlassianConfig);
-  const roadmapContent: string | null = safeReadMarkdown(
-    path.join(cwd, '.planning', 'ROADMAP.md')
-  );
+  const mcpConfig: McpAtlassianConfig = config.mcp_atlassian || ({} as McpAtlassianConfig);
+  const roadmapContent: string | null = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   if (!roadmapContent) {
     output({ error: 'No ROADMAP.md found', operations: [] }, raw);
     return;
@@ -1351,17 +1237,12 @@ function handlePrepareRoadmapSync(
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
   const schedule: ScheduleResult = computeSchedule(cwd);
 
-  const milestonePositions: MilestonePosition[] =
-    _parseAllMilestones(activeContent);
-  const allPhases: PhasePosition[] = _parseAllPhases(
-    activeContent,
-    milestonePositions
-  );
-  const operations: SyncOperation[] = _buildMilestoneOperations(
-    milestonePositions,
-    allPhases,
-    { mapping, schedule }
-  );
+  const milestonePositions: MilestonePosition[] = _parseAllMilestones(activeContent);
+  const allPhases: PhasePosition[] = _parseAllPhases(activeContent, milestonePositions);
+  const operations: SyncOperation[] = _buildMilestoneOperations(milestonePositions, allPhases, {
+    mapping,
+    schedule,
+  });
 
   output(
     {
@@ -1376,11 +1257,7 @@ function handlePrepareRoadmapSync(
   );
 }
 
-function handlePreparePhaseSync(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handlePreparePhaseSync(cwd: string, args: string[], raw: boolean): void {
   const phaseNum: string | undefined = args[0];
   if (!phaseNum) {
     error(
@@ -1399,11 +1276,9 @@ function handlePreparePhaseSync(
     );
     return;
   }
-  const mcpConfig: McpAtlassianConfig =
-    config.mcp_atlassian || ({} as McpAtlassianConfig);
+  const mcpConfig: McpAtlassianConfig = config.mcp_atlassian || ({} as McpAtlassianConfig);
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
-  const parentInfo: PhaseMapping | undefined =
-    mapping.phases[String(phaseNum)];
+  const parentInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
   const parentKey: string | null = parentInfo ? parentInfo.issueRef : null;
 
   const planningDir: string = getPhasesDirPath(cwd);
@@ -1411,10 +1286,7 @@ function handlePreparePhaseSync(
   try {
     const dirs: string[] = fs.readdirSync(planningDir);
     phaseDir =
-      dirs.find(
-        (d: string) =>
-          d.startsWith(`${phaseNum}-`) || d === String(phaseNum)
-      ) || null;
+      dirs.find((d: string) => d.startsWith(`${phaseNum}-`) || d === String(phaseNum)) || null;
   } catch {
     /* no phases dir */
   }
@@ -1427,9 +1299,7 @@ function handlePreparePhaseSync(
         .readdirSync(fullPhaseDir)
         .filter((f: string) => f.match(/-PLAN\.md$/));
       for (const f of files) {
-        const planMatch: RegExpMatchArray | null = f.match(
-          /(\d+)-(\d+)-PLAN\.md$/
-        );
+        const planMatch: RegExpMatchArray | null = f.match(/(\d+)-(\d+)-PLAN\.md$/);
         if (planMatch) {
           const planNum: string = planMatch[2];
           const key: string = `${phaseNum}-${planNum}`;
@@ -1443,13 +1313,10 @@ function handlePreparePhaseSync(
               reason: 'already_synced',
             });
           } else {
-            const planContent: string | null = safeReadFile(
-              path.join(fullPhaseDir, f)
+            const planContent: string | null = safeReadFile(path.join(fullPhaseDir, f));
+            const objMatch: RegExpMatchArray | null | undefined = planContent?.match(
+              /(?:objective|title):\s*["']?(.+?)["']?\s*$/m
             );
-            const objMatch: RegExpMatchArray | null | undefined =
-              planContent?.match(
-                /(?:objective|title):\s*["']?(.+?)["']?\s*$/m
-              );
             operations.push({
               action: 'create',
               type: 'plan',
@@ -1477,11 +1344,7 @@ function handlePreparePhaseSync(
   );
 }
 
-function handleRecordMapping(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleRecordMapping(cwd: string, args: string[], raw: boolean): void {
   const typeIdx: number = args.indexOf('--type');
   const milestoneIdx: number = args.indexOf('--milestone');
   const phaseIdx: number = args.indexOf('--phase');
@@ -1491,16 +1354,11 @@ function handleRecordMapping(
   const parentIdx: number = args.indexOf('--parent');
 
   const type: string | null = typeIdx !== -1 ? args[typeIdx + 1] : null;
-  const milestoneVer: string | null =
-    milestoneIdx !== -1 ? args[milestoneIdx + 1] : null;
-  const phaseNum: string | null =
-    phaseIdx !== -1 ? args[phaseIdx + 1] : null;
-  const planNum: string | null =
-    planIdx !== -1 ? args[planIdx + 1] : null;
-  const issueKey: string | null =
-    keyIdx !== -1 ? args[keyIdx + 1] : null;
-  const issueUrl: string | null =
-    urlIdx !== -1 ? args[urlIdx + 1] : null;
+  const milestoneVer: string | null = milestoneIdx !== -1 ? args[milestoneIdx + 1] : null;
+  const phaseNum: string | null = phaseIdx !== -1 ? args[phaseIdx + 1] : null;
+  const planNum: string | null = planIdx !== -1 ? args[planIdx + 1] : null;
+  const issueKey: string | null = keyIdx !== -1 ? args[keyIdx + 1] : null;
+  const issueUrl: string | null = urlIdx !== -1 ? args[urlIdx + 1] : null;
   const parentKey: string = parentIdx !== -1 ? args[parentIdx + 1] : '';
 
   if (!type || !issueKey) {
@@ -1551,9 +1409,7 @@ function handleRecordMapping(
       status: 'pending',
     };
   } else {
-    error(
-      `Unknown mapping type: ${type}. Use "milestone", "phase", or "plan".`
-    );
+    error(`Unknown mapping type: ${type}. Use "milestone", "phase", or "plan".`);
     return; // unreachable after error() but helps TS narrowing
   }
 
@@ -1571,17 +1427,11 @@ function handleRecordMapping(
   );
 }
 
-function handleRecordStatus(
-  cwd: string,
-  args: string[],
-  raw: boolean
-): void {
+function handleRecordStatus(cwd: string, args: string[], raw: boolean): void {
   const phaseIdx: number = args.indexOf('--phase');
   const statusIdx: number = args.indexOf('--status');
-  const phaseNum: string | null =
-    phaseIdx !== -1 ? args[phaseIdx + 1] : null;
-  const status: string | null =
-    statusIdx !== -1 ? args[statusIdx + 1] : null;
+  const phaseNum: string | null = phaseIdx !== -1 ? args[phaseIdx + 1] : null;
+  const status: string | null = statusIdx !== -1 ? args[statusIdx + 1] : null;
 
   if (!phaseNum || !status) {
     error(
@@ -1591,31 +1441,21 @@ function handleRecordStatus(
   }
 
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
-  const phaseInfo: PhaseMapping | undefined =
-    mapping.phases[String(phaseNum)];
+  const phaseInfo: PhaseMapping | undefined = mapping.phases[String(phaseNum)];
   if (!phaseInfo) {
     output({ success: false, error: 'Phase not synced to tracker' }, raw);
     return;
   }
   phaseInfo.status = status;
   saveTrackerMapping(cwd, mapping);
-  output(
-    { success: true, phase: phaseNum, status, issue_key: phaseInfo.issueRef },
-    raw
-  );
+  output({ success: true, phase: phaseNum, status, issue_key: phaseInfo.issueRef }, raw);
 }
 
-function handleSyncStatus(
-  cwd: string,
-  _args: string[],
-  raw: boolean
-): void {
+function handleSyncStatus(cwd: string, _args: string[], raw: boolean): void {
   const config: TrackerConfig = loadTrackerConfig(cwd);
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
 
-  const roadmapContent: string | null = safeReadMarkdown(
-    path.join(cwd, '.planning', 'ROADMAP.md')
-  );
+  const roadmapContent: string | null = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   const activeContent: string = stripShippedSections(roadmapContent || '');
   const phaseRegex: RegExp = /^##\s+Phase\s+(\d+(?:\.\d+)?)/gm;
   const roadmapPhases: string[] = [];
@@ -1624,12 +1464,8 @@ function handleSyncStatus(
     roadmapPhases.push(m[1]);
   }
 
-  const synced: string[] = roadmapPhases.filter(
-    (p: string) => mapping.phases[p]
-  );
-  const unsynced: string[] = roadmapPhases.filter(
-    (p: string) => !mapping.phases[p]
-  );
+  const synced: string[] = roadmapPhases.filter((p: string) => mapping.phases[p]);
+  const unsynced: string[] = roadmapPhases.filter((p: string) => !mapping.phases[p]);
 
   output(
     {
@@ -1647,37 +1483,28 @@ function handleSyncStatus(
   );
 }
 
-function handleSchedule(
-  cwd: string,
-  _args: string[],
-  raw: boolean
-): void {
+function handleSchedule(cwd: string, _args: string[], raw: boolean): void {
   const schedule: ScheduleResult = computeSchedule(cwd);
-  output(schedule, raw, `${schedule.phases.length} phases scheduled across ${schedule.milestones.length} milestone(s)`);
+  output(
+    schedule,
+    raw,
+    `${schedule.phases.length} phases scheduled across ${schedule.milestones.length} milestone(s)`
+  );
 }
 
-function handlePrepareReschedule(
-  cwd: string,
-  _args: string[],
-  raw: boolean
-): void {
+function handlePrepareReschedule(cwd: string, _args: string[], raw: boolean): void {
   const config: TrackerConfig = loadTrackerConfig(cwd);
   if (config.provider !== 'mcp-atlassian') {
-    output(
-      { error: 'prepare-reschedule is only for mcp-atlassian provider.' },
-      raw
-    );
+    output({ error: 'prepare-reschedule is only for mcp-atlassian provider.' }, raw);
     return;
   }
-  const mcpConfig: McpAtlassianConfig =
-    config.mcp_atlassian || ({} as McpAtlassianConfig);
+  const mcpConfig: McpAtlassianConfig = config.mcp_atlassian || ({} as McpAtlassianConfig);
   const mapping: TrackerMapping = loadTrackerMapping(cwd);
   const schedule: ScheduleResult = computeSchedule(cwd);
   const operations: SyncOperation[] = [];
 
   for (const ms of schedule.milestones) {
-    const mapped: MilestoneMapping | undefined =
-      mapping.milestones[ms.version];
+    const mapped: MilestoneMapping | undefined = mapping.milestones[ms.version];
     if (mapped && (ms.start || ms.target)) {
       const op: SyncOperation = {
         action: 'update',
@@ -1692,8 +1519,7 @@ function handlePrepareReschedule(
   }
 
   for (const phase of schedule.phases) {
-    const mapped: PhaseMapping | undefined =
-      mapping.phases[phase.number];
+    const mapped: PhaseMapping | undefined = mapping.phases[phase.number];
     if (mapped && phase.start_date) {
       operations.push({
         action: 'update',
@@ -1742,12 +1568,7 @@ const trackerHandlers: Record<string, TrackerHandler> = {
  * @param args - Additional arguments for the subcommand
  * @param raw - Output raw text instead of JSON
  */
-function cmdTracker(
-  cwd: string,
-  subcommand: string,
-  args: string[],
-  raw: boolean
-): void {
+function cmdTracker(cwd: string, subcommand: string, args: string[], raw: boolean): void {
   const handler: TrackerHandler | undefined = trackerHandlers[subcommand];
   if (!handler) {
     error(

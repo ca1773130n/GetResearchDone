@@ -2,11 +2,12 @@
 
 'use strict';
 
-
 const fs = require('fs');
 const path = require('path');
 
-const { normalizePhaseName }: {
+const {
+  normalizePhaseName,
+}: {
   normalizePhaseName: (phase: string) => string;
 } = require('../utils');
 
@@ -50,13 +51,25 @@ interface StateSummary {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeShippedMilestone(
-  name: string, version: string, shippedDate: string,
-  phaseRange: string | null, phaseCount: number
+  name: string,
+  version: string,
+  shippedDate: string,
+  phaseRange: string | null,
+  phaseCount: number
 ): MilestoneEntry {
   return {
-    name, number: null, version, goal: null, start: null, target: null,
-    status: 'shipped', shipped_date: shippedDate, phase_range: phaseRange,
-    phase_count: phaseCount, progress_percent: 100, phases: [],
+    name,
+    number: null,
+    version,
+    goal: null,
+    start: null,
+    target: null,
+    status: 'shipped',
+    shipped_date: shippedDate,
+    phase_range: phaseRange,
+    phase_count: phaseCount,
+    progress_percent: 100,
+    phases: [],
   };
 }
 
@@ -75,8 +88,13 @@ function parseDashboardShippedMilestones(roadmapContent: string): MilestoneEntry
     const endPhase = parseInt(sMatch[4]);
     seen.add(sMatch[1]);
     shippedMilestones.push(
-      makeShippedMilestone(sMatch[2].trim(), sMatch[1], sMatch[5],
-        `${startPhase}-${endPhase}`, endPhase - startPhase + 1)
+      makeShippedMilestone(
+        sMatch[2].trim(),
+        sMatch[1],
+        sMatch[5],
+        `${startPhase}-${endPhase}`,
+        endPhase - startPhase + 1
+      )
     );
   }
   while ((sMatch = shippedNoPhasesRegex.exec(milestonesSection[1])) !== null) {
@@ -116,11 +134,14 @@ function parseDashboardActiveMilestones(roadmapContent: string): {
     const goalMatch = afterHeading.match(/\*\*Goal:\*\*\s*(.+)/);
 
     activeMilestones.push({
-      name, number, version,
+      name,
+      number,
+      version,
       goal: goalMatch ? goalMatch[1].trim() : null,
       start: startMatch ? startMatch[1] : null,
       target: targetMatch ? targetMatch[1] : null,
-      phases: [], progress_percent: 0,
+      phases: [],
+      progress_percent: 0,
     });
     milestonePositions.push({ index: mMatch.index });
   }
@@ -128,8 +149,10 @@ function parseDashboardActiveMilestones(roadmapContent: string): {
 }
 
 function parseDashboardPhases(
-  roadmapContent: string, phasesDir: string,
-  milestonePositions: { index: number }[], activePhaseNum: string | null,
+  roadmapContent: string,
+  phasesDir: string,
+  milestonePositions: { index: number }[],
+  activePhaseNum: string | null,
   activeMilestones: MilestoneEntry[]
 ): PhaseData[] {
   const phaseRegex = /#{2,}\s*Phase\s+(\d+(?:\.\d+)?)\s*:\s*([^\n]+)/gi;
@@ -143,7 +166,10 @@ function parseDashboardPhases(
     const restContent = roadmapContent.slice(sectionStart + pMatch[0].length);
     const nextHeading = restContent.match(/\n###?\s/);
     const sectionText = nextHeading
-      ? roadmapContent.slice(sectionStart, sectionStart + pMatch[0].length + (nextHeading.index ?? 0))
+      ? roadmapContent.slice(
+          sectionStart,
+          sectionStart + pMatch[0].length + (nextHeading.index ?? 0)
+        )
       : roadmapContent.slice(sectionStart);
     const durationMatch = sectionText.match(/\*\*Duration:\*\*\s*(\d+)d/);
     const duration = durationMatch ? durationMatch[1] + 'd' : null;
@@ -156,22 +182,32 @@ function parseDashboardPhases(
     }
 
     const normalized = normalizePhaseName(phaseNum);
-    let plans = 0, summaries = 0;
+    let plans = 0,
+      summaries = 0;
     let planFiles: string[] = [];
     let summaryFiles: string[] = [];
     try {
-      const entries: { isDirectory: () => boolean; name: string }[] =
-        fs.readdirSync(phasesDir, { withFileTypes: true });
-      const dirs = entries.filter((e: { isDirectory: () => boolean }) => e.isDirectory()).map((e: { name: string }) => e.name);
+      const entries: { isDirectory: () => boolean; name: string }[] = fs.readdirSync(phasesDir, {
+        withFileTypes: true,
+      });
+      const dirs = entries
+        .filter((e: { isDirectory: () => boolean }) => e.isDirectory())
+        .map((e: { name: string }) => e.name);
       const dirMatch = dirs.find((d: string) => d.startsWith(normalized + '-') || d === normalized);
       if (dirMatch) {
         const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, dirMatch));
-        planFiles = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').sort();
+        planFiles = phaseFiles
+          .filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md')
+          .sort();
         plans = planFiles.length;
-        summaryFiles = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
+        summaryFiles = phaseFiles.filter(
+          (f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'
+        );
         summaries = summaryFiles.length;
       }
-    } catch { /* no phases dir */ }
+    } catch {
+      /* no phases dir */
+    }
 
     let status: string;
     if (plans === 0) status = 'pending';
@@ -180,9 +216,16 @@ function parseDashboardPhases(
     else status = 'planned';
 
     const phaseData: PhaseData = {
-      number: phaseNum, name: phaseName, type, duration,
-      plans, summaries, status, active: activePhaseNum === phaseNum,
-      plan_files: planFiles, summary_files: summaryFiles,
+      number: phaseNum,
+      name: phaseName,
+      type,
+      duration,
+      plans,
+      summaries,
+      status,
+      active: activePhaseNum === phaseNum,
+      plan_files: planFiles,
+      summary_files: summaryFiles,
     };
     allPhases.push(phaseData);
     if (activeMilestones[activeMsIdx]) activeMilestones[activeMsIdx].phases.push(phaseData);

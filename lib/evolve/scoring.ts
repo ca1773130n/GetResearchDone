@@ -11,12 +11,17 @@
 
 import type { WorkItem, WorkItemEffort, WorkGroup } from './types';
 
-const { DIMENSION_WEIGHTS, EFFORT_MODIFIERS, SOURCE_MODIFIERS, THEME_PATTERNS }: {
-    DIMENSION_WEIGHTS: Record<string, number>;
-    EFFORT_MODIFIERS: Record<string, number>;
-    SOURCE_MODIFIERS: Record<string, number>;
-    THEME_PATTERNS: Array<{ pattern: RegExp; theme: string }>;
-  } = require('./state');
+const {
+  DIMENSION_WEIGHTS,
+  EFFORT_MODIFIERS,
+  SOURCE_MODIFIERS,
+  THEME_PATTERNS,
+}: {
+  DIMENSION_WEIGHTS: Record<string, number>;
+  EFFORT_MODIFIERS: Record<string, number>;
+  SOURCE_MODIFIERS: Record<string, number>;
+  THEME_PATTERNS: Array<{ pattern: RegExp; theme: string }>;
+} = require('./state');
 
 // ─── Scoring Heuristic ──────────────────────────────────────────────────────
 
@@ -78,10 +83,7 @@ function groupDiscoveredItems(
     : DIMENSION_WEIGHTS;
 
   // Bucket items by theme
-  const buckets = new Map<
-    string,
-    { dimension: string; theme: string; items: WorkItem[] }
-  >();
+  const buckets = new Map<string, { dimension: string; theme: string; items: WorkItem[] }>();
 
   for (const item of items) {
     let theme: string | null = null;
@@ -149,9 +151,7 @@ function selectPriorityGroups(
   if (groups.length === 0) return { selected: [], remaining: [] };
 
   const count: number = Math.max(1, Math.ceil((groups.length * pickPct) / 100));
-  const selected: WorkGroup[] = groups
-    .slice(0, count)
-    .map((g) => ({ ...g, status: 'selected' }));
+  const selected: WorkGroup[] = groups.slice(0, count).map((g) => ({ ...g, status: 'selected' }));
   const remaining: WorkGroup[] = groups.slice(count).map((g) => ({ ...g }));
 
   return { selected, remaining };

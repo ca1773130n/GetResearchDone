@@ -7,19 +7,25 @@ const path = require('path');
 const child_process = require('child_process');
 
 const {
-  safeReadFile, loadConfig, output,
+  safeReadFile,
+  loadConfig,
+  output,
 }: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
 } = require('../utils');
 const {
-  phasesDir: getPhasesDirPath, planningDir: getPlanningDir,
+  phasesDir: getPhasesDirPath,
+  planningDir: getPlanningDir,
 }: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
 } = require('../paths');
-const { readCachedRoadmap, readCachedState }: {
+const {
+  readCachedRoadmap,
+  readCachedState,
+}: {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
 } = require('./phase-info');
@@ -51,7 +57,10 @@ interface RiskEntry {
 interface HealthResult {
   blockers: { count: number; items: string[] };
   deferred_validations: {
-    total: number; pending: number; resolved: number; items: DeferredItem[];
+    total: number;
+    pending: number;
+    resolved: number;
+    items: DeferredItem[];
   };
   velocity: VelocityData;
   stale_phases: string[];
@@ -102,9 +111,14 @@ function cmdHealth(cwd: string, raw: boolean): void {
   if (deferredSection) {
     const tableRows = deferredSection[1]
       .split('\n')
-      .filter((r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*ID\s*\|/i));
+      .filter(
+        (r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*ID\s*\|/i)
+      );
     for (const row of tableRows) {
-      const cells = (row as string).split('|').map((c: string) => c.trim()).filter(Boolean);
+      const cells = (row as string)
+        .split('|')
+        .map((c: string) => c.trim())
+        .filter(Boolean);
       if (cells.length >= 5) {
         const id = cells[0];
         const description = cells[1];
@@ -120,54 +134,84 @@ function cmdHealth(cwd: string, raw: boolean): void {
         if (isPending) deferredPending++;
         else deferredResolved++;
 
-        deferredItems.push({ id, description, from_phase: fromPhase, validates_at: validatesAt, status });
+        deferredItems.push({
+          id,
+          description,
+          from_phase: fromPhase,
+          validates_at: validatesAt,
+          status,
+        });
       }
     }
   }
 
   // 3. Parse performance metrics for velocity
   const velocityData: VelocityData = {
-    total_plans: 0, total_duration_min: 0, avg_duration_min: 0, recent_5_avg_min: 0,
+    total_plans: 0,
+    total_duration_min: 0,
+    avg_duration_min: 0,
+    recent_5_avg_min: 0,
   };
   const metricsSection = stateContent.match(/##\s*Performance Metrics\s*\n([\s\S]*?)(?=\n##|$)/i);
   if (metricsSection) {
     const metricRows = metricsSection[1]
       .split('\n')
-      .filter((r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*Phase/i));
+      .filter(
+        (r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*Phase/i)
+      );
     const durations: number[] = [];
     for (const row of metricRows) {
-      const cells = (row as string).split('|').map((c: string) => c.trim()).filter(Boolean);
+      const cells = (row as string)
+        .split('|')
+        .map((c: string) => c.trim())
+        .filter(Boolean);
       if (cells.length >= 2) {
         const durMatch = cells[1].match(/(\d+)\s*min/i);
-        if (durMatch) { durations.push(parseInt(durMatch[1], 10)); }
+        if (durMatch) {
+          durations.push(parseInt(durMatch[1], 10));
+        }
       }
     }
 
     velocityData.total_plans = durations.length;
     velocityData.total_duration_min = durations.reduce((sum, d) => sum + d, 0);
-    velocityData.avg_duration_min = durations.length > 0
-      ? Math.round((velocityData.total_duration_min / durations.length) * 10) / 10 : 0;
+    velocityData.avg_duration_min =
+      durations.length > 0
+        ? Math.round((velocityData.total_duration_min / durations.length) * 10) / 10
+        : 0;
     const recent5 = durations.slice(-5);
-    velocityData.recent_5_avg_min = recent5.length > 0
-      ? Math.round((recent5.reduce((sum, d) => sum + d, 0) / recent5.length) * 10) / 10 : 0;
+    velocityData.recent_5_avg_min =
+      recent5.length > 0
+        ? Math.round((recent5.reduce((sum, d) => sum + d, 0) / recent5.length) * 10) / 10
+        : 0;
   }
 
   // 4. Check for stale phases (phases with plans but no summaries)
   const stalePhases: string[] = [];
   const phasesDir = getPhasesDirPath(cwd) as string;
   try {
-    const entries: { isDirectory: () => boolean; name: string }[] =
-      fs.readdirSync(phasesDir, { withFileTypes: true });
-    const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    const entries: { isDirectory: () => boolean; name: string }[] = fs.readdirSync(phasesDir, {
+      withFileTypes: true,
+    });
+    const dirs = entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
     for (const dir of dirs) {
       const phaseFiles: string[] = fs.readdirSync(path.join(phasesDir, dir));
-      const planCount = phaseFiles.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md').length;
-      const summaryCount = phaseFiles.filter((f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md').length;
+      const planCount = phaseFiles.filter(
+        (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
+      ).length;
+      const summaryCount = phaseFiles.filter(
+        (f: string) => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md'
+      ).length;
       if (planCount > 0 && summaryCount === 0) {
         stalePhases.push(dir);
       }
     }
-  } catch { /* Phases directory may not exist; skip stale phase check */ }
+  } catch {
+    /* Phases directory may not exist; skip stale phase check */
+  }
 
   // 5. Parse risk register from ROADMAP.md
   const risks: RiskEntry[] = [];
@@ -175,13 +219,20 @@ function cmdHealth(cwd: string, raw: boolean): void {
   if (riskSection) {
     const riskRows = riskSection[1]
       .split('\n')
-      .filter((r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*Risk\s*\|/i));
+      .filter(
+        (r: string) => r.startsWith('|') && !r.match(/^\|[\s-]+\|/) && !r.match(/^\|\s*Risk\s*\|/i)
+      );
     for (const row of riskRows) {
-      const cells = (row as string).split('|').map((c: string) => c.trim()).filter(Boolean);
+      const cells = (row as string)
+        .split('|')
+        .map((c: string) => c.trim())
+        .filter(Boolean);
       if (cells.length >= 4) {
         risks.push({
-          risk: cells[0], probability: cells[1],
-          impact: cells[2], phase: cells.length >= 5 ? cells[4] : cells[3],
+          risk: cells[0],
+          probability: cells[1],
+          impact: cells[2],
+          phase: cells.length >= 5 ? cells[4] : cells[3],
         });
       }
     }
@@ -189,11 +240,18 @@ function cmdHealth(cwd: string, raw: boolean): void {
 
   // 6. Parse baseline
   let baseline: { exists: boolean } | null = null;
-  if (baselineContent) { baseline = { exists: true }; }
+  if (baselineContent) {
+    baseline = { exists: true };
+  }
 
   const result: HealthResult = {
     blockers: { count: blockerItems.length, items: blockerItems },
-    deferred_validations: { total: deferredTotal, pending: deferredPending, resolved: deferredResolved, items: deferredItems },
+    deferred_validations: {
+      total: deferredTotal,
+      pending: deferredPending,
+      resolved: deferredResolved,
+      items: deferredItems,
+    },
     velocity: velocityData,
     stale_phases: stalePhases,
     risks,
@@ -205,8 +263,13 @@ function cmdHealth(cwd: string, raw: boolean): void {
 
   // Blockers
   tui += '## Blockers\n';
-  if (blockerItems.length === 0) { tui += 'None \u2713\n'; }
-  else { for (const b of blockerItems) { tui += `\u2717 ${b}\n`; } }
+  if (blockerItems.length === 0) {
+    tui += 'None \u2713\n';
+  } else {
+    for (const b of blockerItems) {
+      tui += `\u2717 ${b}\n`;
+    }
+  }
 
   // Deferred validations
   tui += `\n## Deferred Validations (${deferredPending} pending / ${deferredTotal} total)\n`;
@@ -226,8 +289,13 @@ function cmdHealth(cwd: string, raw: boolean): void {
 
   // Stale phases
   tui += '\n## Stale Phases\n';
-  if (stalePhases.length === 0) { tui += 'None \u2713\n'; }
-  else { for (const s of stalePhases) { tui += `\u26A0 ${s}\n`; } }
+  if (stalePhases.length === 0) {
+    tui += 'None \u2713\n';
+  } else {
+    for (const s of stalePhases) {
+      tui += `\u26A0 ${s}\n`;
+    }
+  }
 
   // Risk register
   if (risks.length > 0) {
@@ -266,7 +334,10 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
   // 1. Run tests
   try {
     const testOut: string = child_process.execFileSync('npx', ['jest', '--silent', '--forceExit'], {
-      cwd, encoding: 'utf-8', timeout: config.timeouts.jest_ms, stdio: 'pipe',
+      cwd,
+      encoding: 'utf-8',
+      timeout: config.timeouts.jest_ms,
+      stdio: 'pipe',
     });
     const summaryMatch = testOut.match(/Tests:\s+(\d+) passed,\s+(\d+) total/);
     if (summaryMatch) {
@@ -291,7 +362,10 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
       ? ['eslint', 'bin/', 'lib/', '--fix', '--format=json']
       : ['eslint', 'bin/', 'lib/', '--format=json'];
     const lintOut: string = child_process.execFileSync('npx', lintArgs, {
-      cwd, encoding: 'utf-8', timeout: config.timeouts.lint_ms, stdio: 'pipe',
+      cwd,
+      encoding: 'utf-8',
+      timeout: config.timeouts.lint_ms,
+      stdio: 'pipe',
     });
     const lintData = JSON.parse(lintOut) as { errorCount: number; warningCount: number }[];
     const totals = lintData.reduce(
@@ -303,9 +377,15 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
     results.lint.status = 'fail';
     try {
       const err = e as { stdout?: string };
-      const lintData = JSON.parse(err.stdout || '[]') as { errorCount: number; warningCount: number }[];
+      const lintData = JSON.parse(err.stdout || '[]') as {
+        errorCount: number;
+        warningCount: number;
+      }[];
       const totals = lintData.reduce(
-        (acc, f) => ({ errors: acc.errors + f.errorCount, warnings: acc.warnings + f.warningCount }),
+        (acc, f) => ({
+          errors: acc.errors + f.errorCount,
+          warnings: acc.warnings + f.warningCount,
+        }),
         { errors: 0, warnings: 0 }
       );
       results.lint = { status: 'fail', ...totals };
@@ -318,11 +398,17 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
   try {
     if (fix) {
       child_process.execFileSync('npx', ['prettier', '--write', 'lib/', 'bin/'], {
-        cwd, encoding: 'utf-8', timeout: config.timeouts.format_ms, stdio: 'pipe',
+        cwd,
+        encoding: 'utf-8',
+        timeout: config.timeouts.format_ms,
+        stdio: 'pipe',
       });
     }
     child_process.execFileSync('npx', ['prettier', '--check', 'lib/', 'bin/'], {
-      cwd, encoding: 'utf-8', timeout: config.timeouts.format_ms, stdio: 'pipe',
+      cwd,
+      encoding: 'utf-8',
+      timeout: config.timeouts.format_ms,
+      stdio: 'pipe',
     });
     results.format = { status: 'pass', clean: true };
   } catch {
@@ -332,10 +418,15 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
   // 4. Run consistency validation
   try {
     const consOut: string = child_process.execFileSync(
-      'node', ['bin/grd-tools.js', 'validate', 'consistency'],
+      'node',
+      ['bin/grd-tools.js', 'validate', 'consistency'],
       { cwd, encoding: 'utf-8', timeout: config.timeouts.consistency_ms, stdio: 'pipe' }
     );
-    const consData = JSON.parse(consOut) as { passed: boolean; errors?: unknown[]; warning_count?: number };
+    const consData = JSON.parse(consOut) as {
+      passed: boolean;
+      errors?: unknown[];
+      warning_count?: number;
+    };
     results.consistency = {
       status: consData.passed ? 'pass' : 'fail',
       passed: consData.passed,
@@ -347,8 +438,11 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
   }
 
   const allPass = Object.values(results).every((r) => r.status === 'pass');
-  output({ healthy: allPass, fix_applied: fix, ...results }, raw,
-    allPass ? 'All checks pass' : 'Issues found');
+  output(
+    { healthy: allPass, fix_applied: fix, ...results },
+    raw,
+    allPass ? 'All checks pass' : 'Issues found'
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

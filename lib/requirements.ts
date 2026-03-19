@@ -74,24 +74,14 @@ function parseRequirements(content: string): Requirement[] {
   // Split by ### REQ- headings
   const parts: string[] = content.split(/(?=^### REQ-)/m);
   for (const part of parts) {
-    const headingMatch: RegExpMatchArray | null = part.match(
-      /^### (REQ-\d+):\s*(.+)/m
-    );
+    const headingMatch: RegExpMatchArray | null = part.match(/^### (REQ-\d+):\s*(.+)/m);
     if (!headingMatch) continue;
     const id: string = headingMatch[1];
     const title: string = headingMatch[2].trim();
-    const priorityMatch: RegExpMatchArray | null = part.match(
-      /\*\*Priority:\*\*\s*(\S+)/
-    );
-    const categoryMatch: RegExpMatchArray | null = part.match(
-      /\*\*Category:\*\*\s*(.+)/
-    );
-    const deferredMatch: RegExpMatchArray | null = part.match(
-      /\*\*Deferred from:\*\*\s*(.+)/
-    );
-    const resolvesMatch: RegExpMatchArray | null = part.match(
-      /\*\*Resolves:\*\*\s*(.+)/
-    );
+    const priorityMatch: RegExpMatchArray | null = part.match(/\*\*Priority:\*\*\s*(\S+)/);
+    const categoryMatch: RegExpMatchArray | null = part.match(/\*\*Category:\*\*\s*(.+)/);
+    const deferredMatch: RegExpMatchArray | null = part.match(/\*\*Deferred from:\*\*\s*(.+)/);
+    const resolvesMatch: RegExpMatchArray | null = part.match(/\*\*Resolves:\*\*\s*(.+)/);
 
     // Description: everything after the metadata lines, stop at next section heading or separator
     const lines: string[] = part.split('\n');
@@ -103,10 +93,7 @@ function parseRequirements(content: string): Requirement[] {
         continue;
       }
       if (!pastHeading) continue;
-      if (
-        /^\*\*(Priority|Category|Deferred from|Resolves):\*\*/.test(line)
-      )
-        continue;
+      if (/^\*\*(Priority|Category|Deferred from|Resolves):\*\*/.test(line)) continue;
       // Stop at next section heading or separator
       if (/^##\s/.test(line) || /^---\s*$/.test(line)) break;
       descLines.push(line);
@@ -139,13 +126,10 @@ function parseTraceabilityMatrix(content: string): TraceabilityEntry[] {
   if (!sectionMatch) return [];
 
   const tableContent: string = sectionMatch[1];
-  const rows: string[] = tableContent
-    .split('\n')
-    .filter((r: string) => r.startsWith('|'));
+  const rows: string[] = tableContent.split('\n').filter((r: string) => r.startsWith('|'));
   // Skip header row and separator row
   const dataRows: string[] = rows.filter(
-    (r: string) =>
-      !r.match(/^\|\s*REQ\s*\|/i) && !r.match(/^\|[\s-]+\|/)
+    (r: string) => !r.match(/^\|\s*REQ\s*\|/i) && !r.match(/^\|[\s-]+\|/)
   );
 
   for (const row of dataRows) {
@@ -170,16 +154,8 @@ function parseTraceabilityMatrix(content: string): TraceabilityEntry[] {
  * CLI command: Look up a single requirement by ID, returning structured JSON.
  * Falls back to archived milestone REQUIREMENTS.md files if not in current file.
  */
-function cmdRequirementGet(
-  cwd: string,
-  reqId: string,
-  raw: boolean
-): void {
-  const reqFilePath: string = path.join(
-    cwd,
-    '.planning',
-    'REQUIREMENTS.md'
-  );
+function cmdRequirementGet(cwd: string, reqId: string, raw: boolean): void {
+  const reqFilePath: string = path.join(cwd, '.planning', 'REQUIREMENTS.md');
   const content: string | null = readCachedRequirements(reqFilePath);
 
   // Search current file first
@@ -192,18 +168,13 @@ function cmdRequirementGet(
       // Merge status and phase from traceability matrix
       const matrix: TraceabilityEntry[] = parseTraceabilityMatrix(content);
       const matrixRow: TraceabilityEntry | undefined = matrix.find(
-        (m: TraceabilityEntry) =>
-          m.req.toLowerCase() === reqId.toLowerCase()
+        (m: TraceabilityEntry) => m.req.toLowerCase() === reqId.toLowerCase()
       );
       if (matrixRow) {
         match.status = matrixRow.status;
         match.phase = matrixRow.phase;
       }
-      output(
-        match,
-        raw,
-        `${match.id}: ${match.title || ''} [${match.status || 'unknown'}]`
-      );
+      output(match, raw, `${match.id}: ${match.title || ''} [${match.status || 'unknown'}]`);
       return;
     }
   }
@@ -224,26 +195,18 @@ function cmdRequirementGet(
       );
       if (match) {
         // Merge status from archived traceability matrix
-        const matrix: TraceabilityEntry[] =
-          parseTraceabilityMatrix(archiveContent);
+        const matrix: TraceabilityEntry[] = parseTraceabilityMatrix(archiveContent);
         const matrixRow: TraceabilityEntry | undefined = matrix.find(
-          (m: TraceabilityEntry) =>
-            m.req.toLowerCase() === reqId.toLowerCase()
+          (m: TraceabilityEntry) => m.req.toLowerCase() === reqId.toLowerCase()
         );
         if (matrixRow) {
           match.status = matrixRow.status;
           match.phase = matrixRow.phase;
         }
         // Extract milestone version from filename
-        const versionMatch: RegExpMatchArray | null = file.match(
-          /^(v[\d.]+)-REQUIREMENTS\.md$/i
-        );
+        const versionMatch: RegExpMatchArray | null = file.match(/^(v[\d.]+)-REQUIREMENTS\.md$/i);
         match.milestone = versionMatch ? versionMatch[1] : file;
-        output(
-          match,
-          raw,
-          `${match.id}: ${match.title || ''} [${match.status || 'unknown'}]`
-        );
+        output(match, raw, `${match.id}: ${match.title || ''} [${match.status || 'unknown'}]`);
         return;
       }
     }
@@ -258,17 +221,9 @@ function cmdRequirementGet(
 /**
  * CLI command: List requirements with optional filters.
  */
-function cmdRequirementList(
-  cwd: string,
-  filters: RequirementFilters | null,
-  raw: boolean
-): void {
+function cmdRequirementList(cwd: string, filters: RequirementFilters | null, raw: boolean): void {
   const f: RequirementFilters = filters || {};
-  const reqFilePath: string = path.join(
-    cwd,
-    '.planning',
-    'REQUIREMENTS.md'
-  );
+  const reqFilePath: string = path.join(cwd, '.planning', 'REQUIREMENTS.md');
   const content: string | null = readCachedRequirements(reqFilePath);
 
   let allReqs: Requirement[] = [];
@@ -280,8 +235,7 @@ function cmdRequirementList(
     // Merge status/phase from matrix into each requirement
     for (const req of allReqs) {
       const matrixRow: TraceabilityEntry | undefined = matrix.find(
-        (m: TraceabilityEntry) =>
-          m.req.toLowerCase() === req.id.toLowerCase()
+        (m: TraceabilityEntry) => m.req.toLowerCase() === req.id.toLowerCase()
       );
       if (matrixRow) {
         req.status = matrixRow.status;
@@ -296,36 +250,23 @@ function cmdRequirementList(
     try {
       const files: string[] = fs
         .readdirSync(milestonesDir)
-        .filter((fname: string) =>
-          fname.match(/^v[\d.]+-REQUIREMENTS\.md$/i)
-        );
+        .filter((fname: string) => fname.match(/^v[\d.]+-REQUIREMENTS\.md$/i));
       for (const file of files) {
         const filePath: string = path.join(milestonesDir, file);
         const archiveContent: string | null = safeReadFile(filePath);
         if (!archiveContent) continue;
-        const archiveReqs: Requirement[] =
-          parseRequirements(archiveContent);
-        const archiveMatrix: TraceabilityEntry[] =
-          parseTraceabilityMatrix(archiveContent);
-        const versionMatch: RegExpMatchArray | null = file.match(
-          /^(v[\d.]+)-REQUIREMENTS\.md$/i
-        );
+        const archiveReqs: Requirement[] = parseRequirements(archiveContent);
+        const archiveMatrix: TraceabilityEntry[] = parseTraceabilityMatrix(archiveContent);
+        const versionMatch: RegExpMatchArray | null = file.match(/^(v[\d.]+)-REQUIREMENTS\.md$/i);
         const milestone: string = versionMatch ? versionMatch[1] : file;
 
         for (const req of archiveReqs) {
           // Skip if already in current file
-          if (
-            allReqs.find(
-              (r: Requirement) =>
-                r.id.toLowerCase() === req.id.toLowerCase()
-            )
-          )
+          if (allReqs.find((r: Requirement) => r.id.toLowerCase() === req.id.toLowerCase()))
             continue;
-          const matrixRow: TraceabilityEntry | undefined =
-            archiveMatrix.find(
-              (m: TraceabilityEntry) =>
-                m.req.toLowerCase() === req.id.toLowerCase()
-            );
+          const matrixRow: TraceabilityEntry | undefined = archiveMatrix.find(
+            (m: TraceabilityEntry) => m.req.toLowerCase() === req.id.toLowerCase()
+          );
           if (matrixRow) {
             req.status = matrixRow.status;
             req.phase = matrixRow.phase;
@@ -352,21 +293,15 @@ function cmdRequirementList(
   }
 
   if (f.priority) {
-    filtered = filtered.filter(
-      (r: Requirement) => r.priority === f.priority
-    );
+    filtered = filtered.filter((r: Requirement) => r.priority === f.priority);
   }
 
   if (f.status) {
-    filtered = filtered.filter(
-      (r: Requirement) => r.status === f.status
-    );
+    filtered = filtered.filter((r: Requirement) => r.status === f.status);
   }
 
   if (f.category) {
-    filtered = filtered.filter(
-      (r: Requirement) => r.category === f.category
-    );
+    filtered = filtered.filter((r: Requirement) => r.category === f.category);
   }
 
   const filtersApplied: Record<string, unknown> = {};
@@ -393,11 +328,7 @@ function cmdRequirementTraceability(
   raw: boolean
 ): void {
   const f: RequirementFilters = filters || {};
-  const reqFilePath: string = path.join(
-    cwd,
-    '.planning',
-    'REQUIREMENTS.md'
-  );
+  const reqFilePath: string = path.join(cwd, '.planning', 'REQUIREMENTS.md');
   const content: string | null = readCachedRequirements(reqFilePath);
 
   let matrix: TraceabilityEntry[] = [];
@@ -443,23 +374,16 @@ function cmdRequirementUpdateStatus(
     );
   }
 
-  const reqFilePath: string = path.join(
-    cwd,
-    '.planning',
-    'REQUIREMENTS.md'
-  );
+  const reqFilePath: string = path.join(cwd, '.planning', 'REQUIREMENTS.md');
   const content: string | null = readCachedRequirements(reqFilePath);
   if (!content) {
     error('REQUIREMENTS.md not found');
   }
 
   // Parse traceability matrix to validate REQ-ID exists and get old status
-  const matrix: TraceabilityEntry[] = parseTraceabilityMatrix(
-    content as string
-  );
+  const matrix: TraceabilityEntry[] = parseTraceabilityMatrix(content as string);
   const matrixRow: TraceabilityEntry | undefined = matrix.find(
-    (m: TraceabilityEntry) =>
-      m.req.toLowerCase() === reqId.toLowerCase()
+    (m: TraceabilityEntry) => m.req.toLowerCase() === reqId.toLowerCase()
   );
   if (!matrixRow) {
     error(
@@ -495,10 +419,7 @@ function cmdRequirementUpdateStatus(
     return;
   }
 
-  const updatedContent: string = (content as string).replace(
-    reqPattern,
-    `$1 ${newStatus} $2`
-  );
+  const updatedContent: string = (content as string).replace(reqPattern, `$1 ${newStatus} $2`);
 
   if (updatedContent === content) {
     error(

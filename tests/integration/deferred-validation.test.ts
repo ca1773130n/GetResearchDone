@@ -27,10 +27,7 @@ describe('Deferred Validations (Phase 65)', () => {
       // With tsx/cjs registered, extensionless require resolves to .ts files
       const tsModules = fs
         .readdirSync(path.join(ROOT, 'lib'))
-        .filter(
-          (f: string) =>
-            f.endsWith('.ts') && !f.endsWith('.d.ts') && f !== 'types.ts'
-        );
+        .filter((f: string) => f.endsWith('.ts') && !f.endsWith('.d.ts') && f !== 'types.ts');
       expect(tsModules.length).toBeGreaterThanOrEqual(20);
       for (const mod of tsModules) {
         expect(() => {
@@ -49,17 +46,15 @@ describe('Deferred Validations (Phase 65)', () => {
       'long-term-roadmap',
       'evolve',
     ];
-    test.each(phase61Modules)(
-      'lib/%s.ts loads correctly',
-      (mod) => {
-        const modPath = mod === 'evolve'
+    test.each(phase61Modules)('lib/%s.ts loads correctly', (mod) => {
+      const modPath =
+        mod === 'evolve'
           ? path.join(ROOT, 'lib', 'evolve', 'index.ts')
           : path.join(ROOT, 'lib', `${mod}.ts`);
-        expect(() => {
-          require(modPath);
-        }).not.toThrow();
-      }
-    );
+      expect(() => {
+        require(modPath);
+      }).not.toThrow();
+    });
   });
 
   describe('DEFER-61-02: Subprocess typed interfaces', () => {
@@ -89,12 +84,7 @@ describe('Deferred Validations (Phase 65)', () => {
       fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
 
       // Load the actual evolve/state module
-      const evolveState = require(path.join(
-        ROOT,
-        'lib',
-        'evolve',
-        'state.ts'
-      ));
+      const evolveState = require(path.join(ROOT, 'lib', 'evolve', 'state.ts'));
 
       // Create a valid EvolveState using the module's own factory function
       const state = evolveState.createInitialState('v0.3.0', 5);
@@ -144,9 +134,7 @@ describe('Deferred Validations (Phase 65)', () => {
       expect(typeof commands.cmdLongTermRoadmap).toBe('function');
       expect(typeof commands.cmdCommit).toBe('function');
       // Verify sufficient export count (30+ functions)
-      const fnKeys = Object.keys(commands).filter(
-        (k) => typeof commands[k] === 'function'
-      );
+      const fnKeys = Object.keys(commands).filter((k) => typeof commands[k] === 'function');
       expect(fnKeys.length).toBeGreaterThanOrEqual(30);
     });
     test('lib/context/index.ts re-exports all context functions', () => {
@@ -157,9 +145,7 @@ describe('Deferred Validations (Phase 65)', () => {
       expect(typeof ctx.cmdInitSurveyor).toBe('function');
       expect(typeof ctx.inferCeremonyLevel).toBe('function');
       // Verify sufficient export count
-      const fnKeys = Object.keys(ctx).filter(
-        (k) => typeof ctx[k] === 'function'
-      );
+      const fnKeys = Object.keys(ctx).filter((k) => typeof ctx[k] === 'function');
       expect(fnKeys.length).toBeGreaterThanOrEqual(40);
     });
     test('lib/evolve/index.ts re-exports all evolve functions', () => {
@@ -170,9 +156,7 @@ describe('Deferred Validations (Phase 65)', () => {
       expect(typeof evolve.runEvolve).toBe('function');
       expect(typeof evolve.createInitialState).toBe('function');
       // Verify sufficient export count
-      const fnKeys = Object.keys(evolve).filter(
-        (k) => typeof evolve[k] === 'function'
-      );
+      const fnKeys = Object.keys(evolve).filter((k) => typeof evolve[k] === 'function');
       expect(fnKeys.length).toBeGreaterThanOrEqual(25);
     });
   });
@@ -196,15 +180,11 @@ describe('Deferred Validations (Phase 65)', () => {
     });
     test('dist/ build exists and grd-tools.js is functional', () => {
       expect(fs.existsSync(DIST_GRD_TOOLS)).toBe(true);
-      const result = execFileSync(
-        'node',
-        [DIST_GRD_TOOLS, 'current-timestamp', '--raw'],
-        {
-          cwd: ROOT,
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        }
-      );
+      const result = execFileSync('node', [DIST_GRD_TOOLS, 'current-timestamp', '--raw'], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      });
       // current-timestamp --raw returns either YYYY-MM-DD or full ISO timestamp
       expect(result.trim()).toMatch(/^\d{4}-\d{2}-\d{2}/);
     });

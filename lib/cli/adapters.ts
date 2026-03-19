@@ -2,7 +2,10 @@
 
 import type { BackendAdapter } from '../types';
 
-const { ADAPTERS, checkBinary }: {
+const {
+  ADAPTERS,
+  checkBinary,
+}: {
   ADAPTERS: Record<string, BackendAdapter>;
   checkBinary: (binary: string) => boolean;
 } = require('../scheduler');

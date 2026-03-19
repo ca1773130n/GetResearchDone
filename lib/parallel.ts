@@ -20,25 +20,39 @@ import type {
   PreflightResult,
 } from './types';
 
-const { output, loadConfig, findPhaseInternal, getMilestoneInfo }: {
+const {
+  output,
+  loadConfig,
+  findPhaseInternal,
+  getMilestoneInfo,
+}: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('./utils');
-const { detectBackend, getBackendCapabilities }: {
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
 } = require('./backend');
-const { worktreePath }: {
+const {
+  worktreePath,
+}: {
   worktreePath: (cwd: string, milestone: string, phase: string) => string;
 } = require('./worktree');
-const { buildDependencyGraph }: {
+const {
+  buildDependencyGraph,
+}: {
   buildDependencyGraph: (
     phases: Array<{ number: string; name: string; depends_on?: string | null }>
   ) => DependencyGraph;
 } = require('./deps');
-const { analyzeRoadmap }: {
+const {
+  analyzeRoadmap,
+}: {
   analyzeRoadmap: (cwd: string) => {
     error?: string;
     phases?: Array<{
@@ -50,12 +64,10 @@ const { analyzeRoadmap }: {
     }>;
   };
 } = require('./roadmap');
-const { runPreflightGates }: {
-  runPreflightGates: (
-    cwd: string,
-    command: string,
-    options: { phase: string }
-  ) => PreflightResult;
+const {
+  runPreflightGates,
+}: {
+  runPreflightGates: (cwd: string, command: string, options: { phase: string }) => PreflightResult;
 } = require('./gates');
 
 // ─── Domain Types ──────────────────────────────────────────────────────────
@@ -295,8 +307,8 @@ function cmdInitExecuteParallel(
   const validation: ValidationResult = validateIndependentPhases(graph, phaseNumbers);
 
   if (!validation.valid) {
-    const conflictStr: string = validation.conflicts!
-      .map((c) => `Phase ${c.from} -> Phase ${c.to}`)
+    const conflictStr: string = validation
+      .conflicts!.map((c) => `Phase ${c.from} -> Phase ${c.to}`)
       .join(', ');
     output(
       {

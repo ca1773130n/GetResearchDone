@@ -92,7 +92,15 @@ describe('lib/backend.js', () => {
     });
 
     test('contains claude, codex, gemini, opencode, overstory, superpowers, grd', () => {
-      expect(VALID_BACKENDS).toEqual(['claude', 'codex', 'gemini', 'opencode', 'overstory', 'superpowers', 'grd']);
+      expect(VALID_BACKENDS).toEqual([
+        'claude',
+        'codex',
+        'gemini',
+        'opencode',
+        'overstory',
+        'superpowers',
+        'grd',
+      ]);
     });
   });
 
@@ -926,12 +934,17 @@ describe('lib/backend.js', () => {
 
     test('returns available: false with reason when nothing detected', () => {
       // Mock ~/.claude.json to not exist (ensure clean detection)
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(false);
       expect(result.source).toBe('default');
@@ -959,12 +972,17 @@ describe('lib/backend.js', () => {
 
     test('returns available: true, source: "env" when CHROME_DEVTOOLS_MCP=true', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       process.env.CHROME_DEVTOOLS_MCP = 'true';
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
@@ -973,12 +991,17 @@ describe('lib/backend.js', () => {
 
     test('returns available: true, source: "env" when WEBMCP_AVAILABLE=1', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       process.env.WEBMCP_AVAILABLE = '1';
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
@@ -987,12 +1010,17 @@ describe('lib/backend.js', () => {
 
     test('returns available: false with reason when env var is "false"', () => {
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       process.env.CHROME_DEVTOOLS_MCP = 'false';
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(false);
@@ -1001,12 +1029,17 @@ describe('lib/backend.js', () => {
     });
 
     test('returns available: false when WEBMCP_AVAILABLE="false"', () => {
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       process.env.WEBMCP_AVAILABLE = 'false';
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(false);
@@ -1015,12 +1048,17 @@ describe('lib/backend.js', () => {
     });
 
     test('returns available: false when WEBMCP_AVAILABLE="0"', () => {
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       process.env.WEBMCP_AVAILABLE = '0';
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(false);
@@ -1029,16 +1067,21 @@ describe('lib/backend.js', () => {
     });
 
     test('returns available: true, source: "mcp-config" when ~/.claude.json has matching server', () => {
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          return JSON.stringify({
-            mcpServers: {
-              'chrome-devtools': { command: 'npx', args: ['@anthropic/mcp-chrome'] },
-            },
-          });
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            return JSON.stringify({
+              mcpServers: {
+                'chrome-devtools': { command: 'npx', args: ['@anthropic/mcp-chrome'] },
+              },
+            });
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
       expect(result.source).toBe('mcp-config');
@@ -1056,12 +1099,17 @@ describe('lib/backend.js', () => {
     test('handles missing .planning directory gracefully', () => {
       const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-webmcp-empty-'));
       // Mock ~/.claude.json to not exist
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          throw new Error('ENOENT');
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       try {
         const result = detectWebMcp(emptyDir);
         expect(result.available).toBe(false);
@@ -1072,16 +1120,21 @@ describe('lib/backend.js', () => {
     });
 
     test('matches playwright server name in ~/.claude.json', () => {
-      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation((filePath: string, ...args: unknown[]) => {
-        if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
-          return JSON.stringify({
-            mcpServers: {
-              'playwright-browser': { command: 'npx', args: ['playwright-mcp'] },
-            },
-          });
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            return JSON.stringify({
+              mcpServers: {
+                'playwright-browser': { command: 'npx', args: ['playwright-mcp'] },
+              },
+            });
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
         }
-        return (jest.requireActual('fs') as typeof import('fs')).readFileSync(filePath, ...args as []);
-      });
+      );
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
       expect(result.source).toBe('mcp-config');

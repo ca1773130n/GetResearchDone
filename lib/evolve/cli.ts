@@ -33,7 +33,9 @@ const {
   advanceIteration: (previousState: EvolveState) => EvolveState;
   evolveStatePath: (cwd: string) => string;
 } = require('./state');
-const { runGroupDiscovery }: {
+const {
+  runGroupDiscovery,
+}: {
   runGroupDiscovery: (
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
@@ -41,18 +43,33 @@ const { runGroupDiscovery }: {
     opts?: import('./types').DiscoveryOptions
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
-const { runEvolve, runInfiniteEvolve }: {
+const {
+  runEvolve,
+  runInfiniteEvolve,
+}: {
   runEvolve: (cwd: string, options?: EvolveOptions) => Promise<EvolveResult>;
-  runInfiniteEvolve: (cwd: string, options?: InfiniteEvolveOptions) => Promise<InfiniteEvolveResult>;
+  runInfiniteEvolve: (
+    cwd: string,
+    options?: InfiniteEvolveOptions
+  ) => Promise<InfiniteEvolveResult>;
 } = require('./orchestrator');
-const { output, error, loadConfig, resolveModelForAgent, getMilestoneInfo }: {
-    output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
-    error: (message: string) => never;
-    loadConfig: (cwd: string) => GrdConfig;
-    resolveModelForAgent: (config: GrdConfig, agent: string, cwd: string) => string;
-    getMilestoneInfo: (cwd: string) => MilestoneInfo;
-  } = require('../utils');
-const { detectBackend, getBackendCapabilities }: {
+const {
+  output,
+  error,
+  loadConfig,
+  resolveModelForAgent,
+  getMilestoneInfo,
+}: {
+  output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
+  error: (message: string) => never;
+  loadConfig: (cwd: string) => GrdConfig;
+  resolveModelForAgent: (config: GrdConfig, agent: string, cwd: string) => string;
+  getMilestoneInfo: (cwd: string) => MilestoneInfo;
+} = require('../utils');
+const {
+  detectBackend,
+  getBackendCapabilities,
+}: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
 } = require('../backend');
@@ -82,7 +99,9 @@ async function cmdEvolve(cwd: string, args: string[], raw: boolean): Promise<voi
       maxTurns: hasFlag('--max-turns') ? parseInt(flag('--max-turns', '0'), 10) : undefined,
       dryRun: hasFlag('--dry-run'),
       model: undefined, // no model flag for infinite (uses defaults)
-      maxMilestones: hasFlag('--max-milestones') ? parseInt(flag('--max-milestones', '1'), 10) : undefined,
+      maxMilestones: hasFlag('--max-milestones')
+        ? parseInt(flag('--max-milestones', '1'), 10)
+        : undefined,
     };
     const infiniteResult: InfiniteEvolveResult = await runInfiniteEvolve(cwd, infiniteOptions);
     output(infiniteResult, raw, raw ? JSON.stringify(infiniteResult) : undefined);

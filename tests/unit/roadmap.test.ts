@@ -285,7 +285,9 @@ describe('cmdRoadmapAnalyze', () => {
     fs.rmSync(phasesDir, { recursive: true });
     fs.writeFileSync(phasesDir, 'not a directory');
 
-    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation(() => {});
+    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation(
+      () => {}
+    );
     try {
       captureOutput(() => cmdRoadmapAnalyze(localDir, false));
       const stderrOutput = stderrSpy.mock.calls.map((c) => c[0]).join('');
@@ -626,7 +628,13 @@ describe('cmdPhaseNextDecimal with existing decimal phases', () => {
   test('returns next decimal after existing ones', () => {
     const tmpDir = fs.mkdtempSync(require('os').tmpdir() + '/grd-decimal-');
     try {
-      const phasesDir = require('path').join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+      const phasesDir = require('path').join(
+        tmpDir,
+        '.planning',
+        'milestones',
+        'anonymous',
+        'phases'
+      );
       fs.mkdirSync(phasesDir, { recursive: true });
       fs.mkdirSync(require('path').join(phasesDir, '01-base'));
       fs.mkdirSync(require('path').join(phasesDir, '01.1-sub'));
@@ -650,9 +658,13 @@ describe('computeSchedule with mcp_atlassian default_duration_days', () => {
     try {
       // Write config with mcp_atlassian.default_duration_days
       const configPath = require('path').join(tmpDir, '.planning', 'config.json');
-      fs.writeFileSync(configPath, JSON.stringify({
-        tracker: { mcp_atlassian: { default_duration_days: 14 } }
-      }), 'utf-8');
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          tracker: { mcp_atlassian: { default_duration_days: 14 } },
+        }),
+        'utf-8'
+      );
       const schedule = computeSchedule(tmpDir);
       // Should still produce a valid schedule object
       expect(schedule).toHaveProperty('phases');

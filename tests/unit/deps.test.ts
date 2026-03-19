@@ -573,7 +573,9 @@ describe('CLI integration — phase analyze-deps', () => {
   });
 
   test('MCP descriptor grd_phase_analyze_deps exists with empty params', () => {
-    const descriptor = COMMAND_DESCRIPTORS.find((d: Record<string, unknown>) => d.name === 'grd_phase_analyze_deps') as Record<string, unknown>;
+    const descriptor = COMMAND_DESCRIPTORS.find(
+      (d: Record<string, unknown>) => d.name === 'grd_phase_analyze_deps'
+    ) as Record<string, unknown>;
     expect(descriptor).toBeDefined();
     expect(descriptor.params).toEqual([]);
     expect(typeof descriptor.execute).toBe('function');

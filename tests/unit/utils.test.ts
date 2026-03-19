@@ -409,7 +409,11 @@ describe('loadConfig', () => {
       fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
       fs.writeFileSync(
         path.join(tmpDir, '.planning', 'config.json'),
-        JSON.stringify({ model_profile: 'balanced', git: { base_branch: 'main' }, tracker: { provider: 'none' } })
+        JSON.stringify({
+          model_profile: 'balanced',
+          git: { base_branch: 'main' },
+          tracker: { provider: 'none' },
+        })
       );
       const { captureError } = require('../helpers/setup');
       const { stderr } = captureError(() => loadConfig(tmpDir));
@@ -493,7 +497,12 @@ describe('debugLog', () => {
     delete process.env.GRD_DEBUG;
     const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (
+      ...args: unknown[]
+    ) => {
+      writes.push(args[0] as string);
+      return true;
+    };
     debugLog('test message');
     process.stderr.write = origWrite;
     expect(writes).toHaveLength(0);
@@ -503,7 +512,12 @@ describe('debugLog', () => {
     process.env.GRD_DEBUG = '1';
     const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (
+      ...args: unknown[]
+    ) => {
+      writes.push(args[0] as string);
+      return true;
+    };
     debugLog('hello world');
     process.stderr.write = origWrite;
     expect(writes.some((w) => w.includes('[grd:debug]') && w.includes('hello world'))).toBe(true);
@@ -513,7 +527,12 @@ describe('debugLog', () => {
     process.env.GRD_DEBUG = '1';
     const writes: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);
-    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (...args: unknown[]) => { writes.push(args[0] as string); return true; };
+    (process.stderr as unknown as { write: (...args: unknown[]) => boolean }).write = (
+      ...args: unknown[]
+    ) => {
+      writes.push(args[0] as string);
+      return true;
+    };
     debugLog('msg', { key: 'val' });
     process.stderr.write = origWrite;
     expect(writes.some((w) => w.includes('"key"') && w.includes('"val"'))).toBe(true);
@@ -1163,7 +1182,10 @@ describe('createRunCache', () => {
   test('calls reader directly when cache is inactive', () => {
     const cache = createRunCache();
     let calls = 0;
-    const reader = (k: string) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => {
+      calls++;
+      return `value:${k}`;
+    };
     const result = cache.get('key1', reader);
     expect(result).toBe('value:key1');
     expect(calls).toBe(1);
@@ -1176,7 +1198,10 @@ describe('createRunCache', () => {
     const cache = createRunCache();
     cache.init();
     let calls = 0;
-    const reader = (k: string) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => {
+      calls++;
+      return `value:${k}`;
+    };
     cache.get('key1', reader);
     cache.get('key1', reader);
     expect(calls).toBe(1); // reader called only once
@@ -1186,7 +1211,10 @@ describe('createRunCache', () => {
     const cache = createRunCache();
     cache.init();
     let calls = 0;
-    const reader = (k: string) => { calls++; return `value:${k}`; };
+    const reader = (k: string) => {
+      calls++;
+      return `value:${k}`;
+    };
     cache.get('key1', reader);
     expect(calls).toBe(1);
     cache.reset();
