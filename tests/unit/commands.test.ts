@@ -1658,7 +1658,7 @@ describe('cmdDetectBackend', () => {
     expect(parsed.backend).toBe('codex');
     expect(parsed.models.opus).toBe('gpt-5.4');
     expect(parsed.models.sonnet).toBe('gpt-5.3-codex-spark');
-    expect(parsed.models.haiku).toBe('gpt-5.3-codex-spark');
+    expect(parsed.models.haiku).toBe('gpt-5.4-mini');
     expect(parsed.capabilities.subagents).toBe(true);
     expect(parsed.capabilities.parallel).toBe(true);
     expect(parsed.capabilities.teams).toBe(true);
@@ -1678,7 +1678,7 @@ describe('cmdDetectBackend', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.backend).toBe('gemini');
     expect(parsed.models.opus).toBe('gemini-3.1-pro');
-    expect(parsed.models.sonnet).toBe('gemini-3-flash');
+    expect(parsed.models.sonnet).toBe('gemini-3.1-flash');
     expect(parsed.models.haiku).toBe('gemini-3.1-flash-lite');
     expect(parsed.capabilities.subagents).toBe(true);
     expect(parsed.capabilities.parallel).toBe(true);
