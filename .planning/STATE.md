@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - **Current plan:** —
 - **Milestone:** v0.3.12 Multi-Backend Feature Sync
 - **Status:** Ready to plan
-- **Progress:** [███░░░░░░░] 25%
+- **Progress:** [████░░░░░░] 38%
 - **Next:** Plan and execute Phase 74
 
 ## Phase Summary
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 74]: gemini.sonnet mapped to gemini-3.1-flash (updated Gemini 3.1 Flash sonnet-equivalent, REQ-113)
 - [Phase 74]: opencode mappings verified unchanged: anthropic/claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (REQ-116)
 - [Phase 74]: max_output_tokens typed as nullable; model_overrides_available uses strict equality; grd backend has model_overrides: false
+- [Phase 75]: plugin_data_available added to both cmdInitExecutePhase and cmdInitPlanPhase; plugin_data_dir included alongside for consumer convenience; documentation-only changes in evolve/state.ts and autopilot.ts
 
 ## Known Bugs
 
@@ -96,7 +97,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Created roadmap for v0.3.12 Multi-Backend Feature Sync (Phases 74-77)
-- **Stopped at:** Completed 74-02-PLAN.md
+- **Stopped at:** Completed 75-02-PLAN.md
 - **Next action:** Plan Phase 74 (`/grd:plan-phase 74`)
 - **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
