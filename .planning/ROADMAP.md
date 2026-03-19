@@ -254,11 +254,11 @@ Plans:
 4. `cmdInitExecutePhase` JSON output includes `mcp_elicitation_available` field (`true` for Claude backend, `false` otherwise)
 5. `cmdInitExecutePhase` JSON output includes `model_overrides_available` field when backend supports model overrides
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 76-01: Agent frontmatter audit — effort and maxTurns for all 20 agents
-- [ ] 76-02: MCP elicitation and modelOverrides awareness in init context
+- [ ] 76-01-PLAN.md — Agent frontmatter audit: effort, maxTurns, disallowedTools for all 20 agents
+- [ ] 76-02-PLAN.md — MCP elicitation and modelOverrides awareness in init context
 
 #### Phase 77: Testing and Documentation
 
