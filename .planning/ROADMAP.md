@@ -233,8 +233,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 75-01-PLAN.md — StopFailure and PostCompact hook registration in plugin.json with handler implementations
-- [ ] 75-02-PLAN.md — CLAUDE_PLUGIN_DATA documentation and usage boundary in evolve/autopilot modules
+- [x] 75-01-PLAN.md — StopFailure and PostCompact hook registration in plugin.json with handler implementations
+- [x] 75-02-PLAN.md — CLAUDE_PLUGIN_DATA documentation and usage boundary in evolve/autopilot modules
 
 #### Phase 76: Agent Frontmatter and MCP Elicitation
 
@@ -295,7 +295,7 @@ Plans:
 | 72 | Hook Events & Tool Updates | Complete | 2026-03-11 |
 | 73 | Testing & Documentation | Complete | 2026-03-11 |
 | 74 | Model Mappings and Capability Flags | Not started | - |
-| 75 | Hook Events and Plugin Infrastructure | Not started | - |
+| 75 | Hook Events and Plugin Infrastructure | Complete | 2026-03-19 |
 | 76 | Agent Frontmatter and MCP Elicitation | Not started | - |
 | 77 | Testing and Documentation | Not started | - |
 
