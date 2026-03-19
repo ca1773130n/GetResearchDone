@@ -121,18 +121,18 @@ describe('lib/backend.js', () => {
       });
     });
 
-    test('codex maps to gpt-5.4, gpt-5.3-codex-spark, gpt-5.3-codex-spark', () => {
+    test('codex maps to gpt-5.4, gpt-5.3-codex-spark, gpt-5.4-mini', () => {
       expect(DEFAULT_BACKEND_MODELS.codex).toEqual({
         opus: 'gpt-5.4',
         sonnet: 'gpt-5.3-codex-spark',
-        haiku: 'gpt-5.3-codex-spark',
+        haiku: 'gpt-5.4-mini',
       });
     });
 
-    test('gemini maps to gemini-3.1-pro, gemini-3-flash, gemini-3.1-flash-lite', () => {
+    test('gemini maps to gemini-3.1-pro, gemini-3.1-flash, gemini-3.1-flash-lite', () => {
       expect(DEFAULT_BACKEND_MODELS.gemini).toEqual({
         opus: 'gemini-3.1-pro',
-        sonnet: 'gemini-3-flash',
+        sonnet: 'gemini-3.1-flash',
         haiku: 'gemini-3.1-flash-lite',
       });
     });
@@ -486,9 +486,9 @@ describe('lib/backend.js', () => {
       ['claude', 'haiku', 'haiku'],
       ['codex', 'opus', 'gpt-5.4'],
       ['codex', 'sonnet', 'gpt-5.3-codex-spark'],
-      ['codex', 'haiku', 'gpt-5.3-codex-spark'],
+      ['codex', 'haiku', 'gpt-5.4-mini'],
       ['gemini', 'opus', 'gemini-3.1-pro'],
-      ['gemini', 'sonnet', 'gemini-3-flash'],
+      ['gemini', 'sonnet', 'gemini-3.1-flash'],
       ['gemini', 'haiku', 'gemini-3.1-flash-lite'],
       ['opencode', 'opus', 'anthropic/claude-opus-4-6'],
       ['opencode', 'sonnet', 'anthropic/claude-sonnet-4-6'],
