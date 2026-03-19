@@ -1017,6 +1017,9 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   // Restore original branch
   const restoreResult = execGit(cwd, ['checkout', originalBranch]);
   const restoredBranch = restoreResult.exitCode === 0;
+  if (!restoredBranch) {
+    process.stderr.write(`[grd] WARNING: failed to restore branch ${originalBranch} after merge\n`);
+  }
 
   output(
     {
@@ -1345,8 +1348,10 @@ function cmdStopFailureHook(
     try {
       fs.appendFileSync(autopilotLogPath, logEntry, 'utf-8');
       logged = true;
-    } catch (_e) {
-      // Best-effort logging — do not fail the hook
+    } catch (writeErr) {
+      process.stderr.write(
+        `[grd] WARNING: failed to write StopFailure to autopilot.log: ${(writeErr as Error).message}\n`
+      );
     }
   }
 

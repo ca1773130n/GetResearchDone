@@ -278,7 +278,10 @@ async function discoverWithClaude(cwd: string, completedTitles?: string[], opts?
   // internally) cannot reject the Promise.all and crash the whole pipeline.
   const [codeQualityItems, productIdeationItems] = await Promise.all([
     _discoverCodeQualityWithClaude(cwd, completedTitles, opts),
-    discoverProductIdeationItems(cwd, opts).catch(() => [] as WorkItem[]),
+    discoverProductIdeationItems(cwd, opts).catch((err) => {
+      process.stderr.write(`[evolve] Product ideation discovery failed unexpectedly: ${(err as Error).message}\n`);
+      return [] as WorkItem[];
+    }),
   ]);
 
   // Merge: product ideation items come first (they have higher dimension weight)
