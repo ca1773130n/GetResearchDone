@@ -914,7 +914,7 @@ describe('lib/autopilot', () => {
       expect(result.results[1].reason).toContain('already executed');
     });
 
-    it('continues past plan failure', async () => {
+    it('stops on plan failure and records stopped_at', async () => {
       tmpDir = createAutopilotFixture();
       // Plan step uses spawn (async)
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
@@ -923,8 +923,9 @@ describe('lib/autopilot', () => {
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '50' });
       expect(result.phases_completed).toBe(0);
-      expect(result.stopped_at).toBeNull();
-      const failed = result.results.filter((r: any) => r.status === 'failed');
+      expect(result.stopped_at).not.toBeNull();
+      expect(result.stopped_at).toContain('plan failed');
+      const failed = result.results.filter((r: Record<string, unknown>) => r.status === 'failed');
       expect(failed.length).toBeGreaterThan(0);
     });
 
@@ -996,10 +997,11 @@ describe('lib/autopilot', () => {
       });
 
       const result = await runAutopilot(tmpDir, { from: '48', to: '48', skipPlan: true });
-      expect(result.stopped_at).toBeNull();
-      const execResult = result.results.find((r: any) => r.step === 'execute');
-      expect(execResult.status).toBe('failed');
-      expect(execResult.reason).toBe('timeout');
+      expect(result.stopped_at).not.toBeNull();
+      expect(result.stopped_at).toContain('execute failed');
+      const execResult = result.results.find((r: Record<string, unknown>) => r.step === 'execute');
+      expect(execResult!.status).toBe('failed');
+      expect(execResult!.reason).toBe('timeout');
     });
 
     it('respects --from and --to in the loop', async () => {

@@ -755,6 +755,7 @@ async function runAutopilot(
           log(`Phase ${task.phaseNum}: plan FAILED (${reason})`);
           writeStatusMarker(cwd, task.phaseNum, 'plan', 'failed');
           results.push({ phase: task.phaseNum, step: 'plan', status: 'failed', reason });
+          stoppedAt = `Phase ${task.phaseNum} plan failed: ${reason}`;
           continue;
         }
 
@@ -827,6 +828,7 @@ async function runAutopilot(
             log(`Phase ${phaseNum}: execute FAILED (${reason})`);
             writeStatusMarker(cwd, phaseNum, 'execute', 'failed');
             results.push({ phase: phaseNum, step: 'execute', status: 'failed', reason });
+            stoppedAt = `Phase ${phaseNum} execute failed: ${reason}`;
             continue;
           }
 
