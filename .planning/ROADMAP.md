@@ -281,11 +281,11 @@ Plans:
 7. CLAUDE.md or inline comments document Codex realtime websocket sessions, Gemini tracker tools and A2A timeout, and OpenCode worktree session fix
 8. `npm test` passes with 0 failures across the full test suite
 
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 77-01: Unit tests for model mappings, capability flags, and init context fields
-- [ ] 77-02: CLAUDE.md documentation updates and backend-specific notes
+- [ ] 77-01-PLAN.md — Unit tests for model mappings, capability flags, init context fields, hook registrations, and agent frontmatter
+- [ ] 77-02-PLAN.md — CLAUDE.md documentation updates with capability flags table, agent frontmatter, and backend-specific notes
 
 ### Progress
 
