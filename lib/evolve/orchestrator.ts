@@ -97,8 +97,7 @@ const { runGroupDiscovery }: {
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number,
-    timeoutMs?: number,
-    scheduler?: Scheduler | null
+    opts?: import('./types').DiscoveryOptions
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const { buildBatchExecutePrompt, buildBatchReviewPrompt }: {
@@ -138,8 +137,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
     discoveryCwd,
     state,
     effectivePickPct,
-    timeoutMs,
-    scheduler
+    { timeoutMs, scheduler }
   );
   log(
     `Discovered ${discovery.all_items_count} new + ${discovery.merged_items_count - discovery.all_items_count} carried-over = ${discovery.merged_items_count} total items, ${discovery.groups_count} groups, selected ${discovery.selected_groups.length}`
@@ -723,8 +721,8 @@ async function runInfiniteEvolve(
     const state: EvolveGroupState | EvolveState | null = readEvolveState(cwd);
     let discovery: GroupDiscoveryResult;
     try {
-      const infiniteTimeoutMs: number = options.timeout ? options.timeout * 60 * 1000 : 0;
-      discovery = await runGroupDiscovery(cwd, state, effectivePickPct, infiniteTimeoutMs || undefined);
+      const infiniteTimeoutMs: number | undefined = options.timeout ? options.timeout * 60 * 1000 : undefined;
+      discovery = await runGroupDiscovery(cwd, state, effectivePickPct, { timeoutMs: infiniteTimeoutMs });
     } catch (err) {
       const reason: string = `Discovery failed: ${(err as Error).message}`;
       log(reason);

@@ -13,8 +13,7 @@
  * @dependencies ./types, ./state, ../utils, ../autopilot
  */
 
-import type { WorkItem, WorkItemEffort, ProductIdeationContext } from './types';
-import type { Scheduler } from '../scheduler';
+import type { WorkItem, WorkItemEffort, ProductIdeationContext, DiscoveryOptions } from './types';
 
 const path = require('path') as typeof import('path');
 const fs = require('fs') as typeof import('fs');
@@ -337,7 +336,7 @@ function parseProductIdeationOutput(raw: string): WorkItem[] {
  * Discover product-level feature ideas by spawning Claude with a product-manager prompt.
  * Returns empty array on failure (graceful fallback, no crash).
  */
-async function discoverProductIdeationItems(cwd: string, timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
+async function discoverProductIdeationItems(cwd: string, opts?: DiscoveryOptions): Promise<WorkItem[]> {
   const context: ProductIdeationContext = gatherProductContext(cwd);
 
   // If no PROJECT.md found, skip product ideation entirely
@@ -349,7 +348,8 @@ async function discoverProductIdeationItems(cwd: string, timeoutMs?: number, sch
   }
 
   const DEFAULT_IDEATION_TIMEOUT: number = 10_800_000; // 3 hours
-  const effectiveTimeout: number = timeoutMs || DEFAULT_IDEATION_TIMEOUT;
+  const effectiveTimeout: number = opts?.timeoutMs || DEFAULT_IDEATION_TIMEOUT;
+  const scheduler = opts?.scheduler;
   const prompt: string = buildProductIdeationPrompt(context);
 
   try {

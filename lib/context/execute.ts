@@ -115,6 +115,27 @@ const {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Detect whether modelOverrides is configured in Claude settings. */
+function _detectModelOverridesActive(cwd: string): boolean {
+  try {
+    const locations = [
+      path.join(cwd, '.claude', 'settings.json'),
+      path.join(process.env.HOME || '', '.claude', 'settings.json'),
+    ];
+    for (const loc of locations) {
+      if (!fs.existsSync(loc)) continue;
+      const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
+      if (data && typeof data === 'object' && data.modelOverrides &&
+          typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /** Try to find and read a file matching a suffix in a phase directory. */
 function _readPhaseFile(cwd: string, phaseDir: string, suffix: string): string | null {
   const phaseDirFull = path.join(cwd, phaseDir);
@@ -168,25 +189,7 @@ function cmdInitExecutePhase(
 
     // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
     mcp_elicitation_available: backendCaps.mcp_elicitation === true,
-    model_overrides_available: (() => {
-      try {
-        const locations = [
-          path.join(cwd, '.claude', 'settings.json'),
-          path.join(process.env.HOME || '', '.claude', 'settings.json'),
-        ];
-        for (const loc of locations) {
-          if (!fs.existsSync(loc)) continue;
-          const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
-          if (data && typeof data === 'object' && data.modelOverrides &&
-              typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
-            return true;
-          }
-        }
-        return false;
-      } catch {
-        return false;
-      }
-    })(),
+    model_overrides_available: _detectModelOverridesActive(cwd),
 
     // Models
     executor_model: resolveModelInternal(cwd, 'grd-executor'),
@@ -407,35 +410,18 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
 
   const config = loadConfig(cwd);
   const backend = detectBackend(cwd);
+  const backendCaps = getBackendCapabilities(backend);
   const phaseInfo = findPhaseInternal(cwd, phase);
   const webmcp = detectWebMcp(cwd);
 
   const result: Record<string, unknown> = {
     // Backend
     backend,
-    backend_capabilities: getBackendCapabilities(backend),
+    backend_capabilities: backendCaps,
 
     // MCP elicitation and model overrides awareness (REQ-105, REQ-106)
-    mcp_elicitation_available: getBackendCapabilities(backend).mcp_elicitation === true,
-    model_overrides_available: (() => {
-      try {
-        const locations = [
-          path.join(cwd, '.claude', 'settings.json'),
-          path.join(process.env.HOME || '', '.claude', 'settings.json'),
-        ];
-        for (const loc of locations) {
-          if (!fs.existsSync(loc)) continue;
-          const data = JSON.parse(fs.readFileSync(loc, 'utf-8'));
-          if (data && typeof data === 'object' && data.modelOverrides &&
-              typeof data.modelOverrides === 'object' && Object.keys(data.modelOverrides).length > 0) {
-            return true;
-          }
-        }
-        return false;
-      } catch {
-        return false;
-      }
-    })(),
+    mcp_elicitation_available: backendCaps.mcp_elicitation === true,
+    model_overrides_available: _detectModelOverridesActive(cwd),
 
     // Models
     researcher_model: resolveModelInternal(cwd, 'grd-phase-researcher'),

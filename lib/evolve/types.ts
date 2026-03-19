@@ -248,6 +248,14 @@ export interface ProductIdeationContext {
   productQuality: string | null;
 }
 
+// ── Discovery Options ────────────────────────────────────────────────────────
+
+/** Options passed through the discovery call chain. */
+export interface DiscoveryOptions {
+  timeoutMs?: number;
+  scheduler?: import('../scheduler').Scheduler | null;
+}
+
 // ── Infinite Evolve Types ────────────────────────────────────────────────────
 
 /** Per-cycle result in the infinite evolve loop. */

@@ -17,8 +17,8 @@ import type {
   EvolveGroupState,
   GroupDiscoveryResult,
   WorkGroup,
+  DiscoveryOptions,
 } from './types';
-import type { Scheduler } from '../scheduler';
 
 const path = require('path');
 const { safeReadFile }: {
@@ -70,8 +70,11 @@ const { analyzeCodebaseForItems }: {
   analyzeCodebaseForItems: (cwd: string) => WorkItem[];
 } = require('./_dimensions');
 const { discoverProductIdeationItems }: {
-  discoverProductIdeationItems: (cwd: string, timeoutMs?: number, scheduler?: Scheduler | null) => Promise<WorkItem[]>;
+  discoverProductIdeationItems: (cwd: string, opts?: DiscoveryOptions) => Promise<WorkItem[]>;
 } = require('./_product-ideation');
+
+/** Default timeout for discovery subprocesses (3 hours). */
+const DEFAULT_DISCOVERY_TIMEOUT: number = 10_800_000;
 const { selectPriorityItems, groupDiscoveredItems, selectPriorityGroups }: {
     selectPriorityItems: (
       items: WorkItem[],
@@ -205,10 +208,10 @@ Rules:
  * Discover code-quality improvement opportunities by running Claude as a subprocess.
  * (Renamed from discoverWithClaude -- handles the code-quality dimension only.)
  */
-async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
+async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: string[], opts?: DiscoveryOptions): Promise<WorkItem[]> {
   try {
-    const DEFAULT_DISCOVERY_TIMEOUT: number = 10_800_000; // 3 hours
-    const effectiveTimeout: number = timeoutMs || DEFAULT_DISCOVERY_TIMEOUT;
+    const effectiveTimeout: number = opts?.timeoutMs || DEFAULT_DISCOVERY_TIMEOUT;
+    const scheduler = opts?.scheduler;
     const prompt: string = buildDiscoveryPrompt(cwd, completedTitles);
     const result = scheduler
       ? await scheduler.spawn(prompt, {
@@ -268,14 +271,14 @@ async function _discoverCodeQualityWithClaude(cwd: string, completedTitles?: str
  * Discover ALL improvement opportunities: code-quality AND product ideation.
  * Runs both discovery pathways in parallel and merges the results.
  */
-async function discoverWithClaude(cwd: string, completedTitles?: string[], timeoutMs?: number, scheduler?: Scheduler | null): Promise<WorkItem[]> {
+async function discoverWithClaude(cwd: string, completedTitles?: string[], opts?: DiscoveryOptions): Promise<WorkItem[]> {
   // Run both discovery pathways in parallel.
   // IMPORTANT: Wrap discoverProductIdeationItems in .catch so an unexpected
   // throw (as opposed to the graceful empty-array return it already does
   // internally) cannot reject the Promise.all and crash the whole pipeline.
   const [codeQualityItems, productIdeationItems] = await Promise.all([
-    _discoverCodeQualityWithClaude(cwd, completedTitles, timeoutMs, scheduler),
-    discoverProductIdeationItems(cwd, timeoutMs, scheduler).catch(() => [] as WorkItem[]),
+    _discoverCodeQualityWithClaude(cwd, completedTitles, opts),
+    discoverProductIdeationItems(cwd, opts).catch(() => [] as WorkItem[]),
   ]);
 
   // Merge: product ideation items come first (they have higher dimension weight)
@@ -406,8 +409,7 @@ async function runGroupDiscovery(
   cwd: string,
   previousState: EvolveGroupState | EvolveState | null,
   pickPct?: number,
-  timeoutMs?: number,
-  scheduler?: Scheduler | null
+  opts?: DiscoveryOptions
 ): Promise<GroupDiscoveryResult> {
   // Extract completed titles from history to prevent rediscovery
   const stateAsLegacy = previousState as EvolveState | null;
@@ -416,7 +418,7 @@ async function runGroupDiscovery(
     ? stateAsGroup.completed_groups.flatMap((g) => g.items.map((i: WorkItem) => i.title))
     : [];
 
-  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles, timeoutMs, scheduler);
+  const freshItems: WorkItem[] = await discoverWithClaude(cwd, completedTitles, opts);
   const allItemsCount: number = freshItems.length;
 
   let mergePool: WorkItem[] = freshItems;

@@ -38,8 +38,7 @@ const { runGroupDiscovery }: {
     cwd: string,
     previousState: EvolveGroupState | EvolveState | null,
     pickPct?: number,
-    timeoutMs?: number,
-    scheduler?: import('../scheduler').Scheduler | null
+    opts?: import('./types').DiscoveryOptions
   ) => Promise<GroupDiscoveryResult>;
 } = require('./discovery');
 const { runEvolve, runInfiniteEvolve }: {
