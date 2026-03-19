@@ -119,7 +119,6 @@ const { runMultiMilestoneAutopilot }: {
  */
 async function _runIterationStep(iterCtx: IterationContext): Promise<IterationStepResult> {
   const {
-    discoveryCwd,
     state,
     effectivePickPct,
     dryRun,
@@ -134,7 +133,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
   // 1. Discover and group (on executionCwd so we see evolved code)
   const discovery: GroupDiscoveryResult = await runGroupDiscovery(
-    discoveryCwd,
+    executionCwd,
     state,
     effectivePickPct,
     { timeoutMs, scheduler }
@@ -498,7 +497,6 @@ async function runEvolve(cwd: string, options: EvolveOptions = {}): Promise<Evol
     log(`Starting iteration ${iterNum}`);
 
     const stepResult: IterationStepResult = await _runIterationStep({
-      discoveryCwd: executionCwd,
       executionCwd,
       state,
       useWorktree,

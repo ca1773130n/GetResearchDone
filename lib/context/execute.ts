@@ -552,6 +552,8 @@ function cmdInitVerifyWork(cwd: string, phase: string, raw: boolean): void {
     codebase_dir: path.relative(cwd, getCodebaseDirPath(cwd)),
     quick_dir: path.relative(cwd, getQuickDirPath(cwd)),
     todos_dir: path.relative(cwd, getTodosDirPath(cwd)),
+    standards_dir: path.relative(cwd, getStandardsDirPath(cwd)),
+    standards_exists: fs.existsSync(path.join(getStandardsDirPath(cwd), 'index.yml')),
     webmcp_available: webmcp.available,
     webmcp_skip_reason: webmcp.available ? null : webmcp.reason,
   };

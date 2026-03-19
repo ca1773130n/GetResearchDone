@@ -991,9 +991,12 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   ]);
 
   if (mergeResult.exitCode !== 0) {
-    // Merge conflict — abort and restore
+    // Merge conflict — abort and restore original branch
     execGit(cwd, ['merge', '--abort']);
-    execGit(cwd, ['checkout', originalBranch]);
+    const abortRestore = execGit(cwd, ['checkout', originalBranch]);
+    if (abortRestore.exitCode !== 0) {
+      process.stderr.write(`[grd] WARNING: failed to restore branch ${originalBranch} after merge abort\n`);
+    }
     output(
       {
         error: 'Merge conflict',
@@ -1012,7 +1015,8 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
   }
 
   // Restore original branch
-  execGit(cwd, ['checkout', originalBranch]);
+  const restoreResult = execGit(cwd, ['checkout', originalBranch]);
+  const restoredBranch = restoreResult.exitCode === 0;
 
   output(
     {
@@ -1021,6 +1025,7 @@ function cmdWorktreeMerge(cwd: string, options: MergeOptions, raw: boolean): voi
       phase_branch: phaseBranch,
       phase,
       branch_deleted: !!deleteBranch,
+      original_branch_restored: restoredBranch,
     },
     raw
   );

@@ -194,7 +194,6 @@ export interface EvolutionNotesData {
 
 /** Context for _runIterationStep. */
 export interface IterationContext {
-  discoveryCwd: string;
   executionCwd: string;
   state: EvolveGroupState | EvolveState | null;
   useWorktree: boolean;
