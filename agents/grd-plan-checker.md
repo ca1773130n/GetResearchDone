@@ -4,7 +4,7 @@ description: Verifies plans will achieve phase goal before execution. Goal-backw
 tools: Read, Bash, Glob, Grep
 color: green
 effort: medium
-maxTurns: 15
+maxTurns: 10
 disallowedTools:
   - Edit
   - Write
