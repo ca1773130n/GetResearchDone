@@ -165,6 +165,7 @@ function cmdInitExecutePhase(
     // Backend
     backend,
     backend_capabilities: backendCaps,
+    model_overrides_available: backendCaps.model_overrides === true,
 
     // Models
     executor_model: resolveModelInternal(cwd, 'grd-executor'),

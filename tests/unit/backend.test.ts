@@ -174,6 +174,13 @@ describe('lib/backend.js', () => {
         'effort',
         'http_hooks',
         'cron',
+        'smart_approvals',
+        'plan_mode',
+        'sandbox_gvisor',
+        'sandbox_lxc',
+        'mcp_elicitation',
+        'model_overrides',
+        'max_output_tokens',
       ];
       for (const backend of VALID_BACKENDS) {
         for (const key of requiredKeys) {
@@ -193,6 +200,13 @@ describe('lib/backend.js', () => {
         effort: true,
         http_hooks: true,
         cron: true,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: true,
+        model_overrides: true,
+        max_output_tokens: { default: 64000, upper_bound: 128000 },
       });
     });
 
@@ -207,6 +221,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: true,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -221,6 +242,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: false,
+        plan_mode: true,
+        sandbox_gvisor: true,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -235,6 +263,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -249,6 +284,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -565,6 +607,13 @@ describe('lib/backend.js', () => {
         effort: true,
         http_hooks: true,
         cron: true,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: true,
+        model_overrides: true,
+        max_output_tokens: { default: 64000, upper_bound: 128000 },
       });
     });
 
@@ -579,6 +628,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: true,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -593,6 +649,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: false,
+        plan_mode: true,
+        sandbox_gvisor: true,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -607,6 +670,13 @@ describe('lib/backend.js', () => {
         effort: false,
         http_hooks: false,
         cron: false,
+        smart_approvals: false,
+        plan_mode: false,
+        sandbox_gvisor: false,
+        sandbox_lxc: false,
+        mcp_elicitation: false,
+        model_overrides: true,
+        max_output_tokens: null,
       });
     });
 
@@ -1063,6 +1133,58 @@ describe('lib/backend.js', () => {
 
     test('getBackendCapabilities("unknown-backend") falls back to claude capabilities (effort: true)', () => {
       expect(getBackendCapabilities('unknown-backend').effort).toBe(true);
+    });
+  });
+
+  // ─── new capability flags ────────────────────────────────────────────────
+
+  describe('new capability flags', () => {
+    test('codex has smart_approvals: true', () => {
+      expect(BACKEND_CAPABILITIES.codex.smart_approvals).toBe(true);
+    });
+
+    test('only codex has smart_approvals: true', () => {
+      for (const backend of VALID_BACKENDS) {
+        if (backend === 'codex') continue;
+        expect(BACKEND_CAPABILITIES[backend].smart_approvals).toBe(false);
+      }
+    });
+
+    test('gemini has plan_mode and sandbox_gvisor', () => {
+      expect(BACKEND_CAPABILITIES.gemini.plan_mode).toBe(true);
+      expect(BACKEND_CAPABILITIES.gemini.sandbox_gvisor).toBe(true);
+      expect(BACKEND_CAPABILITIES.gemini.sandbox_lxc).toBe(false);
+    });
+
+    test('claude has mcp_elicitation: true', () => {
+      expect(BACKEND_CAPABILITIES.claude.mcp_elicitation).toBe(true);
+    });
+
+    test('only claude has mcp_elicitation: true', () => {
+      for (const backend of VALID_BACKENDS) {
+        if (backend === 'claude') continue;
+        expect(BACKEND_CAPABILITIES[backend].mcp_elicitation).toBe(false);
+      }
+    });
+
+    test('claude has max_output_tokens with correct limits', () => {
+      expect(BACKEND_CAPABILITIES.claude.max_output_tokens).toEqual({
+        default: 64000,
+        upper_bound: 128000,
+      });
+    });
+
+    test('non-claude backends have null max_output_tokens', () => {
+      for (const backend of VALID_BACKENDS) {
+        if (backend === 'claude') continue;
+        expect(BACKEND_CAPABILITIES[backend].max_output_tokens).toBeNull();
+      }
+    });
+
+    test('all backends have model_overrides flag', () => {
+      for (const backend of VALID_BACKENDS) {
+        expect(typeof BACKEND_CAPABILITIES[backend].model_overrides).toBe('boolean');
+      }
     });
   });
 
