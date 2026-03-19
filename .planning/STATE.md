@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - **Current plan:** —
 - **Milestone:** v0.3.12 Multi-Backend Feature Sync
 - **Status:** Ready to plan
-- **Progress:** [█████░░░░░] 50%
+- **Progress:** [██████░░░░] 63%
 - **Next:** Plan and execute Phase 76
 
 ## Phase Summary
@@ -86,6 +86,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 74]: max_output_tokens typed as nullable; model_overrides_available uses strict equality; grd backend has model_overrides: false
 - [Phase 75]: plugin_data_available added to both cmdInitExecutePhase and cmdInitPlanPhase; plugin_data_dir included alongside for consumer convenience; documentation-only changes in evolve/state.ts and autopilot.ts
 - [Phase 75]: StopFailure handler checks autopilot.log presence to determine if logging is needed; PostCompact is minimal/informational; both hooks use 2>/dev/null for silent failure
+- [Phase 76]: model_overrides_available uses runtime settings.json detection (not capability flag) to reflect actual user configuration (REQ-106)
+- [Phase 76]: mcp_elicitation_available added to both cmdInitExecutePhase and cmdInitPlanPhase; derived from backendCaps.mcp_elicitation (REQ-105)
 
 ## Known Bugs
 
@@ -98,7 +100,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 75 (Hook Events and Plugin Infrastructure)
-- **Stopped at:** Phase 75 complete — verified and reviewed
+- **Stopped at:** Completed 76-02-PLAN.md
 - **Next action:** Plan Phase 76 (`/grd:plan-phase 76`)
 - **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
