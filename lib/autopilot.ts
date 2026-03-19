@@ -612,7 +612,7 @@ async function runAutopilot(
   const results: PhaseStepResult[] = [];
   let phasesAttempted: number = 0;
   let phasesCompleted: number = 0;
-  const stoppedAt: string | null = null;
+  let stoppedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
   const scheduler = createScheduler(config.scheduler, config.superpowers);

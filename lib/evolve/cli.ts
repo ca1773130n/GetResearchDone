@@ -177,10 +177,24 @@ function cmdEvolveAdvance(cwd: string, _args: string[], raw: boolean): void {
     return undefined as never;
   }
 
-  const newState: EvolveState = advanceIteration(previousState as EvolveState);
-  writeEvolveState(cwd, newState);
-
-  output(newState, raw, raw ? `iteration ${newState.iteration}` : undefined);
+  // Handle both legacy EvolveState and modern EvolveGroupState formats
+  const isGroupState = 'selected_groups' in previousState;
+  if (isGroupState) {
+    // For group-based state, just bump iteration — groups are managed by runEvolve
+    const groupState = previousState as EvolveGroupState;
+    const advanced: EvolveGroupState = {
+      ...groupState,
+      iteration: groupState.iteration + 1,
+      timestamp: new Date().toISOString(),
+      selected_groups: [],
+    };
+    writeEvolveState(cwd, advanced);
+    output(advanced, raw, raw ? `iteration ${advanced.iteration}` : undefined);
+  } else {
+    const newState: EvolveState = advanceIteration(previousState as EvolveState);
+    writeEvolveState(cwd, newState);
+    output(newState, raw, raw ? `iteration ${newState.iteration}` : undefined);
+  }
   // Unreachable — output() calls process.exit()
 }
 
