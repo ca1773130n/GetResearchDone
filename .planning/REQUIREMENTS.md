@@ -1,85 +1,127 @@
-# Requirements: v0.3.7 Claude Code Feature Sync
+# Requirements: v0.3.12 Multi-Backend Feature Sync
 
-**Milestone:** v0.3.7
-**Created:** 2026-03-11
+**Milestone:** v0.3.12
+**Created:** 2026-03-19
 
-## Effort Level Support
+## Claude Code Updates (2.1.73 → 2.1.79)
 
-### REQ-91: Effort Level Configuration (Core Feature)
-**Priority:** P0 — Critical
-**Category:** Backend
-**Description:** Add effort level (low/medium/high) as a second dimension alongside model tier in GRD's agent spawning system. Claude Code v2.1.68 introduced effort levels: Opus 4.6 defaults to medium effort, with "ultrathink" enabling high effort. Add `effort` field to `BackendCapabilities` (Claude supports it, others may not). Add `effort` to agent model profile config (e.g., planner gets high effort, verifier gets medium). Update `resolveBackendModel()` or add `resolveEffortLevel()` to return the appropriate effort for each agent role. Update all `cmdInit*` functions to include `effort_level` in JSON output.
-
-### REQ-92: Agent Profile Effort Defaults
-**Priority:** P1 — High
-**Category:** Backend
-**Description:** Define default effort levels per agent in the model profile system. Quality profile: planner=high, executor=high, surveyor=medium, verifier=medium. Balanced profile: planner=high, executor=medium, surveyor=medium, verifier=low. Budget profile: all=low. Add `effort_defaults` to config schema. Update CLAUDE.md agent model profiles table with effort column.
-
-## Hook System Updates
-
-### REQ-93: New Hook Event Registration
+### REQ-102: StopFailure Hook Registration
 **Priority:** P1 — High
 **Category:** Plugin
-**Description:** Register new Claude Code hook events in plugin.json: `TeammateIdle` (fires when a teammate spawned via Agent tool becomes idle), `TaskCompleted` (fires when a background task completes), and `InstructionsLoaded` (fires when CLAUDE.md or rules files are loaded). `TeammateIdle` and `TaskCompleted` hooks support `{"continue": false, "stopReason": "..."}` response to stop the teammate/task. Use `InstructionsLoaded` for plugin setup verification (e.g., confirm `.planning/` exists).
+**Description:** Register the `StopFailure` hook event (v2.1.78) in plugin.json. Fires when a turn ends due to an API error (rate limit, auth failure). GRD can use this to log failures in evolve/autopilot subprocesses and trigger retry logic. Add `stop_failure` capability flag or integrate into existing hook infrastructure.
 
-### REQ-94: Hook Event Metadata Support
-**Priority:** P2 — Medium
-**Category:** Plugin
-**Description:** Update GRD's hook handling to leverage new metadata fields available since v2.1.69: `agent_id` and `agent_type` in all hook events, and `worktree` field in status line hook commands. Update any hook commands that could benefit from filtering by agent type (e.g., only act on GRD-spawned agents).
-
-### REQ-95: HTTP Hooks Capability Detection
-**Priority:** P2 — Medium
-**Category:** Backend
-**Description:** Add `http_hooks` capability flag to `BACKEND_CAPABILITIES`. Claude Code v2.1.63 supports HTTP hooks (POST JSON to URL, receive JSON response). GRD currently only registers command-type hooks. Document HTTP hooks as an option for external integrations (e.g., webhook notifications for phase completion). Add `http_hooks` boolean to BackendCapabilities interface.
-
-## Worktree & Tool Updates
-
-### REQ-96: ExitWorktree Tool Integration
-**Priority:** P1 — High
-**Category:** Worktree
-**Description:** Update GRD's worktree completion flow (`execute-phase.md`, `grd-executor.md`) to use the `ExitWorktree` tool (added in Claude Code v2.1.72) when running in native worktree isolation mode. Currently the executor writes artifacts but doesn't explicitly exit the worktree. Add `ExitWorktree` call before the completion flow step. Only applicable when `isolation_mode` is "native".
-
-### REQ-97: CLAUDE_SKILL_DIR Variable Migration
+### REQ-103: CLAUDE_PLUGIN_DATA Integration
 **Priority:** P1 — High
 **Category:** Plugin
-**Description:** Migrate GRD command/skill files from using `${CLAUDE_PLUGIN_ROOT}` to `${CLAUDE_SKILL_DIR}` where appropriate (added in v2.1.69). `${CLAUDE_SKILL_DIR}` resolves to the directory containing the skill file, enabling relative path references. Audit all command `.md` files that reference `${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js` and determine which can use `${CLAUDE_SKILL_DIR}` instead. Note: `CLAUDE_PLUGIN_ROOT` is still valid — `CLAUDE_SKILL_DIR` is an additional option for skills that need self-relative paths.
+**Description:** Migrate GRD's persistent plugin state to use `${CLAUDE_PLUGIN_DATA}` (v2.1.78) which survives plugin updates. Currently GRD stores state in `.planning/` which is project-scoped. `CLAUDE_PLUGIN_DATA` is plugin-scoped — use it for cross-project plugin config (scheduler state, evolve global config). Document the distinction: `.planning/` = project state, `CLAUDE_PLUGIN_DATA` = plugin state.
 
-## Capability Flags & Detection
+### REQ-104: Agent Frontmatter Extensions
+**Priority:** P1 — High
+**Category:** Agents
+**Description:** Update GRD agent definitions to use new frontmatter fields from v2.1.78: `effort` (low/medium/high per agent), `maxTurns` (cap turns per agent), `disallowedTools` (restrict tools per agent). Audit all 20 agent `.md` files. Set appropriate effort levels matching GRD's model profile system (e.g., planner=high, verifier=medium). Set maxTurns for agents that should be bounded (e.g., code-reviewer=15, verifier=10).
 
-### REQ-98: Cron/Loop Capability Support
+### REQ-105: MCP Elicitation Support
 **Priority:** P2 — Medium
 **Category:** Backend
-**Description:** Add `cron` capability flag to `BACKEND_CAPABILITIES`. Claude Code v2.1.71 added `/loop` command for recurring prompts and cron scheduling tools. Add detection of cron availability. Update `cmdInitAutopilot` to include `cron_available` field so the evolve loop can optionally use cron scheduling instead of manual re-invocation.
+**Description:** Add `mcp_elicitation` capability flag to `BackendCapabilities` (v2.1.76). Claude Code supports MCP elicitation — MCP servers can request structured input mid-task. Add `Elicitation` and `ElicitationResult` to hook event awareness. Update `cmdInitExecutePhase` to include `mcp_elicitation_available` field so agents know they can interact with MCP servers that use elicitation.
 
-### REQ-99: Auto-Memory Awareness
+### REQ-106: modelOverrides Awareness
+**Priority:** P2 — Medium
+**Category:** Backend
+**Description:** Document and support `modelOverrides` setting (v2.1.73) in GRD's model resolution system. When `modelOverrides` is configured, GRD's `resolveBackendModel()` should note that the user may have custom model mappings. Add `model_overrides_available` to init context so agents are aware custom models may be in use. No code changes to model resolution itself — just awareness and documentation.
+
+### REQ-107: Output Token Limit Updates
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Update GRD's awareness of output token limits. Claude Opus 4.6 now defaults to 64k output tokens with an upper bound of 128k (v2.1.77). Sonnet 4.6 upper bound is also 128k. Update any hardcoded token assumptions. Add `max_output_tokens` to `BackendCapabilities` or model config. This affects evolve prompt sizing and batch execution planning.
+
+### REQ-108: PostCompact Hook and allowRead Sandbox
+**Priority:** P3 — Low
+**Category:** Plugin
+**Description:** Register `PostCompact` hook event (v2.1.76) in plugin.json — fires after compaction completes. Register awareness of `allowRead` sandbox setting (v2.1.77) — re-allows read access within `denyRead` regions. Both are informational — no GRD-specific logic needed, but hook registration enables future use.
+
+### REQ-109: Effort Slash Command Awareness
 **Priority:** P3 — Low
 **Category:** Documentation
-**Description:** Document the interaction between Claude Code's auto-memory feature (v2.1.59, `/memory` command) and GRD's STATE.md-based memory model. Clarify that GRD uses STATE.md as its structured memory (decisions, metrics, deferred validations) while auto-memory handles session-level context. Update CLAUDE.md with a section on memory model interaction. No code changes required — documentation only.
+**Description:** Document `/effort` slash command (v2.1.76) in CLAUDE.md. Users can now change effort level mid-session. GRD's effort profile system (REQ-92 from v0.3.7) sets effort via agent frontmatter, but users can override with `/effort`. Note this interaction in documentation.
+
+## Codex CLI Updates (0.115.0+)
+
+### REQ-110: GPT-5.4 Mini Model Mapping
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Add `gpt-5.4-mini` to Codex model mappings in `MODEL_NAMES`. Map haiku tier → `gpt-5.4-mini` (fast, 30% usage of GPT-5.4, 2x faster). Update `DEFAULT_MODEL_NAMES.codex` to include the mini model. GPT-5.4 mini is ideal for subagent/discovery work in evolve.
+
+### REQ-111: Codex Smart Approvals Capability
+**Priority:** P2 — Medium
+**Category:** Backend
+**Description:** Add `smart_approvals` capability flag to `BackendCapabilities` for Codex. Smart Approvals route review requests through a guardian subagent, reducing repeated permission prompts. Set `smart_approvals: true` for Codex, `false` for others. Informational — no GRD code changes needed beyond capability detection.
+
+### REQ-112: Codex Realtime and Filesystem RPC Awareness
+**Priority:** P3 — Low
+**Category:** Documentation
+**Description:** Document Codex's new realtime websocket sessions and filesystem RPC capabilities in CLAUDE.md. The v2 app-server exposes filesystem RPCs for file operations. Note these as available but not currently used by GRD.
+
+## Gemini CLI Updates (v0.31 → v0.34)
+
+### REQ-113: Gemini 3.1 Pro Model Mapping
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Update Gemini model mappings. Gemini 3.1 Pro Preview is available (v0.31). Update `DEFAULT_MODEL_NAMES.gemini` to map opus → `gemini-3.1-pro`, sonnet → `gemini-3.1-flash`. Verify the generalist agent (v0.32) doesn't conflict with GRD's agent spawning.
+
+### REQ-114: Gemini Plan Mode and Sandboxing Capabilities
+**Priority:** P2 — Medium
+**Category:** Backend
+**Description:** Add capability flags for Gemini's new features: `plan_mode` (enabled by default in v0.34), `sandbox_gvisor` (native gVisor sandboxing), `sandbox_lxc` (experimental LXC container sandboxing). Update `BACKEND_CAPABILITIES.gemini` accordingly. Plan mode detection may be useful for GRD's phase planning workflow.
+
+### REQ-115: Gemini Tracker and A2A Awareness
+**Priority:** P3 — Low
+**Category:** Documentation
+**Description:** Document Gemini CLI's new tracker CRUD tools (v0.34) and A2A agent timeout increase to 30 minutes. Note the browser agent (experimental, v0.31) and generalist agent (v0.32) as available features. Informational only.
+
+## OpenCode Updates (v1.2.25 → v1.2.27)
+
+### REQ-116: OpenCode Model and Auth Updates
+**Priority:** P1 — High
+**Category:** Backend
+**Description:** Update OpenCode model mappings: GPT-5.4 is now in the allowed models list. Update `DEFAULT_MODEL_NAMES.opencode` if needed. Note multi-account workspace authentication support and non-OpenAI Azure completions endpoint support. Update backend detection if env vars or config changed.
+
+### REQ-117: OpenCode Worktree Session Fix Awareness
+**Priority:** P3 — Low
+**Category:** Documentation
+**Description:** Document OpenCode's fix for lost sessions across worktrees and orphan branches (v1.2.27). This is relevant to GRD's worktree isolation when running on OpenCode backend. Note the 5-minute chunk timeout increase (from 2 min).
 
 ## Testing & Documentation
 
-### REQ-100: Feature Sync Tests
+### REQ-118: Multi-Backend Sync Tests
 **Priority:** P1 — High
 **Category:** Testing
-**Description:** Update unit tests in `tests/unit/backend.test.ts` to verify: new `effort` capability flag, `http_hooks` capability flag, `cron` capability flag in BACKEND_CAPABILITIES. Add tests for effort level resolution logic. Update init context tests to verify `effort_level` field in JSON output. Update hook registration tests if applicable.
+**Description:** Update unit tests: new model mappings for all 4 backends, new capability flags (smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation), StopFailure hook registration, CLAUDE_PLUGIN_DATA paths. Update init context tests to verify new fields. Verify agent frontmatter with effort/maxTurns/disallowedTools.
 
-### REQ-101: Feature Sync Documentation
+### REQ-119: Multi-Backend Sync Documentation
 **Priority:** P2 — Medium
 **Category:** Documentation
-**Description:** Update CLAUDE.md: add effort level column to agent model profiles table, document new hook events, document cron/loop awareness. Update plugin.json with new hook registrations. Update README if applicable.
+**Description:** Update CLAUDE.md: new model mappings table, new capability flags, agent frontmatter fields, CLAUDE_PLUGIN_DATA usage. Update commands/evolve.md if evolve behavior changed. Update README if applicable.
 
 ## Traceability Matrix
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-91 | Phase 71 | PENDING |
-| REQ-92 | Phase 71 | PENDING |
-| REQ-93 | Phase 72 | PENDING |
-| REQ-94 | Phase 72 | PENDING |
-| REQ-95 | Phase 71 | PENDING |
-| REQ-96 | Phase 72 | PENDING |
-| REQ-97 | Phase 72 | PENDING |
-| REQ-98 | Phase 71 | PENDING |
-| REQ-99 | Phase 73 | PENDING |
-| REQ-100 | Phase 73 | PENDING |
-| REQ-101 | Phase 73 | PENDING |
+| REQ-102 | TBD | PENDING |
+| REQ-103 | TBD | PENDING |
+| REQ-104 | TBD | PENDING |
+| REQ-105 | TBD | PENDING |
+| REQ-106 | TBD | PENDING |
+| REQ-107 | TBD | PENDING |
+| REQ-108 | TBD | PENDING |
+| REQ-109 | TBD | PENDING |
+| REQ-110 | TBD | PENDING |
+| REQ-111 | TBD | PENDING |
+| REQ-112 | TBD | PENDING |
+| REQ-113 | TBD | PENDING |
+| REQ-114 | TBD | PENDING |
+| REQ-115 | TBD | PENDING |
+| REQ-116 | TBD | PENDING |
+| REQ-117 | TBD | PENDING |
+| REQ-118 | TBD | PENDING |
+| REQ-119 | TBD | PENDING |
