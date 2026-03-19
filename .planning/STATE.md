@@ -90,6 +90,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 76]: mcp_elicitation_available added to both cmdInitExecutePhase and cmdInitPlanPhase; derived from backendCaps.mcp_elicitation (REQ-105)
 - [Phase 77]: CLAUDE.md updated with Backend Capabilities table (15 flags, 4 backends), Agent Frontmatter docs, /effort interaction, Plugin Data boundary, and backend-specific notes for Codex/Gemini/OpenCode
 - [Phase 77]: maxTurns added to 7 bounded agents; disallowedTools added to 4 restricted agents; effort added to grd-code-reviewer and grd-migrator
+- [Phase 76-01]: grd-verifier disallows only Edit (not Write) to retain Write for VERIFICATION.md; grd-migrator uses effort: medium as safe default; disallowedTools uses YAML array format
 
 ## Known Bugs
 
@@ -102,7 +103,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 75 (Hook Events and Plugin Infrastructure)
-- **Stopped at:** Completed 77-01-PLAN.md
+- **Stopped at:** Completed 76-01-PLAN.md
 - **Next action:** Plan Phase 76 (`/grd:plan-phase 76`)
 - **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
