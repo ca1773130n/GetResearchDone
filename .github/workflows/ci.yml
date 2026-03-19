@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -28,7 +28,9 @@ jobs:
         run: npm run build:check
 
       - name: Format check
-        run: npm run format:check
+        run: |
+          npx prettier --write bin/ lib/ tests/ jest.config.js
+          git diff --exit-code || (echo "Prettier formatting issues found. Run npm run format locally." && exit 1)
 
   test:
     runs-on: ubuntu-latest
