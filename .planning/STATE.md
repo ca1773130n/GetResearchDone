@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Current Position
 
-- **Active phase:** 76 — Agent Frontmatter and MCP Elicitation
+- **Active phase:** 77 — Testing and Documentation
 - **Current plan:** —
 - **Milestone:** v0.3.12 Multi-Backend Feature Sync
-- **Status:** Ready to plan
-- **Progress:** [██████░░░░] 63%
-- **Next:** Plan and execute Phase 76
+- **Status:** In progress
+- **Progress:** [████████░░] 75%
+- **Next:** Complete remaining Phase 77 plans
 
 ## Phase Summary
 
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 |-------|------|--------|
 | 74 | Model Mappings and Capability Flags | Complete |
 | 75 | Hook Events and Plugin Infrastructure | Complete |
-| 76 | Agent Frontmatter and MCP Elicitation | Not started |
-| 77 | Testing and Documentation | Not started |
+| 76 | Agent Frontmatter and MCP Elicitation | Complete |
+| 77 | Testing and Documentation | In progress |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -88,6 +88,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 75]: StopFailure handler checks autopilot.log presence to determine if logging is needed; PostCompact is minimal/informational; both hooks use 2>/dev/null for silent failure
 - [Phase 76]: model_overrides_available uses runtime settings.json detection (not capability flag) to reflect actual user configuration (REQ-106)
 - [Phase 76]: mcp_elicitation_available added to both cmdInitExecutePhase and cmdInitPlanPhase; derived from backendCaps.mcp_elicitation (REQ-105)
+- [Phase 77]: CLAUDE.md updated with Backend Capabilities table (15 flags, 4 backends), Agent Frontmatter docs, /effort interaction, Plugin Data boundary, and backend-specific notes for Codex/Gemini/OpenCode
 
 ## Known Bugs
 
@@ -100,7 +101,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 75 (Hook Events and Plugin Infrastructure)
-- **Stopped at:** Completed 76-02-PLAN.md
+- **Stopped at:** Completed 77-02-PLAN.md
 - **Next action:** Plan Phase 76 (`/grd:plan-phase 76`)
 - **Context needed:** 18 requirements (REQ-102 through REQ-119) mapped across 4 phases
 
