@@ -268,12 +268,12 @@ Plans:
 4. Low-confidence issues are NOT auto-fixed — they appear in the report under "Requires manual review" with suggested fix
 5. `WIREUP-REPORT.md` is written to `.planning/milestones/{milestone}/wireup/` with: features tested count, scenarios run/passed/failed, issues found, fixes applied, remaining unwired features, and appended iteration history for trend tracking
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 80-01: Implement Playwright MCP integration with `playwright_available` guard
-- [ ] 80-02: Implement auto-fix capability with sonnet-tier agent and re-run verification
-- [ ] 80-03: Implement WIREUP-REPORT.md generation with iteration history
+- [ ] 80-01-PLAN.md — Playwright MCP detection and browser scenario execution with graceful degradation
+- [ ] 80-02-PLAN.md — Auto-fix capability with confidence gating and sonnet-tier re-run verification
+- [ ] 80-03-PLAN.md — WIREUP-REPORT.md generation with iteration history and trend tracking
 
 #### Phase 81: MCP Tools, Testing, and Integration
 
