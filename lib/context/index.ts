@@ -38,6 +38,10 @@ const _agents = require('./agents');
 
 const _progress = require('./progress');
 
+// ─── Wireup ──────────────────────────────────────────────────────────────────
+
+const _wireup = require('../wireup/cli');
+
 // ─── Barrel Export ───────────────────────────────────────────────────────────
 
 module.exports = {
@@ -100,4 +104,7 @@ module.exports = {
   _progressCachePath: _progress._progressCachePath,
   _computeProgressMtimeKey: _progress._computeProgressMtimeKey,
   cmdInitProgress: _progress.cmdInitProgress,
+
+  // Wireup
+  cmdInitWireup: _wireup.cmdInitWireup,
 };

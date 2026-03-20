@@ -279,6 +279,14 @@ const {
 } = require('../lib/parallel');
 
 const {
+  cmdWireup,
+  cmdInitWireup,
+}: {
+  cmdWireup: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitWireup: (cwd: string, raw: boolean) => void;
+} = require('../lib/wireup/index');
+
+const {
   splitMarkdown,
   isIndexFile,
   estimateTokens,
@@ -1099,6 +1107,9 @@ async function routeCommand(
         case 'evolve':
           cmdInitEvolve(cwd, raw);
           break;
+        case 'wireup':
+          cmdInitWireup(cwd, raw);
+          break;
         case 'debug':
           cmdInitDebug(cwd, args[2] || null, raw);
           break;
@@ -1311,6 +1322,15 @@ async function routeCommand(
         case 'reset':
           cmdEvolveReset(cwd, args.slice(2), raw);
           return;
+      }
+      break;
+    }
+    case 'wireup': {
+      const sub: string = args[1];
+      validateSubcommand(sub, ['run'], 'wireup');
+      if (sub === 'run') {
+        await cmdWireup(cwd, args.slice(2), raw);
+        return;
       }
       break;
     }

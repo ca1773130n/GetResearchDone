@@ -24,6 +24,13 @@ const {
 
 const WIREUP_STATE_FILENAME: string = 'WIREUP-STATE.json';
 
+/**
+ * Model ceiling for all wireup subagent spawns.
+ * All spawnClaudeAsync calls in the wireup subsystem MUST use this constant.
+ * No opus-class model references are permitted.
+ */
+const SONNET_MODEL: string = 'sonnet';
+
 // ─── State Path ─────────────────────────────────────────────────────────────
 
 /**
@@ -122,6 +129,7 @@ function advanceWireupIteration(
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
+  SONNET_MODEL,
   WIREUP_STATE_FILENAME,
   wireupStatePath,
   createInitialWireupState,
