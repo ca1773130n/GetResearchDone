@@ -174,6 +174,27 @@ export interface FailedScenarioSummary {
 }
 
 /**
+ * Issues grouped by confidence level for summary reporting.
+ */
+export interface IssuesByConfidence {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+/**
+ * Issues grouped by issue_type for summary reporting.
+ */
+export interface IssuesByType {
+  'missing-route': number;
+  'unconnected-handler': number;
+  'missing-import': number;
+  'missing-middleware': number;
+  'broken-nav-link': number;
+  'missing-env-var': number;
+}
+
+/**
  * Result returned by runWireup().
  */
 export interface WireupResult {
@@ -189,6 +210,12 @@ export interface WireupResult {
   scenarios_failed: number;
   /** Number of missing connections detected from failed scenarios. */
   issues_found: number;
+  /** Full list of detected missing connections (empty array when issues_found === 0). */
+  issues: MissingConnection[];
+  /** Issues grouped by confidence level. */
+  issues_by_confidence: IssuesByConfidence;
+  /** Issues grouped by issue type. */
+  issues_by_type: IssuesByType;
   /** Human-readable pass/fail summary. */
   pass_fail_summary: string;
   /** Details of failed scenarios with their step failures. */

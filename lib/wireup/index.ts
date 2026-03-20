@@ -13,6 +13,7 @@
  * @see lib/wireup/orchestrator.ts -- Wireup pipeline orchestrator (runWireup, cmdWireup)
  * @see lib/wireup/cli.ts         -- Context builder (cmdInitWireup)
  * @see lib/wireup/execution.ts   -- HTTP and CLI scenario execution engine (plan 79-02)
+ * @see lib/wireup/detection.ts   -- Missing connection detection engine (plan 79-03)
  */
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -38,6 +39,10 @@ const cliModule = require('./cli');
 // ─── Execution ───────────────────────────────────────────────────────────────
 
 const executionModule = require('./execution') as Record<string, unknown>;
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+
+const detectionModule = require('./detection') as Record<string, unknown>;
 
 // ─── Barrel Export ────────────────────────────────────────────────────────────
 
@@ -70,6 +75,10 @@ module.exports = {
   executeScenarios: executionModule['executeScenarios'],
   executeHttpStep: executionModule['executeHttpStep'],
   executeCliStep: executionModule['executeCliStep'],
+
+  // ─── Detection engine (from detection.ts) ────────────────────────────────
+  detectMissingConnections: detectionModule['detectMissingConnections'],
+  classifyFailure: detectionModule['classifyFailure'],
 
   // ─── Orchestrator (from orchestrator.ts) ─────────────────────────────────
   runWireup: orchestratorModule.runWireup,

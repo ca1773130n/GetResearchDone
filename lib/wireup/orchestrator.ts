@@ -19,6 +19,9 @@ import type {
   WireupState,
   FailedScenarioSummary,
   StepResult,
+  MissingConnection,
+  IssuesByConfidence,
+  IssuesByType,
 } from './types';
 const {
   SONNET_MODEL,
@@ -50,6 +53,12 @@ const {
   generateScenarios: (features: import('./types').UnwiredFeature[], cwd: string) => WireupScenario[];
   generateTestData: (scenarios: WireupScenario[], cwd: string) => void;
 } = require('./scenarios');
+
+const {
+  detectMissingConnections,
+}: {
+  detectMissingConnections: (cwd: string, failedResults: ScenarioResult[]) => MissingConnection[];
+} = require('./detection');
 
 // ─── Execution Stub (implemented in plan 79-02) ──────────────────────────────
 
@@ -90,12 +99,15 @@ const {
 
 /**
  * Build a human-readable pass/fail summary string from execution results.
+ * Includes issue detection summary when issues were found.
  */
 function _buildPassFailSummary(
   total: number,
   passed: number,
   failed: number,
-  failedScenarios: FailedScenarioSummary[]
+  failedScenarios: FailedScenarioSummary[],
+  issuesFound?: number,
+  issuesByConfidence?: IssuesByConfidence
 ): string {
   if (total === 0) {
     return 'No scenarios executed.';
@@ -109,6 +121,13 @@ function _buildPassFailSummary(
     for (const fs of failedScenarios) {
       summary += `\n  - ${fs.scenario_id} (${fs.failed_steps.length} step(s) failed)`;
     }
+  }
+
+  if (issuesFound !== undefined && issuesFound > 0 && issuesByConfidence !== undefined) {
+    summary += `\n\nMissing connections detected: ${issuesFound}`;
+    summary += `\n  High confidence: ${issuesByConfidence.high}`;
+    summary += `\n  Medium confidence: ${issuesByConfidence.medium}`;
+    summary += `\n  Low confidence: ${issuesByConfidence.low}`;
   }
 
   return summary;
@@ -165,6 +184,16 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
       scenarios_passed: 0,
       scenarios_failed: 0,
       issues_found: 0,
+      issues: [],
+      issues_by_confidence: { high: 0, medium: 0, low: 0 },
+      issues_by_type: {
+        'missing-route': 0,
+        'unconnected-handler': 0,
+        'missing-import': 0,
+        'missing-middleware': 0,
+        'broken-nav-link': 0,
+        'missing-env-var': 0,
+      },
       pass_fail_summary: `Dry run: ${features.length} features discovered, ${scenarios.length} scenarios generated. Execution skipped.`,
       failed_scenarios: [],
     };
@@ -191,20 +220,28 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
       failed_steps: r.step_results.filter((s: StepResult) => !s.passed),
     }));
 
-  // Step 7: Detect missing connections (Phase 79-03 stub — will be implemented in plan 79-03)
-  // detectMissingConnections is called here; the actual implementation is in plan 79-03
-  let issuesFound = 0;
-  try {
-    const detectionModule = require('./detection') as {
-      detectMissingConnections: (cwd: string, failedResults: ScenarioResult[]) => unknown[];
-    };
-    const missingConnections = detectionModule.detectMissingConnections(
-      cwd,
-      executionResults.filter((r) => !r.overall_passed)
-    );
-    issuesFound = missingConnections.length;
-  } catch {
-    // detection.ts not yet implemented (Phase 79-03) — safe to ignore
+  // Step 7: Detect missing connections from failed scenario results
+  const failedResults = executionResults.filter((r) => !r.overall_passed);
+  const missingConnections: MissingConnection[] = failedResults.length > 0
+    ? detectMissingConnections(cwd, failedResults)
+    : [];
+
+  const issuesFound = missingConnections.length;
+
+  // Group issues by confidence and by type for summary output
+  const issuesByConfidence: IssuesByConfidence = { high: 0, medium: 0, low: 0 };
+  const issuesByType: IssuesByType = {
+    'missing-route': 0,
+    'unconnected-handler': 0,
+    'missing-import': 0,
+    'missing-middleware': 0,
+    'broken-nav-link': 0,
+    'missing-env-var': 0,
+  };
+
+  for (const issue of missingConnections) {
+    issuesByConfidence[issue.confidence] += 1;
+    issuesByType[issue.issue_type] += 1;
   }
 
   // Step 8: Update wireup state
@@ -215,7 +252,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     fixes_applied: 0,
   });
 
-  // Update cumulative features_discovered and scenarios_generated
+  // Update cumulative features_discovered, scenarios_generated, and issues counts
   const finalState: WireupState = {
     ...updatedState,
     features_discovered: wireupState.features_discovered + features.length,
@@ -224,8 +261,15 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
 
   writeWireupState(cwd, finalState);
 
-  // Step 9: Return WireupResult
-  const passFail = _buildPassFailSummary(totalScenarios, passedCount, failedCount, failedScenarios);
+  // Step 9: Build summary and return WireupResult
+  const passFail = _buildPassFailSummary(
+    totalScenarios,
+    passedCount,
+    failedCount,
+    failedScenarios,
+    issuesFound,
+    issuesByConfidence
+  );
 
   return {
     features_discovered: features.length,
@@ -234,6 +278,9 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     scenarios_passed: passedCount,
     scenarios_failed: failedCount,
     issues_found: issuesFound,
+    issues: missingConnections,
+    issues_by_confidence: issuesByConfidence,
+    issues_by_type: issuesByType,
     pass_fail_summary: passFail,
     failed_scenarios: failedScenarios,
   };
@@ -278,7 +325,13 @@ async function cmdWireup(cwd: string, args: string[], raw: boolean): Promise<voi
     process.stdout.write(`  Scenarios run:       ${result.scenarios_run}\n`);
     process.stdout.write(`  Passed:              ${result.scenarios_passed}\n`);
     process.stdout.write(`  Failed:              ${result.scenarios_failed}\n`);
-    process.stdout.write(`  Issues found:        ${result.issues_found}\n`);
+    process.stdout.write(`  Issues found:        ${result.issues_found}`);
+    if (result.issues_found > 0) {
+      process.stdout.write(
+        ` (high: ${result.issues_by_confidence.high}, medium: ${result.issues_by_confidence.medium}, low: ${result.issues_by_confidence.low})`
+      );
+    }
+    process.stdout.write('\n');
     process.stdout.write(`\n${result.pass_fail_summary}\n`);
   }
 
