@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - **Current plan:** —
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** Ready to plan
-- **Progress:** [███░░░░░░░] 33%
+- **Progress:** [████░░░░░░] 42%
 - **Next:** Plan Phase 79 (orchestrator, HTTP/CLI execution, missing connection detection)
 
 ## Phase Summary
@@ -82,6 +82,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 78]: Scenario steps are category-specific: exported-but-uncalled uses cli+assert, config-without-surface uses cli(gd settings)+assert, endpoint-without-integration-test uses http+assert
 - [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync (no shell injection); browser/assert steps skipped in Phase 79
 - [Phase 79]: executeScenarios runs scenarios sequentially (not parallel) to avoid overwhelming localhost services; detectMissingConnections called via try/catch for graceful fallback before plan 79-03
+- [Phase 79]: cmdInitWireup in lib/wireup/cli.ts (not lib/context/agents.ts) mirrors cmdInitEvolve placement; wireup added to INIT_WORKFLOWS; SONNET_MODEL in wireup/state.ts; ExecutionOptions.model propagates ceiling to executor
 
 ## Known Bugs
 
@@ -94,7 +95,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 78 — Core Wireup Infrastructure (3 plans, 2 waves)
-- **Stopped at:** Completed 79-02-PLAN.md — HTTP/CLI execution engine and orchestrator integration
+- **Stopped at:** Completed 79-01-PLAN.md — wireup slash command, orchestrator, cmdInitWireup
 - **Next action:** Plan Phase 79 — Wireup Orchestrator and Execution
 - **Context needed:** lib/wireup/ (types, discovery, scenarios, state), commands/ patterns for wireup.md
 
