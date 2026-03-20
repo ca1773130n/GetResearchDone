@@ -110,12 +110,12 @@ Plans:
 4. Integration test runs a full wireup iteration on a test fixture project with at least 2 known unwired features; validates discover -> generate -> execute -> detect -> report flow end-to-end
 5. `grd_wireup_run` MCP tool can be invoked via `grd-tools.js` and returns structured JSON with `features_discovered`, `scenarios_run`, `issues_found` fields
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 81-01: Register wireup MCP tools in mcp-server.ts
-- [ ] 81-02: Write unit tests for lib/wireup.ts (85%+ coverage)
-- [ ] 81-03: Write integration test for full wireup flow on fixture project
+- [ ] 81-01-PLAN.md — Register five wireup MCP tools in mcp-server.ts and add coverage threshold
+- [ ] 81-02-PLAN.md — Write unit tests for lib/wireup.ts (85%+ line coverage)
+- [ ] 81-03-PLAN.md — Write integration test for full wireup flow on fixture project
 
 ## Progress
 
