@@ -58,12 +58,12 @@ Plans:
 4. All `spawnClaude` calls in the wireup orchestrator use `SONNET_MODEL` constant — no opus model spawns
 5. The orchestrator wires phases 78 and 79 together: a single `gd wireup` invocation calls discover, generates scenarios, executes HTTP/CLI scenarios, and outputs a pass/fail summary
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 79-01: Register `/grd:wireup` slash command and implement orchestrator flow
-- [ ] 79-02: Implement HTTP/CLI scenario execution with pass/fail comparison
-- [ ] 79-03: Implement missing connection detection and classification
+- [ ] 79-01-PLAN.md — Register /grd:wireup slash command, cmdInitWireup context builder, and wireup orchestrator with barrel re-export
+- [ ] 79-02-PLAN.md — Implement HTTP/CLI scenario execution engine with per-step pass/fail comparison and orchestrator integration
+- [ ] 79-03-PLAN.md — Implement missing connection detection and classification with 6 issue types and orchestrator integration
 
 ### Phase 80: Browser Execution and Auto-Fix
 
