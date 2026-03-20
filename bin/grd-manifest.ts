@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+'use strict';
 
 /**
  * GRD Manifest — SHA256-based file tracking for self-update system
@@ -12,7 +13,6 @@
  *   load-patches [--dir path]   Read patch backup metadata
  */
 
-'use strict';
 
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');

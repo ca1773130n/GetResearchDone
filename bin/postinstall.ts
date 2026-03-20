@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+'use strict';
+
 /**
  * GRD Post-install Script
  *
@@ -9,7 +11,6 @@
  * All errors are caught and printed to stderr; exit code is always 0.
  */
 
-'use strict';
 
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');

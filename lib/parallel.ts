@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Parallel Execution -- Multi-phase independence validation, context building, mode selection
  *
@@ -8,7 +10,6 @@
  * Depends on: lib/deps.ts (buildDependencyGraph), lib/utils.ts, lib/backend.ts, lib/roadmap.ts
  */
 
-'use strict';
 
 import type {
   DependencyGraph,

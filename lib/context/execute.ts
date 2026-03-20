@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context/Execute -- Init context builders for execution and planning workflows
  *
@@ -10,7 +12,6 @@
  * Dependencies: base.ts, utils.ts, backend.ts, paths.ts, worktree.ts, gates.ts
  */
 
-'use strict';
 
 import type {
   GrdConfig,

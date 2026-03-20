@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Long-Term Roadmap Operations -- LONG-TERM-ROADMAP.md parsing, validation,
  * generation, display formatting, and CRUD operations.
@@ -8,7 +10,6 @@
  * Depends on: lib/frontmatter.ts (extractFrontmatter)
  */
 
-'use strict';
 
 import type { FrontmatterObject } from './types';
 

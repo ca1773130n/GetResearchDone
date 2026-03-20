@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/SlugTimestamp -- Slug generation and timestamp formatting utilities */
 
-'use strict';
 
 const {
   output,

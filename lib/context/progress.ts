@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context/Progress -- Progress cache helpers and progress/milestone-gaps init
  *
@@ -7,7 +9,6 @@
  * Dependencies: base.ts, utils.ts, backend.ts, paths.ts
  */
 
-'use strict';
 
 import type { GrdConfig, MilestoneInfo, BackendCapabilities } from '../types';
 

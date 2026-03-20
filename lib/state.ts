@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD State Operations -- STATE.md read/write/patch/progression functions
  *
@@ -7,7 +9,6 @@
  *             lib/frontmatter.js (extractFrontmatter)
  */
 
-'use strict';
 
 import type { GrdConfig } from './types';
 

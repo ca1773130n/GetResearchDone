@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Scaffold Operations -- Template selection, fill, and scaffolding
  *
@@ -7,7 +9,6 @@
  * Depends on: lib/paths.ts (planningDir, phasesDir, researchDir)
  */
 
-'use strict';
 
 import type { FrontmatterObject, PhaseInfo } from './types';
 

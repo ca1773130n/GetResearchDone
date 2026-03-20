@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Roadmap Operations -- ROADMAP.md parsing, phase queries, schedule computation
  *
@@ -7,7 +9,6 @@
  * Depends on: lib/frontmatter.js (extractFrontmatter)
  */
 
-'use strict';
 
 // Type-only import to establish module scope (no runtime effect)
 import type {} from './types';

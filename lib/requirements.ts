@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Requirements — Requirement management command functions
  *
@@ -6,7 +8,6 @@
  * traceability, and status updates.
  */
 
-'use strict';
 
 import type { Requirement, TraceabilityEntry } from './types';
 

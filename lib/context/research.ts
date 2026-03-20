@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context/Research -- Init context builders for R&D research workflows
  *
@@ -10,7 +12,6 @@
  * Dependencies: base.ts, utils.ts, backend.ts, paths.ts
  */
 
-'use strict';
 
 import type {
   GrdConfig,

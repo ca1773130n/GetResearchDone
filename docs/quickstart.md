@@ -1,5 +1,7 @@
 # GRD Quickstart
 
+> **Prefer a hands-on tutorial?** See [examples/taskmark/](../examples/taskmark/) — a guided walkthrough that uses GRD to improve a real CLI tool. Quick Path (5 min) or Deep Path (30 min).
+
 ## What is GRD?
 
 **Get Research Done** — R&D workflow automation for Claude Code. It manages the full research lifecycle: surveying papers, planning experiments, executing with atomic commits, evaluating with tiered metrics, and iterating until targets are met.

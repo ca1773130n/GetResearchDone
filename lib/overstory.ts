@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Overstory Adapter -- Detection, plan dispatch, status polling, merge
  *
@@ -6,7 +8,6 @@
  *
  * Requires: Overstory v0.8.0+ (stable --json output)
  */
-'use strict';
 
 import type {
   OverstoryInfo,

@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context/Agents -- Init context builders for agent aliases and operation workflows
  *
@@ -15,7 +17,6 @@
  * Dependencies: base.ts, execute.ts, research.ts, project.ts, utils.ts, backend.ts, paths.ts
  */
 
-'use strict';
 
 import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities } from '../types';
 

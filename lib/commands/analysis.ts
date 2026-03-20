@@ -1,8 +1,9 @@
+'use strict';
+
 /** GRD Commands/Analysis -- Project analysis: risk assessment, citation tracking,
  *  eval regression, time budget, config diff, readiness, health score,
  *  decision timeline, knowledge import, todo duplicates */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

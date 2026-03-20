@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Dependency Analysis -- Phase dependency graph, parallel group computation, cycle detection
  *
@@ -7,7 +9,6 @@
  * Depends on: lib/utils.ts (output, error), lib/roadmap.ts (analyzeRoadmap)
  */
 
-'use strict';
 
 import type { DependencyGraph, DependencyNode, DependencyEdge } from './types';
 

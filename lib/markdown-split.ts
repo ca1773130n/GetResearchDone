@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Markdown Splitting -- Split large markdown files at heading boundaries
  *
@@ -6,7 +8,6 @@
  * Core logic for REQ-60 (auto-split) and REQ-61 (index format).
  */
 
-'use strict';
 
 const path = require('path');
 const { safeReadFile } = require('./utils');

@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/LongTermRoadmap -- Long-term roadmap CRUD operations CLI interface */
 
-'use strict';
 
 const path = require('path');
 const {

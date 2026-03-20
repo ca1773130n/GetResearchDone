@@ -46,6 +46,7 @@ By name: `npx jest -t "should parse frontmatter"`
 - `lib/` — 24 TypeScript modules + 4 subdirectories (`cli/`, `commands/`, `context/`, `evolve/`)
 - `commands/` — 43 skill definitions (markdown). `agents/` — 20 subagent definitions (markdown).
 - `tests/unit/` — One test file per `lib/` module. `tests/integration/` — CLI + E2E tests.
+- `examples/` — Tutorial projects. `examples/taskmark/` — hands-on GRD tutorial (Quick + Deep paths).
 - `.planning/` — Project plans, roadmap, state, and config. Read `.planning/STATE.md` first.
 
 ## Code Style

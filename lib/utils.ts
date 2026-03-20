@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Shared Utilities -- Constants, helpers, and validation functions
  *
@@ -5,7 +7,6 @@
  * These are zero-dependency foundations used by all other modules.
  */
 
-'use strict';
 
 import type {
   GrdConfig,

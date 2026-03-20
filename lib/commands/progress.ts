@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Progress -- Project progress rendering in json, table, and bar formats */
 
-'use strict';
 
 import type { MilestoneInfo } from '../types';
 

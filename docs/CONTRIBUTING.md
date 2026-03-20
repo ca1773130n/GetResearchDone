@@ -23,6 +23,7 @@ lib/                   10 modules with clear responsibilities:
   commands.js            Standalone utility commands
 agents/                Claude agent definitions (.md files)
 commands/              Command definitions (.md files)
+examples/              Tutorial projects (e.g. examples/taskmark/)
 .planning/             Project planning state (not shipped)
 tests/                 Jest test suite with unit and integration tests
 ```

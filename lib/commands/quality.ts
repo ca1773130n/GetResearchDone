@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Quality -- Quality analysis and plugin setup operations */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

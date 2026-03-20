@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context -- Barrel re-export of all 48 context init functions
  *
@@ -11,7 +13,6 @@
  *   - progress.ts: progress cache + progress init (3 functions)
  */
 
-'use strict';
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 

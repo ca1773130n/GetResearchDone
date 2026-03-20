@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands -- Barrel re-export of all command sub-modules */
 
-'use strict';
 
 // ─── Slug & Timestamp ────────────────────────────────────────────────────────
 const _slugTimestamp: {

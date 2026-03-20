@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Verification Suite -- Plan structure, phase completeness, references, commits, artifacts, key-links
  *
@@ -6,7 +8,6 @@
  *             lib/frontmatter.ts (extractFrontmatter, parseMustHavesBlock)
  */
 
-'use strict';
 
 import type { FrontmatterObject, PhaseInfo, ExecGitResult } from './types';
 

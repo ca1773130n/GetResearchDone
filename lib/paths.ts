@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Path Resolution -- Centralized .planning/ subdirectory path construction
  *
@@ -10,7 +12,6 @@
  *
  * Dependencies: fs, path (Node built-in only -- no circular lib/ deps)
  */
-'use strict';
 
 import type { Dirent } from 'fs';
 

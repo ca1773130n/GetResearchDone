@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Frontmatter Operations -- YAML frontmatter parse/reconstruct/splice/validate
  *
@@ -5,7 +7,6 @@
  * Depends on: lib/utils.ts (safeReadFile, output, error)
  */
 
-'use strict';
 
 import type { FrontmatterObject } from './types';
 

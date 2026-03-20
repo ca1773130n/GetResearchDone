@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+'use strict';
+
 /**
  * GRD Tools -- Thin CLI router. All business logic lives in lib/ modules.
  * Usage: node grd-tools.js <command> [args] [--raw]
  */
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD MCP Server -- Model Context Protocol server exposing all GRD CLI commands as MCP tools.
  *
@@ -8,7 +10,6 @@
  * Migrated to TypeScript in Phase 63 Plan 03.
  */
 
-'use strict';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 

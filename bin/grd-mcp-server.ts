@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+'use strict';
+
 /**
  * GRD MCP Server -- Entry point wiring lib/mcp-server.ts to stdin/stdout as MCP stdio transport.
  *
@@ -11,7 +13,6 @@
  * Migrated to TypeScript in Phase 63 Plan 04.
  */
 
-'use strict';
 
 /** JSON-RPC 2.0 message received on stdin */
 interface JsonRpcMessage {

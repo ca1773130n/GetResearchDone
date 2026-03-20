@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Health -- Project health indicators and comprehensive health check operations */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

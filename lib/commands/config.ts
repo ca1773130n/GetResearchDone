@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Config -- Configuration management and path verification operations */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Backend Detection, Model Resolution & Capabilities
  *
@@ -23,7 +25,6 @@
  *   - Capability flags: .planning/research/ARCHITECTURE.md
  *   - Pitfall avoidance: .planning/research/PITFALLS.md (P5: no AGENT env var)
  */
-'use strict';
 
 import type {
   BackendId,

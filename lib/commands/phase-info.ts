@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/PhaseInfo -- Phase lookup, model resolution, commit, plan indexing, summary extraction, history digest */
 
-'use strict';
 
 import type {
   GrdConfig,

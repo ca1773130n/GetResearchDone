@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Tracker Integration -- Issue tracker sync (GitHub/Jira) and mapping
  *
@@ -9,7 +11,6 @@
  *             lib/paths.ts (phasesDir)
  */
 
-'use strict';
 
 import type { GrdConfig } from './types';
 

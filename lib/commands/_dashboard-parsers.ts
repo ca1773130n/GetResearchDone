@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Dashboard -- Internal parse helpers for dashboard data extraction */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

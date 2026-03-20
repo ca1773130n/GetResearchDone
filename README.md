@@ -30,6 +30,10 @@ claude plugin add https://github.com/ca1773130n/GRD.git
 /grd:autopilot               # Let it run autonomously
 ```
 
+### Hands-On Tutorial
+
+New to GRD? The [TaskMark tutorial](examples/taskmark/) walks you through the full workflow by improving a real (deliberately imperfect) CLI tool. Two tracks: **Quick Path** (5 minutes) or **Deep Path** (30 minutes).
+
 ### Prerequisites
 
 - Node.js 18+

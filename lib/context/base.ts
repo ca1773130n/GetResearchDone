@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Context/Base -- Shared utilities for all cmdInit* context functions
  *
@@ -7,7 +9,6 @@
  * Dependencies: utils.ts, backend.ts, paths.ts (one-directional, no circular deps)
  */
 
-'use strict';
 
 import type { GrdConfig, PhaseInfo, MilestoneInfo, BackendCapabilities } from '../types';
 

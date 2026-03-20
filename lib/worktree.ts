@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Worktree -- Git worktree lifecycle management for phase isolation
  *
@@ -8,7 +10,6 @@
  * Dependencies: utils.ts (one-directional, no circular deps)
  */
 
-'use strict';
 
 import type { ExecGitResult, GrdConfig, PhaseInfo, MilestoneInfo } from './types';
 

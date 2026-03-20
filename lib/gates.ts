@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Validation Gate System — Pre-flight checks for workflow commands
  *
@@ -7,7 +9,6 @@
  * Dependencies: utils.js (one-directional, no circular deps)
  */
 
-'use strict';
 
 import type { RunCache, GrdConfig, GateViolation, PreflightResult } from './types';
 

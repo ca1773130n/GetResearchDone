@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Todo -- Todo list management and completion operations */
 
-'use strict';
 
 const fs = require('fs');
 const path = require('path');

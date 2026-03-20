@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Phase Lifecycle Operations -- add, insert, remove, complete, list
  * plus milestone complete and validate consistency.
@@ -7,7 +9,6 @@
  * Dependencies: utils.ts, frontmatter.ts (one-directional, no circular deps)
  */
 
-'use strict';
 
 import type {
   GrdConfig,

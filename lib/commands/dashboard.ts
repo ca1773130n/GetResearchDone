@@ -1,6 +1,7 @@
+'use strict';
+
 /** GRD Commands/Dashboard -- Project dashboard and phase detail rendering */
 
-'use strict';
 
 import type { FrontmatterObject } from '../types';
 

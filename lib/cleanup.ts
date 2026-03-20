@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * GRD Phase Cleanup — Config schema handling and quality analysis functions
  *
@@ -9,7 +11,6 @@
  * These are the data-layer operations wired into phase completion by Plan 13-02.
  */
 
-'use strict';
 
 import type { RunCache, CleanupConfig, QualityAnalysisSummary } from './types';
 
