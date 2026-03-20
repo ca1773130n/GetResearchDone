@@ -100,6 +100,7 @@ export const INIT_WORKFLOWS: readonly string[] = [
   'multi-milestone-autopilot',
   'autoplan',
   'evolve',
+  'wireup',
   'debug',
   'integration-check',
   'migrate',
