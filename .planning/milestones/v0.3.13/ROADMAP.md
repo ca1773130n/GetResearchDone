@@ -32,12 +32,12 @@ v0.3.13 adds `/grd:wireup` — a complement to `/grd:evolve` that focuses on wir
 4. `readWireupState()` and `writeWireupState()` round-trip correctly; `WIREUP-STATE.json` contains `features_discovered`, `scenarios_generated`, `scenarios_passed`, `scenarios_failed`, `fixes_applied`, and `iteration_history` fields
 5. All functions use pure filesystem analysis (no LLM subprocess calls) — discovery completes without spawning any child processes
 
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 78-01: Implement `discoverUnwiredFeatures()` with filesystem analysis across unwired-feature categories
-- [ ] 78-02: Implement scenario generation and test data generation with fixture output
-- [ ] 78-03: Implement wireup state management (`WIREUP-STATE.json` read/write/advance)
+- [ ] 78-01-PLAN.md — Wireup type definitions and discoverUnwiredFeatures() with filesystem analysis
+- [ ] 78-02-PLAN.md — Scenario generation and test data fixture generation
+- [ ] 78-03-PLAN.md — Wireup state management (WIREUP-STATE.json read/write/advance)
 
 ### Phase 79: Wireup Orchestrator and Execution
 
