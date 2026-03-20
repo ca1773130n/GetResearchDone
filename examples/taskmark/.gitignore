@@ -1,0 +1,2 @@
+# Override parent .gitignore to include tutorial hook config
+!.claude/
