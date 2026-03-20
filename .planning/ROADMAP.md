@@ -27,7 +27,7 @@
 - v0.3.5 Evolve Stabilization & Product Ideation (shipped 2026-03-09)
 - v0.3.6 Backend Ecosystem Sync - Phases 69-70 (shipped 2026-03-11)
 - v0.3.7 Claude Code Feature Sync - Phases 71-73 (shipped 2026-03-12)
-- **v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (active)**
+- v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (shipped 2026-03-20)
 
 ## Phases
 
@@ -209,8 +209,8 @@ Sync GRD with latest features from Claude Code (2.1.73-2.1.79), Codex CLI (0.115
 **Plans:** 2 plans
 
 Plans:
-- [ ] 74-01-PLAN.md — Update DEFAULT_BACKEND_MODELS: Codex haiku to gpt-5.4-mini, Gemini sonnet to gemini-3.1-flash, verify OpenCode
-- [ ] 74-02-PLAN.md — Add capability flags: smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation, model_overrides, max_output_tokens
+- [x] 74-01-PLAN.md — Update DEFAULT_BACKEND_MODELS: Codex haiku to gpt-5.4-mini, Gemini sonnet to gemini-3.1-flash, verify OpenCode
+- [x] 74-02-PLAN.md — Add capability flags: smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation, model_overrides, max_output_tokens
 
 #### Phase 75: Hook Events and Plugin Infrastructure
 
@@ -257,8 +257,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 76-01-PLAN.md — Agent frontmatter audit: effort, maxTurns, disallowedTools for all 20 agents
-- [ ] 76-02-PLAN.md — MCP elicitation and modelOverrides awareness in init context
+- [x] 76-01-PLAN.md — Agent frontmatter audit: effort, maxTurns, disallowedTools for all 20 agents
+- [x] 76-02-PLAN.md — MCP elicitation and modelOverrides awareness in init context
 
 #### Phase 77: Testing and Documentation
 
@@ -284,8 +284,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 77-01-PLAN.md — Unit tests for model mappings, capability flags, init context fields, hook registrations, and agent frontmatter
-- [ ] 77-02-PLAN.md — CLAUDE.md documentation updates with capability flags table, agent frontmatter, and backend-specific notes
+- [x] 77-01-PLAN.md — Unit tests for model mappings, capability flags, init context fields, hook registrations, and agent frontmatter
+- [x] 77-02-PLAN.md — CLAUDE.md documentation updates with capability flags table, agent frontmatter, and backend-specific notes
 
 ### Progress
 
@@ -294,10 +294,10 @@ Plans:
 | 71 | Effort Levels & Capability Flags | Complete | 2026-03-11 |
 | 72 | Hook Events & Tool Updates | Complete | 2026-03-11 |
 | 73 | Testing & Documentation | Complete | 2026-03-11 |
-| 74 | Model Mappings and Capability Flags | Not started | - |
+| 74 | Model Mappings and Capability Flags | Complete | 2026-03-19 |
 | 75 | Hook Events and Plugin Infrastructure | Complete | 2026-03-19 |
-| 76 | Agent Frontmatter and MCP Elicitation | Not started | - |
-| 77 | Testing and Documentation | Not started | - |
+| 76 | Agent Frontmatter and MCP Elicitation | Complete | 2026-03-19 |
+| 77 | Testing and Documentation | Complete | 2026-03-20 |
 
 ## Deferred Validations
 

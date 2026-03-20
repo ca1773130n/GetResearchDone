@@ -1,5 +1,28 @@
 # Milestones
 
+## v0.3.12 Multi-Backend Feature Sync (Shipped: 2026-03-20)
+
+**Phases completed:** 4 phases (74-77), 8 plans
+**Timeline:** 2026-03-19 to 2026-03-20
+**Source:** 25 lib/ modules, 3,134 tests
+
+**Key accomplishments:**
+- Model mappings updated: Codex haiku to gpt-5.4-mini, Gemini opus/sonnet to gemini-3.1-pro/gemini-3.1-flash, OpenCode verified
+- 7 new capability flags: smart_approvals, plan_mode, sandbox_gvisor, sandbox_lxc, mcp_elicitation, model_overrides, max_output_tokens
+- StopFailure and PostCompact hook events registered in plugin.json with handler implementations
+- CLAUDE_PLUGIN_DATA integration documented with clear project/plugin state boundary
+- All 20 agent definitions updated with effort, maxTurns, and disallowedTools frontmatter fields
+- MCP elicitation and modelOverrides awareness added to init context
+- CLAUDE.md updated with capability flags table, agent frontmatter docs, /effort interaction, and backend-specific notes
+
+**Key decisions:**
+- codex.haiku mapped to gpt-5.4-mini (2x faster, ideal for subagent/discovery)
+- max_output_tokens typed as nullable; model_overrides uses runtime settings.json detection
+- StopFailure handler checks autopilot.log presence; PostCompact is informational
+- grd-verifier disallows only Edit (not Write) to retain VERIFICATION.md writing
+
+---
+
 ## v0.2.5 WebMCP Support & Bugfixes (Shipped: 2026-02-21)
 
 **Phases completed:** 2 phases (43-44), 3 plans, 4 tasks

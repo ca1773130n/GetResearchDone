@@ -107,21 +107,21 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-102 | Phase 75 | PENDING |
-| REQ-103 | Phase 75 | PENDING |
-| REQ-104 | Phase 76 | PENDING |
-| REQ-105 | Phase 76 | PENDING |
-| REQ-106 | Phase 76 | PENDING |
-| REQ-107 | Phase 74 | PENDING |
-| REQ-108 | Phase 75 | PENDING |
-| REQ-109 | Phase 77 | PENDING |
-| REQ-110 | Phase 74 | PENDING |
-| REQ-111 | Phase 74 | PENDING |
-| REQ-112 | Phase 77 | PENDING |
-| REQ-113 | Phase 74 | PENDING |
-| REQ-114 | Phase 74 | PENDING |
-| REQ-115 | Phase 77 | PENDING |
-| REQ-116 | Phase 74 | PENDING |
-| REQ-117 | Phase 77 | PENDING |
-| REQ-118 | Phase 77 | PENDING |
-| REQ-119 | Phase 77 | PENDING |
+| REQ-102 | Phase 75 | DONE |
+| REQ-103 | Phase 75 | DONE |
+| REQ-104 | Phase 76 | DONE |
+| REQ-105 | Phase 76 | DONE |
+| REQ-106 | Phase 76 | DONE |
+| REQ-107 | Phase 74 | DONE |
+| REQ-108 | Phase 75 | DONE |
+| REQ-109 | Phase 77 | DONE |
+| REQ-110 | Phase 74 | DONE |
+| REQ-111 | Phase 74 | DONE |
+| REQ-112 | Phase 77 | DONE |
+| REQ-113 | Phase 74 | DONE |
+| REQ-114 | Phase 74 | DONE |
+| REQ-115 | Phase 77 | DONE |
+| REQ-116 | Phase 74 | DONE |
+| REQ-117 | Phase 77 | DONE |
+| REQ-118 | Phase 77 | DONE |
+| REQ-119 | Phase 77 | DONE |
