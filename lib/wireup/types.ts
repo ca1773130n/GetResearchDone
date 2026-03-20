@@ -195,6 +195,56 @@ export interface WireupResult {
   failed_scenarios: FailedScenarioSummary[];
 }
 
+// ─── Detection Types ──────────────────────────────────────────────────────────
+
+/**
+ * The category of a missing connection discovered during failure analysis.
+ *
+ * Each value maps to a specific root-cause heuristic in detection.ts.
+ */
+export type IssueType =
+  | 'missing-route'
+  | 'unconnected-handler'
+  | 'missing-import'
+  | 'missing-middleware'
+  | 'broken-nav-link'
+  | 'missing-env-var';
+
+/**
+ * Confidence level for a detected missing connection.
+ *
+ * high   — pattern match is unambiguous (e.g., 404 + no route registration found)
+ * medium — pattern is suggestive but not conclusive (e.g., 200 + empty body)
+ * low    — weak signal; manual review recommended
+ */
+export type Confidence = 'high' | 'medium' | 'low';
+
+/**
+ * A structured report of a missing integration connection discovered by
+ * analysing failed scenario results.
+ *
+ * Produced by detectMissingConnections() in lib/wireup/detection.ts.
+ * Consumed by the auto-fix layer in Phase 80.
+ */
+export interface MissingConnection {
+  /** Category of the integration gap. */
+  issue_type: IssueType;
+  /** Relative path to the file that is the source of the gap. */
+  source_file: string;
+  /** Relative path to the file that should be created or modified to fix the gap. */
+  target_file: string;
+  /** Human-readable description of the recommended fix. */
+  suggested_fix: string;
+  /** How confident the heuristic is in this classification. */
+  confidence: Confidence;
+  /** Scenario ID that produced the failure leading to this issue. */
+  scenario_id: string;
+  /** Zero-based index of the failed step within the scenario. */
+  step_index: number;
+  /** Snippet of the raw error / status context used to classify the failure. */
+  error_context: string;
+}
+
 // ─── History & State Interfaces ──────────────────────────────────────────────
 
 /**
