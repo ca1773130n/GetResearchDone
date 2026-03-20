@@ -4,29 +4,29 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.13 Wireup Command
+**Current focus:** v0.3.13 Wireup Command — Phase 78: Core Wireup Infrastructure
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
 ## Current Position
 
-- **Active phase:** —
+- **Active phase:** 78 — Core Wireup Infrastructure
 - **Current plan:** —
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** Not started (defining requirements)
+- **Status:** Ready to plan
 - **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Define requirements and create roadmap
+- **Next:** Plan Phase 78 (discovery engine, scenario generation, test data, state management)
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 74 | Model Mappings and Capability Flags | Complete |
-| 75 | Hook Events and Plugin Infrastructure | Complete |
-| 76 | Agent Frontmatter and MCP Elicitation | Complete |
-| 77 | Testing and Documentation | In progress |
+| 78 | Core Wireup Infrastructure | Not started |
+| 79 | Wireup Orchestrator and Execution | Not started |
+| 80 | Browser Execution and Auto-Fix | Not started |
+| 81 | MCP Tools, Testing, and Integration | Not started |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -57,6 +57,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 | DEFER-56-01 | Full evolve loop with sonnet-tier models produces meaningful improvements | Phase 56 | Future | PARTIALLY RESOLVED |
 | DEFER-68-01 | Real Claude subprocess produces product-level feature ideas | Phase 68 | Next real grd:evolve run | PENDING |
 | DEFER-68-02 | Autoplan creates feature-oriented phases from product-ideation groups | Phase 68 | First real infinite evolve cycle | PENDING |
+| DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
 
 ## Performance Metrics
 
@@ -69,29 +70,10 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Decisions
 
-- [Phase 69]: Gemini models updated: gemini-3-pro->3.1-pro, gemini-2.5-flash->3.1-flash-lite; Codex opus->gpt-5.4; OpenCode->claude-4-6; Gemini subagents GA+parallel; Codex hooks+teams enabled
-- **[70-01]** Phase 69 added no deprecation/migration code; deprecated model tests documented as N/A
-- **[70-01]** worktree-parallel-e2e sequential fallback test switched from codex to gemini (codex now has teams:true)
-- **[70-02]** CODEX_THREAD_ID kept for backward compat despite possible deprecation
-- **[70-02]** OPENCODE_PID excluded from detection (process management var, not presence indicator)
-- **[71-01]** Only Claude gets true for effort/http_hooks/cron capability flags; other backends false
-- **[71-02]** EffortLevel types in Backend Types section (not Utility) since effort is a backend capability
-- **[71-02]** Unknown agents default to 'medium' effort; resolveEffortForAgent returns null for unsupported backends
-- **[71-03]** Every X_model field paired with X_effort field using resolveEffortForAgent
-- [Phase 72]: ExitWorktree placed before completion options; CLAUDE_SKILL_DIR documented via HTML comments
-- **[72-03]** No CLAUDE_SKILL_DIR migration needed — all CLAUDE_PLUGIN_ROOT usages are cross-directory refs
-- **[73-02]** Effort values in CLAUDE.md sourced from EFFORT_PROFILES in backend.ts for accuracy
-- [Phase 74]: codex.haiku mapped to gpt-5.4-mini (2x faster than gpt-5.4, ideal for subagent/discovery work, REQ-110)
-- [Phase 74]: gemini.sonnet mapped to gemini-3.1-flash (updated Gemini 3.1 Flash sonnet-equivalent, REQ-113)
-- [Phase 74]: opencode mappings verified unchanged: anthropic/claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (REQ-116)
-- [Phase 74]: max_output_tokens typed as nullable; model_overrides_available uses strict equality; grd backend has model_overrides: false
-- [Phase 75]: plugin_data_available added to both cmdInitExecutePhase and cmdInitPlanPhase; plugin_data_dir included alongside for consumer convenience; documentation-only changes in evolve/state.ts and autopilot.ts
-- [Phase 75]: StopFailure handler checks autopilot.log presence to determine if logging is needed; PostCompact is minimal/informational; both hooks use 2>/dev/null for silent failure
-- [Phase 76]: model_overrides_available uses runtime settings.json detection (not capability flag) to reflect actual user configuration (REQ-106)
-- [Phase 76]: mcp_elicitation_available added to both cmdInitExecutePhase and cmdInitPlanPhase; derived from backendCaps.mcp_elicitation (REQ-105)
-- [Phase 77]: CLAUDE.md updated with Backend Capabilities table (15 flags, 4 backends), Agent Frontmatter docs, /effort interaction, Plugin Data boundary, and backend-specific notes for Codex/Gemini/OpenCode
-- [Phase 77]: maxTurns added to 7 bounded agents; disallowedTools added to 4 restricted agents; effort added to grd-code-reviewer and grd-migrator
-- [Phase 76-01]: grd-verifier disallows only Edit (not Write) to retain Write for VERIFICATION.md; grd-migrator uses effort: medium as safe default; disallowedTools uses YAML array format
+- [Phase 74]: codex.haiku mapped to gpt-5.4-mini; gemini.sonnet mapped to gemini-3.1-flash; max_output_tokens typed as nullable
+- [Phase 75]: StopFailure handler checks autopilot.log presence; PostCompact is minimal/informational; CLAUDE_PLUGIN_DATA boundary documented
+- [Phase 76]: model_overrides_available uses runtime settings.json detection; mcp_elicitation_available added to init context
+- [Phase 77]: CLAUDE.md updated with capability flags table, agent frontmatter docs, /effort interaction, backend-specific notes
 
 ## Known Bugs
 
@@ -103,12 +85,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Shipped v0.3.12, starting v0.3.13
-- **Stopped at:** Defining requirements
-- **Next action:** Define requirements for /grd:wireup command
-- **Context needed:** Evolve infrastructure (lib/evolve/), existing integration test patterns
+- **Last action:** Shipped v0.3.12, created v0.3.13 roadmap
+- **Stopped at:** Roadmap created for Phases 78-81
+- **Next action:** Plan Phase 78 — Core Wireup Infrastructure
+- **Context needed:** lib/evolve/ patterns (discovery engine, state management), lib/wireup.ts (new module to create)
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-19*
+*Last updated: 2026-03-20*
