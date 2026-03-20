@@ -227,23 +227,23 @@ npm test
 
 | Check | Status | Output | Notes |
 |-------|--------|--------|-------|
-| S1: TypeScript compile | | | |
-| S2: ESLint clean | | | |
-| S3: Module files exist | | | |
-| S4: Test files exist | | | |
-| S5: Full test suite (no regression) | | | |
-| S6: No subprocess imports in discovery | | | |
+| S1: TypeScript compile | PASS | Exit 0, no errors | `npm run build:check` clean |
+| S2: ESLint clean | PASS | Exit 0, no errors | `npm run lint` clean |
+| S3: Module files exist | PASS | 4 files: types.ts (3.7K), discovery.ts (10K), scenarios.ts (10K), state.ts (4.4K) | All non-empty |
+| S4: Test files exist | PASS | 3 test files present | All non-empty |
+| S5: Full test suite (no regression) | PASS | 52 suites, 3177 tests, 0 failures | Zero regressions |
+| S6: No subprocess imports in discovery | PASS | CLEAN — zero matches | No child_process/spawn usage |
 
 ### Proxy Results
 
 | Metric | Target | Actual | Status | Notes |
 |--------|--------|--------|--------|-------|
-| P1: Discovery tests pass | >= 8 tests, 0 fail | | | |
-| P2: Scenario tests pass | >= 10 tests, 0 fail | | | |
-| P3: State tests pass | >= 12 tests, 0 fail | | | |
-| P4: step_type enum coverage | >= 3 distinct step_types asserted | | | |
-| P5: WireupState schema completeness | All 8 fields in initial state | | | |
-| P6: Fixture JSON correct path and fields | feature + parameters + generated_at | | | |
+| P1: Discovery tests pass | >= 8 tests, 0 fail | 14 passed, 0 fail | PASS | Exceeds target by 6 tests |
+| P2: Scenario tests pass | >= 10 tests, 0 fail | 15 passed, 0 fail | PASS | Exceeds target by 5 tests |
+| P3: State tests pass | >= 12 tests, 0 fail | 14 passed, 0 fail | PASS | Exceeds target by 2 tests |
+| P4: step_type enum coverage | >= 3 distinct step_types asserted | 3: cli, http, assert | PASS | browser deferred to Phase 80 |
+| P5: WireupState schema completeness | All 8 fields in initial state | All 8 fields verified | PASS | Test "creates state with all required fields" |
+| P6: Fixture JSON correct path and fields | feature + parameters + generated_at | All 3 fields verified | PASS | Test "fixture contains feature name and generated_at" |
 
 ### Deferred Status
 

@@ -7,23 +7,23 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.13 Wireup Command — Phase 78: Core Wireup Infrastructure
+**Current focus:** v0.3.13 Wireup Command — Phase 79: Wireup Orchestrator and Execution
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
 ## Current Position
 
-- **Active phase:** 78 — Core Wireup Infrastructure
-- **Current plan:** 03 complete, phase 78 done
+- **Active phase:** 79 — Wireup Orchestrator and Execution
+- **Current plan:** —
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** In progress
+- **Status:** Ready to plan
 - **Progress:** [███░░░░░░░] 25%
-- **Next:** Execute Phase 79 — Wireup Orchestrator and Execution
+- **Next:** Plan Phase 79 (orchestrator, HTTP/CLI execution, missing connection detection)
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 78 | Core Wireup Infrastructure | Not started |
+| 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
 | 79 | Wireup Orchestrator and Execution | Not started |
 | 80 | Browser Execution and Auto-Fix | Not started |
 | 81 | MCP Tools, Testing, and Integration | Not started |
@@ -57,14 +57,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | DEFER-56-01 | Full evolve loop with sonnet-tier models produces meaningful improvements | Phase 56 | Future | PARTIALLY RESOLVED |
 | DEFER-68-01 | Real Claude subprocess produces product-level feature ideas | Phase 68 | Next real grd:evolve run | PENDING |
 | DEFER-68-02 | Autoplan creates feature-oriented phases from product-ideation groups | Phase 68 | First real infinite evolve cycle | PENDING |
+| DEFER-78-01 | Live discovery accuracy on real GRD codebase | Phase 78 | Phase 79, plan 79-01 | PENDING |
+| DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
+| DEFER-78-03 | Coverage thresholds in jest.config.js for wireup modules | Phase 78 | Phase 81, plan 81-02 | PENDING |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 26 (v0.0.5 through v0.3.12)
-- Total tests: 3,134
-- Total lib/ modules: 25 (22 top-level .ts + 3 decomposed sub-module directories)
+- Total tests: 3,177
+- Total lib/ modules: 26 (22 top-level .ts + 4 decomposed sub-module directories: cli/, commands/, context/, wireup/)
 - Total commands: 40
 - Total lib/ LOC: ~20,320
 
@@ -88,10 +91,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Shipped v0.3.12, created v0.3.13 roadmap
-- **Stopped at:** Completed 78-02-PLAN.md
-- **Next action:** Plan Phase 78 — Core Wireup Infrastructure
-- **Context needed:** lib/evolve/ patterns (discovery engine, state management), lib/wireup.ts (new module to create)
+- **Last action:** Executed Phase 78 — Core Wireup Infrastructure (3 plans, 2 waves)
+- **Stopped at:** Phase 78 complete, verified, eval passed
+- **Next action:** Plan Phase 79 — Wireup Orchestrator and Execution
+- **Context needed:** lib/wireup/ (types, discovery, scenarios, state), commands/ patterns for wireup.md
 
 ---
 

@@ -217,9 +217,9 @@ Add `/grd:wireup` — a complement to `/grd:evolve` that focuses on wiring up fe
 **Plans:** TBD
 
 Plans:
-- [ ] 78-01: Implement `discoverUnwiredFeatures()` with filesystem analysis across unwired-feature categories
-- [ ] 78-02: Implement scenario generation and test data generation with fixture output
-- [ ] 78-03: Implement wireup state management (`WIREUP-STATE.json` read/write/advance)
+- [x] 78-01: Implement `discoverUnwiredFeatures()` with filesystem analysis across unwired-feature categories
+- [x] 78-02: Implement scenario generation and test data generation with fixture output
+- [x] 78-03: Implement wireup state management (`WIREUP-STATE.json` read/write/advance)
 
 #### Phase 79: Wireup Orchestrator and Execution
 
@@ -310,7 +310,7 @@ Plans:
 | 75 | Hook Events and Plugin Infrastructure | Complete | 2026-03-19 |
 | 76 | Agent Frontmatter and MCP Elicitation | Complete | 2026-03-19 |
 | 77 | Testing and Documentation | Complete | 2026-03-20 |
-| 78 | Core Wireup Infrastructure | Not started | - |
+| 78 | Core Wireup Infrastructure | Complete | 2026-03-20 |
 | 79 | Wireup Orchestrator and Execution | Not started | - |
 | 80 | Browser Execution and Auto-Fix | Not started | - |
 | 81 | MCP Tools, Testing, and Integration | Not started | - |
@@ -326,4 +326,7 @@ Plans:
 | Phase 54 | Markdown splitting on real-world large files | Future | Cannot validate |
 | Phase 56 | Full evolve loop with sonnet-tier models | Future | Partially resolved |
 | Phase 68 | Real Claude subprocess for product ideation + autoplan end-to-end (2 items) | Next real evolve cycle | Pending |
+| Phase 78 | Live discovery accuracy on real GRD codebase (DEFER-78-01) | Phase 79, plan 79-01 | Pending |
+| Phase 78 | Scenario executability by Phase 79 HTTP/CLI engine (DEFER-78-02) | Phase 79, plan 79-02 | Pending |
+| Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
