@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 - **Active phase:** 78 — Core Wireup Infrastructure
-- **Current plan:** —
+- **Current plan:** 01 complete, proceed to 02
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** Ready to plan
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Plan Phase 78 (discovery engine, scenario generation, test data, state management)
+- **Status:** In progress
+- **Progress:** [█░░░░░░░░░] 8%
+- **Next:** Execute Phase 78 Plan 02 (scenario generation)
 
 ## Phase Summary
 
@@ -74,6 +74,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 75]: StopFailure handler checks autopilot.log presence; PostCompact is minimal/informational; CLAUDE_PLUGIN_DATA boundary documented
 - [Phase 76]: model_overrides_available uses runtime settings.json detection; mcp_elicitation_available added to init context
 - [Phase 77]: CLAUDE.md updated with capability flags table, agent frontmatter docs, /effort interaction, backend-specific notes
+- [Phase 78]: Discovery uses regex-based export extraction (module.exports/exports.name) with no AST dependency; config _ keys excluded; MCP tools identified by grd_ prefix
 
 ## Known Bugs
 
@@ -86,7 +87,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Shipped v0.3.12, created v0.3.13 roadmap
-- **Stopped at:** Roadmap created for Phases 78-81
+- **Stopped at:** Completed 78-01-PLAN.md
 - **Next action:** Plan Phase 78 — Core Wireup Infrastructure
 - **Context needed:** lib/evolve/ patterns (discovery engine, state management), lib/wireup.ts (new module to create)
 
