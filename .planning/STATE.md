@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - **Current plan:** —
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** Ready to plan
-- **Progress:** [███░░░░░░░] 25%
+- **Progress:** [███░░░░░░░] 33%
 - **Next:** Plan Phase 79 (orchestrator, HTTP/CLI execution, missing connection detection)
 
 ## Phase Summary
@@ -80,6 +80,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 78]: Discovery uses regex-based export extraction (module.exports/exports.name) with no AST dependency; config _ keys excluded; MCP tools identified by grd_ prefix
 - [Phase 78]: State file at .planning/WIREUP-STATE.json; advanceWireupIteration is immutable; readWireupState returns null on missing/invalid JSON
 - [Phase 78]: Scenario steps are category-specific: exported-but-uncalled uses cli+assert, config-without-surface uses cli(gd settings)+assert, endpoint-without-integration-test uses http+assert
+- [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync (no shell injection); browser/assert steps skipped in Phase 79
+- [Phase 79]: executeScenarios runs scenarios sequentially (not parallel) to avoid overwhelming localhost services; detectMissingConnections called via try/catch for graceful fallback before plan 79-03
 
 ## Known Bugs
 
@@ -92,7 +94,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 78 — Core Wireup Infrastructure (3 plans, 2 waves)
-- **Stopped at:** Phase 78 complete, verified, eval passed
+- **Stopped at:** Completed 79-02-PLAN.md — HTTP/CLI execution engine and orchestrator integration
 - **Next action:** Plan Phase 79 — Wireup Orchestrator and Execution
 - **Context needed:** lib/wireup/ (types, discovery, scenarios, state), commands/ patterns for wireup.md
 
