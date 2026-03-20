@@ -25,17 +25,14 @@ Verify it's installed:
 
 You should see a list of GRD commands. If you see "unknown command", the plugin isn't installed correctly.
 
-## Step 1: Set Up the Example
+## Step 1: Start the Tutorial
 
 ```bash
 cd examples/taskmark
+./start-tutorial.sh
 ```
 
-Open Claude Code from this directory:
-
-```bash
-claude
-```
+This launches Claude Code with the interactive tutorial. It will demo the bugs, then guide you step-by-step through GRD commands.
 
 ## Step 2: Explore TaskMark (try it, break it)
 
