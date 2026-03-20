@@ -1,6 +1,6 @@
 # GRD — Get Research Done
 
-[![CI](https://github.com/ca1773130n/GRD/actions/workflows/ci.yml/badge.svg)](https://github.com/ca1773130n/GRD/actions/workflows/ci.yml)
+[![CI](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml/badge.svg)](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml)
 
 R&D workflow automation plugin for [Claude Code](https://claude.com/claude-code). Built for projects where research papers drive implementation, quantitative evaluation matters, and autonomous iteration is the norm.
 
