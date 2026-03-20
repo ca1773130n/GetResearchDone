@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.12 shipped — awaiting next milestone
+**Current focus:** v0.3.13 Wireup Command
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
 ## Current Position
 
 - **Active phase:** —
 - **Current plan:** —
-- **Milestone:** v0.3.12 Multi-Backend Feature Sync (shipped)
-- **Status:** Complete
-- **Progress:** [██████████] 100%
-- **Next:** Start v0.3.13
+- **Milestone:** v0.3.13 Wireup Command
+- **Status:** Not started (defining requirements)
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements and create roadmap
 
 ## Phase Summary
 
@@ -103,10 +103,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Completed milestone v0.3.12
-- **Stopped at:** Milestone shipped
-- **Next action:** Start v0.3.13 Wireup Command
-- **Context needed:** None — fresh milestone
+- **Last action:** Shipped v0.3.12, starting v0.3.13
+- **Stopped at:** Defining requirements
+- **Next action:** Define requirements for /grd:wireup command
+- **Context needed:** Evolve infrastructure (lib/evolve/), existing integration test patterns
 
 ---
 

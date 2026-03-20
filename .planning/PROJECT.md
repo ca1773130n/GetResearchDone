@@ -3,11 +3,11 @@
 **Created:** 2026-02-12
 **Updated:** 2026-03-19
 
-## Current Milestone: (none — v0.3.12 shipped)
+## Current Milestone: v0.3.13 Wireup Command
 
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
-**Goal:** —
+**Goal:** Add `/grd:wireup` command — a complement to `/grd:evolve` that focuses on wiring up features built by evolve iterations, making them fully functional through real end-to-end usage testing. While evolve discovers and builds new features, wireup uses those features (typing in editboxes, pressing buttons, curl to endpoints), generates real test data, identifies missing connections and broken flows, and fixes integration issues.
 
 ## Vision
 
