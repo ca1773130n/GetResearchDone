@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 - **Active phase:** 81 — MCP Tools, Testing, and Integration
-- **Current plan:** 02 complete
+- **Current plan:** 03 complete (all plans done)
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** In progress
-- **Progress:** [█████████░] 92%
-- **Next:** Execute Phase 81 Plan 03 (final integration, CLI registration, v0.3.13 release)
+- **Status:** Phase 81 complete — ready for v0.3.13 release
+- **Progress:** [██████████] 100%
+- **Next:** v0.3.13 release
 
 ## Phase Summary
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
 | 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
 | 80 | Browser Execution and Auto-Fix | Complete (2026-03-21, plans 01-03 done) |
-| 81 | MCP Tools, Testing, and Integration | In progress (plans 01-02 done) |
+| 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21, plans 01-03 done) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -91,6 +91,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 80]: generateWireupReport writes structured WIREUP-REPORT.md to milestone wireup dir; iteration history is extracted and appended on each run; WireupReportData in report.ts (not types.ts); report_path added as optional field on WireupResult
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; cmdWireupScenarios re-runs discovery+generation (stateless); coverage threshold on lib/wireup/index.ts barrel
 - [Phase 81]: wireup.test.ts covers execution/detection/autofix/orchestrator/report; discovery/scenarios/state have separate files but are also exercised directly for 87.1% coverage
+- [Phase 81]: WIREUP-STATE.json test validates state I/O via module directly (not dry-run path) since orchestrator early-returns before writeWireupState on dryRun
 
 ## Known Bugs
 
@@ -102,10 +103,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 81 Plan 02 — comprehensive wireup unit tests (87.1% coverage)
-- **Stopped at:** Completed 81-02-PLAN.md — wireup unit tests
-- **Next action:** Execute Phase 81 Plan 03 — final integration, CLI registration, v0.3.13 release
-- **Context needed:** lib/wireup/, tests/unit/wireup.test.ts, bin/grd-tools.ts
+- **Last action:** Executed Phase 81 Plan 03 — wireup E2E integration test (15 tests, 3353 total)
+- **Stopped at:** Completed 81-03-PLAN.md — wireup E2E integration test
+- **Next action:** v0.3.13 release
+- **Context needed:** .planning/STATE.md, package.json
 
 ---
 
