@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - **Current plan:** —
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** Ready to plan
-- **Progress:** [█████░░░░░] 50%
+- **Progress:** [██████░░░░] 58%
 - **Next:** Plan Phase 79 (orchestrator, HTTP/CLI execution, missing connection detection)
 
 ## Phase Summary
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 79]: executeScenarios runs scenarios sequentially (not parallel) to avoid overwhelming localhost services; detectMissingConnections called via try/catch for graceful fallback before plan 79-03
 - [Phase 79]: cmdInitWireup in lib/wireup/cli.ts (not lib/context/agents.ts) mirrors cmdInitEvolve placement; wireup added to INIT_WORKFLOWS; SONNET_MODEL in wireup/state.ts; ExecutionOptions.model propagates ceiling to executor
 - [Phase 79]: Detection uses spawnSync grep/find — pure filesystem, no LLM calls; classifyFailure uses null-coalescing dispatcher (env-var > import > route > middleware > handler > nav-link); WireupResult extended with issues[], issues_by_confidence, issues_by_type
+- [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; executeBrowserScenario() returns structured skip with manual steps when playwright unavailable, MCP tool payloads when available
 
 ## Known Bugs
 
@@ -96,7 +97,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 78 — Core Wireup Infrastructure (3 plans, 2 waves)
-- **Stopped at:** Completed 79-03-PLAN.md — missing connection detection engine
+- **Stopped at:** Completed 80-01-PLAN.md — Playwright detection and browser scenario execution
 - **Next action:** Plan Phase 79 — Wireup Orchestrator and Execution
 - **Context needed:** lib/wireup/ (types, discovery, scenarios, state), commands/ patterns for wireup.md
 
