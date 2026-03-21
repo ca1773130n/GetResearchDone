@@ -177,6 +177,36 @@ const {
 // Barrel index import — validates re-exports work correctly
 const wireupBarrel = require('../../lib/wireup/index') as Record<string, unknown>;
 
+// Direct discovery and scenario imports for coverage boost
+const {
+  discoverUnwiredFeatures,
+} = require('../../lib/wireup/discovery') as {
+  discoverUnwiredFeatures: (cwd: string) => UnwiredFeature[];
+};
+
+const {
+  generateScenarios,
+  generateTestData,
+} = require('../../lib/wireup/scenarios') as {
+  generateScenarios: (features: UnwiredFeature[], cwd: string) => import('../../lib/wireup/types').WireupScenario[];
+  generateTestData: (scenarios: import('../../lib/wireup/types').WireupScenario[], cwd: string) => void;
+};
+
+const {
+  createInitialWireupState,
+  readWireupState,
+  writeWireupState,
+  advanceWireupIteration,
+} = require('../../lib/wireup/state') as {
+  createInitialWireupState: (milestone: string) => WireupState;
+  readWireupState: (cwd: string) => WireupState | null;
+  writeWireupState: (cwd: string, state: WireupState) => void;
+  advanceWireupIteration: (
+    state: WireupState,
+    results: { scenarios_run: number; passed: number; failed: number; fixes_applied: number }
+  ) => WireupState;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const FAKE_CWD = '/fake/project';
@@ -1727,6 +1757,237 @@ describe('_buildPassFailSummary()', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 14: Barrel index re-exports (lib/wireup/index.ts)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION: Direct discovery, scenarios, and state tests (coverage boost)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
+  const path = require('path');
+
+  beforeEach(() => {
+    const fs = require('fs');
+    (fs.readdirSync as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
+    mockSafeReadFile.mockReturnValue(null);
+  });
+
+  test('returns empty array when no directories exist', () => {
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    expect(result).toEqual([]);
+  });
+
+  test('detects exported function not referenced elsewhere', () => {
+    const fs = require('fs');
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'isolated.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('isolated.ts')) return 'module.exports = { isolatedFunc };';
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const match = result.find((f) => f.functionName === 'isolatedFunc');
+    expect(match).toBeDefined();
+    expect(match!.category).toBe('exported-but-uncalled');
+  });
+
+  test('detects config key not referenced in surface files', () => {
+    const fs = require('fs');
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'lib')) return [];
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('config.json')) return JSON.stringify({ unreferencedKey: true });
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const configFeature = result.find((f) => f.functionName === 'unreferencedKey');
+    expect(configFeature).toBeDefined();
+    expect(configFeature!.category).toBe('config-without-surface');
+  });
+
+  test('detects MCP tool not referenced in integration tests', () => {
+    const fs = require('fs');
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'lib')) return [];
+      if (dir === path.join(FAKE_CWD, 'tests', 'integration')) return [];
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('mcp-server.ts')) return "tools.push({ name: 'grd_unverified' });";
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const endpointFeature = result.find((f) => f.functionName === 'grd_unverified');
+    expect(endpointFeature).toBeDefined();
+    expect(endpointFeature!.category).toBe('endpoint-without-integration-test');
+  });
+});
+
+describe('generateScenarios() — via wireup.test.ts', () => {
+  beforeEach(() => {
+    mockCurrentMilestone.mockReturnValue(FAKE_MILESTONE);
+  });
+
+  test('generates scenario with steps for exported-but-uncalled feature', () => {
+    const feature = makeFeature('exported-but-uncalled', 'myFunc');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].feature).toBe(feature);
+    expect(scenarios[0].steps.length).toBeGreaterThan(0);
+  });
+
+  test('generates HTTP scenario for endpoint-without-integration-test', () => {
+    const feature = makeFeature('endpoint-without-integration-test', 'grd_tool', 'lib/mcp-server.ts');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios[0].steps.some((s) => s.step_type === 'http')).toBe(true);
+  });
+
+  test('generates CLI scenario for config-without-surface', () => {
+    const feature = makeFeature('config-without-surface', 'myKey', '.planning/config.json');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios[0].steps.some((s) => s.step_type === 'cli')).toBe(true);
+  });
+});
+
+describe('generateTestData() — via wireup.test.ts', () => {
+  const path = require('path');
+
+  beforeEach(() => {
+    mockCurrentMilestone.mockReturnValue(FAKE_MILESTONE);
+    mockSafeReadFile.mockReturnValue(null);
+    mockMkdirSync.mockReturnValue(undefined);
+    mockWriteFileSync.mockReturnValue(undefined);
+  });
+
+  test('writes JSON fixture for each scenario', () => {
+    const feature = makeFeature('exported-but-uncalled', 'funcX');
+    const scenario: import('../../lib/wireup/types').WireupScenario = {
+      feature,
+      steps: [],
+      test_data_fixture: '/fake/test-data/funcX.json',
+    };
+
+    generateTestData([scenario], FAKE_CWD);
+
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
+    const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    expect(parsed.feature).toBe('funcX');
+    expect(typeof parsed.generated_at).toBe('string');
+  });
+
+  test('extracts typed parameters from source file including string[] and unknown types', () => {
+    const feature = makeFeature('exported-but-uncalled', 'processItems', 'lib/someModule.ts');
+    const scenario: import('../../lib/wireup/types').WireupScenario = {
+      feature,
+      steps: [],
+      test_data_fixture: '/fake/test-data/processItems.json',
+    };
+
+    // Source file has function with string[], custom type, and no-annotation params
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath === path.join(FAKE_CWD, 'lib/someModule.ts')) {
+        return `function processItems(items: string[], opts: MyOptions, bare) { return items; }`;
+      }
+      return null;
+    });
+
+    generateTestData([scenario], FAKE_CWD);
+
+    const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+    const parsed = JSON.parse(content) as { parameters: Record<string, unknown> };
+    // string[] should produce ['item-1', 'item-2']
+    expect(Array.isArray(parsed.parameters.items)).toBe(true);
+    // unknown type falls back to null
+    expect(parsed.parameters.opts).toBeNull();
+    // no-annotation param defaults to 'test-value' (string)
+    expect(parsed.parameters.bare).toBe('test-value');
+  });
+
+  test('handles arrow function parameter extraction', () => {
+    const feature = makeFeature('exported-but-uncalled', 'arrowFn', 'lib/someModule.ts');
+    const scenario: import('../../lib/wireup/types').WireupScenario = {
+      feature,
+      steps: [],
+      test_data_fixture: '/fake/test-data/arrowFn.json',
+    };
+
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath === path.join(FAKE_CWD, 'lib/someModule.ts')) {
+        return `const arrowFn = (count: number, label: string) => count + label;`;
+      }
+      return null;
+    });
+
+    generateTestData([scenario], FAKE_CWD);
+
+    const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+    const parsed = JSON.parse(content) as { parameters: Record<string, unknown> };
+    expect(parsed.parameters.count).toBe(42);
+    expect(parsed.parameters.label).toBe('test-value');
+  });
+});
+
+describe('state functions — via wireup.test.ts', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSafeReadFile.mockReturnValue(null);
+    mockMkdirSync.mockReturnValue(undefined);
+    mockWriteFileSync.mockReturnValue(undefined);
+  });
+
+  test('createInitialWireupState returns state with zero counters', () => {
+    const state = createInitialWireupState(FAKE_MILESTONE);
+    expect(state.features_discovered).toBe(0);
+    expect(state.fixes_applied).toBe(0);
+    expect(state.iteration_history).toEqual([]);
+    expect(state.milestone).toBe(FAKE_MILESTONE);
+  });
+
+  test('readWireupState returns null when file missing', () => {
+    mockSafeReadFile.mockReturnValue(null);
+    expect(readWireupState(FAKE_CWD)).toBeNull();
+  });
+
+  test('readWireupState parses valid state file', () => {
+    const state = makeWireupState({ features_discovered: 7 });
+    mockSafeReadFile.mockReturnValue(JSON.stringify(state));
+    const result = readWireupState(FAKE_CWD);
+    expect(result!.features_discovered).toBe(7);
+  });
+
+  test('writeWireupState writes JSON with trailing newline', () => {
+    const state = makeWireupState();
+    writeWireupState(FAKE_CWD, state);
+    const [, content] = mockWriteFileSync.mock.calls[0] as [string, string];
+    expect(content.endsWith('\n')).toBe(true);
+  });
+
+  test('advanceWireupIteration increments counters and appends history', () => {
+    const state = makeWireupState({ scenarios_passed: 3, scenarios_failed: 1 });
+    const next = advanceWireupIteration(state, {
+      scenarios_run: 5, passed: 4, failed: 1, fixes_applied: 2,
+    });
+    expect(next.scenarios_passed).toBe(7);
+    expect(next.scenarios_failed).toBe(2);
+    expect(next.iteration_history).toHaveLength(1);
+    expect(next.iteration_history[0].iteration).toBe(1);
+  });
+
+  test('advanceWireupIteration does not mutate input state', () => {
+    const state = makeWireupState({ scenarios_passed: 5 });
+    advanceWireupIteration(state, { scenarios_run: 3, passed: 2, failed: 1, fixes_applied: 0 });
+    expect(state.scenarios_passed).toBe(5);
+  });
+});
 
 describe('lib/wireup/index.ts barrel exports', () => {
   test('exports all expected functions from state module', () => {
