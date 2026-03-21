@@ -54,6 +54,7 @@ jest.mock('fs', () => ({
   mkdirSync: mockMkdirSync,
   readdirSync: jest.fn(() => { throw new Error('ENOENT'); }),
   existsSync: jest.fn(() => false),
+  statSync: jest.fn(() => { throw new Error('ENOENT'); }),
 }));
 
 const mockGetMilestoneInfo = jest.fn();
@@ -1780,6 +1781,10 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
 
   test('detects exported function not referenced elsewhere', () => {
     const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
       if (dir === path.join(FAKE_CWD, 'lib')) {
         return [{ name: 'isolated.ts', isFile: () => true, isDirectory: () => false }];
@@ -1787,6 +1792,7 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
       throw new Error('ENOENT');
     });
     mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
       if (filePath.endsWith('isolated.ts')) return 'module.exports = { isolatedFunc };';
       return null;
     });
@@ -1799,11 +1805,16 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
 
   test('detects config key not referenced in surface files', () => {
     const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
       if (dir === path.join(FAKE_CWD, 'lib')) return [];
       throw new Error('ENOENT');
     });
     mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
       if (filePath.endsWith('config.json')) return JSON.stringify({ unreferencedKey: true });
       return null;
     });
@@ -1816,12 +1827,17 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
 
   test('detects MCP tool not referenced in integration tests', () => {
     const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
       if (dir === path.join(FAKE_CWD, 'lib')) return [];
       if (dir === path.join(FAKE_CWD, 'tests', 'integration')) return [];
       throw new Error('ENOENT');
     });
     mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
       if (filePath.endsWith('mcp-server.ts')) return "tools.push({ name: 'grd_unverified' });";
       return null;
     });

@@ -140,13 +140,13 @@ describe('Wireup E2E: Discovery accuracy', () => {
       expect(typeof f.suggestedAction).toBe('string');
     }
 
-    // Feature 1: api-handler.ts — exported-but-uncalled
+    // Feature 1: api-handler.ts — exported but uncalled (app scanner since fixture is not GRD)
     const apiHandlerFeature = features.find(
       (f: { filePath: string; functionName: string }) =>
         f.filePath.includes('api-handler') && f.functionName === 'handleApiRequest'
     );
     expect(apiHandlerFeature).toBeDefined();
-    expect(apiHandlerFeature.category).toBe('exported-but-uncalled');
+    expect(apiHandlerFeature.category).toBe('app-exported-but-uncalled');
   });
 
   test('returns at least 2 unwired features from fixture', () => {

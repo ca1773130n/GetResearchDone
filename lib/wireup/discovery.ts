@@ -292,20 +292,41 @@ function scanEndpointsWithoutTests(cwd: string): UnwiredFeature[] {
 
 // ─── Application-Aware Scanners ──────────────────────────────────────────────
 
+/** Directories to skip when scanning for application source code. */
+const SKIP_DIRS: Set<string> = new Set([
+  'node_modules', '.git', '.planning', '.claude-plugin', 'dist', 'build', 'out',
+  'coverage', '.next', '.nuxt', '.svelte-kit', '__pycache__', '.venv', 'venv',
+  'vendor', 'target', '.cache', '.turbo', '.vercel', '.output',
+  // GRD-internal directories — skip so we don't double-count with GRD scanners
+  'agents', 'commands', 'templates', 'examples', 'docs', 'references',
+]);
+
 /**
- * Detect which source directories exist in the project.
- * Returns directories that are likely application code (not GRD internals).
+ * Detect source directories in the project by scanning all top-level directories
+ * and filtering out infrastructure/config dirs. This is NOT a whitelist — any
+ * directory that contains .ts/.js/.tsx/.jsx files is a candidate.
  */
 function _detectAppSourceDirs(cwd: string): string[] {
-  const candidates: string[] = ['src', 'app', 'server', 'api', 'pages', 'routes'];
   const found: string[] = [];
-  for (const dir of candidates) {
-    const fullPath: string = path.join(cwd, dir);
-    try {
-      const stat = fs.statSync(fullPath);
-      if (stat.isDirectory()) found.push(dir);
-    } catch {
-      // doesn't exist
+  let entries: ReturnType<typeof fs.readdirSync>;
+  try {
+    entries = fs.readdirSync(cwd, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries as Array<{
+    name: string;
+    isFile: () => boolean;
+    isDirectory: () => boolean;
+  }>) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('.')) continue;
+    if (SKIP_DIRS.has(entry.name)) continue;
+    // Check if this dir contains at least one source file (quick heuristic)
+    const dirPath: string = path.join(cwd, entry.name);
+    const files: string[] = _collectFiles(dirPath, ['.ts', '.js', '.tsx', '.jsx']);
+    if (files.length > 0) {
+      found.push(entry.name);
     }
   }
   return found;
@@ -698,17 +719,38 @@ function scanAppComponentsWithoutImport(cwd: string): UnwiredFeature[] {
  * @returns Array of UnwiredFeature objects describing integration gaps
  */
 function discoverUnwiredFeatures(cwd: string): UnwiredFeature[] {
-  const allFeatures: UnwiredFeature[] = [
-    // GRD-internal scanners
-    ...scanExportedButUncalled(cwd),
-    ...scanConfigWithoutSurface(cwd),
-    ...scanEndpointsWithoutTests(cwd),
-    // Application-aware scanners
+  const allFeatures: UnwiredFeature[] = [];
+
+  // GRD-internal scanners — only run when cwd IS the GRD project itself.
+  // Detection: lib/wireup/ exists AND .claude-plugin/plugin.json names "grd".
+  const isGrdProject: boolean = (() => {
+    try {
+      fs.statSync(path.join(cwd, 'lib', 'wireup'));
+      const pluginContent: string | null = safeReadFile(
+        path.join(cwd, '.claude-plugin', 'plugin.json')
+      );
+      if (pluginContent && pluginContent.includes('"name": "grd"')) return true;
+    } catch {
+      // not GRD
+    }
+    return false;
+  })();
+
+  if (isGrdProject) {
+    allFeatures.push(
+      ...scanExportedButUncalled(cwd),
+      ...scanConfigWithoutSurface(cwd),
+      ...scanEndpointsWithoutTests(cwd)
+    );
+  }
+
+  // Application-aware scanners — always run
+  allFeatures.push(
     ...scanAppRoutes(cwd),
     ...scanAppExportedButUncalled(cwd),
     ...scanAppModelsWithoutHandlers(cwd),
-    ...scanAppComponentsWithoutImport(cwd),
-  ];
+    ...scanAppComponentsWithoutImport(cwd)
+  );
 
   allFeatures.sort((a, b) => {
     const catCmp: number = a.category.localeCompare(b.category);
