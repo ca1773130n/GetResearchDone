@@ -26,11 +26,9 @@ const fs = require('fs');
 const {
   SONNET_MODEL,
   readWireupState,
-  wireupStatePath,
 }: {
   SONNET_MODEL: string;
   readWireupState: (cwd: string) => WireupState | null;
-  wireupStatePath: (cwd: string) => string;
 } = require('./state');
 
 const {
