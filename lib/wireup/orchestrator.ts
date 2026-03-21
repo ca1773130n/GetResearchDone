@@ -193,6 +193,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
         'missing-middleware': 0,
         'broken-nav-link': 0,
         'missing-env-var': 0,
+        'missing-export': 0,
       },
       pass_fail_summary: `Dry run: ${features.length} features discovered, ${scenarios.length} scenarios generated. Execution skipped.`,
       failed_scenarios: [],
@@ -237,6 +238,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     'missing-middleware': 0,
     'broken-nav-link': 0,
     'missing-env-var': 0,
+    'missing-export': 0,
   };
 
   for (const issue of missingConnections) {
