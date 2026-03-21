@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - **Active phase:** 81 — MCP Tools, Testing, and Integration
 - **Current plan:** 03 complete (all plans done)
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** Phase 81 complete — ready for v0.3.13 release
+- **Status:** v0.3.13 milestone complete
 - **Progress:** [██████████] 100%
 - **Next:** v0.3.13 release
 

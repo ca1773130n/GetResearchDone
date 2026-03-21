@@ -526,3 +526,13 @@
 
 ---
 
+
+## v0.3.13 Wireup Command (Shipped: 2026-03-21)
+
+**Phases completed:** 4 phases, 12 plans, 6 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

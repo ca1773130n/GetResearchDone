@@ -1,13 +1,11 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-19
+**Updated:** 2026-03-21
 
-## Current Milestone: v0.3.13 Wireup Command
+## Current Milestone: (none — ready for next)
 
-**Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
-
-**Goal:** Add `/grd:wireup` command — a complement to `/grd:evolve` that focuses on wiring up features built by evolve iterations, making them fully functional through real end-to-end usage testing. While evolve discovers and builds new features, wireup uses those features (typing in editboxes, pressing buttons, curl to endpoints), generates real test data, identifies missing connections and broken flows, and fixes integration issues.
+**Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Vision
 
@@ -26,7 +24,7 @@ A Claude Code plugin providing:
 - Phase-boundary quality analysis (ESLint complexity, dead exports, file size)
 - Requirement inspection and traceability (get, list, traceability, update-status)
 - Planning artifact search across all .planning/ files
-- 123 MCP tools exposing full CLI surface via JSON-RPC 2.0
+- 128 MCP tools exposing full CLI surface via JSON-RPC 2.0
 - Execute-phase branching with configurable base branch and graceful edge-case handling
 - Validation gate system with pre-flight checks preventing phase directory collisions across milestones
 - Milestone-scoped directory hierarchy: all `.planning/` artifacts under `.planning/milestones/{milestone}/`
@@ -50,10 +48,13 @@ A Claude Code plugin providing:
 - Evolution notes (`EVOLUTION.md`): iteration-over-iteration takeaways, decisions, and patterns discovered
 - Sonnet-tier model ceiling: all evolve operations use sonnet/moderate model at most (no opus agents)
 - Markdown splitting infrastructure (`lib/markdown-split.js`): auto-split large markdown files (>25K tokens) into indexed partials with transparent reader reassembly
-- 40 commands across 25 modular lib/ modules (22 top-level .ts + 3 decomposed sub-module directories)
+- 40 commands across 25 modular lib/ modules (22 top-level .ts + 4 decomposed sub-module directories)
 - Multi-milestone autopilot (`/grd:autopilot`) with autoplan command for autonomous milestone creation
 - Infinite evolve mode: discover -> autoplan -> autopilot -> repeat cycle with safety caps
 - Product ideation discovery engine: 8-dimension analysis (6 code-quality + product-ideation + improve-features)
+- Wireup command (`/grd:wireup`): end-to-end integration wiring — discovers unwired features, generates HTTP/CLI/browser scenarios, executes against localhost, detects missing connections, auto-fixes high-confidence issues with sonnet-tier agents, produces WIREUP-REPORT.md with iteration history
+- Wireup state persistence (`WIREUP-STATE.json`): cross-iteration tracking with discovery counts, scenario pass/fail, fix history
+- 5 wireup MCP tools: discover, run, state, scenarios, report
 
 ## Core Value
 
