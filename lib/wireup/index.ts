@@ -107,4 +107,11 @@ module.exports = {
 
   // ─── CLI context builder (from cli.ts) ──────────────────────────────────
   cmdInitWireup: cliModule.cmdInitWireup,
+
+  // ─── CLI sub-command wrappers (from cli.ts) ──────────────────────────────
+  cmdWireupDiscover: cliModule.cmdWireupDiscover,
+  cmdWireupRun: cliModule.cmdWireupRun,
+  cmdWireupState: cliModule.cmdWireupState,
+  cmdWireupScenarios: cliModule.cmdWireupScenarios,
+  cmdWireupReport: cliModule.cmdWireupReport,
 };
