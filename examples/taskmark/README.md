@@ -32,7 +32,15 @@ cd examples/taskmark
 ./start-tutorial.sh
 ```
 
-This launches Claude Code with the interactive tutorial. It will demo the bugs, then guide you step-by-step through GRD commands.
+If you use a custom binary name or config directory (e.g., multiple Claude Code accounts):
+
+```bash
+./start-tutorial.sh --bin my-claude
+./start-tutorial.sh --config ~/.claude-work
+./start-tutorial.sh --bin my-claude --config ~/.claude-work
+```
+
+This launches Claude Code with an initial prompt that auto-starts the interactive tutorial. It will demo the bugs, then guide you step-by-step through GRD commands.
 
 ## Step 2: Explore TaskMark (try it, break it)
 

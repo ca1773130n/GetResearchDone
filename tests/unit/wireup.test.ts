@@ -748,7 +748,9 @@ describe('executeBrowserScenario()', () => {
   test('returns tool payloads when playwright is available', () => {
     const result = executeBrowserScenario(FAKE_CWD, baseBrowserScenario, true);
 
-    expect(result.status).toBe('passed');
+    // Status is 'skipped' because actual MCP invocation is delegated to the orchestrator
+    expect(result.status).toBe('skipped');
+    expect(result.skip_reason).toBeDefined();
     expect(result.steps).toHaveLength(baseBrowserScenario.steps.length);
 
     // Verify tool payloads are set for each step

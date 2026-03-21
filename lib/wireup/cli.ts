@@ -6,7 +6,7 @@
  * Provides:
  *   - cmdInitWireup: pre-flight context builder for /grd:wireup slash command
  *   - cmdWireupDiscover: discover unwired features via filesystem analysis
- *   - cmdWireupRun: run full wireup iteration (discover, scenarios, execute, report)
+ *   - cmdWireupRun: MCP wrapper — runs wireup and outputs JSON only (no human summary)
  *   - cmdWireupState: read current wireup iteration state
  *   - cmdWireupScenarios: list generated wireup scenarios
  *   - cmdWireupReport: get the latest WIREUP-REPORT.md content
@@ -140,17 +140,14 @@ function cmdInitWireup(cwd: string, raw: boolean): void {
 function cmdWireupDiscover(cwd: string, _args: string[], raw: boolean): unknown {
   const features: UnwiredFeature[] = discoverUnwiredFeatures(cwd);
 
+  const byCategory: Record<string, number> = {};
+  for (const f of features) {
+    byCategory[f.category] = (byCategory[f.category] ?? 0) + 1;
+  }
+
   const out = {
     features_found: features.length,
-    by_category: {
-      'exported-but-uncalled': features.filter((f) => f.category === 'exported-but-uncalled')
-        .length,
-      'config-without-surface': features.filter((f) => f.category === 'config-without-surface')
-        .length,
-      'endpoint-without-integration-test': features.filter(
-        (f) => f.category === 'endpoint-without-integration-test'
-      ).length,
-    },
+    by_category: byCategory,
     features: features.map((f) => ({
       category: f.category,
       function_name: f.functionName,
@@ -165,20 +162,18 @@ function cmdWireupDiscover(cwd: string, _args: string[], raw: boolean): unknown 
 }
 
 /**
- * Run a full wireup iteration: discover, generate scenarios, execute, detect issues, report.
+ * Run a full wireup iteration via MCP — thin wrapper around runWireup().
  *
- * Supported flags: --target <feature>, --dry-run, --timeout <ms>, --max-turns <n>
+ * Unlike cmdWireup (orchestrator.ts) which prints a human-readable summary,
+ * this outputs only structured JSON — suitable for MCP tool responses.
  */
 async function cmdWireupRun(cwd: string, args: string[], raw: boolean): Promise<unknown> {
   const parsedOptions: WireupOptions = {};
-
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--target' && args[i + 1]) {
-      parsedOptions.target = args[++i];
-    } else if (arg === '--dry-run') {
-      parsedOptions.dryRun = true;
-    } else if (arg === '--timeout' && args[i + 1]) {
+    if (arg === '--target' && args[i + 1]) parsedOptions.target = args[++i];
+    else if (arg === '--dry-run') parsedOptions.dryRun = true;
+    else if (arg === '--timeout' && args[i + 1]) {
       const t = parseInt(args[++i], 10);
       if (!isNaN(t)) parsedOptions.timeout = t;
     } else if (arg === '--max-turns' && args[i + 1]) {
@@ -186,10 +181,8 @@ async function cmdWireupRun(cwd: string, args: string[], raw: boolean): Promise<
       if (!isNaN(mt)) parsedOptions.maxTurns = mt;
     }
   }
-
   const result = await runWireup(cwd, parsedOptions);
   output(result, raw, raw ? result.pass_fail_summary : undefined);
-  // Unreachable — output() calls process.exit()
   return undefined as never;
 }
 
@@ -212,16 +205,29 @@ function cmdWireupState(cwd: string, _args: string[], raw: boolean): void {
 /**
  * List generated wireup scenarios for discovered features.
  *
- * Re-runs discovery and scenario generation against the current codebase to
- * show what scenarios would be (or were) generated for the current state.
+ * Reads persisted state first; falls back to live discovery only if no state exists.
  */
 function cmdWireupScenarios(cwd: string, _args: string[], raw: boolean): void {
+  const state = readWireupState(cwd);
+
+  if (state !== null) {
+    const out = {
+      scenarios_count: state.scenarios_generated,
+      features_count: state.features_discovered,
+      source: 'cached' as const,
+      milestone: state.milestone,
+    };
+    output(out, raw, raw ? `${state.scenarios_generated} scenarios for ${state.features_discovered} features (cached)` : undefined);
+    return; // Unreachable — output() calls process.exit()
+  }
+
   const features: UnwiredFeature[] = discoverUnwiredFeatures(cwd);
   const scenarios: WireupScenario[] = generateScenarios(features, cwd);
 
   const out = {
     scenarios_count: scenarios.length,
     features_count: features.length,
+    source: 'live' as const,
     scenarios: scenarios.map((s) => ({
       feature_function: s.feature.functionName,
       feature_file: s.feature.filePath,

@@ -47,6 +47,22 @@ const { spawnSync } = require('child_process') as {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_BASE_URL = 'http://localhost:3000';
 
+// ─── Shared Helpers ──────────────────────────────────────────────────────────
+
+function parseExpectedOutcome(step: WireupScenario['steps'][number]): Record<string, unknown> {
+  if (typeof step.expected_outcome === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(step.expected_outcome);
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Not a JSON string — treat as a plain description with no structured expectations
+    }
+  }
+  return {};
+}
+
 // ─── HTTP Step Execution ──────────────────────────────────────────────────────
 
 /**
@@ -75,18 +91,7 @@ async function executeHttpStep(
   const endpoint = typeof params['endpoint'] === 'string' ? params['endpoint'] : '/';
   const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
-  // Parse expected_outcome: may be a JSON string or plain string
-  let expectedOutcome: Record<string, unknown> = {};
-  if (typeof step.expected_outcome === 'string') {
-    try {
-      const parsed: unknown = JSON.parse(step.expected_outcome);
-      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        expectedOutcome = parsed as Record<string, unknown>;
-      }
-    } catch {
-      // Not a JSON string — treat as a plain description with no structured expectations
-    }
-  }
+  const expectedOutcome = parseExpectedOutcome(step);
 
   try {
     const controller = new AbortController();
@@ -202,18 +207,7 @@ async function executeCliStep(
     ? (params['args'] as unknown[]).map(String)
     : [];
 
-  // Parse expected_outcome
-  let expectedOutcome: Record<string, unknown> = {};
-  if (typeof step.expected_outcome === 'string') {
-    try {
-      const parsed: unknown = JSON.parse(step.expected_outcome);
-      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        expectedOutcome = parsed as Record<string, unknown>;
-      }
-    } catch {
-      // Plain description — no structured expectations
-    }
-  }
+  const expectedOutcome = parseExpectedOutcome(step);
 
   try {
     const result = spawnSync(command, args, {
@@ -458,21 +452,19 @@ function executeBrowserScenario(
         toolPayload = { tool: 'browser_snapshot', params: {} };
     }
 
-    // Record the planned step result with tool payload for the orchestrator to invoke
-    // Console error capture happens via evaluate steps that inspect window.console state
-    const stepResult: BrowserStepResult = {
+    // Record the planned step with tool payload — actual invocation is delegated to the orchestrator
+    stepResults.push({
       action: step.action,
-      status: 'passed',
+      status: 'skipped',
       tool_payload: toolPayload,
-    };
-
-    stepResults.push(stepResult);
+    });
   }
 
   return {
     scenario_id: scenario.scenario_id,
     feature: scenario.feature,
-    status: 'passed',
+    status: 'skipped',
+    skip_reason: 'Execution delegated to wireup orchestrator agent context — tool payloads prepared but not yet invoked',
     steps: stepResults,
     console_errors: consoleErrors,
   };

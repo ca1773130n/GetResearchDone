@@ -176,7 +176,7 @@ async function autoFixIssue(
  * orchestrator after running autoFixIssue on each high-confidence issue) and
  * requires_manual_review pre-populated with non-high-confidence issues.
  */
-function partitionByConfidence(issues: MissingConnection[]): AutoFixResult {
+function partitionByConfidence(issues: MissingConnection[]): AutoFixResult & { high_confidence: MissingConnection[] } {
   const requiresManualReview: MissingConnection[] = [];
   const highConfidenceIssues: MissingConnection[] = [];
 
@@ -188,13 +188,10 @@ function partitionByConfidence(issues: MissingConnection[]): AutoFixResult {
     }
   }
 
-  // fixes_applied is initially empty — the orchestrator populates it after
-  // calling autoFixIssue() on each high-confidence issue.
-  void highConfidenceIssues; // acknowledged — orchestrator uses the full issue list
-
   return {
     fixes_applied: [],
     requires_manual_review: requiresManualReview,
+    high_confidence: highConfidenceIssues,
     model_used: WIREUP_FIX_MODEL,
   };
 }

@@ -444,14 +444,12 @@ describe('Wireup E2E: grd-tools.js wireup run dispatch', () => {
   }, 30000);
 
   test('grd-tools.js wireup subcommand routes to cmdWireup (dispatches wireup run)', () => {
-    // Verify routing: bin/grd-tools.ts has case 'wireup' that calls cmdWireup
-    // We validate by checking the module exports the expected symbols
     const wireupModule = require('../../lib/wireup');
 
-    // Routing target: cmdWireup is the CLI entry point for 'wireup run'
+    // cmdWireup is the CLI entry point for 'wireup run' (with human summary)
     expect(typeof wireupModule.cmdWireup).toBe('function');
 
-    // cmdWireupRun is the MCP tool sub-command wrapper
+    // cmdWireupRun is the MCP tool wrapper (JSON-only, no human summary)
     expect(typeof wireupModule.cmdWireupRun).toBe('function');
 
     // runWireup is the orchestrator function called by both
@@ -460,7 +458,6 @@ describe('Wireup E2E: grd-tools.js wireup run dispatch', () => {
 
   test('cmdWireupRun function signature accepts cwd, args, raw params', () => {
     const { cmdWireupRun } = require('../../lib/wireup');
-    // Function exists and accepts the right arity
     expect(typeof cmdWireupRun).toBe('function');
     expect(cmdWireupRun.length).toBeGreaterThanOrEqual(2);
   });

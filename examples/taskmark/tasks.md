@@ -7,3 +7,4 @@
 - [ ] Run the evolve loop
 - [x] Set up Claude Code
 - [ ] Explore the .planning directory after init
+- [ ] 
