@@ -1,31 +1,31 @@
 # State
 
-**Updated:** 2026-03-20
+**Updated:** 2026-03-21
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.13 Wireup Command — Phase 79: Wireup Orchestrator and Execution
+**Current focus:** v0.3.13 Wireup Command — Phase 80: Browser Execution and Auto-Fix
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
 ## Current Position
 
-- **Active phase:** 79 — Wireup Orchestrator and Execution
-- **Current plan:** —
+- **Active phase:** 80 — Browser Execution and Auto-Fix
+- **Current plan:** 02 complete
 - **Milestone:** v0.3.13 Wireup Command
-- **Status:** Ready to plan
-- **Progress:** [██████░░░░] 58%
-- **Next:** Plan Phase 79 (orchestrator, HTTP/CLI execution, missing connection detection)
+- **Status:** In progress
+- **Progress:** [███████░░░] 67%
+- **Next:** Execute Phase 80 Plan 03 (integration wiring of auto-fix into orchestrator)
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
-| 79 | Wireup Orchestrator and Execution | Not started |
-| 80 | Browser Execution and Auto-Fix | Not started |
+| 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
+| 80 | Browser Execution and Auto-Fix | In progress (plans 01-02 done) |
 | 81 | MCP Tools, Testing, and Integration | Not started |
 
 ## Shipped Milestones (v0.3.x series)
@@ -85,6 +85,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 79]: cmdInitWireup in lib/wireup/cli.ts (not lib/context/agents.ts) mirrors cmdInitEvolve placement; wireup added to INIT_WORKFLOWS; SONNET_MODEL in wireup/state.ts; ExecutionOptions.model propagates ceiling to executor
 - [Phase 79]: Detection uses spawnSync grep/find — pure filesystem, no LLM calls; classifyFailure uses null-coalescing dispatcher (env-var > import > route > middleware > handler > nav-link); WireupResult extended with issues[], issues_by_confidence, issues_by_type
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; executeBrowserScenario() returns structured skip with manual steps when playwright unavailable, MCP tool payloads when available
+- [Phase 80]: autoFixIssue delegates fix application to orchestrator via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL from state.ts; missing-export added to IssueType union; updateFixOutcome increments fixes_applied only for verified fixes
 
 ## Known Bugs
 
@@ -96,12 +97,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 78 — Core Wireup Infrastructure (3 plans, 2 waves)
-- **Stopped at:** Completed 80-01-PLAN.md — Playwright detection and browser scenario execution
-- **Next action:** Plan Phase 79 — Wireup Orchestrator and Execution
-- **Context needed:** lib/wireup/ (types, discovery, scenarios, state), commands/ patterns for wireup.md
+- **Last action:** Executed Phase 80 Plan 02 — Auto-fix infrastructure with confidence gating and re-run verification
+- **Stopped at:** Completed 80-02-PLAN.md — auto-fix infrastructure
+- **Next action:** Execute Phase 80 Plan 03 — Integration wiring of auto-fix into orchestrator
+- **Context needed:** lib/wireup/autofix.ts, lib/wireup/orchestrator.ts, lib/wireup/types.ts
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-20*
+*Last updated: 2026-03-21*
