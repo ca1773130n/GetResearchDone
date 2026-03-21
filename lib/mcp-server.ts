@@ -165,6 +165,19 @@ const {
   cmdInitEvolve: (cwd: string, raw: boolean) => void;
 } = require('./evolve');
 const {
+  cmdWireupDiscover,
+  cmdWireupRun,
+  cmdWireupState,
+  cmdWireupScenarios,
+  cmdWireupReport,
+}: {
+  cmdWireupDiscover: (cwd: string, args: string[], raw: boolean) => unknown;
+  cmdWireupRun: (cwd: string, args: string[], raw: boolean) => Promise<unknown>;
+  cmdWireupState: (cwd: string, args: string[], raw: boolean) => void;
+  cmdWireupScenarios: (cwd: string, args: string[], raw: boolean) => void;
+  cmdWireupReport: (cwd: string, args: string[], raw: boolean) => void;
+} = require('./wireup');
+const {
   splitMarkdown,
   isIndexFile,
   estimateTokens,
@@ -2568,6 +2581,60 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       'Get evolve pre-flight context: backend, models, existing evolve state, milestone info',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdInitEvolve(cwd, false),
+  },
+
+  // -- Wireup Tools --
+  {
+    name: 'grd_wireup_discover',
+    description: 'Discover unwired features in the project via filesystem analysis',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdWireupDiscover(cwd, [], false),
+  },
+  {
+    name: 'grd_wireup_run',
+    description:
+      'Run a full wireup iteration: discover, generate scenarios, execute, detect issues, report',
+    params: [
+      {
+        name: 'target',
+        type: 'string',
+        required: false,
+        description: 'Focus on a specific feature (function name or file path substring)',
+      },
+      {
+        name: 'dry_run',
+        type: 'boolean',
+        required: false,
+        description: 'Discover and generate scenarios without executing them',
+      },
+    ],
+    execute: async (cwd: string, args: Record<string, unknown>) => {
+      const cliArgs: string[] = [];
+      if (args.target) cliArgs.push('--target', String(args.target));
+      if (args.dry_run) cliArgs.push('--dry-run');
+      return cmdWireupRun(cwd, cliArgs, false);
+    },
+  },
+  {
+    name: 'grd_wireup_state',
+    description:
+      'Read the current wireup iteration state (features discovered, scenarios, fixes applied)',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdWireupState(cwd, [], false),
+  },
+  {
+    name: 'grd_wireup_scenarios',
+    description: 'List generated wireup scenarios for discovered features',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) =>
+      cmdWireupScenarios(cwd, [], false),
+  },
+  {
+    name: 'grd_wireup_report',
+    description:
+      'Get the latest wireup report with pass/fail results and issue summary',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => cmdWireupReport(cwd, [], false),
   },
 
   // ── Markdown Splitting ──
