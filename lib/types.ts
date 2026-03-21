@@ -90,6 +90,15 @@ export interface WebMcpResult {
   reason?: string;
 }
 
+/**
+ * Result of Playwright MCP availability detection.
+ */
+export interface PlaywrightResult {
+  available: boolean;
+  source: 'config' | 'env' | 'mcp-config' | 'default';
+  reason?: string;
+}
+
 // ─── Config Types (from utils.js loadConfig) ─────────────────────────────────
 
 /**

@@ -35,6 +35,7 @@ import type {
   EffortLevel,
   AgentEffortProfiles,
   WebMcpResult,
+  PlaywrightResult,
 } from './types';
 
 const fs = require('fs');
@@ -640,6 +641,81 @@ function detectWebMcp(cwd: string): WebMcpResult {
   };
 }
 
+// --- Playwright Detection ----------------------------------------------------
+
+/**
+ * Detect whether Playwright MCP is available.
+ *
+ * Detection waterfall (highest to lowest priority):
+ *   1. Config override: .planning/config.json `playwright.enabled` field
+ *   2. Environment variable: PLAYWRIGHT_AVAILABLE
+ *   3. Claude Code MCP settings: ~/.claude.json `mcpServers` key (playwright name match)
+ *   4. Default: not available
+ *
+ * Mirrors the detectWebMcp() pattern exactly — same try/catch around ~/.claude.json,
+ * same config reading via readConfig(cwd), same env var parsing.
+ *
+ * @param cwd - Absolute path to the project root directory used for config-based detection
+ * @returns A PlaywrightResult indicating availability, the detection source, and an optional reason when unavailable
+ */
+function detectPlaywright(cwd: string): PlaywrightResult {
+  // Step 1: Config override (highest priority)
+  const config = readConfig(cwd);
+  if (config && config.playwright && typeof config.playwright === 'object') {
+    const playwright = config.playwright as Record<string, unknown>;
+    if (typeof playwright.enabled === 'boolean') {
+      if (playwright.enabled) {
+        return { available: true, source: 'config' };
+      }
+      return {
+        available: false,
+        source: 'config',
+        reason: 'Disabled via config',
+      };
+    }
+  }
+
+  // Step 2: Environment variable check
+  const playwrightAvailable: string | undefined = process.env.PLAYWRIGHT_AVAILABLE;
+
+  if (playwrightAvailable !== undefined) {
+    if (playwrightAvailable === 'true' || playwrightAvailable === '1') {
+      return { available: true, source: 'env' };
+    }
+    if (playwrightAvailable === 'false' || playwrightAvailable === '0') {
+      return {
+        available: false,
+        source: 'env',
+        reason: 'Disabled via environment variable',
+      };
+    }
+  }
+
+  // Step 3: Claude Code MCP settings check (~/.claude.json)
+  try {
+    const homeDir: string = os.homedir();
+    const claudeConfigPath: string = path.join(homeDir, '.claude.json');
+    const raw: string = fs.readFileSync(claudeConfigPath, 'utf-8');
+    const claudeConfig = JSON.parse(raw) as Record<string, unknown>;
+    if (claudeConfig && claudeConfig.mcpServers) {
+      const serverNames: string[] = Object.keys(claudeConfig.mcpServers as Record<string, unknown>);
+      const hasPlaywrightMcp: boolean = serverNames.some((name) => /playwright/i.test(name));
+      if (hasPlaywrightMcp) {
+        return { available: true, source: 'mcp-config' };
+      }
+    }
+  } catch {
+    // ~/.claude.json not found or malformed -- continue to default
+  }
+
+  // Step 4: Default
+  return {
+    available: false,
+    source: 'default',
+    reason: 'Playwright MCP not detected in config, environment, or MCP server settings',
+  };
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -656,4 +732,5 @@ module.exports = {
   getCachedModels,
   clearModelCache,
   detectWebMcp,
+  detectPlaywright,
 };
