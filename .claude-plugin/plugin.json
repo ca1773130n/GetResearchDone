@@ -1,6 +1,6 @@
 {
   "name": "grd",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Get Research Done — R&D workflow automation for Claude Code",
   "author": {
     "name": "Cameleon X"
@@ -9,6 +9,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "test -d \"${CLAUDE_PLUGIN_ROOT}/node_modules/tsx\" || npm install --production --prefix \"${CLAUDE_PLUGIN_ROOT}\" 2>/dev/null || true",
+            "timeout": 30
+          },
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js\" verify-path-exists .planning 2>/dev/null || true",
