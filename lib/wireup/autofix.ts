@@ -141,10 +141,8 @@ async function autoFixIssue(
   const fixDescription = `${issue.issue_type} in ${issue.target_file}`;
 
   try {
-    // Build fix prompt for orchestrator to pass to the subagent
-    const _prompt = buildAutoFixPrompt(issue);
-    // NOTE: The orchestrator consumes this result and spawns the subagent.
-    // After the subagent runs, the orchestrator calls reRunFn to verify.
+    // Build fix prompt for orchestrator to pass to the sonnet-tier subagent
+    const fixPrompt = buildAutoFixPrompt(issue);
 
     const rerunPassed = await reRunFn();
 
@@ -153,6 +151,7 @@ async function autoFixIssue(
       fix_status: rerunPassed ? 'verified' : 'failed',
       fix_description: fixDescription,
       rerun_passed: rerunPassed,
+      fix_prompt: fixPrompt,
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);

@@ -297,6 +297,8 @@ export interface FixAttempt {
   rerun_passed?: boolean;
   /** Error message if the fix application itself threw an exception. */
   error?: string;
+  /** Structured prompt for the sonnet-tier fix agent (set for high-confidence issues). */
+  fix_prompt?: string;
 }
 
 /**
@@ -346,6 +348,8 @@ export interface BrowserStepResult {
   error?: string;
   /** Captured DOM snapshot (when available via snapshot action). */
   dom_snapshot?: string;
+  /** Playwright MCP tool call payload for the orchestrator to invoke. */
+  tool_payload?: { tool: string; params: Record<string, unknown> };
 }
 
 /**

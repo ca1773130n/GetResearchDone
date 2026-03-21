@@ -77,6 +77,7 @@ const {
   getCachedModels,
   clearModelCache,
   detectWebMcp,
+  detectPlaywright,
 } = require('../../lib/backend');
 
 describe('lib/backend.js', () => {
@@ -1138,6 +1139,192 @@ describe('lib/backend.js', () => {
       const result = detectWebMcp(tmpDir);
       expect(result.available).toBe(true);
       expect(result.source).toBe('mcp-config');
+    });
+  });
+
+  // ─── detectPlaywright(cwd) ──────────────────────────────────────────────────
+
+  describe('detectPlaywright(cwd)', () => {
+    let savedEnv: NodeJS.ProcessEnv;
+    let tmpDir: string;
+    let readFileSyncSpy: jest.SpyInstance | null;
+
+    beforeEach(() => {
+      savedEnv = { ...process.env };
+      delete process.env.PLAYWRIGHT_AVAILABLE;
+      tmpDir = createTempDir();
+    });
+
+    afterEach(() => {
+      process.env = savedEnv;
+      cleanupTempDir(tmpDir);
+      if (readFileSyncSpy) {
+        readFileSyncSpy.mockRestore();
+        readFileSyncSpy = null;
+      }
+    });
+
+    test('returns available: false with reason when nothing detected', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('default');
+      expect(result.reason).toBe(
+        'Playwright MCP not detected in config, environment, or MCP server settings'
+      );
+    });
+
+    test('returns available: true, source: "config" when playwright.enabled is true', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { playwright: { enabled: true } } });
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('config');
+    });
+
+    test('returns available: false, source: "config" when playwright.enabled is false', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { playwright: { enabled: false } } });
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('config');
+      expect(result.reason).toBe('Disabled via config');
+    });
+
+    test('returns available: true, source: "env" when PLAYWRIGHT_AVAILABLE=true', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      process.env.PLAYWRIGHT_AVAILABLE = 'true';
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('env');
+    });
+
+    test('returns available: true, source: "env" when PLAYWRIGHT_AVAILABLE=1', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      process.env.PLAYWRIGHT_AVAILABLE = '1';
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('env');
+    });
+
+    test('returns available: false with reason when env var is "false"', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      process.env.PLAYWRIGHT_AVAILABLE = 'false';
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('env');
+      expect(result.reason).toBe('Disabled via environment variable');
+    });
+
+    test('returns available: false when PLAYWRIGHT_AVAILABLE="0"', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      process.env.PLAYWRIGHT_AVAILABLE = '0';
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('env');
+      expect(result.reason).toBe('Disabled via environment variable');
+    });
+
+    test('returns available: true, source: "mcp-config" when ~/.claude.json has playwright server', () => {
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            return JSON.stringify({
+              mcpServers: {
+                'playwright-browser': { command: 'npx', args: ['playwright-mcp'] },
+              },
+            });
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(true);
+      expect(result.source).toBe('mcp-config');
+    });
+
+    test('config override takes priority over env var', () => {
+      cleanupTempDir(tmpDir);
+      tmpDir = createTempDir({ config: { playwright: { enabled: false } } });
+      process.env.PLAYWRIGHT_AVAILABLE = 'true';
+      const result = detectPlaywright(tmpDir);
+      expect(result.available).toBe(false);
+      expect(result.source).toBe('config');
+    });
+
+    test('handles missing .planning directory gracefully', () => {
+      const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-playwright-empty-'));
+      readFileSyncSpy = (jest.spyOn(fs, 'readFileSync') as jest.SpyInstance).mockImplementation(
+        (filePath: string, ...args: unknown[]) => {
+          if (typeof filePath === 'string' && filePath.endsWith('.claude.json')) {
+            throw new Error('ENOENT');
+          }
+          return (jest.requireActual('fs') as typeof import('fs')).readFileSync(
+            filePath,
+            ...(args as [])
+          );
+        }
+      );
+      try {
+        const result = detectPlaywright(emptyDir);
+        expect(result.available).toBe(false);
+        expect(result.source).toBe('default');
+      } finally {
+        cleanupTempDir(emptyDir);
+      }
     });
   });
 

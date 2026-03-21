@@ -61,6 +61,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
 | DEFER-78-03 | Coverage thresholds in jest.config.js for wireup modules | Phase 78 | Phase 81, plan 81-02 | PENDING |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
+| DEFER-80-02 | Auto-fix applies real code change and verifies via re-run | Phase 80 | Phase 81 | PENDING |
+| DEFER-80-03 | Full orchestrator integration with report generation | Phase 80 | Phase 81 | PENDING |
 
 ## Performance Metrics
 

@@ -24,11 +24,6 @@ import type {
   BrowserScenarioResult,
 } from './types';
 
-import type { PlaywrightResult } from '../types';
-
-const { detectPlaywright }: { detectPlaywright: (cwd: string) => PlaywrightResult } =
-  require('../backend');
-
 const { spawnSync } = require('child_process') as {
   spawnSync: (
     command: string,
@@ -436,39 +431,39 @@ function executeBrowserScenario(
   // Build step execution plan (actual MCP calls delegated to orchestrator/agent context)
   const stepResults: BrowserStepResult[] = [];
   const consoleErrors: string[] = [];
-  let scenarioFailed = false;
 
   for (const step of scenario.steps) {
     // Construct the Playwright MCP tool call payload for this step
-    let _toolPayload: { tool: string; params: Record<string, unknown> };
+    let toolPayload: { tool: string; params: Record<string, unknown> };
     switch (step.action) {
       case 'navigate':
-        _toolPayload = { tool: 'browser_navigate', params: { url: step.url ?? '' } };
+        toolPayload = { tool: 'browser_navigate', params: { url: step.url ?? '' } };
         break;
       case 'fill':
-        _toolPayload = {
+        toolPayload = {
           tool: 'browser_fill_form',
           params: { selector: step.selector ?? '', value: step.value ?? '' },
         };
         break;
       case 'click':
-        _toolPayload = { tool: 'browser_click', params: { selector: step.selector ?? '' } };
+        toolPayload = { tool: 'browser_click', params: { selector: step.selector ?? '' } };
         break;
       case 'snapshot':
-        _toolPayload = { tool: 'browser_snapshot', params: {} };
+        toolPayload = { tool: 'browser_snapshot', params: {} };
         break;
       case 'evaluate':
-        _toolPayload = { tool: 'browser_evaluate', params: { script: step.script ?? '' } };
+        toolPayload = { tool: 'browser_evaluate', params: { script: step.script ?? '' } };
         break;
       default:
-        _toolPayload = { tool: 'browser_snapshot', params: {} };
+        toolPayload = { tool: 'browser_snapshot', params: {} };
     }
 
-    // Record the planned step result (passed — actual execution is by calling agent)
+    // Record the planned step result with tool payload for the orchestrator to invoke
     // Console error capture happens via evaluate steps that inspect window.console state
     const stepResult: BrowserStepResult = {
       action: step.action,
       status: 'passed',
+      tool_payload: toolPayload,
     };
 
     stepResults.push(stepResult);
@@ -477,7 +472,7 @@ function executeBrowserScenario(
   return {
     scenario_id: scenario.scenario_id,
     feature: scenario.feature,
-    status: scenarioFailed ? 'failed' : 'passed',
+    status: 'passed',
     steps: stepResults,
     console_errors: consoleErrors,
   };
