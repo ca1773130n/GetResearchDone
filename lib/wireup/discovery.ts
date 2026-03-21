@@ -4,8 +4,8 @@
  * GRD Wireup -- Discovery engine
  *
  * Pure filesystem-based analysis to identify features that exist in the codebase
- * but lack full integration (exported-but-uncalled, config-without-surface,
- * endpoint-without-integration-test).
+ * but lack full integration. Includes both GRD-internal scanners and application-aware
+ * scanners that discover routes, exports, models, and components in target projects.
  *
  * IMPORTANT: No child process spawn or exec calls. Uses only fs.readFileSync /
  * fs.readdirSync for all analysis.
@@ -290,12 +290,408 @@ function scanEndpointsWithoutTests(cwd: string): UnwiredFeature[] {
   return features;
 }
 
+// ─── Application-Aware Scanners ──────────────────────────────────────────────
+
+/**
+ * Detect which source directories exist in the project.
+ * Returns directories that are likely application code (not GRD internals).
+ */
+function _detectAppSourceDirs(cwd: string): string[] {
+  const candidates: string[] = ['src', 'app', 'server', 'api', 'pages', 'routes'];
+  const found: string[] = [];
+  for (const dir of candidates) {
+    const fullPath: string = path.join(cwd, dir);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) found.push(dir);
+    } catch {
+      // doesn't exist
+    }
+  }
+  return found;
+}
+
+// ─── Route pattern definitions ───────────────────────────────────────────────
+
+interface RouteMatch {
+  method: string;
+  route: string;
+  filePath: string;
+}
+
+/**
+ * Extract route registrations from Express/Fastify/Hono-style source files.
+ *
+ * Detects patterns like:
+ *   app.get('/path', handler)
+ *   router.post('/path', handler)
+ *   export async function GET(req)  — Next.js App Router
+ *   @Get('/path') — NestJS
+ */
+function _extractRoutes(content: string, filePath: string): RouteMatch[] {
+  const routes: RouteMatch[] = [];
+
+  // Express/Fastify/Hono: app.method('/path', ...) or router.method('/path', ...)
+  const expressPattern: RegExp =
+    /(?:app|router|server|fastify|hono)\s*\.\s*(get|post|put|patch|delete|all|use)\s*\(\s*['"`]([^'"`]+)['"`]/gi;
+  let match: RegExpExecArray | null;
+  while ((match = expressPattern.exec(content)) !== null) {
+    routes.push({ method: match[1].toUpperCase(), route: match[2], filePath });
+  }
+
+  // Next.js App Router: export async function GET/POST/PUT/DELETE/PATCH
+  const nextAppPattern: RegExp =
+    /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s*\(/gi;
+  while ((match = nextAppPattern.exec(content)) !== null) {
+    const routePath: string = _filePathToRoute(filePath);
+    routes.push({ method: match[1].toUpperCase(), route: routePath, filePath });
+  }
+
+  // Decorator patterns: @Get('/path'), @Post('/path') etc (NestJS)
+  const decoratorPattern: RegExp =
+    /@(Get|Post|Put|Patch|Delete)\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/gi;
+  while ((match = decoratorPattern.exec(content)) !== null) {
+    routes.push({ method: match[1].toUpperCase(), route: match[2], filePath });
+  }
+
+  return routes;
+}
+
+/**
+ * Convert a file path like `app/api/users/route.ts` or `pages/api/users.ts`
+ * to a route path like `/api/users`.
+ */
+function _filePathToRoute(filePath: string): string {
+  let route: string = filePath
+    .replace(/\\/g, '/')
+    .replace(/^.*?\b(app|pages)\//, '/')
+    .replace(/\/route\.(ts|js|tsx|jsx)$/, '')
+    .replace(/\.(ts|js|tsx|jsx)$/, '')
+    .replace(/\/index$/, '');
+  if (!route.startsWith('/')) route = '/' + route;
+  return route;
+}
+
+/**
+ * Scan for application routes/endpoints that have no corresponding test file.
+ */
+function scanAppRoutes(cwd: string): UnwiredFeature[] {
+  const features: UnwiredFeature[] = [];
+  const appDirs: string[] = _detectAppSourceDirs(cwd);
+  if (appDirs.length === 0) return features;
+
+  // Collect all source files from app directories
+  const sourceFiles: string[] = [];
+  for (const dir of appDirs) {
+    sourceFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+
+  // Also check root-level route files
+  const rootFiles: string[] = ['routes.ts', 'routes.js', 'server.ts', 'server.js'];
+  for (const file of rootFiles) {
+    const fullPath: string = path.join(cwd, file);
+    try {
+      if (fs.statSync(fullPath).isFile()) sourceFiles.push(fullPath);
+    } catch {
+      // doesn't exist
+    }
+  }
+
+  // Extract routes from all source files
+  const allRoutes: RouteMatch[] = [];
+  for (const file of sourceFiles) {
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+    const relPath: string = path.relative(cwd, file);
+    allRoutes.push(..._extractRoutes(content, relPath));
+  }
+
+  if (allRoutes.length === 0) return features;
+
+  // Collect test files
+  const testDirs: string[] = ['tests', 'test', '__tests__', 'spec'];
+  const testFiles: string[] = [];
+  for (const dir of testDirs) {
+    testFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+  // Also collect *.test.* and *.spec.* from source dirs
+  for (const dir of appDirs) {
+    const allFiles: string[] = _collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']);
+    for (const f of allFiles) {
+      const basename: string = path.basename(f);
+      if (basename.includes('.test.') || basename.includes('.spec.')) {
+        testFiles.push(f);
+      }
+    }
+  }
+
+  const combinedTests: string = testFiles
+    .map((f) => safeReadFile(f) || '')
+    .join('\n');
+
+  // Check each route for test coverage
+  const seen: Set<string> = new Set();
+  for (const route of allRoutes) {
+    const key: string = `${route.method} ${route.route}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const routeEscaped: string = route.route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const routeReferenced: boolean =
+      new RegExp(routeEscaped).test(combinedTests) ||
+      combinedTests.includes(route.route);
+
+    if (!routeReferenced) {
+      features.push({
+        category: 'app-route-without-test' as UnwiredFeatureCategory,
+        filePath: route.filePath,
+        functionName: `${route.method} ${route.route}`,
+        suggestedAction: `Add integration test for ${route.method} ${route.route}`,
+      });
+    }
+  }
+
+  return features;
+}
+
+/**
+ * Scan src/ (or similar) for exported functions/classes that are never imported
+ * anywhere in the project.
+ */
+function scanAppExportedButUncalled(cwd: string): UnwiredFeature[] {
+  const appDirs: string[] = _detectAppSourceDirs(cwd);
+  if (appDirs.length === 0) return [];
+
+  const exportMap: Map<string, string> = new Map();
+  const allAppFiles: string[] = [];
+
+  for (const dir of appDirs) {
+    allAppFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+
+  for (const filePath of allAppFiles) {
+    const content: string | null = safeReadFile(filePath);
+    if (!content) continue;
+    const relPath: string = path.relative(cwd, filePath);
+
+    // Skip test files
+    const basename: string = path.basename(filePath);
+    if (basename.includes('.test.') || basename.includes('.spec.')) continue;
+
+    const exportedNames: string[] = _extractExports(content);
+
+    // Also detect ES module exports: export function name / export const name
+    const esExportPattern: RegExp = /export\s+(?:async\s+)?(?:function|const|class|let|var)\s+(\w+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = esExportPattern.exec(content)) !== null) {
+      if (!exportedNames.includes(match[1])) {
+        exportedNames.push(match[1]);
+      }
+    }
+
+    for (const name of exportedNames) {
+      if (name === 'default') continue;
+      if (!exportMap.has(name)) {
+        exportMap.set(name, relPath);
+      }
+    }
+  }
+
+  // Search all project files for references
+  const searchFiles: string[] = [...allAppFiles];
+  const testDirs: string[] = ['tests', 'test', '__tests__'];
+  for (const dir of testDirs) {
+    searchFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+
+  const features: UnwiredFeature[] = [];
+
+  for (const [funcName, relFilePath] of exportMap) {
+    const absFilePath: string = path.join(cwd, relFilePath);
+    let referenced: boolean = false;
+
+    for (const searchFile of searchFiles) {
+      if (path.resolve(searchFile) === path.resolve(absFilePath)) continue;
+      const content: string | null = safeReadFile(searchFile);
+      if (!content) continue;
+      if (new RegExp(`\\b${funcName}\\b`).test(content)) {
+        referenced = true;
+        break;
+      }
+    }
+
+    if (!referenced) {
+      features.push({
+        category: 'app-exported-but-uncalled' as UnwiredFeatureCategory,
+        filePath: relFilePath,
+        functionName: funcName,
+        suggestedAction: 'Exported but never imported — wire into a route, component, or remove',
+      });
+    }
+  }
+
+  return features;
+}
+
+/**
+ * Scan for ORM model/entity definitions without corresponding CRUD route handlers.
+ *
+ * Detects Prisma models, TypeORM @Entity classes, and Drizzle table definitions.
+ */
+function scanAppModelsWithoutHandlers(cwd: string): UnwiredFeature[] {
+  const features: UnwiredFeature[] = [];
+  const modelNames: Array<{ name: string; filePath: string }> = [];
+
+  // Prisma schema
+  const prismaPath: string = path.join(cwd, 'prisma', 'schema.prisma');
+  const prismaContent: string | null = safeReadFile(prismaPath);
+  if (prismaContent) {
+    const modelPattern: RegExp = /model\s+(\w+)\s*\{/g;
+    let match: RegExpExecArray | null;
+    while ((match = modelPattern.exec(prismaContent)) !== null) {
+      modelNames.push({ name: match[1], filePath: 'prisma/schema.prisma' });
+    }
+  }
+
+  // TypeORM/MikroORM entity decorators and Drizzle table definitions
+  const appDirs: string[] = _detectAppSourceDirs(cwd);
+  const sourceFiles: string[] = [];
+  for (const dir of appDirs) {
+    sourceFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js']));
+  }
+
+  for (const file of sourceFiles) {
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+    const relPath: string = path.relative(cwd, file);
+
+    // @Entity() class ClassName
+    const entityPattern: RegExp = /@Entity\s*\([^)]*\)\s*(?:export\s+)?class\s+(\w+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = entityPattern.exec(content)) !== null) {
+      modelNames.push({ name: match[1], filePath: relPath });
+    }
+
+    // Drizzle: export const tableName = pgTable/mysqlTable/sqliteTable(...)
+    const drizzlePattern: RegExp =
+      /(?:export\s+)?const\s+(\w+)\s*=\s*(?:pgTable|mysqlTable|sqliteTable)\s*\(/g;
+    while ((match = drizzlePattern.exec(content)) !== null) {
+      modelNames.push({ name: match[1], filePath: relPath });
+    }
+  }
+
+  if (modelNames.length === 0) return features;
+
+  // Check if each model is referenced in route/handler files
+  const allSourceFiles: string[] = [];
+  for (const dir of appDirs) {
+    allSourceFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+
+  const combinedSource: string = allSourceFiles
+    .map((f) => safeReadFile(f) || '')
+    .join('\n');
+
+  for (const model of modelNames) {
+    const modelLower: string = model.name.toLowerCase();
+    const hasRoute: boolean =
+      new RegExp(`['"\`/]${modelLower}`, 'i').test(combinedSource) ||
+      new RegExp(`${model.name}\\.(find|create|update|delete|save|remove|insert|select)`, 'i').test(
+        combinedSource
+      );
+
+    if (!hasRoute) {
+      features.push({
+        category: 'app-model-without-handler' as UnwiredFeatureCategory,
+        filePath: model.filePath,
+        functionName: model.name,
+        suggestedAction: `Model "${model.name}" has no CRUD handlers — add routes or remove unused model`,
+      });
+    }
+  }
+
+  return features;
+}
+
+/**
+ * Scan for React/Vue components that are defined but never imported anywhere.
+ */
+function scanAppComponentsWithoutImport(cwd: string): UnwiredFeature[] {
+  const features: UnwiredFeature[] = [];
+  const appDirs: string[] = _detectAppSourceDirs(cwd);
+  if (appDirs.length === 0) return [];
+
+  const componentFiles: string[] = [];
+  for (const dir of appDirs) {
+    componentFiles.push(..._collectFiles(path.join(cwd, dir), ['.tsx', '.jsx']));
+  }
+
+  const componentMap: Map<string, string> = new Map();
+  for (const file of componentFiles) {
+    const basename: string = path.basename(file);
+    if (basename.includes('.test.') || basename.includes('.spec.')) continue;
+    if (basename.startsWith('index.')) continue;
+
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+
+    const relPath: string = path.relative(cwd, file);
+
+    // Detect: export default function ComponentName / export function ComponentName
+    // Only PascalCase names (React components)
+    const componentPattern: RegExp =
+      /export\s+(?:default\s+)?(?:function|const)\s+([A-Z]\w+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = componentPattern.exec(content)) !== null) {
+      componentMap.set(match[1], relPath);
+    }
+  }
+
+  // Search for imports of each component
+  const allFiles: string[] = [];
+  for (const dir of appDirs) {
+    allFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js', '.tsx', '.jsx']));
+  }
+
+  for (const [componentName, relFilePath] of componentMap) {
+    const absFilePath: string = path.join(cwd, relFilePath);
+    let referenced: boolean = false;
+
+    for (const searchFile of allFiles) {
+      if (path.resolve(searchFile) === path.resolve(absFilePath)) continue;
+      const content: string | null = safeReadFile(searchFile);
+      if (!content) continue;
+      if (
+        new RegExp(`import\\s+.*\\b${componentName}\\b`).test(content) ||
+        new RegExp(`<${componentName}[\\s/>]`).test(content)
+      ) {
+        referenced = true;
+        break;
+      }
+    }
+
+    if (!referenced) {
+      features.push({
+        category: 'app-component-without-import' as UnwiredFeatureCategory,
+        filePath: relFilePath,
+        functionName: componentName,
+        suggestedAction: `Component "${componentName}" is never imported — wire into a page or remove`,
+      });
+    }
+  }
+
+  return features;
+}
+
 // ─── Public Orchestrator ─────────────────────────────────────────────────────
 
 /**
  * Discover all unwired features in the codebase using pure filesystem analysis.
  *
- * Runs three scanners and returns combined results sorted by category then filePath.
+ * Runs GRD-internal scanners (exported-but-uncalled, config-without-surface,
+ * endpoint-without-integration-test) AND application-aware scanners that detect
+ * routes, exports, models, and components in the target project.
+ *
  * NEVER spawns child processes — pure fs.readFileSync/readdirSync only.
  *
  * @param cwd - Absolute path to the project root
@@ -303,9 +699,15 @@ function scanEndpointsWithoutTests(cwd: string): UnwiredFeature[] {
  */
 function discoverUnwiredFeatures(cwd: string): UnwiredFeature[] {
   const allFeatures: UnwiredFeature[] = [
+    // GRD-internal scanners
     ...scanExportedButUncalled(cwd),
     ...scanConfigWithoutSurface(cwd),
     ...scanEndpointsWithoutTests(cwd),
+    // Application-aware scanners
+    ...scanAppRoutes(cwd),
+    ...scanAppExportedButUncalled(cwd),
+    ...scanAppModelsWithoutHandlers(cwd),
+    ...scanAppComponentsWithoutImport(cwd),
   ];
 
   allFeatures.sort((a, b) => {

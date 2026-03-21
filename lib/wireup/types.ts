@@ -17,7 +17,11 @@
 export type UnwiredFeatureCategory =
   | 'exported-but-uncalled'
   | 'config-without-surface'
-  | 'endpoint-without-integration-test';
+  | 'endpoint-without-integration-test'
+  | 'app-route-without-test'
+  | 'app-exported-but-uncalled'
+  | 'app-model-without-handler'
+  | 'app-component-without-import';
 
 // ─── Feature Interfaces ──────────────────────────────────────────────────────
 

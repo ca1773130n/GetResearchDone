@@ -171,9 +171,10 @@ describe('Deferred Validations (Phase 65)', () => {
     test('SessionStart hook command references existing bin entry point', () => {
       const pluginPath = path.join(ROOT, '.claude-plugin', 'plugin.json');
       const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf-8'));
-      const cmd = plugin.hooks.SessionStart[0].hooks[0].command;
-      // Command references bin/grd-tools.js -- verify it exists
-      expect(cmd).toContain('grd-tools.js');
+      const hooks = plugin.hooks.SessionStart[0].hooks;
+      // Find the hook that references bin/grd-tools.js (may not be first due to dep-install hook)
+      const cmd = hooks.find((h: { command: string }) => h.command.includes('grd-tools.js'));
+      expect(cmd).toBeDefined();
       // Verify the entry point file actually exists on disk
       const proxyPath = path.join(ROOT, 'bin', 'grd-tools.js');
       expect(fs.existsSync(proxyPath)).toBe(true);

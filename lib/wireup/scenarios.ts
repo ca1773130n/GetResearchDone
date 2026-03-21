@@ -197,6 +197,117 @@ function _scenarioForEndpointWithoutTest(
   return { feature, steps, test_data_fixture: fixturePath };
 }
 
+/**
+ * Generate a WireupScenario for an 'app-route-without-test' feature.
+ *
+ * Produces two steps:
+ *   1. http step: request the route with the detected method
+ *   2. assert step: check response status and schema
+ */
+function _scenarioForAppRoute(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  // functionName is "METHOD /path" (e.g. "GET /api/users")
+  const parts: string[] = feature.functionName.split(' ');
+  const method: string = parts[0] || 'GET';
+  const route: string = parts.slice(1).join(' ') || '/';
+
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'http',
+      parameters: {
+        method,
+        endpoint: route,
+      },
+      expected_outcome: `${method} ${route} responds successfully`,
+    },
+    {
+      step_type: 'assert',
+      parameters: { check: 'status_ok', method, route },
+      expected_outcome: 'Response status is 2xx or 3xx',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for an 'app-exported-but-uncalled' feature.
+ * Same pattern as exported-but-uncalled but resolves from app source dirs.
+ */
+function _scenarioForAppExportedButUncalled(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'cli',
+      parameters: {
+        command: 'node',
+        args: ['-e', `const m = require('./${feature.filePath}'); console.log(typeof m.${feature.functionName})`],
+      },
+      expected_outcome: 'Export exists and is accessible',
+    },
+    {
+      step_type: 'assert',
+      parameters: { check: 'export_accessible' },
+      expected_outcome: 'Exported symbol is defined',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for an 'app-model-without-handler' feature.
+ */
+function _scenarioForAppModel(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const modelLower: string = feature.functionName.toLowerCase();
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'http',
+      parameters: {
+        method: 'GET',
+        endpoint: `/api/${modelLower}s`,
+      },
+      expected_outcome: `GET /api/${modelLower}s responds (model "${feature.functionName}" has a handler)`,
+    },
+    {
+      step_type: 'assert',
+      parameters: { check: 'model_has_handler', model: feature.functionName },
+      expected_outcome: 'Model has at least one CRUD endpoint',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for an 'app-component-without-import' feature.
+ */
+function _scenarioForAppComponent(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'cli',
+      parameters: {
+        command: 'grep',
+        args: ['-r', feature.functionName, '.'],
+      },
+      expected_outcome: `Component "${feature.functionName}" is imported somewhere`,
+    },
+    {
+      step_type: 'assert',
+      parameters: { check: 'component_imported', component: feature.functionName },
+      expected_outcome: 'Component is imported in at least one file besides its definition',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -240,8 +351,19 @@ function generateScenarios(features: UnwiredFeature[], cwd: string): WireupScena
       case 'endpoint-without-integration-test':
         scenario = _scenarioForEndpointWithoutTest(feature, fixturePath);
         break;
+      case 'app-route-without-test':
+        scenario = _scenarioForAppRoute(feature, fixturePath);
+        break;
+      case 'app-exported-but-uncalled':
+        scenario = _scenarioForAppExportedButUncalled(feature, fixturePath);
+        break;
+      case 'app-model-without-handler':
+        scenario = _scenarioForAppModel(feature, fixturePath);
+        break;
+      case 'app-component-without-import':
+        scenario = _scenarioForAppComponent(feature, fixturePath);
+        break;
       default:
-        // Exhaustive: never reach here for valid UnwiredFeatureCategory values
         scenario = _scenarioForExportedButUncalled(feature, fixturePath);
         break;
     }

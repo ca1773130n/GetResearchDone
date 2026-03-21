@@ -16,10 +16,12 @@ const path = require('path');
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockReaddirSync = jest.fn();
+const mockStatSync = jest.fn();
 const mockSafeReadFile = jest.fn();
 
 jest.mock('fs', () => ({
   readdirSync: mockReaddirSync,
+  statSync: mockStatSync,
 }));
 
 jest.mock('../../lib/utils', () => ({
@@ -53,6 +55,9 @@ describe('discoverUnwiredFeatures()', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReaddirSync.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    mockStatSync.mockImplementation(() => {
       throw new Error('ENOENT');
     });
     mockSafeReadFile.mockReturnValue(null);
@@ -330,6 +335,170 @@ describe('discoverUnwiredFeatures()', () => {
           expect(cmp).toBeLessThanOrEqual(0);
         }
       }
+    });
+  });
+
+  // ─── 6. app-route-without-test ────────────────────────────────────────────
+
+  describe('app-route-without-test category', () => {
+    test('detects Express routes without tests', () => {
+      mockStatSync.mockImplementation((p: string) => {
+        if (p === path.join(FAKE_CWD, 'src')) return { isDirectory: () => true };
+        throw new Error('ENOENT');
+      });
+
+      mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
+        if (dir === path.join(FAKE_CWD, 'lib')) return [];
+        if (dir === path.join(FAKE_CWD, 'src')) {
+          return [makeEntry('routes.ts', true)];
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockSafeReadFile.mockImplementation((filePath: string) => {
+        if (filePath === path.join(FAKE_CWD, 'src', 'routes.ts')) {
+          return `
+            app.get('/api/users', getUsers);
+            app.post('/api/users', createUser);
+          `;
+        }
+        return null;
+      });
+
+      const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
+      const appRoutes = result.filter(
+        (f: UnwiredFeature) => f.category === 'app-route-without-test'
+      );
+      expect(appRoutes.length).toBe(2);
+      expect(appRoutes[0].functionName).toBe('GET /api/users');
+      expect(appRoutes[1].functionName).toBe('POST /api/users');
+    });
+
+    test('does NOT flag routes that are covered in tests', () => {
+      mockStatSync.mockImplementation((p: string) => {
+        if (p === path.join(FAKE_CWD, 'src')) return { isDirectory: () => true };
+        throw new Error('ENOENT');
+      });
+
+      mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
+        if (dir === path.join(FAKE_CWD, 'lib')) return [];
+        if (dir === path.join(FAKE_CWD, 'src')) {
+          return [makeEntry('routes.ts', true)];
+        }
+        if (dir === path.join(FAKE_CWD, 'tests')) {
+          return [makeEntry('api.test.ts', true)];
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockSafeReadFile.mockImplementation((filePath: string) => {
+        if (filePath === path.join(FAKE_CWD, 'src', 'routes.ts')) {
+          return "app.get('/api/users', getUsers);";
+        }
+        if (filePath === path.join(FAKE_CWD, 'tests', 'api.test.ts')) {
+          return "it('gets users', () => { request.get('/api/users'); });";
+        }
+        return null;
+      });
+
+      const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
+      const appRoutes = result.filter(
+        (f: UnwiredFeature) => f.category === 'app-route-without-test'
+      );
+      expect(appRoutes.length).toBe(0);
+    });
+
+    test('detects Next.js App Router handlers', () => {
+      mockStatSync.mockImplementation((p: string) => {
+        if (p === path.join(FAKE_CWD, 'app')) return { isDirectory: () => true };
+        throw new Error('ENOENT');
+      });
+
+      mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
+        if (dir === path.join(FAKE_CWD, 'lib')) return [];
+        if (dir === path.join(FAKE_CWD, 'app')) {
+          return [makeEntry('api', false)];
+        }
+        if (dir === path.join(FAKE_CWD, 'app', 'api')) {
+          return [makeEntry('users', false)];
+        }
+        if (dir === path.join(FAKE_CWD, 'app', 'api', 'users')) {
+          return [makeEntry('route.ts', true)];
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockSafeReadFile.mockImplementation((filePath: string) => {
+        if (filePath === path.join(FAKE_CWD, 'app', 'api', 'users', 'route.ts')) {
+          return `
+            export async function GET(request: Request) { return Response.json([]); }
+            export async function POST(request: Request) { return Response.json({}); }
+          `;
+        }
+        return null;
+      });
+
+      const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
+      const appRoutes = result.filter(
+        (f: UnwiredFeature) => f.category === 'app-route-without-test'
+      );
+      expect(appRoutes.length).toBe(2);
+      const methods = appRoutes.map((r: UnwiredFeature) => r.functionName.split(' ')[0]);
+      expect(methods).toContain('GET');
+      expect(methods).toContain('POST');
+    });
+  });
+
+  // ─── 7. app-model-without-handler ─────────────────────────────────────────
+
+  describe('app-model-without-handler category', () => {
+    test('detects Prisma models without handlers', () => {
+      mockStatSync.mockImplementation((p: string) => {
+        if (p === path.join(FAKE_CWD, 'src')) return { isDirectory: () => true };
+        throw new Error('ENOENT');
+      });
+
+      mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
+        if (dir === path.join(FAKE_CWD, 'lib')) return [];
+        if (dir === path.join(FAKE_CWD, 'src')) return [];
+        throw new Error('ENOENT');
+      });
+
+      mockSafeReadFile.mockImplementation((filePath: string) => {
+        if (filePath === path.join(FAKE_CWD, 'prisma', 'schema.prisma')) {
+          return `
+            model User { id Int @id }
+            model OrphanModel { id Int @id }
+          `;
+        }
+        return null;
+      });
+
+      const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
+      const models = result.filter(
+        (f: UnwiredFeature) => f.category === 'app-model-without-handler'
+      );
+      expect(models.length).toBe(2);
+      const names = models.map((m: UnwiredFeature) => m.functionName);
+      expect(names).toContain('User');
+      expect(names).toContain('OrphanModel');
+    });
+  });
+
+  // ─── 8. No app dirs returns no app features ───────────────────────────────
+
+  describe('app scanners on project without app dirs', () => {
+    test('returns no app features when no src/app/server dirs exist', () => {
+      // mockStatSync already throws ENOENT by default from beforeEach
+      mockReaddirSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+
+      const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
+      const appFeatures = result.filter((f: UnwiredFeature) =>
+        f.category.startsWith('app-')
+      );
+      expect(appFeatures).toEqual([]);
     });
   });
 });
