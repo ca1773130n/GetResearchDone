@@ -311,8 +311,8 @@ Plans:
 | 76 | Agent Frontmatter and MCP Elicitation | Complete | 2026-03-19 |
 | 77 | Testing and Documentation | Complete | 2026-03-20 |
 | 78 | Core Wireup Infrastructure | Complete | 2026-03-20 |
-| 79 | Wireup Orchestrator and Execution | Not started | - |
-| 80 | Browser Execution and Auto-Fix | Not started | - |
+| 79 | Wireup Orchestrator and Execution | Complete | 2026-03-20 |
+| 80 | Browser Execution and Auto-Fix | Complete | 2026-03-21 |
 | 81 | MCP Tools, Testing, and Integration | Not started | - |
 
 ## Deferred Validations
