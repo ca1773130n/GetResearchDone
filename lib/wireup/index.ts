@@ -14,6 +14,7 @@
  * @see lib/wireup/cli.ts         -- Context builder (cmdInitWireup)
  * @see lib/wireup/execution.ts   -- HTTP and CLI scenario execution engine (plan 79-02)
  * @see lib/wireup/detection.ts   -- Missing connection detection engine (plan 79-03)
+ * @see lib/wireup/report.ts      -- WIREUP-REPORT.md generation with iteration history (plan 80-03)
  */
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,10 @@ const detectionModule = require('./detection') as Record<string, unknown>;
 // ─── Auto-Fix ────────────────────────────────────────────────────────────────
 
 const autofixModule = require('./autofix') as Record<string, unknown>;
+
+// ─── Report ──────────────────────────────────────────────────────────────────
+
+const reportModule = require('./report') as Record<string, unknown>;
 
 // ─── Barrel Export ────────────────────────────────────────────────────────────
 
@@ -91,6 +96,10 @@ module.exports = {
   classifyFixConfidence: autofixModule['classifyFixConfidence'],
   updateFixOutcome: autofixModule['updateFixOutcome'],
   partitionByConfidence: autofixModule['partitionByConfidence'],
+
+  // ─── Report generation (from report.ts) ──────────────────────────────────
+  generateWireupReport: reportModule['generateWireupReport'],
+  formatReportPath: reportModule['formatReportPath'],
 
   // ─── Orchestrator (from orchestrator.ts) ─────────────────────────────────
   runWireup: orchestratorModule.runWireup,
