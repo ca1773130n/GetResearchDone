@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 - **Active phase:** 80 — Browser Execution and Auto-Fix
-- **Current plan:** 02 complete
+- **Current plan:** 03 complete
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** In progress
-- **Progress:** [███████░░░] 67%
-- **Next:** Execute Phase 80 Plan 03 (integration wiring of auto-fix into orchestrator)
+- **Progress:** [████████░░] 75%
+- **Next:** Execute Phase 81 Plan 01 (MCP tools, testing, and integration)
 
 ## Phase Summary
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 |-------|------|--------|
 | 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
 | 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
-| 80 | Browser Execution and Auto-Fix | In progress (plans 01-02 done) |
+| 80 | Browser Execution and Auto-Fix | Complete (2026-03-21, plans 01-03 done) |
 | 81 | MCP Tools, Testing, and Integration | Not started |
 
 ## Shipped Milestones (v0.3.x series)
@@ -86,6 +86,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 79]: Detection uses spawnSync grep/find — pure filesystem, no LLM calls; classifyFailure uses null-coalescing dispatcher (env-var > import > route > middleware > handler > nav-link); WireupResult extended with issues[], issues_by_confidence, issues_by_type
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; executeBrowserScenario() returns structured skip with manual steps when playwright unavailable, MCP tool payloads when available
 - [Phase 80]: autoFixIssue delegates fix application to orchestrator via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL from state.ts; missing-export added to IssueType union; updateFixOutcome increments fixes_applied only for verified fixes
+- [Phase 80]: generateWireupReport writes structured WIREUP-REPORT.md to milestone wireup dir; iteration history is extracted and appended on each run; WireupReportData in report.ts (not types.ts); report_path added as optional field on WireupResult
 
 ## Known Bugs
 
@@ -97,10 +98,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 80 Plan 02 — Auto-fix infrastructure with confidence gating and re-run verification
-- **Stopped at:** Completed 80-02-PLAN.md — auto-fix infrastructure
-- **Next action:** Execute Phase 80 Plan 03 — Integration wiring of auto-fix into orchestrator
-- **Context needed:** lib/wireup/autofix.ts, lib/wireup/orchestrator.ts, lib/wireup/types.ts
+- **Last action:** Executed Phase 80 Plan 03 — WIREUP-REPORT.md generation with iteration history
+- **Stopped at:** Completed 80-03-PLAN.md — WIREUP-REPORT.md generation
+- **Next action:** Execute Phase 81 Plan 01 — MCP tools, testing, and integration
+- **Context needed:** lib/wireup/, lib/wireup/report.ts, lib/wireup/orchestrator.ts
 
 ---
 
