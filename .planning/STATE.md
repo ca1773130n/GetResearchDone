@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.13 Wireup Command — Phase 80: Browser Execution and Auto-Fix
+**Current focus:** v0.3.13 Wireup Command — Phase 81: MCP Tools, Testing, and Integration
 **Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
 
 ## Current Position
 
-- **Active phase:** 80 — Browser Execution and Auto-Fix
-- **Current plan:** 03 complete
+- **Active phase:** 81 — MCP Tools, Testing, and Integration
+- **Current plan:** 01 complete
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** In progress
-- **Progress:** [████████░░] 75%
-- **Next:** Execute Phase 81 Plan 01 (MCP tools, testing, and integration)
+- **Progress:** [████████░░] 83%
+- **Next:** Execute Phase 81 Plan 02 (wireup unit tests)
 
 ## Phase Summary
 
@@ -89,6 +89,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; executeBrowserScenario() returns structured skip with manual steps when playwright unavailable, MCP tool payloads when available
 - [Phase 80]: autoFixIssue delegates fix application to orchestrator via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL from state.ts; missing-export added to IssueType union; updateFixOutcome increments fixes_applied only for verified fixes
 - [Phase 80]: generateWireupReport writes structured WIREUP-REPORT.md to milestone wireup dir; iteration history is extracted and appended on each run; WireupReportData in report.ts (not types.ts); report_path added as optional field on WireupResult
+- [Phase 81]: Five wireup cmd wrappers follow evolve pattern; cmdWireupScenarios re-runs discovery+generation (stateless); coverage threshold on lib/wireup/index.ts barrel
 
 ## Known Bugs
 
@@ -100,10 +101,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 80 Plan 03 — WIREUP-REPORT.md generation with iteration history
-- **Stopped at:** Completed 80-03-PLAN.md — WIREUP-REPORT.md generation
-- **Next action:** Execute Phase 81 Plan 01 — MCP tools, testing, and integration
-- **Context needed:** lib/wireup/, lib/wireup/report.ts, lib/wireup/orchestrator.ts
+- **Last action:** Executed Phase 81 Plan 01 — wireup MCP tool registrations
+- **Stopped at:** Completed 81-01-PLAN.md — wireup MCP tool registrations
+- **Next action:** Execute Phase 81 Plan 02 — wireup unit tests
+- **Context needed:** lib/wireup/, tests/unit/wireup/
 
 ---
 
