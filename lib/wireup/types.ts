@@ -221,6 +221,8 @@ export interface WireupResult {
   pass_fail_summary: string;
   /** Details of failed scenarios with their step failures. */
   failed_scenarios: FailedScenarioSummary[];
+  /** Absolute path to the generated WIREUP-REPORT.md (undefined in dry-run mode). */
+  report_path?: string;
 }
 
 // ─── Detection Types ──────────────────────────────────────────────────────────
@@ -384,6 +386,12 @@ export interface WireupIterationHistory {
   failed: number;
   /** Number of auto-fixes applied by the executor. */
   fixes_applied: number;
+  /** Number of distinct features tested in this iteration. */
+  features_tested?: number;
+  /** Number of missing connections detected in this iteration. */
+  issues_found?: number;
+  /** Number of fixes that were applied and verified (scenario re-run passed). */
+  fixes_verified?: number;
 }
 
 /**
@@ -406,4 +414,6 @@ export interface WireupState {
   timestamp: string;
   /** Milestone this wireup state belongs to. */
   milestone: string;
+  /** Absolute path to the last written WIREUP-REPORT.md (set after each iteration). */
+  last_report_path?: string;
 }

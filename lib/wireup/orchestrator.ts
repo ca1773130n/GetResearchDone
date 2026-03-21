@@ -22,7 +22,9 @@ import type {
   MissingConnection,
   IssuesByConfidence,
   IssuesByType,
+  WireupIterationHistory,
 } from './types';
+import type { WireupReportData } from './report';
 const {
   SONNET_MODEL,
   readWireupState,
@@ -59,6 +61,12 @@ const {
 }: {
   detectMissingConnections: (cwd: string, failedResults: ScenarioResult[]) => MissingConnection[];
 } = require('./detection');
+
+const {
+  generateWireupReport,
+}: {
+  generateWireupReport: (cwd: string, data: WireupReportData) => string;
+} = require('./report');
 
 // ─── Execution Stub (implemented in plan 79-02) ──────────────────────────────
 
@@ -255,15 +263,57 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
   });
 
   // Update cumulative features_discovered, scenarios_generated, and issues counts
+  // Also patch the latest iteration_history entry with extended fields (issues_found, fixes_verified, features_tested)
+  const latestHistoryEntry: WireupIterationHistory = {
+    ...updatedState.iteration_history[updatedState.iteration_history.length - 1],
+    features_tested: features.length,
+    issues_found: issuesFound,
+    fixes_verified: 0,
+  };
+
+  const patchedHistory: WireupIterationHistory[] = [
+    ...updatedState.iteration_history.slice(0, -1),
+    latestHistoryEntry,
+  ];
+
+  // Step 9: Generate WIREUP-REPORT.md for this iteration
+  const iterationNumber = patchedHistory.length;
+  const reportData: WireupReportData = {
+    milestone,
+    iteration: iterationNumber,
+    timestamp: new Date().toISOString(),
+    features_tested: features.length,
+    scenarios: {
+      total: totalScenarios,
+      passed: passedCount,
+      failed: failedCount,
+      skipped: 0,
+    },
+    issues_found: missingConnections,
+    fixes: {
+      applied: [],
+      verified: 0,
+      failed: 0,
+      skipped: issuesFound,
+    },
+    remaining_unwired: failedScenarios.map((fs) => fs.scenario_id),
+    manual_review: missingConnections.filter((c) => c.confidence !== 'high'),
+  };
+
+  const reportPath: string = generateWireupReport(cwd, reportData);
+
+  // Update state with report path and extended iteration history
   const finalState: WireupState = {
     ...updatedState,
     features_discovered: wireupState.features_discovered + features.length,
     scenarios_generated: wireupState.scenarios_generated + scenarios.length,
+    iteration_history: patchedHistory,
+    last_report_path: reportPath,
   };
 
   writeWireupState(cwd, finalState);
 
-  // Step 9: Build summary and return WireupResult
+  // Step 10: Build summary and return WireupResult
   const passFail = _buildPassFailSummary(
     totalScenarios,
     passedCount,
@@ -285,6 +335,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     issues_by_type: issuesByType,
     pass_fail_summary: passFail,
     failed_scenarios: failedScenarios,
+    report_path: reportPath,
   };
 }
 
@@ -335,6 +386,9 @@ async function cmdWireup(cwd: string, args: string[], raw: boolean): Promise<voi
     }
     process.stdout.write('\n');
     process.stdout.write(`\n${result.pass_fail_summary}\n`);
+    if (result.report_path !== undefined) {
+      process.stdout.write(`\nReport written to: ${result.report_path}\n`);
+    }
   }
 
   output(result, raw);
