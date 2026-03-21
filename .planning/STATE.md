@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 - **Active phase:** 81 — MCP Tools, Testing, and Integration
-- **Current plan:** 01 complete
+- **Current plan:** 02 complete
 - **Milestone:** v0.3.13 Wireup Command
 - **Status:** In progress
-- **Progress:** [████████░░] 83%
-- **Next:** Execute Phase 81 Plan 02 (wireup unit tests)
+- **Progress:** [█████████░] 92%
+- **Next:** Execute Phase 81 Plan 03 (final integration, CLI registration, v0.3.13 release)
 
 ## Phase Summary
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
 | 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
 | 80 | Browser Execution and Auto-Fix | Complete (2026-03-21, plans 01-03 done) |
-| 81 | MCP Tools, Testing, and Integration | Not started |
+| 81 | MCP Tools, Testing, and Integration | In progress (plans 01-02 done) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -59,7 +59,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | DEFER-68-02 | Autoplan creates feature-oriented phases from product-ideation groups | Phase 68 | First real infinite evolve cycle | PENDING |
 | DEFER-78-01 | Live discovery accuracy on real GRD codebase | Phase 78 | Phase 79, plan 79-01 | PENDING |
 | DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
-| DEFER-78-03 | Coverage thresholds in jest.config.js for wireup modules | Phase 78 | Phase 81, plan 81-02 | PENDING |
+| DEFER-78-03 | Coverage thresholds in jest.config.js for wireup modules | Phase 78 | Phase 81, plan 81-02 | RESOLVED (added in 81-01; 87.1% achieved in 81-02) |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
 | DEFER-80-02 | Auto-fix applies real code change and verifies via re-run | Phase 80 | Phase 81 | PENDING |
 | DEFER-80-03 | Full orchestrator integration with report generation | Phase 80 | Phase 81 | PENDING |
@@ -90,6 +90,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 80]: autoFixIssue delegates fix application to orchestrator via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL from state.ts; missing-export added to IssueType union; updateFixOutcome increments fixes_applied only for verified fixes
 - [Phase 80]: generateWireupReport writes structured WIREUP-REPORT.md to milestone wireup dir; iteration history is extracted and appended on each run; WireupReportData in report.ts (not types.ts); report_path added as optional field on WireupResult
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; cmdWireupScenarios re-runs discovery+generation (stateless); coverage threshold on lib/wireup/index.ts barrel
+- [Phase 81]: wireup.test.ts covers execution/detection/autofix/orchestrator/report; discovery/scenarios/state have separate files but are also exercised directly for 87.1% coverage
 
 ## Known Bugs
 
@@ -101,10 +102,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 81 Plan 01 — wireup MCP tool registrations
-- **Stopped at:** Completed 81-01-PLAN.md — wireup MCP tool registrations
-- **Next action:** Execute Phase 81 Plan 02 — wireup unit tests
-- **Context needed:** lib/wireup/, tests/unit/wireup/
+- **Last action:** Executed Phase 81 Plan 02 — comprehensive wireup unit tests (87.1% coverage)
+- **Stopped at:** Completed 81-02-PLAN.md — wireup unit tests
+- **Next action:** Execute Phase 81 Plan 03 — final integration, CLI registration, v0.3.13 release
+- **Context needed:** lib/wireup/, tests/unit/wireup.test.ts, bin/grd-tools.ts
 
 ---
 
