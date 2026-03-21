@@ -44,6 +44,10 @@ const executionModule = require('./execution') as Record<string, unknown>;
 
 const detectionModule = require('./detection') as Record<string, unknown>;
 
+// ─── Auto-Fix ────────────────────────────────────────────────────────────────
+
+const autofixModule = require('./autofix') as Record<string, unknown>;
+
 // ─── Barrel Export ────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -75,10 +79,18 @@ module.exports = {
   executeScenarios: executionModule['executeScenarios'],
   executeHttpStep: executionModule['executeHttpStep'],
   executeCliStep: executionModule['executeCliStep'],
+  executeBrowserScenario: executionModule['executeBrowserScenario'],
+  generateManualSteps: executionModule['generateManualSteps'],
 
   // ─── Detection engine (from detection.ts) ────────────────────────────────
   detectMissingConnections: detectionModule['detectMissingConnections'],
   classifyFailure: detectionModule['classifyFailure'],
+
+  // ─── Auto-fix engine (from autofix.ts) ───────────────────────────────────
+  autoFixIssue: autofixModule['autoFixIssue'],
+  classifyFixConfidence: autofixModule['classifyFixConfidence'],
+  updateFixOutcome: autofixModule['updateFixOutcome'],
+  partitionByConfidence: autofixModule['partitionByConfidence'],
 
   // ─── Orchestrator (from orchestrator.ts) ─────────────────────────────────
   runWireup: orchestratorModule.runWireup,

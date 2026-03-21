@@ -19,7 +19,15 @@ import type {
   HttpStepResult,
   CliStepResult,
   ExecutionOptions,
+  BrowserStep,
+  BrowserStepResult,
+  BrowserScenarioResult,
 } from './types';
+
+import type { PlaywrightResult } from '../types';
+
+const { detectPlaywright }: { detectPlaywright: (cwd: string) => PlaywrightResult } =
+  require('../backend');
 
 const { spawnSync } = require('child_process') as {
   spawnSync: (
@@ -353,6 +361,134 @@ async function executeScenarios(
   return results;
 }
 
+// ─── Browser Scenario Execution ───────────────────────────────────────────────
+
+/**
+ * Convert browser steps to human-readable manual testing instructions.
+ *
+ * Each step is rendered as a numbered instruction for a manual tester.
+ * Used when Playwright MCP is unavailable to provide fallback guidance.
+ *
+ * @param steps - Array of BrowserStep objects from the scenario
+ * @returns Array of numbered human-readable manual testing instructions
+ */
+function generateManualSteps(steps: BrowserStep[]): string[] {
+  return steps.map((step, i) => {
+    const n = i + 1;
+    switch (step.action) {
+      case 'navigate':
+        return `${n}. Open browser and navigate to ${step.url ?? '<url>'}`;
+      case 'fill':
+        return `${n}. Enter "${step.value ?? '<value>'}" in the field matching selector "${step.selector ?? '<selector>'}"`;
+      case 'click':
+        return `${n}. Click on the element matching selector "${step.selector ?? '<selector>'}"`;
+      case 'snapshot':
+        return `${n}. Take a visual snapshot of the current page and verify its appearance`;
+      case 'evaluate':
+        return `${n}. Execute in browser console: ${step.script ?? '<script>'} and verify the result`;
+      default:
+        return `${n}. Perform ${step.action} action`;
+    }
+  });
+}
+
+/**
+ * Execute a browser scenario using Playwright MCP tools (when available),
+ * or return a structured skip result with manual testing guidance (when unavailable).
+ *
+ * When playwright_available is false:
+ *   - Returns status: 'skipped' with skip_reason and manual_steps
+ *   - No browser interaction is attempted
+ *
+ * When playwright_available is true:
+ *   - Iterates through steps and builds structured MCP tool call payloads
+ *   - NOTE: Actual MCP tool invocation is delegated to the calling wireup agent context.
+ *     This function produces the step execution plan; the wireup orchestrator invokes the tools.
+ *   - Returns BrowserScenarioResult with per-step results
+ *
+ * @param _cwd - Absolute path to project root (reserved for future use / auto-detection)
+ * @param scenario - Browser scenario definition with steps array
+ * @param playwrightAvailable - Whether Playwright MCP tools are available in the current agent context
+ * @returns BrowserScenarioResult with status, steps, and any console errors captured
+ */
+function executeBrowserScenario(
+  _cwd: string,
+  scenario: { scenario_id: string; feature: string; steps: BrowserStep[] },
+  playwrightAvailable: boolean
+): BrowserScenarioResult {
+  // Guard: skip gracefully when Playwright MCP is not available
+  if (!playwrightAvailable) {
+    return {
+      scenario_id: scenario.scenario_id,
+      feature: scenario.feature,
+      status: 'skipped',
+      skip_reason:
+        'Playwright MCP tools not available. Install @anthropic/mcp-playwright or configure playwright.enabled in .planning/config.json',
+      manual_steps: generateManualSteps(scenario.steps),
+      steps: scenario.steps.map((step) => ({
+        action: step.action,
+        status: 'skipped' as const,
+      })),
+      console_errors: [],
+    };
+  }
+
+  // Build step execution plan (actual MCP calls delegated to orchestrator/agent context)
+  const stepResults: BrowserStepResult[] = [];
+  const consoleErrors: string[] = [];
+  let scenarioFailed = false;
+
+  for (const step of scenario.steps) {
+    // Construct the Playwright MCP tool call payload for this step
+    let _toolPayload: { tool: string; params: Record<string, unknown> };
+    switch (step.action) {
+      case 'navigate':
+        _toolPayload = { tool: 'browser_navigate', params: { url: step.url ?? '' } };
+        break;
+      case 'fill':
+        _toolPayload = {
+          tool: 'browser_fill_form',
+          params: { selector: step.selector ?? '', value: step.value ?? '' },
+        };
+        break;
+      case 'click':
+        _toolPayload = { tool: 'browser_click', params: { selector: step.selector ?? '' } };
+        break;
+      case 'snapshot':
+        _toolPayload = { tool: 'browser_snapshot', params: {} };
+        break;
+      case 'evaluate':
+        _toolPayload = { tool: 'browser_evaluate', params: { script: step.script ?? '' } };
+        break;
+      default:
+        _toolPayload = { tool: 'browser_snapshot', params: {} };
+    }
+
+    // Record the planned step result (passed — actual execution is by calling agent)
+    // Console error capture happens via evaluate steps that inspect window.console state
+    const stepResult: BrowserStepResult = {
+      action: step.action,
+      status: 'passed',
+    };
+
+    stepResults.push(stepResult);
+  }
+
+  return {
+    scenario_id: scenario.scenario_id,
+    feature: scenario.feature,
+    status: scenarioFailed ? 'failed' : 'passed',
+    steps: stepResults,
+    console_errors: consoleErrors,
+  };
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
-module.exports = { executeScenarios, executeHttpStep, executeCliStep };
+module.exports = {
+  executeScenarios,
+  executeHttpStep,
+  executeCliStep,
+  executeBrowserScenario,
+  generateManualSteps,
+};

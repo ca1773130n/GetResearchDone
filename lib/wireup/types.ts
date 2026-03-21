@@ -192,6 +192,7 @@ export interface IssuesByType {
   'missing-middleware': number;
   'broken-nav-link': number;
   'missing-env-var': number;
+  'missing-export': number;
 }
 
 /**
@@ -235,7 +236,8 @@ export type IssueType =
   | 'missing-import'
   | 'missing-middleware'
   | 'broken-nav-link'
-  | 'missing-env-var';
+  | 'missing-env-var'
+  | 'missing-export';
 
 /**
  * Confidence level for a detected missing connection.
@@ -270,6 +272,98 @@ export interface MissingConnection {
   step_index: number;
   /** Snippet of the raw error / status context used to classify the failure. */
   error_context: string;
+}
+
+// ─── Auto-Fix Types ───────────────────────────────────────────────────────────
+
+/**
+ * Result of a single auto-fix attempt on a MissingConnection.
+ */
+export interface FixAttempt {
+  /** The issue that was (or was not) fixed. */
+  issue: MissingConnection;
+  /**
+   * Outcome of the fix attempt:
+   * - 'verified': fix was applied and the re-run scenario passed
+   * - 'failed': fix was applied but the re-run scenario still failed
+   * - 'skipped': issue confidence was not 'high' — no fix attempted
+   */
+  fix_status: 'verified' | 'failed' | 'skipped';
+  /** Human-readable description of what the fix did (set when fix was attempted). */
+  fix_description?: string;
+  /** Whether the re-run scenario passed (set when fix was attempted). */
+  rerun_passed?: boolean;
+  /** Error message if the fix application itself threw an exception. */
+  error?: string;
+}
+
+/**
+ * Aggregated result of partitioning and attempting fixes on a set of issues.
+ */
+export interface AutoFixResult {
+  /** Fix attempts for high-confidence issues (populated after fix attempts). */
+  fixes_applied: FixAttempt[];
+  /** Medium and low confidence issues that require manual review. */
+  requires_manual_review: MissingConnection[];
+  /** Model constant used for all fix agents. */
+  model_used: string;
+}
+
+// ─── Browser Scenario Types ───────────────────────────────────────────────────
+
+/**
+ * A single step in a browser scenario.
+ *
+ * Each step maps to a Playwright MCP tool call when playwright_available is true,
+ * or is converted to a human-readable manual instruction when unavailable.
+ */
+export interface BrowserStep {
+  /** The browser action to perform. */
+  action: 'navigate' | 'fill' | 'click' | 'snapshot' | 'evaluate';
+  /** CSS selector for fill/click actions. */
+  selector?: string;
+  /** Value to fill for fill actions. */
+  value?: string;
+  /** URL for navigate actions. */
+  url?: string;
+  /** JavaScript expression for evaluate actions. */
+  script?: string;
+  /** Expected outcome fields for assertion (e.g. title, text content). */
+  expected?: Record<string, unknown>;
+}
+
+/**
+ * Result of a single browser step execution.
+ */
+export interface BrowserStepResult {
+  /** The action that was attempted. */
+  action: string;
+  /** Whether this step passed (or was skipped). */
+  status: 'passed' | 'failed' | 'skipped';
+  /** Error message if the step failed. */
+  error?: string;
+  /** Captured DOM snapshot (when available via snapshot action). */
+  dom_snapshot?: string;
+}
+
+/**
+ * Result of a complete browser scenario execution.
+ */
+export interface BrowserScenarioResult {
+  /** Unique identifier for the scenario. */
+  scenario_id: string;
+  /** Feature this scenario tests. */
+  feature: string;
+  /** Overall status: passed, failed, or skipped (when playwright unavailable). */
+  status: 'passed' | 'failed' | 'skipped';
+  /** Reason the scenario was skipped (when playwright_available is false). */
+  skip_reason?: string;
+  /** Human-readable manual testing instructions (when playwright_available is false). */
+  manual_steps?: string[];
+  /** Per-step execution results. */
+  steps: BrowserStepResult[];
+  /** Console errors captured during execution. */
+  console_errors: string[];
 }
 
 // ─── History & State Interfaces ──────────────────────────────────────────────
