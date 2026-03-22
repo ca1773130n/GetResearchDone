@@ -84,6 +84,7 @@ const {
   executeScenarios,
   executeHttpStep,
   executeCliStep,
+  executeStaticStep,
   executeBrowserScenario,
   generateManualSteps,
 } = require('../../lib/wireup/execution') as {
@@ -103,6 +104,11 @@ const {
     options: Record<string, unknown>,
     cwd: string
   ) => Promise<CliStepResult>;
+  executeStaticStep: (
+    stepIndex: number,
+    step: WireupScenario['steps'][number],
+    cwd: string
+  ) => StepResult;
   executeBrowserScenario: (
     cwd: string,
     scenario: { scenario_id: string; feature: string; steps: BrowserStep[] },
@@ -2474,5 +2480,115 @@ describe('cmdWireup()', () => {
       // Expected: output() throws
     }
     expect(mockOutput).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── executeStaticStep ────────────────────────────────────────────────────────
+
+describe('executeStaticStep', () => {
+  const realFs = jest.requireActual('fs') as typeof import('fs');
+  const realPath = jest.requireActual('path') as typeof import('path');
+  const realOs = jest.requireActual('os') as typeof import('os');
+  let tmpDir: string;
+
+  // The fs mock replaces readFileSync and readdirSync — restore real impls for these tests
+  const mockFsModule = require('fs') as { readFileSync: jest.Mock; readdirSync: jest.Mock };
+
+  beforeEach(() => {
+    mockReadFileSync.mockImplementation((...args: Parameters<typeof realFs.readFileSync>) =>
+      (realFs.readFileSync as (...a: Parameters<typeof realFs.readFileSync>) => ReturnType<typeof realFs.readFileSync>)(...args)
+    );
+    mockFsModule.readdirSync.mockImplementation((...args: Parameters<typeof realFs.readdirSync>) =>
+      (realFs.readdirSync as (...a: Parameters<typeof realFs.readdirSync>) => ReturnType<typeof realFs.readdirSync>)(...args)
+    );
+  });
+
+  afterEach(() => {
+    mockReadFileSync.mockReset();
+    mockFsModule.readdirSync.mockReset();
+    if (tmpDir) realFs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('passes when export exists in file (ES module export)', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.ts'), 'export function doThing() { return 1; }');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+    expect(result.step_type).toBe('static');
+  });
+
+  it('passes when export exists via export default', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'Button.tsx'), 'export default function Button() {}');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'Button.tsx', exportName: 'Button' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('passes when export exists via export { name }', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'index.ts'), 'const doThing = 1;\nexport { doThing }');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'index.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when export does not exist in file', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.ts'), 'export function other() {}');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+  });
+
+  it('fails when file does not exist', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'missing.ts', exportName: 'x' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+  });
+
+  it('passes import_graph_connected when export is referenced', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    realFs.mkdirSync(srcDir);
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function doThing() {}');
+    realFs.writeFileSync(realPath.join(srcDir, 'app.ts'), "import { doThing } from './utils';");
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails import_graph_connected when export has no references', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    realFs.mkdirSync(srcDir);
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function orphan() {}');
+    realFs.writeFileSync(realPath.join(srcDir, 'app.ts'), "import { other } from './other';");
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'orphan' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
   });
 });
