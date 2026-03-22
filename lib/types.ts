@@ -501,12 +501,12 @@ export interface DependencyGraph {
 export interface MultiMilestoneOptions {
   maxMilestones?: number; // Max milestones to process (default: 10, safety cap)
   dryRun?: boolean; // Log what would happen without spawning
-  resume?: boolean; // Skip already-completed phases/milestones
   timeout?: number; // Per-subprocess timeout in minutes
   maxTurns?: number; // Max turns per claude -p subprocess
   model?: string; // Model override
   skipPlan?: boolean; // Skip planning step
   skipExecute?: boolean; // Skip execution step
+  skipPostPipeline?: boolean; // Skip post-phase pipeline (simplify, PR, review, merge)
 }
 
 /**

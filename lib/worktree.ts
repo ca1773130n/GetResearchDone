@@ -1286,6 +1286,7 @@ function cmdPostCompactHook(_cwd: string, raw: boolean): void {
 
 module.exports = {
   worktreePath,
+  worktreeBranch,
   ensureWorktreesDir,
   createEvolveWorktree,
   removeEvolveWorktree,

@@ -108,6 +108,26 @@ const {
     context: { phase_number: string; plan_id: string; milestone: string; phase_dir: string }
   ) => string;
 } = require('./overstory');
+const {
+  worktreePath: getWorktreePath,
+  worktreeBranch: getWorktreeBranch,
+  ensureWorktreesDir,
+  pushAndCreatePR,
+}: {
+  worktreePath: (cwd: string, milestone: string, phase: string) => string;
+  worktreeBranch: (cwd: string, milestone: string, phase: string, slug: string) => string;
+  ensureWorktreesDir: (cwd: string) => boolean;
+  pushAndCreatePR: (
+    cwd: string,
+    wtPath: string,
+    options?: { title?: string; body?: string; base?: string }
+  ) => { pr_url: string; branch: string; base: string } | { error: string; push_succeeded?: boolean };
+} = require('./worktree');
+const {
+  execGit,
+}: {
+  execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => import('./types').ExecGitResult;
+} = require('./utils');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -161,12 +181,13 @@ interface StatusMarker {
 
 /** Options for runAutopilot. */
 interface AutopilotOptions {
-  from?: string | null;
-  to?: string | null;
-  resume?: boolean;
+  phaseFrom?: string | null;
+  phaseTo?: string | null;
+  milestone?: boolean;
   dryRun?: boolean;
   skipPlan?: boolean;
   skipExecute?: boolean;
+  skipPostPipeline?: boolean;
   timeout?: number;
   maxTurns?: number;
   model?: string;
@@ -295,7 +316,7 @@ function resolvePhaseRange(
 }
 
 /**
- * Check if a phase has been planned (used only for --resume skip logic).
+ * Check if a phase has been planned (used for auto-resume skip logic).
  */
 function isPhasePlanned(cwd: string, phaseNum: string): boolean {
   const info: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
@@ -304,7 +325,7 @@ function isPhasePlanned(cwd: string, phaseNum: string): boolean {
 }
 
 /**
- * Check if a phase has been fully executed (used only for --resume skip logic).
+ * Check if a phase has been fully executed (used for auto-resume skip logic).
  */
 function isPhaseExecuted(cwd: string, phaseNum: string): boolean {
   const info: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
@@ -314,9 +335,14 @@ function isPhaseExecuted(cwd: string, phaseNum: string): boolean {
 
 /**
  * Build the prompt for planning a phase via `claude -p`.
+ * Prepends "ultrathink" when the backend supports the effort capability.
  */
-function buildPlanPrompt(phaseNum: string): string {
-  return `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files.`;
+function buildPlanPrompt(phaseNum: string, backend?: string): string {
+  const base = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files.`;
+  if (backend && getBackendCapabilities(backend).effort) {
+    return `ultrathink\n\n${base}`;
+  }
+  return base;
 }
 
 /**
@@ -324,6 +350,191 @@ function buildPlanPrompt(phaseNum: string): string {
  */
 function buildExecutePrompt(phaseNum: string): string {
   return `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
+}
+
+/**
+ * Build the prompt for the simplify step of the post-phase pipeline.
+ * Reviews changed files for code quality, reuse, and simplification.
+ */
+function buildSimplifyPrompt(phaseNum: string): string {
+  return `You are reviewing code changes from phase ${phaseNum}. Examine all changed files (use git diff main...HEAD). For each file, check for: duplicated logic that can be extracted, overly complex code that can be simplified, unused imports or dead code, inconsistent naming or style. Make targeted improvements while preserving all functionality. Do not add comments or documentation unless the logic is truly non-obvious.`;
+}
+
+/**
+ * Build the prompt for the code review step of the post-phase pipeline.
+ * Reviews the PR diff and fixes any BLOCKER/WARNING findings.
+ */
+function buildCodeReviewPrompt(prUrl: string): string {
+  return `You are a code reviewer. Review the PR at ${prUrl}. Use gh pr diff to see the changes. Focus on: correctness bugs, security vulnerabilities, performance issues, and style violations. For each issue found, classify as BLOCKER (must fix) or WARNING (should fix). After the review, fix all BLOCKER and WARNING issues directly in the code, then commit and push the fixes.`;
+}
+
+/**
+ * Build the prompt for resolving merge conflicts during rebase.
+ */
+function buildConflictResolvePrompt(phaseNum: string): string {
+  return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main. For each conflicting file, examine both versions and resolve the conflict by preserving the intent of the phase ${phaseNum} changes while incorporating any changes from main. After resolving all conflicts, run git add on the resolved files and continue the rebase with git rebase --continue.`;
+}
+
+/**
+ * Build the prompt for the wireup step after milestone completion.
+ * Runs wireup discovery to find unwired features.
+ */
+function buildWireupPrompt(): string {
+  return 'Use the Skill tool to invoke skill "grd:wireup" with no additional args. Autonomous mode — make all decisions yourself, no questions. Run wireup discovery (exported-but-uncalled, config-without-surface, endpoint-without-integration-test) and fix any findings.';
+}
+
+/** Result from a post-phase pipeline run. */
+interface PostPipelineResult {
+  status: 'completed' | 'failed';
+  failedStep?: string;
+  prUrl?: string;
+  reason?: string;
+}
+
+/**
+ * Run the post-phase pipeline: simplify -> create PR -> code review -> rebase & merge.
+ * Each step runs sequentially on the phase's worktree branch.
+ * Halts on any failure and returns the failed step.
+ */
+async function runPostPhasePipeline(
+  cwd: string,
+  phaseNum: string,
+  wtPath: string,
+  opts: {
+    timeout?: number;
+    maxTurns?: number;
+    model?: string;
+    scheduler?: Scheduler | null;
+    log: (msg: string) => void;
+  }
+): Promise<PostPipelineResult> {
+  const { timeout, maxTurns, model, scheduler, log } = opts;
+  const timeoutMs: number | undefined = timeout ? timeout * 60 * 1000 : undefined;
+  const spawnOpts: SpawnOptions = { timeout: timeoutMs, maxTurns, model, captureOutput: true };
+
+  // Step 1: Simplify
+  log(`Phase ${phaseNum}: post-pipeline — simplify`);
+  const simplifyResult: SpawnResult = scheduler
+    ? toSpawnResult(
+        await scheduler.spawn(buildSimplifyPrompt(phaseNum), {
+          timeout: timeoutMs,
+          maxTurns,
+          model,
+          cwd: wtPath,
+          workItemId: `phase-${phaseNum}-simplify`,
+        })
+      )
+    : await spawnClaudeAsync(wtPath, buildSimplifyPrompt(phaseNum), spawnOpts);
+
+  if (simplifyResult.exitCode !== 0) {
+    return {
+      status: 'failed',
+      failedStep: 'simplify',
+      reason: simplifyResult.timedOut ? 'timeout' : `exit code ${simplifyResult.exitCode}`,
+    };
+  }
+
+  // Step 2: Create PR
+  log(`Phase ${phaseNum}: post-pipeline — create PR`);
+  const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+  const prResult = pushAndCreatePR(cwd, wtPath, {
+    title: `Phase ${phaseNum}: ${milestoneInfo.version}`,
+    body: `Automated PR from autopilot phase ${phaseNum} execution.\n\nMilestone: ${milestoneInfo.version} (${milestoneInfo.name})`,
+  });
+
+  if ('error' in prResult) {
+    return { status: 'failed', failedStep: 'create-pr', reason: prResult.error };
+  }
+  const prUrl: string = prResult.pr_url;
+  log(`Phase ${phaseNum}: PR created — ${prUrl}`);
+
+  // Step 3: Code review + fix
+  log(`Phase ${phaseNum}: post-pipeline — code review`);
+  const reviewResult: SpawnResult = scheduler
+    ? toSpawnResult(
+        await scheduler.spawn(buildCodeReviewPrompt(prUrl), {
+          timeout: timeoutMs,
+          maxTurns,
+          model,
+          cwd: wtPath,
+          workItemId: `phase-${phaseNum}-review`,
+        })
+      )
+    : await spawnClaudeAsync(wtPath, buildCodeReviewPrompt(prUrl), spawnOpts);
+
+  if (reviewResult.exitCode !== 0) {
+    return {
+      status: 'failed',
+      failedStep: 'code-review',
+      prUrl,
+      reason: reviewResult.timedOut ? 'timeout' : `exit code ${reviewResult.exitCode}`,
+    };
+  }
+
+  // Step 4: Rebase & merge
+  log(`Phase ${phaseNum}: post-pipeline — rebase & merge`);
+  const rebaseResult = execGit(wtPath, ['rebase', 'main']);
+  if (rebaseResult.exitCode !== 0) {
+    // Merge conflicts — spawn claude -p to resolve
+    log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
+    const conflictResult: SpawnResult = scheduler
+      ? toSpawnResult(
+          await scheduler.spawn(buildConflictResolvePrompt(phaseNum), {
+            timeout: timeoutMs,
+            maxTurns,
+            model,
+            cwd: wtPath,
+            workItemId: `phase-${phaseNum}-conflicts`,
+          })
+        )
+      : await spawnClaudeAsync(wtPath, buildConflictResolvePrompt(phaseNum), spawnOpts);
+
+    if (conflictResult.exitCode !== 0) {
+      // Abort the failed rebase before returning
+      execGit(wtPath, ['rebase', '--abort']);
+      return {
+        status: 'failed',
+        failedStep: 'rebase',
+        prUrl,
+        reason: 'conflict resolution failed',
+      };
+    }
+  }
+
+  // Force-push the rebased branch and merge the PR
+  const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  if (branch.exitCode === 0) {
+    const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
+      allowBlocked: true,
+    });
+    if (pushResult.exitCode !== 0) {
+      return {
+        status: 'failed',
+        failedStep: 'push-rebased',
+        prUrl,
+        reason: `push failed: ${pushResult.stderr}`,
+      };
+    }
+  }
+
+  // Merge the PR via gh CLI
+  try {
+    childProcess.execFileSync('gh', ['pr', 'merge', prUrl, '--merge', '--delete-branch'], {
+      cwd: wtPath,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+    });
+  } catch (mergeErr) {
+    return {
+      status: 'failed',
+      failedStep: 'merge',
+      prUrl,
+      reason: String((mergeErr as { stderr?: string }).stderr || mergeErr),
+    };
+  }
+
+  log(`Phase ${phaseNum}: post-pipeline complete — merged ${prUrl}`);
+  return { status: 'completed', prUrl };
 }
 
 /**
@@ -520,15 +731,49 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
   const statePath: string = path.join(cwd, '.planning', 'STATE.md');
   if (!fs.existsSync(statePath)) return;
 
-  let content: string = fs.readFileSync(statePath, 'utf-8');
+  // Use synchronous file locking for safe concurrent access under parallel execution.
+  // Lock file prevents races when multiple phases update STATE.md concurrently.
+  const lockPath = `${statePath}.lock`;
+  const maxRetries = 50;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const fd: number = fs.openSync(lockPath, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+      fs.closeSync(fd);
+      break;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+        // Check for stale lock (older than 30 seconds)
+        try {
+          const stat = fs.statSync(lockPath);
+          if (Date.now() - stat.mtimeMs > 30000) {
+            fs.unlinkSync(lockPath);
+            continue;
+          }
+        } catch {
+          // Lock file gone between check — retry
+        }
+        // Brief synchronous wait — process.hrtime-based busy spin for 10ms
+        const start = Date.now();
+        while (Date.now() - start < 10) { /* spin */ }
+        continue;
+      }
+      throw e;
+    }
+  }
 
-  // Update Current Phase field
-  content = content.replace(
-    /(\*\*Current Phase:\*\*)\s*[^\n]*/,
-    `$1 Phase ${phaseNum} (autopilot: ${step})`
-  );
+  try {
+    let content: string = fs.readFileSync(statePath, 'utf-8');
 
-  fs.writeFileSync(statePath, content);
+    // Update Current Phase field
+    content = content.replace(
+      /(\*\*Current Phase:\*\*)\s*[^\n]*/,
+      `$1 Phase ${phaseNum} (autopilot: ${step})`
+    );
+
+    fs.writeFileSync(statePath, content);
+  } finally {
+    try { fs.unlinkSync(lockPath); } catch { /* already removed */ }
+  }
 }
 
 // ─── Multi-Milestone Helpers ─────────────────────────────────────────────────
@@ -598,9 +843,14 @@ function resolveNextMilestone(cwd: string): { version: string; name: string } | 
 
 /**
  * Build the prompt string for spawning `/grd:new-milestone` via `claude -p`.
+ * Prepends "ultrathink" when the backend supports the effort capability.
  */
-function buildNewMilestonePrompt(): string {
-  return 'Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions. Complete all milestone creation steps including research, requirements, and roadmap setup.';
+function buildNewMilestonePrompt(backend?: string): string {
+  const base = 'Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions. Complete all milestone creation steps including research, requirements, and roadmap setup.';
+  if (backend && getBackendCapabilities(backend).effort) {
+    return `ultrathink\n\n${base}`;
+  }
+  return base;
 }
 
 /**
@@ -619,18 +869,18 @@ function buildMilestoneCompletePrompt(version: string): string {
  */
 async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promise<AutopilotResult> {
   const {
-    from = null,
-    to = null,
-    resume = false,
+    phaseFrom = null,
+    phaseTo = null,
     dryRun = false,
     skipPlan = false,
     skipExecute = false,
+    skipPostPipeline = false,
     timeout,
     maxTurns,
     model,
   } = options;
 
-  const { phases, error: rangeError } = resolvePhaseRange(cwd, from, to);
+  const { phases, error: rangeError } = resolvePhaseRange(cwd, phaseFrom, phaseTo);
   if (rangeError) {
     return {
       phases_attempted: 0,
@@ -650,6 +900,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   let stoppedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
+  const backend: string = detectBackend(cwd);
   const scheduler = createScheduler(config.scheduler, config.superpowers);
   if (scheduler) {
     scheduler.loadPersistedState(path.join(cwd, '.planning'));
@@ -686,7 +937,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
 
       for (const phaseNum of wave) {
         phasesAttempted++;
-        if (resume && isPhasePlanned(cwd, phaseNum)) {
+        if (isPhasePlanned(cwd, phaseNum)) {
           results.push({
             phase: phaseNum,
             step: 'plan',
@@ -699,7 +950,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             phase: phaseNum,
             step: 'plan',
             status: 'dry-run',
-            prompt: buildPlanPrompt(phaseNum),
+            prompt: buildPlanPrompt(phaseNum, backend),
           });
           planTasks.push({ phaseNum, skipped: true });
         } else {
@@ -733,7 +984,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum), {
+              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend), {
                 phase_number: phaseNum,
                 plan_id: planId,
                 milestone: milestoneInfo.version,
@@ -778,7 +1029,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             } else {
               // Non-overstory backend with account rotation: use scheduler.spawn
               promise = scheduler
-                .spawn(buildPlanPrompt(phaseNum), {
+                .spawn(buildPlanPrompt(phaseNum, backend), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -790,7 +1041,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           } else {
             promise = scheduler
               ? scheduler
-                  .spawn(buildPlanPrompt(phaseNum), {
+                  .spawn(buildPlanPrompt(phaseNum, backend), {
                     timeout: timeoutMs,
                     maxTurns,
                     model,
@@ -798,7 +1049,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                     workItemId: `phase-${phaseNum}-plan`,
                   })
                   .then(toSpawnResult)
-              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum), {
+              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -846,13 +1097,24 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
       }
     }
 
-    // ── Execute step: sequential within wave ──
+    // ── Execute step: parallel within wave using worktrees ──
     // Track which phases failed planning so we skip them during execution
     const failedPlanPhases: Set<string> = new Set(
       results.filter((r) => r.step === 'plan' && r.status === 'failed').map((r) => r.phase)
     );
 
     if (!skipExecute) {
+      const milestoneInfo: MilestoneInfo = getMilestoneInfo(cwd);
+      ensureWorktreesDir(cwd);
+
+      // Build execution tasks for all phases in the wave
+      const execTasks: Array<{
+        phaseNum: string;
+        skipped: boolean;
+        promise?: Promise<{ execResult: SpawnResult; wtPath: string }>;
+        wtPath?: string;
+      }> = [];
+
       for (const phaseNum of wave) {
         if (failedPlanPhases.has(phaseNum)) {
           log(`Phase ${phaseNum}: skipping execution (planning failed)`);
@@ -862,61 +1124,144 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             status: 'skipped',
             reason: 'planning failed',
           });
+          execTasks.push({ phaseNum, skipped: true });
           continue;
         }
-        if (resume && isPhaseExecuted(cwd, phaseNum)) {
+        if (isPhaseExecuted(cwd, phaseNum)) {
           results.push({
             phase: phaseNum,
             step: 'execute',
             status: 'skipped',
             reason: 'already executed',
           });
-        } else if (dryRun) {
+          execTasks.push({ phaseNum, skipped: true });
+          continue;
+        }
+        if (dryRun) {
           results.push({
             phase: phaseNum,
             step: 'execute',
             status: 'dry-run',
             prompt: buildExecutePrompt(phaseNum),
           });
-        } else {
-          log(`Phase ${phaseNum}: executing...`);
-          writeStatusMarker(cwd, phaseNum, 'execute', 'started');
-          updateStateProgress(cwd, phaseNum, 'executing');
+          execTasks.push({ phaseNum, skipped: true });
+          continue;
+        }
 
+        // Create worktree for this phase
+        const wtPath: string = getWorktreePath(cwd, milestoneInfo.version, phaseNum);
+        const branch: string = getWorktreeBranch(cwd, milestoneInfo.version, phaseNum, phaseNum);
+
+        // Remove stale worktree if it exists
+        if (fs.existsSync(wtPath)) {
+          execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
+          execGit(cwd, ['worktree', 'prune']);
+        }
+
+        // Remove stale branch if it exists
+        execGit(cwd, ['branch', '-D', branch]);
+
+        const wtResult = execGit(cwd, ['worktree', 'add', '-b', branch, wtPath]);
+        if (wtResult.exitCode !== 0) {
+          log(`Phase ${phaseNum}: failed to create worktree: ${wtResult.stderr}`);
+          results.push({
+            phase: phaseNum,
+            step: 'execute',
+            status: 'failed',
+            reason: `worktree creation failed: ${wtResult.stderr}`,
+          });
+          execTasks.push({ phaseNum, skipped: true });
+          continue;
+        }
+
+        log(`Phase ${phaseNum}: executing in worktree ${wtPath}...`);
+        writeStatusMarker(cwd, phaseNum, 'execute', 'started');
+        updateStateProgress(cwd, phaseNum, 'executing');
+
+        const promise = (async (): Promise<{ execResult: SpawnResult; wtPath: string }> => {
           const execResult: SpawnResult = scheduler
             ? toSpawnResult(
                 await scheduler.spawn(buildExecutePrompt(phaseNum), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
-                  cwd,
+                  cwd: wtPath,
                   workItemId: `phase-${phaseNum}-execute`,
                 })
               )
-            : spawnClaude(cwd, buildExecutePrompt(phaseNum), {
+            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum), {
                 timeout: timeoutMs,
                 maxTurns,
                 model,
               });
+          return { execResult, wtPath };
+        })();
 
-          if (execResult.exitCode !== 0) {
-            const reason: string = execResult.timedOut
-              ? 'timeout'
-              : `exit code ${execResult.exitCode}`;
-            log(`Phase ${phaseNum}: execute FAILED (${reason})`);
-            writeStatusMarker(cwd, phaseNum, 'execute', 'failed');
-            results.push({ phase: phaseNum, step: 'execute', status: 'failed', reason });
-            stoppedAt = `Phase ${phaseNum} execute failed: ${reason}`;
+        execTasks.push({ phaseNum, skipped: false, promise, wtPath });
+      }
+
+      // Await all parallel execution spawns
+      for (const task of execTasks) {
+        if (task.skipped) continue;
+
+        const { execResult, wtPath } = await task.promise!;
+
+        if (execResult.exitCode !== 0) {
+          const reason: string = execResult.timedOut
+            ? 'timeout'
+            : `exit code ${execResult.exitCode}`;
+          log(`Phase ${task.phaseNum}: execute FAILED (${reason})`);
+          writeStatusMarker(cwd, task.phaseNum, 'execute', 'failed');
+          results.push({ phase: task.phaseNum, step: 'execute', status: 'failed', reason });
+          stoppedAt = `Phase ${task.phaseNum} execute failed: ${reason}`;
+          // Clean up worktree on failure
+          execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
+          execGit(cwd, ['worktree', 'prune']);
+          continue;
+        }
+
+        log(`Phase ${task.phaseNum}: execute completed`);
+        writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
+        results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
+
+        // Run post-phase pipeline unless skipped
+        if (!skipPostPipeline) {
+          log(`Phase ${task.phaseNum}: starting post-phase pipeline`);
+          writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'started');
+
+          const pipelineResult: PostPipelineResult = await runPostPhasePipeline(
+            cwd,
+            task.phaseNum,
+            wtPath,
+            { timeout, maxTurns, model, scheduler, log }
+          );
+
+          if (pipelineResult.status === 'failed') {
+            log(
+              `Phase ${task.phaseNum}: post-pipeline FAILED at ${pipelineResult.failedStep}: ${pipelineResult.reason}`
+            );
+            writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'failed');
+            results.push({
+              phase: task.phaseNum,
+              step: 'post-pipeline',
+              status: 'failed',
+              reason: `${pipelineResult.failedStep}: ${pipelineResult.reason}`,
+            });
+            stoppedAt = `Phase ${task.phaseNum} post-pipeline failed at ${pipelineResult.failedStep}`;
             continue;
           }
 
-          log(`Phase ${phaseNum}: execute completed`);
-          writeStatusMarker(cwd, phaseNum, 'execute', 'completed');
-          results.push({ phase: phaseNum, step: 'execute', status: 'completed' });
+          log(`Phase ${task.phaseNum}: post-pipeline completed`);
+          writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'completed');
+          results.push({ phase: task.phaseNum, step: 'post-pipeline', status: 'completed' });
         }
 
-        if (stoppedAt) break;
+        // Clean up worktree after successful merge or when pipeline is skipped
+        execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
+        execGit(cwd, ['worktree', 'prune']);
       }
+
+      if (stoppedAt) break;
 
       // Count phases where execution didn't fail
       for (const phaseNum of wave) {
@@ -925,6 +1270,36 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         );
         if (!hasFailed) phasesCompleted++;
       }
+    }
+  }
+
+  // ── Milestone mode: run wireup after all phases complete ──
+  const isMilestoneMode: boolean = options.milestone === true || (!phaseFrom && !phaseTo);
+  if (isMilestoneMode && !stoppedAt && !dryRun && phasesCompleted === phasesAttempted && phasesCompleted > 0) {
+    log('Milestone mode: all phases complete — running wireup');
+    const wireupResult: SpawnResult = scheduler
+      ? toSpawnResult(
+          await scheduler.spawn(buildWireupPrompt(), {
+            timeout: timeoutMs,
+            maxTurns,
+            model,
+            cwd,
+            workItemId: 'milestone-wireup',
+          })
+        )
+      : await spawnClaudeAsync(cwd, buildWireupPrompt(), {
+          timeout: timeoutMs,
+          maxTurns,
+          model,
+        });
+
+    if (wireupResult.exitCode !== 0) {
+      const reason: string = wireupResult.timedOut ? 'timeout' : `exit code ${wireupResult.exitCode}`;
+      log(`Wireup FAILED (${reason})`);
+      results.push({ phase: 'wireup', step: 'wireup', status: 'failed', reason });
+    } else {
+      log('Wireup completed');
+      results.push({ phase: 'wireup', step: 'wireup', status: 'completed' });
     }
   }
 
@@ -986,6 +1361,7 @@ async function runMultiMilestoneAutopilot(
   log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
 
   const mmConfig: GrdConfig = loadConfig(cwd);
+  const mmBackend: string = detectBackend(cwd);
   const mmScheduler = createScheduler(mmConfig.scheduler, mmConfig.superpowers);
   if (mmScheduler) {
     mmScheduler.loadPersistedState(path.join(cwd, '.planning'));
@@ -1036,9 +1412,9 @@ async function runMultiMilestoneAutopilot(
       } else {
         // Run single-milestone autopilot for current milestone's phases
         const autopilotResult: AutopilotResult = await runAutopilot(cwd, {
-          resume: options.resume,
           skipPlan: options.skipPlan,
           skipExecute: options.skipExecute,
+          skipPostPipeline: options.skipPostPipeline,
           timeout: options.timeout,
           maxTurns: options.maxTurns,
           model: options.model,
@@ -1135,7 +1511,7 @@ async function runMultiMilestoneAutopilot(
     }
 
     // Spawn new milestone creation via claude -p
-    const newMilestonePrompt: string = buildNewMilestonePrompt();
+    const newMilestonePrompt: string = buildNewMilestonePrompt(mmBackend);
     log('Creating new milestone...');
 
     const createResult: SpawnResult = mmScheduler
@@ -1203,12 +1579,13 @@ async function cmdAutopilot(cwd: string, args: string[], raw: boolean): Promise<
   const hasFlag = (name: string): boolean => args.indexOf(name) !== -1;
 
   const options: AutopilotOptions = {
-    from: flag('--from', null),
-    to: flag('--to', null),
-    resume: hasFlag('--resume'),
+    phaseFrom: flag('--phase-from', null),
+    phaseTo: flag('--phase-to', null),
+    milestone: hasFlag('--milestone'),
     dryRun: hasFlag('--dry-run'),
     skipPlan: hasFlag('--skip-plan'),
     skipExecute: hasFlag('--skip-execute'),
+    skipPostPipeline: hasFlag('--skip-post-pipeline'),
     timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
     maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
     model: flag('--model', undefined as unknown as null) ?? undefined,
@@ -1304,12 +1681,12 @@ async function cmdMultiMilestoneAutopilot(
       ? parseInt(flag('--max-milestones', '10')!, 10)
       : undefined,
     dryRun: hasFlag('--dry-run'),
-    resume: hasFlag('--resume'),
     timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
     maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
     model: flag('--model', undefined as unknown as null) ?? undefined,
     skipPlan: hasFlag('--skip-plan'),
     skipExecute: hasFlag('--skip-execute'),
+    skipPostPipeline: hasFlag('--skip-post-pipeline'),
   };
 
   const result: MultiMilestoneResult = await runMultiMilestoneAutopilot(cwd, options);
@@ -1408,6 +1785,11 @@ module.exports = {
   spawnClaudeAsync,
   buildPlanPrompt,
   buildExecutePrompt,
+  buildSimplifyPrompt,
+  buildCodeReviewPrompt,
+  buildConflictResolvePrompt,
+  buildWireupPrompt,
+  runPostPhasePipeline,
   buildWaves,
   writeStatusMarker,
   updateStateProgress,
