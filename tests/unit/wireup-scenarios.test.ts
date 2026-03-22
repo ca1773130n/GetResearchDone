@@ -70,22 +70,32 @@ describe('generateScenarios()', () => {
     mockCurrentMilestone.mockReturnValue(FAKE_MILESTONE);
   });
 
-  test('1. generates CLI scenario for exported-but-uncalled feature', () => {
+  test('1. generates static scenario for exported-but-uncalled feature', () => {
     const feature: UnwiredFeature = makeFeature('exported-but-uncalled', 'myFunc');
     const scenarios: WireupScenario[] = generateScenarios([feature], FAKE_CWD);
 
     expect(scenarios).toHaveLength(1);
     const [scenario] = scenarios;
 
-    // Steps must contain cli and assert types
+    // Steps must contain two static steps
     const stepTypes = scenario.steps.map((s) => s.step_type);
-    expect(stepTypes).toContain('cli');
-    expect(stepTypes).toContain('assert');
+    expect(stepTypes).toEqual(['static', 'static']);
 
-    // cli step should reference the function
-    const cliStep = scenario.steps.find((s) => s.step_type === 'cli');
-    expect(cliStep).toBeDefined();
-    expect(cliStep!.expected_outcome).toBe('Function executes without error');
+    // first static step should check export_exists
+    const firstStep = scenario.steps[0];
+    expect(firstStep).toBeDefined();
+    const firstParams = firstStep!.parameters as { check: string; filePath: string; exportName: string };
+    expect(firstParams.check).toBe('export_exists');
+    expect(firstParams.exportName).toBe('myFunc');
+    expect(firstStep!.expected_outcome).toBe('Export exists in source file');
+
+    // second static step should check import_graph_connected
+    const secondStep = scenario.steps[1];
+    expect(secondStep).toBeDefined();
+    const secondParams = secondStep!.parameters as { check: string; filePath: string; exportName: string };
+    expect(secondParams.check).toBe('import_graph_connected');
+    expect(secondParams.exportName).toBe('myFunc');
+    expect(secondStep!.expected_outcome).toBe('Export is imported or referenced somewhere');
   });
 
   test('2. generates CLI scenario for config-without-surface feature', () => {

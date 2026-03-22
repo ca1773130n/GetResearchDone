@@ -114,8 +114,8 @@ function _extractParams(
  * Generate a WireupScenario for an 'exported-but-uncalled' feature.
  *
  * Produces two steps:
- *   1. cli step: invoke function via node
- *   2. assert step: check return value is defined
+ *   1. static step: check export exists in source file
+ *   2. static step: check import graph is connected
  */
 function _scenarioForExportedButUncalled(
   feature: UnwiredFeature,
@@ -123,17 +123,22 @@ function _scenarioForExportedButUncalled(
 ): WireupScenario {
   const steps: ScenarioStep[] = [
     {
-      step_type: 'cli',
+      step_type: 'static',
       parameters: {
-        command: 'node',
-        args: ['-e', `const m = require('./${feature.filePath}'); m.${feature.functionName}()`],
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
       },
-      expected_outcome: 'Function executes without error',
+      expected_outcome: 'Export exists in source file',
     },
     {
-      step_type: 'assert',
-      parameters: { check: 'return_value_defined' },
-      expected_outcome: 'Function returns a non-undefined value',
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Export is imported or referenced somewhere',
     },
   ];
   return { feature, steps, test_data_fixture: fixturePath };
@@ -241,17 +246,22 @@ function _scenarioForAppExportedButUncalled(
 ): WireupScenario {
   const steps: ScenarioStep[] = [
     {
-      step_type: 'cli',
+      step_type: 'static',
       parameters: {
-        command: 'node',
-        args: ['-e', `const m = require('./${feature.filePath}'); console.log(typeof m.${feature.functionName})`],
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
       },
       expected_outcome: 'Export exists and is accessible',
     },
     {
-      step_type: 'assert',
-      parameters: { check: 'export_accessible' },
-      expected_outcome: 'Exported symbol is defined',
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Exported symbol is referenced in the project',
     },
   ];
   return { feature, steps, test_data_fixture: fixturePath };
@@ -292,17 +302,22 @@ function _scenarioForAppComponent(
 ): WireupScenario {
   const steps: ScenarioStep[] = [
     {
-      step_type: 'cli',
+      step_type: 'static',
       parameters: {
-        command: 'grep',
-        args: ['-r', feature.functionName, '.'],
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
       },
-      expected_outcome: `Component "${feature.functionName}" is imported somewhere`,
+      expected_outcome: 'Component is exported',
     },
     {
-      step_type: 'assert',
-      parameters: { check: 'component_imported', component: feature.functionName },
-      expected_outcome: 'Component is imported in at least one file besides its definition',
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Component is imported or used somewhere',
     },
   ];
   return { feature, steps, test_data_fixture: fixturePath };
