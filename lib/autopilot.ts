@@ -334,15 +334,23 @@ function isPhaseExecuted(cwd: string, phaseNum: string): boolean {
 }
 
 /**
+ * Prepend "ultrathink" keyword when the backend supports the effort capability.
+ */
+function withUltrathink(prompt: string, backend?: string): string {
+  if (backend && getBackendCapabilities(backend).effort) {
+    return `ultrathink\n\n${prompt}`;
+  }
+  return prompt;
+}
+
+/**
  * Build the prompt for planning a phase via `claude -p`.
- * Prepends "ultrathink" when the backend supports the effort capability.
  */
 function buildPlanPrompt(phaseNum: string, backend?: string): string {
-  const base = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files.`;
-  if (backend && getBackendCapabilities(backend).effort) {
-    return `ultrathink\n\n${base}`;
-  }
-  return base;
+  return withUltrathink(
+    `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files.`,
+    backend
+  );
 }
 
 /**
@@ -352,35 +360,49 @@ function buildExecutePrompt(phaseNum: string): string {
   return `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
 }
 
-/**
- * Build the prompt for the simplify step of the post-phase pipeline.
- * Reviews changed files for code quality, reuse, and simplification.
- */
+/** Simplify step: code quality review before PR creation. */
 function buildSimplifyPrompt(phaseNum: string): string {
   return `You are reviewing code changes from phase ${phaseNum}. Examine all changed files (use git diff main...HEAD). For each file, check for: duplicated logic that can be extracted, overly complex code that can be simplified, unused imports or dead code, inconsistent naming or style. Make targeted improvements while preserving all functionality. Do not add comments or documentation unless the logic is truly non-obvious.`;
 }
 
-/**
- * Build the prompt for the code review step of the post-phase pipeline.
- * Reviews the PR diff and fixes any BLOCKER/WARNING findings.
- */
+/** Code review step: review PR diff and fix findings. */
 function buildCodeReviewPrompt(prUrl: string): string {
   return `You are a code reviewer. Review the PR at ${prUrl}. Use gh pr diff to see the changes. Focus on: correctness bugs, security vulnerabilities, performance issues, and style violations. For each issue found, classify as BLOCKER (must fix) or WARNING (should fix). After the review, fix all BLOCKER and WARNING issues directly in the code, then commit and push the fixes.`;
 }
 
-/**
- * Build the prompt for resolving merge conflicts during rebase.
- */
+/** Rebase conflict resolution via LLM subprocess. */
 function buildConflictResolvePrompt(phaseNum: string): string {
   return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main. For each conflicting file, examine both versions and resolve the conflict by preserving the intent of the phase ${phaseNum} changes while incorporating any changes from main. After resolving all conflicts, run git add on the resolved files and continue the rebase with git rebase --continue.`;
 }
 
-/**
- * Build the prompt for the wireup step after milestone completion.
- * Runs wireup discovery to find unwired features.
- */
+/** Wireup discovery after milestone completion. */
 function buildWireupPrompt(): string {
   return 'Use the Skill tool to invoke skill "grd:wireup" with no additional args. Autonomous mode — make all decisions yourself, no questions. Run wireup discovery (exported-but-uncalled, config-without-surface, endpoint-without-integration-test) and fix any findings.';
+}
+
+/**
+ * Spawn a claude -p subprocess, routing through the scheduler when available.
+ * Unifies the scheduler vs. direct spawn branching used across pipeline steps.
+ */
+async function spawnStep(
+  prompt: string,
+  stepCwd: string,
+  workItemId: string,
+  scheduler: Scheduler | null,
+  opts: SpawnOptions
+): Promise<SpawnResult> {
+  if (scheduler) {
+    return toSpawnResult(
+      await scheduler.spawn(prompt, {
+        timeout: opts.timeout,
+        maxTurns: opts.maxTurns,
+        model: opts.model,
+        cwd: stepCwd,
+        workItemId,
+      })
+    );
+  }
+  return spawnClaudeAsync(stepCwd, prompt, opts);
 }
 
 /** Result from a post-phase pipeline run. */
@@ -414,17 +436,9 @@ async function runPostPhasePipeline(
 
   // Step 1: Simplify
   log(`Phase ${phaseNum}: post-pipeline — simplify`);
-  const simplifyResult: SpawnResult = scheduler
-    ? toSpawnResult(
-        await scheduler.spawn(buildSimplifyPrompt(phaseNum), {
-          timeout: timeoutMs,
-          maxTurns,
-          model,
-          cwd: wtPath,
-          workItemId: `phase-${phaseNum}-simplify`,
-        })
-      )
-    : await spawnClaudeAsync(wtPath, buildSimplifyPrompt(phaseNum), spawnOpts);
+  const simplifyResult = await spawnStep(
+    buildSimplifyPrompt(phaseNum), wtPath, `phase-${phaseNum}-simplify`, scheduler ?? null, spawnOpts
+  );
 
   if (simplifyResult.exitCode !== 0) {
     return {
@@ -450,17 +464,9 @@ async function runPostPhasePipeline(
 
   // Step 3: Code review + fix
   log(`Phase ${phaseNum}: post-pipeline — code review`);
-  const reviewResult: SpawnResult = scheduler
-    ? toSpawnResult(
-        await scheduler.spawn(buildCodeReviewPrompt(prUrl), {
-          timeout: timeoutMs,
-          maxTurns,
-          model,
-          cwd: wtPath,
-          workItemId: `phase-${phaseNum}-review`,
-        })
-      )
-    : await spawnClaudeAsync(wtPath, buildCodeReviewPrompt(prUrl), spawnOpts);
+  const reviewResult = await spawnStep(
+    buildCodeReviewPrompt(prUrl), wtPath, `phase-${phaseNum}-review`, scheduler ?? null, spawnOpts
+  );
 
   if (reviewResult.exitCode !== 0) {
     return {
@@ -477,17 +483,9 @@ async function runPostPhasePipeline(
   if (rebaseResult.exitCode !== 0) {
     // Merge conflicts — spawn claude -p to resolve
     log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
-    const conflictResult: SpawnResult = scheduler
-      ? toSpawnResult(
-          await scheduler.spawn(buildConflictResolvePrompt(phaseNum), {
-            timeout: timeoutMs,
-            maxTurns,
-            model,
-            cwd: wtPath,
-            workItemId: `phase-${phaseNum}-conflicts`,
-          })
-        )
-      : await spawnClaudeAsync(wtPath, buildConflictResolvePrompt(phaseNum), spawnOpts);
+    const conflictResult = await spawnStep(
+      buildConflictResolvePrompt(phaseNum), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
+    );
 
     if (conflictResult.exitCode !== 0) {
       // Abort the failed rebase before returning
@@ -846,11 +844,10 @@ function resolveNextMilestone(cwd: string): { version: string; name: string } | 
  * Prepends "ultrathink" when the backend supports the effort capability.
  */
 function buildNewMilestonePrompt(backend?: string): string {
-  const base = 'Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions. Complete all milestone creation steps including research, requirements, and roadmap setup.';
-  if (backend && getBackendCapabilities(backend).effort) {
-    return `ultrathink\n\n${base}`;
-  }
-  return base;
+  return withUltrathink(
+    'Use the Skill tool to invoke skill "grd:new-milestone" with no additional args. Autonomous mode — make all decisions yourself, no questions. Complete all milestone creation steps including research, requirements, and roadmap setup.',
+    backend
+  );
 }
 
 /**
@@ -1153,10 +1150,9 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         const branch: string = getWorktreeBranch(cwd, milestoneInfo.version, phaseNum, phaseNum);
 
         // Remove stale worktree if it exists
-        if (fs.existsSync(wtPath)) {
-          execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
-          execGit(cwd, ['worktree', 'prune']);
-        }
+        // Remove stale worktree if present (no existence check — idempotent)
+        execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
+        execGit(cwd, ['worktree', 'prune']);
 
         // Remove stale branch if it exists
         execGit(cwd, ['branch', '-D', branch]);
