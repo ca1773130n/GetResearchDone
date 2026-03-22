@@ -501,18 +501,24 @@ async function runPostPhasePipeline(
 
   // Force-push the rebased branch and merge the PR
   const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (branch.exitCode === 0) {
-    const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
-      allowBlocked: true,
-    });
-    if (pushResult.exitCode !== 0) {
-      return {
-        status: 'failed',
-        failedStep: 'push-rebased',
-        prUrl,
-        reason: `push failed: ${pushResult.stderr}`,
-      };
-    }
+  if (branch.exitCode !== 0) {
+    return {
+      status: 'failed',
+      failedStep: 'push-rebased',
+      prUrl,
+      reason: 'failed to determine branch name',
+    };
+  }
+  const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
+    allowBlocked: true,
+  });
+  if (pushResult.exitCode !== 0) {
+    return {
+      status: 'failed',
+      failedStep: 'push-rebased',
+      prUrl,
+      reason: `push failed: ${pushResult.stderr}`,
+    };
   }
 
   // Merge the PR via gh CLI
@@ -731,12 +737,14 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
 
   // Use synchronous file locking for safe concurrent access under parallel execution.
   // Lock file prevents races when multiple phases update STATE.md concurrently.
-  const lockPath = `${statePath}.lock`;
+  const lockPath: string = `${statePath}.lock`;
   const maxRetries = 50;
+  let lockAcquired = false;
   for (let i = 0; i < maxRetries; i++) {
     try {
       const fd: number = fs.openSync(lockPath, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
       fs.closeSync(fd);
+      lockAcquired = true;
       break;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
@@ -747,16 +755,22 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
             fs.unlinkSync(lockPath);
             continue;
           }
-        } catch {
+        } catch (statErr) {
+          if ((statErr as NodeJS.ErrnoException).code !== 'ENOENT') throw statErr;
           // Lock file gone between check — retry
         }
-        // Brief synchronous wait — process.hrtime-based busy spin for 10ms
+        // Brief synchronous wait
         const start = Date.now();
         while (Date.now() - start < 10) { /* spin */ }
         continue;
       }
       throw e;
     }
+  }
+
+  if (!lockAcquired) {
+    process.stderr.write(`[autopilot] Warning: failed to acquire lock on ${statePath} after ${maxRetries} retries, skipping state update\n`);
+    return;
   }
 
   try {
@@ -770,7 +784,13 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
 
     fs.writeFileSync(statePath, content);
   } finally {
-    try { fs.unlinkSync(lockPath); } catch { /* already removed */ }
+    try { fs.unlinkSync(lockPath); } catch (unlockErr) {
+      // Only ENOENT is expected (lock already removed); other errors indicate
+      // a real problem but we cannot throw from finally — log instead.
+      if ((unlockErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+        process.stderr.write(`[autopilot] Warning: failed to release lock ${lockPath}: ${(unlockErr as Error).message}\n`);
+      }
+    }
   }
 }
 
@@ -1220,7 +1240,9 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
         results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
 
-        // Run post-phase pipeline unless skipped
+        // Run post-phase pipeline unless skipped.
+        // Serialized intentionally: each pipeline rebases on main before merging,
+        // so earlier merges must complete before later ones can rebase cleanly.
         if (!skipPostPipeline) {
           log(`Phase ${task.phaseNum}: starting post-phase pipeline`);
           writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'started');
