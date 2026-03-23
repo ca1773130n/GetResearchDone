@@ -18,12 +18,14 @@ const path = require('path');
 
 const {
   currentMilestone,
+  planningDir,
   milestonesDir,
   phasesDir,
   phaseDir,
   researchDir,
   codebaseDir,
   todosDir,
+  discussionsDir,
   quickDir,
   archivedPhasesDir,
   standardsDir,
@@ -215,6 +217,19 @@ describe('currentMilestone', () => {
   });
 });
 
+// ─── planningDir ──────────────────────────────────────────────────────────────
+
+describe('planningDir', () => {
+  test('returns .planning under cwd', () => {
+    expect(planningDir('/project')).toBe(path.join('/project', '.planning'));
+  });
+
+  test('does not depend on filesystem state', () => {
+    const nonExistent = path.join(os.tmpdir(), 'grd-paths-nonexistent-' + Date.now());
+    expect(planningDir(nonExistent)).toBe(path.join(nonExistent, '.planning'));
+  });
+});
+
 // ─── milestonesDir ────────────────────────────────────────────────────────────
 
 describe('milestonesDir', () => {
@@ -381,6 +396,40 @@ describe('todosDir', () => {
   test('with milestone omitted reads from STATE.md', () => {
     tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.2.1 — Test\n');
     expect(todosDir(tmpDir)).toBe(path.join(tmpDir, '.planning', 'milestones', 'v0.2.1', 'todos'));
+  });
+});
+
+// ─── discussionsDir ───────────────────────────────────────────────────────────
+
+describe('discussionsDir', () => {
+  let tmpDir: string | null;
+
+  afterEach(() => {
+    if (tmpDir) cleanTmpDir(tmpDir);
+    tmpDir = null;
+  });
+
+  test('with explicit milestone returns path ending in /discussions', () => {
+    const result = discussionsDir('/project', 'v0.3.20');
+    expect(result).toBe(path.join('/project', '.planning', 'milestones', 'v0.3.20', 'discussions'));
+  });
+
+  test('with milestone omitted uses currentMilestone() from STATE.md', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v0.3.20 — Discussion\n');
+    expect(discussionsDir(tmpDir)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v0.3.20', 'discussions')
+    );
+  });
+
+  test('with null milestone uses currentMilestone() from STATE.md', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0 — Null Test\n');
+    expect(discussionsDir(tmpDir, null)).toBe(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'discussions')
+    );
+  });
+
+  test('path always ends in /discussions', () => {
+    expect(discussionsDir('/any/path', 'v0.1.0').endsWith(`${path.sep}discussions`)).toBe(true);
   });
 });
 
