@@ -1,0 +1,56 @@
+{
+  "features_discovered": 1064,
+  "scenarios_generated": 1064,
+  "scenarios_passed": 368,
+  "scenarios_failed": 696,
+  "fixes_applied": 0,
+  "iteration_history": [
+    {
+      "iteration": 1,
+      "timestamp": "2026-03-23T06:52:23.735Z",
+      "scenarios_run": 266,
+      "passed": 92,
+      "failed": 174,
+      "fixes_applied": 0,
+      "features_tested": 266,
+      "issues_found": 0,
+      "fixes_verified": 0
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2026-03-23T06:59:14.557Z",
+      "scenarios_run": 266,
+      "passed": 92,
+      "failed": 174,
+      "fixes_applied": 0,
+      "features_tested": 266,
+      "issues_found": 0,
+      "fixes_verified": 0
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2026-03-23T07:01:35.417Z",
+      "scenarios_run": 266,
+      "passed": 92,
+      "failed": 174,
+      "fixes_applied": 0,
+      "features_tested": 266,
+      "issues_found": 0,
+      "fixes_verified": 0
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2026-03-23T07:29:05.194Z",
+      "scenarios_run": 266,
+      "passed": 92,
+      "failed": 174,
+      "fixes_applied": 0,
+      "features_tested": 266,
+      "issues_found": 10,
+      "fixes_verified": 0
+    }
+  ],
+  "timestamp": "2026-03-23T07:29:05.194Z",
+  "milestone": "v0.0.5",
+  "last_report_path": "/Users/neo/Developer/Projects/GetResearchDone/.planning/milestones/v0.3.13/wireup/WIREUP-REPORT.md"
+}

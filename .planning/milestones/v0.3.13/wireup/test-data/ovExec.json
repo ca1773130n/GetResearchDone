@@ -1,0 +1,12 @@
+{
+  "feature": "ovExec",
+  "parameters": {
+    "cwd": "test-value",
+    "args": [
+      "item-1",
+      "item-2"
+    ],
+    "timeout": 42
+  },
+  "generated_at": "2026-03-23T07:02:28.372Z"
+}

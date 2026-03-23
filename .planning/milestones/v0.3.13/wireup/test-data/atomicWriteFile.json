@@ -1,0 +1,8 @@
+{
+  "feature": "atomicWriteFile",
+  "parameters": {
+    "filePath": "test-value",
+    "content": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.373Z"
+}

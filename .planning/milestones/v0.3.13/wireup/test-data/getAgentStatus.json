@@ -1,0 +1,8 @@
+{
+  "feature": "getAgentStatus",
+  "parameters": {
+    "cwd": "test-value",
+    "agentId": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.372Z"
+}

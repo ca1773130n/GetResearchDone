@@ -27,6 +27,35 @@ import type {
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');
 
+const _commandCache = new Map<string, { command: string; prependArgs: string[] }>();
+
+/**
+ * Resolve a CLI command to its local bin equivalent when not on PATH.
+ * Falls back to `npx` for package.json bin entries.
+ */
+function _resolveCommand(command: string, cwd: string): { command: string; prependArgs: string[] } {
+  const cached = _commandCache.get(command);
+  if (cached !== undefined) return cached;
+
+  const check = spawnSync('which', [command], { encoding: 'utf-8', timeout: 5_000 });
+  if (check.status === 0 && check.stdout.trim()) {
+    const result = { command, prependArgs: [] as string[] };
+    _commandCache.set(command, result);
+    return result;
+  }
+
+  const localBin = path.join(cwd, 'bin', `${command}.js`);
+  if (fs.existsSync(localBin)) {
+    const result = { command: 'node', prependArgs: [localBin] };
+    _commandCache.set(command, result);
+    return result;
+  }
+
+  const result = { command: 'npx', prependArgs: [command] };
+  _commandCache.set(command, result);
+  return result;
+}
+
 const { spawnSync } = require('child_process') as {
   spawnSync: (
     command: string,
@@ -124,7 +153,8 @@ async function executeHttpStep(
   const params = step.parameters as Record<string, unknown>;
   const method = typeof params['method'] === 'string' ? params['method'] : 'GET';
   const endpoint = typeof params['endpoint'] === 'string' ? params['endpoint'] : '/';
-  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${normalizedEndpoint}`;
 
   const expectedOutcome = parseExpectedOutcome(step);
 
@@ -237,10 +267,15 @@ async function executeCliStep(
   const timeoutMs = options.timeout_ms ?? DEFAULT_TIMEOUT_MS;
 
   const params = step.parameters as Record<string, unknown>;
-  const command = typeof params['command'] === 'string' ? params['command'] : 'echo';
-  const args: string[] = Array.isArray(params['args'])
+  const rawCommand = typeof params['command'] === 'string' ? params['command'] : 'echo';
+  const rawArgs: string[] = Array.isArray(params['args'])
     ? (params['args'] as unknown[]).map(String)
     : [];
+
+  // Resolve command to local bin if not on PATH
+  const resolved = _resolveCommand(rawCommand, cwd);
+  const command = resolved.command;
+  const args = [...resolved.prependArgs, ...rawArgs];
 
   const expectedOutcome = parseExpectedOutcome(step);
 

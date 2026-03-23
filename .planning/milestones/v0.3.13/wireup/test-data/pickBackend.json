@@ -1,0 +1,14 @@
+{
+  "feature": "pickBackend",
+  "parameters": {
+    "priority": [
+      "item-1",
+      "item-2"
+    ],
+    "states": null,
+    "BackendUsageState>": "test-value",
+    "safetyMargin": 42,
+    "freeFallback": null
+  },
+  "generated_at": "2026-03-23T07:02:28.377Z"
+}

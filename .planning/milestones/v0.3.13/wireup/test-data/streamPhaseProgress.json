@@ -1,0 +1,10 @@
+{
+  "feature": "streamPhaseProgress",
+  "parameters": {
+    "phaseNum": "test-value",
+    "current": 42,
+    "total": 42,
+    "status?": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.373Z"
+}

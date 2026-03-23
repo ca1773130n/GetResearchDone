@@ -1,0 +1,7 @@
+{
+  "feature": "buildCodeReviewPrompt",
+  "parameters": {
+    "prUrl": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.359Z"
+}

@@ -1,0 +1,10 @@
+{
+  "feature": "writeStatusMarker",
+  "parameters": {
+    "cwd": "test-value",
+    "phaseNum": "test-value",
+    "step": "test-value",
+    "status": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.361Z"
+}

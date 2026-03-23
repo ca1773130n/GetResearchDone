@@ -1,0 +1,9 @@
+{
+  "feature": "extractMarkdownSection",
+  "parameters": {
+    "content": "test-value",
+    "heading": "test-value",
+    "level": null
+  },
+  "generated_at": "2026-03-23T07:02:28.380Z"
+}

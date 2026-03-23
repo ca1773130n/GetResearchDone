@@ -1,0 +1,8 @@
+{
+  "feature": "findSplitBoundaries",
+  "parameters": {
+    "content": "test-value",
+    "targetPartCount": 42
+  },
+  "generated_at": "2026-03-23T07:02:28.370Z"
+}

@@ -1,0 +1,8 @@
+{
+  "feature": "checkNoStaleArtifacts",
+  "parameters": {
+    "cwd": "test-value",
+    "phase": "test-value"
+  },
+  "generated_at": "2026-03-23T07:02:28.366Z"
+}

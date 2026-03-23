@@ -1,0 +1,7 @@
+{
+  "feature": "ensureWorktreesDir",
+  "parameters": {
+    "cwd": "test-value"
+  },
+  "generated_at": "2026-03-21T09:44:14.291Z"
+}

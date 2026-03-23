@@ -385,6 +385,42 @@ function detectMissingEnvVar(
   };
 }
 
+// ─── Heuristic: missing-export (unreferenced export from static analysis) ─────
+
+/**
+ * Detect an unreferenced export when a static analysis step fails with
+ * "has no references outside" message.
+ *
+ * Confidence HIGH — static analysis is deterministic; the export genuinely
+ * has no consumers in the project.
+ */
+function detectMissingExport(
+  _cwd: string,
+  step: StepResult,
+  _scenario: Pick<WireupScenario, 'feature'>
+): MissingConnection | null {
+  if (step.step_type !== 'static') return null;
+  if (step.passed) return null;
+
+  const actual = typeof step.actual === 'string' ? step.actual : '';
+  const noRefMatch = /Export '([^']+)' has no references outside (.+)/.exec(actual);
+  if (noRefMatch === null) return null;
+
+  const exportName = noRefMatch[1];
+  const sourceFile = noRefMatch[2];
+
+  return {
+    issue_type: 'missing-export',
+    source_file: sourceFile,
+    target_file: sourceFile,
+    suggested_fix: `Remove unused export '${exportName}' from ${sourceFile} or wire it into a consumer`,
+    confidence: 'high',
+    scenario_id: '',
+    step_index: step.step_index,
+    error_context: actual.slice(0, 200),
+  };
+}
+
 // ─── Classifier dispatcher ─────────────────────────────────────────────────────
 
 /**
@@ -392,12 +428,13 @@ function detectMissingEnvVar(
  * Returns the first match, or null if no heuristic matches.
  *
  * Priority order (highest confidence heuristics first):
- *   1. missing-env-var   — connection-level failure; ECONNREFUSED
- *   2. missing-import    — module-level failure; Cannot find module
- *   3. missing-route     — 404 + no route registration found
- *   4. missing-middleware — 401/403 Unauthorized/Forbidden
- *   5. unconnected-handler — 2xx + empty body (step still failed)
- *   6. broken-nav-link   — 404 on page-like path (weak signal)
+ *   1. missing-export    — static analysis: unreferenced export (no I/O)
+ *   2. missing-env-var   — connection-level failure; ECONNREFUSED
+ *   3. missing-import    — module-level failure; Cannot find module
+ *   4. missing-route     — 404 + no route registration found
+ *   5. missing-middleware — 401/403 Unauthorized/Forbidden
+ *   6. unconnected-handler — 2xx + empty body (step still failed)
+ *   7. broken-nav-link   — 404 on page-like path (weak signal)
  */
 export function classifyFailure(
   cwd: string,
@@ -405,6 +442,7 @@ export function classifyFailure(
   scenario: Pick<WireupScenario, 'feature'>
 ): MissingConnection | null {
   return (
+    detectMissingExport(cwd, step, scenario) ??
     detectMissingEnvVar(cwd, step, scenario) ??
     detectMissingImport(cwd, step, scenario) ??
     detectMissingRoute(cwd, step, scenario) ??
