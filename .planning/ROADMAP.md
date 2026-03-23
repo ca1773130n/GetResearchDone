@@ -239,7 +239,11 @@ Plans:
   3. Each discussion produces a markdown file at `.planning/milestones/{milestone}/discussions/discussion-{phase}-{type}-{timestamp}.md` containing topic, participants, all round responses, synthesis, and outcome; file is written before the function returns.
   4. When a participant backend is unavailable, that participant is skipped with a structured `{ skipped: true, reason: string }` entry in the result — the discussion continues with remaining participants.
   5. `rounds` option is clamped to 1-3; `timeout_per_round_seconds` is respected per dispatch call.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 83-01-PLAN.md — Types (DiscussionResult, DiscussionRoundEntry, RunDiscussionOptions) and discussionsDir() path helper
+- [ ] 83-02-PLAN.md — runDiscussion() orchestration, history I/O helpers, and comprehensive unit tests
 
 #### Phase 84: Workflow Integration
 **Goal**: Discussion output flows automatically into plan-phase and execute-phase workflows — the planner receives brainstormer discussion output as research context, and generated plans and code diffs are dispatched to the configured reviewer backend before the user is asked to proceed.
