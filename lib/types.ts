@@ -99,6 +99,59 @@ export interface PlaywrightResult {
   reason?: string;
 }
 
+// ─── Discussion Types (from discussion infrastructure) ───────────────────────
+
+/**
+ * Role a backend plays in a multi-agent discussion round.
+ */
+export type DiscussionRole = 'reviewer' | 'brainstormer' | 'verifier' | 'executor';
+
+/**
+ * Maps optional discussion roles to specific backend identifiers.
+ */
+export type BackendRolesConfig = Partial<Record<DiscussionRole, BackendId>>;
+
+/**
+ * Configuration for the multi-agent cross-backend discussion feature.
+ * Controls when discussions run, round limits, and which backend synthesizes.
+ */
+export interface DiscussionConfig {
+  enabled: boolean;
+  before_planning: boolean;
+  before_execution: boolean;
+  max_rounds: number;
+  timeout_per_round_seconds: number;
+  synthesizer: BackendId;
+}
+
+/**
+ * Availability status of a backend CLI on the host machine.
+ * Returned by detectAvailableBackends() for each backend.
+ */
+export interface BackendAvailability {
+  available: boolean;
+  version: string | null;
+}
+
+/**
+ * Options passed to backend dispatch calls.
+ */
+export interface DispatchOptions {
+  timeout_ms?: number;
+  cwd?: string;
+  model?: string;
+}
+
+/**
+ * Response returned after a backend completes a discussion turn.
+ */
+export interface BackendResponse {
+  backend: BackendId;
+  response_text: string;
+  duration_ms: number;
+  stderr?: string;
+}
+
 // ─── Config Types (from utils.js loadConfig) ─────────────────────────────────
 
 /**
@@ -154,6 +207,8 @@ export interface GrdConfig {
   evolve: EvolveConfig | undefined;
   scheduler?: SchedulerConfig;
   superpowers?: SuperpowersConfig;
+  backend_roles?: BackendRolesConfig;
+  discussion?: DiscussionConfig;
 }
 
 export interface EvolveConfig {
