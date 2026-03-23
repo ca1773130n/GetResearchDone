@@ -935,7 +935,10 @@ function detectElicitation(output: string): ElicitationDetection | null {
       } else {
         numberedRunLines.push(trimmed);
       }
-      // Check if we have 2+ consecutive numbered items
+      // Don't continue to other checks for numbered lines
+      continue;
+    } else {
+      // Non-numbered line: emit accumulated run if 2+ items, then reset
       if (numberedRunLines.length >= 2) {
         return {
           question: numberedRunLines.join('\n'),
@@ -943,10 +946,6 @@ function detectElicitation(output: string): ElicitationDetection | null {
           confidence: 'high',
         };
       }
-      // Don't continue to other checks for numbered lines
-      continue;
-    } else {
-      // Reset numbered run if we encounter a non-numbered line
       numberedRunStart = -1;
       numberedRunLines = [];
     }
@@ -1011,6 +1010,15 @@ function detectElicitation(output: string): ElicitationDetection | null {
     }
   }
 
+  // Check for numbered run that extends to end of input
+  if (numberedRunLines.length >= 2) {
+    return {
+      question: numberedRunLines.join('\n'),
+      patterns: ['numbered_options'],
+      confidence: 'high',
+    };
+  }
+
   return null;
 }
 
@@ -1071,7 +1079,8 @@ function buildElicitationContext(
     const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
     if (phase) {
       // Look for phase entry: lines containing the phase identifier, extract next non-empty line
-      const phasePattern = new RegExp(`(?:^|\\n)[^\\n]*${phase}[^\\n]*\\n([^\\n]+)`, 'i');
+      const escapedPhase = phase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const phasePattern = new RegExp(`(?:^|\\n)[^\\n]*${escapedPhase}[^\\n]*\\n([^\\n]+)`, 'i');
       const phaseMatch = roadmapContent.match(phasePattern);
       if (phaseMatch) {
         const goalText = truncate(phaseMatch[1].trim(), ELICITATION_BUDGET.phaseGoal);
@@ -1206,7 +1215,7 @@ function resolveElicitation(
     'Do not ask clarifying questions. Provide a direct, actionable answer.',
   ].join('\n');
 
-  let result: ReturnType<typeof runDiscussion> | null = null;
+  let result: ReturnType<typeof runDiscussion>;
 
   try {
     result = runDiscussion(topic, participants, {
@@ -1218,8 +1227,6 @@ function resolveElicitation(
   } catch {
     return '';
   }
-
-  if (!result) return '';
 
   // Happy path: synthesis has response text
   const synthText =

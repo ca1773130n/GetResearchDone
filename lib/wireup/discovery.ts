@@ -138,16 +138,11 @@ function scanExportedButUncalled(cwd: string): UnwiredFeature[] {
     }
   }
 
-  const searchDirs: string[] = [libDir, binDir, commandsDir];
-  const searchFiles: string[] = [];
-  for (const dir of searchDirs) {
-    try {
-      fs.readdirSync(dir);
-      searchFiles.push(..._collectFiles(dir, ['.ts', '.js', '.md']));
-    } catch {
-      // Dir doesn't exist, skip
-    }
-  }
+  const searchFiles: string[] = [
+    ..._collectFiles(libDir, ['.ts', '.js', '.md']),
+    ..._collectFiles(binDir, ['.ts', '.js', '.md']),
+    ..._collectFiles(commandsDir, ['.ts', '.js', '.md']),
+  ];
 
   const features: UnwiredFeature[] = [];
 
@@ -261,13 +256,7 @@ function scanEndpointsWithoutTests(cwd: string): UnwiredFeature[] {
   if (toolNames.length === 0) return [];
 
   const integrationDir: string = path.join(cwd, 'tests', 'integration');
-  const integrationFiles: string[] = [];
-  try {
-    fs.readdirSync(integrationDir);
-    integrationFiles.push(..._collectFiles(integrationDir, ['.ts', '.js']));
-  } catch {
-    // no integration dir
-  }
+  const integrationFiles: string[] = _collectFiles(integrationDir, ['.ts', '.js']);
 
   const combinedIntegration: string = integrationFiles
     .map((f) => safeReadFile(f) || '')
