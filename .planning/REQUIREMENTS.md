@@ -99,19 +99,19 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-134 | TBD | PENDING |
-| REQ-135 | TBD | PENDING |
-| REQ-136 | TBD | PENDING |
-| REQ-137 | TBD | PENDING |
-| REQ-138 | TBD | PENDING |
-| REQ-139 | TBD | PENDING |
-| REQ-140 | TBD | PENDING |
-| REQ-141 | TBD | PENDING |
-| REQ-142 | TBD | PENDING |
-| REQ-143 | TBD | PENDING |
-| REQ-144 | TBD | PENDING |
-| REQ-145 | TBD | PENDING |
-| REQ-146 | TBD | PENDING |
-| REQ-147 | TBD | PENDING |
-| REQ-148 | TBD | PENDING |
-| REQ-149 | TBD | PENDING |
+| REQ-134 | Phase 82 | PENDING |
+| REQ-135 | Phase 82 | PENDING |
+| REQ-136 | Phase 82 | PENDING |
+| REQ-137 | Phase 83 | PENDING |
+| REQ-138 | Phase 84 | PENDING |
+| REQ-139 | Phase 84 | PENDING |
+| REQ-140 | Phase 84 | PENDING |
+| REQ-141 | Phase 84 | PENDING |
+| REQ-142 | Phase 84 | PENDING |
+| REQ-143 | Phase 82 | PENDING |
+| REQ-144 | Phase 83 | PENDING |
+| REQ-145 | Phase 85 | PENDING |
+| REQ-146 | Phase 85 | PENDING |
+| REQ-147 | Phase 85 | PENDING |
+| REQ-148 | Phase 85 | PENDING |
+| REQ-149 | Phase 82 | PENDING |
