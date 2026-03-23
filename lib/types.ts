@@ -190,6 +190,19 @@ export interface BackendResponse {
 }
 
 /**
+ * Result of detecting an elicitation (question/clarification request) in
+ * a backend subprocess output. Used by detectElicitation() in discussion.ts.
+ */
+export interface ElicitationDetection {
+  /** The extracted question text (matched line or combined lines for numbered options) */
+  question: string;
+  /** Which detection patterns matched (for debugging/logging) */
+  patterns: string[];
+  /** Confidence: 'high' for direct questions/numbered options/clarification phrases, 'medium' for option prompts */
+  confidence: 'high' | 'medium';
+}
+
+/**
  * A single entry in a discussion round — either a successful backend response
  * or a skipped entry when a participant was unavailable.
  *

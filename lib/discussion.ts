@@ -40,6 +40,7 @@ import type {
   Concern,
   ReviewIssue,
   PRReviewComment,
+  ElicitationDetection,
 } from './types';
 
 const { execFileSync } = require('child_process') as {
@@ -853,6 +854,195 @@ function reviewPRViaBackend(options: {
   };
 }
 
+// --- Elicitation Detection ---------------------------------------------------
+
+/**
+ * Detect whether a backend subprocess output contains an elicitation —
+ * a question or clarification request that requires user input.
+ *
+ * Parses the output line-by-line, skipping code blocks, comments, markdown
+ * headers, and string literals. Returns the first matched elicitation with
+ * the matched text, which pattern(s) triggered, and a confidence level.
+ *
+ * Detection patterns (in priority order):
+ *   1. direct_question   — line ends with '?' (high confidence)
+ *   2. numbered_options  — 2+ consecutive lines matching /^\s*\d+[.)]\s+/ (high)
+ *   3. clarification_phrase — line contains "Please clarify", "Which approach",
+ *                            "Could you specify", "Would you prefer", "Do you want" (high)
+ *   4. option_prompt     — line contains "Choose one", "Select an option", "Pick one" (medium)
+ *
+ * False-positive guards:
+ *   - Lines inside code blocks (``` fences) are skipped
+ *   - Lines starting with // or * (comments) are skipped
+ *   - Lines starting with # (markdown headers) are skipped
+ *   - Lines where '?' appears to be inside a string literal are skipped
+ *   - Lines starting with "at ", "Error:", "Warning:" (stack traces) are skipped
+ *   - Short single-word rhetorical constructs ("Why? Because") are skipped
+ *
+ * @param output - Full subprocess stdout string (may be multi-line)
+ * @returns An ElicitationDetection on match, or null if no elicitation found
+ */
+function detectElicitation(output: string): ElicitationDetection | null {
+  if (!output || output.trim().length === 0) return null;
+
+  const lines = output.split('\n');
+  let inCodeBlock = false;
+
+  // Clarification phrases (case-insensitive)
+  const CLARIFICATION_PHRASES = [
+    'please clarify',
+    'which approach',
+    'could you specify',
+    'would you prefer',
+    'do you want',
+  ];
+
+  // Option-prompt phrases (case-insensitive)
+  const OPTION_PROMPTS = [
+    'choose one',
+    'select an option',
+    'pick one',
+  ];
+
+  // Numbered option pattern: lines like "1. Foo", "2) Bar"
+  const NUMBERED_OPTION_RE = /^\s*\d+[.)]\s+/;
+
+  /**
+   * Returns true if a '?' on this line appears to be inside a string literal.
+   * Simple heuristic: count quote characters before the last '?'. If the
+   * number of quotes before the '?' is odd, the '?' is likely inside a string.
+   */
+  function questionInString(line: string): boolean {
+    const qIdx = line.lastIndexOf('?');
+    if (qIdx === -1) return false;
+    const before = line.slice(0, qIdx);
+    // Count unescaped single quotes and double quotes separately
+    const singleQuotes = (before.match(/(?<!\\)'/g) ?? []).length;
+    const doubleQuotes = (before.match(/(?<!\\)"/g) ?? []).length;
+    // If either count is odd, the '?' is inside a string
+    return singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0;
+  }
+
+  /**
+   * Returns true if a line should be skipped due to being a comment,
+   * header, stack trace line, or error prefix.
+   */
+  function isSkippedContext(trimmed: string): boolean {
+    if (trimmed.startsWith('//')) return true;
+    if (trimmed.startsWith('/*')) return true;
+    if (trimmed.startsWith('*')) return true;
+    if (trimmed.startsWith('#')) return true;
+    if (trimmed.startsWith('at ')) return true;
+    if (trimmed.startsWith('Error:')) return true;
+    if (trimmed.startsWith('Warning:')) return true;
+    return false;
+  }
+
+  /**
+   * Returns true if a line looks like a short rhetorical question
+   * (single word followed by '?') that appears to be a sentence connector
+   * rather than a standalone question to the user.
+   * Pattern: one word ending with '?', not preceded by typical elicitation context.
+   */
+  function isRhetoricalQuestion(trimmed: string): boolean {
+    // "Why?" or "Why? Because..." — single word before '?'
+    return /^\w+\?/.test(trimmed) && trimmed.split(/\s+/).length <= 2;
+  }
+
+  // Pass 1: look for numbered option blocks (need 2+ consecutive matches)
+  // We need to find these first to handle mixed patterns correctly.
+  let consecutiveNumbered = 0;
+  let numberedStart = -1;
+  let numberedEnd = -1;
+
+  {
+    let blockDepth = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('```')) {
+        blockDepth = blockDepth === 0 ? 1 : 0;
+      }
+      if (blockDepth > 0) {
+        consecutiveNumbered = 0;
+        continue;
+      }
+      if (NUMBERED_OPTION_RE.test(lines[i])) {
+        if (consecutiveNumbered === 0) numberedStart = i;
+        consecutiveNumbered++;
+        numberedEnd = i;
+      } else {
+        if (consecutiveNumbered >= 2) break; // found block
+        consecutiveNumbered = 0;
+        numberedStart = -1;
+      }
+    }
+  }
+
+  if (consecutiveNumbered >= 2 && numberedStart !== -1) {
+    const questionLines = lines.slice(numberedStart, numberedEnd + 1);
+    return {
+      question: questionLines.join('\n'),
+      patterns: ['numbered_options'],
+      confidence: 'high',
+    };
+  }
+
+  // Pass 2: scan line-by-line for other patterns
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Track code block fences
+    if (trimmed.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+
+    // Skip commented/header/trace lines
+    if (isSkippedContext(trimmed)) continue;
+
+    // Skip empty lines
+    if (trimmed.length === 0) continue;
+
+    const lower = trimmed.toLowerCase();
+
+    // Pattern: clarification_phrase
+    for (const phrase of CLARIFICATION_PHRASES) {
+      if (lower.includes(phrase)) {
+        return {
+          question: trimmed,
+          patterns: ['clarification_phrase'],
+          confidence: 'high',
+        };
+      }
+    }
+
+    // Pattern: direct_question — line ends with '?'
+    if (trimmed.endsWith('?')) {
+      if (questionInString(trimmed)) continue;
+      if (isRhetoricalQuestion(trimmed)) continue;
+      return {
+        question: trimmed,
+        patterns: ['direct_question'],
+        confidence: 'high',
+      };
+    }
+
+    // Pattern: option_prompt
+    for (const phrase of OPTION_PROMPTS) {
+      if (lower.includes(phrase)) {
+        return {
+          question: trimmed,
+          patterns: ['option_prompt'],
+          confidence: 'medium',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -865,6 +1055,7 @@ module.exports = {
   reviewPlanViaBackend,
   reviewCodeViaBackend,
   reviewPRViaBackend,
+  detectElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
