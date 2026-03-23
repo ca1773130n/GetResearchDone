@@ -49,6 +49,10 @@ const { spawnSync } = require('child_process') as {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+function _escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ─── Static Analysis Helpers ──────────────────────────────────────────────────
 
 const STATIC_SKIP_DIRS: Set<string> = new Set([
@@ -58,19 +62,21 @@ const STATIC_SKIP_DIRS: Set<string> = new Set([
 
 function _collectSourceFiles(dir: string): string[] {
   const results: string[] = [];
+  let entries: import('fs').Dirent[];
   try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full: string = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!STATIC_SKIP_DIRS.has(entry.name)) {
-          results.push(..._collectSourceFiles(full));
-        }
-      } else if (/\.(ts|js|tsx|jsx|vue|svelte)$/.test(entry.name)) {
-        results.push(full);
-      }
-    }
+    entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
-    // Permission error or missing dir — skip
+    return results; // Permission error or missing dir
+  }
+  for (const entry of entries) {
+    const full: string = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!STATIC_SKIP_DIRS.has(entry.name)) {
+        results.push(..._collectSourceFiles(full));
+      }
+    } else if (/\.(ts|js|tsx|jsx|vue|svelte)$/.test(entry.name)) {
+      results.push(full);
+    }
   }
   return results;
 }
@@ -320,65 +326,83 @@ function executeStaticStep(
   cwd: string
 ): StepResult {
   const startTime = Date.now();
-  const params = step.parameters as Record<string, unknown>;
-  const check = typeof params['check'] === 'string' ? params['check'] : '';
-  const filePath = typeof params['filePath'] === 'string' ? params['filePath'] : '';
-  const exportName = typeof params['exportName'] === 'string' ? params['exportName'] : '';
-  const absPath: string = path.join(cwd, filePath);
+  try {
+    const params = step.parameters as Record<string, unknown>;
+    const check = typeof params['check'] === 'string' ? params['check'] : '';
+    const filePath = typeof params['filePath'] === 'string' ? params['filePath'] : '';
+    const exportName = typeof params['exportName'] === 'string' ? params['exportName'] : '';
+    const absPath: string = path.join(cwd, filePath);
+    const escaped: string = _escapeRegExp(exportName);
 
-  if (check === 'export_exists') {
-    let content: string;
-    try {
-      content = fs.readFileSync(absPath, 'utf-8');
-    } catch {
+    if (check === 'export_exists') {
+      let content: string;
+      try {
+        content = fs.readFileSync(absPath, 'utf-8');
+      } catch (readErr: unknown) {
+        const code = (readErr as NodeJS.ErrnoException).code;
+        const detail: string = code === 'ENOENT'
+          ? `File not found: ${filePath}`
+          : `Cannot read ${filePath}: ${code || (readErr instanceof Error ? readErr.message : String(readErr))}`;
+        return {
+          step_index: stepIndex, step_type: 'static', passed: false,
+          expected: step.expected_outcome, actual: detail,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+      const exportPatterns: RegExp[] = [
+        new RegExp(`export\\s+(?:async\\s+)?(?:function|const|class|let|var)\\s+${escaped}\\b`),
+        new RegExp(`export\\s+default\\s+(?:function|class)\\s+${escaped}\\b`),
+        new RegExp(`export\\s*\\{[^}]*\\b${escaped}\\b`),
+        new RegExp(`exports\\.${escaped}\\s*=`),
+        new RegExp(`module\\.exports\\s*=\\s*\\{[^}]*\\b${escaped}\\b`),
+      ];
+      const found: boolean = exportPatterns.some((p) => p.test(content));
       return {
-        step_index: stepIndex, step_type: 'static', passed: false,
-        expected: step.expected_outcome, actual: `File not found: ${filePath}`,
+        step_index: stepIndex, step_type: 'static', passed: found,
+        expected: step.expected_outcome,
+        actual: found ? `Export '${exportName}' found in ${filePath}` : `Export '${exportName}' not found in ${filePath}`,
         duration_ms: Date.now() - startTime,
       };
     }
-    const exportPatterns: RegExp[] = [
-      new RegExp(`export\\s+(?:async\\s+)?(?:function|const|class|let|var)\\s+${exportName}\\b`),
-      new RegExp(`export\\s+default\\s+(?:function|class)\\s+${exportName}\\b`),
-      new RegExp(`export\\s*\\{[^}]*\\b${exportName}\\b`),
-      new RegExp(`exports\\.${exportName}\\s*=`),
-      new RegExp(`module\\.exports\\s*=\\s*\\{[^}]*\\b${exportName}\\b`),
-    ];
-    const found: boolean = exportPatterns.some((p) => p.test(content));
-    return {
-      step_index: stepIndex, step_type: 'static', passed: found,
-      expected: step.expected_outcome,
-      actual: found ? `Export '${exportName}' found in ${filePath}` : `Export '${exportName}' not found in ${filePath}`,
-      duration_ms: Date.now() - startTime,
-    };
-  }
 
-  if (check === 'import_graph_connected') {
-    const allFiles: string[] = _collectSourceFiles(cwd);
-    let referenced: boolean = false;
-    const namePattern: RegExp = new RegExp(`\\b${exportName}\\b`);
-    for (const file of allFiles) {
-      if (path.resolve(file) === path.resolve(absPath)) continue;
-      try {
-        const content: string = fs.readFileSync(file, 'utf-8');
-        if (namePattern.test(content)) { referenced = true; break; }
-      } catch { continue; }
+    if (check === 'import_graph_connected') {
+      const allFiles: string[] = _collectSourceFiles(cwd);
+      let referenced: boolean = false;
+      const namePattern: RegExp = new RegExp(`\\b${escaped}\\b`);
+      for (const file of allFiles) {
+        if (path.resolve(file) === path.resolve(absPath)) continue;
+        try {
+          const content: string = fs.readFileSync(file, 'utf-8');
+          if (namePattern.test(content)) { referenced = true; break; }
+        } catch (readErr: unknown) {
+          const code = (readErr as NodeJS.ErrnoException).code;
+          if (code !== 'ENOENT' && code !== 'EACCES') throw readErr;
+          continue;
+        }
+      }
+      return {
+        step_index: stepIndex, step_type: 'static', passed: referenced,
+        expected: step.expected_outcome,
+        actual: referenced
+          ? `Export '${exportName}' is referenced in the project`
+          : `Export '${exportName}' has no references outside ${filePath}`,
+        duration_ms: Date.now() - startTime,
+      };
     }
+
     return {
-      step_index: stepIndex, step_type: 'static', passed: referenced,
-      expected: step.expected_outcome,
-      actual: referenced
-        ? `Export '${exportName}' is referenced in the project`
-        : `Export '${exportName}' has no references outside ${filePath}`,
+      step_index: stepIndex, step_type: 'static', passed: false,
+      expected: step.expected_outcome, actual: `Unknown static check: ${check}`,
+      duration_ms: Date.now() - startTime,
+    };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return {
+      step_index: stepIndex, step_type: 'static', passed: false,
+      expected: step.expected_outcome, actual: `Unexpected error: ${errorMessage}`,
       duration_ms: Date.now() - startTime,
     };
   }
-
-  return {
-    step_index: stepIndex, step_type: 'static', passed: false,
-    expected: step.expected_outcome, actual: `Unknown static check: ${check}`,
-    duration_ms: Date.now() - startTime,
-  };
 }
 
 // ─── Scenario Execution ───────────────────────────────────────────────────────

@@ -2591,4 +2591,42 @@ describe('executeStaticStep', () => {
     }, tmpDir);
     expect(result.passed).toBe(false);
   });
+
+  it('passes when export exists via CJS module.exports', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.js'), 'function doThing() {}\nmodule.exports = { doThing };');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.js', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('returns failed for unknown check type', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'nonexistent_check', filePath: 'x.ts', exportName: 'x' },
+      expected_outcome: 'Something',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+    expect(result.actual).toContain('Unknown static check');
+  });
+
+  it('skips node_modules when checking import graph', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    const nmDir = realPath.join(tmpDir, 'node_modules', 'dep');
+    realFs.mkdirSync(srcDir);
+    realFs.mkdirSync(nmDir, { recursive: true });
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function doThing() {}');
+    realFs.writeFileSync(realPath.join(nmDir, 'index.js'), 'const doThing = require("../src/utils");');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(false); // node_modules reference should be ignored
+  });
 });
