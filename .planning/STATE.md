@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 - **Active phase:** 83 — Discussion Protocol Core
-- **Current plan:** (none yet)
+- **Current plan:** Plan 01 complete, Plan 02 next
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 82 complete, ready to plan Phase 83
-- **Progress:** [██▓░░░░░░░] 25%
-- **Next:** `/grd:plan-phase 83`
+- **Status:** Plan 83-01 complete — types and path helper established
+- **Progress:** [████████░░] 80%
+- **Next:** Execute 83-02-PLAN.md (runDiscussion() implementation)
 
 ## Phase Summary
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 80 | Browser Execution and Auto-Fix | Complete (2026-03-21) |
 | 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
-| 83 | Discussion Protocol Core | Not started |
+| 83 | Discussion Protocol Core | In progress (1/2 plans) |
 | 84 | Workflow Integration | Not started |
 | 85 | MCP Tools, CLI Command, and Testing | Not started |
 
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
 - [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
+- [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
 
 ## Known Bugs
 
@@ -95,10 +96,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 82 — 3 plans, 2 waves, all verified
-- **Stopped at:** Phase 82 complete, verified passed (18/18 sanity, 7/7 proxy)
-- **Next action:** `/grd:plan-phase 83`
-- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts
+- **Last action:** Executed Phase 83 Plan 01 — types and path helper for discussion protocol
+- **Stopped at:** Completed 83-01-PLAN.md
+- **Next action:** Execute 83-02-PLAN.md (runDiscussion() implementation)
+- **Context needed:** .planning/STATE.md, lib/types.ts, lib/paths.ts, lib/discussion.ts
 
 ---
 
