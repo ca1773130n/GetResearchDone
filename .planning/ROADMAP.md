@@ -324,6 +324,10 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
   2. `buildElicitationContext()` produces a concise context string (under 8K tokens) containing the question, phase goal, plan summary, and recent changes.
   3. `resolveElicitation()` dispatches to configured participants, synthesizes a single-round discussion, and returns the consensus answer string. Handles all-unavailable gracefully (returns empty string).
   4. Unit tests cover detection patterns, false positive rejection, context building, and routing with 90%+ line coverage.
+**Plans**: 2 plans
+Plans:
+- [ ] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
+- [ ] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
 
 #### Phase 87: Autopilot and Plan-Phase Integration
 **Goal**: Autopilot subprocess spawning supports elicitation interception — detected questions are resolved via multi-backend discussion and the answer is fed back to the subprocess stdin, enabling uninterrupted autonomous planning.
