@@ -76,6 +76,7 @@ const {
   reviewPlanViaBackend,
   reviewCodeViaBackend,
   reviewPRViaBackend,
+  detectElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
@@ -171,6 +172,11 @@ const {
     reviewer_backend: string;
     duration_ms: number;
     raw_response: string;
+  } | null;
+  detectElicitation: (output: string) => {
+    question: string;
+    patterns: string[];
+    confidence: 'high' | 'medium';
   } | null;
   DISCUSSION_SONNET_MODEL: string;
   BACKEND_CLI_MAP: Record<string, { bin: string; buildArgs: (p: string, m?: string) => string[] }>;
@@ -1727,6 +1733,213 @@ describe('lib/discussion.ts', () => {
 
       expect(result).not.toBeNull();
       expect(result?.comments[0].body).toMatch(/unparseable/i);
+    });
+  });
+
+  // ─── detectElicitation ─────────────────────────────────────────────────────
+
+  describe('detectElicitation', () => {
+
+    // ── True positives (should detect) ──────────────────────────────────────
+
+    describe('true positives', () => {
+      test('single line ending with ? is detected as direct_question', () => {
+        const result = detectElicitation('What model should I use?');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('direct_question');
+        expect(result?.confidence).toBe('high');
+        expect(result?.question).toBe('What model should I use?');
+      });
+
+      test('question buried in multi-line output is detected', () => {
+        const output = 'Processing...\nWhich approach do you prefer?\nWaiting...';
+        const result = detectElicitation(output);
+        expect(result).not.toBeNull();
+        expect(result?.question).toBe('Which approach do you prefer?');
+      });
+
+      test('numbered option list with 3 items is detected as numbered_options', () => {
+        const result = detectElicitation('1. Use React\n2. Use Vue\n3. Use Svelte');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('numbered_options');
+        expect(result?.confidence).toBe('high');
+      });
+
+      test('numbered option list with parentheses is detected', () => {
+        const result = detectElicitation('1) Option A\n2) Option B');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('numbered_options');
+      });
+
+      test('clarification phrase "Please clarify" is detected', () => {
+        const result = detectElicitation('Please clarify the target framework');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('clarification_phrase');
+        expect(result?.confidence).toBe('high');
+      });
+
+      test('"Would you prefer" pattern is detected', () => {
+        const result = detectElicitation('Would you prefer TypeScript or JavaScript?');
+        expect(result).not.toBeNull();
+        // Could match either direct_question or clarification_phrase
+        expect(result?.confidence).toBe('high');
+      });
+
+      test('"Which approach" phrase is detected', () => {
+        const result = detectElicitation('Which approach would work best here?');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('clarification_phrase');
+      });
+
+      test('"Could you specify" phrase is detected', () => {
+        const result = detectElicitation('Could you specify the preferred database?');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('clarification_phrase');
+      });
+
+      test('"Do you want" phrase is detected', () => {
+        const result = detectElicitation('Do you want to use TypeScript?');
+        expect(result).not.toBeNull();
+      });
+
+      test('"Choose one" option prompt is detected with medium confidence', () => {
+        const result = detectElicitation('Choose one of the following:');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('option_prompt');
+        expect(result?.confidence).toBe('medium');
+      });
+
+      test('"Select an option" is detected as option_prompt', () => {
+        const result = detectElicitation('Select an option to continue');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('option_prompt');
+        expect(result?.confidence).toBe('medium');
+      });
+
+      test('"Pick one" is detected as option_prompt', () => {
+        const result = detectElicitation('Pick one of the available backends');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('option_prompt');
+      });
+
+      test('question with trailing whitespace is still detected', () => {
+        const result = detectElicitation('What model?  \n');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('direct_question');
+      });
+
+      test('mixed: question followed by numbered options — detects numbered_options first', () => {
+        const output = 'Which framework do you prefer?\n1. React\n2. Vue\n3. Svelte';
+        const result = detectElicitation(output);
+        expect(result).not.toBeNull();
+        // numbered_options is checked first in pass 1
+        expect(result?.patterns).toContain('numbered_options');
+      });
+
+      test('question phrase is case-insensitive', () => {
+        const result = detectElicitation('PLEASE CLARIFY the target environment');
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('clarification_phrase');
+      });
+    });
+
+    // ── False positives (should return null) ─────────────────────────────────
+
+    describe('false positives (should return null)', () => {
+      test('question in // comment returns null', () => {
+        expect(detectElicitation('// What does this do?')).toBeNull();
+      });
+
+      test('question in markdown header returns null', () => {
+        expect(detectElicitation('# FAQ: What is GRD?')).toBeNull();
+      });
+
+      test('question in string literal returns null', () => {
+        // Odd number of double quotes before '?' — inside string
+        expect(detectElicitation('const msg = "Are you sure?";')).toBeNull();
+      });
+
+      test('question inside code block returns null', () => {
+        const output = '```\nWhat is this?\n```';
+        expect(detectElicitation(output)).toBeNull();
+      });
+
+      test('question in stack trace line (starts with "at ") returns null', () => {
+        expect(detectElicitation('at foo.js:1')).toBeNull();
+      });
+
+      test('"Error:" prefix line returns null', () => {
+        expect(detectElicitation('Error: What went wrong?')).toBeNull();
+      });
+
+      test('"Warning:" prefix line returns null', () => {
+        expect(detectElicitation('Warning: What is this?')).toBeNull();
+      });
+
+      test('rhetorical mid-sentence "Why? Because" returns null (? not at line end)', () => {
+        // "Why? Because it uses caching." — the '?' is mid-line, line doesn't end with '?'
+        expect(detectElicitation('This is fast. Why? Because it uses caching.')).toBeNull();
+      });
+
+      test('empty string returns null', () => {
+        expect(detectElicitation('')).toBeNull();
+      });
+
+      test('whitespace-only string returns null', () => {
+        expect(detectElicitation('   \n  \n')).toBeNull();
+      });
+
+      test('normal output without questions returns null', () => {
+        expect(detectElicitation('Build succeeded.\n3 files compiled.')).toBeNull();
+      });
+
+      test('numbered list with only 1 item returns null (need 2+)', () => {
+        expect(detectElicitation('1. Build succeeded')).toBeNull();
+      });
+
+      test('* comment line returns null', () => {
+        expect(detectElicitation('* What does this param do?')).toBeNull();
+      });
+    });
+
+    // ── Edge cases ────────────────────────────────────────────────────────────
+
+    describe('edge cases', () => {
+      test('multiple questions: returns first detected', () => {
+        const output = 'What model should I use?\nWhich backend do you prefer?';
+        const result = detectElicitation(output);
+        expect(result).not.toBeNull();
+        expect(result?.question).toBe('What model should I use?');
+      });
+
+      test('question after code block is detected', () => {
+        const output = '```\nsome code\n```\nWhat model should I use?';
+        const result = detectElicitation(output);
+        expect(result).not.toBeNull();
+        expect(result?.patterns).toContain('direct_question');
+      });
+
+      test('numbered options combined into single question string', () => {
+        const result = detectElicitation('1. React\n2. Vue');
+        expect(result).not.toBeNull();
+        expect(result?.question).toContain('1. React');
+        expect(result?.question).toContain('2. Vue');
+      });
+
+      test('confidence is "high" for direct_question', () => {
+        const result = detectElicitation('Which one do you want?');
+        expect(result?.confidence).toBe('high');
+      });
+
+      test('confidence is "medium" for option_prompt', () => {
+        const result = detectElicitation('Choose one of the following options:');
+        expect(result?.confidence).toBe('medium');
+      });
+
+      test('question in code block inside larger output is skipped', () => {
+        const output = 'Here is the info:\n```\nAre you sure?\n```\nDone.';
+        expect(detectElicitation(output)).toBeNull();
+      });
     });
   });
 });
