@@ -247,7 +247,6 @@ duration: Xmin
 
 module.exports = {
   MIN_VERSION,
-  OV_MAX_AGENTS,
   DEFAULT_OVERSTORY_CONFIG,
   compareSemver,
   ovExec,
