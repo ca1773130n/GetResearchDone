@@ -18,6 +18,8 @@ import type {
   ModelProfileName,
   RunCache,
   AgentModelProfiles,
+  BackendRolesConfig,
+  DiscussionConfig,
 } from './types';
 
 const fs = require('fs');
@@ -29,6 +31,7 @@ const {
   resolveBackendModel,
   resolveEffortLevel,
   getBackendCapabilities,
+  VALID_BACKENDS,
 } = require('./backend');
 const { phasesDir: getPhasesDirPath } = require('./paths');
 
@@ -288,6 +291,9 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'scheduler',
   // Superpowers config
   'superpowers',
+  // Discussion config
+  'backend_roles',
+  'discussion',
 ]);
 
 /**
@@ -462,6 +468,72 @@ function loadConfig(cwd: string): GrdConfig {
       scheduler: (parsed.scheduler || undefined) as GrdConfig['scheduler'],
       // Superpowers config (pass-through)
       superpowers: (parsed.superpowers || undefined) as GrdConfig['superpowers'],
+      // Backend roles config: validate each value against VALID_BACKENDS
+      backend_roles: ((): BackendRolesConfig | undefined => {
+        const raw = parsed.backend_roles;
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+        const rawRoles = raw as Record<string, unknown>;
+        const validRoles: string[] = ['reviewer', 'brainstormer', 'verifier', 'executor'];
+        const result: BackendRolesConfig = {};
+        for (const [role, backendVal] of Object.entries(rawRoles)) {
+          if (!validRoles.includes(role)) {
+            process.stderr.write(
+              `Warning: Unrecognized backend_roles role "${role}" in .planning/config.json\n`
+            );
+            continue;
+          }
+          if (
+            typeof backendVal !== 'string' ||
+            !(VALID_BACKENDS as readonly string[]).includes(backendVal)
+          ) {
+            process.stderr.write(
+              `Warning: Invalid backend "${String(backendVal)}" for role "${role}" in backend_roles — must be a valid BackendId\n`
+            );
+            continue;
+          }
+          (result as Record<string, string>)[role] = backendVal;
+        }
+        return Object.keys(result).length > 0 ? result : undefined;
+      })(),
+      // Discussion config: validate fields, apply defaults
+      discussion: ((): DiscussionConfig | undefined => {
+        const raw = parsed.discussion;
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+        const d = raw as Record<string, unknown>;
+        const enabled = typeof d.enabled === 'boolean' ? d.enabled : true;
+        if (!enabled) {
+          return {
+            enabled: false,
+            before_planning: typeof d.before_planning === 'boolean' ? d.before_planning : true,
+            before_execution:
+              typeof d.before_execution === 'boolean' ? d.before_execution : false,
+            max_rounds: 2,
+            timeout_per_round_seconds: 180,
+            synthesizer: 'claude',
+          };
+        }
+        let max_rounds = typeof d.max_rounds === 'number' ? Math.round(d.max_rounds) : 2;
+        if (max_rounds < 1) max_rounds = 1;
+        if (max_rounds > 3) max_rounds = 3;
+        const timeout_per_round_seconds =
+          typeof d.timeout_per_round_seconds === 'number' && d.timeout_per_round_seconds > 0
+            ? d.timeout_per_round_seconds
+            : 180;
+        const synthRaw = d.synthesizer;
+        const synthesizer: string =
+          typeof synthRaw === 'string' &&
+          (VALID_BACKENDS as readonly string[]).includes(synthRaw)
+            ? synthRaw
+            : 'claude';
+        return {
+          enabled,
+          before_planning: typeof d.before_planning === 'boolean' ? d.before_planning : true,
+          before_execution: typeof d.before_execution === 'boolean' ? d.before_execution : false,
+          max_rounds,
+          timeout_per_round_seconds,
+          synthesizer: synthesizer as DiscussionConfig['synthesizer'],
+        };
+      })(),
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> =

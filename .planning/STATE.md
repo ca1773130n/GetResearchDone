@@ -1,23 +1,23 @@
 # State
 
-**Updated:** 2026-03-21
+**Updated:** 2026-03-23
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-20)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.13 Wireup Command — Phase 81: MCP Tools, Testing, and Integration
-**Previous:** v0.3.12 Multi-Backend Feature Sync (shipped 2026-03-20)
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 83 complete, Phase 84 next
+**Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 81 — MCP Tools, Testing, and Integration
-- **Current plan:** 03 complete (all plans done)
-- **Milestone:** v0.3.13 Wireup Command
-- **Status:** v0.3.13 milestone complete
-- **Progress:** [██████████] 100%
-- **Next:** v0.3.13 release
+- **Active phase:** 84 — Workflow Integration
+- **Current plan:** (none yet)
+- **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
+- **Status:** Phase 83 complete, ready to plan Phase 84
+- **Progress:** [█████▓░░░░] 50%
+- **Next:** `/grd:plan-phase 84`
 
 ## Phase Summary
 
@@ -25,8 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 |-------|------|--------|
 | 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
 | 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
-| 80 | Browser Execution and Auto-Fix | Complete (2026-03-21, plans 01-03 done) |
-| 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21, plans 01-03 done) |
+| 80 | Browser Execution and Auto-Fix | Complete (2026-03-21) |
+| 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
+| 82 | Discussion Infrastructure | Complete (2026-03-23) |
+| 83 | Discussion Protocol Core | Complete (2026-03-23) |
+| 84 | Workflow Integration | Not started |
+| 85 | MCP Tools, CLI Command, and Testing | Not started |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -41,6 +45,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | v0.3.6 | Backend Ecosystem Sync | Shipped (Phases 69-70, 4 plans) |
 | v0.3.7 | Claude Code Feature Sync | Shipped (Phases 71-73, 5 plans) |
 | v0.3.12 | Multi-Backend Feature Sync | Shipped (Phases 74-77, 8 plans) |
+| v0.3.13 | Wireup Command | Shipped (Phases 78-81, 12 plans) |
 
 ## Deferred Validations
 
@@ -59,39 +64,28 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 | DEFER-68-02 | Autoplan creates feature-oriented phases from product-ideation groups | Phase 68 | First real infinite evolve cycle | PENDING |
 | DEFER-78-01 | Live discovery accuracy on real GRD codebase | Phase 78 | Phase 79, plan 79-01 | PENDING |
 | DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
-| DEFER-78-03 | Coverage thresholds in jest.config.js for wireup modules | Phase 78 | Phase 81, plan 81-02 | RESOLVED (added in 81-01; 87.1% achieved in 81-02) |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
-| DEFER-80-02 | Auto-fix applies real code change and verifies via re-run | Phase 80 | Phase 81 | PENDING |
-| DEFER-80-03 | Full orchestrator integration with report generation | Phase 80 | Phase 81 | PENDING |
 
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 26 (v0.0.5 through v0.3.12)
-- Total tests: 3,177
-- Total lib/ modules: 26 (22 top-level .ts + 4 decomposed sub-module directories: cli/, commands/, context/, wireup/)
+- Milestones shipped: 27 (v0.0.5 through v0.3.13)
+- Total tests: 3,177 (before v0.3.20)
+- Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 40
-- Total lib/ LOC: ~20,320
+- MCP tools: 128
 
 ## Decisions
 
 - [Phase 74]: codex.haiku mapped to gpt-5.4-mini; gemini.sonnet mapped to gemini-3.1-flash; max_output_tokens typed as nullable
 - [Phase 75]: StopFailure handler checks autopilot.log presence; PostCompact is minimal/informational; CLAUDE_PLUGIN_DATA boundary documented
-- [Phase 76]: model_overrides_available uses runtime settings.json detection; mcp_elicitation_available added to init context
-- [Phase 77]: CLAUDE.md updated with capability flags table, agent frontmatter docs, /effort interaction, backend-specific notes
-- [Phase 78]: Discovery uses regex-based export extraction (module.exports/exports.name) with no AST dependency; config _ keys excluded; MCP tools identified by grd_ prefix
-- [Phase 78]: State file at .planning/WIREUP-STATE.json; advanceWireupIteration is immutable; readWireupState returns null on missing/invalid JSON
-- [Phase 78]: Scenario steps are category-specific: exported-but-uncalled uses cli+assert, config-without-surface uses cli(gd settings)+assert, endpoint-without-integration-test uses http+assert
-- [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync (no shell injection); browser/assert steps skipped in Phase 79
-- [Phase 79]: executeScenarios runs scenarios sequentially (not parallel) to avoid overwhelming localhost services; detectMissingConnections called via try/catch for graceful fallback before plan 79-03
-- [Phase 79]: cmdInitWireup in lib/wireup/cli.ts (not lib/context/agents.ts) mirrors cmdInitEvolve placement; wireup added to INIT_WORKFLOWS; SONNET_MODEL in wireup/state.ts; ExecutionOptions.model propagates ceiling to executor
-- [Phase 79]: Detection uses spawnSync grep/find — pure filesystem, no LLM calls; classifyFailure uses null-coalescing dispatcher (env-var > import > route > middleware > handler > nav-link); WireupResult extended with issues[], issues_by_confidence, issues_by_type
-- [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; executeBrowserScenario() returns structured skip with manual steps when playwright unavailable, MCP tool payloads when available
-- [Phase 80]: autoFixIssue delegates fix application to orchestrator via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL from state.ts; missing-export added to IssueType union; updateFixOutcome increments fixes_applied only for verified fixes
-- [Phase 80]: generateWireupReport writes structured WIREUP-REPORT.md to milestone wireup dir; iteration history is extracted and appended on each run; WireupReportData in report.ts (not types.ts); report_path added as optional field on WireupResult
-- [Phase 81]: Five wireup cmd wrappers follow evolve pattern; cmdWireupScenarios re-runs discovery+generation (stateless); coverage threshold on lib/wireup/index.ts barrel
-- [Phase 81]: wireup.test.ts covers execution/detection/autofix/orchestrator/report; discovery/scenarios/state have separate files but are also exercised directly for 87.1% coverage
-- [Phase 81]: WIREUP-STATE.json test validates state I/O via module directly (not dry-run path) since orchestrator early-returns before writeWireupState on dryRun
+- [Phase 78]: Discovery uses regex-based export extraction; State file at .planning/WIREUP-STATE.json; scenario steps are category-specific
+- [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync; cmdInitWireup in lib/wireup/cli.ts mirrors cmdInitEvolve
+- [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
+- [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
+- [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
+- [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency; DiscussionRoundEntry is discriminated union (BackendResponse | skipped); rounds clamped 1-3; markdown file written synchronously before return
+- [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
 
 ## Known Bugs
 
@@ -103,12 +97,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 81 Plan 03 — wireup E2E integration test (15 tests, 3353 total)
-- **Stopped at:** Completed 81-03-PLAN.md — wireup E2E integration test
-- **Next action:** v0.3.13 release
-- **Context needed:** .planning/STATE.md, package.json
+- **Last action:** Executed Phase 83 — 2 plans, 2 waves, all verified
+- **Stopped at:** Phase 83 complete, verified passed (7/7 sanity, all proxy metrics met)
+- **Next action:** `/grd:plan-phase 84`
+- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts, lib/paths.ts
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-21*
+*Last updated: 2026-03-23*

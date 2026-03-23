@@ -29,6 +29,7 @@
 - v0.3.7 Claude Code Feature Sync - Phases 71-73 (shipped 2026-03-12)
 - v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (shipped 2026-03-20)
 - v0.3.13 Wireup Command - Phases 78-81 (shipped 2026-03-21)
+- v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (in progress)
 
 ## Phases
 
@@ -196,6 +197,93 @@ Phases 74-77 synced GRD with Claude Code 2.1.73-2.1.79, Codex CLI 0.115.0+, Gemi
 Phases 78-81 added `/grd:wireup` command — end-to-end integration wiring complement to `/grd:evolve`. New `lib/wireup/` sub-module directory (8 modules: types, state, discovery, scenarios, execution, detection, autofix, orchestrator, report, cli). Discovery engine finds unwired features via pure filesystem analysis across 3 categories (exported-but-uncalled, config-without-surface, endpoint-without-integration-test). Scenario generator produces structured HTTP/CLI/browser test sequences. Execution engine runs scenarios against localhost with pass/fail per step. Missing connection detector classifies failures into 7 issue types with suggested fixes. Auto-fix with confidence gating (high=auto, medium/low=manual review). Browser scenarios via Playwright MCP with graceful skip when unavailable. WIREUP-REPORT.md generation with iteration history. 5 new MCP tools (128 total). 151 unit tests (87.1% coverage), 15 E2E integration tests. See `.planning/milestones/v0.3.13/` for details.
 
 </details>
+
+### v0.3.20 Multi-Agent Cross-Backend Discussion (In Progress)
+
+**Milestone Goal:** Enable GRD to orchestrate multi-backend AI discussions — dispatching prompts to Codex, Gemini, and OpenCode, synthesizing their responses, and integrating the output into plan-phase, execute-phase, and code review workflows.
+**Start:** 2026-03-23
+
+- [x] **Phase 82: Discussion Infrastructure** - Backend role config, availability detection, dispatch primitives, and model ceiling `implement` *(completed 2026-03-23)*
+- [x] **Phase 83: Discussion Protocol Core** - Round orchestration, synthesis, and discussion state/history `implement` *(completed 2026-03-23)*
+- [ ] **Phase 84: Workflow Integration** - Auto-discussion before planning/execution and cross-backend plan/code/PR review `implement`
+- [ ] **Phase 85: MCP Tools, CLI Command, and Testing** - grd_discussion_* MCP tools, /grd:discuss command, unit/integration tests `integrate`
+
+#### Phase 82: Discussion Infrastructure
+**Goal**: The foundational layer for cross-backend dispatch is in place — config schema accepts `backend_roles`, `detectAvailableBackends()` probes PATH for all four AI CLIs, `dispatchToBackend()` in `lib/discussion.ts` spawns any configured backend with a structured prompt and returns a typed result, and all discussion subagent spawns on the primary backend are capped at sonnet-tier models.
+**Type**: implement
+**Depends on**: Phase 81 (lib/backend.ts exists with detection patterns to extend)
+**Requirements**: REQ-134, REQ-135, REQ-136, REQ-143, REQ-149
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `config.json` accepts and validates `backend_roles` with four roles (`reviewer`, `brainstormer`, `verifier`, `executor`) mapping to valid backend IDs; invalid IDs rejected at load time.
+  2. `detectAvailableBackends()` returns a `Record<BackendId, { available: boolean, version: string | null }>` that correctly reflects which CLIs are on PATH; result is cached with 5-minute TTL.
+  3. `dispatchToBackend(backendId, prompt, options)` executes the target CLI with correct flags (`--print` for claude, `-q` for codex, default for gemini/opencode), captures stdout/stderr, and returns a typed `BackendResponse` with `backend`, `response_text`, `duration_ms`; times out after configurable duration (default 5 min) with a structured error.
+  4. `discussion` config section (`enabled`, `before_planning`, `before_execution`, `max_rounds`, `timeout_per_round_seconds`, `synthesizer`) is validated on load; when `enabled: false` all discussion paths short-circuit silently.
+  5. Discussion subagent spawns on the primary backend reference `SONNET_MODEL` constant, matching the ceiling established in `lib/wireup/state.ts` and `lib/evolve/`.
+**Plans**: 3 plans
+
+Plans:
+- [ ] 82-01-PLAN.md — Types, config validation, and backend availability detection
+- [ ] 82-02-PLAN.md — Cross-backend dispatch primitive (lib/discussion.ts)
+- [ ] 82-03-PLAN.md — Unit tests for dispatch, availability, and config validation
+
+#### Phase 83: Discussion Protocol Core
+**Goal**: A complete discussion round can be run end-to-end — `runDiscussion(topic, participants, options)` orchestrates parallel dispatch, collects per-round responses, feeds them to a synthesizer backend, and writes a structured markdown history file to the milestone discussions directory.
+**Type**: implement
+**Depends on**: Phase 82
+**Requirements**: REQ-137, REQ-144
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `runDiscussion()` dispatches to all `participants` in parallel for round 1, collects responses, passes the full set to the `synthesizer` backend, and (when `rounds >= 2`) runs a second round sharing the synthesis with each participant.
+  2. `runDiscussion()` returns a typed `DiscussionResult` containing `rounds` (array of per-backend responses), `synthesis` (synthesizer output), `participants`, `topic`, and `duration_ms`.
+  3. Each discussion produces a markdown file at `.planning/milestones/{milestone}/discussions/discussion-{phase}-{type}-{timestamp}.md` containing topic, participants, all round responses, synthesis, and outcome; file is written before the function returns.
+  4. When a participant backend is unavailable, that participant is skipped with a structured `{ skipped: true, reason: string }` entry in the result — the discussion continues with remaining participants.
+  5. `rounds` option is clamped to 1-3; `timeout_per_round_seconds` is respected per dispatch call.
+**Plans**: 2 plans
+
+Plans:
+- [ ] 83-01-PLAN.md — Types (DiscussionResult, DiscussionRoundEntry, RunDiscussionOptions) and discussionsDir() path helper
+- [ ] 83-02-PLAN.md — runDiscussion() orchestration, history I/O helpers, and comprehensive unit tests
+
+#### Phase 84: Workflow Integration
+**Goal**: Discussion output flows automatically into plan-phase and execute-phase workflows — the planner receives brainstormer discussion output as research context, and generated plans and code diffs are dispatched to the configured reviewer backend before the user is asked to proceed.
+**Type**: implement
+**Depends on**: Phase 83
+**Requirements**: REQ-138, REQ-139, REQ-140, REQ-141, REQ-142
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. When `backend_roles.brainstormer` is configured, available, and `discussion.before_planning` is true, `plan-phase` automatically runs a pre-planning discussion round; the discussion markdown is included in the planner's context under a clearly labeled section.
+  2. When `discussion.before_execution` is true, `execute-phase` runs a single-round discussion before dispatch; executor receives discussion output as additional context; feature is skipped silently when `before_execution: false`.
+  3. When `backend_roles.reviewer` is configured, generated plans are dispatched to the reviewer before execution; reviewer returns `{ approved: boolean, concerns: Concern[], suggestions: string[] }`; unapproved plans present concerns to the user.
+  4. After phase execution, the code diff is dispatched to the configured reviewer; the review returns `{ approved: boolean, issues: ReviewIssue[] }` where each issue has `severity` (`blocker`/`warning`/`suggestion`), `file`, `line_range`, `description`; blockers halt the completion flow.
+  5. PR review (when `code_review.pr_review` is true and reviewer is configured) dispatches the PR diff via `gh` CLI output to the reviewer; returned comments are posted as PR review comments via `gh` CLI.
+**Plans**: TBD
+
+#### Phase 85: MCP Tools, CLI Command, and Testing
+**Goal**: The full discussion surface is exposed — four MCP tools (`grd_discussion_run`, `grd_discussion_config`, `grd_backends_available`, `grd_discussion_history`) are registered and functional, `/grd:discuss` slash command runs ad-hoc discussions inline, and `lib/discussion.ts` has 85%+ unit test coverage with an integration test validating the complete discussion pipeline against mocked CLIs.
+**Type**: integrate
+**Depends on**: Phase 84
+**Requirements**: REQ-145, REQ-146, REQ-147, REQ-148
+**Verification Level**: full
+**Success Criteria** (what must be TRUE):
+  1. All four MCP tools are registered in the MCP server and return valid JSON responses: `grd_discussion_run` triggers a full discussion, `grd_discussion_config` reads/writes discussion config, `grd_backends_available` lists backends with their availability and assigned roles, `grd_discussion_history` lists and reads past discussion files.
+  2. `/grd:discuss <topic>` command file exists with correct YAML frontmatter (`description`, `argument-hint`), invokes `runDiscussion()` on the given topic using configured participants, and renders each round's responses and the final synthesis in the terminal.
+  3. `tests/unit/discussion.test.ts` covers `detectAvailableBackends()`, `dispatchToBackend()`, `runDiscussion()`, config validation, and history file I/O at 85%+ line coverage; per-file threshold is added to `jest.config.js`.
+  4. Integration test validates the full pipeline: detect backends (mocked PATH) -> configure roles -> run 2-round discussion -> synthesize -> write history file -> read back via `grd_discussion_history` MCP tool; test uses the testbed pattern from v0.2.7.
+  5. `npm test` passes with all new tests included; lint and type-check (`npm run build:check`) pass with zero errors.
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 82 -> 83 -> 84 -> 85
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 82. Discussion Infrastructure | v0.3.20 | 3/3 | Complete | 2026-03-23 |
+| 83. Discussion Protocol Core | v0.3.20 | 0/TBD | Not started | - |
+| 84. Workflow Integration | v0.3.20 | 0/TBD | Not started | - |
+| 85. MCP Tools, CLI, and Testing | v0.3.20 | 0/TBD | Not started | - |
 
 ## Deferred Validations
 

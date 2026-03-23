@@ -123,6 +123,121 @@ export interface CeremonyConfig {
   phase_overrides?: Record<string, 'light' | 'standard' | 'full'>;
 }
 
+// ─── Discussion Types (from discussion infrastructure) ───────────────────────
+
+/**
+ * Role a backend plays in a multi-backend discussion round.
+ */
+export type DiscussionRole = 'reviewer' | 'brainstormer' | 'verifier' | 'executor';
+
+/**
+ * Maps discussion roles to the backend that fulfills each role.
+ * Partial — not all roles need to be assigned.
+ */
+export type BackendRolesConfig = Partial<Record<DiscussionRole, BackendId>>;
+
+/**
+ * Configuration for the cross-backend discussion feature.
+ * All fields have defaults; partial objects are merged with defaults in loadConfig().
+ */
+export interface DiscussionConfig {
+  /** Whether discussion is enabled at all. Default: true */
+  enabled: boolean;
+  /** Run a discussion round before planning. Default: true */
+  before_planning: boolean;
+  /** Run a discussion round before execution. Default: false */
+  before_execution: boolean;
+  /** Number of rounds (clamped 1-3). Default: 2 */
+  max_rounds: number;
+  /** Per-round timeout in seconds. Default: 180 */
+  timeout_per_round_seconds: number;
+  /** Which backend synthesizes the final answer. Default: 'claude' */
+  synthesizer: BackendId;
+}
+
+/**
+ * Result of probing whether a backend CLI binary is on PATH.
+ */
+export interface BackendAvailability {
+  available: boolean;
+  version: string | null;
+}
+
+/**
+ * Options for dispatching a prompt to a backend CLI subprocess.
+ */
+export interface DispatchOptions {
+  /** Timeout in milliseconds. */
+  timeout_ms?: number;
+  /** Working directory for the subprocess. Defaults to process.cwd(). */
+  cwd?: string;
+  /** Model name override (backend-specific string). Optional. */
+  model?: string;
+}
+
+/**
+ * Typed response from a backend CLI subprocess dispatch.
+ */
+export interface BackendResponse {
+  /** Which backend produced this response. */
+  backend: BackendId;
+  /** Trimmed stdout from the subprocess, or '' on error. */
+  response_text: string;
+  /** Wall-clock duration of the dispatch in milliseconds. */
+  duration_ms: number;
+  /** Stderr output or error message. Empty string on success. */
+  stderr?: string;
+}
+
+/**
+ * A single entry in a discussion round — either a successful backend response
+ * or a skipped entry when a participant was unavailable.
+ *
+ * Discriminated union: check `'skipped' in entry` to distinguish the two variants.
+ */
+export type DiscussionRoundEntry =
+  | BackendResponse
+  | { backend: BackendId; skipped: true; reason: string };
+
+/**
+ * Result returned by runDiscussion() after a multi-backend discussion completes.
+ */
+export interface DiscussionResult {
+  /** The topic/question posed to all participants. */
+  topic: string;
+  /** Backend IDs of all requested participants (including skipped). */
+  participants: BackendId[];
+  /** Per-round array of participant responses. rounds[0] = round 1, etc. */
+  rounds: DiscussionRoundEntry[][];
+  /** Synthesizer backend response after round 1 collection. */
+  synthesis: BackendResponse;
+  /** Total wall-clock duration in milliseconds. */
+  duration_ms: number;
+  /** Absolute path to the written markdown history file. */
+  discussion_file: string;
+}
+
+/**
+ * Options for the runDiscussion() orchestration function.
+ * All fields are optional; defaults are applied by runDiscussion().
+ */
+export interface RunDiscussionOptions {
+  /** Number of discussion rounds. Default: 2. Clamped to 1-3. */
+  rounds?: number;
+  /** Backend that synthesizes the final answer. Default: 'claude'. */
+  synthesizer?: BackendId;
+  /** Per-round timeout in seconds. Default: 180. */
+  timeout_per_round_seconds?: number;
+  /** Working directory for backend subprocesses. Default: process.cwd(). */
+  cwd?: string;
+  /** Phase identifier used in the output filename. Default: 'unknown'. */
+  phase?: string;
+  /** Type label used in the output filename. Default: 'discussion'. */
+  type?: string;
+  /** Milestone version string used to locate the discussions directory. Default: currentMilestone(cwd). */
+  milestone?: string | null;
+}
+
 /**
  * Full GRD project configuration as returned by loadConfig().
  * All fields are populated with defaults when not present in config.json.
@@ -154,6 +269,8 @@ export interface GrdConfig {
   evolve: EvolveConfig | undefined;
   scheduler?: SchedulerConfig;
   superpowers?: SuperpowersConfig;
+  backend_roles?: BackendRolesConfig;
+  discussion?: DiscussionConfig;
 }
 
 export interface EvolveConfig {

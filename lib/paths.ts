@@ -210,6 +210,17 @@ function todosDir(cwd: string, milestone?: string | null): string {
 }
 
 /**
+ * Milestone-scoped discussions directory.
+ * Created at runtime by runDiscussion() via mkdirSync({ recursive: true }).
+ */
+function discussionsDir(cwd: string, milestone?: string | null): string {
+  if (milestone == null) {
+    milestone = currentMilestone(cwd);
+  }
+  return path.join(milestoneRoot(cwd, milestone), 'discussions');
+}
+
+/**
  * Milestone-scoped quick tasks directory.
  */
 function quickDir(cwd: string, milestone?: string | null): string {
@@ -270,6 +281,7 @@ module.exports = {
   researchDir,
   codebaseDir,
   todosDir,
+  discussionsDir,
   quickDir,
   standardsDir,
   archivedPhasesDir,

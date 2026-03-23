@@ -78,6 +78,8 @@ const {
   clearModelCache,
   detectWebMcp,
   detectPlaywright,
+  detectAvailableBackends,
+  clearAvailabilityCache,
 } = require('../../lib/backend');
 
 describe('lib/backend.js', () => {
@@ -1618,6 +1620,244 @@ describe('lib/backend.js', () => {
         const result = resolveEffortLevel('grd-planner', profile);
         expect(['low', 'medium', 'high']).toContain(result);
       }
+    });
+  });
+
+  // ─── detectAvailableBackends (live) ──────────────────────────────────────
+
+  describe('detectAvailableBackends (live probing)', () => {
+    beforeEach(() => {
+      clearAvailabilityCache();
+    });
+
+    afterEach(() => {
+      clearAvailabilityCache();
+    });
+
+    test('returns a result map with all 7 BackendId keys', () => {
+      const result = detectAvailableBackends('/tmp');
+      const expected = ['claude', 'codex', 'gemini', 'opencode', 'overstory', 'superpowers', 'grd'];
+      for (const key of expected) {
+        expect(result).toHaveProperty(key);
+      }
+    });
+
+    test('each entry has available (boolean) and version (string | null)', () => {
+      const result = detectAvailableBackends('/tmp');
+      for (const key of Object.keys(result)) {
+        expect(typeof result[key].available).toBe('boolean');
+        const v = result[key].version;
+        expect(v === null || typeof v === 'string').toBe(true);
+      }
+    });
+
+    test('meta-backends are always unavailable', () => {
+      const result = detectAvailableBackends('/tmp');
+      expect(result.overstory.available).toBe(false);
+      expect(result.superpowers.available).toBe(false);
+      expect(result.grd.available).toBe(false);
+    });
+
+    test('meta-backends have version: null', () => {
+      const result = detectAvailableBackends('/tmp');
+      expect(result.overstory.version).toBeNull();
+      expect(result.superpowers.version).toBeNull();
+      expect(result.grd.version).toBeNull();
+    });
+
+    test('result is cached: second call returns same reference', () => {
+      const first = detectAvailableBackends('/tmp');
+      const second = detectAvailableBackends('/tmp');
+      expect(second).toBe(first);
+    });
+
+    test('clearAvailabilityCache makes next call return fresh result', () => {
+      const first = detectAvailableBackends('/tmp');
+      clearAvailabilityCache();
+      const second = detectAvailableBackends('/tmp');
+      // Fresh call returns a new result object (not same reference)
+      expect(second).not.toBe(first);
+    });
+  });
+
+  // ─── detectAvailableBackends (mocked) ────────────────────────────────────
+
+  describe('detectAvailableBackends (mocked child_process)', () => {
+    // Re-require the module after mocking child_process to capture the mock binding
+    let mockedExecFileSync: jest.Mock;
+    let mockedDetectAvailableBackends: (cwd?: string) => Record<string, { available: boolean; version: string | null }>;
+    let mockedClearAvailabilityCache: () => void;
+
+    beforeEach(() => {
+      jest.resetModules();
+      mockedExecFileSync = jest.fn();
+      jest.doMock('child_process', () => ({
+        execFileSync: mockedExecFileSync,
+      }));
+      const freshBackend = require('../../lib/backend') as {
+        detectAvailableBackends: (cwd?: string) => Record<string, { available: boolean; version: string | null }>;
+        clearAvailabilityCache: () => void;
+      };
+      mockedDetectAvailableBackends = freshBackend.detectAvailableBackends;
+      mockedClearAvailabilityCache = freshBackend.clearAvailabilityCache;
+    });
+
+    afterEach(() => {
+      mockedClearAvailabilityCache();
+      jest.resetModules();
+      jest.dontMock('child_process');
+    });
+
+    test('all dispatchable backends available when --version succeeds', () => {
+      mockedExecFileSync.mockReturnValue('1.2.3\n');
+      const result = mockedDetectAvailableBackends('/tmp');
+      expect(result.claude.available).toBe(true);
+      expect(result.codex.available).toBe(true);
+      expect(result.gemini.available).toBe(true);
+      expect(result.opencode.available).toBe(true);
+    });
+
+    test('version string: only first line is captured', () => {
+      mockedExecFileSync.mockReturnValue('version 3.1.0\nBuild date: 2026-01-01\nextra\n');
+      const result = mockedDetectAvailableBackends('/tmp');
+      expect(result.claude.version).toBe('version 3.1.0');
+    });
+
+    test('partial availability: claude and gemini available, codex and opencode not', () => {
+      mockedExecFileSync.mockImplementation((bin: string) => {
+        if (bin === 'claude' || bin === 'gemini') return '2.0.0\n';
+        throw new Error('not found');
+      });
+      const result = mockedDetectAvailableBackends('/tmp');
+      expect(result.claude.available).toBe(true);
+      expect(result.gemini.available).toBe(true);
+      expect(result.codex.available).toBe(false);
+      expect(result.opencode.available).toBe(false);
+    });
+
+    test('no backends available when all --version calls throw', () => {
+      mockedExecFileSync.mockImplementation(() => { throw new Error('not found'); });
+      const result = mockedDetectAvailableBackends('/tmp');
+      expect(result.claude.available).toBe(false);
+      expect(result.codex.available).toBe(false);
+      expect(result.gemini.available).toBe(false);
+      expect(result.opencode.available).toBe(false);
+    });
+
+    test('unavailable backends have version: null', () => {
+      mockedExecFileSync.mockImplementation(() => { throw new Error('not found'); });
+      const result = mockedDetectAvailableBackends('/tmp');
+      expect(result.claude.version).toBeNull();
+      expect(result.codex.version).toBeNull();
+    });
+
+    test('caching: second call does not re-probe (4 calls for 4 backends, not 8)', () => {
+      mockedExecFileSync.mockReturnValue('1.0.0\n');
+      mockedDetectAvailableBackends('/tmp');
+      mockedDetectAvailableBackends('/tmp');
+      expect(mockedExecFileSync).toHaveBeenCalledTimes(4);
+    });
+
+    test('cache expiry: second call after TTL re-probes all backends', () => {
+      mockedExecFileSync.mockReturnValue('1.0.0\n');
+      const realDateNow = Date.now;
+
+      mockedDetectAvailableBackends('/tmp');
+      expect(mockedExecFileSync).toHaveBeenCalledTimes(4);
+
+      // Advance time past the 5-minute TTL
+      Date.now = (): number => realDateNow() + 6 * 60 * 1000;
+      try {
+        mockedDetectAvailableBackends('/tmp');
+        expect(mockedExecFileSync).toHaveBeenCalledTimes(8);
+      } finally {
+        Date.now = realDateNow;
+      }
+    });
+  });
+
+  // ─── loadConfig: backend_roles and discussion section ────────────────────
+
+  describe('loadConfig: backend_roles validation', () => {
+    const { loadConfig } = require('../../lib/utils') as {
+      loadConfig: (cwd?: string) => Record<string, unknown>;
+    };
+    const { captureError } = require('../helpers/setup') as {
+      captureError: (fn: () => void) => { stderr: string; exitCode: number };
+    };
+
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        const fs = require('fs');
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    function writeConfig(obj: Record<string, unknown>): string {
+      const fs = require('fs');
+      const os = require('os');
+      const pathMod = require('path');
+      const dir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'grd-backend-roles-test-'));
+      const planningDir = pathMod.join(dir, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(pathMod.join(planningDir, 'config.json'), JSON.stringify(obj));
+      return dir;
+    }
+
+    test('valid backend_roles: reviewer: codex loads successfully', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', backend_roles: { reviewer: 'codex' } });
+      const config = loadConfig(tmpDir) as { backend_roles?: Record<string, string> };
+      expect(config.backend_roles).toBeDefined();
+      expect(config.backend_roles!.reviewer).toBe('codex');
+    });
+
+    test('invalid backend_roles value produces stderr warning', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', backend_roles: { reviewer: 'invalid-backend' } });
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toMatch(/invalid/i);
+    });
+
+    test('invalid backend_roles role name produces stderr warning', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', backend_roles: { unknown_role: 'claude' } });
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toMatch(/Unrecognized/i);
+    });
+
+    test('discussion section enabled: true fills in default values', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', discussion: { enabled: true } });
+      const config = loadConfig(tmpDir) as { discussion?: Record<string, unknown> };
+      expect(config.discussion).toBeDefined();
+      expect(config.discussion!.enabled).toBe(true);
+      expect(typeof config.discussion!.max_rounds).toBe('number');
+      expect(typeof config.discussion!.timeout_per_round_seconds).toBe('number');
+      expect(config.discussion!.synthesizer).toBe('claude');
+    });
+
+    test('discussion max_rounds: 10 is clamped to 3', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', discussion: { enabled: true, max_rounds: 10 } });
+      const config = loadConfig(tmpDir) as { discussion?: { max_rounds?: number } };
+      expect(config.discussion!.max_rounds).toBe(3);
+    });
+
+    test('discussion max_rounds: 0 is clamped to 1', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', discussion: { enabled: true, max_rounds: 0 } });
+      const config = loadConfig(tmpDir) as { discussion?: { max_rounds?: number } };
+      expect(config.discussion!.max_rounds).toBe(1);
+    });
+
+    test('discussion disabled: false loads successfully', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced', discussion: { enabled: false } });
+      const config = loadConfig(tmpDir) as { discussion?: { enabled?: boolean } };
+      expect(config.discussion).toBeDefined();
+      expect(config.discussion!.enabled).toBe(false);
+    });
+
+    test('discussion section absent: config.discussion is undefined', () => {
+      tmpDir = writeConfig({ model_profile: 'balanced' });
+      const config = loadConfig(tmpDir) as { discussion?: unknown };
+      expect(config.discussion).toBeUndefined();
     });
   });
 });
