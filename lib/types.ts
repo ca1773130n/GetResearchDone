@@ -190,6 +190,55 @@ export interface BackendResponse {
 }
 
 /**
+ * A single entry in a discussion round — either a successful backend response
+ * or a skipped entry when a participant was unavailable.
+ *
+ * Discriminated union: check `'skipped' in entry` to distinguish the two variants.
+ */
+export type DiscussionRoundEntry =
+  | BackendResponse
+  | { backend: BackendId; skipped: true; reason: string };
+
+/**
+ * Result returned by runDiscussion() after a multi-backend discussion completes.
+ */
+export interface DiscussionResult {
+  /** The topic/question posed to all participants. */
+  topic: string;
+  /** Backend IDs of all requested participants (including skipped). */
+  participants: BackendId[];
+  /** Per-round array of participant responses. rounds[0] = round 1, etc. */
+  rounds: DiscussionRoundEntry[][];
+  /** Synthesizer backend response after round 1 collection. */
+  synthesis: BackendResponse;
+  /** Total wall-clock duration in milliseconds. */
+  duration_ms: number;
+  /** Absolute path to the written markdown history file. */
+  discussion_file: string;
+}
+
+/**
+ * Options for the runDiscussion() orchestration function.
+ * All fields are optional; defaults are applied by runDiscussion().
+ */
+export interface RunDiscussionOptions {
+  /** Number of discussion rounds. Default: 2. Clamped to 1-3. */
+  rounds?: number;
+  /** Backend that synthesizes the final answer. Default: 'claude'. */
+  synthesizer?: BackendId;
+  /** Per-round timeout in seconds. Default: 180. */
+  timeout_per_round_seconds?: number;
+  /** Working directory for backend subprocesses. Default: process.cwd(). */
+  cwd?: string;
+  /** Phase identifier used in the output filename. Default: 'unknown'. */
+  phase?: string;
+  /** Type label used in the output filename. Default: 'discussion'. */
+  type?: string;
+  /** Milestone version string used to locate the discussions directory. Default: currentMilestone(cwd). */
+  milestone?: string;
+}
+
+/**
  * Full GRD project configuration as returned by loadConfig().
  * All fields are populated with defaults when not present in config.json.
  */
