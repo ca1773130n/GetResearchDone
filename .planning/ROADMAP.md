@@ -271,7 +271,10 @@ Plans:
   3. `tests/unit/discussion.test.ts` covers `detectAvailableBackends()`, `dispatchToBackend()`, `runDiscussion()`, config validation, and history file I/O at 85%+ line coverage; per-file threshold is added to `jest.config.js`.
   4. Integration test validates the full pipeline: detect backends (mocked PATH) -> configure roles -> run 2-round discussion -> synthesize -> write history file -> read back via `grd_discussion_history` MCP tool; test uses the testbed pattern from v0.2.7.
   5. `npm test` passes with all new tests included; lint and type-check (`npm run build:check`) pass with zero errors.
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 85-01-PLAN.md — Register 4 discussion MCP tools + /grd:discuss slash command
+- [ ] 85-02-PLAN.md — Expand unit tests to 85%+ coverage + integration test for full pipeline
 
 ## Progress
 
@@ -283,7 +286,7 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 | 82. Discussion Infrastructure | v0.3.20 | 3/3 | Complete | 2026-03-23 |
 | 83. Discussion Protocol Core | v0.3.20 | 2/2 | Complete | 2026-03-23 |
 | 84. Workflow Integration | v0.3.20 | 3/3 | Complete | 2026-03-23 |
-| 85. MCP Tools, CLI, and Testing | v0.3.20 | 0/TBD | Not started | - |
+| 85. MCP Tools, CLI, and Testing | v0.3.20 | 0/2 | Planned | - |
 
 ## Deferred Validations
 
