@@ -507,6 +507,5 @@ module.exports = {
   discoverUsabilityItems,
   discoverConsistencyItems,
   discoverStabilityItems,
-  _discoverDimension,
   analyzeCodebaseForItems,
 };
