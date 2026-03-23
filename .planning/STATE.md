@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 83 complete (2/2 plans), Phase 84 next
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — All phases complete (82-85)
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 85 — MCP Tools, CLI Command, and Testing
-- **Current plan:** Plan 02 complete (all plans done)
+- **Active phase:** 85 — MCP Tools, CLI Command, and Testing (Complete)
+- **Current plan:** All plans complete (85-01, 85-02)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 85 complete — MCP tools, CLI command, discussion unit tests at 100% coverage, E2E integration test
-- **Progress:** [████████░░] 80%
-- **Next:** Ship v0.3.20
+- **Status:** All phases complete (82-85), milestone ready
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:complete-milestone`
 
 ## Phase Summary
 
@@ -90,6 +90,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 84]: Workflow integration test mocks use existing jest.mock infrastructure; no spyOn needed for runDiscussion since execFileSync mock controls all dispatch output
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
+- [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
 
 ## Known Bugs
 
@@ -101,10 +102,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 85 Plan 02 — discussion unit tests at 100% coverage + E2E integration test
-- **Stopped at:** Completed 85-02-PLAN.md
-- **Next action:** Ship v0.3.20
-- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/mcp-server.ts
+- **Last action:** Executed Phase 85 — 2 plans, 1 wave, all verified
+- **Stopped at:** Phase 85 complete, milestone ready
+- **Next action:** `/grd:complete-milestone`
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
 

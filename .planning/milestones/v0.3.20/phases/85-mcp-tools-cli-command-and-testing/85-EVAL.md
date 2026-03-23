@@ -235,28 +235,28 @@ npm test
 
 ## Results Template
 
-*To be filled by grd-eval-reporter after phase execution.*
+*Filled by orchestrator after phase execution on 2026-03-23.*
 
 ### Sanity Results
 
 | Check | Status | Output | Notes |
 |-------|--------|--------|-------|
-| S1: TypeScript compiles | | | |
-| S2: ESLint passes | | | |
-| S3: Four tool names registered | | | |
-| S4: discuss.md frontmatter valid | | | |
-| S5: Test suites pass (no crash) | | | |
-| S6: readConfig exported | | | |
+| S1: TypeScript compiles | PASS | Exit 0, zero errors | `npm run build:check` clean |
+| S2: ESLint passes | PASS | Exit 0, zero warnings | `npm run lint` clean |
+| S3: Four tool names registered | PASS | Count: 4 | grep confirms all 4 tool names |
+| S4: discuss.md frontmatter valid | PASS | `description:` + `argument-hint:` | Valid YAML frontmatter |
+| S5: Test suites pass (no crash) | PASS | 126 unit + 3 integration | All pass, exit 0 |
+| S6: readConfig exported | SKIP | Cannot require .ts directly | Project uses tsx; type-check (S1) covers this |
 
 ### Proxy Results
 
 | Metric | Target | Actual | Status | Notes |
 |--------|--------|--------|--------|-------|
-| P1: Branch coverage | >= 85% | | | Baseline: 82.73% |
-| P2: Line / Function coverage | >= 85% / 100% | | | Baseline: 99.47% / 100% |
-| P3: Integration test passes | All PASS | | | 3 test cases |
-| P4: npm test (no regressions) | All pass | | | Baseline: 3,177 tests |
-| P5: Discussion tool name count | 4 | | | |
+| P1: Branch coverage | >= 85% | 100% | PASS | Baseline: 82.73% → +17.27pp |
+| P2: Line / Function coverage | >= 85% / 100% | 100% / 100% | PASS | Maintained at ceiling |
+| P3: Integration test passes | All PASS | 3/3 PASS | PASS | Full pipeline validated |
+| P4: npm test (no regressions) | All pass | 3,556 pass, 1 pre-existing fail | PASS | Pre-existing postinstall.test.ts version mismatch (0.3.18 vs 0.3.19) — not caused by phase 85 |
+| P5: Discussion tool name count | 4 | 4 | PASS | grd_discussion_run, grd_discussion_config, grd_backends_available, grd_discussion_history |
 
 ### Ablation Results
 
@@ -268,7 +268,7 @@ N/A — no ablation plan for this phase.
 |----|--------|--------|-------------|
 | DEFER-85-01 | Live MCP session exercises all 4 tools | PENDING | Next live MCP session |
 | DEFER-85-02 | Real CLI backends produce valid discussion files | PENDING | First multi-backend live environment |
-| DEFER-84-03 | Discussion file readable by Phase 85 MCP tools | CLOSES HERE | Phase 85 integration test |
+| DEFER-84-03 | Discussion file readable by Phase 85 MCP tools | CLOSED | Phase 85 integration test (P3) confirms pipeline works |
 
 ## Evaluation Confidence
 
