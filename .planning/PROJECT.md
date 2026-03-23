@@ -3,18 +3,19 @@
 **Created:** 2026-02-12
 **Updated:** 2026-03-23
 
-## Current Milestone: v0.3.20 — Multi-Agent Cross-Backend Discussion
+## Current Milestone: v0.3.21 — Elicitation Replacement: Multi-Backend Discussion as Autonomous Decision Layer
 
-**Goal:** Enable true multi-backend agent swarms where different AI backends (Claude Code, Codex, Gemini, OpenCode) collaborate on planning discussions, code review, and execution verification. Users can configure which backend handles which role (e.g., Codex for code review, Gemini for brainstorming). This is a unique GRD feature — no other open-source project supports cross-backend agent collaboration.
+**Goal:** Transform the multi-backend discussion system from a standalone tool into an autonomous decision layer. When the primary backend would normally block waiting for user input (clarifying questions during planning, design decisions during execution), route those questions to the other AI backends as a multi-agent discussion and feed the consensus back — enabling truly unattended autopilot and evolve.
 
 **Target features:**
-- Multi-backend discussion protocol for planning and brainstorming (auto-discussion before plan/execute)
-- Configurable reviewer backend selection (plans, code, PRs)
-- Cross-backend agent dispatch (spawn review/discussion agents on non-primary backends)
-- Backend role registry (map capabilities to roles: reviewer, brainstormer, verifier, executor)
-- Discussion round orchestration (multi-turn cross-backend dialogue with synthesis)
+- Elicitation interception: detect when primary backend emits clarifying questions
+- Multi-backend discussion routing: dispatch intercepted questions to other backends for deliberation
+- Consensus feedback: synthesize discussion results and feed back as user response
+- Context enrichment: pass sufficient project context (phase goal, plan, code) to discussion participants
+- Autopilot integration: wire elicitation replacement into plan-phase and execute-phase workflows
+- Evolve integration: wire into evolve loop for autonomous self-improvement decisions
 
-**Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
+**Previous:** v0.3.20 Multi-Agent Cross-Backend Discussion (shipped 2026-03-23)
 
 ## Vision
 

@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — All phases complete (82-85)
-**Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
+**Current focus:** v0.3.21 Elicitation Replacement — Multi-Backend Discussion as Autonomous Decision Layer
+**Previous:** v0.3.20 Multi-Agent Cross-Backend Discussion (shipped 2026-03-23)
 
 ## Current Position
 
-- **Active phase:** 85 — MCP Tools, CLI Command, and Testing (Complete)
-- **Current plan:** All plans complete (85-01, 85-02)
-- **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** All phases complete (82-85), milestone ready
-- **Progress:** [██████████] 100%
-- **Next:** `/grd:complete-milestone`
+- **Active phase:** Not started (defining requirements)
+- **Current plan:** —
+- **Milestone:** v0.3.21 Elicitation Replacement
+- **Status:** Initializing
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** `/grd:plan-phase 86`
 
 ## Phase Summary
 

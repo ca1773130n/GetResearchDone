@@ -29,7 +29,8 @@
 - v0.3.7 Claude Code Feature Sync - Phases 71-73 (shipped 2026-03-12)
 - v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (shipped 2026-03-20)
 - v0.3.13 Wireup Command - Phases 78-81 (shipped 2026-03-21)
-- v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (in progress)
+- v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (shipped 2026-03-23)
+- v0.3.21 Elicitation Replacement - Phases 86-88 (in progress)
 
 ## Phases
 
@@ -303,3 +304,47 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 | Phase 78 | Scenario executability by Phase 79 HTTP/CLI engine (DEFER-78-02) | Phase 79, plan 79-02 | Pending |
 | Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
+
+### v0.3.21 Elicitation Replacement (In Progress)
+
+**Milestone Goal:** Transform multi-backend discussion from a standalone tool into an autonomous decision layer — when the primary backend asks clarifying questions, route them to other AI backends for deliberation and feed the consensus back, enabling truly unattended autopilot and evolve.
+**Start:** 2026-03-23
+
+- [ ] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement`
+- [ ] **Phase 87: Autopilot and Plan-Phase Integration** - Async subprocess spawning with stdin/stdout streaming, elicitation interception in autopilot and plan-phase `implement`
+- [ ] **Phase 88: Execute-Phase, Evolve Integration, and E2E Testing** - Execute-phase and evolve loop integration, full pipeline integration test `integrate`
+
+#### Phase 86: Elicitation Detection and Resolution Core
+**Goal**: The core elicitation primitives are in place — `detectElicitation()` reliably identifies questions in subprocess output, `buildElicitationContext()` packages relevant project context, and `resolveElicitation()` routes questions through multi-backend discussion and returns a consensus answer.
+**Type**: implement
+**Requirements**: REQ-150, REQ-151, REQ-152, REQ-157
+**Verification Level**: proxy
+**Success Criteria**:
+  1. `detectElicitation(output)` correctly identifies question patterns (lines ending with `?`, numbered options, "Please clarify") while avoiding false positives (questions in code comments, string literals, markdown headers).
+  2. `buildElicitationContext()` produces a concise context string (under 8K tokens) containing the question, phase goal, plan summary, and recent changes.
+  3. `resolveElicitation()` dispatches to configured participants, synthesizes a single-round discussion, and returns the consensus answer string. Handles all-unavailable gracefully (returns empty string).
+  4. Unit tests cover detection patterns, false positive rejection, context building, and routing with 90%+ line coverage.
+
+#### Phase 87: Autopilot and Plan-Phase Integration
+**Goal**: Autopilot subprocess spawning supports elicitation interception — detected questions are resolved via multi-backend discussion and the answer is fed back to the subprocess stdin, enabling uninterrupted autonomous planning.
+**Type**: implement
+**Depends on**: Phase 86
+**Requirements**: REQ-153, REQ-154, REQ-159
+**Verification Level**: proxy
+**Success Criteria**:
+  1. Autopilot subprocess spawning uses async `execFile` with stdin/stdout streaming when `elicitation_replacement` is enabled.
+  2. Detected questions in planner subprocess output are intercepted, resolved via `resolveElicitation()`, and the answer is written to subprocess stdin.
+  3. `elicitation_replacement` config flag controls the feature (default: true when discussion enabled and participants available).
+  4. Elicitation settings exposed in `/grd:settings` interview.
+
+#### Phase 88: Execute-Phase, Evolve Integration, and E2E Testing
+**Goal**: Elicitation replacement is wired into all autonomous workflows (execute-phase, evolve) and validated end-to-end.
+**Type**: integrate
+**Depends on**: Phase 87
+**Requirements**: REQ-155, REQ-156, REQ-158
+**Verification Level**: full
+**Success Criteria**:
+  1. Execute-phase subprocess spawning supports elicitation interception (same mechanism as plan-phase).
+  2. Evolve loop sub-agents support elicitation interception for discovery, selection, and execution decisions.
+  3. E2E integration test validates: mock primary backend emits question → detection fires → discussion dispatched → consensus synthesized → answer fed back → subprocess continues.
+  4. `npm test` passes with all new tests; lint and type-check pass.
