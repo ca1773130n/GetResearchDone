@@ -235,7 +235,7 @@ export interface RunDiscussionOptions {
   /** Type label used in the output filename. Default: 'discussion'. */
   type?: string;
   /** Milestone version string used to locate the discussions directory. Default: currentMilestone(cwd). */
-  milestone?: string;
+  milestone?: string | null;
 }
 
 /**

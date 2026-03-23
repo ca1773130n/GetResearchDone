@@ -389,7 +389,7 @@ describe('lib/discussion.ts', () => {
       childProcess.execFileSync.mockReturnValue('Mock backend response');
     });
 
-    // ─── SC1: Parallel dispatch ───────────────────────────────────────────
+    // ─── SC1: Sequential dispatch ──────────────────────────────────────────
 
     test('SC1: dispatches to each participant and synthesizer for rounds=1', async () => {
       const result = await runDiscussion('test topic', ['claude', 'codex'], { rounds: 1 });
@@ -732,6 +732,12 @@ describe('lib/discussion.ts', () => {
       readDiscussion('file.md', '/root/project', 'v3.0.0');
 
       expect(pathsModule.discussionsDir).toHaveBeenCalledWith('/root/project', 'v3.0.0');
+    });
+
+    test('throws on path traversal attempt', () => {
+      expect(() => readDiscussion('../../etc/passwd', '/my/project')).toThrow(
+        /escape discussions directory/
+      );
     });
 
     test('calls readFileSync with utf-8 encoding', () => {

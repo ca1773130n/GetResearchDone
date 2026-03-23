@@ -11,19 +11,16 @@
  *    orchestration to route turns to multiple backends and synthesize results.
  *
  * 2. runDiscussion() — the complete discussion round orchestration function.
- *    Dispatches to all participants in parallel, synthesizes, runs optional
+ *    Dispatches to all participants sequentially, synthesizes, runs optional
  *    additional rounds, writes a markdown history file, and returns a
  *    DiscussionResult.
  *
  * Supported dispatchable backends: claude, codex, gemini, opencode.
  * Meta-backends (overstory, superpowers, grd) are not dispatchable.
  *
- * NOTE on true parallelism: execFileSync blocks the event loop, so wrapping
- * each participant dispatch in Promise.allSettled() provides structural
- * concurrency (all promises launch before any awaits) but not OS-level
- * parallelism. For ≤4 participants this is acceptable — each backend is
- * sequentially dispatched but the calling code is written as if parallel.
- * True OS-level parallelism would require execFile (async) or worker threads.
+ * NOTE: Dispatch uses execFileSync which blocks the event loop. Each
+ * participant is dispatched sequentially. For ≤4 participants this is
+ * acceptable. True parallelism would require execFile (async) or worker threads.
  *
  * @module discussion
  */
@@ -63,6 +60,7 @@ const fs = require('fs') as {
 const path = require('path') as {
   join: (...parts: string[]) => string;
   dirname: (p: string) => string;
+  sep: string;
 };
 
 const { detectAvailableBackends } = require('./backend') as {
@@ -136,11 +134,10 @@ const BACKEND_CLI_MAP: Record<
 function dispatchToBackend(
   backendId: BackendId,
   prompt: string,
-  options?: DispatchOptions
+  options?: DispatchOptions & { _availability?: Record<BackendId, BackendAvailability> }
 ): BackendResponse {
   const cliEntry = BACKEND_CLI_MAP[backendId as string];
 
-  // Validate backend is dispatchable
   if (!cliEntry) {
     return {
       backend: backendId,
@@ -150,9 +147,9 @@ function dispatchToBackend(
     };
   }
 
-  // Check availability via detectAvailableBackends
   const cwd: string = options?.cwd ?? process.cwd();
-  const availability: Record<BackendId, BackendAvailability> = detectAvailableBackends(cwd);
+  const availability: Record<BackendId, BackendAvailability> =
+    options?._availability ?? detectAvailableBackends(cwd);
   if (!availability[backendId]?.available) {
     return {
       backend: backendId,
@@ -189,7 +186,6 @@ function dispatchToBackend(
       message?: string;
     };
 
-    // Timeout: killed by signal or exceeded timeout
     if (error.killed || error.signal === 'SIGTERM') {
       return {
         backend: backendId,
@@ -264,21 +260,7 @@ function buildDiscussionMarkdown(result: DiscussionResult, phase: string, type: 
   );
   lines.push(`**Timestamp:** ${new Date().toISOString()}`, '');
 
-  // Round 1
-  lines.push('## Round 1', '');
-  for (const entry of result.rounds[0]) {
-    if ('skipped' in entry) {
-      lines.push(`### ${entry.backend} Response`, `[SKIPPED: ${entry.reason}]`, '---', '');
-    } else {
-      lines.push(`### ${entry.backend} Response`, entry.response_text, '---', '');
-    }
-  }
-
-  // Synthesis
-  lines.push(`## Synthesis (${result.synthesis.backend})`, '', result.synthesis.response_text, '');
-
-  // Subsequent rounds
-  for (let i = 1; i < result.rounds.length; i++) {
+  for (let i = 0; i < result.rounds.length; i++) {
     lines.push(`## Round ${i + 1}`, '');
     for (const entry of result.rounds[i]) {
       if ('skipped' in entry) {
@@ -286,6 +268,10 @@ function buildDiscussionMarkdown(result: DiscussionResult, phase: string, type: 
       } else {
         lines.push(`### ${entry.backend} Response`, entry.response_text, '---', '');
       }
+    }
+    // Insert synthesis after round 1
+    if (i === 0) {
+      lines.push(`## Synthesis (${result.synthesis.backend})`, '', result.synthesis.response_text, '');
     }
   }
 
@@ -296,10 +282,28 @@ function buildDiscussionMarkdown(result: DiscussionResult, phase: string, type: 
 }
 
 /**
+ * Dispatch a prompt to all participants and collect results.
+ * Skips unavailable participants with a `{ skipped: true }` entry.
+ */
+function dispatchRound(
+  participants: BackendId[],
+  prompt: string,
+  availability: Record<BackendId, BackendAvailability>,
+  dispatchOpts: DispatchOptions & { _availability?: Record<BackendId, BackendAvailability> }
+): DiscussionRoundEntry[] {
+  return participants.map((participant): DiscussionRoundEntry => {
+    if (!availability[participant]?.available) {
+      return { backend: participant, skipped: true, reason: `Backend "${participant}" is not available` };
+    }
+    return dispatchToBackend(participant, prompt, dispatchOpts);
+  });
+}
+
+/**
  * Run a multi-backend discussion and return a structured result.
  *
- * Dispatches the topic to all participants in parallel (structural concurrency —
- * see module-level NOTE), synthesizes responses, optionally runs additional
+ * Dispatches the topic to all participants (see module-level NOTE on
+ * concurrency), synthesizes responses, optionally runs additional
  * rounds, writes a markdown history file, and returns a typed DiscussionResult.
  *
  * Unavailable participants produce `{ skipped: true, reason }` entries;
@@ -336,109 +340,41 @@ async function runDiscussion(
   const availability: Record<BackendId, BackendAvailability> = detectAvailableBackends(cwd);
 
   // Build discussion filename and resolve directory
-  const filename = `discussion-${phase}-${type}-${Date.now()}.md`;
+  // Sanitize phase/type to prevent path traversal via path separators
+  const safePhase = phase.replace(/[/\\]/g, '_');
+  const safeType = type.replace(/[/\\]/g, '_');
+  const filename = `discussion-${safePhase}-${safeType}-${Date.now()}.md`;
   const dir = discussionsDir(cwd, milestone);
 
   const timeoutMs: number = timeout_per_round_seconds * 1000;
 
-  // --- Round 1: Parallel dispatch to all participants ---
-  const round1Settled = await Promise.allSettled(
-    participants.map((participant) => {
-      if (!availability[participant]?.available) {
-        return Promise.resolve<DiscussionRoundEntry>({
-          backend: participant,
-          skipped: true,
-          reason: `Backend "${participant}" is not available`,
-        });
-      }
-      return Promise.resolve<DiscussionRoundEntry>(
-        (() => {
-          try {
-            return dispatchToBackend(participant, topic, { timeout_ms: timeoutMs, cwd });
-          } catch (err: unknown) {
-            return {
-              backend: participant,
-              skipped: true,
-              reason: String(err),
-            };
-          }
-        })()
-      );
-    })
-  );
+  const dispatchOpts = { timeout_ms: timeoutMs, cwd, _availability: availability };
 
-  const round1Results: DiscussionRoundEntry[] = round1Settled.map((settled) => {
-    if (settled.status === 'fulfilled') {
-      return settled.value;
-    }
-    return {
-      backend: 'claude' as BackendId,
-      skipped: true,
-      reason: String(settled.reason),
-    };
-  });
+  // --- Round 1: Parallel dispatch to all participants ---
+  const round1Results = dispatchRound(participants, topic, availability, dispatchOpts);
 
   // --- Synthesis ---
   const synthPrompt = buildSynthesisPrompt(topic, round1Results);
-  const synthesis: BackendResponse = dispatchToBackend(synthesizer, synthPrompt, {
-    timeout_ms: timeoutMs,
-    cwd,
-  });
+  const synthesis: BackendResponse = dispatchToBackend(synthesizer, synthPrompt, dispatchOpts);
 
   // --- Additional rounds (round 2+) ---
   const allRounds: DiscussionRoundEntry[][] = [round1Results];
 
   for (let roundNum = 2; roundNum <= clampedRounds; roundNum++) {
     const roundPrompt = [
-      `You are participating in a multi-round discussion on the following topic:`,
+      'You are participating in a multi-round discussion on the following topic:',
       '',
-      `## Topic`,
+      '## Topic',
       topic,
       '',
-      `## Synthesis from Previous Round`,
+      '## Synthesis from Previous Round',
       synthesis.response_text,
       '',
-      `## Instructions`,
-      `Please respond to the synthesis above. Do you agree, disagree, or have additional insights to add?`,
+      '## Instructions',
+      'Please respond to the synthesis above. Do you agree, disagree, or have additional insights to add?',
     ].join('\n');
 
-    const roundSettled = await Promise.allSettled(
-      participants.map((participant) => {
-        if (!availability[participant]?.available) {
-          return Promise.resolve<DiscussionRoundEntry>({
-            backend: participant,
-            skipped: true,
-            reason: `Backend "${participant}" is not available`,
-          });
-        }
-        return Promise.resolve<DiscussionRoundEntry>(
-          (() => {
-            try {
-              return dispatchToBackend(participant, roundPrompt, { timeout_ms: timeoutMs, cwd });
-            } catch (err: unknown) {
-              return {
-                backend: participant,
-                skipped: true,
-                reason: String(err),
-              };
-            }
-          })()
-        );
-      })
-    );
-
-    const roundResults: DiscussionRoundEntry[] = roundSettled.map((settled) => {
-      if (settled.status === 'fulfilled') {
-        return settled.value;
-      }
-      return {
-        backend: 'claude' as BackendId,
-        skipped: true,
-        reason: String(settled.reason),
-      };
-    });
-
-    allRounds.push(roundResults);
+    allRounds.push(dispatchRound(participants, roundPrompt, availability, dispatchOpts));
   }
 
   // --- Build result ---
@@ -491,6 +427,9 @@ function readDiscussion(
 ): string | null {
   const dir = discussionsDir(cwd, milestone);
   const filePath = path.join(dir, filename);
+  if (!filePath.startsWith(dir + path.sep) && filePath !== dir) {
+    throw new Error('Invalid filename: path would escape discussions directory');
+  }
   if (!fs.existsSync(filePath)) {
     return null;
   }
