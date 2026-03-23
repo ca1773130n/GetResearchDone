@@ -196,6 +196,9 @@ function cmdInitExecutePhase(
   const webmcp = detectWebMcp(cwd);
   const overstoryConfig = backend === 'overstory' ? loadOverstoryConfig(cwd) : null;
 
+  // Cache detectAvailableBackends result to avoid multiple calls
+  const availableBackends = detectAvailableBackends(cwd);
+
   const result: Record<string, unknown> = {
     // Backend
     backend,
@@ -229,6 +232,23 @@ function cmdInitExecutePhase(
     code_review_timing: config.code_review_timing,
     code_review_severity_gate: config.code_review_severity_gate,
     code_review_auto_fix_warnings: config.code_review_auto_fix_warnings,
+
+    // Discussion & review config
+    discussion_before_execution: config.discussion?.before_execution ?? false,
+    discussion_enabled: config.discussion?.enabled ?? true,
+    brainstormer_backend: config.backend_roles?.brainstormer ?? null,
+    brainstormer_available: (() => {
+      const brainstormer = config.backend_roles?.brainstormer ?? null;
+      if (!brainstormer) return false;
+      return availableBackends[brainstormer]?.available === true;
+    })(),
+    reviewer_backend: config.backend_roles?.reviewer ?? null,
+    reviewer_available: (() => {
+      const reviewer = config.backend_roles?.reviewer ?? null;
+      if (!reviewer) return false;
+      return availableBackends[reviewer]?.available === true;
+    })(),
+    pr_review_enabled: config.code_review_enabled === true && !!(config.backend_roles?.reviewer),
 
     // Execution config
     use_teams: config.use_teams,
