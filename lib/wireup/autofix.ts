@@ -233,7 +233,6 @@ function updateFixOutcome(
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
-  WIREUP_FIX_MODEL,
   classifyFixConfidence,
   buildAutoFixPrompt,
   autoFixIssue,
