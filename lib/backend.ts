@@ -813,4 +813,5 @@ module.exports = {
   detectPlaywright,
   detectAvailableBackends,
   clearAvailabilityCache,
+  readConfig,
 };

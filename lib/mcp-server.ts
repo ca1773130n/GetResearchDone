@@ -177,6 +177,30 @@ const {
   cmdWireupScenarios: (cwd: string, args: string[], raw: boolean) => void;
   cmdWireupReport: (cwd: string, args: string[], raw: boolean) => void;
 } = require('./wireup');
+
+import type { BackendId, BackendAvailability, DiscussionResult } from './types';
+
+const {
+  runDiscussion,
+  listDiscussions,
+  readDiscussion,
+}: {
+  runDiscussion: (
+    topic: string,
+    participants: BackendId[],
+    options?: Record<string, unknown>
+  ) => Promise<DiscussionResult>;
+  listDiscussions: (cwd: string, milestone?: string | null) => string[];
+  readDiscussion: (filename: string, cwd: string, milestone?: string | null) => string | null;
+} = require('./discussion');
+
+const {
+  detectAvailableBackends,
+  readConfig,
+}: {
+  detectAvailableBackends: (cwd?: string) => Record<BackendId, BackendAvailability>;
+  readConfig: (cwd: string) => Record<string, unknown> | null;
+} = require('./backend');
 const {
   splitMarkdown,
   isIndexFile,
@@ -2635,6 +2659,101 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       'Get the latest wireup report with pass/fail results and issue summary',
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => cmdWireupReport(cwd, [], false),
+  },
+
+  // -- Discussion Tools --
+  {
+    name: 'grd_discussion_run',
+    description:
+      'Run an ad-hoc multi-backend discussion on a topic. Dispatches to configured participants and synthesizes a final answer.',
+    params: [
+      {
+        name: 'topic',
+        type: 'string',
+        required: true,
+        description: 'The topic or question to discuss',
+      },
+      {
+        name: 'participants',
+        type: 'string',
+        required: false,
+        description: 'Comma-separated backend IDs to participate (e.g. "claude,gemini")',
+      },
+      {
+        name: 'rounds',
+        type: 'number',
+        required: false,
+        description: 'Number of discussion rounds (default: 2)',
+      },
+      {
+        name: 'synthesizer',
+        type: 'string',
+        required: false,
+        description: 'Backend to synthesize final answer (default: claude)',
+      },
+    ],
+    execute: async (cwd: string, args: Record<string, unknown>) => {
+      const topic = args.topic as string;
+      const participantStr = args.participants as string | undefined;
+      const participants: BackendId[] = participantStr
+        ? (participantStr.split(',').map((s) => s.trim()).filter(Boolean) as BackendId[])
+        : [];
+      const result = await runDiscussion(topic, participants, {
+        rounds: args.rounds as number | undefined,
+        synthesizer: args.synthesizer as BackendId | undefined,
+        cwd,
+      });
+      return JSON.stringify(result);
+    },
+  },
+  {
+    name: 'grd_discussion_config',
+    description:
+      'Read discussion configuration from config.json — returns discussion settings and backend_roles',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => {
+      const config = readConfig(cwd) ?? {};
+      return JSON.stringify({
+        discussion: (config.discussion as Record<string, unknown>) ?? {},
+        backend_roles: (config.backend_roles as Record<string, unknown>) ?? {},
+      });
+    },
+  },
+  {
+    name: 'grd_backends_available',
+    description:
+      'List all available backends and their configured roles. Returns a map of backend availability and role assignments.',
+    params: [],
+    execute: (cwd: string, _args: Record<string, unknown>) => {
+      const backends = detectAvailableBackends(cwd);
+      const config = readConfig(cwd) ?? {};
+      return JSON.stringify({
+        backends,
+        roles: (config.backend_roles as Record<string, unknown>) ?? {},
+      });
+    },
+  },
+  {
+    name: 'grd_discussion_history',
+    description:
+      'List or read discussion history. Without filename lists all discussions; with filename reads a specific discussion file.',
+    params: [
+      {
+        name: 'filename',
+        type: 'string',
+        required: false,
+        description: 'Specific discussion file to read (omit to list all)',
+      },
+    ],
+    execute: (cwd: string, args: Record<string, unknown>) => {
+      const filename = args.filename as string | undefined;
+      if (filename) {
+        const content = readDiscussion(filename, cwd);
+        return JSON.stringify({ filename, content });
+      }
+      const files = listDiscussions(cwd);
+      return JSON.stringify(files);
+    },
   },
 
   // ── Markdown Splitting ──
