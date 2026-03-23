@@ -1216,8 +1216,7 @@ function resolveElicitation(
     'Do not ask clarifying questions. Provide a direct, actionable answer.',
   ].join('\n');
 
-  let result: ReturnType<typeof runDiscussion> | null = null;
-
+  let result: DiscussionResult;
   try {
     result = runDiscussion(topic, participants, {
       rounds: 1,
@@ -1228,8 +1227,6 @@ function resolveElicitation(
   } catch {
     return '';
   }
-
-  if (!result) return '';
 
   // Happy path: synthesis has response text
   const synthText =
