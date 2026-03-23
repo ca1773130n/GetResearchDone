@@ -458,7 +458,6 @@ function cmdRequirementUpdateStatus(
 }
 
 module.exports = {
-  _reqContentCache,
   readCachedRequirements,
   parseRequirements,
   parseTraceabilityMatrix,
