@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 82 ready to plan
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 82 complete, Phase 83 next
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 82 — Discussion Infrastructure
+- **Active phase:** 83 — Discussion Protocol Core
 - **Current plan:** (none yet)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Ready to plan
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 82`
+- **Status:** Phase 82 complete, ready to plan Phase 83
+- **Progress:** [██▓░░░░░░░] 25%
+- **Next:** `/grd:plan-phase 83`
 
 ## Phase Summary
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
 | 80 | Browser Execution and Auto-Fix | Complete (2026-03-21) |
 | 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
-| 82 | Discussion Infrastructure | Not started |
+| 82 | Discussion Infrastructure | Complete (2026-03-23) |
 | 83 | Discussion Protocol Core | Not started |
 | 84 | Workflow Integration | Not started |
 | 85 | MCP Tools, CLI Command, and Testing | Not started |
@@ -83,6 +83,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync; cmdInitWireup in lib/wireup/cli.ts mirrors cmdInitEvolve
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
+- [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
 
 ## Known Bugs
 
@@ -94,10 +95,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created ROADMAP.md for v0.3.20 — phases 82-85 defined
-- **Stopped at:** Roadmap created, ready to plan Phase 82
-- **Next action:** `/grd:plan-phase 82`
-- **Context needed:** .planning/STATE.md, .planning/REQUIREMENTS.md, lib/backend.ts
+- **Last action:** Executed Phase 82 — 3 plans, 2 waves, all verified
+- **Stopped at:** Phase 82 complete, verified passed (18/18 sanity, 7/7 proxy)
+- **Next action:** `/grd:plan-phase 83`
+- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts
 
 ---
 

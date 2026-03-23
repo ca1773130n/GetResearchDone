@@ -203,7 +203,7 @@ Phases 78-81 added `/grd:wireup` command — end-to-end integration wiring compl
 **Milestone Goal:** Enable GRD to orchestrate multi-backend AI discussions — dispatching prompts to Codex, Gemini, and OpenCode, synthesizing their responses, and integrating the output into plan-phase, execute-phase, and code review workflows.
 **Start:** 2026-03-23
 
-- [ ] **Phase 82: Discussion Infrastructure** - Backend role config, availability detection, dispatch primitives, and model ceiling `implement`
+- [x] **Phase 82: Discussion Infrastructure** - Backend role config, availability detection, dispatch primitives, and model ceiling `implement` *(completed 2026-03-23)*
 - [ ] **Phase 83: Discussion Protocol Core** - Round orchestration, synthesis, and discussion state/history `implement`
 - [ ] **Phase 84: Workflow Integration** - Auto-discussion before planning/execution and cross-backend plan/code/PR review `implement`
 - [ ] **Phase 85: MCP Tools, CLI Command, and Testing** - grd_discussion_* MCP tools, /grd:discuss command, unit/integration tests `integrate`
@@ -276,7 +276,7 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 82. Discussion Infrastructure | v0.3.20 | 0/TBD | Not started | - |
+| 82. Discussion Infrastructure | v0.3.20 | 3/3 | Complete | 2026-03-23 |
 | 83. Discussion Protocol Core | v0.3.20 | 0/TBD | Not started | - |
 | 84. Workflow Integration | v0.3.20 | 0/TBD | Not started | - |
 | 85. MCP Tools, CLI, and Testing | v0.3.20 | 0/TBD | Not started | - |
