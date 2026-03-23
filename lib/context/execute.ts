@@ -459,6 +459,7 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
   const backendCaps = getBackendCapabilities(backend);
   const phaseInfo = findPhaseInternal(cwd, phase);
   const webmcp = detectWebMcp(cwd);
+  const availableBackendsPlan = detectAvailableBackends(cwd);
 
   const result: Record<string, unknown> = {
     // Backend
@@ -533,15 +534,13 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     brainstormer_available: (() => {
       const brainstormer = config.backend_roles?.brainstormer ?? null;
       if (!brainstormer) return false;
-      const available = detectAvailableBackends(cwd);
-      return available[brainstormer]?.available === true;
+      return availableBackendsPlan[brainstormer]?.available === true;
     })(),
     reviewer_backend: config.backend_roles?.reviewer ?? null,
     reviewer_available: (() => {
       const reviewer = config.backend_roles?.reviewer ?? null;
       if (!reviewer) return false;
-      const available = detectAvailableBackends(cwd);
-      return available[reviewer]?.available === true;
+      return availableBackendsPlan[reviewer]?.available === true;
     })(),
   };
 

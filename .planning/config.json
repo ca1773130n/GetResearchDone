@@ -60,5 +60,16 @@
     "timing": "per_phase",
     "severity_gate": "blocker",
     "auto_fix_warnings": true
+  },
+  "discussion": {
+    "enabled": true,
+    "before_planning": true,
+    "before_execution": true,
+    "participants": ["claude", "codex", "gemini", "opencode"],
+    "synthesizer": "claude"
+  },
+  "backend_roles": {
+    "brainstormer": "gemini",
+    "reviewer": "codex"
   }
 }

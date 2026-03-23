@@ -299,3 +299,10 @@
 [2026-03-23T12:42:11.917Z] Phase 85: post-pipeline — create PR
 [2026-03-23T12:42:17.143Z] Phase 85: PR created — https://github.com/ca1773130n/GetResearchDone/pull/18
 [2026-03-23T12:42:17.143Z] Phase 85: post-pipeline — code review
+[2026-03-23T12:48:41.941Z] Phase 85: post-pipeline — rebase & merge
+[2026-03-23T12:48:41.966Z] Phase 85: rebase conflicts detected, attempting auto-resolution
+[2026-03-23T12:49:16.955Z] Phase 85: post-pipeline FAILED at merge: ! Pull request ca1773130n/GetResearchDone#18 was already merged
+failed to run git: fatal: 'main' is already used by worktree at '/Users/neo/Developer/Projects/GetResearchDone'
+
+
+[2026-03-23T12:49:16.960Z] Done: 0/1 phases completed (stopped: Phase 85 post-pipeline failed at merge)

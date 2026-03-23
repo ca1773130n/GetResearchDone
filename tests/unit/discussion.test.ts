@@ -18,6 +18,7 @@ jest.mock('child_process');
 jest.mock('../../lib/backend');
 jest.mock('fs');
 jest.mock('../../lib/paths');
+jest.mock('../../lib/utils');
 
 const childProcess = require('child_process') as {
   execFileSync: jest.Mock;
@@ -25,6 +26,7 @@ const childProcess = require('child_process') as {
 
 const backendModule = require('../../lib/backend') as {
   detectAvailableBackends: jest.Mock;
+  buildBackendEnv: jest.Mock;
 };
 
 const fsModule = require('fs') as {
@@ -37,6 +39,10 @@ const fsModule = require('fs') as {
 
 const pathsModule = require('../../lib/paths') as {
   discussionsDir: jest.Mock;
+};
+
+const utilsModule = require('../../lib/utils') as {
+  safeReadFile: jest.Mock;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -179,6 +185,7 @@ describe('lib/discussion.ts', () => {
     jest.clearAllMocks();
     // Default: all four dispatchable backends are available
     backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+    backendModule.buildBackendEnv.mockReturnValue(process.env);
     // Default: discussionsDir returns a known temp path
     pathsModule.discussionsDir.mockReturnValue(FAKE_DISCUSSIONS_DIR);
     // Default fs behaviour
@@ -234,20 +241,29 @@ describe('lib/discussion.ts', () => {
       expect(args).not.toContain('--model');
     });
 
-    test('codex buildArgs includes -q and the prompt', () => {
+    test('codex buildArgs uses exec subcommand', () => {
       const args = BACKEND_CLI_MAP.codex.buildArgs('test prompt');
-      expect(args).toContain('-q');
-      expect(args).toContain('test prompt');
+      expect(args).toEqual(['exec', 'test prompt']);
     });
 
-    test('gemini buildArgs is just [prompt]', () => {
+    test('gemini buildArgs uses -p flag and yolo approval for headless mode', () => {
       const args = BACKEND_CLI_MAP.gemini.buildArgs('test prompt');
-      expect(args).toEqual(['test prompt']);
+      expect(args).toEqual(['-p', 'test prompt', '--approval-mode', 'yolo']);
     });
 
-    test('opencode buildArgs is just [prompt]', () => {
+    test('gemini buildArgs includes model with -m flag', () => {
+      const args = BACKEND_CLI_MAP.gemini.buildArgs('test prompt', 'gemini-2.5-pro');
+      expect(args).toEqual(['-p', 'test prompt', '--approval-mode', 'yolo', '-m', 'gemini-2.5-pro']);
+    });
+
+    test('opencode buildArgs uses run subcommand', () => {
       const args = BACKEND_CLI_MAP.opencode.buildArgs('test prompt');
-      expect(args).toEqual(['test prompt']);
+      expect(args).toEqual(['run', 'test prompt']);
+    });
+
+    test('opencode buildArgs includes model with -m flag', () => {
+      const args = BACKEND_CLI_MAP.opencode.buildArgs('test prompt', 'claude-sonnet-4-5-20250514');
+      expect(args).toEqual(['run', '-m', 'claude-sonnet-4-5-20250514', 'test prompt']);
     });
   });
 
@@ -276,29 +292,28 @@ describe('lib/discussion.ts', () => {
       expect(args).toContain('claude-opus-4-6');
     });
 
-    test('codex: passes -q and prompt to execFileSync', () => {
+    test('codex: passes exec subcommand and prompt to execFileSync', () => {
       childProcess.execFileSync.mockReturnValue('Codex response');
       dispatchToBackend('codex', 'hello codex');
       const [bin, args] = childProcess.execFileSync.mock.calls[0] as [string, string[]];
       expect(bin).toBe('codex');
-      expect(args).toContain('-q');
-      expect(args).toContain('hello codex');
+      expect(args).toEqual(['exec', 'hello codex']);
     });
 
-    test('gemini: passes just [prompt] to execFileSync', () => {
+    test('gemini: passes -p flag, yolo approval, and prompt to execFileSync', () => {
       childProcess.execFileSync.mockReturnValue('Gemini response');
       dispatchToBackend('gemini', 'hello gemini');
       const [bin, args] = childProcess.execFileSync.mock.calls[0] as [string, string[]];
       expect(bin).toBe('gemini');
-      expect(args).toEqual(['hello gemini']);
+      expect(args).toEqual(['-p', 'hello gemini', '--approval-mode', 'yolo']);
     });
 
-    test('opencode: passes just [prompt] to execFileSync', () => {
+    test('opencode: passes run subcommand and prompt to execFileSync', () => {
       childProcess.execFileSync.mockReturnValue('OpenCode response');
       dispatchToBackend('opencode', 'hello opencode');
       const [bin, args] = childProcess.execFileSync.mock.calls[0] as [string, string[]];
       expect(bin).toBe('opencode');
-      expect(args).toEqual(['hello opencode']);
+      expect(args).toEqual(['run', 'hello opencode']);
     });
 
     // ─── Successful response ──────────────────────────────────────────────
@@ -339,17 +354,17 @@ describe('lib/discussion.ts', () => {
       expect(result.response_text).toBe('');
     });
 
-    test('stderr mentions "timed out" on timeout', () => {
+    test('stderr mentions "killed" on fast kill (maxBuffer exceeded)', () => {
       childProcess.execFileSync.mockImplementation(() => {
         const err = new Error('spawnSync killed') as NodeJS.ErrnoException & { killed?: boolean };
         err.killed = true;
         throw err;
       });
       const result = dispatchToBackend('claude', 'prompt');
-      expect(result.stderr).toMatch(/timed out/i);
+      expect(result.stderr).toMatch(/killed.*maxBuffer/i);
     });
 
-    test('stderr mentions SIGTERM on signal-based timeout', () => {
+    test('stderr mentions SIGTERM on signal-based kill', () => {
       childProcess.execFileSync.mockImplementation(() => {
         const err = new Error('killed') as NodeJS.ErrnoException & { signal?: string };
         err.signal = 'SIGTERM';
@@ -357,7 +372,7 @@ describe('lib/discussion.ts', () => {
       });
       const result = dispatchToBackend('claude', 'prompt');
       expect(result.response_text).toBe('');
-      expect(result.stderr).toMatch(/timed out/i);
+      expect(result.stderr).toMatch(/killed.*maxBuffer/i);
     });
 
     // ─── Unavailable backend ──────────────────────────────────────────────
@@ -633,11 +648,11 @@ describe('lib/discussion.ts', () => {
 
     // ─── Round 2 dispatch count ───────────────────────────────────────────
 
-    test('rounds=2 with 2 participants: total 5 dispatches (2 + 1 synth + 2)', async () => {
+    test('rounds=2 with 2 participants: total 6 dispatches (2 + synth + 2 + re-synth)', async () => {
       await runDiscussion('topic', ['claude', 'codex'], { rounds: 2 });
 
-      // 2 (round 1) + 1 (synthesizer) + 2 (round 2) = 5
-      expect(childProcess.execFileSync).toHaveBeenCalledTimes(5);
+      // 2 (round 1) + 1 (synth) + 2 (round 2) + 1 (re-synth) = 6
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(6);
     });
 
     test('rounds=1 with 2 participants: total 3 dispatches (2 + 1 synth)', async () => {
@@ -718,7 +733,6 @@ describe('lib/discussion.ts', () => {
   describe('listDiscussions', () => {
 
     test('returns filenames from the discussions directory when it exists', () => {
-      fsModule.existsSync.mockReturnValue(true);
       fsModule.readdirSync.mockReturnValue([
         'discussion-83-discussion-1234.md',
         'discussion-84-evaluation-5678.md',
@@ -733,16 +747,18 @@ describe('lib/discussion.ts', () => {
     });
 
     test('returns empty array when discussions directory does not exist', () => {
-      fsModule.existsSync.mockReturnValue(false);
+      fsModule.readdirSync.mockImplementation(() => {
+        const err = new Error('ENOENT') as NodeJS.ErrnoException;
+        err.code = 'ENOENT';
+        throw err;
+      });
 
       const result = listDiscussions('/my/project');
 
       expect(result).toEqual([]);
-      expect(fsModule.readdirSync).not.toHaveBeenCalled();
     });
 
     test('calls discussionsDir with provided cwd and milestone', () => {
-      fsModule.existsSync.mockReturnValue(true);
       fsModule.readdirSync.mockReturnValue([]);
 
       listDiscussions('/a/project', 'v2.0.0');
@@ -751,7 +767,6 @@ describe('lib/discussion.ts', () => {
     });
 
     test('calls discussionsDir with null milestone when not provided', () => {
-      fsModule.existsSync.mockReturnValue(true);
       fsModule.readdirSync.mockReturnValue([]);
 
       listDiscussions('/a/project');
@@ -760,7 +775,6 @@ describe('lib/discussion.ts', () => {
     });
 
     test('returns empty array when directory exists but is empty', () => {
-      fsModule.existsSync.mockReturnValue(true);
       fsModule.readdirSync.mockReturnValue([]);
 
       const result = listDiscussions('/a/project');
@@ -774,8 +788,7 @@ describe('lib/discussion.ts', () => {
   describe('readDiscussion', () => {
 
     test('returns file content when file exists', () => {
-      fsModule.existsSync.mockReturnValue(true);
-      fsModule.readFileSync.mockReturnValue('# Discussion: test\n\nContent here');
+      utilsModule.safeReadFile.mockReturnValue('# Discussion: test\n\nContent here');
 
       const result = readDiscussion('discussion-83-discussion-1234.md', '/my/project');
 
@@ -783,28 +796,25 @@ describe('lib/discussion.ts', () => {
     });
 
     test('returns null when file does not exist', () => {
-      fsModule.existsSync.mockReturnValue(false);
+      utilsModule.safeReadFile.mockReturnValue(null);
 
       const result = readDiscussion('nonexistent.md', '/my/project');
 
       expect(result).toBeNull();
-      expect(fsModule.readFileSync).not.toHaveBeenCalled();
     });
 
-    test('calls readFileSync with full file path', () => {
-      fsModule.existsSync.mockReturnValue(true);
-      fsModule.readFileSync.mockReturnValue('content');
+    test('calls safeReadFile with full file path', () => {
+      utilsModule.safeReadFile.mockReturnValue('content');
 
       readDiscussion('myfile.md', '/my/project', 'v0.3.20');
 
-      const [calledPath] = fsModule.readFileSync.mock.calls[0] as [string, string];
+      const [calledPath] = utilsModule.safeReadFile.mock.calls[0] as [string];
       expect(calledPath).toContain(FAKE_DISCUSSIONS_DIR);
       expect(calledPath).toContain('myfile.md');
     });
 
     test('calls discussionsDir with provided cwd and milestone', () => {
-      fsModule.existsSync.mockReturnValue(true);
-      fsModule.readFileSync.mockReturnValue('content');
+      utilsModule.safeReadFile.mockReturnValue('content');
 
       readDiscussion('file.md', '/root/project', 'v3.0.0');
 
@@ -817,14 +827,12 @@ describe('lib/discussion.ts', () => {
       );
     });
 
-    test('calls readFileSync with utf-8 encoding', () => {
-      fsModule.existsSync.mockReturnValue(true);
-      fsModule.readFileSync.mockReturnValue('content');
+    test('delegates to safeReadFile for file reading', () => {
+      utilsModule.safeReadFile.mockReturnValue('content');
 
       readDiscussion('file.md', '/project');
 
-      const [, encoding] = fsModule.readFileSync.mock.calls[0] as [string, string];
-      expect(encoding).toBe('utf-8');
+      expect(utilsModule.safeReadFile).toHaveBeenCalled();
     });
   });
 

@@ -217,7 +217,12 @@ function discussionsDir(cwd: string, milestone?: string | null): string {
   if (milestone == null) {
     milestone = currentMilestone(cwd);
   }
-  return path.join(milestoneRoot(cwd, milestone), 'discussions');
+  const milestonesBase: string = path.join(cwd, '.planning', 'milestones');
+  const resolved: string = path.join(milestoneRoot(cwd, milestone), 'discussions');
+  if (!resolved.startsWith(milestonesBase + path.sep) && resolved !== milestonesBase) {
+    throw new Error('Invalid milestone: path would escape .planning directory');
+  }
+  return resolved;
 }
 
 /**

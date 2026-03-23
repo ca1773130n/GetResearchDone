@@ -52,6 +52,7 @@ const { execFileSync } = require('child_process') as {
       cwd: string;
       stdio: string[];
       maxBuffer: number;
+      env?: Record<string, string | undefined>;
     }
   ) => string;
 };
@@ -70,12 +71,17 @@ const path = require('path') as {
   sep: string;
 };
 
-const { detectAvailableBackends } = require('./backend') as {
+const { detectAvailableBackends, buildBackendEnv } = require('./backend') as {
   detectAvailableBackends: (cwd?: string) => Record<BackendId, BackendAvailability>;
+  buildBackendEnv: (backend: string) => Record<string, string | undefined>;
 };
 
 const { discussionsDir } = require('./paths') as {
   discussionsDir: (cwd: string, milestone?: string | null) => string;
+};
+
+const { safeReadFile } = require('./utils') as {
+  safeReadFile: (filePath: string) => string | null;
 };
 
 // --- Constants ---------------------------------------------------------------
@@ -91,6 +97,36 @@ const DISCUSSION_SONNET_MODEL: string = 'sonnet';
  * Default dispatch timeout: 5 minutes.
  */
 const DEFAULT_DISPATCH_TIMEOUT_MS: number = 5 * 60 * 1000;
+
+/**
+ * Valid severity levels for review findings. Shared across all review functions.
+ */
+const SEVERITY_VALUES = ['blocker', 'warning', 'suggestion'] as const;
+type Severity = typeof SEVERITY_VALUES[number];
+
+function coerceSeverity(raw: unknown): Severity {
+  const normalized = typeof raw === 'string' ? raw.toLowerCase() : '';
+  return SEVERITY_VALUES.includes(normalized as Severity) ? (normalized as Severity) : 'warning';
+}
+
+/**
+ * Resolve the reviewer backend from config. Returns null if not configured,
+ * not available, or same as primary backend (when requireDifferentFromPrimary is true).
+ */
+function resolveReviewer(
+  config: GrdConfig,
+  cwd?: string,
+  opts?: { requireDifferentFromPrimary?: boolean }
+): { backend: BackendId; availability: Record<BackendId, BackendAvailability> } | null {
+  if (!config.backend_roles?.reviewer) return null;
+  const reviewerBackend: BackendId = config.backend_roles.reviewer;
+  if ((opts?.requireDifferentFromPrimary ?? true) && config.backend && reviewerBackend === (config.backend as BackendId)) {
+    return null;
+  }
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[reviewerBackend]?.available) return null;
+  return { backend: reviewerBackend, availability };
+}
 
 /**
  * CLI binary name and argument builder for each dispatchable backend.
@@ -111,15 +147,25 @@ const BACKEND_CLI_MAP: Record<
   },
   codex: {
     bin: 'codex',
-    buildArgs: (prompt: string, _model?: string): string[] => ['-q', prompt],
+    buildArgs: (prompt: string, _model?: string): string[] => ['exec', prompt],
   },
   gemini: {
     bin: 'gemini',
-    buildArgs: (prompt: string, _model?: string): string[] => [prompt],
+    buildArgs: (prompt: string, model?: string): string[] => [
+      '-p',
+      prompt,
+      '--approval-mode',
+      'yolo',
+      ...(model ? ['-m', model] : []),
+    ],
   },
   opencode: {
     bin: 'opencode',
-    buildArgs: (prompt: string, _model?: string): string[] => [prompt],
+    buildArgs: (prompt: string, model?: string): string[] => [
+      'run',
+      ...(model ? ['-m', model] : []),
+      prompt,
+    ],
   },
 };
 
@@ -177,6 +223,7 @@ function dispatchToBackend(
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 10 * 1024 * 1024,
+      env: buildBackendEnv(backendId as string),
     });
     return {
       backend: backendId,
@@ -194,11 +241,15 @@ function dispatchToBackend(
     };
 
     if (error.killed || error.signal === 'SIGTERM') {
+      // Distinguish maxBuffer exceeded (fast kill) from timeout (near-timeout kill)
+      const isTimeout = duration_ms >= timeout * 0.9;
       return {
         backend: backendId,
         response_text: '',
         duration_ms,
-        stderr: `Dispatch timed out after ${timeout}ms`,
+        stderr: isTimeout
+          ? `Dispatch timed out after ${timeout}ms`
+          : `Dispatch killed (maxBuffer exceeded or signal) after ${duration_ms}ms`,
       };
     }
 
@@ -276,13 +327,11 @@ function buildDiscussionMarkdown(result: DiscussionResult, phase: string, type: 
         lines.push(`### ${entry.backend} Response`, entry.response_text, '---', '');
       }
     }
-    // Insert synthesis after round 1
     if (i === 0) {
       lines.push(`## Synthesis (${result.synthesis.backend})`, '', result.synthesis.response_text, '');
     }
   }
 
-  // Outcome (repeat synthesis)
   lines.push('## Outcome', '', result.synthesis.response_text, '');
 
   return lines.join('\n');
@@ -321,12 +370,11 @@ function dispatchRound(
  * @param options - Optional configuration (rounds, synthesizer, timeout, paths, labels)
  * @returns A DiscussionResult with all rounds, synthesis, and the path to the written file
  */
-async function runDiscussion(
+function runDiscussion(
   topic: string,
   participants: BackendId[],
   options?: RunDiscussionOptions
-): Promise<DiscussionResult> {
-  // Destructure options with defaults
+): DiscussionResult {
   const {
     rounds = 2,
     synthesizer = 'claude' as BackendId,
@@ -337,35 +385,27 @@ async function runDiscussion(
     milestone = null,
   } = options ?? {};
 
-  // Clamp rounds to valid range 1-3
   const clampedRounds: number = Math.min(Math.max(rounds, 1), 3);
-
-  // Record start time
   const start: number = Date.now();
-
-  // Get backend availability
   const availability: Record<BackendId, BackendAvailability> = detectAvailableBackends(cwd);
 
-  // Build discussion filename and resolve directory
-  // Sanitize phase/type to prevent path traversal via path separators
+  // Sanitize phase/type to prevent path traversal
   const safePhase = phase.replace(/[/\\]/g, '_');
   const safeType = type.replace(/[/\\]/g, '_');
   const filename = `discussion-${safePhase}-${safeType}-${Date.now()}.md`;
   const dir = discussionsDir(cwd, milestone);
 
   const timeoutMs: number = timeout_per_round_seconds * 1000;
-
   const dispatchOpts = { timeout_ms: timeoutMs, cwd, _availability: availability };
 
-  // --- Round 1: Parallel dispatch to all participants ---
+  // Round 1: dispatch to all participants sequentially
   const round1Results = dispatchRound(participants, topic, availability, dispatchOpts);
 
-  // --- Synthesis ---
-  const synthPrompt = buildSynthesisPrompt(topic, round1Results);
-  const synthesis: BackendResponse = dispatchToBackend(synthesizer, synthPrompt, dispatchOpts);
-
-  // --- Additional rounds (round 2+) ---
   const allRounds: DiscussionRoundEntry[][] = [round1Results];
+
+  // Synthesize after round 1, then re-synthesize after each additional round
+  let synthPrompt = buildSynthesisPrompt(topic, round1Results);
+  let synthesis: BackendResponse = dispatchToBackend(synthesizer, synthPrompt, dispatchOpts);
 
   for (let roundNum = 2; roundNum <= clampedRounds; roundNum++) {
     const roundPrompt = [
@@ -381,7 +421,12 @@ async function runDiscussion(
       'Please respond to the synthesis above. Do you agree, disagree, or have additional insights to add?',
     ].join('\n');
 
-    allRounds.push(dispatchRound(participants, roundPrompt, availability, dispatchOpts));
+    const roundResults = dispatchRound(participants, roundPrompt, availability, dispatchOpts);
+    allRounds.push(roundResults);
+
+    // Re-synthesize incorporating the new round's responses
+    synthPrompt = buildSynthesisPrompt(topic, roundResults);
+    synthesis = dispatchToBackend(synthesizer, synthPrompt, dispatchOpts);
   }
 
   // --- Build result ---
@@ -413,10 +458,11 @@ async function runDiscussion(
  */
 function listDiscussions(cwd: string, milestone?: string | null): string[] {
   const dir = discussionsDir(cwd, milestone);
-  if (!fs.existsSync(dir)) {
+  try {
+    return fs.readdirSync(dir);
+  } catch {
     return [];
   }
-  return fs.readdirSync(dir);
 }
 
 /**
@@ -437,10 +483,7 @@ function readDiscussion(
   if (!filePath.startsWith(dir + path.sep) && filePath !== dir) {
     throw new Error('Invalid filename: path would escape discussions directory');
   }
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-  return fs.readFileSync(filePath, 'utf-8');
+  return safeReadFile(filePath);
 }
 
 // --- Workflow Integration Functions ------------------------------------------
@@ -481,17 +524,16 @@ function parseJSONFromResponse(raw: string): Record<string, unknown> | null {
  * @param options - Phase goal, requirements list, paths, and GRD config
  * @returns A DiscussionResult on success, null if skipped
  */
-async function runPrePlanningDiscussion(options: {
+function runPrePlanningDiscussion(options: {
   phaseGoal: string;
   requirements: string[];
   cwd?: string;
   phase?: string;
   milestone?: string | null;
   config: GrdConfig;
-}): Promise<DiscussionResult | null> {
+}): DiscussionResult | null {
   const { phaseGoal, requirements, cwd, phase, milestone, config } = options;
 
-  // Config gating
   if (
     config.discussion?.enabled === false ||
     config.discussion?.before_planning === false ||
@@ -501,8 +543,6 @@ async function runPrePlanningDiscussion(options: {
   }
 
   const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
-
-  // Backend availability check
   const availability = detectAvailableBackends(cwd);
   if (!availability[brainstormerBackend]?.available) {
     return null;
@@ -532,16 +572,16 @@ async function runPrePlanningDiscussion(options: {
  * @param options - Plan summary text, paths, and GRD config
  * @returns A DiscussionResult on success, null if skipped
  */
-async function runPreExecutionDiscussion(options: {
+function runPreExecutionDiscussion(options: {
   planSummary: string;
   cwd?: string;
   phase?: string;
   milestone?: string | null;
   config: GrdConfig;
-}): Promise<DiscussionResult | null> {
+}): DiscussionResult | null {
   const { planSummary, cwd, phase, milestone, config } = options;
 
-  // Config gating (before_execution must be explicitly true)
+  // before_execution must be explicitly true
   if (
     config.discussion?.enabled === false ||
     config.discussion?.before_execution !== true ||
@@ -551,8 +591,6 @@ async function runPreExecutionDiscussion(options: {
   }
 
   const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
-
-  // Backend availability check
   const availability = detectAvailableBackends(cwd);
   if (!availability[brainstormerBackend]?.available) {
     return null;
@@ -588,20 +626,9 @@ function reviewPlanViaBackend(options: {
 }): PlanReviewResult | null {
   const { planText, cwd, config } = options;
 
-  // Config gating: reviewer must be configured and differ from primary backend
-  if (!config.backend_roles?.reviewer) {
-    return null;
-  }
-  const reviewerBackend: BackendId = config.backend_roles.reviewer;
-  if (config.backend && reviewerBackend === (config.backend as BackendId)) {
-    return null;
-  }
-
-  // Backend availability check
-  const availability = detectAvailableBackends(cwd);
-  if (!availability[reviewerBackend]?.available) {
-    return null;
-  }
+  const resolved = resolveReviewer(config, cwd);
+  if (!resolved) return null;
+  const { backend: reviewerBackend, availability } = resolved;
 
   const prompt = [
     'Review the following plan and provide structured feedback.',
@@ -616,7 +643,7 @@ function reviewPlanViaBackend(options: {
   ].join('\n');
 
   const start = Date.now();
-  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd, _availability: availability });
   const duration_ms = Date.now() - start;
 
   const parsed = parseJSONFromResponse(response.response_text);
@@ -624,7 +651,9 @@ function reviewPlanViaBackend(options: {
   if (!parsed) {
     const concerns: Concern[] = [
       {
-        description: `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
+        description: response.stderr
+          ? `Reviewer dispatch failed: ${response.stderr.slice(0, 200)}`
+          : `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
         severity: 'warning',
       },
     ];
@@ -644,9 +673,7 @@ function reviewPlanViaBackend(options: {
     .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
     .map((c) => ({
       description: typeof c['description'] === 'string' ? c['description'] : String(c['description'] ?? ''),
-      severity: (['blocker', 'warning', 'suggestion'] as const).includes(c['severity'] as 'blocker' | 'warning' | 'suggestion')
-        ? (c['severity'] as 'blocker' | 'warning' | 'suggestion')
-        : 'warning',
+      severity: coerceSeverity(c['severity']),
     }));
   const rawSuggestions = Array.isArray(parsed['suggestions']) ? (parsed['suggestions'] as unknown[]) : [];
   const suggestions: string[] = rawSuggestions.map((s) => String(s));
@@ -679,20 +706,9 @@ function reviewCodeViaBackend(options: {
 }): CodeReviewResult | null {
   const { diff, cwd, config } = options;
 
-  // Config gating: reviewer must be configured and differ from primary backend
-  if (!config.backend_roles?.reviewer) {
-    return null;
-  }
-  const reviewerBackend: BackendId = config.backend_roles.reviewer;
-  if (config.backend && reviewerBackend === (config.backend as BackendId)) {
-    return null;
-  }
-
-  // Backend availability check
-  const availability = detectAvailableBackends(cwd);
-  if (!availability[reviewerBackend]?.available) {
-    return null;
-  }
+  const resolved = resolveReviewer(config, cwd);
+  if (!resolved) return null;
+  const { backend: reviewerBackend, availability } = resolved;
 
   const prompt = [
     'Review this code diff and provide structured feedback.',
@@ -707,7 +723,7 @@ function reviewCodeViaBackend(options: {
   ].join('\n');
 
   const start = Date.now();
-  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd, _availability: availability });
   const duration_ms = Date.now() - start;
 
   const parsed = parseJSONFromResponse(response.response_text);
@@ -718,7 +734,9 @@ function reviewCodeViaBackend(options: {
         severity: 'warning',
         file: '',
         line_range: '',
-        description: `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
+        description: response.stderr
+          ? `Reviewer dispatch failed: ${response.stderr.slice(0, 200)}`
+          : `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
       },
     ];
     return {
@@ -736,9 +754,7 @@ function reviewCodeViaBackend(options: {
   const issues: ReviewIssue[] = rawIssues
     .filter((i): i is Record<string, unknown> => typeof i === 'object' && i !== null)
     .map((i) => ({
-      severity: (['blocker', 'warning', 'suggestion'] as const).includes(i['severity'] as 'blocker' | 'warning' | 'suggestion')
-        ? (i['severity'] as 'blocker' | 'warning' | 'suggestion')
-        : 'warning',
+      severity: coerceSeverity(i['severity']),
       file: typeof i['file'] === 'string' ? i['file'] : '',
       line_range: typeof i['line_range'] === 'string' ? i['line_range'] : '',
       description: typeof i['description'] === 'string' ? i['description'] : String(i['description'] ?? ''),
@@ -774,17 +790,12 @@ function reviewPRViaBackend(options: {
 }): PRReviewResult | null {
   const { diff, prNumber, cwd, config } = options;
 
-  // Config gating: code_review_enabled must be true and reviewer must be configured
-  if (!config.code_review_enabled || !config.backend_roles?.reviewer) {
-    return null;
-  }
-  const reviewerBackend: BackendId = config.backend_roles.reviewer;
+  if (!config.code_review_enabled) return null;
 
-  // Backend availability check
-  const availability = detectAvailableBackends(cwd);
-  if (!availability[reviewerBackend]?.available) {
-    return null;
-  }
+  // PR review allows reviewer === primary backend (no requireDifferentFromPrimary)
+  const resolved = resolveReviewer(config, cwd, { requireDifferentFromPrimary: false });
+  if (!resolved) return null;
+  const { backend: reviewerBackend, availability } = resolved;
 
   const prompt = [
     `Review this PR #${prNumber} diff and provide structured review comments.`,
@@ -799,7 +810,7 @@ function reviewPRViaBackend(options: {
   ].join('\n');
 
   const start = Date.now();
-  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd, _availability: availability });
   const duration_ms = Date.now() - start;
 
   const parsed = parseJSONFromResponse(response.response_text);
@@ -829,9 +840,7 @@ function reviewPRViaBackend(options: {
       file: typeof c['file'] === 'string' ? c['file'] : '',
       line: typeof c['line'] === 'number' ? c['line'] : 0,
       body: typeof c['body'] === 'string' ? c['body'] : '',
-      severity: (['blocker', 'warning', 'suggestion'] as const).includes(c['severity'] as 'blocker' | 'warning' | 'suggestion')
-        ? (c['severity'] as 'blocker' | 'warning' | 'suggestion')
-        : 'warning',
+      severity: coerceSeverity(c['severity']),
     }));
   const summary = typeof parsed['summary'] === 'string' ? parsed['summary'] : '';
 

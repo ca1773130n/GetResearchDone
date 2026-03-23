@@ -735,6 +735,118 @@ const AVAILABILITY_CACHE_TTL_MS: number = 5 * 60 * 1000;
 const DISPATCHABLE_BACKENDS: readonly string[] = ['claude', 'codex', 'gemini', 'opencode'];
 
 /**
+ * Environment variable that controls the config directory for each backend CLI.
+ * When set, the CLI uses the specified directory for auth/credentials instead of default.
+ */
+const BACKEND_CONFIG_ENV: Record<string, string> = {
+  claude: 'CLAUDE_CONFIG_DIR',
+  codex: 'CODEX_HOME',
+  gemini: 'GEMINI_CLI_HOME',
+  opencode: 'OPENCODE_CONFIG_DIR',
+};
+
+/**
+ * Files that prove a config directory has valid auth/credentials for a backend.
+ * Must be actual credential files, not files created by a bare first-run.
+ *
+ * Paths are relative to the config dir. Use nested paths for backends that
+ * store auth in a subdirectory (e.g. gemini stores creds in <dir>/.gemini/).
+ */
+const BACKEND_AUTH_MARKERS: Record<string, string[]> = {
+  claude: ['credentials.json', '.credentials.json', 'settings.json'],
+  codex: ['auth.json'],
+  gemini: ['.gemini/oauth_creds.json', '.gemini/google_accounts.json'],
+  opencode: ['auth.json', 'config.json'],
+};
+
+/** Cached config dir discovery result. */
+let _configDirCache: Record<string, string | null> | null = null;
+
+/**
+ * Discover the actual config directory for each backend by scanning the home
+ * directory for directories matching ~/.<backend>* that contain auth marker files.
+ *
+ * Priority:
+ * 1. Current env var (e.g. CLAUDE_CONFIG_DIR already set)
+ * 2. First ~/.<backend>-* directory containing an auth marker file
+ * 3. Default ~/.<backend> if it contains an auth marker file
+ * 4. null (no config dir found — use backend's default)
+ */
+function discoverBackendConfigDirs(): Record<string, string | null> {
+  if (_configDirCache) return _configDirCache;
+
+  const homeDir: string = os.homedir();
+  const result: Record<string, string | null> = {};
+
+  for (const backend of DISPATCHABLE_BACKENDS) {
+    const envVar = BACKEND_CONFIG_ENV[backend];
+    const markers = BACKEND_AUTH_MARKERS[backend];
+
+    // 1. Check if env var is already set
+    if (envVar && process.env[envVar]) {
+      result[backend] = process.env[envVar] as string;
+      continue;
+    }
+
+    // 2. Scan home directory for matching config dirs
+    let found: string | null = null;
+    try {
+      const entries: string[] = fs.readdirSync(homeDir);
+      // Collect candidates: ~/.<backend>-* first (custom profiles), then ~/.<backend> (default)
+      const profileDirs: string[] = entries
+        .filter((e: string) => e.startsWith(`.${backend}-`))
+        .sort();
+      const defaultDir: string[] = entries.filter((e: string) => e === `.${backend}`);
+      const candidates: string[] = [...profileDirs, ...defaultDir]
+        .map((e: string) => path.join(homeDir, e))
+        .filter((p: string) => {
+          try { return fs.statSync(p).isDirectory(); } catch { return false; }
+        });
+
+      // Check each candidate for auth marker files
+      for (const candidate of candidates) {
+        const hasAuth = markers.some((marker: string) => {
+          try { return fs.statSync(path.join(candidate, marker)).isFile(); } catch { return false; }
+        });
+        if (hasAuth) {
+          found = candidate;
+          break;
+        }
+      }
+    } catch {
+      // Home dir not readable — skip
+    }
+
+    result[backend] = found;
+  }
+
+  _configDirCache = result;
+  return result;
+}
+
+/**
+ * Clear the config dir discovery cache. Exported for testing.
+ */
+function clearConfigDirCache(): void {
+  _configDirCache = null;
+}
+
+/**
+ * Build the environment variables needed to run a backend CLI with the correct
+ * config directory. Returns a copy of process.env with the override applied.
+ */
+function buildBackendEnv(backend: string): Record<string, string | undefined> {
+  const configDirs = discoverBackendConfigDirs();
+  const configDir = configDirs[backend];
+  if (!configDir) return { ...process.env };
+
+  const envVar = BACKEND_CONFIG_ENV[backend];
+  if (!envVar) return { ...process.env };
+
+  return { ...process.env, [envVar]: configDir };
+}
+
+/**
  * Probe which AI CLI backends are available on PATH.
  *
  * For each of the four dispatchable backends (claude, codex, gemini, opencode),
@@ -773,6 +885,7 @@ function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailab
         timeout: 5000,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: buildBackendEnv(backend),
       });
       result[backend as BackendId] = {
         available: true,
@@ -813,5 +926,9 @@ module.exports = {
   detectPlaywright,
   detectAvailableBackends,
   clearAvailabilityCache,
+  discoverBackendConfigDirs,
+  clearConfigDirCache,
+  buildBackendEnv,
+  BACKEND_CONFIG_ENV,
   readConfig,
 };

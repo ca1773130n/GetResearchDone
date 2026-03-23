@@ -178,7 +178,7 @@ const {
   cmdWireupReport: (cwd: string, args: string[], raw: boolean) => void;
 } = require('./wireup');
 
-import type { BackendId, BackendAvailability, DiscussionResult } from './types';
+import type { BackendId, BackendAvailability, DiscussionResult, RunDiscussionOptions } from './types';
 
 const {
   runDiscussion,
@@ -188,8 +188,8 @@ const {
   runDiscussion: (
     topic: string,
     participants: BackendId[],
-    options?: Record<string, unknown>
-  ) => Promise<DiscussionResult>;
+    options?: RunDiscussionOptions
+  ) => DiscussionResult;
   listDiscussions: (cwd: string, milestone?: string | null) => string[];
   readDiscussion: (filename: string, cwd: string, milestone?: string | null) => string | null;
 } = require('./discussion');
