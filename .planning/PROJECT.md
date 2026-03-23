@@ -1,9 +1,18 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-21
+**Updated:** 2026-03-23
 
-## Current Milestone: (none — ready for next)
+## Current Milestone: v0.3.20 — Multi-Agent Cross-Backend Discussion
+
+**Goal:** Enable true multi-backend agent swarms where different AI backends (Claude Code, Codex, Gemini, OpenCode) collaborate on planning discussions, code review, and execution verification. Users can configure which backend handles which role (e.g., Codex for code review, Gemini for brainstorming). This is a unique GRD feature — no other open-source project supports cross-backend agent collaboration.
+
+**Target features:**
+- Multi-backend discussion protocol for planning and brainstorming (auto-discussion before plan/execute)
+- Configurable reviewer backend selection (plans, code, PRs)
+- Cross-backend agent dispatch (spawn review/discussion agents on non-primary backends)
+- Backend role registry (map capabilities to roles: reviewer, brainstormer, verifier, executor)
+- Discussion round orchestration (multi-turn cross-backend dialogue with synthesis)
 
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
