@@ -227,6 +227,10 @@ export interface WireupResult {
   failed_scenarios: FailedScenarioSummary[];
   /** Absolute path to the generated WIREUP-REPORT.md (undefined in dry-run mode). */
   report_path?: string;
+  /** Number of fix attempts made during this run. */
+  fixes_attempted: number;
+  /** Number of fixes that were verified by re-running the scenario. */
+  fixes_verified: number;
 }
 
 // ─── Detection Types ──────────────────────────────────────────────────────────

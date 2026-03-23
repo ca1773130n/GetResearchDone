@@ -23,6 +23,7 @@ import type {
   IssuesByConfidence,
   IssuesByType,
   WireupIterationHistory,
+  FixAttempt,
 } from './types';
 import type { WireupReportData } from './report';
 const {
@@ -68,6 +69,18 @@ const {
   generateWireupReport: (cwd: string, data: WireupReportData) => string;
 } = require('./report');
 
+const {
+  partitionByConfidence,
+  updateFixOutcome,
+  buildAutoFixPrompt,
+}: {
+  partitionByConfidence: (issues: import('./types').MissingConnection[]) => import('./types').AutoFixResult & { high_confidence: import('./types').MissingConnection[] };
+  updateFixOutcome: (cwd: string, scenarioId: string, fixAttempt: import('./types').FixAttempt) => void;
+  buildAutoFixPrompt: (issue: import('./types').MissingConnection) => string;
+} = require('./autofix');
+
+const childProcess = require('child_process') as typeof import('child_process');
+
 // ─── Execution Stub (implemented in plan 79-02) ──────────────────────────────
 
 /**
@@ -102,6 +115,47 @@ const {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   getMilestoneInfo: (cwd: string) => import('../types').MilestoneInfo;
 } = require('../utils');
+
+// ─── Fix Subprocess ───────────────────────────────────────────────────────────
+
+/**
+ * Spawn a claude -p subprocess to apply a fix, then return whether it succeeded.
+ */
+async function _spawnFixSubprocess(
+  cwd: string,
+  prompt: string,
+  timeoutMs?: number
+): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const args: string[] = ['-p', prompt, '--verbose', '--dangerously-skip-permissions', '--model', SONNET_MODEL];
+    const env: Record<string, string | undefined> = { ...process.env };
+    for (const key of Object.keys(env)) {
+      if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_') || key.startsWith('CLAUDECODE_')) {
+        delete env[key];
+      }
+    }
+    const child = childProcess.spawn('claude', args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    });
+    if (child.stdout) child.stdout.on('data', (chunk: Buffer) => process.stdout.write(chunk));
+    if (child.stderr) child.stderr.on('data', (chunk: Buffer) => process.stderr.write(chunk));
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (timeoutMs) {
+      timer = setTimeout(() => { child.kill('SIGTERM'); }, timeoutMs);
+    }
+    child.on('close', (code: number | null) => {
+      if (timer) clearTimeout(timer);
+      resolve(code === 0);
+    });
+    child.on('error', () => {
+      if (timer) clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
 
 // ─── Pass/Fail Summary ────────────────────────────────────────────────────────
 
@@ -205,6 +259,8 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
       },
       pass_fail_summary: `Dry run: ${features.length} features discovered, ${scenarios.length} scenarios generated. Execution skipped.`,
       failed_scenarios: [],
+      fixes_attempted: 0,
+      fixes_verified: 0,
     };
   }
 
@@ -235,6 +291,64 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     ? detectMissingConnections(cwd, failedResults)
     : [];
 
+  // Step 7b: Auto-fix high-confidence issues
+  const fixAttempts: FixAttempt[] = [];
+  let fixesVerified = 0;
+
+  if (missingConnections.length > 0 && !options.dryRun) {
+    const { high_confidence, requires_manual_review } = partitionByConfidence(missingConnections);
+
+    for (const issue of high_confidence) {
+      const fixPrompt: string = buildAutoFixPrompt(issue);
+
+      // Spawn claude -p to apply the fix
+      const fixApplied: boolean = await _spawnFixSubprocess(cwd, fixPrompt, options.timeout);
+
+      if (fixApplied) {
+        // Re-run the specific scenario to verify the fix
+        const scenarioToVerify = scenarios.find(
+          (s) => s.feature.functionName === issue.source_file || s.feature.filePath === issue.source_file
+        );
+        let rerunPassed = false;
+
+        if (scenarioToVerify) {
+          const executeScenariosFn = _resolveExecuteScenarios();
+          const rerunResults = await executeScenariosFn(cwd, [scenarioToVerify], {
+            timeout_ms: options.timeout,
+            base_url: options.baseUrl,
+            model: SONNET_MODEL,
+          });
+          rerunPassed = rerunResults.length > 0 && rerunResults[0].overall_passed;
+        }
+
+        const attempt: FixAttempt = {
+          issue,
+          fix_status: rerunPassed ? 'verified' : 'failed',
+          fix_description: `${issue.issue_type} in ${issue.target_file}`,
+          rerun_passed: rerunPassed,
+          fix_prompt: fixPrompt,
+        };
+        fixAttempts.push(attempt);
+        updateFixOutcome(cwd, issue.source_file, attempt);
+
+        if (rerunPassed) fixesVerified++;
+      } else {
+        fixAttempts.push({
+          issue,
+          fix_status: 'failed',
+          fix_description: `${issue.issue_type} in ${issue.target_file}`,
+          rerun_passed: false,
+          error: 'Fix subprocess failed',
+        });
+      }
+    }
+
+    // Add skipped attempts for non-high-confidence issues
+    for (const issue of requires_manual_review) {
+      fixAttempts.push({ issue, fix_status: 'skipped' });
+    }
+  }
+
   const issuesFound = missingConnections.length;
 
   // Group issues by confidence and by type for summary output
@@ -259,7 +373,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     scenarios_run: totalScenarios,
     passed: passedCount,
     failed: failedCount,
-    fixes_applied: 0,
+    fixes_applied: fixesVerified,
   });
 
   // Update cumulative features_discovered, scenarios_generated, and issues counts
@@ -268,7 +382,7 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     ...updatedState.iteration_history[updatedState.iteration_history.length - 1],
     features_tested: features.length,
     issues_found: issuesFound,
-    fixes_verified: 0,
+    fixes_verified: fixesVerified,
   };
 
   const patchedHistory: WireupIterationHistory[] = [
@@ -291,10 +405,10 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     },
     issues_found: missingConnections,
     fixes: {
-      applied: [],
-      verified: 0,
-      failed: 0,
-      skipped: issuesFound,
+      applied: fixAttempts.filter((f) => f.fix_status === 'verified'),
+      verified: fixesVerified,
+      failed: fixAttempts.filter((f) => f.fix_status === 'failed').length,
+      skipped: fixAttempts.filter((f) => f.fix_status === 'skipped').length,
     },
     remaining_unwired: failedScenarios.map((fs) => fs.scenario_id),
     manual_review: missingConnections.filter((c) => c.confidence !== 'high'),
@@ -336,6 +450,8 @@ async function runWireup(cwd: string, options: WireupOptions = {}): Promise<Wire
     pass_fail_summary: passFail,
     failed_scenarios: failedScenarios,
     report_path: reportPath,
+    fixes_attempted: fixAttempts.length,
+    fixes_verified: fixesVerified,
   };
 }
 

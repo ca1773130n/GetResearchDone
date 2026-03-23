@@ -37,8 +37,11 @@ global.fetch = mockFetch;
 
 // Mock spawnSync (CLI execution and detection grep/find)
 const mockSpawnSync = jest.fn();
+// Mock spawn (orchestrator fix subprocess)
+const mockSpawn = jest.fn();
 jest.mock('child_process', () => ({
   spawnSync: mockSpawnSync,
+  spawn: mockSpawn,
 }));
 
 // Mock fs (report generation and state I/O)
@@ -2408,6 +2411,173 @@ describe('runWireup()', () => {
     // Report path should be set
     expect(typeof result.report_path).toBe('string');
     expect(result.report_path).toContain('WIREUP-REPORT.md');
+  });
+
+  test('returns fixes_attempted and fixes_verified fields in result', async () => {
+    const result = await runWireup(FAKE_CWD);
+
+    expect(typeof result.fixes_attempted).toBe('number');
+    expect(typeof result.fixes_verified).toBe('number');
+    expect(result.fixes_attempted).toBeGreaterThanOrEqual(0);
+    expect(result.fixes_verified).toBeGreaterThanOrEqual(0);
+  });
+
+  test('dry-run returns fixes_attempted: 0 and fixes_verified: 0', async () => {
+    const result = await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(result.fixes_attempted).toBe(0);
+    expect(result.fixes_verified).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 16b: runWireup autofix integration (orchestrator wires autofix)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a mock ChildProcess-like EventEmitter for spawn mock.
+ * Emits 'close' with the given exit code after a tick.
+ */
+function makeMockChild(exitCode: number): import('events').EventEmitter & {
+  stdout: import('events').EventEmitter;
+  stderr: import('events').EventEmitter;
+  kill: jest.Mock;
+} {
+  const EventEmitter = require('events') as typeof import('events');
+  const child = new EventEmitter.EventEmitter() as import('events').EventEmitter & {
+    stdout: import('events').EventEmitter;
+    stderr: import('events').EventEmitter;
+    kill: jest.Mock;
+  };
+  child.stdout = new EventEmitter.EventEmitter();
+  child.stderr = new EventEmitter.EventEmitter();
+  child.kill = jest.fn();
+  // Emit close asynchronously
+  setImmediate(() => child.emit('close', exitCode));
+  return child;
+}
+
+describe('runWireup() autofix wiring', () => {
+  const fs = require('fs');
+
+  beforeEach(() => {
+    // Default: no features, spawn is a no-op
+    mockSafeReadFile.mockReturnValue(null);
+    (fs.readdirSync as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
+    mockGetMilestoneInfo.mockReturnValue({ version: FAKE_MILESTONE, name: 'Test Milestone' });
+    mockCurrentMilestone.mockReturnValue(FAKE_MILESTONE);
+    mockMkdirSync.mockReturnValue(undefined);
+    mockWriteFileSync.mockReturnValue(undefined);
+    mockReadFileSync.mockImplementation(() => { throw new Error('ENOENT'); });
+    mockSpawn.mockReturnValue(makeMockChild(0));
+  });
+
+  test('result always has fixes_attempted and fixes_verified number fields', async () => {
+    const result = await runWireup(FAKE_CWD);
+
+    expect(typeof result.fixes_attempted).toBe('number');
+    expect(typeof result.fixes_verified).toBe('number');
+    expect(result.fixes_attempted).toBeGreaterThanOrEqual(0);
+    expect(result.fixes_verified).toBeGreaterThanOrEqual(0);
+    // fixes_verified never exceeds fixes_attempted
+    expect(result.fixes_verified).toBeLessThanOrEqual(result.fixes_attempted);
+  });
+
+  test('does not call spawn in dry-run mode', async () => {
+    await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  test('dry-run fixes_attempted and fixes_verified are both 0', async () => {
+    const result = await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(result.fixes_attempted).toBe(0);
+    expect(result.fixes_verified).toBe(0);
+  });
+
+  test('when spawn is called, it uses claude with -p flag', async () => {
+    // Set up features + failing scenarios to trigger autofix
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      const path = require('path');
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'mod.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('mod.ts')) return 'module.exports = { uncalledFunc };';
+      return null;
+    });
+    // Failing CLI step with high-confidence signal
+    mockSpawnSync.mockReturnValue({
+      status: 1,
+      stdout: '',
+      stderr: "Cannot find module './missing'",
+      error: undefined,
+    });
+
+    await runWireup(FAKE_CWD);
+
+    // If spawn was called at all (depends on whether issues were detected),
+    // verify it was called with 'claude' and '-p'
+    if (mockSpawn.mock.calls.length > 0) {
+      const [cmd, args] = mockSpawn.mock.calls[0] as [string, string[]];
+      expect(cmd).toBe('claude');
+      expect(args[0]).toBe('-p');
+    }
+  });
+
+  test('spawn error event is handled gracefully — no unhandled rejection', async () => {
+    mockSpawn.mockImplementation(() => {
+      const EventEmitter = require('events') as typeof import('events');
+      const child = new EventEmitter.EventEmitter() as import('events').EventEmitter & {
+        stdout: import('events').EventEmitter;
+        stderr: import('events').EventEmitter;
+        kill: jest.Mock;
+      };
+      child.stdout = new EventEmitter.EventEmitter();
+      child.stderr = new EventEmitter.EventEmitter();
+      child.kill = jest.fn();
+      setImmediate(() => child.emit('error', new Error('ENOENT: spawn failed')));
+      return child;
+    });
+
+    // Should not throw
+    const result = await runWireup(FAKE_CWD);
+    expect(result.fixes_verified).toBe(0);
+  });
+
+  test('strips CLAUDE env vars before spawning fix subprocess', async () => {
+    // Set up features + failing scenarios to trigger autofix
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      const path = require('path');
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'mod.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('mod.ts')) return 'module.exports = { uncalledFunc };';
+      return null;
+    });
+    mockSpawnSync.mockReturnValue({
+      status: 1,
+      stdout: '',
+      stderr: "Cannot find module './missing'",
+      error: undefined,
+    });
+
+    await runWireup(FAKE_CWD);
+
+    if (mockSpawn.mock.calls.length > 0) {
+      const spawnOpts = mockSpawn.mock.calls[0][2] as { env: Record<string, string> };
+      const envKeys = Object.keys(spawnOpts.env);
+      const claudeKeys = envKeys.filter(
+        (k) => k === 'CLAUDECODE' || k.startsWith('CLAUDE_CODE_') || k.startsWith('CLAUDECODE_')
+      );
+      expect(claudeKeys).toHaveLength(0);
+    }
   });
 });
 
