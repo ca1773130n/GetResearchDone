@@ -2118,7 +2118,7 @@ describe('lib/discussion.ts', () => {
       expect(result).toContain('Build elicitation context builder.');
     });
 
-    test('includes Plan Summary fallback when PLAN.md has no objective tag', () => {
+    test('omits Plan Summary when PLAN.md has no objective tag', () => {
       fsModule.readFileSync.mockImplementation((filePath: string) => {
         if (filePath.includes('PLAN.md')) {
           return 'No objective tag here. Just plain plan text with lots of detail.';
@@ -2140,7 +2140,7 @@ describe('lib/discussion.ts', () => {
       childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
 
       const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
-      expect(result).toContain('## Plan Summary');
+      expect(result).not.toContain('## Plan Summary');
     });
 
   });
