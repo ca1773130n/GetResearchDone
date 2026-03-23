@@ -86,6 +86,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
 - [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency; DiscussionRoundEntry is discriminated union (BackendResponse | skipped); rounds clamped 1-3; markdown file written synchronously before return
 - [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
+- [Phase 84]: cmdInitPlanPhase and cmdInitExecutePhase emit discussion/review config fields; brainstormer/reviewer availability checked via detectAvailableBackends; pr_review_enabled requires both flags
 
 ## Known Bugs
 
@@ -98,7 +99,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 83 — 2 plans, 2 waves, all verified
-- **Stopped at:** Phase 83 complete, verified passed (7/7 sanity, all proxy metrics met)
+- **Stopped at:** Completed 84-02-PLAN.md
 - **Next action:** `/grd:plan-phase 84`
 - **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts, lib/paths.ts
 
