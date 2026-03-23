@@ -21,7 +21,9 @@ export type UnwiredFeatureCategory =
   | 'app-route-without-test'
   | 'app-exported-but-uncalled'
   | 'app-model-without-handler'
-  | 'app-component-without-import';
+  | 'app-component-without-import'
+  | 'lib-exported-without-test'
+  | 'bin-entry-without-test';
 
 // ─── Feature Interfaces ──────────────────────────────────────────────────────
 

@@ -92,7 +92,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
-- [Phase 86]: detectElicitation() uses numbered_options-first priority (catches multi-line patterns before single-line questions); resolveElicitation() passes combined context+instruction as topic arg to runDiscussion() (richer context for participants)
+- [Phase 86]: detectElicitation() uses numbered_options-first priority (catches multi-line patterns before single-line questions); resolveElicitation() passes combined context+instruction as topic arg to runDiscussion() (richer context for participants); ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
 
 ## Known Bugs
 
