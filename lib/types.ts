@@ -239,6 +239,75 @@ export interface RunDiscussionOptions {
 }
 
 /**
+ * A concern raised during a plan review.
+ * severity distinguishes blocking issues from minor suggestions.
+ */
+export interface Concern {
+  description: string;
+  severity: 'blocker' | 'warning' | 'suggestion';
+}
+
+/**
+ * Result returned by reviewPlanViaBackend() after a plan is reviewed.
+ * Contains approval verdict, concerns list, and raw response for debugging.
+ */
+export interface PlanReviewResult {
+  approved: boolean;
+  concerns: Concern[];
+  suggestions: string[];
+  reviewer_backend: BackendId;
+  duration_ms: number;
+  raw_response: string;
+}
+
+/**
+ * A single issue found during a code review.
+ * Includes file location, line range, and severity classification.
+ */
+export interface ReviewIssue {
+  severity: 'blocker' | 'warning' | 'suggestion';
+  file: string;
+  line_range: string;
+  description: string;
+}
+
+/**
+ * Result returned by reviewCodeViaBackend() after a code diff is reviewed.
+ * Contains approval verdict, issues list, and raw response for debugging.
+ */
+export interface CodeReviewResult {
+  approved: boolean;
+  issues: ReviewIssue[];
+  summary: string;
+  reviewer_backend: BackendId;
+  duration_ms: number;
+  raw_response: string;
+}
+
+/**
+ * A single PR review comment targeting a file and line.
+ * Used for posting structured feedback to GitHub PR review threads.
+ */
+export interface PRReviewComment {
+  file: string;
+  line: number;
+  body: string;
+  severity: 'blocker' | 'warning' | 'suggestion';
+}
+
+/**
+ * Result returned by reviewPRViaBackend() after a PR diff is reviewed.
+ * Contains structured comments suitable for GitHub PR review posting.
+ */
+export interface PRReviewResult {
+  comments: PRReviewComment[];
+  summary: string;
+  reviewer_backend: BackendId;
+  duration_ms: number;
+  raw_response: string;
+}
+
+/**
  * Full GRD project configuration as returned by loadConfig().
  * All fields are populated with defaults when not present in config.json.
  */
