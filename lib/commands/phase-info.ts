@@ -534,7 +534,6 @@ function cmdSummaryExtract(
 module.exports = {
   readCachedRoadmap,
   readCachedState,
-  _roadmapContentCache,
   _stateContentCache,
   cmdHistoryDigest,
   cmdResolveModel,
