@@ -2703,7 +2703,7 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
         synthesizer: args.synthesizer as BackendId | undefined,
         cwd,
       });
-      return JSON.stringify(result);
+      console.log(JSON.stringify(result));
     },
   },
   {
@@ -2713,10 +2713,10 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     params: [],
     execute: (cwd: string, _args: Record<string, unknown>) => {
       const config = readConfig(cwd) ?? {};
-      return JSON.stringify({
+      console.log(JSON.stringify({
         discussion: (config.discussion as Record<string, unknown>) ?? {},
         backend_roles: (config.backend_roles as Record<string, unknown>) ?? {},
-      });
+      }));
     },
   },
   {
@@ -2727,10 +2727,10 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     execute: (cwd: string, _args: Record<string, unknown>) => {
       const backends = detectAvailableBackends(cwd);
       const config = readConfig(cwd) ?? {};
-      return JSON.stringify({
+      console.log(JSON.stringify({
         backends,
         roles: (config.backend_roles as Record<string, unknown>) ?? {},
-      });
+      }));
     },
   },
   {
@@ -2749,10 +2749,11 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       const filename = args.filename as string | undefined;
       if (filename) {
         const content = readDiscussion(filename, cwd);
-        return JSON.stringify({ filename, content });
+        console.log(JSON.stringify({ filename, content }));
+        return;
       }
       const files = listDiscussions(cwd);
-      return JSON.stringify(files);
+      console.log(JSON.stringify(files));
     },
   },
 
