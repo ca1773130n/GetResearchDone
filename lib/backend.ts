@@ -36,6 +36,7 @@ import type {
   AgentEffortProfiles,
   WebMcpResult,
   PlaywrightResult,
+  BackendAvailability,
 } from './types';
 
 const fs = require('fs');
@@ -716,6 +717,83 @@ function detectPlaywright(cwd: string): PlaywrightResult {
   };
 }
 
+// --- Backend Availability Detection ------------------------------------------
+
+/** Cache entry for detectAvailableBackends result. */
+interface AvailabilityCacheEntry {
+  result: Record<BackendId, BackendAvailability>;
+  ts: number;
+}
+
+let _availabilityCache: AvailabilityCacheEntry | null = null;
+const AVAILABILITY_CACHE_TTL_MS: number = 5 * 60 * 1000;
+
+/**
+ * Dispatchable backends — the four CLIs that discussion.ts can spawn directly.
+ * Meta-backends (overstory, superpowers, grd) are probed as unavailable.
+ */
+const DISPATCHABLE_BACKENDS: readonly string[] = ['claude', 'codex', 'gemini', 'opencode'];
+
+/**
+ * Probe which AI CLI backends are available on PATH.
+ *
+ * For each of the four dispatchable backends (claude, codex, gemini, opencode),
+ * runs `<binary> --version` with a 5-second timeout. Success means available.
+ * Meta-backends (overstory, superpowers, grd) are always marked unavailable here.
+ *
+ * Result is cached for 5 minutes (AVAILABILITY_CACHE_TTL_MS). Call
+ * clearAvailabilityCache() to force re-detection in tests.
+ *
+ * @param cwd - Optional working directory for subprocess (defaults to process.cwd())
+ * @returns A map of BackendId to BackendAvailability for all known backends
+ */
+function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailability> {
+  const now: number = Date.now();
+  if (_availabilityCache && now - _availabilityCache.ts < AVAILABILITY_CACHE_TTL_MS) {
+    return _availabilityCache.result;
+  }
+
+  const effectiveCwd: string = cwd || process.cwd();
+  const unavailable: BackendAvailability = { available: false, version: null };
+
+  const result: Record<BackendId, BackendAvailability> = {
+    claude: unavailable,
+    codex: unavailable,
+    gemini: unavailable,
+    opencode: unavailable,
+    overstory: unavailable,
+    superpowers: unavailable,
+    grd: unavailable,
+  };
+
+  for (const backend of DISPATCHABLE_BACKENDS) {
+    try {
+      const stdout: string = execFileSync(backend, ['--version'], {
+        cwd: effectiveCwd,
+        timeout: 5000,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      result[backend as BackendId] = {
+        available: true,
+        version: stdout.trim().split('\n')[0] || null,
+      };
+    } catch {
+      result[backend as BackendId] = { available: false, version: null };
+    }
+  }
+
+  _availabilityCache = { result, ts: now };
+  return result;
+}
+
+/**
+ * Clear the availability detection cache. Exported for testing.
+ */
+function clearAvailabilityCache(): void {
+  _availabilityCache = null;
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -733,4 +811,6 @@ module.exports = {
   clearModelCache,
   detectWebMcp,
   detectPlaywright,
+  detectAvailableBackends,
+  clearAvailabilityCache,
 };

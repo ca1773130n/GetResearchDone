@@ -99,59 +99,6 @@ export interface PlaywrightResult {
   reason?: string;
 }
 
-// ─── Discussion Types (from discussion infrastructure) ───────────────────────
-
-/**
- * Role a backend plays in a multi-agent discussion round.
- */
-export type DiscussionRole = 'reviewer' | 'brainstormer' | 'verifier' | 'executor';
-
-/**
- * Maps optional discussion roles to specific backend identifiers.
- */
-export type BackendRolesConfig = Partial<Record<DiscussionRole, BackendId>>;
-
-/**
- * Configuration for the multi-agent cross-backend discussion feature.
- * Controls when discussions run, round limits, and which backend synthesizes.
- */
-export interface DiscussionConfig {
-  enabled: boolean;
-  before_planning: boolean;
-  before_execution: boolean;
-  max_rounds: number;
-  timeout_per_round_seconds: number;
-  synthesizer: BackendId;
-}
-
-/**
- * Availability status of a backend CLI on the host machine.
- * Returned by detectAvailableBackends() for each backend.
- */
-export interface BackendAvailability {
-  available: boolean;
-  version: string | null;
-}
-
-/**
- * Options passed to backend dispatch calls.
- */
-export interface DispatchOptions {
-  timeout_ms?: number;
-  cwd?: string;
-  model?: string;
-}
-
-/**
- * Response returned after a backend completes a discussion turn.
- */
-export interface BackendResponse {
-  backend: BackendId;
-  response_text: string;
-  duration_ms: number;
-  stderr?: string;
-}
-
 // ─── Config Types (from utils.js loadConfig) ─────────────────────────────────
 
 /**
@@ -174,6 +121,72 @@ export interface GrdTimeouts {
 export interface CeremonyConfig {
   default_level?: 'auto' | 'light' | 'standard' | 'full';
   phase_overrides?: Record<string, 'light' | 'standard' | 'full'>;
+}
+
+// ─── Discussion Types (from discussion infrastructure) ───────────────────────
+
+/**
+ * Role a backend plays in a multi-backend discussion round.
+ */
+export type DiscussionRole = 'reviewer' | 'brainstormer' | 'verifier' | 'executor';
+
+/**
+ * Maps discussion roles to the backend that fulfills each role.
+ * Partial — not all roles need to be assigned.
+ */
+export type BackendRolesConfig = Partial<Record<DiscussionRole, BackendId>>;
+
+/**
+ * Configuration for the cross-backend discussion feature.
+ * All fields have defaults; partial objects are merged with defaults in loadConfig().
+ */
+export interface DiscussionConfig {
+  /** Whether discussion is enabled at all. Default: true */
+  enabled: boolean;
+  /** Run a discussion round before planning. Default: true */
+  before_planning: boolean;
+  /** Run a discussion round before execution. Default: false */
+  before_execution: boolean;
+  /** Number of rounds (clamped 1-3). Default: 2 */
+  max_rounds: number;
+  /** Per-round timeout in seconds. Default: 180 */
+  timeout_per_round_seconds: number;
+  /** Which backend synthesizes the final answer. Default: 'claude' */
+  synthesizer: BackendId;
+}
+
+/**
+ * Result of probing whether a backend CLI binary is on PATH.
+ */
+export interface BackendAvailability {
+  available: boolean;
+  version: string | null;
+}
+
+/**
+ * Options for dispatching a prompt to a backend CLI subprocess.
+ */
+export interface DispatchOptions {
+  /** Timeout in milliseconds. */
+  timeout_ms?: number;
+  /** Working directory for the subprocess. Defaults to process.cwd(). */
+  cwd?: string;
+  /** Model name override (backend-specific string). Optional. */
+  model?: string;
+}
+
+/**
+ * Typed response from a backend CLI subprocess dispatch.
+ */
+export interface BackendResponse {
+  /** Which backend produced this response. */
+  backend: BackendId;
+  /** Trimmed stdout from the subprocess, or '' on error. */
+  response_text: string;
+  /** Wall-clock duration of the dispatch in milliseconds. */
+  duration_ms: number;
+  /** Stderr output or error message. Empty string on success. */
+  stderr?: string;
 }
 
 /**
