@@ -310,7 +310,7 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 **Milestone Goal:** Transform multi-backend discussion from a standalone tool into an autonomous decision layer — when the primary backend asks clarifying questions, route them to other AI backends for deliberation and feed the consensus back, enabling truly unattended autopilot and evolve.
 **Start:** 2026-03-23
 
-- [ ] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement`
+- [x] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement` *(completed 2026-03-24)*
 - [ ] **Phase 87: Autopilot and Plan-Phase Integration** - Async subprocess spawning with stdin/stdout streaming, elicitation interception in autopilot and plan-phase `implement`
 - [ ] **Phase 88: Execute-Phase, Evolve Integration, and E2E Testing** - Execute-phase and evolve loop integration, full pipeline integration test `integrate`
 

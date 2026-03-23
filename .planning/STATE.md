@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
+- **Active phase:** Phase 86 complete
 - **Current plan:** —
 - **Milestone:** v0.3.21 Elicitation Replacement
-- **Status:** Initializing
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 86`
+- **Status:** In progress
+- **Progress:** [███░░░░░░░] 33%
+- **Next:** `/grd:plan-phase 87`
 
 ## Phase Summary
 
@@ -31,6 +31,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
 | 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
+| 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -91,6 +92,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
+- [Phase 86]: detectElicitation() uses numbered_options-first priority (catches multi-line patterns before single-line questions); resolveElicitation() passes combined context+instruction as topic arg to runDiscussion() (richer context for participants)
 
 ## Known Bugs
 
@@ -102,12 +104,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 85 — 2 plans, 1 wave, all verified
-- **Stopped at:** Phase 85 complete, milestone ready
-- **Next action:** `/grd:complete-milestone`
+- **Last action:** Executed Phase 86 — 2 plans, 2 waves, all verified
+- **Stopped at:** Phase 86 complete
+- **Next action:** `/grd:plan-phase 87`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*
