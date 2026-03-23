@@ -76,6 +76,7 @@ const {
   reviewPlanViaBackend,
   reviewCodeViaBackend,
   reviewPRViaBackend,
+  detectElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
@@ -171,6 +172,11 @@ const {
     reviewer_backend: string;
     duration_ms: number;
     raw_response: string;
+  } | null;
+  detectElicitation: (output: string) => {
+    question: string;
+    patterns: string[];
+    confidence: 'high' | 'medium';
   } | null;
   DISCUSSION_SONNET_MODEL: string;
   BACKEND_CLI_MAP: Record<string, { bin: string; buildArgs: (p: string, m?: string) => string[] }>;
@@ -1728,5 +1734,197 @@ describe('lib/discussion.ts', () => {
       expect(result).not.toBeNull();
       expect(result?.comments[0].body).toMatch(/unparseable/i);
     });
+  });
+
+  // ─── detectElicitation ────────────────────────────────────────────────────
+
+  describe('detectElicitation', () => {
+
+    // --- True positive tests (should detect) ---
+
+    test('detects single line ending with ?', () => {
+      const result = detectElicitation('What model should I use?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('direct_question');
+      expect(result?.confidence).toBe('high');
+      expect(result?.question).toBe('What model should I use?');
+    });
+
+    test('detects question buried in multi-line output', () => {
+      const result = detectElicitation('Processing...\nWhich approach do you prefer?\nWaiting...');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+      expect(result?.question).toBe('Which approach do you prefer?');
+    });
+
+    test('detects numbered option list (2+ consecutive items)', () => {
+      const result = detectElicitation('1. Use React\n2. Use Vue\n3. Use Svelte');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('numbered_options');
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('detects numbered options with ) delimiter', () => {
+      const result = detectElicitation('1) Option A\n2) Option B');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('numbered_options');
+    });
+
+    test('detects clarification_phrase: "Please clarify"', () => {
+      const result = detectElicitation('Please clarify the target framework');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('detects "Would you prefer" pattern', () => {
+      const result = detectElicitation('Would you prefer TypeScript or JavaScript?');
+      expect(result).not.toBeNull();
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('detects mixed: question with numbered options below', () => {
+      const output = 'Which framework should we use?\n1. React\n2. Vue';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+    });
+
+    test('detects "Choose one" option_prompt with medium confidence', () => {
+      const result = detectElicitation('Choose one of the following:');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+      expect(result?.confidence).toBe('medium');
+    });
+
+    test('detects "Select an option" pattern', () => {
+      const result = detectElicitation('Select an option from the list:');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+    });
+
+    test('detects "Pick one" pattern', () => {
+      const result = detectElicitation('Pick one of the following approaches');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+    });
+
+    test('detects "Do you want" clarification phrase', () => {
+      const result = detectElicitation('Do you want to proceed with this approach?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    test('detects "Could you specify" clarification phrase', () => {
+      const result = detectElicitation('Could you specify the output directory?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    test('detects question with trailing whitespace', () => {
+      const result = detectElicitation('What model?  \n');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('direct_question');
+    });
+
+    test('case-insensitive clarification phrase matching', () => {
+      const result = detectElicitation('PLEASE CLARIFY the intent');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    // --- False positive tests (should return null) ---
+
+    test('returns null for question in code comment (//)', () => {
+      const result = detectElicitation('// What does this do?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in block comment line (*)', () => {
+      const result = detectElicitation('* What does this do?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in markdown header (#)', () => {
+      const result = detectElicitation('# FAQ: What is GRD?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in string literal (double quotes)', () => {
+      const result = detectElicitation('const msg = "Are you sure?";');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question inside code block', () => {
+      const result = detectElicitation('```\nWhat is this?\n```');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in error/stack trace line (Error:)', () => {
+      const result = detectElicitation('Error: What went wrong?\n  at foo.js:1');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for rhetorical question in explanatory text', () => {
+      // "Why? Because it uses caching." — the "Why?" is a short rhetorical after a period
+      const result = detectElicitation('This is fast. Why? Because it uses caching.');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for empty string', () => {
+      const result = detectElicitation('');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for normal output without questions', () => {
+      const result = detectElicitation('Build succeeded.\n3 files compiled.');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for single numbered item (not 2+ items)', () => {
+      const result = detectElicitation('1. Build succeeded');
+      expect(result).toBeNull();
+    });
+
+    // --- Edge case tests ---
+
+    test('returns first detection when multiple questions present', () => {
+      const output = 'What model do you want?\nWhich version should I use?';
+      const result = detectElicitation(output);
+      // Returns the first match (first direct question)
+      expect(result).not.toBeNull();
+      expect(result?.question).toBe('What model do you want?');
+    });
+
+    test('numbered_options question field joins lines with newline', () => {
+      const output = '1. Use React\n2. Use Vue\n3. Use Svelte';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+      expect(result?.question).toContain('1. Use React');
+      expect(result?.question).toContain('2. Use Vue');
+    });
+
+    test('direct_question confidence is high', () => {
+      const result = detectElicitation('What framework should I use?');
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('option_prompt confidence is medium', () => {
+      const result = detectElicitation('Choose one of these approaches:');
+      expect(result?.confidence).toBe('medium');
+    });
+
+    test('ignores question inside code block even with direct question pattern', () => {
+      const output = '```\nShould I proceed?\n```';
+      const result = detectElicitation(output);
+      expect(result).toBeNull();
+    });
+
+    test('detects question after a code block ends', () => {
+      const output = '```\nsome code\n```\nWhat should I do next?';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+      expect(result?.question).toBe('What should I do next?');
+    });
+
   });
 });
