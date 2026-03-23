@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 84 complete, Phase 85 next
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 83 complete (2/2 plans), Phase 84 next
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
 - **Active phase:** 85 — MCP Tools, CLI Command, and Testing
-- **Current plan:** (none yet)
+- **Current plan:** Plan 01 complete
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 84 complete, ready to plan Phase 85
-- **Progress:** [███████▓░░] 75%
-- **Next:** `/grd:plan-phase 85`
+- **Status:** Phase 85 Plan 01 complete — 4 discussion MCP tools registered, /grd:discuss slash command created
+- **Progress:** [████████░░] 80%
+- **Next:** Execute 85-02-PLAN.md (Discussion Testing)
 
 ## Phase Summary
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
-| 85 | MCP Tools, CLI Command, and Testing | Not started |
+| 85 | MCP Tools, CLI Command, and Testing | In progress (Plan 01 complete) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -72,8 +72,8 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - Milestones shipped: 27 (v0.0.5 through v0.3.13)
 - Total tests: 3,177 (before v0.3.20)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
-- Total commands: 40
-- MCP tools: 128
+- Total commands: 41
+- MCP tools: 132
 
 ## Decisions
 
@@ -84,9 +84,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
 - [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
-- [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency; DiscussionRoundEntry is discriminated union (BackendResponse | skipped); rounds clamped 1-3; markdown file written synchronously before return
-- [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
-- [Phase 84]: cmdInitPlanPhase and cmdInitExecutePhase emit discussion/review config fields; brainstormer/reviewer availability checked via detectAvailableBackends; pr_review_enabled requires both flags
+- [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency (not OS-level parallelism — execFileSync limitation); fs.writeFileSync called synchronously before return; buildSynthesisPrompt/buildDiscussionMarkdown are internal helpers not exported
+- [Phase 84]: reviewPlanViaBackend and reviewCodeViaBackend check reviewer != primary backend to prevent self-review
+- [Phase 84]: before_execution gated as === true (explicit opt-in) vs before_planning as !== false (default enabled)
+- [Phase 84]: Workflow integration test mocks use existing jest.mock infrastructure; no spyOn needed for runDiscussion since execFileSync mock controls all dispatch output
+- [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 
 ## Known Bugs
 
@@ -98,10 +100,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 83 — 2 plans, 2 waves, all verified
-- **Stopped at:** Completed 84-02-PLAN.md
-- **Next action:** `/grd:plan-phase 84`
-- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts, lib/paths.ts
+- **Last action:** Executed Phase 83 Plan 02 — runDiscussion() implementation with 71 tests
+- **Stopped at:** Completed 85-01-PLAN.md
+- **Next action:** Execute 84 (Workflow Integration)
+- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts
 
 ---
 
