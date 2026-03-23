@@ -58,13 +58,6 @@ function makeAvailability(available: string[]): Record<string, { available: bool
   return result;
 }
 
-/**
- * Create a mock BackendResponse for a given backend.
- */
-function mockResponse(backend: string, text: string): Record<string, unknown> {
-  return { backend, response_text: text, duration_ms: 10, stderr: '' };
-}
-
 // ─── Imports (after jest.mock) ────────────────────────────────────────────────
 
 const {
@@ -447,6 +440,20 @@ describe('lib/discussion.ts', () => {
       const result = dispatchToBackend('gemini', 'prompt');
       expect(result.response_text).toBe('');
       expect(typeof result.stderr).toBe('string');
+    });
+
+    test('falls back to "Unknown dispatch error" when no stderr or message on thrown object', () => {
+      childProcess.execFileSync.mockImplementation(() => {
+        // Create an error with no stderr or message to exercise the final fallback branch
+        const err = new Error('');
+        // Delete message to make it empty so the final || branch fires
+        Object.defineProperty(err, 'message', { value: '' });
+        Object.defineProperty(err, 'stderr', { value: '' });
+        throw err;
+      });
+      const result = dispatchToBackend('claude', 'prompt');
+      expect(result.response_text).toBe('');
+      expect(result.stderr).toBe('Unknown dispatch error');
     });
   });
 
@@ -1127,6 +1134,125 @@ describe('lib/discussion.ts', () => {
       expect(result?.concerns[0].description).toMatch(/unparseable/i);
     });
 
+    test('treats JSON array response as unparseable (not an object)', () => {
+      // parseJSONFromResponse returns null for arrays — triggers fallback path
+      childProcess.execFileSync.mockReturnValue('```json\n[1,2,3]\n```');
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      // Array JSON is not a valid PlanReviewResult — should fall through to unparseable path
+      expect(result).not.toBeNull();
+      expect(result?.approved).toBe(false);
+      expect(result?.concerns[0].description).toMatch(/unparseable/i);
+    });
+
+    test('defaults approved to false when parsed JSON lacks boolean approved field', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":"yes","concerns":[],"suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      // approved is "yes" (string), not boolean — should default to false
+      expect(result?.approved).toBe(false);
+    });
+
+    test('defaults concern severity to "warning" when severity field is invalid', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[{"description":"Issue","severity":"critical"}],"suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      // "critical" is not a valid severity — should default to 'warning'
+      expect(result?.concerns[0].severity).toBe('warning');
+    });
+
+    test('coerces non-string description to string in concerns', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[{"description":42,"severity":"blocker"}],"suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(typeof result?.concerns[0].description).toBe('string');
+      expect(result?.concerns[0].description).toBe('42');
+    });
+
+    test('handles non-array concerns field gracefully (returns empty concerns)', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":"not an array","suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.concerns).toEqual([]);
+    });
+
+    test('handles non-array suggestions field gracefully (returns empty suggestions)', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[],"suggestions":"not an array"}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.suggestions).toEqual([]);
+    });
+
+    test('coerces null/undefined description in concerns to empty string', () => {
+      // Tests the `?? ''` branch in `String(c['description'] ?? '')`
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[{"severity":"blocker"}],"suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      // description is missing (undefined) — should coerce to empty string
+      expect(result?.concerns[0].description).toBe('');
+    });
+
     test('result includes raw_response', () => {
       const rawJson = '```json\n{"approved":true,"concerns":[],"suggestions":[]}\n```';
       childProcess.execFileSync.mockReturnValue(rawJson);
@@ -1263,6 +1389,106 @@ describe('lib/discussion.ts', () => {
 
       expect(result?.approved).toBe(false);
     });
+
+    test('defaults issue severity to "warning" when severity field is invalid', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[{"severity":"critical","file":"a.ts","line_range":"1","description":"Odd"}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff content',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.issues[0].severity).toBe('warning');
+    });
+
+    test('defaults approved to false when parsed JSON lacks boolean approved field', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":"yes","issues":[],"summary":"ok"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.approved).toBe(false);
+    });
+
+    test('coerces non-string file and description fields in issues', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[{"severity":"suggestion","file":null,"line_range":null,"description":99}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.issues[0].file).toBe('');
+      expect(result?.issues[0].line_range).toBe('');
+      expect(typeof result?.issues[0].description).toBe('string');
+    });
+
+    test('handles non-array issues field gracefully', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":"none","summary":"all good"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.issues).toEqual([]);
+    });
+
+    test('coerces null/undefined description in issues to empty string', () => {
+      // Tests the `?? ''` branch in `String(i['description'] ?? '')`
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[{"severity":"blocker","file":"a.ts","line_range":"1"}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      // description is missing (undefined) — should coerce to empty string
+      expect(result?.issues[0].description).toBe('');
+    });
+
+    test('defaults summary to empty string when missing from parsed JSON', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[]}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.summary).toBe('');
+    });
   });
 
   // ─── reviewPRViaBackend ────────────────────────────────────────────────────
@@ -1391,6 +1617,108 @@ describe('lib/discussion.ts', () => {
       const promptArg = (childProcess.execFileSync.mock.calls[0] as [string, string[]])[1];
       const fullPrompt = promptArg.join(' ');
       expect(fullPrompt).toContain('123');
+    });
+
+    test('defaults comment severity to "warning" when severity field is invalid', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[{"file":"a.ts","line":1,"body":"oops","severity":"invalid"}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 5,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.comments[0].severity).toBe('warning');
+    });
+
+    test('coerces non-string file and body fields in comments', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[{"file":null,"line":0,"body":null,"severity":"suggestion"}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 3,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.comments[0].file).toBe('');
+      expect(result?.comments[0].body).toBe('');
+    });
+
+    test('defaults line to 0 when line field is not a number', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[{"file":"f.ts","line":"five","body":"note","severity":"suggestion"}],"summary":"ok"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 7,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.comments[0].line).toBe(0);
+    });
+
+    test('handles non-array comments field gracefully', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":"none","summary":"LGTM"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 9,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.comments).toEqual([]);
+    });
+
+    test('defaults summary to empty string when missing from parsed JSON', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[]}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 11,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.summary).toBe('');
+    });
+
+    test('treats JSON array response as unparseable (not an object)', () => {
+      childProcess.execFileSync.mockReturnValue('```json\n[1,2,3]\n```');
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 13,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.comments[0].body).toMatch(/unparseable/i);
     });
   });
 });
