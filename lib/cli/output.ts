@@ -30,12 +30,4 @@ export function formatError(message: string, backend: string, exitCode: number):
   });
 }
 
-/**
- * Write JSON envelope to stdout and exit.
- */
-export function outputJson(envelope: JsonEnvelope): void {
-  process.stdout.write(formatJson(envelope) + '\n');
-  process.exit(envelope.status === 'ok' ? 0 : 1);
-}
-
-module.exports = { formatJson, formatError, outputJson };
+module.exports = { formatJson, formatError };
