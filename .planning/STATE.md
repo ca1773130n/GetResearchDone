@@ -13,11 +13,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 - **Active phase:** 85 — MCP Tools, CLI Command, and Testing
-- **Current plan:** Plan 01 complete
+- **Current plan:** Plan 02 complete (all plans done)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 85 Plan 01 complete — 4 discussion MCP tools registered, /grd:discuss slash command created
+- **Status:** Phase 85 complete — MCP tools, CLI command, discussion unit tests at 100% coverage, E2E integration test
 - **Progress:** [████████░░] 80%
-- **Next:** Execute 85-02-PLAN.md (Discussion Testing)
+- **Next:** Ship v0.3.20
 
 ## Phase Summary
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
-| 85 | MCP Tools, CLI Command, and Testing | In progress (Plan 01 complete) |
+| 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -70,7 +70,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Cumulative:**
 - Milestones shipped: 27 (v0.0.5 through v0.3.13)
-- Total tests: 3,177 (before v0.3.20)
+- Total tests: 3,557 (after Phase 85 — added 380 tests across discussion module)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 41
 - MCP tools: 132
@@ -89,6 +89,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 84]: before_execution gated as === true (explicit opt-in) vs before_planning as !== false (default enabled)
 - [Phase 84]: Workflow integration test mocks use existing jest.mock infrastructure; no spyOn needed for runDiscussion since execFileSync mock controls all dispatch output
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
+- [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 
 ## Known Bugs
 
@@ -100,10 +101,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 83 Plan 02 — runDiscussion() implementation with 71 tests
-- **Stopped at:** Completed 85-01-PLAN.md
-- **Next action:** Execute 84 (Workflow Integration)
-- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts
+- **Last action:** Executed Phase 85 Plan 02 — discussion unit tests at 100% coverage + E2E integration test
+- **Stopped at:** Completed 85-02-PLAN.md
+- **Next action:** Ship v0.3.20
+- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/mcp-server.ts
 
 ---
 
