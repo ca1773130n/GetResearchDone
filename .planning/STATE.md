@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 84 complete, Phase 85 next
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — All phases complete (82-85)
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 85 — MCP Tools, CLI Command, and Testing
-- **Current plan:** (none yet)
+- **Active phase:** 85 — MCP Tools, CLI Command, and Testing (Complete)
+- **Current plan:** All plans complete (85-01, 85-02)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 84 complete, ready to plan Phase 85
-- **Progress:** [███████▓░░] 75%
-- **Next:** `/grd:plan-phase 85`
+- **Status:** All phases complete (82-85), milestone ready
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:complete-milestone`
 
 ## Phase Summary
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
-| 85 | MCP Tools, CLI Command, and Testing | Not started |
+| 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -70,7 +70,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Cumulative:**
 - Milestones shipped: 27 (v0.0.5 through v0.3.13)
-- Total tests: 3,177 (before v0.3.20)
+- Total tests: 3,557 (v0.3.20 phase 85)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 40
 - MCP tools: 128
@@ -87,6 +87,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency; DiscussionRoundEntry is discriminated union (BackendResponse | skipped); rounds clamped 1-3; markdown file written synchronously before return
 - [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
 - [Phase 84]: cmdInitPlanPhase and cmdInitExecutePhase emit discussion/review config fields; brainstormer/reviewer availability checked via detectAvailableBackends; pr_review_enabled requires both flags
+- [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); readConfig exported from lib/backend.ts; discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
 
 ## Known Bugs
 
@@ -98,10 +99,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 83 — 2 plans, 2 waves, all verified
-- **Stopped at:** Completed 84-02-PLAN.md
-- **Next action:** `/grd:plan-phase 84`
-- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts, lib/paths.ts
+- **Last action:** Executed Phase 85 — 2 plans, 1 wave, all verified
+- **Stopped at:** Phase 85 complete, milestone ready
+- **Next action:** `/grd:complete-milestone`
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
 
