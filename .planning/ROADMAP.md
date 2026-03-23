@@ -220,7 +220,12 @@ Phases 78-81 added `/grd:wireup` command — end-to-end integration wiring compl
   3. `dispatchToBackend(backendId, prompt, options)` executes the target CLI with correct flags (`--print` for claude, `-q` for codex, default for gemini/opencode), captures stdout/stderr, and returns a typed `BackendResponse` with `backend`, `response_text`, `duration_ms`; times out after configurable duration (default 5 min) with a structured error.
   4. `discussion` config section (`enabled`, `before_planning`, `before_execution`, `max_rounds`, `timeout_per_round_seconds`, `synthesizer`) is validated on load; when `enabled: false` all discussion paths short-circuit silently.
   5. Discussion subagent spawns on the primary backend reference `SONNET_MODEL` constant, matching the ceiling established in `lib/wireup/state.ts` and `lib/evolve/`.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 82-01-PLAN.md — Types, config validation, and backend availability detection
+- [ ] 82-02-PLAN.md — Cross-backend dispatch primitive (lib/discussion.ts)
+- [ ] 82-03-PLAN.md — Unit tests for dispatch, availability, and config validation
 
 #### Phase 83: Discussion Protocol Core
 **Goal**: A complete discussion round can be run end-to-end — `runDiscussion(topic, participants, options)` orchestrates parallel dispatch, collects per-round responses, feeds them to a synthesizer backend, and writes a structured markdown history file to the milestone discussions directory.
