@@ -200,6 +200,20 @@ export type DiscussionRoundEntry =
   | { backend: BackendId; skipped: true; reason: string };
 
 /**
+ * Result of detecting an elicitation pattern in backend output.
+ * Used by the elicitation detection pipeline to identify when a backend
+ * is asking the user a question rather than executing autonomously.
+ */
+export interface ElicitationDetection {
+  /** The extracted question text */
+  question: string;
+  /** Which detection patterns matched (for debugging/logging) */
+  patterns: string[];
+  /** Confidence: 'high' for direct questions, 'medium' for heuristic matches */
+  confidence: 'high' | 'medium';
+}
+
+/**
  * Result returned by runDiscussion() after a multi-backend discussion completes.
  */
 export interface DiscussionResult {
