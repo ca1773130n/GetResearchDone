@@ -593,7 +593,7 @@ function scanAppModelsWithoutHandlers(cwd: string): UnwiredFeature[] {
       modelNames.push({ name: match[1], filePath: relPath });
     }
 
-    // Drizzle: export const tableName = pgTable/mysqlTable/sqliteTable(...)
+    // Drizzle: const <tableName> = pgTable/mysqlTable/sqliteTable(...)
     const drizzlePattern: RegExp =
       /(?:export\s+)?const\s+(\w+)\s*=\s*(?:pgTable|mysqlTable|sqliteTable)\s*\(/g;
     while ((match = drizzlePattern.exec(content)) !== null) {
