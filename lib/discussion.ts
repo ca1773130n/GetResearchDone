@@ -1043,6 +1043,238 @@ function detectElicitation(output: string): ElicitationDetection | null {
   return null;
 }
 
+// --- Elicitation Context Builder and Resolver --------------------------------
+
+/**
+ * Section budgets in characters (~8K tokens total = ~32K chars).
+ * Total: 1000 + 1000 + 2000 + 2000 + 1000 + overhead = ~7200 + 800 margin.
+ */
+const ELICITATION_BUDGET = {
+  question: 1000,
+  phaseGoal: 1000,
+  planSummary: 2000,
+  recentChanges: 2000,
+  projectState: 1000,
+} as const;
+
+/**
+ * Truncate a string to at most `maxLen` characters, appending '...' if cut.
+ */
+function truncateTo(s: string, maxLen: number): string {
+  if (s.length <= maxLen) return s;
+  return s.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * Build a context string for elicitation resolution.
+ *
+ * Packages the question, phase goal, plan summary, recent git changes, and
+ * current project state into a structured string under 8K tokens (~32K chars).
+ * Missing files are silently skipped — no section is required.
+ *
+ * @param question - The elicitation question text detected from backend output
+ * @param options - Working directory, optional phase and milestone identifiers
+ * @returns A formatted context string with labeled sections
+ */
+function buildElicitationContext(
+  question: string,
+  options: { cwd: string; phase?: string; milestone?: string }
+): string {
+  const { cwd, phase } = options;
+  const planningDir = path.join(cwd, '.planning');
+  const sections: string[] = [];
+
+  // Section: Question
+  sections.push(`## Question\n\n${truncateTo(question, ELICITATION_BUDGET.question)}`);
+
+  // Section: Phase Goal — read from ROADMAP.md
+  try {
+    const roadmapPath = path.join(planningDir, 'ROADMAP.md');
+    const roadmapText = fs.readFileSync(roadmapPath, 'utf-8');
+    let goalText = '';
+    if (phase) {
+      // Find the phase section and extract the goal line
+      const lines = roadmapText.split('\n');
+      let inPhaseSection = false;
+      for (const line of lines) {
+        // Match headings containing the phase number
+        if (line.match(new RegExp(`Phase\\s+${phase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'))) {
+          inPhaseSection = true;
+          continue;
+        }
+        if (inPhaseSection) {
+          // Stop at next heading of same or higher level
+          if (line.match(/^#{1,3}\s/)) break;
+          const trimmed = line.trim();
+          if (trimmed.length > 0) {
+            goalText += (goalText ? '\n' : '') + trimmed;
+            if (goalText.length >= ELICITATION_BUDGET.phaseGoal) break;
+          }
+        }
+      }
+    }
+    if (!goalText && roadmapText.length > 0) {
+      // Fallback: first non-empty paragraph from ROADMAP
+      const paras = roadmapText.split(/\n{2,}/);
+      for (const para of paras) {
+        const trimmed = para.trim();
+        if (trimmed.length > 10) {
+          goalText = trimmed;
+          break;
+        }
+      }
+    }
+    if (goalText) {
+      sections.push(`## Phase Goal\n\n${truncateTo(goalText, ELICITATION_BUDGET.phaseGoal)}`);
+    }
+  } catch {
+    // Missing ROADMAP.md — omit section
+  }
+
+  // Section: Plan Summary — read active PLAN.md objective
+  try {
+    const phasesDir = path.join(planningDir, 'milestones');
+    // Attempt to find a PLAN.md under the phases dir for the given phase
+    let planText = '';
+    if (phase) {
+      // Search for {phase}/*PLAN.md pattern
+      try {
+        const milestonesEntries = fs.readdirSync(phasesDir);
+        outer: for (const milestone of milestonesEntries) {
+          const phasesPath = path.join(phasesDir, milestone, 'phases');
+          try {
+            const phaseEntries = fs.readdirSync(phasesPath);
+            for (const entry of phaseEntries) {
+              if (entry.startsWith(String(phase))) {
+                const phaseDir = path.join(phasesPath, entry);
+                try {
+                  const planFiles = fs.readdirSync(phaseDir);
+                  for (const f of planFiles) {
+                    if (f.endsWith('-PLAN.md')) {
+                      const fullPlanText = fs.readFileSync(path.join(phaseDir, f), 'utf-8');
+                      const objMatch = fullPlanText.match(/<objective>([\s\S]*?)<\/objective>/);
+                      if (objMatch) {
+                        planText = objMatch[1].trim();
+                      }
+                      break outer;
+                    }
+                  }
+                } catch { /* skip */ }
+              }
+            }
+          } catch { /* skip */ }
+        }
+      } catch { /* skip */ }
+    }
+    if (planText) {
+      sections.push(`## Plan Summary\n\n${truncateTo(planText, ELICITATION_BUDGET.planSummary)}`);
+    }
+  } catch {
+    // Skip
+  }
+
+  // Section: Recent Changes — git diff --stat HEAD~3..HEAD
+  try {
+    const diffOutput = execFileSync(
+      'git',
+      ['diff', '--stat', 'HEAD~3..HEAD'],
+      {
+        timeout: 10000,
+        encoding: 'utf-8',
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        maxBuffer: 1024 * 1024,
+      }
+    );
+    if (diffOutput && diffOutput.trim().length > 0) {
+      sections.push(`## Recent Changes\n\n${truncateTo(diffOutput.trim(), ELICITATION_BUDGET.recentChanges)}`);
+    }
+  } catch {
+    // Not a git repo or no commits — omit section
+  }
+
+  // Section: Project State — current position from STATE.md
+  try {
+    const statePath = path.join(planningDir, 'STATE.md');
+    const stateText = fs.readFileSync(statePath, 'utf-8');
+    // Extract Current Position section
+    const posMatch = stateText.match(/## Current Position([\s\S]*?)(?=\n##|\s*$)/);
+    const stateExcerpt = posMatch ? posMatch[0].trim() : stateText.trim();
+    if (stateExcerpt.length > 0) {
+      sections.push(`## Project State\n\n${truncateTo(stateExcerpt, ELICITATION_BUDGET.projectState)}`);
+    }
+  } catch {
+    // Missing STATE.md — omit section
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Resolve an elicitation by routing it through a single-round multi-backend discussion.
+ *
+ * Packages the question and context into a structured prompt, calls runDiscussion()
+ * with rounds=1 for speed, and returns the synthesis response text.
+ *
+ * Edge cases handled:
+ * - synthesis null/empty → returns best single-backend response from round 1
+ * - all participants skipped → returns ''
+ * - runDiscussion throws → returns ''
+ *
+ * @param question - The detected elicitation question text
+ * @param context - Packed context from buildElicitationContext()
+ * @param options - Discussion participants, synthesizer backend, and working directory
+ * @returns The resolved answer text, or '' if resolution fails
+ */
+function resolveElicitation(
+  question: string,
+  context: string,
+  options: { participants: BackendId[]; synthesizer: BackendId; cwd: string }
+): string {
+  const { participants, synthesizer, cwd } = options;
+
+  const discussionTopic = [
+    context,
+    '',
+    '## Instructions',
+    'Based on the context above, answer the question concisely and make a decision.',
+    'Do not ask for more information — provide the best possible answer with what is available.',
+    'Be direct and actionable.',
+  ].join('\n');
+
+  try {
+    const result = runDiscussion(discussionTopic, participants, {
+      rounds: 1,
+      synthesizer,
+      cwd,
+      type: 'elicitation',
+    });
+
+    // Primary path: return synthesis response_text
+    const synthesisText = result?.synthesis?.response_text?.trim() ?? '';
+    if (synthesisText.length > 0) {
+      return synthesisText;
+    }
+
+    // Fallback: find first non-skipped round 1 entry
+    const round1 = Array.isArray(result?.rounds) && result.rounds.length > 0
+      ? result.rounds[0]
+      : [];
+
+    for (const entry of round1) {
+      if (entry && !('skipped' in entry)) {
+        const text = (entry as { response_text?: string }).response_text?.trim() ?? '';
+        if (text.length > 0) return text;
+      }
+    }
+
+    // All skipped
+    return '';
+  } catch {
+    return '';
+  }
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -1056,6 +1288,8 @@ module.exports = {
   reviewCodeViaBackend,
   reviewPRViaBackend,
   detectElicitation,
+  buildElicitationContext,
+  resolveElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
