@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 83 complete, Phase 84 next
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 84 complete, Phase 85 next
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 84 — Workflow Integration
+- **Active phase:** 85 — MCP Tools, CLI Command, and Testing
 - **Current plan:** (none yet)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Phase 83 complete, ready to plan Phase 84
-- **Progress:** [█████▓░░░░] 50%
-- **Next:** `/grd:plan-phase 84`
+- **Status:** Phase 84 complete, ready to plan Phase 85
+- **Progress:** [███████▓░░] 75%
+- **Next:** `/grd:plan-phase 85`
 
 ## Phase Summary
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
-| 84 | Workflow Integration | Not started |
+| 84 | Workflow Integration | Complete (2026-03-23) |
 | 85 | MCP Tools, CLI Command, and Testing | Not started |
 
 ## Shipped Milestones (v0.3.x series)
