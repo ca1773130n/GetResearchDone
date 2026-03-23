@@ -71,7 +71,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Cumulative:**
 - Milestones shipped: 27 (v0.0.5 through v0.3.13)
-- Total tests: 3,557 (after Phase 85 — added 380 tests across discussion module)
+- Total tests: 3,610 (after Phase 86 — added 53 elicitation detection/routing tests)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 41
 - MCP tools: 132
@@ -92,7 +92,8 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
-- [Phase 86]: detectElicitation() uses numbered_options-first priority (catches multi-line patterns before single-line questions); resolveElicitation() passes combined context+instruction as topic arg to runDiscussion() (richer context for participants); ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
+- [Phase 86]: detectElicitation() uses line-by-line regex parsing with code-block fence tracking; skip patterns for comments/headers/errors; odd-quote heuristic for string literals; word-count heuristic for rhetorical questions
+- [Phase 86]: buildElicitationContext() uses per-section char budgets (question 1K, goal 1K, plan 2K, changes 2K, state 1K) with try/catch per file read; resolveElicitation() calls runDiscussion with rounds=1 and falls back to best single-backend response on synthesis failure
 
 ## Known Bugs
 
@@ -112,4 +113,4 @@ None.
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-24*
+*Last updated: 2026-03-23*

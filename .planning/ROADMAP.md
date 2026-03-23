@@ -326,8 +326,8 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
   4. Unit tests cover detection patterns, false positive rejection, context building, and routing with 90%+ line coverage.
 **Plans**: 2 plans
 Plans:
-- [ ] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
-- [ ] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
+- [x] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
+- [x] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
 
 #### Phase 87: Autopilot and Plan-Phase Integration
 **Goal**: Autopilot subprocess spawning supports elicitation interception — detected questions are resolved via multi-backend discussion and the answer is fed back to the subprocess stdin, enabling uninterrupted autonomous planning.

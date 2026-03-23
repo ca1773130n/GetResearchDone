@@ -2,14 +2,25 @@
 phase: 86-elicitation-detection-and-resolution-core
 plan: "01"
 subsystem: discussion
-tags: [elicitation, detection, types, tdd]
+tags:
+  - elicitation
+  - detection
+  - tdd
+  - types
 dependency_graph:
   requires: []
-  provides: [ElicitationDetection type, detectElicitation function]
-  affects: [lib/types.ts, lib/discussion.ts, tests/unit/discussion.test.ts]
+  provides:
+    - ElicitationDetection type (lib/types.ts)
+    - detectElicitation() function (lib/discussion.ts)
+  affects:
+    - lib/discussion.ts
+    - lib/types.ts
+    - tests/unit/discussion.test.ts
 tech_stack:
   added: []
-  patterns: [regex-based line-by-line parsing, discriminated union detection, TDD]
+  patterns:
+    - Line-by-line regex parsing with code-block fence tracking
+    - False-positive filtering via skip patterns and string-literal heuristics
 key_files:
   created: []
   modified:
@@ -17,76 +28,94 @@ key_files:
     - lib/discussion.ts
     - tests/unit/discussion.test.ts
 decisions:
-  - "detectElicitation uses two-pass approach: numbered_options checked first (requires consecutive line scan), then line-by-line for other patterns"
-  - "Rhetorical question guard handles mid-line '?' (not at line end) rather than single-word heuristic"
-  - "Pattern priority: numbered_options > clarification_phrase > direct_question > option_prompt"
-  - "String literal heuristic: count unescaped quotes before '?'; odd count = inside string"
+  - "detectElicitation uses regex-based line-by-line parsing (no NLP/AST) for maintainability"
+  - "Numbered options require 2+ consecutive lines to avoid false positives on single-item lists"
+  - "Rhetorical questions filtered by word count (<=3 words) AND multi-sentence context heuristic"
+  - "String literal detection uses odd-quote-count heuristic before question mark position"
+  - "confidence: high for direct/clarification patterns; medium for option_prompt"
 metrics:
-  duration: "3m43s"
-  completed: "2026-03-23"
+  duration: "8 minutes"
+  completed: "2026-03-23T15:19:31Z"
   tasks_completed: 2
   files_modified: 3
 ---
 
 # Phase 86 Plan 01: ElicitationDetection Type and detectElicitation() Summary
 
-Regex-based elicitation detection for backend subprocess output with four pattern types and comprehensive false-positive guards, achieving 100% line coverage across 34 tests.
+Implemented the `ElicitationDetection` interface and `detectElicitation()` function — the foundational layer for the v0.3.21 elicitation replacement pipeline. The function reliably identifies when a backend output is asking the user a question vs producing normal output, with 99.6% line coverage and comprehensive false-positive rejection.
+
+## Tasks Completed
+
+| Task | Name | Commit | Files |
+|------|------|--------|-------|
+| 1 | Define ElicitationDetection type and implement detectElicitation() | 28acf21 | lib/types.ts, lib/discussion.ts |
+| 2 | TDD unit tests for detectElicitation() | d2ceac2 | tests/unit/discussion.test.ts |
 
 ## What Was Built
 
-### ElicitationDetection type (lib/types.ts)
+### ElicitationDetection interface (lib/types.ts)
 
-Added `ElicitationDetection` interface with three fields:
-- `question: string` — the extracted question text (matched line or joined numbered-option lines)
-- `patterns: string[]` — which detection patterns matched (for debugging/logging)
-- `confidence: 'high' | 'medium'` — high for direct questions/numbered options/clarification phrases; medium for option prompts
+Added after the `DiscussionRoundEntry` type in the Discussion Types section:
+
+```typescript
+export interface ElicitationDetection {
+  question: string;    // Extracted question text
+  patterns: string[];  // Which patterns matched (for debugging)
+  confidence: 'high' | 'medium';
+}
+```
 
 ### detectElicitation() function (lib/discussion.ts)
 
-Exported function `detectElicitation(output: string): ElicitationDetection | null` implementing:
+Line-by-line parser that:
 
-**Detection patterns (in priority order):**
-1. `numbered_options` — two-pass pre-scan for 2+ consecutive lines matching `/^\s*\d+[.)]\s+/` (confidence: high)
-2. `clarification_phrase` — case-insensitive match for: "please clarify", "which approach", "could you specify", "would you prefer", "do you want" (confidence: high)
-3. `direct_question` — line ends with `?` after trimming (confidence: high)
-4. `option_prompt` — case-insensitive match for: "choose one", "select an option", "pick one" (confidence: medium)
+1. Tracks ` ``` ` code fences — skips everything inside code blocks
+2. Resets numbered-option runs on non-numeric lines
+3. Detects numbered options (2+ consecutive `\d+[.)]` lines) before applying skip filters
+4. Skips comment/header/stack-trace lines (`//`, `*`, `#`, `Error:`, `Warning:`, `at `)
+5. Rejects questions inside string literals (odd-quote-count heuristic)
+6. Detects clarification phrases case-insensitively
+7. Filters short rhetorical questions (<=3 words in multi-sentence context)
 
-**False-positive guards:**
-- Lines inside ``` code block fences are skipped
-- Lines starting with `//`, `/*`, `*` (comments) are skipped
-- Lines starting with `#` (markdown headers) are skipped
-- Lines starting with `at `, `Error:`, `Warning:` (stack traces) are skipped
-- Lines where `?` appears to be inside a string literal (odd quote count before `?`) are skipped
-- Lines where `?` is mid-sentence (not at line end) do not trigger `direct_question`
+Detection priority order:
+- `numbered_options` — confidence: high
+- `clarification_phrase` — confidence: high (Please clarify, Which approach, Could you specify, Would you prefer, Do you want)
+- `option_prompt` — confidence: medium (Choose one, Select an option, Pick one)
+- `direct_question` — confidence: high (line ends with ?)
 
-### Unit tests (tests/unit/discussion.test.ts)
+### Unit Tests (tests/unit/discussion.test.ts)
 
-Added 34 `detectElicitation` tests in three groups:
-- 15 true positive tests (all detection patterns)
-- 13 false positive tests (all guard cases)
-- 6 edge case tests (confidence levels, multi-question, post-code-block, numbered options combined)
+30 new tests in `describe('detectElicitation', ...)` added to the existing `describe('lib/discussion.ts', ...)`:
+
+- 14 true positive tests covering all detection patterns
+- 9 false positive tests (comments, headers, string literals, code blocks, error lines, rhetorical questions, empty input, normal output, single numbered item)
+- 7 edge case tests (first-match behavior, joined numbered lines, confidence values, post-code-block detection)
+
+## Verification Results
+
+- `npm run build:check` — PASS (type-check clean)
+- `npx jest tests/unit/discussion.test.ts` — 158 tests pass (30 new detectElicitation tests)
+- Coverage on `lib/discussion.ts`: **99.6% lines, 97.1% branches, 100% functions** (target: 90%+)
+- `npm run lint` — PASS (no lint errors)
 
 ## Deviations from Plan
 
 None — plan executed exactly as written.
 
-## Verification Results
-
-| Check | Result |
-|-------|--------|
-| `npm run build:check` | PASS |
-| `npx jest tests/unit/discussion.test.ts` (162 tests) | PASS |
-| `npm run lint` | PASS |
-| Line coverage on detectElicitation | 100% (target: 90%) |
-| Branch coverage on discussion.ts | 94.52% |
-| Function coverage on discussion.ts | 100% |
-
-## Self-Check
-
-- [x] `lib/types.ts` contains `ElicitationDetection` interface — FOUND
-- [x] `lib/discussion.ts` exports `detectElicitation` — FOUND in module.exports
-- [x] `tests/unit/discussion.test.ts` contains `detectElicitation` describe block — FOUND
-- [x] Commit 17e6a57 (Task 1) — FOUND
-- [x] Commit 701904c (Task 2) — FOUND
+The implementation followed the spec precisely:
+- All 4 detection patterns implemented in priority order
+- All specified false-positive cases handled
+- Clarification phrases matched case-insensitively
+- numbered_options returns joined lines with newlines in the `question` field
+- Export added to `module.exports`
 
 ## Self-Check: PASSED
+
+- [x] lib/types.ts contains `ElicitationDetection` interface (line 207)
+- [x] lib/discussion.ts exports `detectElicitation` (lines 899, 1029)
+- [x] tests/unit/discussion.test.ts contains `detectElicitation` describe block (30 tests)
+- [x] Commits 28acf21, d2ceac2 exist in git log
+- [x] All tests pass (158/158)
+- [x] Coverage 99.6% (>90% threshold)
+- [x] Type-check passes
+- [x] Lint passes

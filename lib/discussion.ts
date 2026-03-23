@@ -857,158 +857,122 @@ function reviewPRViaBackend(options: {
 // --- Elicitation Detection ---------------------------------------------------
 
 /**
- * Detect whether a backend subprocess output contains an elicitation —
- * a question or clarification request that requires user input.
+ * Patterns for identifying lines that should be skipped during elicitation detection.
+ * These represent non-interactive output (comments, headers, stack traces, etc.)
+ */
+const SKIP_LINE_PATTERN = /^(?:\/\/|\/\*|\*|#|at\s|Error:|Warning:)/;
+
+/**
+ * Clarification phrases that strongly indicate a backend is asking for input.
+ * Matched case-insensitively.
+ */
+const CLARIFICATION_PHRASES = [
+  'please clarify',
+  'which approach',
+  'could you specify',
+  'would you prefer',
+  'do you want',
+];
+
+/**
+ * Option prompt phrases that suggest the backend is presenting choices.
+ */
+const OPTION_PROMPT_PHRASES = ['choose one', 'select an option', 'pick one'];
+
+/**
+ * Detect elicitation patterns in backend output text.
  *
- * Parses the output line-by-line, skipping code blocks, comments, markdown
- * headers, and string literals. Returns the first matched elicitation with
- * the matched text, which pattern(s) triggered, and a confidence level.
+ * Parses the output line-by-line to find questions, numbered option lists,
+ * or clarification phrases that indicate the backend is waiting for user input.
+ * False-positive filters exclude questions inside code blocks, comments,
+ * string literals, and markdown headers.
  *
  * Detection patterns (in priority order):
- *   1. direct_question   — line ends with '?' (high confidence)
- *   2. numbered_options  — 2+ consecutive lines matching /^\s*\d+[.)]\s+/ (high)
- *   3. clarification_phrase — line contains "Please clarify", "Which approach",
- *                            "Could you specify", "Would you prefer", "Do you want" (high)
- *   4. option_prompt     — line contains "Choose one", "Select an option", "Pick one" (medium)
+ *   1. direct_question: Line ends with '?' (not in code/comment context)
+ *   2. numbered_options: 2+ consecutive lines matching /^\s*\d+[.)]\s+/
+ *   3. clarification_phrase: Line contains known clarification keywords
+ *   4. option_prompt: Line contains "Choose one", "Select an option", "Pick one"
  *
- * False-positive guards:
- *   - Lines inside code blocks (``` fences) are skipped
- *   - Lines starting with // or * (comments) are skipped
- *   - Lines starting with # (markdown headers) are skipped
- *   - Lines where '?' appears to be inside a string literal are skipped
- *   - Lines starting with "at ", "Error:", "Warning:" (stack traces) are skipped
- *   - Short single-word rhetorical constructs ("Why? Because") are skipped
- *
- * @param output - Full subprocess stdout string (may be multi-line)
- * @returns An ElicitationDetection on match, or null if no elicitation found
+ * @param output - Full text output from a backend subprocess (may be multi-line)
+ * @returns An ElicitationDetection on match, or null if no elicitation detected
  */
 function detectElicitation(output: string): ElicitationDetection | null {
-  if (!output || output.trim().length === 0) return null;
+  if (!output) return null;
 
   const lines = output.split('\n');
   let inCodeBlock = false;
 
-  // Clarification phrases (case-insensitive)
-  const CLARIFICATION_PHRASES = [
-    'please clarify',
-    'which approach',
-    'could you specify',
-    'would you prefer',
-    'do you want',
-  ];
+  // Track numbered option runs for the numbered_options pattern
+  let numberedRunStart = -1;
+  let numberedRunLines: string[] = [];
 
-  // Option-prompt phrases (case-insensitive)
-  const OPTION_PROMPTS = [
-    'choose one',
-    'select an option',
-    'pick one',
-  ];
-
-  // Numbered option pattern: lines like "1. Foo", "2) Bar"
-  const NUMBERED_OPTION_RE = /^\s*\d+[.)]\s+/;
-
-  /**
-   * Returns true if a '?' on this line appears to be inside a string literal.
-   * Simple heuristic: count quote characters before the last '?'. If the
-   * number of quotes before the '?' is odd, the '?' is likely inside a string.
-   */
-  function questionInString(line: string): boolean {
-    const qIdx = line.lastIndexOf('?');
-    if (qIdx === -1) return false;
-    const before = line.slice(0, qIdx);
-    // Count unescaped single quotes and double quotes separately
-    const singleQuotes = (before.match(/(?<!\\)'/g) ?? []).length;
-    const doubleQuotes = (before.match(/(?<!\\)"/g) ?? []).length;
-    // If either count is odd, the '?' is inside a string
-    return singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0;
-  }
-
-  /**
-   * Returns true if a line should be skipped due to being a comment,
-   * header, stack trace line, or error prefix.
-   */
-  function isSkippedContext(trimmed: string): boolean {
-    if (trimmed.startsWith('//')) return true;
-    if (trimmed.startsWith('/*')) return true;
-    if (trimmed.startsWith('*')) return true;
-    if (trimmed.startsWith('#')) return true;
-    if (trimmed.startsWith('at ')) return true;
-    if (trimmed.startsWith('Error:')) return true;
-    if (trimmed.startsWith('Warning:')) return true;
-    return false;
-  }
-
-  /**
-   * Returns true if a line looks like a short rhetorical question
-   * (single word followed by '?') that appears to be a sentence connector
-   * rather than a standalone question to the user.
-   * Pattern: one word ending with '?', not preceded by typical elicitation context.
-   */
-  function isRhetoricalQuestion(trimmed: string): boolean {
-    // "Why?" or "Why? Because..." — single word before '?'
-    return /^\w+\?/.test(trimmed) && trimmed.split(/\s+/).length <= 2;
-  }
-
-  // Pass 1: look for numbered option blocks (need 2+ consecutive matches)
-  // We need to find these first to handle mixed patterns correctly.
-  let consecutiveNumbered = 0;
-  let numberedStart = -1;
-  let numberedEnd = -1;
-
-  {
-    let blockDepth = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const trimmed = lines[i].trim();
-      if (trimmed.startsWith('```')) {
-        blockDepth = blockDepth === 0 ? 1 : 0;
-      }
-      if (blockDepth > 0) {
-        consecutiveNumbered = 0;
-        continue;
-      }
-      if (NUMBERED_OPTION_RE.test(lines[i])) {
-        if (consecutiveNumbered === 0) numberedStart = i;
-        consecutiveNumbered++;
-        numberedEnd = i;
-      } else {
-        if (consecutiveNumbered >= 2) break; // found block
-        consecutiveNumbered = 0;
-        numberedStart = -1;
-      }
-    }
-  }
-
-  if (consecutiveNumbered >= 2 && numberedStart !== -1) {
-    const questionLines = lines.slice(numberedStart, numberedEnd + 1);
-    return {
-      question: questionLines.join('\n'),
-      patterns: ['numbered_options'],
-      confidence: 'high',
-    };
-  }
-
-  // Pass 2: scan line-by-line for other patterns
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const line = rawLine.trimEnd();
     const trimmed = line.trim();
 
-    // Track code block fences
-    if (trimmed.startsWith('```')) {
+    // Track code block fences (``` markers)
+    if (/^```/.test(trimmed)) {
       inCodeBlock = !inCodeBlock;
+      numberedRunStart = -1;
+      numberedRunLines = [];
       continue;
     }
-    if (inCodeBlock) continue;
 
-    // Skip commented/header/trace lines
-    if (isSkippedContext(trimmed)) continue;
+    // Skip everything inside code blocks
+    if (inCodeBlock) {
+      numberedRunStart = -1;
+      numberedRunLines = [];
+      continue;
+    }
 
-    // Skip empty lines
-    if (trimmed.length === 0) continue;
+    // Check for numbered option continuation before skipping lines
+    const numberedMatch = /^\s*\d+[.)]\s+/.test(trimmed);
+    if (numberedMatch) {
+      if (numberedRunStart === -1) {
+        numberedRunStart = i;
+        numberedRunLines = [trimmed];
+      } else {
+        numberedRunLines.push(trimmed);
+      }
+      // Check if we have 2+ consecutive numbered items
+      if (numberedRunLines.length >= 2) {
+        return {
+          question: numberedRunLines.join('\n'),
+          patterns: ['numbered_options'],
+          confidence: 'high',
+        };
+      }
+      // Don't continue to other checks for numbered lines
+      continue;
+    } else {
+      // Reset numbered run if we encounter a non-numbered line
+      numberedRunStart = -1;
+      numberedRunLines = [];
+    }
 
-    const lower = trimmed.toLowerCase();
+    // Skip comment/header lines
+    if (SKIP_LINE_PATTERN.test(trimmed)) {
+      continue;
+    }
 
-    // Pattern: clarification_phrase
+    // Skip lines that appear to be inside string literals (simple heuristic:
+    // check if the ? appears after an even number of quotes — i.e. inside quotes)
+    const questionIdx = line.indexOf('?');
+    if (questionIdx !== -1) {
+      const beforeQuestion = line.slice(0, questionIdx);
+      const singleQuoteCount = (beforeQuestion.match(/'/g) ?? []).length;
+      const doubleQuoteCount = (beforeQuestion.match(/"/g) ?? []).length;
+      if (singleQuoteCount % 2 !== 0 || doubleQuoteCount % 2 !== 0) {
+        // ? is inside a string literal — skip
+        continue;
+      }
+    }
+
+    // Clarification phrases (high confidence)
+    const lowerTrimmed = trimmed.toLowerCase();
     for (const phrase of CLARIFICATION_PHRASES) {
-      if (lower.includes(phrase)) {
+      if (lowerTrimmed.includes(phrase)) {
         return {
           question: trimmed,
           patterns: ['clarification_phrase'],
@@ -1017,26 +981,33 @@ function detectElicitation(output: string): ElicitationDetection | null {
       }
     }
 
-    // Pattern: direct_question — line ends with '?'
-    if (trimmed.endsWith('?')) {
-      if (questionInString(trimmed)) continue;
-      if (isRhetoricalQuestion(trimmed)) continue;
-      return {
-        question: trimmed,
-        patterns: ['direct_question'],
-        confidence: 'high',
-      };
-    }
-
-    // Pattern: option_prompt
-    for (const phrase of OPTION_PROMPTS) {
-      if (lower.includes(phrase)) {
+    // Option prompt phrases (medium confidence)
+    for (const phrase of OPTION_PROMPT_PHRASES) {
+      if (lowerTrimmed.includes(phrase)) {
         return {
           question: trimmed,
           patterns: ['option_prompt'],
           confidence: 'medium',
         };
       }
+    }
+
+    // Direct question: line ends with '?' after trimming
+    if (trimmed.endsWith('?')) {
+      // Exclude short rhetorical questions: single-word questions or very short
+      // fragments that appear after a statement on the same line (e.g. "Why? Because...")
+      // Heuristic: if the trimmed line is 3 words or fewer AND the line before it
+      // ends with a period or is non-empty, treat as rhetorical — skip.
+      const words = trimmed.split(/\s+/).filter(Boolean);
+      if (words.length <= 3 && trimmed.split('.').length > 1) {
+        // e.g. "This is fast. Why?" — multi-sentence rhetorical
+        continue;
+      }
+      return {
+        question: trimmed,
+        patterns: ['direct_question'],
+        confidence: 'high',
+      };
     }
   }
 
@@ -1046,8 +1017,8 @@ function detectElicitation(output: string): ElicitationDetection | null {
 // --- Elicitation Context Builder and Resolver --------------------------------
 
 /**
- * Section budgets in characters (~8K tokens total = ~32K chars).
- * Total: 1000 + 1000 + 2000 + 2000 + 1000 + overhead = ~7200 + 800 margin.
+ * Section budgets in characters for buildElicitationContext.
+ * Total: ~32000 chars (~8K tokens).
  */
 const ELICITATION_BUDGET = {
   question: 1000,
@@ -1058,23 +1029,29 @@ const ELICITATION_BUDGET = {
 } as const;
 
 /**
- * Truncate a string to at most `maxLen` characters, appending '...' if cut.
+ * Truncate a string to maxChars, appending a truncation notice if needed.
  */
-function truncateTo(s: string, maxLen: number): string {
-  if (s.length <= maxLen) return s;
-  return s.slice(0, maxLen - 3) + '...';
+function truncate(s: string, maxChars: number): string {
+  if (s.length <= maxChars) return s;
+  return s.slice(0, maxChars) + '\n[... truncated ...]';
 }
 
 /**
- * Build a context string for elicitation resolution.
+ * Build a concise context string for use as elicitation discussion context.
  *
- * Packages the question, phase goal, plan summary, recent git changes, and
- * current project state into a structured string under 8K tokens (~32K chars).
- * Missing files are silently skipped — no section is required.
+ * Assembles up to 5 sections:
+ *   - ## Question: the detected elicitation text
+ *   - ## Phase Goal: extracted from ROADMAP.md for the given phase
+ *   - ## Plan Summary: extracted from the active PLAN.md objective element
+ *   - ## Recent Changes: git diff --stat HEAD~3..HEAD
+ *   - ## Project State: current position from STATE.md
  *
- * @param question - The elicitation question text detected from backend output
- * @param options - Working directory, optional phase and milestone identifiers
- * @returns A formatted context string with labeled sections
+ * All file reads are wrapped in try/catch — missing files silently omit the section.
+ * Total output is kept under 32000 chars (~8K tokens).
+ *
+ * @param question - The elicitation question text to answer
+ * @param options  - Configuration: cwd (project root), optional phase identifier
+ * @returns A context string with clearly labeled sections
  */
 function buildElicitationContext(
   question: string,
@@ -1082,127 +1059,114 @@ function buildElicitationContext(
 ): string {
   const { cwd, phase } = options;
   const planningDir = path.join(cwd, '.planning');
+
   const sections: string[] = [];
 
-  // Section: Question
-  sections.push(`## Question\n\n${truncateTo(question, ELICITATION_BUDGET.question)}`);
+  // ## Question
+  sections.push('## Question\n' + truncate(question, ELICITATION_BUDGET.question));
 
-  // Section: Phase Goal — read from ROADMAP.md
+  // ## Phase Goal — read from ROADMAP.md
   try {
     const roadmapPath = path.join(planningDir, 'ROADMAP.md');
-    const roadmapText = fs.readFileSync(roadmapPath, 'utf-8');
-    let goalText = '';
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
     if (phase) {
-      // Find the phase section and extract the goal line
-      const lines = roadmapText.split('\n');
-      let inPhaseSection = false;
-      for (const line of lines) {
-        // Match headings containing the phase number
-        if (line.match(new RegExp(`Phase\\s+${phase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'))) {
-          inPhaseSection = true;
-          continue;
+      // Look for phase entry: lines containing the phase identifier, extract next non-empty line
+      const phasePattern = new RegExp(`(?:^|\\n)[^\\n]*${phase}[^\\n]*\\n([^\\n]+)`, 'i');
+      const phaseMatch = roadmapContent.match(phasePattern);
+      if (phaseMatch) {
+        const goalText = truncate(phaseMatch[1].trim(), ELICITATION_BUDGET.phaseGoal);
+        if (goalText) {
+          sections.push('## Phase Goal\n' + goalText);
         }
-        if (inPhaseSection) {
-          // Stop at next heading of same or higher level
-          if (line.match(/^#{1,3}\s/)) break;
-          const trimmed = line.trim();
-          if (trimmed.length > 0) {
-            goalText += (goalText ? '\n' : '') + trimmed;
-            if (goalText.length >= ELICITATION_BUDGET.phaseGoal) break;
+      } else {
+        // Fallback: search for a line with the phase label and take surrounding context
+        const lines = roadmapContent.split('\n');
+        const phaseIdx = lines.findIndex((l) => l.toLowerCase().includes(phase.toLowerCase()));
+        if (phaseIdx !== -1) {
+          const context = lines.slice(phaseIdx, phaseIdx + 3).join('\n').trim();
+          if (context) {
+            sections.push('## Phase Goal\n' + truncate(context, ELICITATION_BUDGET.phaseGoal));
           }
         }
       }
-    }
-    if (!goalText && roadmapText.length > 0) {
-      // Fallback: first non-empty paragraph from ROADMAP
-      const paras = roadmapText.split(/\n{2,}/);
-      for (const para of paras) {
-        const trimmed = para.trim();
-        if (trimmed.length > 10) {
-          goalText = trimmed;
-          break;
-        }
-      }
-    }
-    if (goalText) {
-      sections.push(`## Phase Goal\n\n${truncateTo(goalText, ELICITATION_BUDGET.phaseGoal)}`);
     }
   } catch {
     // Missing ROADMAP.md — omit section
   }
 
-  // Section: Plan Summary — read active PLAN.md objective
+  // ## Plan Summary — read active PLAN.md, extract <objective> content
   try {
     const phasesDir = path.join(planningDir, 'milestones');
-    // Attempt to find a PLAN.md under the phases dir for the given phase
+    // Find phase directory matching the phase identifier
     let planText = '';
     if (phase) {
-      // Search for {phase}/*PLAN.md pattern
-      try {
-        const milestonesEntries = fs.readdirSync(phasesDir);
-        outer: for (const milestone of milestonesEntries) {
-          const phasesPath = path.join(phasesDir, milestone, 'phases');
-          try {
-            const phaseEntries = fs.readdirSync(phasesPath);
-            for (const entry of phaseEntries) {
-              if (entry.startsWith(String(phase))) {
-                const phaseDir = path.join(phasesPath, entry);
-                try {
-                  const planFiles = fs.readdirSync(phaseDir);
-                  for (const f of planFiles) {
-                    if (f.endsWith('-PLAN.md')) {
-                      const fullPlanText = fs.readFileSync(path.join(phaseDir, f), 'utf-8');
-                      const objMatch = fullPlanText.match(/<objective>([\s\S]*?)<\/objective>/);
-                      if (objMatch) {
-                        planText = objMatch[1].trim();
-                      }
-                      break outer;
-                    }
-                  }
-                } catch { /* skip */ }
+      // Walk milestones looking for a phase directory containing this phase
+      const milestoneDirs = fs.readdirSync(phasesDir);
+      outer: for (const ms of milestoneDirs) {
+        const phasesSubDir = path.join(phasesDir, ms, 'phases');
+        try {
+          const phaseDirs = fs.readdirSync(phasesSubDir);
+          for (const pd of phaseDirs) {
+            if (pd.toLowerCase().includes(phase.toLowerCase()) || pd.startsWith(phase)) {
+              // Find most recent PLAN.md in this phase directory
+              const planDir = path.join(phasesSubDir, pd);
+              const planFiles = fs.readdirSync(planDir).filter((f: string) => f.endsWith('-PLAN.md'));
+              if (planFiles.length > 0) {
+                planFiles.sort();
+                const latestPlan = planFiles[planFiles.length - 1];
+                const planContent = fs.readFileSync(path.join(planDir, latestPlan), 'utf-8');
+                // Extract <objective> ... </objective>
+                const objMatch = planContent.match(/<objective>([\s\S]*?)<\/objective>/i);
+                if (objMatch) {
+                  planText = objMatch[1].trim();
+                } else {
+                  // Fallback: first 500 chars
+                  planText = planContent.slice(0, 500);
+                }
+                break outer;
               }
             }
-          } catch { /* skip */ }
+          }
+        } catch {
+          // phase subdir not readable — continue
         }
-      } catch { /* skip */ }
+      }
     }
     if (planText) {
-      sections.push(`## Plan Summary\n\n${truncateTo(planText, ELICITATION_BUDGET.planSummary)}`);
+      sections.push('## Plan Summary\n' + truncate(planText, ELICITATION_BUDGET.planSummary));
     }
   } catch {
-    // Skip
+    // Missing or unreadable plan directories — omit section
   }
 
-  // Section: Recent Changes — git diff --stat HEAD~3..HEAD
+  // ## Recent Changes — git diff --stat HEAD~3..HEAD
   try {
-    const diffOutput = execFileSync(
-      'git',
-      ['diff', '--stat', 'HEAD~3..HEAD'],
-      {
-        timeout: 10000,
-        encoding: 'utf-8',
-        cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        maxBuffer: 1024 * 1024,
-      }
-    );
-    if (diffOutput && diffOutput.trim().length > 0) {
-      sections.push(`## Recent Changes\n\n${truncateTo(diffOutput.trim(), ELICITATION_BUDGET.recentChanges)}`);
+    const diffStat = execFileSync('git', ['diff', '--stat', 'HEAD~3..HEAD'], {
+      timeout: 10000,
+      encoding: 'utf-8',
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 1024 * 1024,
+    });
+    if (diffStat && diffStat.trim()) {
+      sections.push(
+        '## Recent Changes\n' + truncate(diffStat.trim(), ELICITATION_BUDGET.recentChanges)
+      );
     }
   } catch {
-    // Not a git repo or no commits — omit section
+    // Git not available or no history — omit section
   }
 
-  // Section: Project State — current position from STATE.md
+  // ## Project State — read STATE.md current position section
   try {
     const statePath = path.join(planningDir, 'STATE.md');
-    const stateText = fs.readFileSync(statePath, 'utf-8');
-    // Extract Current Position section
-    const posMatch = stateText.match(/## Current Position([\s\S]*?)(?=\n##|\s*$)/);
-    const stateExcerpt = posMatch ? posMatch[0].trim() : stateText.trim();
-    if (stateExcerpt.length > 0) {
-      sections.push(`## Project State\n\n${truncateTo(stateExcerpt, ELICITATION_BUDGET.projectState)}`);
-    }
+    const stateContent = fs.readFileSync(statePath, 'utf-8');
+    // Extract up to the first 1K chars; focus on position/current status
+    const posMatch = stateContent.match(/(?:## Current Position|## Status|Current Plan:)[^\n]*([\s\S]{0,800})/i);
+    const stateSnippet = posMatch
+      ? posMatch[0].trim()
+      : stateContent.slice(0, ELICITATION_BUDGET.projectState);
+    sections.push('## Project State\n' + truncate(stateSnippet, ELICITATION_BUDGET.projectState));
   } catch {
     // Missing STATE.md — omit section
   }
@@ -1211,68 +1175,71 @@ function buildElicitationContext(
 }
 
 /**
- * Resolve an elicitation by routing it through a single-round multi-backend discussion.
+ * Route an elicitation question through a single-round multi-backend discussion
+ * and return the consensus answer text.
  *
- * Packages the question and context into a structured prompt, calls runDiscussion()
- * with rounds=1 for speed, and returns the synthesis response text.
+ * Calls runDiscussion() with rounds=1 for speed. Falls back to the first
+ * non-skipped participant response if synthesis fails. Returns '' when all
+ * participants are unavailable.
  *
- * Edge cases handled:
- * - synthesis null/empty → returns best single-backend response from round 1
- * - all participants skipped → returns ''
- * - runDiscussion throws → returns ''
- *
- * @param question - The detected elicitation question text
- * @param context - Packed context from buildElicitationContext()
- * @param options - Discussion participants, synthesizer backend, and working directory
- * @returns The resolved answer text, or '' if resolution fails
+ * @param question     - The elicitation question to resolve
+ * @param context      - Context string from buildElicitationContext()
+ * @param options      - participants, synthesizer, and cwd
+ * @returns The resolved answer text, or '' if resolution is not possible
  */
 function resolveElicitation(
   question: string,
   context: string,
-  options: { participants: BackendId[]; synthesizer: BackendId; cwd: string }
+  options: {
+    participants: BackendId[];
+    synthesizer: BackendId;
+    cwd: string;
+  }
 ): string {
   const { participants, synthesizer, cwd } = options;
 
-  const discussionTopic = [
+  const topic = [
     context,
     '',
     '## Instructions',
-    'Based on the context above, answer the question concisely and make a decision.',
-    'Do not ask for more information — provide the best possible answer with what is available.',
-    'Be direct and actionable.',
+    'Based on the context above, answer the question concisely and make a concrete decision.',
+    'Do not ask clarifying questions. Provide a direct, actionable answer.',
   ].join('\n');
 
+  let result: ReturnType<typeof runDiscussion> | null = null;
+
   try {
-    const result = runDiscussion(discussionTopic, participants, {
+    result = runDiscussion(topic, participants, {
       rounds: 1,
       synthesizer,
       cwd,
       type: 'elicitation',
     });
-
-    // Primary path: return synthesis response_text
-    const synthesisText = result?.synthesis?.response_text?.trim() ?? '';
-    if (synthesisText.length > 0) {
-      return synthesisText;
-    }
-
-    // Fallback: find first non-skipped round 1 entry
-    const round1 = Array.isArray(result?.rounds) && result.rounds.length > 0
-      ? result.rounds[0]
-      : [];
-
-    for (const entry of round1) {
-      if (entry && !('skipped' in entry)) {
-        const text = (entry as { response_text?: string }).response_text?.trim() ?? '';
-        if (text.length > 0) return text;
-      }
-    }
-
-    // All skipped
-    return '';
   } catch {
     return '';
   }
+
+  if (!result) return '';
+
+  // Happy path: synthesis has response text
+  const synthText =
+    result.synthesis &&
+    typeof result.synthesis.response_text === 'string'
+      ? result.synthesis.response_text.trim()
+      : '';
+  if (synthText) return synthText;
+
+  // Fallback: find first non-skipped round entry
+  const round0 = result.rounds[0] as DiscussionRoundEntry[] | undefined;
+  if (!round0) return '';
+
+  for (const entry of round0) {
+    if (!('skipped' in entry) && entry.response_text && entry.response_text.trim()) {
+      return entry.response_text.trim();
+    }
+  }
+
+  return '';
 }
 
 // --- Exports -----------------------------------------------------------------

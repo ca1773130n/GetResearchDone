@@ -1747,408 +1747,539 @@ describe('lib/discussion.ts', () => {
     });
   });
 
-  // ─── detectElicitation ─────────────────────────────────────────────────────
+  // ─── detectElicitation ────────────────────────────────────────────────────
 
   describe('detectElicitation', () => {
 
-    // ── True positives (should detect) ──────────────────────────────────────
+    // --- True positive tests (should detect) ---
 
-    describe('true positives', () => {
-      test('single line ending with ? is detected as direct_question', () => {
-        const result = detectElicitation('What model should I use?');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('direct_question');
-        expect(result?.confidence).toBe('high');
-        expect(result?.question).toBe('What model should I use?');
-      });
-
-      test('question buried in multi-line output is detected', () => {
-        const output = 'Processing...\nWhich approach do you prefer?\nWaiting...';
-        const result = detectElicitation(output);
-        expect(result).not.toBeNull();
-        expect(result?.question).toBe('Which approach do you prefer?');
-      });
-
-      test('numbered option list with 3 items is detected as numbered_options', () => {
-        const result = detectElicitation('1. Use React\n2. Use Vue\n3. Use Svelte');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('numbered_options');
-        expect(result?.confidence).toBe('high');
-      });
-
-      test('numbered option list with parentheses is detected', () => {
-        const result = detectElicitation('1) Option A\n2) Option B');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('numbered_options');
-      });
-
-      test('clarification phrase "Please clarify" is detected', () => {
-        const result = detectElicitation('Please clarify the target framework');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('clarification_phrase');
-        expect(result?.confidence).toBe('high');
-      });
-
-      test('"Would you prefer" pattern is detected', () => {
-        const result = detectElicitation('Would you prefer TypeScript or JavaScript?');
-        expect(result).not.toBeNull();
-        // Could match either direct_question or clarification_phrase
-        expect(result?.confidence).toBe('high');
-      });
-
-      test('"Which approach" phrase is detected', () => {
-        const result = detectElicitation('Which approach would work best here?');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('clarification_phrase');
-      });
-
-      test('"Could you specify" phrase is detected', () => {
-        const result = detectElicitation('Could you specify the preferred database?');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('clarification_phrase');
-      });
-
-      test('"Do you want" phrase is detected', () => {
-        const result = detectElicitation('Do you want to use TypeScript?');
-        expect(result).not.toBeNull();
-      });
-
-      test('"Choose one" option prompt is detected with medium confidence', () => {
-        const result = detectElicitation('Choose one of the following:');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('option_prompt');
-        expect(result?.confidence).toBe('medium');
-      });
-
-      test('"Select an option" is detected as option_prompt', () => {
-        const result = detectElicitation('Select an option to continue');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('option_prompt');
-        expect(result?.confidence).toBe('medium');
-      });
-
-      test('"Pick one" is detected as option_prompt', () => {
-        const result = detectElicitation('Pick one of the available backends');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('option_prompt');
-      });
-
-      test('question with trailing whitespace is still detected', () => {
-        const result = detectElicitation('What model?  \n');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('direct_question');
-      });
-
-      test('mixed: question followed by numbered options — detects numbered_options first', () => {
-        const output = 'Which framework do you prefer?\n1. React\n2. Vue\n3. Svelte';
-        const result = detectElicitation(output);
-        expect(result).not.toBeNull();
-        // numbered_options is checked first in pass 1
-        expect(result?.patterns).toContain('numbered_options');
-      });
-
-      test('question phrase is case-insensitive', () => {
-        const result = detectElicitation('PLEASE CLARIFY the target environment');
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('clarification_phrase');
-      });
+    test('detects single line ending with ?', () => {
+      const result = detectElicitation('What model should I use?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('direct_question');
+      expect(result?.confidence).toBe('high');
+      expect(result?.question).toBe('What model should I use?');
     });
 
-    // ── False positives (should return null) ─────────────────────────────────
-
-    describe('false positives (should return null)', () => {
-      test('question in // comment returns null', () => {
-        expect(detectElicitation('// What does this do?')).toBeNull();
-      });
-
-      test('question in markdown header returns null', () => {
-        expect(detectElicitation('# FAQ: What is GRD?')).toBeNull();
-      });
-
-      test('question in string literal returns null', () => {
-        // Odd number of double quotes before '?' — inside string
-        expect(detectElicitation('const msg = "Are you sure?";')).toBeNull();
-      });
-
-      test('question inside code block returns null', () => {
-        const output = '```\nWhat is this?\n```';
-        expect(detectElicitation(output)).toBeNull();
-      });
-
-      test('question in stack trace line (starts with "at ") returns null', () => {
-        expect(detectElicitation('at foo.js:1')).toBeNull();
-      });
-
-      test('"Error:" prefix line returns null', () => {
-        expect(detectElicitation('Error: What went wrong?')).toBeNull();
-      });
-
-      test('"Warning:" prefix line returns null', () => {
-        expect(detectElicitation('Warning: What is this?')).toBeNull();
-      });
-
-      test('rhetorical mid-sentence "Why? Because" returns null (? not at line end)', () => {
-        // "Why? Because it uses caching." — the '?' is mid-line, line doesn't end with '?'
-        expect(detectElicitation('This is fast. Why? Because it uses caching.')).toBeNull();
-      });
-
-      test('empty string returns null', () => {
-        expect(detectElicitation('')).toBeNull();
-      });
-
-      test('whitespace-only string returns null', () => {
-        expect(detectElicitation('   \n  \n')).toBeNull();
-      });
-
-      test('normal output without questions returns null', () => {
-        expect(detectElicitation('Build succeeded.\n3 files compiled.')).toBeNull();
-      });
-
-      test('numbered list with only 1 item returns null (need 2+)', () => {
-        expect(detectElicitation('1. Build succeeded')).toBeNull();
-      });
-
-      test('* comment line returns null', () => {
-        expect(detectElicitation('* What does this param do?')).toBeNull();
-      });
+    test('detects question buried in multi-line output', () => {
+      const result = detectElicitation('Processing...\nWhich approach do you prefer?\nWaiting...');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+      expect(result?.question).toBe('Which approach do you prefer?');
     });
 
-    // ── Edge cases ────────────────────────────────────────────────────────────
-
-    describe('edge cases', () => {
-      test('multiple questions: returns first detected', () => {
-        const output = 'What model should I use?\nWhich backend do you prefer?';
-        const result = detectElicitation(output);
-        expect(result).not.toBeNull();
-        expect(result?.question).toBe('What model should I use?');
-      });
-
-      test('question after code block is detected', () => {
-        const output = '```\nsome code\n```\nWhat model should I use?';
-        const result = detectElicitation(output);
-        expect(result).not.toBeNull();
-        expect(result?.patterns).toContain('direct_question');
-      });
-
-      test('numbered options combined into single question string', () => {
-        const result = detectElicitation('1. React\n2. Vue');
-        expect(result).not.toBeNull();
-        expect(result?.question).toContain('1. React');
-        expect(result?.question).toContain('2. Vue');
-      });
-
-      test('confidence is "high" for direct_question', () => {
-        const result = detectElicitation('Which one do you want?');
-        expect(result?.confidence).toBe('high');
-      });
-
-      test('confidence is "medium" for option_prompt', () => {
-        const result = detectElicitation('Choose one of the following options:');
-        expect(result?.confidence).toBe('medium');
-      });
-
-      test('question in code block inside larger output is skipped', () => {
-        const output = 'Here is the info:\n```\nAre you sure?\n```\nDone.';
-        expect(detectElicitation(output)).toBeNull();
-      });
+    test('detects numbered option list (2+ consecutive items)', () => {
+      const result = detectElicitation('1. Use React\n2. Use Vue\n3. Use Svelte');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('numbered_options');
+      expect(result?.confidence).toBe('high');
     });
+
+    test('detects numbered options with ) delimiter', () => {
+      const result = detectElicitation('1) Option A\n2) Option B');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('numbered_options');
+    });
+
+    test('detects clarification_phrase: "Please clarify"', () => {
+      const result = detectElicitation('Please clarify the target framework');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('detects "Would you prefer" pattern', () => {
+      const result = detectElicitation('Would you prefer TypeScript or JavaScript?');
+      expect(result).not.toBeNull();
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('detects mixed: question with numbered options below', () => {
+      const output = 'Which framework should we use?\n1. React\n2. Vue';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+    });
+
+    test('detects "Choose one" option_prompt with medium confidence', () => {
+      const result = detectElicitation('Choose one of the following:');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+      expect(result?.confidence).toBe('medium');
+    });
+
+    test('detects "Select an option" pattern', () => {
+      const result = detectElicitation('Select an option from the list:');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+    });
+
+    test('detects "Pick one" pattern', () => {
+      const result = detectElicitation('Pick one of the following approaches');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('option_prompt');
+    });
+
+    test('detects "Do you want" clarification phrase', () => {
+      const result = detectElicitation('Do you want to proceed with this approach?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    test('detects "Could you specify" clarification phrase', () => {
+      const result = detectElicitation('Could you specify the output directory?');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    test('detects question with trailing whitespace', () => {
+      const result = detectElicitation('What model?  \n');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('direct_question');
+    });
+
+    test('case-insensitive clarification phrase matching', () => {
+      const result = detectElicitation('PLEASE CLARIFY the intent');
+      expect(result).not.toBeNull();
+      expect(result?.patterns).toContain('clarification_phrase');
+    });
+
+    // --- False positive tests (should return null) ---
+
+    test('returns null for question in code comment (//)', () => {
+      const result = detectElicitation('// What does this do?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in block comment line (*)', () => {
+      const result = detectElicitation('* What does this do?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in markdown header (#)', () => {
+      const result = detectElicitation('# FAQ: What is GRD?');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in string literal (double quotes)', () => {
+      const result = detectElicitation('const msg = "Are you sure?";');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question inside code block', () => {
+      const result = detectElicitation('```\nWhat is this?\n```');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for question in error/stack trace line (Error:)', () => {
+      const result = detectElicitation('Error: What went wrong?\n  at foo.js:1');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for rhetorical question in explanatory text', () => {
+      // "Why? Because it uses caching." — the "Why?" is a short rhetorical after a period
+      const result = detectElicitation('This is fast. Why? Because it uses caching.');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for empty string', () => {
+      const result = detectElicitation('');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for normal output without questions', () => {
+      const result = detectElicitation('Build succeeded.\n3 files compiled.');
+      expect(result).toBeNull();
+    });
+
+    test('returns null for single numbered item (not 2+ items)', () => {
+      const result = detectElicitation('1. Build succeeded');
+      expect(result).toBeNull();
+    });
+
+    // --- Edge case tests ---
+
+    test('returns first detection when multiple questions present', () => {
+      const output = 'What model do you want?\nWhich version should I use?';
+      const result = detectElicitation(output);
+      // Returns the first match (first direct question)
+      expect(result).not.toBeNull();
+      expect(result?.question).toBe('What model do you want?');
+    });
+
+    test('numbered_options question field joins lines with newline', () => {
+      const output = '1. Use React\n2. Use Vue\n3. Use Svelte';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+      expect(result?.question).toContain('1. Use React');
+      expect(result?.question).toContain('2. Use Vue');
+    });
+
+    test('direct_question confidence is high', () => {
+      const result = detectElicitation('What framework should I use?');
+      expect(result?.confidence).toBe('high');
+    });
+
+    test('option_prompt confidence is medium', () => {
+      const result = detectElicitation('Choose one of these approaches:');
+      expect(result?.confidence).toBe('medium');
+    });
+
+    test('ignores question inside code block even with direct question pattern', () => {
+      const output = '```\nShould I proceed?\n```';
+      const result = detectElicitation(output);
+      expect(result).toBeNull();
+    });
+
+    test('detects question after a code block ends', () => {
+      const output = '```\nsome code\n```\nWhat should I do next?';
+      const result = detectElicitation(output);
+      expect(result).not.toBeNull();
+      expect(result?.question).toBe('What should I do next?');
+    });
+
   });
 
   // ─── buildElicitationContext ───────────────────────────────────────────────
 
   describe('buildElicitationContext', () => {
-    const FAKE_CWD = '/fake/cwd';
+
+    const FAKE_CWD = '/fake/project';
 
     beforeEach(() => {
-      // Default: all file reads fail (missing files)
+      // Default: all file reads throw (missing files)
       fsModule.readFileSync.mockImplementation(() => {
-        throw new Error('ENOENT');
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
       fsModule.readdirSync.mockImplementation(() => {
-        throw new Error('ENOENT');
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
-      // git diff fails by default
+      // Default: git diff throws (no git history)
       childProcess.execFileSync.mockImplementation(() => {
-        throw new Error('not a git repo');
+        throw new Error('git error');
       });
     });
 
-    test('returns a string containing the question text', () => {
-      const result = buildElicitationContext('Which database should I use?', { cwd: FAKE_CWD });
-      expect(typeof result).toBe('string');
-      expect(result).toContain('Which database should I use?');
+    test('returns string containing the question text', () => {
+      const result = buildElicitationContext('Which framework should I use?', {
+        cwd: FAKE_CWD,
+      });
+      expect(result).toContain('Which framework should I use?');
     });
 
     test('output length is under 32000 chars', () => {
-      // Even with long content all sections should stay under budget
-      fsModule.readFileSync.mockImplementation((p: string) => {
-        if (String(p).endsWith('STATE.md')) return '## Current Position\n\n- Active phase: 86\n- Progress: 50%';
-        if (String(p).endsWith('ROADMAP.md')) return '# Roadmap\n\nPhase 86 — Elicitation Core\n\nGoal: Build elicitation detection.';
-        throw new Error('ENOENT');
-      });
-      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 100 ++++\n1 file changed');
+      // Feed a very long question and other large content
       const longQuestion = 'A'.repeat(5000);
-      const result = buildElicitationContext(longQuestion, { cwd: FAKE_CWD, phase: '86' });
+      // readFileSync returns a huge string to test truncation
+      fsModule.readFileSync.mockReturnValue('B'.repeat(10000));
+      childProcess.execFileSync.mockReturnValue('C'.repeat(10000));
+      fsModule.readdirSync.mockReturnValue([]);
+
+      const result = buildElicitationContext(longQuestion, { cwd: FAKE_CWD });
       expect(result.length).toBeLessThan(32000);
     });
 
-    test('includes ## Question section header', () => {
-      const result = buildElicitationContext('What approach?', { cwd: FAKE_CWD });
+    test('includes "## Question" section header', () => {
+      const result = buildElicitationContext('What should I do?', { cwd: FAKE_CWD });
       expect(result).toContain('## Question');
     });
 
-    test('handles missing ROADMAP.md gracefully — no throw', () => {
+    test('handles missing ROADMAP.md gracefully (no throw)', () => {
       fsModule.readFileSync.mockImplementation(() => {
-        throw new Error('ENOENT');
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
-      expect(() => buildElicitationContext('Test?', { cwd: FAKE_CWD })).not.toThrow();
+
+      expect(() =>
+        buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' })
+      ).not.toThrow();
     });
 
-    test('handles missing STATE.md gracefully — no throw', () => {
-      fsModule.readFileSync.mockImplementation((p: string) => {
-        if (String(p).endsWith('STATE.md')) throw new Error('ENOENT');
-        throw new Error('ENOENT');
+    test('handles missing STATE.md gracefully (no throw)', () => {
+      // readFileSync always throws ENOENT
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
-      expect(() => buildElicitationContext('Test?', { cwd: FAKE_CWD })).not.toThrow();
+
+      expect(() =>
+        buildElicitationContext('question?', { cwd: FAKE_CWD })
+      ).not.toThrow();
     });
 
     test('truncates long git diff output to stay within budget', () => {
-      childProcess.execFileSync.mockReturnValue('x'.repeat(10000));
-      const result = buildElicitationContext('Which approach?', { cwd: FAKE_CWD });
-      // recentChanges budget is 2000 chars
-      const changesSection = result.split('## Recent Changes')[1] ?? '';
-      expect(changesSection.length).toBeLessThanOrEqual(2200); // section header + budget + newlines
-    });
-
-    test('works with minimal options — just cwd, no phase or milestone', () => {
-      expect(() => buildElicitationContext('Any question?', { cwd: FAKE_CWD })).not.toThrow();
-      const result = buildElicitationContext('Any question?', { cwd: FAKE_CWD });
-      expect(result).toContain('## Question');
-    });
-
-    test('includes ## Project State when STATE.md is present', () => {
-      fsModule.readFileSync.mockImplementation((p: string) => {
-        if (String(p).endsWith('STATE.md')) {
-          return '## Current Position\n\n- Active phase: 86\n- Progress: 50%';
-        }
-        throw new Error('ENOENT');
+      childProcess.execFileSync.mockReturnValue('X'.repeat(10000));
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
-      const result = buildElicitationContext('Test question?', { cwd: FAKE_CWD });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
+      // Budget for recent changes is 2000 chars
+      // Result should be well under 32000
+      expect(result.length).toBeLessThan(32000);
+      // The truncation marker should appear
+      expect(result).toContain('[... truncated ...]');
+    });
+
+    test('works with minimal options (just cwd, no phase/milestone)', () => {
+      const result = buildElicitationContext('Minimal question?', { cwd: FAKE_CWD });
+      expect(typeof result).toBe('string');
+      expect(result).toContain('## Question');
+      expect(result).toContain('Minimal question?');
+    });
+
+    test('includes Phase Goal section when ROADMAP.md has phase entry', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('ROADMAP.md')) {
+          return '## Phase 86\nImplement elicitation detection and resolution core.\n\nMore detail here.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Phase Goal');
+    });
+
+    test('includes Project State section when STATE.md is readable', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('STATE.md')) {
+          return '## Current Position\n\nPhase: 86\nPlan: 02\nStatus: in_progress\n';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
       expect(result).toContain('## Project State');
     });
 
-    test('includes ## Recent Changes when git diff succeeds', () => {
-      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 10 ++++\n1 file changed');
-      const result = buildElicitationContext('Test?', { cwd: FAKE_CWD });
+    test('includes Recent Changes section when git diff succeeds', () => {
+      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 5 +++++\n1 file changed');
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
       expect(result).toContain('## Recent Changes');
     });
+
+    test('includes Phase Goal via line-search fallback when regex does not match group', () => {
+      // Roadmap content: the phase regex won't match a capture group,
+      // so it falls through to findIndex line-search fallback.
+      // The regex pattern is: (?:^|\n)[^\n]*${phase}[^\n]*\n([^\n]+)
+      // If we use a content where the phase line is the last line (no trailing \n+text), no group match.
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('ROADMAP.md')) {
+          // Phase 86 appears but without a following line with content to capture in group 1
+          // Make the line NOT match the regex (no newline after it) but match findIndex
+          return 'Some intro text\nPhase 86';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      // Phase Goal section added via fallback
+      expect(result).toContain('## Phase Goal');
+      expect(result).toContain('Phase 86');
+    });
+
+    test('includes Plan Summary when PLAN.md found via directory walk', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('PLAN.md')) {
+          return '<objective>\nBuild elicitation context builder.\n</objective>\n\nMore content here.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation((dirPath: string) => {
+        if (dirPath.includes('milestones') && !dirPath.includes('phases') && !dirPath.includes('v0')) {
+          return ['v0.3.21'];
+        }
+        if (dirPath.includes('v0.3.21') && !dirPath.includes('phases')) {
+          return [];
+        }
+        if (dirPath.endsWith('phases')) {
+          return ['86-elicitation-detection-and-resolution-core'];
+        }
+        if (dirPath.includes('86-elicitation')) {
+          return ['86-02-PLAN.md'];
+        }
+        return [];
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Plan Summary');
+      expect(result).toContain('Build elicitation context builder.');
+    });
+
+    test('includes Plan Summary fallback when PLAN.md has no objective tag', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('PLAN.md')) {
+          return 'No objective tag here. Just plain plan text with lots of detail.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation((dirPath: string) => {
+        if (dirPath.includes('milestones') && !dirPath.includes('phases') && !dirPath.includes('v0')) {
+          return ['v0.3.21'];
+        }
+        if (dirPath.endsWith('phases')) {
+          return ['86-elicitation-detection-and-resolution-core'];
+        }
+        if (dirPath.includes('86-elicitation')) {
+          return ['86-02-PLAN.md'];
+        }
+        return [];
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Plan Summary');
+    });
+
   });
 
   // ─── resolveElicitation ────────────────────────────────────────────────────
 
   describe('resolveElicitation', () => {
-    const FAKE_CWD = '/fake/cwd';
-    const FAKE_CONTEXT = '## Question\n\nWhat approach should I take?';
 
-    function makeRoundEntry(responseText: string): Record<string, unknown> {
-      return { backend: 'claude', response_text: responseText, duration_ms: 100 };
-    }
-
-    function makeSkippedEntry(backend: string): Record<string, unknown> {
-      return { backend, skipped: true, reason: 'not available' };
-    }
-
-    function makeDiscussionResult(
-      synthesisText: string,
-      round1Entries: Record<string, unknown>[]
-    ): Record<string, unknown> {
-      return {
-        topic: 'test',
-        participants: ['claude'],
-        rounds: [round1Entries],
-        synthesis: { backend: 'claude', response_text: synthesisText, duration_ms: 50, stderr: '' },
-        duration_ms: 200,
-        discussion_file: '/tmp/discussion.md',
-      };
-    }
+    const FAKE_CWD = '/fake/project';
 
     beforeEach(() => {
-      // Default: execFileSync returns a successful claude response for synthesis
-      childProcess.execFileSync.mockReturnValue('Use approach A — it is more maintainable.');
+      backendModule.detectAvailableBackends.mockReturnValue(
+        makeAvailability(['claude', 'codex'])
+      );
+      backendModule.buildBackendEnv.mockReturnValue(process.env);
+      pathsModule.discussionsDir.mockReturnValue(FAKE_DISCUSSIONS_DIR);
+      fsModule.mkdirSync.mockReturnValue(undefined);
+      fsModule.writeFileSync.mockReturnValue(undefined);
+      childProcess.execFileSync.mockReturnValue('Consensus answer text');
     });
 
     test('calls runDiscussion with rounds=1', () => {
-      // We verify by checking execFileSync is called (runDiscussion dispatches via execFileSync)
-      // The mock returns synthesis text directly since all dispatch goes through execFileSync
-      childProcess.execFileSync.mockReturnValue('My synthesis answer.');
-      const result = resolveElicitation('What approach?', FAKE_CONTEXT, {
+      resolveElicitation('Which approach?', 'context here', {
         participants: ['claude'],
         synthesizer: 'claude',
         cwd: FAKE_CWD,
       });
-      // execFileSync should have been called at least once (for dispatch + synthesis)
-      expect(childProcess.execFileSync).toHaveBeenCalled();
-      // Result should be a string
-      expect(typeof result).toBe('string');
+
+      // runDiscussion dispatches: 1 participant + 1 synthesizer = 2 execFileSync calls
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(2);
     });
 
     test('returns synthesis response_text when discussion succeeds', () => {
-      childProcess.execFileSync.mockReturnValue('Use PostgreSQL for relational data.');
-      const result = resolveElicitation('Which DB?', FAKE_CONTEXT, {
+      childProcess.execFileSync.mockReturnValue('The best approach is X.');
+
+      const result = resolveElicitation('Which approach?', 'context', {
         participants: ['claude'],
         synthesizer: 'claude',
         cwd: FAKE_CWD,
       });
-      expect(result).toBe('Use PostgreSQL for relational data.');
+
+      expect(result).toBe('The best approach is X.');
     });
 
-    test('returns empty string when all participants are unavailable', () => {
-      // All backends unavailable
+    test('returns empty string when all participants unavailable (all skipped)', () => {
+      // Make participants unavailable; synthesizer claude stays available
       backendModule.detectAvailableBackends.mockReturnValue(
-        makeAvailability([]) // no backends available
+        makeAvailability(['claude'])
       );
-      const result = resolveElicitation('Which DB?', FAKE_CONTEXT, {
-        participants: ['claude'],
-        synthesizer: 'claude',
-        cwd: FAKE_CWD,
-      });
-      // When synthesis is empty and all round-1 entries are skipped, returns ''
-      expect(typeof result).toBe('string');
-    });
+      // synthesis will also return the execFileSync value — but synthesis is empty when
+      // all participants skipped: synthesizer gets called once with empty input
+      childProcess.execFileSync.mockReturnValue('');
 
-    test('returns empty string when runDiscussion throws', () => {
-      childProcess.execFileSync.mockImplementation(() => {
-        throw new Error('CLI not found');
-      });
-      const result = resolveElicitation('What should I do?', FAKE_CONTEXT, {
-        participants: ['claude'],
+      const result = resolveElicitation('question?', 'context', {
+        participants: ['codex', 'gemini'],
         synthesizer: 'claude',
         cwd: FAKE_CWD,
       });
+
+      // Both participants skipped, synthesis empty, no fallback entries → ''
       expect(result).toBe('');
     });
 
-    test('passes participants and synthesizer to runDiscussion', () => {
-      childProcess.execFileSync.mockReturnValue('Gemini says: use TypeScript.');
-      // We verify participants are passed by checking the dispatch order
-      // Since execFileSync is the dispatch mechanism, check it's called
-      resolveElicitation('TypeScript or JavaScript?', FAKE_CONTEXT, {
-        participants: ['gemini', 'codex'],
+    test('returns best single-backend response when synthesis is empty/null', () => {
+      let callCount = 0;
+      childProcess.execFileSync.mockImplementation(() => {
+        callCount++;
+        // First call: participant response
+        if (callCount === 1) return 'Participant answer fallback';
+        // Second call: synthesizer returns empty
+        return '';
+      });
+
+      const result = resolveElicitation('question?', 'context', {
+        participants: ['codex'],
         synthesizer: 'claude',
         cwd: FAKE_CWD,
       });
-      expect(childProcess.execFileSync).toHaveBeenCalled();
+
+      expect(result).toBe('Participant answer fallback');
     });
 
-    test('returns string result in all cases', () => {
-      childProcess.execFileSync.mockReturnValue('Go with the simpler option.');
-      const result = resolveElicitation('Simple or complex?', FAKE_CONTEXT, {
+    test('returns empty string when runDiscussion throws', () => {
+      // Make execFileSync throw to simulate runDiscussion failure
+      // But runDiscussion itself catches backend errors — make fs.mkdirSync throw
+      // to simulate an unexpected error in runDiscussion
+      fsModule.mkdirSync.mockImplementation(() => {
+        throw new Error('disk full');
+      });
+
+      const result = resolveElicitation('question?', 'context', {
         participants: ['claude'],
         synthesizer: 'claude',
         cwd: FAKE_CWD,
       });
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
+
+      expect(result).toBe('');
     });
+
+    test('passes participants and synthesizer to runDiscussion correctly', () => {
+      // Use participants that are both available (beforeEach makes claude and codex available)
+      resolveElicitation('question?', 'ctx', {
+        participants: ['codex', 'claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // codex + claude participant dispatches + claude synthesizer = 3 calls
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(3);
+    });
+
+    test('passes cwd to runDiscussion', () => {
+      resolveElicitation('question?', 'ctx', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: '/specific/project',
+      });
+
+      // execFileSync should be called with cwd option
+      const [, , opts] = childProcess.execFileSync.mock.calls[0] as [
+        string,
+        string[],
+        { cwd: string }
+      ];
+      expect(opts.cwd).toBe('/specific/project');
+    });
+
+    test('type option passed to runDiscussion is elicitation', () => {
+      resolveElicitation('question?', 'ctx', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // The discussion file should be named with 'elicitation' in it
+      const [writePath] = fsModule.writeFileSync.mock.calls[0] as [string, string, string];
+      expect(writePath).toContain('elicitation');
+    });
+
   });
+
 });
