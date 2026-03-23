@@ -143,7 +143,7 @@ export const ENV_VAR_MAP: Record<AdapterBackendId, string> = {
 // ─── EWMA and Rolling Window ──────────────────────────────────────────────────
 
 /** Default token-per-minute budget for backends with no explicit limit configured. */
-export const DEFAULT_BUDGET_TPM = 40000;
+const DEFAULT_BUDGET_TPM = 40000;
 
 /** Token-per-minute budget for the free-fallback backend (effectively unlimited). */
 export const FREE_FALLBACK_BUDGET = 1000000;
@@ -731,7 +731,6 @@ export function createScheduler(
 module.exports = {
   ADAPTERS,
   ENV_VAR_MAP,
-  DEFAULT_BUDGET_TPM,
   FREE_FALLBACK_BUDGET,
   checkBinary,
   createBackendState,
