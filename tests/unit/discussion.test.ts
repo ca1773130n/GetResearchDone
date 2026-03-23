@@ -77,6 +77,8 @@ const {
   reviewCodeViaBackend,
   reviewPRViaBackend,
   detectElicitation,
+  buildElicitationContext,
+  resolveElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
@@ -178,6 +180,15 @@ const {
     patterns: string[];
     confidence: 'high' | 'medium';
   } | null;
+  buildElicitationContext: (
+    question: string,
+    options: { cwd: string; phase?: string; milestone?: string }
+  ) => string;
+  resolveElicitation: (
+    question: string,
+    context: string,
+    options: { participants: string[]; synthesizer: string; cwd: string }
+  ) => string;
   DISCUSSION_SONNET_MODEL: string;
   BACKEND_CLI_MAP: Record<string, { bin: string; buildArgs: (p: string, m?: string) => string[] }>;
   DEFAULT_DISPATCH_TIMEOUT_MS: number;
@@ -1927,4 +1938,348 @@ describe('lib/discussion.ts', () => {
     });
 
   });
+
+  // ─── buildElicitationContext ───────────────────────────────────────────────
+
+  describe('buildElicitationContext', () => {
+
+    const FAKE_CWD = '/fake/project';
+
+    beforeEach(() => {
+      // Default: all file reads throw (missing files)
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      // Default: git diff throws (no git history)
+      childProcess.execFileSync.mockImplementation(() => {
+        throw new Error('git error');
+      });
+    });
+
+    test('returns string containing the question text', () => {
+      const result = buildElicitationContext('Which framework should I use?', {
+        cwd: FAKE_CWD,
+      });
+      expect(result).toContain('Which framework should I use?');
+    });
+
+    test('output length is under 32000 chars', () => {
+      // Feed a very long question and other large content
+      const longQuestion = 'A'.repeat(5000);
+      // readFileSync returns a huge string to test truncation
+      fsModule.readFileSync.mockReturnValue('B'.repeat(10000));
+      childProcess.execFileSync.mockReturnValue('C'.repeat(10000));
+      fsModule.readdirSync.mockReturnValue([]);
+
+      const result = buildElicitationContext(longQuestion, { cwd: FAKE_CWD });
+      expect(result.length).toBeLessThan(32000);
+    });
+
+    test('includes "## Question" section header', () => {
+      const result = buildElicitationContext('What should I do?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Question');
+    });
+
+    test('handles missing ROADMAP.md gracefully (no throw)', () => {
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      expect(() =>
+        buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' })
+      ).not.toThrow();
+    });
+
+    test('handles missing STATE.md gracefully (no throw)', () => {
+      // readFileSync always throws ENOENT
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      expect(() =>
+        buildElicitationContext('question?', { cwd: FAKE_CWD })
+      ).not.toThrow();
+    });
+
+    test('truncates long git diff output to stay within budget', () => {
+      childProcess.execFileSync.mockReturnValue('X'.repeat(10000));
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
+      // Budget for recent changes is 2000 chars
+      // Result should be well under 32000
+      expect(result.length).toBeLessThan(32000);
+      // The truncation marker should appear
+      expect(result).toContain('[... truncated ...]');
+    });
+
+    test('works with minimal options (just cwd, no phase/milestone)', () => {
+      const result = buildElicitationContext('Minimal question?', { cwd: FAKE_CWD });
+      expect(typeof result).toBe('string');
+      expect(result).toContain('## Question');
+      expect(result).toContain('Minimal question?');
+    });
+
+    test('includes Phase Goal section when ROADMAP.md has phase entry', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('ROADMAP.md')) {
+          return '## Phase 86\nImplement elicitation detection and resolution core.\n\nMore detail here.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Phase Goal');
+    });
+
+    test('includes Project State section when STATE.md is readable', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('STATE.md')) {
+          return '## Current Position\n\nPhase: 86\nPlan: 02\nStatus: in_progress\n';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Project State');
+    });
+
+    test('includes Recent Changes section when git diff succeeds', () => {
+      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 5 +++++\n1 file changed');
+      fsModule.readFileSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Recent Changes');
+    });
+
+    test('includes Phase Goal via line-search fallback when regex does not match group', () => {
+      // Roadmap content: the phase regex won't match a capture group,
+      // so it falls through to findIndex line-search fallback.
+      // The regex pattern is: (?:^|\n)[^\n]*${phase}[^\n]*\n([^\n]+)
+      // If we use a content where the phase line is the last line (no trailing \n+text), no group match.
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('ROADMAP.md')) {
+          // Phase 86 appears but without a following line with content to capture in group 1
+          // Make the line NOT match the regex (no newline after it) but match findIndex
+          return 'Some intro text\nPhase 86';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      // Phase Goal section added via fallback
+      expect(result).toContain('## Phase Goal');
+      expect(result).toContain('Phase 86');
+    });
+
+    test('includes Plan Summary when PLAN.md found via directory walk', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('PLAN.md')) {
+          return '<objective>\nBuild elicitation context builder.\n</objective>\n\nMore content here.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation((dirPath: string) => {
+        if (dirPath.includes('milestones') && !dirPath.includes('phases') && !dirPath.includes('v0')) {
+          return ['v0.3.21'];
+        }
+        if (dirPath.includes('v0.3.21') && !dirPath.includes('phases')) {
+          return [];
+        }
+        if (dirPath.endsWith('phases')) {
+          return ['86-elicitation-detection-and-resolution-core'];
+        }
+        if (dirPath.includes('86-elicitation')) {
+          return ['86-02-PLAN.md'];
+        }
+        return [];
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Plan Summary');
+      expect(result).toContain('Build elicitation context builder.');
+    });
+
+    test('includes Plan Summary fallback when PLAN.md has no objective tag', () => {
+      fsModule.readFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('PLAN.md')) {
+          return 'No objective tag here. Just plain plan text with lots of detail.';
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      fsModule.readdirSync.mockImplementation((dirPath: string) => {
+        if (dirPath.includes('milestones') && !dirPath.includes('phases') && !dirPath.includes('v0')) {
+          return ['v0.3.21'];
+        }
+        if (dirPath.endsWith('phases')) {
+          return ['86-elicitation-detection-and-resolution-core'];
+        }
+        if (dirPath.includes('86-elicitation')) {
+          return ['86-02-PLAN.md'];
+        }
+        return [];
+      });
+      childProcess.execFileSync.mockImplementation(() => { throw new Error('git error'); });
+
+      const result = buildElicitationContext('question?', { cwd: FAKE_CWD, phase: '86' });
+      expect(result).toContain('## Plan Summary');
+    });
+
+  });
+
+  // ─── resolveElicitation ────────────────────────────────────────────────────
+
+  describe('resolveElicitation', () => {
+
+    const FAKE_CWD = '/fake/project';
+
+    beforeEach(() => {
+      backendModule.detectAvailableBackends.mockReturnValue(
+        makeAvailability(['claude', 'codex'])
+      );
+      backendModule.buildBackendEnv.mockReturnValue(process.env);
+      pathsModule.discussionsDir.mockReturnValue(FAKE_DISCUSSIONS_DIR);
+      fsModule.mkdirSync.mockReturnValue(undefined);
+      fsModule.writeFileSync.mockReturnValue(undefined);
+      childProcess.execFileSync.mockReturnValue('Consensus answer text');
+    });
+
+    test('calls runDiscussion with rounds=1', () => {
+      resolveElicitation('Which approach?', 'context here', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // runDiscussion dispatches: 1 participant + 1 synthesizer = 2 execFileSync calls
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(2);
+    });
+
+    test('returns synthesis response_text when discussion succeeds', () => {
+      childProcess.execFileSync.mockReturnValue('The best approach is X.');
+
+      const result = resolveElicitation('Which approach?', 'context', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      expect(result).toBe('The best approach is X.');
+    });
+
+    test('returns empty string when all participants unavailable (all skipped)', () => {
+      // Make participants unavailable; synthesizer claude stays available
+      backendModule.detectAvailableBackends.mockReturnValue(
+        makeAvailability(['claude'])
+      );
+      // synthesis will also return the execFileSync value — but synthesis is empty when
+      // all participants skipped: synthesizer gets called once with empty input
+      childProcess.execFileSync.mockReturnValue('');
+
+      const result = resolveElicitation('question?', 'context', {
+        participants: ['codex', 'gemini'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // Both participants skipped, synthesis empty, no fallback entries → ''
+      expect(result).toBe('');
+    });
+
+    test('returns best single-backend response when synthesis is empty/null', () => {
+      let callCount = 0;
+      childProcess.execFileSync.mockImplementation(() => {
+        callCount++;
+        // First call: participant response
+        if (callCount === 1) return 'Participant answer fallback';
+        // Second call: synthesizer returns empty
+        return '';
+      });
+
+      const result = resolveElicitation('question?', 'context', {
+        participants: ['codex'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      expect(result).toBe('Participant answer fallback');
+    });
+
+    test('returns empty string when runDiscussion throws', () => {
+      // Make execFileSync throw to simulate runDiscussion failure
+      // But runDiscussion itself catches backend errors — make fs.mkdirSync throw
+      // to simulate an unexpected error in runDiscussion
+      fsModule.mkdirSync.mockImplementation(() => {
+        throw new Error('disk full');
+      });
+
+      const result = resolveElicitation('question?', 'context', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      expect(result).toBe('');
+    });
+
+    test('passes participants and synthesizer to runDiscussion correctly', () => {
+      // Use participants that are both available (beforeEach makes claude and codex available)
+      resolveElicitation('question?', 'ctx', {
+        participants: ['codex', 'claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // codex + claude participant dispatches + claude synthesizer = 3 calls
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(3);
+    });
+
+    test('passes cwd to runDiscussion', () => {
+      resolveElicitation('question?', 'ctx', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: '/specific/project',
+      });
+
+      // execFileSync should be called with cwd option
+      const [, , opts] = childProcess.execFileSync.mock.calls[0] as [
+        string,
+        string[],
+        { cwd: string }
+      ];
+      expect(opts.cwd).toBe('/specific/project');
+    });
+
+    test('type option passed to runDiscussion is elicitation', () => {
+      resolveElicitation('question?', 'ctx', {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+
+      // The discussion file should be named with 'elicitation' in it
+      const [writePath] = fsModule.writeFileSync.mock.calls[0] as [string, string, string];
+      expect(writePath).toContain('elicitation');
+    });
+
+  });
+
 });
