@@ -268,7 +268,6 @@ function parseDashboardStateSummary(stateContent: string): StateSummary {
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
-  makeShippedMilestone,
   parseDashboardShippedMilestones,
   parseDashboardActiveMilestones,
   parseDashboardPhases,
