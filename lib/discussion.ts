@@ -1,20 +1,42 @@
 'use strict';
 
 /**
- * GRD Cross-Backend Dispatch Primitive
+ * GRD Cross-Backend Dispatch Primitive and Discussion Orchestration
  *
- * Provides dispatchToBackend() — the foundational function for multi-backend
- * discussions. Spawns any configured AI CLI backend with a structured prompt
- * and returns a typed BackendResponse. Used by higher-level discussion
- * orchestration to route turns to multiple backends and synthesize results.
+ * Provides two layers of functionality:
+ *
+ * 1. dispatchToBackend() — the foundational function for multi-backend
+ *    discussions. Spawns any configured AI CLI backend with a structured prompt
+ *    and returns a typed BackendResponse. Used by higher-level discussion
+ *    orchestration to route turns to multiple backends and synthesize results.
+ *
+ * 2. runDiscussion() — the complete discussion round orchestration function.
+ *    Dispatches to all participants in parallel, synthesizes, runs optional
+ *    additional rounds, writes a markdown history file, and returns a
+ *    DiscussionResult.
  *
  * Supported dispatchable backends: claude, codex, gemini, opencode.
  * Meta-backends (overstory, superpowers, grd) are not dispatchable.
  *
+ * NOTE on true parallelism: execFileSync blocks the event loop, so wrapping
+ * each participant dispatch in Promise.allSettled() provides structural
+ * concurrency (all promises launch before any awaits) but not OS-level
+ * parallelism. For ≤4 participants this is acceptable — each backend is
+ * sequentially dispatched but the calling code is written as if parallel.
+ * True OS-level parallelism would require execFile (async) or worker threads.
+ *
  * @module discussion
  */
 
-import type { BackendId, BackendResponse, DispatchOptions, BackendAvailability } from './types';
+import type {
+  BackendId,
+  BackendResponse,
+  DispatchOptions,
+  BackendAvailability,
+  DiscussionResult,
+  DiscussionRoundEntry,
+  RunDiscussionOptions,
+} from './types';
 
 const { execFileSync } = require('child_process') as {
   execFileSync: (
@@ -29,8 +51,26 @@ const { execFileSync } = require('child_process') as {
     }
   ) => string;
 };
+
+const fs = require('fs') as {
+  mkdirSync: (path: string, options?: { recursive?: boolean }) => void;
+  writeFileSync: (path: string, data: string, encoding: string) => void;
+  readdirSync: (path: string) => string[];
+  readFileSync: (path: string, encoding: string) => string;
+  existsSync: (path: string) => boolean;
+};
+
+const path = require('path') as {
+  join: (...parts: string[]) => string;
+  dirname: (p: string) => string;
+};
+
 const { detectAvailableBackends } = require('./backend') as {
   detectAvailableBackends: (cwd?: string) => Record<BackendId, BackendAvailability>;
+};
+
+const { discussionsDir } = require('./paths') as {
+  discussionsDir: (cwd: string, milestone?: string | null) => string;
 };
 
 // --- Constants ---------------------------------------------------------------
@@ -168,10 +208,302 @@ function dispatchToBackend(
   }
 }
 
+/**
+ * Build the synthesis prompt from the original topic and round 1 entries.
+ *
+ * Internal helper — not exported.
+ *
+ * @param topic - The original discussion topic/question
+ * @param roundEntries - Entries from round 1 (mix of BackendResponse and skipped)
+ * @returns A formatted prompt string for the synthesizer backend
+ */
+function buildSynthesisPrompt(topic: string, roundEntries: DiscussionRoundEntry[]): string {
+  const responseSections = roundEntries
+    .map((entry) => {
+      if ('skipped' in entry) {
+        return `### ${entry.backend} Response\n[SKIPPED]`;
+      }
+      return `### ${entry.backend} Response\n${entry.response_text}`;
+    })
+    .join('\n\n');
+
+  return [
+    'You are synthesizing responses from multiple AI backends on the following topic:',
+    '',
+    '## Topic',
+    topic,
+    '',
+    '## Responses',
+    '',
+    responseSections,
+    '',
+    '## Instructions',
+    'Synthesize the above responses. Identify areas of consensus, disagreement, and unique insights. Provide a unified recommendation.',
+  ].join('\n');
+}
+
+/**
+ * Build the markdown content for a discussion history file.
+ *
+ * Internal helper — not exported.
+ *
+ * @param result - The completed DiscussionResult
+ * @param phase - Phase identifier used in the header
+ * @param type - Discussion type label used in the header
+ * @returns Formatted markdown string for writing to disk
+ */
+function buildDiscussionMarkdown(result: DiscussionResult, phase: string, type: string): string {
+  const lines: string[] = [];
+
+  lines.push(`# Discussion: ${result.topic}`, '');
+  lines.push(
+    `**Phase:** ${phase}  **Type:** ${type}  **Participants:** ${result.participants.join(', ')}`
+  );
+  lines.push(
+    `**Synthesizer:** ${result.synthesis.backend}  **Rounds:** ${result.rounds.length}  **Duration:** ${result.duration_ms}ms`
+  );
+  lines.push(`**Timestamp:** ${new Date().toISOString()}`, '');
+
+  // Round 1
+  lines.push('## Round 1', '');
+  for (const entry of result.rounds[0]) {
+    if ('skipped' in entry) {
+      lines.push(`### ${entry.backend} Response`, `[SKIPPED: ${entry.reason}]`, '---', '');
+    } else {
+      lines.push(`### ${entry.backend} Response`, entry.response_text, '---', '');
+    }
+  }
+
+  // Synthesis
+  lines.push(`## Synthesis (${result.synthesis.backend})`, '', result.synthesis.response_text, '');
+
+  // Subsequent rounds
+  for (let i = 1; i < result.rounds.length; i++) {
+    lines.push(`## Round ${i + 1}`, '');
+    for (const entry of result.rounds[i]) {
+      if ('skipped' in entry) {
+        lines.push(`### ${entry.backend} Response`, `[SKIPPED: ${entry.reason}]`, '---', '');
+      } else {
+        lines.push(`### ${entry.backend} Response`, entry.response_text, '---', '');
+      }
+    }
+  }
+
+  // Outcome (repeat synthesis)
+  lines.push('## Outcome', '', result.synthesis.response_text, '');
+
+  return lines.join('\n');
+}
+
+/**
+ * Run a multi-backend discussion and return a structured result.
+ *
+ * Dispatches the topic to all participants in parallel (structural concurrency —
+ * see module-level NOTE), synthesizes responses, optionally runs additional
+ * rounds, writes a markdown history file, and returns a typed DiscussionResult.
+ *
+ * Unavailable participants produce `{ skipped: true, reason }` entries;
+ * the discussion continues with the remaining available participants.
+ *
+ * @param topic - The question or topic posed to all participants
+ * @param participants - Backend IDs to include in the discussion
+ * @param options - Optional configuration (rounds, synthesizer, timeout, paths, labels)
+ * @returns A DiscussionResult with all rounds, synthesis, and the path to the written file
+ */
+async function runDiscussion(
+  topic: string,
+  participants: BackendId[],
+  options?: RunDiscussionOptions
+): Promise<DiscussionResult> {
+  // Destructure options with defaults
+  const {
+    rounds = 2,
+    synthesizer = 'claude' as BackendId,
+    timeout_per_round_seconds = 180,
+    cwd = process.cwd(),
+    phase = 'unknown',
+    type = 'discussion',
+    milestone = null,
+  } = options ?? {};
+
+  // Clamp rounds to valid range 1-3
+  const clampedRounds: number = Math.min(Math.max(rounds, 1), 3);
+
+  // Record start time
+  const start: number = Date.now();
+
+  // Get backend availability
+  const availability: Record<BackendId, BackendAvailability> = detectAvailableBackends(cwd);
+
+  // Build discussion filename and resolve directory
+  const filename = `discussion-${phase}-${type}-${Date.now()}.md`;
+  const dir = discussionsDir(cwd, milestone);
+
+  const timeoutMs: number = timeout_per_round_seconds * 1000;
+
+  // --- Round 1: Parallel dispatch to all participants ---
+  const round1Settled = await Promise.allSettled(
+    participants.map((participant) => {
+      if (!availability[participant]?.available) {
+        return Promise.resolve<DiscussionRoundEntry>({
+          backend: participant,
+          skipped: true,
+          reason: `Backend "${participant}" is not available`,
+        });
+      }
+      return Promise.resolve<DiscussionRoundEntry>(
+        (() => {
+          try {
+            return dispatchToBackend(participant, topic, { timeout_ms: timeoutMs, cwd });
+          } catch (err: unknown) {
+            return {
+              backend: participant,
+              skipped: true,
+              reason: String(err),
+            };
+          }
+        })()
+      );
+    })
+  );
+
+  const round1Results: DiscussionRoundEntry[] = round1Settled.map((settled) => {
+    if (settled.status === 'fulfilled') {
+      return settled.value;
+    }
+    return {
+      backend: 'claude' as BackendId,
+      skipped: true,
+      reason: String(settled.reason),
+    };
+  });
+
+  // --- Synthesis ---
+  const synthPrompt = buildSynthesisPrompt(topic, round1Results);
+  const synthesis: BackendResponse = dispatchToBackend(synthesizer, synthPrompt, {
+    timeout_ms: timeoutMs,
+    cwd,
+  });
+
+  // --- Additional rounds (round 2+) ---
+  const allRounds: DiscussionRoundEntry[][] = [round1Results];
+
+  for (let roundNum = 2; roundNum <= clampedRounds; roundNum++) {
+    const roundPrompt = [
+      `You are participating in a multi-round discussion on the following topic:`,
+      '',
+      `## Topic`,
+      topic,
+      '',
+      `## Synthesis from Previous Round`,
+      synthesis.response_text,
+      '',
+      `## Instructions`,
+      `Please respond to the synthesis above. Do you agree, disagree, or have additional insights to add?`,
+    ].join('\n');
+
+    const roundSettled = await Promise.allSettled(
+      participants.map((participant) => {
+        if (!availability[participant]?.available) {
+          return Promise.resolve<DiscussionRoundEntry>({
+            backend: participant,
+            skipped: true,
+            reason: `Backend "${participant}" is not available`,
+          });
+        }
+        return Promise.resolve<DiscussionRoundEntry>(
+          (() => {
+            try {
+              return dispatchToBackend(participant, roundPrompt, { timeout_ms: timeoutMs, cwd });
+            } catch (err: unknown) {
+              return {
+                backend: participant,
+                skipped: true,
+                reason: String(err),
+              };
+            }
+          })()
+        );
+      })
+    );
+
+    const roundResults: DiscussionRoundEntry[] = roundSettled.map((settled) => {
+      if (settled.status === 'fulfilled') {
+        return settled.value;
+      }
+      return {
+        backend: 'claude' as BackendId,
+        skipped: true,
+        reason: String(settled.reason),
+      };
+    });
+
+    allRounds.push(roundResults);
+  }
+
+  // --- Build result ---
+  const duration_ms: number = Date.now() - start;
+  const filePath = path.join(dir, filename);
+
+  const result: DiscussionResult = {
+    topic,
+    participants,
+    rounds: allRounds,
+    synthesis,
+    duration_ms,
+    discussion_file: filePath,
+  };
+
+  // --- Write history file (BEFORE return) ---
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, buildDiscussionMarkdown(result, phase, type), 'utf-8');
+
+  return result;
+}
+
+/**
+ * List all discussion filenames in the discussions directory for a milestone.
+ *
+ * @param cwd - Working directory (project root)
+ * @param milestone - Optional milestone version string; defaults to current milestone
+ * @returns Array of filenames in the discussions directory, or empty array if not found
+ */
+function listDiscussions(cwd: string, milestone?: string | null): string[] {
+  const dir = discussionsDir(cwd, milestone);
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  return fs.readdirSync(dir);
+}
+
+/**
+ * Read the content of a specific discussion file.
+ *
+ * @param filename - Filename of the discussion (not full path)
+ * @param cwd - Working directory (project root)
+ * @param milestone - Optional milestone version string; defaults to current milestone
+ * @returns UTF-8 content of the discussion file, or null if not found
+ */
+function readDiscussion(
+  filename: string,
+  cwd: string,
+  milestone?: string | null
+): string | null {
+  const dir = discussionsDir(cwd, milestone);
+  const filePath = path.join(dir, filename);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  return fs.readFileSync(filePath, 'utf-8');
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
   dispatchToBackend,
+  runDiscussion,
+  listDiscussions,
+  readDiscussion,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
