@@ -12,7 +12,7 @@ export interface Flags {
   passthrough: string[];
 }
 
-export const TOOL_COMMANDS = new Set([
+const TOOL_COMMANDS = new Set([
   'state',
   'verify',
   'phase',
