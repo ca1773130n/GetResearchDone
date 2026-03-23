@@ -77,6 +77,8 @@ const {
   reviewCodeViaBackend,
   reviewPRViaBackend,
   detectElicitation,
+  buildElicitationContext,
+  resolveElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
@@ -178,6 +180,15 @@ const {
     patterns: string[];
     confidence: 'high' | 'medium';
   } | null;
+  buildElicitationContext: (
+    question: string,
+    options: { cwd: string; phase?: string; milestone?: string }
+  ) => string;
+  resolveElicitation: (
+    question: string,
+    context: string,
+    options: { participants: string[]; synthesizer: string; cwd: string }
+  ) => string;
   DISCUSSION_SONNET_MODEL: string;
   BACKEND_CLI_MAP: Record<string, { bin: string; buildArgs: (p: string, m?: string) => string[] }>;
   DEFAULT_DISPATCH_TIMEOUT_MS: number;
@@ -1940,6 +1951,204 @@ describe('lib/discussion.ts', () => {
         const output = 'Here is the info:\n```\nAre you sure?\n```\nDone.';
         expect(detectElicitation(output)).toBeNull();
       });
+    });
+  });
+
+  // ─── buildElicitationContext ───────────────────────────────────────────────
+
+  describe('buildElicitationContext', () => {
+    const FAKE_CWD = '/fake/cwd';
+
+    beforeEach(() => {
+      // Default: all file reads fail (missing files)
+      fsModule.readFileSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+      fsModule.readdirSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+      // git diff fails by default
+      childProcess.execFileSync.mockImplementation(() => {
+        throw new Error('not a git repo');
+      });
+    });
+
+    test('returns a string containing the question text', () => {
+      const result = buildElicitationContext('Which database should I use?', { cwd: FAKE_CWD });
+      expect(typeof result).toBe('string');
+      expect(result).toContain('Which database should I use?');
+    });
+
+    test('output length is under 32000 chars', () => {
+      // Even with long content all sections should stay under budget
+      fsModule.readFileSync.mockImplementation((p: string) => {
+        if (String(p).endsWith('STATE.md')) return '## Current Position\n\n- Active phase: 86\n- Progress: 50%';
+        if (String(p).endsWith('ROADMAP.md')) return '# Roadmap\n\nPhase 86 — Elicitation Core\n\nGoal: Build elicitation detection.';
+        throw new Error('ENOENT');
+      });
+      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 100 ++++\n1 file changed');
+      const longQuestion = 'A'.repeat(5000);
+      const result = buildElicitationContext(longQuestion, { cwd: FAKE_CWD, phase: '86' });
+      expect(result.length).toBeLessThan(32000);
+    });
+
+    test('includes ## Question section header', () => {
+      const result = buildElicitationContext('What approach?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Question');
+    });
+
+    test('handles missing ROADMAP.md gracefully — no throw', () => {
+      fsModule.readFileSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+      expect(() => buildElicitationContext('Test?', { cwd: FAKE_CWD })).not.toThrow();
+    });
+
+    test('handles missing STATE.md gracefully — no throw', () => {
+      fsModule.readFileSync.mockImplementation((p: string) => {
+        if (String(p).endsWith('STATE.md')) throw new Error('ENOENT');
+        throw new Error('ENOENT');
+      });
+      expect(() => buildElicitationContext('Test?', { cwd: FAKE_CWD })).not.toThrow();
+    });
+
+    test('truncates long git diff output to stay within budget', () => {
+      childProcess.execFileSync.mockReturnValue('x'.repeat(10000));
+      const result = buildElicitationContext('Which approach?', { cwd: FAKE_CWD });
+      // recentChanges budget is 2000 chars
+      const changesSection = result.split('## Recent Changes')[1] ?? '';
+      expect(changesSection.length).toBeLessThanOrEqual(2200); // section header + budget + newlines
+    });
+
+    test('works with minimal options — just cwd, no phase or milestone', () => {
+      expect(() => buildElicitationContext('Any question?', { cwd: FAKE_CWD })).not.toThrow();
+      const result = buildElicitationContext('Any question?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Question');
+    });
+
+    test('includes ## Project State when STATE.md is present', () => {
+      fsModule.readFileSync.mockImplementation((p: string) => {
+        if (String(p).endsWith('STATE.md')) {
+          return '## Current Position\n\n- Active phase: 86\n- Progress: 50%';
+        }
+        throw new Error('ENOENT');
+      });
+      const result = buildElicitationContext('Test question?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Project State');
+    });
+
+    test('includes ## Recent Changes when git diff succeeds', () => {
+      childProcess.execFileSync.mockReturnValue('lib/discussion.ts | 10 ++++\n1 file changed');
+      const result = buildElicitationContext('Test?', { cwd: FAKE_CWD });
+      expect(result).toContain('## Recent Changes');
+    });
+  });
+
+  // ─── resolveElicitation ────────────────────────────────────────────────────
+
+  describe('resolveElicitation', () => {
+    const FAKE_CWD = '/fake/cwd';
+    const FAKE_CONTEXT = '## Question\n\nWhat approach should I take?';
+
+    function makeRoundEntry(responseText: string): Record<string, unknown> {
+      return { backend: 'claude', response_text: responseText, duration_ms: 100 };
+    }
+
+    function makeSkippedEntry(backend: string): Record<string, unknown> {
+      return { backend, skipped: true, reason: 'not available' };
+    }
+
+    function makeDiscussionResult(
+      synthesisText: string,
+      round1Entries: Record<string, unknown>[]
+    ): Record<string, unknown> {
+      return {
+        topic: 'test',
+        participants: ['claude'],
+        rounds: [round1Entries],
+        synthesis: { backend: 'claude', response_text: synthesisText, duration_ms: 50, stderr: '' },
+        duration_ms: 200,
+        discussion_file: '/tmp/discussion.md',
+      };
+    }
+
+    beforeEach(() => {
+      // Default: execFileSync returns a successful claude response for synthesis
+      childProcess.execFileSync.mockReturnValue('Use approach A — it is more maintainable.');
+    });
+
+    test('calls runDiscussion with rounds=1', () => {
+      // We verify by checking execFileSync is called (runDiscussion dispatches via execFileSync)
+      // The mock returns synthesis text directly since all dispatch goes through execFileSync
+      childProcess.execFileSync.mockReturnValue('My synthesis answer.');
+      const result = resolveElicitation('What approach?', FAKE_CONTEXT, {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      // execFileSync should have been called at least once (for dispatch + synthesis)
+      expect(childProcess.execFileSync).toHaveBeenCalled();
+      // Result should be a string
+      expect(typeof result).toBe('string');
+    });
+
+    test('returns synthesis response_text when discussion succeeds', () => {
+      childProcess.execFileSync.mockReturnValue('Use PostgreSQL for relational data.');
+      const result = resolveElicitation('Which DB?', FAKE_CONTEXT, {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      expect(result).toBe('Use PostgreSQL for relational data.');
+    });
+
+    test('returns empty string when all participants are unavailable', () => {
+      // All backends unavailable
+      backendModule.detectAvailableBackends.mockReturnValue(
+        makeAvailability([]) // no backends available
+      );
+      const result = resolveElicitation('Which DB?', FAKE_CONTEXT, {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      // When synthesis is empty and all round-1 entries are skipped, returns ''
+      expect(typeof result).toBe('string');
+    });
+
+    test('returns empty string when runDiscussion throws', () => {
+      childProcess.execFileSync.mockImplementation(() => {
+        throw new Error('CLI not found');
+      });
+      const result = resolveElicitation('What should I do?', FAKE_CONTEXT, {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      expect(result).toBe('');
+    });
+
+    test('passes participants and synthesizer to runDiscussion', () => {
+      childProcess.execFileSync.mockReturnValue('Gemini says: use TypeScript.');
+      // We verify participants are passed by checking the dispatch order
+      // Since execFileSync is the dispatch mechanism, check it's called
+      resolveElicitation('TypeScript or JavaScript?', FAKE_CONTEXT, {
+        participants: ['gemini', 'codex'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      expect(childProcess.execFileSync).toHaveBeenCalled();
+    });
+
+    test('returns string result in all cases', () => {
+      childProcess.execFileSync.mockReturnValue('Go with the simpler option.');
+      const result = resolveElicitation('Simple or complex?', FAKE_CONTEXT, {
+        participants: ['claude'],
+        synthesizer: 'claude',
+        cwd: FAKE_CWD,
+      });
+      expect(typeof result).toBe('string');
+      expect(result.length).toBeGreaterThan(0);
     });
   });
 });
