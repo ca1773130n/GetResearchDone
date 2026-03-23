@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 82 complete, Phase 83 next
+**Current focus:** v0.3.20 Multi-Agent Cross-Backend Discussion — Phase 83 complete, Phase 84 next
 **Previous:** v0.3.13 Wireup Command (shipped 2026-03-21)
 
 ## Current Position
 
-- **Active phase:** 83 — Discussion Protocol Core
-- **Current plan:** Plan 01 complete, Plan 02 next
+- **Active phase:** 84 — Workflow Integration
+- **Current plan:** (none yet)
 - **Milestone:** v0.3.20 Multi-Agent Cross-Backend Discussion
-- **Status:** Plan 83-01 complete — types and path helper established
-- **Progress:** [████████░░] 80%
-- **Next:** Execute 83-02-PLAN.md (runDiscussion() implementation)
+- **Status:** Phase 83 complete, ready to plan Phase 84
+- **Progress:** [█████▓░░░░] 50%
+- **Next:** `/grd:plan-phase 84`
 
 ## Phase Summary
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 80 | Browser Execution and Auto-Fix | Complete (2026-03-21) |
 | 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
 | 82 | Discussion Infrastructure | Complete (2026-03-23) |
-| 83 | Discussion Protocol Core | In progress (1/2 plans) |
+| 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Not started |
 | 85 | MCP Tools, CLI Command, and Testing | Not started |
 
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
 - [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
 - [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
+- [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency; DiscussionRoundEntry is discriminated union (BackendResponse | skipped); rounds clamped 1-3; markdown file written synchronously before return
 - [Phase 83]: DiscussionRoundEntry is a discriminated union (BackendResponse | skipped entry); discussionsDir() follows todosDir() pattern
 
 ## Known Bugs
@@ -96,10 +97,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 83 Plan 01 — types and path helper for discussion protocol
-- **Stopped at:** Completed 83-01-PLAN.md
-- **Next action:** Execute 83-02-PLAN.md (runDiscussion() implementation)
-- **Context needed:** .planning/STATE.md, lib/types.ts, lib/paths.ts, lib/discussion.ts
+- **Last action:** Executed Phase 83 — 2 plans, 2 waves, all verified
+- **Stopped at:** Phase 83 complete, verified passed (7/7 sanity, all proxy metrics met)
+- **Next action:** `/grd:plan-phase 84`
+- **Context needed:** .planning/STATE.md, lib/discussion.ts, lib/types.ts, lib/paths.ts
 
 ---
 
