@@ -44,7 +44,7 @@ export interface UnwiredFeature {
 /**
  * The type of step in a wireup scenario.
  */
-export type ScenarioStepType = 'http' | 'cli' | 'browser' | 'assert';
+export type ScenarioStepType = 'http' | 'cli' | 'browser' | 'assert' | 'static';
 
 /**
  * A single step in a wireup scenario.
@@ -79,7 +79,7 @@ export interface StepResult {
   /** Index of this step within its scenario (0-based). */
   step_index: number;
   /** Step type that was executed. */
-  step_type: 'http' | 'cli';
+  step_type: 'http' | 'cli' | 'static';
   /** Whether this step passed all expected outcome comparisons. */
   passed: boolean;
   /** The expected outcome value(s) used for comparison. */
@@ -227,6 +227,10 @@ export interface WireupResult {
   failed_scenarios: FailedScenarioSummary[];
   /** Absolute path to the generated WIREUP-REPORT.md (undefined in dry-run mode). */
   report_path?: string;
+  /** Number of fix attempts made during this run. */
+  fixes_attempted: number;
+  /** Number of fixes that were verified by re-running the scenario. */
+  fixes_verified: number;
 }
 
 // ─── Detection Types ──────────────────────────────────────────────────────────

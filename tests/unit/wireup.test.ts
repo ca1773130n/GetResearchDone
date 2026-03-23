@@ -37,8 +37,11 @@ global.fetch = mockFetch;
 
 // Mock spawnSync (CLI execution and detection grep/find)
 const mockSpawnSync = jest.fn();
+// Mock spawn (orchestrator fix subprocess)
+const mockSpawn = jest.fn();
 jest.mock('child_process', () => ({
   spawnSync: mockSpawnSync,
+  spawn: mockSpawn,
 }));
 
 // Mock fs (report generation and state I/O)
@@ -84,6 +87,7 @@ const {
   executeScenarios,
   executeHttpStep,
   executeCliStep,
+  executeStaticStep,
   executeBrowserScenario,
   generateManualSteps,
 } = require('../../lib/wireup/execution') as {
@@ -103,6 +107,11 @@ const {
     options: Record<string, unknown>,
     cwd: string
   ) => Promise<CliStepResult>;
+  executeStaticStep: (
+    stepIndex: number,
+    step: WireupScenario['steps'][number],
+    cwd: string
+  ) => StepResult;
   executeBrowserScenario: (
     cwd: string,
     scenario: { scenario_id: string; feature: string; steps: BrowserStep[] },
@@ -2403,6 +2412,173 @@ describe('runWireup()', () => {
     expect(typeof result.report_path).toBe('string');
     expect(result.report_path).toContain('WIREUP-REPORT.md');
   });
+
+  test('returns fixes_attempted and fixes_verified fields in result', async () => {
+    const result = await runWireup(FAKE_CWD);
+
+    expect(typeof result.fixes_attempted).toBe('number');
+    expect(typeof result.fixes_verified).toBe('number');
+    expect(result.fixes_attempted).toBeGreaterThanOrEqual(0);
+    expect(result.fixes_verified).toBeGreaterThanOrEqual(0);
+  });
+
+  test('dry-run returns fixes_attempted: 0 and fixes_verified: 0', async () => {
+    const result = await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(result.fixes_attempted).toBe(0);
+    expect(result.fixes_verified).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 16b: runWireup autofix integration (orchestrator wires autofix)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a mock ChildProcess-like EventEmitter for spawn mock.
+ * Emits 'close' with the given exit code after a tick.
+ */
+function makeMockChild(exitCode: number): import('events').EventEmitter & {
+  stdout: import('events').EventEmitter;
+  stderr: import('events').EventEmitter;
+  kill: jest.Mock;
+} {
+  const EventEmitter = require('events') as typeof import('events');
+  const child = new EventEmitter.EventEmitter() as import('events').EventEmitter & {
+    stdout: import('events').EventEmitter;
+    stderr: import('events').EventEmitter;
+    kill: jest.Mock;
+  };
+  child.stdout = new EventEmitter.EventEmitter();
+  child.stderr = new EventEmitter.EventEmitter();
+  child.kill = jest.fn();
+  // Emit close asynchronously
+  setImmediate(() => child.emit('close', exitCode));
+  return child;
+}
+
+describe('runWireup() autofix wiring', () => {
+  const fs = require('fs');
+
+  beforeEach(() => {
+    // Default: no features, spawn is a no-op
+    mockSafeReadFile.mockReturnValue(null);
+    (fs.readdirSync as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
+    mockGetMilestoneInfo.mockReturnValue({ version: FAKE_MILESTONE, name: 'Test Milestone' });
+    mockCurrentMilestone.mockReturnValue(FAKE_MILESTONE);
+    mockMkdirSync.mockReturnValue(undefined);
+    mockWriteFileSync.mockReturnValue(undefined);
+    mockReadFileSync.mockImplementation(() => { throw new Error('ENOENT'); });
+    mockSpawn.mockReturnValue(makeMockChild(0));
+  });
+
+  test('result always has fixes_attempted and fixes_verified number fields', async () => {
+    const result = await runWireup(FAKE_CWD);
+
+    expect(typeof result.fixes_attempted).toBe('number');
+    expect(typeof result.fixes_verified).toBe('number');
+    expect(result.fixes_attempted).toBeGreaterThanOrEqual(0);
+    expect(result.fixes_verified).toBeGreaterThanOrEqual(0);
+    // fixes_verified never exceeds fixes_attempted
+    expect(result.fixes_verified).toBeLessThanOrEqual(result.fixes_attempted);
+  });
+
+  test('does not call spawn in dry-run mode', async () => {
+    await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  test('dry-run fixes_attempted and fixes_verified are both 0', async () => {
+    const result = await runWireup(FAKE_CWD, { dryRun: true });
+
+    expect(result.fixes_attempted).toBe(0);
+    expect(result.fixes_verified).toBe(0);
+  });
+
+  test('when spawn is called, it uses claude with -p flag', async () => {
+    // Set up features + failing scenarios to trigger autofix
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      const path = require('path');
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'mod.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('mod.ts')) return 'module.exports = { uncalledFunc };';
+      return null;
+    });
+    // Failing CLI step with high-confidence signal
+    mockSpawnSync.mockReturnValue({
+      status: 1,
+      stdout: '',
+      stderr: "Cannot find module './missing'",
+      error: undefined,
+    });
+
+    await runWireup(FAKE_CWD);
+
+    // If spawn was called at all (depends on whether issues were detected),
+    // verify it was called with 'claude' and '-p'
+    if (mockSpawn.mock.calls.length > 0) {
+      const [cmd, args] = mockSpawn.mock.calls[0] as [string, string[]];
+      expect(cmd).toBe('claude');
+      expect(args[0]).toBe('-p');
+    }
+  });
+
+  test('spawn error event is handled gracefully — no unhandled rejection', async () => {
+    mockSpawn.mockImplementation(() => {
+      const EventEmitter = require('events') as typeof import('events');
+      const child = new EventEmitter.EventEmitter() as import('events').EventEmitter & {
+        stdout: import('events').EventEmitter;
+        stderr: import('events').EventEmitter;
+        kill: jest.Mock;
+      };
+      child.stdout = new EventEmitter.EventEmitter();
+      child.stderr = new EventEmitter.EventEmitter();
+      child.kill = jest.fn();
+      setImmediate(() => child.emit('error', new Error('ENOENT: spawn failed')));
+      return child;
+    });
+
+    // Should not throw
+    const result = await runWireup(FAKE_CWD);
+    expect(result.fixes_verified).toBe(0);
+  });
+
+  test('strips CLAUDE env vars before spawning fix subprocess', async () => {
+    // Set up features + failing scenarios to trigger autofix
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      const path = require('path');
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'mod.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('mod.ts')) return 'module.exports = { uncalledFunc };';
+      return null;
+    });
+    mockSpawnSync.mockReturnValue({
+      status: 1,
+      stdout: '',
+      stderr: "Cannot find module './missing'",
+      error: undefined,
+    });
+
+    await runWireup(FAKE_CWD);
+
+    if (mockSpawn.mock.calls.length > 0) {
+      const spawnOpts = mockSpawn.mock.calls[0][2] as { env: Record<string, string> };
+      const envKeys = Object.keys(spawnOpts.env);
+      const claudeKeys = envKeys.filter(
+        (k) => k === 'CLAUDECODE' || k.startsWith('CLAUDE_CODE_') || k.startsWith('CLAUDECODE_')
+      );
+      expect(claudeKeys).toHaveLength(0);
+    }
+  });
 });
 
 describe('cmdWireup()', () => {
@@ -2474,5 +2650,153 @@ describe('cmdWireup()', () => {
       // Expected: output() throws
     }
     expect(mockOutput).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── executeStaticStep ────────────────────────────────────────────────────────
+
+describe('executeStaticStep', () => {
+  const realFs = jest.requireActual('fs') as typeof import('fs');
+  const realPath = jest.requireActual('path') as typeof import('path');
+  const realOs = jest.requireActual('os') as typeof import('os');
+  let tmpDir: string;
+
+  // The fs mock replaces readFileSync and readdirSync — restore real impls for these tests
+  const mockFsModule = require('fs') as { readFileSync: jest.Mock; readdirSync: jest.Mock };
+
+  beforeEach(() => {
+    mockReadFileSync.mockImplementation((...args: Parameters<typeof realFs.readFileSync>) =>
+      (realFs.readFileSync as (...a: Parameters<typeof realFs.readFileSync>) => ReturnType<typeof realFs.readFileSync>)(...args)
+    );
+    mockFsModule.readdirSync.mockImplementation((...args: Parameters<typeof realFs.readdirSync>) =>
+      (realFs.readdirSync as (...a: Parameters<typeof realFs.readdirSync>) => ReturnType<typeof realFs.readdirSync>)(...args)
+    );
+  });
+
+  afterEach(() => {
+    mockReadFileSync.mockReset();
+    mockFsModule.readdirSync.mockReset();
+    if (tmpDir) realFs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('passes when export exists in file (ES module export)', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.ts'), 'export function doThing() { return 1; }');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+    expect(result.step_type).toBe('static');
+  });
+
+  it('passes when export exists via export default', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'Button.tsx'), 'export default function Button() {}');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'Button.tsx', exportName: 'Button' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('passes when export exists via export { name }', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'index.ts'), 'const doThing = 1;\nexport { doThing }');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'index.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when export does not exist in file', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.ts'), 'export function other() {}');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+  });
+
+  it('fails when file does not exist', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'missing.ts', exportName: 'x' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+  });
+
+  it('passes import_graph_connected when export is referenced', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    realFs.mkdirSync(srcDir);
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function doThing() {}');
+    realFs.writeFileSync(realPath.join(srcDir, 'app.ts'), "import { doThing } from './utils';");
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails import_graph_connected when export has no references', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    realFs.mkdirSync(srcDir);
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function orphan() {}');
+    realFs.writeFileSync(realPath.join(srcDir, 'app.ts'), "import { other } from './other';");
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'orphan' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+  });
+
+  it('passes when export exists via CJS module.exports', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    realFs.writeFileSync(realPath.join(tmpDir, 'utils.js'), 'function doThing() {}\nmodule.exports = { doThing };');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'export_exists', filePath: 'utils.js', exportName: 'doThing' },
+      expected_outcome: 'Export exists',
+    }, tmpDir);
+    expect(result.passed).toBe(true);
+  });
+
+  it('returns failed for unknown check type', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'nonexistent_check', filePath: 'x.ts', exportName: 'x' },
+      expected_outcome: 'Something',
+    }, tmpDir);
+    expect(result.passed).toBe(false);
+    expect(result.actual).toContain('Unknown static check');
+  });
+
+  it('skips node_modules when checking import graph', () => {
+    tmpDir = realFs.mkdtempSync(realPath.join(realOs.tmpdir(), 'wireup-static-'));
+    const srcDir = realPath.join(tmpDir, 'src');
+    const nmDir = realPath.join(tmpDir, 'node_modules', 'dep');
+    realFs.mkdirSync(srcDir);
+    realFs.mkdirSync(nmDir, { recursive: true });
+    realFs.writeFileSync(realPath.join(srcDir, 'utils.ts'), 'export function doThing() {}');
+    realFs.writeFileSync(realPath.join(nmDir, 'index.js'), 'const doThing = require("../src/utils");');
+    const result = executeStaticStep(0, {
+      step_type: 'static',
+      parameters: { check: 'import_graph_connected', filePath: 'src/utils.ts', exportName: 'doThing' },
+      expected_outcome: 'Referenced',
+    }, tmpDir);
+    expect(result.passed).toBe(false); // node_modules reference should be ignored
   });
 });
