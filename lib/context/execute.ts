@@ -61,10 +61,12 @@ const {
   detectBackend,
   getBackendCapabilities,
   detectWebMcp,
+  detectAvailableBackends,
 }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
   detectWebMcp: (cwd: string) => WebMcpResult;
+  detectAvailableBackends: (cwd?: string) => Record<string, import('../types').BackendAvailability>;
 } = require('../backend');
 
 const {
@@ -503,6 +505,24 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // .planning/ remains the source of truth for project-scoped state.
     plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
     plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
+
+    // Discussion & review config
+    discussion_before_planning: config.discussion?.before_planning ?? true,
+    discussion_enabled: config.discussion?.enabled ?? true,
+    brainstormer_backend: config.backend_roles?.brainstormer ?? null,
+    brainstormer_available: (() => {
+      const brainstormer = config.backend_roles?.brainstormer ?? null;
+      if (!brainstormer) return false;
+      const available = detectAvailableBackends(cwd);
+      return available[brainstormer]?.available === true;
+    })(),
+    reviewer_backend: config.backend_roles?.reviewer ?? null,
+    reviewer_available: (() => {
+      const reviewer = config.backend_roles?.reviewer ?? null;
+      if (!reviewer) return false;
+      const available = detectAvailableBackends(cwd);
+      return available[reviewer]?.available === true;
+    })(),
   };
 
   if (gates.warnings.length > 0) {
