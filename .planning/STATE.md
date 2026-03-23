@@ -91,6 +91,8 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
+- [Phase 86]: detectElicitation uses two-pass approach: numbered_options checked first, then line-by-line for other patterns
+- [Phase 86]: ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
 
 ## Known Bugs
 
@@ -103,7 +105,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 85 — 2 plans, 1 wave, all verified
-- **Stopped at:** Phase 85 complete, milestone ready
+- **Stopped at:** Completed 86-01-PLAN.md
 - **Next action:** `/grd:complete-milestone`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
