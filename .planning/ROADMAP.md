@@ -205,7 +205,7 @@ Phases 78-81 added `/grd:wireup` command — end-to-end integration wiring compl
 
 - [x] **Phase 82: Discussion Infrastructure** - Backend role config, availability detection, dispatch primitives, and model ceiling `implement` *(completed 2026-03-23)*
 - [x] **Phase 83: Discussion Protocol Core** - Round orchestration, synthesis, and discussion state/history `implement` *(completed 2026-03-23)*
-- [ ] **Phase 84: Workflow Integration** - Auto-discussion before planning/execution and cross-backend plan/code/PR review `implement`
+- [x] **Phase 84: Workflow Integration** - Auto-discussion before planning/execution and cross-backend plan/code/PR review `implement` *(completed 2026-03-23)*
 - [ ] **Phase 85: MCP Tools, CLI Command, and Testing** - grd_discussion_* MCP tools, /grd:discuss command, unit/integration tests `integrate`
 
 #### Phase 82: Discussion Infrastructure
@@ -281,8 +281,8 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 82. Discussion Infrastructure | v0.3.20 | 3/3 | Complete | 2026-03-23 |
-| 83. Discussion Protocol Core | v0.3.20 | 0/TBD | Not started | - |
-| 84. Workflow Integration | v0.3.20 | 0/TBD | Not started | - |
+| 83. Discussion Protocol Core | v0.3.20 | 2/2 | Complete | 2026-03-23 |
+| 84. Workflow Integration | v0.3.20 | 3/3 | Complete | 2026-03-23 |
 | 85. MCP Tools, CLI, and Testing | v0.3.20 | 0/TBD | Not started | - |
 
 ## Deferred Validations

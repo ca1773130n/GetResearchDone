@@ -61,10 +61,12 @@ const {
   detectBackend,
   getBackendCapabilities,
   detectWebMcp,
+  detectAvailableBackends,
 }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (b: string) => BackendCapabilities;
   detectWebMcp: (cwd: string) => WebMcpResult;
+  detectAvailableBackends: (cwd?: string) => Record<string, import('../types').BackendAvailability>;
 } = require('../backend');
 
 const {
@@ -194,6 +196,9 @@ function cmdInitExecutePhase(
   const webmcp = detectWebMcp(cwd);
   const overstoryConfig = backend === 'overstory' ? loadOverstoryConfig(cwd) : null;
 
+  // Cache detectAvailableBackends result to avoid multiple calls
+  const availableBackends = detectAvailableBackends(cwd);
+
   const result: Record<string, unknown> = {
     // Backend
     backend,
@@ -227,6 +232,23 @@ function cmdInitExecutePhase(
     code_review_timing: config.code_review_timing,
     code_review_severity_gate: config.code_review_severity_gate,
     code_review_auto_fix_warnings: config.code_review_auto_fix_warnings,
+
+    // Discussion & review config
+    discussion_before_execution: config.discussion?.before_execution ?? false,
+    discussion_enabled: config.discussion?.enabled ?? true,
+    brainstormer_backend: config.backend_roles?.brainstormer ?? null,
+    brainstormer_available: (() => {
+      const brainstormer = config.backend_roles?.brainstormer ?? null;
+      if (!brainstormer) return false;
+      return availableBackends[brainstormer]?.available === true;
+    })(),
+    reviewer_backend: config.backend_roles?.reviewer ?? null,
+    reviewer_available: (() => {
+      const reviewer = config.backend_roles?.reviewer ?? null;
+      if (!reviewer) return false;
+      return availableBackends[reviewer]?.available === true;
+    })(),
+    pr_review_enabled: config.code_review_enabled === true && !!(config.backend_roles?.reviewer),
 
     // Execution config
     use_teams: config.use_teams,
@@ -503,6 +525,24 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // .planning/ remains the source of truth for project-scoped state.
     plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
     plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
+
+    // Discussion & review config
+    discussion_before_planning: config.discussion?.before_planning ?? true,
+    discussion_enabled: config.discussion?.enabled ?? true,
+    brainstormer_backend: config.backend_roles?.brainstormer ?? null,
+    brainstormer_available: (() => {
+      const brainstormer = config.backend_roles?.brainstormer ?? null;
+      if (!brainstormer) return false;
+      const available = detectAvailableBackends(cwd);
+      return available[brainstormer]?.available === true;
+    })(),
+    reviewer_backend: config.backend_roles?.reviewer ?? null,
+    reviewer_available: (() => {
+      const reviewer = config.backend_roles?.reviewer ?? null;
+      if (!reviewer) return false;
+      const available = detectAvailableBackends(cwd);
+      return available[reviewer]?.available === true;
+    })(),
   };
 
   if (gates.warnings.length > 0) {

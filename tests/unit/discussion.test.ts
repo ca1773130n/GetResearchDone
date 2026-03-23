@@ -72,6 +72,11 @@ const {
   runDiscussion,
   listDiscussions,
   readDiscussion,
+  runPrePlanningDiscussion,
+  runPreExecutionDiscussion,
+  reviewPlanViaBackend,
+  reviewCodeViaBackend,
+  reviewPRViaBackend,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
@@ -103,6 +108,71 @@ const {
   }>;
   listDiscussions: (cwd: string, milestone?: string | null) => string[];
   readDiscussion: (filename: string, cwd: string, milestone?: string | null) => string | null;
+  runPrePlanningDiscussion: (options: {
+    phaseGoal: string;
+    requirements: string[];
+    cwd?: string;
+    phase?: string;
+    milestone?: string | null;
+    config: Record<string, unknown>;
+  }) => Promise<{
+    topic: string;
+    participants: string[];
+    rounds: unknown[][];
+    synthesis: { backend: string; response_text: string; duration_ms: number; stderr: string };
+    duration_ms: number;
+    discussion_file: string;
+  } | null>;
+  runPreExecutionDiscussion: (options: {
+    planSummary: string;
+    cwd?: string;
+    phase?: string;
+    milestone?: string | null;
+    config: Record<string, unknown>;
+  }) => Promise<{
+    topic: string;
+    participants: string[];
+    rounds: unknown[][];
+    synthesis: { backend: string; response_text: string; duration_ms: number; stderr: string };
+    duration_ms: number;
+    discussion_file: string;
+  } | null>;
+  reviewPlanViaBackend: (options: {
+    planText: string;
+    cwd?: string;
+    config: Record<string, unknown>;
+  }) => {
+    approved: boolean;
+    concerns: Array<{ description: string; severity: string }>;
+    suggestions: string[];
+    reviewer_backend: string;
+    duration_ms: number;
+    raw_response: string;
+  } | null;
+  reviewCodeViaBackend: (options: {
+    diff: string;
+    cwd?: string;
+    config: Record<string, unknown>;
+  }) => {
+    approved: boolean;
+    issues: Array<{ severity: string; file: string; line_range: string; description: string }>;
+    summary: string;
+    reviewer_backend: string;
+    duration_ms: number;
+    raw_response: string;
+  } | null;
+  reviewPRViaBackend: (options: {
+    diff: string;
+    prNumber: number;
+    cwd?: string;
+    config: Record<string, unknown>;
+  }) => {
+    comments: Array<{ file: string; line: number; body: string; severity: string }>;
+    summary: string;
+    reviewer_backend: string;
+    duration_ms: number;
+    raw_response: string;
+  } | null;
   DISCUSSION_SONNET_MODEL: string;
   BACKEND_CLI_MAP: Record<string, { bin: string; buildArgs: (p: string, m?: string) => string[] }>;
   DEFAULT_DISPATCH_TIMEOUT_MS: number;
@@ -748,6 +818,579 @@ describe('lib/discussion.ts', () => {
 
       const [, encoding] = fsModule.readFileSync.mock.calls[0] as [string, string];
       expect(encoding).toBe('utf-8');
+    });
+  });
+
+  // ─── runPrePlanningDiscussion ──────────────────────────────────────────────
+
+  describe('runPrePlanningDiscussion', () => {
+
+    beforeEach(() => {
+      // Default: all backends available, execFileSync returns a mock response
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+      childProcess.execFileSync.mockReturnValue('Pre-planning response');
+    });
+
+    test('returns null when discussion.before_planning is false', async () => {
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something great',
+        requirements: ['REQ-1', 'REQ-2'],
+        config: {
+          discussion: { enabled: true, before_planning: false },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when discussion.enabled is false', async () => {
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something great',
+        requirements: ['REQ-1'],
+        config: {
+          discussion: { enabled: false, before_planning: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when no brainstormer backend configured', async () => {
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something great',
+        requirements: ['REQ-1'],
+        config: {
+          discussion: { enabled: true, before_planning: true },
+          backend_roles: {},
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when brainstormer backend is unavailable', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude']));
+
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something great',
+        requirements: ['REQ-1'],
+        config: {
+          discussion: { enabled: true, before_planning: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('dispatches discussion when all conditions met', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex']));
+
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Implement discussion feature',
+        requirements: ['REQ-138', 'REQ-139'],
+        cwd: '/my/project',
+        phase: '84',
+        config: {
+          discussion: { enabled: true, before_planning: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.topic).toContain('Implement discussion feature');
+      expect(result?.topic).toContain('REQ-138');
+      expect(result?.topic).toContain('REQ-139');
+    });
+
+    test('uses default before_planning=true when discussion config omitted', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex']));
+
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something',
+        requirements: ['REQ-1'],
+        config: {
+          // no discussion section — before_planning defaults to true
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+    });
+
+    test('type in discussion result is pre-planning', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex']));
+
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something',
+        requirements: ['REQ-1'],
+        config: {
+          discussion: { enabled: true, before_planning: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+
+      expect(result?.discussion_file).toContain('pre-planning');
+    });
+
+    test('does not dispatch when backend_roles is missing entirely', async () => {
+      const result = await runPrePlanningDiscussion({
+        phaseGoal: 'Build something',
+        requirements: [],
+        config: {
+          discussion: { enabled: true, before_planning: true },
+        },
+      });
+
+      expect(result).toBeNull();
+      expect(childProcess.execFileSync).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── runPreExecutionDiscussion ─────────────────────────────────────────────
+
+  describe('runPreExecutionDiscussion', () => {
+
+    beforeEach(() => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+      childProcess.execFileSync.mockReturnValue('Pre-execution response');
+    });
+
+    test('returns null when discussion.before_execution is false (default)', async () => {
+      const result = await runPreExecutionDiscussion({
+        planSummary: 'This plan implements X',
+        config: {
+          discussion: { enabled: true, before_execution: false },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when before_execution is not set (default is false)', async () => {
+      const result = await runPreExecutionDiscussion({
+        planSummary: 'This plan implements X',
+        config: {
+          discussion: { enabled: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when brainstormer unavailable', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude']));
+
+      const result = await runPreExecutionDiscussion({
+        planSummary: 'This plan implements X',
+        config: {
+          discussion: { enabled: true, before_execution: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('dispatches single-round discussion when before_execution is true', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex']));
+
+      const result = await runPreExecutionDiscussion({
+        planSummary: 'Plan: implement feature Z',
+        cwd: '/my/project',
+        phase: '84',
+        config: {
+          discussion: { enabled: true, before_execution: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      // rounds: 1 means exactly 1 round in result
+      expect(result?.rounds).toHaveLength(1);
+      // type should be pre-execution
+      expect(result?.discussion_file).toContain('pre-execution');
+    });
+
+    test('topic includes plan summary content', async () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex']));
+
+      const result = await runPreExecutionDiscussion({
+        planSummary: 'Unique plan content 12345',
+        config: {
+          discussion: { enabled: true, before_execution: true },
+          backend_roles: { brainstormer: 'codex' },
+        },
+      });
+
+      expect(result?.topic).toContain('Unique plan content 12345');
+    });
+  });
+
+  // ─── reviewPlanViaBackend ──────────────────────────────────────────────────
+
+  describe('reviewPlanViaBackend', () => {
+
+    beforeEach(() => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[],"suggestions":[]}\n```'
+      );
+    });
+
+    test('returns null when no reviewer configured', () => {
+      const result = reviewPlanViaBackend({
+        planText: 'Some plan',
+        config: {
+          backend: 'claude',
+          backend_roles: {},
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when reviewer is primary backend', () => {
+      const result = reviewPlanViaBackend({
+        planText: 'Some plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'claude' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when reviewer unavailable', () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude']));
+
+      const result = reviewPlanViaBackend({
+        planText: 'Some plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('parses valid JSON response into PlanReviewResult', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"concerns":[],"suggestions":["use const"]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.approved).toBe(true);
+      expect(result?.concerns).toEqual([]);
+      expect(result?.suggestions).toContain('use const');
+      expect(result?.reviewer_backend).toBe('codex');
+    });
+
+    test('parses concerns with severity correctly', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":false,"concerns":[{"description":"Missing error handling","severity":"blocker"}],"suggestions":[]}\n```'
+      );
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.approved).toBe(false);
+      expect(result?.concerns).toHaveLength(1);
+      expect(result?.concerns[0].severity).toBe('blocker');
+      expect(result?.concerns[0].description).toBe('Missing error handling');
+    });
+
+    test('handles malformed JSON gracefully', () => {
+      childProcess.execFileSync.mockReturnValue('This is not JSON at all, just random text');
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.approved).toBe(false);
+      expect(result?.concerns).toHaveLength(1);
+      expect(result?.concerns[0].severity).toBe('warning');
+      expect(result?.concerns[0].description).toMatch(/unparseable/i);
+    });
+
+    test('result includes raw_response', () => {
+      const rawJson = '```json\n{"approved":true,"concerns":[],"suggestions":[]}\n```';
+      childProcess.execFileSync.mockReturnValue(rawJson);
+
+      const result = reviewPlanViaBackend({
+        planText: 'My plan',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(typeof result?.raw_response).toBe('string');
+    });
+  });
+
+  // ─── reviewCodeViaBackend ──────────────────────────────────────────────────
+
+  describe('reviewCodeViaBackend', () => {
+
+    beforeEach(() => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[],"summary":"LGTM"}\n```'
+      );
+    });
+
+    test('returns null when no reviewer configured', () => {
+      const result = reviewCodeViaBackend({
+        diff: 'diff --git ...',
+        config: {
+          backend: 'claude',
+          backend_roles: {},
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when reviewer is primary backend', () => {
+      const result = reviewCodeViaBackend({
+        diff: 'diff --git ...',
+        config: {
+          backend: 'codex',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when reviewer unavailable', () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude']));
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff --git ...',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'gemini' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('parses valid review with issues', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":false,"issues":[{"severity":"blocker","file":"src/main.ts","line_range":"10-15","description":"SQL injection risk"}],"summary":"Needs fix"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'diff content',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.approved).toBe(false);
+      expect(result?.issues).toHaveLength(1);
+      expect(result?.issues[0].severity).toBe('blocker');
+      expect(result?.issues[0].file).toBe('src/main.ts');
+      expect(result?.issues[0].line_range).toBe('10-15');
+      expect(result?.issues[0].description).toBe('SQL injection risk');
+      expect(result?.summary).toBe('Needs fix');
+      expect(result?.reviewer_backend).toBe('codex');
+    });
+
+    test('handles empty issues as approved', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":true,"issues":[],"summary":"No issues found"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'clean diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.approved).toBe(true);
+      expect(result?.issues).toHaveLength(0);
+      expect(result?.summary).toBe('No issues found');
+    });
+
+    test('handles malformed JSON gracefully', () => {
+      childProcess.execFileSync.mockReturnValue('not json garbage %%##');
+
+      const result = reviewCodeViaBackend({
+        diff: 'some diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.approved).toBe(false);
+      expect(result?.issues).toHaveLength(1);
+      expect(result?.issues[0].severity).toBe('warning');
+      expect(result?.issues[0].description).toMatch(/unparseable/i);
+    });
+
+    test('returns approved:false when blockers present', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"approved":false,"issues":[{"severity":"blocker","file":"app.ts","line_range":"1","description":"Critical bug"}],"summary":"Blocked"}\n```'
+      );
+
+      const result = reviewCodeViaBackend({
+        diff: 'bad diff',
+        config: {
+          backend: 'claude',
+          backend_roles: { reviewer: 'gemini' },
+        },
+      });
+
+      expect(result?.approved).toBe(false);
+    });
+  });
+
+  // ─── reviewPRViaBackend ────────────────────────────────────────────────────
+
+  describe('reviewPRViaBackend', () => {
+
+    beforeEach(() => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude', 'codex', 'gemini', 'opencode']));
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[],"summary":"Looks good"}\n```'
+      );
+    });
+
+    test('returns null when code_review_enabled is false', () => {
+      const result = reviewPRViaBackend({
+        diff: 'diff --git ...',
+        prNumber: 42,
+        config: {
+          code_review_enabled: false,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when no reviewer configured', () => {
+      const result = reviewPRViaBackend({
+        diff: 'diff --git ...',
+        prNumber: 42,
+        config: {
+          code_review_enabled: true,
+          backend_roles: {},
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('returns null when reviewer unavailable', () => {
+      backendModule.detectAvailableBackends.mockReturnValue(makeAvailability(['claude']));
+
+      const result = reviewPRViaBackend({
+        diff: 'diff content',
+        prNumber: 1,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'gemini' },
+        },
+      });
+      expect(result).toBeNull();
+    });
+
+    test('parses valid PR review comments', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[{"file":"lib/main.ts","line":42,"body":"This could be simplified","severity":"suggestion"}],"summary":"Minor suggestion"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'pr diff content',
+        prNumber: 99,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.comments).toHaveLength(1);
+      expect(result?.comments[0].file).toBe('lib/main.ts');
+      expect(result?.comments[0].line).toBe(42);
+      expect(result?.comments[0].body).toBe('This could be simplified');
+      expect(result?.comments[0].severity).toBe('suggestion');
+      expect(result?.summary).toBe('Minor suggestion');
+      expect(result?.reviewer_backend).toBe('codex');
+    });
+
+    test('returns empty comments array when no issues', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[],"summary":"LGTM"}\n```'
+      );
+
+      const result = reviewPRViaBackend({
+        diff: 'clean pr diff',
+        prNumber: 5,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result?.comments).toHaveLength(0);
+      expect(result?.summary).toBe('LGTM');
+    });
+
+    test('handles malformed JSON gracefully', () => {
+      childProcess.execFileSync.mockReturnValue('this is totally not JSON !!!');
+
+      const result = reviewPRViaBackend({
+        diff: 'some pr diff',
+        prNumber: 7,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.comments).toHaveLength(1);
+      expect(result?.comments[0].severity).toBe('warning');
+      expect(result?.comments[0].body).toMatch(/unparseable/i);
+    });
+
+    test('includes prNumber in prompt sent to reviewer', () => {
+      childProcess.execFileSync.mockReturnValue(
+        '```json\n{"comments":[],"summary":"ok"}\n```'
+      );
+
+      reviewPRViaBackend({
+        diff: 'pr diff',
+        prNumber: 123,
+        config: {
+          code_review_enabled: true,
+          backend_roles: { reviewer: 'codex' },
+        },
+      });
+
+      const promptArg = (childProcess.execFileSync.mock.calls[0] as [string, string[]])[1];
+      const fullPrompt = promptArg.join(' ');
+      expect(fullPrompt).toContain('123');
     });
   });
 });

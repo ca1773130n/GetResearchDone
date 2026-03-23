@@ -33,6 +33,13 @@ import type {
   DiscussionResult,
   DiscussionRoundEntry,
   RunDiscussionOptions,
+  GrdConfig,
+  PlanReviewResult,
+  CodeReviewResult,
+  PRReviewResult,
+  Concern,
+  ReviewIssue,
+  PRReviewComment,
 } from './types';
 
 const { execFileSync } = require('child_process') as {
@@ -436,6 +443,407 @@ function readDiscussion(
   return fs.readFileSync(filePath, 'utf-8');
 }
 
+// --- Workflow Integration Functions ------------------------------------------
+
+/**
+ * Extract JSON from a raw backend response string.
+ *
+ * Handles markdown code fences (```json ... ``` or ``` ... ```) and plain JSON.
+ * Returns null on parse failure.
+ *
+ * Internal helper — not exported.
+ */
+function parseJSONFromResponse(raw: string): Record<string, unknown> | null {
+  // Try to extract JSON from markdown code fences first
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenceMatch ? fenceMatch[1].trim() : raw.trim();
+
+  try {
+    const parsed: unknown = JSON.parse(candidate);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run a pre-planning discussion with the configured brainstormer backend.
+ *
+ * Checks config flags before dispatching. Returns null (silently skips)
+ * when discussion is disabled, before_planning is false, or the brainstormer
+ * backend is not configured or unavailable.
+ *
+ * REQ-138
+ *
+ * @param options - Phase goal, requirements list, paths, and GRD config
+ * @returns A DiscussionResult on success, null if skipped
+ */
+async function runPrePlanningDiscussion(options: {
+  phaseGoal: string;
+  requirements: string[];
+  cwd?: string;
+  phase?: string;
+  milestone?: string | null;
+  config: GrdConfig;
+}): Promise<DiscussionResult | null> {
+  const { phaseGoal, requirements, cwd, phase, milestone, config } = options;
+
+  // Config gating
+  if (
+    config.discussion?.enabled === false ||
+    config.discussion?.before_planning === false ||
+    !config.backend_roles?.brainstormer
+  ) {
+    return null;
+  }
+
+  const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
+
+  // Backend availability check
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[brainstormerBackend]?.available) {
+    return null;
+  }
+
+  const reqLines = requirements.map((r) => `- ${r}`).join('\n');
+  const topic = `Pre-planning discussion for phase goal: ${phaseGoal}\n\nRequirements:\n${reqLines}`;
+
+  return runDiscussion(topic, [brainstormerBackend], {
+    rounds: 1,
+    phase,
+    type: 'pre-planning',
+    cwd,
+    milestone,
+  });
+}
+
+/**
+ * Run a pre-execution discussion with the configured brainstormer backend.
+ *
+ * Checks config flags before dispatching. Returns null when discussion is
+ * disabled, before_execution is not explicitly enabled, or the brainstormer
+ * backend is not configured or unavailable.
+ *
+ * REQ-139
+ *
+ * @param options - Plan summary text, paths, and GRD config
+ * @returns A DiscussionResult on success, null if skipped
+ */
+async function runPreExecutionDiscussion(options: {
+  planSummary: string;
+  cwd?: string;
+  phase?: string;
+  milestone?: string | null;
+  config: GrdConfig;
+}): Promise<DiscussionResult | null> {
+  const { planSummary, cwd, phase, milestone, config } = options;
+
+  // Config gating (before_execution must be explicitly true)
+  if (
+    config.discussion?.enabled === false ||
+    config.discussion?.before_execution !== true ||
+    !config.backend_roles?.brainstormer
+  ) {
+    return null;
+  }
+
+  const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
+
+  // Backend availability check
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[brainstormerBackend]?.available) {
+    return null;
+  }
+
+  const topic = `Pre-execution discussion: surface implementation concerns for the following plan:\n\n${planSummary}`;
+
+  return runDiscussion(topic, [brainstormerBackend], {
+    rounds: 1,
+    phase,
+    type: 'pre-execution',
+    cwd,
+    milestone,
+  });
+}
+
+/**
+ * Dispatch a plan text to the reviewer backend and parse the structured response.
+ *
+ * Checks that a reviewer is configured and that it differs from the primary
+ * backend. Returns null when reviewer is unavailable. Handles malformed JSON
+ * responses gracefully.
+ *
+ * REQ-140
+ *
+ * @param options - Plan text, working directory, and GRD config
+ * @returns A PlanReviewResult on success, null if skipped/unavailable
+ */
+function reviewPlanViaBackend(options: {
+  planText: string;
+  cwd?: string;
+  config: GrdConfig;
+}): PlanReviewResult | null {
+  const { planText, cwd, config } = options;
+
+  // Config gating: reviewer must be configured and differ from primary backend
+  if (!config.backend_roles?.reviewer) {
+    return null;
+  }
+  const reviewerBackend: BackendId = config.backend_roles.reviewer;
+  if (config.backend && reviewerBackend === (config.backend as BackendId)) {
+    return null;
+  }
+
+  // Backend availability check
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[reviewerBackend]?.available) {
+    return null;
+  }
+
+  const prompt = [
+    'Review the following plan and provide structured feedback.',
+    '',
+    '## Plan',
+    planText,
+    '',
+    'Respond with JSON only (no markdown prose outside the JSON block):',
+    '```json',
+    '{ "approved": boolean, "concerns": [{"description": string, "severity": "blocker"|"warning"|"suggestion"}], "suggestions": [string] }',
+    '```',
+  ].join('\n');
+
+  const start = Date.now();
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const duration_ms = Date.now() - start;
+
+  const parsed = parseJSONFromResponse(response.response_text);
+
+  if (!parsed) {
+    const concerns: Concern[] = [
+      {
+        description: `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
+        severity: 'warning',
+      },
+    ];
+    return {
+      approved: false,
+      concerns,
+      suggestions: [response.response_text],
+      reviewer_backend: reviewerBackend,
+      duration_ms,
+      raw_response: response.response_text,
+    };
+  }
+
+  const approved = typeof parsed['approved'] === 'boolean' ? parsed['approved'] : false;
+  const rawConcerns = Array.isArray(parsed['concerns']) ? (parsed['concerns'] as unknown[]) : [];
+  const concerns: Concern[] = rawConcerns
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
+    .map((c) => ({
+      description: typeof c['description'] === 'string' ? c['description'] : String(c['description'] ?? ''),
+      severity: (['blocker', 'warning', 'suggestion'] as const).includes(c['severity'] as 'blocker' | 'warning' | 'suggestion')
+        ? (c['severity'] as 'blocker' | 'warning' | 'suggestion')
+        : 'warning',
+    }));
+  const rawSuggestions = Array.isArray(parsed['suggestions']) ? (parsed['suggestions'] as unknown[]) : [];
+  const suggestions: string[] = rawSuggestions.map((s) => String(s));
+
+  return {
+    approved,
+    concerns,
+    suggestions,
+    reviewer_backend: reviewerBackend,
+    duration_ms,
+    raw_response: response.response_text,
+  };
+}
+
+/**
+ * Dispatch a code diff to the reviewer backend and parse the structured response.
+ *
+ * Same reviewer availability checks as reviewPlanViaBackend.
+ * Handles malformed JSON responses gracefully.
+ *
+ * REQ-141
+ *
+ * @param options - Code diff text, working directory, and GRD config
+ * @returns A CodeReviewResult on success, null if skipped/unavailable
+ */
+function reviewCodeViaBackend(options: {
+  diff: string;
+  cwd?: string;
+  config: GrdConfig;
+}): CodeReviewResult | null {
+  const { diff, cwd, config } = options;
+
+  // Config gating: reviewer must be configured and differ from primary backend
+  if (!config.backend_roles?.reviewer) {
+    return null;
+  }
+  const reviewerBackend: BackendId = config.backend_roles.reviewer;
+  if (config.backend && reviewerBackend === (config.backend as BackendId)) {
+    return null;
+  }
+
+  // Backend availability check
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[reviewerBackend]?.available) {
+    return null;
+  }
+
+  const prompt = [
+    'Review this code diff and provide structured feedback.',
+    '',
+    '## Diff',
+    diff,
+    '',
+    'Respond with JSON only (no markdown prose outside the JSON block):',
+    '```json',
+    '{ "approved": boolean, "issues": [{"severity": "blocker"|"warning"|"suggestion", "file": string, "line_range": string, "description": string}], "summary": string }',
+    '```',
+  ].join('\n');
+
+  const start = Date.now();
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const duration_ms = Date.now() - start;
+
+  const parsed = parseJSONFromResponse(response.response_text);
+
+  if (!parsed) {
+    const issues: ReviewIssue[] = [
+      {
+        severity: 'warning',
+        file: '',
+        line_range: '',
+        description: `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
+      },
+    ];
+    return {
+      approved: false,
+      issues,
+      summary: response.response_text,
+      reviewer_backend: reviewerBackend,
+      duration_ms,
+      raw_response: response.response_text,
+    };
+  }
+
+  const approved = typeof parsed['approved'] === 'boolean' ? parsed['approved'] : false;
+  const rawIssues = Array.isArray(parsed['issues']) ? (parsed['issues'] as unknown[]) : [];
+  const issues: ReviewIssue[] = rawIssues
+    .filter((i): i is Record<string, unknown> => typeof i === 'object' && i !== null)
+    .map((i) => ({
+      severity: (['blocker', 'warning', 'suggestion'] as const).includes(i['severity'] as 'blocker' | 'warning' | 'suggestion')
+        ? (i['severity'] as 'blocker' | 'warning' | 'suggestion')
+        : 'warning',
+      file: typeof i['file'] === 'string' ? i['file'] : '',
+      line_range: typeof i['line_range'] === 'string' ? i['line_range'] : '',
+      description: typeof i['description'] === 'string' ? i['description'] : String(i['description'] ?? ''),
+    }));
+  const summary = typeof parsed['summary'] === 'string' ? parsed['summary'] : '';
+
+  return {
+    approved,
+    issues,
+    summary,
+    reviewer_backend: reviewerBackend,
+    duration_ms,
+    raw_response: response.response_text,
+  };
+}
+
+/**
+ * Dispatch a PR diff to the reviewer backend and parse structured review comments.
+ *
+ * Checks code_review_enabled and reviewer role configuration.
+ * Handles malformed JSON responses gracefully.
+ *
+ * REQ-142
+ *
+ * @param options - PR diff text, PR number, working directory, and GRD config
+ * @returns A PRReviewResult on success, null if skipped/unavailable
+ */
+function reviewPRViaBackend(options: {
+  diff: string;
+  prNumber: number;
+  cwd?: string;
+  config: GrdConfig;
+}): PRReviewResult | null {
+  const { diff, prNumber, cwd, config } = options;
+
+  // Config gating: code_review_enabled must be true and reviewer must be configured
+  if (!config.code_review_enabled || !config.backend_roles?.reviewer) {
+    return null;
+  }
+  const reviewerBackend: BackendId = config.backend_roles.reviewer;
+
+  // Backend availability check
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[reviewerBackend]?.available) {
+    return null;
+  }
+
+  const prompt = [
+    `Review this PR #${prNumber} diff and provide structured review comments.`,
+    '',
+    '## Diff',
+    diff,
+    '',
+    'Respond with JSON only (no markdown prose outside the JSON block):',
+    '```json',
+    '{ "comments": [{"file": string, "line": number, "body": string, "severity": "blocker"|"warning"|"suggestion"}], "summary": string }',
+    '```',
+  ].join('\n');
+
+  const start = Date.now();
+  const response = dispatchToBackend(reviewerBackend, prompt, { cwd });
+  const duration_ms = Date.now() - start;
+
+  const parsed = parseJSONFromResponse(response.response_text);
+
+  if (!parsed) {
+    const comments: PRReviewComment[] = [
+      {
+        file: '',
+        line: 0,
+        body: `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
+        severity: 'warning',
+      },
+    ];
+    return {
+      comments,
+      summary: response.response_text,
+      reviewer_backend: reviewerBackend,
+      duration_ms,
+      raw_response: response.response_text,
+    };
+  }
+
+  const rawComments = Array.isArray(parsed['comments']) ? (parsed['comments'] as unknown[]) : [];
+  const comments: PRReviewComment[] = rawComments
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
+    .map((c) => ({
+      file: typeof c['file'] === 'string' ? c['file'] : '',
+      line: typeof c['line'] === 'number' ? c['line'] : 0,
+      body: typeof c['body'] === 'string' ? c['body'] : '',
+      severity: (['blocker', 'warning', 'suggestion'] as const).includes(c['severity'] as 'blocker' | 'warning' | 'suggestion')
+        ? (c['severity'] as 'blocker' | 'warning' | 'suggestion')
+        : 'warning',
+    }));
+  const summary = typeof parsed['summary'] === 'string' ? parsed['summary'] : '';
+
+  return {
+    comments,
+    summary,
+    reviewer_backend: reviewerBackend,
+    duration_ms,
+    raw_response: response.response_text,
+  };
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -443,6 +851,11 @@ module.exports = {
   runDiscussion,
   listDiscussions,
   readDiscussion,
+  runPrePlanningDiscussion,
+  runPreExecutionDiscussion,
+  reviewPlanViaBackend,
+  reviewCodeViaBackend,
+  reviewPRViaBackend,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,
