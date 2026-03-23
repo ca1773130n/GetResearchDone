@@ -199,22 +199,21 @@ function scanConfigWithoutSurface(cwd: string): UnwiredFeature[] {
   const configKeys: string[] = Object.keys(configObj);
   if (configKeys.length === 0) return [];
 
-  const commandsDir: string = path.join(cwd, 'commands');
-  const binDir: string = path.join(cwd, 'bin');
+  const searchDirs: Array<{ dir: string; exts: string[] }> = [
+    { dir: path.join(cwd, 'commands'), exts: ['.md'] },
+    { dir: path.join(cwd, 'bin'), exts: ['.ts', '.js'] },
+    { dir: path.join(cwd, 'lib'), exts: ['.ts', '.js'] },
+    { dir: path.join(cwd, 'src'), exts: ['.ts', '.js'] },
+  ];
   const searchFiles: string[] = [];
 
-  try {
-    fs.readdirSync(commandsDir);
-    searchFiles.push(..._collectFiles(commandsDir, ['.md']));
-  } catch {
-    // no commands dir
-  }
-
-  try {
-    fs.readdirSync(binDir);
-    searchFiles.push(..._collectFiles(binDir, ['.ts', '.js']));
-  } catch {
-    // no bin dir
+  for (const { dir, exts } of searchDirs) {
+    try {
+      fs.readdirSync(dir);
+      searchFiles.push(..._collectFiles(dir, exts));
+    } catch {
+      // dir doesn't exist
+    }
   }
 
   const combinedContent: string = searchFiles
@@ -704,14 +703,120 @@ function scanAppComponentsWithoutImport(cwd: string): UnwiredFeature[] {
   return features;
 }
 
+// ─── Generic CLI/Library Scanners ────────────────────────────────────────────
+
+/** Check if a directory exists. */
+function _dirExists(dirPath: string): boolean {
+  try { return fs.statSync(dirPath).isDirectory(); } catch { return false; }
+}
+
+/**
+ * Scan lib/*.ts for exported functions that have no corresponding test.
+ * A function is considered tested if its name appears in any tests/ file.
+ */
+function scanLibExportedWithoutTest(cwd: string): UnwiredFeature[] {
+  const libDir: string = path.join(cwd, 'lib');
+  const testDirs: string[] = ['tests', 'test', '__tests__'];
+  const testFiles: string[] = [];
+  for (const dir of testDirs) {
+    testFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js']));
+  }
+  if (testFiles.length === 0) return [];
+
+  const combinedTests: string = testFiles
+    .map((f: string) => safeReadFile(f) || '')
+    .join('\n');
+
+  let libEntries: ReturnType<typeof fs.readdirSync>;
+  try {
+    libEntries = fs.readdirSync(libDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const features: UnwiredFeature[] = [];
+  for (const entry of libEntries as Array<{ name: string; isFile: () => boolean }>) {
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+    const filePath: string = path.join(libDir, entry.name);
+    const content: string | null = safeReadFile(filePath);
+    if (!content) continue;
+
+    const exports: string[] = _extractExports(content);
+    for (const funcName of exports) {
+      if (!new RegExp(`\\b${funcName}\\b`).test(combinedTests)) {
+        features.push({
+          category: 'lib-exported-without-test' as UnwiredFeatureCategory,
+          filePath: path.relative(cwd, filePath),
+          functionName: funcName,
+          suggestedAction: `Add test coverage for ${funcName}`,
+        });
+      }
+    }
+  }
+  return features;
+}
+
+/**
+ * Scan bin/*.ts entry points for scripts that have no corresponding test.
+ * Checks if the bin file's basename (without extension) appears in any test filename.
+ */
+function scanBinEntriesWithoutTest(cwd: string): UnwiredFeature[] {
+  const binDir: string = path.join(cwd, 'bin');
+  const testDirs: string[] = ['tests', 'test', '__tests__'];
+  const testFileNames: Set<string> = new Set();
+  for (const dir of testDirs) {
+    const files: string[] = _collectFiles(path.join(cwd, dir), ['.ts', '.js']);
+    for (const f of files) {
+      testFileNames.add(path.basename(f).toLowerCase());
+    }
+  }
+  // Also collect all test file content for reference checks
+  const testFiles: string[] = [];
+  for (const dir of testDirs) {
+    testFiles.push(..._collectFiles(path.join(cwd, dir), ['.ts', '.js']));
+  }
+  const combinedTests: string = testFiles
+    .map((f: string) => safeReadFile(f) || '')
+    .join('\n');
+
+  let binEntries: ReturnType<typeof fs.readdirSync>;
+  try {
+    binEntries = fs.readdirSync(binDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const features: UnwiredFeature[] = [];
+  for (const entry of binEntries as Array<{ name: string; isFile: () => boolean }>) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.js')) continue;
+    const baseName: string = entry.name.replace(/\.(ts|js)$/, '');
+    // Check if any test file references this bin entry
+    const hasTestFile: boolean = testFileNames.has(`${baseName}.test.ts`) ||
+      testFileNames.has(`${baseName}.test.js`) ||
+      testFileNames.has(`${baseName}.spec.ts`);
+    const hasReference: boolean = new RegExp(`\\b${baseName}\\b`).test(combinedTests);
+
+    if (!hasTestFile && !hasReference) {
+      features.push({
+        category: 'bin-entry-without-test' as UnwiredFeatureCategory,
+        filePath: path.relative(cwd, path.join(binDir, entry.name)),
+        functionName: baseName,
+        suggestedAction: `Add integration test for bin/${entry.name}`,
+      });
+    }
+  }
+  return features;
+}
+
 // ─── Public Orchestrator ─────────────────────────────────────────────────────
 
 /**
  * Discover all unwired features in the codebase using pure filesystem analysis.
  *
- * Runs GRD-internal scanners (exported-but-uncalled, config-without-surface,
- * endpoint-without-integration-test) AND application-aware scanners that detect
- * routes, exports, models, and components in the target project.
+ * Runs structural scanners when matching directories exist (lib/, bin/, tests/)
+ * AND application-aware scanners that detect routes, exports, models, and
+ * components in the target project. Works for web apps, CLI tools, and libraries.
  *
  * NEVER spawns child processes — pure fs.readFileSync/readdirSync only.
  *
@@ -721,27 +826,25 @@ function scanAppComponentsWithoutImport(cwd: string): UnwiredFeature[] {
 function discoverUnwiredFeatures(cwd: string): UnwiredFeature[] {
   const allFeatures: UnwiredFeature[] = [];
 
-  // GRD-internal scanners — only run when cwd IS the GRD project itself.
-  // Detection: lib/wireup/ exists AND .claude-plugin/plugin.json names "grd".
-  const isGrdProject: boolean = (() => {
-    try {
-      fs.statSync(path.join(cwd, 'lib', 'wireup'));
-      const pluginContent: string | null = safeReadFile(
-        path.join(cwd, '.claude-plugin', 'plugin.json')
-      );
-      if (pluginContent && pluginContent.includes('"name": "grd"')) return true;
-    } catch {
-      // not GRD
-    }
-    return false;
+  // Structural scanners — run when matching directories exist (not gated to GRD)
+  const hasLib: boolean = _dirExists(path.join(cwd, 'lib'));
+  const hasBin: boolean = _dirExists(path.join(cwd, 'bin'));
+  const hasMcpServer: boolean = (() => {
+    try { return fs.statSync(path.join(cwd, 'lib', 'mcp-server.ts')).isFile(); } catch { return false; }
   })();
 
-  if (isGrdProject) {
-    allFeatures.push(
-      ...scanExportedButUncalled(cwd),
-      ...scanConfigWithoutSurface(cwd),
-      ...scanEndpointsWithoutTests(cwd)
-    );
+  if (hasLib) {
+    allFeatures.push(...scanExportedButUncalled(cwd));
+    allFeatures.push(...scanLibExportedWithoutTest(cwd));
+  }
+  if (hasLib || hasBin) {
+    allFeatures.push(...scanConfigWithoutSurface(cwd));
+  }
+  if (hasMcpServer) {
+    allFeatures.push(...scanEndpointsWithoutTests(cwd));
+  }
+  if (hasBin) {
+    allFeatures.push(...scanBinEntriesWithoutTest(cwd));
   }
 
   // Application-aware scanners — always run

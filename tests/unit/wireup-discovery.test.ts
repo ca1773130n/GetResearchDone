@@ -51,18 +51,21 @@ const FAKE_CWD = '/fake/project';
 const GRD_PLUGIN_JSON = '{ "name": "grd", "version": "0.0.0" }';
 
 /**
- * Configure mocks so that the GRD project detection passes for FAKE_CWD.
- * Call this in tests that exercise GRD-internal scanners (exported-but-uncalled,
+ * Configure mocks so that structural scanners detect lib/, bin/, and mcp-server.ts.
+ * Call this in tests that exercise structural scanners (exported-but-uncalled,
  * config-without-surface, endpoint-without-integration-test).
  */
 function setupGrdProjectMocks(
-  extraStatSync?: (p: string) => { isDirectory: () => boolean } | never,
+  extraStatSync?: (p: string) => { isDirectory: () => boolean; isFile?: () => boolean } | never,
   extraSafeReadFile?: (filePath: string) => string | null,
 ): void {
   const prevStatSync = mockStatSync.getMockImplementation();
   mockStatSync.mockImplementation((p: string) => {
-    // GRD project detection: lib/wireup must exist as a directory
-    if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+    // Structural detection: lib/ and bin/ must exist as directories
+    if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
+    if (p === path.join(FAKE_CWD, 'bin')) return { isDirectory: () => true, isFile: () => false };
+    // MCP server detection
+    if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isDirectory: () => false, isFile: () => true };
     if (extraStatSync) return extraStatSync(p);
     if (prevStatSync) return prevStatSync(p);
     throw new Error('ENOENT');
@@ -70,9 +73,6 @@ function setupGrdProjectMocks(
 
   const prevSafeReadFile = mockSafeReadFile.getMockImplementation();
   mockSafeReadFile.mockImplementation((filePath: string) => {
-    // GRD project detection: .claude-plugin/plugin.json must name "grd"
-    if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-      return GRD_PLUGIN_JSON;
     if (extraSafeReadFile) return extraSafeReadFile(filePath);
     if (prevSafeReadFile) return prevSafeReadFile(filePath);
     return null;
@@ -116,7 +116,7 @@ describe('discoverUnwiredFeatures()', () => {
   describe('exported-but-uncalled category', () => {
     test('detects exported function not referenced elsewhere', () => {
       mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
         throw new Error('ENOENT');
       });
 
@@ -128,8 +128,6 @@ describe('discoverUnwiredFeatures()', () => {
       });
 
       mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
         if (filePath === path.join(FAKE_CWD, 'lib', 'myModule.ts')) {
           return 'module.exports = { myOrphanFunc };';
         }
@@ -176,7 +174,7 @@ describe('discoverUnwiredFeatures()', () => {
 
     test('detects exports.name = ... pattern', () => {
       mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
         throw new Error('ENOENT');
       });
 
@@ -188,8 +186,6 @@ describe('discoverUnwiredFeatures()', () => {
       });
 
       mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
         if (filePath === path.join(FAKE_CWD, 'lib', 'legacy.ts')) {
           return 'exports.legacyHelper = function() {};';
         }
@@ -208,7 +204,7 @@ describe('discoverUnwiredFeatures()', () => {
   describe('config-without-surface category', () => {
     test('detects config key not referenced in commands or bin', () => {
       mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
         throw new Error('ENOENT');
       });
 
@@ -218,8 +214,6 @@ describe('discoverUnwiredFeatures()', () => {
       });
 
       mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
         if (filePath === path.join(FAKE_CWD, '.planning', 'config.json')) {
           return JSON.stringify({ orphanKey: true, model_profile: 'balanced' });
         }
@@ -281,7 +275,8 @@ describe('discoverUnwiredFeatures()', () => {
   describe('endpoint-without-integration-test category', () => {
     test('detects MCP tool not referenced in integration tests', () => {
       mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
+        if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isDirectory: () => false, isFile: () => true };
         throw new Error('ENOENT');
       });
 
@@ -292,8 +287,6 @@ describe('discoverUnwiredFeatures()', () => {
       });
 
       mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
         if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
           return "tools.push({ name: 'grd_my_tool', description: 'test' });";
         }
@@ -310,7 +303,8 @@ describe('discoverUnwiredFeatures()', () => {
 
     test('does NOT flag tool that is referenced in integration tests', () => {
       mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
+        if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isDirectory: () => false, isFile: () => true };
         throw new Error('ENOENT');
       });
 
@@ -323,8 +317,6 @@ describe('discoverUnwiredFeatures()', () => {
       });
 
       mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
         if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
           return "tools.push({ name: 'grd_tested_tool' });";
         }
