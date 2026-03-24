@@ -249,6 +249,21 @@ describe('validateStructural', () => {
     expect(result.warnings.some((w: string) => w.includes('provides'))).toBe(true);
     expect(result.warnings.some((w: string) => w.includes('requires'))).toBe(true);
   });
+
+  test('files_modified not an array returns error', () => {
+    const plan = makePlan({ files_modified: 'lib/utils.ts' as unknown as string[] });
+    const result = validateStructural(plan);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e: string) => e.includes('files_modified must be an array'))).toBe(true);
+  });
+
+  test('depends_on not an array produces warning', () => {
+    const plan = makePlan({ depends_on: 'some-dep' as unknown as string[] });
+    const result = validateStructural(plan);
+
+    expect(result.warnings.some((w: string) => w.includes('depends_on should be an array'))).toBe(true);
+  });
 });
 
 // ─── validateSemantic ─────────────────────────────────────────────────────────
@@ -315,6 +330,41 @@ describe('validateSemantic', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('objective not referencing known dirs and non-existent parent produces warning', () => {
+    // Use a tmpDir as cwd so no parent directory exists
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-sem-test-'));
+    try {
+      const plan = makePlan({
+        objective: 'Do some completely unknown work',
+        files_modified: ['non-existent-dir/file.ts'],
+      });
+      const result = validateSemantic(plan, tmpCwd);
+
+      // The objective does not reference lib/ or other known dirs
+      // and the parent directory does not exist on disk
+      expect(result.warnings.some((w: string) => w.includes('does not reference any known'))).toBe(true);
+    } finally {
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
+  });
+
+  test('objective not referencing known dirs but root-level file does not warn', () => {
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-sem-test-'));
+    try {
+      const plan = makePlan({
+        objective: 'Do some completely unknown work',
+        files_modified: ['rootfile.ts'],  // no parent dir — root-level file is fine
+      });
+      const result = validateSemantic(plan, tmpCwd);
+
+      // root-level file returns true in hasExistingParent check → no warning
+      const dirWarning = result.warnings.find((w: string) => w.includes('does not reference any known'));
+      expect(dirWarning).toBeUndefined();
+    } finally {
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
   });
 });
 
