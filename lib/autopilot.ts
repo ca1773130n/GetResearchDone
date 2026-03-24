@@ -845,16 +845,19 @@ function parseWriteIntent(frontmatterContent: string): string[] {
       .filter(Boolean);
   }
 
-  // Try dash-list format: files_modified:\n  - lib/foo.ts
-  const dashListMatch = frontmatterContent.match(/^files_modified:\s*$([\s\S]*?)(?=^\S|\Z)/m);
-  if (dashListMatch) {
-    const block = dashListMatch[1];
+  // Try dash-list format: capture indented lines until a non-indented line or end of string
+  const fmLines = frontmatterContent.split('\n');
+  const startIdx = fmLines.findIndex((l: string) => /^files_modified:\s*$/.test(l));
+  if (startIdx >= 0) {
     const items: string[] = [];
-    const lineRe = /^[ \t]+-[ \t]+(.+)$/gm;
-    let m: RegExpExecArray | null;
-    while ((m = lineRe.exec(block)) !== null) {
-      const val = m[1].trim();
-      if (val) items.push(val);
+    for (let i = startIdx + 1; i < fmLines.length; i++) {
+      const line = fmLines[i];
+      if (/^\S/.test(line)) break; // next field
+      const dashMatch = line.match(/^[ \t]+-[ \t]+(.+)$/);
+      if (dashMatch) {
+        const val = dashMatch[1].trim();
+        if (val) items.push(val);
+      }
     }
     return items;
   }
