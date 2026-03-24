@@ -436,8 +436,8 @@ function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: strin
   try {
     const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
     if (phaseInfo && phaseInfo.plans.length > 0) {
-      const planFile = path.join(cwd, phaseInfo.directory, phaseInfo.plans[0]);
-      const firstPlan = fs.readFileSync(planFile, 'utf-8');
+      const planPath = path.join(cwd, phaseInfo.directory, phaseInfo.plans[0]);
+      const firstPlan = fs.readFileSync(planPath, 'utf-8');
       const objectiveMatch = firstPlan.match(/<objective>([\s\S]*?)<\/objective>/);
       if (objectiveMatch) {
         planSummary = objectiveMatch[1].trim();
