@@ -42,28 +42,28 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 ### S1: TypeScript Compilation
 
 - **What:** All TypeScript files compile without errors, including the updated test file
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npm run build:check`
+- **Command:** `npm run build:check`
 - **Expected:** Exit code 0, no errors printed
 - **Failure means:** Test file has a type error — executor introduced a bad import, wrong argument type, or missing export. Fix before proceeding.
 
 ### S2: ESLint Clean
 
 - **What:** No lint errors in `lib/` and `bin/` (test files are not linted by default rule, but `lib/autopilot.ts` must remain clean)
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npm run lint`
+- **Command:** `npm run lint`
 - **Expected:** Exit code 0, no warnings or errors
 - **Failure means:** Code style violation introduced during test writing. Common causes: unused import in the implementation file touched indirectly, or a `any` type slipping in.
 
 ### S3: Single-File Test Run (No Crash)
 
 - **What:** The autopilot test file loads, all describes parse, and Jest exits cleanly
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts --no-coverage 2>&1 | tail -5`
+- **Command:** `npx jest tests/unit/autopilot.test.ts --no-coverage 2>&1 | tail -5`
 - **Expected:** Output contains `Tests:` summary line with zero failures, exit code 0
 - **Failure means:** Test setup error, bad mock, or import resolution failure. Diagnose with `--verbose`.
 
 ### S4: No NaN / Undefined in Result Shapes
 
 - **What:** `PostPipelineResult` fields (`status`, `failedStep`, `prUrl`, `reason`) are always defined/typed correctly in test assertions
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose 2>&1 | grep -E "PASS|FAIL|✓|✗|×"`
+- **Command:** `npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose 2>&1 | grep -E "PASS|FAIL|✓|✗|×"`
 - **Expected:** All `runPostPhasePipeline` tests show as passing
 - **Failure means:** Result shape mismatch — the implementation may return a field as `undefined` where the test expects a value, or vice versa.
 
@@ -81,7 +81,7 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 
 - **What:** The `post-phase pipeline prompt builders` describe block verifies that each prompt builder includes the required content (phase number, PR URL, BLOCKER/WARNING keywords, rebase instruction, git diff reference)
 - **How:** Run Jest filtered to that describe block
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "prompt builders" --no-coverage --verbose`
+- **Command:** `npx jest tests/unit/autopilot.test.ts -t "prompt builders" --no-coverage --verbose`
 - **Target:** All tests in the describe block pass; no skipped tests; each builder has at minimum 2 assertions per test
 - **Evidence:** Plan 87-01 Task 1 specifies exact assertions; builders are exported in `lib/autopilot.ts` at line 1806-1808
 - **Correlation with full metric:** HIGH — the tests directly assert the string content that the pipeline passes to subprocesses
@@ -92,7 +92,7 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 
 - **What:** Line, function, and branch coverage for `lib/autopilot.ts` remain at or above the thresholds locked in `jest.config.js`
 - **How:** Run Jest with `--coverage` on the autopilot test file
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=text 2>&1 | grep "autopilot.ts"`
+- **Command:** `npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=text 2>&1 | grep "autopilot.ts"`
 - **Target:** lines >= 83%, functions >= 93%, branches >= 76% (from `jest.config.js`)
 - **Evidence:** `jest.config.js` line `'./lib/autopilot.ts': { lines: 83, functions: 93, branches: 76 }` — these are the project's standing quality gates
 - **Correlation with full metric:** HIGH — coverage thresholds are the project's primary correctness proxy for this deliverable type
@@ -103,7 +103,7 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 
 - **What:** The `runPostPhasePipeline` describe block covers all four pipeline steps' failure paths and the complete success path
 - **How:** Run Jest filtered to that describe block and count passing tests
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose`
+- **Command:** `npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose`
 - **Target:** At minimum 7 passing tests: 3 existing + 4 new (happy path, code-review failure, rebase conflict + resolution failure, conflict-resolve spawn verification)
 - **Evidence:** Plan 87-02 Task 1 specifies exactly these 4 new scenarios; existing 3 tests are in `tests/unit/autopilot.test.ts` at line 3525
 - **Correlation with full metric:** HIGH — each test maps 1:1 to a `must_haves.truths` entry in 87-02-PLAN.md
@@ -114,7 +114,7 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 
 - **What:** All existing tests in `tests/unit/autopilot.test.ts` continue to pass after new tests are added
 - **How:** Run the full file without filters
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts --no-coverage`
+- **Command:** `npx jest tests/unit/autopilot.test.ts --no-coverage`
 - **Target:** Zero failures, same number of passing tests as before phase execution plus the new tests added
 - **Evidence:** Standard non-regression requirement; the plan explicitly states "All existing tests continue to pass (no regressions)"
 - **Correlation with full metric:** HIGH — direct measurement
@@ -123,7 +123,7 @@ Because the code is already written and the deliverable is tests, proxy metrics 
 
 **P4b (supplementary):** Full test suite
 
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npm test 2>&1 | tail -20`
+- **Command:** `npm test 2>&1 | tail -20`
 - **Target:** All suites pass, no threshold failures
 - **Evidence:** Ensures new tests do not introduce cross-file mock leakage
 
@@ -181,25 +181,25 @@ jest.config.js                (thresholds — read-only)
 **How to run full evaluation:**
 ```bash
 # S1: Type check
-cd /Users/neo/Developer/Projects/GetResearchDone && npm run build:check
+npm run build:check
 
 # S2: Lint
-cd /Users/neo/Developer/Projects/GetResearchDone && npm run lint
+npm run lint
 
 # S3 + S4 + P3: runPostPhasePipeline tests
-cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose
+npx jest tests/unit/autopilot.test.ts -t "runPostPhasePipeline" --no-coverage --verbose
 
 # P1: Prompt builder tests
-cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "prompt builders" --no-coverage --verbose
+npx jest tests/unit/autopilot.test.ts -t "prompt builders" --no-coverage --verbose
 
 # P2: Coverage check
-cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=text 2>&1 | grep "autopilot.ts"
+npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=text 2>&1 | grep "autopilot.ts"
 
 # P4: No regressions (full file, no coverage)
-cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts --no-coverage
+npx jest tests/unit/autopilot.test.ts --no-coverage
 
 # P4b: Full suite
-cd /Users/neo/Developer/Projects/GetResearchDone && npm test
+npm test
 ```
 
 ---
