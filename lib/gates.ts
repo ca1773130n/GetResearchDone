@@ -23,6 +23,11 @@ const {
   createRunCache,
 } = require('./utils');
 const { phasesDir: getPhasesDirPath } = require('./paths');
+const { validateStructural, validateCrossPhase, extractPlanArtifact } = require('./invariants') as {
+  validateStructural: (plan: import('./types').PlanArtifact) => import('./types').ValidationResult;
+  validateCrossPhase: (plans: import('./types').PlanArtifact[]) => import('./types').ValidationResult;
+  extractPlanArtifact: (content: string) => import('./types').PlanArtifact;
+};
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
@@ -327,14 +332,111 @@ function checkMilestoneStateCoherence(cwd: string): GateViolation[] {
   return violations;
 }
 
+/**
+ * Check plan invariants: structural validity for each plan and cross-phase consistency.
+ *
+ * Satisfies REQ-180 (Pre-Flight Validation Gate): invalid plans are hard-rejected
+ * before execution. Reads all *-PLAN.md files in the target phase directory,
+ * runs validateStructural per plan, then validateCrossPhase across all plans.
+ */
+function checkInvariantValidation(cwd: string, opts: GateOptions): GateViolation[] {
+  const violations: GateViolation[] = [];
+  if (!opts.phase) return violations;
+
+  const phasesDir: string = getPhasesDirPath(cwd);
+  const normalized: string = normalizePhaseName(opts.phase as string);
+
+  // Locate the phase directory on disk
+  let phaseDir: string;
+  try {
+    const entries: import('fs').Dirent[] = fs.readdirSync(phasesDir, { withFileTypes: true });
+    const match = entries
+      .filter((e: import('fs').Dirent) => e.isDirectory())
+      .map((e: import('fs').Dirent) => e.name)
+      .find((d: string) => d.startsWith(normalized));
+    if (!match) return violations;
+    phaseDir = path.join(phasesDir, match);
+  } catch {
+    return violations;
+  }
+
+  // Read all *-PLAN.md files
+  let planFiles: string[];
+  try {
+    const phaseContents: string[] = fs.readdirSync(phaseDir);
+    planFiles = phaseContents.filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md');
+  } catch {
+    return violations;
+  }
+
+  if (planFiles.length === 0) return violations;
+
+  const planArtifacts: import('./types').PlanArtifact[] = [];
+
+  // Structural validation per plan
+  for (const planFile of planFiles) {
+    const planPath = path.join(phaseDir, planFile);
+    const content: string | null = safeReadFile(planPath);
+    if (!content) continue;
+
+    const artifact = extractPlanArtifact(content);
+    planArtifacts.push(artifact);
+
+    const result = validateStructural(artifact);
+    for (const err of result.errors) {
+      violations.push({
+        code: 'INVARIANT_STRUCTURAL',
+        severity: 'error',
+        message: `${planFile}: ${err}`,
+        fix: `Fix the structural issue in ${planFile} before execution`,
+        context: { plan: planFile, error: err },
+      });
+    }
+    for (const warn of result.warnings) {
+      violations.push({
+        code: 'INVARIANT_STRUCTURAL',
+        severity: 'warning',
+        message: `${planFile}: ${warn}`,
+        fix: `Consider fixing the structural warning in ${planFile}`,
+        context: { plan: planFile, warning: warn },
+      });
+    }
+  }
+
+  // Cross-phase validation across all plans in the set
+  if (planArtifacts.length > 0) {
+    const crossResult = validateCrossPhase(planArtifacts);
+    for (const err of crossResult.errors) {
+      violations.push({
+        code: 'INVARIANT_CROSS_PHASE',
+        severity: 'error',
+        message: err,
+        fix: 'Resolve cross-phase dependency conflicts between plans',
+        context: { error: err },
+      });
+    }
+    for (const warn of crossResult.warnings) {
+      violations.push({
+        code: 'INVARIANT_CROSS_PHASE',
+        severity: 'warning',
+        message: warn,
+        fix: 'Consider adding provides/requires to plans for dependency tracking',
+        context: { warning: warn },
+      });
+    }
+  }
+
+  return violations;
+}
+
 // ─── Gate Registry ────────────────────────────────────────────────────────────
 
 /**
  * Declarative mapping of commands to their required gate checks.
  */
 const GATE_REGISTRY: GateRegistryMap = {
-  'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans'],
-  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts'],
+  'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans', 'invariant-validation'],
+  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation'],
   'new-milestone': ['old-phases-archived', 'milestone-state-coherence'],
   'phase-add': ['orphaned-phases'],
   'phase-insert': ['orphaned-phases'],
@@ -356,6 +458,7 @@ const GATE_CHECKS: GateCheckMap = {
     checkNoStaleArtifacts(cwd, opts.phase || ''),
   'old-phases-archived': (cwd: string) => checkOldPhasesArchived(cwd),
   'milestone-state-coherence': (cwd: string) => checkMilestoneStateCoherence(cwd),
+  'invariant-validation': (cwd: string, opts: GateOptions) => checkInvariantValidation(cwd, opts),
 };
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
@@ -451,6 +554,7 @@ module.exports = {
   checkNoStaleArtifacts,
   checkOldPhasesArchived,
   checkMilestoneStateCoherence,
+  checkInvariantValidation,
   // Registry and runner
   GATE_REGISTRY,
   runPreflightGates,

@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 92 (CFG Formalization) — in progress
-- **Current plan:** 92-01 complete
+- **Active phase:** Phase 92 (CFG Formalization) — complete
+- **Current plan:** All 3 plans complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Plan 92-01 executed — lib/invariants.ts created, types added
-- **Progress:** [█░░░░░░░░░] 10%
-- **Next:** Continue Phase 92 remaining plans (if any), then Phase 93
+- **Status:** Phase 92 executed and verified, ready for Phase 93
+- **Progress:** [██░░░░░░░░] 25%
+- **Next:** Plan Phase 93 (`gd plan-phase 93`)
 
 ## Phase Summary
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 89 | Write-Intent Manifests and Wave Builder | In progress |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | In progress |
-| 92 | CFG Formalization | Not started |
+| 92 | CFG Formalization | Complete (2026-03-24) |
 | 93 | Compositional Citation Recovery | Not started |
 | 94 | Graph-of-Thought Synthesis | Not started |
 | 95 | Agentic Knowledge Enhancement | Not started |
@@ -80,8 +80,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Design spec v0.3.23]: Citation recovery gates planning when critical unresolved dependencies remain (configurable)
 - [Design spec v0.3.23]: buildArtifactDAG lives in lib/deps.ts alongside existing Kahn's algorithm; buildWaves extended (not replaced) in lib/parallel.ts
 - [Design spec v0.3.23]: Knowledge miner step is backward-compatible — skipped gracefully if agent definition file absent
-- [Phase 92-cfg-formalization]: validateResearchArtifacts uses phaseDir as its own search root; validateSemantic checks parent dir existence; extractPlanArtifact coerces string wave/plan to number
-- [Phase 92]: checkInvariantValidation runs per-plan validateStructural then cross-phase validateCrossPhase; invariant-validation gate registered in GATE_REGISTRY for plan-phase and execute-phase
+- [Phase 92]: Tests use inline tmpDir for validateResearchArtifacts, not createFixtureDir — no .planning/ structure needed for research artifact validation
 
 ## Known Bugs
 
@@ -89,13 +88,13 @@ None.
 
 ## Blockers
 
-None. v0.3.22 Phases 88-91 must complete before Phase 92 can begin.
+None.
 
 ## Session Continuity
 
-- **Last action:** v0.3.23 roadmap created (Phases 92-95, 15 requirements mapped)
-- **Stopped at:** Completed 92-02-PLAN.md
-- **Next action:** Complete v0.3.22 (Phases 88-91), then plan Phase 92
+- **Last action:** Phase 92 executed and verified (3 plans, 41 tests, 99%+ coverage)
+- **Stopped at:** Phase 92 complete, verification passed
+- **Next action:** Plan Phase 93 (`gd plan-phase 93`)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, .planning/REQUIREMENTS.md
 
 ---

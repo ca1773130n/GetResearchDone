@@ -91,9 +91,9 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-179 | Phase 92 | PENDING |
-| REQ-180 | Phase 92 | PENDING |
-| REQ-181 | Phase 92 | PENDING |
+| REQ-179 | Phase 92 | COMPLETE |
+| REQ-180 | Phase 92 | COMPLETE |
+| REQ-181 | Phase 92 | COMPLETE |
 | REQ-182 | Phase 93 | PENDING |
 | REQ-183 | Phase 93 | PENDING |
 | REQ-184 | Phase 93 | PENDING |

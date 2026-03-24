@@ -325,7 +325,7 @@ Plans:
 **Milestone Goal:** Adapt 4 key innovations from the NERFIFY paper into GRD's research and execution phases: CFG formalization for typed plan/artifact schema validation, compositional citation recovery for deep research completeness, Graph-of-Thought topological synthesis for dependency-aware planning, and agentic knowledge enhancement for compounding improvements across phases.
 **Start:** 2026-03-24
 
-- [ ] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement`
+- [x] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement` ✓ 2026-03-24
 - [ ] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement`
 - [ ] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement`
 - [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
@@ -343,12 +343,12 @@ Plans:
   3. Research artifact validation checks that LANDSCAPE.md contains a comparison table (Markdown `|` rows), PAPERS.md has structured entries (headings + field list), and RESEARCH.md has `## Method` and `## Tradeoffs` sections; missing sections produce actionable error messages.
   4. Unit tests achieve 90%+ line coverage on `lib/invariants.ts`; tests cover all three validation classes, valid-plan pass-through, malformed input edge cases (empty fields, missing keys, null values), and cross-phase duplicate-provides detection.
   5. `npm test`, `npm run lint`, and `npm run build:check` pass with zero errors after the new module is added.
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 92-01: `lib/invariants.ts` — typed interfaces and three validation classes
-- [ ] 92-02: `grd-plan-checker` gate wiring and research artifact validation
-- [ ] 92-03: Unit tests for all validation classes (90%+ coverage on `lib/invariants.ts`)
+- [x] 92-01: `lib/invariants.ts` — typed interfaces and three validation classes
+- [x] 92-02: `grd-plan-checker` gate wiring and research artifact validation
+- [x] 92-03: Unit tests for all validation classes (90%+ coverage on `lib/invariants.ts`)
 
 #### Phase 93: Compositional Citation Recovery
 
