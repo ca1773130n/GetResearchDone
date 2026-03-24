@@ -137,26 +137,15 @@ const AUTOPILOT_DIR: string = 'autopilot';
 
 // ─── Merge Queue ────────────────────────────────────────────────────────────
 
-/**
- * FIFO async serialization primitive for the rebase+merge step.
- * Only one enqueued function executes at a time; others wait in arrival order.
- */
 interface MergeQueue {
   enqueue<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-/**
- * Create a merge queue that serializes async functions in FIFO order.
- * Uses a promise-chain tail: each enqueue appends to the tail so functions
- * execute one at a time regardless of when enqueue() is called.
- */
 function createMergeQueue(): MergeQueue {
   let tail: Promise<unknown> = Promise.resolve();
   return {
     enqueue<T>(fn: () => Promise<T>): Promise<T> {
       const result = tail.then(() => fn());
-      // Suppress errors on the chain tail to avoid unhandled rejection —
-      // each caller's returned promise still rejects correctly.
       tail = result.then(
         () => undefined,
         () => undefined
@@ -164,6 +153,19 @@ function createMergeQueue(): MergeQueue {
       return result;
     },
   };
+}
+
+/** Get list of conflicting files from a worktree mid-rebase. */
+function getConflictingFiles(wtPath: string): string[] {
+  try {
+    const result = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
+    if (result.exitCode === 0 && result.stdout.trim()) {
+      return result.stdout.trim().split('\n').filter(Boolean);
+    }
+  } catch (_err) {
+    // no conflict info available
+  }
+  return [];
 }
 
 // ─── Domain Types ───────────────────────────────────────────────────────────
@@ -434,7 +436,8 @@ function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: strin
   try {
     const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
     if (phaseInfo && phaseInfo.plans.length > 0) {
-      const firstPlan = fs.readFileSync(phaseInfo.plans[0], 'utf-8');
+      const planFile = path.join(cwd, phaseInfo.directory, phaseInfo.plans[0]);
+      const firstPlan = fs.readFileSync(planFile, 'utf-8');
       const objectiveMatch = firstPlan.match(/<objective>([\s\S]*?)<\/objective>/);
       if (objectiveMatch) {
         planSummary = objectiveMatch[1].trim();
@@ -444,26 +447,16 @@ function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: strin
     // fallback already set
   }
 
-  // Gather conflicting file information from the worktree
-  let conflictingFiles: string[] = [];
+  const conflictingFiles = getConflictingFiles(wtPath);
   let conflictDiffs = '';
 
-  try {
-    const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
-    if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
-      conflictingFiles = conflictListResult.stdout.trim().split('\n').filter(Boolean);
-      const filesToShow = conflictingFiles.slice(0, 5);
-      for (const filePath of filesToShow) {
-        try {
-          const diffResult = execGit(wtPath, ['diff', '--', filePath]);
-          conflictDiffs += `\n### ${filePath}\n\`\`\`\n${diffResult.stdout}\n\`\`\`\n`;
-        } catch (_err) {
-          conflictDiffs += `\n### ${filePath}\n(diff unavailable)\n`;
-        }
-      }
+  for (const filePath of conflictingFiles.slice(0, 5)) {
+    try {
+      const diffResult = execGit(wtPath, ['diff', '--', filePath]);
+      conflictDiffs += `\n### ${filePath}\n\`\`\`\n${diffResult.stdout}\n\`\`\`\n`;
+    } catch (_err) {
+      conflictDiffs += `\n### ${filePath}\n(diff unavailable)\n`;
     }
-  } catch (_err) {
-    // no conflict info available
   }
 
   const fileList = conflictingFiles.length > 0
@@ -611,25 +604,16 @@ async function runPostPhasePipeline(
       );
 
       if (conflictResult.exitCode !== 0) {
-        // Abort the failed rebase before returning
-        execGit(wtPath, ['rebase', '--abort']);
-        // Gather conflicting file list for actionable failure message
-        let conflictFileList = 'unknown';
-        try {
-          const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
-          if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
-            conflictFileList = conflictListResult.stdout.trim().split('\n').filter(Boolean).join(', ');
-          }
-        } catch (_err) {
-          // keep 'unknown'
-        }
+        // Gather conflict info BEFORE aborting (abort clears conflict state)
+        const conflictFiles = getConflictingFiles(wtPath);
         const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
         const branchName = branch.exitCode === 0 ? branch.stdout.trim() : `phase-${phaseNum}`;
+        execGit(wtPath, ['rebase', '--abort']);
         return {
           status: 'failed',
           failedStep: 'rebase',
           prUrl,
-          reason: `conflict resolution failed for phase ${phaseNum} — conflicting files: ${conflictFileList}. Manual steps: git checkout ${branchName}, git rebase main, resolve conflicts manually, git rebase --continue`,
+          reason: `conflict resolution failed for phase ${phaseNum} — conflicting files: ${conflictFiles.join(', ') || 'unknown'}. Manual steps: git checkout ${branchName}, git rebase main, resolve conflicts manually, git rebase --continue`,
         };
       }
     }
