@@ -213,6 +213,35 @@ issue:
   fix_hint: "Add eval_metrics with primary metric, baseline, and target"
 ```
 
+## Dimension 9: Invariant Validation
+
+**Question:** Do plans pass structural, semantic, and cross-phase invariant checks?
+
+**Process:**
+1. For each PLAN.md, call extractPlanArtifact to parse into typed PlanArtifact
+2. Run validateStructural — check fields exist, types correct, objective present
+3. Run validateSemantic — check file paths plausible, no absolute/traversal paths
+4. Run validateCrossPhase across all plans — no duplicate provides, all requires satisfied
+5. If phase has research artifacts, run validateResearchArtifacts on phase research dir
+
+**Red flags:**
+- Plan missing objective tag entirely
+- files_modified empty or contains absolute paths
+- Multiple plans declare the same provides entry
+- A plan requires an artifact no other plan provides
+- LANDSCAPE.md exists but has no comparison table
+- RESEARCH.md exists but missing ## Method or ## Tradeoffs
+
+**Example issue:**
+```yaml
+issue:
+  dimension: invariant_validation
+  severity: blocker
+  description: "Plan 01 missing <objective> tag — validateStructural rejects"
+  plan: "92-01"
+  fix_hint: "Add <objective>...</objective> section to plan"
+```
+
 </verification_dimensions>
 
 <verification_process>
@@ -406,6 +435,7 @@ Plan verification complete when:
 - [ ] must_haves derivation verified
 - [ ] Context compliance checked (if CONTEXT.md provided)
 - [ ] Research compliance checked (eval_metrics, verification_level, paper refs)
+- [ ] Invariant validation checked (validateStructural, validateSemantic, validateCrossPhase)
 - [ ] Overall status determined
 - [ ] Structured issues returned (if any found)
 - [ ] Result returned to orchestrator
