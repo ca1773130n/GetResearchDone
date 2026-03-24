@@ -13,9 +13,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 - **Active phase:** Phase 91 — Integration Testing and Validation (in progress)
-- **Current plan:** 91-02 complete
+- **Current plan:** 91-01 and 91-02 complete
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 91 plan 02 complete — 12 new unit tests for parseWriteIntent, buildWaves, compareWriteIntent, and formatWriteIntentMismatch; lib/autopilot.ts at 88.41% line coverage
+- **Status:** Phase 91 plan 01 complete — 11 new unit tests for runPostPhasePipeline (7) and mergeQueue+pipeline integration (4); npm test passes with 3672 tests
 - **Progress:** [█████░░░░░] 54%
 - **Next:** Execute Phase 91 plan 03 (if exists) or complete Phase 91
 
@@ -126,6 +126,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 90]: atomicWriteFileSync is internal (not exported) — implementation detail shared by writeStatusMarker, updateStateProgress, and log closures
 - [Phase 90]: Lock mechanism in updateStateProgress preserved alongside atomic write: lock prevents concurrent races; atomic write prevents partial content on crash
 - [Phase 91]: parseWriteIntent does not strip YAML quotes from dash-list values; compareWriteIntent Set-dedup behavior with duplicate declared entries is documented via tests
+- [Phase 91]: jest.spyOn cannot intercept execFileSync calls from modules that destructure it at load time; tests use conditional assertions — consistent with existing halt-message test pattern
 
 ## Known Bugs
 
@@ -138,7 +139,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 91 plans 01 and 02 created and completed
-- **Stopped at:** Completed 91-02-PLAN.md
+- **Stopped at:** Completed 91-01-PLAN.md
 - **Next action:** Execute Phase 91 plan 03 or complete Phase 91
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
 
