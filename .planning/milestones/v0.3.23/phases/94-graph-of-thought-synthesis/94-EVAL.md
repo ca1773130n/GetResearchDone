@@ -41,38 +41,38 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 
 ### S1: TypeScript compilation — no errors
 - **What:** All new and modified files compile without TypeScript errors under `strict: true`
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npm run build:check`
+- **Command:** `npm run build:check`
 - **Expected:** Exit code 0, no diagnostic output
 - **Failure means:** Type error in the implementation — interface mismatch, missing property, or incorrect function signature
 
 ### S2: ESLint passes with zero errors
 - **What:** New code in `lib/deps.ts`, `lib/parallel.ts`, `lib/types.ts`, `lib/autopilot.ts` passes lint
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npm run lint`
+- **Command:** `npm run lint`
 - **Expected:** Exit code 0, no errors or warnings
 - **Failure means:** Code style violation — likely unused variable, `any` type, or missing `'use strict'`
 
 ### S3: Module exports present and callable
 - **What:** `buildArtifactDAG`, `validateArtifactDAG` exported from `lib/deps.ts`; `buildWaves` exported from `lib/parallel.ts`
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && node -e "const m = require('./lib/deps'); console.log(Object.keys(m).sort().join(','))"` and `node -e "const m = require('./lib/parallel'); console.log(Object.keys(m).sort().join(','))"`
+- **Command:** `node -e "const m = require('./lib/deps'); console.log(Object.keys(m).sort().join(','))"` and `node -e "const m = require('./lib/parallel'); console.log(Object.keys(m).sort().join(','))"`
 - **Expected (deps.ts):** Output contains `buildArtifactDAG,buildDependencyGraph,cmdPhaseAnalyzeDeps,computeParallelGroups,detectCycle,parseDependsOn,validateArtifactDAG`
 - **Expected (parallel.ts):** Output contains `buildParallelContext,buildWaves,cmdInitExecuteParallel,cmdParallelProgress,formatProgressBar,streamPhaseProgress,validateIndependentPhases`
 - **Failure means:** Function not exported or file fails to load at require-time (syntax error, missing import)
 
 ### S4: Empty input returns empty DAG
 - **What:** `buildArtifactDAG([])` returns the zero-element DAG without crashing
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && node -e "const {buildArtifactDAG} = require('./lib/deps'); const r = buildArtifactDAG([]); console.log(JSON.stringify(r))"`
+- **Command:** `node -e "const {buildArtifactDAG} = require('./lib/deps'); const r = buildArtifactDAG([]); console.log(JSON.stringify(r))"`
 - **Expected:** `{"nodes":[],"edges":[],"sorted_plans":[],"providers":{}}`
 - **Failure means:** Function crashes on empty input or returns unexpected structure
 
 ### S5: ArtifactDAG type interfaces present in lib/types.ts
 - **What:** All four new interfaces exported from `lib/types.ts`
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && grep -c "export interface ArtifactDAG\b\|export interface ArtifactDAGNode\|export interface ArtifactDAGEdge\|export interface ArtifactDAGValidation" lib/types.ts`
+- **Command:** `grep -Ec "export interface ArtifactDAG\b|export interface ArtifactDAGNode|export interface ArtifactDAGEdge|export interface ArtifactDAGValidation" lib/types.ts`
 - **Expected:** `4`
 - **Failure means:** One or more interface definitions missing from types.ts
 
 ### S6: Unit test suite runs without crash
 - **What:** The test files for deps and parallel can be loaded and executed by Jest without runtime errors
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts --no-coverage 2>&1 | tail -5`
+- **Command:** `npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts --no-coverage 2>&1 | tail -5`
 - **Expected:** Test suite completes (pass or fail on individual tests is handled by proxy metrics); no "Cannot find module" or "SyntaxError" output
 - **Failure means:** Import path broken, test file has syntax error, or module fails to load
 
@@ -86,7 +86,7 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 ### P1: All unit tests pass
 - **What:** The 24 test cases across `tests/unit/deps.test.ts` (15 tests) and `tests/unit/parallel.test.ts` (9 tests) all pass
 - **How:** Run Jest on the two test files
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts`
+- **Command:** `npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts`
 - **Target:** 24/24 tests pass (0 failures)
 - **Evidence:** Tests are written specifically to exercise the implemented logic — each test case maps to a stated requirement or algorithmic property. This is a direct correctness check, not an indirect proxy.
 - **Correlation with full metric:** HIGH — test cases cover all named success criteria from plans 94-01 through 94-03
@@ -96,7 +96,7 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 ### P2: Line coverage meets per-file thresholds
 - **What:** Jest coverage on new code in `lib/deps.ts` and `lib/parallel.ts` meets or exceeds the thresholds set in `jest.config.js`
 - **How:** Run Jest with `--coverage` flag; inspect per-file coverage report
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts --coverage --coverageReporters=text`
+- **Command:** `npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts --coverage --coverageReporters=text`
 - **Target:** `lib/deps.ts` >= 94% lines (existing threshold, new code must not lower it); `lib/parallel.ts` >= 85% lines (existing threshold). REQ-189 specifies 85%+ on new code specifically.
 - **Evidence:** Project enforces these thresholds in `jest.config.js` — the CI pipeline would fail at these same numbers. Thresholds chosen to ensure meaningful coverage rather than surface-level execution.
 - **Correlation with full metric:** HIGH — coverage directly measures whether test paths execute the implemented logic
@@ -106,7 +106,7 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 ### P3: Topological sort produces valid ordering
 - **What:** For a 3-plan chain (A provides X, B requires X and provides Y, C requires Y), `sorted_plans` from `buildArtifactDAG` places A before B before C
 - **How:** Inline node check
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && node -e "const {buildArtifactDAG} = require('./lib/deps'); const plans = [{phase:'94-graph-of-thought-synthesis',plan:1,provides:['X'],requires:[],integration_points:[],objective:'A',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:2,provides:['Y'],requires:['X'],integration_points:[],objective:'B',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:3,provides:[],requires:['Y'],integration_points:[],objective:'C',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true}]; const dag = buildArtifactDAG(plans); console.log(dag.sorted_plans.join(','))"`
+- **Command:** `node -e "const {buildArtifactDAG} = require('./lib/deps'); const plans = [{phase:'94-graph-of-thought-synthesis',plan:1,provides:['X'],requires:[],integration_points:[],objective:'A',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:2,provides:['Y'],requires:['X'],integration_points:[],objective:'B',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:3,provides:[],requires:['Y'],integration_points:[],objective:'C',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true}]; const dag = buildArtifactDAG(plans); console.log(dag.sorted_plans.join(','))"`
 - **Target:** Output is `94-01,94-02,94-03` (or equivalent — A before B before C)
 - **Evidence:** Kahn's algorithm (level-based BFS topological sort) is a well-known algorithm that guarantees this property for DAGs. The plan specifies using Kahn's algorithm, matching the existing `computeParallelGroups` implementation in the same file.
 - **Correlation with full metric:** HIGH — topological ordering is a binary correctness property
@@ -116,7 +116,7 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 ### P4: Cycle detection identifies multi-node cycles
 - **What:** For a 3-plan cycle (A requires B's artifact, B requires C's artifact, C requires A's artifact), `validateArtifactDAG` returns `valid: false` with a non-empty `cycles` array
 - **How:** Inline check using the constructed DAG
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && node -e "const {buildArtifactDAG, validateArtifactDAG} = require('./lib/deps'); const plans = [{phase:'94-graph-of-thought-synthesis',plan:1,provides:['A'],requires:['C'],integration_points:[],objective:'P1',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:2,provides:['B'],requires:['A'],integration_points:[],objective:'P2',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:3,provides:['C'],requires:['B'],integration_points:[],objective:'P3',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true}]; const dag = buildArtifactDAG(plans); const v = validateArtifactDAG(dag, plans); console.log('valid:' + v.valid + ' cycles:' + v.cycles.length)"`
+- **Command:** `node -e "const {buildArtifactDAG, validateArtifactDAG} = require('./lib/deps'); const plans = [{phase:'94-graph-of-thought-synthesis',plan:1,provides:['A'],requires:['C'],integration_points:[],objective:'P1',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:2,provides:['B'],requires:['A'],integration_points:[],objective:'P2',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true},{phase:'94-graph-of-thought-synthesis',plan:3,provides:['C'],requires:['B'],integration_points:[],objective:'P3',files_modified:[],type:'execute',wave:1,depends_on:[],autonomous:true}]; const dag = buildArtifactDAG(plans); const v = validateArtifactDAG(dag, plans); console.log('valid:' + v.valid + ' cycles:' + v.cycles.length)"`
 - **Target:** `valid:false cycles:1` (or more cycles found)
 - **Evidence:** DFS cycle detection is a standard algorithm; the plan specifies reusing the existing `detectCycle` pattern already in `lib/deps.ts`. The property is binary — either the cycle is found or it is not.
 - **Correlation with full metric:** HIGH — cycle detection is a binary correctness property
@@ -126,7 +126,7 @@ The implementation builds on existing patterns already in `lib/deps.ts` (`comput
 ### P5: buildPlanPrompt updated with artifact field instruction
 - **What:** The `buildPlanPrompt` function in `lib/autopilot.ts` includes text instructing the planner to declare `provides`, `requires`, `integration_points`
 - **How:** Grep the autopilot source for the expected content
-- **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && grep -c "provides.*requires.*integration_points\|integration_points.*provides.*requires\|provides:.*\[\]" lib/autopilot.ts`
+- **Command:** `grep -Ec "provides.*requires.*integration_points|integration_points.*provides.*requires|provides:.*\[\]" lib/autopilot.ts`
 - **Target:** Count >= 1 (at least one line referencing all three fields in the prompt)
 - **Evidence:** REQ-186 requires this instruction. The plan specifies appending the exact text to the existing prompt string. Greping for the content directly verifies the update landed.
 - **Correlation with full metric:** MEDIUM — presence of the instruction text does not guarantee planners will comply, but it is the necessary condition. Planner compliance is deferred.
@@ -222,13 +222,13 @@ node -e "const m = require('./lib/deps'); console.log(Object.keys(m).sort().join
 node -e "const m = require('./lib/parallel'); console.log(Object.keys(m).sort().join(','))"
 
 # Sanity: interface presence
-grep -c "export interface ArtifactDAG\b\|export interface ArtifactDAGNode\|export interface ArtifactDAGEdge\|export interface ArtifactDAGValidation" lib/types.ts
+grep -Ec "export interface ArtifactDAG\b|export interface ArtifactDAGNode|export interface ArtifactDAGEdge|export interface ArtifactDAGValidation" lib/types.ts
 
 # Proxy: unit tests with coverage
 npx jest tests/unit/deps.test.ts tests/unit/parallel.test.ts --coverage --coverageReporters=text
 
 # Proxy: prompt update
-grep -c "provides.*requires.*integration_points\|provides:.*\[\]" lib/autopilot.ts
+grep -Ec "provides.*requires.*integration_points|provides:.*\[\]" lib/autopilot.ts
 ```
 
 ## Results Template
