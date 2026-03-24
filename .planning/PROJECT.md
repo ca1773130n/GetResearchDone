@@ -3,20 +3,17 @@
 **Created:** 2026-02-12
 **Updated:** 2026-03-23
 
-## Current Milestone: v0.3.22 — Autopilot v2: Parallel Execution with Serial Integration
+## Current Milestone: v0.3.23 — NERFIFY-Inspired Research Phase Enhancements
 
-**Goal:** Upgrade the autopilot command to execute phases in parallel (worktree-isolated) while integrating serially via a mandatory post-phase pipeline (simplify → PR → review → rebase+merge). Each phase merges to main before the next PR is created, catching conflicts early when context is fresh and diffs are small. Add write-intent manifests to phase plans so the wave builder can serialize phases that touch the same modules.
+**Goal:** Adapt 4 key innovations from the NERFIFY paper (multi-agent paper-to-code framework) into GRD's research and execution phases: CFG formalization for plan/artifact validation, compositional citation recovery for deep research, Graph-of-Thought topological synthesis for planning, and agentic knowledge enhancement for compounding improvements.
 
 **Target features:**
-- Post-phase pipeline: mandatory simplify → PR → code review → rebase+merge per phase
-- Serial merge gate: phases execute in parallel but integrate to main sequentially
-- Write-intent manifests: phases declare expected `files_modified` at planning time
-- Wave builder conflict check: serialize phases with overlapping write-intents within a wave
-- Milestone-mode by default: autopilot always resumes from where it left off
-- Conflict resolution: spawn claude subprocess to resolve rebase conflicts with phase context
-- Declared-vs-actual feedback: compare planned write-intent with actual changes post-execution
+- CFG formalization: typed schemas and structural validators for plan/research artifacts in lib/invariants.ts
+- Compositional citation recovery: traverse citation graphs to find missing components from referenced papers
+- Graph-of-Thought synthesis: plans declare artifact DAG (provides/requires) with topological ordering
+- Agentic knowledge enhancement: post-phase mining step producing structured KNOWHOW.md entries
 
-**Previous:** v0.3.21 Elicitation Replacement (shipped 2026-03-24)
+**Previous:** v0.3.22 Autopilot v2 (shipped 2026-03-24)
 
 ## Vision
 

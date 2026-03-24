@@ -7,17 +7,17 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-**Previous:** v0.3.21 Elicitation Replacement (shipped 2026-03-24)
+**Current focus:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
+**Previous:** v0.3.22 Autopilot v2 (shipped 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 91 — Integration Testing and Validation (in progress)
-- **Current plan:** 91-01 and 91-02 complete
-- **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 91 plan 01 complete — 11 new unit tests for runPostPhasePipeline (7) and mergeQueue+pipeline integration (4); npm test passes with 3672 tests
-- **Progress:** [█████░░░░░] 54%
-- **Next:** Execute Phase 91 plan 03 (if exists) or complete Phase 91
+- **Active phase:** Not started (defining requirements)
+- **Current plan:** None
+- **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
+- **Status:** Defining requirements
+- **Progress:** [░░░░░░░░░░] 0%
+- **Next:** Define requirements → create roadmap
 
 ## Phase Summary
 
