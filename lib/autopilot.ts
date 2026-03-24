@@ -879,15 +879,83 @@ function parseWriteIntent(frontmatterContent: string): string[] {
 }
 
 /**
+ * Options for buildWaves() — controls write-intent conflict detection.
+ */
+interface BuildWavesOptions {
+  /** Map of phaseNumber -> files_modified list, used for conflict detection. */
+  filesModified?: Record<string, string[]>;
+  /** When true, skip conflict detection entirely (--force-parallel). */
+  forceParallel?: boolean;
+}
+
+/**
  * Group phases into dependency waves using Kahn's algorithm.
  * Phases with no dependencies land in wave 0; phases depending on wave-0
  * phases land in wave 1, etc.
+ *
+ * When `options.filesModified` is provided and `options.forceParallel` is not
+ * true, a post-processing step separates phases that share modified files into
+ * different waves (write-intent conflict detection).
  */
 function buildWaves(
-  phases: Array<{ number: string; name: string; depends_on?: string | null }>
+  phases: Array<{ number: string; name: string; depends_on?: string | null }>,
+  options?: BuildWavesOptions
 ): string[][] {
   const graph: DependencyGraph = buildDependencyGraph(phases);
-  return computeParallelGroups(graph);
+  const initialWaves: string[][] = computeParallelGroups(graph);
+
+  if (!options?.filesModified || options?.forceParallel) {
+    return initialWaves;
+  }
+
+  // Post-process waves to separate phases with overlapping files_modified.
+  // We process the initial waves in order and keep splitting any wave that
+  // contains two phases sharing at least one file — producing extra waves as
+  // needed. The outer loop repeats until a full pass produces no splits.
+  const filesModified = options.filesModified;
+
+  /**
+   * Split a single wave into one or more sub-waves such that no two phases in
+   * the same sub-wave declare the same modified file.
+   */
+  function splitWave(wave: string[]): string[][] {
+    const subWaves: string[][] = [];
+    const subWaveFiles: Set<string>[] = [];
+
+    for (const phaseId of wave) {
+      const files = filesModified[phaseId] || [];
+      // Find the first existing sub-wave that has no file conflict.
+      let placed = false;
+      for (let i = 0; i < subWaves.length; i++) {
+        const hasConflict = files.some((f: string) => subWaveFiles[i].has(f));
+        if (!hasConflict) {
+          subWaves[i].push(phaseId);
+          files.forEach((f: string) => subWaveFiles[i].add(f));
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        // Open a new sub-wave for this phase.
+        subWaves.push([phaseId]);
+        subWaveFiles.push(new Set<string>(files));
+      }
+    }
+
+    return subWaves;
+  }
+
+  // Apply splitWave to every initial wave and flatten the results into the
+  // final wave list, preserving the overall wave order.
+  const result: string[][] = [];
+  for (const wave of initialWaves) {
+    const subWaves = splitWave(wave);
+    for (const sw of subWaves) {
+      result.push(sw);
+    }
+  }
+
+  return result;
 }
 
 /**
