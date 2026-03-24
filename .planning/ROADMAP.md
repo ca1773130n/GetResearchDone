@@ -256,11 +256,11 @@ Plans:
   2. Phases waiting in the queue proceed to their own simplify and PR/review steps independently; only the rebase+merge step serializes — simplify and code review run in parallel.
   3. When `git rebase main` exits with conflicts, the conflict-resolve subprocess receives: (a) both conflicting file versions, (b) the phase goal and plan summary, (c) an explicit instruction to preserve changes from both versions; CLAUDE session env vars stripped.
   4. If the conflict-resolve subprocess exits non-zero, autopilot halts with a clear message identifying the phase, the conflicting file(s), and the manual steps needed.
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 88-01: Merge queue implementation and integration into `runPostPhasePipeline()`
-- [ ] 88-02: `buildConflictResolvePrompt()` and conflict-halting logic
+- [ ] 88-01-PLAN.md — Merge queue primitive and concurrent post-pipeline restructure
+- [ ] 88-02-PLAN.md — Enhanced buildConflictResolvePrompt with phase context and conflict-halt reporting
 
 #### Phase 89: Write-Intent Manifests and Wave Builder
 
