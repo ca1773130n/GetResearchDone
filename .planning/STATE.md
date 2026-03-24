@@ -120,6 +120,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 88]: Autopilot wave loop launches post-pipelines concurrently (Promise.all); only rebase+merge serialized via shared mergeQueue instance across all waves
 - [Phase 88]: buildConflictResolvePrompt takes cwd (project root for findPhaseInternal) and wtPath (worktree for git conflict enumeration) as separate parameters; failure reason encodes conflicting files and manual steps as string for backward compatibility
 - [Phase 89]: parseWriteIntent is a pure function operating on raw frontmatter content string; plan_files_modified uses plan filename stem as key; extractFrontmatter handles both YAML formats
+- [Phase 89]: splitWave uses greedy first-fit: phases placed into the first sub-wave with no file conflict
+- [Phase 89]: BuildWavesOptions.forceParallel=true bypasses conflict detection — returns raw dependency-graph waves unchanged
+- [Phase 89]: compareWriteIntent is pure with zero side effects; formatWriteIntentMismatch returns [] for no mismatches
 
 ## Known Bugs
 
@@ -132,7 +135,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 87 executed — post-phase pipeline core verified as pre-implemented
-- **Stopped at:** Completed 89-01-PLAN.md
+- **Stopped at:** Completed 89-03-PLAN.md
 - **Next action:** `/grd:plan-phase 88`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
 
