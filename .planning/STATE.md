@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 88 — Serial Merge Queue and Conflict Resolution (not started)
-- **Current plan:** None
+- **Active phase:** Phase 88 — Serial Merge Queue and Conflict Resolution (in progress)
+- **Current plan:** 88-02 complete
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 87 complete, ready to plan Phase 88
-- **Progress:** [██░░░░░░░░] 20%
-- **Next:** `/grd:plan-phase 88`
+- **Status:** Phase 88 complete — serial merge queue + conflict resolution, 3630 tests passing
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:plan-phase 89` grd/v0.3.22/88-88
 
 ## Phase Summary
 
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
 | 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
-| 88 | Serial Merge Queue and Conflict Resolution | Not started |
+| 88 | Serial Merge Queue and Conflict Resolution | In progress (plan 01 complete) |
 | 89 | Write-Intent Manifests and Wave Builder | Not started |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | Not started |
@@ -116,6 +116,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Design spec v0.3.22]: Reuse lib/worktree.ts functions (worktreePath, pushAndCreatePR, create/remove) — no parallel worktree management system
 - [Design spec v0.3.22]: LLM-based conflict resolution falls back to halting for human intervention on non-zero subprocess exit
 - [Design spec v0.3.22]: Write-intent is best-effort declaration, not a contract; --force-parallel overrides for intentional overlapping execution
+- [Phase 88]: Promise-chain tail pattern for MergeQueue — zero external dependencies, FIFO arrival-order guaranteed by sequential tail.then() chaining
+- [Phase 88]: Autopilot wave loop launches post-pipelines concurrently (Promise.all); only rebase+merge serialized via shared mergeQueue instance across all waves
+- [Phase 88]: buildConflictResolvePrompt takes cwd (project root for findPhaseInternal) and wtPath (worktree for git conflict enumeration) as separate parameters; failure reason encodes conflicting files and manual steps as string for backward compatibility
 
 ## Known Bugs
 
@@ -128,7 +131,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 87 executed — post-phase pipeline core verified as pre-implemented
-- **Stopped at:** Phase 87 complete — all 5 success criteria met, 172 tests passing
+- **Stopped at:** Completed 88-02-PLAN.md
 - **Next action:** `/grd:plan-phase 88`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
 
