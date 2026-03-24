@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 88 — Serial Merge Queue and Conflict Resolution (in progress)
-- **Current plan:** 88-02 complete
+- **Active phase:** Phase 89 — Write-Intent Manifests and Wave Builder (complete)
+- **Current plan:** 89-03 complete
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 88 complete — serial merge queue + conflict resolution, 3630 tests passing
+- **Status:** Phase 89 complete — parseWriteIntent, buildWaves conflict detection, compareWriteIntent
 - **Progress:** [██████████] 100%
-- **Next:** `/grd:plan-phase 89` grd/v0.3.22/88-88
+- **Next:** `/grd:plan-phase 90`
 
 ## Phase Summary
 
@@ -34,7 +34,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
 | 88 | Serial Merge Queue and Conflict Resolution | In progress (plan 01 complete) |
-| 89 | Write-Intent Manifests and Wave Builder | Not started |
+| 89 | Write-Intent Manifests and Wave Builder | Complete (2026-03-24) |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | Not started |
 

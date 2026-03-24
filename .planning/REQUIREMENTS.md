@@ -121,9 +121,9 @@
 | REQ-164 | Phase 87 | PENDING |
 | REQ-165 | Phase 88 | PENDING |
 | REQ-166 | Phase 88 | PENDING |
-| REQ-167 | Phase 89 | PENDING |
-| REQ-168 | Phase 89 | PENDING |
-| REQ-169 | Phase 89 | PENDING |
+| REQ-167 | Phase 89 | DONE |
+| REQ-168 | Phase 89 | DONE |
+| REQ-169 | Phase 89 | DONE |
 | REQ-170 | Phase 90 | PENDING |
 | REQ-171 | Phase 90 | PENDING |
 | REQ-172 | Phase 90 | PENDING |
