@@ -89,7 +89,7 @@ This phase has no external paper benchmarks. All targets derive from REQ-175 thr
 ### P2: New pipeline code achieves 85%+ line coverage
 - **What:** Lines 130-700 of lib/autopilot.ts (createMergeQueue, spawnStep, runPostPhasePipeline, getConflictingFiles) have at least 85% coverage
 - **How:** Inspect lcov or text coverage report for the specific line range; or infer from total coverage + known pre-existing coverage
-- **Command:** `npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=lcov 2>&1 && node -e "const fs=require('fs'); const lcov=fs.readFileSync('coverage/lcov.info','utf8'); const lines=lcov.split('\n').filter(l=>l.startsWith('DA:')); const [hit,total]=lines.reduce(([h,t],l)=>{const[,_,c]=l.split(',').map(Number);return[h+(c>0?1:0),t+1]},[0,0]); console.log('lines hit/total:', hit, '/', total, '=', (hit/total*100).toFixed(1)+'%')"`
+- **Command:** `npx jest tests/unit/autopilot.test.ts --coverage --coverageReporters=lcov 2>&1 && node -e "const fs=require('fs'); const lcov=fs.readFileSync('coverage/lcov.info','utf8'); const lines=lcov.split('\n').filter(l=>l.startsWith('DA:')); const [hit,total]=lines.reduce(([h,t],l)=>{const parts=l.split(','); const c=Number(parts[1]); return[h+(c>0?1:0),t+1]},[0,0]); console.log('lines hit/total:', hit, '/', total, '=', (hit/total*100).toFixed(1)+'%')"`
 - **Target:** >= 85% on new pipeline code sections
 - **Evidence:** REQ-175 directly specifies this target; 91-03-PLAN.md Task 2 confirms it
 - **Correlation with full metric:** HIGH — coverage on the specific functions is direct evidence
