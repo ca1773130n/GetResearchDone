@@ -585,6 +585,36 @@ export interface RunCache {
  */
 export type AgentModelProfiles = Record<string, Record<ModelProfileName, ModelTier>>;
 
+// ─── Invariant Types (from invariants.ts) ────────────────────────────────────
+
+/**
+ * Result returned by all validation functions in invariants.ts.
+ * valid is true when errors is empty; warnings are non-fatal informational notices.
+ */
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Typed representation of a parsed plan artifact (PLAN.md frontmatter + objective).
+ * Used by validateStructural, validateSemantic, validateCrossPhase, and extractPlanArtifact.
+ */
+export interface PlanArtifact {
+  objective: string;
+  files_modified: string[];
+  phase: string;
+  plan: number;
+  type: string;
+  wave: number;
+  depends_on: string[];
+  autonomous: boolean;
+  provides: string[];
+  requires: string[];
+  integration_points: string[];
+}
+
 // ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
 
 /**
