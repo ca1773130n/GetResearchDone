@@ -402,8 +402,98 @@ function buildCodeReviewPrompt(prUrl: string): string {
 }
 
 /** Rebase conflict resolution via LLM subprocess. */
-function buildConflictResolvePrompt(phaseNum: string): string {
-  return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main. For each conflicting file, examine both versions and resolve the conflict by preserving the intent of the phase ${phaseNum} changes while incorporating any changes from main. After resolving all conflicts, run git add on the resolved files and continue the rebase with git rebase --continue.`;
+function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: string): string {
+  // Gather phase context — all reads wrapped in try/catch for graceful fallback
+  let phaseGoal = `Phase ${phaseNum} implementation`;
+  let planSummary = `See phase plans for details`;
+
+  try {
+    const roadmapPath = path.join(cwd, '.planning', 'ROADMAP.md');
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
+    const phaseSection = roadmapContent.split('\n');
+    let inPhaseSection = false;
+    for (const line of phaseSection) {
+      if (line.includes(`#### Phase ${phaseNum}:`) || line.includes(`| ${phaseNum} `)) {
+        inPhaseSection = true;
+      }
+      if (inPhaseSection && line.includes('**Goal**:')) {
+        const goalMatch = line.match(/\*\*Goal\*\*:\s*(.+)/);
+        if (goalMatch) {
+          phaseGoal = goalMatch[1].trim();
+          break;
+        }
+      }
+      if (inPhaseSection && line.startsWith('####') && !line.includes(`Phase ${phaseNum}:`)) {
+        break;
+      }
+    }
+  } catch (_err) {
+    // fallback already set
+  }
+
+  try {
+    const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
+    if (phaseInfo && phaseInfo.plans.length > 0) {
+      const firstPlan = fs.readFileSync(phaseInfo.plans[0], 'utf-8');
+      const objectiveMatch = firstPlan.match(/<objective>([\s\S]*?)<\/objective>/);
+      if (objectiveMatch) {
+        planSummary = objectiveMatch[1].trim();
+      }
+    }
+  } catch (_err) {
+    // fallback already set
+  }
+
+  // Gather conflicting file information from the worktree
+  let conflictingFiles: string[] = [];
+  let conflictDiffs = '';
+
+  try {
+    const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
+    if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
+      conflictingFiles = conflictListResult.stdout.trim().split('\n').filter(Boolean);
+      const filesToShow = conflictingFiles.slice(0, 5);
+      for (const filePath of filesToShow) {
+        try {
+          const diffResult = execGit(wtPath, ['diff', '--', filePath]);
+          conflictDiffs += `\n### ${filePath}\n\`\`\`\n${diffResult.stdout}\n\`\`\`\n`;
+        } catch (_err) {
+          conflictDiffs += `\n### ${filePath}\n(diff unavailable)\n`;
+        }
+      }
+    }
+  } catch (_err) {
+    // no conflict info available
+  }
+
+  const fileList = conflictingFiles.length > 0
+    ? conflictingFiles.map(f => `- ${f}`).join('\n')
+    : '(unable to determine — check git status)';
+
+  return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main.
+
+## Phase Context
+
+**Phase Goal:** ${phaseGoal}
+**Plan Summary:** ${planSummary}
+
+## Conflicting Files
+
+The following files have conflicts:
+${fileList}
+
+## Conflict Diffs
+${conflictDiffs || '\n(run `git diff` to see conflict details)\n'}
+## Instructions
+
+For each conflicting file:
+1. Examine both the incoming changes (from phase ${phaseNum}'s branch) and the changes from main
+2. Resolve by PRESERVING CHANGES FROM BOTH VERSIONS — do not discard either side unless they are truly redundant
+3. The phase's intent was: ${phaseGoal} — ensure the resolution maintains this intent
+4. After resolving all conflicts, run \`git add\` on each resolved file
+5. Complete the rebase with \`git rebase --continue\`
+
+If a conflict cannot be automatically resolved (e.g., fundamentally incompatible changes), exit with a non-zero status code.`;
 }
 
 /** Wireup discovery after milestone completion. */
@@ -517,17 +607,29 @@ async function runPostPhasePipeline(
       // Merge conflicts — spawn claude -p to resolve
       log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
       const conflictResult = await spawnStep(
-        buildConflictResolvePrompt(phaseNum), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
+        buildConflictResolvePrompt(phaseNum, cwd, wtPath), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
       );
 
       if (conflictResult.exitCode !== 0) {
         // Abort the failed rebase before returning
         execGit(wtPath, ['rebase', '--abort']);
+        // Gather conflicting file list for actionable failure message
+        let conflictFileList = 'unknown';
+        try {
+          const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
+          if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
+            conflictFileList = conflictListResult.stdout.trim().split('\n').filter(Boolean).join(', ');
+          }
+        } catch (_err) {
+          // keep 'unknown'
+        }
+        const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+        const branchName = branch.exitCode === 0 ? branch.stdout.trim() : `phase-${phaseNum}`;
         return {
           status: 'failed',
           failedStep: 'rebase',
           prUrl,
-          reason: 'conflict resolution failed',
+          reason: `conflict resolution failed for phase ${phaseNum} — conflicting files: ${conflictFileList}. Manual steps: git checkout ${branchName}, git rebase main, resolve conflicts manually, git rebase --continue`,
         };
       }
     }
