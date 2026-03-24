@@ -45,6 +45,7 @@ const {
   startHeartbeat,
   _getSchedulerStates,
   createMergeQueue,
+  parseWriteIntent,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -3833,6 +3834,39 @@ describe('lib/autopilot', () => {
 
       // Both functions executed
       expect(executed).toEqual(['failing', 'success']);
+    });
+  });
+
+  // ── parseWriteIntent ──
+
+  describe('parseWriteIntent', () => {
+    it('parses dash-list format', () => {
+      const fm = 'phase: 89\nfiles_modified:\n  - lib/a.ts\n  - lib/b.ts\nautonomous: true';
+      expect(parseWriteIntent(fm)).toEqual(['lib/a.ts', 'lib/b.ts']);
+    });
+
+    it('parses inline array format', () => {
+      const fm = 'phase: 89\nfiles_modified: [lib/a.ts, lib/b.ts]\nautonomous: true';
+      expect(parseWriteIntent(fm)).toEqual(['lib/a.ts', 'lib/b.ts']);
+    });
+
+    it('returns empty array for empty string', () => {
+      expect(parseWriteIntent('')).toEqual([]);
+    });
+
+    it('returns empty array when field missing', () => {
+      const fm = 'phase: 89\nautonomous: true\ndepends_on: []';
+      expect(parseWriteIntent(fm)).toEqual([]);
+    });
+
+    it('returns empty array for empty inline array', () => {
+      const fm = 'phase: 89\nfiles_modified: []\nautonomous: true';
+      expect(parseWriteIntent(fm)).toEqual([]);
+    });
+
+    it('handles single file', () => {
+      const fm = 'phase: 89\nfiles_modified:\n  - lib/only.ts\nautonomous: true';
+      expect(parseWriteIntent(fm)).toEqual(['lib/only.ts']);
     });
   });
 });
