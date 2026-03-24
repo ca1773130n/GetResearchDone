@@ -135,6 +135,37 @@ const DEFAULT_TIMEOUT_MINUTES: number = 120;
 const HEARTBEAT_INTERVAL_MS: number = 30000;
 const AUTOPILOT_DIR: string = 'autopilot';
 
+// ─── Merge Queue ────────────────────────────────────────────────────────────
+
+/**
+ * FIFO async serialization primitive for the rebase+merge step.
+ * Only one enqueued function executes at a time; others wait in arrival order.
+ */
+interface MergeQueue {
+  enqueue<T>(fn: () => Promise<T>): Promise<T>;
+}
+
+/**
+ * Create a merge queue that serializes async functions in FIFO order.
+ * Uses a promise-chain tail: each enqueue appends to the tail so functions
+ * execute one at a time regardless of when enqueue() is called.
+ */
+function createMergeQueue(): MergeQueue {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    enqueue<T>(fn: () => Promise<T>): Promise<T> {
+      const result = tail.then(() => fn());
+      // Suppress errors on the chain tail to avoid unhandled rejection —
+      // each caller's returned promise still rejects correctly.
+      tail = result.then(
+        () => undefined,
+        () => undefined
+      );
+      return result;
+    },
+  };
+}
+
 // ─── Domain Types ───────────────────────────────────────────────────────────
 
 /** Shared options for spawnClaude/spawnClaudeAsync. */
@@ -371,8 +402,98 @@ function buildCodeReviewPrompt(prUrl: string): string {
 }
 
 /** Rebase conflict resolution via LLM subprocess. */
-function buildConflictResolvePrompt(phaseNum: string): string {
-  return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main. For each conflicting file, examine both versions and resolve the conflict by preserving the intent of the phase ${phaseNum} changes while incorporating any changes from main. After resolving all conflicts, run git add on the resolved files and continue the rebase with git rebase --continue.`;
+function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: string): string {
+  // Gather phase context — all reads wrapped in try/catch for graceful fallback
+  let phaseGoal = `Phase ${phaseNum} implementation`;
+  let planSummary = `See phase plans for details`;
+
+  try {
+    const roadmapPath = path.join(cwd, '.planning', 'ROADMAP.md');
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
+    const phaseSection = roadmapContent.split('\n');
+    let inPhaseSection = false;
+    for (const line of phaseSection) {
+      if (line.includes(`#### Phase ${phaseNum}:`) || line.includes(`| ${phaseNum} `)) {
+        inPhaseSection = true;
+      }
+      if (inPhaseSection && line.includes('**Goal**:')) {
+        const goalMatch = line.match(/\*\*Goal\*\*:\s*(.+)/);
+        if (goalMatch) {
+          phaseGoal = goalMatch[1].trim();
+          break;
+        }
+      }
+      if (inPhaseSection && line.startsWith('####') && !line.includes(`Phase ${phaseNum}:`)) {
+        break;
+      }
+    }
+  } catch (_err) {
+    // fallback already set
+  }
+
+  try {
+    const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
+    if (phaseInfo && phaseInfo.plans.length > 0) {
+      const firstPlan = fs.readFileSync(phaseInfo.plans[0], 'utf-8');
+      const objectiveMatch = firstPlan.match(/<objective>([\s\S]*?)<\/objective>/);
+      if (objectiveMatch) {
+        planSummary = objectiveMatch[1].trim();
+      }
+    }
+  } catch (_err) {
+    // fallback already set
+  }
+
+  // Gather conflicting file information from the worktree
+  let conflictingFiles: string[] = [];
+  let conflictDiffs = '';
+
+  try {
+    const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
+    if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
+      conflictingFiles = conflictListResult.stdout.trim().split('\n').filter(Boolean);
+      const filesToShow = conflictingFiles.slice(0, 5);
+      for (const filePath of filesToShow) {
+        try {
+          const diffResult = execGit(wtPath, ['diff', '--', filePath]);
+          conflictDiffs += `\n### ${filePath}\n\`\`\`\n${diffResult.stdout}\n\`\`\`\n`;
+        } catch (_err) {
+          conflictDiffs += `\n### ${filePath}\n(diff unavailable)\n`;
+        }
+      }
+    }
+  } catch (_err) {
+    // no conflict info available
+  }
+
+  const fileList = conflictingFiles.length > 0
+    ? conflictingFiles.map(f => `- ${f}`).join('\n')
+    : '(unable to determine — check git status)';
+
+  return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main.
+
+## Phase Context
+
+**Phase Goal:** ${phaseGoal}
+**Plan Summary:** ${planSummary}
+
+## Conflicting Files
+
+The following files have conflicts:
+${fileList}
+
+## Conflict Diffs
+${conflictDiffs || '\n(run `git diff` to see conflict details)\n'}
+## Instructions
+
+For each conflicting file:
+1. Examine both the incoming changes (from phase ${phaseNum}'s branch) and the changes from main
+2. Resolve by PRESERVING CHANGES FROM BOTH VERSIONS — do not discard either side unless they are truly redundant
+3. The phase's intent was: ${phaseGoal} — ensure the resolution maintains this intent
+4. After resolving all conflicts, run \`git add\` on each resolved file
+5. Complete the rebase with \`git rebase --continue\`
+
+If a conflict cannot be automatically resolved (e.g., fundamentally incompatible changes), exit with a non-zero status code.`;
 }
 
 /** Wireup discovery after milestone completion. */
@@ -428,9 +549,10 @@ async function runPostPhasePipeline(
     model?: string;
     scheduler?: Scheduler | null;
     log: (msg: string) => void;
+    mergeQueue?: MergeQueue;
   }
 ): Promise<PostPipelineResult> {
-  const { timeout, maxTurns, model, scheduler, log } = opts;
+  const { timeout, maxTurns, model, scheduler, log, mergeQueue } = opts;
   const timeoutMs: number | undefined = timeout ? timeout * 60 * 1000 : undefined;
   const spawnOpts: SpawnOptions = { timeout: timeoutMs, maxTurns, model, captureOutput: true };
 
@@ -477,68 +599,84 @@ async function runPostPhasePipeline(
     };
   }
 
-  // Step 4: Rebase & merge
-  log(`Phase ${phaseNum}: post-pipeline — rebase & merge`);
-  const rebaseResult = execGit(wtPath, ['rebase', 'main']);
-  if (rebaseResult.exitCode !== 0) {
-    // Merge conflicts — spawn claude -p to resolve
-    log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
-    const conflictResult = await spawnStep(
-      buildConflictResolvePrompt(phaseNum), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
-    );
+  // Step 4: Rebase & merge (serialized through mergeQueue when provided)
+  const runStep4 = async (): Promise<PostPipelineResult> => {
+    log(`Phase ${phaseNum}: post-pipeline — rebase & merge`);
+    const rebaseResult = execGit(wtPath, ['rebase', 'main']);
+    if (rebaseResult.exitCode !== 0) {
+      // Merge conflicts — spawn claude -p to resolve
+      log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
+      const conflictResult = await spawnStep(
+        buildConflictResolvePrompt(phaseNum, cwd, wtPath), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
+      );
 
-    if (conflictResult.exitCode !== 0) {
-      // Abort the failed rebase before returning
-      execGit(wtPath, ['rebase', '--abort']);
+      if (conflictResult.exitCode !== 0) {
+        // Abort the failed rebase before returning
+        execGit(wtPath, ['rebase', '--abort']);
+        // Gather conflicting file list for actionable failure message
+        let conflictFileList = 'unknown';
+        try {
+          const conflictListResult = execGit(wtPath, ['diff', '--name-only', '--diff-filter=U']);
+          if (conflictListResult.exitCode === 0 && conflictListResult.stdout.trim()) {
+            conflictFileList = conflictListResult.stdout.trim().split('\n').filter(Boolean).join(', ');
+          }
+        } catch (_err) {
+          // keep 'unknown'
+        }
+        const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+        const branchName = branch.exitCode === 0 ? branch.stdout.trim() : `phase-${phaseNum}`;
+        return {
+          status: 'failed',
+          failedStep: 'rebase',
+          prUrl,
+          reason: `conflict resolution failed for phase ${phaseNum} — conflicting files: ${conflictFileList}. Manual steps: git checkout ${branchName}, git rebase main, resolve conflicts manually, git rebase --continue`,
+        };
+      }
+    }
+
+    // Force-push the rebased branch and merge the PR
+    const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    if (branch.exitCode !== 0) {
       return {
         status: 'failed',
-        failedStep: 'rebase',
+        failedStep: 'push-rebased',
         prUrl,
-        reason: 'conflict resolution failed',
+        reason: 'failed to determine branch name',
       };
     }
-  }
-
-  // Force-push the rebased branch and merge the PR
-  const branch = execGit(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (branch.exitCode !== 0) {
-    return {
-      status: 'failed',
-      failedStep: 'push-rebased',
-      prUrl,
-      reason: 'failed to determine branch name',
-    };
-  }
-  const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
-    allowBlocked: true,
-  });
-  if (pushResult.exitCode !== 0) {
-    return {
-      status: 'failed',
-      failedStep: 'push-rebased',
-      prUrl,
-      reason: `push failed: ${pushResult.stderr}`,
-    };
-  }
-
-  // Merge the PR via gh CLI
-  try {
-    childProcess.execFileSync('gh', ['pr', 'merge', prUrl, '--merge', '--delete-branch'], {
-      cwd: wtPath,
-      stdio: 'pipe',
-      encoding: 'utf-8',
+    const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
+      allowBlocked: true,
     });
-  } catch (mergeErr) {
-    return {
-      status: 'failed',
-      failedStep: 'merge',
-      prUrl,
-      reason: String((mergeErr as { stderr?: string }).stderr || mergeErr),
-    };
-  }
+    if (pushResult.exitCode !== 0) {
+      return {
+        status: 'failed',
+        failedStep: 'push-rebased',
+        prUrl,
+        reason: `push failed: ${pushResult.stderr}`,
+      };
+    }
 
-  log(`Phase ${phaseNum}: post-pipeline complete — merged ${prUrl}`);
-  return { status: 'completed', prUrl };
+    // Merge the PR via gh CLI
+    try {
+      childProcess.execFileSync('gh', ['pr', 'merge', prUrl, '--merge', '--delete-branch'], {
+        cwd: wtPath,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+    } catch (mergeErr) {
+      return {
+        status: 'failed',
+        failedStep: 'merge',
+        prUrl,
+        reason: String((mergeErr as { stderr?: string }).stderr || mergeErr),
+      };
+    }
+
+    log(`Phase ${phaseNum}: post-pipeline complete — merged ${prUrl}`);
+    return { status: 'completed', prUrl };
+  };
+
+  return mergeQueue ? mergeQueue.enqueue(runStep4) : runStep4();
 }
 
 /**
@@ -938,6 +1076,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   };
   log(`Starting autopilot: ${phases.length} phase(s) in ${waves.length} wave(s)`);
 
+  // Single merge queue shared across all waves — only the rebase+merge step
+  // is serialized; simplify/PR/review steps run concurrently per phase.
+  const mergeQueue: MergeQueue = createMergeQueue();
+
   for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
     const wave: string[] = waves[waveIdx];
     if (stoppedAt) break;
@@ -1216,7 +1358,13 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         execTasks.push({ phaseNum, skipped: false, promise, wtPath });
       }
 
-      // Await all parallel execution spawns
+      // Await all parallel execution spawns and collect successful phases for pipelines
+      const pipelineTasks: Array<{
+        phaseNum: string;
+        wtPath: string;
+        promise: Promise<{ phaseNum: string; result: PostPipelineResult }>;
+      }> = [];
+
       for (const task of execTasks) {
         if (task.skipped) continue;
 
@@ -1240,43 +1388,60 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
         results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
 
-        // Run post-phase pipeline unless skipped.
-        // Serialized intentionally: each pipeline rebases on main before merging,
-        // so earlier merges must complete before later ones can rebase cleanly.
+        // Launch post-phase pipeline concurrently (Steps 1-3 run in parallel across
+        // phases; Step 4 rebase+merge is serialized via the shared mergeQueue).
         if (!skipPostPipeline) {
-          log(`Phase ${task.phaseNum}: starting post-phase pipeline`);
-          writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'started');
+          const phaseNumCapture = task.phaseNum;
+          const wtPathCapture = wtPath;
+          log(`Phase ${phaseNumCapture}: starting post-phase pipeline`);
+          writeStatusMarker(cwd, phaseNumCapture, 'post-pipeline', 'started');
 
-          const pipelineResult: PostPipelineResult = await runPostPhasePipeline(
+          const pipelinePromise = runPostPhasePipeline(
             cwd,
-            task.phaseNum,
-            wtPath,
-            { timeout, maxTurns, model, scheduler, log }
-          );
+            phaseNumCapture,
+            wtPathCapture,
+            { timeout, maxTurns, model, scheduler, log, mergeQueue }
+          ).then((result) => ({ phaseNum: phaseNumCapture, result }));
+
+          pipelineTasks.push({ phaseNum: phaseNumCapture, wtPath: wtPathCapture, promise: pipelinePromise });
+        } else {
+          // No pipeline — clean up worktree immediately
+          execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
+          execGit(cwd, ['worktree', 'prune']);
+        }
+      }
+
+      // Await all concurrent post-phase pipelines
+      if (pipelineTasks.length > 0) {
+        const pipelineResults = await Promise.all(pipelineTasks.map((t) => t.promise));
+
+        for (const { phaseNum: pNum, result: pipelineResult } of pipelineResults) {
+          const taskEntry = pipelineTasks.find((t) => t.phaseNum === pNum)!;
 
           if (pipelineResult.status === 'failed') {
             log(
-              `Phase ${task.phaseNum}: post-pipeline FAILED at ${pipelineResult.failedStep}: ${pipelineResult.reason}`
+              `Phase ${pNum}: post-pipeline FAILED at ${pipelineResult.failedStep}: ${pipelineResult.reason}`
             );
-            writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'failed');
+            writeStatusMarker(cwd, pNum, 'post-pipeline', 'failed');
             results.push({
-              phase: task.phaseNum,
+              phase: pNum,
               step: 'post-pipeline',
               status: 'failed',
               reason: `${pipelineResult.failedStep}: ${pipelineResult.reason}`,
             });
-            stoppedAt = `Phase ${task.phaseNum} post-pipeline failed at ${pipelineResult.failedStep}`;
-            continue;
+            if (!stoppedAt) {
+              stoppedAt = `Phase ${pNum} post-pipeline failed at ${pipelineResult.failedStep}`;
+            }
+          } else {
+            log(`Phase ${pNum}: post-pipeline completed`);
+            writeStatusMarker(cwd, pNum, 'post-pipeline', 'completed');
+            results.push({ phase: pNum, step: 'post-pipeline', status: 'completed' });
           }
 
-          log(`Phase ${task.phaseNum}: post-pipeline completed`);
-          writeStatusMarker(cwd, task.phaseNum, 'post-pipeline', 'completed');
-          results.push({ phase: task.phaseNum, step: 'post-pipeline', status: 'completed' });
+          // Clean up worktree after pipeline completes (success or failure)
+          execGit(cwd, ['worktree', 'remove', taskEntry.wtPath, '--force'], { allowBlocked: true });
+          execGit(cwd, ['worktree', 'prune']);
         }
-
-        // Clean up worktree after successful merge or when pipeline is skipped
-        execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
-        execGit(cwd, ['worktree', 'prune']);
       }
 
       if (stoppedAt) break;
@@ -1786,6 +1951,7 @@ function cmdInitMultiMilestoneAutopilot(cwd: string, raw: boolean): void {
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
+  createMergeQueue,
   cmdAutopilot,
   cmdInitAutopilot,
   cmdMultiMilestoneAutopilot,

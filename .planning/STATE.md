@@ -15,9 +15,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - **Active phase:** Phase 88 — Serial Merge Queue and Conflict Resolution (in progress)
 - **Current plan:** 88-02 complete
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 88 plan 02 executed — enhanced conflict resolution prompt, 183 tests passing
-- **Progress:** [█████░░░░░] 50%
-- **Next:** `/grd:execute-phase 89`
+- **Status:** Phase 88 complete — serial merge queue + conflict resolution, 3630 tests passing
+- **Progress:** [██████████] 100%
+- **Next:** `/grd:plan-phase 89` grd/v0.3.22/88-88
 
 ## Phase Summary
 
