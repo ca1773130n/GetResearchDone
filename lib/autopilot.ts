@@ -381,7 +381,7 @@ function withUltrathink(prompt: string, backend?: string): string {
  */
 function buildPlanPrompt(phaseNum: string, backend?: string): string {
   return withUltrathink(
-    `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files.`,
+    `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify.`,
     backend
   );
 }
