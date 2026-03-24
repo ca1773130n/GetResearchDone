@@ -836,14 +836,23 @@ function clearConfigDirCache(): void {
  * config directory. Returns a copy of process.env with the override applied.
  */
 function buildBackendEnv(backend: string): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { ...process.env };
+
+  // Strip Claude session env vars so subprocess doesn't detect nested invocation
+  for (const key of Object.keys(env)) {
+    if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_') || key.startsWith('CLAUDECODE_')) {
+      delete env[key];
+    }
+  }
+
   const configDirs = discoverBackendConfigDirs();
   const configDir = configDirs[backend];
-  if (!configDir) return { ...process.env };
+  if (!configDir) return env;
 
   const envVar = BACKEND_CONFIG_ENV[backend];
-  if (!envVar) return { ...process.env };
+  if (!envVar) return env;
 
-  return { ...process.env, [envVar]: configDir };
+  return { ...env, [envVar]: configDir };
 }
 
 /**
