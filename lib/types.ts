@@ -979,4 +979,26 @@ export interface ApiConfig {
   fetchFn?: (url: string) => Promise<{ ok: boolean; text: () => Promise<string> }>;
 }
 
+// ─── Knowledge Types (from knowledge.ts) ─────────────────────────────────────
+
+/**
+ * A structured knowledge entry mined from phase execution output.
+ * Stored in KNOWHOW.md and injected into planning/execution prompts to
+ * compound improvements across phases.
+ */
+export interface KnowhowEntry {
+  /** Descriptive name of the pattern or technique. */
+  pattern_name: string;
+  /** Where this knowledge came from (paper slug, codebase path, or execution result). */
+  source: string;
+  /** Conditions under which this pattern is useful. */
+  applicability: string;
+  /** Representative code example or reference. */
+  code_snippet: string;
+  /** Which phase produced this entry. */
+  phase_number: number;
+  /** ISO timestamp when entry was created. */
+  created_at: string;
+}
+
 module.exports = {};

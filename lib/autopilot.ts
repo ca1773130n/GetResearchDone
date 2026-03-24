@@ -494,6 +494,66 @@ function buildWireupPrompt(): string {
   return 'Use the Skill tool to invoke skill "grd:wireup" with no additional args. Autonomous mode — make all decisions yourself, no questions. Run wireup discovery (exported-but-uncalled, config-without-surface, endpoint-without-integration-test) and fix any findings.';
 }
 
+/** Build the prompt string for the knowledge miner agent. */
+function buildKnowledgeMiningPrompt(phaseNum: string): string {
+  return `You are the GRD knowledge miner agent for phase ${phaseNum}.
+
+Your task:
+1. Read the SUMMARY.md file for phase ${phaseNum} (look in .planning/milestones/*/phases/*${phaseNum}*/).
+2. Analyze the code changes, decisions, and techniques described in the summary.
+3. Identify 2-5 reusable patterns or techniques that future phases could benefit from.
+4. For each pattern, produce a ---KNOWHOW-ENTRY--- block in this format:
+
+---KNOWHOW-ENTRY---
+pattern_name: <descriptive name>
+source: <file path or paper slug where pattern was used>
+applicability: <when this pattern is useful>
+code_snippet: <short representative code example>
+phase_number: ${phaseNum}
+created_at: <ISO timestamp>
+---END-KNOWHOW-ENTRY---
+
+5. Call appendKnowhowEntries (from lib/knowledge.ts) to write the entries to KNOWHOW.md at the project root.
+
+Focus on patterns that are specific, reusable, and non-obvious — not general best practices.`;
+}
+
+/**
+ * Run the knowledge mining step for a phase.
+ * Checks for agent definition existence, spawns the miner, and marks status.
+ * Non-blocking — errors are caught and logged; pipeline always continues.
+ */
+async function runKnowledgeMining(
+  cwd: string,
+  phaseNum: string,
+  options: { scheduler?: Scheduler | null; log: (msg: string) => void }
+): Promise<void> {
+  const { scheduler, log } = options;
+  const agentDefPath = path.resolve(cwd, 'agents', 'grd-knowledge-miner.md');
+
+  if (!fs.existsSync(agentDefPath)) {
+    log(`Phase ${phaseNum}: knowledge mining skipped — agent definition not found`);
+    writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'skipped');
+    return;
+  }
+
+  writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'started');
+  try {
+    await spawnStep(
+      buildKnowledgeMiningPrompt(phaseNum),
+      cwd,
+      `phase-${phaseNum}-knowledge-mining`,
+      scheduler ?? null,
+      { captureOutput: true }
+    );
+    writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'completed');
+    log(`Phase ${phaseNum}: knowledge mining completed`);
+  } catch (_err) {
+    log(`Phase ${phaseNum}: knowledge mining failed (non-blocking): ${String(_err)}`);
+    writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'failed');
+  }
+}
+
 /**
  * Spawn a claude -p subprocess, routing through the scheduler when available.
  * Unifies the scheduler vs. direct spawn branching used across pipeline steps.
@@ -1536,6 +1596,13 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
         results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
 
+        // Knowledge mining (non-blocking — failure does not halt pipeline)
+        try {
+          await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
+        } catch (_err) {
+          log(`Phase ${task.phaseNum}: knowledge mining error (non-blocking)`);
+        }
+
         // Launch post-phase pipeline concurrently (Steps 1-3 run in parallel across
         // phases; Step 4 rebase+merge is serialized via the shared mergeQueue).
         if (!skipPostPipeline) {
@@ -2121,6 +2188,8 @@ module.exports = {
   buildCodeReviewPrompt,
   buildConflictResolvePrompt,
   buildWireupPrompt,
+  buildKnowledgeMiningPrompt,
+  runKnowledgeMining,
   runPostPhasePipeline,
   buildWaves,
   parseWriteIntent,
