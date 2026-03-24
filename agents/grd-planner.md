@@ -122,6 +122,27 @@ Surface relevant production pitfalls in task actions:
 - Common implementation traps → add "avoid" guidance in `<action>`
 </research_context>
 
+<knowhow_injection>
+## Accumulated Knowledge (KNOWHOW.md)
+
+Before generating plans, check for accumulated project knowledge:
+
+```bash
+cat ${research_dir}/../KNOWHOW.md 2>/dev/null || cat .planning/milestones/*/KNOWHOW.md 2>/dev/null | head -1
+```
+
+**If KNOWHOW.md exists:**
+- Read the file and identify the top-5 most applicable entries for the current phase
+- Applicable entries are those whose `applicability` field matches the phase's domain or whose `source` references modules being modified
+- Incorporate relevant patterns into plan task actions where they apply
+- Reference the pattern by name in task action blocks (e.g., "following the X pattern from KNOWHOW.md")
+
+**If KNOWHOW.md does not exist:**
+- Continue normally — this is expected for early milestones before knowledge mining runs
+
+This creates a compounding improvement loop: each phase's execution feeds patterns into KNOWHOW.md, which subsequent planning phases consume.
+</knowhow_injection>
+
 <philosophy>
 
 ## Solo Researcher + Claude Workflow

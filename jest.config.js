@@ -24,6 +24,7 @@ module.exports = {
     './lib/frontmatter.ts': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.ts': { lines: 98, functions: 100, branches: 82 },
     './lib/invariants.ts': { lines: 90, functions: 90, statements: 90, branches: 85 },
+    './lib/knowledge.ts': { lines: 85, functions: 100, branches: 75 },
     './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },
     './lib/markdown-split.ts': { lines: 95, functions: 100, branches: 90 },
     './lib/mcp-server.ts': { lines: 85, functions: 85, branches: 55 },
