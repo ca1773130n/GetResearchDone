@@ -879,6 +879,59 @@ function parseWriteIntent(frontmatterContent: string): string[] {
 }
 
 /**
+ * Comparison result from `compareWriteIntent()`.
+ */
+interface WriteIntentComparison {
+  unexpected: string[];  // Files modified but not declared
+  untouched: string[];   // Files declared but not modified
+  matches: string[];     // Files both declared and modified
+}
+
+/**
+ * Compare declared write-intent files against actually-modified files.
+ * Pure function — no side effects.
+ *
+ * @param declared - File paths listed in `files_modified` frontmatter
+ * @param actual   - File paths from `git diff --name-only`
+ * @returns Categorized comparison result
+ */
+function compareWriteIntent(
+  declared: string[],
+  actual: string[]
+): WriteIntentComparison {
+  const declaredSet = new Set(declared);
+  const actualSet = new Set(actual);
+
+  const matches = declared.filter(f => actualSet.has(f));
+  const untouched = declared.filter(f => !actualSet.has(f));
+  const unexpected = actual.filter(f => !declaredSet.has(f));
+
+  return { unexpected, untouched, matches };
+}
+
+/**
+ * Format write-intent comparison results as log lines with `[WRITE-INTENT-MISMATCH]` prefix.
+ * Returns empty array when no mismatches.
+ *
+ * @param planId     - The plan identifier (e.g. "89-03")
+ * @param comparison - Result from `compareWriteIntent()`
+ * @returns Array of formatted log lines
+ */
+function formatWriteIntentMismatch(
+  planId: string,
+  comparison: WriteIntentComparison
+): string[] {
+  const lines: string[] = [];
+  for (const f of comparison.unexpected) {
+    lines.push(`[WRITE-INTENT-MISMATCH] Plan ${planId}: unexpected file modified: ${f}`);
+  }
+  for (const f of comparison.untouched) {
+    lines.push(`[WRITE-INTENT-MISMATCH] Plan ${planId}: declared file not modified: ${f}`);
+  }
+  return lines;
+}
+
+/**
  * Options for buildWaves() — controls write-intent conflict detection.
  */
 interface BuildWavesOptions {
@@ -2084,6 +2137,8 @@ module.exports = {
   runPostPhasePipeline,
   buildWaves,
   parseWriteIntent,
+  compareWriteIntent,
+  formatWriteIntentMismatch,
   writeStatusMarker,
   updateStateProgress,
   DEFAULT_TIMEOUT_MINUTES,
