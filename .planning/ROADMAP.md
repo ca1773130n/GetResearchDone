@@ -219,7 +219,7 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
 **Milestone Goal:** Enhance autopilot with worktree-isolated parallel phase execution, a 4-step post-phase pipeline (simplify, PR, code review, rebase+merge), a serial merge queue preventing concurrent rebase races, write-intent manifests driving wave conflict detection, and always-on auto-resume with milestone mode as default.
 **Start:** 2026-03-24
 
-- [ ] **Phase 87: Post-Phase Pipeline Core** - Simplify, PR creation, code review, and rebase+merge steps plus the pipeline orchestrator `implement`
+- [x] **Phase 87: Post-Phase Pipeline Core** - Simplify, PR creation, code review, and rebase+merge steps plus the pipeline orchestrator `implement` (completed 2026-03-24)
 - [ ] **Phase 88: Serial Merge Queue and Conflict Resolution** - Sequential merge gate for parallel phases and conflict resolution subprocess `implement`
 - [ ] **Phase 89: Write-Intent Manifests and Wave Builder** - Phase plan file list declarations, wave-level conflict detection, and declared-vs-actual feedback `implement`
 - [ ] **Phase 90: Autopilot Mode Changes and Parallel Execution** - Always-on auto-resume, milestone-mode default, worktree-isolated parallel execution, and shared state locking `implement`
@@ -238,11 +238,11 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
   3. `buildCodeReviewPrompt(prUrl)` produces a reviewer prompt targeting the PR diff; any BLOCKER or WARNING finding triggers a fix push to the branch before proceeding.
   4. Rebase step (`git rebase main`) runs before merge; on conflict, a conflict-resolve subprocess is spawned with both file versions and the phase's intent context; non-zero subprocess exit halts the pipeline immediately.
   5. `runPostPhasePipeline(cwd, phaseNum, worktreePath, opts)` executes all four steps in order; if any step fails, autopilot stops and reports the failed step name and phase number; `--skip-post-pipeline` flag bypasses all four steps.
-**Plans**: TBD
+**Plans**: 2/2 complete
 
 Plans:
-- [ ] 87-01: `buildSimplifyPrompt()` and `buildCodeReviewPrompt()` — prompt builders with env stripping
-- [ ] 87-02: Rebase+merge step with conflict-resolve subprocess and `runPostPhasePipeline()` orchestrator
+- [x] 87-01: `buildSimplifyPrompt()` and `buildCodeReviewPrompt()` — prompt builders with env stripping (completed 2026-03-24)
+- [x] 87-02: Rebase+merge step with conflict-resolve subprocess and `runPostPhasePipeline()` orchestrator (completed 2026-03-24)
 
 #### Phase 88: Serial Merge Queue and Conflict Resolution
 
@@ -334,7 +334,7 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91
 | 84. Workflow Integration | v0.3.20 | 3/3 | Complete | 2026-03-23 |
 | 85. MCP Tools, CLI, and Testing | v0.3.20 | 2/2 | Complete | 2026-03-23 |
 | 86. Elicitation Detection and Resolution Core | v0.3.21 | 2/2 | Complete | 2026-03-24 |
-| 87. Post-Phase Pipeline Core | v0.3.22 | 0/TBD | Not started | - |
+| 87. Post-Phase Pipeline Core | v0.3.22 | 2/2 | Complete | 2026-03-24 |
 | 88. Serial Merge Queue and Conflict Resolution | v0.3.22 | 0/TBD | Not started | - |
 | 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 0/TBD | Not started | - |
 | 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 0/TBD | Not started | - |
