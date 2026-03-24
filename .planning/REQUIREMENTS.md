@@ -91,18 +91,18 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-179 | TBD | PENDING |
-| REQ-180 | TBD | PENDING |
-| REQ-181 | TBD | PENDING |
-| REQ-182 | TBD | PENDING |
-| REQ-183 | TBD | PENDING |
-| REQ-184 | TBD | PENDING |
-| REQ-185 | TBD | PENDING |
-| REQ-186 | TBD | PENDING |
-| REQ-187 | TBD | PENDING |
-| REQ-188 | TBD | PENDING |
-| REQ-189 | TBD | PENDING |
-| REQ-190 | TBD | PENDING |
-| REQ-191 | TBD | PENDING |
-| REQ-192 | TBD | PENDING |
-| REQ-193 | TBD | PENDING |
+| REQ-179 | Phase 92 | PENDING |
+| REQ-180 | Phase 92 | PENDING |
+| REQ-181 | Phase 92 | PENDING |
+| REQ-182 | Phase 93 | PENDING |
+| REQ-183 | Phase 93 | PENDING |
+| REQ-184 | Phase 93 | PENDING |
+| REQ-185 | Phase 93 | PENDING |
+| REQ-186 | Phase 94 | PENDING |
+| REQ-187 | Phase 94 | PENDING |
+| REQ-188 | Phase 94 | PENDING |
+| REQ-189 | Phase 94 | PENDING |
+| REQ-190 | Phase 95 | PENDING |
+| REQ-191 | Phase 95 | PENDING |
+| REQ-192 | Phase 95 | PENDING |
+| REQ-193 | Phase 95 | PENDING |

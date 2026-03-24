@@ -32,6 +32,7 @@
 - v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (shipped 2026-03-23)
 - v0.3.21 Elicitation Replacement - Phase 86 (shipped 2026-03-24)
 - v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration - Phases 87-91 (in progress)
+- v0.3.23 NERFIFY-Inspired Research Phase Enhancements - Phases 92-95 (planned)
 
 ## Phases
 
@@ -234,48 +235,45 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
   1. `buildSimplifyPrompt(phaseNum)` produces a prompt that, when spawned via `claude -p`, targets the phase's changed files for code quality review; subprocess invocation strips CLAUDE session env vars via `buildBackendEnv()`.
-  2. `pushAndCreatePR()` (reused from `lib/worktree.ts`) pushes the worktree branch and creates a PR targeting main; PR title follows the phase naming convention (`grd/{milestone}/{phase}-{slug}`).
-  3. `buildCodeReviewPrompt(prUrl)` produces a reviewer prompt targeting the PR diff; any BLOCKER or WARNING finding triggers a fix push to the branch before proceeding.
-  4. Rebase step (`git rebase main`) runs before merge; on conflict, a conflict-resolve subprocess is spawned with both file versions and the phase's intent context; non-zero subprocess exit halts the pipeline immediately.
-  5. `runPostPhasePipeline(cwd, phaseNum, worktreePath, opts)` executes all four steps in order; if any step fails, autopilot stops and reports the failed step name and phase number; `--skip-post-pipeline` flag bypasses all four steps.
-**Plans**: 2/2 complete
+  2. `buildPRPrompt(phaseNum)` produces a PR creation prompt that calls `gh pr create` with a summary generated from the phase SUMMARY.md; result URL is captured and stored in the phase directory.
+  3. `buildCodeReviewPrompt(phaseNum, prUrl)` produces a review prompt that reads VERIFICATION.md for BLOCKER/WARNING findings, spawns a fix subprocess, and marks blockers resolved on success.
+  4. `buildRebaseMergePrompt(phaseNum)` produces a prompt that rebases the phase branch onto main and merges — using the serial merge queue from Phase 88 to ensure no concurrent rebases.
+  5. `runPostPhasePipeline(phaseNum, options)` calls all 4 steps in order, respects `--skip-post-pipeline` flag, returns structured `PostPipelineResult` with per-step status, and writes result to `.planning/milestones/{milestone}/phases/{phase}/POST-PIPELINE.md`.
+**Plans**: 2 plans
 
 Plans:
-- [x] 87-01: `buildSimplifyPrompt()` and `buildCodeReviewPrompt()` — prompt builders with env stripping (completed 2026-03-24)
-- [x] 87-02: Rebase+merge step with conflict-resolve subprocess and `runPostPhasePipeline()` orchestrator (completed 2026-03-24)
+- [x] 87-01: Simplify and PR creation pipeline steps and orchestrator skeleton
+- [x] 87-02: Code review and rebase+merge steps with per-step timeout and skip flag
 
 #### Phase 88: Serial Merge Queue and Conflict Resolution
 
-**Goal**: When multiple phases complete execution in parallel, their post-phase pipelines merge to main in arrival order — only one rebase+merge runs at a time, preventing concurrent rebase race conditions — and when git rebase produces conflicts, a `claude -p` subprocess with full phase intent context resolves them or halts autopilot cleanly.
+**Goal**: Parallel phases that complete at the same time merge in arrival order via a shared serial merge queue. Conflict resolution spawns a claude -p subprocess to resolve conflicts automatically; non-zero exit halts autopilot with a structured error message identifying the conflicting files and manual resolution steps.
 **Type**: implement
 **Depends on**: Phase 87
 **Requirements**: REQ-165, REQ-166
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
-  1. A merge queue data structure (or equivalent async coordination primitive) ensures that when N phases complete execution concurrently, their rebase+merge steps execute one at a time in the order each phase finished execution.
-  2. Phases waiting in the queue proceed to their own simplify and PR/review steps independently; only the rebase+merge step serializes — simplify and code review run in parallel.
-  3. When `git rebase main` exits with conflicts, the conflict-resolve subprocess receives: (a) both conflicting file versions, (b) the phase goal and plan summary, (c) an explicit instruction to preserve changes from both versions; CLAUDE session env vars stripped.
-  4. If the conflict-resolve subprocess exits non-zero, autopilot halts with a clear message identifying the phase, the conflicting file(s), and the manual steps needed.
-**Plans**: 2 plans
+  1. `MergeQueue` class exposes a single `enqueue(fn)` method; concurrent enqueue calls execute in FIFO order with each fn completing fully before the next begins; implemented as a promise-chain tail (zero external dependencies).
+  2. The autopilot wave loop passes each phase's rebase+merge step through the shared `MergeQueue` instance — parallel phases in the same wave run their execute steps concurrently but their merge steps are serialized.
+  3. `buildConflictResolvePrompt(cwd, wtPath, conflictFiles)` produces a prompt instructing `claude -p` to resolve conflicts in the given worktree; on non-zero exit, autopilot halts with a message listing conflicting files and manual steps.
+**Plans**: TBD
 
 Plans:
-- [ ] 88-01-PLAN.md — Merge queue primitive and concurrent post-pipeline restructure
-- [ ] 88-02-PLAN.md — Enhanced buildConflictResolvePrompt with phase context and conflict-halt reporting
+- [ ] 88-01: MergeQueue implementation and autopilot wave loop integration
+- [ ] 88-02: Conflict resolution subprocess and halt behavior
 
 #### Phase 89: Write-Intent Manifests and Wave Builder
 
-**Goal**: Phase PLAN.md files declare a `files_modified` list that the wave builder uses to detect same-file conflicts between parallel phases — phases that both declare the same `lib/` module are moved to separate waves — and after each execution, declared vs actual modified files are compared and discrepancies logged.
+**Goal**: Each plan file declares `files_modified: string[]` in its YAML frontmatter. The wave builder reads these declarations before scheduling execution and splits conflicting plans into separate waves. After execution, declared files are compared against actual git changes; mismatches are logged as WRITE-INTENT-MISMATCH entries.
 **Type**: implement
 **Depends on**: Phase 88
 **Requirements**: REQ-167, REQ-168, REQ-169
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
-  1. `buildPlanPrompt()` in `lib/autopilot.ts` instructs the planner to include a `files_modified:` YAML block in PLAN.md listing the `lib/` modules and other files the plan expects to modify; `cmdInitExecutePhase` parses this block on plan load.
-  2. `buildWaves()` in `lib/parallel.ts` cross-references `files_modified` across phases within the same wave; any two phases declaring the same `lib/` file are placed in separate waves, with the later phase moved to the next wave.
-  3. Existing `depends_on` dependency logic is preserved unchanged; write-intent conflict detection is an additive constraint layered on top.
-  4. `--force-parallel` flag overrides write-intent serialization and forces all phases into one wave (for intentional parallel runs where the planner has declared the same file deliberately).
-  5. After each phase execution, `git diff --name-only` output is compared to the plan's `files_modified` list; unexpected files and declared-but-untouched files are both logged to the autopilot log with a `[WRITE-INTENT-MISMATCH]` prefix.
-**Plans**: TBD
+  1. `parseWriteIntent(planContent)` extracts `files_modified` from YAML frontmatter in a PLAN.md file; returns an empty array if the field is absent; handles both inline YAML list and dash-list formats.
+  2. `splitWave(wave, writeIntents)` uses greedy first-fit to partition plans with overlapping `files_modified` into separate sub-waves; plans with no declared files are placed in the first sub-wave; `--force-parallel` returns the original wave unchanged.
+  3. `compareWriteIntent(declared, actual)` returns an array of mismatch entries (undeclared writes and declared-but-unmodified files); `formatWriteIntentMismatch` produces `[WRITE-INTENT-MISMATCH]`-prefixed log lines for each entry.
+**Plans**: 3 plans
 
 Plans:
 - [x] 89-01: Write-intent declaration in planner prompt and parsing in `cmdInitExecutePhase`
@@ -322,10 +320,100 @@ Plans:
 - [ ] 91-02: Write-intent parsing edge cases and buildWaves file-conflict tests
 - [ ] 91-03: E2E integration test — two-phase parallel pipeline with serial merge
 
+### v0.3.23 NERFIFY-Inspired Research Phase Enhancements (Planned)
+
+**Milestone Goal:** Adapt 4 key innovations from the NERFIFY paper into GRD's research and execution phases: CFG formalization for typed plan/artifact schema validation, compositional citation recovery for deep research completeness, Graph-of-Thought topological synthesis for dependency-aware planning, and agentic knowledge enhancement for compounding improvements across phases.
+**Start:** 2026-03-24
+
+- [ ] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement`
+- [ ] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement`
+- [ ] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement`
+- [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
+
+#### Phase 92: CFG Formalization
+
+**Goal**: A typed `lib/invariants.ts` module defines interfaces for plan artifacts (`objective`, `files_modified`, `provides`, `requires`, `integration_points`) and exposes three validation classes — structural (fields exist and have correct types), semantic (objectives reference valid modules, file paths plausible), and cross-phase (no duplicate `provides`, all `requires` are satisfied). The `grd-plan-checker` agent hard-rejects plans that fail invariant validation before they reach execution. Research artifacts (LANDSCAPE.md, PAPERS.md, RESEARCH.md) are validated for required sections.
+**Type**: implement
+**Depends on**: Phase 91 (v0.3.22 integration tests complete; `lib/gates.ts` available as wiring target)
+**Requirements**: REQ-179, REQ-180, REQ-181
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `validateStructural(plan)`, `validateSemantic(plan, cwd)`, and `validateCrossPhase(plans)` are exported from `lib/invariants.ts` and return typed `ValidationResult` objects with `valid: boolean`, `errors: string[]`, and `warnings: string[]`.
+  2. `grd-plan-checker` agent prompt references the invariant schema and calls the validation gate; a plan missing `objective` or containing a `requires` entry with no matching `provides` in the phase plan set is rejected with a structured error listing failed checks.
+  3. Research artifact validation checks that LANDSCAPE.md contains a comparison table (Markdown `|` rows), PAPERS.md has structured entries (headings + field list), and RESEARCH.md has `## Method` and `## Tradeoffs` sections; missing sections produce actionable error messages.
+  4. Unit tests achieve 90%+ line coverage on `lib/invariants.ts`; tests cover all three validation classes, valid-plan pass-through, malformed input edge cases (empty fields, missing keys, null values), and cross-phase duplicate-provides detection.
+  5. `npm test`, `npm run lint`, and `npm run build:check` pass with zero errors after the new module is added.
+**Plans**: TBD
+
+Plans:
+- [ ] 92-01: `lib/invariants.ts` — typed interfaces and three validation classes
+- [ ] 92-02: `grd-plan-checker` gate wiring and research artifact validation
+- [ ] 92-03: Unit tests for all validation classes (90%+ coverage on `lib/invariants.ts`)
+
+#### Phase 93: Compositional Citation Recovery
+
+**Goal**: The `grd-deep-diver` agent emits structured `missing_components` and `borrowed_components` fields in PAPERS.md output. Citation graphs are stored as `.planning/research/citations/{paper-slug}.json`. `lib/citations.ts` exposes `buildCitationGraph()`, `resolveCitations()`, and `findUnresolved()`. The `grd-phase-researcher` agent runs a citation-recovery pass that fetches referenced papers via arXiv/Semantic Scholar APIs, extracts techniques, and populates the graph. A configurable gate blocks planning if critical unresolved dependencies remain.
+**Type**: implement
+**Depends on**: Phase 92 (invariant schema defines structured output contracts that citation fields must satisfy)
+**Requirements**: REQ-182, REQ-183, REQ-184, REQ-185
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `grd-deep-diver` agent prompt instructs the agent to emit `missing_components: [{name, source_paper, description, code_available}]` and `borrowed_components: [{name, source_paper, description}]` sections in each PAPERS.md paper entry.
+  2. `buildCitationGraph(papersDir)` parses all PAPERS.md files in a directory, extracts `missing_components` and `borrowed_components` entries, and returns a `CitationGraph` with `nodes` (paper slugs) and `edges` (dependency relationships); graph is stored as `citations/{paper-slug}.json`.
+  3. `resolveCitations(graph, apiConfig)` attempts to fetch each unresolved dependency via arXiv API or Semantic Scholar API (mocked in tests), marks successfully fetched papers as resolved, and appends the extracted technique summary to the citation graph node.
+  4. `findUnresolved(graph)` returns all citation graph nodes with `resolved: false`; the `grd-phase-researcher` gate checks this list and blocks the planning phase if any node has `priority: critical` and `resolved: false`.
+  5. Unit tests achieve 85%+ line coverage on `lib/citations.ts`; API calls are mocked; tests cover graph construction from PAPERS.md, resolution marking, unresolved detection, and the configurable gate behavior.
+**Plans**: TBD
+
+Plans:
+- [ ] 93-01: `lib/citations.ts` — citation graph data structures and `buildCitationGraph()`
+- [ ] 93-02: `grd-deep-diver` structured output and `grd-phase-researcher` recovery pass
+- [ ] 93-03: `resolveCitations()`, `findUnresolved()`, configurable planning gate, and unit tests
+
+#### Phase 94: Graph-of-Thought Synthesis
+
+**Goal**: Plan artifacts declare `provides: string[]`, `requires: string[]`, and `integration_points: string[]` fields (from the Phase 92 schema). `buildArtifactDAG(plans)` in `lib/deps.ts` constructs a directed graph from these declarations, validates for cycles and missing dependencies, and returns a topologically sorted execution order. `buildWaves()` in `lib/parallel.ts` consumes the artifact DAG alongside existing `depends_on` to sequence plans whose `requires` aren't yet provided. Resolved dependency context is injected into executor prompts.
+**Type**: implement
+**Depends on**: Phase 93 (citation recovery provides resolved component context that feeds into artifact `requires` declarations)
+**Requirements**: REQ-186, REQ-187, REQ-188, REQ-189
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `buildPlanPrompt()` instructs the planner to declare `provides`, `requires`, and `integration_points` in each plan's YAML frontmatter; generated plans include these fields with semantically meaningful artifact names (e.g., `provides: ["lib/citations.ts:CitationGraph"]`).
+  2. `buildArtifactDAG(plans)` constructs a directed graph where each edge represents a `requires`→`provides` dependency between plans; `validateArtifactDAG(dag)` returns errors for cycles (using DFS) and for `requires` entries with no matching `provides` in the plan set.
+  3. `buildWaves(phases, options)` in `lib/parallel.ts` accepts an optional `artifactDAG` parameter; plans whose `requires` are not yet provided by an earlier wave are moved to a later wave, producing a topologically valid execution schedule that respects both `depends_on` and artifact dependencies.
+  4. When a plan's `requires` is satisfied by a provider plan that has completed execution, the provider's SUMMARY.md content is injected into the executor's context prompt as a `<dependency_context>` block, making the resolved artifact available to the implementing agent.
+  5. Unit tests achieve 85%+ line coverage on new code in `lib/deps.ts` and `lib/parallel.ts`; tests cover DAG construction, cycle detection (including multi-node cycles), topological sort correctness, wave builder integration, and dependency context injection.
+**Plans**: TBD
+
+Plans:
+- [ ] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
+- [ ] 94-02: `buildWaves()` DAG integration in `lib/parallel.ts` and `buildPlanPrompt()` update
+- [ ] 94-03: Dependency context injection into executor prompts and unit tests
+
+#### Phase 95: Agentic Knowledge Enhancement
+
+**Goal**: A `grd-knowledge-miner` agent runs as a post-phase step in the autopilot pipeline (after verify, before post-pipeline). It analyzes phase execution output against recovered citations and the existing codebase, producing structured entries in `.planning/milestones/{milestone}/KNOWHOW.md`. Each entry contains: pattern name, source (paper slug, codebase path, or execution result), applicability conditions, and a code snippet. KNOWHOW.md is fed into `grd-planner` and `grd-phase-researcher` context for subsequent phases, creating compounding improvements.
+**Type**: implement
+**Depends on**: Phase 94 (artifact DAG and citation recovery both provide structured inputs for knowledge mining)
+**Requirements**: REQ-190, REQ-191, REQ-192, REQ-193
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `agents/grd-knowledge-miner.md` defines a focused post-phase agent that reads the phase SUMMARY.md, VERIFICATION.md, resolved citation graph, and a sample of existing lib/ files to produce `KNOWHOW.md` entries with the required fields (pattern_name, source, applicability, code_snippet).
+  2. `KNOWHOW.md` is stored at `.planning/milestones/{milestone}/KNOWHOW.md`; each entry is a level-3 heading with the pattern name followed by structured YAML fields; the file accumulates entries across phases without overwriting prior entries.
+  3. `grd-planner` and `grd-phase-researcher` agent prompts include a conditional `<knowhow>` block that reads KNOWHOW.md if it exists and injects the top-5 most-applicable entries (by recency and module overlap) into the agent's context before plan generation.
+  4. The autopilot pipeline in `lib/autopilot.ts` spawns the `grd-knowledge-miner` agent after `runVerification()` and before `runPostPhasePipeline()`; the step is skipped gracefully if the agent definition file does not exist (backward compatible); mining results are included in the phase SUMMARY.md.
+  5. Unit tests for knowledge mining output parsing (KNOWHOW.md entry extraction and deduplication) and an integration test asserting the mining step appears in the autopilot pipeline execution sequence; `npm test`, `npm run lint`, and `npm run build:check` pass with zero errors.
+**Plans**: TBD
+
+Plans:
+- [ ] 95-01: `agents/grd-knowledge-miner.md` and `KNOWHOW.md` storage format
+- [ ] 95-02: `grd-planner` and `grd-phase-researcher` KNOWHOW.md context injection
+- [ ] 95-03: Autopilot pipeline integration and unit + integration tests
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91
+Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 -> 95
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -339,6 +427,10 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91
 | 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 0/TBD | Not started | - |
 | 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 0/TBD | Not started | - |
 | 91. Integration Testing and Validation | v0.3.22 | 0/TBD | Not started | - |
+| 92. CFG Formalization | v0.3.23 | 0/TBD | Not started | - |
+| 93. Compositional Citation Recovery | v0.3.23 | 0/TBD | Not started | - |
+| 94. Graph-of-Thought Synthesis | v0.3.23 | 0/TBD | Not started | - |
+| 95. Agentic Knowledge Enhancement | v0.3.23 | 0/TBD | Not started | - |
 
 ## Deferred Validations
 

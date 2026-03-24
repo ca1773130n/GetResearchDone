@@ -8,62 +8,39 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
 **Current focus:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-**Previous:** v0.3.22 Autopilot v2 (shipped 2026-03-24)
+**Previous:** v0.3.22 Autopilot v2 (in progress — Phases 88-91 pending)
 
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
+- **Active phase:** Phase 92 (CFG Formalization) — not started
 - **Current plan:** None
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Defining requirements
+- **Status:** Roadmap created, ready to plan Phase 92
 - **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Define requirements → create roadmap
+- **Next:** Plan Phase 92 (`gd plan-phase 92`)
 
 ## Phase Summary
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 78 | Core Wireup Infrastructure | Complete (2026-03-20) |
-| 79 | Wireup Orchestrator and Execution | Complete (2026-03-20) |
-| 80 | Browser Execution and Auto-Fix | Complete (2026-03-21) |
-| 81 | MCP Tools, Testing, and Integration | Complete (2026-03-21) |
-| 82 | Discussion Infrastructure | Complete (2026-03-23) |
-| 83 | Discussion Protocol Core | Complete (2026-03-23) |
-| 84 | Workflow Integration | Complete (2026-03-23) |
-| 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
-| 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
-| 88 | Serial Merge Queue and Conflict Resolution | In progress (plan 01 complete) |
-| 89 | Write-Intent Manifests and Wave Builder | In progress (plan 01 complete) |
-| 90 | Autopilot Mode Changes and Parallel Execution | Complete (2026-03-24) |
-| 91 | Integration Testing and Validation | In progress (plan 02 complete) |
+| 88 | Serial Merge Queue and Conflict Resolution | In progress |
+| 89 | Write-Intent Manifests and Wave Builder | In progress |
+| 90 | Autopilot Mode Changes and Parallel Execution | Not started |
+| 91 | Integration Testing and Validation | In progress |
+| 92 | CFG Formalization | Not started |
+| 93 | Compositional Citation Recovery | Not started |
+| 94 | Graph-of-Thought Synthesis | Not started |
+| 95 | Agentic Knowledge Enhancement | Not started |
 
-## Shipped Milestones (v0.3.x series)
-
-| Version | Name | Status |
-|---------|------|--------|
-| v0.3.0 | TypeScript Migration & Refactoring | Shipped (Phases 58-68, 44 plans) |
-| v0.3.1 | Node v22 Compatibility Fix | Shipped (bugfix) |
-| v0.3.2 | Autopilot & Evolve Fixes | Shipped (bugfix) |
-| v0.3.3 | Evolve Dynamic Scanning & Dashboard Fix | Shipped (bugfix + feature) |
-| v0.3.4 | Evolve Auto-Commit & PR Creation | Shipped (feature) |
-| v0.3.5 | Evolve Stabilization & Product Ideation | Shipped (feature) |
-| v0.3.6 | Backend Ecosystem Sync | Shipped (Phases 69-70, 4 plans) |
-| v0.3.7 | Claude Code Feature Sync | Shipped (Phases 71-73, 5 plans) |
-| v0.3.12 | Multi-Backend Feature Sync | Shipped (Phases 74-77, 8 plans) |
-| v0.3.13 | Wireup Command | Shipped (Phases 78-81, 12 plans) |
-| v0.3.20 | Multi-Agent Cross-Backend Discussion | Shipped (Phases 82-85) |
-| v0.3.21 | Elicitation Replacement | Shipped (Phase 86) |
-
-## v0.3.22 Roadmap
+## v0.3.23 Roadmap
 
 | Phase | Goal | Requirements | Verification |
 |-------|------|--------------|--------------|
-| 87 — Post-Phase Pipeline Core | 4-step pipeline: simplify, PR, code review, rebase+merge | REQ-160–164 | proxy |
-| 88 — Serial Merge Queue | Sequential merge gate + conflict resolution subprocess | REQ-165–166 | proxy |
-| 89 — Write-Intent Manifests | `files_modified` declarations + wave conflict detection | REQ-167–169 | proxy |
-| 90 — Autopilot Mode Changes | Milestone default, auto-resume, parallel worktrees, atomic writes | REQ-170–174 | proxy |
-| 91 — Integration Testing | Unit tests (85%+ coverage) + E2E pipeline test | REQ-175–178 | full |
+| 92 — CFG Formalization | Typed invariant schema + pre-flight validation gate | REQ-179–181 | proxy |
+| 93 — Compositional Citation Recovery | Deep-diver structured output, citation graph, recovery pass | REQ-182–185 | proxy |
+| 94 — Graph-of-Thought Synthesis | Artifact DAG, wave builder DAG integration | REQ-186–189 | proxy |
+| 95 — Agentic Knowledge Enhancement | Knowledge miner agent, KNOWHOW.md, pipeline integration | REQ-190–193 | proxy |
 
 ## Deferred Validations
 
@@ -88,45 +65,21 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Cumulative:**
 - Milestones shipped: 28 (v0.0.5 through v0.3.21)
-- Total tests: 3,557 (after Phase 86 — elicitation module at 90%+ coverage)
-- Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
+- Total tests: 3,672 (after Phase 91 plan 01)
+- Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories)
 - Total commands: 41
 - MCP tools: 132
 
 ## Decisions
 
-- [Phase 74]: codex.haiku mapped to gpt-5.4-mini; gemini.sonnet mapped to gemini-3.1-flash; max_output_tokens typed as nullable
-- [Phase 75]: StopFailure handler checks autopilot.log presence; PostCompact is minimal/informational; CLAUDE_PLUGIN_DATA boundary documented
-- [Phase 78]: Discovery uses regex-based export extraction; State file at .planning/WIREUP-STATE.json; scenario steps are category-specific
-- [Phase 79]: HTTP execution uses built-in fetch with AbortController; CLI uses spawnSync; cmdInitWireup in lib/wireup/cli.ts mirrors cmdInitEvolve
-- [Phase 80]: detectPlaywright() mirrors detectWebMcp() waterfall; autoFixIssue delegates via reRunFn callback; WIREUP_FIX_MODEL aliases SONNET_MODEL
-- [Phase 81]: Five wireup cmd wrappers follow evolve pattern; coverage threshold on lib/wireup/index.ts barrel
-- [Phase 82]: BACKEND_CLI_MAP maps four dispatchable backends; DISCUSSION_SONNET_MODEL = 'sonnet' ceiling; detectAvailableBackends uses 5-min TTL cache; config validates backend_roles and discussion sections
-- [Phase 83]: runDiscussion() uses Promise.allSettled() for structural concurrency (not OS-level parallelism — execFileSync limitation); fs.writeFileSync called synchronously before return; buildSynthesisPrompt/buildDiscussionMarkdown are internal helpers not exported
-- [Phase 84]: reviewPlanViaBackend and reviewCodeViaBackend check reviewer != primary backend to prevent self-review
-- [Phase 84]: before_execution gated as === true (explicit opt-in) vs before_planning as !== false (default enabled)
-- [Phase 84]: Workflow integration test mocks use existing jest.mock infrastructure; no spyOn needed for runDiscussion since execFileSync mock controls all dispatch output
-- [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
-- [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
-- [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
-- [Phase 86]: detectElicitation uses two-pass approach (numbered_options pre-scan, then line-by-line); buildElicitationContext budgets 5 sections at 1K/1K/2K/2K/1K chars; resolveElicitation uses rounds=1 with fallback chain: synthesis → first non-skipped round-1 → empty string
-- [Phase 86]: ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
-- [Design spec v0.3.22]: No external plugin dependencies — post-phase review uses built-in prompts, not 3rd-party toolkits
-- [Design spec v0.3.22]: Sequential merge with rebase — PRs merge one at a time, always rebasing first; conflicts auto-resolved by claude -p subprocess
-- [Design spec v0.3.22]: Reuse lib/worktree.ts functions (worktreePath, pushAndCreatePR, create/remove) — no parallel worktree management system
-- [Design spec v0.3.22]: LLM-based conflict resolution falls back to halting for human intervention on non-zero subprocess exit
-- [Design spec v0.3.22]: Write-intent is best-effort declaration, not a contract; --force-parallel overrides for intentional overlapping execution
-- [Phase 88]: Promise-chain tail pattern for MergeQueue — zero external dependencies, FIFO arrival-order guaranteed by sequential tail.then() chaining
-- [Phase 88]: Autopilot wave loop launches post-pipelines concurrently (Promise.all); only rebase+merge serialized via shared mergeQueue instance across all waves
-- [Phase 88]: buildConflictResolvePrompt takes cwd (project root for findPhaseInternal) and wtPath (worktree for git conflict enumeration) as separate parameters; failure reason encodes conflicting files and manual steps as string for backward compatibility
-- [Phase 89]: parseWriteIntent is a pure function operating on raw frontmatter content string; plan_files_modified uses plan filename stem as key; extractFrontmatter handles both YAML formats
-- [Phase 89]: splitWave uses greedy first-fit: phases placed into the first sub-wave with no file conflict
-- [Phase 89]: BuildWavesOptions.forceParallel=true bypasses conflict detection — returns raw dependency-graph waves unchanged
-- [Phase 89]: compareWriteIntent is pure with zero side effects; formatWriteIntentMismatch returns [] for no mismatches
-- [Phase 90]: atomicWriteFileSync is internal (not exported) — implementation detail shared by writeStatusMarker, updateStateProgress, and log closures
-- [Phase 90]: Lock mechanism in updateStateProgress preserved alongside atomic write: lock prevents concurrent races; atomic write prevents partial content on crash
-- [Phase 91]: parseWriteIntent does not strip YAML quotes from dash-list values; compareWriteIntent Set-dedup behavior with duplicate declared entries is documented via tests
-- [Phase 91]: jest.spyOn cannot intercept execFileSync calls from modules that destructure it at load time; tests use conditional assertions — consistent with existing halt-message test pattern
+- [Phase 88]: Promise-chain tail pattern for MergeQueue — zero external dependencies, FIFO arrival-order guaranteed
+- [Phase 89]: parseWriteIntent is a pure function on raw frontmatter content; splitWave uses greedy first-fit
+- [Phase 90]: atomicWriteFileSync is internal (not exported); lock mechanism preserved alongside atomic write
+- [Phase 91]: parseWriteIntent does not strip YAML quotes from dash-list values; jest.spyOn cannot intercept execFileSync from modules that destructure at load time
+- [Design spec v0.3.23]: CFG formalization is prerequisite — validates plan structure before citation recovery and GoT synthesis depend on it
+- [Design spec v0.3.23]: Citation recovery gates planning when critical unresolved dependencies remain (configurable)
+- [Design spec v0.3.23]: buildArtifactDAG lives in lib/deps.ts alongside existing Kahn's algorithm; buildWaves extended (not replaced) in lib/parallel.ts
+- [Design spec v0.3.23]: Knowledge miner step is backward-compatible — skipped gracefully if agent definition file absent
 
 ## Known Bugs
 
@@ -134,14 +87,14 @@ None.
 
 ## Blockers
 
-None.
+None. v0.3.22 Phases 88-91 must complete before Phase 92 can begin.
 
 ## Session Continuity
 
-- **Last action:** Phase 91 plans 01 and 02 created and completed
-- **Stopped at:** Completed 91-01-PLAN.md
-- **Next action:** Execute Phase 91 plan 03 or complete Phase 91
-- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
+- **Last action:** v0.3.23 roadmap created (Phases 92-95, 15 requirements mapped)
+- **Stopped at:** Roadmap written, STATE.md updated, REQUIREMENTS.md traceability updated
+- **Next action:** Complete v0.3.22 (Phases 88-91), then plan Phase 92
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, .planning/REQUIREMENTS.md
 
 ---
 
