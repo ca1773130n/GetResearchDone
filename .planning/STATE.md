@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 93 (Compositional Citation Recovery) — in progress
-- **Current plan:** Plan 01 complete, plans 02+ pending
+- **Active phase:** Phase 95 (Agentic Knowledge Enhancement) — plan 02 complete
+- **Current plan:** Plan 02 complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 93 plan 01 executed — lib/citations.ts and citation types in place
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Execute Phase 93 plan 02 (`gd execute-phase 93`)
+- **Status:** Phase 95 plans 01-02 executed — knowledge miner agent + KNOWHOW.md injection in planner/researcher
+- **Progress:** [██████████] 100%
+- **Next:** Execute Phase 95 plan 03 if exists, or milestone complete (`gd execute-phase 95`)
 
 ## Phase Summary
 
@@ -84,6 +84,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 93-compositional-citation-recovery]: CitationNode priority escalation: code_available=false on MissingComponent sets dep node to priority='critical'
 - [Phase 93]: deep-diver emits Missing Components and Borrowed Components tables in PAPERS.md output
 - [Phase 93]: phase-researcher runs citation recovery pass (buildCitationGraph + findUnresolved) after research protocol
+- [Phase 95]: knowhow_injection blocks added to grd-planner and grd-phase-researcher — both conditionally inject top-5 KNOWHOW.md entries before plan/research generation
 
 ## Known Bugs
 
@@ -95,10 +96,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 93 plan 01 executed — lib/citations.ts and 6 citation types in lib/types.ts
-- **Stopped at:** Completed 93-02-PLAN.md
-- **Next action:** Execute Phase 93 plan 02 (`gd execute-phase 93`)
-- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/types.ts
+- **Last action:** Phase 95 plan 02 executed — knowhow_injection blocks added to grd-planner.md and grd-phase-researcher.md
+- **Stopped at:** Completed 95-02-PLAN.md
+- **Next action:** Check for Phase 95 plan 03 or declare Phase 95 complete (`gd execute-phase 95`)
+- **Context needed:** .planning/STATE.md, agents/grd-planner.md, agents/grd-phase-researcher.md
 
 ---
 
