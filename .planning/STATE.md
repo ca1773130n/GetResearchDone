@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
-- **Current plan:** —
+- **Active phase:** Phase 86 — Elicitation Detection and Resolution Core
+- **Current plan:** 86-02 complete (2/2 plans done)
 - **Milestone:** v0.3.21 Elicitation Replacement
-- **Status:** Initializing
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 86`
+- **Status:** Phase 86 complete
+- **Progress:** [██████████] 100% (phase 86)
+- **Next:** `/grd:complete-milestone` or next phase
 
 ## Phase Summary
 
@@ -91,8 +91,13 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
+- [Phase 86]: detectElicitation uses two-pass approach (numbered_options pre-scan, then line-by-line); buildElicitationContext budgets 5 sections at 1K/1K/2K/2K/1K chars; resolveElicitation uses rounds=1 with fallback chain: synthesis → first non-skipped round-1 → empty string
 - [Phase 86]: detectElicitation uses two-pass approach: numbered_options checked first, then line-by-line for other patterns
 - [Phase 86]: ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
+- [Phase 86]: detectElicitation uses regex-based line-by-line parsing (no NLP/AST) for maintainability
+- [Phase 86]: confidence: high for direct/clarification patterns; medium for option_prompt; numbered options require 2+ consecutive lines
+- [Phase 86]: buildElicitationContext uses per-section char budgets to stay under 8K tokens
+- [Phase 86]: resolveElicitation uses rounds=1 with fallback to first non-skipped round entry
 
 ## Known Bugs
 
@@ -104,8 +109,8 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 85 — 2 plans, 1 wave, all verified
-- **Stopped at:** Completed 86-01-PLAN.md
+- **Last action:** Executed Phase 86 — 2 plans, 2 waves, all verified
+- **Stopped at:** Completed 86-02-PLAN.md
 - **Next action:** `/grd:complete-milestone`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 

@@ -1792,6 +1792,7 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
     const fs = require('fs');
     (fs.statSync as jest.Mock).mockImplementation((p: string) => {
       if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true };
       throw new Error('ENOENT');
     });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
@@ -1816,6 +1817,7 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
     const fs = require('fs');
     (fs.statSync as jest.Mock).mockImplementation((p: string) => {
       if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true };
       throw new Error('ENOENT');
     });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
@@ -1838,6 +1840,8 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
     const fs = require('fs');
     (fs.statSync as jest.Mock).mockImplementation((p: string) => {
       if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true };
+      if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isFile: () => true, isDirectory: () => false };
       throw new Error('ENOENT');
     });
     (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
@@ -2250,6 +2254,7 @@ describe('runWireup()', () => {
     mockSafeReadFile.mockReturnValue(null);
     // Default: empty project (no unwired features)
     (fs.readdirSync as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
+    (fs.statSync as jest.Mock).mockImplementation(() => { throw new Error('ENOENT'); });
     // getMilestoneInfo returns a mock milestone
     mockGetMilestoneInfo.mockReturnValue({ version: FAKE_MILESTONE, name: 'Test Milestone' });
     // currentMilestone used by scenarios and report

@@ -40,6 +40,7 @@ import type {
   Concern,
   ReviewIssue,
   PRReviewComment,
+  ElicitationDetection,
 } from './types';
 
 const { execFileSync } = require('child_process') as {
@@ -107,6 +108,12 @@ type Severity = typeof SEVERITY_VALUES[number];
 function coerceSeverity(raw: unknown): Severity {
   const normalized = typeof raw === 'string' ? raw.toLowerCase() : '';
   return SEVERITY_VALUES.includes(normalized as Severity) ? (normalized as Severity) : 'warning';
+}
+
+function reviewFallbackMessage(response: BackendResponse): string {
+  return response.stderr
+    ? `Reviewer dispatch failed: ${response.stderr.slice(0, 200)}`
+    : `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`;
 }
 
 /**
@@ -513,6 +520,30 @@ function parseJSONFromResponse(raw: string): Record<string, unknown> | null {
 }
 
 /**
+ * Check if the brainstormer backend is configured and available for a
+ * discussion gate (before_planning or before_execution).
+ *
+ * Returns the brainstormer BackendId on success, or null to skip.
+ */
+function resolveBrainstormer(
+  config: GrdConfig,
+  gate: 'before_planning' | 'before_execution',
+  cwd?: string
+): BackendId | null {
+  if (config.discussion?.enabled === false) return null;
+  // before_planning defaults to true; before_execution must be explicitly true
+  if (gate === 'before_planning' && config.discussion?.before_planning === false) return null;
+  if (gate === 'before_execution' && config.discussion?.before_execution !== true) return null;
+  if (!config.backend_roles?.brainstormer) return null;
+
+  const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
+  const availability = detectAvailableBackends(cwd);
+  if (!availability[brainstormerBackend]?.available) return null;
+
+  return brainstormerBackend;
+}
+
+/**
  * Run a pre-planning discussion with the configured brainstormer backend.
  *
  * Checks config flags before dispatching. Returns null (silently skips)
@@ -520,9 +551,6 @@ function parseJSONFromResponse(raw: string): Record<string, unknown> | null {
  * backend is not configured or unavailable.
  *
  * REQ-138
- *
- * @param options - Phase goal, requirements list, paths, and GRD config
- * @returns A DiscussionResult on success, null if skipped
  */
 function runPrePlanningDiscussion(options: {
   phaseGoal: string;
@@ -534,24 +562,13 @@ function runPrePlanningDiscussion(options: {
 }): DiscussionResult | null {
   const { phaseGoal, requirements, cwd, phase, milestone, config } = options;
 
-  if (
-    config.discussion?.enabled === false ||
-    config.discussion?.before_planning === false ||
-    !config.backend_roles?.brainstormer
-  ) {
-    return null;
-  }
-
-  const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
-  const availability = detectAvailableBackends(cwd);
-  if (!availability[brainstormerBackend]?.available) {
-    return null;
-  }
+  const brainstormer = resolveBrainstormer(config, 'before_planning', cwd);
+  if (!brainstormer) return null;
 
   const reqLines = requirements.map((r) => `- ${r}`).join('\n');
   const topic = `Pre-planning discussion for phase goal: ${phaseGoal}\n\nRequirements:\n${reqLines}`;
 
-  return runDiscussion(topic, [brainstormerBackend], {
+  return runDiscussion(topic, [brainstormer], {
     rounds: 1,
     phase,
     type: 'pre-planning',
@@ -568,9 +585,6 @@ function runPrePlanningDiscussion(options: {
  * backend is not configured or unavailable.
  *
  * REQ-139
- *
- * @param options - Plan summary text, paths, and GRD config
- * @returns A DiscussionResult on success, null if skipped
  */
 function runPreExecutionDiscussion(options: {
   planSummary: string;
@@ -581,24 +595,12 @@ function runPreExecutionDiscussion(options: {
 }): DiscussionResult | null {
   const { planSummary, cwd, phase, milestone, config } = options;
 
-  // before_execution must be explicitly true
-  if (
-    config.discussion?.enabled === false ||
-    config.discussion?.before_execution !== true ||
-    !config.backend_roles?.brainstormer
-  ) {
-    return null;
-  }
-
-  const brainstormerBackend: BackendId = config.backend_roles.brainstormer;
-  const availability = detectAvailableBackends(cwd);
-  if (!availability[brainstormerBackend]?.available) {
-    return null;
-  }
+  const brainstormer = resolveBrainstormer(config, 'before_execution', cwd);
+  if (!brainstormer) return null;
 
   const topic = `Pre-execution discussion: surface implementation concerns for the following plan:\n\n${planSummary}`;
 
-  return runDiscussion(topic, [brainstormerBackend], {
+  return runDiscussion(topic, [brainstormer], {
     rounds: 1,
     phase,
     type: 'pre-execution',
@@ -650,12 +652,7 @@ function reviewPlanViaBackend(options: {
 
   if (!parsed) {
     const concerns: Concern[] = [
-      {
-        description: response.stderr
-          ? `Reviewer dispatch failed: ${response.stderr.slice(0, 200)}`
-          : `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
-        severity: 'warning',
-      },
+      { description: reviewFallbackMessage(response), severity: 'warning' },
     ];
     return {
       approved: false,
@@ -730,14 +727,7 @@ function reviewCodeViaBackend(options: {
 
   if (!parsed) {
     const issues: ReviewIssue[] = [
-      {
-        severity: 'warning',
-        file: '',
-        line_range: '',
-        description: response.stderr
-          ? `Reviewer dispatch failed: ${response.stderr.slice(0, 200)}`
-          : `Reviewer returned unparseable response: ${response.response_text.slice(0, 200)}`,
-      },
+      { severity: 'warning', file: '', line_range: '', description: reviewFallbackMessage(response) },
     ];
     return {
       approved: false,
@@ -853,6 +843,412 @@ function reviewPRViaBackend(options: {
   };
 }
 
+// --- Elicitation Detection ---------------------------------------------------
+
+/**
+ * Clarification phrases that strongly indicate a backend is asking for input.
+ * Matched case-insensitively.
+ */
+const CLARIFICATION_PHRASES = [
+  'please clarify',
+  'which approach',
+  'could you specify',
+  'would you prefer',
+  'do you want',
+];
+
+
+/**
+ * Detect elicitation patterns in backend output text.
+ *
+ * Parses the output line-by-line to find questions, numbered option lists,
+ * or clarification phrases that indicate the backend is waiting for user input.
+ * False-positive filters exclude questions inside code blocks, comments,
+ * string literals, and markdown headers.
+ *
+ * Detection patterns (in priority order):
+ *   1. direct_question: Line ends with '?' (not in code/comment context)
+ *   2. numbered_options: 2+ consecutive lines matching /^\s*\d+[.)]\s+/
+ *   3. clarification_phrase: Line contains known clarification keywords
+ *   4. option_prompt: Line contains "Choose one", "Select an option", "Pick one"
+ *
+ * @param output - Full text output from a backend subprocess (may be multi-line)
+ * @returns An ElicitationDetection on match, or null if no elicitation detected
+ */
+function detectElicitation(output: string): ElicitationDetection | null {
+  if (!output) return null;
+
+  const lines = output.split('\n');
+  let inCodeBlock = false;
+
+
+  // Option-prompt phrases (case-insensitive)
+  const OPTION_PROMPTS = [
+    'choose one',
+    'select an option',
+    'pick one',
+  ];
+
+  // Numbered option pattern: lines like "1. Foo", "2) Bar"
+  const NUMBERED_OPTION_RE = /^\s*\d+[.)]\s+/;
+
+  /**
+   * Returns true if a '?' on this line appears to be inside a string literal.
+   * Simple heuristic: count quote characters before the last '?'. If the
+   * number of quotes before the '?' is odd, the '?' is likely inside a string.
+   */
+  function questionInString(line: string): boolean {
+    const qIdx = line.lastIndexOf('?');
+    if (qIdx === -1) return false;
+    const before = line.slice(0, qIdx);
+    // Count unescaped single quotes and double quotes separately
+    const singleQuotes = (before.match(/(?<!\\)'/g) ?? []).length;
+    const doubleQuotes = (before.match(/(?<!\\)"/g) ?? []).length;
+    // If either count is odd, the '?' is inside a string
+    return singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0;
+  }
+
+  const SKIPPED_PREFIXES = ['//', '/*', '*', '#', 'at ', 'Error:', 'Warning:'];
+
+  function isSkippedContext(trimmed: string): boolean {
+    return SKIPPED_PREFIXES.some((p) => trimmed.startsWith(p));
+  }
+
+  /**
+   * Returns true if a line looks like a short rhetorical question
+   * (single word followed by '?') that appears to be a sentence connector
+   * rather than a standalone question to the user.
+   * Pattern: one word ending with '?', not preceded by typical elicitation context.
+   */
+  function isRhetoricalQuestion(trimmed: string): boolean {
+    // "Why?" or "Why? Because..." — single word before '?'
+    return /^\w+\?/.test(trimmed) && trimmed.split(/\s+/).length <= 2;
+  }
+
+  // Pass 1: look for numbered option blocks (need 2+ consecutive matches)
+  // We need to find these first to handle mixed patterns correctly.
+  let consecutiveNumbered = 0;
+  let numberedStart = -1;
+  let numberedEnd = -1;
+
+  {
+    let blockDepth = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('```')) {
+        blockDepth = blockDepth === 0 ? 1 : 0;
+      }
+      if (blockDepth > 0) {
+        consecutiveNumbered = 0;
+        continue;
+      }
+      if (NUMBERED_OPTION_RE.test(lines[i])) {
+        if (consecutiveNumbered === 0) numberedStart = i;
+        consecutiveNumbered++;
+        numberedEnd = i;
+      } else {
+        if (consecutiveNumbered >= 2) break; // found block
+        consecutiveNumbered = 0;
+        numberedStart = -1;
+      }
+    }
+  }
+
+  if (consecutiveNumbered >= 2 && numberedStart !== -1) {
+    const questionLines = lines.slice(numberedStart, numberedEnd + 1);
+    return {
+      question: questionLines.join('\n'),
+      patterns: ['numbered_options'],
+      confidence: 'high',
+    };
+  }
+
+  // Pass 2: scan line-by-line for other patterns
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Track code block fences
+    if (trimmed.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+
+    // Skip commented/header/trace lines
+    if (isSkippedContext(trimmed)) continue;
+
+    // Skip empty lines
+    if (trimmed.length === 0) continue;
+
+    const lower = trimmed.toLowerCase();
+
+    // Pattern: clarification_phrase
+    for (const phrase of CLARIFICATION_PHRASES) {
+      if (lower.includes(phrase)) {
+        return {
+          question: trimmed,
+          patterns: ['clarification_phrase'],
+          confidence: 'high',
+        };
+      }
+    }
+
+    // Pattern: direct_question — line ends with '?'
+    if (trimmed.endsWith('?')) {
+      if (questionInString(trimmed)) continue;
+      if (isRhetoricalQuestion(trimmed)) continue;
+      return {
+        question: trimmed,
+        patterns: ['direct_question'],
+        confidence: 'high',
+      };
+    }
+
+    // Pattern: option_prompt
+    for (const phrase of OPTION_PROMPTS) {
+      if (lower.includes(phrase)) {
+        return {
+          question: trimmed,
+          patterns: ['option_prompt'],
+          confidence: 'medium',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+// --- Elicitation Context Builder and Resolver --------------------------------
+
+/**
+ * Section budgets in characters for buildElicitationContext.
+ * Total: ~32000 chars (~8K tokens).
+ */
+const ELICITATION_BUDGET = {
+  question: 1000,
+  phaseGoal: 1000,
+  planSummary: 2000,
+  recentChanges: 2000,
+  projectState: 1000,
+} as const;
+
+/**
+ * Truncate a string to maxChars, appending a truncation notice if needed.
+ */
+function truncate(s: string, maxChars: number): string {
+  if (s.length <= maxChars) return s;
+  return s.slice(0, maxChars) + '\n[... truncated ...]';
+}
+
+/**
+ * Search milestones/MILESTONE/phases/PHASE*\/*-PLAN.md for an objective tag.
+ * Returns the trimmed objective text or '' if not found.
+ */
+function findPlanObjective(milestonesDir: string, phase: string, milestone?: string): string {
+  try {
+    const milestones = milestone ? [milestone] : fs.readdirSync(milestonesDir);
+    for (const ms of milestones) {
+      const phasesPath = path.join(milestonesDir, ms, 'phases');
+      let phaseEntries: string[];
+      try { phaseEntries = fs.readdirSync(phasesPath); } catch { continue; }
+      for (const entry of phaseEntries) {
+        if (!entry.startsWith(phase)) continue;
+        let planFiles: string[];
+        try { planFiles = fs.readdirSync(path.join(phasesPath, entry)); } catch { continue; }
+        const planFile = planFiles.find((f) => f.endsWith('-PLAN.md'));
+        if (!planFile) continue;
+        const content = fs.readFileSync(path.join(phasesPath, entry, planFile), 'utf-8');
+        const objMatch = content.match(/<objective>([\s\S]*?)<\/objective>/);
+        return objMatch ? objMatch[1].trim() : '';
+      }
+    }
+  } catch { /* milestonesDir not readable */ }
+  return '';
+}
+
+/**
+ * Build a context string for elicitation resolution.
+ *
+ * Assembles up to 5 sections:
+ *   - ## Question: the detected elicitation text
+ *   - ## Phase Goal: extracted from ROADMAP.md for the given phase
+ *   - ## Plan Summary: extracted from the active PLAN.md objective element
+ *   - ## Recent Changes: git diff --stat HEAD~3..HEAD
+ *   - ## Project State: current position from STATE.md
+ *
+ * All file reads are wrapped in try/catch — missing files silently omit the section.
+ * Total output is kept under 32000 chars (~8K tokens).
+ *
+ * @param question - The elicitation question text to answer
+ * @param options  - Configuration: cwd (project root), optional phase identifier
+ * @returns A context string with clearly labeled sections
+ */
+function buildElicitationContext(
+  question: string,
+  options: { cwd: string; phase?: string; milestone?: string }
+): string {
+  const { cwd, phase, milestone } = options;
+  const planningDir = path.join(cwd, '.planning');
+
+  const sections: string[] = [];
+
+  // ## Question
+  sections.push('## Question\n' + truncate(question, ELICITATION_BUDGET.question));
+
+  // ## Phase Goal — read from ROADMAP.md
+  try {
+    const roadmapPath = path.join(planningDir, 'ROADMAP.md');
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf-8');
+    let goalText = '';
+    if (phase) {
+      // Find the phase section and extract the goal line
+      const lines = roadmapContent.split('\n');
+      let inPhaseSection = false;
+      const phaseRe = new RegExp(`Phase\\s+${phase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+      for (const line of lines) {
+        // Match headings containing the phase number
+        if (line.match(phaseRe)) {
+          inPhaseSection = true;
+          continue;
+        }
+        if (inPhaseSection) {
+          // Stop at next heading of same or higher level
+          if (line.match(/^#{1,3}\s/)) break;
+          const trimmed = line.trim();
+          if (trimmed.length > 0) {
+            goalText += (goalText ? '\n' : '') + trimmed;
+            if (goalText.length >= ELICITATION_BUDGET.phaseGoal) break;
+          }
+        }
+      }
+    }
+    if (!goalText && roadmapContent.length > 0) {
+      // Fallback: first non-empty paragraph from ROADMAP
+      const paras = roadmapContent.split(/\n{2,}/);
+      for (const para of paras) {
+        const trimmed = para.trim();
+        if (trimmed.length > 10) {
+          goalText = trimmed;
+          break;
+        }
+      }
+    }
+    if (goalText) {
+      sections.push('## Phase Goal\n' + truncate(goalText, ELICITATION_BUDGET.phaseGoal));
+    }
+  } catch {
+    // Missing ROADMAP.md — omit section
+  }
+
+  // Section: Plan Summary — read active PLAN.md objective
+  if (phase) {
+    const planText = findPlanObjective(path.join(planningDir, 'milestones'), String(phase), milestone);
+    if (planText) {
+      sections.push('## Plan Summary\n' + truncate(planText, ELICITATION_BUDGET.planSummary));
+    }
+  }
+
+  // ## Recent Changes — git diff --stat HEAD~3..HEAD
+  try {
+    const diffStat = execFileSync('git', ['diff', '--stat', 'HEAD~3..HEAD'], {
+      timeout: 10000,
+      encoding: 'utf-8',
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 1024 * 1024,
+    });
+    if (diffStat && diffStat.trim()) {
+      sections.push(
+        '## Recent Changes\n' + truncate(diffStat.trim(), ELICITATION_BUDGET.recentChanges)
+      );
+    }
+  } catch {
+    // Git not available or no history — omit section
+  }
+
+  // ## Project State — read STATE.md current position section
+  try {
+    const statePath = path.join(planningDir, 'STATE.md');
+    const stateContent = fs.readFileSync(statePath, 'utf-8');
+    // Extract up to the first 1K chars; focus on position/current status
+    const posMatch = stateContent.match(/(?:## Current Position|## Status|Current Plan:)[^\n]*([\s\S]{0,800})/i);
+    const stateSnippet = posMatch
+      ? posMatch[0].trim()
+      : stateContent.slice(0, ELICITATION_BUDGET.projectState);
+    sections.push('## Project State\n' + truncate(stateSnippet, ELICITATION_BUDGET.projectState));
+  } catch {
+    // Missing STATE.md — omit section
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Route an elicitation question through a single-round multi-backend discussion
+ * and return the consensus answer text.
+ *
+ * Calls runDiscussion() with rounds=1 for speed. Falls back to the first
+ * non-skipped participant response if synthesis fails. Returns '' when all
+ * participants are unavailable.
+ *
+ * @param question     - The elicitation question to resolve
+ * @param context      - Context string from buildElicitationContext()
+ * @param options      - participants, synthesizer, and cwd
+ * @returns The resolved answer text, or '' if resolution is not possible
+ */
+function resolveElicitation(
+  question: string,
+  context: string,
+  options: {
+    participants: BackendId[];
+    synthesizer: BackendId;
+    cwd: string;
+  }
+): string {
+  const { participants, synthesizer, cwd } = options;
+
+  const topic = [
+    context,
+    '',
+    '## Instructions',
+    'Based on the context above, answer the question concisely and make a concrete decision.',
+    'Do not ask clarifying questions. Provide a direct, actionable answer.',
+  ].join('\n');
+
+  let result: DiscussionResult;
+  try {
+    result = runDiscussion(topic, participants, {
+      rounds: 1,
+      synthesizer,
+      cwd,
+      type: 'elicitation',
+    });
+  } catch {
+    return '';
+  }
+
+  // Happy path: synthesis has response text
+  const synthText =
+    result.synthesis &&
+    typeof result.synthesis.response_text === 'string'
+      ? result.synthesis.response_text.trim()
+      : '';
+  if (synthText) return synthText;
+
+  // Fallback: find first non-skipped round entry
+  const round0 = result.rounds[0] as DiscussionRoundEntry[] | undefined;
+  if (!round0) return '';
+
+  for (const entry of round0) {
+    if (!('skipped' in entry) && entry.response_text && entry.response_text.trim()) {
+      return entry.response_text.trim();
+    }
+  }
+
+  return '';
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -865,6 +1261,9 @@ module.exports = {
   reviewPlanViaBackend,
   reviewCodeViaBackend,
   reviewPRViaBackend,
+  detectElicitation,
+  buildElicitationContext,
+  resolveElicitation,
   DISCUSSION_SONNET_MODEL,
   BACKEND_CLI_MAP,
   DEFAULT_DISPATCH_TIMEOUT_MS,

@@ -310,7 +310,7 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 **Milestone Goal:** Transform multi-backend discussion from a standalone tool into an autonomous decision layer — when the primary backend asks clarifying questions, route them to other AI backends for deliberation and feed the consensus back, enabling truly unattended autopilot and evolve.
 **Start:** 2026-03-23
 
-- [ ] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement`
+- [x] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement` *(completed 2026-03-24)*
 - [ ] **Phase 87: Autopilot and Plan-Phase Integration** - Async subprocess spawning with stdin/stdout streaming, elicitation interception in autopilot and plan-phase `implement`
 - [ ] **Phase 88: Execute-Phase, Evolve Integration, and E2E Testing** - Execute-phase and evolve loop integration, full pipeline integration test `integrate`
 
@@ -326,8 +326,8 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
   4. Unit tests cover detection patterns, false positive rejection, context building, and routing with 90%+ line coverage.
 **Plans**: 2 plans
 Plans:
-- [ ] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
-- [ ] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
+- [x] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
+- [x] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
 
 #### Phase 87: Autopilot and Plan-Phase Integration
 **Goal**: Autopilot subprocess spawning supports elicitation interception — detected questions are resolved via multi-backend discussion and the answer is fed back to the subprocess stdin, enabling uninterrupted autonomous planning.
