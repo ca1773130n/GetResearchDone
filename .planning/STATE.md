@@ -81,6 +81,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Design spec v0.3.23]: buildArtifactDAG lives in lib/deps.ts alongside existing Kahn's algorithm; buildWaves extended (not replaced) in lib/parallel.ts
 - [Design spec v0.3.23]: Knowledge miner step is backward-compatible — skipped gracefully if agent definition file absent
 - [Phase 92-cfg-formalization]: validateResearchArtifacts uses phaseDir as its own search root; validateSemantic checks parent dir existence; extractPlanArtifact coerces string wave/plan to number
+- [Phase 92]: checkInvariantValidation runs per-plan validateStructural then cross-phase validateCrossPhase; invariant-validation gate registered in GATE_REGISTRY for plan-phase and execute-phase
 
 ## Known Bugs
 
@@ -93,7 +94,7 @@ None. v0.3.22 Phases 88-91 must complete before Phase 92 can begin.
 ## Session Continuity
 
 - **Last action:** v0.3.23 roadmap created (Phases 92-95, 15 requirements mapped)
-- **Stopped at:** Completed 92-cfg-formalization-01-PLAN.md
+- **Stopped at:** Completed 92-02-PLAN.md
 - **Next action:** Complete v0.3.22 (Phases 88-91), then plan Phase 92
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, .planning/REQUIREMENTS.md
 
