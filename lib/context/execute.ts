@@ -116,6 +116,12 @@ const {
   inferCeremonyLevel: (config: GrdConfig, phaseInfo: PhaseInfo | null, cwd: string) => string;
 } = require('./base');
 
+const {
+  extractFrontmatter,
+}: {
+  extractFrontmatter: (content: string) => import('../types').FrontmatterObject;
+} = require('../frontmatter');
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Detect whether modelOverrides is configured in Claude settings. */
@@ -268,6 +274,31 @@ function cmdInitExecutePhase(
     incomplete_plans: phaseInfo?.incomplete_plans || [],
     plan_count: phaseInfo?.plans?.length || 0,
     incomplete_count: phaseInfo?.incomplete_plans?.length || 0,
+
+    // Write-intent manifests (REQ-167): files each plan declares it will modify
+    plan_files_modified: (() => {
+      if (!phaseInfo?.plans || !phaseInfo?.directory) return {};
+      const phaseDirFull = path.join(cwd, phaseInfo.directory);
+      const result: Record<string, string[]> = {};
+      for (const planFile of phaseInfo.plans) {
+        // Derive plan ID from filename: "89-01-PLAN.md" -> "89-01"
+        const planId = planFile.replace(/-PLAN\.md$/i, '');
+        const planPath = path.join(phaseDirFull, planFile);
+        try {
+          const planContent = fs.readFileSync(planPath, 'utf-8') as string;
+          const fm = extractFrontmatter(planContent);
+          const filesModified = fm.files_modified;
+          if (Array.isArray(filesModified)) {
+            result[planId] = filesModified as string[];
+          } else {
+            result[planId] = [];
+          }
+        } catch {
+          result[planId] = [];
+        }
+      }
+      return result;
+    })(),
 
     // Branch name (pre-computed)
     branch_name:
