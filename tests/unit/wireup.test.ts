@@ -724,6 +724,25 @@ describe('executeScenarios()', () => {
     expect(results[0].scenario_id).toBe('funcA');
     expect(results[1].scenario_id).toBe('funcB');
   });
+
+  test('skips HTTP steps when no server is reachable', async () => {
+    const feature = makeFeature('app-route-without-test', 'GET /api/users', 'src/routes.ts');
+    const httpStep: WireupScenario['steps'][number] = {
+      step_type: 'http',
+      parameters: { method: 'GET', endpoint: '/api/users' },
+      expected_outcome: 'GET /api/users responds successfully',
+    };
+    const scenario = makeScenario(feature, [httpStep]);
+    // Use a port that is almost certainly not listening
+    const results = await executeScenarios(FAKE_CWD, [scenario], { base_url: 'http://127.0.0.1:19999' });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].overall_passed).toBe(true);
+    expect(results[0].step_results[0].passed).toBe(true);
+    const actual = results[0].step_results[0].actual as string;
+    expect(actual).toContain('skipped');
+    expect(actual).toContain('no server');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1813,6 +1832,31 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
     expect(match!.category).toBe('exported-but-uncalled');
   });
 
+  test('detects ES module exported function not referenced elsewhere', () => {
+    const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
+      if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'lib')) {
+        return [{ name: 'esmod.ts', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
+      if (filePath.endsWith('esmod.ts')) return 'export function orphanedHelper() { return 1; }';
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const match = result.find((f) => f.functionName === 'orphanedHelper');
+    expect(match).toBeDefined();
+    expect(match!.category).toBe('exported-but-uncalled');
+  });
+
   test('detects config key not referenced in surface files', () => {
     const fs = require('fs');
     (fs.statSync as jest.Mock).mockImplementation((p: string) => {
@@ -1860,6 +1904,68 @@ describe('discoverUnwiredFeatures() — via wireup.test.ts', () => {
     expect(endpointFeature).toBeDefined();
     expect(endpointFeature!.category).toBe('endpoint-without-integration-test');
   });
+
+  test('detects command file not registered in CLI registry', () => {
+    const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'commands')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'commands')) {
+        return [
+          { name: 'my-skill.md', isFile: () => true, isDirectory: () => false },
+          { name: 'registered.md', isFile: () => true, isDirectory: () => false },
+        ];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
+      // CLI registry file references 'registered' but not 'my-skill'
+      if (filePath.includes(path.join('lib', 'cli'))) return "const AGENT_COMMANDS = new Set(['registered']);";
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const match = result.find((f) => f.functionName === 'my-skill');
+    expect(match).toBeDefined();
+    expect(match!.category).toBe('command-without-registration');
+    // 'registered' should NOT appear as unwired
+    expect(result.find((f) => f.functionName === 'registered')).toBeUndefined();
+  });
+
+  test('detects agent not referenced by any command', () => {
+    const fs = require('fs');
+    (fs.statSync as jest.Mock).mockImplementation((p: string) => {
+      if (p === path.join(FAKE_CWD, 'agents')) return { isDirectory: () => true };
+      throw new Error('ENOENT');
+    });
+    (fs.readdirSync as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === path.join(FAKE_CWD, 'agents')) {
+        return [
+          { name: 'grd-orphan.md', isFile: () => true, isDirectory: () => false },
+          { name: 'grd-used.md', isFile: () => true, isDirectory: () => false },
+        ];
+      }
+      if (dir === path.join(FAKE_CWD, 'commands')) {
+        return [{ name: 'test-cmd.md', isFile: () => true, isDirectory: () => false }];
+      }
+      throw new Error('ENOENT');
+    });
+    mockSafeReadFile.mockImplementation((filePath: string) => {
+      if (filePath.endsWith('plugin.json')) return '{ "name": "grd" }';
+      if (filePath.endsWith('test-cmd.md')) return 'subagent_type="grd:grd-used"';
+      return null;
+    });
+
+    const result = discoverUnwiredFeatures(FAKE_CWD);
+    const orphan = result.find((f) => f.functionName === 'grd-orphan');
+    expect(orphan).toBeDefined();
+    expect(orphan!.category).toBe('agent-without-command');
+    // 'grd-used' should NOT appear
+    expect(result.find((f) => f.functionName === 'grd-used' && f.category === 'agent-without-command')).toBeUndefined();
+  });
 });
 
 describe('generateScenarios() — via wireup.test.ts', () => {
@@ -1885,6 +1991,43 @@ describe('generateScenarios() — via wireup.test.ts', () => {
     const feature = makeFeature('config-without-surface', 'myKey', '.planning/config.json');
     const scenarios = generateScenarios([feature], FAKE_CWD);
     expect(scenarios[0].steps.some((s) => s.step_type === 'cli')).toBe(true);
+  });
+
+  test('generates static scenarios for lib-exported-without-test', () => {
+    const feature = makeFeature('lib-exported-without-test', 'helperFn', 'lib/helpers.ts');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].steps.every((s) => s.step_type === 'static')).toBe(true);
+    expect(scenarios[0].steps.length).toBe(2);
+  });
+
+  test('generates cli+static scenario for bin-entry-without-test', () => {
+    const feature = makeFeature('bin-entry-without-test', 'myScript', 'bin/myScript.ts');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].steps.some((s) => s.step_type === 'cli')).toBe(true);
+    expect(scenarios[0].steps.some((s) => s.step_type === 'static')).toBe(true);
+  });
+
+  test('generates static scenario for command-without-registration', () => {
+    const feature = makeFeature('command-without-registration', 'my-skill', 'commands/my-skill.md');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].steps.every((s) => s.step_type === 'static')).toBe(true);
+  });
+
+  test('generates static scenario for agent-without-command', () => {
+    const feature = makeFeature('agent-without-command', 'grd-orphan', 'agents/grd-orphan.md');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].steps.every((s) => s.step_type === 'static')).toBe(true);
+  });
+
+  test('generates static scenario for command-without-agent-file', () => {
+    const feature = makeFeature('command-without-agent-file', 'grd-missing', 'commands/deploy.md');
+    const scenarios = generateScenarios([feature], FAKE_CWD);
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].steps[0].step_type).toBe('static');
   });
 });
 

@@ -59,9 +59,11 @@ function _collectFiles(dir: string, extensions: string[]): string[] {
 /**
  * Extract exported function/value names from a TypeScript/JavaScript source file.
  *
- * Handles two patterns:
+ * Handles CJS and ES module patterns:
  * - module.exports = { name1, name2, ... }
  * - exports.name = ...
+ * - export function name / export const name / export class name
+ * - export default function name
  */
 function _extractExports(content: string): string[] {
   const names: string[] = [];
@@ -89,6 +91,22 @@ function _extractExports(content: string): string[] {
   let match: RegExpExecArray | null;
   while ((match = exportsPattern.exec(content)) !== null) {
     if (!names.includes(match[1])) {
+      names.push(match[1]);
+    }
+  }
+
+  // Pattern 3: ES module exports — export [async] function/const/class/let/var name
+  const esExportPattern: RegExp = /export\s+(?:async\s+)?(?:function|const|class|let|var)\s+(\w+)/g;
+  while ((match = esExportPattern.exec(content)) !== null) {
+    if (!names.includes(match[1])) {
+      names.push(match[1]);
+    }
+  }
+
+  // Pattern 4: export default function name (skip anonymous defaults)
+  const defaultExportPattern: RegExp = /export\s+default\s+(?:async\s+)?(?:function|class)\s+(\w+)/g;
+  while ((match = defaultExportPattern.exec(content)) !== null) {
+    if (match[1] !== 'default' && !names.includes(match[1])) {
       names.push(match[1]);
     }
   }
@@ -798,6 +816,184 @@ function scanBinEntriesWithoutTest(cwd: string): UnwiredFeature[] {
   return features;
 }
 
+// ─── Claude Code Plugin Scanners ─────────────────────────────────────────────
+
+/**
+ * Detect if this is a Claude Code plugin project by checking for
+ * commands/ and/or agents/ directories with .md files.
+ */
+function _isPluginProject(cwd: string): boolean {
+  const commandsDir: string = path.join(cwd, 'commands');
+  const agentsDir: string = path.join(cwd, 'agents');
+  return _dirExists(commandsDir) || _dirExists(agentsDir);
+}
+
+/**
+ * Read .md filenames from a directory, returning basenames without extension.
+ */
+function _readMdNames(dir: string): string[] {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true }) as Array<{
+      name: string;
+      isFile: () => boolean;
+    }>;
+    return entries
+      .filter((e: { name: string; isFile: () => boolean }) => e.isFile() && e.name.endsWith('.md'))
+      .map((e: { name: string }) => e.name.replace(/\.md$/, ''));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Extract the set of registered command names from the CLI registry file.
+ * Reads lib/cli/index.ts (or similar) and parses TOOL_COMMANDS and AGENT_COMMANDS sets.
+ */
+function _extractRegisteredCommands(cwd: string): Set<string> {
+  const registered: Set<string> = new Set();
+  const candidates: string[] = [
+    path.join(cwd, 'lib', 'cli', 'index.ts'),
+    path.join(cwd, 'lib', 'cli', 'index.js'),
+    path.join(cwd, 'lib', 'cli.ts'),
+    path.join(cwd, 'lib', 'cli.js'),
+  ];
+  for (const candidate of candidates) {
+    const content: string | null = safeReadFile(candidate);
+    if (!content) continue;
+    // Match strings inside Set([...]) or array literals
+    const stringPattern: RegExp = /['"]([a-z][\w-]*)['"],?/g;
+    let match: RegExpExecArray | null;
+    while ((match = stringPattern.exec(content)) !== null) {
+      registered.add(match[1]);
+    }
+  }
+  return registered;
+}
+
+/**
+ * Extract agent names referenced by commands via subagent_type="grd:grd-{name}" patterns.
+ */
+function _extractReferencedAgents(cwd: string): Set<string> {
+  const referenced: Set<string> = new Set();
+  const commandsDir: string = path.join(cwd, 'commands');
+  const commandFiles: string[] = _collectFiles(commandsDir, ['.md']);
+  for (const file of commandFiles) {
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+    // Match subagent_type="grd:grd-{name}" or subagent_type="grd:{name}"
+    const agentRefPattern: RegExp = /subagent_type\s*[=:]\s*["']grd:(?:grd-)?([^"']+)["']/g;
+    let match: RegExpExecArray | null;
+    while ((match = agentRefPattern.exec(content)) !== null) {
+      referenced.add(match[1]);
+    }
+    // Also match Agent tool calls with description referencing agents
+    const agentFilePattern: RegExp = /agents\/grd-([^."'\s]+)\.md/g;
+    while ((match = agentFilePattern.exec(content)) !== null) {
+      referenced.add(match[1]);
+    }
+  }
+  // Also check lib/ files for agent references
+  const libFiles: string[] = _collectFiles(path.join(cwd, 'lib'), ['.ts', '.js']);
+  for (const file of libFiles) {
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+    const agentRefPattern: RegExp = /subagent_type\s*[=:]\s*["']grd:(?:grd-)?([^"']+)["']/g;
+    let match: RegExpExecArray | null;
+    while ((match = agentRefPattern.exec(content)) !== null) {
+      referenced.add(match[1]);
+    }
+  }
+  return referenced;
+}
+
+/**
+ * Scan for commands/ .md files that are not registered in the CLI command registry.
+ */
+function scanCommandsWithoutRegistration(cwd: string): UnwiredFeature[] {
+  const commandNames: string[] = _readMdNames(path.join(cwd, 'commands'));
+  if (commandNames.length === 0) return [];
+
+  const registered: Set<string> = _extractRegisteredCommands(cwd);
+  if (registered.size === 0) return []; // No registry found — skip
+
+  const features: UnwiredFeature[] = [];
+  for (const name of commandNames) {
+    if (!registered.has(name)) {
+      features.push({
+        category: 'command-without-registration' as UnwiredFeatureCategory,
+        filePath: `commands/${name}.md`,
+        functionName: name,
+        suggestedAction: `Register "${name}" in TOOL_COMMANDS or AGENT_COMMANDS in the CLI registry`,
+      });
+    }
+  }
+  return features;
+}
+
+/**
+ * Scan for agents/ .md files that are not referenced by any command.
+ */
+function scanAgentsWithoutCommand(cwd: string): UnwiredFeature[] {
+  const agentNames: string[] = _readMdNames(path.join(cwd, 'agents'));
+  if (agentNames.length === 0) return [];
+
+  const referenced: Set<string> = _extractReferencedAgents(cwd);
+
+  const features: UnwiredFeature[] = [];
+  for (const name of agentNames) {
+    // Normalize: agent files are grd-{name}.md, references may be just {name} or grd-{name}
+    const shortName: string = name.replace(/^grd-/, '');
+    if (!referenced.has(shortName) && !referenced.has(name)) {
+      features.push({
+        category: 'agent-without-command' as UnwiredFeatureCategory,
+        filePath: `agents/${name}.md`,
+        functionName: name,
+        suggestedAction: `Agent "${name}" is not spawned by any command — wire it via subagent_type or remove`,
+      });
+    }
+  }
+  return features;
+}
+
+/**
+ * Scan commands for agent references that point to non-existent agent files.
+ */
+function scanCommandsWithMissingAgents(cwd: string): UnwiredFeature[] {
+  const commandsDir: string = path.join(cwd, 'commands');
+  const agentsDir: string = path.join(cwd, 'agents');
+  const commandFiles: string[] = _collectFiles(commandsDir, ['.md']);
+  if (commandFiles.length === 0) return [];
+
+  const existingAgents: Set<string> = new Set(_readMdNames(agentsDir));
+
+  const features: UnwiredFeature[] = [];
+  const seen: Set<string> = new Set();
+
+  for (const file of commandFiles) {
+    const content: string | null = safeReadFile(file);
+    if (!content) continue;
+    const relPath: string = path.relative(cwd, file);
+
+    // Match subagent_type references
+    const agentRefPattern: RegExp = /subagent_type\s*[=:]\s*["']grd:(?:grd-)?([^"']+)["']/g;
+    let match: RegExpExecArray | null;
+    while ((match = agentRefPattern.exec(content)) !== null) {
+      const agentName: string = match[1];
+      const fullName: string = agentName.startsWith('grd-') ? agentName : `grd-${agentName}`;
+      if (!existingAgents.has(fullName) && !seen.has(fullName)) {
+        seen.add(fullName);
+        features.push({
+          category: 'command-without-agent-file' as UnwiredFeatureCategory,
+          filePath: relPath,
+          functionName: fullName,
+          suggestedAction: `Command references agent "${fullName}" but agents/${fullName}.md does not exist`,
+        });
+      }
+    }
+  }
+  return features;
+}
+
 // ─── Public Orchestrator ─────────────────────────────────────────────────────
 
 /**
@@ -834,6 +1030,15 @@ function discoverUnwiredFeatures(cwd: string): UnwiredFeature[] {
   }
   if (hasBin) {
     allFeatures.push(...scanBinEntriesWithoutTest(cwd));
+  }
+
+  // Plugin-aware scanners — run when commands/ or agents/ exist
+  if (_isPluginProject(cwd)) {
+    allFeatures.push(
+      ...scanCommandsWithoutRegistration(cwd),
+      ...scanAgentsWithoutCommand(cwd),
+      ...scanCommandsWithMissingAgents(cwd)
+    );
   }
 
   // Application-aware scanners — always run

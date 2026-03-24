@@ -23,7 +23,10 @@ export type UnwiredFeatureCategory =
   | 'app-model-without-handler'
   | 'app-component-without-import'
   | 'lib-exported-without-test'
-  | 'bin-entry-without-test';
+  | 'bin-entry-without-test'
+  | 'command-without-registration'
+  | 'agent-without-command'
+  | 'command-without-agent-file';
 
 // ─── Feature Interfaces ──────────────────────────────────────────────────────
 

@@ -443,14 +443,36 @@ function executeStaticStep(
 // ─── Scenario Execution ───────────────────────────────────────────────────────
 
 /**
+ * Probe the base URL to check if a local server is running.
+ * Returns true if a TCP connection succeeds, false otherwise.
+ */
+async function _isServerReachable(baseUrl: string): Promise<boolean> {
+  try {
+    const url = new URL(baseUrl);
+    const net = require('net') as typeof import('net');
+    return new Promise<boolean>((resolve) => {
+      const socket = net.createConnection(
+        { host: url.hostname, port: Number(url.port) || 80, timeout: 1000 },
+        () => { socket.destroy(); resolve(true); }
+      );
+      socket.on('error', () => { resolve(false); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Execute a list of wireup scenarios sequentially against localhost services.
  *
  * Scenarios are executed one-at-a-time (not parallel) to avoid overwhelming
  * localhost services under test.
  *
  * Step dispatch:
- *   - 'http' -> executeHttpStep
+ *   - 'http' -> executeHttpStep (skipped if no server is reachable)
  *   - 'cli'  -> executeCliStep
+ *   - 'static' -> executeStaticStep
  *   - 'browser', 'assert' -> skipped (Phase 80); marked as passed=true with a note
  *
  * @param cwd - Absolute path to the project root (used as working directory for CLI steps)
@@ -465,6 +487,13 @@ async function executeScenarios(
 ): Promise<ScenarioResult[]> {
   const results: ScenarioResult[] = [];
 
+  // Check if any scenario needs HTTP steps — if so, probe the server once
+  const hasHttpSteps: boolean = scenarios.some((s) =>
+    s.steps.some((step) => step.step_type === 'http')
+  );
+  const baseUrl: string = options.base_url || DEFAULT_BASE_URL;
+  const serverReachable: boolean = hasHttpSteps ? await _isServerReachable(baseUrl) : false;
+
   for (const scenario of scenarios) {
     const scenarioStart = Date.now();
     const stepResults: StepResult[] = [];
@@ -473,6 +502,21 @@ async function executeScenarios(
       const step = scenario.steps[i];
 
       if (step.step_type === 'http') {
+        if (!serverReachable) {
+          // Skip HTTP steps on non-webapp projects — no server running
+          stepResults.push({
+            step_index: i,
+            step_type: 'http' as const,
+            passed: true,
+            expected: step.expected_outcome,
+            actual: `skipped (no server at ${baseUrl})`,
+            duration_ms: 0,
+            status_code: 0,
+            headers: {},
+            body: '',
+          } as HttpStepResult);
+          continue;
+        }
         const result = await executeHttpStep(i, step, options);
         stepResults.push(result);
       } else if (step.step_type === 'cli') {

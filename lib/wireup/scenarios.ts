@@ -323,6 +323,160 @@ function _scenarioForAppComponent(
   return { feature, steps, test_data_fixture: fixturePath };
 }
 
+/**
+ * Generate a WireupScenario for a 'command-without-registration' feature.
+ *
+ * Checks that the command .md file exists and that it is registered in the CLI.
+ */
+function _scenarioForCommandWithoutRegistration(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Command file exists',
+    },
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Command is registered in CLI command registry',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for an 'agent-without-command' feature.
+ *
+ * Checks that the agent .md file exists and is referenced by at least one command.
+ */
+function _scenarioForAgentWithoutCommand(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Agent file exists',
+    },
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Agent is referenced by a command or orchestrator',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for a 'command-without-agent-file' feature.
+ *
+ * Checks that the referenced agent file actually exists.
+ */
+function _scenarioForCommandWithoutAgentFile(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'export_exists',
+        filePath: `agents/${feature.functionName}.md`,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Referenced agent file exists',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for a 'lib-exported-without-test' feature.
+ *
+ * Produces two steps:
+ *   1. static step: check export exists in source file
+ *   2. cli step: run the test suite and check if the function is referenced
+ */
+function _scenarioForLibExportedWithoutTest(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'export_exists',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Export exists in source file',
+    },
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Export is referenced in tests or other modules',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
+/**
+ * Generate a WireupScenario for a 'bin-entry-without-test' feature.
+ *
+ * Produces two steps:
+ *   1. cli step: run the bin entry with --help or no args to verify it executes
+ *   2. static step: check if the bin entry is referenced in test files
+ */
+function _scenarioForBinEntryWithoutTest(
+  feature: UnwiredFeature,
+  fixturePath: string
+): WireupScenario {
+  const steps: ScenarioStep[] = [
+    {
+      step_type: 'cli',
+      parameters: {
+        command: 'node',
+        args: [feature.filePath, '--help'],
+      },
+      expected_outcome: 'Bin entry executes without crashing',
+    },
+    {
+      step_type: 'static',
+      parameters: {
+        check: 'import_graph_connected',
+        filePath: feature.filePath,
+        exportName: feature.functionName,
+      },
+      expected_outcome: 'Bin entry is referenced in tests',
+    },
+  ];
+  return { feature, steps, test_data_fixture: fixturePath };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -377,6 +531,21 @@ function generateScenarios(features: UnwiredFeature[], cwd: string): WireupScena
         break;
       case 'app-component-without-import':
         scenario = _scenarioForAppComponent(feature, fixturePath);
+        break;
+      case 'lib-exported-without-test':
+        scenario = _scenarioForLibExportedWithoutTest(feature, fixturePath);
+        break;
+      case 'bin-entry-without-test':
+        scenario = _scenarioForBinEntryWithoutTest(feature, fixturePath);
+        break;
+      case 'command-without-registration':
+        scenario = _scenarioForCommandWithoutRegistration(feature, fixturePath);
+        break;
+      case 'agent-without-command':
+        scenario = _scenarioForAgentWithoutCommand(feature, fixturePath);
+        break;
+      case 'command-without-agent-file':
+        scenario = _scenarioForCommandWithoutAgentFile(feature, fixturePath);
         break;
       default:
         scenario = _scenarioForExportedButUncalled(feature, fixturePath);
