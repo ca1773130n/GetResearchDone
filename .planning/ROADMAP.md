@@ -315,12 +315,12 @@ Plans:
   3. Write-intent wave builder unit tests verify: (a) `files_modified` parsing from PLAN.md, (b) overlapping phases are moved to separate waves, (c) `--force-parallel` keeps all phases in one wave, (d) declared-vs-actual mismatch logging produces `[WRITE-INTENT-MISMATCH]` log entries.
   4. E2E integration test runs two independent phases through the full autopilot v2 loop — parallel execute in worktrees, serial merge queue, PR merge to main in order — using mock git/gh operations; test asserts phases merge in execution-completion order with no conflicts.
   5. `npm test` passes with all new and updated tests; `npm run lint` and `npm run build:check` pass with zero errors.
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 91-01: Post-phase pipeline unit tests and serial merge queue tests
-- [ ] 91-02: Write-intent wave builder tests
-- [ ] 91-03: E2E integration test — full autopilot v2 pipeline
+- [ ] 91-01: Post-phase pipeline deep coverage and merge queue serialization tests
+- [ ] 91-02: Write-intent parsing edge cases and buildWaves file-conflict tests
+- [ ] 91-03: E2E integration test — two-phase parallel pipeline with serial merge
 
 ## Progress
 

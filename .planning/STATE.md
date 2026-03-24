@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 89 — Write-Intent Manifests and Wave Builder (in progress)
-- **Current plan:** 89-01 complete
+- **Active phase:** Phase 91 — Integration Testing and Validation (in progress)
+- **Current plan:** 91-02 complete
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Phase 89 plan 01 complete — parseWriteIntent, buildPlanPrompt update, plan_files_modified in execute context
-- **Progress:** [████████░░] 80%
-- **Next:** Execute plan 89-02
+- **Status:** Phase 91 plan 02 complete — 12 new unit tests for parseWriteIntent, buildWaves, compareWriteIntent, and formatWriteIntentMismatch; lib/autopilot.ts at 88.41% line coverage
+- **Progress:** [█████░░░░░] 54%
+- **Next:** Execute Phase 91 plan 03 (if exists) or complete Phase 91
 
 ## Phase Summary
 
@@ -35,8 +35,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
 | 88 | Serial Merge Queue and Conflict Resolution | In progress (plan 01 complete) |
 | 89 | Write-Intent Manifests and Wave Builder | In progress (plan 01 complete) |
-| 90 | Autopilot Mode Changes and Parallel Execution | Not started |
-| 91 | Integration Testing and Validation | Not started |
+| 90 | Autopilot Mode Changes and Parallel Execution | Complete (2026-03-24) |
+| 91 | Integration Testing and Validation | In progress (plan 02 complete) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -123,6 +123,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 89]: splitWave uses greedy first-fit: phases placed into the first sub-wave with no file conflict
 - [Phase 89]: BuildWavesOptions.forceParallel=true bypasses conflict detection — returns raw dependency-graph waves unchanged
 - [Phase 89]: compareWriteIntent is pure with zero side effects; formatWriteIntentMismatch returns [] for no mismatches
+- [Phase 90]: atomicWriteFileSync is internal (not exported) — implementation detail shared by writeStatusMarker, updateStateProgress, and log closures
+- [Phase 90]: Lock mechanism in updateStateProgress preserved alongside atomic write: lock prevents concurrent races; atomic write prevents partial content on crash
+- [Phase 91]: parseWriteIntent does not strip YAML quotes from dash-list values; compareWriteIntent Set-dedup behavior with duplicate declared entries is documented via tests
 
 ## Known Bugs
 
@@ -134,9 +137,9 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 87 executed — post-phase pipeline core verified as pre-implemented
-- **Stopped at:** Completed 89-03-PLAN.md
-- **Next action:** `/grd:plan-phase 88`
+- **Last action:** Phase 91 plans 01 and 02 created and completed
+- **Stopped at:** Completed 91-02-PLAN.md
+- **Next action:** Execute Phase 91 plan 03 or complete Phase 91
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
 
 ---
