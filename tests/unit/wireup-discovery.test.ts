@@ -115,10 +115,15 @@ describe('discoverUnwiredFeatures()', () => {
 
   describe('exported-but-uncalled category', () => {
     test('detects exported function not referenced elsewhere', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, 'lib', 'myModule.ts')) {
+            return 'module.exports = { myOrphanFunc };';
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) {
@@ -127,12 +132,6 @@ describe('discoverUnwiredFeatures()', () => {
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, 'lib', 'myModule.ts')) {
-          return 'module.exports = { myOrphanFunc };';
-        }
-        return null;
-      });
 
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       const match = result.find((f: UnwiredFeature) => f.functionName === 'myOrphanFunc');
@@ -143,10 +142,18 @@ describe('discoverUnwiredFeatures()', () => {
     });
 
     test('does NOT flag export that is referenced in another lib file', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib', 'wireup')) return { isDirectory: () => true };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, 'lib', 'provider.ts')) {
+            return "module.exports = { usedFunc };";
+          }
+          if (filePath === path.join(FAKE_CWD, 'lib', 'consumer.ts')) {
+            return "const { usedFunc } = require('./provider'); usedFunc();";
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) {
@@ -155,28 +162,21 @@ describe('discoverUnwiredFeatures()', () => {
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.claude-plugin', 'plugin.json'))
-          return GRD_PLUGIN_JSON;
-        if (filePath === path.join(FAKE_CWD, 'lib', 'provider.ts')) {
-          return "module.exports = { usedFunc };";
-        }
-        if (filePath === path.join(FAKE_CWD, 'lib', 'consumer.ts')) {
-          return "const { usedFunc } = require('./provider'); usedFunc();";
-        }
-        return null;
-      });
-
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       const match = result.find((f: UnwiredFeature) => f.functionName === 'usedFunc');
       expect(match).toBeUndefined();
     });
 
     test('detects exports.name = ... pattern', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, 'lib', 'legacy.ts')) {
+            return 'exports.legacyHelper = function() {};';
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) {
@@ -185,12 +185,6 @@ describe('discoverUnwiredFeatures()', () => {
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, 'lib', 'legacy.ts')) {
-          return 'exports.legacyHelper = function() {};';
-        }
-        return null;
-      });
 
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       const match = result.find((f: UnwiredFeature) => f.functionName === 'legacyHelper');
@@ -203,22 +197,21 @@ describe('discoverUnwiredFeatures()', () => {
 
   describe('config-without-surface category', () => {
     test('detects config key not referenced in commands or bin', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, '.planning', 'config.json')) {
+            return JSON.stringify({ orphanKey: true, model_profile: 'balanced' });
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) return [];
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, '.planning', 'config.json')) {
-          return JSON.stringify({ orphanKey: true, model_profile: 'balanced' });
-        }
-        return null;
-      });
 
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       const orphan = result.find((f: UnwiredFeature) => f.functionName === 'orphanKey');
@@ -274,11 +267,15 @@ describe('discoverUnwiredFeatures()', () => {
 
   describe('endpoint-without-integration-test category', () => {
     test('detects MCP tool not referenced in integration tests', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
-        if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isDirectory: () => false, isFile: () => true };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
+            return "tools.push({ name: 'grd_my_tool', description: 'test' });";
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) return [];
@@ -286,12 +283,6 @@ describe('discoverUnwiredFeatures()', () => {
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
-          return "tools.push({ name: 'grd_my_tool', description: 'test' });";
-        }
-        return null;
-      });
 
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       const match = result.find((f: UnwiredFeature) => f.functionName === 'grd_my_tool');
@@ -302,11 +293,18 @@ describe('discoverUnwiredFeatures()', () => {
     });
 
     test('does NOT flag tool that is referenced in integration tests', () => {
-      mockStatSync.mockImplementation((p: string) => {
-        if (p === path.join(FAKE_CWD, 'lib')) return { isDirectory: () => true, isFile: () => false };
-        if (p === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) return { isDirectory: () => false, isFile: () => true };
-        throw new Error('ENOENT');
-      });
+      setupGrdProjectMocks(
+        undefined,
+        (filePath: string) => {
+          if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
+            return "tools.push({ name: 'grd_tested_tool' });";
+          }
+          if (filePath === path.join(FAKE_CWD, 'tests', 'integration', 'mcp.test.ts')) {
+            return "it('calls grd_tested_tool', async () => { expect(true).toBe(true); });";
+          }
+          return null;
+        },
+      );
 
       mockReaddirSync.mockImplementation((dir: string, _opts?: unknown) => {
         if (dir === path.join(FAKE_CWD, 'lib')) return [];
@@ -316,15 +314,6 @@ describe('discoverUnwiredFeatures()', () => {
         throw new Error('ENOENT');
       });
 
-      mockSafeReadFile.mockImplementation((filePath: string) => {
-        if (filePath === path.join(FAKE_CWD, 'lib', 'mcp-server.ts')) {
-          return "tools.push({ name: 'grd_tested_tool' });";
-        }
-        if (filePath === path.join(FAKE_CWD, 'tests', 'integration', 'mcp.test.ts')) {
-          return "it('calls grd_tested_tool', async () => { expect(true).toBe(true); });";
-        }
-        return null;
-      });
 
       const result: UnwiredFeature[] = discoverUnwiredFeatures(FAKE_CWD);
       expect(result.find((f: UnwiredFeature) => f.functionName === 'grd_tested_tool')).toBeUndefined();
