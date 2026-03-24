@@ -30,7 +30,8 @@
 - v0.3.12 Multi-Backend Feature Sync - Phases 74-77 (shipped 2026-03-20)
 - v0.3.13 Wireup Command - Phases 78-81 (shipped 2026-03-21)
 - v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (shipped 2026-03-23)
-- v0.3.21 Elicitation Replacement - Phases 86-88 (in progress)
+- v0.3.21 Elicitation Replacement - Phase 86 (shipped 2026-03-24)
+- v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration - Phases 87-91 (in progress)
 
 ## Phases
 
@@ -199,88 +200,132 @@ Phases 78-81 added `/grd:wireup` command — end-to-end integration wiring compl
 
 </details>
 
-### v0.3.20 Multi-Agent Cross-Backend Discussion (In Progress)
+<details>
+<summary>v0.3.20 Multi-Agent Cross-Backend Discussion (Phases 82-85) - SHIPPED 2026-03-23</summary>
 
-**Milestone Goal:** Enable GRD to orchestrate multi-backend AI discussions — dispatching prompts to Codex, Gemini, and OpenCode, synthesizing their responses, and integrating the output into plan-phase, execute-phase, and code review workflows.
-**Start:** 2026-03-23
+Phases 82-85 delivered multi-backend AI discussion orchestration. `dispatchToBackend()` dispatches prompts to Codex, Gemini, and OpenCode; `runDiscussion()` orchestrates parallel rounds and feeds responses to a synthesizer backend. Discussion integrated into plan-phase (brainstormer pre-planning context) and execute-phase (before-execution context), with cross-backend code review dispatching BLOCKER/WARNING findings. Four MCP tools (grd_discussion_run, grd_discussion_config, grd_backends_available, grd_discussion_history), /grd:discuss slash command. 3,557 tests, 27 lib/ modules. See `.planning/milestones/v0.3.20/` for details.
 
-- [x] **Phase 82: Discussion Infrastructure** - Backend role config, availability detection, dispatch primitives, and model ceiling `implement` *(completed 2026-03-23)*
-- [x] **Phase 83: Discussion Protocol Core** - Round orchestration, synthesis, and discussion state/history `implement` *(completed 2026-03-23)*
-- [x] **Phase 84: Workflow Integration** - Auto-discussion before planning/execution and cross-backend plan/code/PR review `implement` *(completed 2026-03-23)*
-- [x] **Phase 85: MCP Tools, CLI Command, and Testing** - grd_discussion_* MCP tools, /grd:discuss command, unit/integration tests `integrate` *(completed 2026-03-23)*
+</details>
 
-#### Phase 82: Discussion Infrastructure
-**Goal**: The foundational layer for cross-backend dispatch is in place — config schema accepts `backend_roles`, `detectAvailableBackends()` probes PATH for all four AI CLIs, `dispatchToBackend()` in `lib/discussion.ts` spawns any configured backend with a structured prompt and returns a typed result, and all discussion subagent spawns on the primary backend are capped at sonnet-tier models.
+<details>
+<summary>v0.3.21 Elicitation Replacement (Phase 86) - SHIPPED 2026-03-24</summary>
+
+Phase 86 delivered the core elicitation detection and resolution primitives. `detectElicitation()` identifies question patterns in subprocess output using two-pass regex analysis (numbered options pre-scan, then line-by-line for direct questions, clarification phrases, option prompts). `buildElicitationContext()` packages phase goal, plan summary, and recent changes under 8K tokens. `resolveElicitation()` routes questions to multi-backend discussion and returns consensus answer with graceful fallback. 90%+ line coverage on elicitation module. See `.planning/milestones/v0.3.21/` for details.
+
+</details>
+
+### v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration (In Progress)
+
+**Milestone Goal:** Enhance autopilot with worktree-isolated parallel phase execution, a 4-step post-phase pipeline (simplify, PR, code review, rebase+merge), a serial merge queue preventing concurrent rebase races, write-intent manifests driving wave conflict detection, and always-on auto-resume with milestone mode as default.
+**Start:** 2026-03-24
+
+- [ ] **Phase 87: Post-Phase Pipeline Core** - Simplify, PR creation, code review, and rebase+merge steps plus the pipeline orchestrator `implement`
+- [ ] **Phase 88: Serial Merge Queue and Conflict Resolution** - Sequential merge gate for parallel phases and conflict resolution subprocess `implement`
+- [ ] **Phase 89: Write-Intent Manifests and Wave Builder** - Phase plan file list declarations, wave-level conflict detection, and declared-vs-actual feedback `implement`
+- [ ] **Phase 90: Autopilot Mode Changes and Parallel Execution** - Always-on auto-resume, milestone-mode default, worktree-isolated parallel execution, and shared state locking `implement`
+- [ ] **Phase 91: Integration Testing and Validation** - Unit tests for pipeline, merge queue, wave builder, and full E2E integration test `integrate`
+
+#### Phase 87: Post-Phase Pipeline Core
+
+**Goal**: Each autopilot phase completion triggers a 4-step sequential pipeline — simplify runs code quality cleanup, a PR is created from the phase branch, a code review subprocess fixes BLOCKER/WARNING findings, and the branch is rebased onto main and merged — all orchestrated by `runPostPhasePipeline()` with per-step timeouts and a `--skip-post-pipeline` escape hatch.
 **Type**: implement
-**Depends on**: Phase 81 (lib/backend.ts exists with detection patterns to extend)
-**Requirements**: REQ-134, REQ-135, REQ-136, REQ-143, REQ-149
+**Depends on**: Phase 86 (lib/autopilot.ts exists with subprocess spawn patterns to extend)
+**Requirements**: REQ-160, REQ-161, REQ-162, REQ-163, REQ-164
 **Verification Level**: proxy
 **Success Criteria** (what must be TRUE):
-  1. `config.json` accepts and validates `backend_roles` with four roles (`reviewer`, `brainstormer`, `verifier`, `executor`) mapping to valid backend IDs; invalid IDs rejected at load time.
-  2. `detectAvailableBackends()` returns a `Record<BackendId, { available: boolean, version: string | null }>` that correctly reflects which CLIs are on PATH; result is cached with 5-minute TTL.
-  3. `dispatchToBackend(backendId, prompt, options)` executes the target CLI with correct flags (`--print` for claude, `-q` for codex, default for gemini/opencode), captures stdout/stderr, and returns a typed `BackendResponse` with `backend`, `response_text`, `duration_ms`; times out after configurable duration (default 5 min) with a structured error.
-  4. `discussion` config section (`enabled`, `before_planning`, `before_execution`, `max_rounds`, `timeout_per_round_seconds`, `synthesizer`) is validated on load; when `enabled: false` all discussion paths short-circuit silently.
-  5. Discussion subagent spawns on the primary backend reference `SONNET_MODEL` constant, matching the ceiling established in `lib/wireup/state.ts` and `lib/evolve/`.
-**Plans**: 3 plans
-
-Plans:
-- [ ] 82-01-PLAN.md — Types, config validation, and backend availability detection
-- [ ] 82-02-PLAN.md — Cross-backend dispatch primitive (lib/discussion.ts)
-- [ ] 82-03-PLAN.md — Unit tests for dispatch, availability, and config validation
-
-#### Phase 83: Discussion Protocol Core
-**Goal**: A complete discussion round can be run end-to-end — `runDiscussion(topic, participants, options)` orchestrates parallel dispatch, collects per-round responses, feeds them to a synthesizer backend, and writes a structured markdown history file to the milestone discussions directory.
-**Type**: implement
-**Depends on**: Phase 82
-**Requirements**: REQ-137, REQ-144
-**Verification Level**: proxy
-**Success Criteria** (what must be TRUE):
-  1. `runDiscussion()` dispatches to all `participants` in parallel for round 1, collects responses, passes the full set to the `synthesizer` backend, and (when `rounds >= 2`) runs a second round sharing the synthesis with each participant.
-  2. `runDiscussion()` returns a typed `DiscussionResult` containing `rounds` (array of per-backend responses), `synthesis` (synthesizer output), `participants`, `topic`, and `duration_ms`.
-  3. Each discussion produces a markdown file at `.planning/milestones/{milestone}/discussions/discussion-{phase}-{type}-{timestamp}.md` containing topic, participants, all round responses, synthesis, and outcome; file is written before the function returns.
-  4. When a participant backend is unavailable, that participant is skipped with a structured `{ skipped: true, reason: string }` entry in the result — the discussion continues with remaining participants.
-  5. `rounds` option is clamped to 1-3; `timeout_per_round_seconds` is respected per dispatch call.
-**Plans**: 2 plans
-
-Plans:
-- [ ] 83-01-PLAN.md — Types (DiscussionResult, DiscussionRoundEntry, RunDiscussionOptions) and discussionsDir() path helper
-- [ ] 83-02-PLAN.md — runDiscussion() orchestration, history I/O helpers, and comprehensive unit tests
-
-#### Phase 84: Workflow Integration
-**Goal**: Discussion output flows automatically into plan-phase and execute-phase workflows — the planner receives brainstormer discussion output as research context, and generated plans and code diffs are dispatched to the configured reviewer backend before the user is asked to proceed.
-**Type**: implement
-**Depends on**: Phase 83
-**Requirements**: REQ-138, REQ-139, REQ-140, REQ-141, REQ-142
-**Verification Level**: proxy
-**Success Criteria** (what must be TRUE):
-  1. When `backend_roles.brainstormer` is configured, available, and `discussion.before_planning` is true, `plan-phase` automatically runs a pre-planning discussion round; the discussion markdown is included in the planner's context under a clearly labeled section.
-  2. When `discussion.before_execution` is true, `execute-phase` runs a single-round discussion before dispatch; executor receives discussion output as additional context; feature is skipped silently when `before_execution: false`.
-  3. When `backend_roles.reviewer` is configured, generated plans are dispatched to the reviewer before execution; reviewer returns `{ approved: boolean, concerns: Concern[], suggestions: string[] }`; unapproved plans present concerns to the user.
-  4. After phase execution, the code diff is dispatched to the configured reviewer; the review returns `{ approved: boolean, issues: ReviewIssue[] }` where each issue has `severity` (`blocker`/`warning`/`suggestion`), `file`, `line_range`, `description`; blockers halt the completion flow.
-  5. PR review (when `code_review.pr_review` is true and reviewer is configured) dispatches the PR diff via `gh` CLI output to the reviewer; returned comments are posted as PR review comments via `gh` CLI.
+  1. `buildSimplifyPrompt(phaseNum)` produces a prompt that, when spawned via `claude -p`, targets the phase's changed files for code quality review; subprocess invocation strips CLAUDE session env vars via `buildBackendEnv()`.
+  2. `pushAndCreatePR()` (reused from `lib/worktree.ts`) pushes the worktree branch and creates a PR targeting main; PR title follows the phase naming convention (`grd/{milestone}/{phase}-{slug}`).
+  3. `buildCodeReviewPrompt(prUrl)` produces a reviewer prompt targeting the PR diff; any BLOCKER or WARNING finding triggers a fix push to the branch before proceeding.
+  4. Rebase step (`git rebase main`) runs before merge; on conflict, a conflict-resolve subprocess is spawned with both file versions and the phase's intent context; non-zero subprocess exit halts the pipeline immediately.
+  5. `runPostPhasePipeline(cwd, phaseNum, worktreePath, opts)` executes all four steps in order; if any step fails, autopilot stops and reports the failed step name and phase number; `--skip-post-pipeline` flag bypasses all four steps.
 **Plans**: TBD
 
-#### Phase 85: MCP Tools, CLI Command, and Testing
-**Goal**: The full discussion surface is exposed — four MCP tools (`grd_discussion_run`, `grd_discussion_config`, `grd_backends_available`, `grd_discussion_history`) are registered and functional, `/grd:discuss` slash command runs ad-hoc discussions inline, and `lib/discussion.ts` has 85%+ unit test coverage with an integration test validating the complete discussion pipeline against mocked CLIs.
+Plans:
+- [ ] 87-01: `buildSimplifyPrompt()` and `buildCodeReviewPrompt()` — prompt builders with env stripping
+- [ ] 87-02: Rebase+merge step with conflict-resolve subprocess and `runPostPhasePipeline()` orchestrator
+
+#### Phase 88: Serial Merge Queue and Conflict Resolution
+
+**Goal**: When multiple phases complete execution in parallel, their post-phase pipelines merge to main in arrival order — only one rebase+merge runs at a time, preventing concurrent rebase race conditions — and when git rebase produces conflicts, a `claude -p` subprocess with full phase intent context resolves them or halts autopilot cleanly.
+**Type**: implement
+**Depends on**: Phase 87
+**Requirements**: REQ-165, REQ-166
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. A merge queue data structure (or equivalent async coordination primitive) ensures that when N phases complete execution concurrently, their rebase+merge steps execute one at a time in the order each phase finished execution.
+  2. Phases waiting in the queue proceed to their own simplify and PR/review steps independently; only the rebase+merge step serializes — simplify and code review run in parallel.
+  3. When `git rebase main` exits with conflicts, the conflict-resolve subprocess receives: (a) both conflicting file versions, (b) the phase goal and plan summary, (c) an explicit instruction to preserve changes from both versions; CLAUDE session env vars stripped.
+  4. If the conflict-resolve subprocess exits non-zero, autopilot halts with a clear message identifying the phase, the conflicting file(s), and the manual steps needed.
+**Plans**: TBD
+
+Plans:
+- [ ] 88-01: Merge queue implementation and integration into `runPostPhasePipeline()`
+- [ ] 88-02: `buildConflictResolvePrompt()` and conflict-halting logic
+
+#### Phase 89: Write-Intent Manifests and Wave Builder
+
+**Goal**: Phase PLAN.md files declare a `files_modified` list that the wave builder uses to detect same-file conflicts between parallel phases — phases that both declare the same `lib/` module are moved to separate waves — and after each execution, declared vs actual modified files are compared and discrepancies logged.
+**Type**: implement
+**Depends on**: Phase 88
+**Requirements**: REQ-167, REQ-168, REQ-169
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `buildPlanPrompt()` in `lib/autopilot.ts` instructs the planner to include a `files_modified:` YAML block in PLAN.md listing the `lib/` modules and other files the plan expects to modify; `cmdInitExecutePhase` parses this block on plan load.
+  2. `buildWaves()` in `lib/parallel.ts` cross-references `files_modified` across phases within the same wave; any two phases declaring the same `lib/` file are placed in separate waves, with the later phase moved to the next wave.
+  3. Existing `depends_on` dependency logic is preserved unchanged; write-intent conflict detection is an additive constraint layered on top.
+  4. `--force-parallel` flag overrides write-intent serialization and forces all phases into one wave (for intentional parallel runs where the planner has declared the same file deliberately).
+  5. After each phase execution, `git diff --name-only` output is compared to the plan's `files_modified` list; unexpected files and declared-but-untouched files are both logged to the autopilot log with a `[WRITE-INTENT-MISMATCH]` prefix.
+**Plans**: TBD
+
+Plans:
+- [ ] 89-01: Write-intent declaration in planner prompt and parsing in `cmdInitExecutePhase`
+- [ ] 89-02: Wave builder conflict check and `--force-parallel` flag
+- [ ] 89-03: Declared-vs-actual feedback logging after execution
+
+#### Phase 90: Autopilot Mode Changes and Parallel Execution
+
+**Goal**: `gd autopilot` defaults to milestone mode (all phases in current milestone), auto-resume is always on with no `--resume` flag, `--from`/`--to` are renamed `--phase-from`/`--phase-to`, independent phases execute concurrently in git worktrees with `STATE.md` and autopilot log writes using atomic rename for race safety, and milestone mode runs wireup discovery after all phases merge.
+**Type**: implement
+**Depends on**: Phase 89
+**Requirements**: REQ-170, REQ-171, REQ-172, REQ-173, REQ-174
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. `gd autopilot` called with no arguments enters milestone mode: reads all phases from ROADMAP.md for the current milestone, applies auto-resume logic (fully executed phases skipped, planned-but-not-executed phases skip to execute, no-plans phases start from plan), and runs the full loop.
+  2. `--resume` flag is removed from `AutopilotOptions`, `cmdAutopilot`, and `cmdMultiMilestoneAutopilot`; `--from`/`--to` are renamed `--phase-from`/`--phase-to`; `commands/autopilot.md` skill definition is updated to match.
+  3. Independent phases (no `depends_on` relationship) execute concurrently, each in its own git worktree created via `worktreePath()` and the existing worktree lifecycle in `lib/worktree.ts`; dependent phases block until their dependency's full post-phase pipeline completes and merges to main.
+  4. `writeStatusMarker()` and `updateStateProgress()` write to `.planning/` in the main repo, not the worktree; writes to `STATE.md` and `autopilot.log` use write-to-temp-then-rename for POSIX atomicity, preventing partial writes under concurrent access.
+  5. In milestone mode only, after all phases complete and their PRs merge, a wireup subprocess is spawned (`buildWireupPrompt()`) to run discovery for exported-but-uncalled, config-without-surface, and endpoint-without-integration-test issues; results are reported in the autopilot summary.
+**Plans**: TBD
+
+Plans:
+- [ ] 90-01: Remove `--resume`, rename `--from`/`--to`, implement milestone-mode default and auto-resume
+- [ ] 90-02: Worktree-isolated parallel execution with dependency blocking
+- [ ] 90-03: Atomic STATE.md/log writes and milestone wireup step
+
+#### Phase 91: Integration Testing and Validation
+
+**Goal**: The full autopilot v2 pipeline is verified by unit tests (85%+ coverage on new pipeline code) and an E2E integration test that runs two independent phases through parallel execute, serial merge queue, and PR merge using mocked git/gh operations.
 **Type**: integrate
-**Depends on**: Phase 84
-**Requirements**: REQ-145, REQ-146, REQ-147, REQ-148
+**Depends on**: Phase 90
+**Requirements**: REQ-175, REQ-176, REQ-177, REQ-178
 **Verification Level**: full
 **Success Criteria** (what must be TRUE):
-  1. All four MCP tools are registered in the MCP server and return valid JSON responses: `grd_discussion_run` triggers a full discussion, `grd_discussion_config` reads/writes discussion config, `grd_backends_available` lists backends with their availability and assigned roles, `grd_discussion_history` lists and reads past discussion files.
-  2. `/grd:discuss <topic>` command file exists with correct YAML frontmatter (`description`, `argument-hint`), invokes `runDiscussion()` on the given topic using configured participants, and renders each round's responses and the final synthesis in the terminal.
-  3. `tests/unit/discussion.test.ts` covers `detectAvailableBackends()`, `dispatchToBackend()`, `runDiscussion()`, config validation, and history file I/O at 85%+ line coverage; per-file threshold is added to `jest.config.js`.
-  4. Integration test validates the full pipeline: detect backends (mocked PATH) -> configure roles -> run 2-round discussion -> synthesize -> write history file -> read back via `grd_discussion_history` MCP tool; test uses the testbed pattern from v0.2.7.
-  5. `npm test` passes with all new tests included; lint and type-check (`npm run build:check`) pass with zero errors.
-**Plans**: 2 plans
+  1. Unit tests for each post-phase pipeline step (simplify, PR creation, code review, rebase+merge) and `runPostPhasePipeline()` achieve 85%+ line coverage on new pipeline code; subprocess spawning, git operations, and gh CLI are mocked.
+  2. Serial merge queue unit tests verify: (a) parallel phases merge in arrival order, (b) conflict-resolve subprocess is spawned with correct arguments when conflicts occur, (c) autopilot halts with structured error message when subprocess exits non-zero.
+  3. Write-intent wave builder unit tests verify: (a) `files_modified` parsing from PLAN.md, (b) overlapping phases are moved to separate waves, (c) `--force-parallel` keeps all phases in one wave, (d) declared-vs-actual mismatch logging produces `[WRITE-INTENT-MISMATCH]` log entries.
+  4. E2E integration test runs two independent phases through the full autopilot v2 loop — parallel execute in worktrees, serial merge queue, PR merge to main in order — using mock git/gh operations; test asserts phases merge in execution-completion order with no conflicts.
+  5. `npm test` passes with all new and updated tests; `npm run lint` and `npm run build:check` pass with zero errors.
+**Plans**: TBD
+
 Plans:
-- [ ] 85-01-PLAN.md — Register 4 discussion MCP tools + /grd:discuss slash command
-- [ ] 85-02-PLAN.md — Expand unit tests to 85%+ coverage + integration test for full pipeline
+- [ ] 91-01: Post-phase pipeline unit tests and serial merge queue tests
+- [ ] 91-02: Write-intent wave builder tests
+- [ ] 91-03: E2E integration test — full autopilot v2 pipeline
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 82 -> 83 -> 84 -> 85
+Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -288,6 +333,12 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 | 83. Discussion Protocol Core | v0.3.20 | 2/2 | Complete | 2026-03-23 |
 | 84. Workflow Integration | v0.3.20 | 3/3 | Complete | 2026-03-23 |
 | 85. MCP Tools, CLI, and Testing | v0.3.20 | 2/2 | Complete | 2026-03-23 |
+| 86. Elicitation Detection and Resolution Core | v0.3.21 | 2/2 | Complete | 2026-03-24 |
+| 87. Post-Phase Pipeline Core | v0.3.22 | 0/TBD | Not started | - |
+| 88. Serial Merge Queue and Conflict Resolution | v0.3.22 | 0/TBD | Not started | - |
+| 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 0/TBD | Not started | - |
+| 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 0/TBD | Not started | - |
+| 91. Integration Testing and Validation | v0.3.22 | 0/TBD | Not started | - |
 
 ## Deferred Validations
 
@@ -304,51 +355,3 @@ Phases execute in numeric order: 82 -> 83 -> 84 -> 85
 | Phase 78 | Scenario executability by Phase 79 HTTP/CLI engine (DEFER-78-02) | Phase 79, plan 79-02 | Pending |
 | Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
-
-### v0.3.21 Elicitation Replacement (In Progress)
-
-**Milestone Goal:** Transform multi-backend discussion from a standalone tool into an autonomous decision layer — when the primary backend asks clarifying questions, route them to other AI backends for deliberation and feed the consensus back, enabling truly unattended autopilot and evolve.
-**Start:** 2026-03-23
-
-- [x] **Phase 86: Elicitation Detection and Resolution Core** - Pattern-based question detection, context builder, discussion routing `implement` *(completed 2026-03-24)*
-- [ ] **Phase 87: Autopilot and Plan-Phase Integration** - Async subprocess spawning with stdin/stdout streaming, elicitation interception in autopilot and plan-phase `implement`
-- [ ] **Phase 88: Execute-Phase, Evolve Integration, and E2E Testing** - Execute-phase and evolve loop integration, full pipeline integration test `integrate`
-
-#### Phase 86: Elicitation Detection and Resolution Core
-**Goal**: The core elicitation primitives are in place — `detectElicitation()` reliably identifies questions in subprocess output, `buildElicitationContext()` packages relevant project context, and `resolveElicitation()` routes questions through multi-backend discussion and returns a consensus answer.
-**Type**: implement
-**Requirements**: REQ-150, REQ-151, REQ-152, REQ-157
-**Verification Level**: proxy
-**Success Criteria**:
-  1. `detectElicitation(output)` correctly identifies question patterns (lines ending with `?`, numbered options, "Please clarify") while avoiding false positives (questions in code comments, string literals, markdown headers).
-  2. `buildElicitationContext()` produces a concise context string (under 8K tokens) containing the question, phase goal, plan summary, and recent changes.
-  3. `resolveElicitation()` dispatches to configured participants, synthesizes a single-round discussion, and returns the consensus answer string. Handles all-unavailable gracefully (returns empty string).
-  4. Unit tests cover detection patterns, false positive rejection, context building, and routing with 90%+ line coverage.
-**Plans**: 2 plans
-Plans:
-- [x] 86-01-PLAN.md — ElicitationDetection type + detectElicitation() with TDD tests
-- [x] 86-02-PLAN.md — buildElicitationContext() + resolveElicitation() with unit tests
-
-#### Phase 87: Autopilot and Plan-Phase Integration
-**Goal**: Autopilot subprocess spawning supports elicitation interception — detected questions are resolved via multi-backend discussion and the answer is fed back to the subprocess stdin, enabling uninterrupted autonomous planning.
-**Type**: implement
-**Depends on**: Phase 86
-**Requirements**: REQ-153, REQ-154, REQ-159
-**Verification Level**: proxy
-**Success Criteria**:
-  1. Autopilot subprocess spawning uses async `execFile` with stdin/stdout streaming when `elicitation_replacement` is enabled.
-  2. Detected questions in planner subprocess output are intercepted, resolved via `resolveElicitation()`, and the answer is written to subprocess stdin.
-  3. `elicitation_replacement` config flag controls the feature (default: true when discussion enabled and participants available).
-  4. Elicitation settings exposed in `/grd:settings` interview.
-
-#### Phase 88: Execute-Phase, Evolve Integration, and E2E Testing
-**Goal**: Elicitation replacement is wired into all autonomous workflows (execute-phase, evolve) and validated end-to-end.
-**Type**: integrate
-**Depends on**: Phase 87
-**Requirements**: REQ-155, REQ-156, REQ-158
-**Verification Level**: full
-**Success Criteria**:
-  1. Execute-phase subprocess spawning supports elicitation interception (same mechanism as plan-phase).
-  2. Evolve loop sub-agents support elicitation interception for discovery, selection, and execution decisions.
-  3. E2E integration test validates: mock primary backend emits question → detection fires → discussion dispatched → consensus synthesized → answer fed back → subprocess continues.
-  4. `npm test` passes with all new tests; lint and type-check pass.

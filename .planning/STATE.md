@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Not started (defining requirements)
+- **Active phase:** Phase 87 — Post-Phase Pipeline Core (not started)
 - **Current plan:** None
-- **Milestone:** v0.3.22 Autopilot v2
-- **Status:** Defining requirements
+- **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
+- **Status:** Roadmap created, ready to plan Phase 87
 - **Progress:** [░░░░░░░░░░] 0%
-- **Next:** Define requirements → create roadmap
+- **Next:** `/grd:plan-phase 87`
 
 ## Phase Summary
 
@@ -31,6 +31,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
 | 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
+| 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
+| 87 | Post-Phase Pipeline Core | Not started |
+| 88 | Serial Merge Queue and Conflict Resolution | Not started |
+| 89 | Write-Intent Manifests and Wave Builder | Not started |
+| 90 | Autopilot Mode Changes and Parallel Execution | Not started |
+| 91 | Integration Testing and Validation | Not started |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -46,6 +52,18 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | v0.3.7 | Claude Code Feature Sync | Shipped (Phases 71-73, 5 plans) |
 | v0.3.12 | Multi-Backend Feature Sync | Shipped (Phases 74-77, 8 plans) |
 | v0.3.13 | Wireup Command | Shipped (Phases 78-81, 12 plans) |
+| v0.3.20 | Multi-Agent Cross-Backend Discussion | Shipped (Phases 82-85) |
+| v0.3.21 | Elicitation Replacement | Shipped (Phase 86) |
+
+## v0.3.22 Roadmap
+
+| Phase | Goal | Requirements | Verification |
+|-------|------|--------------|--------------|
+| 87 — Post-Phase Pipeline Core | 4-step pipeline: simplify, PR, code review, rebase+merge | REQ-160–164 | proxy |
+| 88 — Serial Merge Queue | Sequential merge gate + conflict resolution subprocess | REQ-165–166 | proxy |
+| 89 — Write-Intent Manifests | `files_modified` declarations + wave conflict detection | REQ-167–169 | proxy |
+| 90 — Autopilot Mode Changes | Milestone default, auto-resume, parallel worktrees, atomic writes | REQ-170–174 | proxy |
+| 91 — Integration Testing | Unit tests (85%+ coverage) + E2E pipeline test | REQ-175–178 | full |
 
 ## Deferred Validations
 
@@ -69,8 +87,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Performance Metrics
 
 **Cumulative:**
-- Milestones shipped: 27 (v0.0.5 through v0.3.13)
-- Total tests: 3,557 (after Phase 85 — added 380 tests across discussion module)
+- Milestones shipped: 28 (v0.0.5 through v0.3.21)
+- Total tests: 3,557 (after Phase 86 — elicitation module at 90%+ coverage)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 41
 - MCP tools: 132
@@ -92,12 +110,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
 - [Phase 86]: detectElicitation uses two-pass approach (numbered_options pre-scan, then line-by-line); buildElicitationContext budgets 5 sections at 1K/1K/2K/2K/1K chars; resolveElicitation uses rounds=1 with fallback chain: synthesis → first non-skipped round-1 → empty string
-- [Phase 86]: detectElicitation uses two-pass approach: numbered_options checked first, then line-by-line for other patterns
 - [Phase 86]: ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
-- [Phase 86]: detectElicitation uses regex-based line-by-line parsing (no NLP/AST) for maintainability
-- [Phase 86]: confidence: high for direct/clarification patterns; medium for option_prompt; numbered options require 2+ consecutive lines
-- [Phase 86]: buildElicitationContext uses per-section char budgets to stay under 8K tokens
-- [Phase 86]: resolveElicitation uses rounds=1 with fallback to first non-skipped round entry
+- [Design spec v0.3.22]: No external plugin dependencies — post-phase review uses built-in prompts, not 3rd-party toolkits
+- [Design spec v0.3.22]: Sequential merge with rebase — PRs merge one at a time, always rebasing first; conflicts auto-resolved by claude -p subprocess
+- [Design spec v0.3.22]: Reuse lib/worktree.ts functions (worktreePath, pushAndCreatePR, create/remove) — no parallel worktree management system
+- [Design spec v0.3.22]: LLM-based conflict resolution falls back to halting for human intervention on non-zero subprocess exit
+- [Design spec v0.3.22]: Write-intent is best-effort declaration, not a contract; --force-parallel overrides for intentional overlapping execution
 
 ## Known Bugs
 
@@ -109,12 +127,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Executed Phase 86 — 2 plans, 2 waves, all verified
-- **Stopped at:** Completed 86-02-PLAN.md
-- **Next action:** `/grd:complete-milestone`
-- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
+- **Last action:** Created ROADMAP.md and STATE.md for v0.3.22 (Autopilot v2)
+- **Stopped at:** Roadmap creation complete — 5 phases (87-91), 19/19 requirements mapped
+- **Next action:** `/grd:plan-phase 87`
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, .planning/REQUIREMENTS.md, docs/superpowers/specs/2026-03-22-autopilot-v2-design.md, lib/autopilot.ts, lib/worktree.ts, lib/parallel.ts
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*
