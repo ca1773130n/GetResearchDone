@@ -82,6 +82,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Design spec v0.3.23]: Knowledge miner step is backward-compatible — skipped gracefully if agent definition file absent
 - [Phase 92]: Tests use inline tmpDir for validateResearchArtifacts, not createFixtureDir — no .planning/ structure needed for research artifact validation
 - [Phase 93-compositional-citation-recovery]: CitationNode priority escalation: code_available=false on MissingComponent sets dep node to priority='critical'
+- [Phase 93]: deep-diver emits Missing Components and Borrowed Components tables in PAPERS.md output
+- [Phase 93]: phase-researcher runs citation recovery pass (buildCitationGraph + findUnresolved) after research protocol
 
 ## Known Bugs
 
@@ -94,7 +96,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 93 plan 01 executed — lib/citations.ts and 6 citation types in lib/types.ts
-- **Stopped at:** Completed 93-compositional-citation-recovery-01-PLAN.md
+- **Stopped at:** Completed 93-02-PLAN.md
 - **Next action:** Execute Phase 93 plan 02 (`gd execute-phase 93`)
 - **Context needed:** .planning/STATE.md, lib/citations.ts, lib/types.ts
 
