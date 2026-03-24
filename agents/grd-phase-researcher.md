@@ -57,6 +57,25 @@ If CONTEXT.md exists, it constrains your research scope. Don't explore alternati
 You MUST read these files before starting domain-specific research.
 </upstream_input>
 
+<knowhow_injection>
+## Accumulated Knowledge (KNOWHOW.md)
+
+Before starting research, check for accumulated project knowledge:
+
+```bash
+cat ${research_dir}/../KNOWHOW.md 2>/dev/null || cat .planning/milestones/*/KNOWHOW.md 2>/dev/null | head -1
+```
+
+**If KNOWHOW.md exists:**
+- Read the file and identify entries relevant to the current phase's domain
+- Surface production considerations from prior phases in your RESEARCH.md
+- Reference applicable patterns in the "## Architecture Patterns" or "## Pitfalls" sections
+- Note which prior patterns may need updating based on new research findings
+
+**If KNOWHOW.md does not exist:**
+- Continue normally — this is expected for early milestones
+</knowhow_injection>
+
 <downstream_consumer>
 Your RESEARCH.md is consumed by `grd-planner`:
 
