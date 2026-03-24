@@ -16,22 +16,11 @@ import type { KnowhowEntry } from './types';
 
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');
+const { safeReadFile } = require('./utils') as { safeReadFile: (p: string) => string | null };
 
 const KNOWHOW_HEADER = '# KNOWHOW\n\n';
 
-/**
- * Convert a KnowhowEntry into a markdown level-3 heading block with YAML-like fields.
- *
- * Output format:
- *   ### {pattern_name}
- *
- *   - **source:** {source}
- *   - **applicability:** {applicability}
- *   - **code_snippet:** {code_snippet}
- *   - **phase_number:** {phase_number}
- *   - **created_at:** {created_at}
- *
- */
+/** Serialize a KnowhowEntry to a markdown level-3 heading block. */
 function formatKnowhowEntry(entry: KnowhowEntry): string {
   return (
     `### ${entry.pattern_name}\n\n` +
@@ -77,7 +66,6 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
       continue;
     }
 
-    // Parse `- **field:** value` lines
     const fieldPattern = /^- \*\*(\w+):\*\* (.*)$/;
     const fields: Record<string, string> = {};
 
@@ -88,20 +76,18 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
       }
     }
 
-    // Require all six fields to produce a valid entry
-    if (
-      fields['source'] !== undefined &&
-      fields['applicability'] !== undefined &&
-      fields['code_snippet'] !== undefined &&
-      fields['phase_number'] !== undefined &&
-      fields['created_at'] !== undefined
-    ) {
+    const REQUIRED_FIELDS = ['source', 'applicability', 'code_snippet', 'phase_number', 'created_at'] as const;
+    if (REQUIRED_FIELDS.every((k) => k in fields)) {
+      const phase_number = parseInt(fields['phase_number'], 10);
+      if (Number.isNaN(phase_number)) {
+        continue;
+      }
       entries.push({
         pattern_name,
         source: fields['source'],
         applicability: fields['applicability'],
         code_snippet: fields['code_snippet'],
-        phase_number: parseInt(fields['phase_number'], 10),
+        phase_number,
         created_at: fields['created_at'],
       });
     }
@@ -121,12 +107,7 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
  * - Parent directories are created if needed.
  */
 function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): void {
-  let existingContent = '';
-  try {
-    existingContent = fs.readFileSync(knowhowPath, 'utf8') as string;
-  } catch {
-    // File does not exist — start fresh
-  }
+  const existingContent = safeReadFile(knowhowPath) ?? '';
 
   const existing = parseKnowhowEntries(existingContent);
 
@@ -173,7 +154,7 @@ function selectTopEntries(
   n: number,
   moduleHints?: string[],
 ): KnowhowEntry[] {
-  if (entries.length === 0) {
+  if (entries.length === 0 || n <= 0) {
     return [];
   }
 

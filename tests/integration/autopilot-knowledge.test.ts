@@ -24,11 +24,22 @@ const {
   runKnowledgeMining: (
     cwd: string,
     phaseNum: string,
-    wtPath: string,
     options: { scheduler?: null; log: (msg: string) => void }
   ) => Promise<void>;
   writeStatusMarker: (cwd: string, phaseNum: string, step: string, status: string) => void;
 };
+
+function mockSpawnWith(event: 'error' | 'close', payload: Error | number): jest.SpyInstance {
+  const childProcess = require('child_process') as typeof import('child_process');
+  return jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+    const EventEmitter = require('events');
+    const emitter = new EventEmitter();
+    process.nextTick(() => emitter.emit(event, payload));
+    emitter.stdout = new EventEmitter();
+    emitter.stderr = new EventEmitter();
+    return emitter as ReturnType<typeof childProcess.spawn>;
+  });
+}
 
 // ─── buildKnowledgeMiningPrompt ───────────────────────────────────────────────
 
@@ -66,18 +77,15 @@ describe('buildKnowledgeMiningPrompt', () => {
 
 describe('Pipeline non-halt behavior', () => {
   let tmpDir: string;
-  let statusMarkers: Array<{ phaseNum: string; step: string; status: string }>;
   let logMessages: string[];
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-km-nonhalt-'));
 
-    // Create the agents directory with grd-knowledge-miner.md so the agent def IS found
     const agentsDir = path.join(tmpDir, 'agents');
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.writeFileSync(path.join(agentsDir, 'grd-knowledge-miner.md'), '# GRD Knowledge Miner\n\nMines knowledge from phase output.\n');
 
-    statusMarkers = [];
     logMessages = [];
   });
 
@@ -87,89 +95,38 @@ describe('Pipeline non-halt behavior', () => {
   });
 
   it('resolves without throwing when spawn rejects internally', async () => {
-    // Mock spawnClaudeAsync (called via spawnStep when no scheduler) to reject
-    // We do this by mocking the child_process.spawn to immediately error
-    const childProcess = require('child_process') as typeof import('child_process');
-    const spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
-      const EventEmitter = require('events');
-      const emitter = new EventEmitter();
-      // Simulate an immediate error event
-      process.nextTick(() => emitter.emit('error', new Error('spawn ENOENT')));
-      emitter.stdout = new EventEmitter();
-      emitter.stderr = new EventEmitter();
-      return emitter as ReturnType<typeof childProcess.spawn>;
-    });
-
+    const spawnSpy = mockSpawnWith('error', new Error('spawn ENOENT'));
     const log = (msg: string): void => { logMessages.push(msg); };
 
-    // Should resolve without throwing — non-blocking
     await expect(
-      runKnowledgeMining(tmpDir, '42', tmpDir, { scheduler: null, log })
+      runKnowledgeMining(tmpDir, '42', { scheduler: null, log })
     ).resolves.toBeUndefined();
 
     spawnSpy.mockRestore();
   });
 
-  it('calls writeStatusMarker with failed when spawn throws', async () => {
-    const writtenMarkers: Array<{ step: string; status: string }> = [];
-
-    // Read marker files written to the autopilot dir
-    const autopilotDir = path.join(tmpDir, '.planning', 'autopilot');
-
-    const childProcess = require('child_process') as typeof import('child_process');
-    const spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
-      const EventEmitter = require('events');
-      const emitter = new EventEmitter();
-      process.nextTick(() => emitter.emit('error', new Error('spawn ENOENT')));
-      emitter.stdout = new EventEmitter();
-      emitter.stderr = new EventEmitter();
-      return emitter as ReturnType<typeof childProcess.spawn>;
-    });
-
+  it('writes a terminal status marker when spawn errors', async () => {
+    const spawnSpy = mockSpawnWith('error', new Error('spawn ENOENT'));
     const log = (msg: string): void => { logMessages.push(msg); };
 
-    await runKnowledgeMining(tmpDir, '42', tmpDir, { scheduler: null, log });
+    await runKnowledgeMining(tmpDir, '42', { scheduler: null, log });
 
-    // Check that the status marker file for 'failed' was written
-    const markerPath = path.join(autopilotDir, 'phase-42-knowledge-mining.json');
-    if (fs.existsSync(markerPath)) {
-      const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as { status: string };
-      writtenMarkers.push({ step: 'knowledge-mining', status: marker.status });
-    }
-
-    // Either 'failed' or 'completed' marker should exist (spawn error results in 'failed')
-    const marker = writtenMarkers.find((m) => m.step === 'knowledge-mining');
-    if (marker) {
-      // When spawn errors out, status should be 'failed'
-      expect(['failed', 'completed']).toContain(marker.status);
-    }
-    // Main assertion: function did not throw
-    expect(true).toBe(true);
+    const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-42-knowledge-mining.json');
+    expect(fs.existsSync(markerPath)).toBe(true);
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as { status: string };
+    // Spawn error event may resolve or reject depending on spawnClaudeAsync internals;
+    // either terminal status is acceptable — 'started' would indicate a bug.
+    expect(['failed', 'completed']).toContain(marker.status);
 
     spawnSpy.mockRestore();
   });
 
   it('does not throw even if writeStatusMarker internally fails', async () => {
-    // If agent def exists but fs.mkdirSync in writeStatusMarker throws
-    // The outer try/catch in runAutopilot (in integration) catches it
-    // runKnowledgeMining itself still should not throw due to internal try/catch
-
-    const childProcess = require('child_process') as typeof import('child_process');
-    const spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
-      const EventEmitter = require('events');
-      const emitter = new EventEmitter();
-      // Immediate close with exit code 0 — success
-      process.nextTick(() => emitter.emit('close', 0));
-      emitter.stdout = new EventEmitter();
-      emitter.stderr = new EventEmitter();
-      return emitter as ReturnType<typeof childProcess.spawn>;
-    });
-
+    const spawnSpy = mockSpawnWith('close', 0);
     const log = (msg: string): void => { logMessages.push(msg); };
 
-    // Should still resolve without throwing
     await expect(
-      runKnowledgeMining(tmpDir, '7', tmpDir, { scheduler: null, log })
+      runKnowledgeMining(tmpDir, '7', { scheduler: null, log })
     ).resolves.toBeUndefined();
 
     spawnSpy.mockRestore();
@@ -203,7 +160,7 @@ describe('Pipeline skip behavior', () => {
     const log = (msg: string): void => { logMessages.push(msg); };
 
     await expect(
-      runKnowledgeMining(tmpDir, '10', tmpDir, { scheduler: null, log })
+      runKnowledgeMining(tmpDir, '10', { scheduler: null, log })
     ).resolves.toBeUndefined();
 
     // spawn should NOT have been called since agent def is missing
@@ -213,7 +170,7 @@ describe('Pipeline skip behavior', () => {
   it('writes skipped status marker when agent def missing', async () => {
     const log = (msg: string): void => { logMessages.push(msg); };
 
-    await runKnowledgeMining(tmpDir, '10', tmpDir, { scheduler: null, log });
+    await runKnowledgeMining(tmpDir, '10', { scheduler: null, log });
 
     const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-10-knowledge-mining.json');
     expect(fs.existsSync(markerPath)).toBe(true);
@@ -226,7 +183,7 @@ describe('Pipeline skip behavior', () => {
   it('logs a skip message when agent def missing', async () => {
     const log = (msg: string): void => { logMessages.push(msg); };
 
-    await runKnowledgeMining(tmpDir, '10', tmpDir, { scheduler: null, log });
+    await runKnowledgeMining(tmpDir, '10', { scheduler: null, log });
 
     const hasSkipLog = logMessages.some((msg) =>
       msg.toLowerCase().includes('skipped') || msg.toLowerCase().includes('skip')

@@ -494,11 +494,7 @@ function buildWireupPrompt(): string {
   return 'Use the Skill tool to invoke skill "grd:wireup" with no additional args. Autonomous mode — make all decisions yourself, no questions. Run wireup discovery (exported-but-uncalled, config-without-surface, endpoint-without-integration-test) and fix any findings.';
 }
 
-/**
- * Build the prompt string for the knowledge miner agent.
- * Instructs the agent to read phase SUMMARY.md files, analyze code changes and
- * decisions, produce ---KNOWHOW-ENTRY--- blocks, and write entries to KNOWHOW.md.
- */
+/** Build the prompt string for the knowledge miner agent. */
 function buildKnowledgeMiningPrompt(phaseNum: string): string {
   return `You are the GRD knowledge miner agent for phase ${phaseNum}.
 
@@ -530,7 +526,6 @@ Focus on patterns that are specific, reusable, and non-obvious — not general b
 async function runKnowledgeMining(
   cwd: string,
   phaseNum: string,
-  _wtPath: string,
   options: { scheduler?: Scheduler | null; log: (msg: string) => void }
 ): Promise<void> {
   const { scheduler, log } = options;
@@ -1603,7 +1598,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
 
         // Knowledge mining (non-blocking — failure does not halt pipeline)
         try {
-          await runKnowledgeMining(cwd, task.phaseNum, wtPath, { scheduler, log });
+          await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
         } catch (_err) {
           log(`Phase ${task.phaseNum}: knowledge mining error (non-blocking)`);
         }
