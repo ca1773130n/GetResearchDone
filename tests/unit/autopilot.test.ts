@@ -44,6 +44,7 @@ const {
   HEARTBEAT_INTERVAL_MS,
   startHeartbeat,
   _getSchedulerStates,
+  createMergeQueue,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -3587,6 +3588,97 @@ describe('lib/autopilot', () => {
       expect(result.status).toBe('failed');
       expect(result.failedStep).toBe('simplify');
       expect(result.reason).toContain('exit code 124');
+    });
+  });
+
+  describe('createMergeQueue', () => {
+    /** Small helper: resolve after `ms` milliseconds */
+    function delay(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    it('executes a single enqueued function immediately without unnecessary waiting', async () => {
+      const queue = createMergeQueue();
+      const result = await queue.enqueue(async () => 42);
+      expect(result).toBe(42);
+    });
+
+    it('serial execution guarantee — FIFO order even with varying delays', async () => {
+      const queue = createMergeQueue();
+      const order: number[] = [];
+
+      // Enqueue 3 functions; earlier ones take longer to simulate realistic timing.
+      // Despite the first being slowest, all must complete in enqueue order.
+      await Promise.all([
+        queue.enqueue(async () => {
+          await delay(30);
+          order.push(1);
+        }),
+        queue.enqueue(async () => {
+          await delay(10);
+          order.push(2);
+        }),
+        queue.enqueue(async () => {
+          await delay(5);
+          order.push(3);
+        }),
+      ]);
+
+      expect(order).toEqual([1, 2, 3]);
+    });
+
+    it('concurrent enqueue — functions enqueued without awaiting still run one at a time in order', async () => {
+      const queue = createMergeQueue();
+      const running: number[] = [];
+      const order: number[] = [];
+      let maxConcurrent = 0;
+
+      const makeTask = (id: number) =>
+        queue.enqueue(async () => {
+          running.push(id);
+          maxConcurrent = Math.max(maxConcurrent, running.length);
+          await delay(20);
+          order.push(id);
+          running.splice(running.indexOf(id), 1);
+        });
+
+      // Launch all without awaiting individual enqueues
+      const p1 = makeTask(1);
+      const p2 = makeTask(2);
+      const p3 = makeTask(3);
+      await Promise.all([p1, p2, p3]);
+
+      // Never more than 1 running at a time
+      expect(maxConcurrent).toBe(1);
+      // Completed in enqueue order
+      expect(order).toEqual([1, 2, 3]);
+    });
+
+    it('error isolation — a failing function does not prevent subsequent ones from running', async () => {
+      const queue = createMergeQueue();
+      const executed: string[] = [];
+
+      const failingPromise = queue.enqueue(async () => {
+        await delay(10);
+        executed.push('failing');
+        throw new Error('intentional failure');
+      });
+
+      const successPromise = queue.enqueue(async () => {
+        await delay(10);
+        executed.push('success');
+        return 'done';
+      });
+
+      // First promise must reject
+      await expect(failingPromise).rejects.toThrow('intentional failure');
+
+      // Second promise must still resolve
+      const successResult = await successPromise;
+      expect(successResult).toBe('done');
+
+      // Both functions executed
+      expect(executed).toEqual(['failing', 'success']);
     });
   });
 });
