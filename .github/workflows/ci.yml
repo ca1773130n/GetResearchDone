@@ -31,7 +31,7 @@ jobs:
         run: npm run format:check
         continue-on-error: true
 
-  test:
+  test-unit:
     runs-on: ubuntu-latest
     needs: lint
 
@@ -59,12 +59,35 @@ jobs:
           node dist/bin/grd-tools.js current-timestamp --raw
           echo "dist/ CLI: OK"
 
-      - name: Test
-        run: npm test
+      - name: Unit tests
+        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPattern='tests/unit/(?!worktree\.|autopilot\.|backend\.)' --coverage
+
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Slow tests (worktree, autopilot, backend, integration)
+        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPattern='tests/(integration/|unit/(worktree\.|autopilot\.|backend\.))' --coverage --coverageThreshold='{}'
 
   validate:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test-unit, test-integration]
 
     steps:
       - uses: actions/checkout@v4
@@ -79,34 +102,21 @@ jobs:
 
       - name: Pack and install validation
         run: |
-          # Build dist/ first
           npm run build
-
-          # Pack the tarball
           npm pack
           TARBALL=$(ls grd-tools-*.tgz)
-          echo "Packed: $TARBALL"
-
-          # Create a temp consumer project
           INSTALL_DIR=$(mktemp -d)
           cd "$INSTALL_DIR"
           npm init -y --silent
           npm install --ignore-scripts "$GITHUB_WORKSPACE/$TARBALL"
-
-          # Verify dist/ build is functional in consumer context
           node node_modules/grd-tools/dist/bin/grd-tools.js current-timestamp --raw
           echo "grd-tools dist/ CLI: OK"
-
-          # Verify MCP server starts and responds to initialize handshake
-          MCP_RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci-test","version":"1.0.0"}}}' | timeout 5 node node_modules/grd-tools/dist/bin/grd-mcp-server.js)
+          MCP_INPUT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci-test","version":"1.0.0"}}}'
+          MCP_RESPONSE=$(echo "$MCP_INPUT" | timeout 5 node node_modules/grd-tools/dist/bin/grd-mcp-server.js)
           echo "$MCP_RESPONSE" | grep -q '"protocolVersion"'
           echo "grd-mcp-server dist/: OK"
-
-          # Verify plugin.json exists at expected path
           test -f node_modules/grd-tools/.claude-plugin/plugin.json
           echo "plugin.json: OK"
-
-          # Clean up
           cd "$GITHUB_WORKSPACE"
           rm -rf "$INSTALL_DIR"
           rm -f "$TARBALL"
