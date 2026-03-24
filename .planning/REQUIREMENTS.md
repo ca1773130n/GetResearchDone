@@ -1,135 +1,108 @@
-# Requirements: v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
+# Requirements: v0.3.23 NERFIFY-Inspired Research Phase Enhancements
 
-**Milestone:** v0.3.22
+**Milestone:** v0.3.23
 **Created:** 2026-03-24
+**Source:** NERFIFY paper analysis + 4-backend discussion consensus
 
-## Post-Phase Pipeline
+## CFG Formalization (Foundation)
 
-### REQ-160: Simplify Step
+### REQ-179: Plan Artifact Schema
 **Priority:** P1 — High
 **Category:** Core
-**Description:** After each phase execution completes, spawn a subprocess to review the phase's changed files for code quality, reuse, and simplification. Operates on the worktree branch. Implementation as `buildSimplifyPrompt(phaseNum)` in `lib/autopilot.ts`. Uses sonnet-tier model. Strips CLAUDE session env vars before spawning (uses `buildBackendEnv`).
+**Description:** Create `lib/invariants.ts` with typed interfaces for plan artifacts: objective, files_modified, provides, requires, integration_points. Three validation classes: structural (fields exist, types match), semantic (objectives reference valid modules), cross-phase (no duplicate provides, requires satisfied).
 
-### REQ-161: PR Creation Step
+### REQ-180: Pre-Flight Validation Gate
 **Priority:** P1 — High
 **Category:** Core
-**Description:** After simplify, push the worktree branch to remote and create a PR targeting main via `gh pr create`. Reuses existing `pushAndCreatePR()` from `lib/worktree.ts`. PR title follows phase naming convention.
+**Description:** Wire invariant validation into `grd-plan-checker` as a hard reject gate. Invalid plans don't proceed to execution. Validate research artifacts: LANDSCAPE.md must have comparison table, PAPERS.md must have structured entries, RESEARCH.md must have method/tradeoff sections.
 
-### REQ-162: Code Review Step
+### REQ-181: CFG Validation Tests
 **Priority:** P1 — High
-**Category:** Core
-**Description:** After PR creation, spawn a subprocess with grd-code-reviewer-style prompt targeting the PR diff. Fixes BLOCKER/WARNING findings and pushes fixes to the branch. Implementation as `buildCodeReviewPrompt(prUrl)` in `lib/autopilot.ts`.
+**Category:** Testing
+**Description:** Unit tests for all three validation classes (structural, semantic, cross-phase). Test that malformed plans are rejected, valid plans pass, and edge cases (empty fields, missing sections) are handled. Coverage: 90%+ on lib/invariants.ts.
 
-### REQ-163: Rebase and Merge Step
+## Compositional Citation Recovery (Research Quality)
+
+### REQ-182: Deep-Diver Structured Output
 **Priority:** P1 — High
-**Category:** Core
-**Description:** After code review, rebase the phase branch onto current main. If conflicts arise, spawn a subprocess with both versions and the phase's intent context to resolve them. If resolution fails (non-zero exit), halt autopilot for human intervention. After successful rebase, merge the PR and clean up the worktree. Implementation in `lib/autopilot.ts`.
+**Category:** Research
+**Description:** Extend `grd-deep-diver` agent prompt to emit structured `missing_components` and `borrowed_components` fields in PAPERS.md output. Each component includes: name, source paper, description, whether it's available as code.
 
-### REQ-164: Pipeline Orchestrator
+### REQ-183: Citation Graph Storage
 **Priority:** P1 — High
-**Category:** Core
-**Description:** Orchestrate the 4-step post-phase pipeline (simplify → PR → review → rebase+merge) as a sequential flow per phase. Each step gets its own timeout. On failure at any step, stop autopilot and report which step and phase failed. Add `--skip-post-pipeline` flag for debugging. Implementation as `runPostPhasePipeline(phaseNum, worktreePath, options)` in `lib/autopilot.ts`.
+**Category:** Research
+**Description:** Store citation graphs as `.planning/research/citations/{paper-slug}.json` with nodes (papers) and edges (dependencies). Create `lib/citations.ts` with `buildCitationGraph()`, `resolveCitations()`, and `findUnresolved()` functions.
 
-## Serial Integration Gate
-
-### REQ-165: Serial Merge Queue
+### REQ-184: Citation Recovery Pass
 **Priority:** P1 — High
-**Category:** Core
-**Description:** When multiple phases execute in parallel, their post-phase pipelines must merge sequentially — only one rebase+merge at a time. Implement a merge queue that processes completed phases in order. The first phase to finish its execution enters the pipeline first. Subsequent phases wait for the previous merge to complete before starting their own rebase. This prevents concurrent rebases from creating race conditions on main.
+**Category:** Research
+**Description:** Add citation-recovery pass in `grd-phase-researcher`: for each missing component from deep-diver output, fetch the referenced paper (arXiv API, Semantic Scholar API), extract the relevant technique, store in citation graph. Configurable gate to block planning if critical unresolved dependencies remain.
 
-### REQ-166: Conflict Resolution Subprocess
+### REQ-185: Citation Recovery Tests
 **Priority:** P1 — High
-**Category:** Core
-**Description:** When `git rebase main` produces conflicts during the merge gate, spawn `claude -p` with: (a) the conflicting file's both versions, (b) the phase's goal and plan summary, (c) instruction to resolve preserving both changes. If the subprocess exits non-zero, halt autopilot. Strip CLAUDE session env vars before spawning.
+**Category:** Testing
+**Description:** Unit tests for citation graph building, resolution, and unresolved detection. Mock API calls. Coverage: 85%+ on lib/citations.ts.
 
-## Write-Intent Manifests
+## Graph-of-Thought Topological Synthesis (Planning Quality)
 
-### REQ-167: Phase Plan Write-Intent Declaration
+### REQ-186: Artifact DAG Schema
 **Priority:** P1 — High
 **Category:** Planning
-**Description:** Extend the phase planning prompt to instruct the planner to declare a `files_modified` list in each PLAN.md — the lib/ modules and other files the plan expects to modify. This is a best-effort declaration, not a contract. Implementation: update `buildPlanPrompt()` to include write-intent instruction, add parsing in `cmdInitExecutePhase` to extract the declared file list.
+**Description:** Extend plan schema (from REQ-179) with `provides: string[]`, `requires: string[]`, `integration_points: string[]` per plan. Update `buildPlanPrompt()` to instruct planner to declare these fields.
 
-### REQ-168: Wave Builder Conflict Check
+### REQ-187: Artifact DAG Builder
+**Priority:** P1 — High
+**Category:** Planning
+**Description:** Add `buildArtifactDAG(plans)` function in `lib/deps.ts` that constructs a directed graph from provides/requires declarations. Validate for cycles and missing dependencies. Return topologically sorted execution order.
+
+### REQ-188: Wave Builder DAG Integration
 **Priority:** P1 — High
 **Category:** Scheduling
-**Description:** In `buildWaves()` (`lib/parallel.ts`), cross-reference phase write-intent manifests before building parallel waves. If two phases in the same wave both declare the same `lib/` module in their `files_modified`, move one to a subsequent wave. Preserve existing `depends_on` logic — write-intent is an additional constraint, not a replacement. Add `--force-parallel` flag to override for intentional parallel execution of overlapping phases.
+**Description:** Extend `buildWaves()` in `lib/parallel.ts` to consume the artifact DAG alongside existing `depends_on`. Plans whose requires aren't yet provided get sequenced after their providers. Inject resolved dependency context into executor prompts.
 
-### REQ-169: Declared vs Actual Feedback
+### REQ-189: GoT Synthesis Tests
+**Priority:** P1 — High
+**Category:** Testing
+**Description:** Unit tests for artifact DAG construction, cycle detection, topological sorting, and wave builder integration. Coverage: 85%+ on new code in lib/deps.ts and lib/parallel.ts.
+
+## Agentic Knowledge Enhancement (Compounding Returns)
+
+### REQ-190: Knowledge Miner Agent
 **Priority:** P2 — Medium
-**Category:** Quality
-**Description:** After each phase completes execution, compare the declared `files_modified` from the plan with the actual `git diff --name-only` output. Log discrepancies (unexpected files modified, declared files not touched) to the autopilot log. This feeds back into planner accuracy over time.
+**Category:** Agents
+**Description:** Create `agents/grd-knowledge-miner.md` agent definition. Post-phase mining step that analyzes phase output against recovered citations and existing codebase. Produces structured entries: pattern name, source, applicability conditions, code snippet.
 
-## Autopilot Mode Changes
+### REQ-191: KNOWHOW.md Storage
+**Priority:** P2 — Medium
+**Category:** Infrastructure
+**Description:** Store knowledge entries in `.planning/milestones/{milestone}/KNOWHOW.md`. Feed into planner and researcher context for subsequent phases. Add KNOWHOW.md reading to `grd-planner` and `grd-phase-researcher` agent prompts.
 
-### REQ-170: Always-On Auto-Resume
-**Priority:** P1 — High
-**Category:** UX
-**Description:** Remove `--resume` flag from autopilot. Auto-resume is always on: check each phase's disk state — fully executed → skip, planned but not executed → skip to execute, no plans → start from plan. Applies to both milestone mode and phase-range mode.
-
-### REQ-171: Milestone Mode Default
-**Priority:** P1 — High
-**Category:** UX
-**Description:** Make milestone mode the default when `gd autopilot` is called with no arguments. Resolve all phases in the current milestone from ROADMAP.md, auto-resume, and run the full loop. Rename `--from`/`--to` to `--phase-from`/`--phase-to`. Add `--milestone` flag (now the default).
-
-### REQ-172: Milestone Wireup Step
+### REQ-192: Knowledge Mining Pipeline Integration
 **Priority:** P2 — Medium
 **Category:** Integration
-**Description:** In milestone mode only, after all phases complete and merge, run wireup discovery as a final validation step. Spawn subprocess to run wireup and report results. This catches integration gaps across the milestone.
+**Description:** Add knowledge mining step to autopilot pipeline (after verify, before post-pipeline). Spawn grd-knowledge-miner agent with phase execution output and citation recovery results. Cross-reference generated code against recovered SoTA implementations.
 
-## Parallel Execution
-
-### REQ-173: Worktree-Isolated Phase Execution
-**Priority:** P1 — High
-**Category:** Core
-**Description:** Each phase in a parallel wave gets its own git worktree via existing `lib/worktree.ts` infrastructure. Independent phases (no `depends_on`) execute concurrently in their worktrees. Dependent phases wait for their dependency to fully complete (execute + post-phase pipeline + merge to main). Reuse `worktreePath()`, `pushAndCreatePR()`, and existing create/remove functions — do NOT create parallel worktree management.
-
-### REQ-174: Shared State Synchronization
-**Priority:** P1 — High
-**Category:** Infrastructure
-**Description:** Under parallel execution, `writeStatusMarker()` and `updateStateProgress()` write to `.planning/` in the main repo, not the worktree. Phase status markers are already separate files (safe). `STATE.md` and `autopilot.log` need file-level locking or atomic writes to avoid races. Implementation: write to a temp file then rename (atomic on POSIX).
-
-## Testing
-
-### REQ-175: Post-Phase Pipeline Unit Tests
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests for each pipeline step (simplify, PR, review, rebase+merge) and the orchestrator. Mock subprocess spawning, git operations, and gh CLI. Coverage: 85%+ lines on new pipeline code.
-
-### REQ-176: Serial Merge Queue Tests
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests validating that parallel phases merge sequentially, conflict resolution subprocess is spawned correctly, and autopilot halts on unresolvable conflicts.
-
-### REQ-177: Write-Intent Wave Builder Tests
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests for write-intent manifest parsing, wave builder conflict detection, and `--force-parallel` override. Verify that overlapping phases are serialized within waves.
-
-### REQ-178: Integration Test — Full Pipeline
+### REQ-193: Knowledge Enhancement Tests
 **Priority:** P2 — Medium
 **Category:** Testing
-**Description:** E2E integration test running 2 independent phases through the full autopilot v2 pipeline: parallel execute → serial merge. Uses mock git/gh operations. Validates phases merge to main in order with no conflicts.
+**Description:** Unit tests for knowledge mining output parsing and KNOWHOW.md generation. Integration test validating the mining step runs in the autopilot pipeline.
 
 ## Traceability Matrix
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-160 | Phase 87 | PENDING |
-| REQ-161 | Phase 87 | PENDING |
-| REQ-162 | Phase 87 | PENDING |
-| REQ-163 | Phase 87 | PENDING |
-| REQ-164 | Phase 87 | PENDING |
-| REQ-165 | Phase 88 | PENDING |
-| REQ-166 | Phase 88 | PENDING |
-| REQ-167 | Phase 89 | DONE |
-| REQ-168 | Phase 89 | DONE |
-| REQ-169 | Phase 89 | DONE |
-| REQ-170 | Phase 90 | PENDING |
-| REQ-171 | Phase 90 | PENDING |
-| REQ-172 | Phase 90 | PENDING |
-| REQ-173 | Phase 90 | PENDING |
-| REQ-174 | Phase 90 | PENDING |
-| REQ-175 | Phase 91 | PENDING |
-| REQ-176 | Phase 91 | PENDING |
-| REQ-177 | Phase 91 | PENDING |
-| REQ-178 | Phase 91 | PENDING |
+| REQ-179 | TBD | PENDING |
+| REQ-180 | TBD | PENDING |
+| REQ-181 | TBD | PENDING |
+| REQ-182 | TBD | PENDING |
+| REQ-183 | TBD | PENDING |
+| REQ-184 | TBD | PENDING |
+| REQ-185 | TBD | PENDING |
+| REQ-186 | TBD | PENDING |
+| REQ-187 | TBD | PENDING |
+| REQ-188 | TBD | PENDING |
+| REQ-189 | TBD | PENDING |
+| REQ-190 | TBD | PENDING |
+| REQ-191 | TBD | PENDING |
+| REQ-192 | TBD | PENDING |
+| REQ-193 | TBD | PENDING |
