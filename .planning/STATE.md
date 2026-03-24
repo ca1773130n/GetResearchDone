@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-- **Active phase:** Phase 86 complete
-- **Current plan:** —
+- **Active phase:** Phase 86 — Elicitation Detection and Resolution Core
+- **Current plan:** 86-02 complete (2/2 plans done)
 - **Milestone:** v0.3.21 Elicitation Replacement
-- **Status:** In progress
-- **Progress:** [███░░░░░░░] 33%
-- **Next:** `/grd:plan-phase 87`
+- **Status:** Phase 86 complete
+- **Progress:** [██████████] 100% (phase 86)
+- **Next:** `/grd:complete-milestone` or next phase
 
 ## Phase Summary
 
@@ -31,7 +31,6 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 83 | Discussion Protocol Core | Complete (2026-03-23) |
 | 84 | Workflow Integration | Complete (2026-03-23) |
 | 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
-| 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
 
 ## Shipped Milestones (v0.3.x series)
 
@@ -71,7 +70,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Cumulative:**
 - Milestones shipped: 27 (v0.0.5 through v0.3.13)
-- Total tests: 3,610 (after Phase 86 — added 53 elicitation detection/routing tests)
+- Total tests: 3,557 (after Phase 85 — added 380 tests across discussion module)
 - Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories: cli/, commands/, context/, evolve/, wireup/)
 - Total commands: 41
 - MCP tools: 132
@@ -92,8 +91,13 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 - [Phase 85]: readConfig exported from lib/backend.ts for MCP tool use; grd_discussion_run accepts comma-separated participants string; four discussion tools registered in COMMAND_DESCRIPTORS
 - [Phase 85]: Integration test uses real fs/paths modules (not mocked) for true E2E path resolution; mocks only execFileSync and detectAvailableBackends
 - [Phase 85]: Four discussion MCP tools registered (grd_discussion_run/config/history, grd_backends_available); discussion.ts coverage 100% lines/branches/functions; DEFER-84-03 closed
-- [Phase 86]: detectElicitation() uses line-by-line regex parsing with code-block fence tracking; skip patterns for comments/headers/errors; odd-quote heuristic for string literals; word-count heuristic for rhetorical questions
-- [Phase 86]: buildElicitationContext() uses per-section char budgets (question 1K, goal 1K, plan 2K, changes 2K, state 1K) with try/catch per file read; resolveElicitation() calls runDiscussion with rounds=1 and falls back to best single-backend response on synthesis failure
+- [Phase 86]: detectElicitation uses two-pass approach (numbered_options pre-scan, then line-by-line); buildElicitationContext budgets 5 sections at 1K/1K/2K/2K/1K chars; resolveElicitation uses rounds=1 with fallback chain: synthesis → first non-skipped round-1 → empty string
+- [Phase 86]: detectElicitation uses two-pass approach: numbered_options checked first, then line-by-line for other patterns
+- [Phase 86]: ElicitationDetection confidence is 'high' for direct questions/numbered options/clarification phrases, 'medium' for option_prompt pattern
+- [Phase 86]: detectElicitation uses regex-based line-by-line parsing (no NLP/AST) for maintainability
+- [Phase 86]: confidence: high for direct/clarification patterns; medium for option_prompt; numbered options require 2+ consecutive lines
+- [Phase 86]: buildElicitationContext uses per-section char budgets to stay under 8K tokens
+- [Phase 86]: resolveElicitation uses rounds=1 with fallback to first non-skipped round entry
 
 ## Known Bugs
 
@@ -106,8 +110,8 @@ None.
 ## Session Continuity
 
 - **Last action:** Executed Phase 86 — 2 plans, 2 waves, all verified
-- **Stopped at:** Phase 86 complete
-- **Next action:** `/grd:plan-phase 87`
+- **Stopped at:** Completed 86-02-PLAN.md
+- **Next action:** `/grd:complete-milestone`
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
