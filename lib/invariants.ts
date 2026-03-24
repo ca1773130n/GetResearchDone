@@ -42,6 +42,18 @@ function toStringArray(value: unknown): string[] {
   return [];
 }
 
+/**
+ * Coerce a raw frontmatter value to an integer, returning 0 for missing/invalid.
+ */
+function toInt(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
 // ─── extractPlanArtifact ─────────────────────────────────────────────────────
 
 /**
@@ -60,21 +72,8 @@ function extractPlanArtifact(content: string): PlanArtifact {
   const objectiveMatch = content.match(/<objective>\s*([\s\S]*?)\s*<\/objective>/);
   const objective = objectiveMatch ? objectiveMatch[1].trim() : '';
 
-  const rawPlan = fm['plan'];
-  const plan =
-    typeof rawPlan === 'number'
-      ? rawPlan
-      : typeof rawPlan === 'string' && !isNaN(parseInt(rawPlan, 10))
-        ? parseInt(rawPlan, 10)
-        : 0;
-
-  const rawWave = fm['wave'];
-  const wave =
-    typeof rawWave === 'number'
-      ? rawWave
-      : typeof rawWave === 'string' && !isNaN(parseInt(rawWave, 10))
-        ? parseInt(rawWave, 10)
-        : 0;
+  const plan = toInt(fm['plan']);
+  const wave = toInt(fm['wave']);
 
   const rawAutonomous = fm['autonomous'];
   const autonomous =
@@ -188,10 +187,11 @@ function validateSemantic(plan: PlanArtifact, cwd: string): ValidationResult {
     if (filePath.startsWith('/')) {
       errors.push(`file path must be relative, not absolute: "${filePath}"`);
     }
-    if (filePath.includes('..')) {
+    if (filePath.split('/').includes('..')) {
       errors.push(`file path must not use .. traversal: "${filePath}"`);
     }
-    if (!filePath.includes('.')) {
+    const basename = filePath.split('/').pop() || filePath;
+    if (!basename.includes('.')) {
       warnings.push(`file path has no extension: "${filePath}"`);
     }
   }
@@ -310,43 +310,35 @@ function validateResearchArtifacts(phaseDir: string): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // LANDSCAPE.md — must have Markdown table rows if present
-  const landscapePath = `${phaseDir}/LANDSCAPE.md`;
-  if (fs.existsSync(landscapePath)) {
-    const content = fs.readFileSync(landscapePath, 'utf-8') as string;
-    const hasTableRows = /^\|.+\|/m.test(content);
-    if (!hasTableRows) {
-      errors.push('LANDSCAPE.md exists but has no Markdown table rows (|...|)');
+  const checks: Array<{ file: string; rules: Array<{ pattern: RegExp; error: string }> }> = [
+    {
+      file: 'LANDSCAPE.md',
+      rules: [{ pattern: /^\|.+\|/m, error: 'LANDSCAPE.md exists but has no Markdown table rows (|...|)' }],
+    },
+    {
+      file: 'PAPERS.md',
+      rules: [{ pattern: /^#{1,2}\s+/m, error: 'PAPERS.md exists but has no structured headings (# or ##)' }],
+    },
+    {
+      file: 'RESEARCH.md',
+      rules: [
+        { pattern: /^##\s+Method/m, error: 'RESEARCH.md exists but is missing required ## Method section' },
+        { pattern: /^##\s+Tradeoffs/m, error: 'RESEARCH.md exists but is missing required ## Tradeoffs section' },
+      ],
+    },
+  ];
+
+  let anyExists = false;
+  for (const { file, rules } of checks) {
+    const filePath = `${phaseDir}/${file}`;
+    if (!fs.existsSync(filePath)) continue;
+    anyExists = true;
+    const content = fs.readFileSync(filePath, 'utf-8') as string;
+    for (const { pattern, error } of rules) {
+      if (!pattern.test(content)) errors.push(error);
     }
   }
 
-  // PAPERS.md — must have structured headings if present
-  const papersPath = `${phaseDir}/PAPERS.md`;
-  if (fs.existsSync(papersPath)) {
-    const content = fs.readFileSync(papersPath, 'utf-8') as string;
-    const hasHeadings = /^#{1,2}\s+/m.test(content);
-    if (!hasHeadings) {
-      errors.push('PAPERS.md exists but has no structured headings (# or ##)');
-    }
-  }
-
-  // RESEARCH.md — must have ## Method and ## Tradeoffs sections if present
-  const researchPath = `${phaseDir}/RESEARCH.md`;
-  if (fs.existsSync(researchPath)) {
-    const content = fs.readFileSync(researchPath, 'utf-8') as string;
-    if (!/^##\s+Method/m.test(content)) {
-      errors.push('RESEARCH.md exists but is missing required ## Method section');
-    }
-    if (!/^##\s+Tradeoffs/m.test(content)) {
-      errors.push('RESEARCH.md exists but is missing required ## Tradeoffs section');
-    }
-  }
-
-  // Warn if none of the research files exist (informational only)
-  const anyExists =
-    fs.existsSync(landscapePath) ||
-    fs.existsSync(papersPath) ||
-    fs.existsSync(researchPath);
   if (!anyExists) {
     warnings.push(
       'no research artifacts found in phase directory (LANDSCAPE.md, PAPERS.md, RESEARCH.md)'
