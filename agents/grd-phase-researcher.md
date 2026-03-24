@@ -403,6 +403,14 @@ Verified patterns from official sources and paper implementations:
 ### Tertiary (LOW confidence)
 - [WebSearch only, marked for validation]
 
+## Citation Recovery
+
+| Component | Source | Status | Priority |
+|-----------|--------|--------|----------|
+| {name} | {source_paper} | Resolved/Unresolved | Critical/Normal |
+
+**Unresolved critical dependencies:** {count}
+
 ## Metadata
 
 **Confidence breakdown:**
@@ -506,13 +514,41 @@ For each expected output of the phase:
 
 Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 
-## Step 8: Commit Research (optional)
+## Step 8: Citation Recovery Pass
+
+After writing RESEARCH.md, run a citation recovery pass to resolve unresolved component dependencies found in the research.
+
+1. Call `buildCitationGraph` on the research directory to build the citation graph from all PAPERS.md and deep-dive entries:
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js buildCitationGraph "${research_dir}"
+   ```
+
+2. Call `findUnresolved` to get unresolved nodes in the citation graph:
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js findUnresolved "${research_dir}"
+   ```
+
+3. For each unresolved node with `priority: 'critical'`:
+   - Attempt to fetch paper details via arXiv API (`https://export.arxiv.org/abs/{id}`) or Semantic Scholar API (`https://api.semanticscholar.org/graph/v1/paper/search?query={title}`)
+   - Extract technique summary and key metadata
+   - Update the citation graph with resolved information
+
+4. Store the updated citation graph:
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js buildCitationGraph "${research_dir}" --update
+   ```
+
+5. If critical unresolved dependencies remain, note them in the `## Citation Recovery` section of RESEARCH.md and check whether the `citation_gate` is active. If `citation_gate` is enabled in project config and critical dependencies remain unresolved, the planning step will be blocked until they are resolved.
+
+**Tool references:** `buildCitationGraph`, `findUnresolved`, `citation_gate` are GRD citation infrastructure tools. Use them via `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js` commands as shown above.
+
+## Step 9: Commit Research (optional)
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
 ```
 
-## Step 9: Return Structured Result
+## Step 10: Return Structured Result
 
 </execution_flow>
 
@@ -604,6 +640,10 @@ Research is complete when:
 - [ ] Source hierarchy followed (Papers > Context7 > Official > WebSearch)
 - [ ] All findings have confidence levels tied to evidence strength
 - [ ] RESEARCH.md created in correct format
+- [ ] Citation recovery pass executed after research protocol
+- [ ] Citation graph built and stored via `buildCitationGraph`
+- [ ] Unresolved nodes identified via `findUnresolved`
+- [ ] Unresolved critical dependencies reported in `## Citation Recovery` section of RESEARCH.md
 - [ ] RESEARCH.md committed to git
 - [ ] Structured return provided to orchestrator
 

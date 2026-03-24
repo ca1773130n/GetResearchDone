@@ -285,6 +285,30 @@ Rate adoption recommendation on 1-5 scale.
 **Identify best-suited and not-suited use cases** based on the analysis.
 </step>
 
+<step name="identify_component_dependencies">
+Identify missing and borrowed components.
+
+1. **Missing Components** — components the paper depends on but does not implement:
+   - Look at the paper's method section for referenced building blocks (encoders, loss functions, pre-trained models, feature extractors, etc.)
+   - Check the paper's related work and "we build upon" language
+   - Review the code (if available) for imports from other papers' repos or third-party model weights
+   - For each missing component: note the source paper slug, what it does, and whether code is available
+
+2. **Borrowed Components** — components the paper reuses from other work with attribution:
+   - Look for "following [Paper X], we use..." or "we adopt the [component] from [Paper Y]" phrasing
+   - Check references cited in the method/architecture sections
+   - Review code for functions/modules imported verbatim from other repos
+   - For each borrowed component: note the source paper slug and how it is used
+
+3. **Classify each component:**
+   - Missing = needs separate implementation or download to reproduce the paper
+   - Borrowed = included in this paper's codebase with attribution
+
+4. **Mark code_available** for missing components as Yes (source paper has a public repo) or No (must implement from scratch).
+
+Include these tables in the output document under `## Missing Components` and `## Borrowed Components`.
+</step>
+
 <step name="setup_directories">
 Ensure deep-dives directory exists:
 
@@ -576,6 +600,22 @@ PyTorch >= [version]
 - [Action 1: e.g., "Run /grd:feasibility to assess integration"]
 - [Action 2: e.g., "Reproduce Table 3 ablation on our data"]
 
+## Missing Components
+
+Components this paper needs but does not provide implementation for.
+
+| Name | Source Paper | Description | Code Available |
+|------|-------------|-------------|----------------|
+| {component_name} | {source_paper_slug} | {what_it_does} | Yes/No |
+
+## Borrowed Components
+
+Components this paper reuses from other work (with attribution).
+
+| Name | Source Paper | Description |
+|------|-------------|-------------|
+| {component_name} | {source_paper_slug} | {how_it_is_used} |
+
 ---
 
 *Deep dive by: Claude (grd-deep-diver)*
@@ -678,6 +718,9 @@ Deep dive is complete when:
 - [ ] Production considerations assessed (scale, speed, deps, license)
 - [ ] Recommendation scored 1-5 with breakdown and rationale
 - [ ] Best-suited and not-suited use cases identified
+- [ ] `## Missing Components` section present in output (may be empty table if none found)
+- [ ] `## Borrowed Components` section present in output (may be empty table if none found)
+- [ ] Each missing_component classified with source_paper_slug and code_available status
 - [ ] Deep dive document written to `${research_dir}/deep-dives/{slug}.md`
 - [ ] PAPERS.md updated with new entry
 - [ ] Files committed to git

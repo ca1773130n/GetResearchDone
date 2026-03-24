@@ -930,4 +930,53 @@ export interface OverstoryMailMessage {
   ts: number;
 }
 
+// ─── Citation Types (from citations.ts) ──────────────────────────────────────
+
+/** Citation graph node representing a paper or component. */
+export interface CitationNode {
+  slug: string;
+  title: string;
+  resolved: boolean;
+  priority: 'critical' | 'normal';
+  technique_summary: string;
+  source: 'arxiv' | 'semantic_scholar' | 'manual' | 'unknown';
+}
+
+/** Citation graph edge representing a dependency between papers/components. */
+export interface CitationEdge {
+  from: string; // slug of the dependent paper
+  to: string; // slug of the dependency
+  relation: 'missing_component' | 'borrowed_component';
+}
+
+/** Complete citation graph with nodes and edges. */
+export interface CitationGraph {
+  nodes: CitationNode[];
+  edges: CitationEdge[];
+  built_at: string; // ISO timestamp
+}
+
+/** Parsed missing component from PAPERS.md structured output. */
+export interface MissingComponent {
+  name: string;
+  source_paper: string;
+  description: string;
+  code_available: boolean;
+}
+
+/** Parsed borrowed component from PAPERS.md structured output. */
+export interface BorrowedComponent {
+  name: string;
+  source_paper: string;
+  description: string;
+}
+
+/** Configuration for citation resolution API calls. */
+export interface ApiConfig {
+  arxiv_enabled: boolean;
+  semantic_scholar_enabled: boolean;
+  timeout_ms: number;
+  fetchFn?: (url: string) => Promise<{ ok: boolean; text: () => Promise<string> }>;
+}
+
 module.exports = {};
