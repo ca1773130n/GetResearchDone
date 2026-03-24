@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 87 — Post-Phase Pipeline Core (not started)
+- **Active phase:** Phase 88 — Serial Merge Queue and Conflict Resolution (not started)
 - **Current plan:** None
 - **Milestone:** v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration
-- **Status:** Roadmap created, ready to plan Phase 87
-- **Progress:** [░░░░░░░░░░] 0%
-- **Next:** `/grd:plan-phase 87`
+- **Status:** Phase 87 complete, ready to plan Phase 88
+- **Progress:** [██░░░░░░░░] 20%
+- **Next:** `/grd:plan-phase 88`
 
 ## Phase Summary
 
@@ -32,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 84 | Workflow Integration | Complete (2026-03-23) |
 | 85 | MCP Tools, CLI Command, and Testing | Complete (2026-03-23) |
 | 86 | Elicitation Detection and Resolution Core | Complete (2026-03-24) |
-| 87 | Post-Phase Pipeline Core | Not started |
+| 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
 | 88 | Serial Merge Queue and Conflict Resolution | Not started |
 | 89 | Write-Intent Manifests and Wave Builder | Not started |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
@@ -127,10 +127,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Created ROADMAP.md and STATE.md for v0.3.22 (Autopilot v2)
-- **Stopped at:** Roadmap creation complete — 5 phases (87-91), 19/19 requirements mapped
-- **Next action:** `/grd:plan-phase 87`
-- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, .planning/REQUIREMENTS.md, docs/superpowers/specs/2026-03-22-autopilot-v2-design.md, lib/autopilot.ts, lib/worktree.ts, lib/parallel.ts
+- **Last action:** Phase 87 executed — post-phase pipeline core verified as pre-implemented
+- **Stopped at:** Phase 87 complete — all 5 success criteria met, 172 tests passing
+- **Next action:** `/grd:plan-phase 88`
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, lib/autopilot.ts
 
 ---
 
