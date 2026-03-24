@@ -839,6 +839,46 @@ function spawnClaudeAsync(
 }
 
 /**
+ * Parse the `files_modified` field from PLAN.md frontmatter content.
+ * Supports two YAML formats:
+ *   - Dash-list: `files_modified:\n  - lib/foo.ts\n  - lib/bar.ts`
+ *   - Inline array: `files_modified: [lib/foo.ts, lib/bar.ts]`
+ *
+ * @param frontmatterContent - Raw string between the `---` markers of a PLAN.md
+ * @returns Array of file path strings declared as write targets, or [] if not present
+ */
+function parseWriteIntent(frontmatterContent: string): string[] {
+  if (!frontmatterContent || frontmatterContent.trim() === '') return [];
+
+  // Try inline array format: files_modified: [lib/foo.ts, lib/bar.ts]
+  const inlineMatch = frontmatterContent.match(/^files_modified:\s*\[([^\]]*)\]\s*$/m);
+  if (inlineMatch) {
+    const inner = inlineMatch[1].trim();
+    if (!inner) return [];
+    return inner
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+  }
+
+  // Try dash-list format: files_modified:\n  - lib/foo.ts
+  const dashListMatch = frontmatterContent.match(/^files_modified:\s*$([\s\S]*?)(?=^\S|\Z)/m);
+  if (dashListMatch) {
+    const block = dashListMatch[1];
+    const items: string[] = [];
+    const lineRe = /^[ \t]+-[ \t]+(.+)$/gm;
+    let m: RegExpExecArray | null;
+    while ((m = lineRe.exec(block)) !== null) {
+      const val = m[1].trim();
+      if (val) items.push(val);
+    }
+    return items;
+  }
+
+  return [];
+}
+
+/**
  * Group phases into dependency waves using Kahn's algorithm.
  * Phases with no dependencies land in wave 0; phases depending on wave-0
  * phases land in wave 1, etc.
@@ -1975,6 +2015,7 @@ module.exports = {
   buildWireupPrompt,
   runPostPhasePipeline,
   buildWaves,
+  parseWriteIntent,
   writeStatusMarker,
   updateStateProgress,
   DEFAULT_TIMEOUT_MINUTES,
