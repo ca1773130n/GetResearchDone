@@ -46,6 +46,8 @@ const {
   _getSchedulerStates,
   createMergeQueue,
   parseWriteIntent,
+  compareWriteIntent,
+  formatWriteIntentMismatch,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -852,6 +854,130 @@ describe('lib/autopilot', () => {
       const waves = buildWaves(phases);
       expect(waves).toHaveLength(1);
       expect(waves[0]).toEqual(['1', '2']);
+    });
+
+    // ── write-intent conflict detection ──
+
+    it('backward compat: no options behaves identically to dependency-only result', () => {
+      const phases = [
+        { number: '48', name: 'A', depends_on: null },
+        { number: '49', name: 'B', depends_on: null },
+        { number: '50', name: 'C', depends_on: 'Phase 48, Phase 49' },
+      ];
+      const withoutOptions = buildWaves(phases);
+      const withEmptyOptions = buildWaves(phases, {});
+      expect(withoutOptions).toEqual(withEmptyOptions);
+      expect(withoutOptions).toHaveLength(2);
+      expect(withoutOptions[0]).toEqual(['48', '49']);
+      expect(withoutOptions[1]).toEqual(['50']);
+    });
+
+    it('separates phases with overlapping files_modified into different waves', () => {
+      // 3 independent phases — 1 and 2 share lib/autopilot.ts
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: null },
+        { number: '3', name: 'C', depends_on: null },
+      ];
+      const options = {
+        filesModified: {
+          '1': ['lib/autopilot.ts', 'lib/foo.ts'],
+          '2': ['lib/autopilot.ts'],
+          '3': ['lib/bar.ts'],
+        },
+      };
+      const waves = buildWaves(phases, options);
+      // Phase 1 lands in wave 0 first; phase 2 conflicts (shares lib/autopilot.ts) →
+      // moved to wave 1; phase 3 has no conflict with phase 1 → stays in wave 0.
+      expect(waves).toHaveLength(2);
+      expect(waves[0]).toContain('1');
+      expect(waves[0]).toContain('3');
+      expect(waves[1]).toContain('2');
+    });
+
+    it('keeps non-overlapping phases in same wave', () => {
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: null },
+        { number: '3', name: 'C', depends_on: null },
+      ];
+      const options = {
+        filesModified: {
+          '1': ['lib/foo.ts'],
+          '2': ['lib/bar.ts'],
+          '3': ['lib/baz.ts'],
+        },
+      };
+      const waves = buildWaves(phases, options);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2', '3']);
+    });
+
+    it('forceParallel overrides conflict detection — overlapping phases stay in same wave', () => {
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: null },
+        { number: '3', name: 'C', depends_on: null },
+      ];
+      const options = {
+        filesModified: {
+          '1': ['lib/autopilot.ts'],
+          '2': ['lib/autopilot.ts'],
+          '3': ['lib/autopilot.ts'],
+        },
+        forceParallel: true,
+      };
+      const waves = buildWaves(phases, options);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2', '3']);
+    });
+
+    it('cascading: 3 phases all share same file end up in 3 separate waves', () => {
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: null },
+        { number: '3', name: 'C', depends_on: null },
+      ];
+      const options = {
+        filesModified: {
+          '1': ['lib/foo.ts'],
+          '2': ['lib/foo.ts'],
+          '3': ['lib/foo.ts'],
+        },
+      };
+      const waves = buildWaves(phases, options);
+      expect(waves).toHaveLength(3);
+      expect(waves[0]).toEqual(['1']);
+      expect(waves[1]).toEqual(['2']);
+      expect(waves[2]).toEqual(['3']);
+    });
+
+    it('mixed: depends_on + file overlap are both respected', () => {
+      // Phase C depends on A. Phases A and B share lib/shared.ts.
+      // Expected: A and B in different waves (conflict), C after A's wave.
+      const phases = [
+        { number: '1', name: 'A', depends_on: null },
+        { number: '2', name: 'B', depends_on: null },
+        { number: '3', name: 'C', depends_on: 'Phase 1' },
+      ];
+      const options = {
+        filesModified: {
+          '1': ['lib/shared.ts'],
+          '2': ['lib/shared.ts'],
+          '3': ['lib/other.ts'],
+        },
+      };
+      const waves = buildWaves(phases, options);
+      // Dependency-based initial waves: wave0=[1,2], wave1=[3]
+      // After conflict split: wave0=[1], wave1=[2], wave2=[3]
+      expect(waves.length).toBeGreaterThanOrEqual(2);
+      // Phase 3 (C) must come after phase 1 (A)
+      const wave1Idx = waves.findIndex((w: string[]) => w.includes('1'));
+      const wave3Idx = waves.findIndex((w: string[]) => w.includes('3'));
+      expect(wave3Idx).toBeGreaterThan(wave1Idx);
+      // Phase 1 and 2 must NOT be in the same wave
+      const wave2Idx = waves.findIndex((w: string[]) => w.includes('2'));
+      expect(wave1Idx).not.toBe(wave2Idx);
     });
   });
 
@@ -3867,6 +3993,81 @@ describe('lib/autopilot', () => {
     it('handles single file', () => {
       const fm = 'phase: 89\nfiles_modified:\n  - lib/only.ts\nautonomous: true';
       expect(parseWriteIntent(fm)).toEqual(['lib/only.ts']);
+    });
+  });
+
+  // ── compareWriteIntent ──
+
+  describe('compareWriteIntent', () => {
+    it('returns all matches when declared equals actual', () => {
+      const result = compareWriteIntent(['a.ts', 'b.ts'], ['a.ts', 'b.ts']);
+      expect(result.matches).toEqual(['a.ts', 'b.ts']);
+      expect(result.unexpected).toEqual([]);
+      expect(result.untouched).toEqual([]);
+    });
+
+    it('detects unexpected files', () => {
+      const result = compareWriteIntent(['a.ts'], ['a.ts', 'b.ts']);
+      expect(result.unexpected).toEqual(['b.ts']);
+      expect(result.matches).toEqual(['a.ts']);
+      expect(result.untouched).toEqual([]);
+    });
+
+    it('detects untouched files', () => {
+      const result = compareWriteIntent(['a.ts', 'b.ts'], ['a.ts']);
+      expect(result.untouched).toEqual(['b.ts']);
+      expect(result.matches).toEqual(['a.ts']);
+      expect(result.unexpected).toEqual([]);
+    });
+
+    it('handles both unexpected and untouched', () => {
+      const result = compareWriteIntent(['a.ts'], ['b.ts']);
+      expect(result.unexpected).toEqual(['b.ts']);
+      expect(result.untouched).toEqual(['a.ts']);
+      expect(result.matches).toEqual([]);
+    });
+
+    it('handles empty declared array', () => {
+      const result = compareWriteIntent([], ['a.ts']);
+      expect(result.unexpected).toEqual(['a.ts']);
+      expect(result.untouched).toEqual([]);
+      expect(result.matches).toEqual([]);
+    });
+
+    it('handles empty actual array', () => {
+      const result = compareWriteIntent(['a.ts'], []);
+      expect(result.untouched).toEqual(['a.ts']);
+      expect(result.unexpected).toEqual([]);
+      expect(result.matches).toEqual([]);
+    });
+
+    it('handles both empty arrays', () => {
+      const result = compareWriteIntent([], []);
+      expect(result.unexpected).toEqual([]);
+      expect(result.untouched).toEqual([]);
+      expect(result.matches).toEqual([]);
+    });
+  });
+
+  // ── formatWriteIntentMismatch ──
+
+  describe('formatWriteIntentMismatch', () => {
+    it('formats mismatch lines with correct prefix and plan ID', () => {
+      const comparison = {
+        unexpected: ['lib/extra.ts'],
+        untouched: ['lib/missing.ts'],
+        matches: ['lib/both.ts'],
+      };
+      const lines = formatWriteIntentMismatch('89-03', comparison);
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toBe('[WRITE-INTENT-MISMATCH] Plan 89-03: unexpected file modified: lib/extra.ts');
+      expect(lines[1]).toBe('[WRITE-INTENT-MISMATCH] Plan 89-03: declared file not modified: lib/missing.ts');
+    });
+
+    it('returns empty array when no mismatches', () => {
+      const comparison = { unexpected: [], untouched: [], matches: ['lib/a.ts'] };
+      const lines = formatWriteIntentMismatch('89-03', comparison);
+      expect(lines).toEqual([]);
     });
   });
 });
