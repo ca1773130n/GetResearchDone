@@ -403,7 +403,7 @@ function withUltrathink(prompt: string, backend?: string): string {
  * Build the prompt for planning a phase via `claude -p`.
  */
 function buildPlanPrompt(phaseNum: string, backend?: string, cwd?: string): string {
-  const basePrompt = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify.`;
+  const basePrompt = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify. Each PLAN.md MUST also include \`provides: []\`, \`requires: []\`, and \`integration_points: []\` in YAML frontmatter. \`provides\` lists artifact identifiers this plan creates (format: "module:ExportName", e.g., "lib/deps.ts:buildArtifactDAG"). \`requires\` lists artifacts from other plans that must exist before this plan executes. \`integration_points\` lists artifacts this plan connects to but does not strictly depend on.`;
   const knowhowBlock = cwd ? buildKnowledgeInjectionBlock(cwd, phaseNum) : '';
   return withUltrathink(knowhowBlock ? `${knowhowBlock}\n\n${basePrompt}` : basePrompt, backend);
 }

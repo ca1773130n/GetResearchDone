@@ -16,8 +16,43 @@ const {
   computeParallelGroups,
   detectCycle,
   cmdPhaseAnalyzeDeps,
+  buildArtifactDAG,
+  validateArtifactDAG,
 } = require('../../lib/deps');
 const { COMMAND_DESCRIPTORS } = require('../../lib/mcp-server');
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+type PlanArtifactOverrides = {
+  objective?: string;
+  files_modified?: string[];
+  phase?: string;
+  plan?: number;
+  type?: string;
+  wave?: number;
+  depends_on?: string[];
+  autonomous?: boolean;
+  provides?: string[];
+  requires?: string[];
+  integration_points?: string[];
+};
+
+function makePlan(overrides: PlanArtifactOverrides = {}): Record<string, unknown> {
+  return {
+    objective: 'test',
+    files_modified: ['lib/test.ts'],
+    phase: '94-graph-of-thought-synthesis',
+    plan: 1,
+    type: 'execute',
+    wave: 1,
+    depends_on: [],
+    autonomous: true,
+    provides: [],
+    requires: [],
+    integration_points: [],
+    ...overrides,
+  };
+}
 
 // ─── parseDependsOn ──────────────────────────────────────────────────────────
 
@@ -190,6 +225,30 @@ describe('computeParallelGroups', () => {
     const groups = computeParallelGroups(graph);
     expect(groups).toEqual([['27']]);
   });
+
+  test('returns partial groups when cycle present (breaks out of loop)', () => {
+    // A depends on B, B depends on A — both should be un-processable
+    // But C is independent and should appear in its own group first
+    const graph = {
+      nodes: [
+        { id: '10', name: 'C' }, // independent
+        { id: '11', name: 'A' },
+        { id: '12', name: 'B' },
+      ],
+      edges: [
+        { from: '11', to: '12' }, // A depends on B
+        { from: '12', to: '11' }, // B depends on A (cycle)
+      ],
+    };
+    const groups = computeParallelGroups(graph);
+    // C (10) should appear in first group; cycle pair (11, 12) should not appear
+    expect(groups.length).toBeGreaterThanOrEqual(1);
+    expect(groups[0]).toContain('10');
+    // 11 and 12 are stuck in a cycle and will not be assigned
+    const allAssigned = groups.flat();
+    expect(allAssigned).not.toContain('11');
+    expect(allAssigned).not.toContain('12');
+  });
 });
 
 // ─── detectCycle ─────────────────────────────────────────────────────────────
@@ -347,6 +406,18 @@ describe('cmdPhaseAnalyzeDeps', () => {
       cmdPhaseAnalyzeDeps(fixtureDir, false);
     });
     expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeDefined();
+  });
+
+  test('returns error for empty ROADMAP.md (no phases)', () => {
+    fixtureDir = createFixtureDir();
+    // Write a ROADMAP.md with no phases section
+    writeCustomRoadmap(fixtureDir, '# Roadmap\n\nNo phases defined yet.\n');
+
+    const { stdout } = captureOutput(() => {
+      cmdPhaseAnalyzeDeps(fixtureDir, false);
+    });
     const parsed = JSON.parse(stdout);
     expect(parsed.error).toBeDefined();
   });
@@ -580,5 +651,235 @@ describe('CLI integration — phase analyze-deps', () => {
     expect(descriptor.params).toEqual([]);
     expect(typeof descriptor.execute).toBe('function');
     expect(descriptor.description).toContain('dependencies');
+  });
+});
+
+// ─── buildArtifactDAG ────────────────────────────────────────────────────────
+
+describe('buildArtifactDAG', () => {
+  test('returns empty DAG for empty input', () => {
+    const dag = buildArtifactDAG([]);
+    expect(dag.nodes).toEqual([]);
+    expect(dag.edges).toEqual([]);
+    expect(dag.sorted_plans).toEqual([]);
+    expect(dag.providers).toEqual({});
+  });
+
+  test('builds single-node DAG for one plan', () => {
+    const plan = makePlan({ plan: 1, provides: ['lib/foo.ts:bar'], requires: [] });
+    const dag = buildArtifactDAG([plan]);
+    expect(dag.nodes).toHaveLength(1);
+    expect(dag.edges).toHaveLength(0);
+    expect(dag.sorted_plans).toHaveLength(1);
+    expect(dag.sorted_plans[0]).toBe('94-graph-of-thought-synthesis-01');
+    expect(dag.providers['lib/foo.ts:bar']).toBe('94-graph-of-thought-synthesis-01');
+  });
+
+  test('builds edges from requires to provides', () => {
+    const planA = makePlan({ plan: 1, provides: ['lib/foo.ts:X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: ['lib/foo.ts:X'] });
+    const dag = buildArtifactDAG([planA, planB]);
+
+    expect(dag.nodes).toHaveLength(2);
+    expect(dag.edges).toHaveLength(1);
+    expect(dag.edges[0].from_plan).toBe('94-graph-of-thought-synthesis-02');
+    expect(dag.edges[0].to_plan).toBe('94-graph-of-thought-synthesis-01');
+    expect(dag.edges[0].type).toBe('requires');
+    // A (provider) must come before B (consumer) in topological order
+    const idxA = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-01');
+    const idxB = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-02');
+    expect(idxA).toBeLessThan(idxB);
+  });
+
+  test('handles multiple provides and requires', () => {
+    const planA = makePlan({ plan: 1, provides: ['X', 'Y'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: ['X'] });
+    const planC = makePlan({ plan: 3, provides: [], requires: ['Y', 'X'] });
+    const dag = buildArtifactDAG([planA, planB, planC]);
+
+    // planA has no deps; planB and planC both depend on planA
+    expect(dag.edges).toHaveLength(3); // B→A (X), C→A (Y), C→A (X)
+    const idxA = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-01');
+    const idxB = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-02');
+    const idxC = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-03');
+    expect(idxA).toBeLessThan(idxB);
+    expect(idxA).toBeLessThan(idxC);
+  });
+
+  test('providers map is correct for multiple plans', () => {
+    const planA = makePlan({ plan: 1, provides: ['artifact:A'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['artifact:B'], requires: [] });
+    const planC = makePlan({ plan: 3, provides: ['artifact:C'], requires: [] });
+    const dag = buildArtifactDAG([planA, planB, planC]);
+
+    expect(dag.providers['artifact:A']).toBe('94-graph-of-thought-synthesis-01');
+    expect(dag.providers['artifact:B']).toBe('94-graph-of-thought-synthesis-02');
+    expect(dag.providers['artifact:C']).toBe('94-graph-of-thought-synthesis-03');
+  });
+
+  test('topological sort is correct for diamond dependency', () => {
+    // A provides X, B provides Y (requires X), C provides Z (requires X), D requires Y and Z
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['Y'], requires: ['X'] });
+    const planC = makePlan({ plan: 3, provides: ['Z'], requires: ['X'] });
+    const planD = makePlan({ plan: 4, provides: [], requires: ['Y', 'Z'] });
+    const dag = buildArtifactDAG([planA, planB, planC, planD]);
+
+    const idxA = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-01');
+    const idxB = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-02');
+    const idxC = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-03');
+    const idxD = dag.sorted_plans.indexOf('94-graph-of-thought-synthesis-04');
+
+    // A must be first, D must be last
+    expect(idxA).toBeLessThan(idxB);
+    expect(idxA).toBeLessThan(idxC);
+    expect(idxB).toBeLessThan(idxD);
+    expect(idxC).toBeLessThan(idxD);
+  });
+
+  test('handles plans with no provides or requires', () => {
+    const planA = makePlan({ plan: 1, provides: [], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: [] });
+    const dag = buildArtifactDAG([planA, planB]);
+
+    expect(dag.nodes).toHaveLength(2);
+    expect(dag.edges).toHaveLength(0);
+    expect(dag.sorted_plans).toHaveLength(2);
+  });
+
+  test('integration_points create soft edges when provider exists', () => {
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: [], integration_points: ['X'] });
+    const dag = buildArtifactDAG([planA, planB]);
+
+    expect(dag.edges).toHaveLength(1);
+    expect(dag.edges[0].type).toBe('integration');
+    expect(dag.edges[0].from_plan).toBe('94-graph-of-thought-synthesis-02');
+    expect(dag.edges[0].to_plan).toBe('94-graph-of-thought-synthesis-01');
+  });
+
+  test('integration_points do not create edges when provider does not exist', () => {
+    const planA = makePlan({ plan: 1, provides: [], requires: [], integration_points: ['NonExistent'] });
+    const dag = buildArtifactDAG([planA]);
+
+    expect(dag.edges).toHaveLength(0);
+  });
+
+  test('first declaration wins for duplicate providers', () => {
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['X'], requires: [] }); // also provides X
+    const dag = buildArtifactDAG([planA, planB]);
+
+    // First declaration wins
+    expect(dag.providers['X']).toBe('94-graph-of-thought-synthesis-01');
+  });
+});
+
+// ─── validateArtifactDAG ─────────────────────────────────────────────────────
+
+describe('validateArtifactDAG', () => {
+  test('valid for acyclic graph — linear chain A→B→C', () => {
+    const planA = makePlan({ plan: 1, provides: ['A'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['B'], requires: ['A'] });
+    const planC = makePlan({ plan: 3, provides: ['C'], requires: ['B'] });
+    const plans = [planA, planB, planC];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.valid).toBe(true);
+    expect(result.cycles).toHaveLength(0);
+    expect(result.missing_deps).toHaveLength(0);
+  });
+
+  test('detects simple two-node cycle', () => {
+    const planA = makePlan({ plan: 1, provides: ['A'], requires: ['B'] });
+    const planB = makePlan({ plan: 2, provides: ['B'], requires: ['A'] });
+    const plans = [planA, planB];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.valid).toBe(false);
+    expect(result.cycles).toHaveLength(1);
+    const cycleNodes = result.cycles[0];
+    expect(cycleNodes).toContain('94-graph-of-thought-synthesis-01');
+    expect(cycleNodes).toContain('94-graph-of-thought-synthesis-02');
+  });
+
+  test('detects multi-node cycle (A→B→C→A)', () => {
+    const planA = makePlan({ plan: 1, provides: ['A'], requires: ['C'] });
+    const planB = makePlan({ plan: 2, provides: ['B'], requires: ['A'] });
+    const planC = makePlan({ plan: 3, provides: ['C'], requires: ['B'] });
+    const plans = [planA, planB, planC];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.valid).toBe(false);
+    expect(result.cycles).toHaveLength(1);
+    const cycleNodes = result.cycles[0];
+    expect(cycleNodes).toContain('94-graph-of-thought-synthesis-01');
+    expect(cycleNodes).toContain('94-graph-of-thought-synthesis-02');
+    expect(cycleNodes).toContain('94-graph-of-thought-synthesis-03');
+  });
+
+  test('detects missing dependency', () => {
+    const planA = makePlan({ plan: 1, provides: [], requires: ['NonExistentArtifact'] });
+    const plans = [planA];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.valid).toBe(false);
+    expect(result.missing_deps).toHaveLength(1);
+    expect(result.missing_deps[0].plan).toBe('94-graph-of-thought-synthesis-01');
+    expect(result.missing_deps[0].artifact).toBe('NonExistentArtifact');
+  });
+
+  test('warns on unused provides', () => {
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const plans = [planA];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    // X is provided but nobody requires it
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings.some((w: string) => w.includes('Unused') && w.includes('"X"'))).toBe(true);
+  });
+
+  test('warns on duplicate provides', () => {
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['X'], requires: [] }); // duplicate
+    const plans = [planA, planB];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.warnings.some((w: string) => w.includes('Duplicate') && w.includes('"X"'))).toBe(true);
+  });
+
+  test('valid with no issues — clean DAG', () => {
+    // A provides X, B requires X and provides Y, C requires Y
+    // No cycle, no missing deps, no unused provides, no duplicates
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: ['Y'], requires: ['X'] });
+    const planC = makePlan({ plan: 3, provides: [], requires: ['Y'] });
+    const plans = [planA, planB, planC];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    expect(result.valid).toBe(true);
+    expect(result.cycles).toHaveLength(0);
+    expect(result.missing_deps).toHaveLength(0);
+    // No warnings: X is required by planB, Y is required by planC — no unused; no duplicates
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  test('integration_points count as referenced — no unused warning for integrated artifacts', () => {
+    const planA = makePlan({ plan: 1, provides: ['X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: [], integration_points: ['X'] });
+    const plans = [planA, planB];
+    const dag = buildArtifactDAG(plans);
+    const result = validateArtifactDAG(dag, plans);
+
+    // X is referenced as an integration_point so it should NOT generate unused warning
+    const hasUnusedX = result.warnings.some((w: string) => w.includes('Unused') && w.includes('"X"'));
+    expect(hasUnusedX).toBe(false);
   });
 });

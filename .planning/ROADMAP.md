@@ -327,7 +327,7 @@ Plans:
 
 - [x] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement` ✓ 2026-03-24
 - [x] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement` ✓ 2026-03-25
-- [ ] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement`
+- [x] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement` ✓ 2026-03-25
 - [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
 
 #### Phase 92: CFG Formalization
@@ -386,9 +386,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
-- [ ] 94-02: `buildWaves()` DAG integration in `lib/parallel.ts` and `buildPlanPrompt()` update
-- [ ] 94-03: Dependency context injection into executor prompts and unit tests
+- [x] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
+- [x] 94-02: `buildWaves()` DAG integration in `lib/parallel.ts` and `buildPlanPrompt()` update
+- [x] 94-03: Dependency context injection into executor prompts and unit tests
 
 #### Phase 95: Agentic Knowledge Enhancement
 
