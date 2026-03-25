@@ -369,6 +369,8 @@ export interface GrdConfig {
   discussion?: DiscussionConfig;
   /** When true, plan-phase gate blocks on unresolved critical citation nodes. Default: false */
   citation_gate?: boolean;
+  /** When true, run transitive citation gate during plan-phase (warning severity). Default: false */
+  transitive_citation_gate?: boolean;
   /** When true, run post-phase metric-driven refinement loop. Default: false */
   refinement_loop?: boolean;
 }
