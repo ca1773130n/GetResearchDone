@@ -482,13 +482,15 @@ Plans:
 
 ### Phase 99: Knowledge Injection Loop
 
-**Goal:** Knowledge Injection Loop
+**Goal:** Close the knowledge enhancement loop by wiring selectTopEntries into planning and execution prompts
 **Depends on:** Phase 98
 **Duration:** 7d
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 99 to break down)
+- [ ] 99-01-PLAN.md — TDD: buildKnowledgeInjectionBlock in lib/knowledge.ts
+- [ ] 99-02-PLAN.md — Wire injection into autopilot prompts + executor agent knowhow block
+- [ ] 99-03-PLAN.md — TDD: extractModuleHints + phase-proximity scoring enhancement
 
 ### Phase 100: Evaluation Benchmark Framework
 
