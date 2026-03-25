@@ -109,6 +109,11 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 96]: refinement_loop config flag defaults to false (opt-in); runRefinementLoop placed after knowledge mining, before post-pipeline
 - [Phase 96]: classifyBranch tie-break order: macro > geometry > generative; normalized gaps for heterogeneous metric comparison
 - [Phase 96]: grd-critique-agent effort: low, maxTurns: 20; max 5 files per iteration; never lower coverage thresholds
+- [Phase 97]: traverseCitationGraph seeds BFS from nodes with no incoming edges; falls back to all nodes for pure-cycle graphs
+- [Phase 97]: resolveTransitiveDeps deduplicates edges by (from_slug, to_slug, component_name) triple; returns new CitationGraph (immutable)
+- [Phase 97]: fetchExternalPaper uses injectable fetchFn pattern — timeoutMs hardcoded to 5000, no ApiConfig argument
+- [Phase 97]: checkTransitiveCitationGate produces warning (not error) severity violations — transitive dependencies are informational, non-blocking
+- [Phase 97]: Step 8 numbering: sub-steps 3/3b inserted for traverseCitationGraph + fetchExternalPaper before critical-fetch loop; transitive_citation_gate_enabled uses double-bang cast on config for zero-error strict-mode compatibility
 
 ## Known Bugs
 
