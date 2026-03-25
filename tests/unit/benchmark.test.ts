@@ -10,6 +10,10 @@ import {
   scoreComposite,
   createDefaultRubric,
   formatBenchmarkReport,
+  classifyEntry,
+  scoreSemanticFromSummary,
+  assessTrainability,
+  evaluateEntry,
 } from '../../lib/benchmark';
 
 import type {
@@ -367,5 +371,318 @@ describe('formatBenchmarkReport', () => {
     const output = formatBenchmarkReport([result1, result2], [entry1, entry2]);
     // average of 0.6 and 0.8 = 0.70
     expect(output).toContain('0.70');
+  });
+});
+
+// ─── classifyEntry tests ──────────────────────────────────────────────────────
+
+describe('classifyEntry', () => {
+  it('returns directly-integrable for entries with no special tags', () => {
+    const entry = makeEntry({ tags: ['nerf', 'rendering', 'volumetric'] });
+    expect(classifyEntry(entry)).toBe('directly-integrable');
+  });
+
+  it('returns requires-external-models for entries with pretrained tag', () => {
+    const entry = makeEntry({ tags: ['nerf', 'pretrained'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+
+  it('returns requires-external-models for entries with foundation-model tag', () => {
+    const entry = makeEntry({ tags: ['foundation-model', 'generative'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+
+  it('returns requires-external-models for entries with external-weights tag', () => {
+    const entry = makeEntry({ tags: ['external-weights', 'diffusion'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+
+  it('returns requires-external-models for entries with fine-tuned tag', () => {
+    const entry = makeEntry({ tags: ['fine-tuned', 'gpt'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+
+  it('returns out-of-scope for entries with hardware-specific tag', () => {
+    const entry = makeEntry({ tags: ['hardware-specific', 'fpga'] });
+    expect(classifyEntry(entry)).toBe('out-of-scope');
+  });
+
+  it('returns out-of-scope for entries with proprietary-data tag', () => {
+    const entry = makeEntry({ tags: ['proprietary-data', 'medical'] });
+    expect(classifyEntry(entry)).toBe('out-of-scope');
+  });
+
+  it('returns out-of-scope for entries with closed-source tag', () => {
+    const entry = makeEntry({ tags: ['closed-source', 'api-only'] });
+    expect(classifyEntry(entry)).toBe('out-of-scope');
+  });
+
+  it('returns novelty-coverage for entries with novel-loss tag', () => {
+    const entry = makeEntry({ tags: ['novel-loss', 'optimization'] });
+    expect(classifyEntry(entry)).toBe('novelty-coverage');
+  });
+
+  it('returns novelty-coverage for entries with novel-architecture tag', () => {
+    const entry = makeEntry({ tags: ['novel-architecture', 'transformer'] });
+    expect(classifyEntry(entry)).toBe('novelty-coverage');
+  });
+
+  it('returns novelty-coverage for entries with novel-representation tag', () => {
+    const entry = makeEntry({ tags: ['novel-representation', '3d-gaussian'] });
+    expect(classifyEntry(entry)).toBe('novelty-coverage');
+  });
+
+  it('out-of-scope wins over requires-external-models when both match', () => {
+    const entry = makeEntry({ tags: ['hardware-specific', 'pretrained'] });
+    expect(classifyEntry(entry)).toBe('out-of-scope');
+  });
+
+  it('requires-external-models wins over novelty-coverage when both match', () => {
+    const entry = makeEntry({ tags: ['pretrained', 'novel-architecture'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+
+  it('novelty-coverage wins over directly-integrable when novelty tag present', () => {
+    const entry = makeEntry({ tags: ['novel-loss', 'rendering'] });
+    expect(classifyEntry(entry)).toBe('novelty-coverage');
+  });
+
+  it('is case-insensitive for tag matching', () => {
+    const entry = makeEntry({ tags: ['Pretrained', 'NeRF'] });
+    expect(classifyEntry(entry)).toBe('requires-external-models');
+  });
+});
+
+// ─── scoreSemanticFromSummary tests ───────────────────────────────────────────
+
+describe('scoreSemanticFromSummary', () => {
+  it('parses a well-formed summary with all three score fields', () => {
+    const summary = [
+      'novelty_capture: 0.8',
+      'api_surface_match: 0.75',
+      'algorithmic_fidelity: 0.9',
+    ].join('\n');
+    const result = scoreSemanticFromSummary(summary);
+    expect(result.novelty_capture).toBeCloseTo(0.8, 5);
+    expect(result.api_surface_match).toBeCloseTo(0.75, 5);
+    expect(result.algorithmic_fidelity).toBeCloseTo(0.9, 5);
+  });
+
+  it('returns zero scores for empty input', () => {
+    const result = scoreSemanticFromSummary('');
+    expect(result.novelty_capture).toBe(0);
+    expect(result.api_surface_match).toBe(0);
+    expect(result.algorithmic_fidelity).toBe(0);
+    expect(result.notes).toBe('');
+  });
+
+  it('returns zero scores for malformed input with no recognizable fields', () => {
+    const result = scoreSemanticFromSummary('This is just a text summary with no structured data.');
+    expect(result.novelty_capture).toBe(0);
+    expect(result.api_surface_match).toBe(0);
+    expect(result.algorithmic_fidelity).toBe(0);
+  });
+
+  it('clamps parsed values above 1 to 1', () => {
+    const summary = 'novelty_capture: 1.5\napi_surface_match: 0.7\nalgorithmic_fidelity: 0.8';
+    const result = scoreSemanticFromSummary(summary);
+    expect(result.novelty_capture).toBe(1);
+  });
+
+  it('clamps parsed values below 0 to 0', () => {
+    const summary = 'novelty_capture: -0.3\napi_surface_match: 0.7\nalgorithmic_fidelity: 0.8';
+    const result = scoreSemanticFromSummary(summary);
+    expect(result.novelty_capture).toBe(0);
+  });
+
+  it('extracts notes field from "notes: ..." line', () => {
+    const summary = 'novelty_capture: 0.8\nnotes: Good implementation of core algorithm';
+    const result = scoreSemanticFromSummary(summary);
+    expect(result.notes).toBe('Good implementation of core algorithm');
+  });
+
+  it('returns empty notes when no notes line is present', () => {
+    const summary = 'novelty_capture: 0.8\napi_surface_match: 0.7\nalgorithmic_fidelity: 0.9';
+    const result = scoreSemanticFromSummary(summary);
+    expect(result.notes).toBe('');
+  });
+});
+
+// ─── assessTrainability tests ─────────────────────────────────────────────────
+
+describe('assessTrainability', () => {
+  it('returns build_success=true when build output has no error indicators', () => {
+    const result = assessTrainability('Build successful. 3 files compiled.', 'output text', '', 1000);
+    expect(result.build_success).toBe(true);
+  });
+
+  it('returns build_success=false when build output contains "error"', () => {
+    const result = assessTrainability('error: cannot find module', '', '', 0);
+    expect(result.build_success).toBe(false);
+  });
+
+  it('returns build_success=false when build output contains "FAILED"', () => {
+    const result = assessTrainability('FAILED to compile', '', '', 0);
+    expect(result.build_success).toBe(false);
+  });
+
+  it('returns build_success=false when build output is empty (no build attempted)', () => {
+    const result = assessTrainability('', '', '', 0);
+    expect(result.build_success).toBe(false);
+  });
+
+  it('returns runtime_stable=true when run output has no crash indicators', () => {
+    const result = assessTrainability('Build ok', 'Training epoch 1... loss: 1.2', '', 1000);
+    expect(result.runtime_stable).toBe(true);
+  });
+
+  it('returns runtime_stable=false when run output contains SIGKILL', () => {
+    const result = assessTrainability('Build ok', 'Process killed: SIGKILL', '', 500);
+    expect(result.runtime_stable).toBe(false);
+  });
+
+  it('returns runtime_stable=false when run output contains "fatal error"', () => {
+    const result = assessTrainability('Build ok', 'fatal error: segmentation fault', '', 100);
+    expect(result.runtime_stable).toBe(false);
+  });
+
+  it('returns runtime_stable=false when run output is empty', () => {
+    const result = assessTrainability('Build ok', '', '', 0);
+    expect(result.runtime_stable).toBe(false);
+  });
+
+  it('returns convergence_detected=true when output contains "converged"', () => {
+    const result = assessTrainability('ok', 'Training converged at epoch 10', '', 5000);
+    expect(result.convergence_detected).toBe(true);
+  });
+
+  it('returns convergence_detected=true when output contains "loss decreased"', () => {
+    const result = assessTrainability('ok', 'Epoch 5: loss decreased from 1.5 to 0.9', '', 3000);
+    expect(result.convergence_detected).toBe(true);
+  });
+
+  it('returns convergence_detected=true when output contains "metric improved"', () => {
+    const result = assessTrainability('ok', 'Step 100: metric improved by 5%', '', 2000);
+    expect(result.convergence_detected).toBe(true);
+  });
+
+  it('returns convergence_detected=false when no convergence indicators found', () => {
+    const result = assessTrainability('ok', 'Training started. Epoch 1/10.', '', 1000);
+    expect(result.convergence_detected).toBe(false);
+  });
+
+  it('passes through execution_time_ms', () => {
+    const result = assessTrainability('ok', 'done', '', 12345);
+    expect(result.execution_time_ms).toBe(12345);
+  });
+
+  it('sets error_log from stderr content trimmed', () => {
+    const result = assessTrainability('ok', 'done', '  some warning  ', 1000);
+    expect(result.error_log).toBe('some warning');
+  });
+
+  it('sets error_log to empty string when stderr is empty', () => {
+    const result = assessTrainability('ok', 'done', '', 1000);
+    expect(result.error_log).toBe('');
+  });
+
+  it('handles all-empty inputs gracefully (all false, empty error_log)', () => {
+    const result = assessTrainability('', '', '', 0);
+    expect(result.build_success).toBe(false);
+    expect(result.runtime_stable).toBe(false);
+    expect(result.convergence_detected).toBe(false);
+    expect(result.error_log).toBe('');
+  });
+});
+
+// ─── evaluateEntry tests ──────────────────────────────────────────────────────
+
+describe('evaluateEntry', () => {
+  const buildOutput = 'Build completed successfully.';
+  const runOutput = 'Training converged at epoch 5.';
+  const stderr = '';
+  const executionTimeMs = 3000;
+  const rubricVersion = 'v1.0';
+  const evaluator = 'test-evaluator';
+  const semanticSummary = [
+    'novelty_capture: 0.8',
+    'api_surface_match: 0.75',
+    'algorithmic_fidelity: 0.9',
+    'notes: Solid implementation',
+  ].join('\n');
+
+  it('returns a BenchmarkResult with correct entry_id', () => {
+    const entry = makeEntry({ id: 'my-paper-123' });
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(result.entry_id).toBe('my-paper-123');
+  });
+
+  it('returns a composite_score between 0 and 1', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(result.composite_score).toBeGreaterThanOrEqual(0);
+    expect(result.composite_score).toBeLessThanOrEqual(1);
+  });
+
+  it('populates evaluated_at as an ISO 8601 timestamp', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(result.evaluated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('populates evaluator field from argument', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, 'my-agent'
+    );
+    expect(result.evaluator).toBe('my-agent');
+  });
+
+  it('uses entry.category for scoring (out-of-scope scores lower than directly-integrable)', () => {
+    const entryOutOfScope = makeEntry({ category: 'out-of-scope', tags: [] });
+    const entryDirect = makeEntry({ category: 'directly-integrable', tags: [] });
+    const resultOOS = evaluateEntry(
+      entryOutOfScope, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    const resultDirect = evaluateEntry(
+      entryDirect, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(resultOOS.composite_score).toBeLessThan(resultDirect.composite_score);
+  });
+
+  it('populates rubric_version from argument', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, 'v2.5', evaluator
+    );
+    expect(result.rubric_version).toBe('v2.5');
+  });
+
+  it('populates semantic scores from semanticSummary', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(result.semantic.novelty_capture).toBeCloseTo(0.8, 5);
+    expect(result.semantic.api_surface_match).toBeCloseTo(0.75, 5);
+    expect(result.semantic.algorithmic_fidelity).toBeCloseTo(0.9, 5);
+    expect(result.semantic.notes).toBe('Solid implementation');
+  });
+
+  it('populates trainability metrics from build/run outputs', () => {
+    const entry = makeEntry();
+    const result = evaluateEntry(
+      entry, semanticSummary, buildOutput, runOutput, stderr, executionTimeMs, rubricVersion, evaluator
+    );
+    expect(result.trainability.build_success).toBe(true);
+    expect(result.trainability.runtime_stable).toBe(true);
+    expect(result.trainability.convergence_detected).toBe(true);
+    expect(result.trainability.execution_time_ms).toBe(3000);
   });
 });
