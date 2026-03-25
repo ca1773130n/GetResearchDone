@@ -49,7 +49,6 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
 
   const entries: KnowhowEntry[] = [];
 
-  // Split on level-3 headings (### prefix). Keep the heading text by using a capture.
   const blocks = content.split(/(?=^### )/m);
 
   for (const block of blocks) {
@@ -107,11 +106,12 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
  * - Parent directories are created if needed.
  */
 function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): void {
+  if (entries.length === 0) return;
+
   const existingContent = safeReadFile(knowhowPath) ?? '';
 
   const existing = parseKnowhowEntries(existingContent);
 
-  // Build a map from pattern_name to entry for deduplication
   const byName = new Map<string, KnowhowEntry>();
 
   for (const e of existing) {
@@ -127,62 +127,15 @@ function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): voi
 
   const merged = Array.from(byName.values());
 
-  // Sort by phase_number descending (most recent first) for stable output
   merged.sort((a, b) => b.phase_number - a.phase_number);
 
   const body = merged.map(formatKnowhowEntry).join('\n');
   const fileContent = KNOWHOW_HEADER + body;
 
-  // Ensure parent directory exists
   const dir = path.dirname(knowhowPath);
   fs.mkdirSync(dir, { recursive: true });
 
   fs.writeFileSync(knowhowPath, fileContent, 'utf8');
-}
-
-/**
- * Extract unique module basenames from PLAN.md files in a phase directory.
- *
- * Reads all `*-PLAN.md` files in phaseDir, extracts the `files_modified` array
- * from YAML frontmatter, and returns deduplicated basenames without extensions.
- *
- * For example, `lib/knowledge.ts` → `knowledge`, `tests/unit/foo.test.ts` → `foo`.
- * Returns `[]` if phaseDir doesn't exist or contains no PLAN.md files.
- */
-function extractModuleHints(phaseDir: string): string[] {
-  let files: string[];
-  try {
-    files = fs.readdirSync(phaseDir);
-  } catch {
-    return [];
-  }
-
-  const planFiles = files.filter((f) => f.endsWith('-PLAN.md'));
-  if (planFiles.length === 0) {
-    return [];
-  }
-
-  const hintSet = new Set<string>();
-
-  for (const planFile of planFiles) {
-    const content = safeReadFile(path.join(phaseDir, planFile));
-    if (!content) continue;
-
-    // Extract files_modified: [...] from YAML frontmatter
-    const match = content.match(/files_modified:\s*\[([^\]]*)\]/);
-    if (!match) continue;
-
-    const filePaths = match[1].split(',').map((s) => s.trim()).filter(Boolean);
-    for (const filePath of filePaths) {
-      // Get basename without extension(s): lib/foo.test.ts → foo
-      const base = path.basename(filePath).replace(/(\.\w+)+$/, '');
-      if (base) {
-        hintSet.add(base);
-      }
-    }
-  }
-
-  return Array.from(hintSet);
 }
 
 /**
@@ -191,8 +144,6 @@ function extractModuleHints(phaseDir: string): string[] {
  * - Primary sort: phase_number descending (most recent first).
  * - If moduleHints provided: entries whose source or applicability mentions any
  *   hint string are sorted first within each phase_number bucket.
- * - If currentPhase provided: used as tertiary tiebreaker — entries closer to
- *   currentPhase rank higher when primary and secondary sorts are equal.
  * - Returns at most n entries.
  * - If entries.length <= n, returns all entries sorted.
  */
@@ -200,80 +151,30 @@ function selectTopEntries(
   entries: KnowhowEntry[],
   n: number,
   moduleHints?: string[],
-  currentPhase?: number,
 ): KnowhowEntry[] {
   if (entries.length === 0 || n <= 0) {
     return [];
   }
 
-  const hasHint = (entry: KnowhowEntry): boolean => {
-    if (!moduleHints || moduleHints.length === 0) return false;
-    const combined = `${entry.source} ${entry.applicability}`.toLowerCase();
-    return moduleHints.some((hint) => combined.includes(hint.toLowerCase()));
-  };
+  const lowerHints = moduleHints?.map((h) => h.toLowerCase()) ?? [];
+  const hintMatches = new Set<KnowhowEntry>();
+  if (lowerHints.length > 0) {
+    for (const entry of entries) {
+      const combined = `${entry.source} ${entry.applicability}`.toLowerCase();
+      if (lowerHints.some((hint) => combined.includes(hint))) {
+        hintMatches.add(entry);
+      }
+    }
+  }
 
   const sorted = [...entries].sort((a, b) => {
-    // Primary: phase_number descending
     if (b.phase_number !== a.phase_number) {
       return b.phase_number - a.phase_number;
     }
-    // Secondary: module hint boost (entries with hints come first)
-    const aHit = hasHint(a) ? 1 : 0;
-    const bHit = hasHint(b) ? 1 : 0;
-    if (bHit !== aHit) return bHit - aHit;
-    // Tertiary: proximity to current phase (closer = better)
-    if (currentPhase !== undefined) {
-      return Math.abs(a.phase_number - currentPhase) - Math.abs(b.phase_number - currentPhase);
-    }
-    return 0;
+    return (hintMatches.has(b) ? 1 : 0) - (hintMatches.has(a) ? 1 : 0);
   });
 
   return sorted.slice(0, n);
-}
-
-/**
- * Build a formatted prompt block from the top-N KNOWHOW.md entries.
- *
- * Reads KNOWHOW.md from `path.join(cwd, 'KNOWHOW.md')`, selects the top 5
- * most relevant entries via selectTopEntries (with optional moduleHints), and
- * wraps them in a `<knowhow_context>` XML block for prompt injection.
- *
- * Returns empty string when:
- * - KNOWHOW.md does not exist at the given cwd
- * - KNOWHOW.md exists but is empty or contains no valid entries
- *
- * When moduleHints is not provided, auto-derives hints from PLAN.md
- * files_modified frontmatter in `.planning` directory (best-effort; degrades
- * gracefully to recency-only sorting if derivation yields nothing).
- */
-function buildKnowledgeInjectionBlock(
-  cwd: string,
-  phaseNum: string,
-  moduleHints?: string[],
-): string {
-  const knowhowPath = path.join(cwd, 'KNOWHOW.md');
-  const content = safeReadFile(knowhowPath);
-
-  if (!content || !content.trim()) {
-    return '';
-  }
-
-  const entries = parseKnowhowEntries(content);
-  if (entries.length === 0) {
-    return '';
-  }
-
-  const effectiveHints = moduleHints ?? extractModuleHints(path.join(cwd, '.planning'));
-  const currentPhase = parseInt(phaseNum, 10);
-  const top = selectTopEntries(entries, 5, effectiveHints, Number.isNaN(currentPhase) ? undefined : currentPhase);
-  const formatted = top.map(formatKnowhowEntry).join('\n');
-
-  return (
-    `<knowhow_context>\n` +
-    `The following patterns were mined from prior phase executions. Apply relevant ones:\n\n` +
-    formatted +
-    `</knowhow_context>\n`
-  );
 }
 
 module.exports = {
@@ -281,6 +182,4 @@ module.exports = {
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
-  buildKnowledgeInjectionBlock,
-  extractModuleHints,
 };

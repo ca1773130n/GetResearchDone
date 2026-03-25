@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 100 (Evaluation Benchmark Framework) — complete
+- **Active phase:** Phase 100 (Evaluation Benchmark Framework) — not started
 - **Current plan:** None
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 100 complete — benchmark corpus management, semantic scoring, trainability metrics, category taxonomy, eval-planner/eval-reporter agents
-- **Progress:** [███████░░░] 72%
-- **Next:** All v0.3.23 phases complete
+- **Status:** Phase 99 complete — knowledge injection loop closed; buildKnowledgeInjectionBlock wired into autopilot prompts; extractModuleHints + phase-proximity scoring added
+- **Progress:** [███████░░░] 67%
+- **Next:** Plan Phase 100 (Evaluation Benchmark Framework)
 
 ## Phase Summary
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 97 | Transitive Citation Graph Traversal | Complete (2026-03-25) |
 | 98 | GoT Synthesis Execution Engine | Not started |
 | 99 | Knowledge Injection Loop | Complete (2026-03-25) |
-| 100 | Evaluation Benchmark Framework | Complete (2026-03-25) |
+| 100 | Evaluation Benchmark Framework | Not started |
 
 ## v0.3.23 Roadmap
 
@@ -120,6 +120,15 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 99-knowledge-injection-loop]: extractModuleHints strips all extensions from basename; phase-proximity is tertiary tiebreaker; buildKnowledgeInjectionBlock auto-derives hints via extractModuleHints when caller omits moduleHints
 - [Phase 99]: cwd parameter is optional in buildPlanPrompt/buildExecutePrompt for backward compatibility with external callers and dry-run
 - [Phase 99]: Execute worktree call sites pass wtPath (not cwd) to buildExecutePrompt — executor agents read KNOWHOW.md relative to their worktree execution context
+- [Phase 100]: Benchmark type system defined in lib/types.ts alongside existing GRD types — single source of truth
+- [Phase 100]: scoreComposite: semantic_weight=0.6 (fidelity priority), trainability weights build=0.4/runtime=0.3/convergence=0.3; out-of-scope adjustment=0.5 (heaviest NERFIFY-BENCH penalty)
+- [Phase 100]: evaluateEntry uses entry.category as-is rather than calling classifyEntry — category field is the caller's assigned value; classifyEntry is a separate classification helper
+- [Phase 100]: classifyEntry uses case-insensitive tag matching with priority: out-of-scope > requires-external-models > novelty-coverage > directly-integrable (adapted from NERFIFY-BENCH Figure 7)
+- [Phase 100]: grd-eval-planner and grd-eval-reporter augmented with benchmark corpus integration sections referencing lib/benchmark.ts (loadCorpus, evaluateEntry, formatBenchmarkReport, classifyEntry, IntegrationCategory taxonomy)
+- [Phase 94]: buildArtifactDAG lives in lib/deps.ts; plan_id format {phase}-{plan_number} zero-padded; cycle detection collects all distinct cycles; integration edges are soft (only when provider exists)
+- [Phase 94]: buildWaves merges depends_on and artifactDAG.providers into combined inDegree map before Kahn's — unified cycle detection and backward compatible
+- [Phase 94]: buildPlanPrompt instructs planner to declare provides/requires/integration_points in PLAN.md YAML frontmatter using module:ExportName format
+- [Phase 94]: Phase 94-03: Tests cover all 15 buildArtifactDAG and validateArtifactDAG scenarios plus 9 buildWaves scenarios; 88%+ branch coverage on lib/deps.ts and 87%+ on lib/parallel.ts
 
 ## Known Bugs
 
@@ -131,9 +140,9 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 100 complete — evaluation benchmark framework shipped
-- **Stopped at:** Phase 100 verification passed
-- **Next action:** All v0.3.23 phases complete — consider /grd:complete-milestone
+- **Last action:** Phase 99 complete — knowledge injection loop closed
+- **Stopped at:** Completed 94-03-PLAN.md
+- **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
