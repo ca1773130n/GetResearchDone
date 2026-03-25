@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 99 (Knowledge Injection Loop) — plan 02/N complete
-- **Current plan:** Plan 02 complete
+- **Active phase:** Phase 100 (Evaluation Benchmark Framework) — not started
+- **Current plan:** None
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 99 plan 02 complete — buildKnowledgeInjectionBlock wired into buildPlanPrompt and buildExecutePrompt in lib/autopilot.ts; all 8 call sites updated; grd-executor.md gains knowhow_injection block
-- **Progress:** [█████░░░░░] 50%
-- **Next:** Execute Phase 100 (Evaluation Benchmark Framework)
+- **Status:** Phase 99 complete — knowledge injection loop closed; buildKnowledgeInjectionBlock wired into autopilot prompts; extractModuleHints + phase-proximity scoring added
+- **Progress:** [██████░░░░] 64%
+- **Next:** Plan Phase 100 (Evaluation Benchmark Framework)
 
 ## Phase Summary
 
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 96 | Closed-Loop Metric-Driven Refinement | Complete (2026-03-25) |
 | 97 | Transitive Citation Graph Traversal | Complete (2026-03-25) |
 | 98 | GoT Synthesis Execution Engine | Not started |
-| 99 | Knowledge Injection Loop | Not started |
+| 99 | Knowledge Injection Loop | Complete (2026-03-25) |
 | 100 | Evaluation Benchmark Framework | Not started |
 
 ## v0.3.23 Roadmap
@@ -131,10 +131,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 99 plan 02 complete — buildKnowledgeInjectionBlock wired into buildPlanPrompt/buildExecutePrompt in lib/autopilot.ts; grd-executor.md knowhow_injection block added
-- **Stopped at:** Completed 99-02-PLAN.md
-- **Next action:** Execute Phase 100 (Evaluation Benchmark Framework)
-- **Context needed:** .planning/STATE.md, lib/autopilot.ts, agents/grd-executor.md
+- **Last action:** Phase 99 complete — knowledge injection loop closed
+- **Stopped at:** Phase 99 verification passed
+- **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
 

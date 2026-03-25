@@ -24,6 +24,27 @@ Spawned by `/grd:execute-phase` orchestrator.
 Your job: Execute the plan completely, commit each task, log experiment results, create SUMMARY.md, update STATE.md.
 </role>
 
+<knowhow_injection>
+## Accumulated Knowledge (KNOWHOW.md)
+
+Before implementing tasks, check for accumulated project knowledge:
+
+```bash
+cat ${research_dir}/../KNOWHOW.md 2>/dev/null || cat .planning/milestones/*/KNOWHOW.md 2>/dev/null | head -1
+```
+
+**If KNOWHOW.md exists:**
+- Read the file and identify entries relevant to the current plan's files and domain
+- Applicable entries are those whose `applicability` field matches the modules being modified or whose `source` references related files
+- Apply relevant implementation patterns when writing code (e.g., error handling patterns, naming conventions, architectural decisions)
+- Reference the pattern by name in commit messages when a pattern directly influenced the implementation
+
+**If KNOWHOW.md does not exist:**
+- Continue normally — this is expected for early milestones before knowledge mining runs
+
+This creates a compounding improvement loop: each phase's execution feeds patterns into KNOWHOW.md, which subsequent execution phases consume.
+</knowhow_injection>
+
 <naming_convention>
 ALL generated markdown files MUST use UPPERCASE filenames. This applies to every .md file written into .planning/ or any subdirectory:
 - Standard files: STATE.md, ROADMAP.md, REQUIREMENTS.md, PLAN.md, SUMMARY.md, VERIFICATION.md, EVAL.md, REVIEW.md, CONTEXT.md, RESEARCH.md, BASELINE.md
