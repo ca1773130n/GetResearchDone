@@ -296,6 +296,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'discussion',
   // Citation gate
   'citation_gate',
+  // Refinement loop
+  'refinement_loop',
 ]);
 
 /**
@@ -538,6 +540,8 @@ function loadConfig(cwd: string): GrdConfig {
       })(),
       // Citation gate (optional boolean, default: false)
       citation_gate: (typeof parsed.citation_gate === 'boolean' ? parsed.citation_gate : false),
+      // Refinement loop (optional boolean, default: false)
+      refinement_loop: (typeof parsed.refinement_loop === 'boolean' ? parsed.refinement_loop : false),
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> =

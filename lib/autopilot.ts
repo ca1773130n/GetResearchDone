@@ -628,6 +628,13 @@ async function runRefinementLoop(
   }
 ): Promise<void> {
   const { scheduler, log } = options;
+
+  // Skip when not explicitly enabled via config (opt-in, same as citation_gate pattern)
+  if (loadConfig(cwd).refinement_loop !== true) {
+    log(`Phase ${phaseNum}: refinement loop skipped — refinement_loop config not enabled`);
+    return;
+  }
+
   const agentDefPath = path.resolve(cwd, 'agents', 'grd-critique-agent.md');
 
   if (!fs.existsSync(agentDefPath)) {
@@ -1786,6 +1793,9 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         } catch (_err) {
           log(`Phase ${task.phaseNum}: knowledge mining error (non-blocking)`);
         }
+
+        // Refinement loop (non-blocking — runRefinementLoop never rejects)
+        await runRefinementLoop(cwd, task.phaseNum, { scheduler, log });
 
         // Launch post-phase pipeline concurrently (Steps 1-3 run in parallel across
         // phases; Step 4 rebase+merge is serialized via the shared mergeQueue).
