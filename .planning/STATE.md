@@ -102,6 +102,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 93]: citation_gate config key added to KNOWN_CONFIG_KEYS and GrdConfig — gates.ts uses typed field directly
 - [Phase 93]: CitationEdge schema: from_slug/to_slug/type ('missing'|'borrowed')/component_name
 - [Phase 93]: CitationNode includes missing_components[] and borrowed_components[] arrays; priority includes 'low' tier
+- [Phase 94]: buildArtifactDAG lives in lib/deps.ts; plan_id format is {phase}-{plan_number} zero-padded; cycle detection collects all distinct cycles; integration edges are soft (only when provider exists)
 
 ## Known Bugs
 
@@ -114,7 +115,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 93 complete — all 3 plans executed, verification passed, merged to main
-- **Stopped at:** Completed phase 93 execution
+- **Stopped at:** Completed 94-01-PLAN.md
 - **Next action:** Advance to Phase 94 (`gd plan-phase 94` or `gd execute-phase 94`)
 - **Context needed:** .planning/STATE.md, lib/citations.ts, lib/gates.ts
 
