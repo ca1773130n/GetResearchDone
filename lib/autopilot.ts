@@ -1793,12 +1793,8 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
         results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
 
-        // Knowledge mining (non-blocking — failure does not halt pipeline)
-        try {
-          await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
-        } catch (_err) {
-          log(`Phase ${task.phaseNum}: knowledge mining error (non-blocking)`);
-        }
+        // Knowledge mining (non-blocking — runKnowledgeMining never rejects)
+        await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
 
         // Refinement loop (non-blocking — runRefinementLoop never rejects)
         await runRefinementLoop(cwd, task.phaseNum, { scheduler, log });

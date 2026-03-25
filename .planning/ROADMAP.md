@@ -498,7 +498,9 @@ Plans:
 **Goal:** Evaluation Benchmark Framework
 **Depends on:** Phase 99
 **Duration:** 7d
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 100 to break down)
+- [ ] 100-01-PLAN.md — TDD: Benchmark types + corpus management + composite scoring
+- [ ] 100-02-PLAN.md — TDD: Category classification + semantic scoring + trainability + evaluation pipeline
+- [ ] 100-03-PLAN.md — Agent definitions (grd-eval-planner, grd-eval-reporter)
