@@ -1026,4 +1026,73 @@ export interface KnowhowEntry {
   created_at: string;
 }
 
+// ─── Refinement Types (from refinement.ts) ───────────────────────────────────
+
+/**
+ * Quantitative metrics collected from a single test/lint/build run.
+ * Adapted from NERFIFY PSNR-minima ROI analysis to GRD's domain:
+ * test coverage minima, type error density, lint violation clustering.
+ */
+export interface RefinementMetrics {
+  /** Percentage of lines/statements covered by tests (0–100). */
+  test_coverage_pct: number;
+  /** Number of TypeScript type errors from tsc --noEmit. */
+  type_error_count: number;
+  /** Number of ESLint violations (errors + warnings). */
+  lint_violation_count: number;
+  /** ISO 8601 timestamp when these metrics were collected. */
+  timestamp: string;
+}
+
+/**
+ * A metric snapshot tied to a specific phase and plan.
+ * Used for building time-series data to detect convergence and minima.
+ */
+export interface MetricSnapshot {
+  metrics: RefinementMetrics;
+  phase: string;
+  plan: string;
+}
+
+/**
+ * Discriminated branch type for closed-loop refinement routing.
+ * - macro: metric-minima guided patching (coverage dips, error spikes)
+ * - geometry: structural validation (type errors, export consistency)
+ * - generative: artifact analysis (lint patterns, code smell clustering)
+ */
+export type CritiqueBranch = 'macro' | 'geometry' | 'generative';
+
+/**
+ * Configuration for convergence detection in the refinement loop.
+ * Epsilon values define the minimum change threshold below which a dimension
+ * is considered converged.
+ */
+export interface ConvergenceConfig {
+  /** Minimum coverage change (in percentage points) to consider not-converged. */
+  epsilon_coverage: number;
+  /** Minimum type error count change to consider not-converged. */
+  epsilon_type_errors: number;
+  /** Minimum lint violation count change to consider not-converged. */
+  epsilon_lint: number;
+  /** Maximum refinement iterations before forcing convergence. */
+  max_iterations: number;
+}
+
+/**
+ * A detected minima region in a metric time series.
+ * For coverage: local dips (where coverage drops below neighbors).
+ * For errors/violations: local spikes (where count rises above neighbors).
+ */
+export interface MinimaRegion {
+  /** Which metric dimension this region belongs to. */
+  dimension: 'test_coverage_pct' | 'type_error_count' | 'lint_violation_count';
+  /** Index in the snapshot array where this region occurs. */
+  index: number;
+  /** Metric value at this region. */
+  value: number;
+  /** Absolute delta from the average of the two neighbors. */
+  delta: number;
+}
+
 module.exports = {};
+
