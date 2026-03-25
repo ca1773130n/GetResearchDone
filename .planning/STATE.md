@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 95 (Agentic Knowledge Enhancement) — plan 02 complete
-- **Current plan:** Plan 02 complete
+- **Active phase:** Phase 96 (Closed-Loop Metric-Driven Refinement) — complete
+- **Current plan:** All 3 plans complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 95 plans 01-02 executed — knowledge miner agent + KNOWHOW.md injection in planner/researcher
-- **Progress:** [████████░░] 75%
-- **Next:** Execute Phase 95 plan 03 if exists, or milestone complete (`gd execute-phase 95`)
+- **Status:** Phase 96 complete — refinement module, critique agent, autopilot pipeline integration
+- **Progress:** [█████████░] 88%
+- **Next:** Plan Phase 97 (`gd plan-phase 97`) or execute next phase
 
 ## Phase Summary
 
@@ -32,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 93 | Compositional Citation Recovery | In progress (plans 01-02 done) |
 | 94 | Graph-of-Thought Synthesis | Not started |
 | 95 | Agentic Knowledge Enhancement | Not started |
-| 96 | Closed-Loop Metric-Driven Refinement | Not started |
+| 96 | Closed-Loop Metric-Driven Refinement | Complete (2026-03-25) |
 | 97 | Transitive Citation Graph Traversal | Not started |
 | 98 | GoT Synthesis Execution Engine | Not started |
 | 99 | Knowledge Injection Loop | Not started |
@@ -70,13 +70,16 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | DEFER-78-01 | Live discovery accuracy on real GRD codebase | Phase 78 | Phase 79, plan 79-01 | PENDING |
 | DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
+| DEFER-96-01 | End-to-end refinement loop effectiveness on real project | Phase 96 | First live autopilot run | PENDING |
+| DEFER-96-02 | collectMetrics parse robustness on real tool output | Phase 96 | First live autopilot run | PENDING |
+| DEFER-96-03 | Critique agent patch quality for all three branches | Phase 96 | Manual review | PENDING |
 
 ## Performance Metrics
 
 **Cumulative:**
 - Milestones shipped: 28 (v0.0.5 through v0.3.21)
-- Total tests: 3,672 (after Phase 91 plan 01)
-- Total lib/ modules: 27 (22 top-level .ts + 5 sub-module directories)
+- Total tests: 3,830 (after Phase 96)
+- Total lib/ modules: 28 (23 top-level .ts + 5 sub-module directories)
 - Total commands: 41
 - MCP tools: 132
 
@@ -103,6 +106,9 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 93]: CitationEdge schema: from_slug/to_slug/type ('missing'|'borrowed')/component_name
 - [Phase 93]: CitationNode includes missing_components[] and borrowed_components[] arrays; priority includes 'low' tier
 - [Phase 94]: buildArtifactDAG lives in lib/deps.ts; plan_id format is {phase}-{plan_number} zero-padded; cycle detection collects all distinct cycles; integration edges are soft (only when provider exists)
+- [Phase 96]: refinement_loop config flag defaults to false (opt-in); runRefinementLoop placed after knowledge mining, before post-pipeline
+- [Phase 96]: classifyBranch tie-break order: macro > geometry > generative; normalized gaps for heterogeneous metric comparison
+- [Phase 96]: grd-critique-agent effort: low, maxTurns: 20; max 5 files per iteration; never lower coverage thresholds
 
 ## Known Bugs
 
@@ -114,12 +120,12 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 93 complete — all 3 plans executed, verification passed, merged to main
-- **Stopped at:** Completed 94-01-PLAN.md
-- **Next action:** Advance to Phase 94 (`gd plan-phase 94` or `gd execute-phase 94`)
-- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/gates.ts
+- **Last action:** Phase 96 complete — all 3 plans executed, verification passed
+- **Stopped at:** Phase 96 complete
+- **Next action:** Plan Phase 97 (`gd plan-phase 97`)
+- **Context needed:** .planning/STATE.md, lib/refinement.ts, lib/autopilot.ts
 
 ---
 
 *State managed by: Claude (grd-roadmapper)*
-*Last updated: 2026-03-24*
+*Last updated: 2026-03-25*

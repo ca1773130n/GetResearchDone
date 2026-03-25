@@ -448,7 +448,7 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
 
-### Phase 96: Closed-Loop Metric-Driven Refinement
+### Phase 96: Closed-Loop Metric-Driven Refinement ✅ (2026-03-25)
 
 **Goal:** Critique agent system with 3-branch refinement loop (Macro/Geometry/Generative), convergence detection, and autopilot pipeline integration — adapts NERFIFY PSNR-minima ROI analysis to GRD domain (test coverage minima, type error density, lint violation clustering)
 **Depends on:** Phase 95
@@ -456,9 +456,9 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 **Plans:** 3 plans
 
 Plans:
-- [ ] 96-01-PLAN.md — TDD: Refinement types, metric collection, convergence detection, branch classification in lib/refinement.ts
-- [ ] 96-02-PLAN.md — Critique agent definition + buildCritiqueAgentPrompt and runRefinementLoop in autopilot.ts
-- [ ] 96-03-PLAN.md — Wire refinement loop into autopilot post-phase pipeline + integration tests
+- [x] 96-01-PLAN.md — TDD: Refinement types, metric collection, convergence detection, branch classification in lib/refinement.ts
+- [x] 96-02-PLAN.md — Critique agent definition + buildCritiqueAgentPrompt and runRefinementLoop in autopilot.ts
+- [x] 96-03-PLAN.md — Wire refinement loop into autopilot post-phase pipeline + integration tests
 
 ### Phase 97: Transitive Citation Graph Traversal
 
