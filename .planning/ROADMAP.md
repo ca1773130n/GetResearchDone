@@ -447,3 +447,55 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | Phase 78 | Scenario executability by Phase 79 HTTP/CLI engine (DEFER-78-02) | Phase 79, plan 79-02 | Pending |
 | Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
+
+### Phase 96: Closed-Loop Metric-Driven Refinement
+
+**Goal:** Critique agent system with 3-branch refinement loop (Macro/Geometry/Generative), convergence detection, and autopilot pipeline integration — adapts NERFIFY PSNR-minima ROI analysis to GRD domain (test coverage minima, type error density, lint violation clustering)
+**Depends on:** Phase 95
+**Duration:** 7d
+**Plans:** 3 plans
+
+Plans:
+- [ ] 96-01-PLAN.md — TDD: Refinement types, metric collection, convergence detection, branch classification in lib/refinement.ts
+- [ ] 96-02-PLAN.md — Critique agent definition + buildCritiqueAgentPrompt and runRefinementLoop in autopilot.ts
+- [ ] 96-03-PLAN.md — Wire refinement loop into autopilot post-phase pipeline + integration tests
+
+### Phase 97: Transitive Citation Graph Traversal
+
+**Goal:** Transitive Citation Graph Traversal
+**Depends on:** Phase 96
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 97 to break down)
+
+### Phase 98: GoT Synthesis Execution Engine
+
+**Goal:** GoT Synthesis Execution Engine
+**Depends on:** Phase 97
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 98 to break down)
+
+### Phase 99: Knowledge Injection Loop
+
+**Goal:** Knowledge Injection Loop
+**Depends on:** Phase 98
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 99 to break down)
+
+### Phase 100: Evaluation Benchmark Framework
+
+**Goal:** Evaluation Benchmark Framework
+**Depends on:** Phase 99
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 100 to break down)
