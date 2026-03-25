@@ -140,6 +140,151 @@ export function createDefaultRubric(): ScoringRubric {
  * @param entries - Corpus entries for title/category lookup
  * @returns Markdown string
  */
+/**
+ * Classify a BenchmarkEntry into an IntegrationCategory using NERFIFY-BENCH Figure 7-inspired taxonomy.
+ *
+ * Priority order (first match wins):
+ * 1. out-of-scope: hardware-specific, proprietary-data, or closed-source
+ * 2. requires-external-models: pretrained, foundation-model, external-weights, or fine-tuned
+ * 3. novelty-coverage: novel-loss, novel-architecture, or novel-representation
+ * 4. directly-integrable: default (no indicator tags found)
+ *
+ * Tag matching is case-insensitive.
+ */
+export function classifyEntry(entry: BenchmarkEntry): IntegrationCategory {
+  const lowerTags = entry.tags.map((t) => t.toLowerCase());
+
+  const hasTag = (tag: string): boolean => lowerTags.includes(tag.toLowerCase());
+
+  // Priority 1: out-of-scope
+  if (hasTag('hardware-specific') || hasTag('proprietary-data') || hasTag('closed-source')) {
+    return 'out-of-scope';
+  }
+
+  // Priority 2: requires-external-models
+  if (
+    hasTag('pretrained') ||
+    hasTag('foundation-model') ||
+    hasTag('external-weights') ||
+    hasTag('fine-tuned')
+  ) {
+    return 'requires-external-models';
+  }
+
+  // Priority 3: novelty-coverage
+  if (hasTag('novel-loss') || hasTag('novel-architecture') || hasTag('novel-representation')) {
+    return 'novelty-coverage';
+  }
+
+  // Default: directly-integrable
+  return 'directly-integrable';
+}
+
+/**
+ * Parse a structured evaluation summary string into a SemanticScore.
+ *
+ * Looks for lines matching:
+ *   novelty_capture: X.XX
+ *   api_surface_match: X.XX
+ *   algorithmic_fidelity: X.XX
+ *   notes: ...
+ *
+ * Values are clamped to [0, 1]. Missing fields default to 0/empty string.
+ */
+export function scoreSemanticFromSummary(summary: string): SemanticScore {
+  const clamp = (v: number): number => Math.min(1, Math.max(0, v));
+
+  const parseField = (fieldName: string): number => {
+    const match = summary.match(new RegExp(`${fieldName}:\\s*([\\d.eE+\\-]+)`));
+    if (!match) return 0;
+    const parsed = parseFloat(match[1]);
+    return isNaN(parsed) ? 0 : clamp(parsed);
+  };
+
+  const notesMatch = summary.match(/^notes:\s*(.+)$/m);
+  const notes = notesMatch ? notesMatch[1].trim() : '';
+
+  return {
+    novelty_capture: parseField('novelty_capture'),
+    api_surface_match: parseField('api_surface_match'),
+    algorithmic_fidelity: parseField('algorithmic_fidelity'),
+    notes,
+  };
+}
+
+/**
+ * Assess trainability metrics from build/run execution outputs.
+ *
+ * build_success: buildOutput non-empty AND has no error indicators
+ * runtime_stable: runOutput non-empty AND has no crash indicators
+ * convergence_detected: runOutput contains convergence indicators
+ * execution_time_ms: passed through
+ * error_log: stderr content trimmed (empty string if blank)
+ */
+export function assessTrainability(
+  buildOutput: string,
+  runOutput: string,
+  stderr: string,
+  executionTimeMs: number,
+): TrainabilityMetrics {
+  const buildErrorIndicators = ['error', 'Error', 'FAILED', 'failed to compile'];
+  const crashIndicators = ['SIGKILL', 'SIGSEGV', 'heap out of memory', 'fatal error', 'unhandled exception'];
+  const convergenceIndicators = ['converged', 'loss decreased', 'metric improved'];
+
+  const hasBuildError = buildErrorIndicators.some((indicator) => buildOutput.includes(indicator));
+  const build_success = buildOutput.length > 0 && !hasBuildError;
+
+  const hasCrash = crashIndicators.some((indicator) => runOutput.includes(indicator));
+  const runtime_stable = runOutput.length > 0 && !hasCrash;
+
+  const convergence_detected = convergenceIndicators.some((indicator) => runOutput.includes(indicator));
+
+  return {
+    build_success,
+    runtime_stable,
+    convergence_detected,
+    execution_time_ms: executionTimeMs,
+    error_log: stderr ? stderr.trim() : '',
+  };
+}
+
+/**
+ * Orchestrate the full evaluation pipeline for a single benchmark entry.
+ *
+ * Steps:
+ * 1. Classify: uses entry.category as-is (caller is responsible for classification)
+ * 2. Score semantic: parse semanticSummary via scoreSemanticFromSummary
+ * 3. Assess trainability: parse build/run outputs via assessTrainability
+ * 4. Compute composite: call scoreComposite with default rubric
+ * 5. Return BenchmarkResult with all fields populated
+ */
+export function evaluateEntry(
+  entry: BenchmarkEntry,
+  semanticSummary: string,
+  buildOutput: string,
+  runOutput: string,
+  stderr: string,
+  executionTimeMs: number,
+  rubricVersion: string,
+  evaluator: string,
+): BenchmarkResult {
+  const category = entry.category;
+  const semantic = scoreSemanticFromSummary(semanticSummary);
+  const trainability = assessTrainability(buildOutput, runOutput, stderr, executionTimeMs);
+  const rubric = createDefaultRubric();
+  const composite_score = scoreComposite(semantic, trainability, rubric, category);
+
+  return {
+    entry_id: entry.id,
+    semantic,
+    trainability,
+    composite_score,
+    rubric_version: rubricVersion,
+    evaluated_at: new Date().toISOString(),
+    evaluator,
+  };
+}
+
 export function formatBenchmarkReport(
   results: BenchmarkResult[],
   entries: BenchmarkEntry[],
