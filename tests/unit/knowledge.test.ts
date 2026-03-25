@@ -9,6 +9,7 @@ const {
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
+  buildKnowledgeInjectionBlock,
 } = require('../../lib/knowledge') as {
   formatKnowhowEntry: (entry: import('../../lib/types').KnowhowEntry) => string;
   parseKnowhowEntries: (content: string) => import('../../lib/types').KnowhowEntry[];
@@ -18,6 +19,11 @@ const {
     n: number,
     hints?: string[]
   ) => import('../../lib/types').KnowhowEntry[];
+  buildKnowledgeInjectionBlock: (
+    cwd: string,
+    phaseNum: string,
+    moduleHints?: string[]
+  ) => string;
 };
 
 import type { KnowhowEntry } from '../../lib/types';
@@ -363,5 +369,112 @@ describe('selectTopEntries', () => {
     const copy = [...entries];
     selectTopEntries(entries, 2);
     expect(entries).toEqual(copy);
+  });
+});
+
+// ─── buildKnowledgeInjectionBlock ─────────────────────────────────────────────
+
+describe('buildKnowledgeInjectionBlock', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Build a KNOWHOW.md content string with entries for the given phase numbers. */
+  function buildKnowhowContent(phaseNumbers: number[], overrides: Partial<KnowhowEntry> = {}): string {
+    const entries = phaseNumbers.map((n) =>
+      makeEntry({
+        pattern_name: `Pattern ${n}`,
+        phase_number: n,
+        source: `lib/phase${n}.ts`,
+        applicability: `Useful in phase ${n}`,
+        ...overrides,
+      })
+    );
+    return entries.map(formatKnowhowEntry).join('\n');
+  }
+
+  it('returns empty string when KNOWHOW.md does not exist', () => {
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(result).toBe('');
+  });
+
+  it('returns empty string when KNOWHOW.md is empty', () => {
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), '', 'utf8');
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(result).toBe('');
+  });
+
+  it('returns formatted block with top entries', () => {
+    // 7 entries with phase numbers 90-96
+    const content = buildKnowhowContent([90, 91, 92, 93, 94, 95, 96]);
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+
+    // Must contain XML wrapper tags
+    expect(result).toContain('<knowhow_context>');
+    expect(result).toContain('</knowhow_context>');
+
+    // Must contain exactly 5 level-3 headings (top 5 by recency)
+    const headingMatches = result.match(/^### /gm) || [];
+    expect(headingMatches).toHaveLength(5);
+
+    // Must contain the most recent entry (phase 96)
+    expect(result).toContain('Pattern 96');
+
+    // Must NOT contain the oldest entry (phase 90 — excluded as 6th+)
+    expect(result).not.toContain('Pattern 90');
+  });
+
+  it('passes moduleHints to selectTopEntries', () => {
+    // 2 autopilot-relevant entries + 4 generic entries
+    const autopilotEntries = [91, 92].map((n) =>
+      makeEntry({
+        pattern_name: `Autopilot Pattern ${n}`,
+        phase_number: n,
+        source: `lib/autopilot.ts`,
+        applicability: `autopilot scheduling in phase ${n}`,
+      })
+    );
+    const genericEntries = [93, 94, 95, 96].map((n) =>
+      makeEntry({
+        pattern_name: `Generic Pattern ${n}`,
+        phase_number: n,
+        source: `lib/generic${n}.ts`,
+        applicability: `general use in phase ${n}`,
+      })
+    );
+    const allEntries = [...autopilotEntries, ...genericEntries];
+    const content = allEntries.map(formatKnowhowEntry).join('\n');
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99', ['autopilot']);
+
+    // The autopilot-relevant entries should appear in the output
+    expect(result).toContain('Autopilot Pattern 91');
+    expect(result).toContain('Autopilot Pattern 92');
+  });
+
+  it('reads KNOWHOW.md from project root (path.join(cwd, KNOWHOW.md))', () => {
+    // Place KNOWHOW.md in a subdirectory — function should look at cwd root only
+    const subDir = path.join(tmpDir, 'subdir');
+    fs.mkdirSync(subDir);
+    const content = buildKnowhowContent([99]);
+    // Write to tmpDir root (cwd), not subdir
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    // Call with tmpDir as cwd — should find KNOWHOW.md there
+    const resultWithCwd = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(resultWithCwd).toContain('Pattern 99');
+
+    // Call with subDir as cwd — should NOT find KNOWHOW.md (it's in parent)
+    const resultWithSubDir = buildKnowledgeInjectionBlock(subDir, '99');
+    expect(resultWithSubDir).toBe('');
   });
 });
