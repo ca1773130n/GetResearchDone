@@ -19,7 +19,6 @@ const {
   checkMilestoneStateCoherence,
   checkInvariantValidation,
   checkCitationGate,
-  checkTransitiveCitationGate,
   GATE_REGISTRY,
   runPreflightGates,
   resetGatesCache,
@@ -746,73 +745,6 @@ describe('checkCitationGate', () => {
   test('citation-gate appears in GATE_REGISTRY for plan-phase', () => {
     const planPhaseGates = GATE_REGISTRY['plan-phase'] as string[];
     expect(planPhaseGates).toContain('citation-gate');
-  });
-});
-
-// ─── checkTransitiveCitationGate ──────────────────────────────────────────────
-
-describe('checkTransitiveCitationGate', () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = createFixtureDir();
-  });
-
-  afterEach(() => {
-    cleanupFixtureDir(tmpDir);
-  });
-
-  test('returns empty array when transitive_citation_gate is false in config (default)', () => {
-    // Default config has transitive_citation_gate: false — gate is a no-op, no PAPERS.md needed
-    const violations = checkTransitiveCitationGate(tmpDir, {});
-    expect(violations).toEqual([]);
-  });
-
-  test('returns empty array when transitive_citation_gate is true but PAPERS.md does not exist', () => {
-    const configPath = path.join(tmpDir, '.planning', 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    config.transitive_citation_gate = true;
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-    // No .planning/research/PAPERS.md — gate returns empty
-    const violations = checkTransitiveCitationGate(tmpDir, {});
-    expect(violations).toEqual([]);
-  });
-
-  test('returns GateViolation[] with CITATION_UNRESOLVED_TRANSITIVE and severity warning when unresolved leaf nodes exist', () => {
-    // Enable transitive_citation_gate
-    const configPath = path.join(tmpDir, '.planning', 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    config.transitive_citation_gate = true;
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-
-    // Create research dir with a PAPERS.md that has a missing component with code_available: no
-    // This creates a transitive leaf node (dep paper) that is unresolved
-    const researchDir = path.join(tmpDir, '.planning', 'research');
-    fs.mkdirSync(researchDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(researchDir, 'PAPERS.md'),
-      [
-        '## Attention Is All You Need',
-        '',
-        '### Missing Components',
-        '',
-        '| Name | Source Paper | Description | Code Available |',
-        '| ---- | ------------ | ----------- | -------------- |',
-        '| Multi-Head Attention | vaswani-2017 | Parallel attention | no |',
-      ].join('\n')
-    );
-
-    const violations = checkTransitiveCitationGate(tmpDir, {});
-    expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0].code).toBe('CITATION_UNRESOLVED_TRANSITIVE');
-    expect(violations[0].severity).toBe('warning');
-    expect(violations[0].message).toContain('vaswani-2017');
-  });
-
-  test('transitive-citation-gate appears in GATE_REGISTRY for plan-phase', () => {
-    const planPhaseGates = GATE_REGISTRY['plan-phase'] as string[];
-    expect(planPhaseGates).toContain('transitive-citation-gate');
   });
 });
 

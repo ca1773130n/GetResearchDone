@@ -547,34 +547,17 @@ After writing RESEARCH.md, run a citation recovery pass to resolve unresolved co
    node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js findUnresolved "${research_dir}"
    ```
 
-3. Run transitive citation graph traversal to discover indirect dependencies:
-   ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js traverseCitationGraph "${research_dir}"
-   ```
-   This performs BFS traversal from all root nodes (default max_depth=3, max_nodes=50).
-   The result's `unresolved_leaves` array contains papers that are transitive dependencies
-   but not yet in PAPERS.md.
-
-3b. If `transitive_citation_gate` is enabled in project config, attempt auto-retrieval for each
-   unresolved leaf node using fetchExternalPaper:
-   ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js fetchExternalPaper "<slug>"
-   ```
-   For each leaf that resolves successfully, note the result in the `## Citation Recovery` section
-   of RESEARCH.md. For leaves that cannot be resolved, log them as CITATION_UNRESOLVED_TRANSITIVE
-   (warning severity — does not block planning).
-
-4. For each unresolved node with `priority: 'critical'`:
+3. For each unresolved node with `priority: 'critical'`:
    - Attempt to fetch paper details via arXiv API (`https://export.arxiv.org/abs/{id}`) or Semantic Scholar API (`https://api.semanticscholar.org/graph/v1/paper/search?query={title}`)
    - Extract technique summary and key metadata
    - Update the citation graph with resolved information
 
-5. Store the updated citation graph:
+4. Store the updated citation graph:
    ```bash
    node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js buildCitationGraph "${research_dir}" --update
    ```
 
-6. If critical unresolved dependencies remain, note them in the `## Citation Recovery` section of RESEARCH.md and check whether the `citation_gate` is active. If `citation_gate` is enabled in project config and critical dependencies remain unresolved, the planning step will be blocked until they are resolved. Additionally, if `transitive_citation_gate` is enabled and transitive unresolved leaves remain, the plan-phase gate will produce warning-severity CITATION_UNRESOLVED_TRANSITIVE violations (these are informational and do not block planning).
+5. If critical unresolved dependencies remain, note them in the `## Citation Recovery` section of RESEARCH.md and check whether the `citation_gate` is active. If `citation_gate` is enabled in project config and critical dependencies remain unresolved, the planning step will be blocked until they are resolved.
 
 **Tool references:** `buildCitationGraph`, `findUnresolved`, `citation_gate` are GRD citation infrastructure tools. Use them via `node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js` commands as shown above.
 
