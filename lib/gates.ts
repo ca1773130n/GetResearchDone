@@ -28,6 +28,10 @@ const { validateStructural, validateCrossPhase, extractPlanArtifact } = require(
   validateCrossPhase: (plans: import('./types').PlanArtifact[]) => import('./types').ValidationResult;
   extractPlanArtifact: (content: string) => import('./types').PlanArtifact;
 };
+const { buildCitationGraph, findUnresolved } = require('./citations') as {
+  buildCitationGraph: (papersDir: string) => import('./types').CitationGraph;
+  findUnresolved: (graph: import('./types').CitationGraph, priority?: 'critical' | 'normal' | 'low') => import('./types').CitationNode[];
+};
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
@@ -429,6 +433,54 @@ function checkInvariantValidation(cwd: string, opts: GateOptions): GateViolation
   return violations;
 }
 
+/**
+ * Check for unresolved critical citation dependencies.
+ *
+ * Only runs when citation_gate is enabled in config (default: false).
+ * Reads the citation graph from .planning/research/PAPERS.md if it exists.
+ * Returns GateViolation[] for each critical unresolved CitationNode.
+ *
+ * Satisfies REQ-184 (Citation Recovery — configurable gate).
+ */
+function checkCitationGate(cwd: string, _opts: GateOptions): GateViolation[] {
+  const violations: GateViolation[] = [];
+  const config: GrdConfig = loadConfig(cwd);
+
+  // Only run if citation_gate is enabled in config (default: false)
+  const citationGateEnabled = (config as unknown as Record<string, unknown>).citation_gate === true;
+  if (!citationGateEnabled) return violations;
+
+  // Find research directory for current milestone
+  const researchDir = path.join(cwd, '.planning', 'research');
+  const papersPath = path.join(researchDir, 'PAPERS.md');
+
+  // Only check if PAPERS.md exists
+  try {
+    fs.statSync(papersPath);
+  } catch {
+    return violations;
+  }
+
+  try {
+    const graph = buildCitationGraph(researchDir);
+    const criticalUnresolved = findUnresolved(graph, 'critical');
+
+    for (const node of criticalUnresolved) {
+      violations.push({
+        code: 'CITATION_UNRESOLVED_CRITICAL',
+        severity: 'error',
+        message: `Critical citation dependency "${node.slug}" (${node.title}) is unresolved — run citation recovery before planning`,
+        fix: 'Run `/grd:research-phase` with citation recovery enabled, or manually resolve the dependency',
+        context: { slug: node.slug, title: node.title, priority: node.priority },
+      });
+    }
+  } catch {
+    // Citation graph build failed — non-blocking
+  }
+
+  return violations;
+}
+
 // ─── Gate Registry ────────────────────────────────────────────────────────────
 
 /**
@@ -436,7 +488,7 @@ function checkInvariantValidation(cwd: string, opts: GateOptions): GateViolation
  */
 const GATE_REGISTRY: GateRegistryMap = {
   'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans', 'invariant-validation'],
-  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation'],
+  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation', 'citation-gate'],
   'new-milestone': ['old-phases-archived', 'milestone-state-coherence'],
   'phase-add': ['orphaned-phases'],
   'phase-insert': ['orphaned-phases'],
@@ -459,6 +511,7 @@ const GATE_CHECKS: GateCheckMap = {
   'old-phases-archived': (cwd: string) => checkOldPhasesArchived(cwd),
   'milestone-state-coherence': (cwd: string) => checkMilestoneStateCoherence(cwd),
   'invariant-validation': (cwd: string, opts: GateOptions) => checkInvariantValidation(cwd, opts),
+  'citation-gate': (cwd: string, opts: GateOptions) => checkCitationGate(cwd, opts),
 };
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
@@ -555,6 +608,7 @@ module.exports = {
   checkOldPhasesArchived,
   checkMilestoneStateCoherence,
   checkInvariantValidation,
+  checkCitationGate,
   // Registry and runner
   GATE_REGISTRY,
   runPreflightGates,
