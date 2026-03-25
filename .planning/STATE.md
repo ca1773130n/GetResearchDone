@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 99 (Knowledge Injection Loop) — in progress (plan 01/N complete)
-- **Current plan:** Plan 01 complete
+- **Active phase:** Phase 99 (Knowledge Injection Loop) — plan 02/N complete
+- **Current plan:** Plan 02 complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 99 plan 01 complete — buildKnowledgeInjectionBlock implemented in lib/knowledge.ts; reads KNOWHOW.md, selects top-5 via selectTopEntries, returns <knowhow_context> XML block
+- **Status:** Phase 99 plan 02 complete — buildKnowledgeInjectionBlock wired into buildPlanPrompt and buildExecutePrompt in lib/autopilot.ts; all 8 call sites updated; grd-executor.md gains knowhow_injection block
 - **Progress:** [█████░░░░░] 50%
-- **Next:** Execute Phase 99 plan 02 (if any) or Phase 100
+- **Next:** Execute Phase 100 (Evaluation Benchmark Framework)
 
 ## Phase Summary
 
@@ -118,6 +118,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 99]: _phaseNum parameter underscore-prefixed — reserved for future phase-proximity scoring; avoids ESLint no-unused-vars
 - [Phase 99]: buildKnowledgeInjectionBlock wraps top-5 KNOWHOW.md entries in <knowhow_context> XML tags for structured prompt injection
 - [Phase 99-knowledge-injection-loop]: extractModuleHints strips all extensions from basename; phase-proximity is tertiary tiebreaker; buildKnowledgeInjectionBlock auto-derives hints via extractModuleHints when caller omits moduleHints
+- [Phase 99]: cwd parameter is optional in buildPlanPrompt/buildExecutePrompt for backward compatibility with external callers and dry-run
+- [Phase 99]: Execute worktree call sites pass wtPath (not cwd) to buildExecutePrompt — executor agents read KNOWHOW.md relative to their worktree execution context
 
 ## Known Bugs
 
@@ -129,10 +131,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 99 plan 01 complete — buildKnowledgeInjectionBlock in lib/knowledge.ts; 34 tests pass; TypeScript + lint clean
-- **Stopped at:** Completed 99-03-PLAN.md
-- **Next action:** Execute Phase 99 plan 02 (if any) or Phase 100
-- **Context needed:** .planning/STATE.md, lib/knowledge.ts, tests/unit/knowledge.test.ts
+- **Last action:** Phase 99 plan 02 complete — buildKnowledgeInjectionBlock wired into buildPlanPrompt/buildExecutePrompt in lib/autopilot.ts; grd-executor.md knowhow_injection block added
+- **Stopped at:** Completed 99-02-PLAN.md
+- **Next action:** Execute Phase 100 (Evaluation Benchmark Framework)
+- **Context needed:** .planning/STATE.md, lib/autopilot.ts, agents/grd-executor.md
 
 ---
 
