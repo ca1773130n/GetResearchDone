@@ -367,6 +367,8 @@ export interface GrdConfig {
   superpowers?: SuperpowersConfig;
   backend_roles?: BackendRolesConfig;
   discussion?: DiscussionConfig;
+  /** When true, plan-phase gate blocks on unresolved critical citation nodes. Default: false */
+  citation_gate?: boolean;
 }
 
 export interface EvolveConfig {
@@ -932,43 +934,66 @@ export interface OverstoryMailMessage {
 
 // ─── Citation Types (from citations.ts) ──────────────────────────────────────
 
-/** Citation graph node representing a paper or component. */
-export interface CitationNode {
-  slug: string;
-  title: string;
-  resolved: boolean;
-  priority: 'critical' | 'normal';
-  technique_summary: string;
-  source: 'arxiv' | 'semantic_scholar' | 'manual' | 'unknown';
-}
-
-/** Citation graph edge representing a dependency between papers/components. */
-export interface CitationEdge {
-  from: string; // slug of the dependent paper
-  to: string; // slug of the dependency
-  relation: 'missing_component' | 'borrowed_component';
-}
-
-/** Complete citation graph with nodes and edges. */
-export interface CitationGraph {
-  nodes: CitationNode[];
-  edges: CitationEdge[];
-  built_at: string; // ISO timestamp
-}
-
 /** Parsed missing component from PAPERS.md structured output. */
 export interface MissingComponent {
+  /** Component identifier */
   name: string;
+  /** Paper slug or title where component originates */
   source_paper: string;
+  /** What the component does */
   description: string;
+  /** Whether source code exists for this component */
   code_available: boolean;
 }
 
 /** Parsed borrowed component from PAPERS.md structured output. */
 export interface BorrowedComponent {
+  /** Component identifier */
   name: string;
+  /** Paper slug or title */
   source_paper: string;
+  /** What the component does */
   description: string;
+}
+
+/** Citation graph node representing a paper and its dependencies. */
+export interface CitationNode {
+  /** Paper slug (e.g., "vaswani-attention-2017") */
+  slug: string;
+  /** Full paper title */
+  title: string;
+  /** Whether the paper has been fetched and analyzed */
+  resolved: boolean;
+  /** How important this dependency is */
+  priority: 'critical' | 'normal' | 'low';
+  /** Extracted technique description (empty until resolved) */
+  technique_summary: string;
+  /** Components referenced but not implemented in this paper */
+  missing_components: MissingComponent[];
+  /** Components adopted from other papers */
+  borrowed_components: BorrowedComponent[];
+}
+
+/** Citation graph edge — a directed dependency between papers. */
+export interface CitationEdge {
+  /** Paper that depends on another */
+  from_slug: string;
+  /** Paper being depended upon */
+  to_slug: string;
+  /** Whether this is a missing or borrowed dependency */
+  type: 'missing' | 'borrowed';
+  /** Which component creates this edge */
+  component_name: string;
+}
+
+/** Complete citation graph with nodes and directed edges. */
+export interface CitationGraph {
+  /** All paper nodes (source papers + dependency papers) */
+  nodes: CitationNode[];
+  /** All directed dependency edges */
+  edges: CitationEdge[];
+  /** ISO timestamp of graph construction */
+  built_at: string;
 }
 
 /** Configuration for citation resolution API calls. */

@@ -326,7 +326,7 @@ Plans:
 **Start:** 2026-03-24
 
 - [x] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement` ✓ 2026-03-24
-- [ ] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement`
+- [x] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement` ✓ 2026-03-25
 - [ ] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement`
 - [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
 
@@ -363,12 +363,12 @@ Plans:
   3. `resolveCitations(graph, apiConfig)` attempts to fetch each unresolved dependency via arXiv API or Semantic Scholar API (mocked in tests), marks successfully fetched papers as resolved, and appends the extracted technique summary to the citation graph node.
   4. `findUnresolved(graph)` returns all citation graph nodes with `resolved: false`; the `grd-phase-researcher` gate checks this list and blocks the planning phase if any node has `priority: critical` and `resolved: false`.
   5. Unit tests achieve 85%+ line coverage on `lib/citations.ts`; API calls are mocked; tests cover graph construction from PAPERS.md, resolution marking, unresolved detection, and the configurable gate behavior.
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 93-01: `lib/citations.ts` — citation graph data structures and `buildCitationGraph()`
-- [ ] 93-02: `grd-deep-diver` structured output and `grd-phase-researcher` recovery pass
-- [ ] 93-03: `resolveCitations()`, `findUnresolved()`, configurable planning gate, and unit tests
+- [x] 93-01: `lib/citations.ts` — citation graph data structures and `buildCitationGraph()`
+- [x] 93-02: `grd-deep-diver` structured output and `grd-phase-researcher` recovery pass
+- [x] 93-03: `resolveCitations()`, `findUnresolved()`, configurable planning gate, and unit tests
 
 #### Phase 94: Graph-of-Thought Synthesis
 

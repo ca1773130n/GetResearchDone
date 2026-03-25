@@ -1,6 +1,6 @@
 # State
 
-**Updated:** 2026-03-24
+**Updated:** 2026-03-25
 
 ## Project Reference
 
@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - **Current plan:** Plan 02 complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
 - **Status:** Phase 95 plans 01-02 executed — knowledge miner agent + KNOWHOW.md injection in planner/researcher
-- **Progress:** [███░░░░░░░] 25%
+- **Progress:** [████████░░] 75%
 - **Next:** Execute Phase 95 plan 03 if exists, or milestone complete (`gd execute-phase 95`)
 
 ## Phase Summary
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | In progress |
 | 92 | CFG Formalization | Complete (2026-03-24) |
-| 93 | Compositional Citation Recovery | In progress (plan 01 done) |
+| 93 | Compositional Citation Recovery | In progress (plans 01-02 done) |
 | 94 | Graph-of-Thought Synthesis | Not started |
 | 95 | Agentic Knowledge Enhancement | Not started |
 | 96 | Closed-Loop Metric-Driven Refinement | Not started |
@@ -100,6 +100,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 95]: appendKnowhowEntries not imported in autopilot.ts — miner agent handles writing; avoids lint violation
 - [Phase 93]: resolveCitations uses injectable fetchFn for test mocking; arXiv first, Semantic Scholar fallback
 - [Phase 93]: citation_gate config key added to KNOWN_CONFIG_KEYS and GrdConfig — gates.ts uses typed field directly
+- [Phase 93]: CitationEdge schema: from_slug/to_slug/type ('missing'|'borrowed')/component_name
+- [Phase 93]: CitationNode includes missing_components[] and borrowed_components[] arrays; priority includes 'low' tier
 
 ## Known Bugs
 
@@ -111,10 +113,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 93 plan 03 executed — resolveCitations, findUnresolved, citation gate wired, 50 tests with 85%+ coverage
-- **Stopped at:** Completed 93-03-PLAN.md
-- **Next action:** Phase 93 complete — advance to Phase 94 or check remaining phases (`gd execute-phase 94`)
-- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/gates.ts, tests/unit/citations.test.ts
+- **Last action:** Phase 93 complete — all 3 plans executed, verification passed, merged to main
+- **Stopped at:** Completed phase 93 execution
+- **Next action:** Advance to Phase 94 (`gd plan-phase 94` or `gd execute-phase 94`)
+- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/gates.ts
 
 ---
 
