@@ -1,6 +1,6 @@
 ---
 name: grd-critique-agent
-description: Post-phase critique agent that applies targeted refinements based on metric-driven branch classification. Implements three refinement strategies: Macro (coverage recovery), Geometry (type error resolution), Generative (lint pattern fixes).
+description: Post-phase critique agent applying metric-driven refinements via three branches: Macro (coverage), Geometry (type errors), Generative (lint).
 tools: Read, Write, Bash, Grep, Glob
 color: red
 effort: low
