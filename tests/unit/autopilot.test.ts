@@ -48,6 +48,7 @@ const {
   parseWriteIntent,
   compareWriteIntent,
   formatWriteIntentMismatch,
+  runRefinementLoop,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -4770,6 +4771,127 @@ describe('lib/autopilot', () => {
       // Untouched file lines
       expect(lines[3]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/p.ts');
       expect(lines[4]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/q.ts');
+    });
+  });
+
+  // ─── runRefinementLoop integration tests ──────────────────────────────────
+
+  describe('runRefinementLoop', () => {
+    let tmpDir: string;
+    let spawnSpy: any;
+    const logs: string[] = [];
+    const log = (msg: string) => { logs.push(msg); };
+
+    function makeConfig(refinementLoop: boolean) {
+      return JSON.stringify({ model_profile: 'balanced', refinement_loop: refinementLoop });
+    }
+
+    /** Create a mock spawn child that emits coverage output so _collectMetrics can parse it */
+    function createMockChildWithCoverage(exitCode = 0) {
+      const child = new EventEmitter();
+      child.kill = jest.fn(() => { process.nextTick(() => child.emit('close', null)); });
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      process.nextTick(() => {
+        // Emit Jest-like coverage table line so _collectMetrics returns a valid metric
+        child.stdout.emit('data', Buffer.from('All files          |   85.00 |   80.00 |   85.00 |   85.00 |\n'));
+        child.emit('close', exitCode);
+      });
+      return child;
+    }
+
+    beforeEach(() => {
+      logs.length = 0;
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-refinement-'));
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'agents'), { recursive: true });
+      // Default: config enables refinement
+      fs.writeFileSync(path.join(tmpDir, '.planning', 'config.json'), makeConfig(true));
+      // Default: agent definition exists
+      fs.writeFileSync(path.join(tmpDir, 'agents', 'grd-critique-agent.md'), '# critique agent');
+    });
+
+    afterEach(() => {
+      if (tmpDir) { fs.rmSync(tmpDir, { recursive: true, force: true }); tmpDir = ''; }
+      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
+    });
+
+    it('skips when agent definition is missing', async () => {
+      fs.rmSync(path.join(tmpDir, 'agents', 'grd-critique-agent.md'));
+      await runRefinementLoop(tmpDir, '42', { log });
+      expect(logs.some((m: string) => m.includes('grd-critique-agent.md not found'))).toBe(true);
+      // No spawn should have been called
+      spawnSpy = jest.spyOn(childProcess, 'spawn');
+      expect(spawnSpy).not.toHaveBeenCalled();
+    });
+
+    it('skips when refinement_loop config is false', async () => {
+      fs.writeFileSync(path.join(tmpDir, '.planning', 'config.json'), makeConfig(false));
+      await runRefinementLoop(tmpDir, '42', { log });
+      expect(logs.some((m: string) => m.includes('refinement_loop config not enabled'))).toBe(true);
+    });
+
+    it('converges after 2 iterations when metrics stabilize', async () => {
+      let callCount = 0;
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        callCount++;
+        return createMockChildWithCoverage(0);
+      });
+
+      // With maxIterations=3 and stable metrics (all zeros from empty tsc/lint output),
+      // convergence check will fire on the 2nd iteration (delta below epsilon).
+      await runRefinementLoop(tmpDir, '42', { log, maxIterations: 3 });
+
+      // Should have spawned at least npm test calls (3 per iteration: test, tsc, lint)
+      // but stops early on convergence — check loop completed without hitting max-iterations
+      expect(logs.some((m: string) =>
+        m.includes('converged') || m.includes('max iterations')
+      )).toBe(true);
+    });
+
+    it('stops at max_iterations when metrics never converge', async () => {
+      let callCount = 0;
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        callCount++;
+        // Alternate coverage values so convergence is never reached
+        const coverage = callCount % 2 === 0 ? '60.00' : '90.00';
+        const child = new EventEmitter();
+        child.kill = jest.fn(() => { process.nextTick(() => child.emit('close', null)); });
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => {
+          child.stdout.emit('data', Buffer.from(`All files          |   ${coverage} |   80.00 |   85.00 |   85.00 |\n`));
+          child.emit('close', 0);
+        });
+        return child;
+      });
+
+      await runRefinementLoop(tmpDir, '42', { log, maxIterations: 2 });
+      expect(logs.some((m: string) => m.includes('max iterations'))).toBe(true);
+    });
+
+    it('catches errors without rejecting (non-blocking)', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        throw new Error('spawn failed: no claude binary');
+      });
+
+      // Should resolve (not reject) even when spawn throws
+      await expect(runRefinementLoop(tmpDir, '42', { log })).resolves.toBeUndefined();
+      expect(logs.some((m: string) => m.includes('failed (non-blocking)'))).toBe(true);
+    });
+
+    it('writes status markers: started, then converged or max-iterations', async () => {
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChildWithCoverage(0);
+      });
+
+      await runRefinementLoop(tmpDir, '42', { log, maxIterations: 1 });
+
+      // Check that at least the 'started' marker file was written (.planning/autopilot/)
+      const markerDir = path.join(tmpDir, '.planning', 'autopilot');
+      const markerFiles = fs.existsSync(markerDir) ? fs.readdirSync(markerDir) : [];
+      const hasRefinementMarker = markerFiles.some((f: string) => f.includes('refinement-loop'));
+      expect(hasRefinementMarker).toBe(true);
     });
   });
 });

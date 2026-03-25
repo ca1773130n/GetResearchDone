@@ -447,3 +447,64 @@ describe('buildCritiquePrompt', () => {
     expect(prompt.length).toBeGreaterThan(50);
   });
 });
+
+// ─── buildCritiquePrompt branch variant tests ─────────────────────────────────
+
+describe('buildCritiquePrompt branch variants', () => {
+  const metrics: RefinementMetrics = {
+    test_coverage_pct: 72,
+    type_error_count: 5,
+    lint_violation_count: 8,
+    timestamp: '2026-03-25T05:00:00.000Z',
+  };
+  const targets: RefinementMetrics = {
+    test_coverage_pct: 90,
+    type_error_count: 0,
+    lint_violation_count: 0,
+    timestamp: '2026-03-25T05:00:00.000Z',
+  };
+  const minimaRegions: import('../../lib/types').MinimaRegion[] = [
+    { dimension: 'test_coverage_pct', index: 1, value: 70, delta: 20 },
+    { dimension: 'type_error_count', index: 3, value: 8, delta: 6 },
+    { dimension: 'lint_violation_count', index: 5, value: 10, delta: 4 },
+    { dimension: 'test_coverage_pct', index: 7, value: 65, delta: 3 },
+  ];
+
+  it('"macro" branch: prompt contains "coverage", "MACRO", and metric values', () => {
+    const prompt = buildCritiquePrompt('macro', metrics, targets, minimaRegions);
+    expect(prompt).toMatch(/MACRO/);
+    expect(prompt).toMatch(/coverage/i);
+    expect(prompt).toContain('72.00');
+    expect(prompt).toContain('90.00');
+  });
+
+  it('"geometry" branch: prompt contains type error emphasis and "GEOMETRY"', () => {
+    const prompt = buildCritiquePrompt('geometry', metrics, targets, minimaRegions);
+    expect(prompt).toMatch(/GEOMETRY/);
+    expect(prompt).toMatch(/type.error/i);
+    expect(prompt).toContain('5');
+  });
+
+  it('"generative" branch: prompt contains "lint" and "GENERATIVE"', () => {
+    const prompt = buildCritiquePrompt('generative', metrics, targets, minimaRegions);
+    expect(prompt).toMatch(/GENERATIVE/);
+    expect(prompt).toMatch(/lint/i);
+    expect(prompt).toContain('8');
+  });
+
+  it('empty minimaRegions: still produces a valid non-empty prompt', () => {
+    const prompt = buildCritiquePrompt('macro', metrics, targets, []);
+    expect(typeof prompt).toBe('string');
+    expect(prompt.length).toBeGreaterThan(50);
+    expect(prompt).toMatch(/none detected/i);
+  });
+
+  it('multiple minimaRegions: includes only top 3 regions (slices at 3)', () => {
+    const prompt = buildCritiquePrompt('macro', metrics, targets, minimaRegions);
+    // minimaRegions has 4 entries; only top 3 should appear — last region (index 7) should be absent
+    expect(prompt).toMatch(/index 1/);
+    expect(prompt).toMatch(/index 3/);
+    expect(prompt).toMatch(/index 5/);
+    expect(prompt).not.toMatch(/index 7/);
+  });
+});
