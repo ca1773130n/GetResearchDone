@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - **Current plan:** Plan 02 complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
 - **Status:** Phase 95 plans 01-02 executed — knowledge miner agent + KNOWHOW.md injection in planner/researcher
-- **Progress:** [███░░░░░░░] 25%
+- **Progress:** [████████░░] 75%
 - **Next:** Execute Phase 95 plan 03 if exists, or milestone complete (`gd execute-phase 95`)
 
 ## Phase Summary
