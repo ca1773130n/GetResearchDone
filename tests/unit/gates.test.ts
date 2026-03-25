@@ -17,6 +17,8 @@ const {
   checkNoStaleArtifacts,
   checkOldPhasesArchived,
   checkMilestoneStateCoherence,
+  checkInvariantValidation,
+  checkCitationGate,
   GATE_REGISTRY,
   runPreflightGates,
   resetGatesCache,
@@ -280,6 +282,171 @@ describe('checkMilestoneStateCoherence', () => {
   });
 });
 
+// ─── checkInvariantValidation ────────────────────────────────────────────────
+
+describe('checkInvariantValidation', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns empty when no phase option provided', () => {
+    const violations = checkInvariantValidation(tmpDir, {});
+    expect(violations).toEqual([]);
+  });
+
+  test('returns empty when phase directory does not exist', () => {
+    const violations = checkInvariantValidation(tmpDir, { phase: '99' });
+    expect(violations).toEqual([]);
+  });
+
+  test('returns empty when phases directory itself cannot be read', () => {
+    // Create a path where phasesDir is a file (not a directory) — readdirSync throws
+    const bareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-inv-bare-'));
+    const planningDir = path.join(bareDir, '.planning');
+    fs.mkdirSync(planningDir);
+    // Write ROADMAP.md so phasesDir path is looked up
+    fs.writeFileSync(path.join(planningDir, 'ROADMAP.md'), '# Roadmap\n');
+    fs.writeFileSync(path.join(planningDir, 'config.json'), '{}');
+    // Make phasesDir a file instead of a directory — readdirSync will throw ENOTDIR
+    const milestonesDir = path.join(planningDir, 'milestones');
+    fs.mkdirSync(milestonesDir);
+    const anonDir = path.join(milestonesDir, 'anonymous');
+    fs.mkdirSync(anonDir);
+    // phases should be a directory, but make it a file
+    fs.writeFileSync(path.join(anonDir, 'phases'), 'not a directory');
+
+    try {
+      const violations = checkInvariantValidation(bareDir, { phase: '1' });
+      expect(violations).toEqual([]);
+    } finally {
+      fs.rmSync(bareDir, { recursive: true, force: true });
+    }
+  });
+
+  test('returns empty when phase has no plan files', () => {
+    // Create a new phase directory with no plan files
+    const emptyPhaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '50-empty-phase'
+    );
+    fs.mkdirSync(emptyPhaseDir, { recursive: true });
+    fs.writeFileSync(path.join(emptyPhaseDir, 'CONTEXT.md'), '# Context\n\nSome context.\n');
+
+    const violations = checkInvariantValidation(tmpDir, { phase: '50' });
+    expect(violations).toEqual([]);
+  });
+
+  test('returns empty when phaseDir exists but cannot be read (ENOTDIR)', () => {
+    // Simulate readdirSync failing on the phase directory by matching the specific path.
+    const phasesDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases'
+    );
+    const newPhaseDir = path.join(phasesDir, '50-unreadable');
+    fs.mkdirSync(newPhaseDir);
+
+    const originalReaddirSync = (fs.readdirSync as Function);
+    const spy = jest
+      .spyOn(fs, 'readdirSync')
+      .mockImplementation(function (dirPath: unknown, ...rest: unknown[]) {
+        // Throw only when called with the specific phaseDir path (no options = plan files listing)
+        if (typeof dirPath === 'string' && dirPath === newPhaseDir) {
+          const err = Object.assign(new Error('ENOTDIR: not a directory'), { code: 'ENOTDIR' });
+          throw err;
+        }
+        return (originalReaddirSync as Function)(dirPath, ...rest);
+      } as typeof fs.readdirSync);
+
+    try {
+      const violations = checkInvariantValidation(tmpDir, { phase: '50' });
+      expect(violations).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('returns INVARIANT_STRUCTURAL errors for invalid plan files', () => {
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Write a plan with missing required fields (no objective, no files_modified)
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-PLAN.md'),
+      [
+        '---',
+        'phase: 01-test',
+        'plan: 1',
+        'type: execute',
+        'wave: 1',
+        'autonomous: false',
+        'files_modified: []',
+        '---',
+        '',
+        '',
+      ].join('\n')
+    );
+
+    const violations = checkInvariantValidation(tmpDir, { phase: '1' });
+
+    // Should have structural violations (empty files_modified, missing objective)
+    const structuralErrors = violations.filter((v: { code: string }) => v.code === 'INVARIANT_STRUCTURAL');
+    expect(structuralErrors.length).toBeGreaterThan(0);
+  });
+
+  test('returns INVARIANT_CROSS_PHASE errors for duplicate provides', () => {
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const validPlan = (planNum: number, provides: string) => [
+      '---',
+      `phase: 01-test`,
+      `plan: ${planNum}`,
+      'type: execute',
+      'wave: 1',
+      'autonomous: false',
+      'files_modified: [lib/foo.ts]',
+      `provides: [${provides}]`,
+      'requires: []',
+      '---',
+      '',
+      '<objective>Implement something useful</objective>',
+      '',
+    ].join('\n');
+
+    fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), validPlan(1, 'shared-artifact'));
+    fs.writeFileSync(path.join(phaseDir, '01-02-PLAN.md'), validPlan(2, 'shared-artifact'));
+
+    const violations = checkInvariantValidation(tmpDir, { phase: '1' });
+
+    const crossErrors = violations.filter((v: { code: string }) => v.code === 'INVARIANT_CROSS_PHASE');
+    expect(crossErrors.length).toBeGreaterThan(0);
+    expect(crossErrors[0].message).toContain('shared-artifact');
+  });
+});
+
 // ─── GATE_REGISTRY ──────────────────────────────────────────────────────────
 
 describe('GATE_REGISTRY', () => {
@@ -387,6 +554,19 @@ describe('runPreflightGates', () => {
     expect(result.bypassed).toBe(true);
     expect(result.errors).toEqual([]);
   });
+
+  test('new-milestone command runs old-phases-archived and milestone-state-coherence gates', () => {
+    const result = runPreflightGates(tmpDir, 'new-milestone', {});
+    // Fixture has state IN PROGRESS and no "milestone complete" text — should pass
+    expect(result.passed).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  test('milestone-complete command runs milestone-state-coherence gate', () => {
+    const result = runPreflightGates(tmpDir, 'milestone-complete', {});
+    // Fixture state is coherent — should pass
+    expect(result.passed).toBe(true);
+  });
 });
 
 // ─── Multi-milestone: gates ignore shipped sections ──────────────────────────
@@ -479,6 +659,92 @@ describe('gates with shipped milestone sections', () => {
     const violations = checkPhaseInRoadmap(tmpDir, '1');
     expect(violations.length).toBe(1);
     expect(violations[0].code).toBe('PHASE_NOT_IN_ROADMAP');
+  });
+});
+
+// ─── checkCitationGate ────────────────────────────────────────────────────────
+
+describe('checkCitationGate', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('returns empty violations when citation_gate is false (default)', () => {
+    // Default config has citation_gate: false (not set) — gate is a no-op
+    const violations = checkCitationGate(tmpDir, {});
+    expect(violations).toEqual([]);
+  });
+
+  test('returns empty violations when citation_gate=true but no PAPERS.md exists', () => {
+    // Enable citation_gate in config
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.citation_gate = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // No .planning/research/PAPERS.md — gate returns empty
+    const violations = checkCitationGate(tmpDir, {});
+    expect(violations).toEqual([]);
+  });
+
+  test('returns empty violations when citation_gate=true and no critical unresolved nodes', () => {
+    // Enable citation_gate
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.citation_gate = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Create research dir with PAPERS.md that has no missing components (no critical nodes)
+    const researchDir = path.join(tmpDir, '.planning', 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(researchDir, 'PAPERS.md'),
+      '## Simple Paper\n\nJust a paper with no component sections.\n'
+    );
+
+    const violations = checkCitationGate(tmpDir, {});
+    expect(violations).toEqual([]);
+  });
+
+  test('returns CITATION_UNRESOLVED_CRITICAL violation for critical unresolved nodes', () => {
+    // Enable citation_gate
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.citation_gate = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Create research dir with PAPERS.md that has a missing component (code_available: no → critical)
+    const researchDir = path.join(tmpDir, '.planning', 'research');
+    fs.mkdirSync(researchDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(researchDir, 'PAPERS.md'),
+      [
+        '## Attention Is All You Need',
+        '',
+        '### Missing Components',
+        '',
+        '| Name | Source Paper | Description | Code Available |',
+        '| ---- | ------------ | ----------- | -------------- |',
+        '| Multi-Head Attention | vaswani-2017 | Parallel attention | no |',
+      ].join('\n')
+    );
+
+    const violations = checkCitationGate(tmpDir, {});
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations[0].code).toBe('CITATION_UNRESOLVED_CRITICAL');
+    expect(violations[0].severity).toBe('error');
+    expect(violations[0].message).toContain('vaswani-2017');
+  });
+
+  test('citation-gate appears in GATE_REGISTRY for plan-phase', () => {
+    const planPhaseGates = GATE_REGISTRY['plan-phase'] as string[];
+    expect(planPhaseGates).toContain('citation-gate');
   });
 });
 

@@ -367,6 +367,8 @@ export interface GrdConfig {
   superpowers?: SuperpowersConfig;
   backend_roles?: BackendRolesConfig;
   discussion?: DiscussionConfig;
+  /** When true, plan-phase gate blocks on unresolved critical citation nodes. Default: false */
+  citation_gate?: boolean;
 }
 
 export interface EvolveConfig {

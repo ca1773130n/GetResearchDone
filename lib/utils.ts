@@ -294,6 +294,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   // Discussion config
   'backend_roles',
   'discussion',
+  // Citation gate
+  'citation_gate',
 ]);
 
 /**
@@ -534,6 +536,8 @@ function loadConfig(cwd: string): GrdConfig {
           synthesizer: synthesizer as DiscussionConfig['synthesizer'],
         };
       })(),
+      // Citation gate (optional boolean, default: false)
+      citation_gate: (typeof parsed.citation_gate === 'boolean' ? parsed.citation_gate : false),
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> =
