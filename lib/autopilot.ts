@@ -17,6 +17,11 @@ import type {
   MilestoneStepResult,
   MultiMilestoneResult,
   PhaseInfo,
+  CritiqueBranch,
+  RefinementMetrics,
+  MetricSnapshot,
+  MinimaRegion,
+  ConvergenceConfig,
 } from './types';
 
 const fs = require('fs');
@@ -128,6 +133,19 @@ const {
 }: {
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => import('./types').ExecGitResult;
 } = require('./utils');
+const {
+  collectMetrics: _collectMetrics,
+  checkConvergence: _checkConvergence,
+  classifyBranch: _classifyBranch,
+  detectMinima: _detectMinima,
+  buildCritiquePrompt: _buildCritiquePromptFn,
+}: {
+  collectMetrics: (testOutput: string, tscOutput: string, lintOutput: string) => RefinementMetrics;
+  checkConvergence: (snapshots: MetricSnapshot[], config: ConvergenceConfig) => { converged: boolean; reason: string };
+  classifyBranch: (current: RefinementMetrics, targets: RefinementMetrics) => CritiqueBranch;
+  detectMinima: (snapshots: MetricSnapshot[]) => MinimaRegion[];
+  buildCritiquePrompt: (branch: CritiqueBranch, metrics: RefinementMetrics, targets: RefinementMetrics, minimaRegions: MinimaRegion[]) => string;
+} = require('./refinement');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -551,6 +569,172 @@ async function runKnowledgeMining(
   } catch (_err) {
     log(`Phase ${phaseNum}: knowledge mining failed (non-blocking): ${String(_err)}`);
     writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'failed');
+  }
+}
+
+/**
+ * Build the prompt string for the critique agent invocation.
+ *
+ * Wraps the refinement critique prompt (from lib/refinement.ts) in the standard
+ * agent invocation format, prepending agent role context and phase information.
+ *
+ * @param phaseNum - Phase number for file path context
+ * @param branch - The classified refinement branch to execute
+ * @param metrics - Current metric measurements
+ * @param targets - Target metric thresholds
+ * @param minimaRegions - Detected minima/maxima regions from metric history
+ * @returns Formatted prompt string for the grd-critique-agent
+ */
+function buildCritiqueAgentPrompt(
+  phaseNum: string,
+  branch: CritiqueBranch,
+  metrics: RefinementMetrics,
+  targets: RefinementMetrics,
+  minimaRegions: MinimaRegion[]
+): string {
+  const critiquePrompt = _buildCritiquePromptFn(branch, metrics, targets, minimaRegions);
+  return `You are the grd-critique-agent. Your branch is ${branch}.
+
+Phase: ${phaseNum}
+Working directory: project root (all paths are relative to it)
+
+${critiquePrompt}
+
+Apply the targeted fixes described above. Focus on the ${branch} branch instructions. Emit the CRITIQUE-RESULT block at the end of your response.`;
+}
+
+/**
+ * Run the iterative metric-driven refinement loop for a phase.
+ *
+ * Implements the closed-loop: collect metrics -> classify branch -> spawn critique
+ * agent -> re-measure -> check convergence. Adapts NERFIFY's 3-branch refinement
+ * (Macro/Geometry/Generative) to GRD's domain.
+ *
+ * Non-blocking — the entire loop is wrapped in try/catch; failures are logged and
+ * the pipeline always continues.
+ *
+ * @param cwd - Absolute path to the project root directory
+ * @param phaseNum - Phase number (used in status markers and prompts)
+ * @param options - Configuration including scheduler, log function, and targets
+ */
+async function runRefinementLoop(
+  cwd: string,
+  phaseNum: string,
+  options: {
+    scheduler?: Scheduler | null;
+    log: (msg: string) => void;
+    maxIterations?: number;
+    targets?: RefinementMetrics;
+  }
+): Promise<void> {
+  const { scheduler, log } = options;
+  const agentDefPath = path.resolve(cwd, 'agents', 'grd-critique-agent.md');
+
+  if (!fs.existsSync(agentDefPath)) {
+    log(`Phase ${phaseNum}: refinement loop skipped — grd-critique-agent.md not found`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'skipped');
+    return;
+  }
+
+  const maxIterations = options.maxIterations ?? 3;
+  const convergenceConfig: ConvergenceConfig = {
+    epsilon_coverage: 0.5,
+    epsilon_type_errors: 0,
+    epsilon_lint: 1,
+    max_iterations: maxIterations,
+  };
+  const targets: RefinementMetrics = options.targets ?? {
+    test_coverage_pct: 80,
+    type_error_count: 0,
+    lint_violation_count: 0,
+    timestamp: new Date().toISOString(),
+  };
+
+  writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'started');
+  log(`Phase ${phaseNum}: refinement loop started (maxIterations=${maxIterations})`);
+
+  try {
+    const history: MetricSnapshot[] = [];
+
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      log(`Phase ${phaseNum}: refinement loop iteration ${iteration}/${maxIterations}`);
+      writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}`);
+
+      // Step 1: Collect metrics from npm test, build:check, and lint
+      const testResult = await spawnStep(
+        'npm test -- --coverage --silent 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-test-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+      const tscResult = await spawnStep(
+        'npm run build:check 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-tsc-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+      const lintResult = await spawnStep(
+        'npm run lint 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-lint-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+
+      // Step 2: Parse metrics from captured outputs
+      const currentMetrics = _collectMetrics(
+        testResult.stdout ?? '',
+        tscResult.stdout ?? '',
+        lintResult.stdout ?? ''
+      );
+
+      // Step 3: Push snapshot to history
+      const snapshot: MetricSnapshot = {
+        metrics: currentMetrics,
+        phase: phaseNum,
+        plan: String(iteration),
+      };
+      history.push(snapshot);
+
+      log(
+        `Phase ${phaseNum}: metrics collected — coverage=${currentMetrics.test_coverage_pct.toFixed(1)}%, ` +
+        `type_errors=${currentMetrics.type_error_count}, lint=${currentMetrics.lint_violation_count}`
+      );
+
+      // Step 4: Check convergence
+      const convergenceResult = _checkConvergence(history, convergenceConfig);
+      if (convergenceResult.converged) {
+        log(`Phase ${phaseNum}: refinement loop converged — ${convergenceResult.reason}`);
+        writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'converged');
+        return;
+      }
+
+      // Step 5: Classify branch and detect minima
+      const branch = _classifyBranch(currentMetrics, targets);
+      const minimaRegions = _detectMinima(history);
+      log(`Phase ${phaseNum}: refinement loop classifying branch as '${branch}'`);
+
+      // Step 6: Build critique prompt and spawn critique agent
+      const critiquePrompt = buildCritiqueAgentPrompt(phaseNum, branch, currentMetrics, targets, minimaRegions);
+      await spawnStep(
+        critiquePrompt,
+        cwd,
+        `phase-${phaseNum}-critique-${iteration}`,
+        scheduler ?? null,
+        { captureOutput: true }
+      );
+
+      writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-complete`);
+    }
+
+    // Reached max iterations without convergence
+    log(`Phase ${phaseNum}: refinement loop reached max iterations (${maxIterations})`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'max-iterations');
+  } catch (_err) {
+    log(`Phase ${phaseNum}: refinement loop failed (non-blocking): ${String(_err)}`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'failed');
   }
 }
 
@@ -2190,6 +2374,8 @@ module.exports = {
   buildWireupPrompt,
   buildKnowledgeMiningPrompt,
   runKnowledgeMining,
+  buildCritiqueAgentPrompt,
+  runRefinementLoop,
   runPostPhasePipeline,
   buildWaves,
   parseWriteIntent,
