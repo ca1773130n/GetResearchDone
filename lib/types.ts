@@ -619,6 +619,69 @@ export interface PlanArtifact {
   integration_points: string[];
 }
 
+// ─── Artifact DAG Types (from deps.ts) ───────────────────────────────────────
+
+/**
+ * A node representing a plan's artifact declarations in the artifact DAG.
+ * Each plan that declares provides/requires/integration_points becomes a node.
+ */
+export interface ArtifactDAGNode {
+  /** Unique plan identifier, e.g. "94-01" */
+  id: string;
+  /** Numeric plan number */
+  plan_number: number;
+  /** Artifact names this plan produces, e.g. ["lib/deps.ts:buildArtifactDAG"] */
+  provides: string[];
+  /** Artifact names this plan depends on */
+  requires: string[];
+  /** Integration surface declarations */
+  integration_points: string[];
+}
+
+/**
+ * A directed edge representing a requires→provides dependency between plans.
+ * from_plan is the consumer (requires the artifact); to_plan is the producer (provides it).
+ */
+export interface ArtifactDAGEdge {
+  /** Plan that requires the artifact (consumer) */
+  from_plan: string;
+  /** Plan that provides the artifact (producer) */
+  to_plan: string;
+  /** The artifact name creating this edge */
+  artifact: string;
+  /** Whether this is a hard dependency or integration point */
+  type: 'requires' | 'integration';
+}
+
+/**
+ * The complete artifact dependency graph built from plan provides/requires declarations.
+ * Used by the wave builder and executor to reason about fine-grained dependencies.
+ */
+export interface ArtifactDAG {
+  /** All plan nodes */
+  nodes: ArtifactDAGNode[];
+  /** All directed dependency edges */
+  edges: ArtifactDAGEdge[];
+  /** Topologically sorted plan IDs (Kahn's algorithm) */
+  sorted_plans: string[];
+  /** Map from artifact name to providing plan ID */
+  providers: Record<string, string>;
+}
+
+/**
+ * Result of validating an ArtifactDAG for cycles, missing dependencies, and warnings.
+ */
+export interface ArtifactDAGValidation {
+  /** True when cycles and missing_deps are both empty */
+  valid: boolean;
+  /** All detected cycles; each inner array is a cycle path (start node repeated at end) */
+  cycles: string[][];
+  /** Requires entries with no matching provider in the plan set */
+  missing_deps: Array<{ plan: string; artifact: string }>;
+  /** Non-fatal issues (unused provides, duplicate provides declarations) */
+  warnings: string[];
+}
+
 // ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
 
 /**
