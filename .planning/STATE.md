@@ -88,6 +88,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 95-agentic-knowledge-enhancement]: formatKnowhowEntry uses dash-list bold-key format for lossless parse-format roundtrip
 - [Phase 95-agentic-knowledge-enhancement]: appendKnowhowEntries deduplicates by phase_number (keep higher) for stable knowledge evolution
 - [Phase 95]: appendKnowhowEntries not imported in autopilot.ts — miner agent handles writing; avoids lint violation
+- [Phase 93-compositional-citation-recovery]: CitationEdge schema: from_slug/to_slug/type ('missing'|'borrowed')/component_name — plan-specified schema over earlier from/to/relation
+- [Phase 93-compositional-citation-recovery]: CitationNode includes missing_components[] and borrowed_components[] arrays; priority includes 'low' tier
 
 ## Known Bugs
 
@@ -100,7 +102,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 93 plan 02 executed — grd-deep-diver structured component output + grd-phase-researcher citation recovery pass
-- **Stopped at:** Completed 93-02-PLAN.md
+- **Stopped at:** Completed 93-01-PLAN.md
 - **Next action:** Execute Phase 93 plan 03 if exists, or advance to Phase 94 (`gd execute-phase 93`)
 - **Context needed:** .planning/STATE.md, agents/grd-deep-diver.md, agents/grd-phase-researcher.md
 
