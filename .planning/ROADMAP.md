@@ -460,15 +460,18 @@ Plans:
 - [x] 96-02-PLAN.md — Critique agent definition + buildCritiqueAgentPrompt and runRefinementLoop in autopilot.ts
 - [x] 96-03-PLAN.md — Wire refinement loop into autopilot post-phase pipeline + integration tests
 
-### Phase 97: Transitive Citation Graph Traversal
+### Phase 97: Transitive Citation Graph Traversal ✓ (2026-03-25)
 
 **Goal:** Transitive Citation Graph Traversal
 **Depends on:** Phase 96
 **Duration:** 7d
-**Plans:** 0 plans
+**Plans:** 3 plans (3 waves)
+**Status:** Complete
 
 Plans:
-- [ ] TBD (run /grd:plan-phase 97 to break down)
+- [x] 97-01-PLAN.md — BFS traverseCitationGraph + resolveTransitiveDeps (TDD, 12 tests)
+- [x] 97-02-PLAN.md — fetchExternalPaper + checkTransitiveCitationGate + config registration
+- [x] 97-03-PLAN.md — Researcher agent wiring + 4 integration pipeline tests
 
 ### Phase 98: GoT Synthesis Execution Engine
 
