@@ -12,12 +12,12 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-- **Active phase:** Phase 96 (Closed-Loop Metric-Driven Refinement) — complete
-- **Current plan:** All 3 plans complete
+- **Active phase:** Phase 97 (Transitive Citation Graph Traversal) — plan 01 complete
+- **Current plan:** Plan 01 of 1 complete
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 96 complete — refinement module, critique agent, autopilot pipeline integration
-- **Progress:** [█████████░] 88%
-- **Next:** Plan Phase 97 (`gd plan-phase 97`) or execute next phase
+- **Status:** Phase 97 plan 01 complete — BFS traversal, cycle detection, transitive dep resolution
+- **Progress:** [█████████░] 90%
+- **Next:** Execute next phase or plan remaining 97 plans if any
 
 ## Phase Summary
 
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 94 | Graph-of-Thought Synthesis | Not started |
 | 95 | Agentic Knowledge Enhancement | Not started |
 | 96 | Closed-Loop Metric-Driven Refinement | Complete (2026-03-25) |
-| 97 | Transitive Citation Graph Traversal | Not started |
+| 97 | Transitive Citation Graph Traversal | In progress (plan 01 done) |
 | 98 | GoT Synthesis Execution Engine | Not started |
 | 99 | Knowledge Injection Loop | Not started |
 | 100 | Evaluation Benchmark Framework | Not started |
@@ -109,6 +109,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 96]: refinement_loop config flag defaults to false (opt-in); runRefinementLoop placed after knowledge mining, before post-pipeline
 - [Phase 96]: classifyBranch tie-break order: macro > geometry > generative; normalized gaps for heterogeneous metric comparison
 - [Phase 96]: grd-critique-agent effort: low, maxTurns: 20; max 5 files per iteration; never lower coverage thresholds
+- [Phase 97]: traverseCitationGraph seeds BFS from nodes with no incoming edges; falls back to all nodes for pure-cycle graphs
+- [Phase 97]: resolveTransitiveDeps deduplicates edges by (from_slug, to_slug, component_name) triple; returns new CitationGraph (immutable)
 
 ## Known Bugs
 
@@ -120,10 +122,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 96 complete — all 3 plans executed, verification passed
-- **Stopped at:** Phase 96 complete
-- **Next action:** Plan Phase 97 (`gd plan-phase 97`)
-- **Context needed:** .planning/STATE.md, lib/refinement.ts, lib/autopilot.ts
+- **Last action:** Phase 97 plan 01 complete — BFS traversal and transitive dep resolution implemented
+- **Stopped at:** Completed 97-01-PLAN.md
+- **Next action:** Execute next phase plan or plan remaining phases
+- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/types.ts
 
 ---
 
