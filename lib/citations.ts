@@ -670,6 +670,82 @@ function resolveTransitiveDeps(
   };
 }
 
+// --- fetchExternalPaper -------------------------------------------------------
+
+/**
+ * Attempt to auto-retrieve metadata for a single paper slug from external APIs.
+ *
+ * Uses arXiv-first, Semantic Scholar-fallback strategy (same as resolveCitations),
+ * but operates on a single slug rather than iterating over a graph.
+ *
+ * Accepts an optional fetchFn for dependency injection (enables mocking in tests).
+ * The default fetchFn uses Node's built-in https.get with a 5-second timeout.
+ *
+ * On success: returns a CitationNode with resolved=true and technique_summary populated.
+ * On failure (both APIs return null): writes a warning to stderr and returns null.
+ * Any thrown error is caught and returns null.
+ *
+ * @param slug - Paper slug to look up (used as query title)
+ * @param fetchFn - Optional injectable fetch function for testing
+ * @returns CitationNode with resolved=true on success, null on failure
+ */
+async function fetchExternalPaper(
+  slug: string,
+  fetchFn?: (url: string, timeoutMs: number) => Promise<string | null>
+): Promise<CitationNode | null> {
+  const fetch = fetchFn ?? defaultFetchFn;
+  const timeoutMs = 5000;
+
+  try {
+    const slugEncoded = encodeURIComponent(slug);
+    let summary: string | null = null;
+
+    // arXiv-first: search by title
+    const arxivUrl = `https://export.arxiv.org/api/query?search_query=ti:${slugEncoded}&max_results=1`;
+    try {
+      const body = await fetch(arxivUrl, timeoutMs);
+      if (body) {
+        summary = extractArxivSummary(body);
+      }
+    } catch {
+      // non-fatal
+    }
+
+    // Semantic Scholar fallback: only if arXiv returned no summary
+    if (summary === null) {
+      const ssUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${slugEncoded}&limit=1`;
+      try {
+        const body = await fetch(ssUrl, timeoutMs);
+        if (body) {
+          summary = extractSemanticAbstract(body);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
+    if (summary !== null) {
+      return {
+        slug,
+        title: slug,
+        resolved: true,
+        priority: 'normal',
+        technique_summary: summary,
+        missing_components: [],
+        borrowed_components: [],
+      };
+    }
+
+    // Both APIs failed — warn and return null
+    process.stderr.write(
+      `[grd] WARNING: fetchExternalPaper: could not resolve "${slug}" from arXiv or Semantic Scholar\n`
+    );
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -680,4 +756,5 @@ module.exports = {
   findUnresolved,
   traverseCitationGraph,
   resolveTransitiveDeps,
+  fetchExternalPaper,
 };

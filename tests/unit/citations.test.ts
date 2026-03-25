@@ -1048,3 +1048,66 @@ describe('resolveTransitiveDeps', () => {
     expect(slugs.length).toBe(uniqueSlugs.size);
   });
 });
+
+// ─── fetchExternalPaper ───────────────────────────────────────────────────────
+
+describe('fetchExternalPaper', () => {
+  const { fetchExternalPaper } = require('../../lib/citations') as {
+    fetchExternalPaper: (
+      slug: string,
+      fetchFn?: (url: string, timeoutMs: number) => Promise<string | null>
+    ) => Promise<import('../../lib/types').CitationNode | null>;
+  };
+
+  test('returns a resolved CitationNode when arXiv mock returns valid XML with a summary', async () => {
+    const arxivXml = makeArxivXml('Transformer architecture with multi-head attention mechanism');
+    const mockFetch = makeMockFetchFn({
+      'export.arxiv.org': arxivXml,
+    });
+
+    const result = await fetchExternalPaper('vaswani-attention-2017', mockFetch);
+
+    expect(result).not.toBeNull();
+    expect(result!.slug).toBe('vaswani-attention-2017');
+    expect(result!.resolved).toBe(true);
+    expect(result!.technique_summary).toContain('Transformer');
+    expect(result!.missing_components).toEqual([]);
+    expect(result!.borrowed_components).toEqual([]);
+  });
+
+  test('falls back to Semantic Scholar and returns resolved node when arXiv returns null but SS returns valid JSON', async () => {
+    const ssJson = makeSemanticScholarJson('Bidirectional encoder representations from transformers');
+    const mockFetch = makeMockFetchFn({
+      'export.arxiv.org': null,
+      'semanticscholar.org': ssJson,
+    });
+
+    const result = await fetchExternalPaper('devlin-bert-2019', mockFetch);
+
+    expect(result).not.toBeNull();
+    expect(result!.slug).toBe('devlin-bert-2019');
+    expect(result!.resolved).toBe(true);
+    expect(result!.technique_summary).toContain('Bidirectional');
+  });
+
+  test('returns null and writes to stderr when both APIs return null', async () => {
+    const mockFetch = makeMockFetchFn({});
+
+    const stderrLines: string[] = [];
+    const stderrSpy = (jest.spyOn(process.stderr, 'write') as jest.SpyInstance).mockImplementation(
+      (data: string) => {
+        stderrLines.push(String(data));
+        return true;
+      }
+    );
+
+    const result = await fetchExternalPaper('unknown-paper-xyz', mockFetch);
+
+    stderrSpy.mockRestore();
+
+    expect(result).toBeNull();
+    const warnMsg = stderrLines.join('');
+    expect(warnMsg).toContain('WARNING');
+    expect(warnMsg).toContain('unknown-paper-xyz');
+  });
+});
