@@ -547,6 +547,143 @@ If response has `provider: "mcp-atlassian"`, call MCP tool `add_comment` with `i
 
 </tracker_integration>
 
+<benchmark_corpus_reporting>
+
+## Benchmark Corpus Report Mode
+
+When asked to generate a **benchmark corpus evaluation report** (rather than fill in a phase EVAL.md), use the following flow powered by `lib/benchmark.ts`.
+
+### IntegrationCategory Taxonomy
+
+| Category | Meaning | Score Multiplier |
+|----------|---------|-----------------|
+| `directly-integrable` | Methods implementable from the paper alone | 1.0 |
+| `requires-external-models` | Methods needing pretrained weights or a foundation model | 0.85 |
+| `novelty-coverage` | Primary contribution is a novel technique | 0.9 |
+| `out-of-scope` | Hardware-specific or fully closed-source | 0.5 |
+
+### Execution Flow for Corpus Reports
+
+**Step 1: Load BenchmarkResult[] from results directory**
+
+```bash
+node -e "
+const fs = require('fs');
+const path = require('path');
+const resultsDir = '.planning/benchmark/results';
+if (!fs.existsSync(resultsDir)) { console.log('[]'); process.exit(0); }
+const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
+const results = files.map(f => JSON.parse(fs.readFileSync(path.join(resultsDir, f), 'utf8')));
+console.log(JSON.stringify(results, null, 2));
+"
+```
+
+**Step 2: Load corpus via loadCorpus for metadata lookup**
+
+```bash
+node -e "
+const { loadCorpus } = require('./lib/benchmark');
+const entries = loadCorpus('.planning/benchmark/corpus');
+console.log(JSON.stringify(entries, null, 2));
+"
+```
+
+**Step 3: Generate the base report using formatBenchmarkReport**
+
+```bash
+node -e "
+const { loadCorpus, formatBenchmarkReport } = require('./lib/benchmark');
+const fs = require('fs');
+const path = require('path');
+const resultsDir = '.planning/benchmark/results';
+const results = fs.readdirSync(resultsDir)
+  .filter(f => f.endsWith('.json'))
+  .map(f => JSON.parse(fs.readFileSync(path.join(resultsDir, f), 'utf8')));
+const entries = loadCorpus('.planning/benchmark/corpus');
+const report = formatBenchmarkReport(results, entries);
+console.log(report);
+"
+```
+
+`formatBenchmarkReport` returns a markdown table with: title, category, semantic average (2dp), PASS/FAIL trainability (build_success AND runtime_stable), composite score (2dp), and an average row.
+
+**Step 4: Enhance with per-category breakdown**
+
+Group BenchmarkResult[] by IntegrationCategory:
+
+```bash
+node -e "
+const results = JSON.parse(process.env.RESULTS_JSON);
+const byCategory = {};
+for (const r of results) {
+  const cat = r.category || 'unknown';
+  if (!byCategory[cat]) byCategory[cat] = [];
+  byCategory[cat].push(r);
+}
+for (const [cat, items] of Object.entries(byCategory)) {
+  const avg = items.reduce((s, r) => s + r.composite_score, 0) / items.length;
+  const sorted = [...items].sort((a, b) => b.composite_score - a.composite_score);
+  console.log(cat, '| avg:', avg.toFixed(2), '| best:', sorted[0]?.entry_id, '| worst:', sorted[sorted.length-1]?.entry_id);
+}
+"
+```
+
+Compute per-category metrics:
+- Average composite score per category
+- Best and worst performing entries per category
+- PASS rate (build_success AND runtime_stable) per category
+
+**Step 5: Add trend section if prior REPORT.md exists**
+
+```bash
+cat .planning/benchmark/REPORT.md 2>/dev/null | head -30
+```
+
+If prior report exists, compare:
+- Current average composite vs. prior run averages
+- Categories with improving scores (delta > 0)
+- Categories with declining scores (delta < 0)
+
+**Step 6: Write report to .planning/benchmark/REPORT.md**
+
+Report structure:
+
+```markdown
+# Benchmark Evaluation Report
+
+**Generated:** {timestamp}
+**Entries evaluated:** {count}
+**Overall average composite:** {value}
+
+## Summary
+
+{entry count}, overall average {composite}, run timestamp.
+
+## Results Table
+
+{formatBenchmarkReport output — markdown table}
+
+## Category Breakdown
+
+| Category | Entries | Avg Composite | Best Entry | Worst Entry | PASS Rate |
+|----------|---------|--------------|------------|-------------|-----------|
+| directly-integrable | N | 0.82 | entry-id | entry-id | 90% |
+| requires-external-models | N | 0.71 | ... | ... | 70% |
+| novelty-coverage | N | 0.76 | ... | ... | 80% |
+| out-of-scope | N | 0.45 | ... | ... | 40% |
+
+## Improvement Priorities
+
+{Weakest areas by composite score. Suggested next steps for improvement.}
+
+## Trends
+
+{If prior REPORT.md exists: delta table comparing current vs. prior averages per category.}
+{If no prior report: "First evaluation run — no trend data available."}
+```
+
+</benchmark_corpus_reporting>
+
 <success_criteria>
 
 Evaluation report is complete when:
