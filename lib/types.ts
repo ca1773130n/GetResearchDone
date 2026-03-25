@@ -1096,5 +1096,107 @@ export interface MinimaRegion {
   delta: number;
 }
 
+// ─── Benchmark Types (Phase 100 — Evaluation Benchmark Framework) ────────────
+
+/**
+ * Classification of a research paper by implementation difficulty.
+ * Adapted from NERFIFY-BENCH Figure 7 categorization.
+ *
+ * - directly-integrable: Paper's technique can be implemented using existing
+ *   GRD infrastructure without external model dependencies.
+ * - requires-external-models: Implementation needs external model weights or
+ *   services not bundled with GRD.
+ * - out-of-scope: Paper describes capabilities beyond code synthesis (hardware,
+ *   large-scale training infrastructure, etc.)
+ * - novelty-coverage: Paper contributes novel ideas but implementation fidelity
+ *   is measured differently (architecture variants, ablation studies, etc.)
+ */
+export type IntegrationCategory =
+  | 'directly-integrable'
+  | 'requires-external-models'
+  | 'out-of-scope'
+  | 'novelty-coverage';
+
+/**
+ * Quantitative metrics from actually running the generated code.
+ */
+export interface TrainabilityMetrics {
+  /** Whether the generated code compiles/builds without errors. */
+  build_success: boolean;
+  /** Whether execution completes without crashes. */
+  runtime_stable: boolean;
+  /** Whether training/optimization converges (if applicable). */
+  convergence_detected: boolean;
+  /** Wall-clock execution time in milliseconds. */
+  execution_time_ms: number;
+  /** Captured stderr/error output (empty string if none). */
+  error_log: string;
+}
+
+/**
+ * Qualitative assessment of how faithfully the generated code captures the paper's semantics.
+ */
+export interface SemanticScore {
+  /** 0-1 score for how well the code captures the paper's novel contributions. */
+  novelty_capture: number;
+  /** 0-1 score for alignment between paper's described interface and generated code. */
+  api_surface_match: number;
+  /** 0-1 score for correctness of core algorithm implementation. */
+  algorithmic_fidelity: number;
+  /** Optional free-text notes from evaluator. */
+  notes: string;
+}
+
+/**
+ * Configurable weight distribution for composite scoring.
+ * semantic_weight + trainability_weight must equal 1.0.
+ */
+export interface ScoringRubric {
+  /** Weight for semantic dimension (0-1, all weights sum to 1). */
+  semantic_weight: number;
+  /** Weight for trainability dimension. */
+  trainability_weight: number;
+  /** Per-category difficulty multiplier (1.0 = neutral). */
+  category_adjustments: Record<IntegrationCategory, number>;
+}
+
+/**
+ * A single research paper entry in the benchmark corpus.
+ */
+export interface BenchmarkEntry {
+  /** Unique identifier (typically paper slug). */
+  id: string;
+  /** Paper title. */
+  title: string;
+  /** Source reference (arXiv ID, DOI, or URL). */
+  source: string;
+  /** Integration difficulty classification. */
+  category: IntegrationCategory;
+  /** Domain/method tags for filtering. */
+  tags: string[];
+  /** ISO 8601 timestamp when entry was added to corpus. */
+  added_at: string;
+}
+
+/**
+ * A scored evaluation result for a single benchmark entry.
+ */
+export interface BenchmarkResult {
+  /** References BenchmarkEntry.id. */
+  entry_id: string;
+  /** Semantic implementation scoring. */
+  semantic: SemanticScore;
+  /** Build/run/convergence metrics. */
+  trainability: TrainabilityMetrics;
+  /** Weighted composite score (0-1). */
+  composite_score: number;
+  /** Which ScoringRubric version was used. */
+  rubric_version: string;
+  /** ISO 8601 timestamp. */
+  evaluated_at: string;
+  /** Who/what produced this result (agent name or 'manual'). */
+  evaluator: string;
+}
+
 module.exports = {};
 
