@@ -51,8 +51,6 @@ const ESLINT_OUTPUT_WITH_VIOLATIONS = `
 
 /path/to/lib/other.ts
   5:10  error    no-undef        'foo' is not defined
-
-3 problems (3 errors, 1 warning) — wait that's 4 but the pattern matches first
 `;
 
 const ESLINT_OUTPUT_CLEAN = ``;
