@@ -433,21 +433,23 @@ describe('buildKnowledgeInjectionBlock', () => {
   });
 
   it('passes moduleHints to selectTopEntries', () => {
-    // 2 autopilot-relevant entries + 4 generic entries
-    const autopilotEntries = [91, 92].map((n) =>
+    // 6 entries all with the same phase_number so that moduleHints boost determines order.
+    // 2 autopilot-relevant entries and 4 generic entries, all at phase 95.
+    // With hints=['autopilot'], the two autopilot entries sort first within the bucket.
+    const autopilotEntries = ['A', 'B'].map((letter) =>
       makeEntry({
-        pattern_name: `Autopilot Pattern ${n}`,
-        phase_number: n,
+        pattern_name: `Autopilot Pattern ${letter}`,
+        phase_number: 95,
         source: `lib/autopilot.ts`,
-        applicability: `autopilot scheduling in phase ${n}`,
+        applicability: `autopilot scheduling for ${letter}`,
       })
     );
-    const genericEntries = [93, 94, 95, 96].map((n) =>
+    const genericEntries = ['C', 'D', 'E', 'F'].map((letter) =>
       makeEntry({
-        pattern_name: `Generic Pattern ${n}`,
-        phase_number: n,
-        source: `lib/generic${n}.ts`,
-        applicability: `general use in phase ${n}`,
+        pattern_name: `Generic Pattern ${letter}`,
+        phase_number: 95,
+        source: `lib/generic.ts`,
+        applicability: `general use for ${letter}`,
       })
     );
     const allEntries = [...autopilotEntries, ...genericEntries];
@@ -456,9 +458,9 @@ describe('buildKnowledgeInjectionBlock', () => {
 
     const result = buildKnowledgeInjectionBlock(tmpDir, '99', ['autopilot']);
 
-    // The autopilot-relevant entries should appear in the output
-    expect(result).toContain('Autopilot Pattern 91');
-    expect(result).toContain('Autopilot Pattern 92');
+    // The autopilot-relevant entries should appear first in the top-5 output
+    expect(result).toContain('Autopilot Pattern A');
+    expect(result).toContain('Autopilot Pattern B');
   });
 
   it('reads KNOWHOW.md from project root (path.join(cwd, KNOWHOW.md))', () => {

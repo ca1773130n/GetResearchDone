@@ -178,9 +178,51 @@ function selectTopEntries(
   return sorted.slice(0, n);
 }
 
+/**
+ * Build a formatted prompt block from the top-N KNOWHOW.md entries.
+ *
+ * Reads KNOWHOW.md from `path.join(cwd, 'KNOWHOW.md')`, selects the top 5
+ * most relevant entries via selectTopEntries (with optional moduleHints), and
+ * wraps them in a `<knowhow_context>` XML block for prompt injection.
+ *
+ * Returns empty string when:
+ * - KNOWHOW.md does not exist at the given cwd
+ * - KNOWHOW.md exists but is empty or contains no valid entries
+ *
+ * Note: `_phaseNum` is reserved for future phase-proximity scoring.
+ */
+function buildKnowledgeInjectionBlock(
+  cwd: string,
+  _phaseNum: string,
+  moduleHints?: string[],
+): string {
+  const knowhowPath = path.join(cwd, 'KNOWHOW.md');
+  const content = safeReadFile(knowhowPath);
+
+  if (!content || !content.trim()) {
+    return '';
+  }
+
+  const entries = parseKnowhowEntries(content);
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const top = selectTopEntries(entries, 5, moduleHints);
+  const formatted = top.map(formatKnowhowEntry).join('\n');
+
+  return (
+    `<knowhow_context>\n` +
+    `The following patterns were mined from prior phase executions. Apply relevant ones:\n\n` +
+    formatted +
+    `</knowhow_context>\n`
+  );
+}
+
 module.exports = {
   formatKnowhowEntry,
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
+  buildKnowledgeInjectionBlock,
 };
