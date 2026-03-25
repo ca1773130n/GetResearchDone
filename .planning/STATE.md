@@ -32,6 +32,11 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 93 | Compositional Citation Recovery | In progress (plan 01 done) |
 | 94 | Graph-of-Thought Synthesis | Not started |
 | 95 | Agentic Knowledge Enhancement | Not started |
+| 96 | Closed-Loop Metric-Driven Refinement | Not started |
+| 97 | Transitive Citation Graph Traversal | Not started |
+| 98 | GoT Synthesis Execution Engine | Not started |
+| 99 | Knowledge Injection Loop | Not started |
+| 100 | Evaluation Benchmark Framework | Not started |
 
 ## v0.3.23 Roadmap
 
@@ -41,6 +46,11 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | 93 — Compositional Citation Recovery | Deep-diver structured output, citation graph, recovery pass | REQ-182–185 | proxy |
 | 94 — Graph-of-Thought Synthesis | Artifact DAG, wave builder DAG integration | REQ-186–189 | proxy |
 | 95 — Agentic Knowledge Enhancement | Knowledge miner agent, KNOWHOW.md, pipeline integration | REQ-190–193 | proxy |
+| 96 — Closed-Loop Metric-Driven Refinement | Critique agent, 3-branch refinement loop, convergence detection | TBD | proxy |
+| 97 — Transitive Citation Graph Traversal | Recursive BFS citation traversal, auto-retrieval from external sources | TBD | proxy |
+| 98 — GoT Synthesis Execution Engine | DAG builder, topological sort, interface-freeze, file-agent orchestration | TBD | proxy |
+| 99 — Knowledge Injection Loop | Wire selectTopEntries into planner/researcher/executor prompts | TBD | proxy |
+| 100 — Evaluation Benchmark Framework | Benchmark corpus, semantic scoring, trainability metrics, category taxonomy | TBD | proxy |
 
 ## Deferred Validations
 
@@ -88,6 +98,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 95-agentic-knowledge-enhancement]: formatKnowhowEntry uses dash-list bold-key format for lossless parse-format roundtrip
 - [Phase 95-agentic-knowledge-enhancement]: appendKnowhowEntries deduplicates by phase_number (keep higher) for stable knowledge evolution
 - [Phase 95]: appendKnowhowEntries not imported in autopilot.ts — miner agent handles writing; avoids lint violation
+- [Phase 93]: resolveCitations uses injectable fetchFn for test mocking; arXiv first, Semantic Scholar fallback
+- [Phase 93]: citation_gate config key added to KNOWN_CONFIG_KEYS and GrdConfig — gates.ts uses typed field directly
 
 ## Known Bugs
 
@@ -99,10 +111,10 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 95 plan 02 executed — knowhow_injection blocks added to grd-planner.md and grd-phase-researcher.md
-- **Stopped at:** Completed 95-03-PLAN.md
-- **Next action:** Check for Phase 95 plan 03 or declare Phase 95 complete (`gd execute-phase 95`)
-- **Context needed:** .planning/STATE.md, agents/grd-planner.md, agents/grd-phase-researcher.md
+- **Last action:** Phase 93 plan 03 executed — resolveCitations, findUnresolved, citation gate wired, 50 tests with 85%+ coverage
+- **Stopped at:** Completed 93-03-PLAN.md
+- **Next action:** Phase 93 complete — advance to Phase 94 or check remaining phases (`gd execute-phase 94`)
+- **Context needed:** .planning/STATE.md, lib/citations.ts, lib/gates.ts, tests/unit/citations.test.ts
 
 ---
 
