@@ -146,6 +146,11 @@ const {
   detectMinima: (snapshots: MetricSnapshot[]) => MinimaRegion[];
   buildCritiquePrompt: (branch: CritiqueBranch, metrics: RefinementMetrics, targets: RefinementMetrics, minimaRegions: MinimaRegion[]) => string;
 } = require('./refinement');
+const {
+  buildKnowledgeInjectionBlock,
+}: {
+  buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
+} = require('./knowledge');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -397,18 +402,19 @@ function withUltrathink(prompt: string, backend?: string): string {
 /**
  * Build the prompt for planning a phase via `claude -p`.
  */
-function buildPlanPrompt(phaseNum: string, backend?: string): string {
-  return withUltrathink(
-    `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify.`,
-    backend
-  );
+function buildPlanPrompt(phaseNum: string, backend?: string, cwd?: string): string {
+  const basePrompt = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify.`;
+  const knowhowBlock = cwd ? buildKnowledgeInjectionBlock(cwd, phaseNum) : '';
+  return withUltrathink(knowhowBlock ? `${knowhowBlock}\n\n${basePrompt}` : basePrompt, backend);
 }
 
 /**
  * Build the prompt for executing a phase via `claude -p`.
  */
-function buildExecutePrompt(phaseNum: string): string {
-  return `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
+function buildExecutePrompt(phaseNum: string, cwd?: string): string {
+  const basePrompt = `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
+  const knowhowBlock = cwd ? buildKnowledgeInjectionBlock(cwd, phaseNum) : '';
+  return knowhowBlock ? `${knowhowBlock}\n\n${basePrompt}` : basePrompt;
 }
 
 /** Simplify step: code quality review before PR creation. */
@@ -1508,7 +1514,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             phase: phaseNum,
             step: 'plan',
             status: 'dry-run',
-            prompt: buildPlanPrompt(phaseNum, backend),
+            prompt: buildPlanPrompt(phaseNum, backend, cwd),
           });
           planTasks.push({ phaseNum, skipped: true });
         } else {
@@ -1542,7 +1548,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend), {
+              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend, cwd), {
                 phase_number: phaseNum,
                 plan_id: planId,
                 milestone: milestoneInfo.version,
@@ -1587,7 +1593,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             } else {
               // Non-overstory backend with account rotation: use scheduler.spawn
               promise = scheduler
-                .spawn(buildPlanPrompt(phaseNum, backend), {
+                .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1599,7 +1605,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           } else {
             promise = scheduler
               ? scheduler
-                  .spawn(buildPlanPrompt(phaseNum, backend), {
+                  .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
                     timeout: timeoutMs,
                     maxTurns,
                     model,
@@ -1607,7 +1613,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                     workItemId: `phase-${phaseNum}-plan`,
                   })
                   .then(toSpawnResult)
-              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend), {
+              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend, cwd), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1700,7 +1706,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             phase: phaseNum,
             step: 'execute',
             status: 'dry-run',
-            prompt: buildExecutePrompt(phaseNum),
+            prompt: buildExecutePrompt(phaseNum, cwd),
           });
           execTasks.push({ phaseNum, skipped: true });
           continue;
@@ -1738,7 +1744,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         const promise = (async (): Promise<{ execResult: SpawnResult; wtPath: string }> => {
           const execResult: SpawnResult = scheduler
             ? toSpawnResult(
-                await scheduler.spawn(buildExecutePrompt(phaseNum), {
+                await scheduler.spawn(buildExecutePrompt(phaseNum, wtPath), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1746,7 +1752,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   workItemId: `phase-${phaseNum}-execute`,
                 })
               )
-            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum), {
+            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum, wtPath), {
                 timeout: timeoutMs,
                 maxTurns,
                 model,
