@@ -42,6 +42,7 @@ module.exports = {
     './lib/overstory.ts': { lines: 90, functions: 90, branches: 80 },
     './lib/worktree.ts': { lines: 74, functions: 80, branches: 66 },
     './lib/refinement.ts': { lines: 85, functions: 85, branches: 75 },
+    './lib/benchmark.ts': { lines: 85, functions: 85, branches: 75 },
   },
   testTimeout: 15000,
 };
