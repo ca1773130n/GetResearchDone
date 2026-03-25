@@ -3,13 +3,16 @@
 /**
  * GRD Citation Graph -- Parse PAPERS.md files and build typed citation graphs
  *
- * Satisfies REQ-182 (Citation Graph Data Structures) and REQ-183 (buildCitationGraph).
+ * Satisfies REQ-182 (Citation Graph Data Structures), REQ-183 (buildCitationGraph),
+ * REQ-184 (Citation Recovery), and REQ-185 (Citation Recovery Tests).
  *
  * Functions:
  *   - parseMissingComponents: Parse missing_components sections from PAPERS.md content
  *   - parseBorrowedComponents: Parse borrowed_components sections from PAPERS.md content
  *   - buildCitationGraph: Read a directory of .md files, construct a CitationGraph,
  *                         and write per-paper JSON to citations/{slug}.json
+ *   - resolveCitations: Fetch paper metadata from arXiv/Semantic Scholar APIs
+ *   - findUnresolved: Return unresolved CitationNodes, optionally filtered by priority
  *
  * @module citations
  */
@@ -20,6 +23,7 @@ import type {
   CitationGraph,
   MissingComponent,
   BorrowedComponent,
+  ApiConfig,
 } from './types';
 
 const fs = require('fs') as typeof import('fs');
@@ -338,10 +342,159 @@ function buildCitationGraph(papersDir: string): CitationGraph {
   return graph;
 }
 
+// --- resolveCitations ---------------------------------------------------------
+
+/**
+ * Default fetch function using Node's built-in https module.
+ * Returns the response body as a string, or null on any error.
+ */
+function defaultFetchFn(url: string, _timeoutMs: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const https = require('https') as typeof import('https');
+    const http = require('http') as typeof import('http');
+    const parsed = new URL(url);
+    const transport = parsed.protocol === 'https:' ? https : http;
+
+    try {
+      const req = transport.get(url, (res) => {
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          resolve(null);
+          return;
+        }
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+        res.on('error', () => resolve(null));
+      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(_timeoutMs, () => {
+        req.destroy();
+        resolve(null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Extract a text summary from an arXiv Atom XML response.
+ * Returns the first 200 chars of the summary element, or null.
+ */
+function extractArxivSummary(xml: string): string | null {
+  const match = xml.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+  if (!match) return null;
+  const text = match[1].replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 200) : null;
+}
+
+/**
+ * Extract a text abstract from a Semantic Scholar JSON response.
+ * Returns the first 200 chars of the abstract field, or null.
+ */
+function extractSemanticAbstract(json: string): string | null {
+  try {
+    const data = JSON.parse(json) as Record<string, unknown>;
+    // Response is { data: [ { title, abstract, ... } ] }
+    const dataArr = Array.isArray(data.data) ? (data.data as Record<string, unknown>[]) : null;
+    if (dataArr && dataArr.length > 0) {
+      const abstract = dataArr[0].abstract;
+      if (typeof abstract === 'string' && abstract.trim()) {
+        return abstract.slice(0, 200);
+      }
+    }
+  } catch {
+    // not valid JSON
+  }
+  return null;
+}
+
+/**
+ * Iterate over unresolved CitationNodes and attempt to fetch metadata from
+ * arXiv and/or Semantic Scholar APIs.
+ *
+ * Accepts an optional fetchFn for dependency injection (enables mocking in tests).
+ * The default fetchFn uses Node's built-in https.get.
+ *
+ * @param graph - The CitationGraph to update (mutated in place)
+ * @param apiConfig - Controls which APIs are queried and timeout behaviour
+ * @param fetchFn - Optional injectable fetch function for testing
+ * @returns The updated CitationGraph (same reference as input)
+ */
+async function resolveCitations(
+  graph: CitationGraph,
+  apiConfig: ApiConfig,
+  fetchFn?: (url: string, timeoutMs: number) => Promise<string | null>
+): Promise<CitationGraph> {
+  const fetch = fetchFn ?? defaultFetchFn;
+  const timeoutMs = apiConfig.timeout_ms ?? 5000;
+
+  for (const node of graph.nodes) {
+    if (node.resolved) continue;
+
+    const titleEncoded = encodeURIComponent(node.title);
+    let summary: string | null = null;
+
+    if (apiConfig.arxiv_enabled) {
+      const arxivUrl = `https://export.arxiv.org/api/query?search_query=ti:${titleEncoded}&max_results=1`;
+      try {
+        const body = await fetch(arxivUrl, timeoutMs);
+        if (body) {
+          summary = extractArxivSummary(body);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
+    if (!summary && apiConfig.semantic_scholar_enabled) {
+      const ssUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${titleEncoded}&limit=1`;
+      try {
+        const body = await fetch(ssUrl, timeoutMs);
+        if (body) {
+          summary = extractSemanticAbstract(body);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
+    if (summary !== null) {
+      node.resolved = true;
+      node.technique_summary = summary;
+    }
+  }
+
+  return graph;
+}
+
+// --- findUnresolved -----------------------------------------------------------
+
+/**
+ * Return all unresolved CitationNodes in the graph.
+ * If priority is provided, only nodes with that priority are returned.
+ *
+ * @param graph - The CitationGraph to search
+ * @param priority - Optional priority filter ('critical' | 'normal' | 'low')
+ * @returns Array of CitationNode objects where resolved is false
+ */
+function findUnresolved(
+  graph: CitationGraph,
+  priority?: 'critical' | 'normal' | 'low'
+): CitationNode[] {
+  return graph.nodes.filter((node) => {
+    if (node.resolved) return false;
+    if (priority !== undefined) return node.priority === priority;
+    return true;
+  });
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
   parseMissingComponents,
   parseBorrowedComponents,
   buildCitationGraph,
+  resolveCitations,
+  findUnresolved,
 };
