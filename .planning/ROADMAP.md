@@ -423,8 +423,8 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 85. MCP Tools, CLI, and Testing | v0.3.20 | 2/2 | Complete | 2026-03-23 |
 | 86. Elicitation Detection and Resolution Core | v0.3.21 | 2/2 | Complete | 2026-03-24 |
 | 87. Post-Phase Pipeline Core | v0.3.22 | 2/2 | Complete | 2026-03-24 |
-| 88. Serial Merge Queue and Conflict Resolution | v0.3.22 | 0/TBD | Not started | - |
-| 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 0/TBD | Not started | - |
+| 88. Serial Merge Queue and Conflict Resolution | v0.3.22 | 2/2 | Complete | 2026-03-28 |
+| 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 3/3 | Complete | 2026-03-28 |
 | 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 0/TBD | Not started | - |
 | 91. Integration Testing and Validation | v0.3.22 | 0/TBD | Not started | - |
 | 92. CFG Formalization | v0.3.23 | 0/TBD | Not started | - |

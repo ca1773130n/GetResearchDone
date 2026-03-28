@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 |-------|------|--------|
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
 | 88 | Serial Merge Queue and Conflict Resolution | Complete (2026-03-28) |
-| 89 | Write-Intent Manifests and Wave Builder | In progress |
+| 89 | Write-Intent Manifests and Wave Builder | Complete (2026-03-28) |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | In progress |
 | 92 | CFG Formalization | Complete (2026-03-24) |
