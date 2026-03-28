@@ -158,6 +158,18 @@ const DEFAULT_TIMEOUT_MINUTES: number = 120;
 const HEARTBEAT_INTERVAL_MS: number = 30000;
 const AUTOPILOT_DIR: string = 'autopilot';
 
+// ─── Atomic File I/O ─────────────────────────────────────────────────────────
+
+/**
+ * Write a file atomically using write-to-temp-then-rename.
+ * Prevents partial reads under concurrent access (POSIX rename is atomic).
+ */
+function atomicWriteFileSync(filePath: string, data: string): void {
+  const tmpPath: string = `${filePath}.tmp`;
+  fs.writeFileSync(tmpPath, data);
+  fs.renameSync(tmpPath, filePath);
+}
+
 // ─── Merge Queue ────────────────────────────────────────────────────────────
 
 interface MergeQueue {
@@ -1268,7 +1280,7 @@ function writeStatusMarker(cwd: string, phaseNum: string, step: string, status: 
     timestamp: new Date().toISOString(),
   };
   const filename: string = `phase-${phaseNum}-${step}.json`;
-  fs.writeFileSync(path.join(dir, filename), JSON.stringify(marker, null, 2));
+  atomicWriteFileSync(path.join(dir, filename), JSON.stringify(marker, null, 2));
 }
 
 /**
@@ -1325,7 +1337,7 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
       `$1 Phase ${phaseNum} (autopilot: ${step})`
     );
 
-    fs.writeFileSync(statePath, content);
+    atomicWriteFileSync(statePath, content);
   } finally {
     try { fs.unlinkSync(lockPath); } catch (unlockErr) {
       // Only ENOENT is expected (lock already removed); other errors indicate
