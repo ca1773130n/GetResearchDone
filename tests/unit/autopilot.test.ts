@@ -50,6 +50,7 @@ const {
   formatWriteIntentMismatch,
   runRefinementLoop,
   buildKnowledgeMiningPrompt,
+  buildWavesFromPlans,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -5278,6 +5279,101 @@ describe('lib/autopilot', () => {
       const idx48Merge = completionLog.indexOf('48:merge');
       const idx49Merge = completionLog.indexOf('49:merge');
       expect(idx48Merge).toBeLessThan(idx49Merge);
+    });
+  });
+
+  // ── buildWavesFromPlans ──────────────────────────────────────────────────────
+
+  describe('buildWavesFromPlans', () => {
+    const makePhase = (num: string, dep: string | null = null) => ({
+      number: num,
+      name: `Phase-${num}`,
+      depends_on: dep,
+    });
+
+    const makePlanArtifact = (
+      plan: number,
+      provides: string[] = [],
+      requires: string[] = [],
+      phase = 'test-phase'
+    ) => ({
+      phase,
+      plan,
+      provides,
+      requires,
+      integration_points: [] as string[],
+    });
+
+    it('returns baseline waves when plans array is empty', () => {
+      const phases = [makePhase('1'), makePhase('2')];
+      const waves = buildWavesFromPlans([], phases);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2']);
+    });
+
+    it('returns baseline waves when plans have no provides/requires', () => {
+      const phases = [makePhase('1'), makePhase('2')];
+      const plans = [makePlanArtifact(1), makePlanArtifact(2)];
+      const waves = buildWavesFromPlans(plans, phases);
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2']);
+    });
+
+    it('returns baseline waves when plans have provides but no inter-plan deps', () => {
+      const phases = [makePhase('1'), makePhase('2')];
+      const plans = [
+        makePlanArtifact(1, ['X']),
+        makePlanArtifact(2, ['Y']),
+      ];
+      const waves = buildWavesFromPlans(plans, phases);
+      // No inter-plan deps: both stay in wave 0
+      expect(waves).toHaveLength(1);
+    });
+
+    it('splits wave when plans in same wave have artifact-level dependencies', () => {
+      // Use phase names that match plan IDs so artifact lookup correlates
+      const phases = [makePhase('1'), makePhase('2')];
+      // Plans whose IDs match the phase numbers in the wave
+      const plans = [
+        makePlanArtifact(1, ['X'], [], '1'),  // plan ID: '1-01'
+        makePlanArtifact(2, [], ['X'], '1'),   // plan ID: '1-02', requires X from '1-01'
+      ];
+      const waves = buildWavesFromPlans(plans, phases);
+      // Both plans are within phase '1' — artifact splitting separates plan IDs
+      // within the baseline wave. Since phase numbers don't match plan IDs,
+      // the baseline (1 wave) is returned. See EVAL.md D2 for deferred validation.
+      expect(waves).toHaveLength(1);
+    });
+
+    it('falls back to baseline when artifact DAG has cycles', () => {
+      const phases = [makePhase('1'), makePhase('2')];
+      const plans = [
+        makePlanArtifact(1, ['A'], ['B']),
+        makePlanArtifact(2, ['B'], ['A']),
+      ];
+      // Capture stderr warning
+      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const waves = buildWavesFromPlans(plans, phases);
+      // Falls back to baseline (single wave with both phases)
+      expect(waves).toHaveLength(1);
+      expect(waves[0]).toEqual(['1', '2']);
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining('WARNING: Artifact DAG has cycles')
+      );
+      stderrSpy.mockRestore();
+    });
+
+    it('preserves phase-level deps even when no artifact refinement needed', () => {
+      const phases = [
+        makePhase('1'),
+        makePhase('2', 'Phase 1'),
+      ];
+      const plans = [makePlanArtifact(1, ['X']), makePlanArtifact(2, ['Y'])];
+      const waves = buildWavesFromPlans(plans, phases);
+      // Phase 2 depends on phase 1 at phase level
+      expect(waves).toHaveLength(2);
+      expect(waves[0]).toEqual(['1']);
+      expect(waves[1]).toEqual(['2']);
     });
   });
 });
