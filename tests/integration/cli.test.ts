@@ -1783,7 +1783,7 @@ describe('autopilot commands', () => {
   test('autopilot --dry-run outputs valid JSON for 3 phases', () => {
     apDir = createAutopilotIntegrationFixture();
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--phase-from', '1', '--phase-to', '3'],
       apDir
     );
     expect(exitCode).toBe(0);
@@ -1802,7 +1802,7 @@ describe('autopilot commands', () => {
   test('autopilot --dry-run --skip-plan outputs only execute steps', () => {
     apDir = createAutopilotIntegrationFixture();
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--skip-plan', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--skip-plan', '--phase-from', '1', '--phase-to', '3'],
       apDir
     );
     expect(exitCode).toBe(0);
@@ -1814,10 +1814,10 @@ describe('autopilot commands', () => {
     expect(data.results).toHaveLength(3);
   });
 
-  test('autopilot --dry-run --resume skips planned phase', () => {
+  test('autopilot --dry-run skips planned phase (auto-resume always on)', () => {
     apDir = createAutopilotIntegrationFixture({ withPlan: true });
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--resume', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--phase-from', '1', '--phase-to', '3'],
       apDir
     );
     expect(exitCode).toBe(0);
@@ -1852,7 +1852,7 @@ describe('autopilot commands', () => {
   test('autopilot --dry-run --skip-execute outputs only plan steps', () => {
     apDir = createAutopilotIntegrationFixture();
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--skip-execute', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--skip-execute', '--phase-from', '1', '--phase-to', '3'],
       apDir
     );
     expect(exitCode).toBe(0);
@@ -2021,7 +2021,7 @@ describe('v0.2.7 integration regression', () => {
   test('autopilot dry-run produces correct wave-based sequence', () => {
     v027Dir = createMilestoneScopedFixture();
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--phase-from', '1', '--phase-to', '3'],
       v027Dir
     );
     expect(exitCode).toBe(0);
@@ -2059,10 +2059,10 @@ describe('v0.2.7 integration regression', () => {
     expect(Array.isArray(idx.plans)).toBe(true);
   });
 
-  test('autopilot resume detects existing plan and skips it', () => {
+  test('autopilot auto-resume detects existing plan and skips it', () => {
     v027Dir = createMilestoneScopedFixture();
     const { stdout, exitCode } = runCLI(
-      ['autopilot', '--dry-run', '--resume', '--from', '1', '--to', '3'],
+      ['autopilot', '--dry-run', '--phase-from', '1', '--phase-to', '3'],
       v027Dir
     );
     expect(exitCode).toBe(0);

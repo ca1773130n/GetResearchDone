@@ -2303,22 +2303,22 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       'Run autopilot to plan and execute multiple phases sequentially with fresh context per step',
     params: [
       {
-        name: 'from',
+        name: 'phase_from',
         type: 'string',
         required: false,
         description: 'Starting phase number (inclusive)',
       },
       {
-        name: 'to',
+        name: 'phase_to',
         type: 'string',
         required: false,
         description: 'Ending phase number (inclusive)',
       },
       {
-        name: 'resume',
+        name: 'milestone',
         type: 'boolean',
         required: false,
-        description: 'Skip already-completed steps',
+        description: 'Run in milestone mode (default when no phase range given)',
       },
       {
         name: 'dry_run',
@@ -2359,9 +2359,9 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     ],
     execute: (cwd: string, args: Record<string, unknown>) => {
       const cliArgs: string[] = [];
-      if (args.from) cliArgs.push('--from', args.from as string);
-      if (args.to) cliArgs.push('--to', args.to as string);
-      if (args.resume) cliArgs.push('--resume');
+      if (args.phase_from) cliArgs.push('--phase-from', args.phase_from as string);
+      if (args.phase_to) cliArgs.push('--phase-to', args.phase_to as string);
+      if (args.milestone) cliArgs.push('--milestone');
       if (args.dry_run) cliArgs.push('--dry-run');
       if (args.skip_plan) cliArgs.push('--skip-plan');
       if (args.skip_execute) cliArgs.push('--skip-execute');
@@ -2395,12 +2395,6 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
         type: 'boolean',
         required: false,
         description: 'Preview without executing',
-      },
-      {
-        name: 'resume',
-        type: 'boolean',
-        required: false,
-        description: 'Skip already-completed work',
       },
       {
         name: 'timeout',
@@ -2437,7 +2431,6 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
       const cliArgs: string[] = [];
       if (args.max_milestones) cliArgs.push('--max-milestones', String(args.max_milestones));
       if (args.dry_run) cliArgs.push('--dry-run');
-      if (args.resume) cliArgs.push('--resume');
       if (args.timeout) cliArgs.push('--timeout', String(args.timeout));
       if (args.max_turns) cliArgs.push('--max-turns', String(args.max_turns));
       if (args.model) cliArgs.push('--model', args.model as string);
