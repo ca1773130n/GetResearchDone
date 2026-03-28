@@ -223,7 +223,7 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
 - [x] **Phase 87: Post-Phase Pipeline Core** - Simplify, PR creation, code review, and rebase+merge steps plus the pipeline orchestrator `implement` (completed 2026-03-24)
 - [x] **Phase 88: Serial Merge Queue and Conflict Resolution** - Sequential merge gate for parallel phases and conflict resolution subprocess `implement` (completed 2026-03-28)
 - [x] **Phase 89: Write-Intent Manifests and Wave Builder** - Phase plan file list declarations, wave-level conflict detection, and declared-vs-actual feedback `implement` (completed 2026-03-24)
-- [ ] **Phase 90: Autopilot Mode Changes and Parallel Execution** - Always-on auto-resume, milestone-mode default, worktree-isolated parallel execution, and shared state locking `implement`
+- [x] **Phase 90: Autopilot Mode Changes and Parallel Execution** - Always-on auto-resume, milestone-mode default, worktree-isolated parallel execution, and shared state locking `implement` (completed 2026-03-28)
 - [ ] **Phase 91: Integration Testing and Validation** - Unit tests for pipeline, merge queue, wave builder, and full E2E integration test `integrate`
 
 #### Phase 87: Post-Phase Pipeline Core
@@ -296,9 +296,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 90-01: Remove `--resume`, rename `--from`/`--to`, implement milestone-mode default and auto-resume
-- [ ] 90-02: Worktree-isolated parallel execution with dependency blocking
-- [ ] 90-03: Atomic STATE.md/log writes and milestone wireup step
+- [x] 90-01: Verify milestone-mode default, flag cleanup, auto-resume tests (completed 2026-03-28)
+- [x] 90-02: Atomic writes via atomicWriteFileSync helper (completed 2026-03-28)
+- [x] 90-03: SC3/SC5 verification, full suite 3988/3988 tests (completed 2026-03-28)
 
 #### Phase 91: Integration Testing and Validation
 
