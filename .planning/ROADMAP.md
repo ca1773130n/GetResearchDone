@@ -224,7 +224,7 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
 - [x] **Phase 88: Serial Merge Queue and Conflict Resolution** - Sequential merge gate for parallel phases and conflict resolution subprocess `implement` (completed 2026-03-28)
 - [x] **Phase 89: Write-Intent Manifests and Wave Builder** - Phase plan file list declarations, wave-level conflict detection, and declared-vs-actual feedback `implement` (completed 2026-03-24)
 - [x] **Phase 90: Autopilot Mode Changes and Parallel Execution** - Always-on auto-resume, milestone-mode default, worktree-isolated parallel execution, and shared state locking `implement` (completed 2026-03-28)
-- [ ] **Phase 91: Integration Testing and Validation** - Unit tests for pipeline, merge queue, wave builder, and full E2E integration test `integrate`
+- [x] **Phase 91: Integration Testing and Validation** - Unit tests for pipeline, merge queue, wave builder, and full E2E integration test `integrate` (completed 2026-03-28)
 
 #### Phase 87: Post-Phase Pipeline Core
 
@@ -316,9 +316,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 91-01: Post-phase pipeline deep coverage and merge queue serialization tests
-- [ ] 91-02: Write-intent parsing edge cases and buildWaves file-conflict tests
-- [ ] 91-03: E2E integration test — two-phase parallel pipeline with serial merge
+- [x] 91-01: Post-phase pipeline deep coverage and merge queue serialization tests (completed 2026-03-28)
+- [x] 91-02: Write-intent parsing edge cases and buildWaves file-conflict tests (completed 2026-03-28)
+- [x] 91-03: E2E integration test — two-phase parallel pipeline with serial merge (completed 2026-03-28)
 
 ### v0.3.23 NERFIFY-Inspired Research Phase Enhancements (Planned)
 
