@@ -684,6 +684,87 @@ export interface ArtifactDAGValidation {
   warnings: string[];
 }
 
+// ─── GoT Execution Types (from got.ts) ───────────────────────────────────────
+
+/**
+ * Represents a frozen contract for an artifact — the interface definition
+ * captured at the point a plan node's output is accepted downstream.
+ */
+export interface FrozenInterface {
+  /** Plan that provides this artifact */
+  plan_id: string;
+  /** Artifact name (e.g. "lib/foo.ts:Bar") */
+  artifact: string;
+  /** The frozen interface definition as a string comment */
+  contract: string;
+}
+
+/**
+ * Result of executing a single DAG node (plan).
+ */
+export interface NodeExecutionResult {
+  /** The plan node ID (e.g. "98-01") */
+  node_id: string;
+  /** Whether execution succeeded */
+  success: boolean;
+  /** List of artifact names actually produced */
+  artifacts_produced: string[];
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Result of smoke-testing a node's output against its declared provides.
+ */
+export interface SmokeTestResult {
+  /** The plan node ID */
+  node_id: string;
+  /** Whether all provides artifacts were produced */
+  passed: boolean;
+  /** Provides artifacts NOT found in artifacts_produced */
+  missing_artifacts: string[];
+  /** Human-readable result message */
+  message: string;
+}
+
+/**
+ * Options for executeArtifactDAG.
+ */
+export interface GoTExecuteOptions {
+  /** Max retry attempts per node on smoke failure (default 1) */
+  maxRetries?: number;
+  /** When true, return stub results without dispatching agents */
+  dryRun?: boolean;
+}
+
+/**
+ * Full result of executing an artifact DAG via GoT synthesis engine.
+ */
+export interface GoTExecutionResult {
+  /** Topological wave groupings of plan IDs */
+  waves: string[][];
+  /** Per-node execution results */
+  results: NodeExecutionResult[];
+  /** Per-node smoke test results */
+  smoke_tests: SmokeTestResult[];
+  /** Total retry count across all nodes */
+  retries: number;
+  /** True when all smoke tests passed */
+  success: boolean;
+}
+
+/**
+ * Context passed to buildNodePrompt when constructing per-node execution prompts.
+ */
+export interface NodePromptContext {
+  /** Phase name */
+  phase_name: string;
+  /** Phase directory path */
+  phase_dir: string;
+  /** Research directory path (optional) */
+  research_dir?: string;
+}
+
 // ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
 
 /**
