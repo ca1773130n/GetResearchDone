@@ -49,6 +49,7 @@ const {
   compareWriteIntent,
   formatWriteIntentMismatch,
   runRefinementLoop,
+  buildKnowledgeMiningPrompt,
 } = require('../../lib/autopilot');
 
 /** Derive phasesBase from test tmpDir (matches createAutopilotFixture layout) */
@@ -4771,6 +4772,24 @@ describe('lib/autopilot', () => {
       // Untouched file lines
       expect(lines[3]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/p.ts');
       expect(lines[4]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/q.ts');
+    });
+  });
+
+  // ─── buildKnowledgeMiningPrompt ─────────────────────────────────────────────
+
+  describe('buildKnowledgeMiningPrompt', () => {
+    it('returns a prompt string containing the phase number', () => {
+      const prompt = buildKnowledgeMiningPrompt('42');
+      expect(typeof prompt).toBe('string');
+      expect(prompt).toContain('phase 42');
+      expect(prompt).toContain('KNOWHOW');
+      expect(prompt).toContain('---KNOWHOW-ENTRY---');
+    });
+
+    it('includes appendKnowhowEntries instruction', () => {
+      const prompt = buildKnowledgeMiningPrompt('7');
+      expect(prompt).toContain('appendKnowhowEntries');
+      expect(prompt).toContain('KNOWHOW.md');
     });
   });
 
