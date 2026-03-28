@@ -558,6 +558,9 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
     plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
 
+    // Citation traversal config
+    transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,
+
     // Discussion & review config
     discussion_before_planning: config.discussion?.before_planning ?? true,
     discussion_enabled: config.discussion?.enabled ?? true,

@@ -33,6 +33,8 @@ const { buildCitationGraph, findUnresolved } = require('./citations') as {
   findUnresolved: (graph: import('./types').CitationGraph, priority?: 'critical' | 'normal' | 'low') => import('./types').CitationNode[];
 };
 
+import type { TraversalOptions, TraversalResult, CitationGraph } from './types';
+
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 /** Options passed to gate checks and runPreflightGates. */
@@ -481,6 +483,48 @@ function checkCitationGate(cwd: string, _opts: GateOptions): GateViolation[] {
   return violations;
 }
 
+/**
+ * Check for unresolved transitive citation dependencies (warning severity).
+ *
+ * Only runs when transitive_citation_gate is enabled in config (default: false).
+ * Performs BFS traversal of the citation graph and reports unresolved leaf nodes
+ * as warnings — these do not block plan-phase execution.
+ *
+ * Warning (not error) severity follows the principle that transitive dependencies
+ * are informational — they inform what additional work may be needed without
+ * blocking a researcher from planning a phase.
+ */
+function checkTransitiveCitationGate(cwd: string, _opts: GateOptions): GateViolation[] {
+  const violations: GateViolation[] = [];
+  const config: GrdConfig = loadConfig(cwd);
+  const enabled = (config as unknown as Record<string, unknown>).transitive_citation_gate === true;
+  if (!enabled) return violations;
+
+  const researchDir = path.join(cwd, '.planning', 'research');
+  const papersPath = path.join(researchDir, 'PAPERS.md');
+  try { fs.statSync(papersPath); } catch { return violations; }
+
+  try {
+    const graph: CitationGraph = buildCitationGraph(researchDir);
+    const { traverseCitationGraph } = require('./citations') as {
+      traverseCitationGraph: (g: CitationGraph, opts?: Partial<TraversalOptions>) => TraversalResult;
+    };
+    const result: TraversalResult = traverseCitationGraph(graph);
+    for (const node of result.unresolved_leaves) {
+      violations.push({
+        code: 'CITATION_UNRESOLVED_TRANSITIVE',
+        severity: 'warning',
+        message: `Transitive citation dependency "${node.slug}" is unresolved — consider running auto-retrieval`,
+        fix: 'Enable transitive auto-retrieval or manually add a PAPERS.md entry for this dependency',
+        context: { slug: node.slug, priority: node.priority },
+      });
+    }
+  } catch {
+    // Non-blocking
+  }
+  return violations;
+}
+
 // ─── Gate Registry ────────────────────────────────────────────────────────────
 
 /**
@@ -488,7 +532,7 @@ function checkCitationGate(cwd: string, _opts: GateOptions): GateViolation[] {
  */
 const GATE_REGISTRY: GateRegistryMap = {
   'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans', 'invariant-validation'],
-  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation', 'citation-gate'],
+  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation', 'citation-gate', 'transitive-citation-gate'],
   'new-milestone': ['old-phases-archived', 'milestone-state-coherence'],
   'phase-add': ['orphaned-phases'],
   'phase-insert': ['orphaned-phases'],
@@ -512,6 +556,7 @@ const GATE_CHECKS: GateCheckMap = {
   'milestone-state-coherence': (cwd: string) => checkMilestoneStateCoherence(cwd),
   'invariant-validation': (cwd: string, opts: GateOptions) => checkInvariantValidation(cwd, opts),
   'citation-gate': (cwd: string, opts: GateOptions) => checkCitationGate(cwd, opts),
+  'transitive-citation-gate': (cwd: string, opts: GateOptions) => checkTransitiveCitationGate(cwd, opts),
 };
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
@@ -609,6 +654,7 @@ module.exports = {
   checkMilestoneStateCoherence,
   checkInvariantValidation,
   checkCitationGate,
+  checkTransitiveCitationGate,
   // Registry and runner
   GATE_REGISTRY,
   runPreflightGates,

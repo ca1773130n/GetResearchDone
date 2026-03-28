@@ -369,6 +369,8 @@ export interface GrdConfig {
   discussion?: DiscussionConfig;
   /** When true, plan-phase gate blocks on unresolved critical citation nodes. Default: false */
   citation_gate?: boolean;
+  /** When true, run transitive citation gate during plan-phase (warning severity). Default: false */
+  transitive_citation_gate?: boolean;
   /** When true, run post-phase metric-driven refinement loop. Default: false */
   refinement_loop?: boolean;
 }
@@ -1059,6 +1061,36 @@ export interface CitationGraph {
   edges: CitationEdge[];
   /** ISO timestamp of graph construction */
   built_at: string;
+}
+
+/**
+ * Options for controlling BFS traversal of the citation graph.
+ * max_depth and max_nodes prevent unbounded traversal on large real citation chains.
+ */
+export interface TraversalOptions {
+  /** Maximum BFS depth from root nodes. Default: 3 */
+  max_depth: number;
+  /** Maximum total nodes to visit before stopping. Default: 50 */
+  max_nodes: number;
+  /** Injectable fetch function for auto-retrieval (used in Plan 02). Optional. */
+  fetchFn?: (url: string, timeoutMs: number) => Promise<string | null>;
+}
+
+/**
+ * Result of a BFS traversal through the citation graph.
+ * Captures visited nodes, traversed edges, leaf nodes, and depth/count statistics.
+ */
+export interface TraversalResult {
+  /** All CitationNodes discovered during traversal (including root nodes) */
+  visited_nodes: CitationNode[];
+  /** All CitationEdges traversed (subset of graph edges reachable from roots) */
+  edges_traversed: CitationEdge[];
+  /** Nodes that have no outgoing edges in the graph (leaf dependencies not in PAPERS.md) */
+  unresolved_leaves: CitationNode[];
+  /** Maximum depth level actually reached during BFS */
+  depth_reached: number;
+  /** Total node count visited (may equal max_nodes if limit was hit) */
+  total_visited: number;
 }
 
 /** Configuration for citation resolution API calls. */
