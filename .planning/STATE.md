@@ -16,7 +16,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - **Current plan:** None
 - **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
 - **Status:** Phase 94 complete — artifact DAG construction, wave builder integration, 118 tests passing
-- **Progress:** [██████████] 100%
+- **Progress:** [████████░░] 78%
 - **Next:** Phase 95 (Agentic Knowledge Enhancement)
 
 ## Phase Summary
@@ -131,6 +131,11 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 - [Phase 94]: buildWaves merges depends_on and artifactDAG.providers into combined inDegree map before Kahn's — unified cycle detection and backward compatible
 - [Phase 94]: buildPlanPrompt instructs planner to declare provides/requires/integration_points in PLAN.md YAML frontmatter using module:ExportName format
 - [Phase 94]: Phase 94-03: Tests cover all 15 buildArtifactDAG and validateArtifactDAG scenarios plus 9 buildWaves scenarios; 88%+ branch coverage on lib/deps.ts and 87%+ on lib/parallel.ts
+- [Phase 90]: atomicWriteFileSync is internal (not exported); lock mechanism preserved alongside atomic write
+- [Phase 90]: mcp-server grd_autopilot_run uses phase_from/phase_to params; resume param removed (auto-resume always on); integration tests updated to --phase-from/--phase-to flags
+- [Phase 90]: SC3 and SC5 tests were already present from phases 89/88 — integration test fixtures updated to pass invariant-validation gate
+- [Phase 91]: E2E test uses composition (createMergeQueue + async tasks) rather than full runAutopilot — avoids uninterceptable destructured execFileSync
+- [Phase 98]: GoT execution interfaces placed after ArtifactDAGValidation in lib/types.ts; lib/got.js follows CJS proxy pattern
 
 ## Known Bugs
 
@@ -143,7 +148,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 94-03-PLAN.md
+- **Stopped at:** Completed 98-01-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 

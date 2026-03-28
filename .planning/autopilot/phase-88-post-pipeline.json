@@ -1,1 +1,6 @@
-{"status":"completed","step":"post-pipeline","phase":"88","timestamp":"2026-03-24T05:59:10Z"}
+{
+  "phase": "88",
+  "step": "post-pipeline",
+  "status": "failed",
+  "timestamp": "2026-03-28T08:16:08.574Z"
+}
