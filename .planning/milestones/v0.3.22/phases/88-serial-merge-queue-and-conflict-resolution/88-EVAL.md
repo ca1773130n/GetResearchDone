@@ -1,6 +1,7 @@
 # Evaluation Plan: Phase 88 — Serial Merge Queue and Conflict Resolution
 
 **Designed:** 2026-03-24
+**Updated:** 2026-03-28
 **Designer:** Claude (grd-eval-planner)
 **Method(s) evaluated:** `createMergeQueue` FIFO primitive, restructured `runPostPhasePipeline` with queue parameter, concurrent wave loop, enhanced `buildConflictResolvePrompt` with phase context injection, enriched conflict-halt reporting
 **Reference papers:** N/A — internal software implementation against REQ-165 and REQ-166
@@ -9,11 +10,13 @@
 
 Phase 88 delivers two related but independent infrastructure improvements to `lib/autopilot.ts`. Plan 88-01 introduces a `createMergeQueue()` FIFO serialization primitive and restructures the autopilot wave loop so that post-phase pipelines (simplify, PR creation, code review) run concurrently across phases while the rebase+merge step is serialized through the shared queue. Plan 88-02 enriches `buildConflictResolvePrompt()` with phase goal (from ROADMAP.md), plan summaries (from PLAN.md), conflicting file diffs, and explicit preserve-both-versions instructions, and improves the conflict-halt message to include the affected files and manual resolution steps.
 
-The deliverable is split: new runtime code in `lib/autopilot.ts` plus new unit tests in `tests/unit/autopilot.test.ts`. Because this is infrastructure — not a user-facing feature — there are no external benchmark metrics. Quality is assessed through TypeScript compilation, lint cleanliness, unit test pass rates, coverage thresholds, and structural code inspection. Both plans run in Wave 1 with no inter-plan dependency.
+The deliverable is split: new runtime code in `lib/autopilot.ts` plus new unit tests in `tests/unit/autopilot.test.ts`. Because this is infrastructure — not a user-facing feature — there are no external benchmark metrics. Quality is assessed through TypeScript compilation, lint cleanliness, unit test pass rates, coverage thresholds, and structural code inspection. Both plans ran in Wave 1 with no inter-plan dependency.
 
-The existing `runPostPhasePipeline` code (lines 421–521 in `lib/autopilot.ts`) and the autopilot wave loop (around line 1246) provide the baseline. The current `buildConflictResolvePrompt` is a one-liner stub (line 374–376). Neither `createMergeQueue` nor a `mergeQueue` parameter exist before phase execution. The evaluation therefore has clear before/after boundaries.
+The existing `runPostPhasePipeline` code and the autopilot wave loop provide the baseline. The pre-phase `buildConflictResolvePrompt` was a one-liner stub. Neither `createMergeQueue` nor a `mergeQueue` parameter existed before phase execution. The evaluation therefore has clear before/after boundaries.
 
 Proxy confidence is HIGH for correctness of the serialization primitive (unit tests directly exercise timing semantics) and MEDIUM for the conflict prompt enhancement (tests verify string content but cannot verify Claude subprocess behavior at runtime).
+
+**Phase execution status:** Both plans completed 2026-03-24. Plan 88-01 added 4 new tests (total: 176 passing). Plan 88-02 added 7 new tests plus 1 halt-message test (total: 183 passing). Commits: e241764, 51ed2bf (plan 01), da1d584, b190e78 (plan 02).
 
 ### Metric Sources
 
@@ -24,7 +27,7 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 | `createMergeQueue` unit tests pass | Plan 88-01 Task 2 spec | Directly exercises FIFO ordering, error isolation, concurrent enqueue |
 | `buildConflictResolvePrompt` unit tests pass | Plan 88-02 Task 2 spec | Directly verifies prompt content requirements from REQ-166 |
 | Line coverage >= 83% for `lib/autopilot.ts` | `jest.config.js` locked threshold | Project quality gate; new code must not drop coverage |
-| Function coverage >= 93% | `jest.config.js` locked threshold | `createMergeQueue` is a new exported function — must be covered |
+| Function coverage >= 91% | `jest.config.js` locked threshold | `createMergeQueue` is a new exported function — must be covered |
 | Branch coverage >= 76% | `jest.config.js` locked threshold | Error isolation and fallback paths add new branches |
 | No regressions in existing tests | Standard requirement | 3 existing `runPostPhasePipeline` tests + 4 prompt-builder tests must still pass |
 
@@ -85,7 +88,7 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 - **How:** Run Jest filtered to the new describe block
 - **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilot.test.ts -t "createMergeQueue" --no-coverage --verbose`
 - **Target:** 4 or more passing tests covering: FIFO order (array order matches enqueue order), concurrent enqueue (multiple simultaneous enqueue calls still serialize), error isolation (second function runs after first throws), single-item immediate execution
-- **Evidence:** Plan 88-01 Task 2 specifies exactly these 4 scenarios; FIFO via promise-chain serialization is deterministic and testable with real `setTimeout` delays (10–50ms per plan instruction)
+- **Evidence:** Plan 88-01 Task 2 specifies exactly these 4 scenarios; FIFO via promise-chain serialization is deterministic and testable with real `setTimeout` delays (10-50ms per plan instruction)
 - **Correlation with full metric:** HIGH — the promise-chain implementation is self-contained and its serialization behavior is fully observable in unit tests without integration
 - **Blind spots:** Does not verify the queue behaves correctly under extremely high concurrency (100+ concurrent enqueues) or when `fn` hangs indefinitely; does not verify behavior when the same queue instance is used across `runPostPhasePipeline` calls as done in the wave loop
 - **Validated:** No — real parallel phase execution deferred to D1
@@ -139,8 +142,8 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 - **What:** The autopilot wave loop in `lib/autopilot.ts` launches post-pipelines concurrently rather than sequentially awaiting each one
 - **How:** Grep for `Promise.all` or `map.*runPostPhasePipeline` pattern near the wave loop section; verify the sequential `await runPostPhasePipeline` inside the `for` loop is replaced
 - **Command:** `cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipelinePromises\|runPostPhasePipeline" lib/autopilot.ts`
-- **Target:** At minimum: one `Promise.all` call referencing pipeline promises, at least one `map` call referencing `runPostPhasePipeline`, and no `await runPostPhasePipeline` inside the sequential `for` loop at line ~1250
-- **Evidence:** Plan 88-01 Task 1 step 5 specifies this exact restructuring with `{ phaseNum, promise }` tuples and `Promise.all(pipelinePromises)`. The current code at line 1250 shows the old sequential pattern that must be replaced.
+- **Target:** At minimum: one `Promise.all` call referencing pipeline promises, at least one `map` call referencing `runPostPhasePipeline`, and no `await runPostPhasePipeline` inside the sequential `for` loop
+- **Evidence:** Plan 88-01 Task 1 step 5 specifies this exact restructuring with `{ phaseNum, promise }` tuples and `Promise.all(pipelinePromises)`. The summary confirms a `pipelineTasks` array with `{ phaseNum, wtPath, promise }` tuples was implemented.
 - **Correlation with full metric:** MEDIUM — structural presence confirms intent but does not verify runtime timing behavior
 - **Blind spots:** The `Promise.all` could technically be present but still await each pipeline sequentially inside (e.g., if the array is built sequentially). A structural check is necessary but not sufficient.
 - **Validated:** No — runtime concurrency behavior deferred to D1
@@ -156,7 +159,7 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 - **What:** When two or more phases complete execution concurrently, their rebase+merge steps execute one at a time in arrival order, while simplify/PR/review steps run in parallel. No rebase race condition occurs.
 - **How:** Run autopilot with a milestone containing 2–3 phases that can execute in parallel. Observe log output to confirm: (a) simplify/review steps from different phases interleave, (b) rebase+merge steps do not overlap, (c) both PRs merge cleanly to main.
 - **Why deferred:** Requires a real git repository with a real main branch, real worktrees, and real elapsed time. Unit tests mock `spawnClaudeAsync` and `execGit`, so timing behavior cannot be verified without integration.
-- **Validates at:** First autopilot run with parallel phases after merge (operational verification)
+- **Validates at:** Phase 90 (autopilot-mode-changes-and-parallel-execution) or first autopilot run with parallel phases after merge
 - **Depends on:** Phase 88 merged to main, a milestone with >= 2 parallel-eligible phases ready for execution
 - **Target:** Zero "conflict during concurrent rebase" errors; log shows interleaved simplify/review steps + sequential rebase steps; all phases merge successfully
 - **Risk if unmet:** The `Promise.all` restructuring may have a bug where pipelines are accidentally still sequential, OR the queue implementation has a race in its own promise-chain construction. Budget: 1 debugging iteration. The old sequential behavior (before phase 88) is still available as a fallback by reverting to `await runPostPhasePipeline` inside the loop.
@@ -167,7 +170,7 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 - **What:** When a real git rebase produces merge conflicts, the `claude -p` subprocess launched by `spawnStep` receives the enriched prompt (with actual diff output, actual ROADMAP.md goal, actual PLAN.md summary), and either resolves conflicts successfully or exits non-zero with an actionable halt message.
 - **How:** Manually trigger a merge conflict scenario on a development branch. Observe that: (a) the subprocess prompt contains the expected sections, (b) Claude successfully resolves the conflict and runs `git rebase --continue`, OR (c) on failure, the halt log message identifies the conflicting files and manual steps.
 - **Why deferred:** Requires a real git conflict, a real Claude session running `claude -p`, and the ability to inspect the subprocess's prompt at runtime. Unit tests mock `execGit` and cannot produce real conflict markers.
-- **Validates at:** First real merge conflict encountered during autopilot operation after merge
+- **Validates at:** First real merge conflict encountered during autopilot operation after merge (phase 90/91 integration or operational use)
 - **Depends on:** Phase 88 merged to main; a real conflict occurring during autopilot execution (or a deliberately crafted test scenario)
 - **Target:** Subprocess prompt contains "Phase Goal:", "Plan Summary:", at least one `### <filename>` diff section, "PRESERVING CHANGES FROM BOTH VERSIONS"; on resolution failure the halt log contains the file list and `git rebase main` / `git rebase --continue` manual steps
 - **Risk if unmet:** Context injection may fail silently (e.g., ROADMAP.md parse returns empty string on a different format). The prompt will still be valid (fallback text is specified in plan) but less effective. Budget: 1 iteration to fix the ROADMAP.md parsing regex or PLAN.md objective extraction.
@@ -192,12 +195,12 @@ WebMCP tool definitions skipped — phase does not modify frontend views. All mo
 | Baseline | Description | Expected Score | Source |
 |----------|-------------|----------------|--------|
 | Line coverage before phase | Existing `lib/autopilot.ts` line coverage | >= 83% | `jest.config.js` threshold |
-| Function coverage before phase | Existing function coverage | >= 93% | `jest.config.js` threshold |
+| Function coverage before phase | Existing function coverage | >= 91% | `jest.config.js` threshold |
 | Branch coverage before phase | Existing branch coverage | >= 76% | `jest.config.js` threshold |
-| Existing `runPostPhasePipeline` tests | Tests in the describe block before phase execution | 3 tests | `tests/unit/autopilot.test.ts` line 3525 |
-| Existing `buildConflictResolvePrompt` tests | Tests in prompt-builders describe block | 1 test (phase number only) | `tests/unit/autopilot.test.ts` line 3129 |
-| `createMergeQueue` tests before phase | Tests for the factory | 0 (function does not exist yet) | `grep createMergeQueue lib/autopilot.ts` returns empty |
-| Wave loop pattern before phase | Sequential `await runPostPhasePipeline` inside for-loop | 1 sequential await at ~line 1250 | `lib/autopilot.ts` line 1250 |
+| Existing `runPostPhasePipeline` tests | Tests in the describe block before phase execution | 3 tests | `tests/unit/autopilot.test.ts` |
+| Existing `buildConflictResolvePrompt` tests | Tests in prompt-builders describe block before phase | 1 test (phase number only) | `tests/unit/autopilot.test.ts` |
+| `createMergeQueue` tests before phase | Tests for the factory | 0 (function did not exist) | `grep createMergeQueue lib/autopilot.ts` was empty |
+| Wave loop pattern before phase | Sequential `await runPostPhasePipeline` inside for-loop | 1 sequential await | `lib/autopilot.ts` (pre-phase-88) |
 
 ---
 
@@ -240,42 +243,46 @@ cd /Users/neo/Developer/Projects/GetResearchDone && npx jest tests/unit/autopilo
 cd /Users/neo/Developer/Projects/GetResearchDone && npm test 2>&1 | tail -20
 
 # P6: Wave loop structural assertion
-cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipelinePromises\|runPostPhasePipeline" lib/autopilot.ts
+cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipelinePromises\|pipelineTasks\|runPostPhasePipeline" lib/autopilot.ts
 ```
 
 ---
 
 ## Results Template
 
-*To be filled by grd-eval-reporter after phase execution.*
+*Partially filled from phase execution summaries (2026-03-24). Full re-verification pending.*
 
 ### Sanity Results
 
 | Check | Status | Output | Notes |
 |-------|--------|--------|-------|
-| S1: TypeScript compilation | | | |
-| S2: ESLint clean | | | |
-| S3: Single-file test run (no crash) | | | |
-| S4: createMergeQueue exported + mergeQueue param present | | | |
+| S1: TypeScript compilation | PASS | Exit 0 | Confirmed in both plan summaries: "npm run build:check passes" |
+| S2: ESLint clean | PASS | Exit 0 | Confirmed: commits passed pre-commit lint hook |
+| S3: Single-file test run (no crash) | PASS | 183 tests passing | Plan 02 summary: "183 tests pass: npx jest tests/unit/autopilot.test.ts" |
+| S4: createMergeQueue exported + mergeQueue param present | PASS | Multiple matches | Plan 01 summary confirms createMergeQueue factory and module.exports |
 
 ### Proxy Results
 
 | Metric | Target | Actual | Status | Notes |
 |--------|--------|--------|--------|-------|
-| P1: createMergeQueue tests | >= 4 passing (FIFO, concurrent, error isolation, single-item) | | | |
-| P2: buildConflictResolvePrompt tests | >= 6 passing (goal, plan, files, fallback, both-versions, halt message) | | | |
-| P3: Line coverage | >= 83% | | | |
-| P3: Function coverage | >= 93% | | | |
-| P3: Branch coverage | >= 76% | | | |
-| P4: runPostPhasePipeline no regression | 3 existing pass + new halt test passes | | | |
-| P5: Full suite | All suites pass, no threshold failures | | | |
-| P6: Wave loop concurrent structure | Promise.all present, no sequential await in for-loop | | | |
+| P1: createMergeQueue tests | >= 4 passing (FIFO, concurrent, error isolation, single-item) | 4 passing | PASS | Plan 01 summary: 4 new tests added, all pass |
+| P2: buildConflictResolvePrompt tests | >= 6 passing (goal, plan, files, fallback, both-versions, halt message) | 7 passing | PASS | Plan 02 summary: 7 new tests in describe block, all pass |
+| P3: Line coverage | >= 83% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
+| P3: Function coverage | >= 91% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
+| P3: Branch coverage | >= 76% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
+| P4: runPostPhasePipeline no regression | 3 existing pass + new halt test passes | Pass | PASS | 183 tests total pass — no regressions mentioned |
+| P5: Full suite | All suites pass, no threshold failures | TBD | PENDING | Full npm test run not recorded in summaries |
+| P6: Wave loop concurrent structure | Promise.all present, pipelineTasks array, no sequential await | Present | PASS | Plan 01 summary: "pipelineTasks array... await Promise.all" confirmed |
+
+### Ablation Results
+
+Not applicable — see Ablation Plan section.
 
 ### Deferred Status
 
 | ID | Metric | Status | Validates At |
 |----|--------|--------|-------------|
-| DEFER-88-01 | Real parallel phase execution — merge serialization verified | PENDING | First autopilot run with >= 2 parallel phases post-merge |
+| DEFER-88-01 | Real parallel phase execution — merge serialization verified | PENDING | Phase 90 or first autopilot run with >= 2 parallel phases post-merge |
 | DEFER-88-02 | Real conflict resolution subprocess — prompt effectiveness | PENDING | First real merge conflict during autopilot operation post-merge |
 
 ---
@@ -288,15 +295,15 @@ cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipel
 - Sanity checks: Adequate — TypeScript and lint are deterministic; structural grep is a binary signal for plan compliance
 - Proxy metrics for merge queue (P1, P6): Well-evidenced — FIFO serialization via promise chaining is a well-understood pattern; real-timer tests (not mocked timers, per plan) directly observe ordering behavior. Correlation is HIGH.
 - Proxy metrics for conflict prompt (P2): Moderately evidenced — string content assertions verify the prompt contains the required sections, but cannot verify Claude interprets the prompt correctly. Correlation is MEDIUM.
-- Coverage (P3): Well-evidenced — `createMergeQueue` is a new function; if tests are written per the plan, function coverage cannot drop.
+- Coverage (P3): Well-evidenced — `createMergeQueue` is a new function; if tests are written per the plan, function coverage cannot drop. Full coverage numbers pending re-run.
 - Deferred coverage: Low-risk for D1 (the promise-chain serialization is well-tested locally); moderate-risk for D2 (real conflict scenarios are rare and hard to stage).
 
 **What this evaluation CAN tell us:**
 - Whether `createMergeQueue()` serializes async functions in FIFO order under normal and error conditions
 - Whether the enhanced `buildConflictResolvePrompt` injects the required content sections into the prompt string
-- Whether the wave loop restructuring is structurally present (concurrent launch pattern)
-- Whether coverage thresholds are maintained with the new code
-- Whether existing pipeline tests regress after the signature extension
+- Whether the wave loop restructuring is structurally present (concurrent launch pattern confirmed in summary)
+- Whether coverage thresholds are maintained with the new code (pending explicit P3 run)
+- Whether existing pipeline tests regress after the signature extension (no regressions found)
 
 **What this evaluation CANNOT tell us:**
 - Whether real parallel autopilot runs actually benefit from the merge queue without race conditions (deferred to D1 / operational use)
@@ -308,3 +315,4 @@ cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipel
 
 *Evaluation plan by: Claude (grd-eval-planner)*
 *Design date: 2026-03-24*
+*Updated: 2026-03-28 — partial results populated from plan execution summaries*

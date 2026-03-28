@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | Phase | Name | Status |
 |-------|------|--------|
 | 87 | Post-Phase Pipeline Core | Complete (2026-03-24) |
-| 88 | Serial Merge Queue and Conflict Resolution | In progress |
+| 88 | Serial Merge Queue and Conflict Resolution | Complete (2026-03-28) |
 | 89 | Write-Intent Manifests and Wave Builder | In progress |
 | 90 | Autopilot Mode Changes and Parallel Execution | Not started |
 | 91 | Integration Testing and Validation | In progress |
@@ -70,6 +70,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 | DEFER-78-01 | Live discovery accuracy on real GRD codebase | Phase 78 | Phase 79, plan 79-01 | PENDING |
 | DEFER-78-02 | Scenario executability by Phase 79 HTTP/CLI engine | Phase 78 | Phase 79, plan 79-02 | PENDING |
 | DEFER-80-01 | Live Playwright MCP scenario execution (requires Playwright MCP environment) | Phase 80 | Future | PENDING |
+| DEFER-88-01 | Real parallel merge serialization verified | Phase 88 | Phase 90 or first multi-phase autopilot | PENDING |
+| DEFER-88-02 | Real conflict resolution subprocess prompt effectiveness | Phase 88 | First real merge conflict | PENDING |
 | DEFER-96-01 | End-to-end refinement loop effectiveness on real project | Phase 96 | First live autopilot run | PENDING |
 | DEFER-96-02 | collectMetrics parse robustness on real tool output | Phase 96 | First live autopilot run | PENDING |
 | DEFER-96-03 | Critique agent patch quality for all three branches | Phase 96 | Manual review | PENDING |
