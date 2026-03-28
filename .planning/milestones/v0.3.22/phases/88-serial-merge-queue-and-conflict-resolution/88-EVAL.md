@@ -27,7 +27,7 @@ Proxy confidence is HIGH for correctness of the serialization primitive (unit te
 | `createMergeQueue` unit tests pass | Plan 88-01 Task 2 spec | Directly exercises FIFO ordering, error isolation, concurrent enqueue |
 | `buildConflictResolvePrompt` unit tests pass | Plan 88-02 Task 2 spec | Directly verifies prompt content requirements from REQ-166 |
 | Line coverage >= 83% for `lib/autopilot.ts` | `jest.config.js` locked threshold | Project quality gate; new code must not drop coverage |
-| Function coverage >= 93% | `jest.config.js` locked threshold | `createMergeQueue` is a new exported function — must be covered |
+| Function coverage >= 91% | `jest.config.js` locked threshold | `createMergeQueue` is a new exported function — must be covered |
 | Branch coverage >= 76% | `jest.config.js` locked threshold | Error isolation and fallback paths add new branches |
 | No regressions in existing tests | Standard requirement | 3 existing `runPostPhasePipeline` tests + 4 prompt-builder tests must still pass |
 
@@ -195,7 +195,7 @@ WebMCP tool definitions skipped — phase does not modify frontend views. All mo
 | Baseline | Description | Expected Score | Source |
 |----------|-------------|----------------|--------|
 | Line coverage before phase | Existing `lib/autopilot.ts` line coverage | >= 83% | `jest.config.js` threshold |
-| Function coverage before phase | Existing function coverage | >= 93% | `jest.config.js` threshold |
+| Function coverage before phase | Existing function coverage | >= 91% | `jest.config.js` threshold |
 | Branch coverage before phase | Existing branch coverage | >= 76% | `jest.config.js` threshold |
 | Existing `runPostPhasePipeline` tests | Tests in the describe block before phase execution | 3 tests | `tests/unit/autopilot.test.ts` |
 | Existing `buildConflictResolvePrompt` tests | Tests in prompt-builders describe block before phase | 1 test (phase number only) | `tests/unit/autopilot.test.ts` |
@@ -268,7 +268,7 @@ cd /Users/neo/Developer/Projects/GetResearchDone && grep -n "Promise\.all\|pipel
 | P1: createMergeQueue tests | >= 4 passing (FIFO, concurrent, error isolation, single-item) | 4 passing | PASS | Plan 01 summary: 4 new tests added, all pass |
 | P2: buildConflictResolvePrompt tests | >= 6 passing (goal, plan, files, fallback, both-versions, halt message) | 7 passing | PASS | Plan 02 summary: 7 new tests in describe block, all pass |
 | P3: Line coverage | >= 83% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
-| P3: Function coverage | >= 93% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
+| P3: Function coverage | >= 91% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
 | P3: Branch coverage | >= 76% | TBD | PENDING | Not recorded in summaries — run P3 command to verify |
 | P4: runPostPhasePipeline no regression | 3 existing pass + new halt test passes | Pass | PASS | 183 tests total pass — no regressions mentioned |
 | P5: Full suite | All suites pass, no threshold failures | TBD | PENDING | Full npm test run not recorded in summaries |
