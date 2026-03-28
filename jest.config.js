@@ -24,6 +24,7 @@ module.exports = {
     './lib/evolve/index.ts': { lines: 85, functions: 94, branches: 70 },
     './lib/frontmatter.ts': { lines: 89, functions: 100, branches: 78 },
     './lib/gates.ts': { lines: 100, functions: 100, branches: 81 },
+    './lib/got.ts': { lines: 80, functions: 85, branches: 70 },
     './lib/invariants.ts': { lines: 90, functions: 90, statements: 90, branches: 85 },
     './lib/knowledge.ts': { lines: 85, functions: 100, branches: 75 },
     './lib/long-term-roadmap.ts': { lines: 97, functions: 100, branches: 83 },

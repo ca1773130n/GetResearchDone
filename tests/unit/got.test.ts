@@ -254,4 +254,36 @@ describe('executeArtifactDAG', () => {
     expect(result.waves[1]).toContain('98-got-synthesis-execution-engine-03');
     expect(result.waves[2]).toContain('98-got-synthesis-execution-engine-04');
   });
+
+  test('handles synthetic cyclic DAG without crashing', () => {
+    // Craft a synthetic DAG with a mutual cycle: A→B→A (both require each other)
+    // This bypasses buildArtifactDAG validation to exercise the cycle-handling branch
+    const syntheticDag = {
+      nodes: [
+        { id: 'plan-A', plan_number: 1, provides: ['X'], requires: ['Y'], integration_points: [] },
+        { id: 'plan-B', plan_number: 2, provides: ['Y'], requires: ['X'], integration_points: [] },
+      ],
+      edges: [
+        { from_plan: 'plan-A', to_plan: 'plan-B', artifact: 'Y', type: 'requires' as const },
+        { from_plan: 'plan-B', to_plan: 'plan-A', artifact: 'X', type: 'requires' as const },
+      ],
+      sorted_plans: ['plan-A', 'plan-B'],
+      providers: { X: 'plan-A', Y: 'plan-B' },
+    };
+    // Should not throw — cycle detection emits a fallback wave
+    const result = executeArtifactDAG(syntheticDag as unknown as import('../../lib/types').ArtifactDAG);
+    expect(result.waves).toHaveLength(1);
+    expect(result.waves[0]).toContain('plan-A');
+    expect(result.waves[0]).toContain('plan-B');
+  });
+
+  test('non-dryRun mode returns failure result', () => {
+    const planA = makePlan({ plan: 1, provides: ['artifact:A'], requires: [] });
+    const dag = buildArtifactDAG([planA]);
+    // dryRun: false — real execution is not implemented, should return failure
+    const result = executeArtifactDAG(dag, { dryRun: false });
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].success).toBe(false);
+    expect(result.results[0].error).toContain('not implemented');
+  });
 });
