@@ -151,6 +151,7 @@ function selectTopEntries(
   entries: KnowhowEntry[],
   n: number,
   moduleHints?: string[],
+  _currentPhase?: number,
 ): KnowhowEntry[] {
   if (entries.length === 0 || n <= 0) {
     return [];
@@ -177,9 +178,96 @@ function selectTopEntries(
   return sorted.slice(0, n);
 }
 
+/**
+ * Build a structured knowledge injection block from KNOWHOW.md for prompt injection.
+ *
+ * Reads KNOWHOW.md from path.join(cwd, 'KNOWHOW.md'), selects top 5 entries
+ * using selectTopEntries, and wraps them in <knowhow_context> XML tags.
+ *
+ * @param cwd - Project root directory
+ * @param _phaseNum - Current phase number (reserved for future phase-proximity scoring)
+ * @param moduleHints - Optional module name hints to boost relevant entries
+ * @returns Formatted injection block string, or '' if no entries
+ */
+function buildKnowledgeInjectionBlock(cwd: string, _phaseNum: string, moduleHints?: string[]): string {
+  const knowhowPath = path.join(cwd, 'KNOWHOW.md');
+  const content = safeReadFile(knowhowPath);
+  if (!content || !content.trim()) {
+    return '';
+  }
+
+  const entries = parseKnowhowEntries(content);
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const top = selectTopEntries(entries, 5, moduleHints);
+  if (top.length === 0) {
+    return '';
+  }
+
+  const formatted = top.map(formatKnowhowEntry).join('\n');
+  return `<knowhow_context>\n${formatted}\n</knowhow_context>`;
+}
+
+/**
+ * Extract module hints from PLAN.md frontmatter files_modified fields.
+ *
+ * Reads all *-PLAN.md files in phaseDir, extracts files_modified from YAML
+ * frontmatter, and returns unique basenames (without extensions).
+ *
+ * @param phaseDir - Path to phase directory containing PLAN.md files
+ * @returns Array of unique module basenames
+ */
+function extractModuleHints(phaseDir: string): string[] {
+  if (!fs.existsSync(phaseDir)) {
+    return [];
+  }
+
+  let files: string[];
+  try {
+    files = (fs.readdirSync(phaseDir) as string[]).filter(
+      (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
+    );
+  } catch {
+    return [];
+  }
+
+  if (files.length === 0) {
+    return [];
+  }
+
+  const hints = new Set<string>();
+
+  for (const file of files) {
+    const filePath = path.join(phaseDir, file);
+    const content = safeReadFile(filePath);
+    if (!content) continue;
+
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) continue;
+
+    const fmContent = fmMatch[1];
+    const filesMatch = fmContent.match(/files_modified:\s*\[([^\]]*)\]/);
+    if (!filesMatch) continue;
+
+    const filesList = filesMatch[1].split(',').map((f: string) => f.trim()).filter(Boolean);
+    for (const f of filesList) {
+      const basename = path.basename(f).split('.')[0];
+      if (basename) {
+        hints.add(basename);
+      }
+    }
+  }
+
+  return Array.from(hints);
+}
+
 module.exports = {
   formatKnowhowEntry,
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
+  buildKnowledgeInjectionBlock,
+  extractModuleHints,
 };

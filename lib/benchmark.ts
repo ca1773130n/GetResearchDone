@@ -327,3 +327,15 @@ export function formatBenchmarkReport(
 
   return lines.join('\n');
 }
+
+module.exports = {
+  loadCorpus,
+  saveCorpusEntry,
+  scoreComposite,
+  createDefaultRubric,
+  formatBenchmarkReport,
+  classifyEntry,
+  scoreSemanticFromSummary,
+  assessTrainability,
+  evaluateEntry,
+};
