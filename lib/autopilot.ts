@@ -22,6 +22,9 @@ import type {
   MetricSnapshot,
   MinimaRegion,
   ConvergenceConfig,
+  PlanArtifact,
+  ArtifactDAG,
+  ArtifactDAGValidation,
 } from './types';
 
 const fs = require('fs');
@@ -62,11 +65,15 @@ const {
 const {
   buildDependencyGraph,
   computeParallelGroups,
+  buildArtifactDAG,
+  validateArtifactDAG,
 }: {
   buildDependencyGraph: (
     phases: Array<{ number: string; name: string; depends_on?: string | null }>
   ) => DependencyGraph;
   computeParallelGroups: (graph: DependencyGraph) => string[][];
+  buildArtifactDAG: (plans: PlanArtifact[]) => ArtifactDAG;
+  validateArtifactDAG: (dag: ArtifactDAG, plans: PlanArtifact[]) => ArtifactDAGValidation;
 } = require('./deps');
 const {
   parseLongTermRoadmap,
@@ -1267,6 +1274,118 @@ function buildWaves(
   return result;
 }
 
+// ─── buildWavesFromPlans ──────────────────────────────────────────────────────
+
+/**
+ * Group phases into dependency waves, refined by artifact-level dependency information.
+ *
+ * Extends `buildWaves` with fine-grained artifact DAG constraints:
+ * 1. Computes baseline waves using `buildWaves(phases)`.
+ * 2. If plans have no provides/requires declarations, returns baseline unchanged.
+ * 3. Builds an ArtifactDAG from plans and validates it for cycles.
+ * 4. If the DAG is invalid (cycles detected), logs a warning and returns baseline.
+ * 5. For each baseline wave, checks if any two plans have artifact-level dependencies
+ *    (one requires what the other provides) — if so, splits them into separate sub-waves.
+ *
+ * @param plans - Array of plan artifacts parsed from PLAN.md frontmatter
+ * @param phases - Phase objects from roadmap analysis (for buildWaves baseline)
+ * @returns Refined wave grouping respecting both phase-level and artifact-level deps
+ */
+function buildWavesFromPlans(
+  plans: PlanArtifact[],
+  phases: Array<{ number: string; name: string; depends_on?: string | null }>
+): string[][] {
+  // Step 1: baseline from phase-level depends_on
+  const baseline = buildWaves(phases);
+
+  // Step 2: no artifact declarations — return baseline unchanged
+  const hasArtifacts = plans.some((p) => p.provides.length > 0 || p.requires.length > 0);
+  if (plans.length === 0 || !hasArtifacts) {
+    return baseline;
+  }
+
+  // Step 3: build artifact DAG
+  const dag = buildArtifactDAG(plans);
+
+  // Step 4: validate — if cycles present, warn and return baseline
+  const validation = validateArtifactDAG(dag, plans);
+  if (!validation.valid) {
+    process.stderr.write(
+      `[buildWavesFromPlans] WARNING: Artifact DAG has cycles — falling back to baseline waves.\n`
+    );
+    return baseline;
+  }
+
+  // Step 5: for each baseline wave, split plans that have artifact-level deps on each other
+  // Build a quick lookup: planId → set of artifacts it provides
+  const planProvides = new Map<string, Set<string>>();
+  for (const plan of plans) {
+    const planId = `${plan.phase}-${String(plan.plan).padStart(2, '0')}`;
+    planProvides.set(planId, new Set<string>(plan.provides));
+  }
+
+  // Build lookup: planId → set of artifacts it requires
+  const planRequires = new Map<string, Set<string>>();
+  for (const plan of plans) {
+    const planId = `${plan.phase}-${String(plan.plan).padStart(2, '0')}`;
+    planRequires.set(planId, new Set<string>(plan.requires));
+  }
+
+  /**
+   * Check whether planA artifact-depends on planB
+   * (planA requires something planB provides, or vice versa).
+   */
+  function hasArtifactDep(planA: string, planB: string): boolean {
+    const aRequires = planRequires.get(planA) ?? new Set<string>();
+    const bProvides = planProvides.get(planB) ?? new Set<string>();
+    const bRequires = planRequires.get(planB) ?? new Set<string>();
+    const aProvides = planProvides.get(planA) ?? new Set<string>();
+
+    for (const req of aRequires) {
+      if (bProvides.has(req)) return true;
+    }
+    for (const req of bRequires) {
+      if (aProvides.has(req)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Split a single wave into sub-waves so that no two plans in the same sub-wave
+   * have artifact-level dependencies on each other.
+   */
+  function splitWaveByArtifacts(wave: string[]): string[][] {
+    const subWaves: string[][] = [];
+
+    for (const planId of wave) {
+      let placed = false;
+      for (const subWave of subWaves) {
+        const conflict = subWave.some((existing) => hasArtifactDep(planId, existing));
+        if (!conflict) {
+          subWave.push(planId);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        subWaves.push([planId]);
+      }
+    }
+
+    return subWaves;
+  }
+
+  const refined: string[][] = [];
+  for (const wave of baseline) {
+    const subWaves = splitWaveByArtifacts(wave);
+    for (const sw of subWaves) {
+      refined.push(sw);
+    }
+  }
+
+  return refined;
+}
+
 /**
  * Write a status marker JSON file for tracking autopilot progress.
  */
@@ -2402,6 +2521,7 @@ module.exports = {
   runRefinementLoop,
   runPostPhasePipeline,
   buildWaves,
+  buildWavesFromPlans,
   parseWriteIntent,
   compareWriteIntent,
   formatWriteIntentMismatch,
