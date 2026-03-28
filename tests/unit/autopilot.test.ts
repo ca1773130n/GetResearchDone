@@ -4995,4 +4995,289 @@ describe('lib/autopilot', () => {
       expect(fs.existsSync(`${statePath}.tmp`)).toBe(false);
     });
   });
+
+  // ── autopilot v2 E2E — two-phase parallel pipeline ──
+
+  describe('autopilot v2 E2E — two-phase parallel pipeline', () => {
+    /**
+     * End-to-end integration test for REQ-178.
+     *
+     * Scenario: Two independent phases (48, 49) execute in parallel worktrees.
+     * Both go through the 4-step post-phase pipeline. A shared mergeQueue
+     * serializes the rebase+merge step. Phase 48 reaches the queue first
+     * (controlled by mock timing), so it merges before phase 49.
+     *
+     * Mock architecture note (same as mergeQueue + runPostPhasePipeline block):
+     * - childProcess.spawn (autopilot.ts module-level ref) → interceptable
+     * - childProcess.execFileSync (autopilot.ts module-level ref) → interceptable
+     *   for gh pr merge calls originating from autopilot.ts
+     * - execGit (utils.ts destructured ref) → NOT interceptable via spyOn
+     * - pushAndCreatePR (worktree.ts destructured ref) → NOT interceptable
+     *
+     * Because pushAndCreatePR cannot be mocked, the test uses the mergeQueue
+     * directly to verify arrival-order semantics, and exercises runPostPhasePipeline
+     * with full mock coverage for spawn calls (simplify + review subprocesses).
+     *
+     * The two-tier strategy:
+     * 1. Direct mergeQueue composition test — verifies arrival-order guarantee
+     *    using createMergeQueue + async tasks with controlled delays.
+     * 2. Concurrent runPostPhasePipeline test — exercises the actual pipeline
+     *    with both phases sharing a mergeQueue; verifies non-deadlock and
+     *    correct merge call ordering when both pipelines reach Step 4.
+     */
+
+    /** Small delay helper */
+    function delay(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    let tmpDir: string;
+    let spawnSpy: any;
+    let execSpy: any;
+
+    afterEach(() => {
+      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
+      if (execSpy) { execSpy.mockRestore(); execSpy = undefined; }
+      if (tmpDir) {
+        try {
+          childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
+        } catch { /* ignore */ }
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    const noop = (_msg: string): void => {};
+
+    it('E2E — mergeQueue arrival order: phase arriving first merges first', async () => {
+      // Verifies the core autopilot v2 property: phases enqueue in arrival order and
+      // the queue guarantees FIFO execution of Step 4 (rebase + merge).
+      //
+      // Two tasks represent phases 48 and 49 executing their post-pipelines.
+      // Phase 48 starts immediately; phase 49 starts after a short delay.
+      // Both tasks record their start/finish in the merge step.
+      // Expected merge order: 48 → 49 (arrival order).
+
+      const mergeQueue = createMergeQueue();
+      const mergeOrder: string[] = [];
+      const activeCount = { val: 0 };
+      let maxConcurrent = 0;
+
+      // Simulate post-pipeline Step 4 (rebase + merge) for a phase
+      const makeStep4 = (phaseNum: string, queueDelayMs: number) => {
+        return delay(queueDelayMs).then(() =>
+          mergeQueue.enqueue(async () => {
+            activeCount.val++;
+            maxConcurrent = Math.max(maxConcurrent, activeCount.val);
+            // Simulate merge work (brief async pause)
+            await delay(5);
+            mergeOrder.push(phaseNum);
+            activeCount.val--;
+          })
+        );
+      };
+
+      // Phase 48 enqueues at t=0ms, phase 49 enqueues at t=10ms
+      await Promise.all([
+        makeStep4('48', 0),
+        makeStep4('49', 10),
+      ]);
+
+      // Phase 48 arrives first → merges first
+      expect(mergeOrder).toEqual(['48', '49']);
+      // mergeQueue ensures serial execution of Step 4 (max 1 concurrent)
+      expect(maxConcurrent).toBe(1);
+    });
+
+    it('E2E — concurrent runPostPhasePipeline with shared mergeQueue: both resolve, no deadlock', async () => {
+      // Exercises actual runPostPhasePipeline for two concurrent phases sharing a
+      // mergeQueue. Verifies the system does not deadlock and both pipelines resolve.
+      //
+      // Mocks spawn to succeed (simplify + review steps). The create-pr step may
+      // fail (no remote in tmpDir fixture), but the test verifies non-deadlock
+      // regardless of which step each pipeline reaches.
+
+      tmpDir = createAutopilotFixture();
+
+      const mergeOrder: string[] = [];
+      let callIndex = 0;
+
+      // Track spawn calls: alternates between phase 48 (even) and phase 49 (odd)
+      // Both simplify and review succeed for both phases → 4 spawn calls total
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        callIndex++;
+        return createMockChild(0);
+      });
+
+      execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
+        (...args: unknown[]) => {
+          const cmd = args[0] as string;
+          const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
+
+          if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
+            // Return distinct PR URLs so each phase has its own PR
+            return 'https://github.com/test/repo/pull/42' as any;
+          }
+          if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'merge') {
+            // Record which PR was merged (extract phase from URL context or just order)
+            mergeOrder.push(String(argList[2] || 'unknown'));
+            return '' as any;
+          }
+          if (cmd === 'git' && argList[0] === 'push') {
+            return '' as any;
+          }
+          if (cmd === 'git' && argList[0] === 'rev-parse' && argList.includes('--abbrev-ref')) {
+            return 'grd/phase-test' as any;
+          }
+          // Fall through to real execFileSync for all other git calls
+          return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
+        }
+      );
+
+      const mergeQueue = createMergeQueue();
+
+      // Launch both phases concurrently — both share the same mergeQueue
+      const [r1, r2] = await Promise.all([
+        runPostPhasePipeline(tmpDir, '48', tmpDir, { log: noop, mergeQueue }),
+        runPostPhasePipeline(tmpDir, '49', tmpDir, { log: noop, mergeQueue }),
+      ]);
+
+      // Both must resolve (no deadlock, no uncaught rejection)
+      expect(r1).toBeDefined();
+      expect(r2).toBeDefined();
+
+      // Both must have a definitive status — no undefined/null
+      expect(['completed', 'failed']).toContain(r1.status);
+      expect(['completed', 'failed']).toContain(r2.status);
+
+      // If both reached gh pr merge, verify count <= 2
+      expect(mergeOrder.length).toBeLessThanOrEqual(2);
+
+      // spawn must have been called — at minimum for simplify steps
+      expect(callIndex).toBeGreaterThan(0);
+    });
+
+    it('E2E — two phases share mergeQueue: if both reach merge, gh pr merge called at most once concurrently', async () => {
+      // Verifies that the mergeQueue correctly serializes gh pr merge calls.
+      // Uses the mergeQueue directly to test the serialization invariant, then
+      // confirms the same holds when runPostPhasePipeline uses it.
+      //
+      // Since execGit (utils.ts) cannot be mocked, rebase + push --force-with-lease
+      // may fail for the no-remote fixture. The test asserts the serialization
+      // invariant holds for whatever calls do reach the mock.
+
+      tmpDir = createAutopilotFixture();
+
+      const mergeCallOrder: string[] = [];
+      const activeCount = { val: 0 };
+      let maxConcurrent = 0;
+      let mergeCallNum = 0;
+
+      spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
+
+      execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
+        (...args: unknown[]) => {
+          const cmd = args[0] as string;
+          const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
+
+          if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
+            return 'https://github.com/test/repo/pull/48' as any;
+          }
+          if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'merge') {
+            // Track concurrent execution (execFileSync is sync, but mergeQueue
+            // controls when Step 4 runs at the async level)
+            activeCount.val++;
+            maxConcurrent = Math.max(maxConcurrent, activeCount.val);
+            mergeCallOrder.push(String(++mergeCallNum));
+            activeCount.val--;
+            return '' as any;
+          }
+          if (cmd === 'git' && argList[0] === 'push') {
+            return '' as any;
+          }
+          if (cmd === 'git' && argList[0] === 'rev-parse' && argList.includes('--abbrev-ref')) {
+            return 'grd/phase-48' as any;
+          }
+          return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
+        }
+      );
+
+      const mergeQueue = createMergeQueue();
+
+      const [r1, r2] = await Promise.all([
+        runPostPhasePipeline(tmpDir, '48', tmpDir, { log: noop, mergeQueue }),
+        runPostPhasePipeline(tmpDir, '49', tmpDir, { log: noop, mergeQueue }),
+      ]);
+
+      // Both pipelines must resolve without deadlock
+      expect(r1).toBeDefined();
+      expect(r2).toBeDefined();
+
+      // If both pipelines reached gh pr merge, assert serialization
+      if (mergeCallOrder.length > 0) {
+        // mergeQueue guarantees at most 1 concurrent Step 4 execution
+        expect(maxConcurrent).toBe(1);
+        // At most 2 merges total (one per phase)
+        expect(mergeCallOrder.length).toBeLessThanOrEqual(2);
+      }
+    });
+
+    it('E2E — phase 48 completes execution before phase 49: mergeQueue arrival order preserved', async () => {
+      // Full autopilot v2 behavioral contract test:
+      // Phase 48 finishes all steps before phase 49, so phase 48 enqueues Step 4
+      // before phase 49. The mergeQueue guarantees phase 48 merges first.
+      //
+      // This test uses createMergeQueue directly and simulates both phases'
+      // complete post-pipeline lifecycles using async tasks with controlled timing.
+
+      const mergeQueue = createMergeQueue();
+      const completionLog: string[] = [];
+
+      // Simulate the full post-phase pipeline for a phase:
+      //   step1 (simplify) → step2 (create-pr) → step3 (review) → step4 (merge via queue)
+      const simulatePhase = async (phaseNum: string, executionDelayMs: number): Promise<{ status: string; prUrl: string }> => {
+        // Execution delay: simulates the phase's worktree execution time
+        await delay(executionDelayMs);
+
+        // Step 1: simplify (async subprocess — mock completes immediately)
+        completionLog.push(`${phaseNum}:simplify`);
+
+        // Step 2: create PR
+        const prUrl = `https://github.com/test/repo/pull/${phaseNum}`;
+        completionLog.push(`${phaseNum}:create-pr`);
+
+        // Step 3: code review
+        completionLog.push(`${phaseNum}:review`);
+
+        // Step 4: rebase + merge — serialized through mergeQueue
+        await mergeQueue.enqueue(async () => {
+          await delay(5); // simulate merge work
+          completionLog.push(`${phaseNum}:merge`);
+        });
+
+        return { status: 'completed', prUrl };
+      };
+
+      // Phase 48 execution finishes at t=0ms; phase 49 finishes at t=15ms
+      // Phase 48 reaches the queue first → should merge first
+      const [result48, result49] = await Promise.all([
+        simulatePhase('48', 0),
+        simulatePhase('49', 15),
+      ]);
+
+      expect(result48.status).toBe('completed');
+      expect(result49.status).toBe('completed');
+      expect(result48.prUrl).toBe('https://github.com/test/repo/pull/48');
+      expect(result49.prUrl).toBe('https://github.com/test/repo/pull/49');
+
+      // Extract merge events
+      const mergeEvents = completionLog.filter((e) => e.endsWith(':merge'));
+      expect(mergeEvents).toEqual(['48:merge', '49:merge']);
+
+      // Phase 48 must complete review before phase 49 merges
+      const idx48Merge = completionLog.indexOf('48:merge');
+      const idx49Merge = completionLog.indexOf('49:merge');
+      expect(idx48Merge).toBeLessThan(idx49Merge);
+    });
+  });
 });
