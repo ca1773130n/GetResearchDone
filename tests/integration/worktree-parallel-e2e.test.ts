@@ -109,13 +109,16 @@ function createTestGitRepo(): string {
   );
 
   // Add plan files so findPhaseInternal can find them
+  // Includes required structural fields so invariant-validation gate passes
+  const minimalPlanContent = (phase: string) =>
+    `---\nphase: "${phase}"\nplan: 01\ntype: execute\nwave: 1\nautonomous: true\nfiles_modified:\n  - lib/test.ts\n---\n\n<objective>Test plan for lib/ module gate compliance.</objective>\n`;
   fs.writeFileSync(
     path.join(phasesBase, '27-worktree-infrastructure', '27-01-PLAN.md'),
-    '---\nphase: 27\nplan: 01\n---\n'
+    minimalPlanContent('27')
   );
   fs.writeFileSync(
     path.join(phasesBase, '28-pr-workflow', '28-01-PLAN.md'),
-    '---\nphase: 28\nplan: 01\n---\n'
+    minimalPlanContent('28')
   );
 
   execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
@@ -1100,14 +1103,11 @@ function createPhase47GitRepo(backendOverrides: Record<string, any> = {}): strin
     'utf-8'
   );
 
-  fs.writeFileSync(
-    path.join(phasesBase, '01-alpha-phase', '01-01-PLAN.md'),
-    '---\nphase: 01\nplan: 01\n---\n'
-  );
-  fs.writeFileSync(
-    path.join(phasesBase, '02-beta-phase', '02-01-PLAN.md'),
-    '---\nphase: 02\nplan: 01\n---\n'
-  );
+  // Includes required structural fields so invariant-validation gate passes
+  const minimalPlan = (phase: string) =>
+    `---\nphase: "${phase}"\nplan: 01\ntype: execute\nwave: 1\nautonomous: true\nfiles_modified:\n  - lib/test.ts\n---\n\n<objective>Test plan for lib/ module gate compliance.</objective>\n`;
+  fs.writeFileSync(path.join(phasesBase, '01-alpha-phase', '01-01-PLAN.md'), minimalPlan('01'));
+  fs.writeFileSync(path.join(phasesBase, '02-beta-phase', '02-01-PLAN.md'), minimalPlan('02'));
 
   execFileSync('git', ['add', '.'], { cwd: tmpRoot, stdio: 'pipe' });
   execFileSync('git', ['commit', '-m', 'initial commit'], { cwd: tmpRoot, stdio: 'pipe' });
