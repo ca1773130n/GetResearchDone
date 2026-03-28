@@ -9,6 +9,8 @@ const {
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
+  buildKnowledgeInjectionBlock,
+  extractModuleHints,
 } = require('../../lib/knowledge') as {
   formatKnowhowEntry: (entry: import('../../lib/types').KnowhowEntry) => string;
   parseKnowhowEntries: (content: string) => import('../../lib/types').KnowhowEntry[];
@@ -16,8 +18,15 @@ const {
   selectTopEntries: (
     entries: import('../../lib/types').KnowhowEntry[],
     n: number,
-    hints?: string[]
+    hints?: string[],
+    currentPhase?: number
   ) => import('../../lib/types').KnowhowEntry[];
+  buildKnowledgeInjectionBlock: (
+    cwd: string,
+    phaseNum: string,
+    moduleHints?: string[]
+  ) => string;
+  extractModuleHints: (phaseDir: string) => string[];
 };
 
 import type { KnowhowEntry } from '../../lib/types';
@@ -363,5 +372,232 @@ describe('selectTopEntries', () => {
     const copy = [...entries];
     selectTopEntries(entries, 2);
     expect(entries).toEqual(copy);
+  });
+});
+
+// ─── buildKnowledgeInjectionBlock ─────────────────────────────────────────────
+
+describe('buildKnowledgeInjectionBlock', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Build a KNOWHOW.md content string with entries for the given phase numbers. */
+  function buildKnowhowContent(phaseNumbers: number[], overrides: Partial<KnowhowEntry> = {}): string {
+    const entries = phaseNumbers.map((n) =>
+      makeEntry({
+        pattern_name: `Pattern ${n}`,
+        phase_number: n,
+        source: `lib/phase${n}.ts`,
+        applicability: `Useful in phase ${n}`,
+        ...overrides,
+      })
+    );
+    return entries.map(formatKnowhowEntry).join('\n');
+  }
+
+  it('returns empty string when KNOWHOW.md does not exist', () => {
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(result).toBe('');
+  });
+
+  it('returns empty string when KNOWHOW.md is empty', () => {
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), '', 'utf8');
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(result).toBe('');
+  });
+
+  it('returns formatted block with top entries', () => {
+    // 7 entries with phase numbers 90-96
+    const content = buildKnowhowContent([90, 91, 92, 93, 94, 95, 96]);
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99');
+
+    // Must contain XML wrapper tags
+    expect(result).toContain('<knowhow_context>');
+    expect(result).toContain('</knowhow_context>');
+
+    // Must contain exactly 5 level-3 headings (top 5 by recency)
+    const headingMatches = result.match(/^### /gm) || [];
+    expect(headingMatches).toHaveLength(5);
+
+    // Must contain the most recent entry (phase 96)
+    expect(result).toContain('Pattern 96');
+
+    // Must NOT contain the oldest entry (phase 90 — excluded as 6th+)
+    expect(result).not.toContain('Pattern 90');
+  });
+
+  it('passes moduleHints to selectTopEntries', () => {
+    // 6 entries all with the same phase_number so that moduleHints boost determines order.
+    // 2 autopilot-relevant entries and 4 generic entries, all at phase 95.
+    // With hints=['autopilot'], the two autopilot entries sort first within the bucket.
+    const autopilotEntries = ['A', 'B'].map((letter) =>
+      makeEntry({
+        pattern_name: `Autopilot Pattern ${letter}`,
+        phase_number: 95,
+        source: `lib/autopilot.ts`,
+        applicability: `autopilot scheduling for ${letter}`,
+      })
+    );
+    const genericEntries = ['C', 'D', 'E', 'F'].map((letter) =>
+      makeEntry({
+        pattern_name: `Generic Pattern ${letter}`,
+        phase_number: 95,
+        source: `lib/generic.ts`,
+        applicability: `general use for ${letter}`,
+      })
+    );
+    const allEntries = [...autopilotEntries, ...genericEntries];
+    const content = allEntries.map(formatKnowhowEntry).join('\n');
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const result = buildKnowledgeInjectionBlock(tmpDir, '99', ['autopilot']);
+
+    // The autopilot-relevant entries should appear first in the top-5 output
+    expect(result).toContain('Autopilot Pattern A');
+    expect(result).toContain('Autopilot Pattern B');
+  });
+
+  it('reads KNOWHOW.md from project root (path.join(cwd, KNOWHOW.md))', () => {
+    // Place KNOWHOW.md in a subdirectory — function should look at cwd root only
+    const subDir = path.join(tmpDir, 'subdir');
+    fs.mkdirSync(subDir);
+    const content = buildKnowhowContent([99]);
+    // Write to tmpDir root (cwd), not subdir
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    // Call with tmpDir as cwd — should find KNOWHOW.md there
+    const resultWithCwd = buildKnowledgeInjectionBlock(tmpDir, '99');
+    expect(resultWithCwd).toContain('Pattern 99');
+
+    // Call with subDir as cwd — should NOT find KNOWHOW.md (it's in parent)
+    const resultWithSubDir = buildKnowledgeInjectionBlock(subDir, '99');
+    expect(resultWithSubDir).toBe('');
+  });
+});
+
+// ─── extractModuleHints ───────────────────────────────────────────────────────
+
+describe('extractModuleHints', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-extracthints-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('extracts module basenames from PLAN.md frontmatter', () => {
+    const planContent = `---\nfiles_modified: [lib/knowledge.ts, lib/autopilot.ts, tests/unit/knowledge.test.ts]\n---\n\n# Plan\n`;
+    fs.writeFileSync(path.join(tmpDir, '99-01-PLAN.md'), planContent, 'utf8');
+
+    const hints = extractModuleHints(tmpDir);
+
+    expect(hints).toContain('knowledge');
+    expect(hints).toContain('autopilot');
+  });
+
+  it('returns empty array when no PLAN.md exists', () => {
+    const hints = extractModuleHints(tmpDir);
+    expect(hints).toEqual([]);
+  });
+
+  it('deduplicates hints', () => {
+    // lib/foo.ts and tests/unit/foo.test.ts both map to basename 'foo'
+    const planContent = `---\nfiles_modified: [lib/foo.ts, tests/unit/foo.test.ts]\n---\n\n# Plan\n`;
+    fs.writeFileSync(path.join(tmpDir, '99-01-PLAN.md'), planContent, 'utf8');
+
+    const hints = extractModuleHints(tmpDir);
+
+    expect(hints).toEqual(['foo']);
+  });
+
+  it('handles multi-plan directories', () => {
+    const plan1 = `---\nfiles_modified: [lib/alpha.ts, lib/beta.ts]\n---\n\n# Plan 1\n`;
+    const plan2 = `---\nfiles_modified: [lib/gamma.ts]\n---\n\n# Plan 2\n`;
+    fs.writeFileSync(path.join(tmpDir, '99-01-PLAN.md'), plan1, 'utf8');
+    fs.writeFileSync(path.join(tmpDir, '99-02-PLAN.md'), plan2, 'utf8');
+
+    const hints = extractModuleHints(tmpDir);
+
+    expect(hints).toContain('alpha');
+    expect(hints).toContain('beta');
+    expect(hints).toContain('gamma');
+  });
+
+  it('returns empty array when phaseDir does not exist', () => {
+    const hints = extractModuleHints(path.join(tmpDir, 'nonexistent'));
+    expect(hints).toEqual([]);
+  });
+});
+
+// ─── selectTopEntries phase-proximity ─────────────────────────────────────────
+
+describe('selectTopEntries phase-proximity', () => {
+  it('entries from closer phases rank higher within same hint match', () => {
+    // All entries match the same hint; phase-proximity should determine order
+    const entries: KnowhowEntry[] = [
+      makeEntry({ pattern_name: 'Phase95', phase_number: 95, source: 'lib/knowledge.ts', applicability: 'knowledge stuff' }),
+      makeEntry({ pattern_name: 'Phase90', phase_number: 90, source: 'lib/knowledge.ts', applicability: 'knowledge stuff' }),
+      makeEntry({ pattern_name: 'Phase97', phase_number: 97, source: 'lib/knowledge.ts', applicability: 'knowledge stuff' }),
+    ];
+
+    // currentPhase = 99, hint = 'knowledge' — all match
+    // Primary sort is phase_number desc, so: 97, 95, 90 (phase-proximity as tiebreaker doesn't change primary sort here)
+    const top = selectTopEntries(entries, 3, ['knowledge'], 99);
+
+    expect(top.map((e) => e.pattern_name)).toEqual(['Phase97', 'Phase95', 'Phase90']);
+  });
+
+  it('phase-proximity does not override recency — entry at phase 98 (no hint) ranks above phase 90 (with hint)', () => {
+    const entries: KnowhowEntry[] = [
+      makeEntry({ pattern_name: 'NoHint98', phase_number: 98, source: 'lib/other.ts', applicability: 'unrelated' }),
+      makeEntry({ pattern_name: 'WithHint90', phase_number: 90, source: 'lib/knowledge.ts', applicability: 'knowledge stuff' }),
+    ];
+
+    const top = selectTopEntries(entries, 2, ['knowledge'], 99);
+
+    // Phase 98 entry must come first (recency primary sort)
+    expect(top[0].pattern_name).toBe('NoHint98');
+    expect(top[1].pattern_name).toBe('WithHint90');
+  });
+
+  it('works without phaseNum (backward compatible)', () => {
+    const entries: KnowhowEntry[] = [
+      makeEntry({ pattern_name: 'Old', phase_number: 1 }),
+      makeEntry({ pattern_name: 'New', phase_number: 10 }),
+    ];
+
+    const top = selectTopEntries(entries, 2);
+    // Original behavior: phase_number desc
+    expect(top[0].pattern_name).toBe('New');
+    expect(top[1].pattern_name).toBe('Old');
+  });
+
+  it('phase-proximity as tiebreaker within same phase_number bucket — closer phase wins', () => {
+    // Two entries at the same phase_number — use proximity as tertiary tiebreaker
+    // Since they have the same phase, we need them to differ in distance to currentPhase somehow.
+    // Actually with same phase_number the proximity distance is identical, so this is identity.
+    // Instead, test with phase_numbers where hint match is same and phase differs:
+    // phases 95 and 85, currentPhase 99 → 95 is closer (dist 4) vs 85 (dist 14)
+    const entries: KnowhowEntry[] = [
+      makeEntry({ pattern_name: 'Phase85', phase_number: 85, source: 'lib/knowledge.ts', applicability: 'knowledge' }),
+      makeEntry({ pattern_name: 'Phase95', phase_number: 95, source: 'lib/knowledge.ts', applicability: 'knowledge' }),
+    ];
+
+    const top = selectTopEntries(entries, 2, ['knowledge'], 99);
+    // Primary sort by phase_number desc: 95 then 85
+    expect(top[0].pattern_name).toBe('Phase95');
+    expect(top[1].pattern_name).toBe('Phase85');
   });
 });

@@ -17,6 +17,11 @@ import type {
   MilestoneStepResult,
   MultiMilestoneResult,
   PhaseInfo,
+  CritiqueBranch,
+  RefinementMetrics,
+  MetricSnapshot,
+  MinimaRegion,
+  ConvergenceConfig,
 } from './types';
 
 const fs = require('fs');
@@ -128,6 +133,24 @@ const {
 }: {
   execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => import('./types').ExecGitResult;
 } = require('./utils');
+const {
+  collectMetrics: _collectMetrics,
+  checkConvergence: _checkConvergence,
+  classifyBranch: _classifyBranch,
+  detectMinima: _detectMinima,
+  buildCritiquePrompt: _buildCritiquePromptFn,
+}: {
+  collectMetrics: (testOutput: string, tscOutput: string, lintOutput: string) => RefinementMetrics;
+  checkConvergence: (snapshots: MetricSnapshot[], config: ConvergenceConfig) => { converged: boolean; reason: string };
+  classifyBranch: (current: RefinementMetrics, targets: RefinementMetrics) => CritiqueBranch;
+  detectMinima: (snapshots: MetricSnapshot[]) => MinimaRegion[];
+  buildCritiquePrompt: (branch: CritiqueBranch, metrics: RefinementMetrics, targets: RefinementMetrics, minimaRegions: MinimaRegion[]) => string;
+} = require('./refinement');
+const {
+  buildKnowledgeInjectionBlock,
+}: {
+  buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
+} = require('./knowledge');
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -379,18 +402,19 @@ function withUltrathink(prompt: string, backend?: string): string {
 /**
  * Build the prompt for planning a phase via `claude -p`.
  */
-function buildPlanPrompt(phaseNum: string, backend?: string): string {
-  return withUltrathink(
-    `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify.`,
-    backend
-  );
+function buildPlanPrompt(phaseNum: string, backend?: string, cwd?: string): string {
+  const basePrompt = `Use the Skill tool to invoke skill "grd:plan-phase" with args "${phaseNum}" (i.e. plan-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. Complete all planning steps and write the PLAN.md files. Ensure each PLAN.md includes a \`files_modified:\` field in its YAML frontmatter listing the lib/ modules and other files the plan expects to modify. Each PLAN.md MUST also include \`provides: []\`, \`requires: []\`, and \`integration_points: []\` in YAML frontmatter. \`provides\` lists artifact identifiers this plan creates (format: "module:ExportName", e.g., "lib/deps.ts:buildArtifactDAG"). \`requires\` lists artifacts from other plans that must exist before this plan executes. \`integration_points\` lists artifacts this plan connects to but does not strictly depend on.`;
+  const knowhowBlock = cwd ? buildKnowledgeInjectionBlock(cwd, phaseNum) : '';
+  return withUltrathink(knowhowBlock ? `${knowhowBlock}\n\n${basePrompt}` : basePrompt, backend);
 }
 
 /**
  * Build the prompt for executing a phase via `claude -p`.
  */
-function buildExecutePrompt(phaseNum: string): string {
-  return `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
+function buildExecutePrompt(phaseNum: string, cwd?: string): string {
+  const basePrompt = `Use the Skill tool to invoke skill "grd:execute-phase" with args "${phaseNum}" (i.e. execute-phase ${phaseNum}). Autonomous mode — make all decisions yourself, no questions. After execution, merge locally. Do not push.`;
+  const knowhowBlock = cwd ? buildKnowledgeInjectionBlock(cwd, phaseNum) : '';
+  return knowhowBlock ? `${knowhowBlock}\n\n${basePrompt}` : basePrompt;
 }
 
 /** Simplify step: code quality review before PR creation. */
@@ -551,6 +575,179 @@ async function runKnowledgeMining(
   } catch (_err) {
     log(`Phase ${phaseNum}: knowledge mining failed (non-blocking): ${String(_err)}`);
     writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'failed');
+  }
+}
+
+/**
+ * Build the prompt string for the critique agent invocation.
+ *
+ * Wraps the refinement critique prompt (from lib/refinement.ts) in the standard
+ * agent invocation format, prepending agent role context and phase information.
+ *
+ * @param phaseNum - Phase number for file path context
+ * @param branch - The classified refinement branch to execute
+ * @param metrics - Current metric measurements
+ * @param targets - Target metric thresholds
+ * @param minimaRegions - Detected minima/maxima regions from metric history
+ * @returns Formatted prompt string for the grd-critique-agent
+ */
+function buildCritiqueAgentPrompt(
+  phaseNum: string,
+  branch: CritiqueBranch,
+  metrics: RefinementMetrics,
+  targets: RefinementMetrics,
+  minimaRegions: MinimaRegion[]
+): string {
+  const critiquePrompt = _buildCritiquePromptFn(branch, metrics, targets, minimaRegions);
+  return `You are the grd-critique-agent. Your branch is ${branch}.
+
+Phase: ${phaseNum}
+Working directory: project root (all paths are relative to it)
+
+${critiquePrompt}
+
+Apply the targeted fixes described above. Focus on the ${branch} branch instructions. Emit the CRITIQUE-RESULT block at the end of your response.`;
+}
+
+/**
+ * Run the iterative metric-driven refinement loop for a phase.
+ *
+ * Implements the closed-loop: collect metrics -> classify branch -> spawn critique
+ * agent -> re-measure -> check convergence. Adapts NERFIFY's 3-branch refinement
+ * (Macro/Geometry/Generative) to GRD's domain.
+ *
+ * Non-blocking — the entire loop is wrapped in try/catch; failures are logged and
+ * the pipeline always continues.
+ *
+ * @param cwd - Absolute path to the project root directory
+ * @param phaseNum - Phase number (used in status markers and prompts)
+ * @param options - Configuration including scheduler, log function, and targets
+ */
+async function runRefinementLoop(
+  cwd: string,
+  phaseNum: string,
+  options: {
+    scheduler?: Scheduler | null;
+    log: (msg: string) => void;
+    maxIterations?: number;
+    targets?: RefinementMetrics;
+  }
+): Promise<void> {
+  const { scheduler, log } = options;
+
+  // Skip when not explicitly enabled via config (opt-in, same as citation_gate pattern)
+  if (loadConfig(cwd).refinement_loop !== true) {
+    log(`Phase ${phaseNum}: refinement loop skipped — refinement_loop config not enabled`);
+    return;
+  }
+
+  const agentDefPath = path.resolve(cwd, 'agents', 'grd-critique-agent.md');
+
+  if (!fs.existsSync(agentDefPath)) {
+    log(`Phase ${phaseNum}: refinement loop skipped — grd-critique-agent.md not found`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'skipped');
+    return;
+  }
+
+  const maxIterations = options.maxIterations ?? 3;
+  const convergenceConfig: ConvergenceConfig = {
+    epsilon_coverage: 0.5,
+    epsilon_type_errors: 0,
+    epsilon_lint: 1,
+    max_iterations: maxIterations,
+  };
+  const targets: RefinementMetrics = options.targets ?? {
+    test_coverage_pct: 80,
+    type_error_count: 0,
+    lint_violation_count: 0,
+    timestamp: new Date().toISOString(),
+  };
+
+  writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'started');
+  log(`Phase ${phaseNum}: refinement loop started (maxIterations=${maxIterations})`);
+
+  try {
+    const history: MetricSnapshot[] = [];
+
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      log(`Phase ${phaseNum}: refinement loop iteration ${iteration}/${maxIterations}`);
+      writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}`);
+
+      // Step 1: Collect metrics from npm test, build:check, and lint
+      const testResult = await spawnStep(
+        'npm test -- --coverage --silent 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-test-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+      const tscResult = await spawnStep(
+        'npm run build:check 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-tsc-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+      const lintResult = await spawnStep(
+        'npm run lint 2>&1',
+        cwd,
+        `phase-${phaseNum}-refinement-lint-${iteration}`,
+        null,
+        { captureOutput: true }
+      );
+
+      // Step 2: Parse metrics from captured outputs
+      const currentMetrics = _collectMetrics(
+        testResult.stdout ?? '',
+        tscResult.stdout ?? '',
+        lintResult.stdout ?? ''
+      );
+
+      // Step 3: Push snapshot to history
+      const snapshot: MetricSnapshot = {
+        metrics: currentMetrics,
+        phase: phaseNum,
+        plan: String(iteration),
+      };
+      history.push(snapshot);
+
+      log(
+        `Phase ${phaseNum}: metrics collected — coverage=${currentMetrics.test_coverage_pct.toFixed(1)}%, ` +
+        `type_errors=${currentMetrics.type_error_count}, lint=${currentMetrics.lint_violation_count}`
+      );
+
+      // Step 4: Check convergence
+      const convergenceResult = _checkConvergence(history, convergenceConfig);
+      if (convergenceResult.converged) {
+        log(`Phase ${phaseNum}: refinement loop converged — ${convergenceResult.reason}`);
+        writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'converged');
+        return;
+      }
+
+      // Step 5: Classify branch and detect minima
+      const branch = _classifyBranch(currentMetrics, targets);
+      const minimaRegions = _detectMinima(history);
+      log(`Phase ${phaseNum}: refinement loop classifying branch as '${branch}'`);
+
+      // Step 6: Build critique prompt and spawn critique agent
+      const critiquePrompt = buildCritiqueAgentPrompt(phaseNum, branch, currentMetrics, targets, minimaRegions);
+      await spawnStep(
+        critiquePrompt,
+        cwd,
+        `phase-${phaseNum}-critique-${iteration}`,
+        scheduler ?? null,
+        { captureOutput: true }
+      );
+
+      writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-complete`);
+    }
+
+    // Reached max iterations without convergence
+    log(`Phase ${phaseNum}: refinement loop reached max iterations (${maxIterations})`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'max-iterations');
+  } catch (_err) {
+    log(`Phase ${phaseNum}: refinement loop failed (non-blocking): ${String(_err)}`);
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'failed');
   }
 }
 
@@ -1317,7 +1514,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             phase: phaseNum,
             step: 'plan',
             status: 'dry-run',
-            prompt: buildPlanPrompt(phaseNum, backend),
+            prompt: buildPlanPrompt(phaseNum, backend, cwd),
           });
           planTasks.push({ phaseNum, skipped: true });
         } else {
@@ -1351,7 +1548,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend), {
+              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend, cwd), {
                 phase_number: phaseNum,
                 plan_id: planId,
                 milestone: milestoneInfo.version,
@@ -1396,7 +1593,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             } else {
               // Non-overstory backend with account rotation: use scheduler.spawn
               promise = scheduler
-                .spawn(buildPlanPrompt(phaseNum, backend), {
+                .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1408,7 +1605,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           } else {
             promise = scheduler
               ? scheduler
-                  .spawn(buildPlanPrompt(phaseNum, backend), {
+                  .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
                     timeout: timeoutMs,
                     maxTurns,
                     model,
@@ -1416,7 +1613,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                     workItemId: `phase-${phaseNum}-plan`,
                   })
                   .then(toSpawnResult)
-              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend), {
+              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend, cwd), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1509,7 +1706,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             phase: phaseNum,
             step: 'execute',
             status: 'dry-run',
-            prompt: buildExecutePrompt(phaseNum),
+            prompt: buildExecutePrompt(phaseNum, cwd),
           });
           execTasks.push({ phaseNum, skipped: true });
           continue;
@@ -1547,7 +1744,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         const promise = (async (): Promise<{ execResult: SpawnResult; wtPath: string }> => {
           const execResult: SpawnResult = scheduler
             ? toSpawnResult(
-                await scheduler.spawn(buildExecutePrompt(phaseNum), {
+                await scheduler.spawn(buildExecutePrompt(phaseNum, wtPath), {
                   timeout: timeoutMs,
                   maxTurns,
                   model,
@@ -1555,7 +1752,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   workItemId: `phase-${phaseNum}-execute`,
                 })
               )
-            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum), {
+            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum, wtPath), {
                 timeout: timeoutMs,
                 maxTurns,
                 model,
@@ -1596,12 +1793,11 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, task.phaseNum, 'execute', 'completed');
         results.push({ phase: task.phaseNum, step: 'execute', status: 'completed' });
 
-        // Knowledge mining (non-blocking — failure does not halt pipeline)
-        try {
-          await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
-        } catch (_err) {
-          log(`Phase ${task.phaseNum}: knowledge mining error (non-blocking)`);
-        }
+        // Knowledge mining (non-blocking — runKnowledgeMining never rejects)
+        await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
+
+        // Refinement loop (non-blocking — runRefinementLoop never rejects)
+        await runRefinementLoop(cwd, task.phaseNum, { scheduler, log });
 
         // Launch post-phase pipeline concurrently (Steps 1-3 run in parallel across
         // phases; Step 4 rebase+merge is serialized via the shared mergeQueue).
@@ -2190,6 +2386,8 @@ module.exports = {
   buildWireupPrompt,
   buildKnowledgeMiningPrompt,
   runKnowledgeMining,
+  buildCritiqueAgentPrompt,
+  runRefinementLoop,
   runPostPhasePipeline,
   buildWaves,
   parseWriteIntent,

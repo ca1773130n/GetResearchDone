@@ -49,7 +49,6 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
 
   const entries: KnowhowEntry[] = [];
 
-  // Split on level-3 headings (### prefix). Keep the heading text by using a capture.
   const blocks = content.split(/(?=^### )/m);
 
   for (const block of blocks) {
@@ -107,11 +106,12 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
  * - Parent directories are created if needed.
  */
 function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): void {
+  if (entries.length === 0) return;
+
   const existingContent = safeReadFile(knowhowPath) ?? '';
 
   const existing = parseKnowhowEntries(existingContent);
 
-  // Build a map from pattern_name to entry for deduplication
   const byName = new Map<string, KnowhowEntry>();
 
   for (const e of existing) {
@@ -127,13 +127,11 @@ function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): voi
 
   const merged = Array.from(byName.values());
 
-  // Sort by phase_number descending (most recent first) for stable output
   merged.sort((a, b) => b.phase_number - a.phase_number);
 
   const body = merged.map(formatKnowhowEntry).join('\n');
   const fileContent = KNOWHOW_HEADER + body;
 
-  // Ensure parent directory exists
   const dir = path.dirname(knowhowPath);
   fs.mkdirSync(dir, { recursive: true });
 
@@ -153,29 +151,116 @@ function selectTopEntries(
   entries: KnowhowEntry[],
   n: number,
   moduleHints?: string[],
+  _currentPhase?: number,
 ): KnowhowEntry[] {
   if (entries.length === 0 || n <= 0) {
     return [];
   }
 
-  const hasHint = (entry: KnowhowEntry): boolean => {
-    if (!moduleHints || moduleHints.length === 0) return false;
-    const combined = `${entry.source} ${entry.applicability}`.toLowerCase();
-    return moduleHints.some((hint) => combined.includes(hint.toLowerCase()));
-  };
+  const lowerHints = moduleHints?.map((h) => h.toLowerCase()) ?? [];
+  const hintMatches = new Set<KnowhowEntry>();
+  if (lowerHints.length > 0) {
+    for (const entry of entries) {
+      const combined = `${entry.source} ${entry.applicability}`.toLowerCase();
+      if (lowerHints.some((hint) => combined.includes(hint))) {
+        hintMatches.add(entry);
+      }
+    }
+  }
 
   const sorted = [...entries].sort((a, b) => {
-    // Primary: phase_number descending
     if (b.phase_number !== a.phase_number) {
       return b.phase_number - a.phase_number;
     }
-    // Secondary: module hint boost (entries with hints come first)
-    const aHit = hasHint(a) ? 1 : 0;
-    const bHit = hasHint(b) ? 1 : 0;
-    return bHit - aHit;
+    return (hintMatches.has(b) ? 1 : 0) - (hintMatches.has(a) ? 1 : 0);
   });
 
   return sorted.slice(0, n);
+}
+
+/**
+ * Build a structured knowledge injection block from KNOWHOW.md for prompt injection.
+ *
+ * Reads KNOWHOW.md from path.join(cwd, 'KNOWHOW.md'), selects top 5 entries
+ * using selectTopEntries, and wraps them in <knowhow_context> XML tags.
+ *
+ * @param cwd - Project root directory
+ * @param _phaseNum - Current phase number (reserved for future phase-proximity scoring)
+ * @param moduleHints - Optional module name hints to boost relevant entries
+ * @returns Formatted injection block string, or '' if no entries
+ */
+function buildKnowledgeInjectionBlock(cwd: string, _phaseNum: string, moduleHints?: string[]): string {
+  const knowhowPath = path.join(cwd, 'KNOWHOW.md');
+  const content = safeReadFile(knowhowPath);
+  if (!content || !content.trim()) {
+    return '';
+  }
+
+  const entries = parseKnowhowEntries(content);
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const top = selectTopEntries(entries, 5, moduleHints);
+  if (top.length === 0) {
+    return '';
+  }
+
+  const formatted = top.map(formatKnowhowEntry).join('\n');
+  return `<knowhow_context>\n${formatted}\n</knowhow_context>`;
+}
+
+/**
+ * Extract module hints from PLAN.md frontmatter files_modified fields.
+ *
+ * Reads all *-PLAN.md files in phaseDir, extracts files_modified from YAML
+ * frontmatter, and returns unique basenames (without extensions).
+ *
+ * @param phaseDir - Path to phase directory containing PLAN.md files
+ * @returns Array of unique module basenames
+ */
+function extractModuleHints(phaseDir: string): string[] {
+  if (!fs.existsSync(phaseDir)) {
+    return [];
+  }
+
+  let files: string[];
+  try {
+    files = (fs.readdirSync(phaseDir) as string[]).filter(
+      (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
+    );
+  } catch {
+    return [];
+  }
+
+  if (files.length === 0) {
+    return [];
+  }
+
+  const hints = new Set<string>();
+
+  for (const file of files) {
+    const filePath = path.join(phaseDir, file);
+    const content = safeReadFile(filePath);
+    if (!content) continue;
+
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) continue;
+
+    const fmContent = fmMatch[1];
+    const filesMatch = fmContent.match(/files_modified:\s*\[([^\]]*)\]/);
+    if (!filesMatch) continue;
+
+    const filesList = filesMatch[1].split(',').map((f: string) => f.trim()).filter(Boolean);
+    for (const f of filesList) {
+      const basename = path.basename(f).split('.')[0];
+      if (basename) {
+        hints.add(basename);
+      }
+    }
+  }
+
+  return Array.from(hints);
 }
 
 module.exports = {
@@ -183,4 +268,6 @@ module.exports = {
   parseKnowhowEntries,
   appendKnowhowEntries,
   selectTopEntries,
+  buildKnowledgeInjectionBlock,
+  extractModuleHints,
 };

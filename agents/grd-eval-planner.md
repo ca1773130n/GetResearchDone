@@ -780,6 +780,108 @@ WebMCP tool definitions skipped — phase does not modify frontend views.
 
 </critical_rules>
 
+<benchmark_corpus_integration>
+
+## Benchmark Corpus Evaluation Mode
+
+When asked to plan a **benchmark corpus evaluation run** (rather than a phase-level evaluation plan), use the following flow powered by `lib/benchmark.ts`.
+
+### IntegrationCategory Taxonomy
+
+Adapted from NERFIFY-BENCH Figure 7. Every BenchmarkEntry carries one of four categories:
+
+| Category | Meaning | Score Multiplier |
+|----------|---------|-----------------|
+| `directly-integrable` | Methods implementable from the paper alone | 1.0 |
+| `requires-external-models` | Methods needing pretrained weights or a foundation model | 0.85 |
+| `novelty-coverage` | Primary contribution is a novel technique | 0.9 |
+| `out-of-scope` | Hardware-specific or fully closed-source; beyond synthesis scope | 0.5 |
+
+### Corpus Directory Layout
+
+```
+.planning/benchmark/
+  corpus/     # One {id}.json file per BenchmarkEntry
+  results/    # One {id}-result.json file per BenchmarkResult
+```
+
+### Execution Flow for Corpus Evaluations
+
+**Step 1: Load corpus using loadCorpus**
+
+```bash
+node -e "
+const { loadCorpus } = require('./lib/benchmark');
+const entries = loadCorpus('.planning/benchmark/corpus');
+console.log(JSON.stringify(entries.map(e => ({ id: e.id, category: e.category, tags: e.tags })), null, 2));
+"
+```
+
+`loadCorpus` returns `BenchmarkEntry[]` sorted newest-first. Returns `[]` for a missing directory (graceful degradation).
+
+**Step 2: Filter by criteria**
+
+- All entries: use full corpus
+- By category: `entries.filter(e => e.category === 'directly-integrable')`
+- By tag: `entries.filter(e => e.tags.includes('attention'))`
+- By recency: corpus is newest-first; `entries.slice(0, N)` for N most recent
+
+**Step 3: Gather evaluation inputs per entry**
+
+For each selected entry, collect:
+- `semanticSummary` — structured text with `novelty_capture`, `api_surface_match`, `algorithmic_fidelity`, and `notes` fields (from prior grd-phase-researcher output or manual input)
+- `buildOutput` — stdout/stderr from synthesis build step (empty string if no build attempted)
+- `runOutput` — stdout from running the synthesized code (empty string if no run attempted)
+- `rubric` (optional) — override `createDefaultRubric()` only for special weighting needs
+
+**Step 4: Run evaluateEntry for each selected entry**
+
+```bash
+node -e "
+const { loadCorpus, evaluateEntry } = require('./lib/benchmark');
+const entries = loadCorpus('.planning/benchmark/corpus');
+const entry = entries.find(e => e.id === 'TARGET_ID');
+const result = evaluateEntry(
+  entry,
+  'novelty_capture: 0.85\napi_surface_match: 0.72\nalgorithmic_fidelity: 0.90\nnotes: ...',
+  buildOutput,
+  runOutput
+);
+console.log(JSON.stringify(result, null, 2));
+"
+```
+
+`evaluateEntry` orchestrates: classify → scoreSemanticFromSummary → assessTrainability → scoreComposite → BenchmarkResult.
+
+Save each result to `.planning/benchmark/results/{id}-result.json`.
+
+**Step 5: Hand off BenchmarkResult[] to grd-eval-reporter**
+
+Provide: total entries evaluated, result directory path, filter criteria used (for report context).
+
+### Adding New Corpus Entries
+
+When a new research paper needs tracking, create a BenchmarkEntry via `saveCorpusEntry`:
+
+```bash
+node -e "
+const { saveCorpusEntry } = require('./lib/benchmark');
+const entry = {
+  id: 'author-keyword-year',
+  title: 'Full Paper Title',
+  source: 'https://arxiv.org/abs/XXXX.XXXXX',
+  category: 'directly-integrable',
+  tags: ['attention', 'transformer'],
+  added_at: new Date().toISOString()
+};
+saveCorpusEntry('.planning/benchmark/corpus', entry);
+"
+```
+
+Use `classifyEntry(entry)` as a heuristic starting point, then confirm or override the category based on your reading of the paper.
+
+</benchmark_corpus_integration>
+
 <success_criteria>
 
 Evaluation plan is complete when:

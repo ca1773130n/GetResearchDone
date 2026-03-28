@@ -16,7 +16,49 @@ const {
   formatProgressBar,
   streamPhaseProgress,
   cmdParallelProgress,
+  buildWaves,
 } = require('../../lib/parallel');
+
+const { buildArtifactDAG } = require('../../lib/deps');
+
+// ─── buildWaves helpers ──────────────────────────────────────────────────────
+
+type PlanArtifactOverrides = {
+  objective?: string;
+  files_modified?: string[];
+  phase?: string;
+  plan?: number;
+  type?: string;
+  wave?: number;
+  depends_on?: string[];
+  autonomous?: boolean;
+  provides?: string[];
+  requires?: string[];
+  integration_points?: string[];
+};
+
+function makeWavePlan(overrides: PlanArtifactOverrides = {}): Record<string, unknown> {
+  return {
+    objective: 'test',
+    files_modified: ['lib/test.ts'],
+    phase: '94-graph-of-thought-synthesis',
+    plan: 1,
+    type: 'execute',
+    wave: 1,
+    depends_on: [],
+    autonomous: true,
+    provides: [],
+    requires: [],
+    integration_points: [],
+    ...overrides,
+  };
+}
+
+// Helper to get plan IDs in a specific wave from buildWaves result
+function getPlansInWave(waves: Array<{ wave: number; plans: string[] }>, waveNum: number): string[] {
+  const found = waves.find(w => w.wave === waveNum);
+  return found ? found.plans : [];
+}
 
 // ─── validateIndependentPhases ──────────────────────────────────────────────
 
@@ -1093,5 +1135,187 @@ describe('cmdParallelProgress', () => {
     );
     const result = JSON.parse(stdout);
     expect(result.status).toBe('done');
+  });
+});
+
+// ─── buildWaves ───────────────────────────────────────────────────────────────
+
+describe('buildWaves', () => {
+  const PHASE = '94-graph-of-thought-synthesis';
+
+  test('returns single wave for independent plans with no dependencies', () => {
+    const planA = makeWavePlan({ plan: 1, depends_on: [], provides: [], requires: [] });
+    const planB = makeWavePlan({ plan: 2, depends_on: [], provides: [], requires: [] });
+    const planC = makeWavePlan({ plan: 3, depends_on: [], provides: [], requires: [] });
+    const waves = buildWaves([planA, planB, planC]);
+
+    expect(waves).toHaveLength(1);
+    expect(waves[0].wave).toBe(1);
+    expect(waves[0].plans).toHaveLength(3);
+    expect(waves[0].plans).toContain(`${PHASE}-01`);
+    expect(waves[0].plans).toContain(`${PHASE}-02`);
+    expect(waves[0].plans).toContain(`${PHASE}-03`);
+  });
+
+  test('respects depends_on without artifact DAG (backward compatible)', () => {
+    const planA = makeWavePlan({ plan: 1, depends_on: [] });
+    const planB = makeWavePlan({
+      plan: 2,
+      depends_on: [`${PHASE}-01`],
+    });
+    const waves = buildWaves([planA, planB]);
+
+    expect(waves).toHaveLength(2);
+    expect(getPlansInWave(waves, 1)).toContain(`${PHASE}-01`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-02`);
+  });
+
+  test('respects artifact DAG constraints when provided', () => {
+    const planA = makeWavePlan({ plan: 1, provides: ['lib/foo.ts:X'], requires: [] });
+    const planB = makeWavePlan({ plan: 2, provides: [], requires: ['lib/foo.ts:X'] });
+    const plans = [planA, planB];
+    const dag = buildArtifactDAG(plans);
+    const waves = buildWaves(plans, { artifactDAG: dag });
+
+    expect(waves).toHaveLength(2);
+    expect(getPlansInWave(waves, 1)).toContain(`${PHASE}-01`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-02`);
+  });
+
+  test('merges depends_on and artifact DAG constraints without duplication', () => {
+    // B explicitly depends_on A AND requires A's artifact — should still be wave 2
+    const planA = makeWavePlan({ plan: 1, provides: ['lib/foo.ts:X'], requires: [] });
+    const planB = makeWavePlan({
+      plan: 2,
+      provides: [],
+      requires: ['lib/foo.ts:X'],
+      depends_on: [`${PHASE}-01`],
+    });
+    const plans = [planA, planB];
+    const dag = buildArtifactDAG(plans);
+    const waves = buildWaves(plans, { artifactDAG: dag });
+
+    expect(waves).toHaveLength(2);
+    expect(getPlansInWave(waves, 1)).toContain(`${PHASE}-01`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-02`);
+    // Verify no plan appears more than once
+    const allPlans = waves.flatMap((w: { wave: number; plans: string[] }) => w.plans);
+    expect(allPlans.length).toBe(2);
+    expect(new Set(allPlans).size).toBe(2);
+  });
+
+  test('artifact DAG adds constraints beyond explicit depends_on', () => {
+    // B depends_on A (explicit). C requires B's artifact (only via DAG, no explicit depends_on).
+    const planA = makeWavePlan({ plan: 1, provides: ['lib/A.ts:A'], requires: [] });
+    const planB = makeWavePlan({
+      plan: 2,
+      provides: ['lib/B.ts:B'],
+      requires: [],
+      depends_on: [`${PHASE}-01`],
+    });
+    const planC = makeWavePlan({
+      plan: 3,
+      provides: [],
+      requires: ['lib/B.ts:B'],
+      depends_on: [],
+    });
+    const plans = [planA, planB, planC];
+    const dag = buildArtifactDAG(plans);
+    const waves = buildWaves(plans, { artifactDAG: dag });
+
+    expect(waves).toHaveLength(3);
+    expect(getPlansInWave(waves, 1)).toContain(`${PHASE}-01`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-02`);
+    expect(getPlansInWave(waves, 3)).toContain(`${PHASE}-03`);
+  });
+
+  test('handles empty plans array', () => {
+    const waves = buildWaves([]);
+    expect(waves).toEqual([]);
+  });
+
+  test('backward compatible with plans missing provides/requires (empty arrays)', () => {
+    // Plans with empty provides/requires should only use depends_on
+    const planA = makeWavePlan({ plan: 1, provides: [], requires: [], depends_on: [] });
+    const planB = makeWavePlan({
+      plan: 2,
+      provides: [],
+      requires: [],
+      depends_on: [`${PHASE}-01`],
+    });
+    const planC = makeWavePlan({ plan: 3, provides: [], requires: [], depends_on: [] });
+    const waves = buildWaves([planA, planB, planC]);
+
+    // C and A should be in wave 1 (independent), B in wave 2
+    const wave1 = getPlansInWave(waves, 1);
+    const wave2 = getPlansInWave(waves, 2);
+    expect(wave1).toContain(`${PHASE}-01`);
+    expect(wave1).toContain(`${PHASE}-03`);
+    expect(wave2).toContain(`${PHASE}-02`);
+  });
+
+  test('handles diamond dependency pattern', () => {
+    // A independent; B and C depend on A; D depends on B and C
+    const planA = makeWavePlan({ plan: 1, depends_on: [] });
+    const planB = makeWavePlan({ plan: 2, depends_on: [`${PHASE}-01`] });
+    const planC = makeWavePlan({ plan: 3, depends_on: [`${PHASE}-01`] });
+    const planD = makeWavePlan({
+      plan: 4,
+      depends_on: [`${PHASE}-02`, `${PHASE}-03`],
+    });
+    const waves = buildWaves([planA, planB, planC, planD]);
+
+    expect(waves).toHaveLength(3);
+    expect(getPlansInWave(waves, 1)).toContain(`${PHASE}-01`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-02`);
+    expect(getPlansInWave(waves, 2)).toContain(`${PHASE}-03`);
+    expect(getPlansInWave(waves, 3)).toContain(`${PHASE}-04`);
+  });
+
+  test('wave assignments are consistent — wave 1 plans have no unmet dependencies', () => {
+    const planA = makeWavePlan({ plan: 1, provides: ['lib/a.ts:A'], requires: [] });
+    const planB = makeWavePlan({
+      plan: 2,
+      provides: ['lib/b.ts:B'],
+      requires: ['lib/a.ts:A'],
+    });
+    const planC = makeWavePlan({
+      plan: 3,
+      provides: [],
+      requires: ['lib/b.ts:B'],
+    });
+    const plans = [planA, planB, planC];
+    const dag = buildArtifactDAG(plans);
+    const waves = buildWaves(plans, { artifactDAG: dag });
+
+    // Wave 1 plans must not require anything from wave 2 or 3
+    const wave1Plans = getPlansInWave(waves, 1);
+    expect(wave1Plans).toHaveLength(1);
+    expect(wave1Plans[0]).toBe(`${PHASE}-01`);
+
+    // All plans should appear exactly once
+    const allPlans = waves.flatMap((w: { wave: number; plans: string[] }) => w.plans);
+    expect(allPlans.length).toBe(3);
+    expect(new Set(allPlans).size).toBe(3);
+
+    // Verify topological order: each plan appears after its dependencies
+    for (let i = 0; i < waves.length; i++) {
+      const plansInThisWave = new Set(waves[i].plans);
+      const plansInPriorWaves = new Set(waves.slice(0, i).flatMap((w: { wave: number; plans: string[] }) => w.plans));
+      for (const planId of plansInThisWave) {
+        // Find the original plan
+        const plan = plans.find(p =>
+          `${p.phase}-${String(p.plan as number).padStart(2, '0')}` === planId
+        );
+        if (plan) {
+          // All explicit depends_on must be in prior waves
+          for (const dep of (plan.depends_on as string[])) {
+            if (dep) {
+              expect(plansInPriorWaves.has(dep)).toBe(true);
+            }
+          }
+        }
+      }
+    }
   });
 });

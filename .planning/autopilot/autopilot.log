@@ -320,3 +320,57 @@ failed to run git: fatal: 'main' is already used by worktree at '/Users/neo/Deve
 [2026-03-23T16:11:30.271Z] Phase 82: post-pipeline — create PR
 [2026-03-23T16:11:35.869Z] Phase 82: PR created — https://github.com/ca1773130n/GetResearchDone/pull/19
 [2026-03-23T16:11:35.870Z] Phase 82: post-pipeline — code review
+[2026-03-25T02:15:46.005Z] Starting autopilot: 14 phase(s) in 14 wave(s)
+[2026-03-25T02:15:46.006Z] Wave 1/14: phases [87]
+[2026-03-25T02:15:46.007Z] Wave 2/14: phases [88]
+[2026-03-25T02:15:46.007Z] Wave 3/14: phases [89]
+[2026-03-25T02:15:46.008Z] Wave 4/14: phases [90]
+[2026-03-25T02:15:46.008Z] Wave 5/14: phases [91]
+[2026-03-25T02:15:46.008Z] Wave 6/14: phases [92]
+[2026-03-25T02:15:46.009Z] Wave 7/14: phases [93]
+[2026-03-25T02:15:46.009Z] Wave 8/14: phases [94]
+[2026-03-25T02:15:46.010Z] Wave 9/14: phases [95]
+[2026-03-25T02:15:46.010Z] Wave 10/14: phases [96]
+[2026-03-25T02:15:46.010Z] Wave 11/14: phases [97]
+[2026-03-25T02:15:46.011Z] Wave 12/14: phases [98]
+[2026-03-25T02:15:46.011Z] Wave 13/14: phases [99]
+[2026-03-25T02:15:46.011Z] Wave 14/14: phases [100]
+[2026-03-25T02:15:46.012Z] Done: 14/14 phases completed
+[2026-03-25T02:15:54.255Z] Starting autopilot: 8 phase(s) in 8 wave(s)
+[2026-03-25T02:15:54.255Z] Wave 1/8: phases [93]
+[2026-03-25T02:15:54.564Z] Phase 93: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-93...
+[2026-03-25T03:09:41.039Z] Phase 93: execute completed
+[2026-03-25T03:09:41.214Z] Wave 2/8: phases [94]
+[2026-03-25T03:09:41.495Z] Phase 94: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-94...
+[2026-03-25T03:35:06.280Z] Phase 94: execute FAILED (exit code 1)
+[2026-03-25T03:35:06.450Z] Done: 1/2 phases completed (stopped: Phase 94 execute failed: exit code 1)
+[2026-03-25T03:35:08.932Z] STOP_FAILURE: reason=unknown error=(none) agent=unknown
+[2026-03-25T04:53:08.233Z] Starting autopilot: 7 phase(s) in 7 wave(s)
+[2026-03-25T04:53:08.234Z] Wave 1/7: phases [94]
+[2026-03-25T04:53:08.327Z] Phase 94: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/94-94')
+fatal: a branch named 'grd/v0.3.22/94-94' already exists
+[2026-03-25T04:53:08.328Z] Wave 2/7: phases [95]
+[2026-03-25T04:53:08.329Z] Wave 3/7: phases [96]
+[2026-03-25T04:53:08.329Z] Phase 96: planning...
+[2026-03-25T05:06:28.275Z] Phase 96: plan completed
+[2026-03-25T05:06:28.578Z] Phase 96: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-96...
+[2026-03-25T06:31:05.856Z] Phase 96: execute completed
+[2026-03-25T06:31:06.069Z] Wave 4/7: phases [97]
+[2026-03-25T06:31:06.074Z] Phase 97: planning...
+[2026-03-25T06:47:01.779Z] Phase 97: plan completed
+[2026-03-25T06:47:02.118Z] Phase 97: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-97...
+[2026-03-25T07:20:42.639Z] Phase 97: execute completed
+[2026-03-25T07:20:42.851Z] Wave 5/7: phases [98]
+[2026-03-25T07:20:42.854Z] Phase 98: planning...
+[2026-03-25T07:34:22.679Z] Phase 98: plan completed
+[2026-03-25T07:34:23.003Z] Phase 98: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-98...
+[2026-03-25T07:47:25.418Z] Phase 98: execute completed
+[2026-03-25T07:47:25.617Z] Wave 6/7: phases [99]
+[2026-03-25T07:47:25.624Z] Phase 99: planning...
+[2026-03-25T08:03:08.017Z] Phase 99: plan completed
+[2026-03-25T08:03:08.330Z] Phase 99: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-99...
+[2026-03-25T08:30:39.526Z] Phase 99: execute completed
+[2026-03-25T08:30:39.742Z] Wave 7/7: phases [100]
+[2026-03-25T08:30:39.748Z] Phase 100: planning...
+[2026-03-25T08:48:24.554Z] Phase 100: plan completed
+[2026-03-25T08:48:24.889Z] Phase 100: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-100...

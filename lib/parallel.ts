@@ -19,6 +19,8 @@ import type {
   PhaseInfo,
   GateViolation,
   PreflightResult,
+  ArtifactDAG,
+  PlanArtifact,
 } from './types';
 
 const {
@@ -253,6 +255,144 @@ function buildParallelContext(
   };
 }
 
+// ─── buildWaves ──────────────────────────────────────────────────────────────
+
+/**
+ * Wave assignment result: a wave number and the plan IDs that execute in that wave.
+ */
+interface WaveAssignment {
+  wave: number;
+  plans: string[];
+}
+
+/**
+ * Options for buildWaves.
+ */
+interface BuildWavesOptions {
+  artifactDAG?: ArtifactDAG;
+}
+
+/**
+ * Assign plans to execution waves using a combined dependency model.
+ *
+ * Merges two dependency mechanisms into a single constraint set per plan:
+ * 1. Explicit `depends_on` field in PLAN.md frontmatter (coarse phase-level gates).
+ * 2. Fine-grained artifact DAG: for each plan's `requires` entries, look up the
+ *    provider plan in `artifactDAG.providers` and treat it as a hard dependency.
+ *
+ * Kahn's level-based topological sort assigns each plan to the earliest wave where
+ * all its dependencies have been satisfied. Plans without `provides`/`requires`
+ * fields (empty arrays) are backward compatible — they only respect `depends_on`.
+ *
+ * If a cycle is detected (remaining plans with unresolvable dependencies), all
+ * remaining plans are placed in the last wave and a warning is written to stderr.
+ *
+ * @param plans - Plan artifacts parsed from PLAN.md frontmatter
+ * @param options - Optional config including a pre-built ArtifactDAG
+ * @returns Array of WaveAssignment objects sorted by wave number
+ */
+function buildWaves(plans: PlanArtifact[], options?: BuildWavesOptions): WaveAssignment[] {
+  if (plans.length === 0) {
+    return [];
+  }
+
+  const artifactDAG = options?.artifactDAG;
+
+  // Build plan ID for each plan using the same format as buildArtifactDAG
+  const planIdOf = (p: PlanArtifact): string =>
+    `${p.phase}-${String(p.plan).padStart(2, '0')}`;
+
+  // Build a set of all valid plan IDs for membership checks
+  const planIds = new Set<string>(plans.map(planIdOf));
+
+  // Build combined dependency set for each plan
+  // combined deps: Set<planId> that must be completed before this plan
+  const combinedDeps = new Map<string, Set<string>>();
+  for (const plan of plans) {
+    const id = planIdOf(plan);
+    const deps = new Set<string>();
+
+    // 1. Explicit depends_on: these are plan IDs like "94-01" directly
+    for (const dep of plan.depends_on) {
+      if (planIds.has(dep)) {
+        deps.add(dep);
+      }
+    }
+
+    // 2. Artifact DAG requires: look up each required artifact's provider plan
+    if (artifactDAG !== undefined) {
+      for (const artifact of plan.requires) {
+        const providerPlanId = artifactDAG.providers[artifact];
+        if (providerPlanId !== undefined && providerPlanId !== id && planIds.has(providerPlanId)) {
+          deps.add(providerPlanId);
+        }
+      }
+    }
+
+    combinedDeps.set(id, deps);
+  }
+
+  // Build in-degree and adjacency for Kahn's algorithm
+  // Edge: dependency → dependent (dep must run before dependent)
+  const adjacency = new Map<string, string[]>(); // dep → [dependents]
+  const inDegree = new Map<string, number>();
+
+  for (const id of planIds) {
+    adjacency.set(id, []);
+    inDegree.set(id, 0);
+  }
+
+  for (const [id, deps] of combinedDeps) {
+    for (const dep of deps) {
+      (adjacency.get(dep) as string[]).push(id);
+      inDegree.set(id, (inDegree.get(id) as number) + 1);
+    }
+  }
+
+  // Level-based Kahn's — each iteration yields one wave
+  const waves: WaveAssignment[] = [];
+  const remaining = new Set<string>(planIds);
+  let waveNumber = 1;
+
+  while (remaining.size > 0) {
+    const batch: string[] = [];
+    for (const id of remaining) {
+      if ((inDegree.get(id) as number) === 0) {
+        batch.push(id);
+      }
+    }
+
+    if (batch.length === 0) {
+      // Cycle detected — place all remaining plans in the last wave and warn
+      process.stderr.write(
+        `[buildWaves] Warning: cycle detected among plans [${Array.from(remaining).join(', ')}]; placing all in wave ${waveNumber}\n`
+      );
+      batch.push(...Array.from(remaining));
+      batch.sort();
+      waves.push({ wave: waveNumber, plans: batch });
+      break;
+    }
+
+    // Sort lexicographically for deterministic output
+    batch.sort();
+    waves.push({ wave: waveNumber, plans: batch });
+
+    // Decrement in-degree for dependents and remove from remaining
+    for (const id of batch) {
+      remaining.delete(id);
+      for (const dependent of adjacency.get(id) as string[]) {
+        if (remaining.has(dependent)) {
+          inDegree.set(dependent, (inDegree.get(dependent) as number) - 1);
+        }
+      }
+    }
+
+    waveNumber++;
+  }
+
+  return waves;
+}
+
 // ─── cmdInitExecuteParallel ─────────────────────────────────────────────────
 
 /**
@@ -422,6 +562,7 @@ function cmdParallelProgress(args: string[], raw: boolean): void {
 module.exports = {
   validateIndependentPhases,
   buildParallelContext,
+  buildWaves,
   cmdInitExecuteParallel,
   formatProgressBar,
   streamPhaseProgress,

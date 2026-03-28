@@ -367,6 +367,10 @@ export interface GrdConfig {
   superpowers?: SuperpowersConfig;
   backend_roles?: BackendRolesConfig;
   discussion?: DiscussionConfig;
+  /** When true, plan-phase gate blocks on unresolved critical citation nodes. Default: false */
+  citation_gate?: boolean;
+  /** When true, run post-phase metric-driven refinement loop. Default: false */
+  refinement_loop?: boolean;
 }
 
 export interface EvolveConfig {
@@ -613,6 +617,69 @@ export interface PlanArtifact {
   provides: string[];
   requires: string[];
   integration_points: string[];
+}
+
+// ─── Artifact DAG Types (from deps.ts) ───────────────────────────────────────
+
+/**
+ * A node representing a plan's artifact declarations in the artifact DAG.
+ * Each plan that declares provides/requires/integration_points becomes a node.
+ */
+export interface ArtifactDAGNode {
+  /** Unique plan identifier, e.g. "94-01" */
+  id: string;
+  /** Numeric plan number */
+  plan_number: number;
+  /** Artifact names this plan produces, e.g. ["lib/deps.ts:buildArtifactDAG"] */
+  provides: string[];
+  /** Artifact names this plan depends on */
+  requires: string[];
+  /** Integration surface declarations */
+  integration_points: string[];
+}
+
+/**
+ * A directed edge representing a requires→provides dependency between plans.
+ * from_plan is the consumer (requires the artifact); to_plan is the producer (provides it).
+ */
+export interface ArtifactDAGEdge {
+  /** Plan that requires the artifact (consumer) */
+  from_plan: string;
+  /** Plan that provides the artifact (producer) */
+  to_plan: string;
+  /** The artifact name creating this edge */
+  artifact: string;
+  /** Whether this is a hard dependency or integration point */
+  type: 'requires' | 'integration';
+}
+
+/**
+ * The complete artifact dependency graph built from plan provides/requires declarations.
+ * Used by the wave builder and executor to reason about fine-grained dependencies.
+ */
+export interface ArtifactDAG {
+  /** All plan nodes */
+  nodes: ArtifactDAGNode[];
+  /** All directed dependency edges */
+  edges: ArtifactDAGEdge[];
+  /** Topologically sorted plan IDs (Kahn's algorithm) */
+  sorted_plans: string[];
+  /** Map from artifact name to providing plan ID */
+  providers: Record<string, string>;
+}
+
+/**
+ * Result of validating an ArtifactDAG for cycles, missing dependencies, and warnings.
+ */
+export interface ArtifactDAGValidation {
+  /** True when cycles and missing_deps are both empty */
+  valid: boolean;
+  /** All detected cycles; each inner array is a cycle path (start node repeated at end) */
+  cycles: string[][];
+  /** Requires entries with no matching provider in the plan set */
+  missing_deps: Array<{ plan: string; artifact: string }>;
+  /** Non-fatal issues (unused provides, duplicate provides declarations) */
+  warnings: string[];
 }
 
 // ─── Gate Types (from gates.ts) ──────────────────────────────────────────────
@@ -932,43 +999,66 @@ export interface OverstoryMailMessage {
 
 // ─── Citation Types (from citations.ts) ──────────────────────────────────────
 
-/** Citation graph node representing a paper or component. */
-export interface CitationNode {
-  slug: string;
-  title: string;
-  resolved: boolean;
-  priority: 'critical' | 'normal';
-  technique_summary: string;
-  source: 'arxiv' | 'semantic_scholar' | 'manual' | 'unknown';
-}
-
-/** Citation graph edge representing a dependency between papers/components. */
-export interface CitationEdge {
-  from: string; // slug of the dependent paper
-  to: string; // slug of the dependency
-  relation: 'missing_component' | 'borrowed_component';
-}
-
-/** Complete citation graph with nodes and edges. */
-export interface CitationGraph {
-  nodes: CitationNode[];
-  edges: CitationEdge[];
-  built_at: string; // ISO timestamp
-}
-
 /** Parsed missing component from PAPERS.md structured output. */
 export interface MissingComponent {
+  /** Component identifier */
   name: string;
+  /** Paper slug or title where component originates */
   source_paper: string;
+  /** What the component does */
   description: string;
+  /** Whether source code exists for this component */
   code_available: boolean;
 }
 
 /** Parsed borrowed component from PAPERS.md structured output. */
 export interface BorrowedComponent {
+  /** Component identifier */
   name: string;
+  /** Paper slug or title */
   source_paper: string;
+  /** What the component does */
   description: string;
+}
+
+/** Citation graph node representing a paper and its dependencies. */
+export interface CitationNode {
+  /** Paper slug (e.g., "vaswani-attention-2017") */
+  slug: string;
+  /** Full paper title */
+  title: string;
+  /** Whether the paper has been fetched and analyzed */
+  resolved: boolean;
+  /** How important this dependency is */
+  priority: 'critical' | 'normal' | 'low';
+  /** Extracted technique description (empty until resolved) */
+  technique_summary: string;
+  /** Components referenced but not implemented in this paper */
+  missing_components: MissingComponent[];
+  /** Components adopted from other papers */
+  borrowed_components: BorrowedComponent[];
+}
+
+/** Citation graph edge — a directed dependency between papers. */
+export interface CitationEdge {
+  /** Paper that depends on another */
+  from_slug: string;
+  /** Paper being depended upon */
+  to_slug: string;
+  /** Whether this is a missing or borrowed dependency */
+  type: 'missing' | 'borrowed';
+  /** Which component creates this edge */
+  component_name: string;
+}
+
+/** Complete citation graph with nodes and directed edges. */
+export interface CitationGraph {
+  /** All paper nodes (source papers + dependency papers) */
+  nodes: CitationNode[];
+  /** All directed dependency edges */
+  edges: CitationEdge[];
+  /** ISO timestamp of graph construction */
+  built_at: string;
 }
 
 /** Configuration for citation resolution API calls. */
@@ -1001,4 +1091,175 @@ export interface KnowhowEntry {
   created_at: string;
 }
 
+// ─── Refinement Types (from refinement.ts) ───────────────────────────────────
+
+/**
+ * Quantitative metrics collected from a single test/lint/build run.
+ * Adapted from NERFIFY PSNR-minima ROI analysis to GRD's domain:
+ * test coverage minima, type error density, lint violation clustering.
+ */
+export interface RefinementMetrics {
+  /** Percentage of lines/statements covered by tests (0–100). */
+  test_coverage_pct: number;
+  /** Number of TypeScript type errors from tsc --noEmit. */
+  type_error_count: number;
+  /** Number of ESLint violations (errors + warnings). */
+  lint_violation_count: number;
+  /** ISO 8601 timestamp when these metrics were collected. */
+  timestamp: string;
+}
+
+/**
+ * A metric snapshot tied to a specific phase and plan.
+ * Used for building time-series data to detect convergence and minima.
+ */
+export interface MetricSnapshot {
+  metrics: RefinementMetrics;
+  phase: string;
+  plan: string;
+}
+
+/**
+ * Discriminated branch type for closed-loop refinement routing.
+ * - macro: metric-minima guided patching (coverage dips, error spikes)
+ * - geometry: structural validation (type errors, export consistency)
+ * - generative: artifact analysis (lint patterns, code smell clustering)
+ */
+export type CritiqueBranch = 'macro' | 'geometry' | 'generative';
+
+/**
+ * Configuration for convergence detection in the refinement loop.
+ * Epsilon values define the minimum change threshold below which a dimension
+ * is considered converged.
+ */
+export interface ConvergenceConfig {
+  /** Minimum coverage change (in percentage points) to consider not-converged. */
+  epsilon_coverage: number;
+  /** Minimum type error count change to consider not-converged. */
+  epsilon_type_errors: number;
+  /** Minimum lint violation count change to consider not-converged. */
+  epsilon_lint: number;
+  /** Maximum refinement iterations before forcing convergence. */
+  max_iterations: number;
+}
+
+/**
+ * A detected minima region in a metric time series.
+ * For coverage: local dips (where coverage drops below neighbors).
+ * For errors/violations: local spikes (where count rises above neighbors).
+ */
+export interface MinimaRegion {
+  /** Which metric dimension this region belongs to. */
+  dimension: 'test_coverage_pct' | 'type_error_count' | 'lint_violation_count';
+  /** Index in the snapshot array where this region occurs. */
+  index: number;
+  /** Metric value at this region. */
+  value: number;
+  /** Absolute delta from the average of the two neighbors. */
+  delta: number;
+}
+
+// ─── Benchmark Types (Phase 100 — Evaluation Benchmark Framework) ────────────
+
+/**
+ * Classification of a research paper by implementation difficulty.
+ * Adapted from NERFIFY-BENCH Figure 7 categorization.
+ *
+ * - directly-integrable: Paper's technique can be implemented using existing
+ *   GRD infrastructure without external model dependencies.
+ * - requires-external-models: Implementation needs external model weights or
+ *   services not bundled with GRD.
+ * - out-of-scope: Paper describes capabilities beyond code synthesis (hardware,
+ *   large-scale training infrastructure, etc.)
+ * - novelty-coverage: Paper contributes novel ideas but implementation fidelity
+ *   is measured differently (architecture variants, ablation studies, etc.)
+ */
+export type IntegrationCategory =
+  | 'directly-integrable'
+  | 'requires-external-models'
+  | 'out-of-scope'
+  | 'novelty-coverage';
+
+/**
+ * Quantitative metrics from actually running the generated code.
+ */
+export interface TrainabilityMetrics {
+  /** Whether the generated code compiles/builds without errors. */
+  build_success: boolean;
+  /** Whether execution completes without crashes. */
+  runtime_stable: boolean;
+  /** Whether training/optimization converges (if applicable). */
+  convergence_detected: boolean;
+  /** Wall-clock execution time in milliseconds. */
+  execution_time_ms: number;
+  /** Captured stderr/error output (empty string if none). */
+  error_log: string;
+}
+
+/**
+ * Qualitative assessment of how faithfully the generated code captures the paper's semantics.
+ */
+export interface SemanticScore {
+  /** 0-1 score for how well the code captures the paper's novel contributions. */
+  novelty_capture: number;
+  /** 0-1 score for alignment between paper's described interface and generated code. */
+  api_surface_match: number;
+  /** 0-1 score for correctness of core algorithm implementation. */
+  algorithmic_fidelity: number;
+  /** Optional free-text notes from evaluator. */
+  notes: string;
+}
+
+/**
+ * Configurable weight distribution for composite scoring.
+ * semantic_weight + trainability_weight must equal 1.0.
+ */
+export interface ScoringRubric {
+  /** Weight for semantic dimension (0-1, all weights sum to 1). */
+  semantic_weight: number;
+  /** Weight for trainability dimension. */
+  trainability_weight: number;
+  /** Per-category difficulty multiplier (1.0 = neutral). */
+  category_adjustments: Record<IntegrationCategory, number>;
+}
+
+/**
+ * A single research paper entry in the benchmark corpus.
+ */
+export interface BenchmarkEntry {
+  /** Unique identifier (typically paper slug). */
+  id: string;
+  /** Paper title. */
+  title: string;
+  /** Source reference (arXiv ID, DOI, or URL). */
+  source: string;
+  /** Integration difficulty classification. */
+  category: IntegrationCategory;
+  /** Domain/method tags for filtering. */
+  tags: string[];
+  /** ISO 8601 timestamp when entry was added to corpus. */
+  added_at: string;
+}
+
+/**
+ * A scored evaluation result for a single benchmark entry.
+ */
+export interface BenchmarkResult {
+  /** References BenchmarkEntry.id. */
+  entry_id: string;
+  /** Semantic implementation scoring. */
+  semantic: SemanticScore;
+  /** Build/run/convergence metrics. */
+  trainability: TrainabilityMetrics;
+  /** Weighted composite score (0-1). */
+  composite_score: number;
+  /** Which ScoringRubric version was used. */
+  rubric_version: string;
+  /** ISO 8601 timestamp. */
+  evaluated_at: string;
+  /** Who/what produced this result (agent name or 'manual'). */
+  evaluator: string;
+}
+
 module.exports = {};
+

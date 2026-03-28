@@ -326,8 +326,8 @@ Plans:
 **Start:** 2026-03-24
 
 - [x] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement` ✓ 2026-03-24
-- [ ] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement`
-- [ ] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement`
+- [x] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement` ✓ 2026-03-25
+- [x] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement` ✓ 2026-03-25
 - [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
 
 #### Phase 92: CFG Formalization
@@ -363,12 +363,12 @@ Plans:
   3. `resolveCitations(graph, apiConfig)` attempts to fetch each unresolved dependency via arXiv API or Semantic Scholar API (mocked in tests), marks successfully fetched papers as resolved, and appends the extracted technique summary to the citation graph node.
   4. `findUnresolved(graph)` returns all citation graph nodes with `resolved: false`; the `grd-phase-researcher` gate checks this list and blocks the planning phase if any node has `priority: critical` and `resolved: false`.
   5. Unit tests achieve 85%+ line coverage on `lib/citations.ts`; API calls are mocked; tests cover graph construction from PAPERS.md, resolution marking, unresolved detection, and the configurable gate behavior.
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 93-01: `lib/citations.ts` — citation graph data structures and `buildCitationGraph()`
-- [ ] 93-02: `grd-deep-diver` structured output and `grd-phase-researcher` recovery pass
-- [ ] 93-03: `resolveCitations()`, `findUnresolved()`, configurable planning gate, and unit tests
+- [x] 93-01: `lib/citations.ts` — citation graph data structures and `buildCitationGraph()`
+- [x] 93-02: `grd-deep-diver` structured output and `grd-phase-researcher` recovery pass
+- [x] 93-03: `resolveCitations()`, `findUnresolved()`, configurable planning gate, and unit tests
 
 #### Phase 94: Graph-of-Thought Synthesis
 
@@ -386,9 +386,9 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
-- [ ] 94-02: `buildWaves()` DAG integration in `lib/parallel.ts` and `buildPlanPrompt()` update
-- [ ] 94-03: Dependency context injection into executor prompts and unit tests
+- [x] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
+- [x] 94-02: `buildWaves()` DAG integration in `lib/parallel.ts` and `buildPlanPrompt()` update
+- [x] 94-03: Dependency context injection into executor prompts and unit tests
 
 #### Phase 95: Agentic Knowledge Enhancement
 
@@ -447,3 +447,60 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | Phase 78 | Scenario executability by Phase 79 HTTP/CLI engine (DEFER-78-02) | Phase 79, plan 79-02 | Pending |
 | Phase 78 | Coverage thresholds in jest.config.js (DEFER-78-03) | Phase 81, plan 81-02 | Pending |
 | Phase 80 | Live Playwright MCP scenario execution | Future | Pending |
+
+### Phase 96: Closed-Loop Metric-Driven Refinement ✅ (2026-03-25)
+
+**Goal:** Critique agent system with 3-branch refinement loop (Macro/Geometry/Generative), convergence detection, and autopilot pipeline integration — adapts NERFIFY PSNR-minima ROI analysis to GRD domain (test coverage minima, type error density, lint violation clustering)
+**Depends on:** Phase 95
+**Duration:** 7d
+**Plans:** 3 plans
+
+Plans:
+- [x] 96-01-PLAN.md — TDD: Refinement types, metric collection, convergence detection, branch classification in lib/refinement.ts
+- [x] 96-02-PLAN.md — Critique agent definition + buildCritiqueAgentPrompt and runRefinementLoop in autopilot.ts
+- [x] 96-03-PLAN.md — Wire refinement loop into autopilot post-phase pipeline + integration tests
+
+### Phase 97: Transitive Citation Graph Traversal
+
+**Goal:** Transitive Citation Graph Traversal
+**Depends on:** Phase 96
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 97 to break down)
+
+### Phase 98: GoT Synthesis Execution Engine
+
+**Goal:** GoT Synthesis Execution Engine
+**Depends on:** Phase 97
+**Duration:** 7d
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /grd:plan-phase 98 to break down)
+
+### Phase 99: Knowledge Injection Loop ✅
+
+**Goal:** Close the knowledge enhancement loop by wiring selectTopEntries into planning and execution prompts
+**Depends on:** Phase 98
+**Duration:** 7d
+**Status:** Complete (2026-03-25)
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 99-01-PLAN.md — TDD: buildKnowledgeInjectionBlock in lib/knowledge.ts
+- [x] 99-02-PLAN.md — Wire injection into autopilot prompts + executor agent knowhow block
+- [x] 99-03-PLAN.md — TDD: extractModuleHints + phase-proximity scoring enhancement
+
+### Phase 100: Evaluation Benchmark Framework — COMPLETE (2026-03-25)
+
+**Goal:** Evaluation Benchmark Framework
+**Depends on:** Phase 99
+**Duration:** 7d
+**Plans:** 3 plans
+
+Plans:
+- [x] 100-01-PLAN.md — TDD: Benchmark types + corpus management + composite scoring
+- [x] 100-02-PLAN.md — TDD: Category classification + semantic scoring + trainability + evaluation pipeline
+- [x] 100-03-PLAN.md — Agent definitions (grd-eval-planner, grd-eval-reporter)
