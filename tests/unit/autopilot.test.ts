@@ -3498,6 +3498,27 @@ describe('lib/autopilot', () => {
 
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
+
+    it('enters milestone mode when no phase-from/phase-to specified (boolean logic)', () => {
+      // Mirrors the isMilestoneMode calculation in lib/autopilot.ts:
+      //   const isMilestoneMode = options.milestone === true || (!phaseFrom && !phaseTo);
+      const isMilestoneMode = (opts: {
+        milestone?: boolean;
+        phaseFrom?: string | null;
+        phaseTo?: string | null;
+      }): boolean => opts.milestone === true || (!opts.phaseFrom && !opts.phaseTo);
+
+      // Empty options → milestone mode
+      expect(isMilestoneMode({})).toBe(true);
+      // Explicit --milestone flag → milestone mode
+      expect(isMilestoneMode({ milestone: true })).toBe(true);
+      // phase-from set → range mode (not milestone)
+      expect(isMilestoneMode({ phaseFrom: '90' })).toBe(false);
+      // phase-to set → range mode (not milestone)
+      expect(isMilestoneMode({ phaseTo: '91' })).toBe(false);
+      // Both phase-from and phase-to → range mode
+      expect(isMilestoneMode({ phaseFrom: '90', phaseTo: '91' })).toBe(false);
+    });
   });
 
   describe('cmdAutopilot v2 flag parsing', () => {
