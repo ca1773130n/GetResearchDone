@@ -4913,4 +4913,65 @@ describe('lib/autopilot', () => {
       expect(hasRefinementMarker).toBe(true);
     });
   });
+
+  // ── atomic write behavior ──
+
+  describe('atomic write behavior', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    it('writeStatusMarker creates valid JSON via atomic write', () => {
+      tmpDir = createAutopilotFixture();
+      writeStatusMarker(tmpDir, '48', 'plan', 'started');
+
+      const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-48-plan.json');
+      expect(fs.existsSync(markerPath)).toBe(true);
+      const content = fs.readFileSync(markerPath, 'utf-8');
+      // Must be valid JSON — atomic rename ensures no partial writes
+      expect(() => JSON.parse(content)).not.toThrow();
+      const marker = JSON.parse(content);
+      expect(marker.phase).toBe('48');
+      expect(marker.step).toBe('plan');
+      expect(marker.status).toBe('started');
+    });
+
+    it('updateStateProgress writes STATE.md atomically', () => {
+      tmpDir = createAutopilotFixture();
+      const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+      // Fixture creates STATE.md with "**Current Phase:** Phase 1"
+      updateStateProgress(tmpDir, '42', 'executing');
+
+      const content = fs.readFileSync(statePath, 'utf-8');
+      expect(content).toContain('Phase 42 (autopilot: executing)');
+      // No .tmp file should remain after successful write
+      expect(fs.existsSync(`${statePath}.tmp`)).toBe(false);
+    });
+
+    it('writeStatusMarker does not leave .tmp files on success', () => {
+      tmpDir = createAutopilotFixture();
+      writeStatusMarker(tmpDir, '48', 'plan', 'started');
+
+      const markerPath = path.join(tmpDir, '.planning', 'autopilot', 'phase-48-plan.json');
+      expect(fs.existsSync(markerPath)).toBe(true);
+      // Temp file must be cleaned up by rename
+      expect(fs.existsSync(`${markerPath}.tmp`)).toBe(false);
+    });
+
+    it('updateStateProgress does not leave .tmp files on success', () => {
+      tmpDir = createAutopilotFixture();
+      const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+      updateStateProgress(tmpDir, '48', 'planning');
+
+      // Final file exists with updated content
+      expect(fs.existsSync(statePath)).toBe(true);
+      // No .tmp artifact left behind
+      expect(fs.existsSync(`${statePath}.tmp`)).toBe(false);
+    });
+  });
 });
