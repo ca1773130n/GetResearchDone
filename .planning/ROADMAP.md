@@ -31,7 +31,7 @@
 - v0.3.13 Wireup Command - Phases 78-81 (shipped 2026-03-21)
 - v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (shipped 2026-03-23)
 - v0.3.21 Elicitation Replacement - Phase 86 (shipped 2026-03-24)
-- v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration - Phases 87-91 (in progress)
+- v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration - Phases 87-91 (shipped 2026-03-29)
 - v0.3.23 NERFIFY-Inspired Research Phase Enhancements - Phases 92-95 (planned)
 
 ## Phases
@@ -215,7 +215,7 @@ Phase 86 delivered the core elicitation detection and resolution primitives. `de
 
 </details>
 
-### v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration (In Progress)
+### v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration (Complete 2026-03-29)
 
 **Milestone Goal:** Enhance autopilot with worktree-isolated parallel phase execution, a 4-step post-phase pipeline (simplify, PR, code review, rebase+merge), a serial merge queue preventing concurrent rebase races, write-intent manifests driving wave conflict detection, and always-on auto-resume with milestone mode as default.
 **Start:** 2026-03-24
@@ -425,8 +425,8 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 87. Post-Phase Pipeline Core | v0.3.22 | 2/2 | Complete | 2026-03-24 |
 | 88. Serial Merge Queue and Conflict Resolution | v0.3.22 | 2/2 | Complete | 2026-03-28 |
 | 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 3/3 | Complete | 2026-03-28 |
-| 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 0/TBD | Not started | - |
-| 91. Integration Testing and Validation | v0.3.22 | 0/TBD | Not started | - |
+| 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 3/3 | Complete | 2026-03-28 |
+| 91. Integration Testing and Validation | v0.3.22 | 3/3 | Complete | 2026-03-29 |
 | 92. CFG Formalization | v0.3.23 | 0/TBD | Not started | - |
 | 93. Compositional Citation Recovery | v0.3.23 | 0/TBD | Not started | - |
 | 94. Graph-of-Thought Synthesis | v0.3.23 | 0/TBD | Not started | - |
