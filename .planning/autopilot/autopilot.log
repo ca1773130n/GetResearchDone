@@ -459,3 +459,65 @@ fatal: a branch named 'grd/v0.3.22/88-88' already exists
 [2026-03-28T09:17:36.394Z] Phase 91: planning...
 [2026-03-28T09:19:36.689Z] Phase 91: plan completed
 [2026-03-28T09:19:37.032Z] Phase 91: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-91...
+[2026-03-28T09:55:16.741Z] Phase 91: execute completed
+[2026-03-28T09:55:16.924Z] Wave 6/14: phases [92]
+[2026-03-28T09:55:16.946Z] Wave 7/14: phases [93]
+[2026-03-28T09:55:16.956Z] Wave 8/14: phases [94]
+[2026-03-28T09:55:16.959Z] Wave 9/14: phases [95]
+[2026-03-28T09:55:16.961Z] Wave 10/14: phases [96]
+[2026-03-28T09:55:16.964Z] Wave 11/14: phases [97]
+[2026-03-28T09:55:17.026Z] Phase 97: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/97-97')
+fatal: a branch named 'grd/v0.3.22/97-97' already exists
+[2026-03-28T09:55:17.026Z] Wave 12/14: phases [98]
+[2026-03-28T09:55:17.093Z] Phase 98: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/98-98')
+fatal: a branch named 'grd/v0.3.22/98-98' already exists
+[2026-03-28T09:55:17.093Z] Wave 13/14: phases [99]
+[2026-03-28T09:55:17.096Z] Wave 14/14: phases [100]
+[2026-03-28T09:55:17.097Z] Done: 10/14 phases completed
+[2026-03-28T09:55:46.863Z] Starting autopilot: 14 phase(s) in 14 wave(s)
+[2026-03-28T09:55:46.865Z] Wave 1/14: phases [87]
+[2026-03-28T09:55:46.866Z] Phase 87: planning...
+[2026-03-28T09:57:24.682Z] Phase 87: plan completed
+[2026-03-28T09:57:25.022Z] Phase 87: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-87...
+[2026-03-28T09:58:26.816Z] Phase 87: execute completed
+[2026-03-28T09:58:26.934Z] Wave 2/14: phases [88]
+[2026-03-28T09:58:26.936Z] Phase 88: planning...
+[2026-03-28T10:03:53.338Z] Phase 88: plan completed
+[2026-03-28T10:03:53.674Z] Phase 88: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-88...
+[2026-03-28T10:05:09.266Z] Phase 88: execute completed
+[2026-03-28T10:05:09.389Z] Wave 3/14: phases [89]
+[2026-03-28T10:05:09.390Z] Phase 89: planning...
+[2026-03-28T10:07:12.646Z] Phase 89: plan completed
+[2026-03-28T10:07:12.696Z] Phase 89: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/89-89')
+fatal: a branch named 'grd/v0.3.22/89-89' already exists
+[2026-03-28T10:07:12.696Z] Wave 4/14: phases [90]
+[2026-03-28T10:07:12.697Z] Phase 90: planning...
+[2026-03-28T10:08:55.286Z] Phase 90: plan completed
+[2026-03-28T10:08:55.337Z] Phase 90: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/90-90')
+fatal: a branch named 'grd/v0.3.22/90-90' already exists
+[2026-03-28T10:08:55.337Z] Wave 5/14: phases [91]
+[2026-03-28T10:08:55.337Z] Phase 91: planning...
+[2026-03-28T10:11:18.142Z] Phase 91: plan completed
+[2026-03-28T10:11:18.223Z] Phase 91: failed to create worktree: Preparing worktree (new branch 'grd/v0.3.22/91-91')
+fatal: a branch named 'grd/v0.3.22/91-91' already exists
+[2026-03-28T10:11:18.224Z] Wave 6/14: phases [92]
+[2026-03-28T10:11:18.227Z] Wave 7/14: phases [93]
+[2026-03-28T10:11:18.228Z] Wave 8/14: phases [94]
+[2026-03-28T10:11:18.229Z] Wave 9/14: phases [95]
+[2026-03-28T10:11:18.230Z] Wave 10/14: phases [96]
+[2026-03-28T10:11:18.231Z] Wave 11/14: phases [97]
+[2026-03-28T10:11:18.647Z] Phase 97: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-97...
+[2026-03-28T10:29:42.349Z] Phase 97: execute completed
+[2026-03-28T10:29:42.545Z] Wave 12/14: phases [98]
+[2026-03-28T10:29:42.914Z] Phase 98: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-98...
+[2026-03-28T11:58:36.368Z] Phase 98: execute completed
+[2026-03-28T11:58:36.571Z] Wave 13/14: phases [99]
+[2026-03-28T11:58:36.580Z] Wave 14/14: phases [100]
+[2026-03-28T11:58:36.589Z] Done: 11/14 phases completed
+[2026-03-29T10:36:13.261Z] Starting autopilot: 1 phase(s) in 1 wave(s)
+[2026-03-29T10:36:13.262Z] Wave 1/1: phases [91]
+[2026-03-29T10:36:13.262Z] Phase 91: planning...
+[2026-03-29T10:37:58.728Z] Phase 91: plan completed
+[2026-03-29T10:37:59.086Z] Phase 91: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-91...
+[2026-03-29T10:56:40.486Z] Phase 91: execute completed
+[2026-03-29T10:56:40.673Z] Done: 1/1 phases completed
