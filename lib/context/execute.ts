@@ -93,6 +93,26 @@ const {
 } = require('../gates');
 
 const {
+  buildKnowledgeInjectionBlock,
+  extractModuleHints,
+}: {
+  buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
+  extractModuleHints: (phaseDir: string) => string[];
+} = require('../knowledge');
+
+const {
+  freezeInterfaces,
+}: {
+  freezeInterfaces: (dag: import('../types').ArtifactDAG) => import('../types').FrozenInterface[];
+} = require('../got');
+
+const {
+  buildArtifactDAG,
+}: {
+  buildArtifactDAG: (plans: import('../types').PlanArtifact[]) => import('../types').ArtifactDAG;
+} = require('../deps');
+
+const {
   planningDir: getPlanningDir,
   phasesDir: getPhasesDirPath,
   researchDir: getResearchDirPath,
@@ -298,6 +318,51 @@ function cmdInitExecutePhase(
         }
       }
       return result;
+    })(),
+
+    // Knowledge injection (NERFIFY): inject prior-phase patterns into executor context
+    knowhow_block: (() => {
+      if (!phaseInfo?.directory || !phaseInfo?.phase_number) return null;
+      const hints = extractModuleHints(path.join(cwd, phaseInfo.directory));
+      const block = buildKnowledgeInjectionBlock(cwd, phaseInfo.phase_number, hints);
+      return block || null;
+    })(),
+
+    // GoT frozen interfaces (NERFIFY): artifact contracts from plan DAG
+    frozen_interfaces: (() => {
+      if (!phaseInfo?.plans || !phaseInfo?.directory || !phaseInfo?.phase_number) return [];
+      const phaseDirFull = path.join(cwd, phaseInfo.directory);
+      const planArtifacts: import('../types').PlanArtifact[] = [];
+      for (let i = 0; i < phaseInfo.plans.length; i++) {
+        const planFile = phaseInfo.plans[i];
+        const planPath = path.join(phaseDirFull, planFile);
+        try {
+          const planContent = fs.readFileSync(planPath, 'utf-8') as string;
+          const fm = extractFrontmatter(planContent);
+          planArtifacts.push({
+            objective: (fm.objective as string) || '',
+            files_modified: (fm.files_modified as string[]) || [],
+            phase: phaseInfo.phase_number,
+            plan: i + 1,
+            type: (fm.type as string) || 'implementation',
+            wave: (fm.wave as number) || 1,
+            depends_on: (fm.depends_on as string[]) || [],
+            autonomous: (fm.autonomous as boolean) ?? true,
+            provides: (fm.provides as string[]) || [],
+            requires: (fm.requires as string[]) || [],
+            integration_points: (fm.integration_points as string[]) || [],
+          });
+        } catch {
+          // Plan file may not have artifact declarations
+        }
+      }
+      if (planArtifacts.length === 0) return [];
+      try {
+        const dag = buildArtifactDAG(planArtifacts);
+        return freezeInterfaces(dag);
+      } catch {
+        return [];
+      }
     })(),
 
     // Branch name (pre-computed)
@@ -557,6 +622,15 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // .planning/ remains the source of truth for project-scoped state.
     plugin_data_available: !!process.env.CLAUDE_PLUGIN_DATA,
     plugin_data_dir: process.env.CLAUDE_PLUGIN_DATA || null,
+
+    // Knowledge injection (NERFIFY): inject prior-phase patterns into planner/researcher context
+    knowhow_block: (() => {
+      if (!phaseInfo?.phase_number) return null;
+      const phaseDir = phaseInfo.directory ? path.join(cwd, phaseInfo.directory) : null;
+      const hints = phaseDir ? extractModuleHints(phaseDir) : [];
+      const block = buildKnowledgeInjectionBlock(cwd, phaseInfo.phase_number, hints);
+      return block || null;
+    })(),
 
     // Citation traversal config
     transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,

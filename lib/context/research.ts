@@ -81,6 +81,14 @@ const {
   buildInitContext: (cwd: string, overrides: Record<string, unknown>) => Record<string, unknown>;
 } = require('./base');
 
+const {
+  loadCorpus,
+  formatBenchmarkReport,
+}: {
+  loadCorpus: (dir: string) => import('../types').BenchmarkEntry[];
+  formatBenchmarkReport: (entries: import('../types').BenchmarkEntry[]) => string;
+} = require('../benchmark');
+
 // ─── Research Workflow Init ──────────────────────────────────────────────────
 
 /**
@@ -369,6 +377,21 @@ function cmdInitEvalReport(cwd: string, phase: string | null, raw: boolean): voi
     benchmarks_exists: pathExistsInternal(cwd, path.join(researchDir, 'BENCHMARKS.md')),
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
+
+    // Benchmark corpus (NERFIFY): load scored entries for comparative eval
+    benchmark_corpus: (() => {
+      const corpusDir = path.join(researchDir, 'benchmarks');
+      try {
+        if (!fs.existsSync(corpusDir)) return { entries: [], report: null };
+        const entries = loadCorpus(corpusDir);
+        return {
+          entries: entries.length,
+          report: entries.length > 0 ? formatBenchmarkReport(entries) : null,
+        };
+      } catch {
+        return { entries: 0, report: null };
+      }
+    })(),
   };
   output(
     result,
