@@ -66,6 +66,11 @@ const TOOL_COMMANDS = new Set([
   'markdown-split',
   'overstory',
   'progress',
+  'knowhow',
+  'citation-graph',
+  'artifact-dag',
+  'benchmark-report',
+  'autoresearch',
 ]);
 
 /**
@@ -99,6 +104,7 @@ export const INIT_WORKFLOWS: readonly string[] = [
   'autopilot',
   'multi-milestone-autopilot',
   'autoplan',
+  'autoresearch',
   'evolve',
   'wireup',
   'debug',
@@ -123,6 +129,7 @@ export const AGENT_COMMANDS = new Set([
   'verify-phase',
   'autopilot',
   'autoplan',
+  'autoresearch',
   'evolve',
   'resume-project',
   'pause-work',

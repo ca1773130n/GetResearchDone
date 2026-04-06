@@ -1361,6 +1361,122 @@ function cmdTodoDuplicates(cwd: string, raw: boolean, threshold = 0.4): void {
   );
 }
 
+// ─── Knowhow List ───────────────────────────────────────────────────────────
+
+function cmdKnowhowList(cwd: string, raw: boolean, moduleHint?: string, limit?: number): void {
+  const {
+    parseKnowhowEntries,
+    selectTopEntries,
+  }: {
+    parseKnowhowEntries: (content: string) => { pattern_name: string; source: string; applicability: string; code_snippet: string; phase_number: number; created_at: string }[];
+    selectTopEntries: (entries: { pattern_name: string; source: string; applicability: string; code_snippet: string; phase_number: number; created_at: string }[], limit: number, moduleHints?: string[]) => { pattern_name: string; source: string; applicability: string; code_snippet: string; phase_number: number; created_at: string }[];
+  } = require('../knowledge');
+
+  const researchDir = getResearchDir(cwd);
+  const knowhowPath = path.join(researchDir, 'KNOWHOW.md');
+  const content = safeReadFile(knowhowPath);
+  if (!content) {
+    output({ entries: [], total: 0, message: 'No KNOWHOW.md found' }, raw, 'No KNOWHOW.md found');
+    return;
+  }
+
+  const allEntries = parseKnowhowEntries(content);
+  const hints = moduleHint ? moduleHint.split(',').map((h: string) => h.trim()) : undefined;
+  const maxEntries = limit || 20;
+  const selected = hints ? selectTopEntries(allEntries, maxEntries, hints) : allEntries.slice(0, maxEntries);
+
+  output(
+    { total: allEntries.length, showing: selected.length, module_filter: hints || null, entries: selected.map((e) => ({ pattern: e.pattern_name, source: e.source, phase: e.phase_number, created: e.created_at })) },
+    raw,
+    `${selected.length}/${allEntries.length} knowhow entries${hints ? ` (filtered: ${hints.join(', ')})` : ''}`
+  );
+}
+
+// ─── Citation Graph ─────────────────────────────────────────────────────────
+
+function cmdCitationGraph(cwd: string, raw: boolean, unresolvedOnly = false): void {
+  const {
+    buildCitationGraph,
+    findUnresolved,
+  }: {
+    buildCitationGraph: (content: string) => { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] };
+    findUnresolved: (graph: { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] }) => { slug: string; title: string; priority: string }[];
+  } = require('../citations');
+
+  const researchDir = getResearchDir(cwd);
+  const papersPath = path.join(researchDir, 'PAPERS.md');
+  const content = safeReadFile(papersPath);
+  if (!content) {
+    output({ nodes: 0, edges: 0, message: 'No PAPERS.md found' }, raw, 'No PAPERS.md found');
+    return;
+  }
+
+  const graph = buildCitationGraph(content);
+  const unresolved = findUnresolved(graph);
+
+  if (unresolvedOnly) {
+    output({ unresolved_count: unresolved.length, unresolved }, raw, `${unresolved.length} unresolved citation(s)`);
+    return;
+  }
+
+  output(
+    { nodes: graph.nodes.length, edges: graph.edges.length, unresolved_count: unresolved.length, papers: graph.nodes.map((n) => ({ slug: n.slug, title: n.title, resolved: n.resolved, priority: n.priority })), unresolved },
+    raw,
+    `Citation graph: ${graph.nodes.length} papers, ${graph.edges.length} edges, ${unresolved.length} unresolved`
+  );
+}
+
+// ─── Artifact DAG ───────────────────────────────────────────────────────────
+
+function cmdArtifactDAG(cwd: string, phase: string, raw: boolean): void {
+  const { buildArtifactDAG, validateArtifactDAG }: { buildArtifactDAG: (plans: import('../types').PlanArtifact[]) => import('../types').ArtifactDAG; validateArtifactDAG: (dag: import('../types').ArtifactDAG, plans: import('../types').PlanArtifact[]) => import('../types').ArtifactDAGValidation } = require('../deps');
+  const { extractFrontmatter }: { extractFrontmatter: (content: string) => Record<string, unknown> } = require('../frontmatter');
+
+  const phasesDir = getPhasesDirPath(cwd);
+  let phaseDir: string | null = null;
+  try {
+    const dirs: string[] = fs.readdirSync(phasesDir);
+    const match = dirs.find((d: string) => d.startsWith(phase + '-') || d === phase);
+    if (match) phaseDir = path.join(phasesDir, match);
+  } catch { /* phases dir may not exist */ }
+
+  if (!phaseDir) { output({ error: `Phase ${phase} not found` }, raw, `Phase ${phase} not found`); return; }
+
+  const files: string[] = fs.readdirSync(phaseDir).filter((f: string) => f.endsWith('-PLAN.md'));
+  const plans: import('../types').PlanArtifact[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const planPath = path.join(phaseDir, files[i]);
+    try {
+      const content = fs.readFileSync(planPath, 'utf-8') as string;
+      const fm = extractFrontmatter(content);
+      plans.push({ objective: (fm.objective as string) || '', files_modified: (fm.files_modified as string[]) || [], phase, plan: i + 1, type: (fm.type as string) || 'implementation', wave: (fm.wave as number) || 1, depends_on: (fm.depends_on as string[]) || [], autonomous: (fm.autonomous as boolean) ?? true, provides: (fm.provides as string[]) || [], requires: (fm.requires as string[]) || [], integration_points: (fm.integration_points as string[]) || [] });
+    } catch { /* skip malformed plans */ }
+  }
+
+  if (plans.length === 0) { output({ error: 'No plans with artifact declarations found' }, raw, 'No plans found'); return; }
+
+  const dag = buildArtifactDAG(plans);
+  const validation = validateArtifactDAG(dag, plans);
+  output({ phase, plans: plans.length, nodes: dag.nodes.length, edges: dag.edges.length, sorted_plans: dag.sorted_plans, valid: validation.valid, cycles: validation.cycles, missing_deps: validation.missing_deps, warnings: validation.warnings }, raw, `Phase ${phase} DAG: ${dag.nodes.length} nodes, ${dag.edges.length} edges, valid=${validation.valid}`);
+}
+
+// ─── Benchmark Report ───────────────────────────────────────────────────────
+
+function cmdBenchmarkReport(cwd: string, raw: boolean): void {
+  const { loadCorpus, formatBenchmarkReport }: { loadCorpus: (dir: string) => import('../types').BenchmarkEntry[]; formatBenchmarkReport: (entries: import('../types').BenchmarkEntry[]) => string } = require('../benchmark');
+
+  const researchDir = getResearchDir(cwd);
+  const corpusDir = path.join(researchDir, 'benchmarks');
+
+  if (!fs.existsSync(corpusDir)) { output({ entries: 0, message: 'No benchmark corpus found', corpus_dir: corpusDir }, raw, 'No benchmark corpus found'); return; }
+
+  const entries = loadCorpus(corpusDir);
+  if (entries.length === 0) { output({ entries: 0, message: 'Benchmark corpus is empty' }, raw, 'Benchmark corpus is empty'); return; }
+
+  const report = formatBenchmarkReport(entries);
+  output({ entries: entries.length, report }, raw, report);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1374,4 +1490,8 @@ module.exports = {
   cmdDecisionTimeline,
   cmdImportKnowledge,
   cmdTodoDuplicates,
+  cmdKnowhowList,
+  cmdCitationGraph,
+  cmdArtifactDAG,
+  cmdBenchmarkReport,
 };

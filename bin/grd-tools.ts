@@ -250,6 +250,14 @@ const {
 } = require('../lib/autoplan');
 
 const {
+  cmdAutoResearch,
+  cmdInitAutoResearch,
+}: {
+  cmdAutoResearch: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdInitAutoResearch: (cwd: string, raw: boolean) => void;
+} = require('../lib/autoresearch');
+
+const {
   cmdEvolve,
   cmdEvolveDiscover,
   cmdEvolveState,
@@ -416,6 +424,10 @@ const {
   cmdDecisionTimeline,
   cmdImportKnowledge,
   cmdTodoDuplicates,
+  cmdKnowhowList,
+  cmdCitationGraph,
+  cmdArtifactDAG,
+  cmdBenchmarkReport,
 }: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
@@ -481,6 +493,10 @@ const {
     force?: boolean
   ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
+  cmdKnowhowList: (cwd: string, raw: boolean, moduleHint?: string, limit?: number) => void;
+  cmdCitationGraph: (cwd: string, raw: boolean, unresolvedOnly?: boolean) => void;
+  cmdArtifactDAG: (cwd: string, phase: string, raw: boolean) => void;
+  cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
 } = require('../lib/commands/index');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -640,6 +656,13 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   },
   { command: 'stop-failure-hook', handler: (_args, cwd, raw) => cmdStopFailureHook(cwd, raw) },
   { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
+  {
+    command: 'knowhow',
+    handler: (args, cwd, raw) => cmdKnowhowList(cwd, raw, flag(args, '--module'), flag(args, '--limit') ? parseInt(flag(args, '--limit')!, 10) : undefined),
+  },
+  { command: 'citation-graph', handler: (args, cwd, raw) => cmdCitationGraph(cwd, raw, args.includes('--unresolved')) },
+  { command: 'artifact-dag', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdArtifactDAG(cwd, args[1], raw); } },
+  { command: 'benchmark-report', handler: (_args, cwd, raw) => cmdBenchmarkReport(cwd, raw) },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1104,6 +1127,9 @@ async function routeCommand(
         case 'autoplan':
           cmdInitAutoplan(cwd, raw);
           break;
+        case 'autoresearch':
+          cmdInitAutoResearch(cwd, raw);
+          break;
         case 'evolve':
           cmdInitEvolve(cwd, raw);
           break;
@@ -1342,6 +1368,9 @@ async function routeCommand(
       break;
     case 'autoplan':
       await cmdAutoplan(cwd, args.slice(1), raw);
+      break;
+    case 'autoresearch':
+      await cmdAutoResearch(cwd, args.slice(1), raw);
       break;
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);

@@ -99,6 +99,10 @@ const _analysis: {
     force?: boolean
   ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
+  cmdKnowhowList: (cwd: string, raw: boolean, moduleHint?: string, limit?: number) => void;
+  cmdCitationGraph: (cwd: string, raw: boolean, unresolvedOnly?: boolean) => void;
+  cmdArtifactDAG: (cwd: string, phase: string, raw: boolean) => void;
+  cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
 } = require('./analysis');
 
 // ─── Requirements (re-export from lib/requirements) ─────────────────────────
@@ -173,6 +177,10 @@ module.exports = {
   cmdDecisionTimeline: _analysis.cmdDecisionTimeline,
   cmdImportKnowledge: _analysis.cmdImportKnowledge,
   cmdTodoDuplicates: _analysis.cmdTodoDuplicates,
+  cmdKnowhowList: _analysis.cmdKnowhowList,
+  cmdCitationGraph: _analysis.cmdCitationGraph,
+  cmdArtifactDAG: _analysis.cmdArtifactDAG,
+  cmdBenchmarkReport: _analysis.cmdBenchmarkReport,
 
   // requirements (pass-through re-export)
   cmdRequirementGet: _requirements.cmdRequirementGet,
