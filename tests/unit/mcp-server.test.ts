@@ -1912,8 +1912,8 @@ describe('handleMessage — previously-uncovered execute lambdas', () => {
     expect(r.result || r.error).toBeDefined();
   });
 
-  test('grd_phase_complete execute lambda', () => {
-    const r = callTool('grd_phase_complete', { phase: '99' });
+  test('grd_phase_complete execute lambda', async () => {
+    const r = await callTool('grd_phase_complete', { phase: '99' });
     expect(r.result || r.error).toBeDefined();
   });
 
