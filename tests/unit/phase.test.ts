@@ -1683,3 +1683,137 @@ describe('atomicWriteFile', () => {
     expect(fs.readFileSync(filePath, 'utf-8')).toBe('original content');
   });
 });
+
+// ─── cmdPhaseComplete: gate_failed LLM fallback path ─────────────────────────
+
+describe('cmdPhaseComplete — gate_failed triggers LLM fallback', () => {
+  let tmpDir: string;
+  let mockAttemptLlmFallbackCompletion: jest.Mock;
+  let mockCreateScheduler: jest.Mock;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+    mockAttemptLlmFallbackCompletion = jest.fn();
+    mockCreateScheduler = jest.fn().mockReturnValue(null);
+    jest.mock('../../lib/phase-complete-llm', () => ({
+      attemptLlmFallbackCompletion: mockAttemptLlmFallbackCompletion,
+    }));
+    jest.mock('../../lib/scheduler', () => ({
+      createScheduler: mockCreateScheduler,
+    }));
+  });
+
+  afterEach(() => {
+    jest.resetModules();
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('invokes LLM fallback when gates fail and phase_complete_llm_fallback is true', async () => {
+    // Enable LLM fallback in config
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.phase_complete_llm_fallback = true;
+    // Disable gates so _phaseCompleteCore returns gate_failed (requires phase not in roadmap)
+    // We inject a gates config that bypasses checks by using the force option
+    // Instead, mock _phaseCompleteCore via phase-complete module
+    config.gates = { phase_complete: { enabled: false } };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Re-require cmdPhaseComplete with fresh modules so mocks take effect
+    jest.resetModules();
+    jest.mock('../../lib/phase-complete-llm', () => ({
+      attemptLlmFallbackCompletion: mockAttemptLlmFallbackCompletion,
+    }));
+    jest.mock('../../lib/scheduler', () => ({
+      createScheduler: mockCreateScheduler,
+    }));
+    // Mock _phaseCompleteCore to return gate_failed
+    jest.mock('../../lib/phase-complete', () => ({
+      _phaseCompleteCore: jest.fn().mockReturnValue({
+        gate_failed: true,
+        gate_errors: [
+          {
+            code: 'test-gate',
+            severity: 'error',
+            message: 'phase-in-roadmap gate tripped',
+            fix: 'add phase to roadmap',
+            context: {},
+          },
+        ],
+      }),
+    }));
+
+    const { cmdPhaseComplete: cmdPhaseCompleteLocal } = require('../../lib/phase');
+    const fallbackResult = {
+      completed_phase: '1',
+      plans_executed: '2/2',
+      next_phase: '02',
+      is_last_phase: false,
+      roadmap_updated: true,
+      state_updated: true,
+    };
+    mockAttemptLlmFallbackCompletion.mockResolvedValue(fallbackResult);
+
+    const stderrLines: string[] = [];
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data) => {
+      stderrLines.push(String(data));
+      return true;
+    });
+
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdPhaseCompleteLocal(tmpDir, '1', false)
+    );
+
+    stderrSpy.mockRestore();
+
+    expect(exitCode).toBe(0);
+    expect(stderrLines.some((l) => l.includes('[phase-complete-llm] gates failed'))).toBe(true);
+    expect(mockAttemptLlmFallbackCompletion).toHaveBeenCalledTimes(1);
+    const [, , , failureArg] = mockAttemptLlmFallbackCompletion.mock.calls[0];
+    expect(failureArg).toHaveProperty('gate_errors');
+    const result = JSON.parse(stdout);
+    expect(result.completed_phase).toBe('1');
+  });
+
+  test('leaves gate_failed result when LLM fallback returns null', async () => {
+    jest.resetModules();
+    jest.mock('../../lib/phase-complete-llm', () => ({
+      attemptLlmFallbackCompletion: mockAttemptLlmFallbackCompletion,
+    }));
+    jest.mock('../../lib/scheduler', () => ({
+      createScheduler: mockCreateScheduler,
+    }));
+    jest.mock('../../lib/phase-complete', () => ({
+      _phaseCompleteCore: jest.fn().mockReturnValue({
+        gate_failed: true,
+        gate_errors: [
+          {
+            code: 'test-gate',
+            severity: 'error',
+            message: 'gate tripped',
+            fix: 'fix hint',
+            context: {},
+          },
+        ],
+      }),
+    }));
+
+    // Enable fallback in config
+    const configPath = path.join(tmpDir, '.planning', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config.phase_complete_llm_fallback = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    const { cmdPhaseComplete: cmdPhaseCompleteLocal } = require('../../lib/phase');
+    // Fallback returns null — gate_failed result should be preserved in output
+    mockAttemptLlmFallbackCompletion.mockResolvedValue(null);
+
+    const { stdout, exitCode } = await captureOutputAsync(() =>
+      cmdPhaseCompleteLocal(tmpDir, '1', false)
+    );
+
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.gate_failed).toBe(true);
+  });
+});

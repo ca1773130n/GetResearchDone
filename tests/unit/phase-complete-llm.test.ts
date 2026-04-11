@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import type { SchedulerSpawnResult, SpawnOpts } from '../../lib/types';
+import type { SchedulerSpawnResult, SpawnOpts, GateViolation } from '../../lib/types';
 import type { Scheduler } from '../../lib/scheduler';
 
 const { attemptLlmFallbackCompletion } = require('../../lib/phase-complete-llm') as {
@@ -11,7 +11,7 @@ const { attemptLlmFallbackCompletion } = require('../../lib/phase-complete-llm')
     cwd: string,
     phaseNum: string,
     scheduler: Scheduler | null,
-    failure: Error | { gate_errors?: { message: string }[] }
+    failure: Error | { gate_errors?: GateViolation[] }
   ) => Promise<unknown>;
 };
 
@@ -209,8 +209,16 @@ describe('attemptLlmFallbackCompletion', () => {
     try {
       const scheduler = makeFakeScheduler('nonzero');
       await attemptLlmFallbackCompletion(dir, '3', scheduler, {
-        gate_errors: [{ message: 'phase-in-roadmap gate tripped' }],
-      } as any);
+        gate_errors: [
+          {
+            code: 'test-gate',
+            severity: 'error' as const,
+            message: 'phase-in-roadmap gate tripped',
+            fix: 'add phase to roadmap',
+            context: {},
+          },
+        ],
+      });
       const prompt = (scheduler.spawn as jest.Mock).mock.calls[0][0];
       expect(prompt).toContain('phase-in-roadmap gate tripped');
     } finally {
