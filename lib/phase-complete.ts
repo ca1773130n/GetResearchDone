@@ -40,17 +40,13 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-const {
-  readRoadmapFile,
-  writeRoadmapFile,
-  readStateFile,
-  writeStateFile,
-} = require('./phase-io') as {
-  readRoadmapFile: (p: string) => string;
-  writeRoadmapFile: (p: string, content: string) => void;
-  readStateFile: (p: string) => string;
-  writeStateFile: (p: string, content: string) => void;
-};
+const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile } =
+  require('./phase-io') as {
+    readRoadmapFile: (p: string) => string;
+    writeRoadmapFile: (p: string, content: string) => void;
+    readStateFile: (p: string) => string;
+    writeStateFile: (p: string, content: string) => void;
+  };
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;

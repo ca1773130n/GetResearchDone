@@ -80,17 +80,13 @@ const { _phaseCompleteCore } = require('./phase-complete') as {
   ) => PhaseCompleteResult;
 };
 
-const {
-  readRoadmapFile,
-  writeRoadmapFile,
-  readStateFile,
-  writeStateFile,
-} = require('./phase-io') as {
-  readRoadmapFile: (p: string) => string;
-  writeRoadmapFile: (p: string, content: string) => void;
-  readStateFile: (p: string) => string;
-  writeStateFile: (p: string, content: string) => void;
-};
+const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile } =
+  require('./phase-io') as {
+    readRoadmapFile: (p: string) => string;
+    writeRoadmapFile: (p: string, content: string) => void;
+    readStateFile: (p: string) => string;
+    writeStateFile: (p: string, content: string) => void;
+  };
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 

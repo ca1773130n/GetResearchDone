@@ -1051,7 +1051,7 @@ const { computeBudgetPressureLevel, logPressureTransition } = require('./schedul
     current: BudgetPressureLevel,
     agentType: string,
     baseTier: string,
-    effectiveTier: string,
+    effectiveTier: string
   ) => void;
 };
 
@@ -1116,7 +1116,7 @@ function getEffectiveTierForDispatch(opts: {
   if (allSamples.length >= 3) {
     // Sort by timestamp descending, take up to 10 most recent
     allSamples.sort((a, b) => b.timestamp - a.timestamp);
-    recentSamples = allSamples.slice(0, 10).map(s => ({
+    recentSamples = allSamples.slice(0, 10).map((s) => ({
       duration: s.duration,
       tokenEstimate: s.tokenEstimate,
     }));
@@ -1143,13 +1143,7 @@ function getEffectiveTierForDispatch(opts: {
   });
 
   // Spec 4 Goal #7: log on pressure transitions only
-  logPressureTransition(
-    process.pid.toString(),
-    pressure,
-    opts.agentType,
-    baseTier,
-    effectiveTier,
-  );
+  logPressureTransition(process.pid.toString(), pressure, opts.agentType, baseTier, effectiveTier);
 
   return effectiveTier;
 }

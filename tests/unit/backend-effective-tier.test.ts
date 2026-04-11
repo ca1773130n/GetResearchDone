@@ -209,9 +209,30 @@ describe('getEffectiveTierForDispatch with recentSamples', () => {
     const states = new Map();
     states.set('claude/~/.claude', {
       samples: [
-        { backend: 'claude', timestamp: Date.now() - 3000, duration: 100, tokenEstimate: 500, exitCode: 0, workItemId: '1' },
-        { backend: 'claude', timestamp: Date.now() - 2000, duration: 100, tokenEstimate: 800, exitCode: 0, workItemId: '2' },
-        { backend: 'claude', timestamp: Date.now() - 1000, duration: 100, tokenEstimate: 1000, exitCode: 0, workItemId: '3' },
+        {
+          backend: 'claude',
+          timestamp: Date.now() - 3000,
+          duration: 100,
+          tokenEstimate: 500,
+          exitCode: 0,
+          workItemId: '1',
+        },
+        {
+          backend: 'claude',
+          timestamp: Date.now() - 2000,
+          duration: 100,
+          tokenEstimate: 800,
+          exitCode: 0,
+          workItemId: '2',
+        },
+        {
+          backend: 'claude',
+          timestamp: Date.now() - 1000,
+          duration: 100,
+          tokenEstimate: 1000,
+          exitCode: 0,
+          workItemId: '3',
+        },
       ],
       ewma_tokens_per_task: 0,
       tokens_consumed_in_window: 0,

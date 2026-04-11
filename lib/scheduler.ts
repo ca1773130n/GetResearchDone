@@ -408,7 +408,7 @@ export function logPressureTransition(
   current: BudgetPressureLevel,
   agentType: string,
   baseTier: string,
-  effectiveTier: string,
+  effectiveTier: string
 ): void {
   const previous = _lastLoggedPressure.get(sessionKey) || 'none';
   if (previous === current) return;
@@ -419,9 +419,7 @@ export function logPressureTransition(
     baseTier === effectiveTier
       ? ''
       : ` — downgrading ${agentType} from ${baseTier} to ${effectiveTier}`;
-  process.stderr.write(
-    `[scheduler] budget pressure detected — level=${current}${tierNote}\n`,
-  );
+  process.stderr.write(`[scheduler] budget pressure detected — level=${current}${tierNote}\n`);
 }
 
 /**
