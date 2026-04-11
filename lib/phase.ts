@@ -80,6 +80,18 @@ const { _phaseCompleteCore } = require('./phase-complete') as {
   ) => PhaseCompleteResult;
 };
 
+const {
+  readRoadmapFile,
+  writeRoadmapFile,
+  readStateFile,
+  writeStateFile,
+} = require('./phase-io') as {
+  readRoadmapFile: (p: string) => string;
+  writeRoadmapFile: (p: string, content: string) => void;
+  readStateFile: (p: string) => string;
+  writeStateFile: (p: string, content: string) => void;
+};
+
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 /** Options for gate checks passed to runPreflightGates. */
@@ -259,36 +271,6 @@ interface ConsistencyResult {
   warnings: string[];
   warning_count: number;
   fixed?: string[];
-}
-
-// ─── File Caches ──────────────────────────────────────────────────────────────
-
-// Module-level cache with write-through for roadmap file reads.
-// Prevents redundant disk reads across phase operations; writes update the cache.
-const _roadmapFileCache = new Map<string, string>();
-function readRoadmapFile(roadmapPath: string): string {
-  if (!_roadmapFileCache.has(roadmapPath)) {
-    _roadmapFileCache.set(roadmapPath, fs.readFileSync(roadmapPath, 'utf-8') as string);
-  }
-  return _roadmapFileCache.get(roadmapPath) as string;
-}
-function writeRoadmapFile(roadmapPath: string, content: string): void {
-  fs.writeFileSync(roadmapPath, content, 'utf-8');
-  _roadmapFileCache.set(roadmapPath, content);
-}
-
-// Module-level cache with write-through for state file reads.
-// Prevents redundant disk reads across phase operations; writes update the cache.
-const _stateFileCache = new Map<string, string>();
-function readStateFile(statePath: string): string {
-  if (!_stateFileCache.has(statePath)) {
-    _stateFileCache.set(statePath, fs.readFileSync(statePath, 'utf-8') as string);
-  }
-  return _stateFileCache.get(statePath) as string;
-}
-function writeStateFile(statePath: string, content: string): void {
-  fs.writeFileSync(statePath, content, 'utf-8');
-  _stateFileCache.set(statePath, content);
 }
 
 // ─── Phases List ──────────────────────────────────────────────────────────────
@@ -1932,9 +1914,4 @@ module.exports = {
   cmdVersionBump,
   cmdPhaseBatchComplete,
   atomicWriteFile,
-  // Phase-complete helpers (for lib/phase-complete.ts, Spec 3)
-  readRoadmapFile,
-  writeRoadmapFile,
-  readStateFile,
-  writeStateFile,
 };
