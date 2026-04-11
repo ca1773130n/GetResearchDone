@@ -165,6 +165,21 @@ autoresearch check this before each agent dispatch. Thresholds are
 configurable via `.planning/config.json`
 `scheduler.budget_pressure_thresholds`.
 
+### LLM fallback for phase completion (Spec 3B)
+
+`phase_complete_llm_fallback` is an opt-in config flag (default `false`).
+When `true`, both `gd autopilot`'s phase-finalize step and
+`gd phase complete N` fall back to asking Claude to perform the ROADMAP.md
++ STATE.md edits directly via the scheduler, if the regex-based mechanical
+path throws or gate-fails. Verification is shallow: ROADMAP.md is
+re-read and checked for a ticked `- [x] Phase N` checkbox.
+
+Set via `gd settings phase_complete_llm_fallback true`. Opt-in only —
+existing users see no change.
+
+The fallback respects `token_profile`, budget pressure, and the idle
+watchdog just like any other scheduler spawn.
+
 ### Scheduler idle watchdog (Spec 2B)
 
 `scheduler.idle_timeout_seconds` (default 900) kills a spawned backend

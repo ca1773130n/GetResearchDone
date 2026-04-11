@@ -50,6 +50,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Autopilot `phase-finalize` status marker step** — new
   `phase-finalize: started/completed/failed` marker written after the
   post-pipeline step.
+- **LLM fallback for phase completion (Spec 3B)** — opt-in
+  `GrdConfig.phase_complete_llm_fallback` flag (default false). When
+  `true`, `gd autopilot` and `gd phase complete` delegate to a new
+  `lib/phase-complete-llm.ts` module that invokes Claude via the
+  scheduler to perform ROADMAP.md + STATE.md edits when the mechanical
+  regex path fails. Verification checks for a ticked
+  `- [x] Phase N` checkbox. New `gd settings phase_complete_llm_fallback
+  <bool>` CLI. New `PhaseCompleteResult.llm_fallback` flag on results
+  produced by this path.
 - **Token optimization system (Spec 4)** — adaptive model-tier routing
   that downgrades expensive agents to cheaper tiers based on budget
   pressure and task complexity.
