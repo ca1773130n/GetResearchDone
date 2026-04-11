@@ -2047,11 +2047,18 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
               log(
                 `Phase ${pNum}: phase-finalize complete — ${finalizeResult.plans_executed} plans, ${finalizeResult.next_phase ? `next phase ${finalizeResult.next_phase}` : 'milestone complete'}`
               );
+              results.push({ phase: pNum, step: 'phase-finalize', status: 'completed' });
             } else {
               writeStatusMarker(cwd, pNum, 'phase-finalize', 'failed');
               log(
                 `Phase ${pNum}: phase-finalize failed — run 'gd phase complete ${pNum}' manually to finalize`
               );
+              results.push({
+                phase: pNum,
+                step: 'phase-finalize',
+                status: 'failed',
+                reason: 'phase complete failed — see logs for details',
+              });
             }
           }
 
