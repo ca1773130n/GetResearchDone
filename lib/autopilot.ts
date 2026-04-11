@@ -1766,15 +1766,12 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(
-                planPrompt,
-                {
-                  phase_number: phaseNum,
-                  plan_id: planId,
-                  milestone: milestoneInfo.version,
-                  phase_dir: phaseDir,
-                }
-              );
+              const overlayContent: string = generateOverlay(planPrompt, {
+                phase_number: phaseNum,
+                plan_id: planId,
+                milestone: milestoneInfo.version,
+                phase_dir: phaseDir,
+              });
               const overlayDir: string = path.join(cwd, '.planning', 'autopilot', 'overlays');
               fs.mkdirSync(overlayDir, { recursive: true });
               const overlayPath: string = path.join(overlayDir, `overlay-${phaseNum}.md`);

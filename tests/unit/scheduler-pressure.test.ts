@@ -14,13 +14,13 @@ const {
     states: Map<string, BackendUsageState>,
     priority: string[],
     accounts: SuperpowersConfig['accounts'],
-    thresholds?: BudgetPressureThresholds,
+    thresholds?: BudgetPressureThresholds
   ) => boolean;
   computeBudgetPressureLevel: (
     states: Map<string, BackendUsageState>,
     priority: string[],
     accounts: SuperpowersConfig['accounts'],
-    thresholds?: BudgetPressureThresholds,
+    thresholds?: BudgetPressureThresholds
   ) => 'none' | 'warning' | 'high' | 'critical';
 } = require('../../lib/scheduler');
 
@@ -38,7 +38,7 @@ function makeState(consumed: number, reserved: number, budget: number): BackendU
 }
 
 function makeAccounts(
-  entries: Array<{ backend: string; configDir: string }>,
+  entries: Array<{ backend: string; configDir: string }>
 ): SuperpowersConfig['accounts'] {
   const accounts: Record<string, Array<{ config_dir: string }>> = {};
   for (const e of entries) {

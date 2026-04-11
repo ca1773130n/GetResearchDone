@@ -69,23 +69,15 @@ export function estimateComplexity(opts: {
   promptLength?: number;
   recentSamples?: { duration: number; tokenEstimate: number }[];
 }): ComplexityLevel {
-  const baseline: ComplexityLevel =
-    AGENT_BASELINE_COMPLEXITY[opts.agentType] || 'medium';
+  const baseline: ComplexityLevel = AGENT_BASELINE_COMPLEXITY[opts.agentType] || 'medium';
 
-  if (
-    opts.promptLength !== undefined &&
-    opts.promptLength > PROMPT_LENGTH_HIGH_THRESHOLD
-  ) {
+  if (opts.promptLength !== undefined && opts.promptLength > PROMPT_LENGTH_HIGH_THRESHOLD) {
     return 'high';
   }
 
-  if (
-    opts.recentSamples &&
-    opts.recentSamples.length >= MIN_SAMPLES_FOR_DEMOTION
-  ) {
+  if (opts.recentSamples && opts.recentSamples.length >= MIN_SAMPLES_FOR_DEMOTION) {
     const avgTokens =
-      opts.recentSamples.reduce((sum, s) => sum + s.tokenEstimate, 0) /
-      opts.recentSamples.length;
+      opts.recentSamples.reduce((sum, s) => sum + s.tokenEstimate, 0) / opts.recentSamples.length;
     if (baseline === 'high' && avgTokens < SAMPLE_DEMOTE_HIGH_TO_MEDIUM) {
       return 'medium';
     }

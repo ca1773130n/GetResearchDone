@@ -1,10 +1,6 @@
 'use strict';
 
-import type {
-  BackendUsageState,
-  TokenProfileName,
-  ModelTier,
-} from '../../lib/types';
+import type { BackendUsageState, TokenProfileName, ModelTier } from '../../lib/types';
 
 const { estimateComplexity } = require('../../lib/complexity') as {
   estimateComplexity: (opts: {
@@ -17,7 +13,7 @@ const { computeBudgetPressureLevel } = require('../../lib/scheduler') as {
   computeBudgetPressureLevel: (
     states: Map<string, BackendUsageState>,
     priority: string[],
-    accounts: { [k: string]: Array<{ config_dir: string }> },
+    accounts: { [k: string]: Array<{ config_dir: string }> }
   ) => 'none' | 'warning' | 'high' | 'critical';
 };
 
@@ -52,7 +48,10 @@ describe('Spec 4 end-to-end adaptive routing', () => {
     const pressure = computeBudgetPressureLevel(states, ['claude'], accounts);
     const complexity = estimateComplexity({ agentType: 'grd-planner' });
     const tier = computeEffectiveModelTier({
-      baseTier: 'opus', tokenProfile: 'balanced', pressure, complexity,
+      baseTier: 'opus',
+      tokenProfile: 'balanced',
+      pressure,
+      complexity,
     });
     expect(pressure).toBe('none');
     expect(complexity).toBe('high');
@@ -65,7 +64,10 @@ describe('Spec 4 end-to-end adaptive routing', () => {
     const pressure = computeBudgetPressureLevel(states, ['claude'], accounts);
     const complexity = estimateComplexity({ agentType: 'grd-planner' });
     const tier = computeEffectiveModelTier({
-      baseTier: 'opus', tokenProfile: 'balanced', pressure, complexity,
+      baseTier: 'opus',
+      tokenProfile: 'balanced',
+      pressure,
+      complexity,
     });
     expect(pressure).toBe('high');
     expect(tier).toBe('opus');
@@ -77,7 +79,10 @@ describe('Spec 4 end-to-end adaptive routing', () => {
     const pressure = computeBudgetPressureLevel(states, ['claude'], accounts);
     const complexity = estimateComplexity({ agentType: 'grd-verifier' });
     const tier = computeEffectiveModelTier({
-      baseTier: 'opus', tokenProfile: 'balanced', pressure, complexity,
+      baseTier: 'opus',
+      tokenProfile: 'balanced',
+      pressure,
+      complexity,
     });
     expect(pressure).toBe('high');
     expect(complexity).toBe('low');
@@ -90,7 +95,10 @@ describe('Spec 4 end-to-end adaptive routing', () => {
     const pressure = computeBudgetPressureLevel(states, ['claude'], accounts);
     const complexity = estimateComplexity({ agentType: 'grd-planner' });
     const tier = computeEffectiveModelTier({
-      baseTier: 'opus', tokenProfile: 'quality', pressure, complexity,
+      baseTier: 'opus',
+      tokenProfile: 'quality',
+      pressure,
+      complexity,
     });
     expect(tier).toBe('opus');
   });
@@ -101,7 +109,10 @@ describe('Spec 4 end-to-end adaptive routing', () => {
     const pressure = computeBudgetPressureLevel(states, ['claude'], accounts);
     const complexity = estimateComplexity({ agentType: 'grd-executor' });
     const tier = computeEffectiveModelTier({
-      baseTier: 'opus', tokenProfile: 'frugal', pressure, complexity,
+      baseTier: 'opus',
+      tokenProfile: 'frugal',
+      pressure,
+      complexity,
     });
     expect(pressure).toBe('none');
     expect(complexity).toBe('medium');

@@ -808,13 +808,21 @@ function discoverBackendConfigDirs(): Record<string, string | null> {
       const candidates: string[] = [...profileDirs, ...defaultDir]
         .map((e: string) => path.join(homeDir, e))
         .filter((p: string) => {
-          try { return fs.statSync(p).isDirectory(); } catch { return false; }
+          try {
+            return fs.statSync(p).isDirectory();
+          } catch {
+            return false;
+          }
         });
 
       // Check each candidate for auth marker files
       for (const candidate of candidates) {
         const hasAuth = markers.some((marker: string) => {
-          try { return fs.statSync(path.join(candidate, marker)).isFile(); } catch { return false; }
+          try {
+            return fs.statSync(path.join(candidate, marker)).isFile();
+          } catch {
+            return false;
+          }
         });
         if (hasAuth) {
           found = candidate;
@@ -936,7 +944,7 @@ const _TIER_ORDER: _ModelTier[] = ['opus', 'sonnet', 'haiku'];
 function _lookupDowngradeCount(
   profile: TokenProfileName,
   pressure: BudgetPressureLevel,
-  complexity: ComplexityLevel,
+  complexity: ComplexityLevel
 ): number {
   // quality: only downgrade on critical pressure
   if (profile === 'quality') {
@@ -1007,11 +1015,7 @@ function computeEffectiveModelTier(opts: {
   pressure: BudgetPressureLevel;
   complexity: ComplexityLevel;
 }): _ModelTier {
-  const count = _lookupDowngradeCount(
-    opts.tokenProfile,
-    opts.pressure,
-    opts.complexity,
-  );
+  const count = _lookupDowngradeCount(opts.tokenProfile, opts.pressure, opts.complexity);
   return _applyDowngrade(opts.baseTier, count);
 }
 
@@ -1027,10 +1031,7 @@ interface _SchedulerLike {
 }
 
 const { estimateComplexity } = require('./complexity') as {
-  estimateComplexity: (opts: {
-    agentType: string;
-    promptLength?: number;
-  }) => ComplexityLevel;
+  estimateComplexity: (opts: { agentType: string; promptLength?: number }) => ComplexityLevel;
 };
 
 const { computeBudgetPressureLevel } = require('./scheduler') as {
@@ -1038,7 +1039,7 @@ const { computeBudgetPressureLevel } = require('./scheduler') as {
     states: Map<string, BackendUsageState>,
     priority: BackendId[],
     accounts: SuperpowersConfig['accounts'],
-    thresholds?: BudgetPressureThresholds,
+    thresholds?: BudgetPressureThresholds
   ) => BudgetPressureLevel;
 };
 
@@ -1086,7 +1087,7 @@ function getEffectiveTierForDispatch(opts: {
     states,
     opts.schedulerConfig.backend_priority as BackendId[],
     opts.superpowersConfig.accounts,
-    opts.schedulerConfig.budget_pressure_thresholds,
+    opts.schedulerConfig.budget_pressure_thresholds
   );
   const tokenProfile: TokenProfileName = opts.config.token_profile || 'balanced';
 

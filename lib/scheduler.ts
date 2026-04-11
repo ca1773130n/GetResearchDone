@@ -386,12 +386,9 @@ export function isBudgetPressured(
   states: Map<string, BackendUsageState>,
   priority: BackendId[],
   accounts: SuperpowersConfig['accounts'],
-  thresholds?: BudgetPressureThresholds,
+  thresholds?: BudgetPressureThresholds
 ): boolean {
-  return (
-    computeBudgetPressureLevel(states, priority, accounts, thresholds) !==
-    'none'
-  );
+  return computeBudgetPressureLevel(states, priority, accounts, thresholds) !== 'none';
 }
 
 /**
@@ -406,7 +403,7 @@ export function computeBudgetPressureLevel(
   states: Map<string, BackendUsageState>,
   priority: BackendId[],
   accounts: SuperpowersConfig['accounts'],
-  thresholds?: BudgetPressureThresholds,
+  thresholds?: BudgetPressureThresholds
 ): BudgetPressureLevel {
   const t = thresholds || DEFAULT_PRESSURE_THRESHOLDS;
   let worstRatio = 0;
@@ -418,9 +415,7 @@ export function computeBudgetPressureLevel(
       const state = states.get(stateKey);
       if (!state) continue;
       if (state.token_budget <= 0) continue;
-      const ratio =
-        (state.tokens_consumed_in_window + state.tokens_reserved) /
-        state.token_budget;
+      const ratio = (state.tokens_consumed_in_window + state.tokens_reserved) / state.token_budget;
       if (ratio > worstRatio) worstRatio = ratio;
     }
   }

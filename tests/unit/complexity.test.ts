@@ -2,10 +2,7 @@
 
 import type { ComplexityLevel } from '../../lib/types';
 
-const {
-  estimateComplexity,
-  AGENT_BASELINE_COMPLEXITY,
-} = require('../../lib/complexity') as {
+const { estimateComplexity, AGENT_BASELINE_COMPLEXITY } = require('../../lib/complexity') as {
   estimateComplexity: (opts: {
     agentType: string;
     promptLength?: number;
