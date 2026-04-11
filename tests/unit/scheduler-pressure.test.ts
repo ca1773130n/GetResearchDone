@@ -125,3 +125,58 @@ describe('isBudgetPressured', () => {
     expect(isBudgetPressured(states, ['claude'], accounts)).toBe(true);
   });
 });
+
+describe('logPressureTransition', () => {
+  const { logPressureTransition } = require('../../lib/scheduler') as {
+    logPressureTransition: (
+      sessionKey: string,
+      current: 'none' | 'warning' | 'high' | 'critical',
+      agentType: string,
+      baseTier: string,
+      effectiveTier: string,
+    ) => void;
+  };
+
+  let stderrSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  it('logs once on transition from none to warning', () => {
+    const key = `test-transition-${Math.random()}`;
+    logPressureTransition(key, 'warning', 'grd-planner', 'opus', 'opus');
+    expect(stderrSpy).toHaveBeenCalledTimes(1);
+    expect(stderrSpy).toHaveBeenCalledWith(
+      expect.stringContaining('budget pressure detected — level=warning'),
+    );
+  });
+
+  it('does not log on repeat call at the same level', () => {
+    const key = `test-repeat-${Math.random()}`;
+    logPressureTransition(key, 'warning', 'grd-planner', 'opus', 'opus');
+    stderrSpy.mockClear();
+    logPressureTransition(key, 'warning', 'grd-planner', 'opus', 'opus');
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs downgrade note when baseTier != effectiveTier', () => {
+    const key = `test-downgrade-${Math.random()}`;
+    logPressureTransition(key, 'high', 'grd-executor', 'opus', 'sonnet');
+    expect(stderrSpy).toHaveBeenCalledWith(
+      expect.stringContaining('downgrading grd-executor from opus to sonnet'),
+    );
+  });
+
+  it('does not log when transitioning back to none', () => {
+    const key = `test-recovery-${Math.random()}`;
+    logPressureTransition(key, 'high', 'grd-executor', 'opus', 'sonnet');
+    stderrSpy.mockClear();
+    logPressureTransition(key, 'none', 'grd-executor', 'opus', 'opus');
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+});

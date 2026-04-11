@@ -1034,13 +1034,20 @@ const { estimateComplexity } = require('./complexity') as {
   estimateComplexity: (opts: { agentType: string; promptLength?: number }) => ComplexityLevel;
 };
 
-const { computeBudgetPressureLevel } = require('./scheduler') as {
+const { computeBudgetPressureLevel, logPressureTransition } = require('./scheduler') as {
   computeBudgetPressureLevel: (
     states: Map<string, BackendUsageState>,
     priority: BackendId[],
     accounts: SuperpowersConfig['accounts'],
     thresholds?: BudgetPressureThresholds
   ) => BudgetPressureLevel;
+  logPressureTransition: (
+    sessionKey: string,
+    current: BudgetPressureLevel,
+    agentType: string,
+    baseTier: string,
+    effectiveTier: string,
+  ) => void;
 };
 
 /**
@@ -1091,12 +1098,23 @@ function getEffectiveTierForDispatch(opts: {
   );
   const tokenProfile: TokenProfileName = opts.config.token_profile || 'balanced';
 
-  return computeEffectiveModelTier({
+  const effectiveTier = computeEffectiveModelTier({
     baseTier,
     tokenProfile,
     pressure,
     complexity,
   });
+
+  // Spec 4 Goal #7: log on pressure transitions only
+  logPressureTransition(
+    process.pid.toString(),
+    pressure,
+    opts.agentType,
+    baseTier,
+    effectiveTier,
+  );
+
+  return effectiveTier;
 }
 
 // --- Exports -----------------------------------------------------------------

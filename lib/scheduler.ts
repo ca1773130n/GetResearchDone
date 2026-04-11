@@ -391,6 +391,39 @@ export function isBudgetPressured(
   return computeBudgetPressureLevel(states, priority, accounts, thresholds) !== 'none';
 }
 
+// Module-level state for transition-based logging
+const _lastLoggedPressure: Map<string, BudgetPressureLevel> = new Map();
+
+/**
+ * Logs a single stderr line when the pressure level has changed since
+ * the last call with the same sessionKey. Safe to call per spawn —
+ * only emits on transitions. Noop when current == previous.
+ *
+ * The sessionKey lets multiple sessions in the same process have
+ * independent transition state. Autopilot/evolve/autoresearch
+ * typically pass process.pid.toString().
+ */
+export function logPressureTransition(
+  sessionKey: string,
+  current: BudgetPressureLevel,
+  agentType: string,
+  baseTier: string,
+  effectiveTier: string,
+): void {
+  const previous = _lastLoggedPressure.get(sessionKey) || 'none';
+  if (previous === current) return;
+  _lastLoggedPressure.set(sessionKey, current);
+
+  if (current === 'none') return;
+  const tierNote =
+    baseTier === effectiveTier
+      ? ''
+      : ` — downgrading ${agentType} from ${baseTier} to ${effectiveTier}`;
+  process.stderr.write(
+    `[scheduler] budget pressure detected — level=${current}${tierNote}\n`,
+  );
+}
+
 /**
  * Classifies the worst pressure level across all priority accounts.
  * Returns 'none' | 'warning' | 'high' | 'critical'. Pure function.
@@ -963,4 +996,5 @@ module.exports = {
   _anyPriorityHasHeadroom,
   isBudgetPressured,
   computeBudgetPressureLevel,
+  logPressureTransition,
 };

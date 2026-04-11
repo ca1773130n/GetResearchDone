@@ -478,7 +478,7 @@ async function _runAutoresearchLoop(
         // Resolve the effective model for the survey dispatch (Spec 4 chain).
         // Honour explicit --model flag; otherwise use the adaptive tier.
         const surveyTier = getEffectiveTierForDispatch({
-          agentType: 'autoresearch',
+          agentType: 'grd-surveyor',
           prompt: surveyPrompt,
           config: arConfig,
           scheduler: scheduler ?? null,
@@ -547,7 +547,7 @@ async function _runAutoresearchLoop(
     // Resolve the effective model for the experiment dispatch (Spec 4 chain).
     // Honour explicit --model flag; otherwise use the adaptive tier.
     const experimentTier = getEffectiveTierForDispatch({
-      agentType: 'autoresearch',
+      agentType: 'grd-executor',
       prompt,
       config: arConfig,
       scheduler: scheduler ?? null,
