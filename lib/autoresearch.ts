@@ -627,7 +627,12 @@ async function _runAutoresearchLoop(
 
 // ─── CLI Commands ───────────────────────────────────────────────────────────
 
-async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promise<void> {
+async function cmdAutoResearch(
+  cwd: string,
+  args: string[],
+  raw: boolean,
+  scheduler?: Scheduler | null
+): Promise<void> {
   // Parse flags
   const flagVal = (name: string, fallback?: string): string | undefined => {
     const i = args.indexOf(name);
@@ -658,6 +663,7 @@ async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promi
     model: flagVal('--model'),
     maxTurns: flagVal('--max-turns') ? parseInt(flagVal('--max-turns')!, 10) : undefined,
     dryRun: args.includes('--dry-run'),
+    scheduler,
   };
 
   const state = await _runAutoresearchLoop(cwd, options);

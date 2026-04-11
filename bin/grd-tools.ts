@@ -9,12 +9,16 @@
 const fs = require('fs');
 const path = require('path');
 
+import type { Scheduler } from '../lib/scheduler';
+import type { GrdConfig } from '../lib/types';
+
 // ─── Typed Imports ──────────────────────────────────────────────────────────
 
 const {
   parseIncludeFlag,
   output,
   error,
+  loadConfig,
   validatePhaseArg,
   validateFileArg,
   validateSubcommand,
@@ -24,6 +28,7 @@ const {
   parseIncludeFlag: (args: string[]) => Set<string>;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
+  loadConfig: (cwd: string) => GrdConfig;
   validatePhaseArg: (phase: string) => string;
   validateFileArg: (filePath: string, cwd: string) => string;
   validateSubcommand: (sub: string, validSubs: string[], parentCmd: string) => string;
@@ -250,10 +255,19 @@ const {
 } = require('../lib/autoplan');
 
 const {
+  createScheduler,
+}: {
+  createScheduler: (
+    config: import('../lib/types').SchedulerConfig | undefined,
+    superpowersConfig?: import('../lib/types').SuperpowersConfig
+  ) => Scheduler | null;
+} = require('../lib/scheduler');
+
+const {
   cmdAutoResearch,
   cmdInitAutoResearch,
 }: {
-  cmdAutoResearch: (cwd: string, args: string[], raw: boolean) => Promise<void>;
+  cmdAutoResearch: (cwd: string, args: string[], raw: boolean, scheduler?: Scheduler | null) => Promise<void>;
   cmdInitAutoResearch: (cwd: string, raw: boolean) => void;
 } = require('../lib/autoresearch');
 
@@ -1369,9 +1383,15 @@ async function routeCommand(
     case 'autoplan':
       await cmdAutoplan(cwd, args.slice(1), raw);
       break;
-    case 'autoresearch':
-      await cmdAutoResearch(cwd, args.slice(1), raw);
+    case 'autoresearch': {
+      const arConfig: GrdConfig = loadConfig(cwd);
+      const arScheduler = createScheduler(arConfig.scheduler, arConfig.superpowers);
+      if (arScheduler) {
+        arScheduler.loadPersistedState(path.join(cwd, '.planning'));
+      }
+      await cmdAutoResearch(cwd, args.slice(1), raw, arScheduler);
       break;
+    }
     case 'worktree-hook-create':
       cmdWorktreeHookCreate(cwd, args[1], args[2], raw);
       break;
