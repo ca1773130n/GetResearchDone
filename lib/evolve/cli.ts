@@ -57,21 +57,38 @@ const {
   output,
   error,
   loadConfig,
+  MODEL_PROFILES,
   resolveModelForAgent,
   getMilestoneInfo,
 }: {
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
   loadConfig: (cwd: string) => GrdConfig;
-  resolveModelForAgent: (config: GrdConfig, agent: string, cwd: string) => string;
+  MODEL_PROFILES: Record<string, Record<string, string>>;
+  resolveModelForAgent: (
+    config: GrdConfig,
+    agent: string,
+    cwd: string,
+    options?: { effectiveTierOverride?: import('../types').ModelTier }
+  ) => string;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
 } = require('../utils');
 const {
   detectBackend,
   getBackendCapabilities,
+  getEffectiveTierForDispatch,
 }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => BackendCapabilities;
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: { getStates(): Map<string, import('../types').BackendUsageState> } | null;
+    schedulerConfig?: import('../types').SchedulerConfig;
+    superpowersConfig?: import('../types').SuperpowersConfig;
+    modelProfiles: Record<string, Record<string, string>>;
+  }) => import('../types').ModelTier;
 } = require('../backend');
 const fs = require('fs');
 
@@ -240,8 +257,33 @@ function cmdInitEvolve(cwd: string, raw: boolean): void {
   const backend: string = detectBackend(cwd);
   const capabilities: BackendCapabilities = getBackendCapabilities(backend);
   const state: EvolveGroupState | EvolveState | null = readEvolveState(cwd);
-  const plannerModel: string = resolveModelForAgent(config, 'grd-planner', cwd);
-  const executorModel: string = resolveModelForAgent(config, 'grd-executor', cwd);
+  // Use the Spec 4 adaptive chain so pre-flight context reflects the same
+  // model selection logic that the actual dispatch will use at runtime.
+  // No scheduler is available at init time, so pass null (no budget pressure).
+  const plannerTier = getEffectiveTierForDispatch({
+    agentType: 'grd-planner',
+    prompt: '',
+    config,
+    scheduler: null,
+    schedulerConfig: config.scheduler,
+    superpowersConfig: config.superpowers,
+    modelProfiles: MODEL_PROFILES,
+  });
+  const plannerModel: string = resolveModelForAgent(config, 'grd-planner', cwd, {
+    effectiveTierOverride: plannerTier,
+  });
+  const executorTier = getEffectiveTierForDispatch({
+    agentType: 'grd-executor',
+    prompt: '',
+    config,
+    scheduler: null,
+    schedulerConfig: config.scheduler,
+    superpowersConfig: config.superpowers,
+    modelProfiles: MODEL_PROFILES,
+  });
+  const executorModel: string = resolveModelForAgent(config, 'grd-executor', cwd, {
+    effectiveTierOverride: executorTier,
+  });
   const milestone: MilestoneInfo = getMilestoneInfo(cwd);
 
   // Extract group state fields (works for both EvolveGroupState and EvolveState)

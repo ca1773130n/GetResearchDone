@@ -44,8 +44,17 @@ const fs = require('fs');
 const path = require('path');
 const {
   loadConfig,
+  MODEL_PROFILES,
+  resolveModelForAgent,
 }: {
   loadConfig: (cwd: string) => GrdConfig;
+  MODEL_PROFILES: Record<string, Record<string, string>>;
+  resolveModelForAgent: (
+    config: GrdConfig,
+    agentType: string,
+    cwd?: string,
+    options?: { effectiveTierOverride?: import('../types').ModelTier }
+  ) => string;
 } = require('../utils');
 import type { Scheduler } from '../scheduler';
 const {
@@ -102,12 +111,10 @@ const {
   ) => { pr_url?: string; error?: string };
 } = require('../worktree');
 const {
-  SONNET_MODEL,
   DEFAULT_PICK_PCT,
   readEvolveState,
   writeEvolveState,
 }: {
-  SONNET_MODEL: string;
   DEFAULT_PICK_PCT: number;
   readEvolveState: (cwd: string) => EvolveGroupState | EvolveState | null;
   writeEvolveState: (cwd: string, state: EvolveGroupState | EvolveState) => void;
@@ -142,6 +149,19 @@ const {
     options?: MultiMilestoneOptions
   ) => Promise<MultiMilestoneResult>;
 } = require('../autopilot');
+const {
+  getEffectiveTierForDispatch,
+}: {
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: { getStates(): Map<string, import('../types').BackendUsageState> } | null;
+    schedulerConfig?: import('../types').SchedulerConfig;
+    superpowersConfig?: import('../types').SuperpowersConfig;
+    modelProfiles: Record<string, Record<string, string>>;
+  }) => import('../types').ModelTier;
+} = require('../backend');
 
 // ─── Evolve Loop Helpers ─────────────────────────────────────────────────────
 
@@ -247,16 +267,32 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
   const { autoCommit, iterationNum } = iterCtx;
   const executePrompt: string = buildBatchExecutePrompt(cappedGroups, iterationNum);
+  // Resolve the effective model for the executor dispatch. The Spec 4 chain
+  // (complexity → budget pressure → tier) picks the right model; SONNET_MODEL
+  // remains the baseline if no profile is configured.
+  const evolveConfig: GrdConfig = loadConfig(cwd);
+  const executeTier = getEffectiveTierForDispatch({
+    agentType: 'grd-executor',
+    prompt: executePrompt,
+    config: evolveConfig,
+    scheduler,
+    schedulerConfig: evolveConfig.scheduler,
+    superpowersConfig: evolveConfig.superpowers,
+    modelProfiles: MODEL_PROFILES,
+  });
+  const executeModel: string = resolveModelForAgent(evolveConfig, 'grd-executor', cwd, {
+    effectiveTierOverride: executeTier,
+  });
   const execResult = scheduler
     ? await scheduler.spawn(executePrompt, {
-        model: SONNET_MODEL,
+        model: executeModel,
         timeout: timeoutMs,
         maxTurns,
         cwd: executionCwd,
         workItemId: `evolve-iter-${iterationNum}-execute`,
       })
     : await spawnClaudeAsync(executionCwd, executePrompt, {
-        model: SONNET_MODEL,
+        model: executeModel,
         timeout: timeoutMs,
         maxTurns,
         captureStderr: true,
@@ -337,16 +373,30 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
 
       log(`Running single review for all ${cappedGroups.length} groups`);
       const reviewPrompt: string = buildBatchReviewPrompt(cappedGroups);
+      // Resolve the effective model for the reviewer dispatch, reusing the
+      // already-loaded evolveConfig (Spec 4 chain mirrors the execute dispatch).
+      const reviewTier = getEffectiveTierForDispatch({
+        agentType: 'grd-verifier',
+        prompt: reviewPrompt,
+        config: evolveConfig,
+        scheduler,
+        schedulerConfig: evolveConfig.scheduler,
+        superpowersConfig: evolveConfig.superpowers,
+        modelProfiles: MODEL_PROFILES,
+      });
+      const reviewModel: string = resolveModelForAgent(evolveConfig, 'grd-verifier', cwd, {
+        effectiveTierOverride: reviewTier,
+      });
       const reviewResult = scheduler
         ? await scheduler.spawn(reviewPrompt, {
-            model: SONNET_MODEL,
+            model: reviewModel,
             timeout: timeoutMs,
             maxTurns,
             cwd: executionCwd,
             workItemId: `evolve-iter-${iterationNum}-review`,
           })
         : await spawnClaudeAsync(executionCwd, reviewPrompt, {
-            model: SONNET_MODEL,
+            model: reviewModel,
             timeout: timeoutMs,
             maxTurns,
           });
