@@ -859,58 +859,133 @@ export function createScheduler(
     const startTime = Date.now();
 
     try {
-      const { execFile } = require('child_process') as typeof import('child_process');
+      const { spawn } = require('child_process') as typeof import('child_process');
+      const totalTimeoutMs = opts.timeout || 120 * 60 * 1000;
+      const idleTimeoutMs = (schedulerConfig.idle_timeout_seconds ?? 900) * 1000;
+      const MAX_BUFFER_BYTES = 50 * 1024 * 1024;
+
       const result = await new Promise<SchedulerSpawnResult>((resolve) => {
-        const child = execFile(
-          adapter.binary,
-          args,
-          {
-            cwd: opts.cwd || process.cwd(),
-            maxBuffer: 50 * 1024 * 1024,
-            timeout: opts.timeout || 120 * 60 * 1000,
-            env: { ...process.env, ...envOverrides },
-          },
-          (error, stdout, stderr) => {
-            const duration = Date.now() - startTime;
-            const timedOut = !!(error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT');
-            const exitCode = error ? child.exitCode || 1 : 0;
+        const child = spawn(adapter.binary, args, {
+          cwd: opts.cwd || process.cwd(),
+          env: { ...process.env, ...envOverrides },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
 
-            const tokens = adapter.parseTokenUsage(stderr || '') ?? Math.round(duration * 10);
+        let stdoutBuf = '';
+        let stderrBuf = '';
+        let stdoutOverflowed = false;
+        let idleTimedOut = false;
+        let totalTimedOut = false;
+        let resolved = false;
 
-            const sample: UsageSample = {
-              backend: backend as BackendId,
-              stateKey,
-              timestamp: Date.now(),
-              duration,
-              tokenEstimate: tokens,
-              exitCode,
-              workItemId,
-            };
+        const safeResolve = (r: SchedulerSpawnResult): void => {
+          if (resolved) return;
+          resolved = true;
+          resolve(r);
+        };
 
-            markComplete(state);
-            recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
-
-            // Periodic persistence: every 10 samples across all backends
-            const totalSamples = Array.from(states.values()).reduce(
-              (sum, s) => sum + s.samples.length,
-              0
-            );
-            if (totalSamples % 10 === 0 && opts.cwd) {
-              const { join } = require('path') as typeof import('path');
-              scheduler.persistState(join(opts.cwd, '.planning'));
+        const watchdog = _startIdleWatchdog(idleTimeoutMs, () => {
+          idleTimedOut = true;
+          process.stderr.write(
+            `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`,
+          );
+          child.kill('SIGTERM');
+          setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) {
+              child.kill('SIGKILL');
             }
+          }, 5000);
+        });
 
-            resolve({
-              exitCode,
-              stdout: stdout || undefined,
-              stderr: stderr || undefined,
-              timedOut,
-              backend: backend as BackendId,
-              tokensUsed: tokens,
-              workItemId,
-            });
+        const totalTimer = setTimeout(() => {
+          totalTimedOut = true;
+          child.kill('SIGTERM');
+          setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) {
+              child.kill('SIGKILL');
+            }
+          }, 5000);
+        }, totalTimeoutMs);
+
+        child.stdout?.on('data', (chunk: Buffer) => {
+          watchdog.markActivity();
+          if (stdoutBuf.length + chunk.length > MAX_BUFFER_BYTES) {
+            stdoutOverflowed = true;
+            return;
           }
-        );
+          stdoutBuf += chunk.toString('utf-8');
+        });
+
+        child.stderr?.on('data', (chunk: Buffer) => {
+          watchdog.markActivity();
+          if (stderrBuf.length + chunk.length > MAX_BUFFER_BYTES) return;
+          stderrBuf += chunk.toString('utf-8');
+        });
+
+        child.on('error', (err) => {
+          watchdog.stop();
+          clearTimeout(totalTimer);
+          markComplete(state);
+          safeResolve({
+            exitCode: 1,
+            stdout: undefined,
+            stderr: err.message,
+            timedOut: false,
+            idleTimedOut: false,
+            backend: backend as BackendId,
+            tokensUsed: 0,
+            workItemId,
+          });
+        });
+
+        child.on('close', (code) => {
+          watchdog.stop();
+          clearTimeout(totalTimer);
+          const duration = Date.now() - startTime;
+          const exitCode = code ?? (idleTimedOut || totalTimedOut ? 1 : 0);
+          const tokens =
+            adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
+
+          const sample: UsageSample = {
+            backend: backend as BackendId,
+            stateKey,
+            timestamp: Date.now(),
+            duration,
+            tokenEstimate: tokens,
+            exitCode,
+            workItemId,
+          };
+
+          markComplete(state);
+          recordSample(
+            state,
+            sample,
+            prediction.window_minutes,
+            prediction.ewma_alpha,
+          );
+
+          // Periodic persistence: every 10 samples across all backends
+          const totalSamples = Array.from(states.values()).reduce(
+            (sum, s) => sum + s.samples.length,
+            0,
+          );
+          if (totalSamples % 10 === 0 && opts.cwd) {
+            const { join } = require('path') as typeof import('path');
+            scheduler.persistState(join(opts.cwd, '.planning'));
+          }
+
+          safeResolve({
+            exitCode,
+            stdout:
+              opts.captureOutput && !stdoutOverflowed ? stdoutBuf : undefined,
+            stderr: stderrBuf || undefined,
+            timedOut: totalTimedOut,
+            idleTimedOut,
+            backend: backend as BackendId,
+            tokensUsed: tokens,
+            workItemId,
+          });
+        });
       });
 
       // Rate limit retry: if rate-limited despite prediction, cooldown and retry
