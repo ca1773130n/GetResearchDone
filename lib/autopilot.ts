@@ -25,6 +25,7 @@ import type {
   PlanArtifact,
   ArtifactDAG,
   ArtifactDAGValidation,
+  PhaseCompleteResult,
 } from './types';
 
 const fs = require('fs');
@@ -158,6 +159,12 @@ const {
 }: {
   buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
 } = require('./knowledge');
+const { completePhaseAfterPostPipeline } = require('./phase-complete') as {
+  completePhaseAfterPostPipeline: (
+    cwd: string,
+    phaseNum: string,
+  ) => PhaseCompleteResult | null;
+};
 
 // ─── Default Constants ──────────────────────────────────────────────────────
 
@@ -1978,6 +1985,26 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             log(`Phase ${pNum}: post-pipeline completed`);
             writeStatusMarker(cwd, pNum, 'post-pipeline', 'completed');
             results.push({ phase: pNum, step: 'post-pipeline', status: 'completed' });
+
+            // Spec 3: mechanical phase finalization. On a successful post-pipeline,
+            // fold in phase complete (ROADMAP + STATE + quality analysis) instead
+            // of leaving it for the user to run manually.
+            writeStatusMarker(cwd, pNum, 'phase-finalize', 'started');
+            const finalizeResult: PhaseCompleteResult | null = completePhaseAfterPostPipeline(
+              cwd,
+              pNum,
+            );
+            if (finalizeResult) {
+              writeStatusMarker(cwd, pNum, 'phase-finalize', 'completed');
+              log(
+                `Phase ${pNum}: phase-finalize complete — ${finalizeResult.plans_executed} plans, ${finalizeResult.next_phase ? `next phase ${finalizeResult.next_phase}` : 'milestone complete'}`,
+              );
+            } else {
+              writeStatusMarker(cwd, pNum, 'phase-finalize', 'failed');
+              log(
+                `Phase ${pNum}: phase-finalize failed — run 'gd phase complete ${pNum}' manually to finalize`,
+              );
+            }
           }
 
           // Clean up worktree after pipeline completes (success or failure)
