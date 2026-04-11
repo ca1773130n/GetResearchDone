@@ -299,6 +299,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'transitive_citation_gate',
   // Refinement loop
   'refinement_loop',
+  // LLM fallback for phase completion (Spec 3B)
+  'phase_complete_llm_fallback',
 ]);
 
 /**
@@ -546,6 +548,11 @@ function loadConfig(cwd: string): GrdConfig {
           : false,
       // Refinement loop (optional boolean, default: false)
       refinement_loop: typeof parsed.refinement_loop === 'boolean' ? parsed.refinement_loop : false,
+      // LLM fallback for phase completion (Spec 3B, optional boolean, default: false)
+      phase_complete_llm_fallback:
+        typeof parsed.phase_complete_llm_fallback === 'boolean'
+          ? parsed.phase_complete_llm_fallback
+          : undefined,
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> =
