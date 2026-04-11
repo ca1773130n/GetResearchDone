@@ -2172,4 +2172,9 @@ module.exports = {
   cmdVersionBump,
   cmdPhaseBatchComplete,
   atomicWriteFile,
+  // Phase-complete helpers (for lib/phase-complete.ts, Spec 3)
+  readRoadmapFile,
+  writeRoadmapFile,
+  readStateFile,
+  writeStateFile,
 };
