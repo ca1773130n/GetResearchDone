@@ -467,6 +467,18 @@ export interface SchedulerConfig {
    * Defaults: { warning: 0.6, high: 0.8, critical: 0.95 }.
    */
   budget_pressure_thresholds?: BudgetPressureThresholds;
+  /**
+   * Maximum time (seconds) the scheduler will wait for a spawned backend
+   * subprocess to produce any stdout/stderr data before killing it.
+   * Default: 900 (15 minutes). Set arbitrarily high (e.g., 3600) to
+   * effectively disable. Set low to catch hangs faster.
+   *
+   * Distinct from `opts.timeout`, which is a total wall-clock upper
+   * bound. The idle timeout fires only when the subprocess is completely
+   * silent for the configured duration — legitimate streaming inference
+   * with progressive output is unaffected.
+   */
+  idle_timeout_seconds?: number;
 }
 
 /**
@@ -513,6 +525,12 @@ export interface SchedulerSpawnResult {
   stdout?: string;
   stderr?: string;
   timedOut: boolean;
+  /**
+   * True if the subprocess was killed because it exceeded the idle
+   * timeout (no stdout/stderr activity for `idle_timeout_seconds`).
+   * Distinct from `timedOut` which indicates total-timeout.
+   */
+  idleTimedOut?: boolean;
   backend: BackendId;
   tokensUsed: number;
   workItemId: string;

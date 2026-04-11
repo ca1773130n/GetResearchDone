@@ -3225,17 +3225,10 @@ describe('lib/autopilot', () => {
         error: null,
       });
 
-      // Mock execFile for the scheduler's internal spawn mechanism
-      const execFileSpy = jest.spyOn(childProcess, 'execFile').mockImplementation(((
-        ...args: unknown[]
-      ) => {
-        // execFile(cmd, args, opts, callback)
-        const callback = args[args.length - 1] as (...cbArgs: unknown[]) => void;
-        process.nextTick(() => callback(null, 'ok', ''));
-        const child = new EventEmitter();
-        child.kill = jest.fn();
-        return child;
-      }) as unknown as typeof childProcess.execFile);
+      // Mock spawn for the scheduler's internal spawn mechanism (replaced execFile in Spec 2B)
+      const spawnMockSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
+        return createMockChild(0) as any;
+      });
 
       try {
         const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipExecute: true });
@@ -3244,7 +3237,7 @@ describe('lib/autopilot', () => {
         const planResult = result.results.find((r: any) => r.step === 'plan');
         expect(planResult.status).toBe('completed');
       } finally {
-        execFileSpy.mockRestore();
+        spawnMockSpy.mockRestore();
       }
     });
 
