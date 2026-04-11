@@ -1,16 +1,32 @@
 'use strict';
 
-import type { TokenProfileName, BudgetPressureLevel, ComplexityLevel } from '../../lib/types';
+import type {
+  TokenProfileName,
+  BudgetPressureLevel,
+  ComplexityLevel,
+  GrdConfig,
+  SchedulerConfig,
+  SuperpowersConfig,
+} from '../../lib/types';
 
 type ModelTier = 'opus' | 'sonnet' | 'haiku';
 
-const { computeEffectiveModelTier } = require('../../lib/backend') as {
+const { computeEffectiveModelTier, getEffectiveTierForDispatch } = require('../../lib/backend') as {
   computeEffectiveModelTier: (opts: {
     baseTier: ModelTier;
     tokenProfile: TokenProfileName;
     pressure: BudgetPressureLevel;
     complexity: ComplexityLevel;
   }) => ModelTier;
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: { getStates: () => Map<string, unknown> } | null;
+    schedulerConfig?: SchedulerConfig;
+    superpowersConfig?: SuperpowersConfig;
+    modelProfiles: Record<string, Record<string, string>>;
+  }) => string;
 };
 
 describe('computeEffectiveModelTier', () => {
@@ -182,5 +198,62 @@ describe('computeEffectiveModelTier', () => {
       complexity: 'low',
     });
     expect(result).toBe('unknown-tier');
+  });
+});
+
+describe('getEffectiveTierForDispatch with recentSamples', () => {
+  it('passes recentSamples to estimateComplexity when available from scheduler', () => {
+    // grd-executor baseline complexity = medium; with 3 samples avg tokenEstimate=766 < 1500
+    // → estimateComplexity demotes to low.
+    // computeEffectiveModelTier: baseTier=sonnet, balanced, pressure=none, complexity=low → 1 step down = haiku.
+    const states = new Map();
+    states.set('claude/~/.claude', {
+      samples: [
+        { backend: 'claude', timestamp: Date.now() - 3000, duration: 100, tokenEstimate: 500, exitCode: 0, workItemId: '1' },
+        { backend: 'claude', timestamp: Date.now() - 2000, duration: 100, tokenEstimate: 800, exitCode: 0, workItemId: '2' },
+        { backend: 'claude', timestamp: Date.now() - 1000, duration: 100, tokenEstimate: 1000, exitCode: 0, workItemId: '3' },
+      ],
+      ewma_tokens_per_task: 0,
+      tokens_consumed_in_window: 0,
+      tokens_reserved: 0,
+      in_flight_count: 0,
+      token_budget: 100_000,
+      budget_learned: false,
+      budget_confidence: 0,
+    });
+
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-executor',
+      prompt: 'test',
+      config: { model_profile: 'balanced', token_profile: 'balanced' } as unknown as GrdConfig,
+      scheduler: { getStates: () => states },
+      schedulerConfig: {
+        backend_priority: ['claude'],
+        free_fallback: { backend: 'claude' },
+        prediction: { window_minutes: 60, ewma_alpha: 0.3, safety_margin_tasks: 1, min_samples: 3 },
+      } as unknown as SchedulerConfig,
+      superpowersConfig: {
+        accounts: { claude: [{ config_dir: '~/.claude' }] },
+      } as unknown as SuperpowersConfig,
+      modelProfiles: {
+        'grd-executor': { balanced: 'sonnet', quality: 'opus', budget: 'sonnet' },
+      },
+    });
+
+    // baseTier=sonnet, complexity=low (sample-demoted), pressure=none, balanced → 1 downgrade = haiku
+    expect(tier).toBe('haiku');
+  });
+
+  it('returns baseTier unchanged when no scheduler provided', () => {
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-executor',
+      prompt: 'test',
+      config: { model_profile: 'balanced', token_profile: 'balanced' } as unknown as GrdConfig,
+      scheduler: null,
+      modelProfiles: {
+        'grd-executor': { balanced: 'sonnet', quality: 'opus', budget: 'sonnet' },
+      },
+    });
+    expect(tier).toBe('sonnet');
   });
 });
