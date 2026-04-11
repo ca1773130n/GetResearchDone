@@ -682,6 +682,9 @@ export function createScheduler(
         prediction.safety_margin_tasks
       )
     ) {
+      // Defensive: createScheduler applies 90 default, but TS can't narrow through
+      // the spread-merge. The ?? 90 keeps TypeScript happy and guards against
+      // direct construction of the SchedulerConfig bypassing createScheduler.
       const maxWaitMinutes = schedulerConfig.max_wait_minutes ?? 90;
       if (maxWaitMinutes > 0) {
         const maxWaitMs = maxWaitMinutes * 60 * 1000;
@@ -698,10 +701,9 @@ export function createScheduler(
           // free_fallback instead of waiting again (pre-Spec 2A behavior).
         } else if (recoveryTime !== null) {
           const waitMs = recoveryTime - Date.now();
-          console.log(
-            `scheduler: all priority accounts exhausted, waiting ${Math.ceil(
-              waitMs / 60_000
-            )}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})`
+          const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
+          process.stderr.write(
+            `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
           );
           const waitResult = await waitUntilOrAbort(recoveryTime);
           if (waitResult === 'aborted') {

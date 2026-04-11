@@ -163,7 +163,8 @@ async function _spawnClaude(
         stdout: '',
         timedOut: result.timedOut,
       };
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('SIGINT')) throw e;
       return { exitCode: 1, stdout: '', timedOut: false };
     }
   }
