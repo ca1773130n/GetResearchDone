@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * GRD Scan/Injection -- Prose-level prompt injection scanner.
@@ -8,11 +8,11 @@
  * system to suppress known false positives.
  */
 
-const fs = require('fs') as typeof import('fs');
+const fs = require("fs") as typeof import("fs");
 
-import type { IgnoreEntry } from './ignorefile';
+import type { IgnoreEntry } from "./ignorefile";
 
-const { INJECTION_PATTERNS } = require('./patterns') as {
+const { INJECTION_PATTERNS } = require("./patterns") as {
   INJECTION_PATTERNS: ReadonlyArray<{
     id: string;
     label: string;
@@ -20,11 +20,15 @@ const { INJECTION_PATTERNS } = require('./patterns') as {
     regex: RegExp;
   }>;
 };
-const { stripCodeBlocks } = require('./strip-markdown') as {
+const { stripCodeBlocks } = require("./strip-markdown") as {
   stripCodeBlocks: (raw: string) => string;
 };
-const { isIgnored } = require('./ignorefile') as {
-  isIgnored: (file: string, matchText: string, entries: IgnoreEntry[]) => boolean;
+const { isIgnored } = require("./ignorefile") as {
+  isIgnored: (
+    file: string,
+    matchText: string,
+    entries: IgnoreEntry[],
+  ) => boolean;
 };
 
 export interface ScanHit {
@@ -35,7 +39,7 @@ export interface ScanHit {
   category: string;
   match: string;
   ignored: boolean;
-  source: 'prose' | 'base64';
+  source: "prose" | "base64";
 }
 
 export interface ScanProseOpts {
@@ -48,7 +52,7 @@ export function scanProse(files: string[], opts: ScanProseOpts): ScanHit[] {
     const raw = _readUtf8OrNull(file);
     if (raw === null) continue;
     const stripped = stripCodeBlocks(raw);
-    const lines = stripped.split('\n');
+    const lines = stripped.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       for (const pattern of INJECTION_PATTERNS) {
@@ -63,7 +67,7 @@ export function scanProse(files: string[], opts: ScanProseOpts): ScanHit[] {
             category: pattern.category,
             match,
             ignored: isIgnored(file, line, opts.ignoreEntries),
-            source: 'prose',
+            source: "prose",
           });
         }
       }
@@ -76,16 +80,18 @@ export function scanProse(files: string[], opts: ScanProseOpts): ScanHit[] {
 
 function _readUtf8OrNull(file: string): string | null {
   try {
-    return fs.readFileSync(file, 'utf8');
+    return fs.readFileSync(file, "utf8");
   } catch (e) {
-    process.stderr.write(`warning: cannot read ${file}: ${(e as Error).message}\n`);
+    process.stderr.write(
+      `warning: cannot read ${file}: ${(e as Error).message}\n`,
+    );
     return null;
   }
 }
 
 function _truncate(s: string, max: number): string {
   if (s.length <= max) return s;
-  return s.slice(0, max) + '...';
+  return s.slice(0, max) + "...";
 }
 
 module.exports = { scanProse };

@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * GRD Scan/StripMarkdown -- Remove fenced code blocks and inline backtick
@@ -18,22 +18,22 @@ const INLINE_BACKTICK_RE = /`[^`]+`/g;
  * error reporting). Inline backtick spans are replaced with empty string.
  */
 export function stripCodeBlocks(raw: string): string {
-  const lines = raw.split('\n');
+  const lines = raw.split("\n");
   const out: string[] = [];
   let inCode = false;
   for (const line of lines) {
     if (FENCE_RE.test(line)) {
       inCode = !inCode;
-      out.push('');
+      out.push("");
       continue;
     }
     if (inCode) {
-      out.push('');
+      out.push("");
       continue;
     }
-    out.push(line.replace(INLINE_BACKTICK_RE, ''));
+    out.push(line.replace(INLINE_BACKTICK_RE, ""));
   }
-  return out.join('\n');
+  return out.join("\n");
 }
 
 module.exports = { stripCodeBlocks };

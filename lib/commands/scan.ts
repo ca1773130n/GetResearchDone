@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * GRD Commands/Scan -- Orchestrator for the prompt injection scanner.
@@ -8,26 +8,26 @@
  * output formatting — the CLI dispatch layer handles that.
  */
 
-import type { ScanHit } from '../scan/injection';
-import type { IgnoreEntry } from '../scan/ignorefile';
+import type { ScanHit } from "../scan/injection";
+import type { IgnoreEntry } from "../scan/ignorefile";
 
-const { scanProse } = require('../scan/injection') as {
+const { scanProse } = require("../scan/injection") as {
   scanProse: (
     files: string[],
-    opts: { ignoreEntries: IgnoreEntry[] }
+    opts: { ignoreEntries: IgnoreEntry[] },
   ) => ScanHit[];
 };
-const { scanBase64 } = require('../scan/base64') as {
+const { scanBase64 } = require("../scan/base64") as {
   scanBase64: (
     files: string[],
-    opts: { ignoreEntries: IgnoreEntry[] }
+    opts: { ignoreEntries: IgnoreEntry[] },
   ) => ScanHit[];
 };
-const { loadIgnoreFile } = require('../scan/ignorefile') as {
+const { loadIgnoreFile } = require("../scan/ignorefile") as {
   loadIgnoreFile: (filePath: string) => IgnoreEntry[];
 };
 
-export type ScanMode = 'staged' | 'diff' | 'file' | 'all';
+export type ScanMode = "staged" | "diff" | "file" | "all";
 
 export interface ScanReport {
   version: 1;

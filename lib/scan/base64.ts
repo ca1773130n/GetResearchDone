@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * GRD Scan/Base64 -- Detect prompt injection patterns hidden inside
@@ -9,12 +9,12 @@
  * decoded text. Matches gsd-2 v2.67 scripts/base64-scan.sh threshold.
  */
 
-const fs = require('fs') as typeof import('fs');
+const fs = require("fs") as typeof import("fs");
 
-import type { IgnoreEntry } from './ignorefile';
-import type { ScanHit } from './injection';
+import type { IgnoreEntry } from "./ignorefile";
+import type { ScanHit } from "./injection";
 
-const { INJECTION_PATTERNS } = require('./patterns') as {
+const { INJECTION_PATTERNS } = require("./patterns") as {
   INJECTION_PATTERNS: ReadonlyArray<{
     id: string;
     label: string;
@@ -22,8 +22,12 @@ const { INJECTION_PATTERNS } = require('./patterns') as {
     regex: RegExp;
   }>;
 };
-const { isIgnored } = require('./ignorefile') as {
-  isIgnored: (file: string, matchText: string, entries: IgnoreEntry[]) => boolean;
+const { isIgnored } = require("./ignorefile") as {
+  isIgnored: (
+    file: string,
+    matchText: string,
+    entries: IgnoreEntry[],
+  ) => boolean;
 };
 
 const BASE64_RUN_RE = /[A-Za-z0-9+/=]{40,}/g;
@@ -38,7 +42,7 @@ export function scanBase64(files: string[], opts: ScanBase64Opts): ScanHit[] {
   for (const file of files) {
     const raw = _readUtf8OrNull(file);
     if (raw === null) continue;
-    const lines = raw.split('\n');
+    const lines = raw.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const candidates = line.match(BASE64_RUN_RE);
@@ -59,7 +63,7 @@ export function scanBase64(files: string[], opts: ScanBase64Opts): ScanHit[] {
               category: pattern.category,
               match,
               ignored: isIgnored(file, match, opts.ignoreEntries),
-              source: 'base64',
+              source: "base64",
             });
           }
         }
@@ -73,21 +77,23 @@ export function scanBase64(files: string[], opts: ScanBase64Opts): ScanHit[] {
 
 function _readUtf8OrNull(file: string): string | null {
   try {
-    return fs.readFileSync(file, 'utf8');
+    return fs.readFileSync(file, "utf8");
   } catch (e) {
-    process.stderr.write(`warning: cannot read ${file}: ${(e as Error).message}\n`);
+    process.stderr.write(
+      `warning: cannot read ${file}: ${(e as Error).message}\n`,
+    );
     return null;
   }
 }
 
 function _tryDecodeUtf8(candidate: string): string | null {
   try {
-    const buf = Buffer.from(candidate, 'base64');
-    const normalized = candidate.replace(/=+$/, '');
-    const reencoded = buf.toString('base64').replace(/=+$/, '');
+    const buf = Buffer.from(candidate, "base64");
+    const normalized = candidate.replace(/=+$/, "");
+    const reencoded = buf.toString("base64").replace(/=+$/, "");
     if (reencoded !== normalized) return null;
-    const decoded = buf.toString('utf8');
-    if (decoded.includes('\uFFFD')) return null;
+    const decoded = buf.toString("utf8");
+    if (decoded.includes("\uFFFD")) return null;
     return decoded;
   } catch {
     return null;
@@ -96,7 +102,7 @@ function _tryDecodeUtf8(candidate: string): string | null {
 
 function _truncate(s: string, max: number): string {
   if (s.length <= max) return s;
-  return s.slice(0, max) + '...';
+  return s.slice(0, max) + "...";
 }
 
 module.exports = { scanBase64 };

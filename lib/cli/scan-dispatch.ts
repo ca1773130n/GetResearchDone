@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * GRD CLI/ScanDispatch -- Pure file-resolution helpers for `gd scan`.
@@ -12,11 +12,12 @@
  * as positional argv, not shell tokens.
  */
 
-const fs = require('fs') as typeof import('fs');
-const path = require('path') as typeof import('path');
-const { execFileSync } = require('child_process') as typeof import('child_process');
+const fs = require("fs") as typeof import("fs");
+const path = require("path") as typeof import("path");
+const { execFileSync } =
+  require("child_process") as typeof import("child_process");
 
-import type { ScanMode } from '../commands/scan';
+import type { ScanMode } from "../commands/scan";
 
 export interface ResolveScanOpts {
   mode: ScanMode;
@@ -25,29 +26,29 @@ export interface ResolveScanOpts {
   diffBase?: string;
 }
 
-const SCAN_DIRS = ['commands', 'agents', 'templates', 'docs'];
+const SCAN_DIRS = ["commands", "agents", "templates", "docs"];
 
 // Git pathspecs mirroring SCAN_DIRS, with docs/superpowers/ excluded to
 // match the _walkMarkdown behavior. Used by _resolveStaged and _resolveDiff.
 const SCAN_PATHSPECS: readonly string[] = [
-  'commands/**/*.md',
-  'agents/**/*.md',
-  'templates/**/*.md',
-  'docs/**/*.md',
-  ':(exclude)docs/superpowers/**',
+  "commands/**/*.md",
+  "agents/**/*.md",
+  "templates/**/*.md",
+  "docs/**/*.md",
+  ":(exclude)docs/superpowers/**",
 ];
 
 export function resolveScanFiles(opts: ResolveScanOpts): string[] {
   const { mode, cwd } = opts;
   switch (mode) {
-    case 'file':
+    case "file":
       return _resolveFile(opts);
-    case 'all':
+    case "all":
       return _resolveAll(cwd);
-    case 'staged':
+    case "staged":
       return _resolveStaged(cwd);
-    case 'diff':
-      return _resolveDiff(cwd, opts.diffBase || 'origin/main');
+    case "diff":
+      return _resolveDiff(cwd, opts.diffBase || "origin/main");
   }
 }
 
@@ -55,7 +56,7 @@ export function resolveScanFiles(opts: ResolveScanOpts): string[] {
 
 function _resolveFile(opts: ResolveScanOpts): string[] {
   if (!opts.filePath) {
-    throw new Error('--file mode requires a file path');
+    throw new Error("--file mode requires a file path");
   }
   if (!fs.existsSync(opts.filePath)) {
     throw new Error(`file not found: ${opts.filePath}`);
@@ -75,8 +76,8 @@ function _resolveAll(cwd: string): string[] {
 
 function _resolveStaged(cwd: string): string[] {
   const out = _safeGit(
-    ['diff', '--cached', '--name-only', '--', ...SCAN_PATHSPECS],
-    cwd
+    ["diff", "--cached", "--name-only", "--", ...SCAN_PATHSPECS],
+    cwd,
   );
   if (out === null) return [];
   return _absolutizeAndFilter(out, cwd);
@@ -84,8 +85,8 @@ function _resolveStaged(cwd: string): string[] {
 
 function _resolveDiff(cwd: string, base: string): string[] {
   const out = _safeGit(
-    ['diff', '--name-only', `${base}...HEAD`, '--', ...SCAN_PATHSPECS],
-    cwd
+    ["diff", "--name-only", `${base}...HEAD`, "--", ...SCAN_PATHSPECS],
+    cwd,
   );
   if (out === null) {
     throw new Error(`git diff failed against base ${base}`);
@@ -95,10 +96,10 @@ function _resolveDiff(cwd: string, base: string): string[] {
 
 function _safeGit(args: string[], cwd: string): string | null {
   try {
-    return execFileSync('git', args, {
+    return execFileSync("git", args, {
       cwd,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'],
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
     });
   } catch {
     return null;
@@ -107,7 +108,7 @@ function _safeGit(args: string[], cwd: string): string | null {
 
 function _absolutizeAndFilter(raw: string, cwd: string): string[] {
   return raw
-    .split('\n')
+    .split("\n")
     .filter((x) => x.length > 0)
     .map((f) => path.join(cwd, f))
     .filter((f) => fs.existsSync(f));
@@ -117,9 +118,10 @@ function _walkMarkdown(dir: string, out: string[]): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === 'superpowers' && path.basename(dir) === 'docs') continue;
+      if (entry.name === "superpowers" && path.basename(dir) === "docs")
+        continue;
       _walkMarkdown(full, out);
-    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
       out.push(full);
     }
   }
