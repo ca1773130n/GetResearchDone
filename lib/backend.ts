@@ -37,6 +37,9 @@ import type {
   WebMcpResult,
   PlaywrightResult,
   BackendAvailability,
+  TokenProfileName,
+  BudgetPressureLevel,
+  ComplexityLevel,
 } from './types';
 
 const fs = require('fs');
@@ -916,6 +919,97 @@ function clearAvailabilityCache(): void {
   _availabilityCache = null;
 }
 
+// ─── Spec 4: adaptive model-tier routing ──────────────────────────────────
+
+type _ModelTier = 'opus' | 'sonnet' | 'haiku';
+const _TIER_ORDER: _ModelTier[] = ['opus', 'sonnet', 'haiku'];
+
+/**
+ * Looks up how many tiers to downgrade given the profile, pressure,
+ * and complexity. Returns 0, 1, or 2. Pure function — table-driven.
+ */
+function _lookupDowngradeCount(
+  profile: TokenProfileName,
+  pressure: BudgetPressureLevel,
+  complexity: ComplexityLevel,
+): number {
+  // quality: only downgrade on critical pressure
+  if (profile === 'quality') {
+    if (pressure === 'critical') return 1;
+    return 0;
+  }
+
+  // balanced: moderate adaptive downgrade
+  if (profile === 'balanced') {
+    if (pressure === 'none') {
+      if (complexity === 'low') return 1;
+      return 0;
+    }
+    if (pressure === 'warning') {
+      if (complexity === 'high') return 0;
+      return 1;
+    }
+    if (pressure === 'high') {
+      if (complexity === 'high') return 0;
+      if (complexity === 'medium') return 1;
+      return 2; // low
+    }
+    if (pressure === 'critical') {
+      if (complexity === 'high') return 1;
+      return 2;
+    }
+  }
+
+  // frugal: aggressive downgrade
+  if (profile === 'frugal') {
+    if (pressure === 'none') {
+      if (complexity === 'high') return 0;
+      return 1; // medium or low
+    }
+    if (pressure === 'warning') {
+      if (complexity === 'low') return 2;
+      return 1;
+    }
+    // high or critical
+    return 2;
+  }
+
+  return 0;
+}
+
+/**
+ * Applies a downgrade count to a base tier, floored at the lowest tier.
+ * Returns the base tier unchanged if it's not in _TIER_ORDER (passthrough).
+ */
+function _applyDowngrade(baseTier: _ModelTier, count: number): _ModelTier {
+  const baseIndex = _TIER_ORDER.indexOf(baseTier);
+  if (baseIndex === -1) return baseTier;
+  const targetIndex = Math.min(baseIndex + count, _TIER_ORDER.length - 1);
+  return _TIER_ORDER[targetIndex];
+}
+
+/**
+ * Computes the effective model tier for an agent dispatch given the
+ * base tier (from MODEL_PROFILES), the user's token_profile preference,
+ * the current budget pressure level, and the task's complexity level.
+ *
+ * Pure function. Returns a possibly-downgraded ModelTier. The decision
+ * matrix is documented in the spec and implemented in _lookupDowngradeCount.
+ */
+function computeEffectiveModelTier(opts: {
+  baseTier: _ModelTier;
+  tokenProfile: TokenProfileName;
+  pressure: BudgetPressureLevel;
+  complexity: ComplexityLevel;
+}): _ModelTier {
+  const count = _lookupDowngradeCount(
+    opts.tokenProfile,
+    opts.pressure,
+    opts.complexity,
+  );
+  return _applyDowngrade(opts.baseTier, count);
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -940,4 +1034,5 @@ module.exports = {
   buildBackendEnv,
   BACKEND_CONFIG_ENV,
   readConfig,
+  computeEffectiveModelTier,
 };
