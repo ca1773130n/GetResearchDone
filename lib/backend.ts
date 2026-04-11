@@ -37,6 +37,14 @@ import type {
   WebMcpResult,
   PlaywrightResult,
   BackendAvailability,
+  TokenProfileName,
+  BudgetPressureLevel,
+  ComplexityLevel,
+  GrdConfig,
+  SchedulerConfig,
+  SuperpowersConfig,
+  BackendUsageState,
+  BudgetPressureThresholds,
 } from './types';
 
 const fs = require('fs');
@@ -800,13 +808,21 @@ function discoverBackendConfigDirs(): Record<string, string | null> {
       const candidates: string[] = [...profileDirs, ...defaultDir]
         .map((e: string) => path.join(homeDir, e))
         .filter((p: string) => {
-          try { return fs.statSync(p).isDirectory(); } catch { return false; }
+          try {
+            return fs.statSync(p).isDirectory();
+          } catch {
+            return false;
+          }
         });
 
       // Check each candidate for auth marker files
       for (const candidate of candidates) {
         const hasAuth = markers.some((marker: string) => {
-          try { return fs.statSync(path.join(candidate, marker)).isFile(); } catch { return false; }
+          try {
+            return fs.statSync(path.join(candidate, marker)).isFile();
+          } catch {
+            return false;
+          }
         });
         if (hasAuth) {
           found = candidate;
@@ -916,6 +932,191 @@ function clearAvailabilityCache(): void {
   _availabilityCache = null;
 }
 
+// ─── Spec 4: adaptive model-tier routing ──────────────────────────────────
+
+type _ModelTier = 'opus' | 'sonnet' | 'haiku';
+const _TIER_ORDER: _ModelTier[] = ['opus', 'sonnet', 'haiku'];
+
+/**
+ * Looks up how many tiers to downgrade given the profile, pressure,
+ * and complexity. Returns 0, 1, or 2. Pure function — table-driven.
+ */
+function _lookupDowngradeCount(
+  profile: TokenProfileName,
+  pressure: BudgetPressureLevel,
+  complexity: ComplexityLevel
+): number {
+  // quality: only downgrade on critical pressure
+  if (profile === 'quality') {
+    if (pressure === 'critical') return 1;
+    return 0;
+  }
+
+  // balanced: moderate adaptive downgrade
+  if (profile === 'balanced') {
+    if (pressure === 'none') {
+      if (complexity === 'low') return 1;
+      return 0;
+    }
+    if (pressure === 'warning') {
+      if (complexity === 'high') return 0;
+      return 1;
+    }
+    if (pressure === 'high') {
+      if (complexity === 'high') return 0;
+      if (complexity === 'medium') return 1;
+      return 2; // low
+    }
+    if (pressure === 'critical') {
+      if (complexity === 'high') return 1;
+      return 2;
+    }
+  }
+
+  // frugal: aggressive downgrade
+  if (profile === 'frugal') {
+    if (pressure === 'none') {
+      if (complexity === 'high') return 0;
+      return 1; // medium or low
+    }
+    if (pressure === 'warning') {
+      if (complexity === 'low') return 2;
+      return 1;
+    }
+    // high or critical
+    return 2;
+  }
+
+  return 0;
+}
+
+/**
+ * Applies a downgrade count to a base tier, floored at the lowest tier.
+ * Returns the base tier unchanged if it's not in _TIER_ORDER (passthrough).
+ */
+function _applyDowngrade(baseTier: _ModelTier, count: number): _ModelTier {
+  const baseIndex = _TIER_ORDER.indexOf(baseTier);
+  if (baseIndex === -1) return baseTier;
+  const targetIndex = Math.min(baseIndex + count, _TIER_ORDER.length - 1);
+  return _TIER_ORDER[targetIndex];
+}
+
+/**
+ * Computes the effective model tier for an agent dispatch given the
+ * base tier (from MODEL_PROFILES), the user's token_profile preference,
+ * the current budget pressure level, and the task's complexity level.
+ *
+ * Pure function. Returns a possibly-downgraded ModelTier. The decision
+ * matrix is documented in the spec and implemented in _lookupDowngradeCount.
+ */
+function computeEffectiveModelTier(opts: {
+  baseTier: _ModelTier;
+  tokenProfile: TokenProfileName;
+  pressure: BudgetPressureLevel;
+  complexity: ComplexityLevel;
+}): _ModelTier {
+  const count = _lookupDowngradeCount(opts.tokenProfile, opts.pressure, opts.complexity);
+  return _applyDowngrade(opts.baseTier, count);
+}
+
+// --- Adaptive tier dispatch helper -------------------------------------------
+
+/**
+ * Structural interface for the scheduler's state accessor.
+ * Using a structural interface avoids circular imports between
+ * scheduler.ts (which imports from types.ts) and backend.ts.
+ */
+interface _SchedulerLike {
+  getStates(): Map<string, BackendUsageState>;
+}
+
+const { estimateComplexity } = require('./complexity') as {
+  estimateComplexity: (opts: { agentType: string; promptLength?: number }) => ComplexityLevel;
+};
+
+const { computeBudgetPressureLevel, logPressureTransition } = require('./scheduler') as {
+  computeBudgetPressureLevel: (
+    states: Map<string, BackendUsageState>,
+    priority: BackendId[],
+    accounts: SuperpowersConfig['accounts'],
+    thresholds?: BudgetPressureThresholds
+  ) => BudgetPressureLevel;
+  logPressureTransition: (
+    sessionKey: string,
+    current: BudgetPressureLevel,
+    agentType: string,
+    baseTier: string,
+    effectiveTier: string,
+  ) => void;
+};
+
+/**
+ * Computes the effective model tier for an agent dispatch by running
+ * the Spec 4 chain: estimateComplexity → computeBudgetPressureLevel →
+ * computeEffectiveModelTier. Returns the tier to pass to
+ * resolveModelForAgent as effectiveTierOverride.
+ *
+ * When scheduler/schedulerConfig/superpowersConfig are null/undefined,
+ * returns the base tier unchanged (preserving pre-Spec-4 behavior).
+ *
+ * @param opts.agentType - Agent type key (e.g. 'grd-executor')
+ * @param opts.prompt - The prompt string (used for promptLength)
+ * @param opts.config - GrdConfig with model_profile and token_profile fields
+ * @param opts.scheduler - Scheduler instance or null when not configured
+ * @param opts.schedulerConfig - Scheduler configuration from config.scheduler
+ * @param opts.superpowersConfig - Superpowers config from config.superpowers
+ * @param opts.modelProfiles - MODEL_PROFILES table (passed in to avoid circular dep)
+ * @returns Effective model tier for this dispatch
+ */
+function getEffectiveTierForDispatch(opts: {
+  agentType: string;
+  prompt: string;
+  config: GrdConfig;
+  scheduler: _SchedulerLike | null;
+  schedulerConfig?: SchedulerConfig;
+  superpowersConfig?: SuperpowersConfig;
+  modelProfiles: Record<string, Record<string, string>>;
+}): _ModelTier {
+  const profile = opts.config.model_profile || 'balanced';
+  const agentEntry = opts.modelProfiles[opts.agentType];
+  const baseTier = ((agentEntry && agentEntry[profile]) || 'sonnet') as _ModelTier;
+
+  if (!opts.scheduler || !opts.schedulerConfig || !opts.superpowersConfig) {
+    return baseTier;
+  }
+
+  const states = opts.scheduler.getStates();
+  const complexity = estimateComplexity({
+    agentType: opts.agentType,
+    promptLength: opts.prompt.length,
+  });
+  const pressure = computeBudgetPressureLevel(
+    states,
+    opts.schedulerConfig.backend_priority as BackendId[],
+    opts.superpowersConfig.accounts,
+    opts.schedulerConfig.budget_pressure_thresholds
+  );
+  const tokenProfile: TokenProfileName = opts.config.token_profile || 'balanced';
+
+  const effectiveTier = computeEffectiveModelTier({
+    baseTier,
+    tokenProfile,
+    pressure,
+    complexity,
+  });
+
+  // Spec 4 Goal #7: log on pressure transitions only
+  logPressureTransition(
+    process.pid.toString(),
+    pressure,
+    opts.agentType,
+    baseTier,
+    effectiveTier,
+  );
+
+  return effectiveTier;
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -940,4 +1141,6 @@ module.exports = {
   buildBackendEnv,
   BACKEND_CONFIG_ENV,
   readConfig,
+  computeEffectiveModelTier,
+  getEffectiveTierForDispatch,
 };

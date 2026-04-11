@@ -3,42 +3,45 @@
 ## Commands
 
 ### Context-Mode MCP (prefer over Bash/Read for large output)
-| Tool | Use Instead Of | Description |
-|------|---------------|-------------|
-| `ctx_batch_execute` | Multiple Bash calls | Run multiple commands + search results in ONE call |
-| `ctx_execute` | Bash (>20 lines output) | Run code in sandbox; only printed summary enters context |
-| `ctx_execute_file` | Read/cat for analysis | Read file into sandbox; process and print summary only |
-| `ctx_search` | Grep (follow-up) | Search previously indexed content with multiple queries |
-| `ctx_index` | Read (large docs) | Index markdown/docs into searchable knowledge base |
-| `ctx_fetch_and_index` | WebFetch | Fetch URL, convert to markdown, index for search |
-| `ctx_stats` | — | Show session context consumption statistics |
-| `ctx_doctor` | — | Diagnose context-mode installation |
-| `ctx_upgrade` | — | Upgrade context-mode to latest version |
+
+| Tool                  | Use Instead Of          | Description                                              |
+| --------------------- | ----------------------- | -------------------------------------------------------- |
+| `ctx_batch_execute`   | Multiple Bash calls     | Run multiple commands + search results in ONE call       |
+| `ctx_execute`         | Bash (>20 lines output) | Run code in sandbox; only printed summary enters context |
+| `ctx_execute_file`    | Read/cat for analysis   | Read file into sandbox; process and print summary only   |
+| `ctx_search`          | Grep (follow-up)        | Search previously indexed content with multiple queries  |
+| `ctx_index`           | Read (large docs)       | Index markdown/docs into searchable knowledge base       |
+| `ctx_fetch_and_index` | WebFetch                | Fetch URL, convert to markdown, index for search         |
+| `ctx_stats`           | —                       | Show session context consumption statistics              |
+| `ctx_doctor`          | —                       | Diagnose context-mode installation                       |
+| `ctx_upgrade`         | —                       | Upgrade context-mode to latest version                   |
 
 ### Dev
-| Command | Description |
-|---------|-------------|
-| `npm test` | Run all tests with coverage |
-| `npm run test:unit` | Unit tests only |
-| `npm run lint` | ESLint on `bin/` and `lib/` |
+
+| Command               | Description                 |
+| --------------------- | --------------------------- |
+| `npm test`            | Run all tests with coverage |
+| `npm run test:unit`   | Unit tests only             |
+| `npm run lint`        | ESLint on `bin/` and `lib/` |
 | `npm run build:check` | Type-check (`tsc --noEmit`) |
 
 Single test: `npx jest tests/unit/state.test.ts`
 By name: `npx jest -t "should parse frontmatter"`
 
 ### GD CLI (`gd <command> [args] [--json]`)
-| Command | Description |
-|---------|-------------|
-| `gd progress` | Project status and next action |
-| `gd state load` | Load full project config + state |
-| `gd plan-phase <N>` | Plan a phase |
-| `gd execute-phase <N>` | Execute a phase |
-| `gd autopilot` | Run phases autonomously |
-| `gd evolve` | Self-improvement loop |
-| `gd quick <desc>` | Ad-hoc task with GRD guarantees |
-| `gd health` | Blockers, velocity, risk |
-| `gd settings` | Configure workflow |
-| `gd help` | Full command reference |
+
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `gd progress`          | Project status and next action   |
+| `gd state load`        | Load full project config + state |
+| `gd plan-phase <N>`    | Plan a phase                     |
+| `gd execute-phase <N>` | Execute a phase                  |
+| `gd autopilot`         | Run phases autonomously          |
+| `gd evolve`            | Self-improvement loop            |
+| `gd quick <desc>`      | Ad-hoc task with GRD guarantees  |
+| `gd health`            | Blockers, velocity, risk         |
+| `gd settings`          | Configure workflow               |
+| `gd help`              | Full command reference           |
 
 ## Architecture
 
@@ -69,24 +72,24 @@ By name: `npx jest -t "should parse frontmatter"`
 
 Capability flags per backend. Source: `BACKEND_CAPABILITIES` in `lib/backend.ts`.
 
-| Flag | claude | codex | gemini | opencode |
-|------|--------|-------|--------|----------|
-| `subagents` | true | true | true | true |
-| `parallel` | true | true | true | true |
-| `teams` | true | true | false | false |
-| `hooks` | true | true | true | true |
-| `mcp` | true | true | true | true |
-| `native_worktree_isolation` | true | false | false | false |
-| `effort` | true | false | false | false |
-| `http_hooks` | true | false | false | false |
-| `cron` | true | false | false | false |
-| `smart_approvals` | false | true | false | false |
-| `plan_mode` | false | false | true | false |
-| `sandbox_gvisor` | false | false | true | false |
-| `sandbox_lxc` | false | false | false | false |
-| `mcp_elicitation` | true | false | false | false |
-| `model_overrides` | true | true | true | true |
-| `max_output_tokens` | 64K/128K | null | null | null |
+| Flag                        | claude   | codex | gemini | opencode |
+| --------------------------- | -------- | ----- | ------ | -------- |
+| `subagents`                 | true     | true  | true   | true     |
+| `parallel`                  | true     | true  | true   | true     |
+| `teams`                     | true     | true  | false  | false    |
+| `hooks`                     | true     | true  | true   | true     |
+| `mcp`                       | true     | true  | true   | true     |
+| `native_worktree_isolation` | true     | false | false  | false    |
+| `effort`                    | true     | false | false  | false    |
+| `http_hooks`                | true     | false | false  | false    |
+| `cron`                      | true     | false | false  | false    |
+| `smart_approvals`           | false    | true  | false  | false    |
+| `plan_mode`                 | false    | false | true   | false    |
+| `sandbox_gvisor`            | false    | false | true   | false    |
+| `sandbox_lxc`               | false    | false | false  | false    |
+| `mcp_elicitation`           | true     | false | false  | false    |
+| `model_overrides`           | true     | true  | true   | true     |
+| `max_output_tokens`         | 64K/128K | null  | null   | null     |
 
 ## Agent Frontmatter
 
@@ -98,14 +101,14 @@ Three fields control per-agent behavior (Claude Code v2.1.68+ for `effort`):
 
 ### Effort Profiles (from EFFORT_PROFILES)
 
-| Agent | quality | balanced | budget |
-|-------|---------|----------|--------|
-| grd-planner | high | high | low |
-| grd-executor | high | medium | low |
-| grd-verifier | medium | low | low |
-| grd-debugger | high | medium | low |
-| grd-codebase-mapper | medium | low | low |
-| (others) | high/medium | medium/low | low |
+| Agent               | quality     | balanced   | budget |
+| ------------------- | ----------- | ---------- | ------ |
+| grd-planner         | high        | high       | low    |
+| grd-executor        | high        | medium     | low    |
+| grd-verifier        | medium      | low        | low    |
+| grd-debugger        | high        | medium     | low    |
+| grd-codebase-mapper | medium      | low        | low    |
+| (others)            | high/medium | medium/low | low    |
 
 ### /effort Slash Command
 
@@ -143,6 +146,24 @@ Clear boundary between project state and plugin state:
 - 5-minute chunk timeout (increased from 2 minutes in earlier versions).
 - Multi-account workspace authentication support.
 - Non-OpenAI Azure completions endpoint support.
+
+### Token profile (Spec 4)
+
+`token_profile` is a user preference in `.planning/config.json` orthogonal
+to `model_profile`. Values: `frugal`, `balanced` (default), `quality`.
+Controls adaptive model-tier downgrade under budget pressure or low task
+complexity. Set via `gd settings token_profile <value>`.
+
+- `quality`: never downgrade unless budget pressure is >=95% (critical).
+- `balanced`: downgrade 0-2 steps based on (pressure, complexity).
+- `frugal`: aggressively downgrade non-high-complexity tasks even at
+  low pressure.
+
+Budget pressure is classified as `none` / `warning` (>=60%) / `high`
+(>=80%) / `critical` (>=95%) per account. Autopilot, evolve, and
+autoresearch check this before each agent dispatch. Thresholds are
+configurable via `.planning/config.json`
+`scheduler.budget_pressure_thresholds`.
 
 ## Gotchas
 

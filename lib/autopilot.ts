@@ -36,18 +36,37 @@ const {
   findPhaseInternal,
   output,
   getMilestoneInfo,
+  MODEL_PROFILES,
+  resolveModelForAgent,
 }: {
   loadConfig: (cwd: string) => GrdConfig;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => void;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
+  MODEL_PROFILES: Record<string, Record<string, string>>;
+  resolveModelForAgent: (
+    config: GrdConfig,
+    agentType: string,
+    cwd?: string,
+    options?: { effectiveTierOverride?: import('./types').ModelTier }
+  ) => string;
 } = require('./utils');
 const {
   detectBackend,
   getBackendCapabilities,
+  getEffectiveTierForDispatch,
 }: {
   detectBackend: (cwd: string) => string;
   getBackendCapabilities: (backend: string) => import('./types').BackendCapabilities;
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: { getStates(): Map<string, import('./types').BackendUsageState> } | null;
+    schedulerConfig?: import('./types').SchedulerConfig;
+    superpowersConfig?: import('./types').SuperpowersConfig;
+    modelProfiles: Record<string, Record<string, string>>;
+  }) => import('./types').ModelTier;
 } = require('./backend');
 const {
   analyzeRoadmap,
@@ -1699,6 +1718,28 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           writeStatusMarker(cwd, phaseNum, 'plan', 'started');
           updateStateProgress(cwd, phaseNum, 'planning');
 
+          // Compute the plan prompt once so we can pass it to both the adaptive
+          // tier helper (for promptLength) and the actual dispatch.
+          const planPrompt: string = buildPlanPrompt(phaseNum, backend, cwd);
+
+          // Resolve the effective model for this dispatch. When the caller
+          // passed an explicit --model flag we honour it; otherwise the Spec 4
+          // chain (complexity → pressure → tier) picks the right model.
+          const planTier = getEffectiveTierForDispatch({
+            agentType: 'grd-planner',
+            prompt: planPrompt,
+            config,
+            scheduler,
+            schedulerConfig: config.scheduler,
+            superpowersConfig: config.superpowers,
+            modelProfiles: MODEL_PROFILES,
+          });
+          const planModel: string | undefined = model
+            ? model
+            : resolveModelForAgent(config, 'grd-planner', cwd, {
+                effectiveTierOverride: planTier,
+              });
+
           // Check for overstory sling path: parallel wave + account rotation + native worktree isolation
           let promise: Promise<SpawnResult>;
           if (config.superpowers?.account_rotation && scheduler && config.scheduler) {
@@ -1725,15 +1766,12 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(
-                buildPlanPrompt(phaseNum, backend, cwd),
-                {
-                  phase_number: phaseNum,
-                  plan_id: planId,
-                  milestone: milestoneInfo.version,
-                  phase_dir: phaseDir,
-                }
-              );
+              const overlayContent: string = generateOverlay(planPrompt, {
+                phase_number: phaseNum,
+                plan_id: planId,
+                milestone: milestoneInfo.version,
+                phase_dir: phaseDir,
+              });
               const overlayDir: string = path.join(cwd, '.planning', 'autopilot', 'overlays');
               fs.mkdirSync(overlayDir, { recursive: true });
               const overlayPath: string = path.join(overlayDir, `overlay-${phaseNum}.md`);
@@ -1743,7 +1781,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                 plan_path: phaseDir,
                 overlay_path: overlayPath,
                 runtime: ovConfig.runtime,
-                model: model || 'default',
+                model: planModel || 'default',
                 phase_number: phaseNum,
                 plan_id: planId,
                 milestone: milestoneInfo.version,
@@ -1773,10 +1811,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             } else {
               // Non-overstory backend with account rotation: use scheduler.spawn
               promise = scheduler
-                .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
+                .spawn(planPrompt, {
                   timeout: timeoutMs,
                   maxTurns,
-                  model,
+                  model: planModel,
                   cwd,
                   workItemId: `phase-${phaseNum}-plan`,
                 })
@@ -1785,18 +1823,18 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           } else {
             promise = scheduler
               ? scheduler
-                  .spawn(buildPlanPrompt(phaseNum, backend, cwd), {
+                  .spawn(planPrompt, {
                     timeout: timeoutMs,
                     maxTurns,
-                    model,
+                    model: planModel,
                     cwd,
                     workItemId: `phase-${phaseNum}-plan`,
                   })
                   .then(toSpawnResult)
-              : spawnClaudeAsync(cwd, buildPlanPrompt(phaseNum, backend, cwd), {
+              : spawnClaudeAsync(cwd, planPrompt, {
                   timeout: timeoutMs,
                   maxTurns,
-                  model,
+                  model: planModel,
                 });
           }
           planTasks.push({ phaseNum, skipped: false, promise });
@@ -1921,21 +1959,40 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         writeStatusMarker(cwd, phaseNum, 'execute', 'started');
         updateStateProgress(cwd, phaseNum, 'executing');
 
+        // Compute execute prompt once to share between tier computation and dispatch.
+        const executePrompt: string = buildExecutePrompt(phaseNum, wtPath);
+
+        // Resolve effective model for execution dispatch via the Spec 4 chain.
+        const executeTier = getEffectiveTierForDispatch({
+          agentType: 'grd-executor',
+          prompt: executePrompt,
+          config,
+          scheduler,
+          schedulerConfig: config.scheduler,
+          superpowersConfig: config.superpowers,
+          modelProfiles: MODEL_PROFILES,
+        });
+        const executeModel: string | undefined = model
+          ? model
+          : resolveModelForAgent(config, 'grd-executor', cwd, {
+              effectiveTierOverride: executeTier,
+            });
+
         const promise = (async (): Promise<{ execResult: SpawnResult; wtPath: string }> => {
           const execResult: SpawnResult = scheduler
             ? toSpawnResult(
-                await scheduler.spawn(buildExecutePrompt(phaseNum, wtPath), {
+                await scheduler.spawn(executePrompt, {
                   timeout: timeoutMs,
                   maxTurns,
-                  model,
+                  model: executeModel,
                   cwd: wtPath,
                   workItemId: `phase-${phaseNum}-execute`,
                 })
               )
-            : await spawnClaudeAsync(wtPath, buildExecutePrompt(phaseNum, wtPath), {
+            : await spawnClaudeAsync(wtPath, executePrompt, {
                 timeout: timeoutMs,
                 maxTurns,
-                model,
+                model: executeModel,
               });
           return { execResult, wtPath };
         })();
@@ -2090,20 +2147,40 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
     phasesCompleted > 0
   ) {
     log('Milestone mode: all phases complete — running wireup');
+
+    // Compute wireup prompt once for tier routing and dispatch.
+    const wireupPrompt: string = buildWireupPrompt();
+
+    // Resolve effective model for wireup via the Spec 4 chain.
+    const wireupTier = getEffectiveTierForDispatch({
+      agentType: 'grd-executor',
+      prompt: wireupPrompt,
+      config,
+      scheduler,
+      schedulerConfig: config.scheduler,
+      superpowersConfig: config.superpowers,
+      modelProfiles: MODEL_PROFILES,
+    });
+    const wireupModel: string | undefined = model
+      ? model
+      : resolveModelForAgent(config, 'grd-executor', cwd, {
+          effectiveTierOverride: wireupTier,
+        });
+
     const wireupResult: SpawnResult = scheduler
       ? toSpawnResult(
-          await scheduler.spawn(buildWireupPrompt(), {
+          await scheduler.spawn(wireupPrompt, {
             timeout: timeoutMs,
             maxTurns,
-            model,
+            model: wireupModel,
             cwd,
             workItemId: 'milestone-wireup',
           })
         )
-      : await spawnClaudeAsync(cwd, buildWireupPrompt(), {
+      : await spawnClaudeAsync(cwd, wireupPrompt, {
           timeout: timeoutMs,
           maxTurns,
-          model,
+          model: wireupModel,
         });
 
     if (wireupResult.exitCode !== 0) {

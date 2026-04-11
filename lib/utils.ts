@@ -7,7 +7,6 @@
  * These are zero-dependency foundations used by all other modules.
  */
 
-
 import type {
   GrdConfig,
   GrdTimeouts,
@@ -511,8 +510,7 @@ function loadConfig(cwd: string): GrdConfig {
           return {
             enabled: false,
             before_planning: typeof d.before_planning === 'boolean' ? d.before_planning : true,
-            before_execution:
-              typeof d.before_execution === 'boolean' ? d.before_execution : false,
+            before_execution: typeof d.before_execution === 'boolean' ? d.before_execution : false,
             max_rounds: 2,
             timeout_per_round_seconds: 180,
             synthesizer: 'claude',
@@ -527,8 +525,7 @@ function loadConfig(cwd: string): GrdConfig {
             : 180;
         const synthRaw = d.synthesizer;
         const synthesizer: string =
-          typeof synthRaw === 'string' &&
-          (VALID_BACKENDS as readonly string[]).includes(synthRaw)
+          typeof synthRaw === 'string' && (VALID_BACKENDS as readonly string[]).includes(synthRaw)
             ? synthRaw
             : 'claude';
         return {
@@ -541,11 +538,14 @@ function loadConfig(cwd: string): GrdConfig {
         };
       })(),
       // Citation gate (optional boolean, default: false)
-      citation_gate: (typeof parsed.citation_gate === 'boolean' ? parsed.citation_gate : false),
+      citation_gate: typeof parsed.citation_gate === 'boolean' ? parsed.citation_gate : false,
       // Transitive citation gate (optional boolean, default: false)
-      transitive_citation_gate: (typeof parsed.transitive_citation_gate === 'boolean' ? parsed.transitive_citation_gate : false),
+      transitive_citation_gate:
+        typeof parsed.transitive_citation_gate === 'boolean'
+          ? parsed.transitive_citation_gate
+          : false,
       // Refinement loop (optional boolean, default: false)
-      refinement_loop: (typeof parsed.refinement_loop === 'boolean' ? parsed.refinement_loop : false),
+      refinement_loop: typeof parsed.refinement_loop === 'boolean' ? parsed.refinement_loop : false,
       // Timeouts config
       timeouts: ((): GrdTimeouts => {
         const t: Record<string, unknown> =
@@ -1191,14 +1191,24 @@ function getMilestoneInfo(cwd: string): MilestoneInfo {
  * @param config - Configuration object with model_profile field
  * @param agentType - Agent type key to look up in MODEL_PROFILES
  * @param cwd - Optional project working directory for backend-specific resolution
+ * @param options - Optional overrides. When options.effectiveTierOverride is set,
+ *   it replaces the MODEL_PROFILES lookup entirely. Callers that omit this parameter
+ *   get identical behavior to before (backward compatible).
  * @returns Model name (e.g., 'opus', 'sonnet', 'haiku', or backend-specific name)
  */
-function resolveModelForAgent(config: GrdConfig, agentType: string, cwd?: string): string {
+function resolveModelForAgent(
+  config: GrdConfig,
+  agentType: string,
+  cwd?: string,
+  options?: { effectiveTierOverride?: ModelTier }
+): string {
   const profile: string = (config.model_profile || 'balanced').toLowerCase();
   const agentModels: Record<ModelProfileName, ModelTier> | undefined = MODEL_PROFILES[agentType];
-  const tier: ModelTier = agentModels
+  const baseTier: ModelTier = agentModels
     ? agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet'
     : 'sonnet';
+  // Use override when provided; otherwise fall back to MODEL_PROFILES lookup
+  const tier: ModelTier = options?.effectiveTierOverride || baseTier;
   // If cwd provided, resolve to backend-specific model name
   if (cwd) {
     const backend: unknown = detectBackend(cwd);

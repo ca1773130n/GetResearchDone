@@ -38,9 +38,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Autopilot `phase-finalize` status marker step** — new
   `phase-finalize: started/completed/failed` marker written after the
   post-pipeline step.
+- **Token optimization system (Spec 4)** — adaptive model-tier routing
+  that downgrades expensive agents to cheaper tiers based on budget
+  pressure and task complexity.
+  - New `token_profile` preference in `.planning/config.json`
+    (`frugal` / `balanced` / `quality`, default `balanced`). Set via
+    `gd settings token_profile <value>`.
+  - New `lib/complexity.ts` with `estimateComplexity` pure function
+    (21-agent baseline table + prompt-length + sample-tail demotion).
+  - New `isBudgetPressured` and `computeBudgetPressureLevel` in
+    `lib/scheduler.ts`. Classifies pressure as `none` / `warning`
+    (>=60%) / `high` (>=80%) / `critical` (>=95%).
+  - New `computeEffectiveModelTier` in `lib/backend.ts`. Combines
+    profile + pressure + complexity via an auditable 3x4x3 decision
+    matrix.
+  - New `getEffectiveTierForDispatch` helper in `lib/backend.ts` used
+    by autopilot, evolve, and autoresearch.
+  - New `SchedulerConfig.budget_pressure_thresholds` field.
+  - New `Scheduler.getStates()` accessor.
 
 ### Changed
 
+- **`gd autopilot`, `gd evolve`, and `gd autoresearch` now use adaptive
+  model-tier routing.** Before each agent dispatch, these loops call
+  the Spec 4 chain (complexity -> pressure -> effective tier) and pass
+  the effective tier to `resolveModelForAgent`. When the scheduler is
+  absent, behavior is unchanged from pre-Spec-4.
 - **`gd autopilot` now auto-finalizes phases.** After a successful
   post-pipeline step, autopilot calls `completePhaseAfterPostPipeline`
   to tick the ROADMAP.md checkbox, update STATE.md's current phase,

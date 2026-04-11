@@ -11,6 +11,8 @@ import type {
   SuperpowersConfig,
   SchedulerConfig,
   SchedulerSpawnResult,
+  BudgetPressureLevel,
+  BudgetPressureThresholds,
 } from './types';
 
 const { waitUntilOrAbort } = require('./scheduler-wait') as {
@@ -364,6 +366,99 @@ export function computeSoonestRecovery(
   return soonest;
 }
 
+// ─── Spec 4: budget pressure detection ────────────────────────────────────
+
+/**
+ * Default thresholds for budget pressure classification. Overridable
+ * via SchedulerConfig.budget_pressure_thresholds.
+ */
+const DEFAULT_PRESSURE_THRESHOLDS: BudgetPressureThresholds = {
+  warning: 0.6,
+  high: 0.8,
+  critical: 0.95,
+};
+
+/**
+ * Returns true if any priority account has consumed more than the warning
+ * threshold (default 60%) of its rolling-window budget. Pure function.
+ */
+export function isBudgetPressured(
+  states: Map<string, BackendUsageState>,
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  thresholds?: BudgetPressureThresholds
+): boolean {
+  return computeBudgetPressureLevel(states, priority, accounts, thresholds) !== 'none';
+}
+
+// Module-level state for transition-based logging
+const _lastLoggedPressure: Map<string, BudgetPressureLevel> = new Map();
+
+/**
+ * Logs a single stderr line when the pressure level has changed since
+ * the last call with the same sessionKey. Safe to call per spawn —
+ * only emits on transitions. Noop when current == previous.
+ *
+ * The sessionKey lets multiple sessions in the same process have
+ * independent transition state. Autopilot/evolve/autoresearch
+ * typically pass process.pid.toString().
+ */
+export function logPressureTransition(
+  sessionKey: string,
+  current: BudgetPressureLevel,
+  agentType: string,
+  baseTier: string,
+  effectiveTier: string,
+): void {
+  const previous = _lastLoggedPressure.get(sessionKey) || 'none';
+  if (previous === current) return;
+  _lastLoggedPressure.set(sessionKey, current);
+
+  if (current === 'none') return;
+  const tierNote =
+    baseTier === effectiveTier
+      ? ''
+      : ` — downgrading ${agentType} from ${baseTier} to ${effectiveTier}`;
+  process.stderr.write(
+    `[scheduler] budget pressure detected — level=${current}${tierNote}\n`,
+  );
+}
+
+/**
+ * Classifies the worst pressure level across all priority accounts.
+ * Returns 'none' | 'warning' | 'high' | 'critical'. Pure function.
+ *
+ * For each priority account, computes (consumed + reserved) / budget
+ * and picks the worst ratio across all accounts (i.e., the one closest
+ * to exhaustion determines the level for the whole session).
+ */
+export function computeBudgetPressureLevel(
+  states: Map<string, BackendUsageState>,
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  thresholds?: BudgetPressureThresholds
+): BudgetPressureLevel {
+  const t = thresholds || DEFAULT_PRESSURE_THRESHOLDS;
+  let worstRatio = 0;
+
+  for (const backend of priority) {
+    const backendAccounts = accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state) continue;
+      if (state.token_budget <= 0) continue;
+      const ratio = (state.tokens_consumed_in_window + state.tokens_reserved) / state.token_budget;
+      if (ratio > worstRatio) worstRatio = ratio;
+    }
+  }
+
+  if (worstRatio >= t.critical) return 'critical';
+  if (worstRatio >= t.high) return 'high';
+  if (worstRatio >= t.warning) return 'warning';
+  return 'none';
+}
+
 /**
  * Resolves which backend and account to use for the next scheduled task.
  * Walks the backend_priority list, and within each backend tries every
@@ -481,6 +576,13 @@ export function checkBinary(binary: string): boolean {
 export interface Scheduler {
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
   getState(stateKey: string): BackendUsageState | undefined;
+  /**
+   * Returns a snapshot of the current per-account states map. Used by
+   * the Spec 4 budget pressure detection and complexity estimation
+   * wire-ups. Do NOT mutate the returned map — it is shared with the
+   * scheduler's internal state.
+   */
+  getStates(): Map<string, BackendUsageState>;
   recordExternalSample(stateKey: string, sample: UsageSample): void;
   persistState(planningDir: string): void;
   loadPersistedState(planningDir: string): void;
@@ -807,6 +909,10 @@ export function createScheduler(
       return states.get(stateKey);
     },
 
+    getStates(): Map<string, BackendUsageState> {
+      return states;
+    },
+
     recordExternalSample(stateKey: string, sample: UsageSample): void {
       let state = states.get(stateKey);
       if (!state) {
@@ -888,4 +994,7 @@ module.exports = {
   createScheduler,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
+  isBudgetPressured,
+  computeBudgetPressureLevel,
+  logPressureTransition,
 };

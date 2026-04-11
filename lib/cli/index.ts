@@ -169,6 +169,7 @@ export const AGENT_COMMANDS = new Set([
 ]);
 
 const EVOLVE_TOOL_SUBS = new Set(['run', 'discover', 'state', 'advance', 'reset']);
+const SETTINGS_TOOL_SUBS = new Set(['token_profile']);
 
 export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
@@ -217,6 +218,9 @@ export function classifyCommand(
   subcommand?: string
 ): 'tool' | 'agent' | 'unknown' {
   if (command === 'evolve' && subcommand && EVOLVE_TOOL_SUBS.has(subcommand)) {
+    return 'tool';
+  }
+  if (command === 'settings' && subcommand && SETTINGS_TOOL_SUBS.has(subcommand)) {
     return 'tool';
   }
   // `gd init <workflow>` → tool (init context), `gd init` (no args) → agent (project init)

@@ -46,6 +46,7 @@ module.exports = {
     './lib/refinement.ts': { lines: 85, functions: 85, branches: 75 },
     './lib/benchmark.ts': { lines: 85, functions: 85, branches: 75 },
     './lib/phase-complete.ts': { lines: 93, functions: 100, branches: 61 },
+    './lib/complexity.ts': { lines: 95, functions: 100, branches: 85 },
   },
   testTimeout: 15000,
 };

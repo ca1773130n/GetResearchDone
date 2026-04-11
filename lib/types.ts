@@ -38,6 +38,36 @@ export type ModelTier = 'opus' | 'sonnet' | 'haiku';
 export type ModelProfileName = 'quality' | 'balanced' | 'budget';
 
 /**
+ * Token budget optimization preference, orthogonal to model_profile.
+ * - 'frugal': aggressively downgrade for cost savings
+ * - 'balanced': moderate adaptive downgrade (default)
+ * - 'quality': preserve tier unless budget is critical
+ */
+export type TokenProfileName = 'frugal' | 'balanced' | 'quality';
+
+/**
+ * Budget pressure classification based on rolling-window consumption.
+ * Thresholds are configurable via SchedulerConfig.budget_pressure_thresholds.
+ */
+export type BudgetPressureLevel = 'none' | 'warning' | 'high' | 'critical';
+
+/**
+ * Task complexity estimate used by adaptive model-tier routing.
+ * Produced by estimateComplexity() from lib/complexity.ts.
+ */
+export type ComplexityLevel = 'low' | 'medium' | 'high';
+
+/**
+ * Configurable thresholds for budget pressure classification. Values are
+ * ratios of (consumed + reserved) / budget. Defaults: 60%, 80%, 95%.
+ */
+export interface BudgetPressureThresholds {
+  warning: number;
+  high: number;
+  critical: number;
+}
+
+/**
  * Effort levels for controlling reasoning depth in supported backends.
  * Claude Code v2.1.68+: low (fast), medium (default for Opus 4.6), high (ultrathink).
  */
@@ -340,6 +370,12 @@ export interface PRReviewResult {
  */
 export interface GrdConfig {
   model_profile: ModelProfileName;
+  /**
+   * Token optimization preference (Spec 4). Controls adaptive model-tier
+   * routing behavior under budget pressure or low task complexity.
+   * Default: 'balanced'. Set via `gd settings token_profile <value>`.
+   */
+  token_profile?: TokenProfileName;
   commit_docs: boolean;
   search_gitignored: boolean;
   branching_strategy: string;
@@ -425,6 +461,12 @@ export interface SchedulerConfig {
    * Set arbitrarily high (e.g., 10080 = 1 week) to effectively uncap.
    */
   max_wait_minutes?: number;
+  /**
+   * Thresholds for budget pressure classification (Spec 4). Each value
+   * is a ratio of (tokens_consumed_in_window + tokens_reserved) / token_budget.
+   * Defaults: { warning: 0.6, high: 0.8, critical: 0.95 }.
+   */
+  budget_pressure_thresholds?: BudgetPressureThresholds;
 }
 
 /**
