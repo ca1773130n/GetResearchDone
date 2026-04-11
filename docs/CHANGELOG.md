@@ -9,10 +9,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Prompt injection scanner** — new `gd scan` CLI subcommand (`gd scan`, `gd scan --diff`, `gd scan --file`, `gd scan --all`) detects 18 prompt injection patterns across 7 categories in bundled markdown (commands/, agents/, templates/, docs/). Patterns adopted from [gsd-2](https://github.com/gsd-build/gsd-2) v2.67 `scripts/docs-prompt-injection-scan.sh` and `scripts/base64-scan.sh`. Includes base64 obfuscation detection and `.prompt-injection-scanignore` for suppressing known false positives. First phase of the `gsd-2-selective-adoption` milestone. See `docs/superpowers/specs/2026-04-11-gsd2-prompt-injection-scan-design.md`.
 - **`docs-check` CI job** — runs `gd scan --diff origin/<base>` on every PR, blocking PRs that introduce unignored prompt injection patterns.
 - **`npm run hooks:install`** — opt-in installer for a vanilla `.git/hooks/pre-commit` stub that runs `gd scan` on staged markdown. Not installed by postinstall.
+- **Scheduler wait-for-recovery fallback** — when `scheduler.spawn` would
+  otherwise fall through to `free_fallback` because all priority accounts
+  are exhausted, it now computes the soonest time any account will regain
+  headroom (via sample aging) and sleeps until then. Wait is capped by
+  new `SchedulerConfig.max_wait_minutes` (default 90). Cancellable via
+  Ctrl+C. Pattern adopted from [gsd-2](https://github.com/gsd-build/gsd-2)
+  v2.67 `auto-timeout-recovery.ts`. First phase of spec 2A/4 of the
+  `gsd-2-selective-adoption` milestone.
+- **`lib/scheduler-wait.ts`** — new module with `waitUntilOrAbort`
+  cancellable sleep primitive and lazy SIGINT handler registration.
+- **`computeSoonestRecovery` and `_anyPriorityHasHeadroom`** exported from
+  `lib/scheduler.ts` for the wait-branch logic.
+- **`SchedulerConfig.max_wait_minutes`** — new optional field, default 90
+  minutes. Set to 0 to disable the wait (preserves pre-Spec-2A behavior).
+- **Autoresearch scheduler routing** — `lib/autoresearch.ts` (Karpathy
+  autonomous experiment loop) is now converted from synchronous spawn to
+  async, and routes its Claude subprocess calls through `scheduler.spawn`
+  when a scheduler is available. Autoresearch now participates in
+  per-account token tracking and rate-limit handling.
 
 ### Fixed
 - README.md `## Credits` no longer links to the now-404 `coleam00/get-shit-done` repository. Replaced with `gsd-build/gsd-2` and noting v1 heritage plus v2 patterns.
 - CLAUDE.md claim that a pre-commit hook runs lint was stale — no such hook was installed. Updated to describe the new opt-in `gd scan` hook.
+- **"Stuck at rate limit" symptom in long-running operations** — the
+  actual mechanism was `scheduler.spawn` giving up after cycling through
+  exhausted accounts instead of waiting for the soonest sample window
+  to age out. The new wait-for-recovery fallback addresses this directly.
+
+### Known limitations
+- `SchedulerSpawnResult` does not expose captured stdout, so autoresearch
+  paths that need `captureOutput: true` (the experiment iteration
+  hypothesis matcher) still use the synchronous fallback. Extending the
+  scheduler result shape to include stdout is a follow-up improvement.
 
 ## [0.1.6] - 2026-02-19
 
