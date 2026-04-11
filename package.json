@@ -42,7 +42,10 @@
     "format:check": "prettier --check bin/ lib/ tests/ jest.config.js",
     "build": "tsc -p tsconfig.build.json",
     "build:check": "tsc --noEmit",
-    "postinstall": "node bin/postinstall.js"
+    "postinstall": "node bin/postinstall.js",
+    "scan": "gd scan",
+    "scan:all": "gd scan --all",
+    "hooks:install": "node scripts/install-hooks.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
