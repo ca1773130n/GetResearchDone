@@ -8,7 +8,7 @@
  * output formatting — the CLI dispatch layer handles that.
  */
 
-import type { ScanHit } from "../scan/injection";
+import type { ScanHit } from "../scan/types";
 import type { IgnoreEntry } from "../scan/ignorefile";
 
 const { scanProse } = require("../scan/injection") as {
@@ -34,7 +34,7 @@ export interface ScanReport {
   mode: ScanMode;
   scanned: number;
   hits: ScanHit[];
-  exitCode: 0 | 1 | 2;
+  exitCode: 0 | 1;
 }
 
 export interface RunScanOpts {

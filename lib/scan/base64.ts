@@ -9,18 +9,12 @@
  * decoded text. Matches gsd-2 v2.67 scripts/base64-scan.sh threshold.
  */
 
-const fs = require("fs") as typeof import("fs");
-
 import type { IgnoreEntry } from "./ignorefile";
-import type { ScanHit } from "./injection";
+import type { InjectionPattern } from "./patterns";
+import type { ScanHit } from "./types";
 
 const { INJECTION_PATTERNS } = require("./patterns") as {
-  INJECTION_PATTERNS: ReadonlyArray<{
-    id: string;
-    label: string;
-    category: string;
-    regex: RegExp;
-  }>;
+  INJECTION_PATTERNS: ReadonlyArray<InjectionPattern>;
 };
 const { isIgnored } = require("./ignorefile") as {
   isIgnored: (
@@ -28,6 +22,10 @@ const { isIgnored } = require("./ignorefile") as {
     matchText: string,
     entries: IgnoreEntry[],
   ) => boolean;
+};
+const { _readUtf8OrNull, _truncate } = require("./_utils") as {
+  _readUtf8OrNull: (file: string) => string | null;
+  _truncate: (s: string, max: number) => string;
 };
 
 const BASE64_RUN_RE = /[A-Za-z0-9+/=]{40,}/g;
@@ -75,17 +73,6 @@ export function scanBase64(files: string[], opts: ScanBase64Opts): ScanHit[] {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function _readUtf8OrNull(file: string): string | null {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch (e) {
-    process.stderr.write(
-      `warning: cannot read ${file}: ${(e as Error).message}\n`,
-    );
-    return null;
-  }
-}
-
 function _tryDecodeUtf8(candidate: string): string | null {
   try {
     const buf = Buffer.from(candidate, "base64");
@@ -98,11 +85,6 @@ function _tryDecodeUtf8(candidate: string): string | null {
   } catch {
     return null;
   }
-}
-
-function _truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max) + "...";
 }
 
 module.exports = { scanBase64 };

@@ -6,7 +6,7 @@ const path = require('path') as typeof import('path');
 const fs = require('fs') as typeof import('fs');
 
 import type { ScanMode, ScanReport, RunScanOpts } from '../commands/scan';
-import type { ScanHit } from '../scan/injection';
+import type { ScanHit } from '../scan/types';
 import type { ResolveScanOpts } from './scan-dispatch';
 
 const { runScan } = require('../commands/scan') as {

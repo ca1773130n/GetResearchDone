@@ -8,17 +8,12 @@
  * system to suppress known false positives.
  */
 
-const fs = require("fs") as typeof import("fs");
-
 import type { IgnoreEntry } from "./ignorefile";
+import type { InjectionPattern } from "./patterns";
+import type { ScanHit } from "./types";
 
 const { INJECTION_PATTERNS } = require("./patterns") as {
-  INJECTION_PATTERNS: ReadonlyArray<{
-    id: string;
-    label: string;
-    category: string;
-    regex: RegExp;
-  }>;
+  INJECTION_PATTERNS: ReadonlyArray<InjectionPattern>;
 };
 const { stripCodeBlocks } = require("./strip-markdown") as {
   stripCodeBlocks: (raw: string) => string;
@@ -30,17 +25,10 @@ const { isIgnored } = require("./ignorefile") as {
     entries: IgnoreEntry[],
   ) => boolean;
 };
-
-export interface ScanHit {
-  file: string;
-  line: number;
-  pattern: string;
-  label: string;
-  category: string;
-  match: string;
-  ignored: boolean;
-  source: "prose" | "base64";
-}
+const { _readUtf8OrNull, _truncate } = require("./_utils") as {
+  _readUtf8OrNull: (file: string) => string | null;
+  _truncate: (s: string, max: number) => string;
+};
 
 export interface ScanProseOpts {
   ignoreEntries: IgnoreEntry[];
@@ -74,24 +62,6 @@ export function scanProse(files: string[], opts: ScanProseOpts): ScanHit[] {
     }
   }
   return hits;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function _readUtf8OrNull(file: string): string | null {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch (e) {
-    process.stderr.write(
-      `warning: cannot read ${file}: ${(e as Error).message}\n`,
-    );
-    return null;
-  }
-}
-
-function _truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max) + "...";
 }
 
 module.exports = { scanProse };
