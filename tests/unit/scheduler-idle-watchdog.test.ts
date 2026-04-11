@@ -3,7 +3,7 @@
 const { _startIdleWatchdog } = require('../../lib/scheduler') as {
   _startIdleWatchdog: (
     idleTimeoutMs: number,
-    onIdle: () => void,
+    onIdle: () => void
   ) => { markActivity: () => void; stop: () => void };
 };
 

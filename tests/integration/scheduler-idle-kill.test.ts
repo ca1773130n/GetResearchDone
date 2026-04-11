@@ -12,7 +12,7 @@ import { spawn } from 'child_process';
 const { _startIdleWatchdog } = require('../../lib/scheduler') as {
   _startIdleWatchdog: (
     idleTimeoutMs: number,
-    onIdle: () => void,
+    onIdle: () => void
   ) => { markActivity: () => void; stop: () => void };
 };
 
@@ -43,10 +43,7 @@ describe('idle watchdog with real bash subprocesses', () => {
   }, 15000);
 
   it('does not kill a chatty subprocess', async () => {
-    const child = spawn('bash', [
-      '-c',
-      'for i in 1 2 3 4 5; do echo $i; sleep 0.5; done',
-    ]);
+    const child = spawn('bash', ['-c', 'for i in 1 2 3 4 5; do echo $i; sleep 0.5; done']);
     let idleTripped = false;
     const startTime = Date.now();
 

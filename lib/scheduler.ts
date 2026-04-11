@@ -286,7 +286,7 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
  */
 export function _startIdleWatchdog(
   idleTimeoutMs: number,
-  onIdle: () => void,
+  onIdle: () => void
 ): { markActivity: () => void; stop: () => void } {
   const POLL_INTERVAL_MS = 1000;
   let lastActivityAt = Date.now();
@@ -887,7 +887,7 @@ export function createScheduler(
         const watchdog = _startIdleWatchdog(idleTimeoutMs, () => {
           idleTimedOut = true;
           process.stderr.write(
-            `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`,
+            `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`
           );
           child.kill('SIGTERM');
           setTimeout(() => {
@@ -943,8 +943,7 @@ export function createScheduler(
           clearTimeout(totalTimer);
           const duration = Date.now() - startTime;
           const exitCode = code ?? (idleTimedOut || totalTimedOut ? 1 : 0);
-          const tokens =
-            adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
+          const tokens = adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
 
           const sample: UsageSample = {
             backend: backend as BackendId,
@@ -957,17 +956,12 @@ export function createScheduler(
           };
 
           markComplete(state);
-          recordSample(
-            state,
-            sample,
-            prediction.window_minutes,
-            prediction.ewma_alpha,
-          );
+          recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
 
           // Periodic persistence: every 10 samples across all backends
           const totalSamples = Array.from(states.values()).reduce(
             (sum, s) => sum + s.samples.length,
-            0,
+            0
           );
           if (totalSamples % 10 === 0 && opts.cwd) {
             const { join } = require('path') as typeof import('path');
@@ -976,8 +970,7 @@ export function createScheduler(
 
           safeResolve({
             exitCode,
-            stdout:
-              opts.captureOutput && !stdoutOverflowed ? stdoutBuf : undefined,
+            stdout: opts.captureOutput && !stdoutOverflowed ? stdoutBuf : undefined,
             stderr: stderrBuf || undefined,
             timedOut: totalTimedOut,
             idleTimedOut,
