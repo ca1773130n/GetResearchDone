@@ -548,6 +548,13 @@ export function checkBinary(binary: string): boolean {
 export interface Scheduler {
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
   getState(stateKey: string): BackendUsageState | undefined;
+  /**
+   * Returns a snapshot of the current per-account states map. Used by
+   * the Spec 4 budget pressure detection and complexity estimation
+   * wire-ups. Do NOT mutate the returned map — it is shared with the
+   * scheduler's internal state.
+   */
+  getStates(): Map<string, BackendUsageState>;
   recordExternalSample(stateKey: string, sample: UsageSample): void;
   persistState(planningDir: string): void;
   loadPersistedState(planningDir: string): void;
@@ -872,6 +879,10 @@ export function createScheduler(
   const scheduler: Scheduler = {
     getState(stateKey: string): BackendUsageState | undefined {
       return states.get(stateKey);
+    },
+
+    getStates(): Map<string, BackendUsageState> {
+      return states;
     },
 
     recordExternalSample(stateKey: string, sample: UsageSample): void {
