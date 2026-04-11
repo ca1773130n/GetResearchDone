@@ -134,12 +134,18 @@ const {
     cwd: string,
     wtPath: string,
     options?: { title?: string; body?: string; base?: string }
-  ) => { pr_url: string; branch: string; base: string } | { error: string; push_succeeded?: boolean };
+  ) =>
+    | { pr_url: string; branch: string; base: string }
+    | { error: string; push_succeeded?: boolean };
 } = require('./worktree');
 const {
   execGit,
 }: {
-  execGit: (cwd: string, args: string[], opts?: { allowBlocked?: boolean }) => import('./types').ExecGitResult;
+  execGit: (
+    cwd: string,
+    args: string[],
+    opts?: { allowBlocked?: boolean }
+  ) => import('./types').ExecGitResult;
 } = require('./utils');
 const {
   collectMetrics: _collectMetrics,
@@ -149,10 +155,18 @@ const {
   buildCritiquePrompt: _buildCritiquePromptFn,
 }: {
   collectMetrics: (testOutput: string, tscOutput: string, lintOutput: string) => RefinementMetrics;
-  checkConvergence: (snapshots: MetricSnapshot[], config: ConvergenceConfig) => { converged: boolean; reason: string };
+  checkConvergence: (
+    snapshots: MetricSnapshot[],
+    config: ConvergenceConfig
+  ) => { converged: boolean; reason: string };
   classifyBranch: (current: RefinementMetrics, targets: RefinementMetrics) => CritiqueBranch;
   detectMinima: (snapshots: MetricSnapshot[]) => MinimaRegion[];
-  buildCritiquePrompt: (branch: CritiqueBranch, metrics: RefinementMetrics, targets: RefinementMetrics, minimaRegions: MinimaRegion[]) => string;
+  buildCritiquePrompt: (
+    branch: CritiqueBranch,
+    metrics: RefinementMetrics,
+    targets: RefinementMetrics,
+    minimaRegions: MinimaRegion[]
+  ) => string;
 } = require('./refinement');
 const {
   buildKnowledgeInjectionBlock,
@@ -160,10 +174,7 @@ const {
   buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
 } = require('./knowledge');
 const { completePhaseAfterPostPipeline } = require('./phase-complete') as {
-  completePhaseAfterPostPipeline: (
-    cwd: string,
-    phaseNum: string,
-  ) => PhaseCompleteResult | null;
+  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => PhaseCompleteResult | null;
 };
 
 // ─── Default Constants ──────────────────────────────────────────────────────
@@ -509,9 +520,10 @@ function buildConflictResolvePrompt(phaseNum: string, cwd: string, wtPath: strin
     }
   }
 
-  const fileList = conflictingFiles.length > 0
-    ? conflictingFiles.map(f => `- ${f}`).join('\n')
-    : '(unable to determine — check git status)';
+  const fileList =
+    conflictingFiles.length > 0
+      ? conflictingFiles.map((f) => `- ${f}`).join('\n')
+      : '(unable to determine — check git status)';
 
   return `You are resolving merge conflicts from rebasing phase ${phaseNum}'s branch onto main.
 
@@ -739,7 +751,7 @@ async function runRefinementLoop(
 
       log(
         `Phase ${phaseNum}: metrics collected — coverage=${currentMetrics.test_coverage_pct.toFixed(1)}%, ` +
-        `type_errors=${currentMetrics.type_error_count}, lint=${currentMetrics.lint_violation_count}`
+          `type_errors=${currentMetrics.type_error_count}, lint=${currentMetrics.lint_violation_count}`
       );
 
       // Step 4: Check convergence
@@ -756,7 +768,13 @@ async function runRefinementLoop(
       log(`Phase ${phaseNum}: refinement loop classifying branch as '${branch}'`);
 
       // Step 6: Build critique prompt and spawn critique agent
-      const critiquePrompt = buildCritiqueAgentPrompt(phaseNum, branch, currentMetrics, targets, minimaRegions);
+      const critiquePrompt = buildCritiqueAgentPrompt(
+        phaseNum,
+        branch,
+        currentMetrics,
+        targets,
+        minimaRegions
+      );
       await spawnStep(
         critiquePrompt,
         cwd,
@@ -835,7 +853,11 @@ async function runPostPhasePipeline(
   // Step 1: Simplify
   log(`Phase ${phaseNum}: post-pipeline — simplify`);
   const simplifyResult = await spawnStep(
-    buildSimplifyPrompt(phaseNum), wtPath, `phase-${phaseNum}-simplify`, scheduler ?? null, spawnOpts
+    buildSimplifyPrompt(phaseNum),
+    wtPath,
+    `phase-${phaseNum}-simplify`,
+    scheduler ?? null,
+    spawnOpts
   );
 
   if (simplifyResult.exitCode !== 0) {
@@ -863,7 +885,11 @@ async function runPostPhasePipeline(
   // Step 3: Code review + fix
   log(`Phase ${phaseNum}: post-pipeline — code review`);
   const reviewResult = await spawnStep(
-    buildCodeReviewPrompt(prUrl), wtPath, `phase-${phaseNum}-review`, scheduler ?? null, spawnOpts
+    buildCodeReviewPrompt(prUrl),
+    wtPath,
+    `phase-${phaseNum}-review`,
+    scheduler ?? null,
+    spawnOpts
   );
 
   if (reviewResult.exitCode !== 0) {
@@ -883,7 +909,11 @@ async function runPostPhasePipeline(
       // Merge conflicts — spawn claude -p to resolve
       log(`Phase ${phaseNum}: rebase conflicts detected, attempting auto-resolution`);
       const conflictResult = await spawnStep(
-        buildConflictResolvePrompt(phaseNum, cwd, wtPath), wtPath, `phase-${phaseNum}-conflicts`, scheduler ?? null, spawnOpts
+        buildConflictResolvePrompt(phaseNum, cwd, wtPath),
+        wtPath,
+        `phase-${phaseNum}-conflicts`,
+        scheduler ?? null,
+        spawnOpts
       );
 
       if (conflictResult.exitCode !== 0) {
@@ -911,9 +941,13 @@ async function runPostPhasePipeline(
         reason: 'failed to determine branch name',
       };
     }
-    const pushResult = execGit(wtPath, ['push', '--force-with-lease', 'origin', branch.stdout.trim()], {
-      allowBlocked: true,
-    });
+    const pushResult = execGit(
+      wtPath,
+      ['push', '--force-with-lease', 'origin', branch.stdout.trim()],
+      {
+        allowBlocked: true,
+      }
+    );
     if (pushResult.exitCode !== 0) {
       return {
         status: 'failed',
@@ -1152,9 +1186,9 @@ function parseWriteIntent(frontmatterContent: string): string[] {
  * Comparison result from `compareWriteIntent()`.
  */
 interface WriteIntentComparison {
-  unexpected: string[];  // Files modified but not declared
-  untouched: string[];   // Files declared but not modified
-  matches: string[];     // Files both declared and modified
+  unexpected: string[]; // Files modified but not declared
+  untouched: string[]; // Files declared but not modified
+  matches: string[]; // Files both declared and modified
 }
 
 /**
@@ -1165,16 +1199,13 @@ interface WriteIntentComparison {
  * @param actual   - File paths from `git diff --name-only`
  * @returns Categorized comparison result
  */
-function compareWriteIntent(
-  declared: string[],
-  actual: string[]
-): WriteIntentComparison {
+function compareWriteIntent(declared: string[], actual: string[]): WriteIntentComparison {
   const declaredSet = new Set(declared);
   const actualSet = new Set(actual);
 
-  const matches = declared.filter(f => actualSet.has(f));
-  const untouched = declared.filter(f => !actualSet.has(f));
-  const unexpected = actual.filter(f => !declaredSet.has(f));
+  const matches = declared.filter((f) => actualSet.has(f));
+  const untouched = declared.filter((f) => !actualSet.has(f));
+  const unexpected = actual.filter((f) => !declaredSet.has(f));
 
   return { unexpected, untouched, matches };
 }
@@ -1187,10 +1218,7 @@ function compareWriteIntent(
  * @param comparison - Result from `compareWriteIntent()`
  * @returns Array of formatted log lines
  */
-function formatWriteIntentMismatch(
-  planId: string,
-  comparison: WriteIntentComparison
-): string[] {
+function formatWriteIntentMismatch(planId: string, comparison: WriteIntentComparison): string[] {
   const lines: string[] = [];
   for (const f of comparison.unexpected) {
     lines.push(`[WRITE-INTENT-MISMATCH] Plan ${planId}: unexpected file modified: ${f}`);
@@ -1423,7 +1451,10 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
   let lockAcquired = false;
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const fd: number = fs.openSync(lockPath, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+      const fd: number = fs.openSync(
+        lockPath,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY
+      );
       fs.closeSync(fd);
       lockAcquired = true;
       break;
@@ -1442,7 +1473,9 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
         }
         // Brief synchronous wait
         const start = Date.now();
-        while (Date.now() - start < 10) { /* spin */ }
+        while (Date.now() - start < 10) {
+          /* spin */
+        }
         continue;
       }
       throw e;
@@ -1450,7 +1483,9 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
   }
 
   if (!lockAcquired) {
-    process.stderr.write(`[autopilot] Warning: failed to acquire lock on ${statePath} after ${maxRetries} retries, skipping state update\n`);
+    process.stderr.write(
+      `[autopilot] Warning: failed to acquire lock on ${statePath} after ${maxRetries} retries, skipping state update\n`
+    );
     return;
   }
 
@@ -1465,11 +1500,15 @@ function updateStateProgress(cwd: string, phaseNum: string, step: string): void 
 
     atomicWriteFileSync(statePath, content);
   } finally {
-    try { fs.unlinkSync(lockPath); } catch (unlockErr) {
+    try {
+      fs.unlinkSync(lockPath);
+    } catch (unlockErr) {
       // Only ENOENT is expected (lock already removed); other errors indicate
       // a real problem but we cannot throw from finally — log instead.
       if ((unlockErr as NodeJS.ErrnoException).code !== 'ENOENT') {
-        process.stderr.write(`[autopilot] Warning: failed to release lock ${lockPath}: ${(unlockErr as Error).message}\n`);
+        process.stderr.write(
+          `[autopilot] Warning: failed to release lock ${lockPath}: ${(unlockErr as Error).message}\n`
+        );
       }
     }
   }
@@ -1686,12 +1725,15 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   `phase-${phaseNum}`
                 );
               const planId: string = `phase-${phaseNum}-plan`;
-              const overlayContent: string = generateOverlay(buildPlanPrompt(phaseNum, backend, cwd), {
-                phase_number: phaseNum,
-                plan_id: planId,
-                milestone: milestoneInfo.version,
-                phase_dir: phaseDir,
-              });
+              const overlayContent: string = generateOverlay(
+                buildPlanPrompt(phaseNum, backend, cwd),
+                {
+                  phase_number: phaseNum,
+                  plan_id: planId,
+                  milestone: milestoneInfo.version,
+                  phase_dir: phaseDir,
+                }
+              );
               const overlayDir: string = path.join(cwd, '.planning', 'autopilot', 'overlays');
               fs.mkdirSync(overlayDir, { recursive: true });
               const overlayPath: string = path.join(overlayDir, `overlay-${phaseNum}.md`);
@@ -1945,14 +1987,20 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           log(`Phase ${phaseNumCapture}: starting post-phase pipeline`);
           writeStatusMarker(cwd, phaseNumCapture, 'post-pipeline', 'started');
 
-          const pipelinePromise = runPostPhasePipeline(
-            cwd,
-            phaseNumCapture,
-            wtPathCapture,
-            { timeout, maxTurns, model, scheduler, log, mergeQueue }
-          ).then((result) => ({ phaseNum: phaseNumCapture, result }));
+          const pipelinePromise = runPostPhasePipeline(cwd, phaseNumCapture, wtPathCapture, {
+            timeout,
+            maxTurns,
+            model,
+            scheduler,
+            log,
+            mergeQueue,
+          }).then((result) => ({ phaseNum: phaseNumCapture, result }));
 
-          pipelineTasks.push({ phaseNum: phaseNumCapture, wtPath: wtPathCapture, promise: pipelinePromise });
+          pipelineTasks.push({
+            phaseNum: phaseNumCapture,
+            wtPath: wtPathCapture,
+            promise: pipelinePromise,
+          });
         } else {
           // No pipeline — clean up worktree immediately
           execGit(cwd, ['worktree', 'remove', wtPath, '--force'], { allowBlocked: true });
@@ -1992,17 +2040,17 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             writeStatusMarker(cwd, pNum, 'phase-finalize', 'started');
             const finalizeResult: PhaseCompleteResult | null = completePhaseAfterPostPipeline(
               cwd,
-              pNum,
+              pNum
             );
             if (finalizeResult) {
               writeStatusMarker(cwd, pNum, 'phase-finalize', 'completed');
               log(
-                `Phase ${pNum}: phase-finalize complete — ${finalizeResult.plans_executed} plans, ${finalizeResult.next_phase ? `next phase ${finalizeResult.next_phase}` : 'milestone complete'}`,
+                `Phase ${pNum}: phase-finalize complete — ${finalizeResult.plans_executed} plans, ${finalizeResult.next_phase ? `next phase ${finalizeResult.next_phase}` : 'milestone complete'}`
               );
             } else {
               writeStatusMarker(cwd, pNum, 'phase-finalize', 'failed');
               log(
-                `Phase ${pNum}: phase-finalize failed — run 'gd phase complete ${pNum}' manually to finalize`,
+                `Phase ${pNum}: phase-finalize failed — run 'gd phase complete ${pNum}' manually to finalize`
               );
             }
           }
@@ -2027,7 +2075,13 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
 
   // ── Milestone mode: run wireup after all phases complete ──
   const isMilestoneMode: boolean = options.milestone === true || (!phaseFrom && !phaseTo);
-  if (isMilestoneMode && !stoppedAt && !dryRun && phasesCompleted === phasesAttempted && phasesCompleted > 0) {
+  if (
+    isMilestoneMode &&
+    !stoppedAt &&
+    !dryRun &&
+    phasesCompleted === phasesAttempted &&
+    phasesCompleted > 0
+  ) {
     log('Milestone mode: all phases complete — running wireup');
     const wireupResult: SpawnResult = scheduler
       ? toSpawnResult(
@@ -2046,7 +2100,9 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         });
 
     if (wireupResult.exitCode !== 0) {
-      const reason: string = wireupResult.timedOut ? 'timeout' : `exit code ${wireupResult.exitCode}`;
+      const reason: string = wireupResult.timedOut
+        ? 'timeout'
+        : `exit code ${wireupResult.exitCode}`;
       log(`Wireup FAILED (${reason})`);
       results.push({ phase: 'wireup', step: 'wireup', status: 'failed', reason });
     } else {

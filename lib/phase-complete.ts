@@ -29,11 +29,7 @@ import type {
 } from './types';
 
 const { runPreflightGates } = require('./gates') as {
-  runPreflightGates: (
-    cwd: string,
-    command: string,
-    opts?: { phase?: string },
-  ) => PreflightResult;
+  runPreflightGates: (cwd: string, command: string, opts?: { phase?: string }) => PreflightResult;
 };
 
 const { findPhaseInternal } = require('./utils') as {
@@ -75,7 +71,7 @@ const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   generateCleanupPlan: (
     cwd: string,
     phaseNum: string,
-    report: QualityAnalysisResult,
+    report: QualityAnalysisResult
   ) => CleanupPlanResult;
 };
 
@@ -91,7 +87,7 @@ const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
 export function _phaseCompleteCore(
   cwd: string,
   phaseNum: string,
-  options?: PhaseCompleteOptions,
+  options?: PhaseCompleteOptions
 ): PhaseCompleteResult {
   const dryRun: boolean = (options && options.dryRun) || false;
 
@@ -285,16 +281,14 @@ export function _phaseCompleteCore(
  */
 export function completePhaseAfterPostPipeline(
   cwd: string,
-  phaseNum: string,
+  phaseNum: string
 ): PhaseCompleteResult | null {
   try {
     const result = _phaseCompleteCore(cwd, phaseNum);
     if (result.gate_failed) {
-      const msgs = (result.gate_errors || [])
-        .map((g: { message: string }) => g.message)
-        .join('; ');
+      const msgs = (result.gate_errors || []).map((g: { message: string }) => g.message).join('; ');
       process.stderr.write(
-        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`,
+        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`
       );
       return null;
     }
@@ -305,7 +299,7 @@ export function completePhaseAfterPostPipeline(
     return result;
   } catch (e) {
     process.stderr.write(
-      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`,
+      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`
     );
     return null;
   }

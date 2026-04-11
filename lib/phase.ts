@@ -9,7 +9,6 @@
  * Dependencies: utils.ts, frontmatter.ts (one-directional, no circular deps)
  */
 
-
 import type {
   GrdConfig,
   MilestoneInfo,
@@ -77,7 +76,7 @@ const { _phaseCompleteCore } = require('./phase-complete') as {
   _phaseCompleteCore: (
     cwd: string,
     phaseNum: string,
-    options?: PhaseCompleteOptions,
+    options?: PhaseCompleteOptions
   ) => PhaseCompleteResult;
 };
 

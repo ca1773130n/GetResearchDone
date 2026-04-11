@@ -19,13 +19,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const {
-  completePhaseAfterPostPipeline,
-} = require('../../lib/phase-complete') as {
-  completePhaseAfterPostPipeline: (
-    cwd: string,
-    phaseNum: string,
-  ) => unknown;
+const { completePhaseAfterPostPipeline } = require('../../lib/phase-complete') as {
+  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => unknown;
 };
 
 function makeTempProject(opts: { withPhase?: boolean } = {}): string {
@@ -48,14 +43,8 @@ function makeTempProject(opts: { withPhase?: boolean } = {}): string {
     fs.mkdirSync(phaseDir);
 
     // Plans/summaries are *-PLAN.md / *-SUMMARY.md files directly in the phase dir
-    fs.writeFileSync(
-      path.join(phaseDir, '01-PLAN.md'),
-      '# Plan 1\n',
-    );
-    fs.writeFileSync(
-      path.join(phaseDir, '01-SUMMARY.md'),
-      '# Summary 1\n',
-    );
+    fs.writeFileSync(path.join(phaseDir, '01-PLAN.md'), '# Plan 1\n');
+    fs.writeFileSync(path.join(phaseDir, '01-SUMMARY.md'), '# Summary 1\n');
 
     // Create a next phase dir so STATE.md advances phase number
     fs.mkdirSync(path.join(phasesDir, '04-next-phase'));
@@ -83,7 +72,7 @@ function makeTempProject(opts: { withPhase?: boolean } = {}): string {
       '',
       '**Plans:** 1/1 plans complete',
       '',
-    ].join('\n'),
+    ].join('\n')
   );
 
   // Minimal STATE.md
@@ -99,14 +88,14 @@ function makeTempProject(opts: { withPhase?: boolean } = {}): string {
       '**Last Activity:** 2026-04-10',
       '**Last Activity Description:** Running phase 3',
       '',
-    ].join('\n'),
+    ].join('\n')
   );
 
   // config.json with high cleanup_threshold to skip cleanup plan generation
   // Note: threshold lives under phase_cleanup.cleanup_threshold, not top-level
   fs.writeFileSync(
     path.join(planning, 'config.json'),
-    JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } }),
+    JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } })
   );
 
   return dir;
@@ -126,9 +115,7 @@ describe('completePhaseAfterPostPipeline', () => {
 
   beforeEach(() => {
     projectDir = makeTempProject();
-    stderrSpy = jest
-      .spyOn(process.stderr, 'write')
-      .mockImplementation(() => true);
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -148,19 +135,13 @@ describe('completePhaseAfterPostPipeline', () => {
 
   it('ticks the ROADMAP.md checkbox for Phase 3 on success', () => {
     completePhaseAfterPostPipeline(projectDir, '3');
-    const roadmap = fs.readFileSync(
-      path.join(projectDir, '.planning', 'ROADMAP.md'),
-      'utf-8',
-    );
+    const roadmap = fs.readFileSync(path.join(projectDir, '.planning', 'ROADMAP.md'), 'utf-8');
     expect(roadmap).toMatch(/- \[x\] Phase 3: Test Phase/);
   });
 
   it('advances STATE.md Current Phase to 4 on success', () => {
     completePhaseAfterPostPipeline(projectDir, '3');
-    const state = fs.readFileSync(
-      path.join(projectDir, '.planning', 'STATE.md'),
-      'utf-8',
-    );
+    const state = fs.readFileSync(path.join(projectDir, '.planning', 'STATE.md'), 'utf-8');
     // _phaseCompleteCore sets Current Phase to the next phase's number string
     // (e.g., "04" from dir "04-next-phase"); match the padded format
     expect(state).toMatch(/\*\*Current Phase:\*\*\s+0?4/);
@@ -170,22 +151,15 @@ describe('completePhaseAfterPostPipeline', () => {
   it('returns null and does not throw when the phase directory is missing', () => {
     // Remove the phase directory to trigger "Phase 3 not found" error
     fs.rmSync(
-      path.join(
-        projectDir,
-        '.planning',
-        'milestones',
-        'anonymous',
-        'phases',
-        '03-test-phase',
-      ),
-      { recursive: true, force: true },
+      path.join(projectDir, '.planning', 'milestones', 'anonymous', 'phases', '03-test-phase'),
+      { recursive: true, force: true }
     );
 
     const result = completePhaseAfterPostPipeline(projectDir, '3');
     expect(result).toBeNull();
     // The wrapper catches the throw and logs to stderr
     expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining('phase-finalize: error completing phase 3'),
+      expect.stringContaining('phase-finalize: error completing phase 3')
     );
   });
 
@@ -194,7 +168,7 @@ describe('completePhaseAfterPostPipeline', () => {
     // The phase dir still exists on disk so the gate fires and fails.
     fs.writeFileSync(
       path.join(projectDir, '.planning', 'ROADMAP.md'),
-      '# Roadmap\n\nNo phases here.\n',
+      '# Roadmap\n\nNo phases here.\n'
     );
 
     const result = completePhaseAfterPostPipeline(projectDir, '3');
