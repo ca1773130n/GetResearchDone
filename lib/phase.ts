@@ -9,15 +9,14 @@
  * Dependencies: utils.ts, frontmatter.ts (one-directional, no circular deps)
  */
 
-
 import type {
   GrdConfig,
-  PhaseInfo,
   MilestoneInfo,
   FrontmatterObject,
   GateViolation,
   PreflightResult,
-  QualityAnalysisSummary,
+  PhaseCompleteOptions,
+  PhaseCompleteResult,
 } from './types';
 
 const fs = require('fs');
@@ -25,7 +24,6 @@ const path = require('path');
 
 const {
   normalizePhaseName,
-  findPhaseInternal,
   generateSlugInternal,
   stripShippedSections,
   execGit,
@@ -35,7 +33,6 @@ const {
   error,
 }: {
   normalizePhaseName: (phase: string) => string;
-  findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   generateSlugInternal: (text: string) => string | null;
   stripShippedSections: (content: string) => string;
   execGit: (
@@ -54,18 +51,6 @@ const {
 }: {
   extractFrontmatter: (content: string) => FrontmatterObject;
 } = require('./frontmatter');
-
-const {
-  runQualityAnalysis,
-  generateCleanupPlan,
-}: {
-  runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;
-  generateCleanupPlan: (
-    cwd: string,
-    phaseNum: string,
-    qualityReport: QualityAnalysisResult
-  ) => CleanupPlanResult;
-} = require('./cleanup');
 
 const {
   runPreflightGates,
@@ -87,6 +72,14 @@ const {
   archivedPhasesDir: (cwd: string, version: string) => string;
 } = require('./paths');
 
+const { _phaseCompleteCore } = require('./phase-complete') as {
+  _phaseCompleteCore: (
+    cwd: string,
+    phaseNum: string,
+    options?: PhaseCompleteOptions
+  ) => PhaseCompleteResult;
+};
+
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 /** Options for gate checks passed to runPreflightGates. */
@@ -96,37 +89,11 @@ interface GateOptions {
   [key: string]: unknown;
 }
 
-/** Quality analysis result returned from cleanup module. */
-interface QualityAnalysisResult {
-  skipped?: boolean;
-  reason?: string;
-  phase?: string;
-  timestamp?: string;
-  summary?: QualityAnalysisSummary;
-  details?: Record<string, unknown>;
-  trends?: Record<string, unknown> | null;
-}
-
-/** Generated cleanup plan info from cleanup module. */
-interface CleanupPlanResult {
-  path: string;
-  plan_number: string;
-  issues_addressed: number;
-}
-
 /** Options for cmdPhaseRemove. */
 interface PhaseRemoveOptions {
   force?: boolean;
   dryRun?: boolean;
   remove_dir?: boolean;
-  raw?: boolean;
-}
-
-/** Options for cmdPhaseComplete. */
-interface PhaseCompleteOptions {
-  dryRun?: boolean;
-  force?: boolean;
-  skip_cleanup?: boolean;
   raw?: boolean;
 }
 
@@ -147,27 +114,6 @@ interface PhaseBatchCompleteOptions {
 /** Options for cmdValidateConsistency. */
 interface ValidateConsistencyOptions {
   fix?: boolean;
-}
-
-/** Result from the phase complete core logic. */
-interface PhaseCompleteResult {
-  dry_run?: boolean;
-  would_complete_phase?: string;
-  phase_found?: boolean;
-  gate_failed?: boolean;
-  gate_errors?: GateViolation[];
-  gate_warnings?: GateViolation[];
-  completed_phase?: string;
-  phase_name?: string | null;
-  plans_executed?: string;
-  next_phase?: string | null;
-  next_phase_name?: string | null;
-  is_last_phase?: boolean;
-  date?: string;
-  roadmap_updated?: boolean;
-  state_updated?: boolean;
-  quality_report?: QualityAnalysisResult;
-  cleanup_plan_generated?: CleanupPlanResult;
 }
 
 /** Result from cmdPhaseAdd output. */
@@ -1160,194 +1106,8 @@ function cmdPhaseRemove(
 }
 
 // ─── Phase Complete (Transition) ──────────────────────────────────────────────
-
-/**
- * Core logic for phase completion -- shared by cmdPhaseComplete and cmdPhaseBatchComplete.
- * @param cwd - Project working directory
- * @param phaseNum - Phase number to mark complete
- * @param options - Completion options
- */
-function _phaseCompleteCore(
-  cwd: string,
-  phaseNum: string,
-  options?: PhaseCompleteOptions
-): PhaseCompleteResult {
-  const dryRun: boolean = (options && options.dryRun) || false;
-
-  // Dry-run: return preview without modifying anything
-  if (dryRun) {
-    const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
-    return {
-      dry_run: true,
-      would_complete_phase: phaseNum,
-      phase_found: !!phaseInfo,
-    };
-  }
-
-  // Pre-flight gate checks
-  const gates: PreflightResult = runPreflightGates(cwd, 'phase-complete', {
-    phase: phaseNum,
-  });
-  if (!gates.passed) {
-    return {
-      gate_failed: true,
-      gate_errors: gates.errors,
-      gate_warnings: gates.warnings,
-    };
-  }
-
-  const roadmapPath: string = path.join(cwd, '.planning', 'ROADMAP.md');
-  const statePath: string = path.join(cwd, '.planning', 'STATE.md');
-  const phasesDir: string = getPhasesDirPath(cwd);
-  const today: string = new Date().toISOString().split('T')[0];
-
-  // Verify phase info
-  const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
-  if (!phaseInfo) {
-    throw new Error(`Phase ${phaseNum} not found`);
-  }
-
-  const planCount: number = phaseInfo.plans.length;
-  const summaryCount: number = phaseInfo.summaries.length;
-
-  // Update ROADMAP.md: mark phase complete
-  if (fs.existsSync(roadmapPath)) {
-    let roadmapContent: string = readRoadmapFile(roadmapPath);
-
-    // Checkbox: - [ ] Phase N: -> - [x] Phase N: (...completed DATE)
-    const checkboxPattern: RegExp = new RegExp(
-      `(-\\s*\\[)[ ](\\]\\s*.*Phase\\s+${phaseNum.replace('.', '\\.')}[:\\s][^\\n]*)`,
-      'i'
-    );
-    roadmapContent = roadmapContent.replace(checkboxPattern, `$1x$2 (completed ${today})`);
-
-    // Progress table: update Status to Complete, add date
-    const phaseEscaped: string = phaseNum.replace('.', '\\.');
-    const tablePattern: RegExp = new RegExp(
-      `(\\|\\s*${phaseEscaped}\\.?\\s[^|]*\\|[^|]*\\|)\\s*[^|]*(\\|)\\s*[^|]*(\\|)`,
-      'i'
-    );
-    roadmapContent = roadmapContent.replace(tablePattern, `$1 Complete    $2 ${today} $3`);
-
-    // Update plan count in phase section
-    const planCountPattern: RegExp = new RegExp(
-      `(#{2,}\\s*Phase\\s+${phaseEscaped}[\\s\\S]*?\\*\\*Plans:\\*\\*\\s*)[^\\n]+`,
-      'i'
-    );
-    roadmapContent = roadmapContent.replace(
-      planCountPattern,
-      `$1${summaryCount}/${planCount} plans complete`
-    );
-
-    writeRoadmapFile(roadmapPath, roadmapContent);
-  }
-
-  // Find next phase
-  let nextPhaseNum: string | null = null;
-  let nextPhaseName: string | null = null;
-  let isLastPhase = true;
-
-  try {
-    const entries: import('fs').Dirent[] = fs.readdirSync(phasesDir, {
-      withFileTypes: true,
-    });
-    const dirs: string[] = entries
-      .filter((e: import('fs').Dirent) => e.isDirectory())
-      .map((e: import('fs').Dirent) => e.name)
-      .sort();
-    const currentFloat: number = parseFloat(phaseNum);
-
-    // Find the next phase directory after current
-    for (const dir of dirs) {
-      const dm: RegExpMatchArray | null = dir.match(/^(\d+(?:\.\d+)?)-?(.*)/);
-      if (dm) {
-        const dirFloat: number = parseFloat(dm[1]);
-        if (dirFloat > currentFloat) {
-          nextPhaseNum = dm[1];
-          nextPhaseName = dm[2] || null;
-          isLastPhase = false;
-          break;
-        }
-      }
-    }
-  } catch {
-    // Phases directory may not exist; isLastPhase stays true
-  }
-
-  // Update STATE.md
-  if (fs.existsSync(statePath)) {
-    let stateContent: string = readStateFile(statePath);
-
-    // Update Current Phase
-    stateContent = stateContent.replace(
-      /(\*\*Current Phase:\*\*\s*).*/,
-      `$1${nextPhaseNum || phaseNum}`
-    );
-
-    // Update Current Phase Name
-    if (nextPhaseName) {
-      stateContent = stateContent.replace(
-        /(\*\*Current Phase Name:\*\*\s*).*/,
-        `$1${nextPhaseName.replace(/-/g, ' ')}`
-      );
-    }
-
-    // Update Status
-    stateContent = stateContent.replace(
-      /(\*\*Status:\*\*\s*).*/,
-      `$1${isLastPhase ? 'Milestone complete' : 'Ready to plan'}`
-    );
-
-    // Update Current Plan
-    stateContent = stateContent.replace(/(\*\*Current Plan:\*\*\s*).*/, `$1Not started`);
-
-    // Update Last Activity
-    stateContent = stateContent.replace(/(\*\*Last Activity:\*\*\s*).*/, `$1${today}`);
-
-    // Update Last Activity Description
-    stateContent = stateContent.replace(
-      /(\*\*Last Activity Description:\*\*\s*).*/,
-      `$1Phase ${phaseNum} complete${nextPhaseNum ? `, transitioned to Phase ${nextPhaseNum}` : ''}`
-    );
-
-    writeStateFile(statePath, stateContent);
-  }
-
-  // Run quality analysis if enabled
-  let qualityReport: QualityAnalysisResult | null = null;
-  try {
-    const qaResult: QualityAnalysisResult = runQualityAnalysis(cwd, phaseNum);
-    if (!qaResult.skipped) {
-      qualityReport = qaResult;
-    }
-  } catch {
-    // Quality analysis is non-blocking; swallow errors
-  }
-
-  // Generate cleanup plan if quality issues exceed threshold
-  let cleanupPlanResult: CleanupPlanResult | null = null;
-  if (qualityReport && !qualityReport.skipped) {
-    try {
-      cleanupPlanResult = generateCleanupPlan(cwd, phaseNum, qualityReport);
-    } catch {
-      // Cleanup plan generation is non-blocking
-    }
-  }
-
-  return {
-    completed_phase: phaseNum,
-    phase_name: phaseInfo.phase_name,
-    plans_executed: `${summaryCount}/${planCount}`,
-    next_phase: nextPhaseNum,
-    next_phase_name: nextPhaseName,
-    is_last_phase: isLastPhase,
-    date: today,
-    roadmap_updated: fs.existsSync(roadmapPath),
-    state_updated: fs.existsSync(statePath),
-    ...(qualityReport ? { quality_report: qualityReport } : {}),
-    ...(cleanupPlanResult ? { cleanup_plan_generated: cleanupPlanResult } : {}),
-  };
-}
+// _phaseCompleteCore moved to lib/phase-complete.ts in Spec 3.
+// cmdPhaseComplete and cmdPhaseBatchComplete below import it from there.
 
 /**
  * CLI command: Mark a phase as complete, update STATE.md, ROADMAP.md, and run quality analysis.
@@ -2172,4 +1932,9 @@ module.exports = {
   cmdVersionBump,
   cmdPhaseBatchComplete,
   atomicWriteFile,
+  // Phase-complete helpers (for lib/phase-complete.ts, Spec 3)
+  readRoadmapFile,
+  writeRoadmapFile,
+  readStateFile,
+  writeStateFile,
 };
