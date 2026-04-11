@@ -40,6 +40,11 @@ import type {
   TokenProfileName,
   BudgetPressureLevel,
   ComplexityLevel,
+  GrdConfig,
+  SchedulerConfig,
+  SuperpowersConfig,
+  BackendUsageState,
+  BudgetPressureThresholds,
 } from './types';
 
 const fs = require('fs');
@@ -1010,6 +1015,89 @@ function computeEffectiveModelTier(opts: {
   return _applyDowngrade(opts.baseTier, count);
 }
 
+// --- Adaptive tier dispatch helper -------------------------------------------
+
+/**
+ * Structural interface for the scheduler's state accessor.
+ * Using a structural interface avoids circular imports between
+ * scheduler.ts (which imports from types.ts) and backend.ts.
+ */
+interface _SchedulerLike {
+  getStates(): Map<string, BackendUsageState>;
+}
+
+const { estimateComplexity } = require('./complexity') as {
+  estimateComplexity: (opts: {
+    agentType: string;
+    promptLength?: number;
+  }) => ComplexityLevel;
+};
+
+const { computeBudgetPressureLevel } = require('./scheduler') as {
+  computeBudgetPressureLevel: (
+    states: Map<string, BackendUsageState>,
+    priority: BackendId[],
+    accounts: SuperpowersConfig['accounts'],
+    thresholds?: BudgetPressureThresholds,
+  ) => BudgetPressureLevel;
+};
+
+/**
+ * Computes the effective model tier for an agent dispatch by running
+ * the Spec 4 chain: estimateComplexity → computeBudgetPressureLevel →
+ * computeEffectiveModelTier. Returns the tier to pass to
+ * resolveModelForAgent as effectiveTierOverride.
+ *
+ * When scheduler/schedulerConfig/superpowersConfig are null/undefined,
+ * returns the base tier unchanged (preserving pre-Spec-4 behavior).
+ *
+ * @param opts.agentType - Agent type key (e.g. 'grd-executor')
+ * @param opts.prompt - The prompt string (used for promptLength)
+ * @param opts.config - GrdConfig with model_profile and token_profile fields
+ * @param opts.scheduler - Scheduler instance or null when not configured
+ * @param opts.schedulerConfig - Scheduler configuration from config.scheduler
+ * @param opts.superpowersConfig - Superpowers config from config.superpowers
+ * @param opts.modelProfiles - MODEL_PROFILES table (passed in to avoid circular dep)
+ * @returns Effective model tier for this dispatch
+ */
+function getEffectiveTierForDispatch(opts: {
+  agentType: string;
+  prompt: string;
+  config: GrdConfig;
+  scheduler: _SchedulerLike | null;
+  schedulerConfig?: SchedulerConfig;
+  superpowersConfig?: SuperpowersConfig;
+  modelProfiles: Record<string, Record<string, string>>;
+}): _ModelTier {
+  const profile = opts.config.model_profile || 'balanced';
+  const agentEntry = opts.modelProfiles[opts.agentType];
+  const baseTier = ((agentEntry && agentEntry[profile]) || 'sonnet') as _ModelTier;
+
+  if (!opts.scheduler || !opts.schedulerConfig || !opts.superpowersConfig) {
+    return baseTier;
+  }
+
+  const states = opts.scheduler.getStates();
+  const complexity = estimateComplexity({
+    agentType: opts.agentType,
+    promptLength: opts.prompt.length,
+  });
+  const pressure = computeBudgetPressureLevel(
+    states,
+    opts.schedulerConfig.backend_priority as BackendId[],
+    opts.superpowersConfig.accounts,
+    opts.schedulerConfig.budget_pressure_thresholds,
+  );
+  const tokenProfile: TokenProfileName = opts.config.token_profile || 'balanced';
+
+  return computeEffectiveModelTier({
+    baseTier,
+    tokenProfile,
+    pressure,
+    complexity,
+  });
+}
+
 // --- Exports -----------------------------------------------------------------
 
 module.exports = {
@@ -1035,4 +1123,5 @@ module.exports = {
   BACKEND_CONFIG_ENV,
   readConfig,
   computeEffectiveModelTier,
+  getEffectiveTierForDispatch,
 };
