@@ -563,8 +563,12 @@ export function createScheduler(
 ): Scheduler | null {
   if (!config) return null;
 
-  // Re-bind after guard so closures see the narrowed SchedulerConfig type
-  const schedulerConfig = config;
+  // Apply Spec 2A defaults here so the rest of the scheduler can rely on
+  // a fully-populated config. Spread-merge avoids mutating caller input.
+  const schedulerConfig: SchedulerConfig = {
+    ...config,
+    max_wait_minutes: config.max_wait_minutes ?? 90,
+  };
   const states = new Map<string, BackendUsageState>();
   const prediction = schedulerConfig.prediction;
   const accountRotation = !!superpowersConfig?.account_rotation;
