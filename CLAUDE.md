@@ -165,6 +165,16 @@ autoresearch check this before each agent dispatch. Thresholds are
 configurable via `.planning/config.json`
 `scheduler.budget_pressure_thresholds`.
 
+### Scheduler idle watchdog (Spec 2B)
+
+`scheduler.idle_timeout_seconds` (default 900) kills a spawned backend
+subprocess if it produces no stdout/stderr data for the configured
+number of seconds. Distinct from the total-timeout upper bound: the
+idle timeout only fires when the subprocess is completely silent, so
+legitimate streaming inference is unaffected. On trip: SIGTERM →
+5-second grace → SIGKILL. Result carries `idleTimedOut: true` flag
+so callers can distinguish idle-kills from total-timeout kills.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.

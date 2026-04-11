@@ -7,6 +7,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 
+- **Scheduler idle watchdog (Spec 2B)** — new
+  `SchedulerConfig.idle_timeout_seconds` (default 900) kills spawned
+  backend subprocesses that produce no stdout/stderr data for the
+  configured duration. Distinct from `opts.timeout` (total timeout);
+  the idle watchdog only fires on complete silence, so legitimate
+  streaming inference is unaffected. On trip: SIGTERM → 5-second
+  grace → SIGKILL. New `idleTimedOut: boolean` flag on
+  `SchedulerSpawnResult`.
+- **`lib/scheduler.ts` `_spawnWithRetry` rewrite** — replaces
+  `execFile` with `spawn` + manual stdout/stderr buffering, preserving
+  50MB maxBuffer semantics and all other behaviors (rate-limit
+  detection, token parsing, sample recording, persistence).
 - **Prompt injection scanner** — new `gd scan` CLI subcommand (`gd scan`, `gd scan --diff`, `gd scan --file`, `gd scan --all`) detects 18 prompt injection patterns across 7 categories in bundled markdown (commands/, agents/, templates/, docs/). Patterns adopted from [gsd-2](https://github.com/gsd-build/gsd-2) v2.67 `scripts/docs-prompt-injection-scan.sh` and `scripts/base64-scan.sh`. Includes base64 obfuscation detection and `.prompt-injection-scanignore` for suppressing known false positives. First phase of the `gsd-2-selective-adoption` milestone. See `docs/superpowers/specs/2026-04-11-gsd2-prompt-injection-scan-design.md`.
 - **`docs-check` CI job** — runs `gd scan --diff origin/<base>` on every PR, blocking PRs that introduce unignored prompt injection patterns.
 - **`npm run hooks:install`** — opt-in installer for a vanilla `.git/hooks/pre-commit` stub that runs `gd scan` on staged markdown. Not installed by postinstall.
