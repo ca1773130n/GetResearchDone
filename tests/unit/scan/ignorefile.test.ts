@@ -101,4 +101,23 @@ describe('isIgnored', () => {
     ];
     expect(isIgnored('commands/other.md', 'hello world', entries)).toBe(false);
   });
+
+  it('returns true when a file-scoped entry matches by suffix', () => {
+    const entries: IgnoreEntry[] = [
+      { type: 'file', filePath: 'commands/init.md', pattern: /hello/ },
+    ];
+    expect(
+      isIgnored('/Users/neo/dev/project/commands/init.md', 'hello world', entries)
+    ).toBe(true);
+  });
+
+  it('does not match suffix when the path does not end at a directory boundary', () => {
+    const entries: IgnoreEntry[] = [
+      { type: 'file', filePath: 'init.md', pattern: /hello/ },
+    ];
+    // 'oof/init.md' ends with '/init.md', should match
+    expect(isIgnored('/foo/init.md', 'hello', entries)).toBe(true);
+    // 'fooinit.md' does NOT end with '/init.md' (no slash before)
+    expect(isIgnored('fooinit.md', 'hello', entries)).toBe(false);
+  });
 });

@@ -62,7 +62,7 @@ export function scanProse(files: string[], opts: ScanProseOpts): ScanHit[] {
             label: pattern.label,
             category: pattern.category,
             match,
-            ignored: isIgnored(file, match, opts.ignoreEntries),
+            ignored: isIgnored(file, line, opts.ignoreEntries),
             source: 'prose',
           });
         }

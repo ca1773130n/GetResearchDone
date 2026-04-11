@@ -57,7 +57,8 @@ export function isIgnored(
 ): boolean {
   for (const e of entries) {
     if (e.type === 'file') {
-      if (e.filePath === file && e.pattern.test(matchText)) return true;
+      const fileMatches = e.filePath === file || file.endsWith('/' + e.filePath);
+      if (fileMatches && e.pattern.test(matchText)) return true;
     } else {
       if (e.pattern.test(matchText)) return true;
     }

@@ -104,6 +104,7 @@ function _walkMarkdown(dir: string, out: string[]): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (entry.name === 'superpowers' && path.basename(dir) === 'docs') continue;
       _walkMarkdown(full, out);
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       out.push(full);

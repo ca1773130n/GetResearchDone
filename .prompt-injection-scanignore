@@ -1,0 +1,15 @@
+# .prompt-injection-scanignore
+#
+# Format (gsd-2 v2.67 compatible):
+#   # comment
+#   filepath:regex   — ignore matches of regex only in the given file
+#                      (filepath is matched as exact or suffix against scanned paths)
+#   regex            — ignore matches of regex in all files
+#
+# See docs/superpowers/specs/2026-04-11-gsd2-prompt-injection-scan-design.md
+# for design notes and the adoption story.
+
+# False positive in commands/init.md: the literal prose
+# "where you are now so improvements are measurable" matches the
+# you_are_now role-injection regex. Benign.
+commands/init.md:you are now so improvements
