@@ -163,7 +163,7 @@ const {
     phase: string,
     raw: boolean,
     options?: Record<string, boolean>
-  ) => void;
+  ) => Promise<void>;
   cmdMilestoneComplete: (
     cwd: string,
     version: string | null,
@@ -996,7 +996,7 @@ async function routeCommand(
         );
       } else if (sub === 'complete') {
         validatePhaseArg(args[2]);
-        cmdPhaseComplete(cwd, args[2], raw, { dryRun: args.includes('--dry-run') });
+        await cmdPhaseComplete(cwd, args[2], raw, { dryRun: args.includes('--dry-run') });
       } else if (sub === 'analyze-deps') {
         cmdPhaseAnalyzeDeps(cwd, raw);
       }

@@ -10,7 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { captureOutput, captureError } = require('../helpers/setup');
+const { captureOutput, captureError, captureOutputAsync, captureErrorAsync } = require('../helpers/setup');
 const { createFixtureDir, cleanupFixtureDir } = require('../helpers/fixtures');
 
 const {
@@ -453,8 +453,8 @@ describe('cmdPhaseComplete', () => {
     cleanupFixtureDir(tmpDir);
   });
 
-  test('marks phase as complete and returns result', () => {
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+  test('marks phase as complete and returns result', async () => {
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result.completed_phase).toBe('1');
@@ -464,28 +464,28 @@ describe('cmdPhaseComplete', () => {
     expect(result.state_updated).toBe(true);
   });
 
-  test('updates ROADMAP.md plan count to complete', () => {
-    captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+  test('updates ROADMAP.md plan count to complete', async () => {
+    await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     const roadmap = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
     // The **Plans:** line should be updated to show completion fraction
     expect(roadmap).toMatch(/\*\*Plans:\*\*\s*\d+\/\d+\s*plans complete/);
   });
 
-  test('identifies next phase', () => {
-    const { stdout } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+  test('identifies next phase', async () => {
+    const { stdout } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     const result = JSON.parse(stdout);
     expect(result.next_phase).toBe('02');
     expect(result.is_last_phase).toBe(false);
   });
 
-  test('errors for nonexistent phase', () => {
-    const { stderr, exitCode } = captureError(() => cmdPhaseComplete(tmpDir, '99', false));
+  test('errors for nonexistent phase', async () => {
+    const { stderr, exitCode } = await captureErrorAsync(() => cmdPhaseComplete(tmpDir, '99', false));
     expect(exitCode).toBe(1);
     expect(stderr).toContain('not found');
   });
 
-  test('errors when no phase number provided', () => {
-    const { stderr, exitCode } = captureError(() => cmdPhaseComplete(tmpDir, null, false));
+  test('errors when no phase number provided', async () => {
+    const { stderr, exitCode } = await captureErrorAsync(() => cmdPhaseComplete(tmpDir, null, false));
     expect(exitCode).toBe(1);
     expect(stderr).toContain('phase number required');
   });
@@ -722,14 +722,14 @@ describe('cmdPhaseComplete quality analysis integration', () => {
 
   // ─── Integration behavior ─────────────────────────────────────────────
 
-  test('phase complete output includes quality_report when cleanup enabled', () => {
+  test('phase complete output includes quality_report when cleanup enabled', async () => {
     setCleanupConfig(true);
     createSourceFile(
       'sample.js',
       'function greet() { return "hi"; }\nmodule.exports = { greet };\n'
     );
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('quality_report');
@@ -737,29 +737,29 @@ describe('cmdPhaseComplete quality analysis integration', () => {
     expect(result.quality_report).toHaveProperty('details');
   });
 
-  test('phase complete output does NOT include quality_report when cleanup disabled', () => {
+  test('phase complete output does NOT include quality_report when cleanup disabled', async () => {
     setCleanupConfig(false);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).not.toHaveProperty('quality_report');
   });
 
-  test('phase complete output does NOT include quality_report when phase_cleanup section missing', () => {
+  test('phase complete output does NOT include quality_report when phase_cleanup section missing', async () => {
     setCleanupConfig(undefined);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).not.toHaveProperty('quality_report');
   });
 
-  test('quality analysis errors do not block phase completion', () => {
+  test('quality analysis errors do not block phase completion', async () => {
     // Set enabled but ensure no lib dir exists (quality analysis may return empty but not crash)
     setCleanupConfig(true);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // Phase completion still works (core fields present)
@@ -769,19 +769,19 @@ describe('cmdPhaseComplete quality analysis integration', () => {
 
   // ─── Raw output integration ───────────────────────────────────────────
 
-  test('raw output includes quality summary when issues found', () => {
+  test('raw output includes quality summary when issues found', async () => {
     setCleanupConfig(true);
     // Create an oversized file to trigger issues
     const bigContent = Array.from({ length: 601 }, (_, i) => `// line ${i + 1}`).join('\n') + '\n';
     createSourceFile('big-module.js', bigContent);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', true));
     expect(exitCode).toBe(0);
     expect(stdout).toContain('Quality');
     expect(stdout).toContain('issue');
   });
 
-  test('raw output does not mention quality when no issues', () => {
+  test('raw output does not mention quality when no issues', async () => {
     setCleanupConfig(true);
     // Two files: one exports, the other consumes -- no dead exports, no oversized, no complexity
     createSourceFile(
@@ -790,24 +790,24 @@ describe('cmdPhaseComplete quality analysis integration', () => {
     );
     createSourceFile('main.js', 'const { add } = require("./math");\nconsole.log(add(1, 2));\n');
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', true));
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain('Quality');
   });
 
-  test('raw output does not mention quality when disabled', () => {
+  test('raw output does not mention quality when disabled', async () => {
     setCleanupConfig(false);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', true));
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain('Quality');
   });
 
-  test('phase completion still updates ROADMAP.md correctly with quality analysis running', () => {
+  test('phase completion still updates ROADMAP.md correctly with quality analysis running', async () => {
     setCleanupConfig(true);
     createSourceFile('sample.js', 'module.exports = {};\n');
 
-    captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
 
     const roadmap = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
     expect(roadmap).toMatch(/\*\*Plans:\*\*\s*\d+\/\d+\s*plans complete/);
@@ -871,11 +871,11 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
     }
   }
 
-  test('cmdPhaseComplete includes cleanup_plan_generated when quality issues exceed threshold', () => {
+  test('cmdPhaseComplete includes cleanup_plan_generated when quality issues exceed threshold', async () => {
     setCleanupConfig({ enabled: true, cleanup_threshold: 2 });
     createSourceFiles({ oversized: true, oversizedCount: 3 });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).toHaveProperty('cleanup_plan_generated');
@@ -885,43 +885,43 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
     expect(result.cleanup_plan_generated.issues_addressed).toBeGreaterThan(2);
   });
 
-  test('cmdPhaseComplete does NOT include cleanup_plan_generated when issues below threshold', () => {
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when issues below threshold', async () => {
     setCleanupConfig({ enabled: true });
     createSourceFiles({ clean: true });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).not.toHaveProperty('cleanup_plan_generated');
   });
 
-  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup.enabled is false', () => {
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup.enabled is false', async () => {
     setCleanupConfig(false);
     createSourceFiles({ oversized: true });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).not.toHaveProperty('cleanup_plan_generated');
   });
 
-  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup section missing', () => {
+  test('cmdPhaseComplete does NOT include cleanup_plan_generated when phase_cleanup section missing', async () => {
     setCleanupConfig(undefined);
     createSourceFiles({ oversized: true });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     expect(result).not.toHaveProperty('cleanup_plan_generated');
   });
 
-  test('cleanup plan generation failure does not break phase completion', () => {
+  test('cleanup plan generation failure does not break phase completion', async () => {
     // Enable cleanup with low threshold but make generateCleanupPlan likely to work
     // The non-blocking try/catch ensures even if it throws, phase completes
     setCleanupConfig({ enabled: true, cleanup_threshold: 0 });
     createSourceFiles({ clean: true });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // Core fields must still be present regardless
@@ -930,29 +930,29 @@ describe('cmdPhaseComplete cleanup plan generation integration', () => {
     expect(result.state_updated).toBe(true);
   });
 
-  test('raw output includes cleanup plan path when generated', () => {
+  test('raw output includes cleanup plan path when generated', async () => {
     setCleanupConfig({ enabled: true, cleanup_threshold: 2 });
     createSourceFiles({ oversized: true, oversizedCount: 3 });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', true));
     expect(exitCode).toBe(0);
     expect(stdout).toContain('Cleanup plan generated:');
     expect(stdout).toContain('PLAN.md');
   });
 
-  test('raw output does NOT mention cleanup plan when not generated', () => {
+  test('raw output does NOT mention cleanup plan when not generated', async () => {
     setCleanupConfig({ enabled: true });
     createSourceFiles({ clean: true });
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', true));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', true));
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain('Cleanup plan generated');
   });
 
-  test('existing phase completion behavior unchanged when cleanup disabled', () => {
+  test('existing phase completion behavior unchanged when cleanup disabled', async () => {
     setCleanupConfig(false);
 
-    const { stdout, exitCode } = captureOutput(() => cmdPhaseComplete(tmpDir, '1', false));
+    const { stdout, exitCode } = await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false));
     expect(exitCode).toBe(0);
     const result = JSON.parse(stdout);
     // All standard fields present
@@ -1375,8 +1375,8 @@ describe('cmdPhaseComplete --dry-run', () => {
     cleanupFixtureDir(tmpDir);
   });
 
-  test('returns dry_run:true with preview info', () => {
-    const { stdout, exitCode } = captureOutput(() =>
+  test('returns dry_run:true with preview info', async () => {
+    const { stdout, exitCode } = await captureOutputAsync(() =>
       cmdPhaseComplete(tmpDir, '1', false, { dryRun: true })
     );
     expect(exitCode).toBe(0);
@@ -1385,9 +1385,9 @@ describe('cmdPhaseComplete --dry-run', () => {
     expect(result.would_complete_phase).toBeTruthy();
   });
 
-  test('does not modify ROADMAP.md when dry-run', () => {
+  test('does not modify ROADMAP.md when dry-run', async () => {
     const before = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
-    captureOutput(() => cmdPhaseComplete(tmpDir, '1', false, { dryRun: true }));
+    await captureOutputAsync(() => cmdPhaseComplete(tmpDir, '1', false, { dryRun: true }));
     const after = fs.readFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), 'utf-8');
     expect(after).toBe(before);
   });
