@@ -62,7 +62,7 @@ By name: `npx jest -t "should parse frontmatter"`
 
 - Tests mirror `lib/`: `lib/state.ts` → `tests/unit/state.test.ts`
 - Per-file coverage thresholds in `jest.config.js` — do not lower them
-- Pre-commit hook runs lint — commits fail on lint errors
+- Pre-commit hook (optional, installed via `npm run hooks:install`) runs `gd scan` on staged markdown to block prompt injection patterns before commit. No other pre-commit hooks are installed by default.
 - Timeout: 15s
 
 ## Backend Capabilities

@@ -139,4 +139,22 @@ GRD includes an MCP server exposing all CLI commands as structured tools:
 
 ## Credits
 
-Built on [GSD (Get Shit Done)](https://github.com/coleam00/get-shit-done) by Cole Medin. Extended for R&D workflows by Cameleon X.
+Built on [GSD (Get Shit Done)](https://github.com/gsd-build/gsd-2) by Cole Medin (v1 heritage) and the gsd-build team (v2 patterns). Extended for R&D workflows by Cameleon X.
+
+## Security
+
+GRD scans its bundled markdown (`commands/`, `agents/`, `templates/`, `docs/`) for prompt injection patterns — system prompt markers, role overrides, hidden HTML directives, tool-call injection, and base64-obfuscated variants of the same. The scanner is available as a CLI:
+
+```bash
+gd scan              # scan staged .md files (use as pre-commit)
+gd scan --all        # full repo sweep
+gd scan --diff main  # scan .md files changed vs main (CI mode)
+```
+
+A CI job (`docs-check` in `.github/workflows/ci.yml`) blocks PRs that introduce unignored patterns. To install an opt-in pre-commit hook locally:
+
+```bash
+npm run hooks:install
+```
+
+Pattern set adopted from [gsd-2](https://github.com/gsd-build/gsd-2) v2.67 `scripts/docs-prompt-injection-scan.sh` and `scripts/base64-scan.sh`.
