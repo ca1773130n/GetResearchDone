@@ -45,6 +45,7 @@ import type {
   SuperpowersConfig,
   BackendUsageState,
   BudgetPressureThresholds,
+  AdapterBackendId,
 } from './types';
 
 const fs = require('fs');
@@ -1031,7 +1032,11 @@ interface _SchedulerLike {
 }
 
 const { estimateComplexity } = require('./complexity') as {
-  estimateComplexity: (opts: { agentType: string; promptLength?: number }) => ComplexityLevel;
+  estimateComplexity: (opts: {
+    agentType: string;
+    promptLength?: number;
+    recentSamples?: { duration: number; tokenEstimate: number }[];
+  }) => ComplexityLevel;
 };
 
 const { computeBudgetPressureLevel, logPressureTransition } = require('./scheduler') as {
@@ -1046,7 +1051,7 @@ const { computeBudgetPressureLevel, logPressureTransition } = require('./schedul
     current: BudgetPressureLevel,
     agentType: string,
     baseTier: string,
-    effectiveTier: string,
+    effectiveTier: string
   ) => void;
 };
 
@@ -1086,9 +1091,41 @@ function getEffectiveTierForDispatch(opts: {
   }
 
   const states = opts.scheduler.getStates();
+
+  // Collect recent samples from all priority accounts (most recent first).
+  // UsageSample has no agentType field, so we pass all samples as a global
+  // workload signal and let estimateComplexity's tail-average compute
+  // complexity. Still better than nothing — reflects overall system load.
+  let recentSamples: { duration: number; tokenEstimate: number }[] | undefined;
+  const allSamples: { duration: number; tokenEstimate: number; timestamp: number }[] = [];
+  for (const backend of opts.schedulerConfig.backend_priority) {
+    const backendAccounts = opts.superpowersConfig.accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state) continue;
+      for (const sample of state.samples) {
+        allSamples.push({
+          duration: sample.duration,
+          tokenEstimate: sample.tokenEstimate,
+          timestamp: sample.timestamp,
+        });
+      }
+    }
+  }
+  if (allSamples.length >= 3) {
+    // Sort by timestamp descending, take up to 10 most recent
+    allSamples.sort((a, b) => b.timestamp - a.timestamp);
+    recentSamples = allSamples.slice(0, 10).map((s) => ({
+      duration: s.duration,
+      tokenEstimate: s.tokenEstimate,
+    }));
+  }
+
   const complexity = estimateComplexity({
     agentType: opts.agentType,
     promptLength: opts.prompt.length,
+    recentSamples,
   });
   const pressure = computeBudgetPressureLevel(
     states,
@@ -1106,13 +1143,7 @@ function getEffectiveTierForDispatch(opts: {
   });
 
   // Spec 4 Goal #7: log on pressure transitions only
-  logPressureTransition(
-    process.pid.toString(),
-    pressure,
-    opts.agentType,
-    baseTier,
-    effectiveTier,
-  );
+  logPressureTransition(process.pid.toString(), pressure, opts.agentType, baseTier, effectiveTier);
 
   return effectiveTier;
 }

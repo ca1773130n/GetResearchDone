@@ -505,6 +505,11 @@ export interface BackendUsageState {
  */
 export interface SchedulerSpawnResult {
   exitCode: number;
+  /**
+   * Captured subprocess stdout. Populated whenever the backend subprocess
+   * writes to stdout; callers that pass captureOutput: true in SpawnOpts can
+   * rely on this field being set. Otherwise may be undefined or empty string.
+   */
   stdout?: string;
   stderr?: string;
   timedOut: boolean;

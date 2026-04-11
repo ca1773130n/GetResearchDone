@@ -40,31 +40,13 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-// Module-level write-through caches for ROADMAP.md and STATE.md reads.
-// Inlined here to avoid a circular dependency with lib/phase.ts.
-const _roadmapFileCache = new Map<string, string>();
-function readRoadmapFile(roadmapPath: string): string {
-  if (!_roadmapFileCache.has(roadmapPath)) {
-    _roadmapFileCache.set(roadmapPath, fs.readFileSync(roadmapPath, 'utf-8') as string);
-  }
-  return _roadmapFileCache.get(roadmapPath) as string;
-}
-function writeRoadmapFile(roadmapPath: string, content: string): void {
-  fs.writeFileSync(roadmapPath, content, 'utf-8');
-  _roadmapFileCache.set(roadmapPath, content);
-}
-
-const _stateFileCache = new Map<string, string>();
-function readStateFile(statePath: string): string {
-  if (!_stateFileCache.has(statePath)) {
-    _stateFileCache.set(statePath, fs.readFileSync(statePath, 'utf-8') as string);
-  }
-  return _stateFileCache.get(statePath) as string;
-}
-function writeStateFile(statePath: string, content: string): void {
-  fs.writeFileSync(statePath, content, 'utf-8');
-  _stateFileCache.set(statePath, content);
-}
+const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile } =
+  require('./phase-io') as {
+    readRoadmapFile: (p: string) => string;
+    writeRoadmapFile: (p: string, content: string) => void;
+    readStateFile: (p: string) => string;
+    writeStateFile: (p: string, content: string) => void;
+  };
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;
