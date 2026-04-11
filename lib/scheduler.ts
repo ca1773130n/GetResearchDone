@@ -13,6 +13,10 @@ import type {
   SchedulerSpawnResult,
 } from './types';
 
+const { waitUntilOrAbort } = require('./scheduler-wait') as {
+  waitUntilOrAbort: (targetMs: number) => Promise<'waited' | 'aborted'>;
+};
+
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
 
 /**
@@ -272,6 +276,95 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
 }
 
 /**
+ * Returns true iff at least one account in the priority list has headroom.
+ * Small helper used by the _spawnWithRetry wait-branch decision.
+ */
+export function _anyPriorityHasHeadroom(
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  states: Map<string, BackendUsageState>,
+  safetyMargin: number
+): boolean {
+  for (const backend of priority) {
+    const backendAccounts = accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state) continue;
+      if (_hasHeadroom(state, safetyMargin)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Computes the earliest timestamp (ms since epoch) at which ANY priority
+ * account will regain headroom based on sample aging out of the rolling
+ * window. Used by the wait-loop in _spawnWithRetry when all priority
+ * accounts are currently exhausted.
+ *
+ * For each priority account, walks its samples oldest-first, hypothetically
+ * dropping each one and recomputing projected headroom. The latest-dropped
+ * sample's timestamp + windowMinutes is the moment that account will have
+ * enough headroom for one more EWMA-sized task.
+ *
+ * Returns null if:
+ *   - No priority account has samples (nothing to wait for)
+ *   - Soonest recovery across all accounts is beyond Date.now() + maxWaitMs
+ *   - All considered accounts have zero ewma_tokens_per_task (no prediction data)
+ *
+ * Pattern adopted from gsd-2 v2.67 auto-timeout-recovery.ts — but
+ * sample-based rather than attempt-based.
+ *
+ * Note: tokens_reserved (in-flight EWMA cost) is held constant during the
+ * simulation because in-flight tasks are expected to complete independently
+ * of sample aging. This makes the estimate slightly pessimistic — actual
+ * headroom may return sooner.
+ */
+export function computeSoonestRecovery(
+  states: Map<string, BackendUsageState>,
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  windowMinutes: number,
+  maxWaitMs: number
+): number | null {
+  const now = Date.now();
+  let soonest = Infinity;
+
+  for (const backend of priority) {
+    const backendAccounts = accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state || state.samples.length === 0) continue;
+      if (state.ewma_tokens_per_task === 0) continue;
+
+      const sortedSamples = [...state.samples].sort((a, b) => a.timestamp - b.timestamp);
+
+      const ewmaCost = state.ewma_tokens_per_task;
+      let consumed = state.tokens_consumed_in_window;
+      const reserved = state.tokens_reserved;
+      let latestDroppedTs: number | null = null;
+
+      for (const sample of sortedSamples) {
+        const projectedRemaining = state.token_budget - consumed - reserved;
+        if (projectedRemaining >= ewmaCost) break;
+        consumed -= sample.tokenEstimate;
+        latestDroppedTs = sample.timestamp;
+      }
+
+      if (latestDroppedTs === null) continue;
+      const recoveryTime = latestDroppedTs + windowMinutes * 60 * 1000;
+      if (recoveryTime < soonest) soonest = recoveryTime;
+    }
+  }
+
+  if (soonest === Infinity) return null;
+  if (soonest > now + maxWaitMs) return null;
+  return soonest;
+}
+
+/**
  * Resolves which backend and account to use for the next scheduled task.
  * Walks the backend_priority list, and within each backend tries every
  * configured account in order. Falls back to the free_fallback backend
@@ -468,8 +561,12 @@ export function createScheduler(
 ): Scheduler | null {
   if (!config) return null;
 
-  // Re-bind after guard so closures see the narrowed SchedulerConfig type
-  const schedulerConfig = config;
+  // Apply Spec 2A defaults here so the rest of the scheduler can rely on
+  // a fully-populated config. Spread-merge avoids mutating caller input.
+  const schedulerConfig: SchedulerConfig = {
+    ...config,
+    max_wait_minutes: config.max_wait_minutes ?? 90,
+  };
   const states = new Map<string, BackendUsageState>();
   const prediction = schedulerConfig.prediction;
   const accountRotation = !!superpowersConfig?.account_rotation;
@@ -535,7 +632,8 @@ export function createScheduler(
   async function _spawnWithRetry(
     prompt: string,
     opts: SpawnOpts,
-    retryCount: number
+    retryCount: number,
+    lastRecoveryTime: number | null = null
   ): Promise<SchedulerSpawnResult> {
     let backend: AdapterBackendId;
     let stateKey: string;
@@ -568,6 +666,52 @@ export function createScheduler(
         schedulerConfig.free_fallback
       ) as AdapterBackendId;
       stateKey = backend;
+    }
+
+    // Spec 2A: bounded wait for soonest recovery when all priority accounts
+    // are exhausted and resolveAccount fell through to free_fallback.
+    if (
+      accountRotation &&
+      superpowersConfig &&
+      backend === schedulerConfig.free_fallback.backend &&
+      schedulerConfig.backend_priority.length > 0 &&
+      !_anyPriorityHasHeadroom(
+        schedulerConfig.backend_priority,
+        superpowersConfig.accounts,
+        states,
+        prediction.safety_margin_tasks
+      )
+    ) {
+      // Defensive: createScheduler applies 90 default, but TS can't narrow through
+      // the spread-merge. The ?? 90 keeps TypeScript happy and guards against
+      // direct construction of the SchedulerConfig bypassing createScheduler.
+      const maxWaitMinutes = schedulerConfig.max_wait_minutes ?? 90;
+      if (maxWaitMinutes > 0) {
+        const maxWaitMs = maxWaitMinutes * 60 * 1000;
+        const recoveryTime = computeSoonestRecovery(
+          states,
+          schedulerConfig.backend_priority,
+          superpowersConfig.accounts,
+          prediction.window_minutes,
+          maxWaitMs
+        );
+        if (recoveryTime !== null && recoveryTime === lastRecoveryTime) {
+          // Infinite-loop guard: if this is the same timestamp we already
+          // waited for, sample state didn't change. Fall through to
+          // free_fallback instead of waiting again (pre-Spec 2A behavior).
+        } else if (recoveryTime !== null) {
+          const waitMs = recoveryTime - Date.now();
+          const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
+          process.stderr.write(
+            `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
+          );
+          const waitResult = await waitUntilOrAbort(recoveryTime);
+          if (waitResult === 'aborted') {
+            throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
+          }
+          return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
+        }
+      }
     }
 
     const adapter = ADAPTERS[backend] || ADAPTERS.claude;
@@ -742,4 +886,6 @@ module.exports = {
   markInFlight,
   markComplete,
   createScheduler,
+  computeSoonestRecovery,
+  _anyPriorityHasHeadroom,
 };

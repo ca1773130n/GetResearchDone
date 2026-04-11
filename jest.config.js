@@ -35,6 +35,7 @@ module.exports = {
     './lib/phase.ts': { lines: 91, functions: 94, branches: 70 },
     './lib/roadmap.ts': { lines: 91, functions: 94, branches: 83 },
     './lib/scaffold.ts': { lines: 90, functions: 100, branches: 70 },
+    './lib/scheduler-wait.ts': { lines: 95, functions: 100, branches: 80 },
     './lib/state.ts': { lines: 85, functions: 88, branches: 77 },
     './lib/tracker.ts': { lines: 84, functions: 89, branches: 70 },
     './lib/utils.ts': { lines: 92, functions: 95, branches: 85 },

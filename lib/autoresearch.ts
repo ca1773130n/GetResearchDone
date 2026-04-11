@@ -17,10 +17,8 @@
  *   8. Repeat indefinitely until stopped
  */
 
-import type {
-  GrdConfig,
-  MilestoneInfo,
-} from './types';
+import type { GrdConfig, MilestoneInfo } from './types';
+import type { Scheduler } from './scheduler';
 
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');
@@ -56,8 +54,14 @@ const {
   buildCitationGraph,
   findUnresolved,
 }: {
-  buildCitationGraph: (content: string) => { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] };
-  findUnresolved: (graph: { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] }) => { slug: string; title: string; priority: string }[];
+  buildCitationGraph: (content: string) => {
+    nodes: { slug: string; title: string; resolved: boolean; priority: string }[];
+    edges: { from: string; to: string; type: string }[];
+  };
+  findUnresolved: (graph: {
+    nodes: { slug: string; title: string; resolved: boolean; priority: string }[];
+    edges: { from: string; to: string; type: string }[];
+  }) => { slug: string; title: string; priority: string }[];
 } = require('./citations');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -81,6 +85,8 @@ interface AutoResearchOptions {
   maxTurns?: number;
   /** Dry run — don't actually run experiments */
   dryRun: boolean;
+  /** Optional scheduler for per-account token tracking and rate-limit handling */
+  scheduler?: Scheduler | null;
 }
 
 interface ExperimentResult {
@@ -123,7 +129,49 @@ function _execGit(cwd: string, args: string[]): { stdout: string; exitCode: numb
   }
 }
 
-function _spawnClaude(
+/**
+ * Async spawn wrapper. When a scheduler is provided AND the caller does
+ * NOT need captured stdout, routes through scheduler.spawn for per-account
+ * token tracking and rate-limit handling. Otherwise falls back to the
+ * synchronous path (_spawnClaudeSync) wrapped in a resolved promise.
+ *
+ * Known limitation: SchedulerSpawnResult does not expose stdout reliably, so
+ * captureOutput:true always uses _spawnClaudeSync. Extending the scheduler
+ * result shape is a follow-up improvement (see CHANGELOG).
+ */
+async function _spawnClaude(
+  cwd: string,
+  prompt: string,
+  opts: {
+    timeout?: number;
+    maxTurns?: number;
+    model?: string;
+    captureOutput?: boolean;
+    scheduler?: Scheduler | null;
+  } = {}
+): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
+  if (opts.scheduler && !opts.captureOutput) {
+    try {
+      const result = await opts.scheduler.spawn(prompt, {
+        cwd,
+        model: opts.model,
+        timeout: opts.timeout,
+        maxTurns: opts.maxTurns,
+      });
+      return {
+        exitCode: result.exitCode,
+        stdout: '',
+        timedOut: result.timedOut,
+      };
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('SIGINT')) throw e;
+      return { exitCode: 1, stdout: '', timedOut: false };
+    }
+  }
+  return _spawnClaudeSync(cwd, prompt, opts);
+}
+
+function _spawnClaudeSync(
   cwd: string,
   prompt: string,
   opts: { timeout?: number; maxTurns?: number; model?: string; captureOutput?: boolean } = {}
@@ -353,7 +401,7 @@ async function _runAutoresearchLoop(
   cwd: string,
   options: AutoResearchOptions
 ): Promise<AutoResearchState> {
-  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun } = options;
+  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun, scheduler } = options;
 
   const planningDir = getPlanningDir(cwd);
   const tsvPath = path.join(planningDir, 'AUTORESEARCH.tsv');
@@ -361,7 +409,9 @@ async function _runAutoresearchLoop(
 
   // Create branch
   _log(`Starting autoresearch on topic: ${topic}`);
-  _log(`Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`);
+  _log(
+    `Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`
+  );
 
   _execGit(cwd, ['checkout', '-b', branchName]);
   _log(`Created branch: ${branchName}`);
@@ -399,10 +449,11 @@ async function _runAutoresearchLoop(
       _log('No LANDSCAPE.md found — running auto-survey...');
       if (!dryRun) {
         const surveyPrompt = `Use the Skill tool to invoke skill "grd:survey" with args "${topic}". Autonomous mode — make all decisions yourself, no questions.`;
-        _spawnClaude(cwd, surveyPrompt, {
+        await _spawnClaude(cwd, surveyPrompt, {
           timeout: timeBudget * 60 * 1000,
           model,
           maxTurns,
+          scheduler,
         });
         _log('Auto-survey complete');
       } else {
@@ -452,11 +503,12 @@ async function _runAutoresearchLoop(
     );
 
     // Spawn experiment subprocess
-    const spawnResult = _spawnClaude(cwd, prompt, {
+    const spawnResult = await _spawnClaude(cwd, prompt, {
       timeout: timeBudget * 60 * 1000,
       model,
       maxTurns,
       captureOutput: true,
+      scheduler,
     });
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
@@ -535,9 +587,7 @@ async function _runAutoresearchLoop(
       _appendTsv(tsvPath, keepResult);
       experiments.push(keepResult);
     } else {
-      _log(
-        `✗ DISCARD — ${metric}: ${newMetric.toFixed(4)} (best: ${best.toFixed(4)}) — reverting`
-      );
+      _log(`✗ DISCARD — ${metric}: ${newMetric.toFixed(4)} (best: ${best.toFixed(4)}) — reverting`);
       _execGit(cwd, ['reset', '--hard', headBefore]);
       _execGit(cwd, ['clean', '-fd']);
 
@@ -581,7 +631,12 @@ async function _runAutoresearchLoop(
 
 // ─── CLI Commands ───────────────────────────────────────────────────────────
 
-async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promise<void> {
+async function cmdAutoResearch(
+  cwd: string,
+  args: string[],
+  raw: boolean,
+  scheduler?: Scheduler | null
+): Promise<void> {
   // Parse flags
   const flagVal = (name: string, fallback?: string): string | undefined => {
     const i = args.indexOf(name);
@@ -589,7 +644,14 @@ async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promi
   };
 
   // Find positional topic: first arg not starting with -- and not a flag value
-  const flagsWithValues = new Set(['--metric', '--max', '--time-budget', '--max-deep-dives', '--model', '--max-turns']);
+  const flagsWithValues = new Set([
+    '--metric',
+    '--max',
+    '--time-budget',
+    '--max-deep-dives',
+    '--model',
+    '--max-turns',
+  ]);
   const flagValueIndices = new Set<number>();
   for (let i = 0; i < args.length; i++) {
     if (flagsWithValues.has(args[i]) && i + 1 < args.length) {
@@ -598,7 +660,9 @@ async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promi
   }
   const topic = args.find((a, i) => !a.startsWith('--') && !flagValueIndices.has(i));
   if (!topic) {
-    error('Topic required. Usage: gd autoresearch <topic> [--metric test_count] [--max N] [--time-budget M]');
+    error(
+      'Topic required. Usage: gd autoresearch <topic> [--metric test_count] [--max N] [--time-budget M]'
+    );
     return;
   }
 
@@ -612,6 +676,7 @@ async function cmdAutoResearch(cwd: string, args: string[], raw: boolean): Promi
     model: flagVal('--model'),
     maxTurns: flagVal('--max-turns') ? parseInt(flagVal('--max-turns')!, 10) : undefined,
     dryRun: args.includes('--dry-run'),
+    scheduler,
   };
 
   const state = await _runAutoresearchLoop(cwd, options);
@@ -663,4 +728,5 @@ function cmdInitAutoResearch(cwd: string, raw: boolean): void {
 module.exports = {
   cmdAutoResearch,
   cmdInitAutoResearch,
+  _spawnClaude,
 };
