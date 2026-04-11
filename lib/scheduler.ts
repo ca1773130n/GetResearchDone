@@ -272,6 +272,97 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
 }
 
 /**
+ * Returns true iff at least one account in the priority list has headroom.
+ * Small helper used by the _spawnWithRetry wait-branch decision.
+ */
+export function _anyPriorityHasHeadroom(
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  states: Map<string, BackendUsageState>,
+  safetyMargin: number,
+): boolean {
+  for (const backend of priority) {
+    const backendAccounts = accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state) continue;
+      if (_hasHeadroom(state, safetyMargin)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Computes the earliest timestamp (ms since epoch) at which ANY priority
+ * account will regain headroom based on sample aging out of the rolling
+ * window. Used by the wait-loop in _spawnWithRetry when all priority
+ * accounts are currently exhausted.
+ *
+ * For each priority account, walks its samples oldest-first, hypothetically
+ * dropping each one and recomputing projected headroom. The latest-dropped
+ * sample's timestamp + windowMinutes is the moment that account will have
+ * enough headroom for one more EWMA-sized task.
+ *
+ * Returns null if:
+ *   - No priority account has samples (nothing to wait for)
+ *   - Soonest recovery across all accounts is beyond Date.now() + maxWaitMs
+ *   - All considered accounts have zero ewma_tokens_per_task (no prediction data)
+ *
+ * Pattern adopted from gsd-2 v2.67 auto-timeout-recovery.ts — but
+ * sample-based rather than attempt-based.
+ *
+ * Note: tokens_reserved (in-flight EWMA cost) is held constant during the
+ * simulation because in-flight tasks are expected to complete independently
+ * of sample aging. This makes the estimate slightly pessimistic — actual
+ * headroom may return sooner.
+ */
+export function computeSoonestRecovery(
+  states: Map<string, BackendUsageState>,
+  priority: BackendId[],
+  accounts: SuperpowersConfig['accounts'],
+  windowMinutes: number,
+  maxWaitMs: number,
+): number | null {
+  const now = Date.now();
+  let soonest = Infinity;
+
+  for (const backend of priority) {
+    const backendAccounts = accounts[backend as AdapterBackendId] || [];
+    for (const account of backendAccounts) {
+      const stateKey = `${backend}/${account.config_dir}`;
+      const state = states.get(stateKey);
+      if (!state || state.samples.length === 0) continue;
+      if (state.ewma_tokens_per_task === 0) continue;
+
+      const sortedSamples = [...state.samples].sort(
+        (a, b) => a.timestamp - b.timestamp,
+      );
+
+      const ewmaCost = state.ewma_tokens_per_task;
+      let consumed = state.tokens_consumed_in_window;
+      const reserved = state.tokens_reserved;
+      let latestDroppedTs: number | null = null;
+
+      for (const sample of sortedSamples) {
+        const projectedRemaining = state.token_budget - consumed - reserved;
+        if (projectedRemaining >= ewmaCost) break;
+        consumed -= sample.tokenEstimate;
+        latestDroppedTs = sample.timestamp;
+      }
+
+      if (latestDroppedTs === null) continue;
+      const recoveryTime = latestDroppedTs + windowMinutes * 60 * 1000;
+      if (recoveryTime < soonest) soonest = recoveryTime;
+    }
+  }
+
+  if (soonest === Infinity) return null;
+  if (soonest > now + maxWaitMs) return null;
+  return soonest;
+}
+
+/**
  * Resolves which backend and account to use for the next scheduled task.
  * Walks the backend_priority list, and within each backend tries every
  * configured account in order. Falls back to the free_fallback backend
@@ -742,4 +833,6 @@ module.exports = {
   markInFlight,
   markComplete,
   createScheduler,
+  computeSoonestRecovery,
+  _anyPriorityHasHeadroom,
 };
