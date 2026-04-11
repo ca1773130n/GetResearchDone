@@ -163,7 +163,7 @@ const {
     phase: string,
     raw: boolean,
     options?: Record<string, boolean>
-  ) => void;
+  ) => Promise<void>;
   cmdMilestoneComplete: (
     cwd: string,
     version: string | null,
@@ -996,7 +996,7 @@ async function routeCommand(
         );
       } else if (sub === 'complete') {
         validatePhaseArg(args[2]);
-        cmdPhaseComplete(cwd, args[2], raw, { dryRun: args.includes('--dry-run') });
+        await cmdPhaseComplete(cwd, args[2], raw, { dryRun: args.includes('--dry-run') });
       } else if (sub === 'analyze-deps') {
         cmdPhaseAnalyzeDeps(cwd, raw);
       }
@@ -1374,9 +1374,17 @@ async function routeCommand(
           );
         }
         cmdConfigSet(cwd, 'token_profile', value, raw);
+      } else if (sub === 'phase_complete_llm_fallback') {
+        const value: string = args[2];
+        if (value !== 'true' && value !== 'false') {
+          error(
+            `Invalid phase_complete_llm_fallback value "${value || ''}". Valid values: true, false`
+          );
+        }
+        cmdConfigSet(cwd, 'phase_complete_llm_fallback', value, raw);
       } else {
         error(
-          `Unknown settings subcommand "${sub || ''}". Tool-mode settings subcommands: token_profile`
+          `Unknown settings subcommand "${sub || ''}". Tool-mode settings subcommands: token_profile, phase_complete_llm_fallback`
         );
       }
       break;

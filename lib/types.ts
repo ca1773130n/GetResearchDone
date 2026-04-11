@@ -409,6 +409,18 @@ export interface GrdConfig {
   transitive_citation_gate?: boolean;
   /** When true, run post-phase metric-driven refinement loop. Default: false */
   refinement_loop?: boolean;
+  /**
+   * When true, autopilot and `gd phase complete` invoke an LLM fallback
+   * if the mechanical phase-completion regex-based path fails. The
+   * fallback spawns Claude via the scheduler, gives it the current
+   * ROADMAP.md + STATE.md contents, and asks it to perform the edits.
+   *
+   * Default: false. Opt-in. When disabled, mechanical failures return
+   * null and log a hint advising manual recovery.
+   *
+   * Spec 3B of the gsd-2-selective-adoption milestone.
+   */
+  phase_complete_llm_fallback?: boolean;
 }
 
 export interface EvolveConfig {
@@ -1499,6 +1511,12 @@ export interface PhaseCompleteResult {
   state_updated?: boolean;
   quality_report?: QualityAnalysisResult;
   cleanup_plan_generated?: CleanupPlanResult;
+  /**
+   * True if this result was produced by the LLM fallback path (Spec 3B),
+   * not the mechanical regex path. Callers may want to log differently
+   * or skip certain downstream operations.
+   */
+  llm_fallback?: boolean;
 }
 
 module.exports = {};

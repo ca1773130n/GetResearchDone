@@ -274,7 +274,7 @@ const {
   cmdPhaseAdd: (cwd: string, description: string, raw: boolean, context?: string) => void;
   cmdPhaseInsert: (cwd: string, phase: string, description: string, raw: boolean) => void;
   cmdPhaseRemove: (cwd: string, phase: string, opts: Record<string, unknown>, raw: boolean) => void;
-  cmdPhaseComplete: (cwd: string, phase: string, raw: boolean) => void;
+  cmdPhaseComplete: (cwd: string, phase: string, raw: boolean, options?: Record<string, unknown>) => Promise<void>;
   cmdMilestoneComplete: (
     cwd: string,
     version: string,
@@ -1065,9 +1065,13 @@ const COMMAND_DESCRIPTORS: CommandDescriptor[] = [
     execute: (cwd: string, args: Record<string, unknown>) =>
       cmdPhaseRemove(cwd, args.phase as string, { force: (args.force as boolean) || false }, false),
   },
-  makePhaseCommand('grd_phase_complete', 'Mark a phase as complete', (cwd, phase) =>
-    cmdPhaseComplete(cwd, phase, false)
-  ),
+  {
+    name: 'grd_phase_complete',
+    description: 'Mark a phase as complete',
+    params: [{ name: 'phase', type: 'string', required: true, description: 'Phase number' }],
+    execute: async (cwd: string, args: Record<string, unknown>) =>
+      await cmdPhaseComplete(cwd, args.phase as string, false),
+  },
   {
     name: 'grd_phase_analyze_deps',
     description: 'Analyze roadmap phase dependencies and identify parallel execution groups',

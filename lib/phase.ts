@@ -17,7 +17,10 @@ import type {
   PreflightResult,
   PhaseCompleteOptions,
   PhaseCompleteResult,
+  SchedulerConfig,
+  SuperpowersConfig,
 } from './types';
+import type { Scheduler } from './scheduler';
 
 const fs = require('fs');
 const path = require('path');
@@ -1095,12 +1098,12 @@ function cmdPhaseRemove(
  * @param options - Options (e.g., dryRun, force)
  * @returns void — writes JSON or raw text to stdout and exits on error
  */
-function cmdPhaseComplete(
+async function cmdPhaseComplete(
   cwd: string,
   phaseNum: string,
   raw: boolean,
   options?: PhaseCompleteOptions
-): void {
+): Promise<void> {
   if (!phaseNum) {
     error(
       "phase number required for phase complete. Usage: phase complete <N>. Provide the phase number to mark complete, e.g.: phase complete 3. Run 'phase list' to see available phases."
@@ -1111,8 +1114,73 @@ function cmdPhaseComplete(
   try {
     result = _phaseCompleteCore(cwd, phaseNum, options);
   } catch (e) {
-    error((e as Error).message);
-    return; // unreachable after error() but helps TS narrowing
+    const config = loadConfig(cwd);
+    if (config.phase_complete_llm_fallback === true) {
+      process.stderr.write(`[phase-complete-llm] mechanical path failed, attempting fallback\n`);
+      const { createScheduler } = require('./scheduler') as {
+        createScheduler: (
+          config: SchedulerConfig | undefined,
+          superpowersConfig?: SuperpowersConfig
+        ) => Scheduler | null;
+      };
+      const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
+        attemptLlmFallbackCompletion: (
+          cwd: string,
+          phaseNum: string,
+          scheduler: Scheduler | null,
+          failure: Error | { gate_errors?: GateViolation[] }
+        ) => Promise<PhaseCompleteResult | null>;
+      };
+      const scheduler = createScheduler(config.scheduler, config.superpowers);
+      const fallbackResult = await attemptLlmFallbackCompletion(
+        cwd,
+        phaseNum,
+        scheduler,
+        e as Error
+      );
+      if (fallbackResult) {
+        result = fallbackResult;
+      } else {
+        error((e as Error).message);
+        return; // unreachable after error() but helps TS narrowing
+      }
+    } else {
+      error((e as Error).message);
+      return; // unreachable after error() but helps TS narrowing
+    }
+  }
+
+  // If the mechanical path returned gate_failed (not thrown), also try the LLM fallback.
+  if (result.gate_failed) {
+    const config = loadConfig(cwd);
+    if (config.phase_complete_llm_fallback === true) {
+      process.stderr.write(`[phase-complete-llm] gates failed, attempting fallback\n`);
+      const { createScheduler } = require('./scheduler') as {
+        createScheduler: (
+          config: SchedulerConfig | undefined,
+          superpowersConfig?: SuperpowersConfig
+        ) => Scheduler | null;
+      };
+      const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
+        attemptLlmFallbackCompletion: (
+          cwd: string,
+          phaseNum: string,
+          scheduler: Scheduler | null,
+          failure: Error | { gate_errors?: GateViolation[] }
+        ) => Promise<PhaseCompleteResult | null>;
+      };
+      const scheduler = createScheduler(config.scheduler, config.superpowers);
+      const fallbackResult = await attemptLlmFallbackCompletion(
+        cwd,
+        phaseNum,
+        scheduler,
+        { gate_errors: result.gate_errors }
+      );
+      if (fallbackResult) {
+        result = fallbackResult;
+      }
+      // else: leave result as gate_failed — existing output logic renders it
+    }
   }
 
   let rawOutput = '';
