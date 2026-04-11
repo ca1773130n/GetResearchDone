@@ -17,10 +17,7 @@
  *   8. Repeat indefinitely until stopped
  */
 
-import type {
-  GrdConfig,
-  MilestoneInfo,
-} from './types';
+import type { GrdConfig, MilestoneInfo } from './types';
 import type { Scheduler } from './scheduler';
 
 const fs = require('fs') as typeof import('fs');
@@ -57,8 +54,14 @@ const {
   buildCitationGraph,
   findUnresolved,
 }: {
-  buildCitationGraph: (content: string) => { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] };
-  findUnresolved: (graph: { nodes: { slug: string; title: string; resolved: boolean; priority: string }[]; edges: { from: string; to: string; type: string }[] }) => { slug: string; title: string; priority: string }[];
+  buildCitationGraph: (content: string) => {
+    nodes: { slug: string; title: string; resolved: boolean; priority: string }[];
+    edges: { from: string; to: string; type: string }[];
+  };
+  findUnresolved: (graph: {
+    nodes: { slug: string; title: string; resolved: boolean; priority: string }[];
+    edges: { from: string; to: string; type: string }[];
+  }) => { slug: string; title: string; priority: string }[];
 } = require('./citations');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -145,7 +148,7 @@ async function _spawnClaude(
     model?: string;
     captureOutput?: boolean;
     scheduler?: Scheduler | null;
-  } = {},
+  } = {}
 ): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
   if (opts.scheduler && !opts.captureOutput) {
     try {
@@ -405,7 +408,9 @@ async function _runAutoresearchLoop(
 
   // Create branch
   _log(`Starting autoresearch on topic: ${topic}`);
-  _log(`Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`);
+  _log(
+    `Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`
+  );
 
   _execGit(cwd, ['checkout', '-b', branchName]);
   _log(`Created branch: ${branchName}`);
@@ -581,9 +586,7 @@ async function _runAutoresearchLoop(
       _appendTsv(tsvPath, keepResult);
       experiments.push(keepResult);
     } else {
-      _log(
-        `✗ DISCARD — ${metric}: ${newMetric.toFixed(4)} (best: ${best.toFixed(4)}) — reverting`
-      );
+      _log(`✗ DISCARD — ${metric}: ${newMetric.toFixed(4)} (best: ${best.toFixed(4)}) — reverting`);
       _execGit(cwd, ['reset', '--hard', headBefore]);
       _execGit(cwd, ['clean', '-fd']);
 
@@ -640,7 +643,14 @@ async function cmdAutoResearch(
   };
 
   // Find positional topic: first arg not starting with -- and not a flag value
-  const flagsWithValues = new Set(['--metric', '--max', '--time-budget', '--max-deep-dives', '--model', '--max-turns']);
+  const flagsWithValues = new Set([
+    '--metric',
+    '--max',
+    '--time-budget',
+    '--max-deep-dives',
+    '--model',
+    '--max-turns',
+  ]);
   const flagValueIndices = new Set<number>();
   for (let i = 0; i < args.length; i++) {
     if (flagsWithValues.has(args[i]) && i + 1 < args.length) {
@@ -649,7 +659,9 @@ async function cmdAutoResearch(
   }
   const topic = args.find((a, i) => !a.startsWith('--') && !flagValueIndices.has(i));
   if (!topic) {
-    error('Topic required. Usage: gd autoresearch <topic> [--metric test_count] [--max N] [--time-budget M]');
+    error(
+      'Topic required. Usage: gd autoresearch <topic> [--metric test_count] [--max N] [--time-budget M]'
+    );
     return;
   }
 

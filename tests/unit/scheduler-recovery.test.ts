@@ -1,10 +1,6 @@
 'use strict';
 
-import type {
-  BackendUsageState,
-  UsageSample,
-  SuperpowersConfig,
-} from '../../lib/types';
+import type { BackendUsageState, UsageSample, SuperpowersConfig } from '../../lib/types';
 
 const {
   computeSoonestRecovery,
@@ -15,13 +11,13 @@ const {
     priority: string[],
     accounts: SuperpowersConfig['accounts'],
     windowMinutes: number,
-    maxWaitMs: number,
+    maxWaitMs: number
   ) => number | null;
   _anyPriorityHasHeadroom: (
     priority: string[],
     accounts: SuperpowersConfig['accounts'],
     states: Map<string, BackendUsageState>,
-    safetyMargin: number,
+    safetyMargin: number
   ) => boolean;
 } = require('../../lib/scheduler');
 
@@ -47,7 +43,7 @@ function makeState(opts: {
 }
 
 function makeAccounts(
-  entries: Array<{ backend: string; configDir: string }>,
+  entries: Array<{ backend: string; configDir: string }>
 ): SuperpowersConfig['accounts'] {
   const accounts: Record<string, Array<{ config_dir: string }>> = {};
   for (const e of entries) {
@@ -64,9 +60,7 @@ describe('computeSoonestRecovery', () => {
   it('returns null when the states map is empty', () => {
     const states = new Map<string, BackendUsageState>();
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBeNull();
   });
 
@@ -74,9 +68,7 @@ describe('computeSoonestRecovery', () => {
     const states = new Map<string, BackendUsageState>();
     states.set('claude/~/.claude', makeState({ samples: [], ewma: 5000 }));
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBeNull();
   });
 
@@ -90,12 +82,10 @@ describe('computeSoonestRecovery', () => {
         ewma: 0,
         budget: 100_000,
         consumed: 50_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBeNull();
   });
 
@@ -113,12 +103,10 @@ describe('computeSoonestRecovery', () => {
         ewma: 20_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).not.toBeNull();
     expect(result).toBe(oldSampleTs + WINDOW_MIN * 60 * 1000);
   });
@@ -133,13 +121,11 @@ describe('computeSoonestRecovery', () => {
         ewma: 50_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
     const shortCap = 10 * 60 * 1000;
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, shortCap,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, shortCap);
     expect(result).toBeNull();
   });
 
@@ -155,7 +141,7 @@ describe('computeSoonestRecovery', () => {
         ewma: 50_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     states.set(
       'claude/~/account-b',
@@ -164,24 +150,20 @@ describe('computeSoonestRecovery', () => {
         ewma: 50_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([
       { backend: 'claude', configDir: '~/account-a' },
       { backend: 'claude', configDir: '~/account-b' },
     ]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBe(oldTs1 + WINDOW_MIN * 60 * 1000);
   });
 
   it('returns null when the priority list is empty', () => {
     const states = new Map<string, BackendUsageState>();
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, [], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, [], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBeNull();
   });
 
@@ -196,12 +178,10 @@ describe('computeSoonestRecovery', () => {
         ewma: 25_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBe(oldTs + WINDOW_MIN * 60 * 1000);
   });
 
@@ -215,12 +195,10 @@ describe('computeSoonestRecovery', () => {
         ewma: 5_000,
         budget: 100_000,
         consumed: 10_000, // projected remaining 90_000 >= ewma 5_000 immediately
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
-    const result = computeSoonestRecovery(
-      states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS,
-    );
+    const result = computeSoonestRecovery(states, ['claude'], accounts, WINDOW_MIN, MAX_WAIT_MS);
     expect(result).toBeNull();
   });
 });
@@ -236,7 +214,7 @@ describe('_anyPriorityHasHeadroom', () => {
         ewma: 50_000,
         budget: 100_000,
         consumed: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
     const result = _anyPriorityHasHeadroom(['claude'], accounts, states, 1);
@@ -251,7 +229,7 @@ describe('_anyPriorityHasHeadroom', () => {
         samples: [],
         ewma: 0,
         budget: 100_000,
-      }),
+      })
     );
     const accounts = makeAccounts([{ backend: 'claude', configDir: '~/.claude' }]);
     const result = _anyPriorityHasHeadroom(['claude'], accounts, states, 1);

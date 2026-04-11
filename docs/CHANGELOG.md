@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Added
+
 - **Prompt injection scanner** — new `gd scan` CLI subcommand (`gd scan`, `gd scan --diff`, `gd scan --file`, `gd scan --all`) detects 18 prompt injection patterns across 7 categories in bundled markdown (commands/, agents/, templates/, docs/). Patterns adopted from [gsd-2](https://github.com/gsd-build/gsd-2) v2.67 `scripts/docs-prompt-injection-scan.sh` and `scripts/base64-scan.sh`. Includes base64 obfuscation detection and `.prompt-injection-scanignore` for suppressing known false positives. First phase of the `gsd-2-selective-adoption` milestone. See `docs/superpowers/specs/2026-04-11-gsd2-prompt-injection-scan-design.md`.
 - **`docs-check` CI job** — runs `gd scan --diff origin/<base>` on every PR, blocking PRs that introduce unignored prompt injection patterns.
 - **`npm run hooks:install`** — opt-in installer for a vanilla `.git/hooks/pre-commit` stub that runs `gd scan` on staged markdown. Not installed by postinstall.
@@ -30,6 +31,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   per-account token tracking and rate-limit handling.
 
 ### Fixed
+
 - README.md `## Credits` no longer links to the now-404 `coleam00/get-shit-done` repository. Replaced with `gsd-build/gsd-2` and noting v1 heritage plus v2 patterns.
 - CLAUDE.md claim that a pre-commit hook runs lint was stale — no such hook was installed. Updated to describe the new opt-in `gd scan` hook.
 - **"Stuck at rate limit" symptom in long-running operations** — the
@@ -38,6 +40,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   to age out. The new wait-for-recovery fallback addresses this directly.
 
 ### Known limitations
+
 - `SchedulerSpawnResult` does not expose captured stdout, so autoresearch
   paths that need `captureOutput: true` (the experiment iteration
   hypothesis matcher) still use the synchronous fallback. Extending the
@@ -46,17 +49,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.1.6] - 2026-02-19
 
 ### Added
+
 - **Validation gate system:** New `lib/gates.js` module with 6 pre-flight checks (orphaned phases, phase-in-roadmap, phase-has-plans, stale artifacts, old-phases-archived, milestone-state-coherence) and declarative gate registry mapping 10 commands
 - **Phase directory archival:** `cmdMilestoneComplete` now archives all phase directories to `.planning/milestones/{version}-phases/` and clears `.planning/phases/`
 - **`suggested_start_phase`:** `cmdInitNewMilestone` scans archived and current phases to recommend next phase number
 - **`consistency_warning`:** `findPhaseInternal` warns when a phase exists on disk but not in ROADMAP.md
 
 ### Changed
+
 - **Gate integration:** Pre-flight gates run before `execute-phase`, `plan-phase`, `new-milestone`, `phase-add`, `phase-insert`, `phase-complete`, `milestone-complete`, `verify-work`, and `iterate`
 - **`autonomous_mode` in config:** YOLO mode now bypasses validation gates (violations still reported with `bypassed: true`)
 - **`cmdValidateConsistency` refactored:** Reuses `checkOrphanedPhases` from gates; orphaned phases promoted from warnings to errors
 
 ### Testing
+
 - 1,433 tests (+34 from v0.1.5)
 - New `tests/unit/gates.test.js` with 20 gate tests
 - Phase archival and consistency_warning tests added
@@ -64,6 +70,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.1.5] - 2026-02-17
 
 ### Changed
+
 - **Long-term roadmap redesign:** Replaced rigid Now/Next/Later tier system with flat, ordered LT-N milestones supporting full CRUD operations
 - **12 new subcommands:** `list`, `add`, `remove`, `update`, `refine`, `link`, `unlink`, `display`, `init`, `history`, `parse`, `validate`
 - **Protection rules:** Cannot remove LT milestones with shipped normal milestones; cannot unlink shipped versions
@@ -72,36 +79,43 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **12 MCP tools:** Replaced 9 old tools (`mode`, `generate`, `promote`, `tier`) with 12 new CRUD tools
 
 ### Removed
+
 - `mode`, `generate`, `promote`, `tier` subcommands (replaced by flat LT-N model)
 - Now/Next/Later tier hierarchy
 - `roadmap_type` and `planning_horizon` frontmatter fields
 
 ### Documentation
+
 - **New tutorial:** `docs/long-term-roadmap-tutorial.md` with step-by-step guide and breakdown refinement workflow
 - Updated README, CLAUDE.md, MCP server docs, quickstart, slash command definition
 
 ## [0.1.4] - 2026-02-17
 
 ### Added
+
 - **`/grd:long-term-roadmap` slash command:** Interactive wizard for creating/displaying LONG-TERM-ROADMAP.md, refining milestones, and promoting through tiers
 - **`/grd:requirement` slash command:** Look up requirements by ID, list with filters, query traceability matrix, update status
 
 ### Fixed
+
 - **Skill registration for 28 commands:** Added YAML frontmatter (`description` + `argument-hint`) to 28 command files that were missing it. Commands without frontmatter were not registered as skills by the plugin system, making them invisible to the AI model. All 45 commands now register as skills.
 - **Documentation accuracy:** README command table expanded from 24 to 45 commands, MCP tool count updated to 102
 
 ### Commands now registered as skills (were previously invisible)
+
 `add-phase`, `add-todo`, `audit-milestone`, `check-todos`, `complete-milestone`, `dashboard`, `debug`, `discuss-phase`, `execute-phase`, `health`, `insert-phase`, `list-phase-assumptions`, `map-codebase`, `new-milestone`, `new-project`, `pause-work`, `phase-detail`, `plan-milestone-gaps`, `plan-phase`, `progress`, `quick`, `remove-phase`, `research-phase`, `resume-project`, `set-profile`, `settings`, `verify-phase`, `verify-work`
 
 ## [0.1.3] - 2026-02-17
 
 ### Added
+
 - **MCP extension wiring:** 5 new MCP tools (requirement get/list/traceability/update-status, search) — total 102
 - **Execute-phase branching fix:** `base_branch` config field, checkout-and-pull before branch creation, 4 graceful edge-case handlers
 
 ## [0.1.2] - 2026-02-16
 
 ### Added
+
 - **Requirement CLI commands:** `requirement get`, `requirement list`, `requirement traceability`, `requirement update-status`
 - **Search CLI command:** Full-text search across planning documents
 - **Phase cleanup analysis:** Complexity, dead exports, file size, doc drift, test coverage gaps
@@ -109,6 +123,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.1.1] - 2026-02-16
 
 ### Added
+
 - **Code review integration:** Auto code review with configurable timing and severity gates
 - **Agent Teams execution:** Wave-based parallel plan execution with named teammates
 - **Eval reporting:** Quantitative evaluation collection and ablation analysis
@@ -116,6 +131,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.1.0] - 2026-02-16
 
 ### Added
+
 - **Multi-backend support:** Detect and adapt to Claude Code, Codex CLI, Gemini CLI, and OpenCode backends
 - **Dynamic model detection:** OpenCode backend discovers available models via `opencode models` CLI with 5-min TTL cache
 - **Backend capabilities registry:** Per-backend feature flags (subagents, parallel, teams, hooks, mcp)
@@ -127,12 +143,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Long-term roadmap tutorial:** `docs/long-term-roadmap-tutorial.md` (rewritten in v0.1.5)
 
 ### Changed
+
 - **`resolveBackendModel` signature:** New optional `cwd` param for dynamic model detection (backward compatible)
 - **`cmdDetectBackend` output:** Added `models_source` field (`"detected"` or `"defaults"`)
 - **All `cmdInit*` functions:** Now include `backend` and backend-resolved model names in output
 - **Context init:** Backend capabilities integrated into all 14 workflow initializers
 
 ### Testing
+
 - 858 tests (up from 594 in v0.0.5)
 - `lib/backend.js` at 98.96% statement coverage
 - All lib/ modules maintain >= 80% line coverage
@@ -140,12 +158,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.0.5] - 2026-02-15
 
 ### Added
+
 - **Input validation layer:** All CLI entry points validate phase numbers, file paths, git refs, and subcommands before dispatch
 - **JSDoc documentation:** All exported functions in 10 lib/ modules have JSDoc comments with @param and @returns
 - **CONTRIBUTING.md:** Contributor guide with architecture overview, test guide, and PR guidelines
 - **Status dashboard commands:** `grd:dashboard`, `grd:phase-detail`, `grd:health` for project visibility
 
 ### Changed
+
 - **Version bump to 0.0.5:** First production-quality release
 - **Modular architecture:** Monolithic grd-tools.js (5,632 lines) decomposed into 10 lib/ modules (largest: 1,573 lines)
 - **Security hardening:** All execSync calls replaced with execFileSync + argument arrays; git operation whitelist enforced
@@ -153,20 +173,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Code style enforcement:** ESLint + Prettier configured and enforced in CI
 
 ### Security
+
 - Zero command injection vectors (verified by code audit)
 - Path traversal blocked in all file path arguments
 - Git ref flag injection blocked
 - Git operation whitelist prevents destructive commands
 
 ### Testing
+
 - 594 tests (unit + integration)
-- >= 80% line coverage on lib/ modules
+- > = 80% line coverage on lib/ modules
 - 27 golden snapshot tests for CLI output stability
 - 78 integration tests for end-to-end CLI behavior
 
 ## [0.0.4] - 2026-02-12
 
 ### Added
+
 - **Date scheduling for Jira Plans:** Milestone `**Start:**`/`**Target:**` and phase `**Duration:** Nd` metadata in ROADMAP.md
 - `computeSchedule()` engine in grd-tools.js — deterministic date computation from milestone start + cumulative durations
 - `tracker schedule` command — read-only computed schedule JSON
@@ -180,6 +203,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - `roadmap analyze` now includes `duration_days`, `start_date`, `due_date` per phase
 
 ### Changed
+
 - `templates/config.json`: added `start_date_field`, `default_duration_days` to `mcp_atlassian`
 - `templates/roadmap.md`: added `**Duration:**` to phase templates, `**Start:**`/`**Target:**` to milestone template
 - `commands/sync.md`: date-aware create operations, new reschedule mode
@@ -192,6 +216,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [0.0.3] - 2026-02-12
 
 ### Changed
+
 - **BREAKING:** Replaced Jira curl-based integration with mcp-atlassian MCP server
 - **BREAKING:** Jira mapping hierarchy: Milestone → Epic, Phase → Task, Plan → Sub-task (was Phase → Epic, Plan → Task)
 - Config keys: `milestone_issue_type`, `phase_issue_type`, `plan_issue_type` (auto-migrated from old `epic_issue_type`/`task_issue_type`)
@@ -207,16 +232,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - `commands/sync.md` and `commands/tracker-setup.md` rewritten for MCP Atlassian
 
 ### Added
+
 - `references/mcp-tracker-protocol.md` — protocol reference for MCP tracker sync
 - MCP Atlassian auth handled transparently by MCP server (no env vars needed)
 
 ### Removed
+
 - Jira curl-based REST API calls
 - `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_OAUTH_TOKEN` environment variable dependencies
 
 ## [0.0.2] - 2026-02-12
 
 ### Added
+
 - Tracker integration: GitHub Issues + Jira with shared abstraction
 - `/grd:sync` command for manual tracker sync
 - `/grd:tracker-setup` command for interactive tracker configuration
@@ -227,12 +255,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - CHANGELOG.md
 
 ### Changed
+
 - Documentation: CLAUDE.md, README.md, help.md now document grd-tools.js capabilities
 - `templates/config.json`: replaced `github_integration` with `tracker` section
 
 ## [0.0.1] - 2026-01-28
 
 ### Added
+
 - Fork of GSD with R&D extensions
 - 38 commands (28 from GSD + 10 R&D-specific)
 - 19 agents (11 from GSD + 8 R&D-specific)

@@ -1388,4 +1388,3 @@ export interface BenchmarkResult {
 }
 
 module.exports = {};
-

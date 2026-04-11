@@ -20,7 +20,7 @@ const autoresearch = require('../../lib/autoresearch') as {
       model?: string;
       captureOutput?: boolean;
       scheduler?: Scheduler | null;
-    },
+    }
   ) => Promise<{ exitCode: number; stdout: string; timedOut: boolean }>;
 };
 
@@ -44,7 +44,7 @@ function makeFakeScheduler(behavior: 'ok' | 'rate-limit' | 'throw'): Scheduler {
         tokensUsed: 1500,
         workItemId: 'fake-ok',
       };
-    },
+    }
   );
   return {
     spawn,
@@ -64,13 +64,12 @@ describe('autoresearch scheduler routing', () => {
   it('routes through scheduler.spawn when scheduler is provided and captureOutput is false', async () => {
     if (!autoresearch._spawnClaude) return;
     const scheduler = makeFakeScheduler('ok');
-    const result = await autoresearch._spawnClaude(
-      '/tmp',
-      'test prompt',
-      { scheduler, captureOutput: false },
-    );
+    const result = await autoresearch._spawnClaude('/tmp', 'test prompt', {
+      scheduler,
+      captureOutput: false,
+    });
     expect(result.exitCode).toBe(0);
-    expect((scheduler.spawn as jest.Mock)).toHaveBeenCalledTimes(1);
+    expect(scheduler.spawn as jest.Mock).toHaveBeenCalledTimes(1);
     expect((scheduler.spawn as jest.Mock).mock.calls[0][0]).toBe('test prompt');
   });
 
@@ -82,25 +81,24 @@ describe('autoresearch scheduler routing', () => {
     // a missing binary (exit code != 0), which is fine — we just verify
     // the scheduler mock was NOT called.
     try {
-      await autoresearch._spawnClaude(
-        '/tmp',
-        'test prompt',
-        { scheduler, captureOutput: true, timeout: 1000 },
-      );
+      await autoresearch._spawnClaude('/tmp', 'test prompt', {
+        scheduler,
+        captureOutput: true,
+        timeout: 1000,
+      });
     } catch {
       // Ignore — we only care whether scheduler.spawn was called
     }
-    expect((scheduler.spawn as jest.Mock)).not.toHaveBeenCalled();
+    expect(scheduler.spawn as jest.Mock).not.toHaveBeenCalled();
   });
 
   it('handles scheduler throwing gracefully', async () => {
     if (!autoresearch._spawnClaude) return;
     const scheduler = makeFakeScheduler('throw');
-    const result = await autoresearch._spawnClaude(
-      '/tmp',
-      'test prompt',
-      { scheduler, captureOutput: false },
-    );
+    const result = await autoresearch._spawnClaude('/tmp', 'test prompt', {
+      scheduler,
+      captureOutput: false,
+    });
     expect(result.exitCode).not.toBe(0);
   });
 });

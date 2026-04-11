@@ -5,7 +5,7 @@ import type { SchedulerConfig, SuperpowersConfig } from '../../lib/types';
 const { createScheduler } = require('../../lib/scheduler') as {
   createScheduler: (
     config: SchedulerConfig | undefined,
-    superpowersConfig?: SuperpowersConfig,
+    superpowersConfig?: SuperpowersConfig
   ) => { spawn: Function; getState: Function } | null;
 };
 

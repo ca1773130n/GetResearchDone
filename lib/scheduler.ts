@@ -283,7 +283,7 @@ export function _anyPriorityHasHeadroom(
   priority: BackendId[],
   accounts: SuperpowersConfig['accounts'],
   states: Map<string, BackendUsageState>,
-  safetyMargin: number,
+  safetyMargin: number
 ): boolean {
   for (const backend of priority) {
     const backendAccounts = accounts[backend as AdapterBackendId] || [];
@@ -326,7 +326,7 @@ export function computeSoonestRecovery(
   priority: BackendId[],
   accounts: SuperpowersConfig['accounts'],
   windowMinutes: number,
-  maxWaitMs: number,
+  maxWaitMs: number
 ): number | null {
   const now = Date.now();
   let soonest = Infinity;
@@ -339,9 +339,7 @@ export function computeSoonestRecovery(
       if (!state || state.samples.length === 0) continue;
       if (state.ewma_tokens_per_task === 0) continue;
 
-      const sortedSamples = [...state.samples].sort(
-        (a, b) => a.timestamp - b.timestamp,
-      );
+      const sortedSamples = [...state.samples].sort((a, b) => a.timestamp - b.timestamp);
 
       const ewmaCost = state.ewma_tokens_per_task;
       let consumed = state.tokens_consumed_in_window;
@@ -681,7 +679,7 @@ export function createScheduler(
         schedulerConfig.backend_priority,
         superpowersConfig.accounts,
         states,
-        prediction.safety_margin_tasks,
+        prediction.safety_margin_tasks
       )
     ) {
       const maxWaitMinutes = schedulerConfig.max_wait_minutes ?? 90;
@@ -692,7 +690,7 @@ export function createScheduler(
           schedulerConfig.backend_priority,
           superpowersConfig.accounts,
           prediction.window_minutes,
-          maxWaitMs,
+          maxWaitMs
         );
         if (recoveryTime !== null && recoveryTime === lastRecoveryTime) {
           // Infinite-loop guard: if this is the same timestamp we already
@@ -702,14 +700,12 @@ export function createScheduler(
           const waitMs = recoveryTime - Date.now();
           console.log(
             `scheduler: all priority accounts exhausted, waiting ${Math.ceil(
-              waitMs / 60_000,
-            )}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})`,
+              waitMs / 60_000
+            )}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})`
           );
           const waitResult = await waitUntilOrAbort(recoveryTime);
           if (waitResult === 'aborted') {
-            throw new Error(
-              'scheduler: wait for account recovery interrupted by SIGINT',
-            );
+            throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
           }
           return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
         }

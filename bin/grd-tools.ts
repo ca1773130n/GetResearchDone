@@ -267,7 +267,12 @@ const {
   cmdAutoResearch,
   cmdInitAutoResearch,
 }: {
-  cmdAutoResearch: (cwd: string, args: string[], raw: boolean, scheduler?: Scheduler | null) => Promise<void>;
+  cmdAutoResearch: (
+    cwd: string,
+    args: string[],
+    raw: boolean,
+    scheduler?: Scheduler | null
+  ) => Promise<void>;
   cmdInitAutoResearch: (cwd: string, raw: boolean) => void;
 } = require('../lib/autoresearch');
 
@@ -672,10 +677,25 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
   {
     command: 'knowhow',
-    handler: (args, cwd, raw) => cmdKnowhowList(cwd, raw, flag(args, '--module'), flag(args, '--limit') ? parseInt(flag(args, '--limit')!, 10) : undefined),
+    handler: (args, cwd, raw) =>
+      cmdKnowhowList(
+        cwd,
+        raw,
+        flag(args, '--module'),
+        flag(args, '--limit') ? parseInt(flag(args, '--limit')!, 10) : undefined
+      ),
   },
-  { command: 'citation-graph', handler: (args, cwd, raw) => cmdCitationGraph(cwd, raw, args.includes('--unresolved')) },
-  { command: 'artifact-dag', handler: (args, cwd, raw) => { validatePhaseArg(args[1]); return cmdArtifactDAG(cwd, args[1], raw); } },
+  {
+    command: 'citation-graph',
+    handler: (args, cwd, raw) => cmdCitationGraph(cwd, raw, args.includes('--unresolved')),
+  },
+  {
+    command: 'artifact-dag',
+    handler: (args, cwd, raw) => {
+      validatePhaseArg(args[1]);
+      return cmdArtifactDAG(cwd, args[1], raw);
+    },
+  },
   { command: 'benchmark-report', handler: (_args, cwd, raw) => cmdBenchmarkReport(cwd, raw) },
 ];
 

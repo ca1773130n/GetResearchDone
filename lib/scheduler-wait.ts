@@ -30,9 +30,7 @@ function _ensureSigintHandler(): void {
  * @param targetMs - absolute timestamp at which to resume
  * @returns 'waited' if the delay elapsed normally, 'aborted' if SIGINT was received
  */
-export async function waitUntilOrAbort(
-  targetMs: number,
-): Promise<'waited' | 'aborted'> {
+export async function waitUntilOrAbort(targetMs: number): Promise<'waited' | 'aborted'> {
   _ensureSigintHandler();
   const delay = Math.max(0, targetMs - Date.now());
   if (delay === 0) return 'waited';
