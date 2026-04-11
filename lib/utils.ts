@@ -1191,14 +1191,24 @@ function getMilestoneInfo(cwd: string): MilestoneInfo {
  * @param config - Configuration object with model_profile field
  * @param agentType - Agent type key to look up in MODEL_PROFILES
  * @param cwd - Optional project working directory for backend-specific resolution
+ * @param options - Optional overrides. When options.effectiveTierOverride is set,
+ *   it replaces the MODEL_PROFILES lookup entirely. Callers that omit this parameter
+ *   get identical behavior to before (backward compatible).
  * @returns Model name (e.g., 'opus', 'sonnet', 'haiku', or backend-specific name)
  */
-function resolveModelForAgent(config: GrdConfig, agentType: string, cwd?: string): string {
+function resolveModelForAgent(
+  config: GrdConfig,
+  agentType: string,
+  cwd?: string,
+  options?: { effectiveTierOverride?: ModelTier }
+): string {
   const profile: string = (config.model_profile || 'balanced').toLowerCase();
   const agentModels: Record<ModelProfileName, ModelTier> | undefined = MODEL_PROFILES[agentType];
-  const tier: ModelTier = agentModels
+  const baseTier: ModelTier = agentModels
     ? agentModels[profile as ModelProfileName] || agentModels['balanced'] || 'sonnet'
     : 'sonnet';
+  // Use override when provided; otherwise fall back to MODEL_PROFILES lookup
+  const tier: ModelTier = options?.effectiveTierOverride || baseTier;
   // If cwd provided, resolve to backend-specific model name
   if (cwd) {
     const backend: unknown = detectBackend(cwd);
