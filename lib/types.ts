@@ -1387,4 +1387,53 @@ export interface BenchmarkResult {
   evaluator: string;
 }
 
+// ─── Phase Complete Types (from phase.ts) ────────────────────────────────────
+
+/** Quality analysis result returned from cleanup module. */
+export interface QualityAnalysisResult {
+  skipped?: boolean;
+  reason?: string;
+  phase?: string;
+  timestamp?: string;
+  summary?: QualityAnalysisSummary;
+  details?: Record<string, unknown>;
+  trends?: Record<string, unknown> | null;
+}
+
+/** Generated cleanup plan info from cleanup module. */
+export interface CleanupPlanResult {
+  path: string;
+  plan_number: string;
+  issues_addressed: number;
+}
+
+/** Options for cmdPhaseComplete. */
+export interface PhaseCompleteOptions {
+  dryRun?: boolean;
+  force?: boolean;
+  skip_cleanup?: boolean;
+  raw?: boolean;
+}
+
+/** Result from the phase complete core logic. */
+export interface PhaseCompleteResult {
+  dry_run?: boolean;
+  would_complete_phase?: string;
+  phase_found?: boolean;
+  gate_failed?: boolean;
+  gate_errors?: GateViolation[];
+  gate_warnings?: GateViolation[];
+  completed_phase?: string;
+  phase_name?: string | null;
+  plans_executed?: string;
+  next_phase?: string | null;
+  next_phase_name?: string | null;
+  is_last_phase?: boolean;
+  date?: string;
+  roadmap_updated?: boolean;
+  state_updated?: boolean;
+  quality_report?: QualityAnalysisResult;
+  cleanup_plan_generated?: CleanupPlanResult;
+}
+
 module.exports = {};

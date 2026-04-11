@@ -21,9 +21,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type {
   PhaseInfo,
-  GateViolation,
   PreflightResult,
-  QualityAnalysisSummary,
+  QualityAnalysisResult,
+  CleanupPlanResult,
+  PhaseCompleteOptions,
+  PhaseCompleteResult,
 } from './types';
 
 const { runPreflightGates } = require('./gates') as {
@@ -42,17 +44,31 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-const {
-  readRoadmapFile,
-  writeRoadmapFile,
-  readStateFile,
-  writeStateFile,
-} = require('./phase') as {
-  readRoadmapFile: (p: string) => string;
-  writeRoadmapFile: (p: string, content: string) => void;
-  readStateFile: (p: string) => string;
-  writeStateFile: (p: string, content: string) => void;
-};
+// Module-level write-through caches for ROADMAP.md and STATE.md reads.
+// Inlined here to avoid a circular dependency with lib/phase.ts.
+const _roadmapFileCache = new Map<string, string>();
+function readRoadmapFile(roadmapPath: string): string {
+  if (!_roadmapFileCache.has(roadmapPath)) {
+    _roadmapFileCache.set(roadmapPath, fs.readFileSync(roadmapPath, 'utf-8') as string);
+  }
+  return _roadmapFileCache.get(roadmapPath) as string;
+}
+function writeRoadmapFile(roadmapPath: string, content: string): void {
+  fs.writeFileSync(roadmapPath, content, 'utf-8');
+  _roadmapFileCache.set(roadmapPath, content);
+}
+
+const _stateFileCache = new Map<string, string>();
+function readStateFile(statePath: string): string {
+  if (!_stateFileCache.has(statePath)) {
+    _stateFileCache.set(statePath, fs.readFileSync(statePath, 'utf-8') as string);
+  }
+  return _stateFileCache.get(statePath) as string;
+}
+function writeStateFile(statePath: string, content: string): void {
+  fs.writeFileSync(statePath, content, 'utf-8');
+  _stateFileCache.set(statePath, content);
+}
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;
@@ -62,53 +78,6 @@ const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
     report: QualityAnalysisResult,
   ) => CleanupPlanResult;
 };
-
-/** Quality analysis result returned from cleanup module. */
-interface QualityAnalysisResult {
-  skipped?: boolean;
-  reason?: string;
-  phase?: string;
-  timestamp?: string;
-  summary?: QualityAnalysisSummary;
-  details?: Record<string, unknown>;
-  trends?: Record<string, unknown> | null;
-}
-
-/** Generated cleanup plan info from cleanup module. */
-interface CleanupPlanResult {
-  path: string;
-  plan_number: string;
-  issues_addressed: number;
-}
-
-/** Options for cmdPhaseComplete. */
-interface PhaseCompleteOptions {
-  dryRun?: boolean;
-  force?: boolean;
-  skip_cleanup?: boolean;
-  raw?: boolean;
-}
-
-/** Result from the phase complete core logic. */
-interface PhaseCompleteResult {
-  dry_run?: boolean;
-  would_complete_phase?: string;
-  phase_found?: boolean;
-  gate_failed?: boolean;
-  gate_errors?: GateViolation[];
-  gate_warnings?: GateViolation[];
-  completed_phase?: string;
-  phase_name?: string | null;
-  plans_executed?: string;
-  next_phase?: string | null;
-  next_phase_name?: string | null;
-  is_last_phase?: boolean;
-  date?: string;
-  roadmap_updated?: boolean;
-  state_updated?: boolean;
-  quality_report?: QualityAnalysisResult;
-  cleanup_plan_generated?: CleanupPlanResult;
-}
 
 /**
  * Core logic for phase completion -- shared by cmdPhaseComplete and
