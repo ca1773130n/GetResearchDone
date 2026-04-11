@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 import type { Scheduler } from '../lib/scheduler';
-import type { GrdConfig } from '../lib/types';
+import type { GrdConfig, TokenProfileName } from '../lib/types';
 
 // ─── Typed Imports ──────────────────────────────────────────────────────────
 
@@ -1363,6 +1363,24 @@ async function routeCommand(
       }
       break;
     }
+    case 'settings': {
+      const sub: string = args[1];
+      if (sub === 'token_profile') {
+        const value: string = args[2];
+        const validProfiles: TokenProfileName[] = ['frugal', 'balanced', 'quality'];
+        if (!value || !validProfiles.includes(value as TokenProfileName)) {
+          error(
+            `Invalid token_profile value "${value || ''}". Valid values: ${validProfiles.join(', ')}`
+          );
+        }
+        cmdConfigSet(cwd, 'token_profile', value, raw);
+      } else {
+        error(
+          `Unknown settings subcommand "${sub || ''}". Tool-mode settings subcommands: token_profile`
+        );
+      }
+      break;
+    }
     case 'evolve': {
       const sub: string = args[1];
       validateSubcommand(sub, ['run', 'discover', 'state', 'advance', 'reset'], 'evolve');
@@ -1559,6 +1577,7 @@ async function routeCommand(
         'search',
         'requirement',
         'worktree',
+        'settings',
         'evolve',
         'autopilot',
         'multi-milestone-autopilot',
