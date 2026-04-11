@@ -67,4 +67,20 @@ describe('resolveScanFiles', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('--all mode skips docs/superpowers subdirectory', () => {
+    const dir = makeTmp();
+    try {
+      fs.mkdirSync(path.join(dir, 'docs', 'superpowers', 'plans'), { recursive: true });
+      fs.mkdirSync(path.join(dir, 'docs', 'user-guide'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'docs', 'superpowers', 'plans', 'skip-me.md'), '# skip');
+      fs.writeFileSync(path.join(dir, 'docs', 'user-guide', 'keep-me.md'), '# keep');
+
+      const files = resolveScanFiles({ mode: 'all', cwd: dir });
+      const rels = files.map((f: string) => path.relative(dir, f)).sort();
+      expect(rels).toEqual(['docs/user-guide/keep-me.md']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

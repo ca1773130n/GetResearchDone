@@ -27,6 +27,16 @@ export interface ResolveScanOpts {
 
 const SCAN_DIRS = ['commands', 'agents', 'templates', 'docs'];
 
+// Git pathspecs mirroring SCAN_DIRS, with docs/superpowers/ excluded to
+// match the _walkMarkdown behavior. Used by _resolveStaged and _resolveDiff.
+const SCAN_PATHSPECS: readonly string[] = [
+  'commands/**/*.md',
+  'agents/**/*.md',
+  'templates/**/*.md',
+  'docs/**/*.md',
+  ':(exclude)docs/superpowers/**',
+];
+
 export function resolveScanFiles(opts: ResolveScanOpts): string[] {
   const { mode, cwd } = opts;
   switch (mode) {
@@ -64,14 +74,17 @@ function _resolveAll(cwd: string): string[] {
 }
 
 function _resolveStaged(cwd: string): string[] {
-  const out = _safeGit(['diff', '--cached', '--name-only', '--', '*.md'], cwd);
+  const out = _safeGit(
+    ['diff', '--cached', '--name-only', '--', ...SCAN_PATHSPECS],
+    cwd
+  );
   if (out === null) return [];
   return _absolutizeAndFilter(out, cwd);
 }
 
 function _resolveDiff(cwd: string, base: string): string[] {
   const out = _safeGit(
-    ['diff', '--name-only', `${base}...HEAD`, '--', '*.md'],
+    ['diff', '--name-only', `${base}...HEAD`, '--', ...SCAN_PATHSPECS],
     cwd
   );
   if (out === null) {
