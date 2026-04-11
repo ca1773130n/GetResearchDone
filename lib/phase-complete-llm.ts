@@ -58,7 +58,7 @@ function _buildPrompt(
   roadmapContent: string | null,
   stateContent: string | null,
   phaseDirFiles: string[],
-  failureDescription: string,
+  failureDescription: string
 ): string {
   return [
     `You are finalizing GRD Phase ${phaseNum} after the mechanical regex-based`,
@@ -113,7 +113,7 @@ function _verifyRoadmapTick(cwd: string, phaseNum: string): boolean {
     const content = fs.readFileSync(roadmapPath, 'utf-8');
     const pattern = new RegExp(
       `-\\s*\\[x\\]\\s*Phase\\s+${phaseNum.replace('.', '\\.')}[\\s:]`,
-      'i',
+      'i'
     );
     return pattern.test(content);
   } catch {
@@ -147,7 +147,7 @@ export async function attemptLlmFallbackCompletion(
   cwd: string,
   phaseNum: string,
   scheduler: Scheduler | null,
-  failure: Error | { gate_errors?: GateViolation[] },
+  failure: Error | { gate_errors?: GateViolation[] }
 ): Promise<PhaseCompleteResult | null> {
   if (!scheduler) return null;
 
@@ -176,7 +176,7 @@ export async function attemptLlmFallbackCompletion(
 
   process.stderr.write(
     `[phase-complete-llm] attempting LLM fallback for phase ${phaseNum} ` +
-      `(reason: ${failureDescription.slice(0, 200)})\n`,
+      `(reason: ${failureDescription.slice(0, 200)})\n`
   );
 
   try {
@@ -187,20 +187,20 @@ export async function attemptLlmFallbackCompletion(
     });
     if (result.exitCode !== 0) {
       process.stderr.write(
-        `[phase-complete-llm] fallback subprocess exited with code ${result.exitCode}\n`,
+        `[phase-complete-llm] fallback subprocess exited with code ${result.exitCode}\n`
       );
       return null;
     }
   } catch (e) {
     process.stderr.write(
-      `[phase-complete-llm] fallback subprocess threw: ${(e as Error).message}\n`,
+      `[phase-complete-llm] fallback subprocess threw: ${(e as Error).message}\n`
     );
     return null;
   }
 
   if (!_verifyRoadmapTick(cwd, phaseNum)) {
     process.stderr.write(
-      `[phase-complete-llm] verification failed — ROADMAP.md checkbox not ticked\n`,
+      `[phase-complete-llm] verification failed — ROADMAP.md checkbox not ticked\n`
     );
     return null;
   }

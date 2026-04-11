@@ -196,7 +196,7 @@ const { completePhaseAfterPostPipeline } = require('./phase-complete') as {
   completePhaseAfterPostPipeline: (
     cwd: string,
     phaseNum: string,
-    scheduler?: import('./scheduler').Scheduler | null,
+    scheduler?: import('./scheduler').Scheduler | null
   ) => Promise<PhaseCompleteResult | null>;
 };
 
@@ -2099,8 +2099,11 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             // fold in phase complete (ROADMAP + STATE + quality analysis) instead
             // of leaving it for the user to run manually.
             writeStatusMarker(cwd, pNum, 'phase-finalize', 'started');
-            const finalizeResult: PhaseCompleteResult | null =
-              await completePhaseAfterPostPipeline(cwd, pNum, scheduler);
+            const finalizeResult: PhaseCompleteResult | null = await completePhaseAfterPostPipeline(
+              cwd,
+              pNum,
+              scheduler
+            );
             if (finalizeResult) {
               writeStatusMarker(cwd, pNum, 'phase-finalize', 'completed');
               log(

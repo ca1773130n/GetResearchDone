@@ -168,11 +168,11 @@ configurable via `.planning/config.json`
 ### LLM fallback for phase completion (Spec 3B)
 
 `phase_complete_llm_fallback` is an opt-in config flag (default `false`).
-When `true`, both `gd autopilot`'s phase-finalize step and
-`gd phase complete N` fall back to asking Claude to perform the ROADMAP.md
-+ STATE.md edits directly via the scheduler, if the regex-based mechanical
-path throws or gate-fails. Verification is shallow: ROADMAP.md is
-re-read and checked for a ticked `- [x] Phase N` checkbox.
+When `true`, both `gd autopilot`'s phase-finalize step and `gd phase complete N`
+fall back to asking Claude to perform the ROADMAP.md and STATE.md edits
+directly via the scheduler, if the regex-based mechanical path throws or
+gate-fails. Verification is shallow: ROADMAP.md is re-read and checked for a
+ticked `- [x] Phase N` checkbox.
 
 Set via `gd settings phase_complete_llm_fallback true`. Opt-in only —
 existing users see no change.

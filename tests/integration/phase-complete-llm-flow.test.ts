@@ -10,7 +10,7 @@ const { completePhaseAfterPostPipeline } = require('../../lib/phase-complete') a
   completePhaseAfterPostPipeline: (
     cwd: string,
     phaseNum: string,
-    scheduler?: Scheduler | null,
+    scheduler?: Scheduler | null
   ) => Promise<unknown>;
 };
 
@@ -24,47 +24,47 @@ function makeProject(llmFallbackEnabled: boolean): string {
   // NOTE: no phase directory for Phase 3 → _phaseCompleteCore throws
   fs.writeFileSync(
     path.join(planning, 'ROADMAP.md'),
-    '# Roadmap\n\n- [ ] Phase 3: Test\n\n## Phase 3: Test\n\n**Plans:** 0/0 plans complete\n',
+    '# Roadmap\n\n- [ ] Phase 3: Test\n\n## Phase 3: Test\n\n**Plans:** 0/0 plans complete\n'
   );
   fs.writeFileSync(
     path.join(planning, 'STATE.md'),
-    '# State\n\n**Current Phase:** 3\n**Current Phase Name:** Test\n**Status:** Executing\n**Current Plan:** 01\n**Last Activity:** 2026-04-12\n**Last Activity Description:** running\n',
+    '# State\n\n**Current Phase:** 3\n**Current Phase Name:** Test\n**Status:** Executing\n**Current Plan:** 01\n**Last Activity:** 2026-04-12\n**Last Activity Description:** running\n'
   );
   fs.writeFileSync(
     path.join(planning, 'config.json'),
     JSON.stringify({
       phase_cleanup: { cleanup_threshold: 99999 },
       phase_complete_llm_fallback: llmFallbackEnabled,
-    }),
+    })
   );
   return dir;
 }
 
 function cleanup(dir: string): void {
-  try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {}
 }
 
 function makeTickingScheduler(): Scheduler {
   return {
-    spawn: jest.fn(
-      async (_prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
-        const roadmapPath = path.join(opts.cwd || '', '.planning', 'ROADMAP.md');
-        try {
-          const content = fs.readFileSync(roadmapPath, 'utf-8');
-          fs.writeFileSync(
-            roadmapPath,
-            content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed)'),
-          );
-        } catch {}
-        return {
-          exitCode: 0,
-          timedOut: false,
-          backend: 'claude',
-          tokensUsed: 500,
-          workItemId: 'fake',
-        };
-      },
-    ),
+    spawn: jest.fn(async (_prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
+      const roadmapPath = path.join(opts.cwd || '', '.planning', 'ROADMAP.md');
+      try {
+        const content = fs.readFileSync(roadmapPath, 'utf-8');
+        fs.writeFileSync(
+          roadmapPath,
+          content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed)')
+        );
+      } catch {}
+      return {
+        exitCode: 0,
+        timedOut: false,
+        backend: 'claude',
+        tokensUsed: 500,
+        workItemId: 'fake',
+      };
+    }),
     getState: jest.fn(() => undefined),
     getStates: jest.fn(() => new Map()),
     recordExternalSample: jest.fn(),
@@ -90,7 +90,7 @@ describe('completePhaseAfterPostPipeline + LLM fallback flow', () => {
       const scheduler = makeTickingScheduler();
       const result = await completePhaseAfterPostPipeline(dir, '3', scheduler);
       expect(result).toBeNull();
-      expect((scheduler.spawn as jest.Mock)).not.toHaveBeenCalled();
+      expect(scheduler.spawn as jest.Mock).not.toHaveBeenCalled();
     } finally {
       cleanup(dir);
     }
@@ -103,7 +103,7 @@ describe('completePhaseAfterPostPipeline + LLM fallback flow', () => {
       const result = await completePhaseAfterPostPipeline(dir, '3', scheduler);
       expect(result).not.toBeNull();
       expect((result as { llm_fallback?: boolean }).llm_fallback).toBe(true);
-      expect((scheduler.spawn as jest.Mock)).toHaveBeenCalledTimes(1);
+      expect(scheduler.spawn as jest.Mock).toHaveBeenCalledTimes(1);
     } finally {
       cleanup(dir);
     }
@@ -121,7 +121,7 @@ describe('completePhaseAfterPostPipeline + LLM fallback flow', () => {
             backend: 'claude',
             tokensUsed: 500,
             workItemId: 'fake',
-          }),
+          })
         ),
         getState: jest.fn(),
         getStates: jest.fn(() => new Map()),
@@ -132,7 +132,7 @@ describe('completePhaseAfterPostPipeline + LLM fallback flow', () => {
 
       const result = await completePhaseAfterPostPipeline(dir, '3', scheduler);
       expect(result).toBeNull();
-      expect((scheduler.spawn as jest.Mock)).toHaveBeenCalled();
+      expect(scheduler.spawn as jest.Mock).toHaveBeenCalled();
     } finally {
       cleanup(dir);
     }

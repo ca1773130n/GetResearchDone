@@ -1120,7 +1120,7 @@ async function cmdPhaseComplete(
       const { createScheduler } = require('./scheduler') as {
         createScheduler: (
           config: SchedulerConfig | undefined,
-          superpowersConfig?: SuperpowersConfig,
+          superpowersConfig?: SuperpowersConfig
         ) => Scheduler | null;
       };
       const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
@@ -1128,7 +1128,7 @@ async function cmdPhaseComplete(
           cwd: string,
           phaseNum: string,
           scheduler: Scheduler | null,
-          failure: Error,
+          failure: Error
         ) => Promise<PhaseCompleteResult | null>;
       };
       const scheduler = createScheduler(config.scheduler, config.superpowers);
@@ -1136,7 +1136,7 @@ async function cmdPhaseComplete(
         cwd,
         phaseNum,
         scheduler,
-        e as Error,
+        e as Error
       );
       if (fallbackResult) {
         result = fallbackResult;

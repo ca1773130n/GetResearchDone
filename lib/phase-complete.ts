@@ -69,7 +69,7 @@ const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
     cwd: string,
     phaseNum: string,
     scheduler: Scheduler | null,
-    failure: Error | { gate_errors?: GateViolation[] },
+    failure: Error | { gate_errors?: GateViolation[] }
   ) => Promise<PhaseCompleteResult | null>;
 };
 
@@ -284,7 +284,7 @@ export function _phaseCompleteCore(
 export async function completePhaseAfterPostPipeline(
   cwd: string,
   phaseNum: string,
-  scheduler?: Scheduler | null,
+  scheduler?: Scheduler | null
 ): Promise<PhaseCompleteResult | null> {
   let mechanicalFailure: Error | { gate_errors?: GateViolation[] } | undefined;
 
@@ -292,11 +292,9 @@ export async function completePhaseAfterPostPipeline(
     const result = _phaseCompleteCore(cwd, phaseNum);
     if (result.gate_failed) {
       mechanicalFailure = { gate_errors: result.gate_errors };
-      const msgs = (result.gate_errors || [])
-        .map((g: { message: string }) => g.message)
-        .join('; ');
+      const msgs = (result.gate_errors || []).map((g: { message: string }) => g.message).join('; ');
       process.stderr.write(
-        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`,
+        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`
       );
     } else if (result.dry_run) {
       return null;
@@ -306,7 +304,7 @@ export async function completePhaseAfterPostPipeline(
   } catch (e) {
     mechanicalFailure = e as Error;
     process.stderr.write(
-      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`,
+      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`
     );
   }
 

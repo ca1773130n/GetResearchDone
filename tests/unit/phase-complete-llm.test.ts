@@ -11,37 +11,35 @@ const { attemptLlmFallbackCompletion } = require('../../lib/phase-complete-llm')
     cwd: string,
     phaseNum: string,
     scheduler: Scheduler | null,
-    failure: Error | { gate_errors?: { message: string }[] },
+    failure: Error | { gate_errors?: { message: string }[] }
   ) => Promise<unknown>;
 };
 
 function makeFakeScheduler(
   behavior: 'success' | 'nonzero' | 'throw',
-  tickRoadmapCallback?: () => void,
+  tickRoadmapCallback?: () => void
 ): Scheduler {
-  const spawn = jest.fn(
-    async (_prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
-      if (behavior === 'throw') throw new Error('scheduler exploded');
-      if (behavior === 'nonzero') {
-        return {
-          exitCode: 1,
-          timedOut: false,
-          backend: 'claude',
-          tokensUsed: 0,
-          workItemId: 'fake',
-        };
-      }
-      // success: invoke the callback to mutate the ROADMAP.md file
-      if (tickRoadmapCallback) tickRoadmapCallback();
+  const spawn = jest.fn(async (_prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
+    if (behavior === 'throw') throw new Error('scheduler exploded');
+    if (behavior === 'nonzero') {
       return {
-        exitCode: 0,
+        exitCode: 1,
         timedOut: false,
         backend: 'claude',
-        tokensUsed: 1000,
+        tokensUsed: 0,
         workItemId: 'fake',
       };
-    },
-  );
+    }
+    // success: invoke the callback to mutate the ROADMAP.md file
+    if (tickRoadmapCallback) tickRoadmapCallback();
+    return {
+      exitCode: 0,
+      timedOut: false,
+      backend: 'claude',
+      tokensUsed: 1000,
+      workItemId: 'fake',
+    };
+  });
   return {
     spawn,
     getState: jest.fn(() => undefined),
@@ -58,21 +56,20 @@ function makeTempProject(): string {
   fs.mkdirSync(planning);
   fs.writeFileSync(
     path.join(planning, 'ROADMAP.md'),
-    '# Roadmap\n\n- [ ] Phase 3: Test\n- [ ] Phase 4: Next\n',
+    '# Roadmap\n\n- [ ] Phase 3: Test\n- [ ] Phase 4: Next\n'
   );
-  fs.writeFileSync(
-    path.join(planning, 'STATE.md'),
-    '# State\n\n**Current Phase:** 3\n',
-  );
+  fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Current Phase:** 3\n');
   fs.writeFileSync(
     path.join(planning, 'config.json'),
-    JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } }),
+    JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } })
   );
   return dir;
 }
 
 function cleanup(dir: string): void {
-  try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {}
 }
 
 describe('attemptLlmFallbackCompletion', () => {
@@ -93,7 +90,7 @@ describe('attemptLlmFallbackCompletion', () => {
         dir,
         '3',
         null,
-        new Error('mechanical failed'),
+        new Error('mechanical failed')
       );
       expect(result).toBeNull();
     } finally {
@@ -106,7 +103,7 @@ describe('attemptLlmFallbackCompletion', () => {
     try {
       const scheduler = makeFakeScheduler('nonzero');
       await attemptLlmFallbackCompletion(dir, '3', scheduler, new Error('test'));
-      expect((scheduler.spawn as jest.Mock)).toHaveBeenCalled();
+      expect(scheduler.spawn as jest.Mock).toHaveBeenCalled();
       const prompt = (scheduler.spawn as jest.Mock).mock.calls[0][0];
       expect(prompt).toContain('Phase 3');
       expect(prompt).toContain('ROADMAP.md');
@@ -124,7 +121,7 @@ describe('attemptLlmFallbackCompletion', () => {
         dir,
         '3',
         scheduler,
-        new Error('mechanical'),
+        new Error('mechanical')
       );
       expect(result).toBeNull();
     } finally {
@@ -140,7 +137,7 @@ describe('attemptLlmFallbackCompletion', () => {
         dir,
         '3',
         scheduler,
-        new Error('mechanical'),
+        new Error('mechanical')
       );
       expect(result).toBeNull();
     } finally {
@@ -157,7 +154,7 @@ describe('attemptLlmFallbackCompletion', () => {
         dir,
         '3',
         scheduler,
-        new Error('mechanical'),
+        new Error('mechanical')
       );
       expect(result).toBeNull();
     } finally {
@@ -174,14 +171,14 @@ describe('attemptLlmFallbackCompletion', () => {
         const content = fs.readFileSync(roadmapPath, 'utf-8');
         fs.writeFileSync(
           roadmapPath,
-          content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed today)'),
+          content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed today)')
         );
       });
       const result = await attemptLlmFallbackCompletion(
         dir,
         '3',
         scheduler,
-        new Error('mechanical'),
+        new Error('mechanical')
       );
       expect(result).not.toBeNull();
       expect((result as { llm_fallback?: boolean }).llm_fallback).toBe(true);
@@ -198,7 +195,7 @@ describe('attemptLlmFallbackCompletion', () => {
         dir,
         '3',
         scheduler,
-        new Error('something very specific to match'),
+        new Error('something very specific to match')
       );
       const prompt = (scheduler.spawn as jest.Mock).mock.calls[0][0];
       expect(prompt).toContain('something very specific to match');
@@ -211,12 +208,9 @@ describe('attemptLlmFallbackCompletion', () => {
     const dir = makeTempProject();
     try {
       const scheduler = makeFakeScheduler('nonzero');
-      await attemptLlmFallbackCompletion(
-        dir,
-        '3',
-        scheduler,
-        { gate_errors: [{ message: 'phase-in-roadmap gate tripped' }] } as any,
-      );
+      await attemptLlmFallbackCompletion(dir, '3', scheduler, {
+        gate_errors: [{ message: 'phase-in-roadmap gate tripped' }],
+      } as any);
       const prompt = (scheduler.spawn as jest.Mock).mock.calls[0][0];
       expect(prompt).toContain('phase-in-roadmap gate tripped');
     } finally {
