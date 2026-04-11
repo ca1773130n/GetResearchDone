@@ -147,7 +147,7 @@ export function runToolCommand(
 ): { exitCode: number; stdout: string; stderr: string } {
   // In-process dispatch for scan
   if (command === 'scan') {
-    return _runScanCommand(extraArgs, jsonFlag, cwd);
+    return _runScanCommand([...extraArgs, ...passthrough], jsonFlag, cwd);
   }
 
   const args = buildToolArgs(command, subcommand, extraArgs, jsonFlag, passthrough);
