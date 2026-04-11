@@ -26,7 +26,10 @@ import type {
   CleanupPlanResult,
   PhaseCompleteOptions,
   PhaseCompleteResult,
+  GrdConfig,
+  GateViolation,
 } from './types';
+import type { Scheduler } from './scheduler';
 
 const { runPreflightGates } = require('./gates') as {
   runPreflightGates: (cwd: string, command: string, opts?: { phase?: string }) => PreflightResult;
@@ -55,6 +58,19 @@ const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
     phaseNum: string,
     report: QualityAnalysisResult
   ) => CleanupPlanResult;
+};
+
+const { loadConfig } = require('./utils') as {
+  loadConfig: (cwd: string) => GrdConfig;
+};
+
+const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
+  attemptLlmFallbackCompletion: (
+    cwd: string,
+    phaseNum: string,
+    scheduler: Scheduler | null,
+    failure: Error | { gate_errors?: GateViolation[] },
+  ) => Promise<PhaseCompleteResult | null>;
 };
 
 /**
@@ -257,34 +273,59 @@ export function _phaseCompleteCore(
  * completion failure is logged as a status marker but does not crash
  * the autopilot run.
  *
+ * When the mechanical path fails and config.phase_complete_llm_fallback
+ * is true, delegates to attemptLlmFallbackCompletion (Spec 3B).
+ *
  * @param cwd - project root
  * @param phaseNum - phase number string (e.g., '03' or '3')
+ * @param scheduler - optional scheduler for LLM fallback (Spec 3B)
  * @returns PhaseCompleteResult on success, null on any failure
  */
-export function completePhaseAfterPostPipeline(
+export async function completePhaseAfterPostPipeline(
   cwd: string,
-  phaseNum: string
-): PhaseCompleteResult | null {
+  phaseNum: string,
+  scheduler?: Scheduler | null,
+): Promise<PhaseCompleteResult | null> {
+  let mechanicalFailure: Error | { gate_errors?: GateViolation[] } | undefined;
+
   try {
     const result = _phaseCompleteCore(cwd, phaseNum);
     if (result.gate_failed) {
-      const msgs = (result.gate_errors || []).map((g: { message: string }) => g.message).join('; ');
+      mechanicalFailure = { gate_errors: result.gate_errors };
+      const msgs = (result.gate_errors || [])
+        .map((g: { message: string }) => g.message)
+        .join('; ');
       process.stderr.write(
-        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`
+        `[autopilot] phase-finalize: gates failed for phase ${phaseNum}: ${msgs}\n`,
       );
+    } else if (result.dry_run) {
       return null;
+    } else {
+      return result;
     }
-    if (result.dry_run) {
-      // Defensive: dry-run should never be set when options is undefined.
-      return null;
-    }
-    return result;
   } catch (e) {
+    mechanicalFailure = e as Error;
     process.stderr.write(
-      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`
+      `[autopilot] phase-finalize: error completing phase ${phaseNum}: ${(e as Error).message}\n`,
     );
-    return null;
   }
+
+  // Mechanical failed — try LLM fallback if opted in
+  if (!mechanicalFailure) return null;
+
+  let fallbackEnabled = false;
+  try {
+    const config = loadConfig(cwd);
+    fallbackEnabled = config.phase_complete_llm_fallback === true;
+  } catch {
+    // loadConfig failure — proceed without fallback
+  }
+
+  if (fallbackEnabled && scheduler) {
+    return await attemptLlmFallbackCompletion(cwd, phaseNum, scheduler, mechanicalFailure);
+  }
+
+  return null;
 }
 
 module.exports = {

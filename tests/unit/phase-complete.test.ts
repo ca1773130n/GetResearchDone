@@ -20,7 +20,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 const { completePhaseAfterPostPipeline } = require('../../lib/phase-complete') as {
-  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => unknown;
+  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => Promise<unknown>;
 };
 
 function makeTempProject(opts: { withPhase?: boolean } = {}): string {
@@ -123,8 +123,8 @@ describe('completePhaseAfterPostPipeline', () => {
     cleanupTempProject(projectDir);
   });
 
-  it('returns a PhaseCompleteResult on success', () => {
-    const result = completePhaseAfterPostPipeline(projectDir, '3');
+  it('returns a PhaseCompleteResult on success', async () => {
+    const result = await completePhaseAfterPostPipeline(projectDir, '3');
     expect(result).not.toBeNull();
     expect(result).toMatchObject({
       completed_phase: '3',
@@ -133,14 +133,14 @@ describe('completePhaseAfterPostPipeline', () => {
     });
   });
 
-  it('ticks the ROADMAP.md checkbox for Phase 3 on success', () => {
-    completePhaseAfterPostPipeline(projectDir, '3');
+  it('ticks the ROADMAP.md checkbox for Phase 3 on success', async () => {
+    await completePhaseAfterPostPipeline(projectDir, '3');
     const roadmap = fs.readFileSync(path.join(projectDir, '.planning', 'ROADMAP.md'), 'utf-8');
     expect(roadmap).toMatch(/- \[x\] Phase 3: Test Phase/);
   });
 
-  it('advances STATE.md Current Phase to 4 on success', () => {
-    completePhaseAfterPostPipeline(projectDir, '3');
+  it('advances STATE.md Current Phase to 4 on success', async () => {
+    await completePhaseAfterPostPipeline(projectDir, '3');
     const state = fs.readFileSync(path.join(projectDir, '.planning', 'STATE.md'), 'utf-8');
     // _phaseCompleteCore sets Current Phase to the next phase's number string
     // (e.g., "04" from dir "04-next-phase"); match the padded format
@@ -148,14 +148,14 @@ describe('completePhaseAfterPostPipeline', () => {
     expect(state).toMatch(/\*\*Last Activity Description:\*\*\s+Phase 3 complete/);
   });
 
-  it('returns null and does not throw when the phase directory is missing', () => {
+  it('returns null and does not throw when the phase directory is missing', async () => {
     // Remove the phase directory to trigger "Phase 3 not found" error
     fs.rmSync(
       path.join(projectDir, '.planning', 'milestones', 'anonymous', 'phases', '03-test-phase'),
       { recursive: true, force: true }
     );
 
-    const result = completePhaseAfterPostPipeline(projectDir, '3');
+    const result = await completePhaseAfterPostPipeline(projectDir, '3');
     expect(result).toBeNull();
     // The wrapper catches the throw and logs to stderr
     expect(stderrSpy).toHaveBeenCalledWith(
@@ -163,7 +163,7 @@ describe('completePhaseAfterPostPipeline', () => {
     );
   });
 
-  it('returns null and logs when gates fail (phase not in ROADMAP)', () => {
+  it('returns null and logs when gates fail (phase not in ROADMAP)', async () => {
     // Rewrite ROADMAP.md without the required "## Phase 3:" heading.
     // The phase dir still exists on disk so the gate fires and fails.
     fs.writeFileSync(
@@ -171,13 +171,13 @@ describe('completePhaseAfterPostPipeline', () => {
       '# Roadmap\n\nNo phases here.\n'
     );
 
-    const result = completePhaseAfterPostPipeline(projectDir, '3');
+    const result = await completePhaseAfterPostPipeline(projectDir, '3');
     expect(result).toBeNull();
     // Either gates-failed log or error log is acceptable
     expect(stderrSpy).toHaveBeenCalled();
   });
 
-  it('does not crash when ROADMAP.md is missing (_phaseCompleteCore skips it gracefully)', () => {
+  it('does not crash when ROADMAP.md is missing (_phaseCompleteCore skips it gracefully)', async () => {
     // Remove ROADMAP.md. runPreflightGates bails early when ROADMAP.md is
     // absent (new-project safety), so gates pass. _phaseCompleteCore then
     // guards with fs.existsSync before touching the roadmap.
@@ -185,6 +185,6 @@ describe('completePhaseAfterPostPipeline', () => {
 
     // May return null (gate fail) or a result — either is acceptable;
     // the test only asserts no throw
-    expect(() => completePhaseAfterPostPipeline(projectDir, '3')).not.toThrow();
+    await expect(completePhaseAfterPostPipeline(projectDir, '3')).resolves.not.toThrow();
   });
 });

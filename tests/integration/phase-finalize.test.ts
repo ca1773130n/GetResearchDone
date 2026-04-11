@@ -18,7 +18,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 const { completePhaseAfterPostPipeline } = require('../../lib/phase-complete') as {
-  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => unknown;
+  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => Promise<unknown>;
 };
 
 function makeTempProject(): string {
@@ -94,10 +94,10 @@ describe('phase-finalize integration (autopilot wire-up path)', () => {
     expect(typeof completePhaseAfterPostPipeline).toBe('function');
   });
 
-  it('runs through the full completion flow on a realistic project fixture', () => {
+  it('runs through the full completion flow on a realistic project fixture', async () => {
     const dir = makeTempProject();
     try {
-      const result = completePhaseAfterPostPipeline(dir, '3');
+      const result = await completePhaseAfterPostPipeline(dir, '3');
       expect(result).not.toBeNull();
 
       const roadmap = fs.readFileSync(path.join(dir, '.planning', 'ROADMAP.md'), 'utf-8');

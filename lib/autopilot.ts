@@ -193,7 +193,11 @@ const {
   buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
 } = require('./knowledge');
 const { completePhaseAfterPostPipeline } = require('./phase-complete') as {
-  completePhaseAfterPostPipeline: (cwd: string, phaseNum: string) => PhaseCompleteResult | null;
+  completePhaseAfterPostPipeline: (
+    cwd: string,
+    phaseNum: string,
+    scheduler?: import('./scheduler').Scheduler | null,
+  ) => Promise<PhaseCompleteResult | null>;
 };
 
 // ─── Default Constants ──────────────────────────────────────────────────────
@@ -2095,10 +2099,8 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             // fold in phase complete (ROADMAP + STATE + quality analysis) instead
             // of leaving it for the user to run manually.
             writeStatusMarker(cwd, pNum, 'phase-finalize', 'started');
-            const finalizeResult: PhaseCompleteResult | null = completePhaseAfterPostPipeline(
-              cwd,
-              pNum
-            );
+            const finalizeResult: PhaseCompleteResult | null =
+              await completePhaseAfterPostPipeline(cwd, pNum, scheduler);
             if (finalizeResult) {
               writeStatusMarker(cwd, pNum, 'phase-finalize', 'completed');
               log(
