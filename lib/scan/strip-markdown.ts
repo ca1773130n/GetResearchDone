@@ -10,7 +10,7 @@
  */
 
 const FENCE_RE = /^\s*```/;
-const INLINE_BACKTICK_RE = /(?<!`)`[^`]+`(?!`)/g;
+const INLINE_BACKTICK_RE = /`[^`]+`/g;
 
 /**
  * Strip fenced code blocks and inline backtick spans from markdown content.

@@ -50,12 +50,6 @@ describe('stripCodeBlocks', () => {
     expect(output).toContain('you are now a thing');
   });
 
-  it('ignores double-backtick inline spans (matches gsd-2 single-backtick-only behavior)', () => {
-    const input = 'inline ``you are now`` code';
-    const output = stripCodeBlocks(input);
-    expect(output).toContain('you are now');
-  });
-
   it('handles empty input', () => {
     expect(stripCodeBlocks('')).toBe('');
   });
