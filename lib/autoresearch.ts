@@ -21,6 +21,7 @@ import type {
   GrdConfig,
   MilestoneInfo,
 } from './types';
+import type { Scheduler } from './scheduler';
 
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');
@@ -81,6 +82,8 @@ interface AutoResearchOptions {
   maxTurns?: number;
   /** Dry run — don't actually run experiments */
   dryRun: boolean;
+  /** Optional scheduler for per-account token tracking and rate-limit handling */
+  scheduler?: Scheduler | null;
 }
 
 interface ExperimentResult {
@@ -123,7 +126,48 @@ function _execGit(cwd: string, args: string[]): { stdout: string; exitCode: numb
   }
 }
 
-function _spawnClaude(
+/**
+ * Async spawn wrapper. When a scheduler is provided AND the caller does
+ * NOT need captured stdout, routes through scheduler.spawn for per-account
+ * token tracking and rate-limit handling. Otherwise falls back to the
+ * synchronous path (_spawnClaudeSync) wrapped in a resolved promise.
+ *
+ * Known limitation: SchedulerSpawnResult does not expose stdout reliably, so
+ * captureOutput:true always uses _spawnClaudeSync. Extending the scheduler
+ * result shape is a follow-up improvement (see CHANGELOG).
+ */
+async function _spawnClaude(
+  cwd: string,
+  prompt: string,
+  opts: {
+    timeout?: number;
+    maxTurns?: number;
+    model?: string;
+    captureOutput?: boolean;
+    scheduler?: Scheduler | null;
+  } = {},
+): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
+  if (opts.scheduler && !opts.captureOutput) {
+    try {
+      const result = await opts.scheduler.spawn(prompt, {
+        cwd,
+        model: opts.model,
+        timeout: opts.timeout,
+        maxTurns: opts.maxTurns,
+      });
+      return {
+        exitCode: result.exitCode,
+        stdout: '',
+        timedOut: result.timedOut,
+      };
+    } catch {
+      return { exitCode: 1, stdout: '', timedOut: false };
+    }
+  }
+  return _spawnClaudeSync(cwd, prompt, opts);
+}
+
+function _spawnClaudeSync(
   cwd: string,
   prompt: string,
   opts: { timeout?: number; maxTurns?: number; model?: string; captureOutput?: boolean } = {}
@@ -353,7 +397,7 @@ async function _runAutoresearchLoop(
   cwd: string,
   options: AutoResearchOptions
 ): Promise<AutoResearchState> {
-  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun } = options;
+  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun, scheduler } = options;
 
   const planningDir = getPlanningDir(cwd);
   const tsvPath = path.join(planningDir, 'AUTORESEARCH.tsv');
@@ -399,10 +443,11 @@ async function _runAutoresearchLoop(
       _log('No LANDSCAPE.md found — running auto-survey...');
       if (!dryRun) {
         const surveyPrompt = `Use the Skill tool to invoke skill "grd:survey" with args "${topic}". Autonomous mode — make all decisions yourself, no questions.`;
-        _spawnClaude(cwd, surveyPrompt, {
+        await _spawnClaude(cwd, surveyPrompt, {
           timeout: timeBudget * 60 * 1000,
           model,
           maxTurns,
+          scheduler,
         });
         _log('Auto-survey complete');
       } else {
@@ -452,11 +497,12 @@ async function _runAutoresearchLoop(
     );
 
     // Spawn experiment subprocess
-    const spawnResult = _spawnClaude(cwd, prompt, {
+    const spawnResult = await _spawnClaude(cwd, prompt, {
       timeout: timeBudget * 60 * 1000,
       model,
       maxTurns,
       captureOutput: true,
+      scheduler,
     });
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
@@ -663,4 +709,5 @@ function cmdInitAutoResearch(cwd: string, raw: boolean): void {
 module.exports = {
   cmdAutoResearch,
   cmdInitAutoResearch,
+  _spawnClaude,
 };
