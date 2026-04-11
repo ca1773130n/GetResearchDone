@@ -29,6 +29,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   async, and routes its Claude subprocess calls through `scheduler.spawn`
   when a scheduler is available. Autoresearch now participates in
   per-account token tracking and rate-limit handling.
+- **`lib/phase-complete.ts`** — new module containing the extracted
+  `_phaseCompleteCore` (moved from `lib/phase.ts`) and a new autopilot-safe
+  `completePhaseAfterPostPipeline` wrapper. The wrapper catches all errors
+  and returns `null` on failure instead of throwing, so autopilot cannot
+  crash on a phase-finalize failure. Part of spec 3/4 of the
+  `gsd-2-selective-adoption` milestone.
+- **Autopilot `phase-finalize` status marker step** — new
+  `phase-finalize: started/completed/failed` marker written after the
+  post-pipeline step.
+
+### Changed
+
+- **`gd autopilot` now auto-finalizes phases.** After a successful
+  post-pipeline step, autopilot calls `completePhaseAfterPostPipeline`
+  to tick the ROADMAP.md checkbox, update STATE.md's current phase,
+  run quality analysis, and generate a cleanup plan if issues exceed
+  threshold. Previously, autopilot stopped at the post-pipeline step
+  and required the user to run `gd phase complete N` manually for
+  every phase. The CLI command `gd phase complete` is unchanged and
+  continues to work as a manual recovery path.
 
 ### Fixed
 
@@ -38,6 +58,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   actual mechanism was `scheduler.spawn` giving up after cycling through
   exhausted accounts instead of waiting for the soonest sample window
   to age out. The new wait-for-recovery fallback addresses this directly.
+- **Autopilot's next-milestone transition no longer stalls.** Because
+  autopilot now finalizes phases automatically, `_isAllPhasesComplete`
+  (which checks `disk_status === 'complete'`) reports completion
+  correctly at the end of a milestone, unblocking the next-milestone
+  transition.
 
 ### Known limitations
 
