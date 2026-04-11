@@ -124,3 +124,17 @@ jobs:
       - name: Security audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
+
+  docs-check:
+    name: Prompt injection scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx gd scan --diff origin/${{ github.base_ref || 'main' }}
