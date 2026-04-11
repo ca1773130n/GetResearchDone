@@ -153,14 +153,12 @@ function _execGit(cwd: string, args: string[]): { stdout: string; exitCode: numb
 }
 
 /**
- * Async spawn wrapper. When a scheduler is provided AND the caller does
- * NOT need captured stdout, routes through scheduler.spawn for per-account
- * token tracking and rate-limit handling. Otherwise falls back to the
- * synchronous path (_spawnClaudeSync) wrapped in a resolved promise.
- *
- * Known limitation: SchedulerSpawnResult does not expose stdout reliably, so
- * captureOutput:true always uses _spawnClaudeSync. Extending the scheduler
- * result shape is a follow-up improvement (see CHANGELOG).
+ * Async spawn wrapper. When a scheduler is provided, routes through
+ * scheduler.spawn for per-account token tracking and rate-limit handling.
+ * SchedulerSpawnResult.stdout carries captured subprocess stdout when
+ * captureOutput is true, so the scheduler path is used unconditionally.
+ * Falls back to the synchronous path (_spawnClaudeSync) only when no
+ * scheduler is provided.
  */
 async function _spawnClaude(
   cwd: string,
@@ -173,17 +171,18 @@ async function _spawnClaude(
     scheduler?: Scheduler | null;
   } = {}
 ): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
-  if (opts.scheduler && !opts.captureOutput) {
+  if (opts.scheduler) {
     try {
       const result = await opts.scheduler.spawn(prompt, {
         cwd,
         model: opts.model,
         timeout: opts.timeout,
         maxTurns: opts.maxTurns,
+        captureOutput: opts.captureOutput,
       });
       return {
         exitCode: result.exitCode,
-        stdout: '',
+        stdout: result.stdout || '',
         timedOut: result.timedOut,
       };
     } catch (e) {

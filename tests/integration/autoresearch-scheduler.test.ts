@@ -3,8 +3,9 @@
 /**
  * Integration test for autoresearch to scheduler routing.
  *
- * Verifies _spawnClaude routes through a provided scheduler.spawn when
- * captureOutput is false, and falls back to the sync path otherwise.
+ * Verifies _spawnClaude routes through a provided scheduler.spawn when a
+ * scheduler is provided (including when captureOutput is true), and falls
+ * back to the sync path only when no scheduler is provided.
  */
 
 import type { Scheduler } from '../../lib/scheduler';
@@ -73,23 +74,31 @@ describe('autoresearch scheduler routing', () => {
     expect((scheduler.spawn as jest.Mock).mock.calls[0][0]).toBe('test prompt');
   });
 
-  it('does not route through scheduler when captureOutput is true (sync fallback)', async () => {
+  it('routes through scheduler when captureOutput is true (stdout captured via SchedulerSpawnResult.stdout)', async () => {
     if (!autoresearch._spawnClaude) return;
     const scheduler = makeFakeScheduler('ok');
-    // With captureOutput: true, the wrapper falls back to _spawnClaudeSync
-    // which will try to run the real 'claude' binary. That may fail with
-    // a missing binary (exit code != 0), which is fine — we just verify
-    // the scheduler mock was NOT called.
-    try {
-      await autoresearch._spawnClaude('/tmp', 'test prompt', {
-        scheduler,
-        captureOutput: true,
-        timeout: 1000,
-      });
-    } catch {
-      // Ignore — we only care whether scheduler.spawn was called
-    }
-    expect(scheduler.spawn as jest.Mock).not.toHaveBeenCalled();
+    // Override the mock to return stdout in the SchedulerSpawnResult
+    (scheduler.spawn as jest.Mock).mockImplementation(
+      async (_prompt: string, _opts: SpawnOpts): Promise<SchedulerSpawnResult> => ({
+        exitCode: 0,
+        timedOut: false,
+        backend: 'claude',
+        tokensUsed: 500,
+        workItemId: 'fake',
+        stdout: 'captured output from scheduler',
+      })
+    );
+
+    const result = await autoresearch._spawnClaude('/tmp', 'test prompt', {
+      scheduler,
+      captureOutput: true,
+      timeout: 1000,
+    });
+    expect(result.stdout).toBe('captured output from scheduler');
+    expect(scheduler.spawn as jest.Mock).toHaveBeenCalled();
+    // Verify captureOutput was forwarded to the scheduler
+    const spawnOpts = (scheduler.spawn as jest.Mock).mock.calls[0][1] as SpawnOpts;
+    expect(spawnOpts.captureOutput).toBe(true);
   });
 
   it('handles scheduler throwing gracefully', async () => {
