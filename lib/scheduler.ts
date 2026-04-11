@@ -13,6 +13,10 @@ import type {
   SchedulerSpawnResult,
 } from './types';
 
+const { waitUntilOrAbort } = require('./scheduler-wait') as {
+  waitUntilOrAbort: (targetMs: number) => Promise<'waited' | 'aborted'>;
+};
+
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
 
 /**
@@ -626,7 +630,8 @@ export function createScheduler(
   async function _spawnWithRetry(
     prompt: string,
     opts: SpawnOpts,
-    retryCount: number
+    retryCount: number,
+    lastRecoveryTime: number | null = null
   ): Promise<SchedulerSpawnResult> {
     let backend: AdapterBackendId;
     let stateKey: string;
@@ -659,6 +664,52 @@ export function createScheduler(
         schedulerConfig.free_fallback
       ) as AdapterBackendId;
       stateKey = backend;
+    }
+
+    // Spec 2A: bounded wait for soonest recovery when all priority accounts
+    // are exhausted and resolveAccount fell through to free_fallback.
+    if (
+      accountRotation &&
+      superpowersConfig &&
+      backend === schedulerConfig.free_fallback.backend &&
+      schedulerConfig.backend_priority.length > 0 &&
+      !_anyPriorityHasHeadroom(
+        schedulerConfig.backend_priority,
+        superpowersConfig.accounts,
+        states,
+        prediction.safety_margin_tasks,
+      )
+    ) {
+      const maxWaitMinutes = schedulerConfig.max_wait_minutes ?? 90;
+      if (maxWaitMinutes > 0) {
+        const maxWaitMs = maxWaitMinutes * 60 * 1000;
+        const recoveryTime = computeSoonestRecovery(
+          states,
+          schedulerConfig.backend_priority,
+          superpowersConfig.accounts,
+          prediction.window_minutes,
+          maxWaitMs,
+        );
+        if (recoveryTime !== null && recoveryTime === lastRecoveryTime) {
+          // Infinite-loop guard: if this is the same timestamp we already
+          // waited for, sample state didn't change. Fall through to
+          // free_fallback instead of waiting again (pre-Spec 2A behavior).
+        } else if (recoveryTime !== null) {
+          const waitMs = recoveryTime - Date.now();
+          console.log(
+            `scheduler: all priority accounts exhausted, waiting ${Math.ceil(
+              waitMs / 60_000,
+            )}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})`,
+          );
+          const waitResult = await waitUntilOrAbort(recoveryTime);
+          if (waitResult === 'aborted') {
+            throw new Error(
+              'scheduler: wait for account recovery interrupted by SIGINT',
+            );
+          }
+          return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
+        }
+      }
     }
 
     const adapter = ADAPTERS[backend] || ADAPTERS.claude;
