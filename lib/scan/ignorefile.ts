@@ -50,6 +50,24 @@ export function loadIgnoreFile(filePath: string): IgnoreEntry[] {
   return parseIgnoreFile(raw);
 }
 
+/**
+ * Check whether a hit should be suppressed by any ignorefile entry.
+ *
+ * The `matchText` parameter is the SCANNED content that produced the hit:
+ *   - For prose hits: the full source line
+ *   - For base64 hits: the full decoded content of the base64 blob
+ *
+ * This is intentionally wider than the reported `match` field on ScanHit
+ * (which is truncated to 80 chars for display). Ignorefile entries should
+ * be written against the scanned content — see `.prompt-injection-scanignore`
+ * for examples.
+ *
+ * @param file - the file where the hit was found (may be absolute or relative;
+ *   suffix-matching supported)
+ * @param matchText - the scanned content (full source line or full decoded blob)
+ * @param entries - parsed ignorefile entries from loadIgnoreFile
+ * @returns true if any entry matches and the hit should be suppressed
+ */
 export function isIgnored(
   file: string,
   matchText: string,

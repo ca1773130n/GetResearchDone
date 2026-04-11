@@ -6,6 +6,15 @@
 #                      (filepath is matched as exact or suffix against scanned paths)
 #   regex            — ignore matches of regex in all files
 #
+# Matching semantics:
+#   The regex is matched against the FULL scanned content that produced
+#   the hit, which is:
+#     - For prose hits: the full source line containing the match
+#     - For base64 hits: the full decoded content of the base64 blob
+#   Not the truncated `match` field shown in scan reports. Write entries
+#   that target the natural prose or decoded text surrounding a pattern,
+#   not the regex match substring.
+#
 # See docs/superpowers/specs/2026-04-11-gsd2-prompt-injection-scan-design.md
 # for design notes and the adoption story.
 

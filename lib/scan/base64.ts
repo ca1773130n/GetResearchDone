@@ -62,7 +62,7 @@ export function scanBase64(files: string[], opts: ScanBase64Opts): ScanHit[] {
               label: pattern.label,
               category: pattern.category,
               match,
-              ignored: isIgnored(file, match, opts.ignoreEntries),
+              ignored: isIgnored(file, decoded, opts.ignoreEntries),
               source: "base64",
             });
           }
