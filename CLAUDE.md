@@ -144,6 +144,24 @@ Clear boundary between project state and plugin state:
 - Multi-account workspace authentication support.
 - Non-OpenAI Azure completions endpoint support.
 
+### Token profile (Spec 4)
+
+`token_profile` is a user preference in `.planning/config.json` orthogonal
+to `model_profile`. Values: `frugal`, `balanced` (default), `quality`.
+Controls adaptive model-tier downgrade under budget pressure or low task
+complexity. Set via `gd settings token_profile <value>`.
+
+- `quality`: never downgrade unless budget pressure is >=95% (critical).
+- `balanced`: downgrade 0-2 steps based on (pressure, complexity).
+- `frugal`: aggressively downgrade non-high-complexity tasks even at
+  low pressure.
+
+Budget pressure is classified as `none` / `warning` (>=60%) / `high`
+(>=80%) / `critical` (>=95%) per account. Autopilot, evolve, and
+autoresearch check this before each agent dispatch. Thresholds are
+configurable via `.planning/config.json`
+`scheduler.budget_pressure_thresholds`.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
