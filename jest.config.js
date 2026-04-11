@@ -45,6 +45,7 @@ module.exports = {
     './lib/worktree.ts': { lines: 74, functions: 80, branches: 66 },
     './lib/refinement.ts': { lines: 85, functions: 85, branches: 75 },
     './lib/benchmark.ts': { lines: 85, functions: 85, branches: 75 },
+    './lib/phase-complete.ts': { lines: 93, functions: 100, branches: 61 },
   },
   testTimeout: 15000,
 };
