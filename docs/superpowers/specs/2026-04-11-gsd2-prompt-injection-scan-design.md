@@ -259,7 +259,7 @@ Pure function. Matches gsd-2's awk logic exactly:
 - Fence with language marker (` ```ts `): still counts as opening.
 - Mid-line fence (` foo ``` bar ``` baz `): gsd-2 anchors at `^\s*\`\`\``, so mid-line fences are not treated as toggles. We match this behavior.
 - Unclosed fence at EOF: all trailing lines remain "inside code" and are stripped.
-- Double-backtick inline code spans (`` ``code`` ``): gsd-2's regex `` /`[^`]+`/ `` only matches single-backtick spans. We match this behavior rather than being clever — staying bug-compatible reduces re-port cost.
+- Multi-backtick spans (` ``code`` `): gsd-2's regex `/\`[^\`]+\`/` is a greedy leftmost match from one backtick to the next non-adjacent backtick. On a double-backtick inline span like `` ``x`` `` it matches the inner `` `x` `` (between the second and third backticks) and strips `x`, leaving `` ` ` `` outside the match. We match that bug-compatible behavior rather than being clever — staying bug-compatible reduces re-port cost if gsd-2 upstream adds patterns.
 
 Line numbers returned in the report refer to the *original* file, not the stripped content, because we only replace-with-empty instead of deleting lines.
 
@@ -327,11 +327,11 @@ Total: ~64 new jest tests across 6 files. All in `tests/unit/scan/` except `scan
 | File | Tests | Focus |
 |---|---|---|
 | `patterns.test.ts` | 36 | One positive + one negative (code-block-wrapped) per pattern |
-| `strip-markdown.test.ts` | 8 | Fence toggling, language markers, mid-line, unclosed, double-backtick |
+| `strip-markdown.test.ts` | 7 | Fence toggling, language markers, mid-line, unclosed |
 | `ignorefile.test.ts` | 6 | Parse valid, invalid, comments, blanks, file-scoped, global, precedence |
 | `injection.test.ts` | 4 | Integration: fixture file → expected report structure (including ignored hits) |
 | `base64.test.ts` | 6 | Each category encoded, legit base64 negative, padding variants, line-broken |
-| `scan-cli.test.ts` | 4 | Spawn `gd scan --file fixture.md --json`, parse, assert exit codes 0/1/2 |
+| `scan-cli.test.ts` | 5 | Spawn `gd scan --file fixture.md --json`, parse, assert exit codes 0/1/2, passthrough flag regression |
 
 **Coverage thresholds:** `lib/scan/*` must meet the per-file thresholds already configured in `jest.config.js`. No threshold reductions.
 
