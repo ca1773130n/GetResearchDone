@@ -412,6 +412,19 @@ export interface SchedulerConfig {
     safety_margin_tasks: number;
     min_samples: number;
   };
+  /**
+   * Maximum wait time (in minutes) for account recovery via sample aging
+   * before falling through to free_fallback. Default: 90.
+   *
+   * When all priority accounts are exhausted, scheduler.spawn computes the
+   * soonest time any account will regain headroom (via sample window aging)
+   * and sleeps until then — unless that wait would exceed max_wait_minutes,
+   * in which case it falls through to today's free_fallback behavior.
+   *
+   * Set to 0 to disable the wait entirely (preserves pre-Spec 2A behavior).
+   * Set arbitrarily high (e.g., 10080 = 1 week) to effectively uncap.
+   */
+  max_wait_minutes?: number;
 }
 
 /**
