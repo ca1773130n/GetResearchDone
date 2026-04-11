@@ -29,12 +29,35 @@ const {
   getMilestoneInfo,
   output,
   error,
+  MODEL_PROFILES,
+  resolveModelForAgent,
 }: {
   loadConfig: (cwd: string) => GrdConfig;
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (msg: string) => never;
+  MODEL_PROFILES: Record<string, Record<string, string>>;
+  resolveModelForAgent: (
+    config: GrdConfig,
+    agentType: string,
+    cwd?: string,
+    options?: { effectiveTierOverride?: import('./types').ModelTier }
+  ) => string;
 } = require('./utils');
+
+const {
+  getEffectiveTierForDispatch,
+}: {
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: { getStates(): Map<string, import('./types').BackendUsageState> } | null;
+    schedulerConfig?: import('./types').SchedulerConfig;
+    superpowersConfig?: import('./types').SuperpowersConfig;
+    modelProfiles: Record<string, Record<string, string>>;
+  }) => import('./types').ModelTier;
+} = require('./backend');
 
 const {
   researchDir: getResearchDir,
@@ -403,6 +426,9 @@ async function _runAutoresearchLoop(
 ): Promise<AutoResearchState> {
   const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun, scheduler } = options;
 
+  // Load config once for the adaptive tier chain (Spec 4).
+  const arConfig: GrdConfig = loadConfig(cwd);
+
   const planningDir = getPlanningDir(cwd);
   const tsvPath = path.join(planningDir, 'AUTORESEARCH.tsv');
   const branchName = `autoresearch/${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
@@ -449,9 +475,25 @@ async function _runAutoresearchLoop(
       _log('No LANDSCAPE.md found — running auto-survey...');
       if (!dryRun) {
         const surveyPrompt = `Use the Skill tool to invoke skill "grd:survey" with args "${topic}". Autonomous mode — make all decisions yourself, no questions.`;
+        // Resolve the effective model for the survey dispatch (Spec 4 chain).
+        // Honour explicit --model flag; otherwise use the adaptive tier.
+        const surveyTier = getEffectiveTierForDispatch({
+          agentType: 'autoresearch',
+          prompt: surveyPrompt,
+          config: arConfig,
+          scheduler: scheduler ?? null,
+          schedulerConfig: arConfig.scheduler,
+          superpowersConfig: arConfig.superpowers,
+          modelProfiles: MODEL_PROFILES,
+        });
+        const surveyModel: string | undefined = model
+          ? model
+          : resolveModelForAgent(arConfig, 'autoresearch', cwd, {
+              effectiveTierOverride: surveyTier,
+            });
         await _spawnClaude(cwd, surveyPrompt, {
           timeout: timeBudget * 60 * 1000,
-          model,
+          model: surveyModel,
           maxTurns,
           scheduler,
         });
@@ -502,10 +544,26 @@ async function _runAutoresearchLoop(
       experiments
     );
 
+    // Resolve the effective model for the experiment dispatch (Spec 4 chain).
+    // Honour explicit --model flag; otherwise use the adaptive tier.
+    const experimentTier = getEffectiveTierForDispatch({
+      agentType: 'autoresearch',
+      prompt,
+      config: arConfig,
+      scheduler: scheduler ?? null,
+      schedulerConfig: arConfig.scheduler,
+      superpowersConfig: arConfig.superpowers,
+      modelProfiles: MODEL_PROFILES,
+    });
+    const experimentModel: string | undefined = model
+      ? model
+      : resolveModelForAgent(arConfig, 'autoresearch', cwd, {
+          effectiveTierOverride: experimentTier,
+        });
     // Spawn experiment subprocess
     const spawnResult = await _spawnClaude(cwd, prompt, {
       timeout: timeBudget * 60 * 1000,
-      model,
+      model: experimentModel,
       maxTurns,
       captureOutput: true,
       scheduler,
