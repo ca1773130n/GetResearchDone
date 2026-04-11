@@ -278,6 +278,42 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
 }
 
 /**
+ * Starts an idle watchdog that invokes `onIdle` when no markActivity
+ * has been called for longer than `idleTimeoutMs`. Returns markActivity
+ * and stop functions.
+ *
+ * Polls every 1000ms. Fires at most once — subsequent ticks are no-ops.
+ */
+export function _startIdleWatchdog(
+  idleTimeoutMs: number,
+  onIdle: () => void,
+): { markActivity: () => void; stop: () => void } {
+  const POLL_INTERVAL_MS = 1000;
+  let lastActivityAt = Date.now();
+  let stopped = false;
+
+  const timer = setInterval(() => {
+    if (stopped) return;
+    if (Date.now() - lastActivityAt >= idleTimeoutMs) {
+      stopped = true;
+      clearInterval(timer);
+      onIdle();
+    }
+  }, POLL_INTERVAL_MS);
+
+  return {
+    markActivity: () => {
+      lastActivityAt = Date.now();
+    },
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      clearInterval(timer);
+    },
+  };
+}
+
+/**
  * Returns true iff at least one account in the priority list has headroom.
  * Small helper used by the _spawnWithRetry wait-branch decision.
  */
@@ -992,6 +1028,7 @@ module.exports = {
   createScheduler,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
+  _startIdleWatchdog,
   isBudgetPressured,
   computeBudgetPressureLevel,
   logPressureTransition,
