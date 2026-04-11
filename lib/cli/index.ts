@@ -169,7 +169,7 @@ export const AGENT_COMMANDS = new Set([
 ]);
 
 const EVOLVE_TOOL_SUBS = new Set(['run', 'discover', 'state', 'advance', 'reset']);
-const SETTINGS_TOOL_SUBS = new Set(['token_profile']);
+const SETTINGS_TOOL_SUBS = new Set(['token_profile', 'phase_complete_llm_fallback']);
 
 export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
