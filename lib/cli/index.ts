@@ -71,6 +71,7 @@ const TOOL_COMMANDS = new Set([
   'artifact-dag',
   'benchmark-report',
   'autoresearch',
+  'scan',
 ]);
 
 /**
