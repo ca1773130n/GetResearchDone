@@ -491,6 +491,18 @@ export interface SchedulerConfig {
    * with progressive output is unaffected.
    */
   idle_timeout_seconds?: number;
+  /**
+   * Optional per-backend override of idle_timeout_seconds. If a backend
+   * has an entry here, it takes precedence over the global
+   * idle_timeout_seconds default. Example:
+   *
+   *     idle_timeout_seconds_by_backend: { claude: 600, gemini: 1800 }
+   *
+   * Keys are backend IDs (claude, codex, gemini, opencode, etc.).
+   * Missing backends fall back to the global idle_timeout_seconds
+   * (default 900).
+   */
+  idle_timeout_seconds_by_backend?: Record<string, number>;
 }
 
 /**

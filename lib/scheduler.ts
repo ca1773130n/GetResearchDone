@@ -278,6 +278,28 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
 }
 
 /**
+ * Resolves the idle timeout in seconds for the given backend, applying the
+ * lookup order: per-backend override → global idle_timeout_seconds → default 900.
+ *
+ * @param backend - backend ID (e.g. 'claude', 'gemini')
+ * @param config - subset of SchedulerConfig with timeout fields
+ * @returns resolved idle timeout in seconds
+ */
+export function _resolveIdleTimeoutSeconds(
+  backend: string,
+  config: {
+    idle_timeout_seconds_by_backend?: Record<string, number>;
+    idle_timeout_seconds?: number;
+  }
+): number {
+  return (
+    config.idle_timeout_seconds_by_backend?.[backend] ??
+    config.idle_timeout_seconds ??
+    900
+  );
+}
+
+/**
  * Starts an idle watchdog that invokes `onIdle` when no markActivity
  * has been called for longer than `idleTimeoutMs`. Returns markActivity
  * and stop functions.
@@ -861,7 +883,7 @@ export function createScheduler(
     try {
       const { spawn } = require('child_process') as typeof import('child_process');
       const totalTimeoutMs = opts.timeout || 120 * 60 * 1000;
-      const idleTimeoutMs = (schedulerConfig.idle_timeout_seconds ?? 900) * 1000;
+      const idleTimeoutMs = _resolveIdleTimeoutSeconds(backend, schedulerConfig) * 1000;
       const MAX_BUFFER_BYTES = 50 * 1024 * 1024;
 
       const result = await new Promise<SchedulerSpawnResult>((resolve) => {
@@ -1097,6 +1119,7 @@ module.exports = {
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
+  _resolveIdleTimeoutSeconds,
   isBudgetPressured,
   computeBudgetPressureLevel,
   logPressureTransition,
