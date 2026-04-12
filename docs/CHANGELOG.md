@@ -59,6 +59,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   `- [x] Phase N` checkbox. New `gd settings phase_complete_llm_fallback
   <bool>` CLI. New `PhaseCompleteResult.llm_fallback` flag on results
   produced by this path.
+- **Follow-up items for gsd-2-selective-adoption milestone:**
+  - Per-backend idle timeout overrides via
+    `SchedulerConfig.idle_timeout_seconds_by_backend`
+  - Per-agent complexity overrides via
+    `GrdConfig.agent_complexity_overrides`
+  - Configurable complexity heuristic cutoffs via
+    `GrdConfig.complexity_heuristics`
+  - Process-group SIGTERM on POSIX platforms (scheduler now signals
+    the whole process tree instead of just the direct child)
+  - Exponential-backoff retries for LLM phase-completion fallback via
+    `GrdConfig.phase_complete_llm_fallback_retries`
+  - Deeper verification for LLM phase-completion fallback (STATE.md
+    advance check + progress-table row check, in addition to the
+    ROADMAP checkbox)
+  - New `gd metrics` CLI + `lib/metrics.ts` in-memory counters
+    tracking scheduler pressure transitions, idle kills, and LLM
+    fallback attempts/successes
 - **Token optimization system (Spec 4)** — adaptive model-tier routing
   that downgrades expensive agents to cheaper tiers based on budget
   pressure and task complexity.

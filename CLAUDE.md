@@ -41,6 +41,7 @@ By name: `npx jest -t "should parse frontmatter"`
 | `gd quick <desc>`      | Ad-hoc task with GRD guarantees  |
 | `gd health`            | Blockers, velocity, risk         |
 | `gd settings`          | Configure workflow               |
+| `gd metrics`           | Print in-memory counter snapshot |
 | `gd help`              | Full command reference           |
 
 ## Architecture
@@ -189,6 +190,21 @@ idle timeout only fires when the subprocess is completely silent, so
 legitimate streaming inference is unaffected. On trip: SIGTERM →
 5-second grace → SIGKILL. Result carries `idleTimedOut: true` flag
 so callers can distinguish idle-kills from total-timeout kills.
+
+Per-backend overrides are available via
+`SchedulerConfig.idle_timeout_seconds_by_backend` (e.g. set a higher
+limit for `gemini` if it batches output less frequently).
+
+### In-process metrics (Spec gsd-2 follow-up)
+
+`gd metrics` prints a JSON snapshot of in-memory counters for the
+current process. Counters reset on each `gd` invocation; they are
+most useful in long-running `gd autopilot` sessions. Tracked events:
+
+- `scheduler.pressure_transitions.<level>` — budget pressure level changes
+- `scheduler.idle_kills_total` — idle watchdog trips
+- `phase_complete_llm_fallback.attempts_total` — LLM fallback phase-complete attempts
+- `phase_complete_llm_fallback.successes_total` — successful LLM fallback completions
 
 ## Gotchas
 
