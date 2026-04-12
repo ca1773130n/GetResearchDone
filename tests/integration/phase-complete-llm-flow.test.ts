@@ -49,12 +49,21 @@ function cleanup(dir: string): void {
 function makeTickingScheduler(): Scheduler {
   return {
     spawn: jest.fn(async (_prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
-      const roadmapPath = path.join(opts.cwd || '', '.planning', 'ROADMAP.md');
+      const basePath = opts.cwd || '';
+      const roadmapPath = path.join(basePath, '.planning', 'ROADMAP.md');
+      const statePath = path.join(basePath, '.planning', 'STATE.md');
       try {
         const content = fs.readFileSync(roadmapPath, 'utf-8');
         fs.writeFileSync(
           roadmapPath,
           content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed)')
+        );
+      } catch {}
+      try {
+        const stateContent = fs.readFileSync(statePath, 'utf-8');
+        fs.writeFileSync(
+          statePath,
+          stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4')
         );
       } catch {}
       return {

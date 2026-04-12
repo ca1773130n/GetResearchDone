@@ -72,6 +72,7 @@ const TOOL_COMMANDS = new Set([
   'benchmark-report',
   'autoresearch',
   'scan',
+  'metrics',
 ]);
 
 /**

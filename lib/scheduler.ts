@@ -14,9 +14,14 @@ import type {
   BudgetPressureLevel,
   BudgetPressureThresholds,
 } from './types';
+import type * as childProcess from 'child_process';
 
 const { waitUntilOrAbort } = require('./scheduler-wait') as {
   waitUntilOrAbort: (targetMs: number) => Promise<'waited' | 'aborted'>;
+};
+
+const { incrementCounter } = require('./metrics') as {
+  incrementCounter: (name: string, delta?: number) => void;
 };
 
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
@@ -278,6 +283,62 @@ function _hasHeadroom(state: BackendUsageState, safetyMargin: number): boolean {
 }
 
 /**
+ * Sends `signal` to the process group of `child` on POSIX platforms, or to
+ * the direct child on Windows. Using a negative PID with process.kill ensures
+ * grandchildren (e.g., tool-invocation forks spawned by the backend CLI) are
+ * also terminated.
+ *
+ * Requires the child to have been spawned with `detached: true` so that it
+ * gets its own process group (pgid === pid).
+ *
+ * @param child - the spawned ChildProcess whose process group to signal
+ * @param signal - signal to send (e.g. 'SIGTERM', 'SIGKILL')
+ */
+export function _killProcessTree(
+  child: Pick<childProcess.ChildProcess, 'pid' | 'kill'>,
+  signal: NodeJS.Signals
+): void {
+  if (child.pid === undefined) return;
+  if (process.platform === 'win32') {
+    // Windows: just kill the direct child (no POSIX process groups)
+    try { child.kill(signal); } catch { /* already dead */ }
+    return;
+  }
+  // POSIX: signal the whole process group via negative pid
+  try {
+    process.kill(-child.pid, signal);
+  } catch (e) {
+    // ESRCH (no such process) is benign — process already exited.
+    // Fall back to direct kill in case the group wasn't created (e.g., race).
+    if ((e as NodeJS.ErrnoException).code !== 'ESRCH') {
+      try { child.kill(signal); } catch { /* already dead */ }
+    }
+  }
+}
+
+/**
+ * Resolves the idle timeout in seconds for the given backend, applying the
+ * lookup order: per-backend override → global idle_timeout_seconds → default 900.
+ *
+ * @param backend - backend ID (e.g. 'claude', 'gemini')
+ * @param config - subset of SchedulerConfig with timeout fields
+ * @returns resolved idle timeout in seconds
+ */
+export function _resolveIdleTimeoutSeconds(
+  backend: string,
+  config: {
+    idle_timeout_seconds_by_backend?: Record<string, number>;
+    idle_timeout_seconds?: number;
+  }
+): number {
+  return (
+    config.idle_timeout_seconds_by_backend?.[backend] ??
+    config.idle_timeout_seconds ??
+    900
+  );
+}
+
+/**
  * Starts an idle watchdog that invokes `onIdle` when no markActivity
  * has been called for longer than `idleTimeoutMs`. Returns markActivity
  * and stop functions.
@@ -449,6 +510,8 @@ export function logPressureTransition(
   const previous = _lastLoggedPressure.get(sessionKey) || 'none';
   if (previous === current) return;
   _lastLoggedPressure.set(sessionKey, current);
+
+  incrementCounter(`scheduler.pressure_transitions.${current}`);
 
   if (current === 'none') return;
   const tierNote =
@@ -861,14 +924,18 @@ export function createScheduler(
     try {
       const { spawn } = require('child_process') as typeof import('child_process');
       const totalTimeoutMs = opts.timeout || 120 * 60 * 1000;
-      const idleTimeoutMs = (schedulerConfig.idle_timeout_seconds ?? 900) * 1000;
+      const idleTimeoutMs = _resolveIdleTimeoutSeconds(backend, schedulerConfig) * 1000;
       const MAX_BUFFER_BYTES = 50 * 1024 * 1024;
 
       const result = await new Promise<SchedulerSpawnResult>((resolve) => {
+        const isWindows = process.platform === 'win32';
         const child = spawn(adapter.binary, args, {
           cwd: opts.cwd || process.cwd(),
           env: { ...process.env, ...envOverrides },
           stdio: ['ignore', 'pipe', 'pipe'],
+          // Create a new process group on POSIX so we can signal children + grandchildren.
+          // Windows doesn't support process groups — fall back to default.
+          detached: !isWindows,
         });
 
         let stdoutBuf = '';
@@ -886,23 +953,24 @@ export function createScheduler(
 
         const watchdog = _startIdleWatchdog(idleTimeoutMs, () => {
           idleTimedOut = true;
+          incrementCounter('scheduler.idle_kills_total');
           process.stderr.write(
             `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`
           );
-          child.kill('SIGTERM');
+          _killProcessTree(child, 'SIGTERM');
           setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
-              child.kill('SIGKILL');
+              _killProcessTree(child, 'SIGKILL');
             }
           }, 5000);
         });
 
         const totalTimer = setTimeout(() => {
           totalTimedOut = true;
-          child.kill('SIGTERM');
+          _killProcessTree(child, 'SIGTERM');
           setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
-              child.kill('SIGKILL');
+              _killProcessTree(child, 'SIGKILL');
             }
           }, 5000);
         }, totalTimeoutMs);
@@ -1097,6 +1165,8 @@ module.exports = {
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
+  _resolveIdleTimeoutSeconds,
+  _killProcessTree,
   isBudgetPressured,
   computeBudgetPressureLevel,
   logPressureTransition,

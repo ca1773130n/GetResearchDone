@@ -421,6 +421,38 @@ export interface GrdConfig {
    * Spec 3B of the gsd-2-selective-adoption milestone.
    */
   phase_complete_llm_fallback?: boolean;
+  /**
+   * Number of retry attempts for the LLM fallback path (Spec 3B) when
+   * the subprocess fails or verification doesn't confirm success.
+   * Uses exponential backoff: 2^attempt seconds between retries
+   * (2s, 4s, 8s, ...). Default: 0 (no retries — single attempt only).
+   */
+  phase_complete_llm_fallback_retries?: number;
+  /**
+   * Optional per-agent-type override of the baseline complexity used
+   * by estimateComplexity. Keys are agent type names (e.g.,
+   * 'grd-verifier'); values are 'low' | 'medium' | 'high'. When a
+   * key is present, its value takes precedence over the built-in
+   * AGENT_BASELINE_COMPLEXITY table.
+   *
+   * Example:
+   *   agent_complexity_overrides: { 'my-custom-agent': 'high' }
+   */
+  agent_complexity_overrides?: Record<string, ComplexityLevel>;
+  /**
+   * Optional overrides for estimateComplexity's internal heuristic
+   * cutoffs. All fields are optional; missing fields use defaults.
+   */
+  complexity_heuristics?: {
+    /** Prompt length (chars) above which complexity promotes to 'high'. Default: 20000 */
+    prompt_length_high_threshold?: number;
+    /** Avg recent sample tokens below which 'high' demotes to 'medium'. Default: 3000 */
+    sample_demote_high_to_medium?: number;
+    /** Avg recent sample tokens below which 'medium' demotes to 'low'. Default: 1500 */
+    sample_demote_medium_to_low?: number;
+    /** Minimum number of recent samples needed to consider demotion. Default: 3 */
+    min_samples_for_demotion?: number;
+  };
 }
 
 export interface EvolveConfig {
@@ -491,6 +523,18 @@ export interface SchedulerConfig {
    * with progressive output is unaffected.
    */
   idle_timeout_seconds?: number;
+  /**
+   * Optional per-backend override of idle_timeout_seconds. If a backend
+   * has an entry here, it takes precedence over the global
+   * idle_timeout_seconds default. Example:
+   *
+   *     idle_timeout_seconds_by_backend: { claude: 600, gemini: 1800 }
+   *
+   * Keys are backend IDs (claude, codex, gemini, opencode, etc.).
+   * Missing backends fall back to the global idle_timeout_seconds
+   * (default 900).
+   */
+  idle_timeout_seconds_by_backend?: Record<string, number>;
 }
 
 /**
