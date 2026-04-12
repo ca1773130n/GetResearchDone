@@ -421,6 +421,17 @@ export interface GrdConfig {
    * Spec 3B of the gsd-2-selective-adoption milestone.
    */
   phase_complete_llm_fallback?: boolean;
+  /**
+   * Optional per-agent-type override of the baseline complexity used
+   * by estimateComplexity. Keys are agent type names (e.g.,
+   * 'grd-verifier'); values are 'low' | 'medium' | 'high'. When a
+   * key is present, its value takes precedence over the built-in
+   * AGENT_BASELINE_COMPLEXITY table.
+   *
+   * Example:
+   *   agent_complexity_overrides: { 'my-custom-agent': 'high' }
+   */
+  agent_complexity_overrides?: Record<string, ComplexityLevel>;
 }
 
 export interface EvolveConfig {

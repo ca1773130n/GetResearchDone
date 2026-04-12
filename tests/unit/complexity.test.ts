@@ -7,6 +7,7 @@ const { estimateComplexity, AGENT_BASELINE_COMPLEXITY } = require('../../lib/com
     agentType: string;
     promptLength?: number;
     recentSamples?: { duration: number; tokenEstimate: number }[];
+    baselineOverride?: ComplexityLevel;
   }) => ComplexityLevel;
   AGENT_BASELINE_COMPLEXITY: Record<string, ComplexityLevel>;
 };
@@ -90,5 +91,42 @@ describe('AGENT_BASELINE_COMPLEXITY table', () => {
   it('has expected low-complexity agents', () => {
     expect(AGENT_BASELINE_COMPLEXITY['grd-verifier']).toBe('low');
     expect(AGENT_BASELINE_COMPLEXITY['grd-codebase-mapper']).toBe('low');
+  });
+});
+
+describe('estimateComplexity with baselineOverride', () => {
+  it('uses the override when provided, ignoring AGENT_BASELINE_COMPLEXITY', () => {
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',  // normally 'high'
+        baselineOverride: 'low',
+      }),
+    ).toBe('low');
+  });
+
+  it('override still respects prompt-length promotion to high', () => {
+    expect(
+      estimateComplexity({
+        agentType: 'grd-verifier',
+        baselineOverride: 'low',
+        promptLength: 25_000,
+      }),
+    ).toBe('high');
+  });
+
+  it('override with recent samples demotion', () => {
+    const samples = [
+      { duration: 100, tokenEstimate: 500 },
+      { duration: 100, tokenEstimate: 500 },
+      { duration: 100, tokenEstimate: 500 },
+    ];
+    // Override sets baseline to 'medium' — samples demote to 'low'
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',
+        baselineOverride: 'medium',
+        recentSamples: samples,
+      }),
+    ).toBe('low');
   });
 });

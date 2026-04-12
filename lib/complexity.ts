@@ -53,8 +53,8 @@ const MIN_SAMPLES_FOR_DEMOTION = 3;
  * recent sample history. Returns 'low' | 'medium' | 'high'.
  *
  * Decision order:
- *   1. Start with AGENT_BASELINE_COMPLEXITY[agentType] or 'medium'
- *      if unknown.
+ *   1. Start with baselineOverride (if provided), else
+ *      AGENT_BASELINE_COMPLEXITY[agentType], else 'medium'.
  *   2. If promptLength > PROMPT_LENGTH_HIGH_THRESHOLD (20k chars),
  *      return 'high' regardless of baseline.
  *   3. If >= MIN_SAMPLES_FOR_DEMOTION recent samples and average
@@ -68,8 +68,12 @@ export function estimateComplexity(opts: {
   agentType: string;
   promptLength?: number;
   recentSamples?: { duration: number; tokenEstimate: number }[];
+  baselineOverride?: ComplexityLevel;
 }): ComplexityLevel {
-  const baseline: ComplexityLevel = AGENT_BASELINE_COMPLEXITY[opts.agentType] || 'medium';
+  const baseline: ComplexityLevel =
+    opts.baselineOverride ??
+    AGENT_BASELINE_COMPLEXITY[opts.agentType] ??
+    'medium';
 
   if (opts.promptLength !== undefined && opts.promptLength > PROMPT_LENGTH_HIGH_THRESHOLD) {
     return 'high';

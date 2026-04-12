@@ -1036,6 +1036,7 @@ const { estimateComplexity } = require('./complexity') as {
     agentType: string;
     promptLength?: number;
     recentSamples?: { duration: number; tokenEstimate: number }[];
+    baselineOverride?: ComplexityLevel;
   }) => ComplexityLevel;
 };
 
@@ -1126,6 +1127,7 @@ function getEffectiveTierForDispatch(opts: {
     agentType: opts.agentType,
     promptLength: opts.prompt.length,
     recentSamples,
+    baselineOverride: opts.config.agent_complexity_overrides?.[opts.agentType],
   });
   const pressure = computeBudgetPressureLevel(
     states,
