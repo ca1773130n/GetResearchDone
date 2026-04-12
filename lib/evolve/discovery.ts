@@ -276,6 +276,7 @@ async function _discoverCodeQualityWithClaude(
           captureOutput: true,
           cwd,
           workItemId: `evolve-discovery-code-quality-${Date.now()}`,
+          agentType: 'grd-codebase-mapper',
         })
       : await spawnClaudeAsync(cwd, prompt, {
           captureOutput: true,

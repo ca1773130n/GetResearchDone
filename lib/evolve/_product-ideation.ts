@@ -345,6 +345,7 @@ async function discoverProductIdeationItems(
           captureOutput: true,
           cwd,
           workItemId: `evolve-discovery-product-ideation-${Date.now()}`,
+          agentType: 'grd-planner',
         })
       : await spawnClaudeAsync(cwd, prompt, {
           captureOutput: true,

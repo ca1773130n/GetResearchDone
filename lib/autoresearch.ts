@@ -169,6 +169,8 @@ async function _spawnClaude(
     model?: string;
     captureOutput?: boolean;
     scheduler?: Scheduler | null;
+    /** Agent type hint for complexity-based tier routing (M2). */
+    agentType?: string;
   } = {}
 ): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
   if (opts.scheduler) {
@@ -179,6 +181,7 @@ async function _spawnClaude(
         timeout: opts.timeout,
         maxTurns: opts.maxTurns,
         captureOutput: opts.captureOutput,
+        agentType: opts.agentType,
       });
       return {
         exitCode: result.exitCode,
@@ -509,6 +512,7 @@ async function _runAutoresearchLoop(
           model: surveyModel,
           maxTurns,
           scheduler,
+          agentType: 'grd-surveyor',
         });
         _log('Auto-survey complete');
       } else {
@@ -580,6 +584,7 @@ async function _runAutoresearchLoop(
       maxTurns,
       captureOutput: true,
       scheduler,
+      agentType: 'grd-executor',
     });
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
