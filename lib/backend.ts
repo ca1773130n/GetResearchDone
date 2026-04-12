@@ -1029,6 +1029,7 @@ function computeEffectiveModelTier(opts: {
  */
 interface _SchedulerLike {
   getStates(): Map<string, BackendUsageState>;
+  readonly sessionKey: string;
 }
 
 const { estimateComplexity } = require('./complexity') as {
@@ -1151,8 +1152,10 @@ function getEffectiveTierForDispatch(opts: {
     complexity,
   });
 
-  // Spec 4 Goal #7: log on pressure transitions only
-  logPressureTransition(process.pid.toString(), pressure, opts.agentType, baseTier, effectiveTier);
+  // Spec 4 Goal #7: log on pressure transitions only (O3: use per-scheduler
+  // sessionKey instead of process.pid to avoid shared state across multiple
+  // createScheduler calls in the same process).
+  logPressureTransition(opts.scheduler.sessionKey, pressure, opts.agentType, baseTier, effectiveTier);
 
   return effectiveTier;
 }

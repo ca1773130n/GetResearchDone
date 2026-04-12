@@ -491,6 +491,11 @@ export function isBudgetPressured(
 // Module-level state for transition-based logging
 const _lastLoggedPressure: Map<string, BudgetPressureLevel> = new Map();
 
+// Monotonic counter for unique per-scheduler session keys. Each
+// createScheduler call gets its own ID so _lastLoggedPressure
+// transitions are tracked independently (O3).
+let _nextSchedulerSessionId = 0;
+
 /**
  * Logs a single stderr line when the pressure level has changed since
  * the last call with the same sessionKey. Safe to call per spawn —
@@ -673,6 +678,13 @@ export function checkBinary(binary: string): boolean {
  * records usage samples, and persists learned state across sessions.
  */
 export interface Scheduler {
+  /**
+   * Unique per-createScheduler session key used to namespace pressure
+   * transition logging. Format: 'pid-<pid>-session-<counter>'. Read-only.
+   * (O3 fix — multiple createScheduler calls in the same process no
+   * longer share _lastLoggedPressure state.)
+   */
+  readonly sessionKey: string;
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
   getState(stateKey: string): BackendUsageState | undefined;
   /**
@@ -761,6 +773,11 @@ export function createScheduler(
   superpowersConfig?: SuperpowersConfig
 ): Scheduler | null {
   if (!config) return null;
+
+  // Unique key for this scheduler instance, used to namespace
+  // _lastLoggedPressure so multiple schedulers in the same process do not
+  // share transition state (O3).
+  const sessionKey = `pid-${process.pid}-session-${_nextSchedulerSessionId++}`;
 
   // Apply Spec 2A defaults here so the rest of the scheduler can rely on
   // a fully-populated config. Spread-merge avoids mutating caller input.
@@ -1101,6 +1118,8 @@ export function createScheduler(
   }
 
   const scheduler: Scheduler = {
+    sessionKey,
+
     getState(stateKey: string): BackendUsageState | undefined {
       return states.get(stateKey);
     },
