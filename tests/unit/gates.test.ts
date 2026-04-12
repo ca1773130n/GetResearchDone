@@ -827,3 +827,57 @@ describe('resetGatesCache', () => {
     expect(() => resetGatesCache()).not.toThrow();
   });
 });
+
+// ─── runPreflightGates gate error handling (M1 regression) ───────────────────
+
+describe('runPreflightGates gate error handling (M1 regression)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(tmpDir);
+  });
+
+  it('logs and records a warning when a gate check throws', () => {
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const gates = require('../../lib/gates') as {
+        _GATE_CHECKS?: Record<string, unknown>;
+        GATE_REGISTRY: Record<string, string[]>;
+        runPreflightGates: (
+          cwd: string,
+          command: string,
+          opts?: { phase?: string },
+        ) => { errors: unknown[]; warnings: Array<{ code: string; message: string }> };
+      };
+
+      if (!gates._GATE_CHECKS) {
+        console.warn('Skipping M1 test: _GATE_CHECKS not exported');
+        return;
+      }
+
+      // Use 'phase-complete' command; pick its first registered gate to patch
+      const command = 'phase-complete';
+      const gateName = gates.GATE_REGISTRY[command][0];
+      const original = gates._GATE_CHECKS[gateName];
+      (gates._GATE_CHECKS as Record<string, unknown>)[gateName] = () => {
+        throw new Error('injected test failure');
+      };
+
+      try {
+        const result = gates.runPreflightGates(tmpDir, command, { phase: '1' });
+        expect(result.warnings.some((w) => w.code === 'GATE_ERROR')).toBe(true);
+        expect(stderrSpy).toHaveBeenCalledWith(
+          expect.stringContaining(`gate '${gateName}' threw`),
+        );
+      } finally {
+        (gates._GATE_CHECKS as Record<string, unknown>)[gateName] = original;
+      }
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});

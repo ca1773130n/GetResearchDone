@@ -611,8 +611,18 @@ function runPreflightGates(
             result.warnings.push(v);
           }
         }
-      } catch {
-        // Gate checks are non-blocking on internal errors
+      } catch (e) {
+        const msg = (e as Error).message || String(e);
+        process.stderr.write(
+          `[gates] gate '${gateName}' threw: ${msg}\n`,
+        );
+        result.warnings.push({
+          code: 'GATE_ERROR',
+          severity: 'warning',
+          message: `Gate '${gateName}' internal error: ${msg}`,
+          fix: 'Check the gate implementation for bugs or update the failing check',
+          context: {},
+        });
       }
     }
 
@@ -657,6 +667,7 @@ module.exports = {
   checkTransitiveCitationGate,
   // Registry and runner
   GATE_REGISTRY,
+  _GATE_CHECKS: GATE_CHECKS,
   runPreflightGates,
   resetGatesCache,
 };
