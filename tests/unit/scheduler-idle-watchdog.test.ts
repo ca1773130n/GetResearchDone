@@ -1,6 +1,10 @@
 'use strict';
 
-const { _startIdleWatchdog, _resolveIdleTimeoutSeconds } = require('../../lib/scheduler') as {
+const {
+  _startIdleWatchdog,
+  _resolveIdleTimeoutSeconds,
+  _killProcessTree,
+} = require('../../lib/scheduler') as {
   _startIdleWatchdog: (
     idleTimeoutMs: number,
     onIdle: () => void
@@ -9,6 +13,10 @@ const { _startIdleWatchdog, _resolveIdleTimeoutSeconds } = require('../../lib/sc
     backend: string,
     config: { idle_timeout_seconds_by_backend?: Record<string, number>; idle_timeout_seconds?: number },
   ) => number;
+  _killProcessTree: (
+    child: { pid?: number; kill: (sig: string) => void },
+    signal: string
+  ) => void;
 };
 
 describe('_startIdleWatchdog', () => {
@@ -81,5 +89,40 @@ describe('_resolveIdleTimeoutSeconds', () => {
         idle_timeout_seconds_by_backend: { gemini: 1800 },
       }),
     ).toBe(600);
+  });
+});
+
+describe('_killProcessTree', () => {
+  it('no-ops when child has no pid', () => {
+    const mockKill = jest.fn();
+    _killProcessTree({ pid: undefined, kill: mockKill }, 'SIGTERM');
+    expect(mockKill).not.toHaveBeenCalled();
+  });
+
+  it('calls process.kill with negative pid on POSIX', () => {
+    if (process.platform === 'win32') return; // skip on Windows
+    const pk = jest.spyOn(process, 'kill').mockImplementation(() => true);
+    try {
+      _killProcessTree({ pid: 99999, kill: () => {} }, 'SIGTERM');
+      expect(pk).toHaveBeenCalledWith(-99999, 'SIGTERM');
+    } finally {
+      pk.mockRestore();
+    }
+  });
+
+  it('silently handles ESRCH (process already exited)', () => {
+    if (process.platform === 'win32') return;
+    const pk = jest.spyOn(process, 'kill').mockImplementation(() => {
+      const err = new Error('no such process') as NodeJS.ErrnoException;
+      err.code = 'ESRCH';
+      throw err;
+    });
+    try {
+      expect(() =>
+        _killProcessTree({ pid: 99999, kill: () => {} }, 'SIGTERM'),
+      ).not.toThrow();
+    } finally {
+      pk.mockRestore();
+    }
   });
 });
