@@ -2547,18 +2547,6 @@ function cmdInitAutopilot(cwd: string, raw: boolean): void {
   output(result, raw, raw ? JSON.stringify(result) : undefined);
 }
 
-// ─── Heartbeat ──────────────────────────────────────────────────────────────
-
-/**
- * Start a periodic heartbeat that writes a message to stderr at each interval.
- * Useful for keeping long-running autopilot sessions visible in logs.
- */
-function startHeartbeat(message: string): ReturnType<typeof setInterval> {
-  return setInterval(() => {
-    process.stderr.write(`${message}\n`);
-  }, HEARTBEAT_INTERVAL_MS);
-}
-
 /**
  * Parse CLI flags and run the multi-milestone autopilot loop.
  */
@@ -2701,6 +2689,5 @@ module.exports = {
   updateStateProgress,
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
-  startHeartbeat,
   _getSchedulerStates,
 };

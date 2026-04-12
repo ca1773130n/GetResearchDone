@@ -42,7 +42,6 @@ const {
   cmdInitMultiMilestoneAutopilot,
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
-  startHeartbeat,
   _getSchedulerStates,
   createMergeQueue,
   parseWriteIntent,
@@ -2013,40 +2012,6 @@ describe('lib/autopilot', () => {
     it('is a positive number (default 30 seconds)', () => {
       expect(typeof HEARTBEAT_INTERVAL_MS).toBe('number');
       expect(HEARTBEAT_INTERVAL_MS).toBeGreaterThan(0);
-    });
-  });
-
-  describe('startHeartbeat', () => {
-    it('returns a timer that writes message to stderr at each interval', () => {
-      jest.useFakeTimers();
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
-
-      const timer = startHeartbeat('[test] still running...');
-      // No writes before the interval fires
-      expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('[test] still running'));
-
-      // Advance past one interval
-      jest.advanceTimersByTime(HEARTBEAT_INTERVAL_MS + 100);
-      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[test] still running'));
-
-      clearInterval(timer);
-      stderrSpy.mockRestore();
-      jest.useRealTimers();
-    });
-
-    it('stops writing after clearInterval', () => {
-      jest.useFakeTimers();
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
-
-      const timer = startHeartbeat('[test] heartbeat');
-      clearInterval(timer);
-
-      // Advance past interval — should NOT fire since we cleared it
-      jest.advanceTimersByTime(HEARTBEAT_INTERVAL_MS * 3);
-      expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('[test] heartbeat'));
-
-      stderrSpy.mockRestore();
-      jest.useRealTimers();
     });
   });
 
