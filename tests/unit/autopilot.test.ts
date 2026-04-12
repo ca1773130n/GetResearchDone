@@ -65,8 +65,14 @@ function createAutopilotFixture(opts: any = {}) {
 
   // Initialize git repo for worktree operations
   childProcess.execFileSync('git', ['init'], { cwd: tmpRoot, stdio: 'pipe' });
-  childProcess.execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: tmpRoot, stdio: 'pipe' });
-  childProcess.execFileSync('git', ['config', 'user.name', 'Test'], { cwd: tmpRoot, stdio: 'pipe' });
+  childProcess.execFileSync('git', ['config', 'user.email', 'test@test.com'], {
+    cwd: tmpRoot,
+    stdio: 'pipe',
+  });
+  childProcess.execFileSync('git', ['config', 'user.name', 'Test'], {
+    cwd: tmpRoot,
+    stdio: 'pipe',
+  });
 
   const planning = path.join(tmpRoot, '.planning');
   fs.mkdirSync(planning, { recursive: true });
@@ -119,7 +125,10 @@ function createAutopilotFixture(opts: any = {}) {
 
   // Create initial commit so worktrees can be created
   childProcess.execFileSync('git', ['add', '-A'], { cwd: tmpRoot, stdio: 'pipe' });
-  childProcess.execFileSync('git', ['commit', '-m', 'init', '--allow-empty'], { cwd: tmpRoot, stdio: 'pipe' });
+  childProcess.execFileSync('git', ['commit', '-m', 'init', '--allow-empty'], {
+    cwd: tmpRoot,
+    stdio: 'pipe',
+  });
 
   return tmpRoot;
 }
@@ -1141,7 +1150,11 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        skipPostPipeline: true,
+      });
       expect(result.stopped_at).toBeNull();
       const planResult = result.results.find((r: any) => r.step === 'plan');
       expect(planResult.status).toBe('completed');
@@ -1177,7 +1190,11 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        skipPostPipeline: true,
+      });
       expect(result.phases_completed).toBe(1);
       expect(result.stopped_at).toBeNull();
       expect(result.results).toHaveLength(2);
@@ -1209,7 +1226,12 @@ describe('lib/autopilot', () => {
         return child;
       });
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipPlan: true, skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        skipPlan: true,
+        skipPostPipeline: true,
+      });
       expect(result.stopped_at).not.toBeNull();
       expect(result.stopped_at).toContain('execute failed');
       const execResult = result.results.find((r: Record<string, unknown>) => r.step === 'execute');
@@ -1255,7 +1277,11 @@ describe('lib/autopilot', () => {
     it('parses --timeout flag', async () => {
       tmpDir = createAutopilotFixture();
       const { stdout } = await captureOutputAsync(() =>
-        cmdAutopilot(tmpDir, ['--dry-run', '--timeout', '60', '--phase-from', '48', '--phase-to', '48'], false)
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--timeout', '60', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
       );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
@@ -1453,7 +1479,11 @@ describe('lib/autopilot', () => {
 
       // Execute step now also uses async spawn (worktrees)
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        skipPostPipeline: true,
+      });
       expect(result.phases_completed).toBe(1);
       expect(result.stopped_at).toBeNull();
       expect(result.results[0]).toMatchObject({ step: 'plan', status: 'completed' });
@@ -1494,7 +1524,11 @@ describe('lib/autopilot', () => {
 
       // Execute step now also uses async spawn (worktrees) — spawn mock already handles both
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '50', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '50',
+        skipPostPipeline: true,
+      });
       expect(result.phases_completed).toBe(3);
       expect(result.stopped_at).toBeNull();
       expect(result.results).toHaveLength(6);
@@ -1687,7 +1721,11 @@ describe('lib/autopilot', () => {
     it('parses --model flag correctly', async () => {
       tmpDir = createAutopilotFixture();
       const { stdout } = await captureOutputAsync(() =>
-        cmdAutopilot(tmpDir, ['--dry-run', '--model', 'opus', '--phase-from', '48', '--phase-to', '48'], false)
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--model', 'opus', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
       );
       const result = JSON.parse(stdout);
       expect(result.phases_attempted).toBe(1);
@@ -1696,7 +1734,11 @@ describe('lib/autopilot', () => {
     it('parses --skip-execute flag correctly', async () => {
       tmpDir = createAutopilotFixture();
       const { stdout } = await captureOutputAsync(() =>
-        cmdAutopilot(tmpDir, ['--dry-run', '--skip-execute', '--phase-from', '48', '--phase-to', '48'], false)
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--skip-execute', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
       );
       const result = JSON.parse(stdout);
       const steps = result.results.map((r: any) => r.step);
@@ -1799,13 +1841,14 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', timeout: 60, skipPostPipeline: true });
+      await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        timeout: 60,
+        skipPostPipeline: true,
+      });
       // Plan spawn should have been called — verify spawn was invoked with claude
-      expect(spawnSpy).toHaveBeenCalledWith(
-        'claude',
-        expect.any(Array),
-        expect.any(Object)
-      );
+      expect(spawnSpy).toHaveBeenCalledWith('claude', expect.any(Array), expect.any(Object));
     });
 
     it('passes model override through to spawnClaude', async () => {
@@ -1823,7 +1866,12 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', model: 'haiku', skipPostPipeline: true });
+      await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        model: 'haiku',
+        skipPostPipeline: true,
+      });
       // Check that spawn was called with --model haiku in args
       const spawnCalls = spawnSpy.mock.calls.filter((c: any[]) => c[0] === 'claude');
       expect(spawnCalls.length).toBeGreaterThan(0);
@@ -1988,7 +2036,11 @@ describe('lib/autopilot', () => {
 
       // Execute step now uses async spawn too — spawn mock already returns exit 0
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '50', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '50',
+        skipPostPipeline: true,
+      });
 
       expect(result.phases_completed).toBe(3);
       expect(result.waves).toHaveLength(2);
@@ -3196,7 +3248,11 @@ describe('lib/autopilot', () => {
       });
 
       try {
-        const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipExecute: true });
+        const result = await runAutopilot(tmpDir, {
+          phaseFrom: '48',
+          phaseTo: '48',
+          skipExecute: true,
+        });
         expect(result.stopped_at).toBeNull();
         // Plan step should have completed via scheduler path
         const planResult = result.results.find((r: any) => r.step === 'plan');
@@ -3216,7 +3272,11 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', skipPostPipeline: true });
+      const result = await runAutopilot(tmpDir, {
+        phaseFrom: '48',
+        phaseTo: '48',
+        skipPostPipeline: true,
+      });
       expect(result.phases_completed).toBe(1);
       expect(result.stopped_at).toBeNull();
     });
@@ -3284,9 +3344,17 @@ describe('lib/autopilot', () => {
       // Initialize a minimal git repo in tmpWtDir so execGit calls succeed
       try {
         childProcess.execFileSync('git', ['init'], { cwd: tmpWtDir, stdio: 'pipe' });
-        childProcess.execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: tmpWtDir, stdio: 'pipe' });
-        childProcess.execFileSync('git', ['config', 'user.name', 'Test'], { cwd: tmpWtDir, stdio: 'pipe' });
-      } catch { /* non-fatal */ }
+        childProcess.execFileSync('git', ['config', 'user.email', 'test@test.com'], {
+          cwd: tmpWtDir,
+          stdio: 'pipe',
+        });
+        childProcess.execFileSync('git', ['config', 'user.name', 'Test'], {
+          cwd: tmpWtDir,
+          stdio: 'pipe',
+        });
+      } catch {
+        /* non-fatal */
+      }
     });
 
     afterEach(() => {
@@ -3312,10 +3380,7 @@ describe('lib/autopilot', () => {
       const phaseDir = path.join(milestones, '88-my-phase');
       fs.mkdirSync(phaseDir, { recursive: true });
 
-      fs.writeFileSync(
-        path.join(planning, 'ROADMAP.md'),
-        '# Roadmap\n\n**Milestone:** v1.0\n'
-      );
+      fs.writeFileSync(path.join(planning, 'ROADMAP.md'), '# Roadmap\n\n**Milestone:** v1.0\n');
 
       // PLAN.md with <objective> section
       fs.writeFileSync(
@@ -3324,10 +3389,7 @@ describe('lib/autopilot', () => {
       );
 
       // STATE.md needed for findPhaseInternal to locate the phase
-      fs.writeFileSync(
-        path.join(planning, 'STATE.md'),
-        '# State\n\n**Milestone:** v1.0\n'
-      );
+      fs.writeFileSync(path.join(planning, 'STATE.md'), '# State\n\n**Milestone:** v1.0\n');
 
       const prompt = buildConflictResolvePrompt('88', tmpDir, tmpWtDir);
       expect(prompt).toContain('Build the serial merge queue with FIFO ordering.');
@@ -3511,7 +3573,11 @@ describe('lib/autopilot', () => {
     it('parses --skip-post-pipeline flag', async () => {
       tmpDir = createAutopilotFixture();
       const { stdout } = await captureOutputAsync(() =>
-        cmdAutopilot(tmpDir, ['--dry-run', '--skip-post-pipeline', '--phase-from', '48', '--phase-to', '48'], false)
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--skip-post-pipeline', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
       );
       const result = JSON.parse(stdout);
       expect(result).toBeDefined();
@@ -3531,7 +3597,9 @@ describe('lib/autopilot', () => {
         // Clean up worktrees before removing tmpDir
         try {
           childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         fs.rmSync(tmpDir, { recursive: true, force: true });
         tmpDir = '';
       }
@@ -3539,9 +3607,7 @@ describe('lib/autopilot', () => {
 
     it('creates worktree for execution and cleans up after', async () => {
       tmpDir = createAutopilotFixture({
-        phaseDirs: [
-          { dir: '48-first-feature', files: {} },
-        ],
+        phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
@@ -3630,9 +3696,7 @@ describe('lib/autopilot', () => {
 
     it('reports execution failure and cleans up worktree', async () => {
       tmpDir = createAutopilotFixture({
-        phaseDirs: [
-          { dir: '48-first-feature', files: {} },
-        ],
+        phaseDirs: [{ dir: '48-first-feature', files: {} }],
       });
 
       let callCount = 0;
@@ -3701,7 +3765,9 @@ describe('lib/autopilot', () => {
       if (tmpDir) {
         try {
           childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         fs.rmSync(tmpDir, { recursive: true, force: true });
         tmpDir = '';
       }
@@ -3768,11 +3834,16 @@ describe('lib/autopilot', () => {
     let spawnSpy: any;
 
     afterEach(() => {
-      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
       if (tmpDir) {
         try {
           childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         fs.rmSync(tmpDir, { recursive: true, force: true });
         tmpDir = '';
       }
@@ -3848,8 +3919,9 @@ describe('lib/autopilot', () => {
       // Mock execFileSync for git calls:
       // - pushAndCreatePR uses git push + gh pr create — we need those to succeed
       // - rebase step uses git rebase — make it fail with conflict exit code
-      execFileSyncSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      execFileSyncSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'git' && argList[0] === 'rebase' && argList[1] === 'main') {
@@ -3878,8 +3950,7 @@ describe('lib/autopilot', () => {
           }
           // Allow all other git calls through normally
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       try {
         const result = await runPostPhasePipeline(tmpDir, '48', tmpDir, {
@@ -3895,7 +3966,9 @@ describe('lib/autopilot', () => {
         // The test may also fail at create-pr or code-review if mocks aren't exhaustive —
         // we mainly care that when it hits rebase failure, the message has the right content.
       } finally {
-        if (execFileSyncSpy) { execFileSyncSpy.mockRestore(); }
+        if (execFileSyncSpy) {
+          execFileSyncSpy.mockRestore();
+        }
       }
     });
 
@@ -3945,8 +4018,9 @@ describe('lib/autopilot', () => {
       // Conditionally asserts based on which step the pipeline reaches.
       tmpDir = createAutopilotFixture();
       let spawnCallCount = 0;
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
@@ -3959,8 +4033,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const idx = spawnCallCount++;
@@ -3992,8 +4065,9 @@ describe('lib/autopilot', () => {
       // with a non-empty reason.
       tmpDir = createAutopilotFixture();
       let spawnCallCount = 0;
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
@@ -4006,8 +4080,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         const idx = spawnCallCount++;
@@ -4034,8 +4107,9 @@ describe('lib/autopilot', () => {
       // We use conditional assertion: if we reach code-review, spawn count must be ≤ 2.
       tmpDir = createAutopilotFixture();
       let spawnCallCount = 0;
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
@@ -4051,8 +4125,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         spawnCallCount++;
@@ -4091,8 +4164,9 @@ describe('lib/autopilot', () => {
       // so jest.spyOn CAN intercept it. This test exercises that path.
       tmpDir = createAutopilotFixture();
       let spawnCallCount = 0;
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
@@ -4110,8 +4184,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
         spawnCallCount++;
@@ -4153,8 +4226,9 @@ describe('lib/autopilot', () => {
         return createMockChild(1); // conflict resolver fails
       });
 
-      execFileSyncSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      execFileSyncSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'git' && argList[0] === 'rebase' && argList[1] === 'main') {
@@ -4179,8 +4253,7 @@ describe('lib/autopilot', () => {
             return '' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       try {
         const result = await runPostPhasePipeline(tmpDir, '48', tmpDir, { log: noop });
@@ -4304,11 +4377,16 @@ describe('lib/autopilot', () => {
     let spawnSpy: any;
 
     afterEach(() => {
-      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
       if (tmpDir) {
         try {
           childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         fs.rmSync(tmpDir, { recursive: true, force: true });
         tmpDir = '';
       }
@@ -4350,8 +4428,9 @@ describe('lib/autopilot', () => {
       tmpDir = createAutopilotFixture();
 
       const mergeCallCount = { count: 0 };
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'merge') {
@@ -4368,8 +4447,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
 
@@ -4404,8 +4482,9 @@ describe('lib/autopilot', () => {
       let maxConcurrent = 0;
       let mergeCallNum = 0;
 
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'gh' && argList[0] === 'pr' && argList[1] === 'create') {
@@ -4426,8 +4505,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
 
@@ -4473,8 +4551,9 @@ describe('lib/autopilot', () => {
         return createMockChild(1); // conflict resolver fails
       });
 
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'git' && argList[0] === 'rebase' && argList[1] === 'main') {
@@ -4499,8 +4578,7 @@ describe('lib/autopilot', () => {
             return '' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       try {
         const result = await runPostPhasePipeline(tmpDir, '48', tmpDir, { log: noop });
@@ -4533,8 +4611,9 @@ describe('lib/autopilot', () => {
         return createMockChild(1); // conflict resolver fails
       });
 
-      const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      const execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
           if (cmd === 'git' && argList[0] === 'rebase' && argList[1] === 'main') {
@@ -4559,8 +4638,7 @@ describe('lib/autopilot', () => {
             return '' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       try {
         const result = await runPostPhasePipeline(tmpDir, '48', tmpDir, { log: noop });
@@ -4615,7 +4693,8 @@ describe('lib/autopilot', () => {
     it('preserves YAML quotes in dash-list — quotes are not stripped', () => {
       // parseWriteIntent captures raw value after `- ` including surrounding quotes.
       // Decision [Phase 91]: parseWriteIntent does not strip YAML quotes from dash-list values.
-      const fm = 'phase: 89\nfiles_modified:\n  - "lib/file with spaces.ts"\n  - \'lib/quoted.ts\'\nautonomous: true';
+      const fm =
+        'phase: 89\nfiles_modified:\n  - "lib/file with spaces.ts"\n  - \'lib/quoted.ts\'\nautonomous: true';
       const result = parseWriteIntent(fm);
       expect(result).toEqual(['"lib/file with spaces.ts"', "'lib/quoted.ts'"]);
     });
@@ -4722,8 +4801,12 @@ describe('lib/autopilot', () => {
       };
       const lines = formatWriteIntentMismatch('89-03', comparison);
       expect(lines).toHaveLength(2);
-      expect(lines[0]).toBe('[WRITE-INTENT-MISMATCH] Plan 89-03: unexpected file modified: lib/extra.ts');
-      expect(lines[1]).toBe('[WRITE-INTENT-MISMATCH] Plan 89-03: declared file not modified: lib/missing.ts');
+      expect(lines[0]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 89-03: unexpected file modified: lib/extra.ts'
+      );
+      expect(lines[1]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 89-03: declared file not modified: lib/missing.ts'
+      );
     });
 
     it('returns empty array when no mismatches', () => {
@@ -4746,12 +4829,22 @@ describe('lib/autopilot', () => {
         expect(line).toMatch(/^\[WRITE-INTENT-MISMATCH\] Plan 91-02:/);
       }
       // Unexpected file lines
-      expect(lines[0]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/x.ts');
-      expect(lines[1]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/y.ts');
-      expect(lines[2]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/z.ts');
+      expect(lines[0]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/x.ts'
+      );
+      expect(lines[1]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/y.ts'
+      );
+      expect(lines[2]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 91-02: unexpected file modified: lib/z.ts'
+      );
       // Untouched file lines
-      expect(lines[3]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/p.ts');
-      expect(lines[4]).toBe('[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/q.ts');
+      expect(lines[3]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/p.ts'
+      );
+      expect(lines[4]).toBe(
+        '[WRITE-INTENT-MISMATCH] Plan 91-02: declared file not modified: lib/q.ts'
+      );
     });
   });
 
@@ -4779,7 +4872,9 @@ describe('lib/autopilot', () => {
     let tmpDir: string;
     let spawnSpy: any;
     const logs: string[] = [];
-    const log = (msg: string) => { logs.push(msg); };
+    const log = (msg: string) => {
+      logs.push(msg);
+    };
 
     function makeConfig(refinementLoop: boolean) {
       return JSON.stringify({ model_profile: 'balanced', refinement_loop: refinementLoop });
@@ -4788,12 +4883,17 @@ describe('lib/autopilot', () => {
     /** Create a mock spawn child that emits coverage output so _collectMetrics can parse it */
     function createMockChildWithCoverage(exitCode = 0) {
       const child = new EventEmitter();
-      child.kill = jest.fn(() => { process.nextTick(() => child.emit('close', null)); });
+      child.kill = jest.fn(() => {
+        process.nextTick(() => child.emit('close', null));
+      });
       child.stdout = new EventEmitter();
       child.stderr = new EventEmitter();
       process.nextTick(() => {
         // Emit Jest-like coverage table line so _collectMetrics returns a valid metric
-        child.stdout.emit('data', Buffer.from('All files          |   85.00 |   80.00 |   85.00 |   85.00 |\n'));
+        child.stdout.emit(
+          'data',
+          Buffer.from('All files          |   85.00 |   80.00 |   85.00 |   85.00 |\n')
+        );
         child.emit('close', exitCode);
       });
       return child;
@@ -4811,8 +4911,14 @@ describe('lib/autopilot', () => {
     });
 
     afterEach(() => {
-      if (tmpDir) { fs.rmSync(tmpDir, { recursive: true, force: true }); tmpDir = ''; }
-      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
     });
 
     it('skips when agent definition is missing', async () => {
@@ -4843,9 +4949,9 @@ describe('lib/autopilot', () => {
 
       // Should have spawned at least npm test calls (3 per iteration: test, tsc, lint)
       // but stops early on convergence — check loop completed without hitting max-iterations
-      expect(logs.some((m: string) =>
-        m.includes('converged') || m.includes('max iterations')
-      )).toBe(true);
+      expect(
+        logs.some((m: string) => m.includes('converged') || m.includes('max iterations'))
+      ).toBe(true);
     });
 
     it('stops at max_iterations when metrics never converge', async () => {
@@ -4855,11 +4961,16 @@ describe('lib/autopilot', () => {
         // Alternate coverage values so convergence is never reached
         const coverage = callCount % 2 === 0 ? '60.00' : '90.00';
         const child = new EventEmitter();
-        child.kill = jest.fn(() => { process.nextTick(() => child.emit('close', null)); });
+        child.kill = jest.fn(() => {
+          process.nextTick(() => child.emit('close', null));
+        });
         child.stdout = new EventEmitter();
         child.stderr = new EventEmitter();
         process.nextTick(() => {
-          child.stdout.emit('data', Buffer.from(`All files          |   ${coverage} |   80.00 |   85.00 |   85.00 |\n`));
+          child.stdout.emit(
+            'data',
+            Buffer.from(`All files          |   ${coverage} |   80.00 |   85.00 |   85.00 |\n`)
+          );
           child.emit('close', 0);
         });
         return child;
@@ -4995,12 +5106,20 @@ describe('lib/autopilot', () => {
     let execSpy: any;
 
     afterEach(() => {
-      if (spawnSpy) { spawnSpy.mockRestore(); spawnSpy = undefined; }
-      if (execSpy) { execSpy.mockRestore(); execSpy = undefined; }
+      if (spawnSpy) {
+        spawnSpy.mockRestore();
+        spawnSpy = undefined;
+      }
+      if (execSpy) {
+        execSpy.mockRestore();
+        execSpy = undefined;
+      }
       if (tmpDir) {
         try {
           childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         fs.rmSync(tmpDir, { recursive: true, force: true });
         tmpDir = '';
       }
@@ -5037,10 +5156,7 @@ describe('lib/autopilot', () => {
       };
 
       // Phase 48 enqueues at t=0ms, phase 49 enqueues at t=10ms
-      await Promise.all([
-        makeStep4('48', 0),
-        makeStep4('49', 10),
-      ]);
+      await Promise.all([makeStep4('48', 0), makeStep4('49', 10)]);
 
       // Phase 48 arrives first → merges first
       expect(mergeOrder).toEqual(['48', '49']);
@@ -5068,8 +5184,9 @@ describe('lib/autopilot', () => {
         return createMockChild(0);
       });
 
-      execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
 
@@ -5090,8 +5207,7 @@ describe('lib/autopilot', () => {
           }
           // Fall through to real execFileSync for all other git calls
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       const mergeQueue = createMergeQueue();
 
@@ -5134,8 +5250,9 @@ describe('lib/autopilot', () => {
 
       spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
 
-      execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(
-        (...args: unknown[]) => {
+      execSpy = jest
+        .spyOn(childProcess, 'execFileSync')
+        .mockImplementation((...args: unknown[]) => {
           const cmd = args[0] as string;
           const argList = Array.isArray(args[1]) ? (args[1] as string[]) : [];
 
@@ -5158,8 +5275,7 @@ describe('lib/autopilot', () => {
             return 'grd/phase-48' as any;
           }
           return (childProcess.execFileSync as (...a: unknown[]) => unknown)(...args);
-        }
-      );
+        });
 
       const mergeQueue = createMergeQueue();
 
@@ -5194,7 +5310,10 @@ describe('lib/autopilot', () => {
 
       // Simulate the full post-phase pipeline for a phase:
       //   step1 (simplify) → step2 (create-pr) → step3 (review) → step4 (merge via queue)
-      const simulatePhase = async (phaseNum: string, executionDelayMs: number): Promise<{ status: string; prUrl: string }> => {
+      const simulatePhase = async (
+        phaseNum: string,
+        executionDelayMs: number
+      ): Promise<{ status: string; prUrl: string }> => {
         // Execution delay: simulates the phase's worktree execution time
         await delay(executionDelayMs);
 
@@ -5279,10 +5398,7 @@ describe('lib/autopilot', () => {
 
     it('returns baseline waves when plans have provides but no inter-plan deps', () => {
       const phases = [makePhase('1'), makePhase('2')];
-      const plans = [
-        makePlanArtifact(1, ['X']),
-        makePlanArtifact(2, ['Y']),
-      ];
+      const plans = [makePlanArtifact(1, ['X']), makePlanArtifact(2, ['Y'])];
       const waves = buildWavesFromPlans(plans, phases);
       // No inter-plan deps: both stay in wave 0
       expect(waves).toHaveLength(1);
@@ -5293,8 +5409,8 @@ describe('lib/autopilot', () => {
       const phases = [makePhase('1'), makePhase('2')];
       // Plans whose IDs match the phase numbers in the wave
       const plans = [
-        makePlanArtifact(1, ['X'], [], '1'),  // plan ID: '1-01'
-        makePlanArtifact(2, [], ['X'], '1'),   // plan ID: '1-02', requires X from '1-01'
+        makePlanArtifact(1, ['X'], [], '1'), // plan ID: '1-01'
+        makePlanArtifact(2, [], ['X'], '1'), // plan ID: '1-02', requires X from '1-01'
       ];
       const waves = buildWavesFromPlans(plans, phases);
       // Both plans are within phase '1' — artifact splitting separates plan IDs
@@ -5305,10 +5421,7 @@ describe('lib/autopilot', () => {
 
     it('falls back to baseline when artifact DAG has cycles', () => {
       const phases = [makePhase('1'), makePhase('2')];
-      const plans = [
-        makePlanArtifact(1, ['A'], ['B']),
-        makePlanArtifact(2, ['B'], ['A']),
-      ];
+      const plans = [makePlanArtifact(1, ['A'], ['B']), makePlanArtifact(2, ['B'], ['A'])];
       // Capture stderr warning
       const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const waves = buildWavesFromPlans(plans, phases);
@@ -5322,10 +5435,7 @@ describe('lib/autopilot', () => {
     });
 
     it('preserves phase-level deps even when no artifact refinement needed', () => {
-      const phases = [
-        makePhase('1'),
-        makePhase('2', 'Phase 1'),
-      ];
+      const phases = [makePhase('1'), makePhase('2', 'Phase 1')];
       const plans = [makePlanArtifact(1, ['X']), makePlanArtifact(2, ['Y'])];
       const waves = buildWavesFromPlans(plans, phases);
       // Phase 2 depends on phase 1 at phase level

@@ -1,23 +1,23 @@
 'use strict';
 
-const {
-  _startIdleWatchdog,
-  _resolveIdleTimeoutSeconds,
-  _killProcessTree,
-} = require('../../lib/scheduler') as {
-  _startIdleWatchdog: (
-    idleTimeoutMs: number,
-    onIdle: () => void
-  ) => { markActivity: () => void; stop: () => void };
-  _resolveIdleTimeoutSeconds: (
-    backend: string,
-    config: { idle_timeout_seconds_by_backend?: Record<string, number>; idle_timeout_seconds?: number },
-  ) => number;
-  _killProcessTree: (
-    child: { pid?: number; kill: (sig: string) => void },
-    signal: string
-  ) => void;
-};
+const { _startIdleWatchdog, _resolveIdleTimeoutSeconds, _killProcessTree } =
+  require('../../lib/scheduler') as {
+    _startIdleWatchdog: (
+      idleTimeoutMs: number,
+      onIdle: () => void
+    ) => { markActivity: () => void; stop: () => void };
+    _resolveIdleTimeoutSeconds: (
+      backend: string,
+      config: {
+        idle_timeout_seconds_by_backend?: Record<string, number>;
+        idle_timeout_seconds?: number;
+      }
+    ) => number;
+    _killProcessTree: (
+      child: { pid?: number; kill: (sig: string) => void },
+      signal: string
+    ) => void;
+  };
 
 describe('_startIdleWatchdog', () => {
   beforeEach(() => {
@@ -78,7 +78,7 @@ describe('_resolveIdleTimeoutSeconds', () => {
       _resolveIdleTimeoutSeconds('gemini', {
         idle_timeout_seconds: 600,
         idle_timeout_seconds_by_backend: { gemini: 1800 },
-      }),
+      })
     ).toBe(1800);
   });
 
@@ -87,7 +87,7 @@ describe('_resolveIdleTimeoutSeconds', () => {
       _resolveIdleTimeoutSeconds('claude', {
         idle_timeout_seconds: 600,
         idle_timeout_seconds_by_backend: { gemini: 1800 },
-      }),
+      })
     ).toBe(600);
   });
 });
@@ -118,9 +118,7 @@ describe('_killProcessTree', () => {
       throw err;
     });
     try {
-      expect(() =>
-        _killProcessTree({ pid: 99999, kill: () => {} }, 'SIGTERM'),
-      ).not.toThrow();
+      expect(() => _killProcessTree({ pid: 99999, kill: () => {} }, 'SIGTERM')).not.toThrow();
     } finally {
       pk.mockRestore();
     }

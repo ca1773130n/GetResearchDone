@@ -261,6 +261,8 @@ interface SpawnOptions {
   outputFormat?: string;
   captureOutput?: boolean;
   captureStderr?: boolean;
+  /** Agent type hint for complexity-based tier routing (M2). */
+  agentType?: string;
 }
 
 /** Result from subprocess execution. */

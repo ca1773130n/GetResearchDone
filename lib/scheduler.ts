@@ -301,7 +301,11 @@ export function _killProcessTree(
   if (child.pid === undefined) return;
   if (process.platform === 'win32') {
     // Windows: just kill the direct child (no POSIX process groups)
-    try { child.kill(signal); } catch { /* already dead */ }
+    try {
+      child.kill(signal);
+    } catch {
+      /* already dead */
+    }
     return;
   }
   // POSIX: signal the whole process group via negative pid
@@ -311,7 +315,11 @@ export function _killProcessTree(
     // ESRCH (no such process) is benign — process already exited.
     // Fall back to direct kill in case the group wasn't created (e.g., race).
     if ((e as NodeJS.ErrnoException).code !== 'ESRCH') {
-      try { child.kill(signal); } catch { /* already dead */ }
+      try {
+        child.kill(signal);
+      } catch {
+        /* already dead */
+      }
     }
   }
 }
@@ -331,11 +339,7 @@ export function _resolveIdleTimeoutSeconds(
     idle_timeout_seconds?: number;
   }
 ): number {
-  return (
-    config.idle_timeout_seconds_by_backend?.[backend] ??
-    config.idle_timeout_seconds ??
-    900
-  );
+  return config.idle_timeout_seconds_by_backend?.[backend] ?? config.idle_timeout_seconds ?? 900;
 }
 
 /**
@@ -1059,7 +1063,7 @@ export function createScheduler(
           const sample: UsageSample = {
             backend: backend as BackendId,
             stateKey,
-            agentType: opts.agentType,  // M2: record per-agent type for complexity routing
+            agentType: opts.agentType, // M2: record per-agent type for complexity routing
             timestamp: Date.now(),
             duration,
             tokenEstimate: tokens,

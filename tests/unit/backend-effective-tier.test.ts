@@ -286,27 +286,31 @@ describe('getEffectiveTierForDispatch agent-type filtering (M2 regression)', () 
     states.set('claude/~/.claude', {
       samples: [
         // 5 cheap verifier samples — should NOT influence planner dispatch
-        ...Array(5).fill(null).map((_, i) => ({
-          backend: 'claude',
-          stateKey: 'claude/~/.claude',
-          agentType: 'grd-verifier',
-          timestamp: now - (5 - i) * 1000,
-          duration: 50,
-          tokenEstimate: 200,
-          exitCode: 0,
-          workItemId: `v${i}`,
-        })),
+        ...Array(5)
+          .fill(null)
+          .map((_, i) => ({
+            backend: 'claude',
+            stateKey: 'claude/~/.claude',
+            agentType: 'grd-verifier',
+            timestamp: now - (5 - i) * 1000,
+            duration: 50,
+            tokenEstimate: 200,
+            exitCode: 0,
+            workItemId: `v${i}`,
+          })),
         // 3 expensive planner samples — these have high tokenEstimate
-        ...Array(3).fill(null).map((_, i) => ({
-          backend: 'claude',
-          stateKey: 'claude/~/.claude',
-          agentType: 'grd-planner',
-          timestamp: now - (3 - i) * 500,
-          duration: 2000,
-          tokenEstimate: 50_000,
-          exitCode: 0,
-          workItemId: `p${i}`,
-        })),
+        ...Array(3)
+          .fill(null)
+          .map((_, i) => ({
+            backend: 'claude',
+            stateKey: 'claude/~/.claude',
+            agentType: 'grd-planner',
+            timestamp: now - (3 - i) * 500,
+            duration: 2000,
+            tokenEstimate: 50_000,
+            exitCode: 0,
+            workItemId: `p${i}`,
+          })),
       ],
       ewma_tokens_per_task: 0,
       tokens_consumed_in_window: 0,

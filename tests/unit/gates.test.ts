@@ -349,27 +349,22 @@ describe('checkInvariantValidation', () => {
 
   test('returns empty when phaseDir exists but cannot be read (ENOTDIR)', () => {
     // Simulate readdirSync failing on the phase directory by matching the specific path.
-    const phasesDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases'
-    );
+    const phasesDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
     const newPhaseDir = path.join(phasesDir, '50-unreadable');
     fs.mkdirSync(newPhaseDir);
 
-    const originalReaddirSync = (fs.readdirSync as Function);
-    const spy = jest
-      .spyOn(fs, 'readdirSync')
-      .mockImplementation(function (dirPath: unknown, ...rest: unknown[]) {
-        // Throw only when called with the specific phaseDir path (no options = plan files listing)
-        if (typeof dirPath === 'string' && dirPath === newPhaseDir) {
-          const err = Object.assign(new Error('ENOTDIR: not a directory'), { code: 'ENOTDIR' });
-          throw err;
-        }
-        return (originalReaddirSync as Function)(dirPath, ...rest);
-      } as typeof fs.readdirSync);
+    const originalReaddirSync = fs.readdirSync as Function;
+    const spy = jest.spyOn(fs, 'readdirSync').mockImplementation(function (
+      dirPath: unknown,
+      ...rest: unknown[]
+    ) {
+      // Throw only when called with the specific phaseDir path (no options = plan files listing)
+      if (typeof dirPath === 'string' && dirPath === newPhaseDir) {
+        const err = Object.assign(new Error('ENOTDIR: not a directory'), { code: 'ENOTDIR' });
+        throw err;
+      }
+      return (originalReaddirSync as Function)(dirPath, ...rest);
+    } as typeof fs.readdirSync);
 
     try {
       const violations = checkInvariantValidation(tmpDir, { phase: '50' });
@@ -380,14 +375,7 @@ describe('checkInvariantValidation', () => {
   });
 
   test('returns INVARIANT_STRUCTURAL errors for invalid plan files', () => {
-    const phaseDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases',
-      '01-test'
-    );
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
     // Write a plan with missing required fields (no objective, no files_modified)
     fs.writeFileSync(
       path.join(phaseDir, '01-01-PLAN.md'),
@@ -408,41 +396,39 @@ describe('checkInvariantValidation', () => {
     const violations = checkInvariantValidation(tmpDir, { phase: '1' });
 
     // Should have structural violations (empty files_modified, missing objective)
-    const structuralErrors = violations.filter((v: { code: string }) => v.code === 'INVARIANT_STRUCTURAL');
+    const structuralErrors = violations.filter(
+      (v: { code: string }) => v.code === 'INVARIANT_STRUCTURAL'
+    );
     expect(structuralErrors.length).toBeGreaterThan(0);
   });
 
   test('returns INVARIANT_CROSS_PHASE errors for duplicate provides', () => {
-    const phaseDir = path.join(
-      tmpDir,
-      '.planning',
-      'milestones',
-      'anonymous',
-      'phases',
-      '01-test'
-    );
-    const validPlan = (planNum: number, provides: string) => [
-      '---',
-      `phase: 01-test`,
-      `plan: ${planNum}`,
-      'type: execute',
-      'wave: 1',
-      'autonomous: false',
-      'files_modified: [lib/foo.ts]',
-      `provides: [${provides}]`,
-      'requires: []',
-      '---',
-      '',
-      '<objective>Implement something useful</objective>',
-      '',
-    ].join('\n');
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '01-test');
+    const validPlan = (planNum: number, provides: string) =>
+      [
+        '---',
+        `phase: 01-test`,
+        `plan: ${planNum}`,
+        'type: execute',
+        'wave: 1',
+        'autonomous: false',
+        'files_modified: [lib/foo.ts]',
+        `provides: [${provides}]`,
+        'requires: []',
+        '---',
+        '',
+        '<objective>Implement something useful</objective>',
+        '',
+      ].join('\n');
 
     fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), validPlan(1, 'shared-artifact'));
     fs.writeFileSync(path.join(phaseDir, '01-02-PLAN.md'), validPlan(2, 'shared-artifact'));
 
     const violations = checkInvariantValidation(tmpDir, { phase: '1' });
 
-    const crossErrors = violations.filter((v: { code: string }) => v.code === 'INVARIANT_CROSS_PHASE');
+    const crossErrors = violations.filter(
+      (v: { code: string }) => v.code === 'INVARIANT_CROSS_PHASE'
+    );
     expect(crossErrors.length).toBeGreaterThan(0);
     expect(crossErrors[0].message).toContain('shared-artifact');
   });
@@ -850,7 +836,7 @@ describe('runPreflightGates gate error handling (M1 regression)', () => {
         runPreflightGates: (
           cwd: string,
           command: string,
-          opts?: { phase?: string },
+          opts?: { phase?: string }
         ) => { errors: unknown[]; warnings: Array<{ code: string; message: string }> };
       };
 
@@ -870,9 +856,7 @@ describe('runPreflightGates gate error handling (M1 regression)', () => {
       try {
         const result = gates.runPreflightGates(tmpDir, command, { phase: '1' });
         expect(result.warnings.some((w) => w.code === 'GATE_ERROR')).toBe(true);
-        expect(stderrSpy).toHaveBeenCalledWith(
-          expect.stringContaining(`gate '${gateName}' threw`),
-        );
+        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining(`gate '${gateName}' threw`));
       } finally {
         (gates._GATE_CHECKS as Record<string, unknown>)[gateName] = original;
       }

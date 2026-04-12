@@ -4,17 +4,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const {
-  readRoadmapFile,
-  readStateFile,
-  clearRoadmapCache,
-  clearStateCache,
-} = require('../../lib/phase-io') as {
-  readRoadmapFile: (p: string) => string;
-  readStateFile: (p: string) => string;
-  clearRoadmapCache: (filePath?: string) => void;
-  clearStateCache: (filePath?: string) => void;
-};
+const { readRoadmapFile, readStateFile, clearRoadmapCache, clearStateCache } =
+  require('../../lib/phase-io') as {
+    readRoadmapFile: (p: string) => string;
+    readStateFile: (p: string) => string;
+    clearRoadmapCache: (filePath?: string) => void;
+    clearStateCache: (filePath?: string) => void;
+  };
 
 describe('phase-io cache invalidation (I4 regression)', () => {
   let tmpDir: string;

@@ -9,7 +9,6 @@
  *             lib/frontmatter.js (extractFrontmatter)
  */
 
-
 import type { GrdConfig } from './types';
 
 const fs = require('fs');
@@ -156,10 +155,7 @@ interface SnapshotDiff {
 // O2: Consolidated duplicate _stateFileCache into phase-io so that reads
 // from state.ts and phase-complete.ts share the same cache and can be
 // invalidated together via clearStateCache.
-const {
-  readStateFile,
-  writeStateFile,
-} = require('./phase-io') as {
+const { readStateFile, writeStateFile } = require('./phase-io') as {
   readStateFile: (p: string) => string;
   writeStateFile: (p: string, content: string) => void;
 };

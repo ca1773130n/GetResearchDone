@@ -448,12 +448,10 @@ async function _runAutoresearchLoop(
       throw new Error(
         `[autoresearch] failed to create or checkout branch '${branchName}': ` +
           `create exit ${branchResult.exitCode}, checkout exit ${checkoutResult.exitCode}. ` +
-          `Please delete the existing branch or run from a clean worktree.`,
+          `Please delete the existing branch or run from a clean worktree.`
       );
     }
-    process.stderr.write(
-      `[autoresearch] branch '${branchName}' already exists, reusing\n`,
-    );
+    process.stderr.write(`[autoresearch] branch '${branchName}' already exists, reusing\n`);
   }
   _log(`Created branch: ${branchName}`);
 

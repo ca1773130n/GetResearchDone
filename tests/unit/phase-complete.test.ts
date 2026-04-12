@@ -223,15 +223,15 @@ describe('multi-dot phase number regex escaping (I5 regression)', () => {
         '## Phase 01.1: Target',
         '**Plans:** 1/1 plans complete',
         '',
-      ].join('\n'),
+      ].join('\n')
     );
     fs.writeFileSync(
       path.join(planning, 'STATE.md'),
-      '# State\n\n**Current Phase:** 1.1\n**Current Phase Name:** Target\n**Status:** Executing\n**Current Plan:** 01\n**Last Activity:** 2026-04-12\n**Last Activity Description:** running\n',
+      '# State\n\n**Current Phase:** 1.1\n**Current Phase Name:** Target\n**Status:** Executing\n**Current Plan:** 01\n**Last Activity:** 2026-04-12\n**Last Activity Description:** running\n'
     );
     fs.writeFileSync(
       path.join(planning, 'config.json'),
-      JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } }),
+      JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } })
     );
 
     try {

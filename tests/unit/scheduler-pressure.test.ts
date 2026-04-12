@@ -133,7 +133,7 @@ describe('logPressureTransition', () => {
       current: 'none' | 'warning' | 'high' | 'critical',
       agentType: string,
       baseTier: string,
-      effectiveTier: string,
+      effectiveTier: string
     ) => void;
   };
 
@@ -152,7 +152,7 @@ describe('logPressureTransition', () => {
     logPressureTransition(key, 'warning', 'grd-planner', 'opus', 'opus');
     expect(stderrSpy).toHaveBeenCalledTimes(1);
     expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining('budget pressure detected — level=warning'),
+      expect.stringContaining('budget pressure detected — level=warning')
     );
   });
 
@@ -168,7 +168,7 @@ describe('logPressureTransition', () => {
     const key = `test-downgrade-${Math.random()}`;
     logPressureTransition(key, 'high', 'grd-executor', 'opus', 'sonnet');
     expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining('downgrading grd-executor from opus to sonnet'),
+      expect.stringContaining('downgrading grd-executor from opus to sonnet')
     );
   });
 
@@ -188,7 +188,7 @@ describe('logPressureTransition session isolation (O3 regression)', () => {
       level: 'none' | 'warning' | 'high' | 'critical',
       agentType: string,
       baseTier: string,
-      effectiveTier: string,
+      effectiveTier: string
     ) => void;
   };
 

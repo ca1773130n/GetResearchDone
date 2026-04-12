@@ -43,15 +43,21 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile, clearRoadmapCache, clearStateCache } =
-  require('./phase-io') as {
-    readRoadmapFile: (p: string) => string;
-    writeRoadmapFile: (p: string, content: string) => void;
-    readStateFile: (p: string) => string;
-    writeStateFile: (p: string, content: string) => void;
-    clearRoadmapCache: (filePath?: string) => void;
-    clearStateCache: (filePath?: string) => void;
-  };
+const {
+  readRoadmapFile,
+  writeRoadmapFile,
+  readStateFile,
+  writeStateFile,
+  clearRoadmapCache,
+  clearStateCache,
+} = require('./phase-io') as {
+  readRoadmapFile: (p: string) => string;
+  writeRoadmapFile: (p: string, content: string) => void;
+  readStateFile: (p: string) => string;
+  writeStateFile: (p: string, content: string) => void;
+  clearRoadmapCache: (filePath?: string) => void;
+  clearStateCache: (filePath?: string) => void;
+};
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;
@@ -85,7 +91,7 @@ const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
  */
 export function _resolvePhaseSuccession(
   cwd: string,
-  phaseNum: string,
+  phaseNum: string
 ): {
   phaseName: string;
   plansExecuted: string;
@@ -214,11 +220,7 @@ export function _phaseCompleteCore(
   }
 
   // Find next phase using shared helper
-  const {
-    nextPhaseNum,
-    nextPhaseName,
-    isLastPhase,
-  } = _resolvePhaseSuccession(cwd, phaseNum);
+  const { nextPhaseNum, nextPhaseName, isLastPhase } = _resolvePhaseSuccession(cwd, phaseNum);
 
   // Update STATE.md
   if (fs.existsSync(statePath)) {

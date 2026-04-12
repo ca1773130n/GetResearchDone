@@ -1166,7 +1166,13 @@ function getEffectiveTierForDispatch(opts: {
   // Spec 4 Goal #7: log on pressure transitions only (O3: use per-scheduler
   // sessionKey instead of process.pid to avoid shared state across multiple
   // createScheduler calls in the same process).
-  logPressureTransition(opts.scheduler.sessionKey, pressure, opts.agentType, baseTier, effectiveTier);
+  logPressureTransition(
+    opts.scheduler.sessionKey,
+    pressure,
+    opts.agentType,
+    baseTier,
+    effectiveTier
+  );
 
   return effectiveTier;
 }
