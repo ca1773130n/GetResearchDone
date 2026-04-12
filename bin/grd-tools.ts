@@ -1543,6 +1543,14 @@ async function routeCommand(
       }
       break;
     }
+    case 'metrics': {
+      const { getCounters } = require('../lib/metrics') as {
+        getCounters: () => Record<string, number>;
+      };
+      const counters = getCounters();
+      output(counters, raw, JSON.stringify(counters, null, 2));
+      break;
+    }
     default: {
       const TOP_LEVEL_COMMANDS: readonly string[] = [
         'state',
@@ -1602,6 +1610,7 @@ async function routeCommand(
         'markdown-split',
         'parallel-progress',
         'overstory',
+        'metrics',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

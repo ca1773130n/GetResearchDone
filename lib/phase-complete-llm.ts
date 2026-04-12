@@ -20,6 +20,10 @@ import { setTimeout as sleep } from 'timers/promises';
 import type { GateViolation, PhaseCompleteResult } from './types';
 import type { Scheduler } from './scheduler';
 
+const { incrementCounter } = require('./metrics') as {
+  incrementCounter: (name: string, delta?: number) => void;
+};
+
 const FALLBACK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes max
 const PROMPT_MAX_CONTEXT_BYTES = 100_000; // 100KB ceiling
 
@@ -298,6 +302,7 @@ async function _attemptOnce(
   }
 
   process.stderr.write(`${logPrefix}fallback succeeded for phase ${phaseNum}\n`);
+  incrementCounter('phase_complete_llm_fallback.successes_total');
   return _buildSyntheticResult(phaseNum);
 }
 
@@ -317,6 +322,8 @@ export async function attemptLlmFallbackCompletion(
   failure: Error | { gate_errors?: GateViolation[] }
 ): Promise<PhaseCompleteResult | null> {
   if (!scheduler) return null;
+
+  incrementCounter('phase_complete_llm_fallback.attempts_total');
 
   // Read retry count from config
   let maxRetries = 0;

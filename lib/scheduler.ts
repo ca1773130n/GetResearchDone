@@ -20,6 +20,10 @@ const { waitUntilOrAbort } = require('./scheduler-wait') as {
   waitUntilOrAbort: (targetMs: number) => Promise<'waited' | 'aborted'>;
 };
 
+const { incrementCounter } = require('./metrics') as {
+  incrementCounter: (name: string, delta?: number) => void;
+};
+
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
 
 /**
@@ -507,6 +511,8 @@ export function logPressureTransition(
   if (previous === current) return;
   _lastLoggedPressure.set(sessionKey, current);
 
+  incrementCounter(`scheduler.pressure_transitions.${current}`);
+
   if (current === 'none') return;
   const tierNote =
     baseTier === effectiveTier
@@ -947,6 +953,7 @@ export function createScheduler(
 
         const watchdog = _startIdleWatchdog(idleTimeoutMs, () => {
           idleTimedOut = true;
+          incrementCounter('scheduler.idle_kills_total');
           process.stderr.write(
             `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`
           );
