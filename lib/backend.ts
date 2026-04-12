@@ -1029,6 +1029,7 @@ function computeEffectiveModelTier(opts: {
  */
 interface _SchedulerLike {
   getStates(): Map<string, BackendUsageState>;
+  readonly sessionKey: string;
 }
 
 const { estimateComplexity } = require('./complexity') as {
@@ -1100,11 +1101,16 @@ function getEffectiveTierForDispatch(opts: {
   const states = opts.scheduler.getStates();
 
   // Collect recent samples from all priority accounts (most recent first).
-  // UsageSample has no agentType field, so we pass all samples as a global
-  // workload signal and let estimateComplexity's tail-average compute
-  // complexity. Still better than nothing — reflects overall system load.
+  // Spec 4 M2: collect agentType so we can prefer same-agent samples for
+  // complexity estimation. Old samples without agentType participate in the
+  // global pool only.
   let recentSamples: { duration: number; tokenEstimate: number }[] | undefined;
-  const allSamples: { duration: number; tokenEstimate: number; timestamp: number }[] = [];
+  const allSamples: {
+    duration: number;
+    tokenEstimate: number;
+    timestamp: number;
+    agentType?: string;
+  }[] = [];
   for (const backend of opts.schedulerConfig.backend_priority) {
     const backendAccounts = opts.superpowersConfig.accounts[backend as AdapterBackendId] || [];
     for (const account of backendAccounts) {
@@ -1116,14 +1122,20 @@ function getEffectiveTierForDispatch(opts: {
           duration: sample.duration,
           tokenEstimate: sample.tokenEstimate,
           timestamp: sample.timestamp,
+          agentType: sample.agentType,
         });
       }
     }
   }
   if (allSamples.length >= 3) {
+    // Spec 4 M2: prefer per-agent samples if we have enough, else fall back
+    // to the global tail. Old samples without agentType participate in the
+    // global pool only.
+    const ownAgentSamples = allSamples.filter((s) => s.agentType === opts.agentType);
+    const samplesToUse = ownAgentSamples.length >= 3 ? ownAgentSamples : allSamples;
     // Sort by timestamp descending, take up to 10 most recent
-    allSamples.sort((a, b) => b.timestamp - a.timestamp);
-    recentSamples = allSamples.slice(0, 10).map((s) => ({
+    samplesToUse.sort((a, b) => b.timestamp - a.timestamp);
+    recentSamples = samplesToUse.slice(0, 10).map((s) => ({
       duration: s.duration,
       tokenEstimate: s.tokenEstimate,
     }));
@@ -1151,8 +1163,16 @@ function getEffectiveTierForDispatch(opts: {
     complexity,
   });
 
-  // Spec 4 Goal #7: log on pressure transitions only
-  logPressureTransition(process.pid.toString(), pressure, opts.agentType, baseTier, effectiveTier);
+  // Spec 4 Goal #7: log on pressure transitions only (O3: use per-scheduler
+  // sessionKey instead of process.pid to avoid shared state across multiple
+  // createScheduler calls in the same process).
+  logPressureTransition(
+    opts.scheduler.sessionKey,
+    pressure,
+    opts.agentType,
+    baseTier,
+    effectiveTier
+  );
 
   return effectiveTier;
 }

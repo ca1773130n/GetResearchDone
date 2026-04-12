@@ -9,7 +9,6 @@
  * Dependencies: utils.js (one-directional, no circular deps)
  */
 
-
 import type { RunCache, GrdConfig, GateViolation, PreflightResult } from './types';
 
 const fs = require('fs');
@@ -25,12 +24,17 @@ const {
 const { phasesDir: getPhasesDirPath } = require('./paths');
 const { validateStructural, validateCrossPhase, extractPlanArtifact } = require('./invariants') as {
   validateStructural: (plan: import('./types').PlanArtifact) => import('./types').ValidationResult;
-  validateCrossPhase: (plans: import('./types').PlanArtifact[]) => import('./types').ValidationResult;
+  validateCrossPhase: (
+    plans: import('./types').PlanArtifact[]
+  ) => import('./types').ValidationResult;
   extractPlanArtifact: (content: string) => import('./types').PlanArtifact;
 };
 const { buildCitationGraph, findUnresolved } = require('./citations') as {
   buildCitationGraph: (papersDir: string) => import('./types').CitationGraph;
-  findUnresolved: (graph: import('./types').CitationGraph, priority?: 'critical' | 'normal' | 'low') => import('./types').CitationNode[];
+  findUnresolved: (
+    graph: import('./types').CitationGraph,
+    priority?: 'critical' | 'normal' | 'low'
+  ) => import('./types').CitationNode[];
 };
 
 import type { TraversalOptions, TraversalResult, CitationGraph } from './types';
@@ -502,12 +506,19 @@ function checkTransitiveCitationGate(cwd: string, _opts: GateOptions): GateViola
 
   const researchDir = path.join(cwd, '.planning', 'research');
   const papersPath = path.join(researchDir, 'PAPERS.md');
-  try { fs.statSync(papersPath); } catch { return violations; }
+  try {
+    fs.statSync(papersPath);
+  } catch {
+    return violations;
+  }
 
   try {
     const graph: CitationGraph = buildCitationGraph(researchDir);
     const { traverseCitationGraph } = require('./citations') as {
-      traverseCitationGraph: (g: CitationGraph, opts?: Partial<TraversalOptions>) => TraversalResult;
+      traverseCitationGraph: (
+        g: CitationGraph,
+        opts?: Partial<TraversalOptions>
+      ) => TraversalResult;
     };
     const result: TraversalResult = traverseCitationGraph(graph);
     for (const node of result.unresolved_leaves) {
@@ -531,8 +542,20 @@ function checkTransitiveCitationGate(cwd: string, _opts: GateOptions): GateViola
  * Declarative mapping of commands to their required gate checks.
  */
 const GATE_REGISTRY: GateRegistryMap = {
-  'execute-phase': ['orphaned-phases', 'phase-in-roadmap', 'phase-has-plans', 'invariant-validation'],
-  'plan-phase': ['orphaned-phases', 'phase-in-roadmap', 'no-stale-artifacts', 'invariant-validation', 'citation-gate', 'transitive-citation-gate'],
+  'execute-phase': [
+    'orphaned-phases',
+    'phase-in-roadmap',
+    'phase-has-plans',
+    'invariant-validation',
+  ],
+  'plan-phase': [
+    'orphaned-phases',
+    'phase-in-roadmap',
+    'no-stale-artifacts',
+    'invariant-validation',
+    'citation-gate',
+    'transitive-citation-gate',
+  ],
   'new-milestone': ['old-phases-archived', 'milestone-state-coherence'],
   'phase-add': ['orphaned-phases'],
   'phase-insert': ['orphaned-phases'],
@@ -556,7 +579,8 @@ const GATE_CHECKS: GateCheckMap = {
   'milestone-state-coherence': (cwd: string) => checkMilestoneStateCoherence(cwd),
   'invariant-validation': (cwd: string, opts: GateOptions) => checkInvariantValidation(cwd, opts),
   'citation-gate': (cwd: string, opts: GateOptions) => checkCitationGate(cwd, opts),
-  'transitive-citation-gate': (cwd: string, opts: GateOptions) => checkTransitiveCitationGate(cwd, opts),
+  'transitive-citation-gate': (cwd: string, opts: GateOptions) =>
+    checkTransitiveCitationGate(cwd, opts),
 };
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
@@ -611,8 +635,16 @@ function runPreflightGates(
             result.warnings.push(v);
           }
         }
-      } catch {
-        // Gate checks are non-blocking on internal errors
+      } catch (e) {
+        const msg = (e as Error).message || String(e);
+        process.stderr.write(`[gates] gate '${gateName}' threw: ${msg}\n`);
+        result.warnings.push({
+          code: 'GATE_ERROR',
+          severity: 'warning',
+          message: `Gate '${gateName}' internal error: ${msg}`,
+          fix: 'Check the gate implementation for bugs or update the failing check',
+          context: {},
+        });
       }
     }
 
@@ -657,6 +689,7 @@ module.exports = {
   checkTransitiveCitationGate,
   // Registry and runner
   GATE_REGISTRY,
+  _GATE_CHECKS: GATE_CHECKS,
   runPreflightGates,
   resetGatesCache,
 };

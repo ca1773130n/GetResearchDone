@@ -13,18 +13,19 @@ jest.mock('timers/promises', () => ({
   setTimeout: mockSleep,
 }));
 
-const { attemptLlmFallbackCompletion, _verifyFallbackOutput } = require('../../lib/phase-complete-llm') as {
-  attemptLlmFallbackCompletion: (
-    cwd: string,
-    phaseNum: string,
-    scheduler: Scheduler | null,
-    failure: Error | { gate_errors?: GateViolation[] }
-  ) => Promise<unknown>;
-  _verifyFallbackOutput: (
-    cwd: string,
-    phaseNum: string
-  ) => { ok: boolean; checks: { name: string; passed: boolean }[] };
-};
+const { attemptLlmFallbackCompletion, _verifyFallbackOutput } =
+  require('../../lib/phase-complete-llm') as {
+    attemptLlmFallbackCompletion: (
+      cwd: string,
+      phaseNum: string,
+      scheduler: Scheduler | null,
+      failure: Error | { gate_errors?: GateViolation[] }
+    ) => Promise<unknown>;
+    _verifyFallbackOutput: (
+      cwd: string,
+      phaseNum: string
+    ) => { ok: boolean; checks: { name: string; passed: boolean }[] };
+  };
 
 function makeFakeScheduler(
   behavior: 'success' | 'nonzero' | 'throw',
@@ -267,12 +268,7 @@ describe('attemptLlmFallbackCompletion with retries', () => {
       fs.writeFileSync(configPath, JSON.stringify(existing));
 
       const scheduler = makeFakeScheduler('success'); // succeeds but never ticks roadmap
-      const result = await attemptLlmFallbackCompletion(
-        dir,
-        '3',
-        scheduler,
-        new Error('test'),
-      );
+      const result = await attemptLlmFallbackCompletion(dir, '3', scheduler, new Error('test'));
       expect(result).toBeNull();
       // 1 initial + 2 retries = 3 spawn calls
       expect((scheduler.spawn as jest.Mock).mock.calls.length).toBe(3);
@@ -304,12 +300,12 @@ describe('attemptLlmFallbackCompletion with retries', () => {
             const content = fs.readFileSync(roadmapPath, 'utf-8');
             fs.writeFileSync(
               roadmapPath,
-              content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (done)'),
+              content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (done)')
             );
             const stateContent = fs.readFileSync(statePath, 'utf-8');
             fs.writeFileSync(
               statePath,
-              stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4'),
+              stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4')
             );
           }
           return {
@@ -327,9 +323,7 @@ describe('attemptLlmFallbackCompletion with retries', () => {
         loadPersistedState: jest.fn(),
       } as unknown as Scheduler;
 
-      const result = await attemptLlmFallbackCompletion(
-        dir, '3', scheduler, new Error('test'),
-      );
+      const result = await attemptLlmFallbackCompletion(dir, '3', scheduler, new Error('test'));
       expect(result).not.toBeNull();
       expect(scheduler.spawn).toHaveBeenCalledTimes(2);
       // Sleep called once (backoff between attempt 1 and attempt 2)
@@ -346,7 +340,7 @@ describe('attemptLlmFallbackCompletion with retries', () => {
       // Default config — no retries
       const scheduler = makeFakeScheduler('success');
       await attemptLlmFallbackCompletion(dir, '3', scheduler, new Error('test'));
-      expect((scheduler.spawn as jest.Mock)).toHaveBeenCalledTimes(1);
+      expect(scheduler.spawn as jest.Mock).toHaveBeenCalledTimes(1);
       expect(mockSleep).not.toHaveBeenCalled();
     } finally {
       cleanup(dir);
@@ -354,11 +348,88 @@ describe('attemptLlmFallbackCompletion with retries', () => {
   });
 });
 
+describe('I7 regression: _buildSyntheticResult uses real next-phase discovery', () => {
+  let stderrSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    mockSleep.mockClear();
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  it('result next_phase is non-null and plans_executed is real (I7 regression)', async () => {
+    // Build a full project fixture with milestones/anonymous/phases structure
+    // so _resolvePhaseSuccession can discover the next phase and plan counts.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-i7-'));
+    const planning = path.join(dir, '.planning');
+    fs.mkdirSync(planning);
+    const phasesDir = path.join(planning, 'milestones', 'anonymous', 'phases');
+    fs.mkdirSync(phasesDir, { recursive: true });
+
+    // Phase 03 with 1 plan + 1 summary
+    const phase3Dir = path.join(phasesDir, '03-test-phase');
+    fs.mkdirSync(phase3Dir);
+    fs.writeFileSync(path.join(phase3Dir, '01-PLAN.md'), '# Plan\n');
+    fs.writeFileSync(path.join(phase3Dir, '01-SUMMARY.md'), '# Summary\n');
+
+    // Phase 04 must exist so next-phase discovery returns it
+    fs.mkdirSync(path.join(phasesDir, '04-next-phase'));
+
+    const roadmapPath = path.join(planning, 'ROADMAP.md');
+    const statePath = path.join(planning, 'STATE.md');
+
+    fs.writeFileSync(roadmapPath, '# Roadmap\n\n- [ ] Phase 3: Test\n- [ ] Phase 4: Next\n');
+    fs.writeFileSync(statePath, '# State\n\n**Current Phase:** 3\n');
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } })
+    );
+
+    try {
+      const scheduler = makeFakeScheduler('success', () => {
+        // Tick roadmap and advance state so verification passes
+        const content = fs.readFileSync(roadmapPath, 'utf-8');
+        fs.writeFileSync(
+          roadmapPath,
+          content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed)')
+        );
+        const stateContent = fs.readFileSync(statePath, 'utf-8');
+        fs.writeFileSync(
+          statePath,
+          stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4')
+        );
+      });
+      const result = (await attemptLlmFallbackCompletion(
+        dir,
+        '3',
+        scheduler,
+        new Error('test')
+      )) as {
+        next_phase: string | null;
+        is_last_phase: boolean;
+        plans_executed: string;
+        llm_fallback?: boolean;
+      } | null;
+
+      expect(result).not.toBeNull();
+      expect(result!.llm_fallback).toBe(true);
+      // Real next-phase discovery: should be '04' (from dir '04-next-phase'), not null
+      expect(result!.next_phase).not.toBeNull();
+      expect(result!.is_last_phase).toBe(false);
+      // Real plan count from phase dir: 1 summary / 1 plan
+      expect(result!.plans_executed).not.toBe('N/A');
+      expect(result!.plans_executed).toMatch(/\d+\/\d+/);
+    } finally {
+      cleanup(dir);
+    }
+  });
+});
+
 describe('_verifyFallbackOutput', () => {
-  function makeProjectWithStates(
-    roadmapContent: string,
-    stateContent: string,
-  ): string {
+  function makeProjectWithStates(roadmapContent: string, stateContent: string): string {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-verify-'));
     const planning = path.join(dir, '.planning');
     fs.mkdirSync(planning);
@@ -368,10 +439,7 @@ describe('_verifyFallbackOutput', () => {
   }
 
   it('passes when roadmap is ticked and state is advanced', () => {
-    const dir = makeProjectWithStates(
-      '- [x] Phase 3: Test\n',
-      '**Current Phase:** 4\n',
-    );
+    const dir = makeProjectWithStates('- [x] Phase 3: Test\n', '**Current Phase:** 4\n');
     try {
       const result = _verifyFallbackOutput(dir, '3');
       expect(result.ok).toBe(true);
@@ -381,10 +449,7 @@ describe('_verifyFallbackOutput', () => {
   });
 
   it('fails when roadmap is not ticked', () => {
-    const dir = makeProjectWithStates(
-      '- [ ] Phase 3: Test\n',
-      '**Current Phase:** 4\n',
-    );
+    const dir = makeProjectWithStates('- [ ] Phase 3: Test\n', '**Current Phase:** 4\n');
     try {
       const result = _verifyFallbackOutput(dir, '3');
       expect(result.ok).toBe(false);
@@ -395,10 +460,7 @@ describe('_verifyFallbackOutput', () => {
   });
 
   it('fails when state still shows completed phase as current', () => {
-    const dir = makeProjectWithStates(
-      '- [x] Phase 3: Test\n',
-      '**Current Phase:** 3\n',
-    );
+    const dir = makeProjectWithStates('- [x] Phase 3: Test\n', '**Current Phase:** 3\n');
     try {
       const result = _verifyFallbackOutput(dir, '3');
       expect(result.ok).toBe(false);
@@ -411,7 +473,7 @@ describe('_verifyFallbackOutput', () => {
   it('passes when state shows Milestone complete', () => {
     const dir = makeProjectWithStates(
       '- [x] Phase 3: Test\n',
-      '**Current Phase:** Milestone complete\n',
+      '**Current Phase:** Milestone complete\n'
     );
     try {
       const result = _verifyFallbackOutput(dir, '3');
@@ -422,10 +484,7 @@ describe('_verifyFallbackOutput', () => {
   });
 
   it('state-advanced check is skipped when Current Phase field is missing', () => {
-    const dir = makeProjectWithStates(
-      '- [x] Phase 3: Test\n',
-      'no current phase field here\n',
-    );
+    const dir = makeProjectWithStates('- [x] Phase 3: Test\n', 'no current phase field here\n');
     try {
       const result = _verifyFallbackOutput(dir, '3');
       expect(result.ok).toBe(true);
@@ -435,11 +494,24 @@ describe('_verifyFallbackOutput', () => {
     }
   });
 
+  it('fails state-advanced check when STATE.md is missing (M3)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-m3-'));
+    const planning = path.join(dir, '.planning');
+    fs.mkdirSync(planning);
+    fs.writeFileSync(path.join(planning, 'ROADMAP.md'), '- [x] Phase 3: Test (completed)\n');
+    // No STATE.md written — it is absent
+
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(false);
+      expect(result.checks.find((c) => c.name === 'state-advanced')?.passed).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('fails when state still uses zero-padded phase number', () => {
-    const dir = makeProjectWithStates(
-      '- [x] Phase 3: Test\n',
-      '**Current Phase:** 03\n',
-    );
+    const dir = makeProjectWithStates('- [x] Phase 3: Test\n', '**Current Phase:** 03\n');
     try {
       const result = _verifyFallbackOutput(dir, '3');
       expect(result.ok).toBe(false);

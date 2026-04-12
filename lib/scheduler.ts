@@ -301,7 +301,11 @@ export function _killProcessTree(
   if (child.pid === undefined) return;
   if (process.platform === 'win32') {
     // Windows: just kill the direct child (no POSIX process groups)
-    try { child.kill(signal); } catch { /* already dead */ }
+    try {
+      child.kill(signal);
+    } catch {
+      /* already dead */
+    }
     return;
   }
   // POSIX: signal the whole process group via negative pid
@@ -311,7 +315,11 @@ export function _killProcessTree(
     // ESRCH (no such process) is benign — process already exited.
     // Fall back to direct kill in case the group wasn't created (e.g., race).
     if ((e as NodeJS.ErrnoException).code !== 'ESRCH') {
-      try { child.kill(signal); } catch { /* already dead */ }
+      try {
+        child.kill(signal);
+      } catch {
+        /* already dead */
+      }
     }
   }
 }
@@ -331,11 +339,7 @@ export function _resolveIdleTimeoutSeconds(
     idle_timeout_seconds?: number;
   }
 ): number {
-  return (
-    config.idle_timeout_seconds_by_backend?.[backend] ??
-    config.idle_timeout_seconds ??
-    900
-  );
+  return config.idle_timeout_seconds_by_backend?.[backend] ?? config.idle_timeout_seconds ?? 900;
 }
 
 /**
@@ -490,6 +494,11 @@ export function isBudgetPressured(
 
 // Module-level state for transition-based logging
 const _lastLoggedPressure: Map<string, BudgetPressureLevel> = new Map();
+
+// Monotonic counter for unique per-scheduler session keys. Each
+// createScheduler call gets its own ID so _lastLoggedPressure
+// transitions are tracked independently (O3).
+let _nextSchedulerSessionId = 0;
 
 /**
  * Logs a single stderr line when the pressure level has changed since
@@ -653,11 +662,13 @@ export function markComplete(state: BackendUsageState): void {
 
 /**
  * Checks whether a CLI binary is available on the system PATH.
+ * Uses 'where' on Windows and 'which' on POSIX (I8 fix).
  */
 export function checkBinary(binary: string): boolean {
   try {
     const { execFileSync } = require('child_process') as typeof import('child_process');
-    execFileSync('which', [binary], { stdio: 'ignore' });
+    const cmd = process.platform === 'win32' ? 'where' : 'which';
+    execFileSync(cmd, [binary], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -671,6 +682,13 @@ export function checkBinary(binary: string): boolean {
  * records usage samples, and persists learned state across sessions.
  */
 export interface Scheduler {
+  /**
+   * Unique per-createScheduler session key used to namespace pressure
+   * transition logging. Format: 'pid-<pid>-session-<counter>'. Read-only.
+   * (O3 fix — multiple createScheduler calls in the same process no
+   * longer share _lastLoggedPressure state.)
+   */
+  readonly sessionKey: string;
   spawn(prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult>;
   getState(stateKey: string): BackendUsageState | undefined;
   /**
@@ -759,6 +777,11 @@ export function createScheduler(
   superpowersConfig?: SuperpowersConfig
 ): Scheduler | null {
   if (!config) return null;
+
+  // Unique key for this scheduler instance, used to namespace
+  // _lastLoggedPressure so multiple schedulers in the same process do not
+  // share transition state (O3).
+  const sessionKey = `pid-${process.pid}-session-${_nextSchedulerSessionId++}`;
 
   // Apply Spec 2A defaults here so the rest of the scheduler can rely on
   // a fully-populated config. Spread-merge avoids mutating caller input.
@@ -900,21 +923,37 @@ export function createScheduler(
           // free_fallback instead of waiting again (pre-Spec 2A behavior).
         } else if (recoveryTime !== null) {
           const waitMs = recoveryTime - Date.now();
-          const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
-          process.stderr.write(
-            `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
-          );
-          const waitResult = await waitUntilOrAbort(recoveryTime);
-          if (waitResult === 'aborted') {
-            throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
+          if (waitMs <= 0) {
+            // Recovery target already elapsed — waiting would be a no-op and
+            // recursing may not progress. Fall through to free_fallback (I9).
+            process.stderr.write(
+              `[scheduler] recovery target already elapsed, falling through to free_fallback\n`
+            );
+            // Fall through to normal spawn with the fallback backend
+          } else {
+            const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
+            process.stderr.write(
+              `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
+            );
+            const waitResult = await waitUntilOrAbort(recoveryTime);
+            if (waitResult === 'aborted') {
+              throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
+            }
+            return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
           }
-          return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
         }
       }
     }
 
     const adapter = ADAPTERS[backend] || ADAPTERS.claude;
-    const state = states.get(stateKey) || createBackendState(DEFAULT_BUDGET_TPM);
+    let state = states.get(stateKey);
+    if (!state) {
+      // Register the new state in the shared map so markInFlight/markComplete
+      // mutations are visible to subsequent dispatches (previously a throw-away
+      // orphan object silently lost budget accounting — I1).
+      state = createBackendState(DEFAULT_BUDGET_TPM);
+      states.set(stateKey, state);
+    }
     const args = adapter.buildArgs(prompt, opts);
     const workItemId = opts.workItemId || `task-${Date.now()}`;
 
@@ -944,6 +983,10 @@ export function createScheduler(
         let idleTimedOut = false;
         let totalTimedOut = false;
         let resolved = false;
+        // Track SIGKILL escalation timers so they can be cleared when the
+        // child exits, preventing stale kill signals to recycled PIDs (I2).
+        let idleKillTimer: ReturnType<typeof setTimeout> | undefined;
+        let totalKillTimer: ReturnType<typeof setTimeout> | undefined;
 
         const safeResolve = (r: SchedulerSpawnResult): void => {
           if (resolved) return;
@@ -958,7 +1001,7 @@ export function createScheduler(
             `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`
           );
           _killProcessTree(child, 'SIGTERM');
-          setTimeout(() => {
+          idleKillTimer = setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
               _killProcessTree(child, 'SIGKILL');
             }
@@ -968,7 +1011,7 @@ export function createScheduler(
         const totalTimer = setTimeout(() => {
           totalTimedOut = true;
           _killProcessTree(child, 'SIGTERM');
-          setTimeout(() => {
+          totalKillTimer = setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
               _killProcessTree(child, 'SIGKILL');
             }
@@ -993,6 +1036,8 @@ export function createScheduler(
         child.on('error', (err) => {
           watchdog.stop();
           clearTimeout(totalTimer);
+          if (idleKillTimer) clearTimeout(idleKillTimer);
+          if (totalKillTimer) clearTimeout(totalKillTimer);
           markComplete(state);
           safeResolve({
             exitCode: 1,
@@ -1009,6 +1054,8 @@ export function createScheduler(
         child.on('close', (code) => {
           watchdog.stop();
           clearTimeout(totalTimer);
+          if (idleKillTimer) clearTimeout(idleKillTimer);
+          if (totalKillTimer) clearTimeout(totalKillTimer);
           const duration = Date.now() - startTime;
           const exitCode = code ?? (idleTimedOut || totalTimedOut ? 1 : 0);
           const tokens = adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
@@ -1016,6 +1063,7 @@ export function createScheduler(
           const sample: UsageSample = {
             backend: backend as BackendId,
             stateKey,
+            agentType: opts.agentType, // M2: record per-agent type for complexity routing
             timestamp: Date.now(),
             duration,
             tokenEstimate: tokens,
@@ -1075,6 +1123,8 @@ export function createScheduler(
   }
 
   const scheduler: Scheduler = {
+    sessionKey,
+
     getState(stateKey: string): BackendUsageState | undefined {
       return states.get(stateKey);
     },
@@ -1153,6 +1203,7 @@ module.exports = {
   ENV_VAR_MAP,
   FREE_FALLBACK_BUDGET,
   checkBinary,
+  _checkBinary: checkBinary,
   createBackendState,
   updateEWMA,
   evictExpiredSamples,

@@ -261,6 +261,8 @@ interface SpawnOptions {
   outputFormat?: string;
   captureOutput?: boolean;
   captureStderr?: boolean;
+  /** Agent type hint for complexity-based tier routing (M2). */
+  agentType?: string;
 }
 
 /** Result from subprocess execution. */
@@ -629,7 +631,7 @@ async function runKnowledgeMining(
       cwd,
       `phase-${phaseNum}-knowledge-mining`,
       scheduler ?? null,
-      { captureOutput: true }
+      { captureOutput: true, agentType: 'grd-knowledge-miner' }
     );
     writeStatusMarker(cwd, phaseNum, 'knowledge-mining', 'completed');
     log(`Phase ${phaseNum}: knowledge mining completed`);
@@ -803,7 +805,7 @@ async function runRefinementLoop(
         cwd,
         `phase-${phaseNum}-critique-${iteration}`,
         scheduler ?? null,
-        { captureOutput: true }
+        { captureOutput: true, agentType: 'grd-verifier' }
       );
 
       writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-complete`);
@@ -837,6 +839,7 @@ async function spawnStep(
         model: opts.model,
         cwd: stepCwd,
         workItemId,
+        agentType: opts.agentType,
       })
     );
   }
@@ -880,7 +883,7 @@ async function runPostPhasePipeline(
     wtPath,
     `phase-${phaseNum}-simplify`,
     scheduler ?? null,
-    spawnOpts
+    { ...spawnOpts, agentType: 'grd-integration-checker' }
   );
 
   if (simplifyResult.exitCode !== 0) {
@@ -912,7 +915,7 @@ async function runPostPhasePipeline(
     wtPath,
     `phase-${phaseNum}-review`,
     scheduler ?? null,
-    spawnOpts
+    { ...spawnOpts, agentType: 'grd-code-reviewer' }
   );
 
   if (reviewResult.exitCode !== 0) {
@@ -936,7 +939,7 @@ async function runPostPhasePipeline(
         wtPath,
         `phase-${phaseNum}-conflicts`,
         scheduler ?? null,
-        spawnOpts
+        { ...spawnOpts, agentType: 'grd-integration-checker' }
       );
 
       if (conflictResult.exitCode !== 0) {
@@ -1821,6 +1824,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   model: planModel,
                   cwd,
                   workItemId: `phase-${phaseNum}-plan`,
+                  agentType: 'grd-planner',
                 })
                 .then(toSpawnResult);
             }
@@ -1833,6 +1837,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                     model: planModel,
                     cwd,
                     workItemId: `phase-${phaseNum}-plan`,
+                    agentType: 'grd-planner',
                   })
                   .then(toSpawnResult)
               : spawnClaudeAsync(cwd, planPrompt, {
@@ -1991,6 +1996,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   model: executeModel,
                   cwd: wtPath,
                   workItemId: `phase-${phaseNum}-execute`,
+                  agentType: 'grd-executor',
                 })
               )
             : await spawnClaudeAsync(wtPath, executePrompt, {
@@ -2180,6 +2186,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             model: wireupModel,
             cwd,
             workItemId: 'milestone-wireup',
+            agentType: 'grd-integration-checker',
           })
         )
       : await spawnClaudeAsync(cwd, wireupPrompt, {
@@ -2363,6 +2370,7 @@ async function runMultiMilestoneAutopilot(
                 model: options.model,
                 cwd,
                 workItemId: `milestone-${currentVersion}-complete`,
+                agentType: 'grd-integration-checker',
               })
             )
           : spawnClaude(cwd, completePrompt, {
@@ -2419,6 +2427,7 @@ async function runMultiMilestoneAutopilot(
             model: options.model,
             cwd,
             workItemId: 'new-milestone',
+            agentType: 'grd-planner',
           })
         )
       : spawnClaude(cwd, newMilestonePrompt, {
@@ -2545,18 +2554,6 @@ function cmdInitAutopilot(cwd: string, raw: boolean): void {
   };
 
   output(result, raw, raw ? JSON.stringify(result) : undefined);
-}
-
-// ─── Heartbeat ──────────────────────────────────────────────────────────────
-
-/**
- * Start a periodic heartbeat that writes a message to stderr at each interval.
- * Useful for keeping long-running autopilot sessions visible in logs.
- */
-function startHeartbeat(message: string): ReturnType<typeof setInterval> {
-  return setInterval(() => {
-    process.stderr.write(`${message}\n`);
-  }, HEARTBEAT_INTERVAL_MS);
 }
 
 /**
@@ -2701,6 +2698,5 @@ module.exports = {
   updateStateProgress,
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
-  startHeartbeat,
   _getSchedulerStates,
 };

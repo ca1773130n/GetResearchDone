@@ -16,6 +16,8 @@ None found.
 
 ### I1: Orphan state object in `_spawnWithRetry` — budget accounting silently dropped for fallback backend
 
+**Status:** Fixed in commit `74a8804` (Phase 2 of audit fix plan).
+
 **Location:** `lib/scheduler.ts:917`
 
 **Description:** When `states.get(stateKey)` returns `undefined` — which occurs when `resolveAccount` falls through to the free fallback with an empty `config_dir` and the key `fallbackBackend` was not pre-seeded in `createScheduler` — the expression `states.get(stateKey) || createBackendState(DEFAULT_BUDGET_TPM)` creates a fresh, anonymous state object that is never inserted into the `states` map. `markInFlight(state)` at line 921 and `markComplete(state)` inside the `close`/`error` handlers mutate this throw-away object. The real entry for this backend in `states` (if any) is never updated.
@@ -27,6 +29,8 @@ None found.
 ---
 
 ### I2: Uncleared SIGKILL escalation timers — potential kill of recycled PIDs
+
+**Status:** Fixed in commit `74a8804` (Phase 2 of audit fix plan).
 
 **Location:** `lib/scheduler.ts:961–965`, `lib/scheduler.ts:971–975`
 
@@ -40,6 +44,8 @@ None found.
 
 ### I3: `startHeartbeat` is exported but never called in production — dead code with timer-leak risk
 
+**Status:** Fixed in commit `1a024c1` (Phase 4 of audit fix plan — removed dead export).
+
 **Location:** `lib/autopilot.ts:2556–2560`
 
 **Description:** `startHeartbeat` is defined, exported in `module.exports`, and covered by tests, but is not called anywhere in `bin/`, `lib/cli/`, or `lib/mcp-server.ts`. The function returns an uncleared `setInterval` handle. The intended feature — periodic stderr output to keep long autopilot runs visible in logs — is therefore not active.
@@ -51,6 +57,8 @@ None found.
 ---
 
 ### I4: `phase-io.ts` module-level cache never invalidated by external writes
+
+**Status:** Fixed in commit `f57b5bb` (Phase 3 of audit fix plan).
 
 **Location:** `lib/phase-io.ts:18–65`
 
@@ -64,6 +72,8 @@ None found.
 
 ### I5: `phaseNum.replace('.', '\\.')` escapes only the first dot — regex wildcard in multi-level phase numbers
 
+**Status:** Fixed in commit `ae43855` (Phase 1 of audit fix plan).
+
 **Location:** `lib/phase-complete.ts:134`, `lib/phase-complete.ts:140`
 
 **Description:** `String.prototype.replace` with a string first-argument only replaces the first occurrence. For `phaseNum = "1.1"` the second call `phaseNum.replace('.', '\\.')` at line 140 produces `"1\\."` — correct by coincidence. For a three-part number like `"1.1.2"` the expression produces `"1\\.1.2"` where the second dot is an unescaped regex wildcard, matching any character.
@@ -75,6 +85,8 @@ None found.
 ---
 
 ### I6: Autoresearch branch creation failure silently ignored — second same-day run operates on wrong branch
+
+**Status:** Fixed in commit `422372b` (Phase 1 of audit fix plan).
 
 **Location:** `lib/autoresearch.ts:441`
 
@@ -88,6 +100,8 @@ None found.
 
 ### I7: `_buildSyntheticResult` hardcodes `is_last_phase: false` and `next_phase: null`
 
+**Status:** Fixed in commit `889cd31` (Phase 3 of audit fix plan).
+
 **Location:** `lib/phase-complete-llm.ts:208–222`
 
 **Description:** The synthetic `PhaseCompleteResult` returned on LLM fallback success always has `is_last_phase: false`, `next_phase: null`, and `plans_executed: 'N/A'`. The autopilot uses this result in its phase-finalize log at `lib/autopilot.ts:2110`. The `is_last_phase` field is not used for autopilot control flow (milestone completion is determined by `isMilestoneComplete` via roadmap analysis), but `plans_executed: 'N/A'` is logged and surfaced in the autopilot result object.
@@ -100,6 +114,8 @@ None found.
 
 ### I8: `checkBinary` uses `which` — always returns false on Windows
 
+**Status:** Fixed in commit `3c7145c` (Phase 1 of audit fix plan).
+
 **Location:** `lib/scheduler.ts:659–664`
 
 **Description:** `checkBinary` calls `execFileSync('which', [binary])`. The `which` command does not exist on Windows; the call throws `ENOENT`, which is caught and returns `false`. The scheduler's non-account-rotation path filters `backend_priority` to only available backends: `schedulerConfig.backend_priority.filter(b => availableBackends.has(b))`. On Windows `availableBackends` is always empty, so `filteredPriority` is `[]`, and `pickBackend` always returns `free_fallback`.
@@ -111,6 +127,8 @@ None found.
 ---
 
 ### I9: Rapid recursion in `_spawnWithRetry` when recovery timestamps are in the past
+
+**Status:** Fixed in commit `74a8804` (Phase 2 of audit fix plan).
 
 **Location:** `lib/scheduler.ts:897–911`
 
@@ -126,6 +144,8 @@ None found.
 
 ### M1: Gate check internal errors are silently swallowed
 
+**Status:** Fixed in commit `e9378bc` (Phase 1 of audit fix plan).
+
 **Location:** `lib/gates.ts:605–615`
 
 **Description:** Each gate check is wrapped in `try { ... } catch { /* non-blocking */ }` with no logging or synthetic violation. A crashing gate check (e.g., OOM reading a large plan file, or a bug in `validateCrossPhase`) is completely invisible to the user.
@@ -138,6 +158,8 @@ None found.
 
 ### M2: Complexity routing mixes samples across all agent types
 
+**Status:** Fixed in commit `705cdc6` (Phase 4 of audit fix plan).
+
 **Location:** `lib/backend.ts:1100–1130`
 
 **Description:** `getEffectiveTierForDispatch` aggregates `tokenEstimate` from all backends and accounts, sorted by timestamp, without filtering by `agentType`. Cheap `grd-verifier` or `grd-codebase-mapper` tasks completed just before a `grd-planner` dispatch pull the tail-average down, potentially demoting the planner from `high` complexity to `medium`.
@@ -149,6 +171,8 @@ None found.
 ---
 
 ### M3: `_verifyStateAdvanced` returns `true` when STATE.md is missing
+
+**Status:** Fixed in commit `5e0f237` (Phase 1 of audit fix plan).
 
 **Location:** `lib/phase-complete-llm.ts:134–135`
 
@@ -164,6 +188,8 @@ None found.
 
 ### O1: `lib/autopilot.ts` is ~2,700 lines and continues growing
 
+**Status:** Deferred — requires its own spec. See plan's Out of Scope section.
+
 **Location:** `lib/autopilot.ts`
 
 **Description:** The file contains ~14 exported command functions, 8 prompt builders, 3 pipeline orchestrators, the merge queue, file-lock logic, wave-splitting algorithms, and the multi-milestone loop. Specs 2B, 3, 3B, and 4 all added code here. It is the largest single module in the codebase.
@@ -173,6 +199,8 @@ None found.
 ---
 
 ### O2: Duplicate `_stateFileCache` in `lib/phase-io.ts` and `lib/state.ts` — can diverge
+
+**Status:** Fixed in commit `f57b5bb` (Phase 3 of audit fix plan).
 
 **Location:** `lib/phase-io.ts:44–65`, `lib/state.ts:158–169`
 
@@ -184,6 +212,8 @@ None found.
 
 ### O3: `_lastLoggedPressure` module-level map persists across multiple `createScheduler` calls
 
+**Status:** Fixed in commit `5820813` (Phase 2 of audit fix plan).
+
 **Location:** `lib/scheduler.ts:492`
 
 **Description:** `_lastLoggedPressure` is keyed by `process.pid.toString()`. Both `runAutopilot` (line 1664) and `runMultiMilestoneAutopilot` (line 2262) call `createScheduler` independently and both use `process.pid` as the session key in `logPressureTransition`. The second scheduler inherits the first scheduler's terminal pressure state, suppressing the first pressure-transition log of the second session.
@@ -193,6 +223,8 @@ None found.
 ---
 
 ### O4: `lib/scheduler-wait.ts` uses ESM `export` alongside CJS `module.exports` — mixed syntax
+
+**Status:** Fixed in commit `8077d3d` (Phase 1 of audit fix plan).
 
 **Location:** `lib/scheduler-wait.ts:33`, `lib/scheduler-wait.ts:58`
 

@@ -290,6 +290,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
         maxTurns,
         cwd: executionCwd,
         workItemId: `evolve-iter-${iterationNum}-execute`,
+        agentType: 'grd-executor',
       })
     : await spawnClaudeAsync(executionCwd, executePrompt, {
         model: executeModel,
@@ -394,6 +395,7 @@ async function _runIterationStep(iterCtx: IterationContext): Promise<IterationSt
             maxTurns,
             cwd: executionCwd,
             workItemId: `evolve-iter-${iterationNum}-review`,
+            agentType: 'grd-verifier',
           })
         : await spawnClaudeAsync(executionCwd, reviewPrompt, {
             model: reviewModel,

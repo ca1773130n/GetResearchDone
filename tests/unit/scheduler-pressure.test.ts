@@ -133,7 +133,7 @@ describe('logPressureTransition', () => {
       current: 'none' | 'warning' | 'high' | 'critical',
       agentType: string,
       baseTier: string,
-      effectiveTier: string,
+      effectiveTier: string
     ) => void;
   };
 
@@ -152,7 +152,7 @@ describe('logPressureTransition', () => {
     logPressureTransition(key, 'warning', 'grd-planner', 'opus', 'opus');
     expect(stderrSpy).toHaveBeenCalledTimes(1);
     expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining('budget pressure detected — level=warning'),
+      expect.stringContaining('budget pressure detected — level=warning')
     );
   });
 
@@ -168,7 +168,7 @@ describe('logPressureTransition', () => {
     const key = `test-downgrade-${Math.random()}`;
     logPressureTransition(key, 'high', 'grd-executor', 'opus', 'sonnet');
     expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining('downgrading grd-executor from opus to sonnet'),
+      expect.stringContaining('downgrading grd-executor from opus to sonnet')
     );
   });
 
@@ -178,5 +178,66 @@ describe('logPressureTransition', () => {
     stderrSpy.mockClear();
     logPressureTransition(key, 'none', 'grd-executor', 'opus', 'opus');
     expect(stderrSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('logPressureTransition session isolation (O3 regression)', () => {
+  const { logPressureTransition } = require('../../lib/scheduler') as {
+    logPressureTransition: (
+      sessionKey: string,
+      level: 'none' | 'warning' | 'high' | 'critical',
+      agentType: string,
+      baseTier: string,
+      effectiveTier: string
+    ) => void;
+  };
+
+  it('multiple session keys track transitions independently', () => {
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      // Use unique keys not already in the map
+      const keyA = `isolation-test-A-${Math.random()}`;
+      const keyB = `isolation-test-B-${Math.random()}`;
+
+      logPressureTransition(keyA, 'warning', 'grd-planner', 'opus', 'opus');
+      expect(stderrSpy).toHaveBeenCalledTimes(1);
+      stderrSpy.mockClear();
+
+      // Same level on different session — should still log (independent)
+      logPressureTransition(keyB, 'warning', 'grd-planner', 'opus', 'opus');
+      expect(stderrSpy).toHaveBeenCalledTimes(1);
+      stderrSpy.mockClear();
+
+      // Same level on same session — should NOT log
+      logPressureTransition(keyA, 'warning', 'grd-planner', 'opus', 'opus');
+      expect(stderrSpy).not.toHaveBeenCalled();
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});
+
+describe('createScheduler unique session keys (O3 regression)', () => {
+  const { createScheduler } = require('../../lib/scheduler') as {
+    createScheduler: (config: unknown) => { sessionKey: string } | null;
+  };
+
+  it('two createScheduler calls produce different sessionKeys', () => {
+    const minimalConfig = {
+      backend_priority: ['claude'],
+      free_fallback: { backend: 'claude' },
+      prediction: {
+        window_minutes: 60,
+        ewma_alpha: 0.3,
+        safety_margin_tasks: 1,
+        min_samples: 3,
+      },
+    };
+    const s1 = createScheduler(minimalConfig);
+    const s2 = createScheduler(minimalConfig);
+    expect(s1).not.toBeNull();
+    expect(s2).not.toBeNull();
+    expect(s1!.sessionKey).not.toEqual(s2!.sessionKey);
+    expect(s1!.sessionKey).toMatch(/^pid-\d+-session-\d+$/);
   });
 });

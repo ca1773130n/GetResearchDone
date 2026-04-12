@@ -9,7 +9,6 @@
  *             lib/frontmatter.js (extractFrontmatter)
  */
 
-
 import type { GrdConfig } from './types';
 
 const fs = require('fs');
@@ -151,23 +150,15 @@ interface SnapshotDiff {
   has_changes: boolean;
 }
 
-// ─── Module-level cache ─────────────────────────────────────────────────────
+// ─── File I/O (delegated to phase-io for shared cache) ──────────────────────
 
-// Module-level cache with write-through for state file reads.
-// Prevents redundant disk reads across state operations; writes update the cache.
-const _stateFileCache: Map<string, string> = new Map();
-
-function readStateFile(statePath: string): string {
-  if (!_stateFileCache.has(statePath)) {
-    _stateFileCache.set(statePath, fs.readFileSync(statePath, 'utf-8'));
-  }
-  return _stateFileCache.get(statePath) as string;
-}
-
-function writeStateFile(statePath: string, content: string): void {
-  fs.writeFileSync(statePath, content, 'utf-8');
-  _stateFileCache.set(statePath, content);
-}
+// O2: Consolidated duplicate _stateFileCache into phase-io so that reads
+// from state.ts and phase-complete.ts share the same cache and can be
+// invalidated together via clearStateCache.
+const { readStateFile, writeStateFile } = require('./phase-io') as {
+  readStateFile: (p: string) => string;
+  writeStateFile: (p: string, content: string) => void;
+};
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 

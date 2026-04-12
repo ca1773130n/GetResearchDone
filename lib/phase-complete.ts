@@ -43,13 +43,21 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile } =
-  require('./phase-io') as {
-    readRoadmapFile: (p: string) => string;
-    writeRoadmapFile: (p: string, content: string) => void;
-    readStateFile: (p: string) => string;
-    writeStateFile: (p: string, content: string) => void;
-  };
+const {
+  readRoadmapFile,
+  writeRoadmapFile,
+  readStateFile,
+  writeStateFile,
+  clearRoadmapCache,
+  clearStateCache,
+} = require('./phase-io') as {
+  readRoadmapFile: (p: string) => string;
+  writeRoadmapFile: (p: string, content: string) => void;
+  readStateFile: (p: string) => string;
+  writeStateFile: (p: string, content: string) => void;
+  clearRoadmapCache: (filePath?: string) => void;
+  clearStateCache: (filePath?: string) => void;
+};
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
   runQualityAnalysis: (cwd: string, phaseNum: string) => QualityAnalysisResult;
@@ -72,6 +80,56 @@ const { attemptLlmFallbackCompletion } = require('./phase-complete-llm') as {
     failure: Error | { gate_errors?: GateViolation[] }
   ) => Promise<PhaseCompleteResult | null>;
 };
+
+/**
+ * Resolves the phase succession context: plan counts, next phase, and last-phase
+ * flag. Shared by _phaseCompleteCore and the LLM fallback's _buildSyntheticResult
+ * so both produce consistent result fields.
+ *
+ * @param cwd - Project working directory
+ * @param phaseNum - Phase number being completed
+ */
+export function _resolvePhaseSuccession(
+  cwd: string,
+  phaseNum: string
+): {
+  phaseName: string;
+  plansExecuted: string;
+  nextPhaseNum: string | null;
+  nextPhaseName: string | null;
+  isLastPhase: boolean;
+} {
+  const phaseInfo = findPhaseInternal(cwd, phaseNum);
+  const phaseName = phaseInfo?.phase_name ?? '(unknown)';
+  const planCount = phaseInfo?.plans?.length ?? 0;
+  const summaryCount = phaseInfo?.summaries?.length ?? 0;
+  const plansExecuted = `${summaryCount}/${planCount}`;
+
+  const basePhasesDir = getPhasesDirPath(cwd);
+  let nextPhaseNum: string | null = null;
+  let nextPhaseName: string | null = null;
+  let isLastPhase = true;
+  try {
+    const entries = fs.readdirSync(basePhasesDir, { withFileTypes: true }) as import('fs').Dirent[];
+    const dirs = entries
+      .filter((e: import('fs').Dirent) => e.isDirectory())
+      .map((e: import('fs').Dirent) => e.name)
+      .sort();
+    const currentFloat = parseFloat(phaseNum);
+    for (const dir of dirs) {
+      const m = dir.match(/^(\d+(?:\.\d+)?)-?(.*)/);
+      if (m && parseFloat(m[1]) > currentFloat) {
+        nextPhaseNum = m[1];
+        nextPhaseName = m[2] || null;
+        isLastPhase = false;
+        break;
+      }
+    }
+  } catch {
+    // phases dir missing — leave isLastPhase = true
+  }
+  return { phaseName, plansExecuted, nextPhaseNum, nextPhaseName, isLastPhase };
+}
 
 /**
  * Core logic for phase completion -- shared by cmdPhaseComplete and
@@ -99,6 +157,11 @@ export function _phaseCompleteCore(
     };
   }
 
+  // Spec 3B cleanup: invalidate caches in case a prior LLM fallback
+  // in the same process wrote these files directly.
+  clearRoadmapCache(path.join(cwd, '.planning', 'ROADMAP.md'));
+  clearStateCache(path.join(cwd, '.planning', 'STATE.md'));
+
   // Pre-flight gate checks
   const gates: PreflightResult = runPreflightGates(cwd, 'phase-complete', {
     phase: phaseNum,
@@ -113,7 +176,6 @@ export function _phaseCompleteCore(
 
   const roadmapPath: string = path.join(cwd, '.planning', 'ROADMAP.md');
   const statePath: string = path.join(cwd, '.planning', 'STATE.md');
-  const phasesDir: string = getPhasesDirPath(cwd);
   const today: string = new Date().toISOString().split('T')[0];
 
   // Verify phase info
@@ -131,13 +193,13 @@ export function _phaseCompleteCore(
 
     // Checkbox: - [ ] Phase N: -> - [x] Phase N: (...completed DATE)
     const checkboxPattern: RegExp = new RegExp(
-      `(-\\s*\\[)[ ](\\]\\s*.*Phase\\s+${phaseNum.replace('.', '\\.')}[:\\s][^\\n]*)`,
+      `(-\\s*\\[)[ ](\\]\\s*.*Phase\\s+${phaseNum.replace(/\./g, '\\.')}[:\\s][^\\n]*)`,
       'i'
     );
     roadmapContent = roadmapContent.replace(checkboxPattern, `$1x$2 (completed ${today})`);
 
     // Progress table: update Status to Complete, add date
-    const phaseEscaped: string = phaseNum.replace('.', '\\.');
+    const phaseEscaped: string = phaseNum.replace(/\./g, '\\.');
     const tablePattern: RegExp = new RegExp(
       `(\\|\\s*${phaseEscaped}\\.?\\s[^|]*\\|[^|]*\\|)\\s*[^|]*(\\|)\\s*[^|]*(\\|)`,
       'i'
@@ -157,37 +219,8 @@ export function _phaseCompleteCore(
     writeRoadmapFile(roadmapPath, roadmapContent);
   }
 
-  // Find next phase
-  let nextPhaseNum: string | null = null;
-  let nextPhaseName: string | null = null;
-  let isLastPhase = true;
-
-  try {
-    const entries: import('fs').Dirent[] = fs.readdirSync(phasesDir, {
-      withFileTypes: true,
-    });
-    const dirs: string[] = entries
-      .filter((e: import('fs').Dirent) => e.isDirectory())
-      .map((e: import('fs').Dirent) => e.name)
-      .sort();
-    const currentFloat: number = parseFloat(phaseNum);
-
-    // Find the next phase directory after current
-    for (const dir of dirs) {
-      const dm: RegExpMatchArray | null = dir.match(/^(\d+(?:\.\d+)?)-?(.*)/);
-      if (dm) {
-        const dirFloat: number = parseFloat(dm[1]);
-        if (dirFloat > currentFloat) {
-          nextPhaseNum = dm[1];
-          nextPhaseName = dm[2] || null;
-          isLastPhase = false;
-          break;
-        }
-      }
-    }
-  } catch {
-    // Phases directory may not exist; isLastPhase stays true
-  }
+  // Find next phase using shared helper
+  const { nextPhaseNum, nextPhaseName, isLastPhase } = _resolvePhaseSuccession(cwd, phaseNum);
 
   // Update STATE.md
   if (fs.existsSync(statePath)) {
@@ -328,5 +361,6 @@ export async function completePhaseAfterPostPipeline(
 
 module.exports = {
   _phaseCompleteCore,
+  _resolvePhaseSuccession,
   completePhaseAfterPostPipeline,
 };

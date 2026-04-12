@@ -91,9 +91,7 @@ export function estimateComplexity(opts: {
   };
 
   const baseline: ComplexityLevel =
-    opts.baselineOverride ??
-    AGENT_BASELINE_COMPLEXITY[opts.agentType] ??
-    'medium';
+    opts.baselineOverride ?? AGENT_BASELINE_COMPLEXITY[opts.agentType] ?? 'medium';
 
   if (opts.promptLength !== undefined && opts.promptLength > h.prompt_length_high_threshold) {
     return 'high';

@@ -132,7 +132,10 @@ function _verifyStateAdvanced(cwd: string, phaseNum: string): boolean {
   try {
     content = fs.readFileSync(statePath, 'utf-8');
   } catch {
-    return true; // missing file — can't verify, assume ok
+    // Missing STATE.md is a verification failure — the LLM fallback
+    // should NEVER delete it. If it did, downstream state-dependent
+    // commands will break.
+    return false;
   }
 
   // Find the Current Phase line
@@ -148,10 +151,7 @@ function _verifyStateAdvanced(cwd: string, phaseNum: string): boolean {
 
   // Normalize: check if currentPhase starts with or equals phaseNum
   // (handles "3", "03", "3:", "Phase 3", etc.)
-  const phasePattern = new RegExp(
-    `^(phase\\s+)?0*${phaseNum.replace('.', '\\.')}(\\b|:|$)`,
-    'i',
-  );
+  const phasePattern = new RegExp(`^(phase\\s+)?0*${phaseNum.replace('.', '\\.')}(\\b|:|$)`, 'i');
   return !phasePattern.test(currentPhase);
 }
 
@@ -169,11 +169,11 @@ function _verifyProgressTableRow(cwd: string, phaseNum: string): boolean {
   // If found, verify the Status column shows "Complete".
   const rowPattern = new RegExp(
     `\\|\\s*0*${phaseNum.replace('.', '\\.')}\\s*\\|([^|]*\\|){1,4}\\s*Complete\\s*\\|`,
-    'i',
+    'i'
   );
   const rowPatternIncomplete = new RegExp(
     `\\|\\s*0*${phaseNum.replace('.', '\\.')}\\s*\\|[^\\n]*`,
-    'i',
+    'i'
   );
 
   const incompleteMatch = content.match(rowPatternIncomplete);
@@ -183,7 +183,10 @@ function _verifyProgressTableRow(cwd: string, phaseNum: string): boolean {
   return rowPattern.test(content);
 }
 
-export function _verifyFallbackOutput(cwd: string, phaseNum: string): {
+export function _verifyFallbackOutput(
+  cwd: string,
+  phaseNum: string
+): {
   ok: boolean;
   checks: { name: string; passed: boolean }[];
 } {
@@ -205,15 +208,28 @@ export function _verifyFallbackOutput(cwd: string, phaseNum: string): {
   return { ok, checks };
 }
 
-function _buildSyntheticResult(phaseNum: string): PhaseCompleteResult {
+function _buildSyntheticResult(cwd: string, phaseNum: string): PhaseCompleteResult {
   const today = new Date().toISOString().split('T')[0];
+  const { _resolvePhaseSuccession } = require('./phase-complete') as {
+    _resolvePhaseSuccession: (
+      cwd: string,
+      phaseNum: string
+    ) => {
+      phaseName: string;
+      plansExecuted: string;
+      nextPhaseNum: string | null;
+      nextPhaseName: string | null;
+      isLastPhase: boolean;
+    };
+  };
+  const succession = _resolvePhaseSuccession(cwd, phaseNum);
   return {
     completed_phase: phaseNum,
-    phase_name: `(LLM-finalized)`,
-    plans_executed: 'N/A',
-    next_phase: null,
-    next_phase_name: null,
-    is_last_phase: false,
+    phase_name: succession.phaseName,
+    plans_executed: succession.plansExecuted,
+    next_phase: succession.nextPhaseNum,
+    next_phase_name: succession.nextPhaseName,
+    is_last_phase: succession.isLastPhase,
     date: today,
     roadmap_updated: true,
     state_updated: true,
@@ -261,9 +277,10 @@ async function _attemptOnce(
 
   const failureDescription = _describeFailure(failure);
   const prompt = _buildPrompt(phaseNum, roadmap, state, phaseDirFiles, failureDescription);
-  const logPrefix = attemptIndex > 0
-    ? `[phase-complete-llm] (attempt ${attemptIndex + 1}) `
-    : `[phase-complete-llm] `;
+  const logPrefix =
+    attemptIndex > 0
+      ? `[phase-complete-llm] (attempt ${attemptIndex + 1}) `
+      : `[phase-complete-llm] `;
 
   process.stderr.write(
     `${logPrefix}attempting LLM fallback for phase ${phaseNum} ` +
@@ -277,17 +294,21 @@ async function _attemptOnce(
       captureOutput: false,
     });
     if (result.exitCode !== 0) {
-      process.stderr.write(
-        `${logPrefix}fallback subprocess exited with code ${result.exitCode}\n`
-      );
+      process.stderr.write(`${logPrefix}fallback subprocess exited with code ${result.exitCode}\n`);
       return null;
     }
   } catch (e) {
-    process.stderr.write(
-      `${logPrefix}fallback subprocess threw: ${(e as Error).message}\n`
-    );
+    process.stderr.write(`${logPrefix}fallback subprocess threw: ${(e as Error).message}\n`);
     return null;
   }
+
+  // Invalidate cached reads so verification sees fresh post-LLM content
+  const { clearRoadmapCache, clearStateCache } = require('./phase-io') as {
+    clearRoadmapCache: (filePath?: string) => void;
+    clearStateCache: (filePath?: string) => void;
+  };
+  clearRoadmapCache(path.join(cwd, '.planning', 'ROADMAP.md'));
+  clearStateCache(path.join(cwd, '.planning', 'STATE.md'));
 
   const verification = _verifyFallbackOutput(cwd, phaseNum);
   if (!verification.ok) {
@@ -295,15 +316,13 @@ async function _attemptOnce(
       .filter((c) => !c.passed)
       .map((c) => c.name)
       .join(', ');
-    process.stderr.write(
-      `${logPrefix}verification failed — checks: ${failed}\n`
-    );
+    process.stderr.write(`${logPrefix}verification failed — checks: ${failed}\n`);
     return null;
   }
 
   process.stderr.write(`${logPrefix}fallback succeeded for phase ${phaseNum}\n`);
   incrementCounter('phase_complete_llm_fallback.successes_total');
-  return _buildSyntheticResult(phaseNum);
+  return _buildSyntheticResult(cwd, phaseNum);
 }
 
 /**

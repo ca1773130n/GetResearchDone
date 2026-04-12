@@ -169,6 +169,8 @@ async function _spawnClaude(
     model?: string;
     captureOutput?: boolean;
     scheduler?: Scheduler | null;
+    /** Agent type hint for complexity-based tier routing (M2). */
+    agentType?: string;
   } = {}
 ): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
   if (opts.scheduler) {
@@ -179,6 +181,7 @@ async function _spawnClaude(
         timeout: opts.timeout,
         maxTurns: opts.maxTurns,
         captureOutput: opts.captureOutput,
+        agentType: opts.agentType,
       });
       return {
         exitCode: result.exitCode,
@@ -438,7 +441,21 @@ async function _runAutoresearchLoop(
     `Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`
   );
 
-  _execGit(cwd, ['checkout', '-b', branchName]);
+  const branchResult = _execGit(cwd, ['checkout', '-b', branchName]);
+  if (branchResult.exitCode !== 0) {
+    // Branch creation failed — most likely the branch already exists
+    // from a prior same-day run. Try to check out the existing branch
+    // instead of silently running on whatever branch is current.
+    const checkoutResult = _execGit(cwd, ['checkout', branchName]);
+    if (checkoutResult.exitCode !== 0) {
+      throw new Error(
+        `[autoresearch] failed to create or checkout branch '${branchName}': ` +
+          `create exit ${branchResult.exitCode}, checkout exit ${checkoutResult.exitCode}. ` +
+          `Please delete the existing branch or run from a clean worktree.`
+      );
+    }
+    process.stderr.write(`[autoresearch] branch '${branchName}' already exists, reusing\n`);
+  }
   _log(`Created branch: ${branchName}`);
 
   _initTsv(tsvPath);
@@ -495,6 +512,7 @@ async function _runAutoresearchLoop(
           model: surveyModel,
           maxTurns,
           scheduler,
+          agentType: 'grd-surveyor',
         });
         _log('Auto-survey complete');
       } else {
@@ -566,6 +584,7 @@ async function _runAutoresearchLoop(
       maxTurns,
       captureOutput: true,
       scheduler,
+      agentType: 'grd-executor',
     });
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
