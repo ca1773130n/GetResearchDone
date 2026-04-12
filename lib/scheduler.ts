@@ -902,21 +902,37 @@ export function createScheduler(
           // free_fallback instead of waiting again (pre-Spec 2A behavior).
         } else if (recoveryTime !== null) {
           const waitMs = recoveryTime - Date.now();
-          const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
-          process.stderr.write(
-            `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
-          );
-          const waitResult = await waitUntilOrAbort(recoveryTime);
-          if (waitResult === 'aborted') {
-            throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
+          if (waitMs <= 0) {
+            // Recovery target already elapsed — waiting would be a no-op and
+            // recursing may not progress. Fall through to free_fallback (I9).
+            process.stderr.write(
+              `[scheduler] recovery target already elapsed, falling through to free_fallback\n`
+            );
+            // Fall through to normal spawn with the fallback backend
+          } else {
+            const displayMinutes = Math.max(0, Math.ceil(waitMs / 60_000));
+            process.stderr.write(
+              `[scheduler] all priority accounts exhausted, waiting ${displayMinutes}m for soonest recovery (target=${new Date(recoveryTime).toISOString()})\n`
+            );
+            const waitResult = await waitUntilOrAbort(recoveryTime);
+            if (waitResult === 'aborted') {
+              throw new Error('scheduler: wait for account recovery interrupted by SIGINT');
+            }
+            return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
           }
-          return _spawnWithRetry(prompt, opts, retryCount, recoveryTime);
         }
       }
     }
 
     const adapter = ADAPTERS[backend] || ADAPTERS.claude;
-    const state = states.get(stateKey) || createBackendState(DEFAULT_BUDGET_TPM);
+    let state = states.get(stateKey);
+    if (!state) {
+      // Register the new state in the shared map so markInFlight/markComplete
+      // mutations are visible to subsequent dispatches (previously a throw-away
+      // orphan object silently lost budget accounting — I1).
+      state = createBackendState(DEFAULT_BUDGET_TPM);
+      states.set(stateKey, state);
+    }
     const args = adapter.buildArgs(prompt, opts);
     const workItemId = opts.workItemId || `task-${Date.now()}`;
 
@@ -946,6 +962,10 @@ export function createScheduler(
         let idleTimedOut = false;
         let totalTimedOut = false;
         let resolved = false;
+        // Track SIGKILL escalation timers so they can be cleared when the
+        // child exits, preventing stale kill signals to recycled PIDs (I2).
+        let idleKillTimer: ReturnType<typeof setTimeout> | undefined;
+        let totalKillTimer: ReturnType<typeof setTimeout> | undefined;
 
         const safeResolve = (r: SchedulerSpawnResult): void => {
           if (resolved) return;
@@ -960,7 +980,7 @@ export function createScheduler(
             `[scheduler] spawn idle ${Math.round(idleTimeoutMs / 1000)}s, killing ${adapter.binary} (stateKey=${stateKey}, workItemId=${workItemId})\n`
           );
           _killProcessTree(child, 'SIGTERM');
-          setTimeout(() => {
+          idleKillTimer = setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
               _killProcessTree(child, 'SIGKILL');
             }
@@ -970,7 +990,7 @@ export function createScheduler(
         const totalTimer = setTimeout(() => {
           totalTimedOut = true;
           _killProcessTree(child, 'SIGTERM');
-          setTimeout(() => {
+          totalKillTimer = setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
               _killProcessTree(child, 'SIGKILL');
             }
@@ -995,6 +1015,8 @@ export function createScheduler(
         child.on('error', (err) => {
           watchdog.stop();
           clearTimeout(totalTimer);
+          if (idleKillTimer) clearTimeout(idleKillTimer);
+          if (totalKillTimer) clearTimeout(totalKillTimer);
           markComplete(state);
           safeResolve({
             exitCode: 1,
@@ -1011,6 +1033,8 @@ export function createScheduler(
         child.on('close', (code) => {
           watchdog.stop();
           clearTimeout(totalTimer);
+          if (idleKillTimer) clearTimeout(idleKillTimer);
+          if (totalKillTimer) clearTimeout(totalKillTimer);
           const duration = Date.now() - startTime;
           const exitCode = code ?? (idleTimedOut || totalTimedOut ? 1 : 0);
           const tokens = adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
