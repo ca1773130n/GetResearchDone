@@ -653,11 +653,13 @@ export function markComplete(state: BackendUsageState): void {
 
 /**
  * Checks whether a CLI binary is available on the system PATH.
+ * Uses 'where' on Windows and 'which' on POSIX (I8 fix).
  */
 export function checkBinary(binary: string): boolean {
   try {
     const { execFileSync } = require('child_process') as typeof import('child_process');
-    execFileSync('which', [binary], { stdio: 'ignore' });
+    const cmd = process.platform === 'win32' ? 'where' : 'which';
+    execFileSync(cmd, [binary], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -1153,6 +1155,7 @@ module.exports = {
   ENV_VAR_MAP,
   FREE_FALLBACK_BUDGET,
   checkBinary,
+  _checkBinary: checkBinary,
   createBackendState,
   updateEWMA,
   evictExpiredSamples,

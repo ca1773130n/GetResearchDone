@@ -916,3 +916,17 @@ describe('Account-aware scheduling', () => {
     });
   });
 });
+
+describe('checkBinary cross-platform (I8 regression)', () => {
+  const { _checkBinary } = require('../../lib/scheduler') as {
+    _checkBinary: (binary: string) => boolean;
+  };
+
+  it('returns true for node (always available in test env)', () => {
+    expect(_checkBinary('node')).toBe(true);
+  });
+
+  it('returns false for a nonexistent binary', () => {
+    expect(_checkBinary('this-binary-does-not-exist-99999xyz')).toBe(false);
+  });
+});
