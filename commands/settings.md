@@ -764,114 +764,118 @@ AskUserQuestion([
 ])
 ```
 
-**AI Account Configuration (shown when user mentions accounts, rotation, rate limits, or asks about AI service credentials)**
+**AI Account Configuration (shown when user mentions accounts, rotation, rate limits, or AI service credentials)**
 
-This flow auto-detects installed CLIs and config directories, then offers smart defaults. It works regardless of which execution backend is selected — account rotation is an orthogonal feature.
+Works regardless of execution backend. Only the user knows which accounts they have — do NOT try to guess from filesystem patterns.
 
-**Step 1: Auto-detect.**
-
-Run before asking questions:
+**Step 1: Read current config and detect installed CLIs.**
 
 ```bash
-# Detect installed CLIs
+# What's currently configured?
+cat .planning/config.json 2>/dev/null | node -e "
+  const d=require('fs').readFileSync('/dev/stdin','utf-8');
+  try { const c=JSON.parse(d);
+    if(c.superpowers?.accounts) console.log('CURRENT:', JSON.stringify(c.superpowers.accounts));
+    else console.log('CURRENT: none');
+  } catch { console.log('CURRENT: none'); }
+"
+
+# Which CLIs are installed?
 which claude 2>/dev/null && echo "DETECTED: claude"
 which codex 2>/dev/null && echo "DETECTED: codex"
 which gemini 2>/dev/null && echo "DETECTED: gemini"
 which opencode 2>/dev/null && echo "DETECTED: opencode"
-
-# Detect existing config directories per backend
-ls -d ~/.claude ~/.claude-* ~/.config/claude* 2>/dev/null
-ls -d ~/.codex ~/.codex-* ~/.config/codex* 2>/dev/null
-ls -d ~/.gemini ~/.gemini-* ~/.config/gemini* 2>/dev/null
-ls -d ~/.opencode ~/.opencode-* ~/.config/opencode* 2>/dev/null
 ```
 
-Also read current config to show existing account setup (if any):
+**Step 2: Show current state, then ask.**
 
-```bash
-cat .planning/config.json | grep -A 20 '"superpowers"'
-```
-
-**Step 2: Present findings.**
-
-Show what's currently configured vs. what's detected:
+If accounts are already configured, show them first:
 
 ```
-Current account configuration:
-  (none configured — using default CLI credentials)
+Current account setup:
+  claude: 2 accounts (rotation enabled)
+    1. ~/.claude
+    2. ~/.claude-personal
+  Priority: claude
+  Fallback: wait for recovery
 
-Detected on this machine:
-  ✓ claude — 2 config directories: ~/.claude, ~/.claude-personal
-  ✓ codex — 1 config directory: ~/.codex
-  ✗ gemini — not installed
-  ✗ opencode — not installed
+Installed CLIs: claude, codex
 ```
 
-Or if already configured:
-
-```
-Current account configuration:
-  claude: ~/.claude, ~/.claude-personal (rotation enabled)
-  Priority: claude → codex
-  Fallback: gemini
-
-Detected on this machine:
-  ✓ claude — 3 config directories: ~/.claude, ~/.claude-personal, ~/.claude-work (NEW)
-  ...
-```
-
-**Step 3: Ask what to change.**
+Then ask:
 
 ```
 AskUserQuestion([
   {
-    header: "AI Account Rotation",
-    question: "GRD can automatically rotate between your AI accounts to avoid rate limits during long runs. Want to enable this?",
+    header: "Account Configuration",
+    question: "What would you like to change?",
     multiSelect: false,
     options: [
-      { label: "Yes — use all detected accounts (recommended)", description: "Rotate between all config directories found above" },
-      { label: "Yes — let me pick which accounts", description: "Choose specific directories from the list" },
-      { label: "No — single account only", description: "Use default CLI credentials" },
-      { label: "Keep current setup", description: "No changes to account configuration" }
+      { label: "Add an account", description: "Add a new account for an existing or new backend" },
+      { label: "Remove an account", description: "Remove a configured account" },
+      { label: "Change priority order", description: "Reorder which backend/account is tried first" },
+      { label: "Reconfigure from scratch", description: "Start the account setup fresh" },
+      { label: "Disable rotation", description: "Go back to single-account mode" }
     ]
   }
 ])
 ```
 
-**Step 4: If "let me pick", show checkboxes per detected backend.**
+If NO accounts configured yet, use the same interview flow as `gd init` Round 5 (Steps 5b through 5g from init.md).
 
-Only show backends that were detected. Each config directory is a checkbox, pre-checked if already in current config:
+**Step 3: "Add an account" flow.**
 
 ```
 AskUserQuestion([
   {
-    header: "Select Claude accounts",
-    question: "Which Claude config directories should GRD rotate between?",
-    multiSelect: true,
+    header: "Add Account",
+    question: "Which AI backend is this account for?",
+    multiSelect: false,
     options: [
-      // Dynamically generated from detection + current config:
-      { label: "~/.claude", description: "Default", checked: true },
-      { label: "~/.claude-personal", description: "Currently configured", checked: true },
-      { label: "~/.claude-work", description: "Newly detected", checked: false }
+      // Only show installed CLIs:
+      { label: "Claude" },
+      { label: "Codex" }
     ]
   }
-  // Repeat per detected backend
 ])
 ```
 
-**Step 5: Validate selected paths.**
+Then:
 
-For each selected config directory, verify it exists:
+```
+What's the config directory path for this account?
 
-```bash
-test -d "$config_dir" && echo "VALID: $config_dir" || echo "MISSING: $config_dir"
+  [Enter path, e.g. ~/.claude-work]
+
+  ℹ To authenticate this account:
+      CLAUDE_CONFIG_DIR=<your-path> claude auth login
 ```
 
-If missing, warn and offer to include anyway (user may create it later via `CLAUDE_CONFIG_DIR=<path> claude auth login`).
+Validate the path, add to the existing accounts array in config.json, confirm.
 
-**Step 6: Write config.**
+**Step 4: "Remove an account" flow.**
 
-Merge into existing `.planning/config.json` — preserving all other settings. Only update `superpowers` and `scheduler` sections based on user choices.
+Show numbered list of current accounts, let user pick which to remove:
+
+```
+AskUserQuestion([
+  {
+    header: "Remove Account",
+    question: "Which account do you want to remove?",
+    multiSelect: false,
+    options: [
+      { label: "claude: ~/.claude", description: "Account 1" },
+      { label: "claude: ~/.claude-personal", description: "Account 2" }
+    ]
+  }
+])
+```
+
+If removing leaves only 1 account, offer to disable rotation entirely.
+
+**Step 5: Write updated config.**
+
+Merge into existing `.planning/config.json` — only update `superpowers` and `scheduler` sections, preserving everything else.
 
 **Conditional: Overstory sub-options (if user selected "Overstory" for Execution Backend)**
 
