@@ -8,6 +8,12 @@ const { estimateComplexity, AGENT_BASELINE_COMPLEXITY } = require('../../lib/com
     promptLength?: number;
     recentSamples?: { duration: number; tokenEstimate: number }[];
     baselineOverride?: ComplexityLevel;
+    heuristics?: {
+      prompt_length_high_threshold?: number;
+      sample_demote_high_to_medium?: number;
+      sample_demote_medium_to_low?: number;
+      min_samples_for_demotion?: number;
+    };
   }) => ComplexityLevel;
   AGENT_BASELINE_COMPLEXITY: Record<string, ComplexityLevel>;
 };
@@ -128,5 +134,79 @@ describe('estimateComplexity with baselineOverride', () => {
         recentSamples: samples,
       }),
     ).toBe('low');
+  });
+});
+
+describe('estimateComplexity with custom heuristics', () => {
+  it('respects a custom prompt_length_high_threshold', () => {
+    // Default would promote at 20k; with custom 5k, promote earlier
+    expect(
+      estimateComplexity({
+        agentType: 'grd-verifier',
+        promptLength: 6_000,
+        heuristics: { prompt_length_high_threshold: 5_000 },
+      }),
+    ).toBe('high');
+    expect(
+      estimateComplexity({
+        agentType: 'grd-verifier',
+        promptLength: 6_000,
+        // default 20k — 6k is under, no promotion
+      }),
+    ).toBe('low');
+  });
+
+  it('respects a custom sample_demote_high_to_medium threshold', () => {
+    const samples = [
+      { duration: 100, tokenEstimate: 5000 },
+      { duration: 100, tokenEstimate: 5000 },
+      { duration: 100, tokenEstimate: 5000 },
+    ];
+    // Default 3000 wouldn't demote (5000 > 3000); custom 6000 would
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',
+        recentSamples: samples,
+        heuristics: { sample_demote_high_to_medium: 6_000 },
+      }),
+    ).toBe('medium');
+  });
+
+  it('respects a custom min_samples_for_demotion threshold', () => {
+    const samples = [
+      { duration: 100, tokenEstimate: 100 },
+      { duration: 100, tokenEstimate: 100 },
+    ];
+    // With default min 3, 2 samples don't trigger demotion
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',
+        recentSamples: samples,
+      }),
+    ).toBe('high');
+    // With custom min 2, 2 samples do trigger demotion
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',
+        recentSamples: samples,
+        heuristics: { min_samples_for_demotion: 2 },
+      }),
+    ).toBe('medium');
+  });
+
+  it('partial heuristics use defaults for the unset fields', () => {
+    // Only override prompt threshold — samples threshold stays at default
+    const samples = [
+      { duration: 100, tokenEstimate: 2500 },  // < default 3000
+      { duration: 100, tokenEstimate: 2500 },
+      { duration: 100, tokenEstimate: 2500 },
+    ];
+    expect(
+      estimateComplexity({
+        agentType: 'grd-planner',
+        recentSamples: samples,
+        heuristics: { prompt_length_high_threshold: 100 },
+      }),
+    ).toBe('medium');  // demotion still fires on sample default
   });
 });

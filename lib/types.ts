@@ -432,6 +432,20 @@ export interface GrdConfig {
    *   agent_complexity_overrides: { 'my-custom-agent': 'high' }
    */
   agent_complexity_overrides?: Record<string, ComplexityLevel>;
+  /**
+   * Optional overrides for estimateComplexity's internal heuristic
+   * cutoffs. All fields are optional; missing fields use defaults.
+   */
+  complexity_heuristics?: {
+    /** Prompt length (chars) above which complexity promotes to 'high'. Default: 20000 */
+    prompt_length_high_threshold?: number;
+    /** Avg recent sample tokens below which 'high' demotes to 'medium'. Default: 3000 */
+    sample_demote_high_to_medium?: number;
+    /** Avg recent sample tokens below which 'medium' demotes to 'low'. Default: 1500 */
+    sample_demote_medium_to_low?: number;
+    /** Minimum number of recent samples needed to consider demotion. Default: 3 */
+    min_samples_for_demotion?: number;
+  };
 }
 
 export interface EvolveConfig {

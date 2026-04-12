@@ -1037,6 +1037,12 @@ const { estimateComplexity } = require('./complexity') as {
     promptLength?: number;
     recentSamples?: { duration: number; tokenEstimate: number }[];
     baselineOverride?: ComplexityLevel;
+    heuristics?: {
+      prompt_length_high_threshold?: number;
+      sample_demote_high_to_medium?: number;
+      sample_demote_medium_to_low?: number;
+      min_samples_for_demotion?: number;
+    };
   }) => ComplexityLevel;
 };
 
@@ -1128,6 +1134,7 @@ function getEffectiveTierForDispatch(opts: {
     promptLength: opts.prompt.length,
     recentSamples,
     baselineOverride: opts.config.agent_complexity_overrides?.[opts.agentType],
+    heuristics: opts.config.complexity_heuristics,
   });
   const pressure = computeBudgetPressureLevel(
     states,
