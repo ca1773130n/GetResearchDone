@@ -208,15 +208,27 @@ export function _verifyFallbackOutput(cwd: string, phaseNum: string): {
   return { ok, checks };
 }
 
-function _buildSyntheticResult(phaseNum: string): PhaseCompleteResult {
+function _buildSyntheticResult(cwd: string, phaseNum: string): PhaseCompleteResult {
   const today = new Date().toISOString().split('T')[0];
+  const {
+    _resolvePhaseSuccession,
+  } = require('./phase-complete') as {
+    _resolvePhaseSuccession: (cwd: string, phaseNum: string) => {
+      phaseName: string;
+      plansExecuted: string;
+      nextPhaseNum: string | null;
+      nextPhaseName: string | null;
+      isLastPhase: boolean;
+    };
+  };
+  const succession = _resolvePhaseSuccession(cwd, phaseNum);
   return {
     completed_phase: phaseNum,
-    phase_name: `(LLM-finalized)`,
-    plans_executed: 'N/A',
-    next_phase: null,
-    next_phase_name: null,
-    is_last_phase: false,
+    phase_name: succession.phaseName,
+    plans_executed: succession.plansExecuted,
+    next_phase: succession.nextPhaseNum,
+    next_phase_name: succession.nextPhaseName,
+    is_last_phase: succession.isLastPhase,
     date: today,
     roadmap_updated: true,
     state_updated: true,
@@ -317,7 +329,7 @@ async function _attemptOnce(
 
   process.stderr.write(`${logPrefix}fallback succeeded for phase ${phaseNum}\n`);
   incrementCounter('phase_complete_llm_fallback.successes_total');
-  return _buildSyntheticResult(phaseNum);
+  return _buildSyntheticResult(cwd, phaseNum);
 }
 
 /**
