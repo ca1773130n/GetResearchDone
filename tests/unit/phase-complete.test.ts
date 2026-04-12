@@ -188,3 +188,64 @@ describe('completePhaseAfterPostPipeline', () => {
     await expect(completePhaseAfterPostPipeline(projectDir, '3')).resolves.not.toThrow();
   });
 });
+
+describe('multi-dot phase number regex escaping (I5 regression)', () => {
+  it('correctly escapes all dots in a two-part phase number', () => {
+    // Phase "1.1" — normalizePhaseName produces "01.1" so directory is "01.1-target".
+    // The ROADMAP also contains "1X1" (a decoy where the dot is a regex wildcard).
+    // With the buggy single-replace the checkbox pattern for "01.1" would be
+    //   /(-\s*\[)[ ](\]\s*.*Phase\s+01\.1[\s:][^\n]*)/i
+    // which is correct for ONE dot. The /\./g fix ensures correctness for any
+    // phase number with multiple dots (like "1.1.2" if normalization were extended).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-i5-'));
+    const planning = path.join(dir, '.planning');
+    fs.mkdirSync(planning);
+    fs.mkdirSync(path.join(planning, 'milestones'));
+    fs.mkdirSync(path.join(planning, 'milestones', 'anonymous'));
+    const phasesDir = path.join(planning, 'milestones', 'anonymous', 'phases');
+    fs.mkdirSync(phasesDir);
+    // normalizePhaseName('1.1') → '01.1', so directory must start with '01.1-'
+    fs.mkdirSync(path.join(phasesDir, '01.1-target'));
+    fs.writeFileSync(path.join(phasesDir, '01.1-target', '01-PLAN.md'), '# plan\n');
+    fs.writeFileSync(path.join(phasesDir, '01.1-target', '01-SUMMARY.md'), '# summary\n');
+
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.md'),
+      [
+        '# Roadmap',
+        '',
+        '## Phases',
+        '',
+        '- [ ] Phase 1.1: Target',
+        '- [ ] Phase 1X1: Decoy (should NOT be ticked)',
+        '',
+        // Gate regex looks for "## Phase 01.1:" (normalized) or "## Phase 1:" (unpadded)
+        '## Phase 01.1: Target',
+        '**Plans:** 1/1 plans complete',
+        '',
+      ].join('\n'),
+    );
+    fs.writeFileSync(
+      path.join(planning, 'STATE.md'),
+      '# State\n\n**Current Phase:** 1.1\n**Current Phase Name:** Target\n**Status:** Executing\n**Current Plan:** 01\n**Last Activity:** 2026-04-12\n**Last Activity Description:** running\n',
+    );
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({ phase_cleanup: { cleanup_threshold: 99999 } }),
+    );
+
+    try {
+      const { _phaseCompleteCore } = require('../../lib/phase-complete') as {
+        _phaseCompleteCore: (cwd: string, phaseNum: string) => unknown;
+      };
+      _phaseCompleteCore(dir, '1.1');
+
+      const roadmap = fs.readFileSync(path.join(planning, 'ROADMAP.md'), 'utf-8');
+      // The ticked checkbox must match exactly Phase 1.1 (not Phase 1X1)
+      expect(roadmap).toMatch(/- \[x\] Phase 1\.1: Target/);
+      expect(roadmap).toMatch(/- \[ \] Phase 1X1: Decoy/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

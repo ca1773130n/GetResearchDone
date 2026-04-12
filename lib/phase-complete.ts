@@ -131,13 +131,13 @@ export function _phaseCompleteCore(
 
     // Checkbox: - [ ] Phase N: -> - [x] Phase N: (...completed DATE)
     const checkboxPattern: RegExp = new RegExp(
-      `(-\\s*\\[)[ ](\\]\\s*.*Phase\\s+${phaseNum.replace('.', '\\.')}[:\\s][^\\n]*)`,
+      `(-\\s*\\[)[ ](\\]\\s*.*Phase\\s+${phaseNum.replace(/\./g, '\\.')}[:\\s][^\\n]*)`,
       'i'
     );
     roadmapContent = roadmapContent.replace(checkboxPattern, `$1x$2 (completed ${today})`);
 
     // Progress table: update Status to Complete, add date
-    const phaseEscaped: string = phaseNum.replace('.', '\\.');
+    const phaseEscaped: string = phaseNum.replace(/\./g, '\\.');
     const tablePattern: RegExp = new RegExp(
       `(\\|\\s*${phaseEscaped}\\.?\\s[^|]*\\|[^|]*\\|)\\s*[^|]*(\\|)\\s*[^|]*(\\|)`,
       'i'
