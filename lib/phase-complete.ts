@@ -43,12 +43,14 @@ const { phasesDir: getPhasesDirPath } = require('./paths') as {
   phasesDir: (cwd: string) => string;
 };
 
-const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile } =
+const { readRoadmapFile, writeRoadmapFile, readStateFile, writeStateFile, clearRoadmapCache, clearStateCache } =
   require('./phase-io') as {
     readRoadmapFile: (p: string) => string;
     writeRoadmapFile: (p: string, content: string) => void;
     readStateFile: (p: string) => string;
     writeStateFile: (p: string, content: string) => void;
+    clearRoadmapCache: (filePath?: string) => void;
+    clearStateCache: (filePath?: string) => void;
   };
 
 const { runQualityAnalysis, generateCleanupPlan } = require('./cleanup') as {
@@ -98,6 +100,11 @@ export function _phaseCompleteCore(
       phase_found: !!phaseInfo,
     };
   }
+
+  // Spec 3B cleanup: invalidate caches in case a prior LLM fallback
+  // in the same process wrote these files directly.
+  clearRoadmapCache(path.join(cwd, '.planning', 'ROADMAP.md'));
+  clearStateCache(path.join(cwd, '.planning', 'STATE.md'));
 
   // Pre-flight gate checks
   const gates: PreflightResult = runPreflightGates(cwd, 'phase-complete', {

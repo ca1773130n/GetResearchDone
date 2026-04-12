@@ -65,9 +65,37 @@ function writeStateFile(statePath: string, content: string): void {
   _stateFileCache.set(statePath, content);
 }
 
+/**
+ * Invalidates the cached content for a specific ROADMAP.md path, or
+ * the entire cache if no path is given. Used by phase-complete-llm
+ * after LLM fallback writes, and by _phaseCompleteCore at the start
+ * of a run to guarantee a fresh read.
+ */
+function clearRoadmapCache(filePath?: string): void {
+  if (filePath === undefined) {
+    _roadmapFileCache.clear();
+  } else {
+    _roadmapFileCache.delete(filePath);
+  }
+}
+
+/**
+ * Invalidates the cached content for a specific STATE.md path, or
+ * the entire cache if no path is given.
+ */
+function clearStateCache(filePath?: string): void {
+  if (filePath === undefined) {
+    _stateFileCache.clear();
+  } else {
+    _stateFileCache.delete(filePath);
+  }
+}
+
 module.exports = {
   readRoadmapFile,
   writeRoadmapFile,
   readStateFile,
   writeStateFile,
+  clearRoadmapCache,
+  clearStateCache,
 };

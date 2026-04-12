@@ -292,6 +292,17 @@ async function _attemptOnce(
     return null;
   }
 
+  // Invalidate cached reads so verification sees fresh post-LLM content
+  const {
+    clearRoadmapCache,
+    clearStateCache,
+  } = require('./phase-io') as {
+    clearRoadmapCache: (filePath?: string) => void;
+    clearStateCache: (filePath?: string) => void;
+  };
+  clearRoadmapCache(path.join(cwd, '.planning', 'ROADMAP.md'));
+  clearStateCache(path.join(cwd, '.planning', 'STATE.md'));
+
   const verification = _verifyFallbackOutput(cwd, phaseNum);
   if (!verification.ok) {
     const failed = verification.checks
