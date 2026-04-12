@@ -476,6 +476,12 @@ export interface SpawnOpts {
   cwd?: string;
   workItemId?: string;
   parallel?: boolean;
+  /**
+   * Optional agent type hint (e.g., 'grd-planner', 'grd-verifier').
+   * Recorded in UsageSample for per-agent complexity routing (M2).
+   * Optional for backward compatibility.
+   */
+  agentType?: string;
 }
 
 /**
@@ -544,6 +550,8 @@ export interface SchedulerConfig {
 export interface UsageSample {
   backend: BackendId;
   stateKey?: string; // compound key for per-account state, e.g. "claude/~/.claude-personal"
+  /** Agent type this sample was recorded for (M2). */
+  agentType?: string;
   timestamp: number;
   duration: number;
   tokenEstimate: number;

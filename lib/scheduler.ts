@@ -1059,6 +1059,7 @@ export function createScheduler(
           const sample: UsageSample = {
             backend: backend as BackendId,
             stateKey,
+            agentType: opts.agentType,  // M2: record per-agent type for complexity routing
             timestamp: Date.now(),
             duration,
             tokenEstimate: tokens,
