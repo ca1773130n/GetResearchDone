@@ -438,7 +438,23 @@ async function _runAutoresearchLoop(
     `Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`
   );
 
-  _execGit(cwd, ['checkout', '-b', branchName]);
+  const branchResult = _execGit(cwd, ['checkout', '-b', branchName]);
+  if (branchResult.exitCode !== 0) {
+    // Branch creation failed — most likely the branch already exists
+    // from a prior same-day run. Try to check out the existing branch
+    // instead of silently running on whatever branch is current.
+    const checkoutResult = _execGit(cwd, ['checkout', branchName]);
+    if (checkoutResult.exitCode !== 0) {
+      throw new Error(
+        `[autoresearch] failed to create or checkout branch '${branchName}': ` +
+          `create exit ${branchResult.exitCode}, checkout exit ${checkoutResult.exitCode}. ` +
+          `Please delete the existing branch or run from a clean worktree.`,
+      );
+    }
+    process.stderr.write(
+      `[autoresearch] branch '${branchName}' already exists, reusing\n`,
+    );
+  }
   _log(`Created branch: ${branchName}`);
 
   _initTsv(tsvPath);
