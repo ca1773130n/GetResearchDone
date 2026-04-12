@@ -500,70 +500,122 @@ Backend mapping:
 - "Gemini" → `backend: "gemini"`
 - "OpenCode" → `backend: "opencode"`
 
-**Conditional: If "Superpowers" selected, ask sub-options:**
+**Round 5 — AI Accounts (always shown, not conditional on backend choice):**
+
+Account rotation works with ANY execution backend — it controls which AI service credentials the scheduler uses when spawning subprocesses. This round auto-detects what's installed and offers smart defaults.
+
+**Step 5a: Auto-detect installed CLIs and config directories.**
+
+Run these detection commands BEFORE asking the user anything:
+
+```bash
+# Detect installed CLIs
+which claude 2>/dev/null && echo "DETECTED: claude"
+which codex 2>/dev/null && echo "DETECTED: codex"
+which gemini 2>/dev/null && echo "DETECTED: gemini"
+which opencode 2>/dev/null && echo "DETECTED: opencode"
+
+# Detect existing config directories per backend
+ls -d ~/.claude ~/.claude-* ~/.config/claude* 2>/dev/null
+ls -d ~/.codex ~/.codex-* ~/.config/codex* 2>/dev/null
+ls -d ~/.gemini ~/.gemini-* ~/.config/gemini* 2>/dev/null
+ls -d ~/.opencode ~/.opencode-* ~/.config/opencode* 2>/dev/null
+```
+
+**Step 5b: Present findings and ask about rotation.**
+
+Format the detection results into a clear summary, then ask:
+
+```
+I found these AI CLIs on your machine:
+
+  ✓ claude — 3 config directories found:
+      ~/.claude
+      ~/.claude-personal
+      ~/.claude-work
+  ✓ codex — 1 config directory found:
+      ~/.codex
+  ✗ gemini — not installed
+  ✗ opencode — not installed
+```
+
+Then ask:
 
 ```
 questions: [
   {
-    header: "Superpowers AI Backend",
-    question: "Which AI CLI backend should Superpowers use by default?",
+    header: "AI Account Rotation",
+    question: "GRD can automatically rotate between your AI accounts to avoid rate limits during long runs. Want to enable this?",
     multiSelect: false,
     options: [
-      { label: "Claude Code (Default)", description: "Anthropic Claude Code CLI" },
-      { label: "Codex", description: "OpenAI Codex CLI" },
-      { label: "Gemini", description: "Google Gemini CLI" },
-      { label: "OpenCode", description: "Provider-agnostic CLI" }
-    ]
-  },
-  {
-    header: "Account Rotation",
-    question: "Enable automatic account rotation based on token usage?",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Auto-switch accounts when approaching rate limits" },
-      { label: "No", description: "Use a single account" }
+      { label: "Yes — use all detected accounts (recommended)", description: "GRD will rotate between all config directories found above" },
+      { label: "Yes — let me pick which accounts to use", description: "Choose specific config directories from the detected list" },
+      { label: "No — use single default account", description: "Use your default CLI credentials only" }
     ]
   }
 ]
 ```
 
-**Conditional: If account rotation = "Yes", ask for account configuration:**
+**Step 5c: If "Yes — let me pick", show checkboxes per backend.**
+
+Only show backends that were detected. Each config directory is a checkbox:
 
 ```
 questions: [
   {
-    header: "Account Configuration",
-    question: "Configure account config directories for each backend. Enter comma-separated paths for each backend you want to rotate (leave empty to skip).",
-    multiSelect: false,
-    freeform: true,
-    subQuestions: [
-      { label: "Claude accounts", placeholder: "~/.claude-personal, ~/.claude-work", description: "CLAUDE_CONFIG_DIR paths" },
-      { label: "Codex accounts", placeholder: "~/.codex-main", description: "CODEX_HOME paths" },
-      { label: "Gemini accounts", placeholder: "~/.gemini-default", description: "GEMINI_CLI_HOME paths" },
-      { label: "OpenCode accounts", placeholder: "~/.opencode-free", description: "OPENCODE_CONFIG_DIR paths" }
-    ]
-  },
-  {
-    header: "Backend Priority",
-    question: "Order backends by priority for account rotation (first = preferred, last = fallback):",
-    multiSelect: false,
-    freeform: true,
-    placeholder: "claude, codex, gemini, opencode",
-    description: "Comma-separated backend names in priority order"
-  },
-  {
-    header: "Free Fallback",
-    question: "Which backend should be used when all accounts are exhausted?",
-    multiSelect: false,
+    header: "Select Claude accounts",
+    question: "Which Claude config directories should GRD rotate between?",
+    multiSelect: true,
     options: [
-      { label: "OpenCode (Default)", description: "Free tier — effectively unlimited" },
-      { label: "Claude Code", description: "Use Claude Code as fallback" },
-      { label: "Codex", description: "Use Codex as fallback" },
-      { label: "Gemini", description: "Use Gemini as fallback" }
+      // Dynamically generated from detection results:
+      { label: "~/.claude", description: "Default config", checked: true },
+      { label: "~/.claude-personal", description: "Detected", checked: true },
+      { label: "~/.claude-work", description: "Detected", checked: true }
     ]
   }
+  // Repeat for each detected backend with multiple config dirs
 ]
 ```
+
+**Step 5d: If "Yes — use all detected", skip the picker and use everything found.**
+
+Automatically populate:
+- `accounts`: all detected config directories grouped by backend
+- `backend_priority`: detected backends in alphabetical order (user can reorder later via `gd settings`)
+- `free_fallback`: the backend with the most accounts, or the last detected one
+
+**Step 5e: Validate each selected config directory.**
+
+For each config dir the user selected (or auto-detected), verify it exists:
+
+```bash
+# For each selected path:
+test -d "$config_dir" && echo "VALID: $config_dir" || echo "MISSING: $config_dir"
+```
+
+If any path is missing, warn the user:
+
+```
+⚠ ~/.claude-work does not exist yet. You can create it later by running:
+    CLAUDE_CONFIG_DIR=~/.claude-work claude auth login
+
+  Include it anyway?  [Yes / No]
+```
+
+**Step 5f: If no accounts or "No" selected, configure single-backend defaults.**
+
+Write a minimal scheduler config with no account rotation:
+
+```json
+{
+  "scheduler": {
+    "backend_priority": ["claude"],
+    "free_fallback": { "backend": "claude" }
+  }
+}
+```
+
+No `superpowers` section needed. The scheduler still provides token tracking, rate-limit recovery, and idle watchdog — just without multi-account rotation.
 
 **Conditional: If "Overstory" selected, ask sub-options:**
 
@@ -617,8 +669,9 @@ Create `.planning/config.json` with all settings:
     "default_backend": "claude|codex|gemini|opencode",
     "account_rotation": true|false,
     "accounts": {
-      "claude": [{ "config_dir": "~/.claude-personal" }, { "config_dir": "~/.claude-work" }],
-      "codex": [{ "config_dir": "~/.codex-main" }]
+      // Populated from Round 5 auto-detection + user selection:
+      "claude": [{ "config_dir": "~/.claude" }, { "config_dir": "~/.claude-personal" }],
+      "codex": [{ "config_dir": "~/.codex" }]
     }
   },
   "scheduler": {

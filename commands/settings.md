@@ -764,72 +764,114 @@ AskUserQuestion([
 ])
 ```
 
-**Conditional: Superpowers sub-options (if user selected "Superpowers" for Execution Backend)**
+**AI Account Configuration (shown when user mentions accounts, rotation, rate limits, or asks about AI service credentials)**
 
-If user selected "Superpowers" for Execution Backend, ask follow-up questions:
+This flow auto-detects installed CLIs and config directories, then offers smart defaults. It works regardless of which execution backend is selected — account rotation is an orthogonal feature.
+
+**Step 1: Auto-detect.**
+
+Run before asking questions:
+
+```bash
+# Detect installed CLIs
+which claude 2>/dev/null && echo "DETECTED: claude"
+which codex 2>/dev/null && echo "DETECTED: codex"
+which gemini 2>/dev/null && echo "DETECTED: gemini"
+which opencode 2>/dev/null && echo "DETECTED: opencode"
+
+# Detect existing config directories per backend
+ls -d ~/.claude ~/.claude-* ~/.config/claude* 2>/dev/null
+ls -d ~/.codex ~/.codex-* ~/.config/codex* 2>/dev/null
+ls -d ~/.gemini ~/.gemini-* ~/.config/gemini* 2>/dev/null
+ls -d ~/.opencode ~/.opencode-* ~/.config/opencode* 2>/dev/null
+```
+
+Also read current config to show existing account setup (if any):
+
+```bash
+cat .planning/config.json | grep -A 20 '"superpowers"'
+```
+
+**Step 2: Present findings.**
+
+Show what's currently configured vs. what's detected:
+
+```
+Current account configuration:
+  (none configured — using default CLI credentials)
+
+Detected on this machine:
+  ✓ claude — 2 config directories: ~/.claude, ~/.claude-personal
+  ✓ codex — 1 config directory: ~/.codex
+  ✗ gemini — not installed
+  ✗ opencode — not installed
+```
+
+Or if already configured:
+
+```
+Current account configuration:
+  claude: ~/.claude, ~/.claude-personal (rotation enabled)
+  Priority: claude → codex
+  Fallback: gemini
+
+Detected on this machine:
+  ✓ claude — 3 config directories: ~/.claude, ~/.claude-personal, ~/.claude-work (NEW)
+  ...
+```
+
+**Step 3: Ask what to change.**
 
 ```
 AskUserQuestion([
   {
-    question: "Which AI CLI backend should Superpowers use by default?",
-    header: "Superpowers AI Backend",
+    header: "AI Account Rotation",
+    question: "GRD can automatically rotate between your AI accounts to avoid rate limits during long runs. Want to enable this?",
     multiSelect: false,
     options: [
-      { label: "Claude Code (Default)", description: "Anthropic Claude Code CLI" },
-      { label: "Codex", description: "OpenAI Codex CLI" },
-      { label: "Gemini", description: "Google Gemini CLI" },
-      { label: "OpenCode", description: "Provider-agnostic CLI" }
-    ]
-  },
-  {
-    question: "Enable automatic account rotation based on token usage?",
-    header: "Account Rotation",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Auto-switch accounts when approaching rate limits" },
-      { label: "No", description: "Use a single account" }
+      { label: "Yes — use all detected accounts (recommended)", description: "Rotate between all config directories found above" },
+      { label: "Yes — let me pick which accounts", description: "Choose specific directories from the list" },
+      { label: "No — single account only", description: "Use default CLI credentials" },
+      { label: "Keep current setup", description: "No changes to account configuration" }
     ]
   }
 ])
 ```
 
-**Conditional: If account rotation = "Yes", ask for account configuration:**
+**Step 4: If "let me pick", show checkboxes per detected backend.**
+
+Only show backends that were detected. Each config directory is a checkbox, pre-checked if already in current config:
 
 ```
 AskUserQuestion([
   {
-    header: "Account Configuration",
-    question: "Configure account config directories for each backend. Enter comma-separated paths for each backend you want to rotate (leave empty to skip).",
-    multiSelect: false,
-    freeform: true,
-    subQuestions: [
-      { label: "Claude accounts", placeholder: "~/.claude-personal, ~/.claude-work", description: "CLAUDE_CONFIG_DIR paths" },
-      { label: "Codex accounts", placeholder: "~/.codex-main", description: "CODEX_HOME paths" },
-      { label: "Gemini accounts", placeholder: "~/.gemini-default", description: "GEMINI_CLI_HOME paths" },
-      { label: "OpenCode accounts", placeholder: "~/.opencode-free", description: "OPENCODE_CONFIG_DIR paths" }
-    ]
-  },
-  {
-    header: "Backend Priority",
-    question: "Order backends by priority for account rotation (first = preferred, last = fallback):",
-    multiSelect: false,
-    freeform: true,
-    placeholder: "claude, codex, gemini, opencode",
-    description: "Comma-separated backend names in priority order"
-  },
-  {
-    header: "Free Fallback",
-    question: "Which backend should be used when all accounts are exhausted?",
-    multiSelect: false,
+    header: "Select Claude accounts",
+    question: "Which Claude config directories should GRD rotate between?",
+    multiSelect: true,
     options: [
-      { label: "OpenCode (Default)", description: "Free tier — effectively unlimited" },
-      { label: "Claude Code", description: "Use Claude Code as fallback" },
-      { label: "Codex", description: "Use Codex as fallback" },
-      { label: "Gemini", description: "Use Gemini as fallback" }
+      // Dynamically generated from detection + current config:
+      { label: "~/.claude", description: "Default", checked: true },
+      { label: "~/.claude-personal", description: "Currently configured", checked: true },
+      { label: "~/.claude-work", description: "Newly detected", checked: false }
     ]
   }
+  // Repeat per detected backend
 ])
 ```
+
+**Step 5: Validate selected paths.**
+
+For each selected config directory, verify it exists:
+
+```bash
+test -d "$config_dir" && echo "VALID: $config_dir" || echo "MISSING: $config_dir"
+```
+
+If missing, warn and offer to include anyway (user may create it later via `CLAUDE_CONFIG_DIR=<path> claude auth login`).
+
+**Step 6: Write config.**
+
+Merge into existing `.planning/config.json` — preserving all other settings. Only update `superpowers` and `scheduler` sections based on user choices.
 
 **Conditional: Overstory sub-options (if user selected "Overstory" for Execution Backend)**
 
