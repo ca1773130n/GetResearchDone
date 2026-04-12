@@ -16,6 +16,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { setTimeout as sleep } from 'timers/promises';
 import type { GateViolation, PhaseCompleteResult } from './types';
 import type { Scheduler } from './scheduler';
 
@@ -138,19 +139,23 @@ function _buildSyntheticResult(phaseNum: string): PhaseCompleteResult {
 }
 
 /**
- * Attempts to recover from a mechanical phase-completion failure by
- * asking Claude to perform the ROADMAP.md and STATE.md edits directly.
- * Returns a synthetic PhaseCompleteResult on success, null on any
- * failure or when the scheduler is null.
+ * Single attempt at LLM fallback phase completion. Builds the prompt,
+ * spawns the subprocess, and verifies the roadmap checkbox.
+ *
+ * @param cwd - project working directory
+ * @param phaseNum - phase number string (e.g., '3')
+ * @param scheduler - scheduler instance to use for spawning
+ * @param failure - the original mechanical failure description
+ * @param attemptIndex - zero-based attempt index (used for log prefix)
+ * @returns synthetic PhaseCompleteResult on success, null on any failure
  */
-export async function attemptLlmFallbackCompletion(
+async function _attemptOnce(
   cwd: string,
   phaseNum: string,
-  scheduler: Scheduler | null,
-  failure: Error | { gate_errors?: GateViolation[] }
+  scheduler: Scheduler,
+  failure: Error | { gate_errors?: GateViolation[] },
+  attemptIndex: number
 ): Promise<PhaseCompleteResult | null> {
-  if (!scheduler) return null;
-
   const roadmapPath = path.join(cwd, '.planning', 'ROADMAP.md');
   const statePath = path.join(cwd, '.planning', 'STATE.md');
   const roadmap = _readFileTruncated(roadmapPath, PROMPT_MAX_CONTEXT_BYTES);
@@ -173,9 +178,12 @@ export async function attemptLlmFallbackCompletion(
 
   const failureDescription = _describeFailure(failure);
   const prompt = _buildPrompt(phaseNum, roadmap, state, phaseDirFiles, failureDescription);
+  const logPrefix = attemptIndex > 0
+    ? `[phase-complete-llm] (attempt ${attemptIndex + 1}) `
+    : `[phase-complete-llm] `;
 
   process.stderr.write(
-    `[phase-complete-llm] attempting LLM fallback for phase ${phaseNum} ` +
+    `${logPrefix}attempting LLM fallback for phase ${phaseNum} ` +
       `(reason: ${failureDescription.slice(0, 200)})\n`
   );
 
@@ -187,26 +195,69 @@ export async function attemptLlmFallbackCompletion(
     });
     if (result.exitCode !== 0) {
       process.stderr.write(
-        `[phase-complete-llm] fallback subprocess exited with code ${result.exitCode}\n`
+        `${logPrefix}fallback subprocess exited with code ${result.exitCode}\n`
       );
       return null;
     }
   } catch (e) {
     process.stderr.write(
-      `[phase-complete-llm] fallback subprocess threw: ${(e as Error).message}\n`
+      `${logPrefix}fallback subprocess threw: ${(e as Error).message}\n`
     );
     return null;
   }
 
   if (!_verifyRoadmapTick(cwd, phaseNum)) {
     process.stderr.write(
-      `[phase-complete-llm] verification failed — ROADMAP.md checkbox not ticked\n`
+      `${logPrefix}verification failed — ROADMAP.md checkbox not ticked\n`
     );
     return null;
   }
 
-  process.stderr.write(`[phase-complete-llm] fallback succeeded for phase ${phaseNum}\n`);
+  process.stderr.write(`${logPrefix}fallback succeeded for phase ${phaseNum}\n`);
   return _buildSyntheticResult(phaseNum);
+}
+
+/**
+ * Attempts to recover from a mechanical phase-completion failure by
+ * asking Claude to perform the ROADMAP.md and STATE.md edits directly.
+ * Returns a synthetic PhaseCompleteResult on success, null on any
+ * failure or when the scheduler is null.
+ *
+ * Retries up to `phase_complete_llm_fallback_retries` times (default 0)
+ * with exponential backoff: 2^attempt seconds between retries (2s, 4s, …).
+ */
+export async function attemptLlmFallbackCompletion(
+  cwd: string,
+  phaseNum: string,
+  scheduler: Scheduler | null,
+  failure: Error | { gate_errors?: GateViolation[] }
+): Promise<PhaseCompleteResult | null> {
+  if (!scheduler) return null;
+
+  // Read retry count from config
+  let maxRetries = 0;
+  try {
+    const { loadConfig } = require('./utils') as {
+      loadConfig: (cwd: string) => { phase_complete_llm_fallback_retries?: number };
+    };
+    const config = loadConfig(cwd);
+    maxRetries = Math.max(0, config.phase_complete_llm_fallback_retries ?? 0);
+  } catch {
+    // Use default of 0
+  }
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await _attemptOnce(cwd, phaseNum, scheduler, failure, attempt);
+    if (result !== null) return result;
+    if (attempt < maxRetries) {
+      const backoffMs = Math.pow(2, attempt) * 1000;
+      process.stderr.write(
+        `[phase-complete-llm] retrying after ${backoffMs / 1000}s (attempt ${attempt + 2}/${maxRetries + 1})\n`
+      );
+      await sleep(backoffMs);
+    }
+  }
+  return null;
 }
 
 module.exports = {

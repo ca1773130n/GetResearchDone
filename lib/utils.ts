@@ -301,6 +301,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'refinement_loop',
   // LLM fallback for phase completion (Spec 3B)
   'phase_complete_llm_fallback',
+  // LLM fallback retry count with exponential backoff
+  'phase_complete_llm_fallback_retries',
 ]);
 
 /**
@@ -552,6 +554,11 @@ function loadConfig(cwd: string): GrdConfig {
       phase_complete_llm_fallback:
         typeof parsed.phase_complete_llm_fallback === 'boolean'
           ? parsed.phase_complete_llm_fallback
+          : undefined,
+      // LLM fallback retry count (optional number, default: 0)
+      phase_complete_llm_fallback_retries:
+        typeof parsed.phase_complete_llm_fallback_retries === 'number'
+          ? Math.max(0, parsed.phase_complete_llm_fallback_retries)
           : undefined,
       // Timeouts config
       timeouts: ((): GrdTimeouts => {

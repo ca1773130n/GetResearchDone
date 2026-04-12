@@ -422,6 +422,13 @@ export interface GrdConfig {
    */
   phase_complete_llm_fallback?: boolean;
   /**
+   * Number of retry attempts for the LLM fallback path (Spec 3B) when
+   * the subprocess fails or verification doesn't confirm success.
+   * Uses exponential backoff: 2^attempt seconds between retries
+   * (2s, 4s, 8s, ...). Default: 0 (no retries — single attempt only).
+   */
+  phase_complete_llm_fallback_retries?: number;
+  /**
    * Optional per-agent-type override of the baseline complexity used
    * by estimateComplexity. Keys are agent type names (e.g.,
    * 'grd-verifier'); values are 'low' | 'medium' | 'high'. When a
