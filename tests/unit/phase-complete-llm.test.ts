@@ -435,6 +435,25 @@ describe('_verifyFallbackOutput', () => {
     }
   });
 
+  it('fails state-advanced check when STATE.md is missing (M3)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-m3-'));
+    const planning = path.join(dir, '.planning');
+    fs.mkdirSync(planning);
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.md'),
+      '- [x] Phase 3: Test (completed)\n',
+    );
+    // No STATE.md written — it is absent
+
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(false);
+      expect(result.checks.find((c) => c.name === 'state-advanced')?.passed).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('fails when state still uses zero-padded phase number', () => {
     const dir = makeProjectWithStates(
       '- [x] Phase 3: Test\n',

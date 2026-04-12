@@ -132,7 +132,10 @@ function _verifyStateAdvanced(cwd: string, phaseNum: string): boolean {
   try {
     content = fs.readFileSync(statePath, 'utf-8');
   } catch {
-    return true; // missing file — can't verify, assume ok
+    // Missing STATE.md is a verification failure — the LLM fallback
+    // should NEVER delete it. If it did, downstream state-dependent
+    // commands will break.
+    return false;
   }
 
   // Find the Current Phase line
