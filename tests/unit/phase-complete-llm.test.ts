@@ -13,13 +13,17 @@ jest.mock('timers/promises', () => ({
   setTimeout: mockSleep,
 }));
 
-const { attemptLlmFallbackCompletion } = require('../../lib/phase-complete-llm') as {
+const { attemptLlmFallbackCompletion, _verifyFallbackOutput } = require('../../lib/phase-complete-llm') as {
   attemptLlmFallbackCompletion: (
     cwd: string,
     phaseNum: string,
     scheduler: Scheduler | null,
     failure: Error | { gate_errors?: GateViolation[] }
   ) => Promise<unknown>;
+  _verifyFallbackOutput: (
+    cwd: string,
+    phaseNum: string
+  ) => { ok: boolean; checks: { name: string; passed: boolean }[] };
 };
 
 function makeFakeScheduler(
@@ -174,12 +178,18 @@ describe('attemptLlmFallbackCompletion', () => {
     const dir = makeTempProject();
     try {
       const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
-      // scheduler "succeeds" AND modifies the file to tick the checkbox
+      const statePath = path.join(dir, '.planning', 'STATE.md');
+      // scheduler "succeeds" AND modifies files to tick checkbox and advance state
       const scheduler = makeFakeScheduler('success', () => {
         const content = fs.readFileSync(roadmapPath, 'utf-8');
         fs.writeFileSync(
           roadmapPath,
           content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (completed today)')
+        );
+        const stateContent = fs.readFileSync(statePath, 'utf-8');
+        fs.writeFileSync(
+          statePath,
+          stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4')
         );
       });
       const result = await attemptLlmFallbackCompletion(
@@ -284,16 +294,22 @@ describe('attemptLlmFallbackCompletion with retries', () => {
       fs.writeFileSync(configPath, JSON.stringify(existing));
 
       const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
+      const statePath = path.join(dir, '.planning', 'STATE.md');
       let callCount = 0;
       const scheduler = {
         spawn: jest.fn(async (): Promise<SchedulerSpawnResult> => {
           callCount++;
           if (callCount === 2) {
-            // Second call ticks the roadmap
+            // Second call ticks the roadmap and advances state
             const content = fs.readFileSync(roadmapPath, 'utf-8');
             fs.writeFileSync(
               roadmapPath,
               content.replace('- [ ] Phase 3: Test', '- [x] Phase 3: Test (done)'),
+            );
+            const stateContent = fs.readFileSync(statePath, 'utf-8');
+            fs.writeFileSync(
+              statePath,
+              stateContent.replace('**Current Phase:** 3', '**Current Phase:** 4'),
             );
           }
           return {
@@ -334,6 +350,101 @@ describe('attemptLlmFallbackCompletion with retries', () => {
       expect(mockSleep).not.toHaveBeenCalled();
     } finally {
       cleanup(dir);
+    }
+  });
+});
+
+describe('_verifyFallbackOutput', () => {
+  function makeProjectWithStates(
+    roadmapContent: string,
+    stateContent: string,
+  ): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-verify-'));
+    const planning = path.join(dir, '.planning');
+    fs.mkdirSync(planning);
+    fs.writeFileSync(path.join(planning, 'ROADMAP.md'), roadmapContent);
+    fs.writeFileSync(path.join(planning, 'STATE.md'), stateContent);
+    return dir;
+  }
+
+  it('passes when roadmap is ticked and state is advanced', () => {
+    const dir = makeProjectWithStates(
+      '- [x] Phase 3: Test\n',
+      '**Current Phase:** 4\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when roadmap is not ticked', () => {
+    const dir = makeProjectWithStates(
+      '- [ ] Phase 3: Test\n',
+      '**Current Phase:** 4\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(false);
+      expect(result.checks.find((c) => c.name === 'roadmap-ticked')?.passed).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when state still shows completed phase as current', () => {
+    const dir = makeProjectWithStates(
+      '- [x] Phase 3: Test\n',
+      '**Current Phase:** 3\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(false);
+      expect(result.checks.find((c) => c.name === 'state-advanced')?.passed).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('passes when state shows Milestone complete', () => {
+    const dir = makeProjectWithStates(
+      '- [x] Phase 3: Test\n',
+      '**Current Phase:** Milestone complete\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('state-advanced check is skipped when Current Phase field is missing', () => {
+    const dir = makeProjectWithStates(
+      '- [x] Phase 3: Test\n',
+      'no current phase field here\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(true);
+      expect(result.checks.find((c) => c.name === 'state-advanced')?.passed).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when state still uses zero-padded phase number', () => {
+    const dir = makeProjectWithStates(
+      '- [x] Phase 3: Test\n',
+      '**Current Phase:** 03\n',
+    );
+    try {
+      const result = _verifyFallbackOutput(dir, '3');
+      expect(result.ok).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });
