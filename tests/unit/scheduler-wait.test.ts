@@ -1,6 +1,6 @@
 'use strict';
 
-import { waitUntilOrAbort } from '../../lib/scheduler-wait';
+const { waitUntilOrAbort } = require('../../lib/scheduler-wait') as { waitUntilOrAbort: (targetMs: number) => Promise<'waited' | 'aborted'>; };
 
 describe('waitUntilOrAbort', () => {
   // Use real timers — fake timers interact poorly with AbortController
