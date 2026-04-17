@@ -224,6 +224,34 @@ Nested under `config.superpowers`. Enables account rotation across multiple AI C
 |---|---|---|
 | `config_dir` | `string` | Absolute or `~/`-prefixed path to the account's config directory. Set as the appropriate env var (e.g. `CLAUDE_CONFIG_DIR`) when spawning the backend. |
 
+### How accounts are set up
+
+Configure accounts interactively — do not edit `.planning/config.json` by hand.
+
+- **`gd init`** — Round 5 of the init interview asks whether the user has multiple accounts and collects `config_dir` paths.
+- **`gd settings`** — Reconfigures accounts when the user mentions accounts, rotation, or credentials.
+
+**Env var injected per backend at spawn time (`ENV_VAR_MAP` in `lib/scheduler.ts`):**
+
+| Backend     | Env var injected      | Standard auth command                                         |
+|-------------|-----------------------|---------------------------------------------------------------|
+| `claude`    | `CLAUDE_CONFIG_DIR`   | `CLAUDE_CONFIG_DIR=~/.claude-work claude auth login`         |
+| `codex`     | `CODEX_HOME`          | `CODEX_HOME=~/.codex-work codex auth login`                  |
+| `gemini`    | `GEMINI_CLI_HOME`     | `GEMINI_CLI_HOME=~/.gemini-work gemini auth login`           |
+| `opencode`  | `OPENCODE_CONFIG_DIR` | `OPENCODE_CONFIG_DIR=~/.opencode-work opencode auth login`   |
+| `overstory` | `OVERSTORY_HOME`      | `OVERSTORY_HOME=~/.overstory-work overstory auth login`      |
+
+GRD does not handle OAuth itself — it only sets the env var and routes the spawn. Each account must be authenticated via the backend CLI before GRD is run.
+
+> **Warning:** Manual edits to the `accounts` array in `.planning/config.json` are discouraged — `gd init` / `gd settings` validate account paths and keep `default_backend` consistent.
+
+### How account rotation interacts with other features
+
+- **`token_profile`**: Budget pressure is tracked per account (state key = `backend/config_dir`). Per-account pressure drives the adaptive model-tier downgrade logic. A `frugal` token_profile will downgrade tasks on a pressured account even if a fresh account would have headroom.
+- **`max_wait_minutes`**: When all priority accounts in `backend_priority` are exhausted (all over-budget or rate-limited), the scheduler waits up to `max_wait_minutes` for sample-window aging before falling back to `free_fallback`. Set `0` to skip waiting.
+- **`idle_timeout_seconds_by_backend`**: Per-backend idle timeout overrides apply independently of which account is active. If `claude` has a 600-second override, it applies to all Claude accounts.
+- **`phase_complete_llm_fallback`**: Uses the normal scheduler account-selection path. The fallback spawn respects budget pressure and will rotate to a healthy account if the primary is exhausted.
+
 ---
 
 ## Agent Frontmatter
