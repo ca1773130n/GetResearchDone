@@ -166,6 +166,41 @@ autoresearch check this before each agent dispatch. Thresholds are
 configurable via `.planning/config.json`
 `scheduler.budget_pressure_thresholds`.
 
+### AI account rotation
+
+Account rotation lets users register multiple AI service accounts (e.g., personal + work Claude subscriptions) so the scheduler can route tasks to a healthy account when another hits a rate limit. Rotation interacts with `token_profile`: per-account budget pressure drives adaptive model-tier selection, and `max_wait_minutes` controls how long the scheduler blocks before falling back when all priority accounts are exhausted.
+
+**Env var injected per backend:**
+
+| Backend    | Env var injected         |
+| ---------- | ------------------------ |
+| `claude`   | `CLAUDE_CONFIG_DIR`      |
+| `codex`    | `CODEX_HOME`             |
+| `gemini`   | `GEMINI_CLI_HOME`        |
+| `opencode` | `OPENCODE_CONFIG_DIR`    |
+| `overstory`| `OVERSTORY_HOME`         |
+
+**Example config shape** (`superpowers` key in `.planning/config.json`):
+
+```json
+"superpowers": {
+  "account_rotation": true,
+  "accounts": {
+    "claude": [
+      { "config_dir": "~/.claude-personal" },
+      { "config_dir": "~/.claude-work" }
+    ],
+    "codex": [
+      { "config_dir": "~/.codex-personal" }
+    ]
+  }
+}
+```
+
+**Setup:** Use `gd init` (Round 5 interview) or `gd settings` (mention accounts/rotation/credentials). Do not edit the JSON directly.
+
+**Authentication:** Authenticate each account via the standard CLI flow before using GRD — e.g. `CLAUDE_CONFIG_DIR=~/.claude-work claude auth login`. GRD handles routing only; OAuth is handled by the backend CLI.
+
 ### LLM fallback for phase completion (Spec 3B)
 
 `phase_complete_llm_fallback` is an opt-in config flag (default `false`).
