@@ -14,6 +14,7 @@ module.exports = {
     './lib/discussion.ts': { lines: 85, functions: 100, branches: 85 },
     './lib/autoplan.ts': { lines: 90, functions: 90, branches: 75 },
     './lib/autopilot.ts': { lines: 83, functions: 91, branches: 75 },
+    './lib/autopilot-waves.ts': { lines: 80, functions: 90, branches: 70 },
     './lib/backend.ts': { lines: 92, functions: 85, branches: 83 },
     './lib/citations.ts': { lines: 85, functions: 85, branches: 75 },
     './lib/cleanup.ts': { lines: 92, functions: 96, branches: 80 },
