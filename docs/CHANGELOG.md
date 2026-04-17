@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+
+- **`lib/autopilot.ts` decomposed into 4 modules** — 2,702 lines split
+  into orchestrator (`lib/autopilot.ts`, ~1,564 lines after extraction)
+  + `lib/autopilot-pipeline.ts` (per-phase plan/execute/verify/post-pipeline/
+  finalize sequence, ~990 lines) + `lib/autopilot-waves.ts` (wave splitting
+  + write-intent locks + merge queue, ~361 lines) + `lib/autopilot-milestone.ts`
+  (multi-milestone loop helpers, ~136 lines). Pure restructure — zero
+  behavior changes. All 4,240 tests pass unchanged. External consumers
+  continue importing from `./autopilot` via re-exports. Resolves audit
+  finding O1 from `docs/architecture/RISKS.md`.
+
 ### Added
 
 - **Scheduler idle watchdog (Spec 2B)** — new

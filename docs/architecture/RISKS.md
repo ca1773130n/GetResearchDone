@@ -188,7 +188,7 @@ None found.
 
 ### O1: `lib/autopilot.ts` is ~2,700 lines and continues growing
 
-**Status:** Deferred — requires its own spec. See plan's Out of Scope section.
+**Status:** Fixed in commits `ebcf4e7` + `2d99972` + `27e175a` (refactor/autopilot-decomposition branch). Decomposed into `lib/autopilot-pipeline.ts` (990 lines), `lib/autopilot-waves.ts` (361 lines), `lib/autopilot-milestone.ts` (136 lines). Orchestrator `lib/autopilot.ts` reduced to 1,564 lines (42% reduction). All 4,240 tests pass; external consumers continue importing from `./autopilot` via re-exports. Spec: `docs/superpowers/specs/2026-04-12-autopilot-decomposition-design.md`.
 
 **Location:** `lib/autopilot.ts`
 
