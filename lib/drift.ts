@@ -159,13 +159,19 @@ function _comparePhaseIds(a: string, b: string): number {
  * regex only matched `### Phase`, missing real ROADMAPs with `#### Phase`.
  */
 function _extractRoadmapGoal(roadmap: string, phaseNumber: string): string | null {
+  // codex r3 P2 on PR #41 (applied here for consistency): accept padded
+  // decimal phase IDs in ROADMAP headings (`Phase 06.1` vs `Phase 6.1`).
   const trim = phaseNumber.replace(/^0+/, '') || '0';
+  const numberPattern = trim
+    .split('.')
+    .map((p) => `0*${p.replace(/^0+/, '') || '0'}`)
+    .join('\\.');
   // Note: no `m` flag — `$` must mean end-of-input, not end-of-line, so
   // the body capture extends to the next heading or EOF (not the very
   // first newline). The `\n` literals in the body and the stop lookahead
   // already provide the boundary semantics we need.
   const re = new RegExp(
-    `(#{2,4})\\s+Phase ${trim}:[^\\n]*\\n([\\s\\S]*?)(?=\\n#{2,4}\\s+Phase\\s|\\n##[^#]|$)`,
+    `(#{2,4})\\s+Phase ${numberPattern}:[^\\n]*\\n([\\s\\S]*?)(?=\\n#{2,4}\\s+Phase\\s|\\n##[^#]|$)`,
     'i'
   );
   const m = roadmap.match(re);

@@ -538,6 +538,16 @@ const {
   cmdDeadEndPromoteFromPhase: (cwd: string, phase: string, raw: boolean) => void;
 } = require('../lib/dead-ends');
 
+const {
+  cmdPlanTournament,
+}: {
+  cmdPlanTournament: (
+    cwd: string,
+    opts: { phase: string; candidates: string[] },
+    raw: boolean
+  ) => void;
+} = require('../lib/plan-tournament');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1005,6 +1015,49 @@ async function routeCommand(
       } else {
         error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
       }
+      break;
+    }
+    case 'plan-tournament': {
+      // Tier-3 #9 of the Ouroboros integration. Scoring + selection over
+      // N candidate PLAN.md files. Caller supplies paths; this command
+      // does NOT auto-generate candidates (that's a deliberate follow-up
+      // to avoid worktree orchestration + backend variance per the
+      // proposal's caveat).
+      const rawCandidates: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--candidate' && args[i + 1]) rawCandidates.push(args[i + 1]);
+      }
+      // Also accept comma-separated list via --candidates "a.md,b.md"
+      const csv = flag(args, '--candidates');
+      if (csv) {
+        for (const p of csv.split(',')) {
+          const trimmed = p.trim();
+          if (trimmed) rawCandidates.push(trimmed);
+        }
+      }
+      // codex r4 P2 on PR #41: validate each candidate path against the
+      // project boundary before passing it to the scorer. Without this
+      // guard, absolute paths or `../` traversal could read files
+      // outside the repo when gd is invoked via automation / MCP.
+      //
+      // codex r5 P2 on PR #41: validateFileArg's underlying check is
+      // prefix-based, so a sibling like `${cwd}-secrets/PLAN.md` would
+      // squeak through. Tighten with a path.relative containment check.
+      const path_lib = require('path') as typeof import('path');
+      const candidates: string[] = rawCandidates.map((p) => {
+        const validated = validateFileArg(p, cwd);
+        const rel = path_lib.relative(cwd, validated);
+        if (rel === '' || rel.startsWith('..') || path_lib.isAbsolute(rel)) {
+          error(`Candidate path "${p}" is outside the project directory`);
+        }
+        return validated;
+      });
+      // codex r5 P3: validate phase format before interpolating into
+      // _extractRoadmapGoal's regex, where a malformed value would
+      // crash with a regex syntax error.
+      const phaseArg = flag(args, '--phase') ?? '';
+      if (phaseArg) validatePhaseArg(phaseArg);
+      cmdPlanTournament(cwd, { phase: phaseArg, candidates }, raw);
       break;
     }
     case 'phases': {
