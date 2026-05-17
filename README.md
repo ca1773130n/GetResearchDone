@@ -10,6 +10,9 @@ GRD brings research rigor to AI-assisted software development:
 
 - **Paper-driven development** — survey SoTA, deep-dive papers, assess feasibility before coding
 - **Tiered verification** — sanity checks in-phase, proxy metrics for quick feedback, deferred evaluation at integration
+- **Falsifiable reflections** — every plan emits a `hypothesis` + `predicted_outcome`; verifier reconciles a `verdict` (`confirmed` / `partial` / `falsified`), auto-promoted to `DEAD-ENDS.md` so falsified approaches aren't re-tried
+- **Project drift score + ontology convergence** — `gd health` reports weighted drift across goal / constraint / ontology dimensions; autopilot terminates gracefully when successive phases converge on the same ontology
+- **Strategy genome** — project-scoped `GENOME.md` captures heuristics and auto-appends post-cycle snapshots, fed back into the planner
 - **Autonomous iteration** — YOLO mode lets the agent plan, execute, evaluate, and iterate without supervision
 - **Multi-backend scheduling** — rate-limit-aware routing across Claude, Codex, Gemini, OpenCode, and Overstory with EWMA token prediction
 - **Scale-adaptive ceremony** — light/standard/full agent configurations based on phase complexity
@@ -83,8 +86,19 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | Command | Description |
 |---------|-------------|
 | `/grd:progress` | Project progress and smart routing |
+| `gd-tools think` | One-shot project-state briefing (active phase, recent verdicts, drift, dead-ends, open todos) |
 | `/grd:settings` | Configure workflow and preferences |
 | `/grd:help` | Full command reference |
+
+### Self-monitoring & self-improvement (Ouroboros integration)
+| Command | Description |
+|---------|-------------|
+| `gd health` | Weighted drift score (goal / constraint / ontology) + blockers |
+| `gd-tools dead-end add` | Record a falsified approach in `.planning/DEAD-ENDS.md` |
+| `gd-tools dead-end promote-from-phase` | Auto-promote `verdict: falsified` reflections from a phase |
+| `gd-tools genome init / show / snapshot` | Manage `.planning/GENOME.md` (project-scoped strategy snapshots) |
+| `gd-tools plan-tournament score` | Score candidate PLAN.md files against the phase goal |
+| `gd-tools verify mechanical` | Bundle the four PLAN.md mechanical checks (frontmatter, artifacts, exports, content) |
 
 ## Architecture
 

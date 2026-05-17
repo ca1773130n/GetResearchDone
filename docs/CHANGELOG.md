@@ -5,6 +5,77 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added (Ouroboros integration — agentic self-monitoring and self-improvement)
+
+The full plan and provenance are in `.planning/research/ouroboros-integration.md`.
+Pattern set adopted from the Q00 / Kargatharaakash / razzant / TomzxCode
+"Ouroboros" projects; every PR was independently reviewed by `codex exec
+review` before merge.
+
+- **Reflection loop with hypothesis / predicted_outcome** (PR #30) — planner
+  emits a `<reflection>` YAML block with `hypothesis`, `predicted_outcome`,
+  and verifier-fillable `actual_outcome` + `verdict` fields. Verifier
+  reconciles outcome and emits a falsifiable verdict per phase.
+- **Verifier Evidence Standard** (PR #31) — `agents/grd-verifier.md` now
+  requires evidence per claim (command + exit code + observable artifact)
+  before VERIFICATION.md can mark a phase passing.
+- **`gd-tools verify mechanical`** (PR #32) — single CLI bundle that runs
+  the four PLAN.md mechanical checks (frontmatter, artifacts, exports,
+  content constraints) in one shot. Replaces ad-hoc verify-* chains in
+  agent prompts. Fails fast on phases with zero PLAN.md files.
+- **Planner reads prior phase reflections** (PR #33) — `plan-phase`
+  context now injects the latest `<reflection>` blocks across completed
+  phases so the planner can avoid re-validating falsified hypotheses.
+  Phase IDs compared component-wise (`01.10 > 01.9`).
+- **Verify-fail retry escalates to a stronger model** (PR #34) — when a
+  phase verifier returns `verdict: falsified`, the retry runs against
+  the next tier up in the backend's effort profile.
+- **`DEAD-ENDS.md` registry — read path** (PR #35) — planner reads
+  `.planning/DEAD-ENDS.md` and refuses to re-propose approaches recorded
+  there. Schema documented in `agents/grd-planner.md` `<dead-ends>` block.
+- **`gd-tools dead-end add`** (PR #36) — write path for the DEAD-ENDS
+  registry. YAML scalars are escaped for round-trip safety.
+- **`gd-tools dead-end promote-from-phase`** (PR #37) — auto-promotes
+  every `verdict: falsified` Reflection in a phase's VERIFICATION.md to
+  a DEAD-ENDS entry. Honours `--phase` for one-shot promotion.
+- **Project drift score** (PR #38) — `gd health` now reports a weighted
+  drift score across goal / constraint / ontology dimensions, sourced
+  from real artifacts (PROJECT.md goal, REQUIREMENTS.md must_haves,
+  SUMMARY.md patterns-established). Configurable via the new `drift`
+  block in `.planning/config.json` (weights + threshold). `drift` is
+  in `KNOWN_CONFIG_KEYS` so it survives `loadConfig`.
+- **`GENOME.md` strategy snapshot — read path** (PR #39) — planner reads
+  `.planning/GENOME.md` (project-scoped meta-strategy) before composing
+  PLAN.md. Schema in `agents/grd-planner.md` `<genome>` block.
+- **Ontology-similarity convergence** (PR #40) — autopilot detects when
+  successive phases converge on the same ontology (similarity ≥ threshold)
+  and terminates gracefully instead of looping. Convergence is a separate
+  status (`converged_at` / status `converged`) from failure
+  (`stopped_at` / status `failed`), propagated through autopilot →
+  multi-milestone → evolve → cycles_completed.
+- **Plan tournament** (PR #41) — `gd-tools plan-tournament score`
+  evaluates multiple candidate PLAN.md files against the phase's roadmap
+  goal and selects the highest-scoring one. Padded decimal phase IDs
+  (`0*N\.0*M`) handled in both drift and tournament scoring. Path
+  containment uses `path.relative` (not prefix).
+- **`gd-tools think`** (PR #42) — one-shot project-state briefing.
+  Aggregates active phase, recent verdicts, drift score, dead-ends, and
+  open todos into a single context block. `--limit` argument strictly
+  validated.
+- **`gd-tools genome init / show / snapshot`** (PR #43) — write path for
+  GENOME.md. `init` drops a starter template; `show` reads the current
+  file (reassembling split-index via `safeReadMarkdown`); `snapshot`
+  appends a dated `## Snapshot YYYY-MM-DD` section with current
+  completed-phase count, drift score, dead-ends count, and verdict mix.
+  Refuses to write into a split-index stub (would never reach planner
+  context). Rollback policy: snapshots are append-only — `git revert`.
+- **`evolve.auto_genome_snapshot`** (PR #44) — opt-in config flag
+  (default `false`). When `true`, `runInfiniteEvolve` calls the new
+  `runGenomeSnapshot` pure helper after each cycle that ends with
+  status `completed` or `converged`. Failures (split-index or otherwise)
+  are logged but never block the loop. New `GenomeSplitIndexError`
+  sentinel for non-CLI callers.
+
 ### Changed
 
 - **`lib/autopilot.ts` decomposed into 4 modules** — 2,702 lines split

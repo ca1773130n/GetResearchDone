@@ -51,8 +51,9 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 | **Planning** | `new-project`, `product-plan`, `long-term-roadmap`, `discuss-phase`, `plan-phase` |
 | **Execution** | `execute-phase`, `quick` |
 | **Evaluation** | `eval-plan`, `eval-report`, `assess-baseline`, `iterate` |
-| **Verification** | `verify-phase`, `verify-work` |
-| **Navigation** | `progress`, `help`, `settings`, `set-profile`, `yolo` |
+| **Verification** | `verify-phase`, `verify-work`, `gd-tools verify mechanical` (PLAN.md mechanical bundle) |
+| **Navigation** | `progress`, `help`, `settings`, `set-profile`, `yolo`, `gd-tools think` (project briefing) |
+| **Self-monitoring** | `gd health` (drift score), `gd-tools dead-end add / promote-from-phase`, `gd-tools genome init / show / snapshot`, `gd-tools plan-tournament score` |
 | **Lifecycle** | `pause-work`, `resume-project`, `complete-milestone`, `new-milestone` |
 
 ## Key Files
@@ -63,6 +64,8 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 ├── ROADMAP.md          # Phase structure
 ├── STATE.md            # Living memory (position, decisions, blockers)
 ├── BASELINE.md         # Current performance metrics
+├── DEAD-ENDS.md        # Falsified approaches (planner refuses to re-propose)
+├── GENOME.md           # Project-scoped strategy snapshot (heuristics + dated cycle snapshots)
 ├── config.json         # All GRD settings
 ├── research/
 │   ├── LANDSCAPE.md    # SoTA map
@@ -72,6 +75,11 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
     └── {N}-{name}/
         ├── PLAN.md, SUMMARY.md, EVAL.md, VERIFICATION.md
 ```
+
+Each `VERIFICATION.md` contains a `<reflection>` block: `hypothesis`,
+`predicted_outcome`, `actual_outcome`, and a `verdict` of
+`confirmed` / `partial` / `falsified`. Falsified reflections are
+auto-promotable to `DEAD-ENDS.md`.
 
 ## Configuration Highlights
 
