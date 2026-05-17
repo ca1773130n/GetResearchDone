@@ -811,8 +811,15 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
     return;
   }
 
-  const plans: string[] = files.filter((f) => /-PLAN\.md$/i.test(f));
-  const summaries: string[] = files.filter((f) => /-SUMMARY\.md$/i.test(f));
+  // Accept both prefixed (`01-01-PLAN.md`) and bare (`PLAN.md`) filenames —
+  // matches the convention used across the codebase (phase.ts:336, utils.ts:1046,
+  // gates.ts:199, knowledge.ts:230, roadmap.ts:614).
+  const plans: string[] = files.filter(
+    (f) => /-PLAN\.md$/i.test(f) || f === 'PLAN.md'
+  );
+  const summaries: string[] = files.filter(
+    (f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md'
+  );
   const checks: MechanicalCheckResult[] = [];
 
   const requiredFrontmatterFields: readonly string[] = [
@@ -855,25 +862,49 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
       data: { missing: missingFields, required: [...requiredFrontmatterFields] },
     });
 
-    // artifacts check
+    // artifacts check — mirror cmdVerifyArtifacts: existence AND content
+    // constraints (min_lines / contains / exports).
     const artifacts: MustHavesEntry[] = parseMustHavesBlock(content, 'artifacts');
     if (artifacts.length > 0) {
-      const missing: string[] = [];
+      const failed: { path: string; issues: string[] }[] = [];
       for (const art of artifacts) {
         if (typeof art === 'string') continue;
-        const artPath: string | undefined = (art as MustHavesArtifact).path;
+        const artTyped = art as MustHavesArtifact;
+        const artPath: string | undefined = artTyped.path;
         if (!artPath) continue;
-        if (!fs.existsSync(path.join(cwd, artPath))) missing.push(artPath);
+        const artFullPath: string = path.join(cwd, artPath);
+        const issues: string[] = [];
+        if (!fs.existsSync(artFullPath)) {
+          issues.push('File not found');
+        } else {
+          const fileContent: string = safeReadFile(artFullPath) || '';
+          const lineCount: number = fileContent.split('\n').length;
+          if (artTyped.min_lines && lineCount < artTyped.min_lines) {
+            issues.push(`Only ${lineCount} lines, need ${artTyped.min_lines}`);
+          }
+          if (artTyped.contains && !fileContent.includes(artTyped.contains)) {
+            issues.push(`Missing pattern: ${artTyped.contains}`);
+          }
+          if (artTyped.exports) {
+            const exps: string[] = Array.isArray(artTyped.exports)
+              ? artTyped.exports
+              : [artTyped.exports];
+            for (const exp of exps) {
+              if (!fileContent.includes(exp)) issues.push(`Missing export: ${exp}`);
+            }
+          }
+        }
+        if (issues.length > 0) failed.push({ path: artPath, issues });
       }
       checks.push({
         check: 'artifacts',
         scope: `plan:${planFile}`,
-        passed: missing.length === 0,
+        passed: failed.length === 0,
         detail:
-          missing.length === 0
-            ? `All ${artifacts.length} artifacts present`
-            : `Missing files: ${missing.join(', ')}`,
-        data: { missing },
+          failed.length === 0
+            ? `All ${artifacts.length} artifacts present and satisfy content constraints`
+            : `Failed: ${failed.map((f) => `${f.path} (${f.issues.join('; ')})`).join('; ')}`,
+        data: { failed },
       });
     }
 
@@ -949,9 +980,14 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
     }
   }
 
-  // phase-level: plan/summary completeness
-  const planIds = new Set<string>(plans.map((p) => p.replace(/-PLAN\.md$/i, '')));
-  const summaryIds = new Set<string>(summaries.map((s) => s.replace(/-SUMMARY\.md$/i, '')));
+  // phase-level: plan/summary completeness — bare PLAN.md / SUMMARY.md
+  // normalise to '' so they pair off.
+  const stripPlanId = (n: string): string =>
+    n === 'PLAN.md' ? '' : n.replace(/-PLAN\.md$/i, '');
+  const stripSummaryId = (n: string): string =>
+    n === 'SUMMARY.md' ? '' : n.replace(/-SUMMARY\.md$/i, '');
+  const planIds = new Set<string>(plans.map(stripPlanId));
+  const summaryIds = new Set<string>(summaries.map(stripSummaryId));
   const incomplete: string[] = [...planIds].filter((id) => !summaryIds.has(id));
   checks.push({
     check: 'plan_summary_completeness',

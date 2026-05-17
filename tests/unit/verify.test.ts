@@ -620,4 +620,93 @@ describe('cmdVerifyMechanical', () => {
     expect(parsed.passed_count + parsed.failed_count).toBe(parsed.total_checks);
     expect(parsed.passed).toBe(parsed.failed_count === 0);
   });
+
+  // ─── codex-rescue regressions ────────────────────────────────────────────
+  // These two tests guard against bugs caught by the codex review of PR #32.
+
+  test('recognises unprefixed PLAN.md / SUMMARY.md (codex P2 #2)', () => {
+    // Replace the fixture's prefixed plan with bare PLAN.md to mimic phases
+    // that use that filename convention (supported elsewhere: phase.ts:336,
+    // utils.ts:1046, gates.ts:199). Without the fix the bundle would find
+    // zero plans and pass based on completeness alone.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const prefixedPlan = path.join(phaseDir, '01-01-PLAN.md');
+    const prefixedSummary = path.join(phaseDir, '01-01-SUMMARY.md');
+    const barePlan = path.join(phaseDir, 'PLAN.md');
+    const bareSummary = path.join(phaseDir, 'SUMMARY.md');
+    fs.renameSync(prefixedPlan, barePlan);
+    fs.renameSync(prefixedSummary, bareSummary);
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.plan_count).toBe(1);
+    // Frontmatter check must have fired with scope=plan:PLAN.md
+    const frontmatter = parsed.checks.find(
+      (c: { check: string; scope: string }) =>
+        c.check === 'frontmatter' && c.scope === 'plan:PLAN.md'
+    );
+    expect(frontmatter).toBeDefined();
+    // Completeness still passes: bare PLAN.md ↔ bare SUMMARY.md
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(true);
+  });
+
+  test('enforces artifact content constraints, not just existence (codex P2 #1)', () => {
+    // Plan declares an artifact that exists but is too short for its
+    // declared min_lines. Pre-fix, the bundle would pass it. Post-fix,
+    // it must fail with a content issue.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/short.js"',
+      '        min_lines: 20',
+      '        contains: "REQUIRED_MARKER"',
+      '---',
+      '',
+      '<task><name>t</name><action>a</action></task>',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+    fs.mkdirSync(path.join(fixtureDir, 'src'), { recursive: true });
+    // File exists but is short and lacks the marker — pre-fix this passed.
+    fs.writeFileSync(path.join(fixtureDir, 'src', 'short.js'), 'one\ntwo\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const artifactsCheck = parsed.checks.find(
+      (c: { check: string }) => c.check === 'artifacts'
+    );
+    expect(artifactsCheck.passed).toBe(false);
+    expect(artifactsCheck.detail).toMatch(/min_lines|REQUIRED_MARKER|Only \d+ lines/);
+  });
 });
