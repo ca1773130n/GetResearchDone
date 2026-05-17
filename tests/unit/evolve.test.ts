@@ -3450,4 +3450,68 @@ describe('runInfiniteEvolve', () => {
       expect(result.stopped_at).toBeNull();
     }
   });
+
+  // ─── Auto-genome snapshot (Tier-2 #8 follow-up, PR-B) ─────────────────
+
+  test('appends GENOME snapshot after successful cycle when auto_genome_snapshot=true', async () => {
+    // Set config.evolve.auto_genome_snapshot = true
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify(
+        { evolve: { auto_commit: true, create_pr: true, auto_genome_snapshot: true } },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+
+    await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+
+    const genomePath = path.join(tmpDir, '.planning', 'GENOME.md');
+    expect(fs.existsSync(genomePath)).toBe(true);
+    const body = fs.readFileSync(genomePath, 'utf-8');
+    expect(body).toMatch(/## Snapshot \d{4}-\d{2}-\d{2}/);
+    expect(body).toContain('| completed_phases |');
+  });
+
+  test('does NOT append GENOME snapshot when auto_genome_snapshot omitted (default off)', async () => {
+    // No config.evolve.auto_genome_snapshot — feature defaults to off
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ evolve: { auto_commit: true, create_pr: true } }, null, 2),
+      'utf-8'
+    );
+
+    await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+
+    const genomePath = path.join(tmpDir, '.planning', 'GENOME.md');
+    expect(fs.existsSync(genomePath)).toBe(false);
+  });
+
+  test('genome snapshot is non-blocking on split-index GENOME.md', async () => {
+    // Set feature on AND seed split-index GENOME.md. Pre-existing
+    // partial-aware genome would error; evolve must swallow the error
+    // and the cycle must still complete.
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify(
+        { evolve: { auto_commit: true, create_pr: true, auto_genome_snapshot: true } },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'GENOME.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./GENOME.partial.md)', ''].join('\n'),
+      'utf-8'
+    );
+
+    const result = await runInfiniteEvolve(tmpDir, { maxCycles: 1 });
+    // Cycle still completes; only the snapshot was skipped.
+    expect(result.stopped_at).toBeNull();
+    // The index stub was not mutated
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'GENOME.md'), 'utf-8');
+    expect(body).not.toMatch(/## Snapshot /);
+  });
 });
