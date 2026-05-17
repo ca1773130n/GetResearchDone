@@ -361,3 +361,45 @@ describe('computeDriftScore aggregator', () => {
     expect(r.weights).toEqual(customWeights);
   });
 });
+
+// ─── config.drift wiring (codex r1 P2 on PR #38) ──────────────────────────
+// loadConfig() previously dropped unknown top-level keys, so a `drift`
+// block in .planning/config.json never reached computeDriftScore. This
+// test guards both halves: (1) the key is recognised (no warning), and
+// (2) the parsed value is preserved on GrdConfig and passed to drift.
+
+describe('config.drift end-to-end wiring', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('drift block in .planning/config.json reaches loadConfig output', () => {
+    const { loadConfig } = require('../../lib/utils');
+    const cfgPath = path.join(projectDir, '.planning', 'config.json');
+    const driftBlock = {
+      weights: { goal: 0.6, constraint: 0.2, ontology: 0.2 },
+      threshold: 0.4,
+    };
+    fs.writeFileSync(cfgPath, JSON.stringify({ drift: driftBlock }, null, 2), 'utf-8');
+
+    // Should not emit "Unrecognized config key" warning.
+    let stderrCapture = '';
+    const origWrite = process.stderr.write;
+    process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+      stderrCapture += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    let config;
+    try {
+      config = loadConfig(projectDir);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    expect(stderrCapture).not.toMatch(/Unrecognized config key "drift"/);
+    expect(config.drift).toEqual(driftBlock);
+  });
+});

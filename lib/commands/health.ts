@@ -277,12 +277,11 @@ function cmdHealth(cwd: string, raw: boolean): void {
 
   // 7. Compute project drift score (Tier-2 #7 of Ouroboros integration).
   // Pure-file pass — no LLM calls. Weights and threshold configurable via
-  // config.drift.{weights,threshold}; falls back to Q00 defaults.
-  const driftConfigRaw = (loadConfig(cwd) as unknown as Record<string, unknown>).drift;
-  const driftConfig =
-    driftConfigRaw && typeof driftConfigRaw === 'object'
-      ? (driftConfigRaw as { weights?: { goal: number; constraint: number; ontology: number }; threshold?: number })
-      : {};
+  // .planning/config.json `drift` section; falls back to Q00 defaults.
+  // The `drift` key is registered in lib/utils.ts KNOWN_CONFIG_KEYS and
+  // typed on GrdConfig (codex r1 P2 on PR #38: previously dropped by
+  // loadConfig's normalisation and never reached this function).
+  const driftConfig = (loadConfig(cwd) as { drift?: { weights?: { goal: number; constraint: number; ontology: number }; threshold?: number } }).drift ?? {};
   const driftWeights = driftConfig.weights ?? DRIFT_DEFAULT_WEIGHTS;
   const driftThreshold = typeof driftConfig.threshold === 'number' ? driftConfig.threshold : 0.3;
   const drift: DriftSection = computeDriftScore(cwd, driftWeights, driftThreshold);

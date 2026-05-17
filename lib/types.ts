@@ -410,6 +410,16 @@ export interface GrdConfig {
   /** When true, run post-phase metric-driven refinement loop. Default: false */
   refinement_loop?: boolean;
   /**
+   * Drift score config (Tier-2 #7 of Ouroboros integration). Weights for
+   * goal/constraint/ontology components, plus the threshold above which
+   * `gd health` flags the project as drifted. Defaults: 0.5/0.3/0.2 and
+   * threshold 0.3. Defined in lib/drift.ts DEFAULT_WEIGHTS.
+   */
+  drift?: {
+    weights?: { goal: number; constraint: number; ontology: number };
+    threshold?: number;
+  };
+  /**
    * When true, autopilot and `gd phase complete` invoke an LLM fallback
    * if the mechanical phase-completion regex-based path fails. The
    * fallback spawns Claude via the scheduler, gives it the current
