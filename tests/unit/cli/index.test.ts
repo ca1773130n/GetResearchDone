@@ -58,6 +58,13 @@ describe('command classification', () => {
     expect(classifyCommand('health')).toBe('tool');
   });
 
+  it('classifies dead-end as a tool command (codex P2 on PR #36)', () => {
+    // Regression: the dead-end writer was wired in grd-tools.ts but not
+    // registered in TOOL_COMMANDS, so `gd dead-end add ...` rejected
+    // with "Unknown command: dead-end" before delegating.
+    expect(classifyCommand('dead-end')).toBe('tool');
+  });
+
   it('classifies agent commands', () => {
     expect(classifyCommand('init')).toBe('agent');
     expect(classifyCommand('plan-phase')).toBe('agent');
