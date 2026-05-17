@@ -369,6 +369,22 @@ describe('cmdPlanTournament', () => {
     expect(result.weights).toEqual(DEFAULT_WEIGHTS);
   });
 
+  test('CLI dispatch validates candidate paths against project boundary (codex r4 P2 on PR #41)', () => {
+    // The CLI dispatch (bin/grd-tools.ts) runs each candidate through
+    // validateFileArg before calling cmdPlanTournament. This test
+    // exercises the validator from the same module to lock in that an
+    // absolute path outside cwd is rejected. The actual case statement
+    // is covered by tests/integration/cli.test.ts; this asserts the
+    // validator contract the dispatcher relies on.
+    const { validateFileArg } = require('../../lib/utils');
+    expect(() => validateFileArg('/etc/passwd', projectDir)).toThrow();
+    expect(() => validateFileArg('../../escape.md', projectDir)).toThrow();
+    // Valid in-project path passes
+    const inProject = writeCandidate(projectDir, 'inside.md', FULL_FRONTMATTER);
+    expect(() => validateFileArg(inProject, projectDir)).not.toThrow();
+    expect(() => validateFileArg('inside.md', projectDir)).not.toThrow();
+  });
+
   test('resolves candidate paths relative to cwd', () => {
     writeCandidate(projectDir, 'relative.md', FULL_FRONTMATTER);
     const { stdout } = captureOutput(() =>

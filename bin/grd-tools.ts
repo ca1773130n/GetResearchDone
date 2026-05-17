@@ -1023,18 +1023,23 @@ async function routeCommand(
       // does NOT auto-generate candidates (that's a deliberate follow-up
       // to avoid worktree orchestration + backend variance per the
       // proposal's caveat).
-      const candidates: string[] = [];
+      const rawCandidates: string[] = [];
       for (let i = 0; i < args.length; i++) {
-        if (args[i] === '--candidate' && args[i + 1]) candidates.push(args[i + 1]);
+        if (args[i] === '--candidate' && args[i + 1]) rawCandidates.push(args[i + 1]);
       }
       // Also accept comma-separated list via --candidates "a.md,b.md"
       const csv = flag(args, '--candidates');
       if (csv) {
         for (const p of csv.split(',')) {
           const trimmed = p.trim();
-          if (trimmed) candidates.push(trimmed);
+          if (trimmed) rawCandidates.push(trimmed);
         }
       }
+      // codex r4 P2 on PR #41: validate each candidate path against the
+      // project boundary before passing it to the scorer. Without this
+      // guard, absolute paths or `../` traversal could read files
+      // outside the repo when gd is invoked via automation / MCP.
+      const candidates: string[] = rawCandidates.map((p) => validateFileArg(p, cwd));
       const phaseArg = flag(args, '--phase') ?? '';
       cmdPlanTournament(cwd, { phase: phaseArg, candidates }, raw);
       break;
