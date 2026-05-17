@@ -34,7 +34,13 @@ import * as path from 'path';
 const {
   planningDir: getPlanningDir,
 }: { planningDir: (cwd: string) => string } = require('./paths');
-const { safeReadFile }: { safeReadFile: (p: string) => string | null } = require('./utils');
+const {
+  safeReadFile,
+  safeReadMarkdown,
+}: {
+  safeReadFile: (p: string) => string | null;
+  safeReadMarkdown: (p: string) => string | null;
+} = require('./utils');
 const {
   extractFrontmatter,
 }: { extractFrontmatter: (content: string) => Record<string, unknown> } = require('./frontmatter');
@@ -68,6 +74,14 @@ export interface CandidateResult {
   breakdown: ScoreBreakdown;
   /** Set when the candidate could not be parsed at all. */
   error?: string;
+  /**
+   * Warning surfaced when the candidate's declared phase does not match
+   * the tournament's --phase argument. The candidate is still scored, but
+   * goal_alignment is computed against the tournament phase (not the
+   * candidate's stale phase), and this flag lets reviewers notice the
+   * mismatch in the JSON output.
+   */
+  phase_mismatch?: string;
 }
 
 export interface TournamentResult {
@@ -173,13 +187,22 @@ function _scoreConciseness(content: string): number {
 // ─── Public API ────────────────────────────────────────────────────────────
 
 /**
- * Score a single candidate PLAN.md file against the project's ROADMAP.
- * Returns null fields and score 0 when the file is unreadable; callers
- * decide whether to surface the error or skip the candidate.
+ * Score a single candidate PLAN.md file against the tournament's
+ * `tournamentPhase` (NOT the candidate's claimed phase — codex r1 P2
+ * caught the case where a stale wrong-phase PLAN.md scored against its
+ * own ROADMAP section and still won the tournament).
+ *
+ * If the candidate's declared `phase` does not match `tournamentPhase`,
+ * the result carries a `phase_mismatch` warning but is still scored so
+ * the caller can see *why* it ranked low instead of being silently
+ * filtered out.
+ *
+ * Returns score 0 with `error` set when the file is unreadable.
  */
 function scorePlanCandidate(
   candidatePath: string,
   cwd: string,
+  tournamentPhase: string,
   weights: ScoringWeights = DEFAULT_WEIGHTS
 ): CandidateResult {
   const content = safeReadFile(candidatePath);
@@ -196,13 +219,22 @@ function scorePlanCandidate(
   const hypothesis_quality = _scoreHypothesisQuality(fm);
   const conciseness = _scoreConciseness(content);
 
-  // Goal alignment needs ROADMAP.md + the candidate's declared phase.
-  const phaseNumber =
+  // codex r1 P2: goal alignment uses the TOURNAMENT phase, not whatever
+  // the candidate file declares — otherwise the tournament's --phase
+  // flag is ignored and a stale candidate can win against its own goal.
+  const normalizedTournamentPhase = tournamentPhase.match(/^(\d+(?:\.\d+)?)/)?.[1] ?? tournamentPhase;
+  const claimedPhase =
     typeof fm['phase'] === 'string'
       ? (fm['phase'] as string).match(/^(\d+(?:\.\d+)?)/)?.[1] ?? ''
       : '';
-  const roadmap = safeReadFile(path.join(getPlanningDir(cwd), 'ROADMAP.md'));
-  const goalText = roadmap && phaseNumber ? _extractRoadmapGoal(roadmap, phaseNumber) : null;
+  // codex r1 P2: use safeReadMarkdown so projects with split-format
+  // ROADMAP.md (GRD-INDEX partials) reassemble correctly. Pre-fix,
+  // safeReadFile only saw the index stub and goal_alignment was always 0.
+  const roadmap = safeReadMarkdown(path.join(getPlanningDir(cwd), 'ROADMAP.md'));
+  const goalText =
+    roadmap && normalizedTournamentPhase
+      ? _extractRoadmapGoal(roadmap, normalizedTournamentPhase)
+      : null;
   const goal_alignment = _scoreGoalAlignment(fm, goalText);
 
   const score =
@@ -211,11 +243,15 @@ function scorePlanCandidate(
     weights.hypothesis_quality * hypothesis_quality +
     weights.conciseness * conciseness;
 
-  return {
+  const result: CandidateResult = {
     path: candidatePath,
     score,
     breakdown: { completeness, goal_alignment, hypothesis_quality, conciseness },
   };
+  if (claimedPhase && claimedPhase !== normalizedTournamentPhase) {
+    result.phase_mismatch = `candidate declares phase "${claimedPhase}" but tournament is for phase "${normalizedTournamentPhase}"`;
+  }
+  return result;
 }
 
 /**
@@ -230,7 +266,7 @@ function runTournament(
   weights: ScoringWeights = DEFAULT_WEIGHTS
 ): TournamentResult {
   const results: CandidateResult[] = candidatePaths.map((p) =>
-    scorePlanCandidate(p, cwd, weights)
+    scorePlanCandidate(p, cwd, phase, weights)
   );
   // Stable sort: assign indices, sort by (score desc, index asc).
   const indexed = results.map((r, i) => ({ r, i }));

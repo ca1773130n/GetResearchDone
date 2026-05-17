@@ -73,7 +73,7 @@ describe('scorePlanCandidate', () => {
 
   test('full plan scores high across all axes', () => {
     const p = writeCandidate(projectDir, 'a.md', FULL_FRONTMATTER, '# Plan\n\nShort body.');
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.completeness).toBe(1);
     expect(r.breakdown.hypothesis_quality).toBe(1);
     expect(r.breakdown.conciseness).toBe(1); // tiny plan
@@ -84,7 +84,7 @@ describe('scorePlanCandidate', () => {
   test('missing frontmatter fields drag completeness below 1', () => {
     const fm = ['phase: 01', 'plan: 01', 'type: execute'].join('\n');
     const p = writeCandidate(projectDir, 'b.md', fm);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.completeness).toBeLessThan(1);
     expect(r.breakdown.completeness).toBeCloseTo(3 / 8, 5);
   });
@@ -95,7 +95,7 @@ describe('scorePlanCandidate', () => {
       ''
     );
     const p = writeCandidate(projectDir, 'c.md', fm);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.hypothesis_quality).toBe(0);
   });
 
@@ -105,7 +105,7 @@ describe('scorePlanCandidate', () => {
       'hypothesis: ""'
     ).replace('predicted_outcome: "Test accuracy > 85%"', 'predicted_outcome: ""');
     const p = writeCandidate(projectDir, 'd.md', fm);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.hypothesis_quality).toBe(0);
   });
 
@@ -113,7 +113,7 @@ describe('scorePlanCandidate', () => {
     // ~2500 tokens > target of 2000
     const body = '# Plan\n\n' + 'lorem ipsum dolor sit amet '.repeat(500);
     const p = writeCandidate(projectDir, 'e.md', FULL_FRONTMATTER, body);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.conciseness).toBeLessThan(1);
     expect(r.breakdown.conciseness).toBeGreaterThan(0);
   });
@@ -121,7 +121,7 @@ describe('scorePlanCandidate', () => {
   test('extremely verbose body drives conciseness toward 0', () => {
     const body = '# Plan\n\n' + 'lorem ipsum dolor sit amet '.repeat(5000);
     const p = writeCandidate(projectDir, 'f.md', FULL_FRONTMATTER, body);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     expect(r.breakdown.conciseness).toBe(0);
   });
 
@@ -134,18 +134,19 @@ describe('scorePlanCandidate', () => {
       'predicted_outcome: "Renders faster"'
     );
     const p = writeCandidate(projectDir, 'g.md', fm);
-    const r = scorePlanCandidate(p, projectDir);
+    const r = scorePlanCandidate(p, projectDir, '01');
     // Some overlap is possible from incidental words; assert it is at
     // least lower than the well-aligned case.
     const aligned = scorePlanCandidate(
       writeCandidate(projectDir, 'h.md', FULL_FRONTMATTER),
-      projectDir
+      projectDir,
+      '01'
     );
     expect(r.breakdown.goal_alignment).toBeLessThan(aligned.breakdown.goal_alignment);
   });
 
   test('missing file surfaces an error and zero score', () => {
-    const r = scorePlanCandidate(path.join(projectDir, 'does-not-exist.md'), projectDir);
+    const r = scorePlanCandidate(path.join(projectDir, 'does-not-exist.md'), projectDir, '01');
     expect(r.error).toMatch(/File not found/);
     expect(r.score).toBe(0);
   });
@@ -199,6 +200,82 @@ describe('runTournament', () => {
     const r = runTournament([], projectDir, '01');
     expect(r.winner).toBeNull();
     expect(r.ranked).toEqual([]);
+  });
+
+  test('scores against tournament phase, not candidate phase (codex r1 P2 on PR #41)', () => {
+    // Pre-fix: scorer read fm['phase'] and looked up that section in the
+    // ROADMAP. A stale candidate could score against its own goal block
+    // and win the tournament for a different phase.
+    writeRoadmap(
+      projectDir,
+      [
+        '# Roadmap',
+        '',
+        '### Phase 5: Target — alpha beta gamma delta',
+        '- **Scope:**',
+        '  - alpha beta gamma',
+        '',
+        '### Phase 1: Stale — completely different topic',
+        '- **Scope:**',
+        '  - frontend rendering pipeline',
+        '',
+      ].join('\n')
+    );
+    // Candidate declares phase 1 but tournament is for phase 5.
+    // Its hypothesis aligns with phase 1's stale goal. Scored against
+    // phase 5 (where the tournament is), goal_alignment must NOT use
+    // phase 1's block.
+    const staleFm = FULL_FRONTMATTER.replace('phase: 01', 'phase: 01').replace(
+      'hypothesis: "Adding X will lift accuracy by 3-5%"',
+      'hypothesis: "Rewrite frontend rendering pipeline"'
+    );
+    const stale = writeCandidate(projectDir, 'stale.md', staleFm);
+
+    // Phase-5 aligned candidate: hypothesis matches phase 5 goal.
+    const alignedFm = FULL_FRONTMATTER.replace('phase: 01', 'phase: 05').replace(
+      'hypothesis: "Adding X will lift accuracy by 3-5%"',
+      'hypothesis: "alpha beta gamma delta"'
+    );
+    const aligned = writeCandidate(projectDir, 'aligned.md', alignedFm);
+
+    const r = runTournament([stale, aligned], projectDir, '05');
+    // Aligned should win because the tournament phase is 5 and its
+    // hypothesis matches phase-5 goal tokens. Pre-fix, stale would beat
+    // it by scoring against phase 1 (its own claimed phase).
+    expect(r.winner!.path).toBe(aligned);
+    // The stale candidate must carry phase_mismatch
+    const staleResult = r.ranked.find((c: { path: string }) => c.path === stale);
+    expect(staleResult.phase_mismatch).toMatch(/phase "01".*tournament.*"05"/);
+  });
+
+  test('reads split-format ROADMAP.md via safeReadMarkdown (codex r1 P2 on PR #41)', () => {
+    // Pre-fix: safeReadFile saw only the GRD-INDEX stub, _extractRoadmapGoal
+    // never found the phase body, and every candidate got goal_alignment: 0.
+    // Use markdown-split's index + partial format.
+    const planning = path.join(projectDir, '.planning');
+    // markdown-split.ts uses sibling partial files referenced as [name](./name)
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.part1.md'),
+      [
+        '# Roadmap',
+        '',
+        '### Phase 1: Accuracy lift — add X',
+        '- **Scope:**',
+        '  - Implement X across the encoder',
+        '  - Bring accuracy from 82% to >85%',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(planning, 'ROADMAP.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./ROADMAP.part1.md)', ''].join('\n'),
+      'utf-8'
+    );
+    const p = writeCandidate(projectDir, 'split.md', FULL_FRONTMATTER, '# Plan');
+    const r = scorePlanCandidate(p, projectDir, '01');
+    // goal_alignment should be > 0 because the partial was reassembled.
+    expect(r.breakdown.goal_alignment).toBeGreaterThan(0);
   });
 
   test('custom weights propagate through the result', () => {
