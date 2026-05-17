@@ -330,8 +330,17 @@ function parseMustHavesBlock(
   const itemDashPattern = new RegExp(`^\\s{${itemIndent}}-\\s+`);
   const itemSimplePattern = new RegExp(`^\\s{${itemIndent}}-\\s+"?([^"]+)"?\\s*$`);
   const itemKvPattern = new RegExp(`^\\s{${itemIndent}}-\\s+(\\w+):\\s*"?([^"]*)"?\\s*$`);
+  // Inline-array continuation: `exports: ["foo", "bar"]` — must be tried
+  // BEFORE the scalar contKvPattern, which would capture only `[`.
+  const contInlineArrPattern = new RegExp(`^\\s{${contIndent},}(\\w+):\\s*\\[(.*)\\]\\s*$`);
   const contKvPattern = new RegExp(`^\\s{${contIndent},}(\\w+):\\s*"?([^"]*)"?\\s*$`);
   const arrItemPattern = new RegExp(`^\\s{${arrIndent},}-\\s+"?([^"]+)"?\\s*$`);
+
+  const splitInlineArray = (body: string): string[] =>
+    body
+      .split(',')
+      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .filter((s) => s.length > 0);
 
   const afterBlock = yaml.slice(blockMatch.index);
   const blockLines = afterBlock.split('\n').slice(1); // skip the header line
@@ -361,6 +370,15 @@ function parseMustHavesBlock(
         }
       }
     } else if (current !== null && typeof current === 'object') {
+      // Inline-array (e.g. `exports: ["foo", "bar"]`) MUST be matched before
+      // the scalar pattern, which would otherwise capture only the opening `[`.
+      const inlineArrMatch = line.match(contInlineArrPattern);
+      if (inlineArrMatch) {
+        (current as Record<string, unknown>)[inlineArrMatch[1]] = splitInlineArray(
+          inlineArrMatch[2]
+        );
+        continue;
+      }
       const kvMatch = line.match(contKvPattern);
       if (kvMatch) {
         const val = kvMatch[2];

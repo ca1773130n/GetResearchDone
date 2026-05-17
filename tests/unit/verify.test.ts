@@ -662,6 +662,38 @@ describe('cmdVerifyMechanical', () => {
     expect(completeness.passed).toBe(true);
   });
 
+  test('fails when phase has zero PLAN.md files (codex r3 P2)', () => {
+    // A phase dir that exists but has no PLAN.md files must not pass
+    // mechanical verification by vacuously satisfying every check.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    for (const f of fs.readdirSync(phaseDir)) {
+      if (f.endsWith('PLAN.md') || f.endsWith('SUMMARY.md')) {
+        fs.unlinkSync(path.join(phaseDir, f));
+      }
+    }
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.passed).toBe(false);
+    expect(parsed.plan_count).toBe(0);
+    expect(parsed.failed_count).toBeGreaterThan(0);
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(false);
+    expect(completeness.detail).toMatch(/no PLAN\.md/i);
+  });
+
   test('skips dynamic @-refs like @${CLAUDE_PLUGIN_ROOT}/... (codex r2 P2)', () => {
     // Pre-fix, the bundle resolved the literal "${CLAUDE_PLUGIN_ROOT}" under
     // cwd and marked the ref missing. Templated refs must be ignored, matching

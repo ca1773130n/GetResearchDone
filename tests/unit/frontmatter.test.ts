@@ -105,6 +105,29 @@ describe('extractFrontmatter', () => {
     expect(artifacts[0].contains).toBe('MARKER');
   });
 
+  test('parseMustHavesBlock parses inline-array exports (codex r3 P2)', () => {
+    // Pre-fix, the regex stopped at the first `"` so an inline array like
+    // `exports: ["foo", "bar"]` was captured as the literal `[`, treated as
+    // a single string. The artifact verifier then checked the file for `[`
+    // rather than each declared export.
+    const { parseMustHavesBlock } = require('../../lib/frontmatter');
+    const content = [
+      '---',
+      'phase: 01',
+      'must_haves:',
+      '  artifacts:',
+      '    - path: "src/foo.js"',
+      '      exports: ["fooFn", "barFn"]',
+      '---',
+      '',
+    ].join('\n');
+
+    const artifacts = parseMustHavesBlock(content, 'artifacts');
+    expect(artifacts).toHaveLength(1);
+    expect(Array.isArray(artifacts[0].exports)).toBe(true);
+    expect(artifacts[0].exports).toEqual(['fooFn', 'barFn']);
+  });
+
   test('parseMustHavesBlock still handles 4-space must_haves nesting (back-compat)', () => {
     const { parseMustHavesBlock } = require('../../lib/frontmatter');
     const content = [

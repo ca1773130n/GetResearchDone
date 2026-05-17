@@ -825,6 +825,36 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
   );
   const checks: MechanicalCheckResult[] = [];
 
+  // A phase with zero PLAN.md files cannot pass the mechanical gate by
+  // vacuously satisfying every check. Emit an explicit failing check so the
+  // aggregate result correctly reports passed=false.
+  checks.push({
+    check: 'plan_summary_completeness',
+    scope: `phase:${phaseInfo.phase_number}`,
+    passed: plans.length > 0,
+    detail:
+      plans.length > 0
+        ? `Phase has ${plans.length} PLAN.md file(s)`
+        : 'Phase has no PLAN.md files — nothing to verify',
+    data: { plan_count: plans.length },
+  });
+  if (plans.length === 0) {
+    const result: MechanicalVerifyResult = {
+      passed: false,
+      phase: phaseInfo.phase_number,
+      plan_count: 0,
+      total_checks: checks.length,
+      passed_count: 0,
+      failed_count: checks.length,
+      checks,
+    };
+    output(result, raw, 'fail');
+    return;
+  }
+  // The placeholder above will be replaced by the real plan_summary_completeness
+  // check below; pop it so we don't double-report.
+  checks.pop();
+
   const requiredFrontmatterFields: readonly string[] = [
     'phase',
     'plan',
