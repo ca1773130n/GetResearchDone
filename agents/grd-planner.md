@@ -195,7 +195,10 @@ a fenced YAML block. Slug is the dedup key — the same slug must not
 appear twice. New entries get appended; re-tests append to
 `tried_in_phases`.
 
-```markdown
+(Outer fence uses 4 backticks so the inner ```yaml``` fence nests
+correctly when this prompt is rendered.)
+
+````markdown
 ## rope-embeddings-on-cpu
 
 ```yaml
@@ -209,7 +212,7 @@ evidence:
 status: active   # active | reopened
 notes: "Hardware bug; revisit when CPU backend gains FP16 support."
 ```
-```
+````
 
 **How to use it.**
 
