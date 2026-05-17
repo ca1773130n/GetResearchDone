@@ -2581,3 +2581,67 @@ describe('autoplan command', () => {
     expect(data.evolve_state.all_items_count).toBe(10);
   });
 });
+
+// ─── dead-end promote-from-phase arg parsing ───────────────────────────────
+// Regression test for codex r1 P2 on PR #37: `args[2]` was preferred over
+// the --phase flag, so `dead-end promote-from-phase --phase 1` passed the
+// literal string "--phase" to findPhaseInternal and silently skipped.
+
+describe('dead-end promote-from-phase arg parsing', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = createTestDir();
+    // Drop a falsified Reflection into phase 01 so promote has work to do.
+    const phaseDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const ver = [
+      '# Verification',
+      '',
+      '## Reflection',
+      '',
+      '| Field | Value |',
+      '|-------|-------|',
+      '| hypothesis | Approach for codex regression |',
+      '| predicted_outcome | Should pass |',
+      '| actual_outcome | Did not |',
+      '| verdict | falsified |',
+      '| evidence | foo.ts:1 |',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(phaseDir, '01-VERIFICATION.md'), ver, 'utf-8');
+  });
+
+  afterEach(() => {
+    if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('positional phase: dead-end promote-from-phase 1', () => {
+    const { stdout, exitCode } = runCLI(['dead-end', 'promote-from-phase', '1'], tmpDir);
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.action).toBe('created');
+    expect(result.slug).toMatch(/approach-for-codex-regression/);
+  });
+
+  test('flag phase: dead-end promote-from-phase --phase 1 (codex r1 P2 regression)', () => {
+    const { stdout, exitCode } = runCLI(
+      ['dead-end', 'promote-from-phase', '--phase', '1'],
+      tmpDir
+    );
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    // Pre-fix the dispatcher passed "--phase" as the phase arg, so
+    // findPhaseInternal returned null and the command emitted
+    // { skipped: true, reason: 'Phase not found' }.
+    expect(result.skipped).toBeUndefined();
+    expect(result.action).toBe('created');
+    expect(result.slug).toMatch(/approach-for-codex-regression/);
+  });
+});

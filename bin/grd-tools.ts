@@ -994,7 +994,13 @@ async function routeCommand(
           raw
         );
       } else if (sub === 'promote-from-phase') {
-        const phaseArg = args[2] ?? flag(args, '--phase') ?? '';
+        // Prefer the explicit --phase flag when present. Fall back to
+        // positional args[2], but only if it is NOT itself a flag —
+        // otherwise `promote-from-phase --phase 1` would pass the literal
+        // string "--phase" to findPhaseInternal (codex r1 P2 on PR #37).
+        const flagPhase = flag(args, '--phase');
+        const positional = args[2] && !args[2].startsWith('--') ? args[2] : undefined;
+        const phaseArg = flagPhase ?? positional ?? '';
         cmdDeadEndPromoteFromPhase(cwd, phaseArg, raw);
       } else {
         error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
