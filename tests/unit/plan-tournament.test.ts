@@ -248,6 +248,31 @@ describe('runTournament', () => {
     expect(staleResult.phase_mismatch).toMatch(/phase "1".*tournament.*"5"/);
   });
 
+  test('matches padded decimal phase headings in ROADMAP (codex r3 P2 on PR #41)', () => {
+    // Pre-fix: `--phase 06.1` stripped to `6.1` but the regex required
+    // `Phase 6.1:` literal, so `Phase 06.1:` in ROADMAP never matched
+    // and goal_alignment was always 0 for `gd phase insert`-generated
+    // decimal phases.
+    writeRoadmap(
+      projectDir,
+      [
+        '# Roadmap',
+        '',
+        '### Phase 06.1: Inserted phase — alpha beta gamma',
+        '- **Scope:**',
+        '  - alpha beta gamma',
+        '',
+      ].join('\n')
+    );
+    const fm = FULL_FRONTMATTER.replace('phase: 01', 'phase: 06.1').replace(
+      'hypothesis: "Adding X will lift accuracy by 3-5%"',
+      'hypothesis: "alpha beta gamma"'
+    );
+    const p = writeCandidate(projectDir, 'padded-decimal.md', fm);
+    const r = scorePlanCandidate(p, projectDir, '06.1');
+    expect(r.breakdown.goal_alignment).toBeGreaterThan(0);
+  });
+
   test('normalises zero-padded phase IDs to avoid spurious phase_mismatch (codex r2 P3 on PR #41)', () => {
     // Candidate declares `phase: 01`; caller passes `--phase 1`. Same
     // phase. Pre-fix: phase_mismatch fired with "candidate declares

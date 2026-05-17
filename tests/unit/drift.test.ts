@@ -492,6 +492,37 @@ describe('codex r3 P2: ROADMAP heading levels', () => {
     expect(r.score).toBeLessThan(0.8);
   });
 
+  test('goal drift matches padded decimal phases (Phase 06.1) (codex r3 P2 on PR #41)', () => {
+    // ROADMAP uses padded decimal heading (gd phase insert convention).
+    // The phase dir's leading numeric prefix is also padded, so
+    // _listCompletedPhases returns "06.1". Pre-fix the regex required
+    // "Phase 6.1:" literally and missed the padded heading.
+    writeRoadmap(
+      projectDir,
+      [
+        '# Roadmap',
+        '',
+        '### Phase 06.1: Inserted — alpha beta gamma',
+        '- **Scope:**',
+        '  - alpha beta gamma',
+        '',
+      ].join('\n')
+    );
+    // Write a single decimal-numbered phase so drift has 1 phase to
+    // compare; we are exercising goal-block extraction, not the drift
+    // aggregate score.
+    writePhase(projectDir, {
+      num: '06.1',
+      summaryFrontmatter: 'phase: 06.1',
+      summaryBody: '## Accomplishments\n- alpha beta gamma delivered\n',
+    });
+    const r = computeGoalDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    // If the goal block was found, distance is below the always-1.0
+    // floor we would get from goalText=null.
+    expect(r.score).toBeLessThan(1);
+  });
+
   test('goal drift extracts a phase block under ## Phase (2 hashes, flat layout)', () => {
     writeRoadmap(
       projectDir,
