@@ -121,6 +121,48 @@ describe('reflection loop — planner prompt contract', () => {
     // Planner must not write to DEAD-ENDS.md in this PR
     expect(section).toMatch(/[Dd]o not write to DEAD-ENDS\.md|read path only/);
   });
+
+  // ─── Tier-2 #8: GENOME.md strategy snapshot (read path) ───────────────
+  test('documents the genome_md context field (Tier-2 #8)', () => {
+    expect(plannerContent).toMatch(/<genome>/);
+    expect(plannerContent).toMatch(/<\/genome>/);
+    expect(plannerContent).toMatch(/genome_md/);
+  });
+
+  test('genome section explains the meta-strategy purpose (Tier-2 #8)', () => {
+    const idx = plannerContent.indexOf('<genome>');
+    const section = plannerContent.slice(idx);
+    // Must distinguish genome (how we plan) from reflections (what we planned)
+    expect(section).toMatch(/meta-strategy|how we plan|heuristic/i);
+    // Must reference adapt-the-plan-shape behaviour
+    expect(section).toMatch(/[Aa]dapt|honour|honor/);
+  });
+
+  test('genome section instructs planner not to silently contradict (Tier-2 #8)', () => {
+    const idx = plannerContent.indexOf('<genome>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/[Dd]o not contradict.*silently|declare the deviation|justification/);
+  });
+
+  test('genome section documents git-based rollback policy (Tier-2 #8)', () => {
+    const idx = plannerContent.indexOf('<genome>');
+    const section = plannerContent.slice(idx);
+    // Must explicitly answer the proposal's "rollback policy" caveat
+    expect(section).toMatch(/[Rr]ollback/);
+    expect(section).toMatch(/git revert|tracked in git/i);
+  });
+
+  test('handles null genome_md gracefully (Tier-2 #8)', () => {
+    const idx = plannerContent.indexOf('<genome>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/null|has not yet captured|do NOT fabricate|not fabricate/i);
+  });
+
+  test('explicitly scopes this PR to genome read path only (Tier-2 #8)', () => {
+    const idx = plannerContent.indexOf('<genome>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/[Dd]o not write to GENOME\.md|read path only/);
+  });
 });
 
 describe('reflection loop — verifier prompt contract', () => {

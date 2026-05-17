@@ -245,6 +245,52 @@ add the entry.
 
 </dead_ends>
 
+<genome>
+
+## Strategy Genome (`genome_md`)
+
+The init JSON includes a `genome_md` field — the raw markdown body
+of `.planning/GENOME.md`, or `null` if no genome snapshot exists yet.
+GENOME.md is the *current meta-strategy* for how this project plans:
+which heuristics worked, which agents tend to converge, what verdict-
+thresholds the team has settled on, what discovery patterns are in
+use. It sits one layer above `prior_reflections` (per-phase claims)
+and `dead_ends_md` (per-approach falsifications) — the genome is
+about *how we plan*, not *what we planned*.
+
+**How to use it.**
+
+1. **Before composing your plan structure** (waves, must_haves,
+   experiment tracking), read `genome_md` if present. Adapt the
+   plan shape to the conventions documented there. Example
+   adaptations:
+   - The genome may say "use verification_level: proxy for ML phases"
+     — set the level accordingly rather than defaulting.
+   - The genome may say "phases past 50% context degradation should
+     be split" — apply the splitting heuristic.
+   - The genome may declare an agent preference (e.g. "use
+     grd-deep-diver before plan if research_level >= 2") — honour it.
+2. **Do not contradict the genome silently.** If your plan must
+   deviate from a genome heuristic, declare the deviation in
+   `<context>` with a one-sentence justification. Future genome
+   rewrites will see those deviations and either codify them or
+   reaffirm the original rule.
+3. **If `genome_md` is null**, the project has not yet captured a
+   strategy snapshot. Proceed with the defaults documented in this
+   prompt; do NOT fabricate genome text inside the plan. The
+   snapshot will be authored by a separate command in a future PR.
+
+**Rollback.** Genome snapshots are tracked in git. If a snapshot
+introduced a heuristic that proves harmful, revert the commit that
+wrote the file — there is no in-tool rollback command. This is the
+proposal's "rollback policy" answered with the existing workflow.
+
+**Do not write to GENOME.md from inside this plan.** Same scope as
+DEAD-ENDS.md: read path only in this PR; the snapshot/init CLI is a
+follow-up.
+
+</genome>
+
 <philosophy>
 
 ## Solo Researcher + Claude Workflow
