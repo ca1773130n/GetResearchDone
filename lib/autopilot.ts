@@ -1179,6 +1179,13 @@ async function runMultiMilestoneAutopilot(
   let totalPhasesAttempted: number = 0;
   let totalPhasesCompleted: number = 0;
   let stoppedAt: string | null = null;
+  // Graceful early termination at the milestone-chain level (Tier-3 #10).
+  // codex r4 P2 on PR #40: the maxMilestones cap check at the bottom of
+  // this function overwrites stoppedAt to "Reached maxMilestones cap"
+  // when convergence fires on the last permitted iteration — turning a
+  // graceful stop into a reported failure. Tracking convergence on a
+  // dedicated channel lets us bypass that overwrite cleanly.
+  let convergedAt: string | null = null;
 
   log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
 
@@ -1265,9 +1272,12 @@ async function runMultiMilestoneAutopilot(
           break;
         }
         // codex r3 P2: convergence is a graceful TERMINAL state for this
-        // milestone chain — do not advance to the next milestone.
+        // milestone chain — do not advance to the next milestone. Track
+        // on the dedicated `convergedAt` channel so the post-loop
+        // maxMilestones cap check (codex r4 P2) does not overwrite it.
         if (autopilotConverged) {
-          log(`${currentVersion}: autopilot converged early — ${autopilotResult.converged_at}`);
+          convergedAt = autopilotResult.converged_at;
+          log(`${currentVersion}: autopilot converged early — ${convergedAt}`);
           break;
         }
       }
@@ -1377,14 +1387,22 @@ async function runMultiMilestoneAutopilot(
     log('New milestone created, continuing loop...');
   }
 
-  if (!stoppedAt && milestonesAttempted >= maxMilestones) {
+  // codex r4 P2: do not overwrite a graceful convergence with the
+  // "Reached maxMilestones cap" failure signal. Convergence is the
+  // terminal reason; the cap only matters when the loop exhausted
+  // milestones without converging.
+  if (!stoppedAt && !convergedAt && milestonesAttempted >= maxMilestones) {
     stoppedAt = `Reached maxMilestones cap (${maxMilestones})`;
     log(stoppedAt);
   }
 
   log(
     `Multi-milestone autopilot done: ${milestonesCompleted}/${milestonesAttempted} milestones completed` +
-      (stoppedAt ? ` (stopped: ${stoppedAt})` : '')
+      (stoppedAt
+        ? ` (stopped: ${stoppedAt})`
+        : convergedAt
+          ? ` (converged: ${convergedAt})`
+          : '')
   );
 
   if (mmScheduler) {
@@ -1396,6 +1414,7 @@ async function runMultiMilestoneAutopilot(
     milestones_completed: milestonesCompleted,
     milestone_results: milestoneResults,
     stopped_at: stoppedAt,
+    converged_at: convergedAt,
     total_phases_attempted: totalPhasesAttempted,
     total_phases_completed: totalPhasesCompleted,
   };

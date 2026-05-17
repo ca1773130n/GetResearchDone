@@ -1089,6 +1089,13 @@ export interface MultiMilestoneResult {
   milestones_completed: number;
   milestone_results: MilestoneStepResult[];
   stopped_at: string | null;
+  /**
+   * Graceful early termination reason at the milestone-chain level —
+   * propagated from a child runAutopilot when convergence fires
+   * (Tier-3 #10). Distinct from `stopped_at` so callers like evolve
+   * do not classify graceful convergence as a failure.
+   */
+  converged_at: string | null;
   total_phases_attempted: number;
   total_phases_completed: number;
 }
