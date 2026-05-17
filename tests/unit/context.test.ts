@@ -482,6 +482,38 @@ describe('cmdInitPlanPhase', () => {
     ).toBe(false);
   });
 
+  test('prior_reflections excludes future phases when target dir not yet created (codex r2 P2)', () => {
+    // Pre-fix: when phaseInfo was null, _extractPriorReflections received
+    // null as currentPhaseNumber, which disabled the >= filter and leaked
+    // reflections from future phases. Now the fallback to the requested
+    // phase argument preserves the "prior" contract.
+    // Setup: phase 02-build exists in fixture. Drop a Reflection into it,
+    // then ask for plan-phase context for phase 1.5 — a roadmap phase
+    // whose dir does not exist. Phase 02 must NOT appear in priors.
+    const phase02Dir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '02-build'
+    );
+    fs.writeFileSync(
+      path.join(phase02Dir, '02-VERIFICATION.md'),
+      '# V\n\n## Reflection\n\n| phase | 02 |\n',
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1.5', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+    // Phase 02 reflection must NOT leak in even though phase 1.5 has no dir.
+    const futurePhases = result.prior_reflections.filter(
+      (r: { phase: string }) => r.phase === '02'
+    );
+    expect(futurePhases).toEqual([]);
+  });
+
   test('prior_reflections orders inserted decimal phases correctly (codex P2)', () => {
     // Reproduces the bug codex caught on PR #33: `parseFloat("01.10")` is
     // 1.1 and equals `parseFloat("01.1")`, so an inserted phase 01.10

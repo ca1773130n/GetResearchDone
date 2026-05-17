@@ -215,6 +215,20 @@ function _extractReflectionSection(verificationContent: string): string | null {
  * integration Tier-1 #4).
  */
 /**
+ * Normalise a user-supplied phase argument to match the `phase_number`
+ * format that findPhaseInternal returns (zero-padded major component,
+ * decimal suffix preserved). Examples: `1` -> `01`, `01.10` -> `01.10`,
+ * `12.3` -> `12.3`. Returns null for empty/invalid input.
+ */
+function _normalizePhaseArg(phase: string | null): string | null {
+  if (!phase) return null;
+  const m = phase.match(/^(\d+)(?:\.(\d+))?/);
+  if (!m) return null;
+  const major = m[1].padStart(2, '0');
+  return m[2] !== undefined ? `${major}.${m[2]}` : major;
+}
+
+/**
  * Compare two phase IDs componentwise. Handles inserted decimal phases
  * correctly (e.g. `01.10` > `01.9`, which `parseFloat` would reverse since
  * it treats them as 1.1 and 1.9).
@@ -722,7 +736,17 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // hypothesis -> predicted_outcome -> actual_outcome -> verdict history
     // so it can build on confirmed claims, refine partials, and avoid
     // restating falsified hypotheses. Capped at 5 to bound context size.
-    prior_reflections: _extractPriorReflections(cwd, phaseInfo?.phase_number || null, 5),
+    //
+    // Use phaseInfo.phase_number when the phase dir exists. When it does
+    // not (planning a roadmap phase before its directory is created),
+    // fall back to the user-supplied `phase` argument so the >= current
+    // filter still excludes future phases. Without this fallback, codex
+    // r2 P2: `null` disables the filter and future reflections leak in.
+    prior_reflections: _extractPriorReflections(
+      cwd,
+      phaseInfo?.phase_number || _normalizePhaseArg(phase),
+      5
+    ),
 
     // Citation traversal config
     transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,
