@@ -217,6 +217,31 @@ experiment:
     controlled: ["dataset", "training_epochs", "learning_rate"]
 ```
 
+**Reflection-loop scalars (REQUIRED, top-level frontmatter):**
+
+Every PLAN.md MUST also include two top-level scalar fields used by the
+verifier to write the `## Reflection` section of VERIFICATION.md:
+
+```yaml
+hypothesis: "Single-sentence claim about what this plan will change and why."
+predicted_outcome: "Single-sentence, observable outcome the verifier can check (numbers, file existence, command results)."
+```
+
+Rules:
+- Both fields are **single-line strings**. Wrap in double quotes if the
+  value contains a colon, hash, or leading dash.
+- `hypothesis` is the *claim*, not the *task*. Bad: "Add RoPE to encoder."
+  Good: "RoPE will outperform absolute positional embeddings by 3-5%
+  accuracy on test_set_v2."
+- `predicted_outcome` is *what the verifier will see if the hypothesis
+  holds*. It must be checkable without further inference. Bad: "Better
+  accuracy." Good: "Test-set accuracy > 85% with no >2% loss-spike during
+  training."
+- These two scalars duplicate intent already expressed in the nested
+  `experiment.hypothesis` when present; that nesting stays for
+  experimentation metadata, but the top-level scalars are what the
+  verifier reads. Keep them in sync if you use both.
+
 **In task actions:**
 ```xml
 <task type="auto">

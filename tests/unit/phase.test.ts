@@ -697,6 +697,26 @@ describe('cmdValidateConsistency', () => {
     expect(result.passed).toBe(false);
     expect(result.errors).toContain('ROADMAP.md not found');
   });
+
+  test('does not warn when PLAN.md carries hypothesis/predicted_outcome scalars', () => {
+    // Locks the contract that the planner/verifier reflection-loop scalars
+    // ride alongside required fields without tripping consistency validation.
+    const planPath = path.join(
+      tmpDir, '.planning', 'milestones', 'anonymous', 'phases', '02-build', '02-01-PLAN.md'
+    );
+    const content = fs.readFileSync(planPath, 'utf-8');
+    const augmented = content.replace(
+      /^---\n/,
+      '---\nhypothesis: "Adding RoPE will lift accuracy 3-5%"\npredicted_outcome: "Test-set accuracy >85%"\n'
+    );
+    fs.writeFileSync(planPath, augmented, 'utf-8');
+
+    const { stdout, exitCode } = captureOutput(() => cmdValidateConsistency(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result.passed).toBe(true);
+    expect(result.warnings.some((w: any) => /hypothesis|predicted_outcome/.test(w))).toBe(false);
+  });
 });
 
 // ─── cmdPhaseComplete quality analysis integration ──────────────────────────

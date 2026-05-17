@@ -79,6 +79,24 @@ describe('extractFrontmatter', () => {
     const content = '---\n- orphan-item\nkey: value\n---\n';
     expect(() => extractFrontmatter(content)).not.toThrow();
   });
+
+  test('round-trips hypothesis/predicted_outcome scalar fields', () => {
+    // Locks the contract that PLAN.md can carry top-level hypothesis: and
+    // predicted_outcome: strings without quoting, escaping, or schema rejection.
+    // Used by the planner/verifier reflection loop.
+    const original = {
+      phase: '02-build',
+      plan: '01',
+      wave: 'a',
+      hypothesis: 'Adding the mechanical wrapper reduces verifier false positives',
+      predicted_outcome: 'Mechanical verification reports pass/fail counts before semantic review',
+    };
+    const reconstructed = reconstructFrontmatter(original);
+    const block = `---\n${reconstructed}\n---\n`;
+    const roundTripped = extractFrontmatter(block);
+    expect(roundTripped.hypothesis).toBe(original.hypothesis);
+    expect(roundTripped.predicted_outcome).toBe(original.predicted_outcome);
+  });
 });
 
 // ─── reconstructFrontmatter ─────────────────────────────────────────────────
