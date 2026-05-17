@@ -208,6 +208,29 @@ describe('cmdGenomeSnapshot', () => {
     expect(body).toMatch(/\| verdicts\.partial \| 1 \|/);
   });
 
+  test('refuses to append to split-index GENOME.md (codex r1 P2 on PR #43)', () => {
+    // If GENOME.md has been split into a GRD-INDEX file, appending to
+    // the stub would silently fail to reach the planner — the planner
+    // reads via safeReadMarkdown which only follows linked partials.
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./GENOME.part1.md)', ''].join('\n'),
+      'utf-8'
+    );
+    const { stderr, exitCode } = captureError(() =>
+      cmdGenomeSnapshot(projectDir, false)
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/split-index format/);
+    expect(stderr).toMatch(/never reach planner context/);
+    // Index stub must be untouched
+    const after = fs.readFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      'utf-8'
+    );
+    expect(after).not.toMatch(/## Snapshot /);
+  });
+
   test('repeated snapshots both append (history-preserving)', () => {
     captureOutput(() => cmdGenomeSnapshot(projectDir, false));
     captureOutput(() => cmdGenomeSnapshot(projectDir, false));

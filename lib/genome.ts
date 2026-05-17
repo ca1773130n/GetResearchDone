@@ -44,6 +44,7 @@ const {
 } = require('./utils');
 const { atomicWriteFileSync }: { atomicWriteFileSync: (filePath: string, data: string) => void } =
   require('./autopilot-waves');
+const { isIndexFile }: { isIndexFile: (content: unknown) => boolean } = require('./markdown-split');
 const {
   computeDriftScore,
   DEFAULT_WEIGHTS: DRIFT_WEIGHTS,
@@ -249,6 +250,16 @@ function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
   let action: 'created' | 'appended';
   if (fs.existsSync(filePath)) {
     prior = safeReadFile(filePath) ?? '';
+    // codex r1 P2 on PR #43: refuse to append to a split-index file.
+    // The planner reads GENOME via safeReadMarkdown, which reassembles
+    // only the linked partials and ignores any text appended to the
+    // index stub. A "successful" snapshot here would silently never
+    // reach planner context. Direct the user to the partial files.
+    if (isIndexFile(prior)) {
+      error(
+        `GENOME.md is in split-index format (<!-- GRD-INDEX -->). Snapshots cannot be appended to the stub — they would never reach planner context. Either edit the linked partial directly, or reassemble GENOME.md before snapshotting.`
+      );
+    }
     // Ensure trailing newline before appending.
     if (!prior.endsWith('\n')) prior += '\n';
     action = 'appended';
