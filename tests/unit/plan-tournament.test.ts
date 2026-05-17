@@ -245,7 +245,16 @@ describe('runTournament', () => {
     expect(r.winner!.path).toBe(aligned);
     // The stale candidate must carry phase_mismatch
     const staleResult = r.ranked.find((c: { path: string }) => c.path === stale);
-    expect(staleResult.phase_mismatch).toMatch(/phase "01".*tournament.*"05"/);
+    expect(staleResult.phase_mismatch).toMatch(/phase "1".*tournament.*"5"/);
+  });
+
+  test('normalises zero-padded phase IDs to avoid spurious phase_mismatch (codex r2 P3 on PR #41)', () => {
+    // Candidate declares `phase: 01`; caller passes `--phase 1`. Same
+    // phase. Pre-fix: phase_mismatch fired with "candidate declares
+    // phase 01 but tournament is for phase 1".
+    const p = writeCandidate(projectDir, 'padded.md', FULL_FRONTMATTER);
+    const r = scorePlanCandidate(p, projectDir, '1');
+    expect(r.phase_mismatch).toBeUndefined();
   });
 
   test('reads split-format ROADMAP.md via safeReadMarkdown (codex r1 P2 on PR #41)', () => {

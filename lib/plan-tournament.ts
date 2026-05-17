@@ -222,11 +222,22 @@ function scorePlanCandidate(
   // codex r1 P2: goal alignment uses the TOURNAMENT phase, not whatever
   // the candidate file declares — otherwise the tournament's --phase
   // flag is ignored and a stale candidate can win against its own goal.
-  const normalizedTournamentPhase = tournamentPhase.match(/^(\d+(?:\.\d+)?)/)?.[1] ?? tournamentPhase;
+  //
+  // codex r2 P3: strip leading zeros from both sides so `--phase 1` and
+  // `phase: 01` compare equal — they refer to the same phase, and
+  // _extractRoadmapGoal already strips leading zeros internally. Without
+  // this normalisation the mismatch warning fired spuriously on every
+  // canonical zero-padded plan file.
+  const stripLeadingZeros = (s: string): string => {
+    const m = s.match(/^(\d+(?:\.\d+)?)/);
+    if (!m) return s;
+    const major = m[1].split('.')[0].replace(/^0+/, '') || '0';
+    const decimal = m[1].includes('.') ? `.${m[1].split('.')[1]}` : '';
+    return major + decimal;
+  };
+  const normalizedTournamentPhase = stripLeadingZeros(tournamentPhase);
   const claimedPhase =
-    typeof fm['phase'] === 'string'
-      ? (fm['phase'] as string).match(/^(\d+(?:\.\d+)?)/)?.[1] ?? ''
-      : '';
+    typeof fm['phase'] === 'string' ? stripLeadingZeros(fm['phase'] as string) : '';
   // codex r1 P2: use safeReadMarkdown so projects with split-format
   // ROADMAP.md (GRD-INDEX partials) reassemble correctly. Pre-fix,
   // safeReadFile only saw the index stub and goal_alignment was always 0.
