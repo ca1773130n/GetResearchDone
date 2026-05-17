@@ -522,6 +522,7 @@ const {
 
 const {
   cmdDeadEndAdd,
+  cmdDeadEndPromoteFromPhase,
 }: {
   cmdDeadEndAdd: (
     cwd: string,
@@ -534,6 +535,7 @@ const {
     },
     raw: boolean
   ) => void;
+  cmdDeadEndPromoteFromPhase: (cwd: string, phase: string, raw: boolean) => void;
 } = require('../lib/dead-ends');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -974,25 +976,35 @@ async function routeCommand(
       break;
     case 'dead-end': {
       const sub: string = args[1];
-      if (sub !== 'add') {
-        error(`Unknown dead-end subcommand: ${sub}. Valid: add`);
+      if (sub === 'add') {
+        // Collect all --evidence flags (repeatable)
+        const evidence: string[] = [];
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '--evidence' && args[i + 1]) evidence.push(args[i + 1]);
+        }
+        cmdDeadEndAdd(
+          cwd,
+          {
+            approach: flag(args, '--approach') ?? '',
+            phase: flag(args, '--phase') ?? '',
+            verdict: flag(args, '--verdict'),
+            evidence,
+            notes: flag(args, '--notes'),
+          },
+          raw
+        );
+      } else if (sub === 'promote-from-phase') {
+        // Prefer the explicit --phase flag when present. Fall back to
+        // positional args[2], but only if it is NOT itself a flag —
+        // otherwise `promote-from-phase --phase 1` would pass the literal
+        // string "--phase" to findPhaseInternal (codex r1 P2 on PR #37).
+        const flagPhase = flag(args, '--phase');
+        const positional = args[2] && !args[2].startsWith('--') ? args[2] : undefined;
+        const phaseArg = flagPhase ?? positional ?? '';
+        cmdDeadEndPromoteFromPhase(cwd, phaseArg, raw);
+      } else {
+        error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
       }
-      // Collect all --evidence flags (repeatable)
-      const evidence: string[] = [];
-      for (let i = 0; i < args.length; i++) {
-        if (args[i] === '--evidence' && args[i + 1]) evidence.push(args[i + 1]);
-      }
-      cmdDeadEndAdd(
-        cwd,
-        {
-          approach: flag(args, '--approach') ?? '',
-          phase: flag(args, '--phase') ?? '',
-          verdict: flag(args, '--verdict'),
-          evidence,
-          notes: flag(args, '--notes'),
-        },
-        raw
-      );
       break;
     }
     case 'phases': {

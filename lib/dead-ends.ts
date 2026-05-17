@@ -20,10 +20,15 @@ const {
   generateSlugInternal,
   output,
   error,
+  findPhaseInternal,
 }: {
   generateSlugInternal: (text: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
+  findPhaseInternal: (
+    cwd: string,
+    phase: string
+  ) => { phase_number: string; directory: string; found: boolean } | null;
 } = require('./utils');
 const { atomicWriteFileSync }: { atomicWriteFileSync: (filePath: string, data: string) => void } =
   require('./autopilot-waves');
@@ -251,6 +256,113 @@ function serializeDeadEndsFile(entries: DeadEndEntry[]): string {
   return _HEADER + entries.map(_serializeEntry).join('\n');
 }
 
+// ─── Reflection section parser ──────────────────────────────────────────────
+
+/**
+ * Structured form of the `## Reflection` table that the verifier emits
+ * in VERIFICATION.md (locked by tests/integration/reflection-loop.test.ts).
+ */
+export interface ReflectionData {
+  hypothesis: string;
+  predicted_outcome: string;
+  actual_outcome: string;
+  verdict: 'confirmed' | 'partial' | 'falsified' | 'unknown' | string;
+  evidence: string[];
+}
+
+/**
+ * Parse the `## Reflection` markdown table inside a VERIFICATION.md
+ * body. Returns null if the section is missing or the table cannot be
+ * parsed. Robust to extra columns or rows the verifier might add.
+ *
+ * Evidence cell is split on `;` since multiple evidence refs are
+ * conventionally separated by semicolons in a single table cell (the
+ * `,` delimiter is too common inside `file:line — description` refs).
+ */
+function parseReflectionSection(verificationContent: string): ReflectionData | null {
+  const headingIdx = verificationContent.indexOf('## Reflection');
+  if (headingIdx === -1) return null;
+  // Slice from heading to next H2 or end
+  const after = verificationContent.slice(headingIdx + '## Reflection'.length);
+  const nextH2 = after.search(/\n## /);
+  const section = nextH2 === -1 ? after : after.slice(0, nextH2);
+
+  // Find rows like `| key | value |`. Skip header + separator rows.
+  const rowRe = /^\|\s*([^|]+?)\s*\|\s*([\s\S]*?)\s*\|\s*$/gm;
+  const fields: Record<string, string> = {};
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(section)) !== null) {
+    const key = m[1].trim();
+    const value = m[2].trim();
+    // Skip header row and the dashed separator row
+    if (/^[-:]+$/.test(key) || /^[-:]+$/.test(value)) continue;
+    if (key.toLowerCase() === 'field' && value.toLowerCase() === 'value') continue;
+    fields[key.toLowerCase()] = value;
+  }
+
+  const hypothesis = fields['hypothesis'];
+  const predicted_outcome = fields['predicted_outcome'];
+  const actual_outcome = fields['actual_outcome'];
+  const verdictRaw = fields['verdict'];
+  const evidenceRaw = fields['evidence'];
+
+  if (!hypothesis || !verdictRaw) return null;
+
+  const evidence = evidenceRaw
+    ? evidenceRaw
+        .split(';')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : [];
+
+  return {
+    hypothesis,
+    predicted_outcome: predicted_outcome ?? '',
+    actual_outcome: actual_outcome ?? '',
+    verdict: verdictRaw,
+    evidence,
+  };
+}
+
+// ─── Internal upsert (pure, no side effects) ────────────────────────────────
+
+interface UpsertResult {
+  entries: DeadEndEntry[];
+  action: 'created' | 'updated';
+  slug: string;
+}
+
+/**
+ * Pure helper: given an existing entry list and add opts, produce the
+ * new list and metadata. Same dedup contract as cmdDeadEndAdd; lifted
+ * so both the public CLI handler and the promote-from-phase handler
+ * share the same logic without going through the process-exiting
+ * `output` helper.
+ */
+function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: string): UpsertResult {
+  const verdict = opts.verdict ?? 'falsified';
+  const evidenceList = opts.evidence ?? [];
+  const idx = existing.findIndex((e) => e.slug === slug);
+  if (idx === -1) {
+    existing.push({
+      approach: opts.approach,
+      slug,
+      tried_in_phases: [opts.phase],
+      verdict,
+      evidence: evidenceList,
+      status: 'active',
+      ...(opts.notes ? { notes: opts.notes } : {}),
+    });
+    return { entries: existing, action: 'created', slug };
+  }
+  const e = existing[idx];
+  if (!e.tried_in_phases.includes(opts.phase)) e.tried_in_phases.push(opts.phase);
+  for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
+  if (e.status === 'active') e.status = 'reopened';
+  if (opts.notes) e.notes = opts.notes;
+  return { entries: existing, action: 'updated', slug };
+}
+
 /**
  * Add (or update) an entry in `.planning/DEAD-ENDS.md`.
  *
@@ -273,30 +385,7 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
     existing = parseDeadEndsFile(fs.readFileSync(filePath, 'utf-8'));
   }
 
-  const verdict = opts.verdict ?? 'falsified';
-  const evidenceList = opts.evidence ?? [];
-  let action: 'created' | 'updated';
-
-  const idx = existing.findIndex((e) => e.slug === slug);
-  if (idx === -1) {
-    existing.push({
-      approach: opts.approach,
-      slug: slug as string,
-      tried_in_phases: [opts.phase],
-      verdict,
-      evidence: evidenceList,
-      status: 'active',
-      ...(opts.notes ? { notes: opts.notes } : {}),
-    });
-    action = 'created';
-  } else {
-    const e = existing[idx];
-    if (!e.tried_in_phases.includes(opts.phase)) e.tried_in_phases.push(opts.phase);
-    for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
-    if (e.status === 'active') e.status = 'reopened';
-    if (opts.notes) e.notes = opts.notes;
-    action = 'updated';
-  }
+  const { action } = _upsertEntry(existing, opts, slug as string);
 
   fs.mkdirSync(planningDir, { recursive: true });
   atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
@@ -308,8 +397,110 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
   );
 }
 
+/**
+ * Walk a phase's VERIFICATION.md and, if its `## Reflection` table reports
+ * `verdict: falsified`, register the hypothesis as a dead end. Idempotent
+ * thanks to the slug dedup contract — calling this repeatedly on the same
+ * phase converges to the same registry state.
+ *
+ * Non-falsified verdicts (confirmed, partial, unknown) emit
+ * `{ skipped: true, reason }` so the caller can surface why.
+ */
+function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) error('phase required');
+  const phaseInfo = findPhaseInternal(cwd, phase);
+  if (!phaseInfo || !phaseInfo.found) {
+    output({ skipped: true, reason: 'Phase not found', phase }, raw);
+    return;
+  }
+
+  // Find {phase}-VERIFICATION.md in the phase directory
+  const phaseDir = path.join(cwd, phaseInfo.directory);
+  let files: string[];
+  try {
+    files = fs.readdirSync(phaseDir);
+  } catch {
+    output({ skipped: true, reason: 'Cannot read phase directory', phase }, raw);
+    return;
+  }
+  const verFile = files.find((f) => /-VERIFICATION\.md$/i.test(f) || f === 'VERIFICATION.md');
+  if (!verFile) {
+    output(
+      { skipped: true, reason: 'No VERIFICATION.md in phase directory', phase: phaseInfo.phase_number },
+      raw
+    );
+    return;
+  }
+
+  const verContent = fs.readFileSync(path.join(phaseDir, verFile), 'utf-8');
+  const reflection = parseReflectionSection(verContent);
+  if (!reflection) {
+    output(
+      { skipped: true, reason: 'No ## Reflection section parseable in VERIFICATION.md', phase: phaseInfo.phase_number },
+      raw
+    );
+    return;
+  }
+  if (reflection.verdict !== 'falsified') {
+    output(
+      {
+        skipped: true,
+        reason: `verdict is "${reflection.verdict}" — only falsified is auto-promoted`,
+        phase: phaseInfo.phase_number,
+      },
+      raw
+    );
+    return;
+  }
+
+  const slug: string | null = generateSlugInternal(reflection.hypothesis);
+  if (!slug) {
+    output(
+      { skipped: true, reason: 'Could not derive slug from hypothesis', phase: phaseInfo.phase_number },
+      raw
+    );
+    return;
+  }
+
+  const planningDir = path.join(cwd, '.planning');
+  const filePath = path.join(planningDir, 'DEAD-ENDS.md');
+  let existing: DeadEndEntry[] = [];
+  if (fs.existsSync(filePath)) {
+    existing = parseDeadEndsFile(fs.readFileSync(filePath, 'utf-8'));
+  }
+
+  const { action } = _upsertEntry(
+    existing,
+    {
+      approach: reflection.hypothesis,
+      phase: phaseInfo.phase_number,
+      verdict: 'falsified',
+      evidence: reflection.evidence,
+      notes: reflection.actual_outcome || undefined,
+    },
+    slug
+  );
+
+  fs.mkdirSync(planningDir, { recursive: true });
+  atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
+
+  output(
+    {
+      action,
+      slug,
+      total_entries: existing.length,
+      phase: phaseInfo.phase_number,
+      path: path.relative(cwd, filePath),
+    },
+    raw,
+    `${action}: ${slug}`
+  );
+}
+
 module.exports = {
   parseDeadEndsFile,
   serializeDeadEndsFile,
+  parseReflectionSection,
   cmdDeadEndAdd,
+  cmdDeadEndPromoteFromPhase,
 };
