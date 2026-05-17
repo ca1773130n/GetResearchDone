@@ -522,6 +522,7 @@ const {
 
 const {
   cmdDeadEndAdd,
+  cmdDeadEndPromoteFromPhase,
 }: {
   cmdDeadEndAdd: (
     cwd: string,
@@ -534,6 +535,7 @@ const {
     },
     raw: boolean
   ) => void;
+  cmdDeadEndPromoteFromPhase: (cwd: string, phase: string, raw: boolean) => void;
 } = require('../lib/dead-ends');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -974,25 +976,29 @@ async function routeCommand(
       break;
     case 'dead-end': {
       const sub: string = args[1];
-      if (sub !== 'add') {
-        error(`Unknown dead-end subcommand: ${sub}. Valid: add`);
+      if (sub === 'add') {
+        // Collect all --evidence flags (repeatable)
+        const evidence: string[] = [];
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '--evidence' && args[i + 1]) evidence.push(args[i + 1]);
+        }
+        cmdDeadEndAdd(
+          cwd,
+          {
+            approach: flag(args, '--approach') ?? '',
+            phase: flag(args, '--phase') ?? '',
+            verdict: flag(args, '--verdict'),
+            evidence,
+            notes: flag(args, '--notes'),
+          },
+          raw
+        );
+      } else if (sub === 'promote-from-phase') {
+        const phaseArg = args[2] ?? flag(args, '--phase') ?? '';
+        cmdDeadEndPromoteFromPhase(cwd, phaseArg, raw);
+      } else {
+        error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
       }
-      // Collect all --evidence flags (repeatable)
-      const evidence: string[] = [];
-      for (let i = 0; i < args.length; i++) {
-        if (args[i] === '--evidence' && args[i + 1]) evidence.push(args[i + 1]);
-      }
-      cmdDeadEndAdd(
-        cwd,
-        {
-          approach: flag(args, '--approach') ?? '',
-          phase: flag(args, '--phase') ?? '',
-          verdict: flag(args, '--verdict'),
-          evidence,
-          notes: flag(args, '--notes'),
-        },
-        raw
-      );
       break;
     }
     case 'phases': {
