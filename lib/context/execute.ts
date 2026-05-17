@@ -748,6 +748,14 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
       5
     ),
 
+    // DEAD-ENDS.md registry (Tier-2 #6 of the Ouroboros integration).
+    // Project-scoped (NOT milestone-scoped) — dead ends are knowledge that
+    // crosses milestones. Planner consults this before proposing a new
+    // hypothesis so previously-falsified approaches do not re-surface
+    // without explicit re-test. Read path only in this PR; writes are a
+    // future PR. Null when the file does not exist.
+    dead_ends_md: safeReadMarkdown(path.join(cwd, '.planning', 'DEAD-ENDS.md')),
+
     // Citation traversal config
     transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,
 

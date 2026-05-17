@@ -418,6 +418,40 @@ describe('cmdInitPlanPhase', () => {
     expect(['low', 'medium', 'high']).toContain(result.planner_effort);
   });
 
+  test('emits dead_ends_md as null when .planning/DEAD-ENDS.md absent (Tier-2 #6)', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('dead_ends_md');
+    expect(result.dead_ends_md).toBeNull();
+  });
+
+  test('emits dead_ends_md content when file exists (Tier-2 #6)', () => {
+    const deadEndsPath = path.join(tmpDir, '.planning', 'DEAD-ENDS.md');
+    const body = [
+      '# Dead Ends Registry',
+      '',
+      '## rope-embeddings-on-cpu',
+      '',
+      '```yaml',
+      'approach: "Rotary positional embeddings for the CPU encoder"',
+      'slug: rope-embeddings-on-cpu',
+      'tried_in_phases: ["02-build"]',
+      'verdict: falsified',
+      'status: active',
+      '```',
+      '',
+    ].join('\n');
+    fs.writeFileSync(deadEndsPath, body, 'utf-8');
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.dead_ends_md).toContain('rope-embeddings-on-cpu');
+    expect(result.dead_ends_md).toContain('slug: rope-embeddings-on-cpu');
+    expect(result.dead_ends_md).toContain('verdict: falsified');
+
+    fs.unlinkSync(deadEndsPath);
+  });
+
   test('emits prior_reflections (empty when no prior phases have reflections)', () => {
     // Fixture has phases 01 and 02 but no VERIFICATION.md files in either.
     // The field must still be present and shaped as an array.

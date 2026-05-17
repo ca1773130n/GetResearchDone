@@ -179,6 +179,72 @@ the loop is to *constrain the new hypothesis*, not to pad the plan.
 
 </prior_reflections>
 
+<dead_ends>
+
+## Dead-Ends Registry (`dead_ends_md`)
+
+The init JSON includes a `dead_ends_md` field — the raw markdown body
+of `.planning/DEAD-ENDS.md` (project-scoped, crosses milestones), or
+`null` if the file does not yet exist. This is a longer-lived
+companion to `prior_reflections`: reflections age out after 5 phases,
+but a dead end stays in the registry permanently unless deliberately
+re-opened.
+
+**Schema.** Each entry is an H2 heading with the approach slug, then
+a fenced YAML block. Slug is the dedup key — the same slug must not
+appear twice. New entries get appended; re-tests append to
+`tried_in_phases`.
+
+(Outer fence uses 4 backticks so the inner ```yaml``` fence nests
+correctly when this prompt is rendered.)
+
+````markdown
+## rope-embeddings-on-cpu
+
+```yaml
+approach: "Rotary positional embeddings for the CPU encoder"
+slug: rope-embeddings-on-cpu
+tried_in_phases: ["02-build", "07-retry"]
+verdict: falsified
+evidence:
+  - "tests/unit/encoder.test.ts:142 — RoPE matmul throws on CPU backend"
+  - "EVAL.md phase 07 — 38% accuracy vs 82% baseline"
+status: active   # active | reopened
+notes: "Hardware bug; revisit when CPU backend gains FP16 support."
+```
+````
+
+**How to use it.**
+
+1. **Before writing this plan's `hypothesis:` scalar**, scan
+   `dead_ends_md` for any entry whose `approach` overlaps the
+   approach you are about to propose. Compare on intent, not just
+   on text similarity.
+2. **If you find an overlapping `status: active` entry**, do NOT
+   re-propose it. Either:
+   - Pick a different approach, or
+   - Declare an explicit re-test in `<context>` with a hypothesis
+     that the *underlying condition* has changed (cite the change),
+     and mark the entry as needing `status: reopened` in your
+     SUMMARY.md output (the orchestrator handles the file edit in a
+     future PR; for now, just declare intent).
+3. **If `dead_ends_md` is null**, the registry does not yet exist
+   for this project — proceed normally. This is the common case
+   for new projects.
+
+**Dedup rule.** Slug is the canonical identifier. Two entries with
+the same slug = the same dead end. Two entries with different slugs
+but overlapping `approach` strings = the planner's responsibility
+to notice and reconcile.
+
+**Do not write to DEAD-ENDS.md from inside this plan.** This PR
+delivers the read path only; writes will be a follow-up. If you
+think a falsified prior reflection deserves promotion to the
+registry, surface that observation in `<context>` so a human can
+add the entry.
+
+</dead_ends>
+
 <philosophy>
 
 ## Solo Researcher + Claude Workflow
