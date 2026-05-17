@@ -1069,9 +1069,14 @@ async function runInfiniteEvolve(
     });
   }
 
-  // Summary
+  // Summary — codex r5 P2 on PR #40: a graceful 'converged' cycle is
+  // SUCCESSFUL (the autopilot intentionally stopped early because the
+  // project's ontology stabilised). Count it toward cycles_completed
+  // alongside 'completed'. Failure / skipped / dry-run are still excluded.
   const cyclesCompleted: number = cycleResults.filter(
-    (c) => c.autoplan_status === 'completed' && c.autopilot_status === 'completed'
+    (c) =>
+      c.autoplan_status === 'completed' &&
+      (c.autopilot_status === 'completed' || c.autopilot_status === 'converged')
   ).length;
 
   log(
