@@ -418,6 +418,39 @@ describe('cmdInitPlanPhase', () => {
     expect(['low', 'medium', 'high']).toContain(result.planner_effort);
   });
 
+  test('emits genome_md as null when .planning/GENOME.md absent (Tier-2 #8)', () => {
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result).toHaveProperty('genome_md');
+    expect(result.genome_md).toBeNull();
+  });
+
+  test('emits genome_md content when file exists (Tier-2 #8)', () => {
+    const genomePath = path.join(tmpDir, '.planning', 'GENOME.md');
+    const body = [
+      '# Strategy Genome',
+      '',
+      '## Heuristics in use',
+      '',
+      '- Use verification_level: proxy for ML phases',
+      '- Split phases past 50% context degradation',
+      '',
+      '## Agent preferences',
+      '',
+      '- grd-deep-diver before plan when research_level >= 2',
+      '',
+    ].join('\n');
+    fs.writeFileSync(genomePath, body, 'utf-8');
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.genome_md).toContain('Strategy Genome');
+    expect(result.genome_md).toContain('verification_level: proxy for ML phases');
+    expect(result.genome_md).toContain('grd-deep-diver');
+
+    fs.unlinkSync(genomePath);
+  });
+
   test('emits dead_ends_md as null when .planning/DEAD-ENDS.md absent (Tier-2 #6)', () => {
     const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
     const result = JSON.parse(stdout);

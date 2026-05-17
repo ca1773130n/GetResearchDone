@@ -756,6 +756,14 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
     // future PR. Null when the file does not exist.
     dead_ends_md: safeReadMarkdown(path.join(cwd, '.planning', 'DEAD-ENDS.md')),
 
+    // GENOME.md strategy snapshot (Tier-2 #8 of the Ouroboros integration).
+    // Project-scoped, captures the current planning meta-strategy: which
+    // heuristics work, which agents are favored, what verdict-thresholds.
+    // Planner reads it and adapts; per-iteration rewrites are tracked in
+    // git (rollback policy = `git revert`). Read path only; snapshot CLI
+    // is a follow-up PR. Null when the file does not exist.
+    genome_md: safeReadMarkdown(path.join(cwd, '.planning', 'GENOME.md')),
+
     // Citation traversal config
     transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,
 
