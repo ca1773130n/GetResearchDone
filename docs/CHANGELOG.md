@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.24] - 2026-05-18
+
 ### Added (Ouroboros integration — agentic self-monitoring and self-improvement)
 
 The full plan and provenance are in `.planning/research/ouroboros-integration.md`.
