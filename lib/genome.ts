@@ -35,10 +35,12 @@ const {
 }: { planningDir: (cwd: string) => string } = require('./paths');
 const {
   safeReadFile,
+  safeReadMarkdown,
   output,
   error,
 }: {
   safeReadFile: (p: string) => string | null;
+  safeReadMarkdown: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
 } = require('./utils');
@@ -135,7 +137,10 @@ function _verdictCounts(cwd: string): Record<string, number> {
         (f) => /-VERIFICATION\.md$/i.test(f) || f === 'VERIFICATION.md'
       );
       if (!verFile) continue;
-      const content = safeReadFile(path.join(phaseDir, verFile));
+      // safeReadMarkdown reassembles split-index files so verdicts
+      // are counted correctly on projects that have split large
+      // VERIFICATION.md files (codex r2 P2 on PR #43).
+      const content = safeReadMarkdown(path.join(phaseDir, verFile));
       if (!content) continue;
       const r = parseReflectionSection(content);
       if (!r) continue;
@@ -168,7 +173,9 @@ function _countCompletedPhases(cwd: string): number {
 }
 
 function _countDeadEnds(cwd: string): number {
-  const deadEnds = safeReadFile(path.join(getPlanningDir(cwd), 'DEAD-ENDS.md'));
+  // safeReadMarkdown reassembles split-index files so DEAD-ENDS count
+  // matches what the planner sees (codex r2 P2 on PR #43).
+  const deadEnds = safeReadMarkdown(path.join(getPlanningDir(cwd), 'DEAD-ENDS.md'));
   if (!deadEnds) return 0;
   return (deadEnds.match(/^## (\S+)\s*$/gm) ?? []).length;
 }
@@ -223,7 +230,10 @@ function cmdGenomeInit(cwd: string, raw: boolean): void {
 
 function cmdGenomeShow(cwd: string, raw: boolean): void {
   const filePath = path.join(getPlanningDir(cwd), 'GENOME.md');
-  const content = safeReadFile(filePath);
+  // safeReadMarkdown reassembles split-index files so `show` returns
+  // what the planner actually consumes, not just the index stub
+  // (codex r2 P2 on PR #43).
+  const content = safeReadMarkdown(filePath);
   if (content === null) {
     output({ exists: false, content: null }, raw, '(none)');
     return;

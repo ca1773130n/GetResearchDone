@@ -208,6 +208,26 @@ describe('cmdGenomeSnapshot', () => {
     expect(body).toMatch(/\| verdicts\.partial \| 1 \|/);
   });
 
+  test('show reassembles split-index GENOME.md (codex r2 P2 on PR #43)', () => {
+    // GRD-INDEX with one partial. cmdGenomeShow must return the
+    // reassembled content (what planner sees), not the stub.
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'GENOME.partial.md'),
+      '# Strategy Genome\n\n## Heuristics\n- Real content lives here.\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./GENOME.partial.md)', ''].join('\n'),
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => cmdGenomeShow(projectDir, false));
+    const result = JSON.parse(stdout);
+    expect(result.exists).toBe(true);
+    expect(result.content).toContain('Real content lives here');
+    expect(result.content).not.toContain('<!-- GRD-INDEX -->');
+  });
+
   test('refuses to append to split-index GENOME.md (codex r1 P2 on PR #43)', () => {
     // If GENOME.md has been split into a GRD-INDEX file, appending to
     // the stub would silently fail to reach the planner — the planner
@@ -229,6 +249,80 @@ describe('cmdGenomeSnapshot', () => {
       'utf-8'
     );
     expect(after).not.toMatch(/## Snapshot /);
+  });
+
+  test('snapshot reassembles split VERIFICATION.md when counting verdicts (codex r2 P2 on PR #43)', () => {
+    // Create one phase with a split VERIFICATION.md. Pre-fix, the stub
+    // would be read instead of the reassembled content, parseReflectionSection
+    // would return null, and the snapshot would undercount the verdict.
+    const phaseDir = path.join(
+      projectDir,
+      '.planning',
+      'milestones',
+      'm1',
+      'phases',
+      '01-phase'
+    );
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-SUMMARY.md'),
+      '---\nphase: 01\n---\n\n## Accomplishments\n- did things\n',
+      'utf-8'
+    );
+    // Split VERIFICATION.md: index + partial with the Reflection.
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-VERIFICATION.partial.md'),
+      [
+        '# Verification',
+        '',
+        '## Reflection',
+        '',
+        '| Field | Value |',
+        '|-------|-------|',
+        '| hypothesis | sample |',
+        '| predicted_outcome | predicted |',
+        '| actual_outcome | actual |',
+        '| verdict | confirmed |',
+        '| evidence | foo.ts:1 |',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-VERIFICATION.md'),
+      [
+        '<!-- GRD-INDEX -->',
+        '',
+        '- [part1](./01-01-VERIFICATION.partial.md)',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    captureOutput(() => cmdGenomeSnapshot(projectDir, false));
+    const body = fs.readFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      'utf-8'
+    );
+    expect(body).toMatch(/\| verdicts\.confirmed \| 1 \|/);
+  });
+
+  test('snapshot reassembles split DEAD-ENDS.md when counting (codex r2 P2 on PR #43)', () => {
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'DEAD-ENDS.partial.md'),
+      ['## slug-x', '```yaml', '```', '', '## slug-y', '```yaml', '```', ''].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'DEAD-ENDS.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./DEAD-ENDS.partial.md)', ''].join('\n'),
+      'utf-8'
+    );
+    captureOutput(() => cmdGenomeSnapshot(projectDir, false));
+    const body = fs.readFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      'utf-8'
+    );
+    expect(body).toMatch(/\| dead_ends_registered \| 2 \|/);
   });
 
   test('repeated snapshots both append (history-preserving)', () => {
