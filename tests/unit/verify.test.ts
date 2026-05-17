@@ -19,6 +19,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
+  cmdVerifyMechanical,
 } = require('../../lib/verify');
 
 // ─── cmdVerifyPlanStructure ─────────────────────────────────────────────────
@@ -474,5 +475,149 @@ describe('cmdVerifyCommits', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.all_valid).toBe(true);
     expect(parsed.valid).toContain(headHash);
+  });
+});
+
+// ─── cmdVerifyMechanical (bundle) ───────────────────────────────────────────
+
+describe('cmdVerifyMechanical', () => {
+  let fixtureDir: string;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('aggregates checks for a phase with a single plan', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phase).toMatch(/01/);
+    expect(parsed.plan_count).toBe(1);
+    expect(parsed.total_checks).toBeGreaterThan(0);
+    expect(parsed.passed_count + parsed.failed_count).toBe(parsed.total_checks);
+    expect(Array.isArray(parsed.checks)).toBe(true);
+  });
+
+  test('flags missing artifact files as a failed artifacts check', () => {
+    // Replace the fixture PLAN.md with one whose must_haves uses the 4-space
+    // indent that parseMustHavesBlock requires, and declares an artifact that
+    // does not exist on disk in the temp fixture.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/does-not-exist.js"',
+      '        provides: "Missing module"',
+      '---',
+      '',
+      '<task><name>t1</name><action>do</action></task>',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const artifactsCheck = parsed.checks.find((c: { check: string }) => c.check === 'artifacts');
+    expect(artifactsCheck).toBeDefined();
+    expect(artifactsCheck.passed).toBe(false);
+    expect(artifactsCheck.detail).toMatch(/src\/does-not-exist\.js/);
+    expect(parsed.passed).toBe(false);
+  });
+
+  test('plan_summary_completeness fails when summary is missing', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.unlinkSync(path.join(phaseDir, '01-01-SUMMARY.md'));
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(false);
+    expect(completeness.detail).toMatch(/without summaries/);
+    expect(completeness.data.incomplete).toContain('01-01');
+  });
+
+  test('emits "fail" rawValue when any check fails', () => {
+    // Force a failure via plan/summary completeness — cheapest deterministic
+    // failure that does not depend on parseMustHavesBlock indent quirks.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.unlinkSync(path.join(phaseDir, '01-01-SUMMARY.md'));
+
+    const { stdout, rawOutput } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', true);
+    });
+    const payload = (rawOutput ?? stdout).trim();
+    expect(payload).toBe('fail');
+  });
+
+  test('returns error result when phase is not found', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '99', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toMatch(/Phase not found/);
+  });
+
+  test('each check has scope and check fields', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    for (const check of parsed.checks) {
+      expect(typeof check.check).toBe('string');
+      expect(typeof check.scope).toBe('string');
+      expect(typeof check.passed).toBe('boolean');
+      expect(typeof check.detail).toBe('string');
+    }
+  });
+
+  test('passed_count + failed_count equals total_checks (invariant)', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.passed_count + parsed.failed_count).toBe(parsed.total_checks);
+    expect(parsed.passed).toBe(parsed.failed_count === 0);
   });
 });

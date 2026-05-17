@@ -750,6 +750,234 @@ function cmdVerifyKeyLinks(cwd: string, planFilePath: string, raw: boolean): voi
   output(verifyResult, raw, verified === results.length ? 'valid' : 'invalid');
 }
 
+/**
+ * Result of a single mechanical check inside the bundle.
+ */
+interface MechanicalCheckResult {
+  check: 'frontmatter' | 'artifacts' | 'key_links' | 'references' | 'plan_summary_completeness';
+  scope: string;
+  passed: boolean;
+  detail: string;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Aggregated result of cmdVerifyMechanical — the "Mechanical tier" of
+ * the verifier agent's three-stage gate.
+ */
+interface MechanicalVerifyResult {
+  passed: boolean;
+  phase: string;
+  plan_count: number;
+  total_checks: number;
+  passed_count: number;
+  failed_count: number;
+  checks: MechanicalCheckResult[];
+}
+
+/**
+ * Bundle the four PLAN.md mechanical checks (frontmatter, artifacts,
+ * key_links, references) plus a phase-level plan/summary completeness
+ * check into a single aggregated JSON result. Reuses the same helpers
+ * as the discrete verify commands so behavior stays consistent.
+ *
+ * Required PLAN.md frontmatter fields are kept in sync with
+ * cmdVerifyPlanStructure. Frontmatter check passes if all required
+ * fields are present; artifact and key-link checks pass when every
+ * declared item resolves; reference check passes when every @-reference
+ * and backtick path resolves; completeness check passes when every
+ * PLAN has a matching SUMMARY.
+ *
+ * @param cwd - Project working directory
+ * @param phase - Phase number or name passed to findPhaseInternal
+ * @param raw - Output 'pass'/'fail' instead of JSON
+ */
+function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) {
+    error('phase required');
+  }
+  const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phase);
+  if (!phaseInfo || !phaseInfo.found) {
+    output({ error: 'Phase not found', phase }, raw);
+    return;
+  }
+
+  const phaseDir: string = path.join(cwd, phaseInfo.directory);
+  let files: string[];
+  try {
+    files = fs.readdirSync(phaseDir);
+  } catch {
+    output({ error: 'Cannot read phase directory', phase }, raw);
+    return;
+  }
+
+  const plans: string[] = files.filter((f) => /-PLAN\.md$/i.test(f));
+  const summaries: string[] = files.filter((f) => /-SUMMARY\.md$/i.test(f));
+  const checks: MechanicalCheckResult[] = [];
+
+  const requiredFrontmatterFields: readonly string[] = [
+    'phase',
+    'plan',
+    'type',
+    'wave',
+    'depends_on',
+    'files_modified',
+    'autonomous',
+    'must_haves',
+  ];
+
+  for (const planFile of plans) {
+    const planPath: string = path.join(phaseDir, planFile);
+    const content: string | null = readFileCached(planPath);
+    if (!content) {
+      checks.push({
+        check: 'frontmatter',
+        scope: `plan:${planFile}`,
+        passed: false,
+        detail: 'PLAN.md unreadable',
+      });
+      continue;
+    }
+    const fm: FrontmatterObject = extractFrontmatter(content);
+
+    // frontmatter check
+    const missingFields: string[] = requiredFrontmatterFields.filter(
+      (f) => fm[f] === undefined
+    );
+    checks.push({
+      check: 'frontmatter',
+      scope: `plan:${planFile}`,
+      passed: missingFields.length === 0,
+      detail:
+        missingFields.length === 0
+          ? `All ${requiredFrontmatterFields.length} required fields present`
+          : `Missing: ${missingFields.join(', ')}`,
+      data: { missing: missingFields, required: [...requiredFrontmatterFields] },
+    });
+
+    // artifacts check
+    const artifacts: MustHavesEntry[] = parseMustHavesBlock(content, 'artifacts');
+    if (artifacts.length > 0) {
+      const missing: string[] = [];
+      for (const art of artifacts) {
+        if (typeof art === 'string') continue;
+        const artPath: string | undefined = (art as MustHavesArtifact).path;
+        if (!artPath) continue;
+        if (!fs.existsSync(path.join(cwd, artPath))) missing.push(artPath);
+      }
+      checks.push({
+        check: 'artifacts',
+        scope: `plan:${planFile}`,
+        passed: missing.length === 0,
+        detail:
+          missing.length === 0
+            ? `All ${artifacts.length} artifacts present`
+            : `Missing files: ${missing.join(', ')}`,
+        data: { missing },
+      });
+    }
+
+    // key_links check
+    const keyLinks: MustHavesEntry[] = parseMustHavesBlock(content, 'key_links');
+    if (keyLinks.length > 0) {
+      const failed: string[] = [];
+      for (const link of keyLinks) {
+        if (typeof link === 'string') continue;
+        const linkTyped = link as MustHavesKeyLink;
+        const fromContent: string | null = safeReadFile(path.join(cwd, linkTyped.from || ''));
+        const toPath: string = path.join(cwd, linkTyped.to || '');
+        let verified = false;
+        if (fromContent) {
+          if (linkTyped.pattern) {
+            try {
+              const regex = new RegExp(linkTyped.pattern);
+              if (regex.test(fromContent)) verified = true;
+              else {
+                const toContent: string | null = safeReadFile(toPath);
+                if (toContent && regex.test(toContent)) verified = true;
+              }
+            } catch {
+              verified = false;
+            }
+          } else {
+            verified = fromContent.includes(linkTyped.to || '');
+          }
+        }
+        if (!verified) failed.push(`${linkTyped.from} → ${linkTyped.to}`);
+      }
+      checks.push({
+        check: 'key_links',
+        scope: `plan:${planFile}`,
+        passed: failed.length === 0,
+        detail:
+          failed.length === 0
+            ? `All ${keyLinks.length} key links verified`
+            : `Failed: ${failed.join('; ')}`,
+        data: { failed },
+      });
+    }
+
+    // references check
+    const missingRefs: string[] = [];
+    const atRefs: string[] = content.match(/@([^\s\n,)]+\/[^\s\n,)]+)/g) || [];
+    for (const ref of atRefs) {
+      const cleanRef: string = ref.slice(1);
+      const resolved: string = cleanRef.startsWith('~/')
+        ? path.join(process.env.HOME || os.homedir() || '', cleanRef.slice(2))
+        : path.join(cwd, cleanRef);
+      if (!fs.existsSync(resolved)) missingRefs.push(cleanRef);
+    }
+    const backtickRefs: string[] = content.match(/`([^`]+\/[^`]+\.[a-zA-Z]{1,10})`/g) || [];
+    for (const ref of backtickRefs) {
+      const cleanRef: string = ref.slice(1, -1);
+      if (cleanRef.startsWith('http') || cleanRef.includes('${') || cleanRef.includes('{{')) continue;
+      if (missingRefs.includes(cleanRef)) continue;
+      if (!fs.existsSync(path.join(cwd, cleanRef))) missingRefs.push(cleanRef);
+    }
+    const totalRefs: number = atRefs.length + backtickRefs.length;
+    if (totalRefs > 0) {
+      checks.push({
+        check: 'references',
+        scope: `plan:${planFile}`,
+        passed: missingRefs.length === 0,
+        detail:
+          missingRefs.length === 0
+            ? `All ${totalRefs} references resolve`
+            : `Missing: ${missingRefs.join(', ')}`,
+        data: { missing: missingRefs, total: totalRefs },
+      });
+    }
+  }
+
+  // phase-level: plan/summary completeness
+  const planIds = new Set<string>(plans.map((p) => p.replace(/-PLAN\.md$/i, '')));
+  const summaryIds = new Set<string>(summaries.map((s) => s.replace(/-SUMMARY\.md$/i, '')));
+  const incomplete: string[] = [...planIds].filter((id) => !summaryIds.has(id));
+  checks.push({
+    check: 'plan_summary_completeness',
+    scope: `phase:${phaseInfo.phase_number}`,
+    passed: incomplete.length === 0,
+    detail:
+      incomplete.length === 0
+        ? `All ${plans.length} plans have summaries`
+        : `Plans without summaries: ${incomplete.join(', ')}`,
+    data: { incomplete, plan_count: plans.length, summary_count: summaries.length },
+  });
+
+  const passedCount: number = checks.filter((c) => c.passed).length;
+  const failedCount: number = checks.length - passedCount;
+  const result: MechanicalVerifyResult = {
+    passed: failedCount === 0,
+    phase: phaseInfo.phase_number,
+    plan_count: plans.length,
+    total_checks: checks.length,
+    passed_count: passedCount,
+    failed_count: failedCount,
+    checks,
+  };
+  output(result, raw, failedCount === 0 ? 'pass' : 'fail');
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -760,4 +988,5 @@ module.exports = {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
+  cmdVerifyMechanical,
 };
