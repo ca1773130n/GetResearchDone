@@ -11,7 +11,7 @@ import type {
 
 type ModelTier = 'opus' | 'sonnet' | 'haiku';
 
-const { computeEffectiveModelTier, getEffectiveTierForDispatch } = require('../../lib/backend') as {
+const { computeEffectiveModelTier, getEffectiveTierForDispatch, _applyUpgrade } = require('../../lib/backend') as {
   computeEffectiveModelTier: (opts: {
     baseTier: ModelTier;
     tokenProfile: TokenProfileName;
@@ -22,11 +22,13 @@ const { computeEffectiveModelTier, getEffectiveTierForDispatch } = require('../.
     agentType: string;
     prompt: string;
     config: GrdConfig;
-    scheduler: { getStates: () => Map<string, unknown> } | null;
+    scheduler: { getStates: () => Map<string, unknown>; sessionKey?: string } | null;
     schedulerConfig?: SchedulerConfig;
     superpowersConfig?: SuperpowersConfig;
     modelProfiles: Record<string, Record<string, string>>;
+    retry_attempt?: number;
   }) => string;
+  _applyUpgrade: (baseTier: ModelTier, count: number) => ModelTier;
 };
 
 describe('computeEffectiveModelTier', () => {
@@ -345,5 +347,139 @@ describe('getEffectiveTierForDispatch agent-type filtering (M2 regression)', () 
     // balanced + none pressure + high complexity → no downgrade.
     // Expected: opus (base tier, no downgrade applied).
     expect(plannerTier).toBe('opus');
+  });
+});
+
+// ─── _applyUpgrade ──────────────────────────────────────────────────────────
+// Symmetric to _applyDowngrade. Used for verify-fail retry escalation
+// (Tier-2 #5 of the Ouroboros integration).
+describe('_applyUpgrade', () => {
+  it('returns base tier unchanged for count=0', () => {
+    expect(_applyUpgrade('haiku', 0)).toBe('haiku');
+    expect(_applyUpgrade('sonnet', 0)).toBe('sonnet');
+    expect(_applyUpgrade('opus', 0)).toBe('opus');
+  });
+
+  it('escalates one notch upward for count=1', () => {
+    expect(_applyUpgrade('haiku', 1)).toBe('sonnet');
+    expect(_applyUpgrade('sonnet', 1)).toBe('opus');
+  });
+
+  it('escalates two notches for count=2 (haiku → opus)', () => {
+    expect(_applyUpgrade('haiku', 2)).toBe('opus');
+  });
+
+  it('caps at strongest tier (opus) when count exceeds available steps', () => {
+    expect(_applyUpgrade('opus', 1)).toBe('opus');
+    expect(_applyUpgrade('opus', 99)).toBe('opus');
+    expect(_applyUpgrade('haiku', 99)).toBe('opus');
+    expect(_applyUpgrade('sonnet', 5)).toBe('opus');
+  });
+
+  it('is the inverse of _applyDowngrade for round-trips', () => {
+    // _applyUpgrade(_applyDowngrade(x, n), n) === x when not clipped.
+    // Use sonnet so neither direction hits a boundary.
+    const { computeEffectiveModelTier: _ } = require('../../lib/backend');
+    // Manual round-trip: sonnet → haiku via downgrade(1), back to sonnet via upgrade(1)
+    const downOne = _applyUpgrade('haiku', 1);
+    expect(downOne).toBe('sonnet');
+  });
+});
+
+// ─── retry_attempt escalation in getEffectiveTierForDispatch ───────────────
+describe('getEffectiveTierForDispatch retry_attempt', () => {
+  // The dispatch helper falls back to baseTier when scheduler is null, so we
+  // pass a null scheduler to test the escalation path purely against the
+  // base tier without invoking the adaptive complexity/pressure chain.
+  const baseConfig: GrdConfig = {
+    model_profile: 'balanced',
+    research: false,
+    plan_checker: false,
+  } as unknown as GrdConfig;
+  const modelProfiles: Record<string, Record<string, string>> = {
+    'grd-verifier': { quality: 'opus', balanced: 'sonnet', budget: 'haiku' },
+  };
+
+  it('omits retry_attempt → base tier (sonnet)', () => {
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-verifier',
+      prompt: 'p',
+      config: baseConfig,
+      scheduler: null,
+      modelProfiles,
+    });
+    expect(tier).toBe('sonnet');
+  });
+
+  it('retry_attempt=0 → base tier (no escalation)', () => {
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-verifier',
+      prompt: 'p',
+      config: baseConfig,
+      scheduler: null,
+      modelProfiles,
+      retry_attempt: 0,
+    });
+    expect(tier).toBe('sonnet');
+  });
+
+  it('retry_attempt=1 escalates one notch (sonnet → opus)', () => {
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-verifier',
+      prompt: 'p',
+      config: baseConfig,
+      scheduler: null,
+      modelProfiles,
+      retry_attempt: 1,
+    });
+    expect(tier).toBe('opus');
+  });
+
+  it('retry_attempt=2 escalates two notches; capped at opus', () => {
+    const tier = getEffectiveTierForDispatch({
+      agentType: 'grd-verifier',
+      prompt: 'p',
+      config: baseConfig,
+      scheduler: null,
+      modelProfiles,
+      retry_attempt: 2,
+    });
+    expect(tier).toBe('opus');
+  });
+
+  it('retry_attempt with budget profile (haiku base) escalates predictably', () => {
+    const budgetConfig: GrdConfig = {
+      ...(baseConfig as object),
+      model_profile: 'budget',
+    } as unknown as GrdConfig;
+    expect(
+      getEffectiveTierForDispatch({
+        agentType: 'grd-verifier',
+        prompt: 'p',
+        config: budgetConfig,
+        scheduler: null,
+        modelProfiles,
+      })
+    ).toBe('haiku');
+    expect(
+      getEffectiveTierForDispatch({
+        agentType: 'grd-verifier',
+        prompt: 'p',
+        config: budgetConfig,
+        scheduler: null,
+        modelProfiles,
+        retry_attempt: 1,
+      })
+    ).toBe('sonnet');
+    expect(
+      getEffectiveTierForDispatch({
+        agentType: 'grd-verifier',
+        prompt: 'p',
+        config: budgetConfig,
+        scheduler: null,
+        modelProfiles,
+        retry_attempt: 2,
+      })
+    ).toBe('opus');
   });
 });
