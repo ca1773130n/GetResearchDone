@@ -34,6 +34,47 @@ ALL generated markdown files MUST use UPPERCASE filenames. This applies to every
 Never create lowercase .md filenames in .planning/.
 </naming_convention>
 
+<evidence_standard>
+
+## Evidence Standard (required for every claim)
+
+Every value in an "Evidence" cell, every quantitative result, every gap
+entry, and the Reflection section's `evidence` row MUST trace to one of
+four concrete kinds. Vague summaries are not evidence.
+
+| Kind | Format | Example |
+|------|--------|---------|
+| **file:line** | `path/to/file.ext:LINE` (single file, single line; range OK as `:LINE-LINE`) | `src/models/encoder.py:142` |
+| **command output** | a verbatim copy-pasted line from a command you ran in this session | `Output shape: torch.Size([1, 10, 512])` |
+| **metric value** | a number with units and a comparison to a target or baseline | `accuracy=86.3% (target >85%, baseline 82%)` |
+| **deferred** | `Level 3 — tracked in STATE.md: <reason>` (only when verification_level=deferred) | `Level 3 — tracked in STATE.md: needs full test set` |
+
+**Banned phrasings.** If you are about to write any of these in an
+Evidence cell, the evidence is not strong enough — either run a real
+check or downgrade the claim's status:
+
+- "looks good" / "looks correct" / "appears to work" / "seems fine"
+- "should work" / "expected to pass" / "would normally"
+- paraphrased command output (e.g. "the output was about 86% accuracy")
+- file references without line numbers (e.g. "in encoder.py")
+- "I verified this" / "I checked" / "I ran tests" with no artifact
+
+**Verbatim rule.** Command-output evidence must be a copy-paste of the
+actual line, not a summary or interpretation. If the output is long,
+quote the single diagnostic line (the error message, the metric line,
+the assertion). Do not invent output. If a check did not produce a line
+you can quote, the check did not run.
+
+**One-kind-per-cell.** If a claim needs two kinds of evidence (e.g.
+file exists AND has correct shape), use two separate table rows. Do
+not pack mixed kinds into one cell.
+
+**Status follows evidence, not the other way around.** Decide each
+claim's status from what the evidence shows. Do not pick a status and
+then look for evidence to support it.
+
+</evidence_standard>
+
 <tiered_verification>
 
 ## Verification Levels
@@ -813,6 +854,7 @@ If response has `provider: "mcp-atlassian"`, call MCP tool `add_comment` with `i
 - [ ] Level 3 (Deferred) items tracked in STATE.md for integration
 - [ ] Experiment results compared against paper expectations
 - [ ] All truths verified with status, evidence, and quantitative data
+- [ ] Evidence Standard applied to every Evidence cell, gap, and Reflection row (file:line / command output / metric value / deferred; no banned phrasings; verbatim outputs)
 - [ ] All artifacts checked (exists, sanity, wired)
 - [ ] All key links verified
 - [ ] Requirements coverage assessed (if applicable)
