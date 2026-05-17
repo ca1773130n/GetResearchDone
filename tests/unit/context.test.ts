@@ -482,37 +482,47 @@ describe('cmdInitPlanPhase', () => {
     ).toBe(false);
   });
 
-  test('prior_reflections are returned in ascending phase order', () => {
-    // Add a Reflection to phase 01, then ask for phase 02's plan context.
-    // Asserts ordering (ascending by phase). The 5-entry cap is enforced by
-    // the literal `5` arg passed to _extractPriorReflections in execute.ts —
-    // its cap is verified by code review rather than synthesizing 6+ phases
-    // that would trip the orphan-phase gate.
-    const phase01Dir = path.join(
+  test('prior_reflections orders inserted decimal phases correctly (codex P2)', () => {
+    // Reproduces the bug codex caught on PR #33: `parseFloat("01.10")` is
+    // 1.1 and equals `parseFloat("01.1")`, so an inserted phase 01.10
+    // would be misordered against 01.1–01.9. The fix compares phase IDs
+    // componentwise.
+    //
+    // We construct decimal-inserted phase dirs 01.1, 01.2, 01.10 under
+    // milestone anonymous, each with a Reflection section, then ask for
+    // plan context for phase 02 (a real fixture phase) so the gate passes.
+    const phasesDir = path.join(
       tmpDir,
       '.planning',
       'milestones',
       'anonymous',
-      'phases',
-      '01-test'
+      'phases'
     );
-    const verPath = path.join(phase01Dir, '01-VERIFICATION.md');
-    if (!fs.existsSync(verPath)) {
+    for (const id of ['01.1', '01.2', '01.10']) {
+      const dir = path.join(phasesDir, `${id}-decimal`);
+      fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(
-        verPath,
-        '# V\n\n## Reflection\n\n| verdict | confirmed |\n\n',
+        path.join(dir, `${id}-VERIFICATION.md`),
+        `# V\n\n## Reflection\n\n| phase | ${id} |\n`,
         'utf-8'
       );
     }
 
     const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '2', new Set(), false));
     const result = JSON.parse(stdout);
-    const phases: string[] = result.prior_reflections.map(
-      (r: { phase: string }) => r.phase
-    );
-    const sorted = [...phases].sort((a, b) => parseFloat(a) - parseFloat(b));
-    expect(phases).toEqual(sorted);
+    const decimalPhases: string[] = result.prior_reflections
+      .map((r: { phase: string }) => r.phase)
+      .filter((p: string) => p.includes('.'));
+    // All three decimals must be present (none filtered out by the
+    // broken >= check) and ordered as 01.1, 01.2, 01.10.
+    expect(decimalPhases).toEqual(['01.1', '01.2', '01.10']);
   });
+
+  // The decimal-phases test above also covers the ordering contract more
+  // rigorously than parseFloat could (which would itself have the codex
+  // bug). The 5-entry cap is a `5` literal in execute.ts and is verified
+  // by code review rather than synthesizing 6+ orphan phases that would
+  // trip the plan-phase gate.
 });
 
 // ─── cmdInitNewProject ───────────────────────────────────────────────────────

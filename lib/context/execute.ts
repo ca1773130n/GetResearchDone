@@ -214,6 +214,24 @@ function _extractReflectionSection(verificationContent: string): string | null {
  * actual_outcome history into the planner agent's context (Ouroboros
  * integration Tier-1 #4).
  */
+/**
+ * Compare two phase IDs componentwise. Handles inserted decimal phases
+ * correctly (e.g. `01.10` > `01.9`, which `parseFloat` would reverse since
+ * it treats them as 1.1 and 1.9).
+ * @returns negative if a < b, 0 if equal, positive if a > b
+ */
+function _comparePhaseIds(a: string, b: string): number {
+  const partsA = a.split('.').map((p) => parseInt(p, 10));
+  const partsB = b.split('.').map((p) => parseInt(p, 10));
+  const len = Math.max(partsA.length, partsB.length);
+  for (let i = 0; i < len; i++) {
+    const ai = partsA[i] ?? 0;
+    const bi = partsB[i] ?? 0;
+    if (ai !== bi) return ai - bi;
+  }
+  return 0;
+}
+
 function _extractPriorReflections(
   cwd: string,
   currentPhaseNumber: string | null,
@@ -228,19 +246,19 @@ function _extractPriorReflections(
     return [];
   }
 
-  // Phase dirs look like `01-test`, `02-build`, `12-something`. Sort by the
-  // leading numeric prefix; ignore anything without one.
+  // Phase dirs look like `01-test`, `02-build`, `12-something`, or decimal-
+  // inserted like `01.10-foo`. Sort componentwise — parseFloat would treat
+  // `01.10` as 1.1 and misorder it against `01.2`/`01.9`.
   const prior: Array<{ phase: string; dir: string }> = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const m = entry.name.match(/^(\d+(?:\.\d+)?)-/);
     if (!m) continue;
     const phaseNum = m[1];
-    if (currentPhaseNumber && phaseNum === currentPhaseNumber) continue;
-    if (currentPhaseNumber && parseFloat(phaseNum) >= parseFloat(currentPhaseNumber)) continue;
+    if (currentPhaseNumber && _comparePhaseIds(phaseNum, currentPhaseNumber) >= 0) continue;
     prior.push({ phase: phaseNum, dir: entry.name });
   }
-  prior.sort((a, b) => parseFloat(a.phase) - parseFloat(b.phase));
+  prior.sort((a, b) => _comparePhaseIds(a.phase, b.phase));
 
   const results: Array<{ phase: string; reflection: string }> = [];
   // Walk most-recent-first so we collect up to `limit` newest reflections,
