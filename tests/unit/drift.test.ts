@@ -16,6 +16,7 @@ const {
   computeConstraintDrift,
   computeOntologyDrift,
   computeDriftScore,
+  isOntologyConverged,
   DEFAULT_WEIGHTS,
 } = require('../../lib/drift');
 
@@ -604,6 +605,80 @@ describe('computeDriftScore aggregator', () => {
     const customWeights = { goal: 1.0, constraint: 0, ontology: 0 };
     const r = computeDriftScore(projectDir, customWeights);
     expect(r.weights).toEqual(customWeights);
+  });
+});
+
+// ─── isOntologyConverged (Tier-3 #10 + codex r1 P2 on PR #40) ─────────────
+
+describe('isOntologyConverged', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  function writeMatchingPhases(count: number): void {
+    for (let i = 1; i <= count; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: [
+          `phase: ${num}`,
+          'tech-stack:',
+          '  added: [node, typescript]',
+          '  patterns: [cli-pattern]',
+        ].join('\n'),
+        summaryBody: '## Accomplishments\n- Done\n',
+      });
+    }
+  }
+
+  test('refuses to declare convergence with < 2*recentK phases (codex r1 P2: overlap guard)', () => {
+    // 3 phases with default recentK=3 → 2*3=6 required, fail gracefully.
+    writeMatchingPhases(3);
+    const r = isOntologyConverged(projectDir);
+    expect(r.converged).toBe(false);
+    expect(r.reason).toMatch(/non-overlapping|completed phases/);
+  });
+
+  test('declares convergence with >= 2*recentK matching phases', () => {
+    writeMatchingPhases(6);
+    const r = isOntologyConverged(projectDir);
+    expect(r.converged).toBe(true);
+    expect(r.similarity).toBeGreaterThanOrEqual(0.95);
+    expect(r.threshold).toBe(0.95);
+  });
+
+  test('refuses to declare convergence when similarity below threshold', () => {
+    // 6 phases but baseline and recent have disjoint vocab → similarity 0.
+    for (let i = 1; i <= 3; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: `phase: ${num}\ntech-stack:\n  added: [node]\n  patterns: [old-pattern]\n`,
+        summaryBody: '## Accomplishments\n- baseline\n',
+      });
+    }
+    for (let i = 4; i <= 6; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: `phase: ${num}\ntech-stack:\n  added: [python]\n  patterns: [new-pattern]\n`,
+        summaryBody: '## Accomplishments\n- recent\n',
+      });
+    }
+    const r = isOntologyConverged(projectDir);
+    expect(r.converged).toBe(false);
+    expect(r.reason).toMatch(/similarity .* < /);
+  });
+
+  test('threshold parameter overrides default', () => {
+    writeMatchingPhases(6);
+    const r = isOntologyConverged(projectDir, 0.5);
+    expect(r.converged).toBe(true);
+    expect(r.threshold).toBe(0.5);
   });
 });
 

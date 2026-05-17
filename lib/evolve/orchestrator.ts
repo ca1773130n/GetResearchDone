@@ -1036,10 +1036,22 @@ async function runInfiniteEvolve(
       continue; // Try next cycle
     }
 
-    const autopilotStatus: string = autopilotResult.stopped_at ? 'failed' : 'completed';
+    // codex r4 P2 on PR #40 (Tier-3 #10): multi-milestone autopilot now
+    // exposes `converged_at` for graceful convergence. Map convergence
+    // to a distinct 'converged' status so evolve does not classify it
+    // as a failed run.
+    const autopilotStatus: string = autopilotResult.stopped_at
+      ? 'failed'
+      : autopilotResult.converged_at
+        ? 'converged'
+        : 'completed';
     if (autopilotResult.stopped_at) {
       log(
         `Autopilot stopped: ${autopilotResult.stopped_at} (${autopilotResult.milestones_completed}/${autopilotResult.milestones_attempted} milestones)`
+      );
+    } else if (autopilotResult.converged_at) {
+      log(
+        `Autopilot converged early: ${autopilotResult.converged_at} (${autopilotResult.milestones_completed}/${autopilotResult.milestones_attempted} milestones)`
       );
     } else {
       log(
@@ -1053,13 +1065,18 @@ async function runInfiniteEvolve(
       discovery_items: itemCount,
       autoplan_status: 'completed',
       autopilot_status: autopilotStatus,
-      reason: autopilotResult.stopped_at ?? undefined,
+      reason: autopilotResult.stopped_at ?? autopilotResult.converged_at ?? undefined,
     });
   }
 
-  // Summary
+  // Summary — codex r5 P2 on PR #40: a graceful 'converged' cycle is
+  // SUCCESSFUL (the autopilot intentionally stopped early because the
+  // project's ontology stabilised). Count it toward cycles_completed
+  // alongside 'completed'. Failure / skipped / dry-run are still excluded.
   const cyclesCompleted: number = cycleResults.filter(
-    (c) => c.autoplan_status === 'completed' && c.autopilot_status === 'completed'
+    (c) =>
+      c.autoplan_status === 'completed' &&
+      (c.autopilot_status === 'completed' || c.autopilot_status === 'converged')
   ).length;
 
   log(

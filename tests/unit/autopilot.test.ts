@@ -5444,4 +5444,292 @@ describe('lib/autopilot', () => {
       expect(waves[1]).toEqual(['2']);
     });
   });
+
+  // ── Tier-3 #10: ontology-convergence autopilot termination ──
+
+  describe('cmdAutopilot ontology-convergence stop (Tier-3 #10)', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        tmpDir = '';
+      }
+    });
+
+    // Helper: pre-load SUMMARY.md files with matching vocab for all phases
+    // so computeOntologyDrift has data and similarity is high.
+    function withConvergedVocab(num: string, name: string) {
+      const dirName = `${num}-${name.toLowerCase().replace(/\s+/g, '-')}`;
+      return {
+        dir: dirName,
+        files: {
+          [`${num}-01-PLAN.md`]: '# Plan',
+          [`${num}-01-SUMMARY.md`]: [
+            '---',
+            `phase: ${num}`,
+            'tech-stack:',
+            '  added: [node, typescript]',
+            '  patterns: [cli-pattern, descriptor-dispatch]',
+            '---',
+            '',
+            '# Summary',
+            '',
+            '## Accomplishments',
+            '- Implemented baseline functionality',
+            '',
+          ].join('\n'),
+        },
+      };
+    }
+
+    it('stops with ontology-convergence reason when feature enabled, vocab converged, and there are subsequent waves to suppress', async () => {
+      // Need >= 6 completed phases for non-overlapping baseline/recent
+      // windows (codex r1 P2 fix). Need at least one subsequent wave for
+      // the convergence stop to be meaningful (codex r1 P2 fix).
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = {
+        stop_on_ontology_convergence: true,
+        ontology_convergence_threshold: 0.95,
+      };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '54'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      // codex r2 P2: convergence is reported on `converged_at`, NOT
+      // `stopped_at` (which existing multi-milestone / evolve callers
+      // treat as a failure signal).
+      expect(result.stopped_at).toBeNull();
+      expect(result.converged_at).toMatch(/ontology-convergence/);
+      expect(result.converged_at).toMatch(/similarity/);
+    });
+
+    it('does NOT run milestone wireup on convergence (codex r3 P2 on PR #40)', async () => {
+      // Codex r3: convergence should be terminal — wireup must NOT fire
+      // as though everything finished. The wireup block is gated on
+      // !convergedAt. Verified by absence of a 'wireup' results entry.
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      // Use --milestone to engage milestone-mode wireup
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--milestone', '--phase-from', '48', '--phase-to', '54'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(typeof result.converged_at).toBe('string');
+      // No wireup step should appear in results when converged
+      const hasWireup = result.results.some(
+        (r: { step: string }) => r.step === 'wireup'
+      );
+      expect(hasWireup).toBe(false);
+    });
+
+    it('does NOT set stopped_at on convergence — graceful early termination (codex r2 P2 on PR #40)', async () => {
+      // Regression for the codex r2 finding: existing callers
+      // (runMultiMilestoneAutopilot, evolve) classify any non-null
+      // `stopped_at` as failure. Convergence must use `converged_at`
+      // instead so it is reported as graceful success.
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '54'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      // The killer assertion: stopped_at MUST be null so callers
+      // classify the run as completed, not failed.
+      expect(result.stopped_at).toBeNull();
+      expect(typeof result.converged_at).toBe('string');
+    });
+
+    it('does not stop when feature is disabled by default', async () => {
+      tmpDir = createAutopilotFixture({
+        phases: [
+          { num: '48', name: 'First' },
+          { num: '49', name: 'Second', depends_on: 'Phase 48' },
+        ],
+        phaseDirs: [withConvergedVocab('48', 'First'), withConvergedVocab('49', 'Second')],
+      });
+
+      // No autopilot block in config — feature defaults to off
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '49'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(result.stopped_at == null || !/ontology-convergence/.test(result.stopped_at)).toBe(true);
+    });
+
+    it('does not stop when ontology drift is insufficient_data', async () => {
+      // Only one phase — ontology drift needs at least 2 to compute.
+      tmpDir = createAutopilotFixture({
+        phases: [{ num: '48', name: 'First' }],
+        phaseDirs: [withConvergedVocab('48', 'First')],
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(result.stopped_at == null || !/ontology-convergence/.test(result.stopped_at)).toBe(true);
+    });
+
+    it('does NOT stop on a single-wave run even when vocab is converged (codex r1 P2 on PR #40)', async () => {
+      // Pre-fix: convergence on the final wave set stoppedAt and marked an
+      // otherwise-successful run as stopped, skipping milestone wireup.
+      // Build a fixture with 7 phases of matching vocab so convergence
+      // CAN fire, but request only one phase via --phase-from == --phase-to.
+      // That yields a single-wave run; stoppedAt must stay null.
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '48'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(
+        result.stopped_at == null || !/ontology-convergence/.test(result.stopped_at)
+      ).toBe(true);
+    });
+
+    it('does NOT stop when baseline/recent windows would trivially overlap (codex r1 P2 on PR #40)', async () => {
+      // Pre-fix: with <= 3 completed phases, baseline (first 3) and recent
+      // (last 3) are the same set → similarity 1.0 regardless of actual
+      // vocab change. Fixture has 4 phases (< 2 * recentK = 6) so the
+      // convergence guard refuses to fire.
+      const phases = Array.from({ length: 4 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '51'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(
+        result.stopped_at == null || !/ontology-convergence/.test(result.stopped_at)
+      ).toBe(true);
+    });
+
+    it('config.autopilot key survives loadConfig (no Unrecognized warning)', () => {
+      tmpDir = createAutopilotFixture();
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = {
+        stop_on_ontology_convergence: true,
+        ontology_convergence_threshold: 0.92,
+      };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      let stderrCapture = '';
+      const origWrite = process.stderr.write;
+      process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+        stderrCapture += String(chunk);
+        return true;
+      }) as typeof process.stderr.write;
+      const { loadConfig } = require('../../lib/utils');
+      let loaded;
+      try {
+        loaded = loadConfig(tmpDir);
+      } finally {
+        process.stderr.write = origWrite;
+      }
+      expect(stderrCapture).not.toMatch(/Unrecognized config key "autopilot"/);
+      expect(loaded.autopilot).toEqual({
+        stop_on_ontology_convergence: true,
+        ontology_convergence_threshold: 0.92,
+      });
+    });
+  });
 });

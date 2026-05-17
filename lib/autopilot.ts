@@ -60,6 +60,15 @@ const {
   }) => import('./types').ModelTier;
 } = require('./backend');
 const {
+  isOntologyConverged,
+}: {
+  isOntologyConverged: (
+    cwd: string,
+    threshold?: number,
+    recentK?: number
+  ) => { converged: boolean; similarity?: number; threshold: number; reason?: string };
+} = require('./drift');
+const {
   analyzeRoadmap,
 }: {
   analyzeRoadmap: (cwd: string) => {
@@ -338,7 +347,19 @@ interface PhaseStepResult {
 interface AutopilotResult {
   phases_attempted: number;
   phases_completed: number;
+  /**
+   * Failure reason when autopilot halted before processing all phases.
+   * Callers (runMultiMilestoneAutopilot, evolve) treat non-null as failure.
+   * Graceful early-stops (e.g. ontology convergence) use `converged_at`
+   * instead so they are not misclassified as failures.
+   */
   stopped_at: string | null;
+  /**
+   * Graceful early-termination reason. Null unless an opt-in convergence
+   * condition fired (Tier-3 #10). Distinct from `stopped_at` so callers
+   * can treat convergence as success.
+   */
+  converged_at: string | null;
   waves: string[][];
   results: PhaseStepResult[];
 }
@@ -523,6 +544,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
       phases_attempted: 0,
       phases_completed: 0,
       stopped_at: rangeError,
+      converged_at: null,
       waves: [],
       results: [],
     };
@@ -535,6 +557,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   let phasesAttempted: number = 0;
   let phasesCompleted: number = 0;
   let stoppedAt: string | null = null;
+  // Graceful early termination (Tier-3 #10). Separate from stoppedAt so
+  // existing callers (multi-milestone autopilot, evolve) do not classify
+  // convergence as a failure. codex r2 P2 on PR #40.
+  let convergedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
   const backend: string = detectBackend(cwd);
@@ -564,7 +590,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
 
   for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
     const wave: string[] = waves[waveIdx];
-    if (stoppedAt) break;
+    if (stoppedAt || convergedAt) break;
 
     log(`Wave ${waveIdx + 1}/${waves.length}: phases [${wave.join(', ')}]`);
 
@@ -1007,14 +1033,37 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         );
         if (!hasFailed) phasesCompleted++;
       }
+
+      // Tier-3 #10: ontology-convergence termination. Opt-in via
+      // config.autopilot.stop_on_ontology_convergence. Recorded on the
+      // separate `convergedAt` channel (codex r2 P2 on PR #40) so callers
+      // like runMultiMilestoneAutopilot / evolve do not classify graceful
+      // termination as a failure. Guards from codex r1: only fire when
+      // there's a NEXT wave to skip, and require non-overlapping windows
+      // (handled by isOntologyConverged).
+      if (
+        config.autopilot?.stop_on_ontology_convergence === true &&
+        waveIdx < waves.length - 1
+      ) {
+        const threshold = config.autopilot.ontology_convergence_threshold ?? 0.95;
+        const result = isOntologyConverged(cwd, threshold);
+        if (result.converged && result.similarity !== undefined) {
+          convergedAt = `ontology-convergence (similarity ${result.similarity.toFixed(3)} >= ${threshold})`;
+          log(`Autopilot: converged early — ${convergedAt}`);
+        }
+      }
     }
   }
 
   // ── Milestone mode: run wireup after all phases complete ──
+  // codex r3 P2: convergence skips later waves intentionally, so the
+  // milestone is NOT complete in the user's sense. Gate wireup on
+  // !convergedAt so wireup does not run as though everything finished.
   const isMilestoneMode: boolean = options.milestone === true || (!phaseFrom && !phaseTo);
   if (
     isMilestoneMode &&
     !stoppedAt &&
+    !convergedAt &&
     !dryRun &&
     phasesCompleted === phasesAttempted &&
     phasesCompleted > 0
@@ -1070,7 +1119,13 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   }
 
   log(
-    `Done: ${phasesCompleted}/${phasesAttempted} phases completed${stoppedAt ? ` (stopped: ${stoppedAt})` : ''}`
+    `Done: ${phasesCompleted}/${phasesAttempted} phases completed${
+      stoppedAt
+        ? ` (stopped: ${stoppedAt})`
+        : convergedAt
+          ? ` (converged: ${convergedAt})`
+          : ''
+    }`
   );
 
   if (scheduler) {
@@ -1081,6 +1136,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
     phases_attempted: phasesAttempted,
     phases_completed: phasesCompleted,
     stopped_at: stoppedAt,
+    converged_at: convergedAt,
     waves,
     results,
   };
@@ -1123,6 +1179,13 @@ async function runMultiMilestoneAutopilot(
   let totalPhasesAttempted: number = 0;
   let totalPhasesCompleted: number = 0;
   let stoppedAt: string | null = null;
+  // Graceful early termination at the milestone-chain level (Tier-3 #10).
+  // codex r4 P2 on PR #40: the maxMilestones cap check at the bottom of
+  // this function overwrites stoppedAt to "Reached maxMilestones cap"
+  // when convergence fires on the last permitted iteration — turning a
+  // graceful stop into a reported failure. Tracking convergence on a
+  // dedicated channel lets us bypass that overwrite cleanly.
+  let convergedAt: string | null = null;
 
   log(`Starting multi-milestone autopilot (max: ${maxMilestones}, dryRun: ${dryRun})`);
 
@@ -1190,17 +1253,31 @@ async function runMultiMilestoneAutopilot(
         totalPhasesCompleted += autopilotResult.phases_completed;
 
         const autopilotFailed: boolean = autopilotResult.stopped_at !== null;
+        const autopilotConverged: boolean = autopilotResult.converged_at !== null;
         milestoneResults.push({
           milestone: currentVersion,
           phases_attempted: autopilotResult.phases_attempted,
           phases_completed: autopilotResult.phases_completed,
-          status: autopilotFailed ? 'failed' : 'completed',
-          reason: autopilotResult.stopped_at || undefined,
+          status: autopilotFailed
+            ? 'failed'
+            : autopilotConverged
+              ? 'converged'
+              : 'completed',
+          reason: autopilotResult.stopped_at || autopilotResult.converged_at || undefined,
         });
 
         if (autopilotFailed) {
           log(`${currentVersion}: autopilot stopped: ${autopilotResult.stopped_at}`);
           stoppedAt = `Autopilot failed for ${currentVersion}: ${autopilotResult.stopped_at}`;
+          break;
+        }
+        // codex r3 P2: convergence is a graceful TERMINAL state for this
+        // milestone chain — do not advance to the next milestone. Track
+        // on the dedicated `convergedAt` channel so the post-loop
+        // maxMilestones cap check (codex r4 P2) does not overwrite it.
+        if (autopilotConverged) {
+          convergedAt = autopilotResult.converged_at;
+          log(`${currentVersion}: autopilot converged early — ${convergedAt}`);
           break;
         }
       }
@@ -1310,14 +1387,22 @@ async function runMultiMilestoneAutopilot(
     log('New milestone created, continuing loop...');
   }
 
-  if (!stoppedAt && milestonesAttempted >= maxMilestones) {
+  // codex r4 P2: do not overwrite a graceful convergence with the
+  // "Reached maxMilestones cap" failure signal. Convergence is the
+  // terminal reason; the cap only matters when the loop exhausted
+  // milestones without converging.
+  if (!stoppedAt && !convergedAt && milestonesAttempted >= maxMilestones) {
     stoppedAt = `Reached maxMilestones cap (${maxMilestones})`;
     log(stoppedAt);
   }
 
   log(
     `Multi-milestone autopilot done: ${milestonesCompleted}/${milestonesAttempted} milestones completed` +
-      (stoppedAt ? ` (stopped: ${stoppedAt})` : '')
+      (stoppedAt
+        ? ` (stopped: ${stoppedAt})`
+        : convergedAt
+          ? ` (converged: ${convergedAt})`
+          : '')
   );
 
   if (mmScheduler) {
@@ -1329,6 +1414,7 @@ async function runMultiMilestoneAutopilot(
     milestones_completed: milestonesCompleted,
     milestone_results: milestoneResults,
     stopped_at: stoppedAt,
+    converged_at: convergedAt,
     total_phases_attempted: totalPhasesAttempted,
     total_phases_completed: totalPhasesCompleted,
   };
