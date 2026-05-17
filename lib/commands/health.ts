@@ -30,6 +30,25 @@ const {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
 } = require('./phase-info');
+const {
+  computeDriftScore,
+  DEFAULT_WEIGHTS: DRIFT_DEFAULT_WEIGHTS,
+}: {
+  computeDriftScore: (
+    cwd: string,
+    weights?: { goal: number; constraint: number; ontology: number },
+    threshold?: number
+  ) => {
+    weighted: number;
+    threshold: number;
+    exceeded: boolean;
+    weights: { goal: number; constraint: number; ontology: number };
+    goal: { score: number; sufficient_data: boolean; reason?: string };
+    constraint: { score: number; sufficient_data: boolean; reason?: string };
+    ontology: { score: number; sufficient_data: boolean; reason?: string };
+  };
+  DEFAULT_WEIGHTS: { goal: number; constraint: number; ontology: number };
+} = require('../drift');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
@@ -55,6 +74,16 @@ interface RiskEntry {
   phase: string;
 }
 
+interface DriftSection {
+  weighted: number;
+  threshold: number;
+  exceeded: boolean;
+  weights: { goal: number; constraint: number; ontology: number };
+  goal: { score: number; sufficient_data: boolean; reason?: string };
+  constraint: { score: number; sufficient_data: boolean; reason?: string };
+  ontology: { score: number; sufficient_data: boolean; reason?: string };
+}
+
 interface HealthResult {
   blockers: { count: number; items: string[] };
   deferred_validations: {
@@ -67,6 +96,7 @@ interface HealthResult {
   stale_phases: string[];
   risks: RiskEntry[];
   baseline: { exists: boolean } | null;
+  drift: DriftSection;
 }
 
 interface HealthCheckResults {
@@ -245,6 +275,17 @@ function cmdHealth(cwd: string, raw: boolean): void {
     baseline = { exists: true };
   }
 
+  // 7. Compute project drift score (Tier-2 #7 of Ouroboros integration).
+  // Pure-file pass — no LLM calls. Weights and threshold configurable via
+  // .planning/config.json `drift` section; falls back to Q00 defaults.
+  // The `drift` key is registered in lib/utils.ts KNOWN_CONFIG_KEYS and
+  // typed on GrdConfig (codex r1 P2 on PR #38: previously dropped by
+  // loadConfig's normalisation and never reached this function).
+  const driftConfig = (loadConfig(cwd) as { drift?: { weights?: { goal: number; constraint: number; ontology: number }; threshold?: number } }).drift ?? {};
+  const driftWeights = driftConfig.weights ?? DRIFT_DEFAULT_WEIGHTS;
+  const driftThreshold = typeof driftConfig.threshold === 'number' ? driftConfig.threshold : 0.3;
+  const drift: DriftSection = computeDriftScore(cwd, driftWeights, driftThreshold);
+
   const result: HealthResult = {
     blockers: { count: blockerItems.length, items: blockerItems },
     deferred_validations: {
@@ -257,6 +298,7 @@ function cmdHealth(cwd: string, raw: boolean): void {
     stale_phases: stalePhases,
     risks,
     baseline,
+    drift,
   };
 
   // TUI rendering
@@ -297,6 +339,18 @@ function cmdHealth(cwd: string, raw: boolean): void {
       tui += `\u26A0 ${s}\n`;
     }
   }
+
+  // Drift score (Tier-2 #7)
+  tui += '\n## Drift\n';
+  const formatComponent = (label: string, c: { score: number; sufficient_data: boolean; reason?: string }): string => {
+    if (!c.sufficient_data) return `${label}: n/a (${c.reason ?? 'insufficient data'})`;
+    return `${label}: ${c.score.toFixed(3)}`;
+  };
+  const marker = drift.exceeded ? '⚠' : '✓';
+  tui += `${marker} weighted ${drift.weighted.toFixed(3)} (threshold ${drift.threshold.toFixed(2)})\n`;
+  tui += `  ${formatComponent('goal       ', drift.goal)}  (weight ${drift.weights.goal})\n`;
+  tui += `  ${formatComponent('constraint ', drift.constraint)}  (weight ${drift.weights.constraint})\n`;
+  tui += `  ${formatComponent('ontology   ', drift.ontology)}  (weight ${drift.weights.ontology})\n`;
 
   // Risk register
   if (risks.length > 0) {

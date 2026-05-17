@@ -303,6 +303,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'phase_complete_llm_fallback',
   // LLM fallback retry count with exponential backoff
   'phase_complete_llm_fallback_retries',
+  // Drift score (Tier-2 #7 of Ouroboros integration)
+  'drift',
 ]);
 
 /**
@@ -477,6 +479,8 @@ function loadConfig(cwd: string): GrdConfig {
       scheduler: (parsed.scheduler || undefined) as GrdConfig['scheduler'],
       // Superpowers config (pass-through)
       superpowers: (parsed.superpowers || undefined) as GrdConfig['superpowers'],
+      // Drift score config (pass-through; defaults applied in lib/drift.ts)
+      drift: (parsed.drift || undefined) as GrdConfig['drift'],
       // Backend roles config: validate each value against VALID_BACKENDS
       backend_roles: ((): BackendRolesConfig | undefined => {
         const raw = parsed.backend_roles;
