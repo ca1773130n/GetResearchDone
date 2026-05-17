@@ -143,6 +143,42 @@ cat ${research_dir}/../KNOWHOW.md 2>/dev/null || cat .planning/milestones/*/KNOW
 This creates a compounding improvement loop: each phase's execution feeds patterns into KNOWHOW.md, which subsequent planning phases consume.
 </knowhow_injection>
 
+<prior_reflections>
+
+## Prior Phase Reflections (`prior_reflections`)
+
+The init JSON includes a `prior_reflections` array — the `## Reflection`
+sections from up to 5 most recent prior phases' VERIFICATION.md files.
+Each entry has `{ phase, reflection }` where `reflection` is the
+markdown body of that phase's reflection section (hypothesis,
+predicted_outcome, actual_outcome, verdict, evidence).
+
+This array is the hypothesis-tracker loop closing on itself. Use it.
+
+**Before writing this plan's `hypothesis:` and `predicted_outcome:`
+frontmatter scalars, read every entry in `prior_reflections` and:**
+
+- **Build on `verdict: confirmed`** — if a prior phase confirmed claim X,
+  the new hypothesis can assume X and target the next layer. Do not
+  re-prove what is already proven.
+- **Refine `verdict: partial`** — partial confirmations point to *where*
+  the prior hypothesis broke. Phrase the new hypothesis to address the
+  specific gap shown in the actual_outcome / evidence.
+- **Avoid `verdict: falsified`** — do not propose a hypothesis that
+  contradicts a prior falsification unless this plan explicitly intends
+  to re-test it (in which case say so in `<context>`).
+- **Surface `verdict: unknown`** — unknown verdicts mean the prior
+  reflection lacked evidence. If the unknown blocks the current plan,
+  add a sanity check to PLAN.md that closes it before the main work.
+
+**If `prior_reflections` is empty** (early milestone, or the first plan
+after introducing the loop), proceed normally — this is expected.
+
+**Do not just summarize prior reflections in `<context>`.** The point of
+the loop is to *constrain the new hypothesis*, not to pad the plan.
+
+</prior_reflections>
+
 <philosophy>
 
 ## Solo Researcher + Claude Workflow

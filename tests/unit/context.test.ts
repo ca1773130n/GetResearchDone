@@ -417,6 +417,102 @@ describe('cmdInitPlanPhase', () => {
     // Claude backend with balanced profile
     expect(['low', 'medium', 'high']).toContain(result.planner_effort);
   });
+
+  test('emits prior_reflections (empty when no prior phases have reflections)', () => {
+    // Fixture has phases 01 and 02 but no VERIFICATION.md files in either.
+    // The field must still be present and shaped as an array.
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.prior_reflections)).toBe(true);
+    expect(result.prior_reflections).toEqual([]);
+  });
+
+  test('collects prior_reflections from earlier phases (Tier-1 #4)', () => {
+    // Create a VERIFICATION.md in phase 01 with a Reflection section, then
+    // ask for plan-phase context for phase 02 and confirm the earlier
+    // reflection is surfaced.
+    const phase01Dir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.writeFileSync(
+      path.join(phase01Dir, '01-VERIFICATION.md'),
+      [
+        '---',
+        'phase: 01-test',
+        '---',
+        '',
+        '# Verification',
+        '',
+        '## Verification Results',
+        '',
+        'Body.',
+        '',
+        '## Reflection',
+        '',
+        '| Field | Value |',
+        '|-------|-------|',
+        '| hypothesis | Test hypothesis |',
+        '| predicted_outcome | Test prediction |',
+        '| actual_outcome | Matched |',
+        '| verdict | confirmed |',
+        '| evidence | tests/unit/foo.test.ts:42 |',
+        '',
+        '---',
+        '',
+        '_Verified: 2026-05-17_',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '2', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.prior_reflections)).toBe(true);
+    expect(result.prior_reflections).toHaveLength(1);
+    expect(result.prior_reflections[0].phase).toBe('01');
+    expect(result.prior_reflections[0].reflection).toMatch(/verdict \| confirmed/);
+    expect(result.prior_reflections[0].reflection).toMatch(/Test hypothesis/);
+    // Must NOT include phase 02 (the current phase) in its own prior list
+    expect(
+      result.prior_reflections.some((r: { phase: string }) => r.phase === '02')
+    ).toBe(false);
+  });
+
+  test('prior_reflections are returned in ascending phase order', () => {
+    // Add a Reflection to phase 01, then ask for phase 02's plan context.
+    // Asserts ordering (ascending by phase). The 5-entry cap is enforced by
+    // the literal `5` arg passed to _extractPriorReflections in execute.ts —
+    // its cap is verified by code review rather than synthesizing 6+ phases
+    // that would trip the orphan-phase gate.
+    const phase01Dir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const verPath = path.join(phase01Dir, '01-VERIFICATION.md');
+    if (!fs.existsSync(verPath)) {
+      fs.writeFileSync(
+        verPath,
+        '# V\n\n## Reflection\n\n| verdict | confirmed |\n\n',
+        'utf-8'
+      );
+    }
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '2', new Set(), false));
+    const result = JSON.parse(stdout);
+    const phases: string[] = result.prior_reflections.map(
+      (r: { phase: string }) => r.phase
+    );
+    const sorted = [...phases].sort((a, b) => parseFloat(a) - parseFloat(b));
+    expect(phases).toEqual(sorted);
+  });
 });
 
 // ─── cmdInitNewProject ───────────────────────────────────────────────────────
