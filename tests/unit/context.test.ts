@@ -417,6 +417,144 @@ describe('cmdInitPlanPhase', () => {
     // Claude backend with balanced profile
     expect(['low', 'medium', 'high']).toContain(result.planner_effort);
   });
+
+  test('emits prior_reflections (empty when no prior phases have reflections)', () => {
+    // Fixture has phases 01 and 02 but no VERIFICATION.md files in either.
+    // The field must still be present and shaped as an array.
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.prior_reflections)).toBe(true);
+    expect(result.prior_reflections).toEqual([]);
+  });
+
+  test('collects prior_reflections from earlier phases (Tier-1 #4)', () => {
+    // Create a VERIFICATION.md in phase 01 with a Reflection section, then
+    // ask for plan-phase context for phase 02 and confirm the earlier
+    // reflection is surfaced.
+    const phase01Dir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.writeFileSync(
+      path.join(phase01Dir, '01-VERIFICATION.md'),
+      [
+        '---',
+        'phase: 01-test',
+        '---',
+        '',
+        '# Verification',
+        '',
+        '## Verification Results',
+        '',
+        'Body.',
+        '',
+        '## Reflection',
+        '',
+        '| Field | Value |',
+        '|-------|-------|',
+        '| hypothesis | Test hypothesis |',
+        '| predicted_outcome | Test prediction |',
+        '| actual_outcome | Matched |',
+        '| verdict | confirmed |',
+        '| evidence | tests/unit/foo.test.ts:42 |',
+        '',
+        '---',
+        '',
+        '_Verified: 2026-05-17_',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '2', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result.prior_reflections)).toBe(true);
+    expect(result.prior_reflections).toHaveLength(1);
+    expect(result.prior_reflections[0].phase).toBe('01');
+    expect(result.prior_reflections[0].reflection).toMatch(/verdict \| confirmed/);
+    expect(result.prior_reflections[0].reflection).toMatch(/Test hypothesis/);
+    // Must NOT include phase 02 (the current phase) in its own prior list
+    expect(
+      result.prior_reflections.some((r: { phase: string }) => r.phase === '02')
+    ).toBe(false);
+  });
+
+  test('prior_reflections excludes future phases when target dir not yet created (codex r2 P2)', () => {
+    // Pre-fix: when phaseInfo was null, _extractPriorReflections received
+    // null as currentPhaseNumber, which disabled the >= filter and leaked
+    // reflections from future phases. Now the fallback to the requested
+    // phase argument preserves the "prior" contract.
+    // Setup: phase 02-build exists in fixture. Drop a Reflection into it,
+    // then ask for plan-phase context for phase 1.5 — a roadmap phase
+    // whose dir does not exist. Phase 02 must NOT appear in priors.
+    const phase02Dir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '02-build'
+    );
+    fs.writeFileSync(
+      path.join(phase02Dir, '02-VERIFICATION.md'),
+      '# V\n\n## Reflection\n\n| phase | 02 |\n',
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '1.5', new Set(), false));
+    const result = JSON.parse(stdout);
+    expect(result.phase_found).toBe(false);
+    // Phase 02 reflection must NOT leak in even though phase 1.5 has no dir.
+    const futurePhases = result.prior_reflections.filter(
+      (r: { phase: string }) => r.phase === '02'
+    );
+    expect(futurePhases).toEqual([]);
+  });
+
+  test('prior_reflections orders inserted decimal phases correctly (codex P2)', () => {
+    // Reproduces the bug codex caught on PR #33: `parseFloat("01.10")` is
+    // 1.1 and equals `parseFloat("01.1")`, so an inserted phase 01.10
+    // would be misordered against 01.1–01.9. The fix compares phase IDs
+    // componentwise.
+    //
+    // We construct decimal-inserted phase dirs 01.1, 01.2, 01.10 under
+    // milestone anonymous, each with a Reflection section, then ask for
+    // plan context for phase 02 (a real fixture phase) so the gate passes.
+    const phasesDir = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases'
+    );
+    for (const id of ['01.1', '01.2', '01.10']) {
+      const dir = path.join(phasesDir, `${id}-decimal`);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, `${id}-VERIFICATION.md`),
+        `# V\n\n## Reflection\n\n| phase | ${id} |\n`,
+        'utf-8'
+      );
+    }
+
+    const { stdout } = captureOutput(() => cmdInitPlanPhase(tmpDir, '2', new Set(), false));
+    const result = JSON.parse(stdout);
+    const decimalPhases: string[] = result.prior_reflections
+      .map((r: { phase: string }) => r.phase)
+      .filter((p: string) => p.includes('.'));
+    // All three decimals must be present (none filtered out by the
+    // broken >= check) and ordered as 01.1, 01.2, 01.10.
+    expect(decimalPhases).toEqual(['01.1', '01.2', '01.10']);
+  });
+
+  // The decimal-phases test above also covers the ordering contract more
+  // rigorously than parseFloat could (which would itself have the codex
+  // bug). The 5-entry cap is a `5` literal in execute.ts and is verified
+  // by code review rather than synthesizing 6+ orphan phases that would
+  // trip the plan-phase gate.
 });
 
 // ─── cmdInitNewProject ───────────────────────────────────────────────────────

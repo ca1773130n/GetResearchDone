@@ -54,6 +54,31 @@ describe('reflection loop — planner prompt contract', () => {
   test('describes predicted_outcome as observable/checkable', () => {
     expect(plannerContent).toMatch(/observable|checkable/i);
   });
+
+  // ─── Tier-1 #4: planner reads prior_reflections ───────────────────────
+  test('documents the prior_reflections context field (Tier-1 #4)', () => {
+    expect(plannerContent).toMatch(/<prior_reflections>/);
+    expect(plannerContent).toMatch(/<\/prior_reflections>/);
+    expect(plannerContent).toMatch(/prior_reflections.*array|init JSON.*prior_reflections/i);
+  });
+
+  test('instructs planner to act on each verdict kind', () => {
+    const idx = plannerContent.indexOf('<prior_reflections>');
+    const section = plannerContent.slice(idx);
+    // Must give explicit guidance for each verdict
+    expect(section).toMatch(/confirmed/);
+    expect(section).toMatch(/partial/);
+    expect(section).toMatch(/falsified/);
+    expect(section).toMatch(/unknown/);
+    // And forbid the common failure mode (just summarise into <context>)
+    expect(section).toMatch(/[Dd]o not just summari[sz]e|constrain the new hypothesis/);
+  });
+
+  test('handles empty prior_reflections gracefully', () => {
+    const idx = plannerContent.indexOf('<prior_reflections>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/empty.*expected|proceed normally/i);
+  });
 });
 
 describe('reflection loop — verifier prompt contract', () => {

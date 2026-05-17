@@ -189,6 +189,105 @@ function _readPhaseFile(cwd: string, phaseDir: string, suffix: string): string |
   return null;
 }
 
+/**
+ * Extract the `## Reflection` section from a VERIFICATION.md body.
+ * Returns the section content (without the heading) up to the next `## `
+ * heading or the closing `---` separator, or null if the section is absent.
+ */
+function _extractReflectionSection(verificationContent: string): string | null {
+  const idx = verificationContent.indexOf('## Reflection');
+  if (idx === -1) return null;
+  const after = verificationContent.slice(idx + '## Reflection'.length);
+  // Stop at next H2 (`\n## `), at a horizontal rule (`\n---`), or end of file.
+  const endMatch = after.search(/\n(?:## |---\s*\n)/);
+  const body = endMatch === -1 ? after : after.slice(0, endMatch);
+  const trimmed = body.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Walk prior phase directories and collect their `## Reflection` sections
+ * from `{phase}-VERIFICATION.md`. Returns the most recent `limit` entries in
+ * ascending phase order, excluding the current phase.
+ *
+ * Used by cmdInitPlanPhase to inject the hypothesis/predicted_outcome/
+ * actual_outcome history into the planner agent's context (Ouroboros
+ * integration Tier-1 #4).
+ */
+/**
+ * Normalise a user-supplied phase argument to match the `phase_number`
+ * format that findPhaseInternal returns (zero-padded major component,
+ * decimal suffix preserved). Examples: `1` -> `01`, `01.10` -> `01.10`,
+ * `12.3` -> `12.3`. Returns null for empty/invalid input.
+ */
+function _normalizePhaseArg(phase: string | null): string | null {
+  if (!phase) return null;
+  const m = phase.match(/^(\d+)(?:\.(\d+))?/);
+  if (!m) return null;
+  const major = m[1].padStart(2, '0');
+  return m[2] !== undefined ? `${major}.${m[2]}` : major;
+}
+
+/**
+ * Compare two phase IDs componentwise. Handles inserted decimal phases
+ * correctly (e.g. `01.10` > `01.9`, which `parseFloat` would reverse since
+ * it treats them as 1.1 and 1.9).
+ * @returns negative if a < b, 0 if equal, positive if a > b
+ */
+function _comparePhaseIds(a: string, b: string): number {
+  const partsA = a.split('.').map((p) => parseInt(p, 10));
+  const partsB = b.split('.').map((p) => parseInt(p, 10));
+  const len = Math.max(partsA.length, partsB.length);
+  for (let i = 0; i < len; i++) {
+    const ai = partsA[i] ?? 0;
+    const bi = partsB[i] ?? 0;
+    if (ai !== bi) return ai - bi;
+  }
+  return 0;
+}
+
+function _extractPriorReflections(
+  cwd: string,
+  currentPhaseNumber: string | null,
+  limit: number
+): Array<{ phase: string; reflection: string }> {
+  if (limit <= 0) return [];
+  const phasesDir: string = getPhasesDirPath(cwd) as string;
+  let entries: import('fs').Dirent[];
+  try {
+    entries = fs.readdirSync(phasesDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  // Phase dirs look like `01-test`, `02-build`, `12-something`, or decimal-
+  // inserted like `01.10-foo`. Sort componentwise — parseFloat would treat
+  // `01.10` as 1.1 and misorder it against `01.2`/`01.9`.
+  const prior: Array<{ phase: string; dir: string }> = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const m = entry.name.match(/^(\d+(?:\.\d+)?)-/);
+    if (!m) continue;
+    const phaseNum = m[1];
+    if (currentPhaseNumber && _comparePhaseIds(phaseNum, currentPhaseNumber) >= 0) continue;
+    prior.push({ phase: phaseNum, dir: entry.name });
+  }
+  prior.sort((a, b) => _comparePhaseIds(a.phase, b.phase));
+
+  const results: Array<{ phase: string; reflection: string }> = [];
+  // Walk most-recent-first so we collect up to `limit` newest reflections,
+  // then reverse to emit in ascending phase order (matches planner reading flow).
+  for (let i = prior.length - 1; i >= 0 && results.length < limit; i--) {
+    const { phase, dir } = prior[i];
+    const verification = _readPhaseFile(cwd, path.relative(cwd, path.join(phasesDir, dir)), '-VERIFICATION.md');
+    if (!verification) continue;
+    const reflection = _extractReflectionSection(verification);
+    if (reflection) results.push({ phase, reflection });
+  }
+  results.reverse();
+  return results;
+}
+
 // ─── Execute-Phase Init ──────────────────────────────────────────────────────
 
 /**
@@ -631,6 +730,23 @@ function cmdInitPlanPhase(cwd: string, phase: string, includes: Set<string>, raw
       const block = buildKnowledgeInjectionBlock(cwd, phaseInfo.phase_number, hints);
       return block || null;
     })(),
+
+    // Prior reflection sections from previous phases' VERIFICATION.md files.
+    // Tier-1 #4 of the Ouroboros integration: the planner sees prior
+    // hypothesis -> predicted_outcome -> actual_outcome -> verdict history
+    // so it can build on confirmed claims, refine partials, and avoid
+    // restating falsified hypotheses. Capped at 5 to bound context size.
+    //
+    // Use phaseInfo.phase_number when the phase dir exists. When it does
+    // not (planning a roadmap phase before its directory is created),
+    // fall back to the user-supplied `phase` argument so the >= current
+    // filter still excludes future phases. Without this fallback, codex
+    // r2 P2: `null` disables the filter and future reflections leak in.
+    prior_reflections: _extractPriorReflections(
+      cwd,
+      phaseInfo?.phase_number || _normalizePhaseArg(phase),
+      5
+    ),
 
     // Citation traversal config
     transitive_citation_gate_enabled: !!(config as unknown as Record<string, unknown>).transitive_citation_gate,
