@@ -252,7 +252,29 @@ If no must_haves in frontmatter:
 
 For every truth and artifact, regardless of verification_level setting:
 
-**3a. Artifact Existence and Format:**
+**3-bundle. Mechanical Verify Bundle (PREFERRED — one call):**
+
+```bash
+MECH_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js verify mechanical "$PHASE")
+```
+
+Parse JSON result:
+`{ passed, phase, plan_count, total_checks, passed_count, failed_count, checks: [{ check, scope, passed, detail, data }] }`
+
+`check` is one of `frontmatter | artifacts | key_links | references |
+plan_summary_completeness`. The bundle runs the 4 PLAN.md mechanical
+checks (frontmatter completeness, artifact existence, key-link
+verification, @-reference resolution) across every PLAN.md in the
+phase, plus a phase-level plan-vs-summary completeness check. Use the
+bundle as your first Level 1 pass — it produces all the evidence
+needed for the Evidence Standard's "command output" kind without
+invoking the LLM-style verifier agent.
+
+If the bundle exits with `failed_count > 0`, cite each failing check's
+`detail` field as evidence in VERIFICATION.md. If you need finer
+detail than `detail` provides, drill into the discrete commands below.
+
+**3a. Artifact Existence and Format (discrete, when needed):**
 
 ```bash
 ARTIFACT_RESULT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js verify artifacts "$PLAN_PATH")

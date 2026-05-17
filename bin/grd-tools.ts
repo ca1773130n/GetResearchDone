@@ -124,6 +124,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
+  cmdVerifyMechanical,
 }: {
   cmdVerifySummary: (
     cwd: string,
@@ -137,6 +138,7 @@ const {
   cmdVerifyCommits: (cwd: string, hashes: string[], raw: boolean) => void;
   cmdVerifyArtifacts: (cwd: string, planFilePath: string, raw: boolean) => void;
   cmdVerifyKeyLinks: (cwd: string, planFilePath: string, raw: boolean) => void;
+  cmdVerifyMechanical: (cwd: string, phase: string, raw: boolean) => void;
 } = require('../lib/verify');
 
 const {
@@ -723,6 +725,7 @@ const VERIFY_SUBS: readonly string[] = [
   'commits',
   'artifacts',
   'key-links',
+  'mechanical',
 ];
 const PHASES_SUBS: readonly string[] = ['list'];
 const ROADMAP_SUBS: readonly string[] = ['get-phase', 'analyze'];
@@ -919,6 +922,9 @@ async function routeCommand(
       if (sub === 'commits') {
         for (const ref of args.slice(2)) validateGitRef(ref);
         cmdVerifyCommits(cwd, args.slice(2), raw);
+      } else if (sub === 'mechanical') {
+        // Bundle: arg is a phase number/name, not a file path
+        cmdVerifyMechanical(cwd, args[2], raw);
       } else {
         validateFileArg(args[2], cwd);
         if (sub === 'plan-structure') cmdVerifyPlanStructure(cwd, args[2], raw);

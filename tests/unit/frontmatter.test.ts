@@ -80,6 +80,73 @@ describe('extractFrontmatter', () => {
     expect(() => extractFrontmatter(content)).not.toThrow();
   });
 
+  test('parseMustHavesBlock handles canonical 2-space must_haves nesting (codex P1)', () => {
+    // The planner emits 2-space-nested must_haves. Pre-fix, parseMustHavesBlock
+    // only matched 4-space and returned [] for canonical PLANs, defeating both
+    // the discrete `verify artifacts` command and the new mechanical bundle.
+    const { parseMustHavesBlock } = require('../../lib/frontmatter');
+    const content = [
+      '---',
+      'phase: 01',
+      'must_haves:',
+      '  artifacts:',
+      '    - path: "src/index.js"',
+      '      min_lines: 10',
+      '      contains: "MARKER"',
+      '---',
+      '',
+      'Body.',
+    ].join('\n');
+
+    const artifacts = parseMustHavesBlock(content, 'artifacts');
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].path).toBe('src/index.js');
+    expect(artifacts[0].min_lines).toBe(10);
+    expect(artifacts[0].contains).toBe('MARKER');
+  });
+
+  test('parseMustHavesBlock parses inline-array exports (codex r3 P2)', () => {
+    // Pre-fix, the regex stopped at the first `"` so an inline array like
+    // `exports: ["foo", "bar"]` was captured as the literal `[`, treated as
+    // a single string. The artifact verifier then checked the file for `[`
+    // rather than each declared export.
+    const { parseMustHavesBlock } = require('../../lib/frontmatter');
+    const content = [
+      '---',
+      'phase: 01',
+      'must_haves:',
+      '  artifacts:',
+      '    - path: "src/foo.js"',
+      '      exports: ["fooFn", "barFn"]',
+      '---',
+      '',
+    ].join('\n');
+
+    const artifacts = parseMustHavesBlock(content, 'artifacts');
+    expect(artifacts).toHaveLength(1);
+    expect(Array.isArray(artifacts[0].exports)).toBe(true);
+    expect(artifacts[0].exports).toEqual(['fooFn', 'barFn']);
+  });
+
+  test('parseMustHavesBlock still handles 4-space must_haves nesting (back-compat)', () => {
+    const { parseMustHavesBlock } = require('../../lib/frontmatter');
+    const content = [
+      '---',
+      'phase: 01',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/foo.js"',
+      '        min_lines: 5',
+      '---',
+      '',
+    ].join('\n');
+
+    const artifacts = parseMustHavesBlock(content, 'artifacts');
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].path).toBe('src/foo.js');
+    expect(artifacts[0].min_lines).toBe(5);
+  });
+
   test('round-trips hypothesis/predicted_outcome scalar fields', () => {
     // Locks the contract that PLAN.md can carry top-level hypothesis: and
     // predicted_outcome: strings without quoting, escaping, or schema rejection.

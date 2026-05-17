@@ -19,6 +19,7 @@ const {
   cmdVerifyCommits,
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
+  cmdVerifyMechanical,
 } = require('../../lib/verify');
 
 // ─── cmdVerifyPlanStructure ─────────────────────────────────────────────────
@@ -474,5 +475,316 @@ describe('cmdVerifyCommits', () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.all_valid).toBe(true);
     expect(parsed.valid).toContain(headHash);
+  });
+});
+
+// ─── cmdVerifyMechanical (bundle) ───────────────────────────────────────────
+
+describe('cmdVerifyMechanical', () => {
+  let fixtureDir: string;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('aggregates checks for a phase with a single plan', () => {
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phase).toMatch(/01/);
+    expect(parsed.plan_count).toBe(1);
+    expect(parsed.total_checks).toBeGreaterThan(0);
+    expect(parsed.passed_count + parsed.failed_count).toBe(parsed.total_checks);
+    expect(Array.isArray(parsed.checks)).toBe(true);
+  });
+
+  test('flags missing artifact files as a failed artifacts check', () => {
+    // Replace the fixture PLAN.md with one whose must_haves uses the 4-space
+    // indent that parseMustHavesBlock requires, and declares an artifact that
+    // does not exist on disk in the temp fixture.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/does-not-exist.js"',
+      '        provides: "Missing module"',
+      '---',
+      '',
+      '<task><name>t1</name><action>do</action></task>',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const artifactsCheck = parsed.checks.find((c: { check: string }) => c.check === 'artifacts');
+    expect(artifactsCheck).toBeDefined();
+    expect(artifactsCheck.passed).toBe(false);
+    expect(artifactsCheck.detail).toMatch(/src\/does-not-exist\.js/);
+    expect(parsed.passed).toBe(false);
+  });
+
+  test('plan_summary_completeness fails when summary is missing', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.unlinkSync(path.join(phaseDir, '01-01-SUMMARY.md'));
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(false);
+    expect(completeness.detail).toMatch(/without summaries/);
+    expect(completeness.data.incomplete).toContain('01-01');
+  });
+
+  test('emits "fail" rawValue when any check fails', () => {
+    // Force a failure via plan/summary completeness — cheapest deterministic
+    // failure that does not depend on parseMustHavesBlock indent quirks.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    fs.unlinkSync(path.join(phaseDir, '01-01-SUMMARY.md'));
+
+    const { stdout, rawOutput } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', true);
+    });
+    const payload = (rawOutput ?? stdout).trim();
+    expect(payload).toBe('fail');
+  });
+
+  test('returns error result when phase is not found', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '99', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toMatch(/Phase not found/);
+  });
+
+  test('each check has scope and check fields', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    for (const check of parsed.checks) {
+      expect(typeof check.check).toBe('string');
+      expect(typeof check.scope).toBe('string');
+      expect(typeof check.passed).toBe('boolean');
+      expect(typeof check.detail).toBe('string');
+    }
+  });
+
+  test('passed_count + failed_count equals total_checks (invariant)', () => {
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.passed_count + parsed.failed_count).toBe(parsed.total_checks);
+    expect(parsed.passed).toBe(parsed.failed_count === 0);
+  });
+
+  // ─── codex-rescue regressions ────────────────────────────────────────────
+  // These two tests guard against bugs caught by the codex review of PR #32.
+
+  test('recognises unprefixed PLAN.md / SUMMARY.md (codex P2 #2)', () => {
+    // Replace the fixture's prefixed plan with bare PLAN.md to mimic phases
+    // that use that filename convention (supported elsewhere: phase.ts:336,
+    // utils.ts:1046, gates.ts:199). Without the fix the bundle would find
+    // zero plans and pass based on completeness alone.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    const prefixedPlan = path.join(phaseDir, '01-01-PLAN.md');
+    const prefixedSummary = path.join(phaseDir, '01-01-SUMMARY.md');
+    const barePlan = path.join(phaseDir, 'PLAN.md');
+    const bareSummary = path.join(phaseDir, 'SUMMARY.md');
+    fs.renameSync(prefixedPlan, barePlan);
+    fs.renameSync(prefixedSummary, bareSummary);
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.plan_count).toBe(1);
+    // Frontmatter check must have fired with scope=plan:PLAN.md
+    const frontmatter = parsed.checks.find(
+      (c: { check: string; scope: string }) =>
+        c.check === 'frontmatter' && c.scope === 'plan:PLAN.md'
+    );
+    expect(frontmatter).toBeDefined();
+    // Completeness still passes: bare PLAN.md ↔ bare SUMMARY.md
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(true);
+  });
+
+  test('fails when phase has zero PLAN.md files (codex r3 P2)', () => {
+    // A phase dir that exists but has no PLAN.md files must not pass
+    // mechanical verification by vacuously satisfying every check.
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    for (const f of fs.readdirSync(phaseDir)) {
+      if (f.endsWith('PLAN.md') || f.endsWith('SUMMARY.md')) {
+        fs.unlinkSync(path.join(phaseDir, f));
+      }
+    }
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.passed).toBe(false);
+    expect(parsed.plan_count).toBe(0);
+    expect(parsed.failed_count).toBeGreaterThan(0);
+    const completeness = parsed.checks.find(
+      (c: { check: string }) => c.check === 'plan_summary_completeness'
+    );
+    expect(completeness.passed).toBe(false);
+    expect(completeness.detail).toMatch(/no PLAN\.md/i);
+  });
+
+  test('skips dynamic @-refs like @${CLAUDE_PLUGIN_ROOT}/... (codex r2 P2)', () => {
+    // Pre-fix, the bundle resolved the literal "${CLAUDE_PLUGIN_ROOT}" under
+    // cwd and marked the ref missing. Templated refs must be ignored, matching
+    // the guard already applied to backtick paths.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '  artifacts: []',
+      '---',
+      '',
+      'Reference @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md and',
+      'also @{{plugin_root}}/another.md should both be skipped.',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const refsCheck = parsed.checks.find(
+      (c: { check: string }) => c.check === 'references'
+    );
+    // Either no references check fires (totalRefs filtered to 0) or it passes.
+    if (refsCheck) {
+      expect(refsCheck.passed).toBe(true);
+      expect(refsCheck.data.missing).toEqual([]);
+    }
+  });
+
+  test('enforces artifact content constraints, not just existence (codex P2 #1)', () => {
+    // Plan declares an artifact that exists but is too short for its
+    // declared min_lines. Pre-fix, the bundle would pass it. Post-fix,
+    // it must fail with a content issue.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '    artifacts:',
+      '      - path: "src/short.js"',
+      '        min_lines: 20',
+      '        contains: "REQUIRED_MARKER"',
+      '---',
+      '',
+      '<task><name>t</name><action>a</action></task>',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+    fs.mkdirSync(path.join(fixtureDir, 'src'), { recursive: true });
+    // File exists but is short and lacks the marker — pre-fix this passed.
+    fs.writeFileSync(path.join(fixtureDir, 'src', 'short.js'), 'one\ntwo\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const artifactsCheck = parsed.checks.find(
+      (c: { check: string }) => c.check === 'artifacts'
+    );
+    expect(artifactsCheck.passed).toBe(false);
+    expect(artifactsCheck.detail).toMatch(/min_lines|REQUIRED_MARKER|Only \d+ lines/);
   });
 });

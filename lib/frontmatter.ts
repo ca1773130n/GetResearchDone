@@ -304,60 +304,90 @@ function parseMustHavesBlock(
   content: string,
   blockName: string
 ): Array<string | MustHavesArtifact | MustHavesKeyLink> {
-  // Extract a specific block from must_haves in raw frontmatter YAML
-  // Handles 3-level nesting: must_haves > artifacts/key_links > [{path, provides, ...}]
+  // Extract a specific block from must_haves in raw frontmatter YAML.
+  // Handles 3-level nesting: must_haves > artifacts/key_links > [{path, ...}].
+  //
+  // Block indent is auto-detected (2 or 4 spaces). Both indentation styles
+  // appear in the wild: the canonical planner emits 2-space, while older
+  // verify.test.ts fixtures use 4-space. Item indent is always blockIndent+2;
+  // continuation +2; array items under a continuation key +2.
   const fmMatch = content.match(/^---\n([\s\S]+?)\n---/);
   if (!fmMatch) return [];
 
   const yaml = fmMatch[1];
-  // Find the block (e.g., "truths:", "artifacts:", "key_links:")
-  const blockPattern = new RegExp(`^\\s{4}${blockName}:\\s*$`, 'm');
-  const blockStart = yaml.search(blockPattern);
-  if (blockStart === -1) return [];
+  const blockMatch = yaml.match(new RegExp(`^(\\s+)${blockName}:\\s*$`, 'm'));
+  if (!blockMatch || blockMatch.index === undefined) return [];
 
-  const afterBlock = yaml.slice(blockStart);
+  const blockIndent: number = blockMatch[1].length;
+  // Only accept 2 or 4 (the two styles seen in the repo). Bail on others
+  // rather than risk misparsing unrelated YAML.
+  if (blockIndent !== 2 && blockIndent !== 4) return [];
+
+  const itemIndent: number = blockIndent + 2;
+  const contIndent: number = itemIndent + 2;
+  const arrIndent: number = contIndent + 2;
+
+  const itemDashPattern = new RegExp(`^\\s{${itemIndent}}-\\s+`);
+  const itemSimplePattern = new RegExp(`^\\s{${itemIndent}}-\\s+"?([^"]+)"?\\s*$`);
+  const itemKvPattern = new RegExp(`^\\s{${itemIndent}}-\\s+(\\w+):\\s*"?([^"]*)"?\\s*$`);
+  // Inline-array continuation: `exports: ["foo", "bar"]` — must be tried
+  // BEFORE the scalar contKvPattern, which would capture only `[`.
+  const contInlineArrPattern = new RegExp(`^\\s{${contIndent},}(\\w+):\\s*\\[(.*)\\]\\s*$`);
+  const contKvPattern = new RegExp(`^\\s{${contIndent},}(\\w+):\\s*"?([^"]*)"?\\s*$`);
+  const arrItemPattern = new RegExp(`^\\s{${arrIndent},}-\\s+"?([^"]+)"?\\s*$`);
+
+  const splitInlineArray = (body: string): string[] =>
+    body
+      .split(',')
+      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .filter((s) => s.length > 0);
+
+  const afterBlock = yaml.slice(blockMatch.index);
   const blockLines = afterBlock.split('\n').slice(1); // skip the header line
 
   const items: Array<string | Record<string, unknown>> = [];
   let current: Record<string, unknown> | string | null = null;
 
   for (const line of blockLines) {
-    // Stop at same or lower indent level (non-continuation)
     if (line.trim() === '') continue;
     const indentMatch = line.match(/^(\s*)/);
-    const indent = indentMatch ? indentMatch[1].length : 0;
-    if (indent <= 4 && line.trim() !== '') break; // back to must_haves level or higher
+    const indent: number = indentMatch ? indentMatch[1].length : 0;
+    // Stop at the block header level or shallower — we've left this block.
+    if (indent <= blockIndent && line.trim() !== '') break;
 
-    if (line.match(/^\s{6}-\s+/)) {
-      // New list item at 6-space indent
+    if (itemDashPattern.test(line)) {
+      // New list item at itemIndent.
       if (current !== null) items.push(current);
       current = {};
-      // Check if it's a simple string item
-      const simpleMatch = line.match(/^\s{6}-\s+"?([^"]+)"?\s*$/);
+      const simpleMatch = line.match(itemSimplePattern);
       if (simpleMatch && !line.includes(':')) {
         current = simpleMatch[1];
       } else {
-        // Key-value on same line as dash: "- path: value"
-        const kvMatch = line.match(/^\s{6}-\s+(\w+):\s*"?([^"]*)"?\s*$/);
+        const kvMatch = line.match(itemKvPattern);
         if (kvMatch) {
           current = {} as Record<string, unknown>;
           current[kvMatch[1]] = kvMatch[2];
         }
       }
     } else if (current !== null && typeof current === 'object') {
-      // Continuation key-value at 8+ space indent
-      const kvMatch = line.match(/^\s{8,}(\w+):\s*"?([^"]*)"?\s*$/);
+      // Inline-array (e.g. `exports: ["foo", "bar"]`) MUST be matched before
+      // the scalar pattern, which would otherwise capture only the opening `[`.
+      const inlineArrMatch = line.match(contInlineArrPattern);
+      if (inlineArrMatch) {
+        (current as Record<string, unknown>)[inlineArrMatch[1]] = splitInlineArray(
+          inlineArrMatch[2]
+        );
+        continue;
+      }
+      const kvMatch = line.match(contKvPattern);
       if (kvMatch) {
         const val = kvMatch[2];
-        // Try to parse as number
         (current as Record<string, unknown>)[kvMatch[1]] = /^\d+$/.test(val)
           ? parseInt(val, 10)
           : val;
       }
-      // Array items under a key
-      const arrMatch = line.match(/^\s{10,}-\s+"?([^"]+)"?\s*$/);
+      const arrMatch = line.match(arrItemPattern);
       if (arrMatch) {
-        // Find the last key added and convert to array
         const keys = Object.keys(current as Record<string, unknown>);
         const lastKey = keys[keys.length - 1];
         if (lastKey && !Array.isArray((current as Record<string, unknown>)[lastKey])) {
