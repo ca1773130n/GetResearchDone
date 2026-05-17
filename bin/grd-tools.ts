@@ -520,6 +520,22 @@ const {
   cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
 } = require('../lib/commands/index');
 
+const {
+  cmdDeadEndAdd,
+}: {
+  cmdDeadEndAdd: (
+    cwd: string,
+    opts: {
+      approach: string;
+      phase: string;
+      verdict?: string;
+      evidence?: string[];
+      notes?: string;
+    },
+    raw: boolean
+  ) => void;
+} = require('../lib/dead-ends');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -778,7 +794,7 @@ async function main(): Promise<void> {
 
   if (!command) {
     error(
-      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree, migrate-dirs, coverage-report, health-check'
+      'Usage: grd-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, tracker, init, dashboard, phase-detail, health, detect-backend, long-term-roadmap, quality-analysis, setup, search, requirement, worktree, migrate-dirs, coverage-report, health-check, dead-end'
     );
   }
 
@@ -956,6 +972,29 @@ async function routeCommand(
     case 'history-digest':
       cmdHistoryDigest(cwd, raw);
       break;
+    case 'dead-end': {
+      const sub: string = args[1];
+      if (sub !== 'add') {
+        error(`Unknown dead-end subcommand: ${sub}. Valid: add`);
+      }
+      // Collect all --evidence flags (repeatable)
+      const evidence: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--evidence' && args[i + 1]) evidence.push(args[i + 1]);
+      }
+      cmdDeadEndAdd(
+        cwd,
+        {
+          approach: flag(args, '--approach') ?? '',
+          phase: flag(args, '--phase') ?? '',
+          verdict: flag(args, '--verdict'),
+          evidence,
+          notes: flag(args, '--notes'),
+        },
+        raw
+      );
+      break;
+    }
     case 'phases': {
       const sub: string = args[1];
       validateSubcommand(sub, PHASES_SUBS as string[], 'phases');
