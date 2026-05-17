@@ -66,6 +66,10 @@ describe('command classification', () => {
     expect(classifyCommand('think')).toBe('tool');
   });
 
+  it('classifies genome as a tool command (Tier-2 #8 write follow-up)', () => {
+    expect(classifyCommand('genome')).toBe('tool');
+  });
+
   it('classifies dead-end as a tool command (codex P2 on PR #36)', () => {
     // Regression: the dead-end writer was wired in grd-tools.ts but not
     // registered in TOOL_COMMANDS, so `gd dead-end add ...` rejected
