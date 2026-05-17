@@ -636,6 +636,27 @@ WebMCP verification skipped — MCP not available ({reason}).
 
 {Narrative summary of what's missing and why, with quantitative data}
 
+## Reflection
+
+Read `hypothesis:` and `predicted_outcome:` from the PLAN.md frontmatter
+(top-level scalars; required by `agents/grd-planner.md`). Compare against
+what verification actually found and fill the table below. `verdict` is
+one of: `confirmed` (predicted outcome was observed), `partial` (some but
+not all of the prediction held), `falsified` (prediction did not hold),
+`unknown` (insufficient signal to judge — explain in evidence).
+
+| Field | Value |
+|-------|-------|
+| hypothesis | {copy from PLAN.md `hypothesis:`} |
+| predicted_outcome | {copy from PLAN.md `predicted_outcome:`} |
+| actual_outcome | {one sentence describing what the verification actually showed} |
+| verdict | {confirmed \| partial \| falsified \| unknown} |
+| evidence | {2-4 bullet refs: file:line, command output line, gap table row, metric value} |
+
+If PLAN.md is missing either scalar, write `verdict: unknown` and put
+`PLAN.md missing required reflection scalar(s)` in evidence — do not
+fabricate values.
+
 ---
 
 _Verified: {timestamp}_
