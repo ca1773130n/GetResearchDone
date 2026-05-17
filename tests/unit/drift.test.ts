@@ -314,6 +314,137 @@ describe('computeOntologyDrift', () => {
   });
 });
 
+// ─── Codex rescue r2 P2 regressions ───────────────────────────────────────
+
+describe('codex r2 P2: real-world SUMMARY frontmatter shapes', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('ontology drift recognises tech_stack (underscore) with block list', () => {
+    // Real-world shape from .planning/milestones/v0.3.12/.../75-01-SUMMARY.md
+    for (let i = 1; i <= 3; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: [
+          `phase: ${num}`,
+          'tech_stack:',
+          '  added: []',
+          '  patterns: [hook-handler-pattern, descriptor-based-dispatch]',
+        ].join('\n'),
+        summaryBody: '## Accomplishments\n- baseline\n',
+      });
+    }
+    for (let i = 4; i <= 6; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: [
+          `phase: ${num}`,
+          'tech_stack:',
+          '  added: []',
+          '  patterns: [completely-different-pattern, another-new]',
+        ].join('\n'),
+        summaryBody: '## Accomplishments\n- recent\n',
+      });
+    }
+    const r = computeOntologyDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    // Pre-fix, the underscore form was missed entirely → both vocab sets
+    // were empty → sufficient_data: false. Post-fix the parser sees the
+    // patterns and reports real drift.
+    expect(r.score).toBeGreaterThan(0.5);
+  });
+});
+
+describe('codex r2 P2: multi-plan phases aggregate all summaries', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('goal drift uses accomplishments from every SUMMARY.md in the phase', () => {
+    writeRoadmap(
+      projectDir,
+      '### Phase 1: Auth — JWT login flow\n- **Scope:**\n  - JWT token generation\n  - login endpoint\n'
+    );
+    const phaseDir = path.join(
+      projectDir,
+      '.planning',
+      'milestones',
+      'm1',
+      'phases',
+      '01-phase'
+    );
+    fs.mkdirSync(phaseDir, { recursive: true });
+    // Plan 01: unrelated work (high drift if isolated)
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-SUMMARY.md'),
+      '---\nphase: 01\n---\n\n## Accomplishments\n- Refactored unrelated module\n',
+      'utf-8'
+    );
+    // Plan 02: actually does the JWT work (low drift)
+    fs.writeFileSync(
+      path.join(phaseDir, '01-02-SUMMARY.md'),
+      '---\nphase: 01\n---\n\n## Accomplishments\n- Implemented JWT token generation and login endpoint\n',
+      'utf-8'
+    );
+
+    const r = computeGoalDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    // With aggregation, the JWT accomplishments from plan 02 should pull
+    // the distance down. Pre-fix, .find() might pick plan 01 (unrelated)
+    // and report inflated drift.
+    expect(r.score).toBeLessThan(0.8);
+  });
+
+  test('ontology drift unions vocab across every SUMMARY.md in the phase', () => {
+    const phaseDir = path.join(
+      projectDir,
+      '.planning',
+      'milestones',
+      'm1',
+      'phases',
+      '01-phase'
+    );
+    fs.mkdirSync(phaseDir, { recursive: true });
+    // Two plans contributing different vocab — both must be collected
+    fs.writeFileSync(
+      path.join(phaseDir, '01-01-SUMMARY.md'),
+      '---\nphase: 01\ntech-stack:\n  added: [node]\n  patterns: [pattern-a]\n---\n\n## Accomplishments\n- A\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(phaseDir, '01-02-SUMMARY.md'),
+      '---\nphase: 01\ntech-stack:\n  added: [typescript]\n  patterns: [pattern-b]\n---\n\n## Accomplishments\n- B\n',
+      'utf-8'
+    );
+    // Recent phase 02 with same vocab union — drift should be 0
+    writePhase(projectDir, {
+      num: '02',
+      summaryFrontmatter: [
+        'phase: 02',
+        'tech-stack:',
+        '  added: [node, typescript]',
+        '  patterns: [pattern-a, pattern-b]',
+      ].join('\n'),
+      summaryBody: '## Accomplishments\n- C\n',
+    });
+
+    const r = computeOntologyDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    expect(r.score).toBe(0); // baseline union (node, typescript, pattern-a, pattern-b) == recent set
+  });
+});
+
 // ─── Aggregator ────────────────────────────────────────────────────────────
 
 describe('computeDriftScore aggregator', () => {

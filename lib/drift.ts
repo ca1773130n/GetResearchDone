@@ -33,6 +33,8 @@ import * as path from 'path';
 
 const { planningDir: getPlanningDir }: { planningDir: (cwd: string) => string } = require('./paths');
 const { safeReadFile }: { safeReadFile: (p: string) => string | null } = require('./utils');
+const { extractFrontmatter }: { extractFrontmatter: (content: string) => Record<string, unknown> } =
+  require('./frontmatter');
 
 // ─── Domain Types ──────────────────────────────────────────────────────────
 
@@ -182,20 +184,25 @@ function computeGoalDrift(cwd: string, recentK = 3): ComponentResult {
   const perPhase: Array<{ phase: string; distance: number; comparable: boolean }> = [];
   for (const phase of recent) {
     const goalText = _extractRoadmapGoal(roadmap, phase.phase_number);
-    const summaryFile = fs
+    // Aggregate accomplishments from ALL SUMMARY.md files in the phase
+    // dir — phases routinely have multiple plans (e.g. 01-01-SUMMARY.md,
+    // 01-02-SUMMARY.md). codex r2 P2: prior code used .find() and read
+    // only one arbitrary summary.
+    const summaryFiles = fs
       .readdirSync(phase.phase_dir)
-      .find((f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md');
-    const summaryContent = summaryFile
-      ? safeReadFile(path.join(phase.phase_dir, summaryFile))
-      : null;
-    const accomplishments = summaryContent
-      ? _extractSummaryAccomplishments(summaryContent)
-      : null;
-    if (!goalText || !accomplishments) {
+      .filter((f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md');
+    const accomplishmentChunks: string[] = [];
+    for (const sf of summaryFiles) {
+      const c = safeReadFile(path.join(phase.phase_dir, sf));
+      if (!c) continue;
+      const a = _extractSummaryAccomplishments(c);
+      if (a) accomplishmentChunks.push(a);
+    }
+    if (!goalText || accomplishmentChunks.length === 0) {
       perPhase.push({ phase: phase.phase_number, distance: 0, comparable: false });
       continue;
     }
-    const distance = _jaccardDistance(_tokens(goalText), _tokens(accomplishments));
+    const distance = _jaccardDistance(_tokens(goalText), _tokens(accomplishmentChunks.join('\n')));
     perPhase.push({ phase: phase.phase_number, distance, comparable: true });
   }
 
@@ -284,36 +291,38 @@ function computeConstraintDrift(cwd: string, recentK = 3): ComponentResult {
 
 /**
  * Extract the vocabulary set for one phase from its SUMMARY.md
- * frontmatter — `tech-stack.added` items and `patterns-established` items.
- * These are the project's own explicit declaration of new vocabulary.
+ * frontmatter via the shared extractFrontmatter parser. Supports the
+ * three shapes seen in the wild:
+ *
+ *   tech_stack:   (canonical — used by recent planner output)
+ *     added: [...]
+ *     patterns: [...]
+ *   tech-stack:   (legacy / test fixtures — hyphenated)
+ *     added: [...]
+ *     patterns: [...]
+ *   tech-stack:   (older fixtures — `patterns-established` instead of `patterns`)
+ *     added: [...]
+ *     patterns-established: [...]
+ *
+ * Block-list and inline-list forms are both handled by extractFrontmatter.
+ * codex r2 P2: prior regex-only extractor missed `tech_stack` and
+ * block-list shapes entirely, producing false high drift.
  */
 function _extractPhaseVocab(summaryContent: string): Set<string> {
   const vocab = new Set<string>();
-  // tech-stack: added: [a, b, c]   OR   tech-stack:\n  added: [a, b]
-  const tech = summaryContent.match(
-    /tech-stack:\s*\n(?:\s+added:\s*\[(.*?)\])?/i
-  );
-  if (tech && tech[1]) {
-    for (const t of tech[1].split(',')) {
-      const v = t.trim().replace(/^["']|["']$/g, '');
-      if (v) vocab.add(v.toLowerCase());
-    }
-  }
-  // patterns-established: ["a", "b"]   OR a block list
-  const patternsInline = summaryContent.match(/patterns-established:\s*\[(.*?)\]/i);
-  if (patternsInline) {
-    for (const t of patternsInline[1].split(',')) {
-      const v = t.trim().replace(/^["']|["']$/g, '');
-      if (v) vocab.add(v.toLowerCase());
-    }
-  }
-  const patternsBlock = summaryContent.match(
-    /patterns-established:\s*\n([\s\S]*?)(?=\n[a-zA-Z]|\n---)/
-  );
-  if (patternsBlock) {
-    for (const line of patternsBlock[1].split('\n')) {
-      const m = line.match(/^\s*-\s*"?([^"]+?)"?\s*$/);
-      if (m && m[1].trim()) vocab.add(m[1].trim().toLowerCase());
+  const fm = extractFrontmatter(summaryContent);
+  const sections: unknown[] = [fm['tech_stack'], fm['tech-stack']];
+  for (const sec of sections) {
+    if (!sec || typeof sec !== 'object') continue;
+    const obj = sec as Record<string, unknown>;
+    for (const fieldName of ['added', 'patterns', 'patterns-established', 'patterns_established']) {
+      const arr = obj[fieldName];
+      if (!Array.isArray(arr)) continue;
+      for (const item of arr) {
+        if (typeof item !== 'string') continue;
+        const v = item.trim();
+        if (v) vocab.add(v.toLowerCase());
+      }
     }
   }
   return vocab;
@@ -335,16 +344,21 @@ function computeOntologyDrift(cwd: string, recentK = 3, baselineK = 3): Componen
   const baselinePhases = completed.slice(0, baselineK);
   const recentPhases = completed.slice(-recentK);
 
+  // Aggregate vocab across ALL SUMMARY.md files in each phase (a phase
+  // can have multiple plans). codex r2 P2: prior code used .find() and
+  // sampled only one summary, making the score sensitive to filesystem
+  // order rather than the whole phase output.
   const collectVocab = (phases: PhaseInfo[]): Set<string> => {
     const v = new Set<string>();
     for (const p of phases) {
-      const summaryFile = fs
+      const summaryFiles = fs
         .readdirSync(p.phase_dir)
-        .find((f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md');
-      if (!summaryFile) continue;
-      const content = safeReadFile(path.join(p.phase_dir, summaryFile));
-      if (!content) continue;
-      for (const term of _extractPhaseVocab(content)) v.add(term);
+        .filter((f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md');
+      for (const sf of summaryFiles) {
+        const content = safeReadFile(path.join(p.phase_dir, sf));
+        if (!content) continue;
+        for (const term of _extractPhaseVocab(content)) v.add(term);
+      }
     }
     return v;
   };
