@@ -79,6 +79,48 @@ describe('reflection loop — planner prompt contract', () => {
     const section = plannerContent.slice(idx);
     expect(section).toMatch(/empty.*expected|proceed normally/i);
   });
+
+  // ─── Tier-2 #6: DEAD-ENDS.md registry (read path) ─────────────────────
+  test('documents the dead_ends_md context field (Tier-2 #6)', () => {
+    expect(plannerContent).toMatch(/<dead_ends>/);
+    expect(plannerContent).toMatch(/<\/dead_ends>/);
+    expect(plannerContent).toMatch(/dead_ends_md/);
+  });
+
+  test('declares the slug-keyed dedup schema (Tier-2 #6)', () => {
+    const idx = plannerContent.indexOf('<dead_ends>');
+    const section = plannerContent.slice(idx);
+    // Schema must enumerate the canonical fields the planner / future
+    // writer code agree on.
+    expect(section).toMatch(/slug/);
+    expect(section).toMatch(/approach/);
+    expect(section).toMatch(/tried_in_phases/);
+    expect(section).toMatch(/verdict/);
+    expect(section).toMatch(/status/);
+    // Dedup rule must be explicit
+    expect(section).toMatch(/[Dd]edup|canonical identifier/);
+  });
+
+  test('forbids re-proposing an active dead-end without explicit re-test (Tier-2 #6)', () => {
+    const idx = plannerContent.indexOf('<dead_ends>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/active/);
+    expect(section).toMatch(/do NOT\s+re-propose|not\s+re-propose/i);
+    expect(section).toMatch(/re-test|reopened/);
+  });
+
+  test('handles null dead_ends_md gracefully (Tier-2 #6)', () => {
+    const idx = plannerContent.indexOf('<dead_ends>');
+    const section = plannerContent.slice(idx);
+    expect(section).toMatch(/null|does not yet exist|proceed normally/i);
+  });
+
+  test('explicitly scopes this PR to read path only (Tier-2 #6)', () => {
+    const idx = plannerContent.indexOf('<dead_ends>');
+    const section = plannerContent.slice(idx);
+    // Planner must not write to DEAD-ENDS.md in this PR
+    expect(section).toMatch(/[Dd]o not write to DEAD-ENDS\.md|read path only/);
+  });
 });
 
 describe('reflection loop — verifier prompt contract', () => {
