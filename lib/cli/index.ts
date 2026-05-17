@@ -73,6 +73,7 @@ const TOOL_COMMANDS = new Set([
   'autoresearch',
   'scan',
   'metrics',
+  'dead-end',
 ]);
 
 /**
