@@ -152,15 +152,25 @@ function _comparePhaseIds(a: string, b: string): number {
 /**
  * Extract the {Title, Scope items, Description} text for a given phase
  * from ROADMAP.md. Returns null if the phase block cannot be found.
+ *
+ * Heading levels: GRD ROADMAPs use `## Phase` (flat), `### Phase`
+ * (milestone-grouped), or `#### Phase` (milestone-grouped under an H3
+ * version heading). All three forms are accepted. codex r3 P2: prior
+ * regex only matched `### Phase`, missing real ROADMAPs with `#### Phase`.
  */
 function _extractRoadmapGoal(roadmap: string, phaseNumber: string): string | null {
-  // Match `### Phase <N>: <Title> -- <Description>` and the following
-  // body until the next `### Phase` or `## ` heading.
   const trim = phaseNumber.replace(/^0+/, '') || '0';
-  const re = new RegExp(`### Phase ${trim}:[^\\n]*\\n([\\s\\S]*?)(?=\\n###\\s|\\n##\\s|$)`, 'i');
+  // Note: no `m` flag — `$` must mean end-of-input, not end-of-line, so
+  // the body capture extends to the next heading or EOF (not the very
+  // first newline). The `\n` literals in the body and the stop lookahead
+  // already provide the boundary semantics we need.
+  const re = new RegExp(
+    `(#{2,4})\\s+Phase ${trim}:[^\\n]*\\n([\\s\\S]*?)(?=\\n#{2,4}\\s+Phase\\s|\\n##[^#]|$)`,
+    'i'
+  );
   const m = roadmap.match(re);
   if (!m) return null;
-  return m[0]; // title + body together
+  return m[0]; // heading + body together
 }
 
 /** Extract the `## Accomplishments` section body from a SUMMARY.md. */
@@ -311,6 +321,8 @@ function computeConstraintDrift(cwd: string, recentK = 3): ComponentResult {
 function _extractPhaseVocab(summaryContent: string): Set<string> {
   const vocab = new Set<string>();
   const fm = extractFrontmatter(summaryContent);
+
+  // Source 1: nested tech_stack / tech-stack section
   const sections: unknown[] = [fm['tech_stack'], fm['tech-stack']];
   for (const sec of sections) {
     if (!sec || typeof sec !== 'object') continue;
@@ -325,6 +337,20 @@ function _extractPhaseVocab(summaryContent: string): Set<string> {
       }
     }
   }
+
+  // Source 2: top-level patterns-established (real GRD summaries shape).
+  // codex r3 P2: previously ignored, which dropped a documented data
+  // source. Also accept the underscore variant for symmetry.
+  for (const topKey of ['patterns-established', 'patterns_established']) {
+    const arr = fm[topKey];
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      if (typeof item !== 'string') continue;
+      const v = item.trim();
+      if (v) vocab.add(v.toLowerCase());
+    }
+  }
+
   return vocab;
 }
 

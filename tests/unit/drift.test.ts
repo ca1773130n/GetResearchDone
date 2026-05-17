@@ -445,6 +445,120 @@ describe('codex r2 P2: multi-plan phases aggregate all summaries', () => {
   });
 });
 
+// ─── Codex rescue r3 P2 regressions ───────────────────────────────────────
+
+describe('codex r3 P2: ROADMAP heading levels', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('goal drift extracts a phase block under #### Phase (4 hashes)', () => {
+    // The real .planning/ROADMAP.md uses milestone-nested 4-hash phase
+    // headings. Pre-fix the regex matched only `### Phase`, so goalText
+    // was null and goal drift reported insufficient_data.
+    writeRoadmap(
+      projectDir,
+      [
+        '# Roadmap',
+        '',
+        '## M1 v0.3',
+        '',
+        '### v0.3 milestone',
+        '',
+        '#### Phase 1: Test heading at H4',
+        '- **Scope:**',
+        '  - Implement signal handling',
+        '  - Add graceful shutdown',
+        '',
+      ].join('\n')
+    );
+    writePhase(projectDir, {
+      num: '01',
+      summaryFrontmatter: 'phase: 01',
+      summaryBody: '## Accomplishments\n- Implemented signal handling and graceful shutdown\n',
+    });
+
+    const r = computeGoalDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    // Pre-fix the heading was missed and score returned 0 with
+    // sufficient_data:false. Now the block parses; assert a meaningful
+    // (non-zero, not maxed) distance with high overlap.
+    expect(r.score).toBeGreaterThan(0);
+    expect(r.score).toBeLessThan(0.8);
+  });
+
+  test('goal drift extracts a phase block under ## Phase (2 hashes, flat layout)', () => {
+    writeRoadmap(
+      projectDir,
+      [
+        '# Roadmap',
+        '',
+        '## Phase 1: Flat layout test',
+        '- **Scope:**',
+        '  - Foo bar baz',
+        '',
+      ].join('\n')
+    );
+    writePhase(projectDir, {
+      num: '01',
+      summaryFrontmatter: 'phase: 01',
+      summaryBody: '## Accomplishments\n- Foo bar baz delivered\n',
+    });
+    const r = computeGoalDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    expect(r.score).toBeLessThan(0.8);
+  });
+});
+
+describe('codex r3 P2: top-level patterns-established vocab', () => {
+  let projectDir: string;
+  beforeEach(() => {
+    projectDir = makeProject();
+  });
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('ontology drift picks up patterns-established at the top level', () => {
+    // Real GRD summaries use top-level `patterns-established:` as a block
+    // list — not nested under tech_stack. Pre-fix this source was ignored
+    // entirely, dropping the drift signal.
+    for (let i = 1; i <= 3; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: [
+          `phase: ${num}`,
+          'patterns-established:',
+          '  - "Atomic task commits"',
+          '  - "Version sync across files"',
+        ].join('\n'),
+        summaryBody: '## Accomplishments\n- baseline\n',
+      });
+    }
+    for (let i = 4; i <= 6; i++) {
+      const num = String(i).padStart(2, '0');
+      writePhase(projectDir, {
+        num,
+        summaryFrontmatter: [
+          `phase: ${num}`,
+          'patterns-established:',
+          '  - "ML training loop"',
+          '  - "Distributed eval"',
+        ].join('\n'),
+        summaryBody: '## Accomplishments\n- recent\n',
+      });
+    }
+    const r = computeOntologyDrift(projectDir);
+    expect(r.sufficient_data).toBe(true);
+    expect(r.score).toBeGreaterThan(0.5); // disjoint patterns → high drift
+  });
+});
+
 // ─── Aggregator ────────────────────────────────────────────────────────────
 
 describe('computeDriftScore aggregator', () => {
