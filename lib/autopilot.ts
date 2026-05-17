@@ -60,6 +60,15 @@ const {
   }) => import('./types').ModelTier;
 } = require('./backend');
 const {
+  computeOntologyDrift,
+}: {
+  computeOntologyDrift: (
+    cwd: string,
+    recentK?: number,
+    baselineK?: number
+  ) => { score: number; sufficient_data: boolean; reason?: string };
+} = require('./drift');
+const {
   analyzeRoadmap,
 }: {
   analyzeRoadmap: (cwd: string) => {
@@ -1006,6 +1015,23 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           (r) => r.phase === phaseNum && r.status === 'failed'
         );
         if (!hasFailed) phasesCompleted++;
+      }
+
+      // Tier-3 #10: ontology-convergence termination. Opt-in via
+      // config.autopilot.stop_on_ontology_convergence. When the project's
+      // vocabulary has stabilised (recent phases match the baseline within
+      // a configurable similarity threshold), autopilot stops processing
+      // remaining waves. Source: lib/drift.ts computeOntologyDrift.
+      if (config.autopilot?.stop_on_ontology_convergence === true) {
+        const threshold = config.autopilot.ontology_convergence_threshold ?? 0.95;
+        const ontology = computeOntologyDrift(cwd);
+        if (ontology.sufficient_data) {
+          const similarity = 1 - ontology.score;
+          if (similarity >= threshold) {
+            stoppedAt = `ontology-convergence (similarity ${similarity.toFixed(3)} >= ${threshold})`;
+            log(`Autopilot: ${stoppedAt}`);
+          }
+        }
       }
     }
   }

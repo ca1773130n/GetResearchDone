@@ -305,6 +305,8 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'phase_complete_llm_fallback_retries',
   // Drift score (Tier-2 #7 of Ouroboros integration)
   'drift',
+  // Autopilot termination knobs (Tier-3 #10 of Ouroboros integration)
+  'autopilot',
 ]);
 
 /**
@@ -481,6 +483,8 @@ function loadConfig(cwd: string): GrdConfig {
       superpowers: (parsed.superpowers || undefined) as GrdConfig['superpowers'],
       // Drift score config (pass-through; defaults applied in lib/drift.ts)
       drift: (parsed.drift || undefined) as GrdConfig['drift'],
+      // Autopilot termination knobs (pass-through; Tier-3 #10)
+      autopilot: (parsed.autopilot || undefined) as GrdConfig['autopilot'],
       // Backend roles config: validate each value against VALID_BACKENDS
       backend_roles: ((): BackendRolesConfig | undefined => {
         const raw = parsed.backend_roles;

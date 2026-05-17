@@ -420,6 +420,17 @@ export interface GrdConfig {
     threshold?: number;
   };
   /**
+   * Autopilot termination knobs (Tier-3 #10 of Ouroboros integration).
+   * Default: feature disabled. When `stop_on_ontology_convergence` is
+   * true, autopilot stops after a wave once `1 - ontology_drift` reaches
+   * `ontology_convergence_threshold` (default 0.95). Source: lib/drift.ts
+   * `computeOntologyDrift` over the project's SUMMARY vocab.
+   */
+  autopilot?: {
+    stop_on_ontology_convergence?: boolean;
+    ontology_convergence_threshold?: number;
+  };
+  /**
    * When true, autopilot and `gd phase complete` invoke an LLM fallback
    * if the mechanical phase-completion regex-based path fails. The
    * fallback spawns Claude via the scheduler, gives it the current
