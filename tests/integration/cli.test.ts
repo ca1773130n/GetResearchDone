@@ -2645,3 +2645,44 @@ describe('dead-end promote-from-phase arg parsing', () => {
     expect(result.slug).toMatch(/approach-for-codex-regression/);
   });
 });
+
+// ─── think --limit arg validation (codex r1 P3 on PR #42) ─────────────────
+
+describe('think --limit arg validation', () => {
+  let tmpDir: string;
+  beforeEach(() => {
+    tmpDir = createTestDir();
+  });
+  afterEach(() => {
+    if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('valid integer accepted', () => {
+    const { exitCode } = runCLI(['think', '--limit', '3'], tmpDir);
+    expect(exitCode).toBe(0);
+  });
+
+  test('--limit with decimal value rejected (pre-fix: silently truncated to int)', () => {
+    const { stderr, exitCode } = runCLI(['think', '--limit', '1.5'], tmpDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/--limit requires a positive integer/);
+  });
+
+  test('--limit with trailing non-digit rejected (pre-fix: silently truncated)', () => {
+    const { stderr, exitCode } = runCLI(['think', '--limit', '3abc'], tmpDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/--limit requires a positive integer/);
+  });
+
+  test('--limit with no value rejected (pre-fix: silently defaulted)', () => {
+    const { stderr, exitCode } = runCLI(['think', '--limit'], tmpDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/--limit requires a positive integer/);
+  });
+
+  test('--limit with flag-like value rejected', () => {
+    const { stderr, exitCode } = runCLI(['think', '--limit', '--raw'], tmpDir);
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/--limit requires a positive integer/);
+  });
+});

@@ -1026,8 +1026,22 @@ async function routeCommand(
     case 'think': {
       // Tier-3 #11 of the Ouroboros integration. One-shot project-state
       // aggregator. No daemon, no LLM, writes only to .planning/thoughts/.
-      const limitRaw = flag(args, '--limit');
-      const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : undefined;
+      //
+      // codex r1 P3 on PR #42: strictly validate --limit. Pre-fix:
+      //   `--limit 1.5` parseInt → 1 (silent truncation)
+      //   `--limit 3abc` parseInt → 3 (silent truncation)
+      //   `--limit` (no value) → silently defaulted
+      // All three slipped past the positive-integer check downstream.
+      let limit: number | undefined;
+      if (args.indexOf('--limit') !== -1) {
+        const limitRaw = flag(args, '--limit');
+        if (limitRaw === undefined || !/^\d+$/.test(limitRaw)) {
+          error(
+            `--limit requires a positive integer value (got ${limitRaw === undefined ? '<missing>' : `"${limitRaw}"`})`
+          );
+        }
+        limit = parseInt(limitRaw as string, 10);
+      }
       cmdThink(cwd, { limit }, raw);
       break;
     }
