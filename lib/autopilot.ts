@@ -347,7 +347,19 @@ interface PhaseStepResult {
 interface AutopilotResult {
   phases_attempted: number;
   phases_completed: number;
+  /**
+   * Failure reason when autopilot halted before processing all phases.
+   * Callers (runMultiMilestoneAutopilot, evolve) treat non-null as failure.
+   * Graceful early-stops (e.g. ontology convergence) use `converged_at`
+   * instead so they are not misclassified as failures.
+   */
   stopped_at: string | null;
+  /**
+   * Graceful early-termination reason. Null unless an opt-in convergence
+   * condition fired (Tier-3 #10). Distinct from `stopped_at` so callers
+   * can treat convergence as success.
+   */
+  converged_at: string | null;
   waves: string[][];
   results: PhaseStepResult[];
 }
@@ -532,6 +544,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
       phases_attempted: 0,
       phases_completed: 0,
       stopped_at: rangeError,
+      converged_at: null,
       waves: [],
       results: [],
     };
@@ -544,6 +557,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   let phasesAttempted: number = 0;
   let phasesCompleted: number = 0;
   let stoppedAt: string | null = null;
+  // Graceful early termination (Tier-3 #10). Separate from stoppedAt so
+  // existing callers (multi-milestone autopilot, evolve) do not classify
+  // convergence as a failure. codex r2 P2 on PR #40.
+  let convergedAt: string | null = null;
 
   const config: GrdConfig = loadConfig(cwd);
   const backend: string = detectBackend(cwd);
@@ -573,7 +590,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
 
   for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
     const wave: string[] = waves[waveIdx];
-    if (stoppedAt) break;
+    if (stoppedAt || convergedAt) break;
 
     log(`Wave ${waveIdx + 1}/${waves.length}: phases [${wave.join(', ')}]`);
 
@@ -1018,18 +1035,12 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
       }
 
       // Tier-3 #10: ontology-convergence termination. Opt-in via
-      // config.autopilot.stop_on_ontology_convergence. When the project's
-      // vocabulary has stabilised (recent phases match the baseline within
-      // a configurable similarity threshold), autopilot stops processing
-      // remaining waves. Source: lib/drift.ts isOntologyConverged.
-      //
-      // Two guards from codex r1 on PR #40:
-      // (a) Only set stoppedAt when there are MORE waves to skip — firing
-      //     on the final wave would mark an otherwise-successful run as
-      //     stopped and skip milestone wireup.
-      // (b) isOntologyConverged requires non-overlapping baseline/recent
-      //     windows (>= 6 completed phases with default K=3); below that
-      //     a trivial "same set" comparison gives spurious similarity 1.0.
+      // config.autopilot.stop_on_ontology_convergence. Recorded on the
+      // separate `convergedAt` channel (codex r2 P2 on PR #40) so callers
+      // like runMultiMilestoneAutopilot / evolve do not classify graceful
+      // termination as a failure. Guards from codex r1: only fire when
+      // there's a NEXT wave to skip, and require non-overlapping windows
+      // (handled by isOntologyConverged).
       if (
         config.autopilot?.stop_on_ontology_convergence === true &&
         waveIdx < waves.length - 1
@@ -1037,8 +1048,8 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         const threshold = config.autopilot.ontology_convergence_threshold ?? 0.95;
         const result = isOntologyConverged(cwd, threshold);
         if (result.converged && result.similarity !== undefined) {
-          stoppedAt = `ontology-convergence (similarity ${result.similarity.toFixed(3)} >= ${threshold})`;
-          log(`Autopilot: ${stoppedAt}`);
+          convergedAt = `ontology-convergence (similarity ${result.similarity.toFixed(3)} >= ${threshold})`;
+          log(`Autopilot: converged early — ${convergedAt}`);
         }
       }
     }
@@ -1104,7 +1115,13 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   }
 
   log(
-    `Done: ${phasesCompleted}/${phasesAttempted} phases completed${stoppedAt ? ` (stopped: ${stoppedAt})` : ''}`
+    `Done: ${phasesCompleted}/${phasesAttempted} phases completed${
+      stoppedAt
+        ? ` (stopped: ${stoppedAt})`
+        : convergedAt
+          ? ` (converged: ${convergedAt})`
+          : ''
+    }`
   );
 
   if (scheduler) {
@@ -1115,6 +1132,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
     phases_attempted: phasesAttempted,
     phases_completed: phasesCompleted,
     stopped_at: stoppedAt,
+    converged_at: convergedAt,
     waves,
     results,
   };

@@ -5513,8 +5513,46 @@ describe('lib/autopilot', () => {
         )
       );
       const result = JSON.parse(stdout);
-      expect(result.stopped_at).toMatch(/ontology-convergence/);
-      expect(result.stopped_at).toMatch(/similarity/);
+      // codex r2 P2: convergence is reported on `converged_at`, NOT
+      // `stopped_at` (which existing multi-milestone / evolve callers
+      // treat as a failure signal).
+      expect(result.stopped_at).toBeNull();
+      expect(result.converged_at).toMatch(/ontology-convergence/);
+      expect(result.converged_at).toMatch(/similarity/);
+    });
+
+    it('does NOT set stopped_at on convergence — graceful early termination (codex r2 P2 on PR #40)', async () => {
+      // Regression for the codex r2 finding: existing callers
+      // (runMultiMilestoneAutopilot, evolve) classify any non-null
+      // `stopped_at` as failure. Convergence must use `converged_at`
+      // instead so it is reported as graceful success.
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--phase-from', '48', '--phase-to', '54'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      // The killer assertion: stopped_at MUST be null so callers
+      // classify the run as completed, not failed.
+      expect(result.stopped_at).toBeNull();
+      expect(typeof result.converged_at).toBe('string');
     });
 
     it('does not stop when feature is disabled by default', async () => {
