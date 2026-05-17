@@ -517,6 +517,9 @@ function cmdVerifyReferences(cwd: string, filePath: string, raw: boolean): void 
   const atRefs: string[] = content.match(/@([^\s\n,)]+\/[^\s\n,)]+)/g) || [];
   for (const ref of atRefs) {
     const cleanRef: string = ref.slice(1); // remove @
+    // Skip templated/dynamic refs (e.g. @${CLAUDE_PLUGIN_ROOT}/...) — same
+    // guard used by the backtick-ref branch below.
+    if (cleanRef.includes('${') || cleanRef.includes('{{')) continue;
     const resolved: string = cleanRef.startsWith('~/')
       ? path.join(process.env.HOME || os.homedir() || '', cleanRef.slice(2))
       : path.join(cwd, cleanRef);
@@ -953,6 +956,9 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
     const atRefs: string[] = content.match(/@([^\s\n,)]+\/[^\s\n,)]+)/g) || [];
     for (const ref of atRefs) {
       const cleanRef: string = ref.slice(1);
+      // Skip templated/dynamic refs (e.g. @${CLAUDE_PLUGIN_ROOT}/...) — they
+      // are not literal paths. Same guard the backtick branch uses below.
+      if (cleanRef.includes('${') || cleanRef.includes('{{')) continue;
       const resolved: string = cleanRef.startsWith('~/')
         ? path.join(process.env.HOME || os.homedir() || '', cleanRef.slice(2))
         : path.join(cwd, cleanRef);

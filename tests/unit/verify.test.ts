@@ -662,6 +662,52 @@ describe('cmdVerifyMechanical', () => {
     expect(completeness.passed).toBe(true);
   });
 
+  test('skips dynamic @-refs like @${CLAUDE_PLUGIN_ROOT}/... (codex r2 P2)', () => {
+    // Pre-fix, the bundle resolved the literal "${CLAUDE_PLUGIN_ROOT}" under
+    // cwd and marked the ref missing. Templated refs must be ignored, matching
+    // the guard already applied to backtick paths.
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '  artifacts: []',
+      '---',
+      '',
+      'Reference @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md and',
+      'also @{{plugin_root}}/another.md should both be skipped.',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const refsCheck = parsed.checks.find(
+      (c: { check: string }) => c.check === 'references'
+    );
+    // Either no references check fires (totalRefs filtered to 0) or it passes.
+    if (refsCheck) {
+      expect(refsCheck.passed).toBe(true);
+      expect(refsCheck.data.missing).toEqual([]);
+    }
+  });
+
   test('enforces artifact content constraints, not just existence (codex P2 #1)', () => {
     // Plan declares an artifact that exists but is too short for its
     // declared min_lines. Pre-fix, the bundle would pass it. Post-fix,
