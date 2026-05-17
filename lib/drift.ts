@@ -417,6 +417,60 @@ function computeOntologyDrift(cwd: string, recentK = 3, baselineK = 3): Componen
   };
 }
 
+// ─── Convergence check ─────────────────────────────────────────────────────
+
+export interface ConvergenceResult {
+  /** True if baseline/recent vocab are similar enough to declare convergence. */
+  converged: boolean;
+  /** Similarity = 1 - ontology_drift. Present when converged === true. */
+  similarity?: number;
+  /** Threshold used. */
+  threshold: number;
+  /** Why convergence was not declared, when converged === false. */
+  reason?: string;
+}
+
+/**
+ * Check whether ontology has converged: similarity (1 - drift) >= threshold,
+ * AND the baseline/recent windows are NON-OVERLAPPING (so similarity is a
+ * real measurement, not the trivial "same set" 1.0). Used by autopilot's
+ * opt-in termination criterion (Tier-3 #10 of the Ouroboros integration).
+ *
+ * codex r1 P2 on PR #40: prior wiring used computeOntologyDrift directly,
+ * which reports sufficient_data with only 2 completed phases. With default
+ * K=3 baseline + K=3 recent, the windows overlap entirely for any project
+ * with <= 3 completed phases, producing similarity 1.0 regardless of actual
+ * vocab change. This helper requires `completed_phases >= 2 * recentK`
+ * (default 6) before declaring convergence.
+ */
+function isOntologyConverged(
+  cwd: string,
+  threshold = 0.95,
+  recentK = 3
+): ConvergenceResult {
+  const completed = _listCompletedPhases(cwd);
+  if (completed.length < 2 * recentK) {
+    return {
+      converged: false,
+      threshold,
+      reason: `Need >= ${2 * recentK} completed phases for non-overlapping ontology windows (have ${completed.length})`,
+    };
+  }
+  const drift = computeOntologyDrift(cwd, recentK, recentK);
+  if (!drift.sufficient_data) {
+    return { converged: false, threshold, reason: drift.reason ?? 'insufficient drift data' };
+  }
+  const similarity = 1 - drift.score;
+  if (similarity < threshold) {
+    return {
+      converged: false,
+      threshold,
+      reason: `similarity ${similarity.toFixed(3)} < ${threshold}`,
+    };
+  }
+  return { converged: true, similarity, threshold };
+}
+
 // ─── Aggregator ────────────────────────────────────────────────────────────
 
 /**
@@ -454,5 +508,6 @@ module.exports = {
   computeConstraintDrift,
   computeOntologyDrift,
   computeDriftScore,
+  isOntologyConverged,
   DEFAULT_WEIGHTS,
 };

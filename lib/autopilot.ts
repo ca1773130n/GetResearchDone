@@ -60,13 +60,13 @@ const {
   }) => import('./types').ModelTier;
 } = require('./backend');
 const {
-  computeOntologyDrift,
+  isOntologyConverged,
 }: {
-  computeOntologyDrift: (
+  isOntologyConverged: (
     cwd: string,
-    recentK?: number,
-    baselineK?: number
-  ) => { score: number; sufficient_data: boolean; reason?: string };
+    threshold?: number,
+    recentK?: number
+  ) => { converged: boolean; similarity?: number; threshold: number; reason?: string };
 } = require('./drift');
 const {
   analyzeRoadmap,
@@ -1021,16 +1021,24 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
       // config.autopilot.stop_on_ontology_convergence. When the project's
       // vocabulary has stabilised (recent phases match the baseline within
       // a configurable similarity threshold), autopilot stops processing
-      // remaining waves. Source: lib/drift.ts computeOntologyDrift.
-      if (config.autopilot?.stop_on_ontology_convergence === true) {
+      // remaining waves. Source: lib/drift.ts isOntologyConverged.
+      //
+      // Two guards from codex r1 on PR #40:
+      // (a) Only set stoppedAt when there are MORE waves to skip — firing
+      //     on the final wave would mark an otherwise-successful run as
+      //     stopped and skip milestone wireup.
+      // (b) isOntologyConverged requires non-overlapping baseline/recent
+      //     windows (>= 6 completed phases with default K=3); below that
+      //     a trivial "same set" comparison gives spurious similarity 1.0.
+      if (
+        config.autopilot?.stop_on_ontology_convergence === true &&
+        waveIdx < waves.length - 1
+      ) {
         const threshold = config.autopilot.ontology_convergence_threshold ?? 0.95;
-        const ontology = computeOntologyDrift(cwd);
-        if (ontology.sufficient_data) {
-          const similarity = 1 - ontology.score;
-          if (similarity >= threshold) {
-            stoppedAt = `ontology-convergence (similarity ${similarity.toFixed(3)} >= ${threshold})`;
-            log(`Autopilot: ${stoppedAt}`);
-          }
+        const result = isOntologyConverged(cwd, threshold);
+        if (result.converged && result.similarity !== undefined) {
+          stoppedAt = `ontology-convergence (similarity ${result.similarity.toFixed(3)} >= ${threshold})`;
+          log(`Autopilot: ${stoppedAt}`);
         }
       }
     }
