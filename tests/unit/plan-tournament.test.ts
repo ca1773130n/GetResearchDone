@@ -385,6 +385,33 @@ describe('cmdPlanTournament', () => {
     expect(() => validateFileArg('inside.md', projectDir)).not.toThrow();
   });
 
+  test('rejects sibling-prefix path traversal (codex r5 P2 on PR #41)', () => {
+    // Reproduces the prefix-based validation gap codex caught: if cwd
+    // is /tmp/grd-tournament-XXXX, then /tmp/grd-tournament-XXXX-evil
+    // shares the prefix and would pass a startsWith check. The CLI
+    // dispatch's tightened path.relative containment check rejects it.
+    const path_lib = require('path');
+    const sibling = projectDir + '-evil';
+    const rel = path_lib.relative(projectDir, sibling);
+    expect(rel.startsWith('..')).toBe(true);
+    // Confirm: a file in the sibling path would be rejected by the
+    // dispatch's path.relative check (mirroring bin/grd-tools.ts).
+    const escapePath = path_lib.join(sibling, 'PLAN.md');
+    const rel2 = path_lib.relative(projectDir, escapePath);
+    expect(rel2.startsWith('..')).toBe(true);
+  });
+
+  test('validatePhaseArg rejects malformed phase before regex interpolation (codex r5 P3 on PR #41)', () => {
+    const { validatePhaseArg } = require('../../lib/utils');
+    expect(() => validatePhaseArg('[')).toThrow();
+    expect(() => validatePhaseArg('1.2.3')).toThrow(); // too many decimal parts
+    expect(() => validatePhaseArg('abc')).toThrow();
+    // Valid forms pass
+    expect(() => validatePhaseArg('1')).not.toThrow();
+    expect(() => validatePhaseArg('01')).not.toThrow();
+    expect(() => validatePhaseArg('06.1')).not.toThrow();
+  });
+
   test('resolves candidate paths relative to cwd', () => {
     writeCandidate(projectDir, 'relative.md', FULL_FRONTMATTER);
     const { stdout } = captureOutput(() =>

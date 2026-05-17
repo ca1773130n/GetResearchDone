@@ -1039,8 +1039,24 @@ async function routeCommand(
       // project boundary before passing it to the scorer. Without this
       // guard, absolute paths or `../` traversal could read files
       // outside the repo when gd is invoked via automation / MCP.
-      const candidates: string[] = rawCandidates.map((p) => validateFileArg(p, cwd));
+      //
+      // codex r5 P2 on PR #41: validateFileArg's underlying check is
+      // prefix-based, so a sibling like `${cwd}-secrets/PLAN.md` would
+      // squeak through. Tighten with a path.relative containment check.
+      const path_lib = require('path') as typeof import('path');
+      const candidates: string[] = rawCandidates.map((p) => {
+        const validated = validateFileArg(p, cwd);
+        const rel = path_lib.relative(cwd, validated);
+        if (rel === '' || rel.startsWith('..') || path_lib.isAbsolute(rel)) {
+          error(`Candidate path "${p}" is outside the project directory`);
+        }
+        return validated;
+      });
+      // codex r5 P3: validate phase format before interpolating into
+      // _extractRoadmapGoal's regex, where a malformed value would
+      // crash with a regex syntax error.
       const phaseArg = flag(args, '--phase') ?? '';
+      if (phaseArg) validatePhaseArg(phaseArg);
       cmdPlanTournament(cwd, { phase: phaseArg, candidates }, raw);
       break;
     }
