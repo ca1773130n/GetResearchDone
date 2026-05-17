@@ -76,6 +76,7 @@ const TOOL_COMMANDS = new Set([
   'dead-end',
   'plan-tournament',
   'think',
+  'genome',
 ]);
 
 /**

@@ -554,6 +554,16 @@ const {
   cmdThink: (cwd: string, opts: { limit?: number }, raw: boolean) => void;
 } = require('../lib/think');
 
+const {
+  cmdGenomeInit,
+  cmdGenomeShow,
+  cmdGenomeSnapshot,
+}: {
+  cmdGenomeInit: (cwd: string, raw: boolean) => void;
+  cmdGenomeShow: (cwd: string, raw: boolean) => void;
+  cmdGenomeSnapshot: (cwd: string, raw: boolean) => void;
+} = require('../lib/genome');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1020,6 +1030,19 @@ async function routeCommand(
         cmdDeadEndPromoteFromPhase(cwd, phaseArg, raw);
       } else {
         error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
+      }
+      break;
+    }
+    case 'genome': {
+      const sub: string = args[1];
+      if (sub === 'init') {
+        cmdGenomeInit(cwd, raw);
+      } else if (sub === 'show') {
+        cmdGenomeShow(cwd, raw);
+      } else if (sub === 'snapshot') {
+        cmdGenomeSnapshot(cwd, raw);
+      } else {
+        error(`Unknown genome subcommand: ${sub}. Valid: init, show, snapshot`);
       }
       break;
     }
