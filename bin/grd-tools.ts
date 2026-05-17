@@ -548,6 +548,12 @@ const {
   ) => void;
 } = require('../lib/plan-tournament');
 
+const {
+  cmdThink,
+}: {
+  cmdThink: (cwd: string, opts: { limit?: number }, raw: boolean) => void;
+} = require('../lib/think');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1015,6 +1021,14 @@ async function routeCommand(
       } else {
         error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
       }
+      break;
+    }
+    case 'think': {
+      // Tier-3 #11 of the Ouroboros integration. One-shot project-state
+      // aggregator. No daemon, no LLM, writes only to .planning/thoughts/.
+      const limitRaw = flag(args, '--limit');
+      const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : undefined;
+      cmdThink(cwd, { limit }, raw);
       break;
     }
     case 'plan-tournament': {

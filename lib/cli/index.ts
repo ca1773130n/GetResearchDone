@@ -75,6 +75,7 @@ const TOOL_COMMANDS = new Set([
   'metrics',
   'dead-end',
   'plan-tournament',
+  'think',
 ]);
 
 /**

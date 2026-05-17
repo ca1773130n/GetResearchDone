@@ -62,6 +62,10 @@ describe('command classification', () => {
     expect(classifyCommand('plan-tournament')).toBe('tool');
   });
 
+  it('classifies think as a tool command (Tier-3 #11 on PR #42)', () => {
+    expect(classifyCommand('think')).toBe('tool');
+  });
+
   it('classifies dead-end as a tool command (codex P2 on PR #36)', () => {
     // Regression: the dead-end writer was wired in grd-tools.ts but not
     // registered in TOOL_COMMANDS, so `gd dead-end add ...` rejected
