@@ -1056,10 +1056,14 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
   }
 
   // ── Milestone mode: run wireup after all phases complete ──
+  // codex r3 P2: convergence skips later waves intentionally, so the
+  // milestone is NOT complete in the user's sense. Gate wireup on
+  // !convergedAt so wireup does not run as though everything finished.
   const isMilestoneMode: boolean = options.milestone === true || (!phaseFrom && !phaseTo);
   if (
     isMilestoneMode &&
     !stoppedAt &&
+    !convergedAt &&
     !dryRun &&
     phasesCompleted === phasesAttempted &&
     phasesCompleted > 0
@@ -1242,17 +1246,28 @@ async function runMultiMilestoneAutopilot(
         totalPhasesCompleted += autopilotResult.phases_completed;
 
         const autopilotFailed: boolean = autopilotResult.stopped_at !== null;
+        const autopilotConverged: boolean = autopilotResult.converged_at !== null;
         milestoneResults.push({
           milestone: currentVersion,
           phases_attempted: autopilotResult.phases_attempted,
           phases_completed: autopilotResult.phases_completed,
-          status: autopilotFailed ? 'failed' : 'completed',
-          reason: autopilotResult.stopped_at || undefined,
+          status: autopilotFailed
+            ? 'failed'
+            : autopilotConverged
+              ? 'converged'
+              : 'completed',
+          reason: autopilotResult.stopped_at || autopilotResult.converged_at || undefined,
         });
 
         if (autopilotFailed) {
           log(`${currentVersion}: autopilot stopped: ${autopilotResult.stopped_at}`);
           stoppedAt = `Autopilot failed for ${currentVersion}: ${autopilotResult.stopped_at}`;
+          break;
+        }
+        // codex r3 P2: convergence is a graceful TERMINAL state for this
+        // milestone chain — do not advance to the next milestone.
+        if (autopilotConverged) {
+          log(`${currentVersion}: autopilot converged early — ${autopilotResult.converged_at}`);
           break;
         }
       }

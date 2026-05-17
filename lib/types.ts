@@ -1073,7 +1073,10 @@ export interface MilestoneStepResult {
   milestone: string; // Milestone version (e.g., "v0.3.0")
   phases_attempted: number;
   phases_completed: number;
-  status: 'completed' | 'failed' | 'skipped' | 'dry-run';
+  // 'converged' — graceful early termination from
+  //   config.autopilot.stop_on_ontology_convergence (Tier-3 #10 of
+  //   the Ouroboros integration). Distinct from 'failed'.
+  status: 'completed' | 'failed' | 'skipped' | 'dry-run' | 'converged';
   reason?: string;
 }
 

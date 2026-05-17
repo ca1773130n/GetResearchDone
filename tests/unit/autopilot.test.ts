@@ -5521,6 +5521,42 @@ describe('lib/autopilot', () => {
       expect(result.converged_at).toMatch(/similarity/);
     });
 
+    it('does NOT run milestone wireup on convergence (codex r3 P2 on PR #40)', async () => {
+      // Codex r3: convergence should be terminal — wireup must NOT fire
+      // as though everything finished. The wireup block is gated on
+      // !convergedAt. Verified by absence of a 'wireup' results entry.
+      const phases = Array.from({ length: 7 }, (_, i) => ({
+        num: String(48 + i),
+        name: `P${i}`,
+        depends_on: i > 0 ? `Phase ${47 + i}` : undefined,
+      }));
+      tmpDir = createAutopilotFixture({
+        phases,
+        phaseDirs: phases.map((p) => withConvergedVocab(p.num, p.name)),
+      });
+
+      const cfgPath = path.join(tmpDir, '.planning', 'config.json');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.autopilot = { stop_on_ontology_convergence: true };
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
+      // Use --milestone to engage milestone-mode wireup
+      const { stdout } = await captureOutputAsync(() =>
+        cmdAutopilot(
+          tmpDir,
+          ['--dry-run', '--milestone', '--phase-from', '48', '--phase-to', '54'],
+          false
+        )
+      );
+      const result = JSON.parse(stdout);
+      expect(typeof result.converged_at).toBe('string');
+      // No wireup step should appear in results when converged
+      const hasWireup = result.results.some(
+        (r: { step: string }) => r.step === 'wireup'
+      );
+      expect(hasWireup).toBe(false);
+    });
+
     it('does NOT set stopped_at on convergence — graceful early termination (codex r2 P2 on PR #40)', async () => {
       // Regression for the codex r2 finding: existing callers
       // (runMultiMilestoneAutopilot, evolve) classify any non-null
