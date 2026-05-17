@@ -267,6 +267,79 @@ describe('cmdDeadEndAdd', () => {
     expect(stderr).toContain('--phase required');
   });
 
+  // ─── Codex rescue r2 P2 regressions ─────────────────────────────────────
+  // Embedded double-quotes in evidence/notes/approach must round-trip
+  // without corrupting the YAML.
+
+  test('round-trips evidence containing embedded double-quotes', () => {
+    captureOutput(() =>
+      cmdDeadEndAdd(
+        tmpDir,
+        {
+          approach: 'Approach with "quotes"',
+          phase: '02',
+          evidence: ['test says "failed"', 'log: error "X"'],
+          notes: 'A "tricky" case',
+        },
+        false
+      )
+    );
+
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    // Writer must escape inner quotes
+    expect(body).toContain('\\"quotes\\"');
+    expect(body).toContain('\\"failed\\"');
+    expect(body).toContain('\\"tricky\\"');
+    // Must NOT have unescaped consecutive quotes like ""quotes""
+    expect(body).not.toMatch(/"[^\\]?""/);
+
+    // Parser round-trip restores the originals
+    const reparsed = parseDeadEndsFile(body);
+    expect(reparsed).toHaveLength(1);
+    const e = reparsed[0];
+    expect(e.approach).toBe('Approach with "quotes"');
+    expect(e.evidence).toEqual(['test says "failed"', 'log: error "X"']);
+    expect(e.notes).toBe('A "tricky" case');
+  });
+
+  test('round-trips backslashes (escape character) in evidence', () => {
+    captureOutput(() =>
+      cmdDeadEndAdd(
+        tmpDir,
+        {
+          approach: 'Backslash test',
+          phase: '01',
+          evidence: ['path\\with\\backslash'],
+        },
+        false
+      )
+    );
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    const reparsed = parseDeadEndsFile(body);
+    expect(reparsed[0].evidence).toEqual(['path\\with\\backslash']);
+  });
+
+  test('inline array with embedded comma-in-quotes does not over-split', () => {
+    // Synthesise a file by hand so we can guarantee the input shape.
+    const body = [
+      '# Dead Ends Registry',
+      '',
+      '## comma-test',
+      '',
+      '```yaml',
+      'approach: "X"',
+      'slug: comma-test',
+      'tried_in_phases: ["phase, with, commas", "02"]',
+      'verdict: falsified',
+      'evidence: []',
+      'status: active',
+      '```',
+      '',
+    ].join('\n');
+    const entries = parseDeadEndsFile(body);
+    expect(entries[0].tried_in_phases).toEqual(['phase, with, commas', '02']);
+  });
+
   test('creates .planning/ when it does not yet exist', () => {
     fs.rmSync(path.join(tmpDir, '.planning'), { recursive: true });
 

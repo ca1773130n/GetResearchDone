@@ -46,6 +46,107 @@ export interface DeadEndAddOpts {
   notes?: string;
 }
 
+// ─── YAML quote / unquote helpers ───────────────────────────────────────────
+
+/**
+ * Escape a string for emission as a YAML double-quoted scalar.
+ * Handles backslash and double-quote. Newlines are not expected in
+ * dead-end fields (CLI flags pass single-line values); preserved
+ * literally if present, which is valid in double-quoted YAML.
+ */
+function _yamlEscape(s: string): string {
+  const escaped = s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `"${escaped}"`;
+}
+
+/**
+ * Inverse of _yamlEscape. Expects the string with surrounding `"..."` or
+ * `'...'` quotes (or no quotes); returns the unescaped scalar value.
+ * Single-quoted YAML uses `''` to escape an embedded single quote.
+ */
+function _yamlUnquote(s: string): string {
+  const t = s.trim();
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    return t.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+  if (t.length >= 2 && t.startsWith("'") && t.endsWith("'")) {
+    return t.slice(1, -1).replace(/''/g, "'");
+  }
+  return t;
+}
+
+/**
+ * Split an inline YAML array body (`"a", "b", c`) on top-level commas
+ * while respecting quoted strings (so commas inside quotes do not split).
+ */
+function _splitInlineArray(body: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inQuotes: '"' | "'" | null = null;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (inQuotes === '"' && ch === '\\' && i + 1 < body.length) {
+      current += ch + body[i + 1];
+      i++;
+      continue;
+    }
+    if (inQuotes && ch === inQuotes) {
+      inQuotes = null;
+      current += ch;
+      continue;
+    }
+    if (!inQuotes && (ch === '"' || ch === "'")) {
+      inQuotes = ch as '"' | "'";
+      current += ch;
+      continue;
+    }
+    if (!inQuotes && ch === ',') {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.length > 0) parts.push(current);
+  return parts.map(_yamlUnquote).filter((s) => s.length > 0);
+}
+
+/**
+ * Parse a block-array item line (e.g. `  - "value"` or `  - value`) into
+ * the unquoted/unescaped value. Walks the string respecting backslash
+ * escapes so embedded `\"` is preserved as `"` in the result.
+ */
+function _parseBlockArrayItem(line: string): string | null {
+  const trimmed = line.replace(/^\s+-\s+/, '');
+  if (trimmed.length === 0) return null;
+  if (trimmed.startsWith('"')) {
+    let end = 1;
+    while (end < trimmed.length) {
+      if (trimmed[end] === '\\' && end + 1 < trimmed.length) {
+        end += 2;
+        continue;
+      }
+      if (trimmed[end] === '"') break;
+      end++;
+    }
+    return _yamlUnquote(trimmed.slice(0, end + 1));
+  }
+  if (trimmed.startsWith("'")) {
+    // Single-quoted: closing quote is a non-doubled `'`
+    let end = 1;
+    while (end < trimmed.length) {
+      if (trimmed[end] === "'" && trimmed[end + 1] !== "'") break;
+      if (trimmed[end] === "'" && trimmed[end + 1] === "'") {
+        end += 2;
+        continue;
+      }
+      end++;
+    }
+    return _yamlUnquote(trimmed.slice(0, end + 1));
+  }
+  return trimmed.trim();
+}
+
 /**
  * Parse DEAD-ENDS.md body into a list of entries. Tolerant of extra
  * preamble and trailing content; unparseable blocks are skipped.
@@ -68,8 +169,8 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
     for (const rawLine of lines) {
       const line = rawLine.replace(/\r$/, '');
       if (inArrayKey && /^\s+-\s+/.test(line)) {
-        const item = line.replace(/^\s+-\s+"?(.+?)"?\s*$/, '$1');
-        entry[inArrayKey]!.push(item);
+        const item = _parseBlockArrayItem(line);
+        if (item !== null) entry[inArrayKey]!.push(item);
         continue;
       }
       inArrayKey = null;
@@ -78,14 +179,11 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
       if (!kv) continue;
       const key = kv[1];
       const valRaw = kv[2].trim();
-      const unquote = (s: string): string => s.replace(/^["']|["']$/g, '');
 
       if (key === 'tried_in_phases' || key === 'evidence') {
         if (valRaw.startsWith('[') && valRaw.endsWith(']')) {
-          const inner = valRaw.slice(1, -1).trim();
-          (entry as Record<string, unknown>)[key] = inner
-            ? inner.split(',').map((s) => unquote(s.trim())).filter((s) => s.length > 0)
-            : [];
+          const inner = valRaw.slice(1, -1);
+          (entry as Record<string, unknown>)[key] = _splitInlineArray(inner);
         } else if (valRaw === '[]') {
           (entry as Record<string, unknown>)[key] = [];
         } else if (valRaw === '') {
@@ -98,7 +196,7 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
         key === 'status' ||
         key === 'notes'
       ) {
-        (entry as Record<string, unknown>)[key] = unquote(valRaw);
+        (entry as Record<string, unknown>)[key] = _yamlUnquote(valRaw);
       }
     }
 
@@ -119,24 +217,21 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
 
 function _serializeEntry(entry: DeadEndEntry): string {
   const lines: string[] = [`## ${entry.slug}`, '', '```yaml'];
-  const approachQuoted = entry.approach.includes('"')
-    ? `'${entry.approach.replace(/'/g, "''")}'`
-    : `"${entry.approach}"`;
-  lines.push(`approach: ${approachQuoted}`);
+  lines.push(`approach: ${_yamlEscape(entry.approach)}`);
   lines.push(`slug: ${entry.slug}`);
   const phasesInline = entry.tried_in_phases.length
-    ? `[${entry.tried_in_phases.map((p) => `"${p}"`).join(', ')}]`
+    ? `[${entry.tried_in_phases.map(_yamlEscape).join(', ')}]`
     : '[]';
   lines.push(`tried_in_phases: ${phasesInline}`);
   lines.push(`verdict: ${entry.verdict}`);
   if (entry.evidence.length > 0) {
     lines.push('evidence:');
-    for (const e of entry.evidence) lines.push(`  - "${e}"`);
+    for (const e of entry.evidence) lines.push(`  - ${_yamlEscape(e)}`);
   } else {
     lines.push('evidence: []');
   }
   lines.push(`status: ${entry.status}`);
-  if (entry.notes) lines.push(`notes: "${entry.notes}"`);
+  if (entry.notes) lines.push(`notes: ${_yamlEscape(entry.notes)}`);
   lines.push('```', '');
   return lines.join('\n');
 }
