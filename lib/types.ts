@@ -479,6 +479,15 @@ export interface GrdConfig {
 export interface EvolveConfig {
   auto_commit: boolean;
   create_pr: boolean;
+  /**
+   * When true, evolve appends a `## Snapshot YYYY-MM-DD` block to
+   * `.planning/GENOME.md` at the end of each successful cycle (completed
+   * or converged). Off by default — opt in to avoid surprising existing
+   * users with new files. The snapshot is written via runGenomeSnapshot
+   * (lib/genome.ts) and skipped silently if GENOME.md is in split-index
+   * format. Tier-2 #8 auto-genome follow-up.
+   */
+  auto_genome_snapshot?: boolean;
 }
 
 // ─── Scheduler Types ─────────────────────────────────────────────────────────

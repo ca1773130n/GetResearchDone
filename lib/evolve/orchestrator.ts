@@ -150,6 +150,17 @@ const {
   ) => Promise<MultiMilestoneResult>;
 } = require('../autopilot');
 const {
+  runGenomeSnapshot,
+  GenomeSplitIndexError,
+}: {
+  runGenomeSnapshot: (cwd: string) => {
+    action: 'created' | 'appended';
+    snapshot_date: string;
+    path: string;
+  };
+  GenomeSplitIndexError: new (msg: string) => Error;
+} = require('../genome');
+const {
   getEffectiveTierForDispatch,
 }: {
   getEffectiveTierForDispatch: (opts: {
@@ -878,6 +889,9 @@ async function runInfiniteEvolve(
   let totalGroupsDiscovered: number = 0;
   let totalItemsDiscovered: number = 0;
   let stoppedAt: string | null = null;
+  // Cached once per evolve invocation; auto_genome_snapshot is opt-in
+  // and read inside the cycle loop below (Tier-2 #8 follow-up).
+  const evolveConfig: GrdConfig = loadConfig(cwd);
 
   log(
     `Starting infinite evolve loop: maxCycles=${maxCycles}, timeBudget=${timeBudget}min, pickPct=${effectivePickPct}, dryRun=${dryRun}`
@@ -1067,6 +1081,26 @@ async function runInfiniteEvolve(
       autopilot_status: autopilotStatus,
       reason: autopilotResult.stopped_at ?? autopilotResult.converged_at ?? undefined,
     });
+
+    // Tier-2 #8 auto-genome follow-up: append a deterministic snapshot
+    // to .planning/GENOME.md at the end of each successful cycle, if
+    // the user opted in via config.evolve.auto_genome_snapshot. Append-
+    // only; split-index files are surfaced via warning and skipped.
+    if (
+      evolveConfig.evolve?.auto_genome_snapshot === true &&
+      (autopilotStatus === 'completed' || autopilotStatus === 'converged')
+    ) {
+      try {
+        const snap = runGenomeSnapshot(cwd);
+        log(`Genome snapshot ${snap.action} for cycle ${cycle + 1}: ${snap.path}`);
+      } catch (err) {
+        if (err instanceof GenomeSplitIndexError) {
+          log(`Genome snapshot skipped (split-index): ${err.message}`);
+        } else {
+          log(`Genome snapshot failed (non-blocking): ${String(err)}`);
+        }
+      }
+    }
   }
 
   // Summary — codex r5 P2 on PR #40: a graceful 'converged' cycle is

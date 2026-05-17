@@ -475,6 +475,8 @@ function loadConfig(cwd: string): GrdConfig {
         return {
           auto_commit: (e.auto_commit ?? true) as boolean,
           create_pr: (e.create_pr ?? true) as boolean,
+          // Tier-2 #8 auto-genome follow-up. Default off — opt-in.
+          auto_genome_snapshot: (e.auto_genome_snapshot ?? false) as boolean,
         };
       })(),
       // Scheduler config (pass-through)

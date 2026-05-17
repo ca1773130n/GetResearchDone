@@ -245,13 +245,30 @@ function cmdGenomeShow(cwd: string, raw: boolean): void {
   );
 }
 
-function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
+export interface SnapshotResult {
+  action: 'created' | 'appended';
+  snapshot_date: string;
+  path: string;
+}
+
+/** Sentinel error thrown by runGenomeSnapshot when GENOME.md is split-index. */
+export class GenomeSplitIndexError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GenomeSplitIndexError';
+  }
+}
+
+/**
+ * Pure-ish helper: same logic as cmdGenomeSnapshot but returns instead
+ * of calling `output()` (which exits the process). Lets callers like
+ * lib/evolve/orchestrator.ts append a snapshot at the end of a cycle
+ * without terminating the parent process. Throws
+ * GenomeSplitIndexError if GENOME.md is in split-index format —
+ * caller chooses whether to surface or swallow.
+ */
+function runGenomeSnapshot(cwd: string): SnapshotResult {
   const filePath = path.join(getPlanningDir(cwd), 'GENOME.md');
-  // YYYY-MM-DD only — multiple snapshots on the same date stack with
-  // their own section headers via the `## Snapshot ${ISO}` literal.
-  // Using full ISO would be unstable across the test boundary; date is
-  // human-friendly and the section header is still unique because we
-  // append (never overwrite).
   const today = new Date();
   const isoDate = today.toISOString().slice(0, 10);
   const section = _composeSnapshotSection(cwd, isoDate);
@@ -260,17 +277,11 @@ function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
   let action: 'created' | 'appended';
   if (fs.existsSync(filePath)) {
     prior = safeReadFile(filePath) ?? '';
-    // codex r1 P2 on PR #43: refuse to append to a split-index file.
-    // The planner reads GENOME via safeReadMarkdown, which reassembles
-    // only the linked partials and ignores any text appended to the
-    // index stub. A "successful" snapshot here would silently never
-    // reach planner context. Direct the user to the partial files.
     if (isIndexFile(prior)) {
-      error(
+      throw new GenomeSplitIndexError(
         `GENOME.md is in split-index format (<!-- GRD-INDEX -->). Snapshots cannot be appended to the stub — they would never reach planner context. Either edit the linked partial directly, or reassemble GENOME.md before snapshotting.`
       );
     }
-    // Ensure trailing newline before appending.
     if (!prior.endsWith('\n')) prior += '\n';
     action = 'appended';
   } else {
@@ -279,15 +290,26 @@ function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   atomicWriteFileSync(filePath, prior + '\n' + section);
-  output(
-    { action, snapshot_date: isoDate, path: path.relative(cwd, filePath) },
-    raw,
-    `${action} snapshot ${isoDate}`
-  );
+  return { action, snapshot_date: isoDate, path: path.relative(cwd, filePath) };
+}
+
+function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
+  let result: SnapshotResult;
+  try {
+    result = runGenomeSnapshot(cwd);
+  } catch (e) {
+    if (e instanceof GenomeSplitIndexError) {
+      error(e.message);
+    }
+    throw e;
+  }
+  output(result, raw, `${result.action} snapshot ${result.snapshot_date}`);
 }
 
 module.exports = {
   cmdGenomeInit,
   cmdGenomeShow,
   cmdGenomeSnapshot,
+  runGenomeSnapshot,
+  GenomeSplitIndexError,
 };

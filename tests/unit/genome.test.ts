@@ -19,6 +19,8 @@ const {
   cmdGenomeInit,
   cmdGenomeShow,
   cmdGenomeSnapshot,
+  runGenomeSnapshot,
+  GenomeSplitIndexError,
 } = require('../../lib/genome');
 
 function makeProject(): string {
@@ -323,6 +325,26 @@ describe('cmdGenomeSnapshot', () => {
       'utf-8'
     );
     expect(body).toMatch(/\| dead_ends_registered \| 2 \|/);
+  });
+
+  // ─── runGenomeSnapshot pure helper (Tier-2 #8 auto-genome follow-up) ──
+
+  test('runGenomeSnapshot returns result without exiting', () => {
+    const r = runGenomeSnapshot(projectDir);
+    expect(r.action).toBe('created');
+    expect(r.snapshot_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(r.path).toContain('GENOME.md');
+    expect(fs.existsSync(path.join(projectDir, '.planning', 'GENOME.md'))).toBe(true);
+  });
+
+  test('runGenomeSnapshot throws GenomeSplitIndexError on split-index file', () => {
+    fs.writeFileSync(
+      path.join(projectDir, '.planning', 'GENOME.md'),
+      ['<!-- GRD-INDEX -->', '', '- [part1](./GENOME.partial.md)', ''].join('\n'),
+      'utf-8'
+    );
+    expect(() => runGenomeSnapshot(projectDir)).toThrow(GenomeSplitIndexError);
+    expect(() => runGenomeSnapshot(projectDir)).toThrow(/split-index/);
   });
 
   test('repeated snapshots both append (history-preserving)', () => {
