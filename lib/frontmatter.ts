@@ -183,9 +183,22 @@ function extractFrontmatter(content: string): FrontmatterObject {
 }
 
 /**
- * Serialize a JavaScript object back to a YAML frontmatter string (without --- delimiters).
+ * Serialize a JavaScript object to YAML frontmatter body lines.
+ *
+ * The returned string is the BODY only — no leading/trailing `---`
+ * delimiters and no trailing newline. Callers are responsible for
+ * wrapping it. The canonical usage is:
+ *
+ *   const body = reconstructFrontmatter(obj);
+ *   const block = `---\n${body}\n---\n`;   // note the newline before `---`
+ *
+ * Concatenating `'---\n' + body + '---\n'` without the extra newline
+ * glues the closing `---` onto the last field's line and produces
+ * malformed YAML. See spliceFrontmatter (this file) for a worked
+ * example.
+ *
  * @param obj - Object to serialize into YAML-like frontmatter format
- * @returns YAML-formatted string with proper indentation for nested values
+ * @returns YAML-formatted body lines joined by `\n`, no trailing newline
  */
 function reconstructFrontmatter(obj: FrontmatterObject): string {
   const lines: string[] = [];

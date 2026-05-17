@@ -654,8 +654,8 @@ not all of the prediction held), `falsified` (prediction did not hold),
 | evidence | {2-4 bullet refs: file:line, command output line, gap table row, metric value} |
 
 If PLAN.md is missing either scalar, write `verdict: unknown` and put
-`PLAN.md missing required reflection scalar(s)` in evidence — do not
-fabricate values.
+`PLAN.md missing required reflection scalar(s)` in evidence.
+Do not fabricate values.
 
 ---
 
