@@ -548,6 +548,12 @@ const {
   ) => void;
 } = require('../lib/plan-tournament');
 
+const {
+  cmdThink,
+}: {
+  cmdThink: (cwd: string, opts: { limit?: number }, raw: boolean) => void;
+} = require('../lib/think');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1015,6 +1021,28 @@ async function routeCommand(
       } else {
         error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
       }
+      break;
+    }
+    case 'think': {
+      // Tier-3 #11 of the Ouroboros integration. One-shot project-state
+      // aggregator. No daemon, no LLM, writes only to .planning/thoughts/.
+      //
+      // codex r1 P3 on PR #42: strictly validate --limit. Pre-fix:
+      //   `--limit 1.5` parseInt → 1 (silent truncation)
+      //   `--limit 3abc` parseInt → 3 (silent truncation)
+      //   `--limit` (no value) → silently defaulted
+      // All three slipped past the positive-integer check downstream.
+      let limit: number | undefined;
+      if (args.indexOf('--limit') !== -1) {
+        const limitRaw = flag(args, '--limit');
+        if (limitRaw === undefined || !/^\d+$/.test(limitRaw)) {
+          error(
+            `--limit requires a positive integer value (got ${limitRaw === undefined ? '<missing>' : `"${limitRaw}"`})`
+          );
+        }
+        limit = parseInt(limitRaw as string, 10);
+      }
+      cmdThink(cwd, { limit }, raw);
       break;
     }
     case 'plan-tournament': {
