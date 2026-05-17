@@ -32,6 +32,8 @@ const {
   getMilestoneInfo,
   findPhaseInternal,
   loadConfig,
+  resolveModelForAgent,
+  MODEL_PROFILES: _MODEL_PROFILES_FOR_REFINEMENT,
 }: {
   execGit: (
     cwd: string,
@@ -41,7 +43,28 @@ const {
   getMilestoneInfo: (cwd: string) => MilestoneInfo;
   findPhaseInternal: (cwd: string, phase: string) => PhaseInfo | null;
   loadConfig: (cwd: string) => GrdConfig;
+  resolveModelForAgent: (
+    config: GrdConfig,
+    agentType: string,
+    cwd?: string,
+    options?: { effectiveTierOverride?: 'opus' | 'sonnet' | 'haiku' }
+  ) => string;
+  MODEL_PROFILES: Record<string, Record<string, string>>;
 } = require('./utils');
+const {
+  getEffectiveTierForDispatch,
+}: {
+  getEffectiveTierForDispatch: (opts: {
+    agentType: string;
+    prompt: string;
+    config: GrdConfig;
+    scheduler: unknown;
+    schedulerConfig?: GrdConfig['scheduler'];
+    superpowersConfig?: GrdConfig['superpowers'];
+    modelProfiles: Record<string, Record<string, string>>;
+    retry_attempt?: number;
+  }) => 'opus' | 'sonnet' | 'haiku';
+} = require('./backend');
 const {
   pushAndCreatePR,
 }: {
@@ -754,7 +777,11 @@ async function runRefinementLoop(
       const minimaRegions = _detectMinima(history);
       log(`Phase ${phaseNum}: refinement loop classifying branch as '${branch}'`);
 
-      // Step 6: Build critique prompt and spawn critique agent
+      // Step 6: Build critique prompt and spawn critique agent.
+      // Verify-fail retry escalation (Tier-2 #5 of Ouroboros integration):
+      // iteration 1 is the first attempt; iteration 2+ is a retry after a
+      // previous iteration failed to converge. Escalate the model tier by
+      // (iteration - 1) notches, capped at the strongest tier.
       const critiquePrompt = buildCritiqueAgentPrompt(
         phaseNum,
         branch,
@@ -762,12 +789,30 @@ async function runRefinementLoop(
         targets,
         minimaRegions
       );
+      const critiqueConfig = loadConfig(cwd);
+      const critiqueTier = getEffectiveTierForDispatch({
+        agentType: 'grd-verifier',
+        prompt: critiquePrompt,
+        config: critiqueConfig,
+        scheduler: scheduler ?? null,
+        schedulerConfig: critiqueConfig.scheduler,
+        superpowersConfig: critiqueConfig.superpowers,
+        modelProfiles: _MODEL_PROFILES_FOR_REFINEMENT,
+        retry_attempt: iteration - 1,
+      });
+      const critiqueModel = resolveModelForAgent(critiqueConfig, 'grd-verifier', cwd, {
+        effectiveTierOverride: critiqueTier,
+      });
       await spawnStep(
         critiquePrompt,
         cwd,
         `phase-${phaseNum}-critique-${iteration}`,
         scheduler ?? null,
-        { captureOutput: true, agentType: 'grd-verifier' }
+        {
+          captureOutput: true,
+          agentType: 'grd-verifier',
+          model: critiqueModel,
+        }
       );
 
       writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-complete`);

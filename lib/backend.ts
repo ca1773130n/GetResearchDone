@@ -1003,6 +1003,24 @@ function _applyDowngrade(baseTier: _ModelTier, count: number): _ModelTier {
 }
 
 /**
+ * Applies an upgrade count to a base tier, capped at the strongest tier.
+ * Symmetric to _applyDowngrade. Used for verify-fail retry escalation
+ * (Tier-2 #5 of the Ouroboros integration) — when a dispatch is a retry
+ * after a verification failure, the agent runs at a stronger tier than
+ * the base, capped at opus. Returns the base tier unchanged if it's not
+ * in _TIER_ORDER (passthrough).
+ *
+ * Note: _TIER_ORDER is ordered strongest-to-weakest (opus, sonnet, haiku),
+ * so "upgrade" decreases the index.
+ */
+function _applyUpgrade(baseTier: _ModelTier, count: number): _ModelTier {
+  const baseIndex = _TIER_ORDER.indexOf(baseTier);
+  if (baseIndex === -1) return baseTier;
+  const targetIndex = Math.max(baseIndex - count, 0);
+  return _TIER_ORDER[targetIndex];
+}
+
+/**
  * Computes the effective model tier for an agent dispatch given the
  * base tier (from MODEL_PROFILES), the user's token_profile preference,
  * the current budget pressure level, and the task's complexity level.
@@ -1089,13 +1107,28 @@ function getEffectiveTierForDispatch(opts: {
   schedulerConfig?: SchedulerConfig;
   superpowersConfig?: SuperpowersConfig;
   modelProfiles: Record<string, Record<string, string>>;
+  /**
+   * Verify-fail retry escalation (Tier-2 #5). Per-dispatch metadata: when
+   * this dispatch is a retry after a previous verification failed, set to
+   * the retry count (1 for the first retry, 2 for the second, etc.). The
+   * effective tier is escalated by this many notches, capped at the
+   * strongest tier (opus). 0 or omitted means first attempt — no escalation.
+   *
+   * This is per-work-item metadata only; it does NOT mutate global model
+   * preferences. The caller (e.g. the refinement loop in autopilot-pipeline)
+   * supplies its own retry counter.
+   */
+  retry_attempt?: number;
 }): _ModelTier {
   const profile = opts.config.model_profile || 'balanced';
   const agentEntry = opts.modelProfiles[opts.agentType];
   const baseTier = ((agentEntry && agentEntry[profile]) || 'sonnet') as _ModelTier;
+  const retryAttempt = opts.retry_attempt && opts.retry_attempt > 0 ? opts.retry_attempt : 0;
 
   if (!opts.scheduler || !opts.schedulerConfig || !opts.superpowersConfig) {
-    return baseTier;
+    // No adaptive chain available — apply retry escalation directly to
+    // the base tier so retry_attempt still has an effect.
+    return retryAttempt > 0 ? _applyUpgrade(baseTier, retryAttempt) : baseTier;
   }
 
   const states = opts.scheduler.getStates();
@@ -1156,12 +1189,18 @@ function getEffectiveTierForDispatch(opts: {
   );
   const tokenProfile: TokenProfileName = opts.config.token_profile || 'balanced';
 
-  const effectiveTier = computeEffectiveModelTier({
+  const adaptiveTier = computeEffectiveModelTier({
     baseTier,
     tokenProfile,
     pressure,
     complexity,
   });
+
+  // Verify-fail retry escalation (Tier-2 #5). Applied AFTER adaptive
+  // downgrade so that a retry escalates from whatever tier the adaptive
+  // chain landed on, not from the original baseTier. Capped at opus.
+  const effectiveTier =
+    retryAttempt > 0 ? _applyUpgrade(adaptiveTier, retryAttempt) : adaptiveTier;
 
   // Spec 4 Goal #7: log on pressure transitions only (O3: use per-scheduler
   // sessionKey instead of process.pid to avoid shared state across multiple
@@ -1184,6 +1223,7 @@ module.exports = {
   DEFAULT_BACKEND_MODELS,
   BACKEND_CAPABILITIES,
   EFFORT_PROFILES,
+  _applyUpgrade,
   detectBackend,
   resolveBackendModel,
   resolveEffortLevel,
