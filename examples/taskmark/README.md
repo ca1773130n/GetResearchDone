@@ -367,3 +367,24 @@ These agents coordinate autonomously. You set the direction; they handle the exe
 - **Research workflows:** Try `/grd:survey "your topic"` for paper-driven R&D
 - **Full reference:** Run `/grd:help` for all commands
 - **Advanced features:** Explore `/grd:settings` for model profiles, autonomous mode, and agent teams
+
+### Self-monitoring (added in v0.3.24)
+
+After running a few phases, GRD can introspect its own progress:
+
+```bash
+gd-tools think                          # one-shot briefing: phase, drift, verdicts, dead-ends, todos
+gd health                               # weighted drift score (goal / constraint / ontology)
+gd-tools dead-end promote-from-phase 1  # auto-record falsified hypotheses from VERIFICATION.md
+gd-tools genome init                    # scaffold .planning/GENOME.md (project-scoped strategy notes)
+gd-tools genome snapshot                # append a dated snapshot of current state
+```
+
+Each `VERIFICATION.md` now contains a `<reflection>` block with
+`hypothesis`, `predicted_outcome`, `actual_outcome`, and a `verdict`
+of `confirmed` / `partial` / `falsified`. The planner reads these on
+the next phase and refuses to re-propose anything marked falsified.
+
+Opt-in `evolve.auto_genome_snapshot: true` in `.planning/config.json`
+makes `/grd:evolve` auto-append a snapshot after every successful
+cycle, so the genome accumulates over time.
