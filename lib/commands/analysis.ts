@@ -1553,7 +1553,12 @@ const COST_PER_MILLION_BY_TIER: Record<string, number> = {
 function estimatePhaseTokens(cwd: string, phaseNum: string, config: Record<string, unknown>): PhaseTokenEstimate {
   const phaseDir = _findPhaseDirByNumber(cwd, phaseNum);
   const modelProfile = (config.model_profile as string) || 'balanced';
-  const tier = modelProfile === 'quality' ? 'high' : modelProfile === 'frugal' ? 'low' : 'medium';
+  // Codex r5 P2: model_profile values are quality/balanced/budget;
+  // 'frugal' is a token_profile value and never appears here, so the
+  // prior mapping silently routed `budget` projects to medium-tier
+  // estimates. Map model_profile correctly.
+  const tier =
+    modelProfile === 'quality' ? 'high' : modelProfile === 'budget' ? 'low' : 'medium';
   const tokensPerTask = TOKEN_AVERAGES_BY_TIER[tier] ?? TOKEN_AVERAGES_BY_TIER.medium;
   const costPerMillion = COST_PER_MILLION_BY_TIER[tier] ?? COST_PER_MILLION_BY_TIER.medium;
 
@@ -1564,7 +1569,12 @@ function estimatePhaseTokens(cwd: string, phaseNum: string, config: Record<strin
     for (const planFile of planFiles) {
       const content = safeReadFile(planFile);
       if (!content) continue;
-      const taskCount = (content.match(/^[-*]\s+\[/gm) || []).length || 1;
+      // Codex r5 P2: count XML <task> blocks alongside markdown
+      // checkboxes. GRD plans use the XML form; counting only checkboxes
+      // collapsed every multi-task XML plan to the fallback `1`.
+      const taskCount =
+        (content.match(/^[-*]\s+\[/gm) || []).length +
+        (content.match(/<task\b[^>]*>/gi) || []).length || 1;
       const agentName = path.basename(planFile, '-PLAN.md');
       const estTokens = taskCount * tokensPerTask;
       agents.push({
@@ -1650,16 +1660,31 @@ function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpac
     if (!deps.has(num)) deps.set(num, []);
   }
 
-  // Parse explicit "depends on" references. The roadmap commonly writes
-  // `**Depends on**: Phase 86 (...)` for a single parent, so match
-  // either a one-phase or two-phase pattern (codex r1 P2).
-  for (const m of roadmapContent.matchAll(
-    /[Dd]epends?\s+on(?:\*\*)?[:\s]+[Pp]hase\s+(\d+(?:\.\d+)?)(?:[^\n]*?[Pp]hase\s+(\d+(?:\.\d+)?))?/g
-  )) {
+  // Codex r5 P2: most roadmap blocks have `Depends on: Phase N` inside
+  // the *child* phase's section (i.e. the current phase being defined),
+  // so the regex captures only the parent and leaves child undefined.
+  // Walk the roadmap line-by-line tracking the enclosing phase context:
+  // a `#### Phase N: ...` (or comparable heading) sets the current
+  // phase; subsequent `Depends on: Phase M` lines add M → N edges.
+  let currentPhase: string | null = null;
+  const phaseHeadingRe = /^#{2,}\s*Phase\s+(\d+(?:\.\d+)?)\s*:/i;
+  const dependsOnRe =
+    /[Dd]epends?\s+on(?:\*\*)?[:\s]+[Pp]hase\s+(\d+(?:\.\d+)?)(?:[^\n]*?[Pp]hase\s+(\d+(?:\.\d+)?))?/;
+  for (const line of roadmapContent.split('\n')) {
+    const heading = line.match(phaseHeadingRe);
+    if (heading) {
+      currentPhase = heading[1].trim();
+      continue;
+    }
+    const m = line.match(dependsOnRe);
+    if (!m) continue;
     const parent = m[1].trim();
-    const child = m[2]?.trim();
+    const explicitChild = m[2]?.trim();
     if (!deps.has(parent)) deps.set(parent, []);
-    if (child) deps.get(parent)!.push(child);
+    // Two-phase pattern wins; single-parent falls back to enclosing
+    // phase context.
+    const child = explicitChild ?? currentPhase;
+    if (child && child !== parent) deps.get(parent)!.push(child);
   }
 
   // Also infer sequential deps: phase N+1 depends on phase N if no explicit deps declared
