@@ -86,6 +86,16 @@ const {
 } = require('./execute');
 
 const {
+  rankKnowhowByPhaseGoal,
+  parseKnowhowEntries: _parseKnowhowEntries,
+}: {
+  rankKnowhowByPhaseGoal: (goal: string, entries: import('../types').KnowhowEntry[], topN?: number) => import('../types').KnowhowEntry[];
+  parseKnowhowEntries: (content: string) => import('../types').KnowhowEntry[];
+} = require('../knowledge');
+
+const { safeReadFile: _safeReadFile }: { safeReadFile: (p: string) => string | null } = require('../utils');
+
+const {
   cmdInitMapCodebase,
 }: {
   cmdInitMapCodebase: (cwd: string, raw: boolean) => void;
@@ -358,6 +368,23 @@ function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw:
   if (includes && includes.has('roadmap')) {
     result.roadmap_content = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   }
+
+  // Inject top-5 KNOWHOW entries ranked by relevance to the phase goal (TF-IDF)
+  result.knowhow_block = (() => {
+    const knowhowPath = path.join(cwd, 'KNOWHOW.md');
+    const content = _safeReadFile(knowhowPath);
+    if (!content || !content.trim()) return null;
+    const entries = _parseKnowhowEntries(content);
+    if (entries.length === 0) return null;
+    const goal = [phaseInfo?.phase_name, phaseInfo?.phase_number ? `phase ${phaseInfo.phase_number}` : ''].filter(Boolean).join(' ');
+    const ranked = rankKnowhowByPhaseGoal(goal || 'implementation', entries, 5);
+    if (ranked.length === 0) return null;
+    const body = ranked.map((e) =>
+      `### ${e.pattern_name}\n- **applicability:** ${e.applicability}\n- **source:** ${e.source}\n`
+    ).join('\n');
+    return `<knowhow_context>\n${body}\n</knowhow_context>`;
+  })();
+
   output(
     result,
     raw,

@@ -15,8 +15,10 @@ const {
 } = require('../utils');
 const {
   todosDir: getTodosDirPath,
+  currentMilestone,
 }: {
   todosDir: (cwd: string) => string;
+  currentMilestone: (cwd: string) => string;
 } = require('../paths');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ interface TodoItem {
 interface TodoListResult {
   count: number;
   todos: TodoItem[];
+  milestone_version: string;
 }
 
 // ─── List Todos ──────────────────────────────────────────────────────────────
@@ -51,7 +54,7 @@ function cmdListTodos(cwd: string, area: string | null, raw: boolean): void {
   const todos: TodoItem[] = [];
 
   try {
-    const files: string[] = fs.readdirSync(pendingDir).filter((f: string) => f.endsWith('.md'));
+    const files: string[] = fs.readdirSync(pendingDir).filter((f: string) => f.endsWith('.md')).sort();
 
     for (const file of files) {
       try {
@@ -84,7 +87,8 @@ function cmdListTodos(cwd: string, area: string | null, raw: boolean): void {
     // Todos directory may not exist yet; proceed with empty list
   }
 
-  const result: TodoListResult = { count, todos };
+  const milestoneVersion: string = currentMilestone(cwd);
+  const result: TodoListResult = { count, todos, milestone_version: milestoneVersion };
   output(result, raw, count.toString());
 }
 
@@ -134,14 +138,127 @@ function cmdTodoComplete(cwd: string, filename: string, raw: boolean, dryRun?: b
   // Ensure completed directory exists
   fs.mkdirSync(completedDir, { recursive: true });
 
-  // Read, add completion timestamp, move
-  let content: string = fs.readFileSync(sourcePath, 'utf-8');
-  content = `completed: ${today}\n` + content;
+  const destPath = path.join(completedDir, filename);
 
-  fs.writeFileSync(path.join(completedDir, filename), content, 'utf-8');
+  const content: string = fs.readFileSync(sourcePath, 'utf-8');
+  // Write to dest first so source is untouched if the write fails
+  fs.writeFileSync(destPath, `completed: ${today}\n` + content, 'utf-8');
   fs.unlinkSync(sourcePath);
 
   output({ completed: true, file: filename, date: today }, raw, 'completed');
+}
+
+// ─── Rank Todos ──────────────────────────────────────────────────────────────
+
+/** A scored todo item for ranked output. */
+interface RankedTodo {
+  rank: number;
+  score: number;
+  file: string;
+  title: string;
+  area: string;
+  milestone: string;
+  signals: string[];
+}
+
+/** High-value keyword signals (security, perf, user-facing score highest). */
+const HIGH_VALUE_KEYWORDS = /\b(security|auth|perf|performance|user.facing|critical|export|import|diagnos|audit|rank|visual|bundle|research)\b/i;
+const MED_VALUE_KEYWORDS = /\b(test|fix|bug|error|fail|slow|memory|cache|refactor)\b/i;
+
+/**
+ * CLI command: Rank pending todos by keyword signal, title quality, and milestone age.
+ *
+ * Scans all .planning/milestones/{milestone}/todos/pending/ directories.
+ * Scores each todo by:
+ *   - High-value keywords: +3 per match (security, perf, user-facing, etc.)
+ *   - Medium-value keywords: +1 per match (fix, bug, error, etc.)
+ *   - Title clarity (longer than 10 chars): +1
+ *   - Problem/Solution sections present: +1 each
+ *
+ * @param cwd - Project working directory
+ * @param raw - Output raw text instead of JSON
+ * @param topN - How many results to return (default 20, 0 = all)
+ */
+function cmdTodosRank(cwd: string, raw: boolean, topN?: number): void {
+  const limit = topN !== undefined ? topN : 20;
+  const milestonesBase = path.join(cwd, '.planning', 'milestones');
+  const ranked: RankedTodo[] = [];
+
+  let msDirs: string[] = [];
+  try {
+    msDirs = (fs.readdirSync(milestonesBase) as string[]).filter((d) => {
+      try {
+        return fs.statSync(path.join(milestonesBase, d)).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    // milestones dir doesn't exist
+  }
+
+  for (const ms of msDirs) {
+    const pendingDir = path.join(milestonesBase, ms, 'todos', 'pending');
+    let files: string[];
+    try {
+      files = (fs.readdirSync(pendingDir) as string[]).filter((f: string) => f.endsWith('.md'));
+    } catch {
+      continue;
+    }
+
+    for (const file of files) {
+      try {
+        const content: string = fs.readFileSync(path.join(pendingDir, file), 'utf-8');
+        const titleMatch = content.match(/^title:\s*(.+)$/m);
+        const areaMatch = content.match(/^area:\s*(.+)$/m);
+        const title = titleMatch ? titleMatch[1].trim() : file;
+        const area = areaMatch ? areaMatch[1].trim() : 'general';
+
+        const searchText = `${title} ${content}`;
+        const signals: string[] = [];
+        let score = 0;
+
+        // Keyword scoring
+        const highMatches = searchText.match(HIGH_VALUE_KEYWORDS);
+        if (highMatches) {
+          const unique = [...new Set(highMatches.map((m) => m.toLowerCase()))];
+          score += unique.length * 3;
+          signals.push(...unique.map((k) => `+3 (${k})`));
+        }
+        const medMatches = searchText.match(MED_VALUE_KEYWORDS);
+        if (medMatches) {
+          const unique = [...new Set(medMatches.map((m) => m.toLowerCase()))];
+          score += unique.length;
+          signals.push(...unique.map((k) => `+1 (${k})`));
+        }
+
+        // Title clarity
+        if (title.length > 10) { score += 1; signals.push('+1 (clear title)'); }
+
+        // Sections present
+        if (/^##\s+Problem/m.test(content)) { score += 1; signals.push('+1 (has Problem)'); }
+        if (/^##\s+Solution/m.test(content)) { score += 1; signals.push('+1 (has Solution)'); }
+
+        ranked.push({ rank: 0, score, file, title, area, milestone: ms, signals });
+      } catch {
+        // skip unreadable files
+      }
+    }
+  }
+
+  // Sort descending by score
+  ranked.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+
+  const results = (limit > 0 ? ranked.slice(0, limit) : ranked).map((t, i) => ({
+    ...t,
+    rank: i + 1,
+  }));
+
+  output(
+    { total_scanned: ranked.length, returned: results.length, todos: results },
+    raw,
+    `${results.length} of ${ranked.length} todos ranked`
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
@@ -149,4 +266,5 @@ function cmdTodoComplete(cwd: string, filename: string, raw: boolean, dryRun?: b
 module.exports = {
   cmdListTodos,
   cmdTodoComplete,
+  cmdTodosRank,
 };

@@ -4098,3 +4098,101 @@ describe('cmdDashboard filter option', () => {
     expect(stderr).toContain('No ROADMAP.md found');
   });
 });
+
+// ─── cmdTodosRank ─────────────────────────────────────────────────────────────
+
+const { cmdTodosRank } = require('../../lib/commands/todo') as {
+  cmdTodosRank: (cwd: string, raw: boolean, topN?: number) => void;
+};
+
+describe('cmdTodosRank', () => {
+  let rankFixtureDir: string;
+
+  beforeEach(() => {
+    rankFixtureDir = createFixtureDir();
+    // Create milestone todo dir
+    const pendingDir = path.join(
+      rankFixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'todos',
+      'pending'
+    );
+    fs.mkdirSync(pendingDir, { recursive: true });
+
+    // Write two todos with different keyword signals
+    fs.writeFileSync(
+      path.join(pendingDir, 'todo-001.md'),
+      [
+        'title: Security Auth Hardening',
+        'area: security',
+        '',
+        '## Problem',
+        'Users can bypass auth checks.',
+        '',
+        '## Solution',
+        'Add auth guards everywhere.',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(pendingDir, 'todo-002.md'),
+      [
+        'title: Minor cleanup',
+        'area: general',
+        '',
+        '## Problem',
+        'Some code is messy.',
+      ].join('\n'),
+      'utf-8'
+    );
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(rankFixtureDir);
+  });
+
+  test('returns todos ranked by score descending', () => {
+    const { stdout, exitCode } = captureOutput(() => cmdTodosRank(rankFixtureDir, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.todos.length).toBeGreaterThan(0);
+    expect(parsed.todos[0].rank).toBe(1);
+    // Security todo should rank higher than minor cleanup
+    expect(parsed.todos[0].score).toBeGreaterThanOrEqual(parsed.todos[1].score);
+  });
+
+  test('respects topN limit', () => {
+    const { stdout } = captureOutput(() => cmdTodosRank(rankFixtureDir, false, 1));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.todos.length).toBe(1);
+    expect(parsed.returned).toBe(1);
+  });
+
+  test('topN=0 returns all todos', () => {
+    const { stdout } = captureOutput(() => cmdTodosRank(rankFixtureDir, false, 0));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.todos.length).toBe(parsed.total_scanned);
+  });
+
+  test('raw output is non-empty string', () => {
+    const { stdout } = captureOutput(() => cmdTodosRank(rankFixtureDir, true));
+    expect(stdout.trim().length).toBeGreaterThan(0);
+  });
+
+  test('returns empty list when no todos dir exists', () => {
+    // Use a fresh temp dir with no milestones (not the full fixture which has todos)
+    const tmpEmpty = fs.mkdtempSync(path.join(require('os').tmpdir(), 'grd-rank-empty-'));
+    fs.mkdirSync(path.join(tmpEmpty, '.planning', 'milestones'), { recursive: true });
+    try {
+      const { stdout, exitCode } = captureOutput(() => cmdTodosRank(tmpEmpty, false));
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout);
+      expect(parsed.total_scanned).toBe(0);
+      expect(parsed.todos).toHaveLength(0);
+    } finally {
+      fs.rmSync(tmpEmpty, { recursive: true, force: true });
+    }
+  });
+});

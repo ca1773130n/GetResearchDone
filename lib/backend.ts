@@ -894,6 +894,11 @@ function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailab
   const effectiveCwd: string = cwd || process.cwd();
   const unavailable: BackendAvailability = { available: false, version: null };
 
+  const probeCfg = readConfig(effectiveCwd);
+  const probeTimeouts = probeCfg?.timeouts as Record<string, unknown> | undefined;
+  const probeTimeout: number =
+    typeof probeTimeouts?.backend_probe_ms === 'number' ? probeTimeouts.backend_probe_ms : 5000;
+
   const result: Record<BackendId, BackendAvailability> = {
     claude: unavailable,
     codex: unavailable,
@@ -908,7 +913,7 @@ function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailab
     try {
       const stdout: string = execFileSync(backend, ['--version'], {
         cwd: effectiveCwd,
-        timeout: 5000,
+        timeout: probeTimeout,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
         env: buildBackendEnv(backend),

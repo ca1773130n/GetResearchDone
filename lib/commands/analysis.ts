@@ -759,13 +759,36 @@ function cmdPhaseTimeBudget(cwd: string, raw: boolean): void {
  * @param raw - Raw output flag
  * @param reset - If true, overwrite snapshot with current config
  */
-function cmdConfigDiff(cwd: string, raw: boolean, reset = false): void {
+function cmdConfigDiff(cwd: string, raw: boolean, reset = false, dryRun = false): void {
   const configPath = path.join(getPlanningDir(cwd), 'config.json');
   const snapshotPath = path.join(getPlanningDir(cwd), '.config-snapshot.json');
 
   const currentConfig = safeReadJSON(configPath, null) as Record<string, unknown> | null;
   if (!currentConfig) {
     output({ error: 'config.json not found', path: configPath }, raw);
+    return;
+  }
+
+  if (dryRun) {
+    const snapshot = fs.existsSync(snapshotPath)
+      ? (safeReadJSON(snapshotPath, null) as Record<string, unknown> | null)
+      : null;
+    if (!snapshot) {
+      output({ dry_run: true, action: 'would_create_snapshot', path: snapshotPath, note: 'No snapshot exists yet; --dry-run shows current config only' }, raw, 'DRY RUN: would save config snapshot');
+      return;
+    }
+    const flatCurrent = _flattenObject(currentConfig);
+    const flatSnapshot = _flattenObject(snapshot);
+    const changes: ConfigChangeEntry[] = [];
+    const allKeys = new Set([...Object.keys(flatCurrent), ...Object.keys(flatSnapshot)]);
+    for (const key of allKeys) {
+      const cur = flatCurrent[key];
+      const snap = flatSnapshot[key];
+      if (JSON.stringify(cur) !== JSON.stringify(snap)) {
+        changes.push({ key, old_value: snap ?? undefined, new_value: cur ?? undefined, explanation: _explainConfigChange(key, snap, cur) });
+      }
+    }
+    output({ dry_run: true, changes_count: changes.length, has_changes: changes.length > 0, changes, note: 'No files written (--dry-run)' }, raw, `DRY RUN: ${changes.length} change(s) detected — no snapshot updated`);
     return;
   }
 
@@ -1162,7 +1185,8 @@ function cmdImportKnowledge(
   sourcePath: string,
   types: string,
   raw: boolean,
-  force = false
+  force = false,
+  dryRun = false
 ): void {
   if (!sourcePath) {
     error('Source project path required');
@@ -1248,6 +1272,18 @@ function cmdImportKnowledge(
         imported: false,
         conflict: true,
         message: `${filename} already exists — use --force to overwrite`,
+      });
+      continue;
+    }
+
+    if (dryRun) {
+      results.push({
+        source: srcFile,
+        type,
+        destination: destFile,
+        imported: false,
+        conflict: destExists,
+        message: destExists ? `DRY RUN: would overwrite ${filename}` : `DRY RUN: would import ${filename}`,
       });
       continue;
     }
@@ -1457,7 +1493,10 @@ function cmdArtifactDAG(cwd: string, phase: string, raw: boolean): void {
 
   const dag = buildArtifactDAG(plans);
   const validation = validateArtifactDAG(dag, plans);
-  output({ phase, plans: plans.length, nodes: dag.nodes.length, edges: dag.edges.length, sorted_plans: dag.sorted_plans, valid: validation.valid, cycles: validation.cycles, missing_deps: validation.missing_deps, warnings: validation.warnings }, raw, `Phase ${phase} DAG: ${dag.nodes.length} nodes, ${dag.edges.length} edges, valid=${validation.valid}`);
+  if (dag.missing_requires.length > 0) {
+    process.stderr.write(`Warning: ${dag.missing_requires.length} unresolvable requires: ${dag.missing_requires.join(', ')}\n`);
+  }
+  output({ phase, plans: plans.length, nodes: dag.nodes.length, edges: dag.edges.length, sorted_plans: dag.sorted_plans, missing_requires: dag.missing_requires, valid: validation.valid, cycles: validation.cycles, missing_deps: validation.missing_deps, warnings: validation.warnings }, raw, `Phase ${phase} DAG: ${dag.nodes.length} nodes, ${dag.edges.length} edges, valid=${validation.valid}${dag.missing_requires.length > 0 ? ` (${dag.missing_requires.length} unresolvable requires)` : ''}`);
 }
 
 // ─── Benchmark Report ───────────────────────────────────────────────────────
@@ -1477,6 +1516,229 @@ function cmdBenchmarkReport(cwd: string, raw: boolean): void {
   output({ entries: entries.length, report }, raw, report);
 }
 
+// ─── Phase Cost Estimator ─────────────────────────────────────────────────────
+
+interface PhaseAgentEstimate {
+  agent: string;
+  tasks: number;
+  est_tokens: number;
+  est_cost_usd: number;
+}
+
+interface PhaseTokenEstimate {
+  phase: string;
+  agents: PhaseAgentEstimate[];
+  total_tokens: number;
+  total_cost_usd: number;
+  model_tier: string;
+  cheaper_alternative?: string;
+}
+
+/** Average tokens per agent task, seeded from empirical observations. */
+const TOKEN_AVERAGES_BY_TIER: Record<string, number> = {
+  high: 45000,
+  medium: 22000,
+  low: 8000,
+};
+const COST_PER_MILLION_BY_TIER: Record<string, number> = {
+  high: 15.0, // e.g. Opus
+  medium: 3.0, // e.g. Sonnet
+  low: 0.25,  // e.g. Haiku
+};
+
+/**
+ * Estimate token and dollar cost for a phase by counting tasks across plan files,
+ * looking up model tier from config, and applying historical per-agent averages.
+ */
+function estimatePhaseTokens(cwd: string, phaseNum: string, config: Record<string, unknown>): PhaseTokenEstimate {
+  const phaseDir = _findPhaseDirByNumber(cwd, phaseNum);
+  const modelProfile = (config.model_profile as string) || 'balanced';
+  const tier = modelProfile === 'quality' ? 'high' : modelProfile === 'frugal' ? 'low' : 'medium';
+  const tokensPerTask = TOKEN_AVERAGES_BY_TIER[tier] ?? TOKEN_AVERAGES_BY_TIER.medium;
+  const costPerMillion = COST_PER_MILLION_BY_TIER[tier] ?? COST_PER_MILLION_BY_TIER.medium;
+
+  const agents: PhaseAgentEstimate[] = [];
+
+  if (phaseDir) {
+    const planFiles = _collectPlanFiles(phaseDir);
+    for (const planFile of planFiles) {
+      const content = safeReadFile(planFile);
+      if (!content) continue;
+      const taskCount = (content.match(/^[-*]\s+\[/gm) || []).length || 1;
+      const agentName = path.basename(planFile, '-PLAN.md');
+      const estTokens = taskCount * tokensPerTask;
+      agents.push({
+        agent: agentName,
+        tasks: taskCount,
+        est_tokens: estTokens,
+        est_cost_usd: parseFloat(((estTokens / 1_000_000) * costPerMillion).toFixed(4)),
+      });
+    }
+  }
+
+  const totalTokens = agents.reduce((s, a) => s + a.est_tokens, 0);
+  const totalCost = parseFloat(agents.reduce((s, a) => s + a.est_cost_usd, 0).toFixed(4));
+
+  // Suggest cheaper tier if cost exceeds $0.50
+  const cheaperAlternative =
+    totalCost > 0.5 && tier !== 'low'
+      ? `Use model_profile=frugal to reduce cost by ~${Math.round((1 - COST_PER_MILLION_BY_TIER.low / costPerMillion) * 100)}%`
+      : undefined;
+
+  return { phase: phaseNum, agents, total_tokens: totalTokens, total_cost_usd: totalCost, model_tier: tier, cheaper_alternative: cheaperAlternative };
+}
+
+/**
+ * CLI command: Estimate token and dollar cost for a phase before execution.
+ * @param cwd - Project root
+ * @param phase - Phase number string
+ * @param raw - Raw output flag
+ */
+function cmdEstimatePhase(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) {
+    error('Phase number required');
+    return;
+  }
+  const config = require('../utils').loadConfig(cwd) as Record<string, unknown>;
+  const estimate = estimatePhaseTokens(cwd, phase, config);
+  const rawMsg = estimate.agents.length === 0
+    ? `Phase ${phase}: no plan files found`
+    : `Phase ${phase}: ~${estimate.total_tokens.toLocaleString()} tokens / $${estimate.total_cost_usd} (${estimate.model_tier} tier)${estimate.cheaper_alternative ? ' — ' + estimate.cheaper_alternative : ''}`;
+  output(estimate, raw, rawMsg);
+}
+
+// ─── Downstream Phase Impact Analyzer ────────────────────────────────────────
+
+interface ImpactPhaseEntry {
+  phase: string;
+  name: string;
+  status: string;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH';
+  depth: number;
+}
+
+interface DownstreamImpactResult {
+  source_phase: string;
+  affected_count: number;
+  high_risk_count: number;
+  affected_phases: ImpactPhaseEntry[];
+}
+
+/**
+ * Compute downstream phases that depend (directly or transitively) on the given phase.
+ * Parses phase dependency blocks from ROADMAP.md using a BFS traversal.
+ */
+function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpactResult {
+  const roadmapPath = path.join(getPlanningDir(cwd), 'ROADMAP.md');
+  const roadmapContent = safeReadFile(roadmapPath) || '';
+  const phasesPath = getPhasesDirPath(cwd);
+
+  // Build dependency graph: phaseN depends on phaseM means M → N edge
+  const deps = new Map<string, string[]>(); // parent → children
+  const phaseNames = new Map<string, string>();
+
+  for (const m of roadmapContent.matchAll(
+    /^[-*]\s+(?:Phase\s+)?(\d+(?:\.\d+)?)[:\s]+([^\n]+)/gim
+  )) {
+    const num = m[1].trim();
+    const name = m[2].replace(/\s*\(.*\)$/, '').trim();
+    phaseNames.set(num, name);
+    if (!deps.has(num)) deps.set(num, []);
+  }
+
+  // Parse explicit "depends on" references in roadmap
+  for (const m of roadmapContent.matchAll(
+    /[Dd]epends?\s+on\s+[Pp]hase\s+(\d+(?:\.\d+)?)[^.]*[Pp]hase\s+(\d+(?:\.\d+)?)/g
+  )) {
+    const parent = m[1].trim();
+    const child = m[2].trim();
+    if (!deps.has(parent)) deps.set(parent, []);
+    deps.get(parent)!.push(child);
+  }
+
+  // Also infer sequential deps: phase N+1 depends on phase N if no explicit deps declared
+  const allPhaseNums = Array.from(phaseNames.keys()).sort(
+    (a, b) => parseFloat(a) - parseFloat(b)
+  );
+  for (let i = 0; i < allPhaseNums.length - 1; i++) {
+    const parent = allPhaseNums[i];
+    const child = allPhaseNums[i + 1];
+    const parentChildren = deps.get(parent) || [];
+    if (!parentChildren.includes(child)) parentChildren.push(child);
+    deps.set(parent, parentChildren);
+  }
+
+  // Determine status of each phase
+  function _phaseStatus(num: string): string {
+    const normalized = num.padStart(2, '0');
+    try {
+      const entries: { isDirectory: () => boolean; name: string }[] = require('fs').readdirSync(
+        phasesPath,
+        { withFileTypes: true }
+      );
+      const dir = entries.find(
+        (e) => e.isDirectory() && (e.name.startsWith(normalized + '-') || e.name.startsWith(num + '-'))
+      );
+      if (!dir) return 'not_found';
+      const phaseDir = path.join(phasesPath, dir.name);
+      const files: string[] = require('fs').readdirSync(phaseDir);
+      const plans = files.filter((f: string) => f.endsWith('-PLAN.md')).length;
+      const summaries = files.filter((f: string) => f.endsWith('-SUMMARY.md')).length;
+      if (plans === 0) return 'planned';
+      if (summaries >= plans) return 'done';
+      if (summaries > 0) return 'executing';
+      return 'planned';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  // BFS from phaseNum to find all downstream
+  const visited = new Set<string>();
+  const queue: Array<{ phase: string; depth: number }> = [{ phase: phaseNum, depth: 0 }];
+  const affected: ImpactPhaseEntry[] = [];
+
+  while (queue.length > 0) {
+    const { phase, depth } = queue.shift()!;
+    if (visited.has(phase)) continue;
+    visited.add(phase);
+
+    if (phase !== phaseNum) {
+      const status = _phaseStatus(phase);
+      const risk: 'LOW' | 'MEDIUM' | 'HIGH' =
+        status === 'executing' ? 'HIGH' : status === 'planned' ? 'MEDIUM' : 'LOW';
+      affected.push({ phase, name: phaseNames.get(phase) || phase, status, risk, depth });
+    }
+
+    for (const child of deps.get(phase) || []) {
+      if (!visited.has(child)) queue.push({ phase: child, depth: depth + 1 });
+    }
+  }
+
+  affected.sort((a, b) => a.depth - b.depth || parseFloat(a.phase) - parseFloat(b.phase));
+  const highRisk = affected.filter((p) => p.risk === 'HIGH').length;
+
+  return { source_phase: phaseNum, affected_count: affected.length, high_risk_count: highRisk, affected_phases: affected };
+}
+
+/**
+ * CLI command: Show which downstream phases are affected if the given phase changes.
+ * @param cwd - Project root
+ * @param phase - Phase number string
+ * @param raw - Raw output flag
+ */
+function cmdImpact(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) {
+    error('Phase number required');
+    return;
+  }
+  const result = computeDownstreamImpact(cwd, phase);
+  const rawMsg = result.affected_count === 0
+    ? `Phase ${phase} has no downstream dependencies`
+    : `Phase ${phase} impacts ${result.affected_count} phase(s) (${result.high_risk_count} HIGH risk)`;
+  output(result, raw, rawMsg);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1494,4 +1756,8 @@ module.exports = {
   cmdCitationGraph,
   cmdArtifactDAG,
   cmdBenchmarkReport,
+  estimatePhaseTokens,
+  cmdEstimatePhase,
+  computeDownstreamImpact,
+  cmdImpact,
 };

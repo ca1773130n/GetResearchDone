@@ -930,3 +930,61 @@ describe('checkBinary cross-platform (I8 regression)', () => {
     expect(_checkBinary('this-binary-does-not-exist-99999xyz')).toBe(false);
   });
 });
+
+// ─── detectSpin ───────────────────────────────────────────────────────────────
+
+describe('detectSpin', () => {
+  const { detectSpin } = require('../../lib/scheduler') as {
+    detectSpin: (chunks: string[], threshold?: number, windowSize?: number) => {
+      detected: boolean;
+      repeated_pattern: string;
+      consecutive_count: number;
+      max_similarity: number;
+    };
+  };
+
+  it('returns detected=false for fewer than 3 chunks', () => {
+    const result = detectSpin(['hello world', 'hello world']);
+    expect(result.detected).toBe(false);
+  });
+
+  it('returns detected=false for empty chunks', () => {
+    expect(detectSpin([])).toMatchObject({ detected: false });
+  });
+
+  it('detects spin when 3+ identical consecutive chunks', () => {
+    const repeated = 'Error: type check failed\nCannot find module foo\ntype error at line 42';
+    const chunks = [repeated, repeated, repeated];
+    const result = detectSpin(chunks, 0.8);
+    expect(result.detected).toBe(true);
+    expect(result.consecutive_count).toBeGreaterThanOrEqual(2);
+    expect(result.max_similarity).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('does not detect spin when chunks are diverse', () => {
+    const chunks = [
+      'Running tests for module A',
+      'Compiling TypeScript files',
+      'Linting source code',
+      'Writing output to file',
+    ];
+    const result = detectSpin(chunks, 0.8);
+    expect(result.detected).toBe(false);
+  });
+
+  it('only looks at the last windowSize chunks', () => {
+    const repeated = 'same error message repeated here again';
+    // Last 3 chunks are clearly distinct; first 3 are identical
+    const chunks = [repeated, repeated, repeated, 'hello world xyz', 'compiling source foo bar baz qux', 'running unit tests passing all green'];
+    const result = detectSpin(chunks, 0.8, 3);
+    expect(result.detected).toBe(false);
+  });
+
+  it('populates repeated_pattern from the similar chunk', () => {
+    const pattern = 'TypeError: Cannot read property length of undefined at line 55';
+    const chunks = [pattern, pattern, pattern];
+    const result = detectSpin(chunks, 0.5);
+    expect(result.detected).toBe(true);
+    expect(result.repeated_pattern).toContain('TypeError');
+  });
+});

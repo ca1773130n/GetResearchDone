@@ -601,3 +601,347 @@ describe('selectTopEntries phase-proximity', () => {
     expect(top[1].pattern_name).toBe('Phase85');
   });
 });
+
+// ─── cmdKnowhowAudit ──────────────────────────────────────────────────────────
+
+const { cmdKnowhowAudit, cmdKnowhowDedup, rankKnowhowByPhaseGoal, cmdKnowhowRank } = require('../../lib/knowledge') as {
+  cmdKnowhowAudit: (cwd: string, raw: boolean) => void;
+  cmdKnowhowDedup: (cwd: string, raw: boolean, threshold?: number) => void;
+  rankKnowhowByPhaseGoal: (goal: string, entries: import('../../lib/types').KnowhowEntry[], topN?: number) => import('../../lib/types').KnowhowEntry[];
+  cmdKnowhowRank: (cwd: string, query: string, topN: number, raw: boolean) => void;
+};
+
+function makeTmpProject(): string {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-audit-'));
+  fs.mkdirSync(path.join(tmp, '.planning', 'milestones', 'v1.0', 'research'), { recursive: true });
+  return tmp;
+}
+
+function rmTmpProject(dir: string): void {
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+describe('cmdKnowhowAudit', () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) {
+      rmTmpProject(tmpDir);
+    }
+  });
+
+  it('reports zero flags when no KNOWHOW.md files exist', () => {
+    tmpDir = makeTmpProject();
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout, exitCode } = cap(() => cmdKnowhowAudit(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.total_entries).toBe(0);
+    expect(parsed.stale_count).toBe(0);
+    expect(parsed.flags).toHaveLength(0);
+  });
+
+  it('flags a broken file reference in source field', () => {
+    tmpDir = makeTmpProject();
+    const knowhowContent = [
+      '# KNOWHOW',
+      '',
+      '### BrokenRef Pattern',
+      '',
+      '- **source:** lib/nonexistent-file-xyz.ts',
+      '- **applicability:** When doing things',
+      '- **code_snippet:** const x = 1;',
+      '- **phase_number:** 5',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+    ].join('\n');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'KNOWHOW.md'),
+      knowhowContent,
+      'utf-8'
+    );
+
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout } = cap(() => cmdKnowhowAudit(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.stale_count).toBe(1);
+    expect(parsed.flags[0].issue).toBe('broken_ref');
+    expect(parsed.flags[0].pattern_name).toBe('BrokenRef Pattern');
+  });
+
+  it('detects contradictions between entries with opposite advice', () => {
+    tmpDir = makeTmpProject();
+    const knowhowContent = [
+      '# KNOWHOW',
+      '',
+      '### Caching Strategy',
+      '',
+      '- **source:** lib/cache.ts',
+      '- **applicability:** Always use in-memory caching for this module',
+      '- **code_snippet:** cache.set(key, val)',
+      '- **phase_number:** 10',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+      '### Caching Strategy',
+      '',
+      '- **source:** lib/cache.ts',
+      '- **applicability:** Never use in-memory caching — causes memory leaks',
+      '- **code_snippet:** // do not cache',
+      '- **phase_number:** 15',
+      '- **created_at:** 2026-02-01T00:00:00Z',
+    ].join('\n');
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'KNOWHOW.md'),
+      knowhowContent,
+      'utf-8'
+    );
+
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout } = cap(() => cmdKnowhowAudit(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.contradiction_count).toBe(1);
+    expect(parsed.flags.some((f: { issue: string }) => f.issue === 'contradicts')).toBe(true);
+  });
+
+  it('raw output is a non-empty string', () => {
+    tmpDir = makeTmpProject();
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout } = cap(() => cmdKnowhowAudit(tmpDir, true));
+    expect(stdout.trim().length).toBeGreaterThan(0);
+  });
+});
+
+// ─── cmdKnowhowDedup ──────────────────────────────────────────────────────────
+
+describe('cmdKnowhowDedup', () => {
+  let tmpDir: string;
+  const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+
+  afterEach(() => {
+    if (tmpDir) rmTmpProject(tmpDir);
+  });
+
+  function writeKnowhow(dir: string, content: string): void {
+    fs.mkdirSync(path.join(dir, '.planning', 'milestones', 'v1.0'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.planning', 'milestones', 'v1.0', 'KNOWHOW.md'),
+      content,
+      'utf-8'
+    );
+  }
+
+  it('returns zero pairs when no KNOWHOW files exist', () => {
+    tmpDir = makeTmpProject();
+    const { stdout, exitCode } = cap(() => cmdKnowhowDedup(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.entries_total).toBe(0);
+    expect(parsed.pairs_above_threshold).toBe(0);
+    expect(parsed.pairs).toHaveLength(0);
+  });
+
+  it('detects near-duplicate entries with high similarity', () => {
+    tmpDir = makeTmpProject();
+    const content = [
+      '# KNOWHOW',
+      '',
+      '### Prefer async await over callbacks',
+      '',
+      '- **source:** lib/utils.ts',
+      '- **applicability:** Always prefer async await over callback patterns for clarity',
+      '- **code_snippet:** async function foo() {}',
+      '- **phase_number:** 1',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+      '### Use async await instead of callbacks',
+      '',
+      '- **source:** lib/api.ts',
+      '- **applicability:** Always prefer async await over callback patterns for clarity',
+      '- **code_snippet:** async function bar() {}',
+      '- **phase_number:** 2',
+      '- **created_at:** 2026-01-02T00:00:00Z',
+    ].join('\n');
+    writeKnowhow(tmpDir, content);
+    const { stdout } = cap(() => cmdKnowhowDedup(tmpDir, false, 0.5));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.entries_total).toBe(2);
+    expect(parsed.pairs_above_threshold).toBeGreaterThanOrEqual(1);
+    expect(parsed.pairs[0]).toHaveProperty('similarity');
+    expect(parsed.pairs[0].similarity).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('returns no pairs when entries are completely different', () => {
+    tmpDir = makeTmpProject();
+    const content = [
+      '# KNOWHOW',
+      '',
+      '### Database indexing strategy',
+      '',
+      '- **source:** lib/db.ts',
+      '- **applicability:** Add composite index on user_id and created_at for query performance',
+      '- **code_snippet:** CREATE INDEX idx ON table(user_id, created_at);',
+      '- **phase_number:** 3',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+      '### Logging pattern',
+      '',
+      '- **source:** lib/logger.ts',
+      '- **applicability:** Use structured JSON logging for machine parseable output',
+      '- **code_snippet:** logger.info({ event, data });',
+      '- **phase_number:** 4',
+      '- **created_at:** 2026-01-02T00:00:00Z',
+    ].join('\n');
+    writeKnowhow(tmpDir, content);
+    const { stdout } = cap(() => cmdKnowhowDedup(tmpDir, false, 0.75));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.pairs_above_threshold).toBe(0);
+  });
+
+  it('writes report to .planning/KNOWHOW-DEDUP.md', () => {
+    tmpDir = makeTmpProject();
+    const content = [
+      '# KNOWHOW',
+      '',
+      '### Pattern A',
+      '',
+      '- **source:** lib/a.ts',
+      '- **applicability:** test pattern for dedup',
+      '- **code_snippet:** const a = 1;',
+      '- **phase_number:** 1',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+    ].join('\n');
+    writeKnowhow(tmpDir, content);
+    cap(() => cmdKnowhowDedup(tmpDir, false));
+    const reportPath = path.join(tmpDir, '.planning', 'KNOWHOW-DEDUP.md');
+    expect(fs.existsSync(reportPath)).toBe(true);
+    const reportContent = fs.readFileSync(reportPath, 'utf-8');
+    expect(reportContent).toContain('KNOWHOW Deduplication Report');
+  });
+
+  it('raw output is a non-empty string', () => {
+    tmpDir = makeTmpProject();
+    const { stdout } = cap(() => cmdKnowhowDedup(tmpDir, true));
+    expect(stdout.trim().length).toBeGreaterThan(0);
+  });
+
+  it('sorts multiple pairs by similarity descending', () => {
+    tmpDir = makeTmpProject();
+    // 3 entries, all similar to each other -> 3 pairs, forces sort comparator
+    const content = [
+      '# KNOWHOW',
+      '',
+      '### Always use async await over callbacks everywhere consistently',
+      '',
+      '- **source:** lib/a.ts',
+      '- **applicability:** Always use async await over callbacks everywhere consistently',
+      '- **code_snippet:** async function foo() {}',
+      '- **phase_number:** 1',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+      '### Always use async await instead of callbacks everywhere consistently',
+      '',
+      '- **source:** lib/b.ts',
+      '- **applicability:** Always use async await instead of callbacks everywhere consistently',
+      '- **code_snippet:** async function bar() {}',
+      '- **phase_number:** 2',
+      '- **created_at:** 2026-01-02T00:00:00Z',
+      '',
+      '### Use async await over callbacks always everywhere in code consistently',
+      '',
+      '- **source:** lib/c.ts',
+      '- **applicability:** Use async await over callbacks always everywhere in code consistently',
+      '- **code_snippet:** async function baz() {}',
+      '- **phase_number:** 3',
+      '- **created_at:** 2026-01-03T00:00:00Z',
+    ].join('\n');
+    writeKnowhow(tmpDir, content);
+    const { stdout } = cap(() => cmdKnowhowDedup(tmpDir, false, 0.3));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.entries_total).toBe(3);
+    if (parsed.pairs_above_threshold >= 2) {
+      // Verify sorted descending by similarity
+      for (let i = 0; i < parsed.pairs.length - 1; i++) {
+        expect(parsed.pairs[i].similarity).toBeGreaterThanOrEqual(parsed.pairs[i + 1].similarity);
+      }
+    }
+  });
+});
+
+// ─── rankKnowhowByPhaseGoal ───────────────────────────────────────────────────
+
+describe('rankKnowhowByPhaseGoal', () => {
+  it('returns empty array when entries is empty', () => {
+    expect(rankKnowhowByPhaseGoal('any goal', [])).toEqual([]);
+  });
+
+  it('returns empty array when goal is empty string', () => {
+    const entries = [makeEntry({ pattern_name: 'X' })];
+    expect(rankKnowhowByPhaseGoal('', entries)).toEqual([]);
+  });
+
+  it('returns at most topN entries', () => {
+    const entries = Array.from({ length: 10 }, (_, i) =>
+      makeEntry({ pattern_name: `P${i}`, applicability: `thing ${i}` })
+    );
+    const result = rankKnowhowByPhaseGoal('thing', entries, 3);
+    expect(result).toHaveLength(3);
+  });
+
+  it('ranks entries with matching keywords higher', () => {
+    const relevant = makeEntry({ pattern_name: 'Relevant', applicability: 'use caching for database queries' });
+    const irrelevant = makeEntry({ pattern_name: 'Irrelevant', applicability: 'UI rendering styles' });
+    const result = rankKnowhowByPhaseGoal('caching database', [irrelevant, relevant], 5);
+    expect(result[0].pattern_name).toBe('Relevant');
+  });
+
+  it('uses default topN of 5', () => {
+    const entries = Array.from({ length: 8 }, (_, i) =>
+      makeEntry({ pattern_name: `P${i}`, applicability: 'testing scheduler' })
+    );
+    const result = rankKnowhowByPhaseGoal('scheduler', entries);
+    expect(result).toHaveLength(5);
+  });
+
+  it('returns all entries when count < topN', () => {
+    const entries = [makeEntry({ pattern_name: 'A' }), makeEntry({ pattern_name: 'B' })];
+    const result = rankKnowhowByPhaseGoal('any goal here', entries, 5);
+    expect(result).toHaveLength(2);
+  });
+});
+
+// ─── cmdKnowhowRank ───────────────────────────────────────────────────────────
+
+describe('cmdKnowhowRank', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-rank-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns message when KNOWHOW.md does not exist', () => {
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout, exitCode } = cap(() => cmdKnowhowRank(tmpDir, 'caching', 5, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.entries).toHaveLength(0);
+  });
+
+  it('returns ranked entries matching query', () => {
+    const entries = [
+      makeEntry({ pattern_name: 'Cache Pattern', applicability: 'use caching for database' }),
+      makeEntry({ pattern_name: 'UI Pattern', applicability: 'render components with styles' }),
+    ];
+    const content = '# KNOWHOW\n\n' + entries.map(formatKnowhowEntry).join('\n');
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout, exitCode } = cap(() => cmdKnowhowRank(tmpDir, 'caching database', 5, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.total).toBe(2);
+    expect(parsed.entries[0].pattern_name).toBe('Cache Pattern');
+  });
+});

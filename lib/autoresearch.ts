@@ -68,6 +68,12 @@ const {
 } = require('./paths');
 
 const {
+  ADAPTERS: _ADAPTERS,
+}: {
+  ADAPTERS: Record<string, { binary: string }>;
+} = require('./scheduler');
+
+const {
   buildKnowledgeInjectionBlock,
 }: {
   buildKnowledgeInjectionBlock: (cwd: string, phaseNum: string, moduleHints?: string[]) => string;
@@ -86,6 +92,11 @@ const {
     edges: { from: string; to: string; type: string }[];
   }) => { slug: string; title: string; priority: string }[];
 } = require('./citations');
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** Maximum characters from LANDSCAPE.md injected into research context. Override via arConfig.autoresearch?.landscape_max_chars. */
+const LANDSCAPE_MAX_CHARS = 3000;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -171,6 +182,8 @@ async function _spawnClaude(
     scheduler?: Scheduler | null;
     /** Agent type hint for complexity-based tier routing (M2). */
     agentType?: string;
+    /** Override binary name for the sync fallback path. Defaults to ADAPTERS.claude.binary. */
+    binary?: string;
   } = {}
 ): Promise<{ exitCode: number; stdout: string; timedOut: boolean }> {
   if (opts.scheduler) {
@@ -193,16 +206,18 @@ async function _spawnClaude(
       return { exitCode: 1, stdout: '', timedOut: false };
     }
   }
-  return _spawnClaudeSync(cwd, prompt, opts);
+  const binary = opts.binary ?? _ADAPTERS['claude']?.binary ?? 'claude';
+  return _spawnClaudeSync(cwd, prompt, { ...opts, binary });
 }
 
 function _spawnClaudeSync(
   cwd: string,
   prompt: string,
-  opts: { timeout?: number; maxTurns?: number; model?: string; captureOutput?: boolean } = {}
+  opts: { timeout?: number; maxTurns?: number; model?: string; captureOutput?: boolean; binary?: string } = {}
 ): { exitCode: number; stdout: string; timedOut: boolean } {
+  const binary = opts.binary ?? 'claude';
   const args: string[] = ['-p', prompt, '--verbose', '--dangerously-skip-permissions'];
-  if (opts.maxTurns) args.push('--max-turns', String(opts.maxTurns));
+  if (opts.maxTurns !== undefined && opts.maxTurns > 0) args.push('--max-turns', String(opts.maxTurns));
   if (opts.model) args.push('--model', opts.model);
 
   const env: Record<string, string | undefined> = { ...process.env };
@@ -212,7 +227,7 @@ function _spawnClaudeSync(
     }
   }
 
-  const result = childProcess.spawnSync('claude', args, {
+  const result = childProcess.spawnSync(binary, args, {
     cwd,
     stdio: opts.captureOutput ? 'pipe' : ['ignore', 'pipe', 'pipe'],
     env,
@@ -235,14 +250,17 @@ function _spawnClaudeSync(
 
 // ─── Metric Collection ──────────────────────────────────────────────────────
 
-function _collectMetric(cwd: string, metric: string): number {
+function _collectMetric(cwd: string, metric: string, timeouts?: import('./types').GrdTimeouts): number {
+  const testTimeout = timeouts?.autoresearch_test_ms ?? 120000;
+  const coverageTimeout = timeouts?.autoresearch_coverage_ms ?? 180000;
+  const lintTimeout = timeouts?.autoresearch_lint_ms ?? 60000;
   switch (metric) {
     case 'test_count': {
       const result = childProcess.spawnSync('npx', ['jest', '--json', '--silent'], {
         cwd,
         stdio: 'pipe',
         encoding: 'utf-8',
-        timeout: 120000,
+        timeout: testTimeout,
       });
       try {
         const json = JSON.parse((result.stdout || '') as string);
@@ -252,10 +270,13 @@ function _collectMetric(cwd: string, metric: string): number {
       }
     }
     case 'coverage': {
+      // Omit --silent so the coverage table appears in stdout for the fallback parser.
+      // The primary path (coverage-summary.json) is unaffected; --silent would hide
+      // the table and cause the fallback to always return 0.
       const result = childProcess.spawnSync(
         'npx',
-        ['jest', '--coverage', '--coverageReporters=json-summary', '--silent'],
-        { cwd, stdio: 'pipe', encoding: 'utf-8', timeout: 180000 }
+        ['jest', '--coverage', '--coverageReporters=json-summary'],
+        { cwd, stdio: 'pipe', encoding: 'utf-8', timeout: coverageTimeout }
       );
       try {
         const summaryPath = path.join(cwd, 'coverage', 'coverage-summary.json');
@@ -273,7 +294,7 @@ function _collectMetric(cwd: string, metric: string): number {
         cwd,
         stdio: 'pipe',
         encoding: 'utf-8',
-        timeout: 60000,
+        timeout: lintTimeout,
       });
       try {
         const json = JSON.parse((result.stdout || '') as string);
@@ -334,7 +355,7 @@ function _buildResearchContext(cwd: string, topic: string, iteration: number): s
   const landscapePath = path.join(researchDir, 'LANDSCAPE.md');
   if (fs.existsSync(landscapePath)) {
     const content = fs.readFileSync(landscapePath, 'utf-8') as string;
-    parts.push(`<landscape>\n${content.slice(0, 3000)}\n</landscape>`);
+    parts.push(`<landscape>\n${content.slice(0, LANDSCAPE_MAX_CHARS)}\n</landscape>`);
   }
 
   // PAPERS.md — citation graph summary
@@ -426,7 +447,7 @@ async function _runAutoresearchLoop(
   cwd: string,
   options: AutoResearchOptions
 ): Promise<AutoResearchState> {
-  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun, scheduler } = options;
+  const { topic, maxExperiments, timeBudget, metric, model, maxTurns, dryRun, scheduler, maxDeepDives } = options;
 
   // Load config once for the adaptive tier chain (Spec 4).
   const arConfig: GrdConfig = loadConfig(cwd);
@@ -438,7 +459,7 @@ async function _runAutoresearchLoop(
   // Create branch
   _log(`Starting autoresearch on topic: ${topic}`);
   _log(
-    `Metric: ${metric}, time budget: ${timeBudget}min/experiment, max: ${maxExperiments || 'unlimited'}`
+    `Metric: ${metric}, time budget: ${timeBudget > 0 ? `${timeBudget}min` : 'unlimited'}/experiment, max: ${maxExperiments || 'unlimited'}`
   );
 
   const branchResult = _execGit(cwd, ['checkout', '-b', branchName]);
@@ -462,10 +483,11 @@ async function _runAutoresearchLoop(
 
   // Step 1: Collect baseline metric
   _log('Collecting baseline metric...');
-  const baseline = _collectMetric(cwd, metric);
+  const baseline = _collectMetric(cwd, metric, arConfig.timeouts);
   _log(`Baseline ${metric}: ${baseline.toFixed(4)}`);
 
   let best = baseline;
+  let deepDivesThisRun = 0;
   const experiments: ExperimentResult[] = [];
 
   // Log baseline
@@ -508,7 +530,7 @@ async function _runAutoresearchLoop(
               effectiveTierOverride: surveyTier,
             });
         await _spawnClaude(cwd, surveyPrompt, {
-          timeout: timeBudget * 60 * 1000,
+          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
           model: surveyModel,
           maxTurns,
           scheduler,
@@ -523,7 +545,8 @@ async function _runAutoresearchLoop(
 
   // Step 3: Experiment loop
   let iteration = 1;
-  const maxIter = maxExperiments || Infinity;
+  // Dry-run with --max 0 would spin forever (Infinity); cap at 3 to show a representative sample.
+  const maxIter = dryRun && maxExperiments === 0 ? 3 : maxExperiments || Infinity;
 
   while (iteration <= maxIter) {
     _log(`\n═══ Experiment #${iteration} ═══`);
@@ -579,7 +602,7 @@ async function _runAutoresearchLoop(
         });
     // Spawn experiment subprocess
     const spawnResult = await _spawnClaude(cwd, prompt, {
-      timeout: timeBudget * 60 * 1000,
+      timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
       model: experimentModel,
       maxTurns,
       captureOutput: true,
@@ -639,7 +662,7 @@ async function _runAutoresearchLoop(
 
     // Evaluate metric
     _log(`Evaluating ${metric}...`);
-    const newMetric = _collectMetric(cwd, metric);
+    const newMetric = _collectMetric(cwd, metric, arConfig.timeouts);
     const commit = _execGit(cwd, ['rev-parse', '--short', 'HEAD']).stdout;
     const improved = newMetric > best;
 
@@ -662,6 +685,35 @@ async function _runAutoresearchLoop(
       };
       _appendTsv(tsvPath, keepResult);
       experiments.push(keepResult);
+
+      // After a successful keep, run a deep-dive if budget allows
+      if (maxDeepDives > 0 && deepDivesThisRun < maxDeepDives) {
+        deepDivesThisRun++;
+        _log(`Running deep-dive ${deepDivesThisRun}/${maxDeepDives} after successful keep...`);
+        const deepDivePrompt = `Use the Skill tool to invoke skill "grd:deep-dive" with args "${topic}". Focus on the most recent successful experiment. Autonomous mode — make all decisions yourself, no questions.`;
+        const deepDiveTier = getEffectiveTierForDispatch({
+          agentType: 'grd-deep-diver',
+          prompt: deepDivePrompt,
+          config: arConfig,
+          scheduler: scheduler ?? null,
+          schedulerConfig: arConfig.scheduler,
+          superpowersConfig: arConfig.superpowers,
+          modelProfiles: MODEL_PROFILES,
+        });
+        const deepDiveModel: string | undefined = model
+          ? model
+          : resolveModelForAgent(arConfig, 'autoresearch', cwd, {
+              effectiveTierOverride: deepDiveTier,
+            });
+        await _spawnClaude(cwd, deepDivePrompt, {
+          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
+          model: deepDiveModel,
+          maxTurns,
+          scheduler,
+          agentType: 'grd-deep-diver',
+        });
+        _log(`Deep-dive ${deepDivesThisRun} complete`);
+      }
     } else {
       _log(`✗ DISCARD — ${metric}: ${newMetric.toFixed(4)} (best: ${best.toFixed(4)}) — reverting`);
       _execGit(cwd, ['reset', '--hard', headBefore]);
@@ -742,15 +794,36 @@ async function cmdAutoResearch(
     return;
   }
 
+  // 0 = unlimited (default); any positive integer caps the experiment count
+  const maxExperimentsRaw = flagVal('--max') ? parseInt(flagVal('--max')!, 10) : 0;
+  if (isNaN(maxExperimentsRaw) || maxExperimentsRaw < 0) {
+    error('--max must be a non-negative integer (0 = unlimited)');
+  }
+
+  const timeBudgetRaw = parseInt(flagVal('--time-budget', '10')!, 10);
+  if (isNaN(timeBudgetRaw) || timeBudgetRaw < 0) {
+    error('--time-budget must be a non-negative integer');
+  }
+
+  const maxDeepDivesRaw = parseInt(flagVal('--max-deep-dives', '3')!, 10);
+  if (isNaN(maxDeepDivesRaw) || maxDeepDivesRaw < 0) {
+    error('--max-deep-dives must be a non-negative integer');
+  }
+
+  const maxTurnsRaw = flagVal('--max-turns') ? parseInt(flagVal('--max-turns')!, 10) : undefined;
+  if (maxTurnsRaw !== undefined && (isNaN(maxTurnsRaw) || maxTurnsRaw <= 0)) {
+    error('--max-turns must be a positive integer');
+  }
+
   const options: AutoResearchOptions = {
     topic,
-    maxExperiments: parseInt(flagVal('--max', '0')!, 10),
-    timeBudget: parseInt(flagVal('--time-budget', '10')!, 10),
+    maxExperiments: maxExperimentsRaw, // 0 = unlimited
+    timeBudget: timeBudgetRaw,
     metric: flagVal('--metric', 'test_count')!,
     autoSurvey: !args.includes('--no-survey'),
-    maxDeepDives: parseInt(flagVal('--max-deep-dives', '3')!, 10),
+    maxDeepDives: maxDeepDivesRaw,
     model: flagVal('--model'),
-    maxTurns: flagVal('--max-turns') ? parseInt(flagVal('--max-turns')!, 10) : undefined,
+    maxTurns: maxTurnsRaw,
     dryRun: args.includes('--dry-run'),
     scheduler,
   };

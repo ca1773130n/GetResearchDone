@@ -93,9 +93,14 @@ function detectOverstory(cwd: string, preloadedConfig?: OverstoryConfig): Overst
 }
 
 function installOverstory(cwd: string): void {
+  const ovCfg = safeReadJSON(path.join(cwd, '.planning', 'config.json'), {}) as Record<string, unknown>;
+  const ovTimeouts = ovCfg.timeouts as Record<string, unknown> | undefined;
+  const probeMs: number = typeof ovTimeouts?.overstory_probe_ms === 'number' ? ovTimeouts.overstory_probe_ms : 5000;
+  const installMs: number = typeof ovTimeouts?.overstory_install_ms === 'number' ? ovTimeouts.overstory_install_ms : 120000;
+
   try {
     execFileSync('bun', ['--version'], {
-      timeout: 5000,
+      timeout: probeMs,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -107,7 +112,7 @@ function installOverstory(cwd: string): void {
 
   execFileSync('bun', ['install', '-g', 'overstory'], {
     cwd,
-    timeout: 120000,
+    timeout: installMs,
     encoding: 'utf-8',
     stdio: ['pipe', 'pipe', 'pipe'],
   });

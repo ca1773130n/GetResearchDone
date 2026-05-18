@@ -449,6 +449,10 @@ const {
   cmdCitationGraph,
   cmdArtifactDAG,
   cmdBenchmarkReport,
+  cmdKnowhowSearch,
+  cmdCheckPlans,
+  cmdEvalDiff,
+  cmdTail,
 }: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
@@ -518,6 +522,10 @@ const {
   cmdCitationGraph: (cwd: string, raw: boolean, unresolvedOnly?: boolean) => void;
   cmdArtifactDAG: (cwd: string, phase: string, raw: boolean) => void;
   cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
+  cmdKnowhowSearch: (cwd: string, query: string, topN: number, raw: boolean) => void;
+  cmdCheckPlans: (cwd: string, options: { phase?: string | null; milestone?: string | null }, raw: boolean) => void;
+  cmdEvalDiff: (cwd: string, phaseA: string, phaseB: string, raw: boolean) => void;
+  cmdTail: (cwd: string, phaseFilter: string | null, follow: boolean, raw: boolean) => void;
 } = require('../lib/commands/index');
 
 const {
@@ -553,6 +561,84 @@ const {
 }: {
   cmdThink: (cwd: string, opts: { limit?: number }, raw: boolean) => void;
 } = require('../lib/think');
+
+const {
+  cmdExportResearch,
+  cmdImportResearch,
+}: {
+  cmdExportResearch: (cwd: string, outputPath: string | null, raw: boolean) => void;
+  cmdImportResearch: (cwd: string, bundlePath: string, raw: boolean) => void;
+} = require('../lib/research-bundle');
+
+const {
+  cmdDiagnosePhase,
+}: {
+  cmdDiagnosePhase: (cwd: string, phase: string, raw: boolean) => void;
+} = require('../lib/verify');
+
+const {
+  cmdKnowhowAudit,
+  cmdKnowhowDedup,
+  cmdKnowhowRank,
+}: {
+  cmdKnowhowAudit: (cwd: string, raw: boolean) => void;
+  cmdKnowhowDedup: (cwd: string, raw: boolean, threshold?: number) => void;
+  cmdKnowhowRank: (cwd: string, query: string, topN: number, raw: boolean) => void;
+} = require('../lib/knowledge');
+
+const {
+  cmdPhaseDepsVisualize,
+  cmdExecutePhaseDryRun,
+}: {
+  cmdPhaseDepsVisualize: (
+    cwd: string,
+    opts: { milestone?: string | null; format?: string | null },
+    raw: boolean
+  ) => void;
+  cmdExecutePhaseDryRun: (cwd: string, phase: string, raw: boolean) => void;
+} = require('../lib/deps');
+
+const {
+  cmdTodosRank,
+}: {
+  cmdTodosRank: (cwd: string, raw: boolean, topN?: number) => void;
+} = require('../lib/commands/todo');
+
+const {
+  cmdRollback,
+}: {
+  cmdRollback: (cwd: string, phase: string, raw: boolean) => void;
+} = require('../lib/commands/rollback');
+
+const {
+  cmdEstimate,
+}: {
+  cmdEstimate: (cwd: string, phase: string, raw: boolean) => void;
+} = require('../lib/commands/estimate');
+
+const {
+  cmdBudget,
+}: {
+  cmdBudget: (cwd: string, phaseArg: string, raw: boolean) => void;
+} = require('../lib/commands/budget');
+
+const {
+  cmdBlame,
+}: {
+  cmdBlame: (cwd: string, phaseArg: string, raw: boolean) => void;
+} = require('../lib/commands/blame');
+
+const {
+  cmdKnowhowAggregate,
+}: {
+  cmdKnowhowAggregate: (cwd: string, raw: boolean, exportFlag?: boolean) => void;
+} = require('../lib/commands/knowhow-aggregator');
+
+const {
+  cmdFreshness,
+}: {
+  cmdFreshness: (cwd: string, phaseArg: string | null, raw: boolean) => void;
+} = require('../lib/commands/freshness');
 
 const {
   cmdGenomeInit,
@@ -722,16 +808,6 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'stop-failure-hook', handler: (_args, cwd, raw) => cmdStopFailureHook(cwd, raw) },
   { command: 'post-compact-hook', handler: (_args, cwd, raw) => cmdPostCompactHook(cwd, raw) },
   {
-    command: 'knowhow',
-    handler: (args, cwd, raw) =>
-      cmdKnowhowList(
-        cwd,
-        raw,
-        flag(args, '--module'),
-        flag(args, '--limit') ? parseInt(flag(args, '--limit')!, 10) : undefined
-      ),
-  },
-  {
     command: 'citation-graph',
     handler: (args, cwd, raw) => cmdCitationGraph(cwd, raw, args.includes('--unresolved')),
   },
@@ -743,6 +819,259 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     },
   },
   { command: 'benchmark-report', handler: (_args, cwd, raw) => cmdBenchmarkReport(cwd, raw) },
+  {
+    command: 'diagnose',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd diagnose <phase>');
+      validatePhaseArg(args[1]);
+      return cmdDiagnosePhase(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'export-research',
+    handler: (args, cwd, raw) => cmdExportResearch(cwd, flag(args, '--output') ?? null, raw),
+  },
+  {
+    command: 'import-research',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('bundle path required. Usage: gd import-research <bundle.tar.gz>');
+      return cmdImportResearch(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'deps',
+    handler: (args, cwd, raw) =>
+      cmdPhaseDepsVisualize(
+        cwd,
+        { milestone: flag(args, '--milestone') ?? null, format: flag(args, '--format') ?? null },
+        raw
+      ),
+  },
+  {
+    command: 'todos',
+    handler: (args, cwd, raw) => {
+      const sub = args[1];
+      if (sub === 'rank') {
+        const topStr = flag(args, '--top');
+        const topN = topStr ? parseInt(topStr, 10) : undefined;
+        if (topN !== undefined && (isNaN(topN) || topN < 0)) {
+          error('--top must be a non-negative integer');
+        }
+        return cmdTodosRank(cwd, raw, topN);
+      }
+      error(`Unknown todos subcommand: ${sub || '(none)'}. Valid: rank`);
+    },
+  },
+  {
+    command: 'knowhow',
+    handler: (args, cwd, raw) => {
+      const sub = args[1];
+      if (sub === 'audit') return cmdKnowhowAudit(cwd, raw);
+      if (sub === 'aggregate' || sub === 'agg') return cmdKnowhowAggregate(cwd, raw, args.includes('--export'));
+      if (sub === 'dedup') {
+        const t = flag(args, '--threshold');
+        return cmdKnowhowDedup(cwd, raw, t ? parseFloat(t) : undefined);
+      }
+      if (sub === 'rank') {
+        const query = args[2];
+        if (!query) error('query required. Usage: gd knowhow rank "<query>"');
+        const topStr = flag(args, '--top');
+        const topN = topStr ? parseInt(topStr, 10) : 5;
+        if (isNaN(topN) || topN <= 0) error('--top must be a positive integer');
+        return cmdKnowhowRank(cwd, query, topN, raw);
+      }
+      return cmdKnowhowList(
+        cwd,
+        raw,
+        flag(args, '--module'),
+        flag(args, '--limit') ? parseInt(flag(args, '--limit')!, 10) : undefined
+      );
+    },
+  },
+  {
+    command: 'budget',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd budget <phase>');
+      return cmdBudget(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'blame',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd blame <phase>');
+      return cmdBlame(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'freshness',
+    handler: (args, cwd, raw) => cmdFreshness(cwd, args[1] ?? null, raw),
+  },
+  {
+    command: 'rollback',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd rollback <phase>');
+      validatePhaseArg(args[1]);
+      return cmdRollback(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'estimate',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd estimate <phase>');
+      validatePhaseArg(args[1]);
+      return cmdEstimate(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'execute-phase',
+    handler: (args, cwd, raw) => {
+      if (args.includes('--dry-run')) {
+        if (!args[1] || args[1].startsWith('--')) error('phase required. Usage: gd execute-phase <phase> --dry-run');
+        validatePhaseArg(args[1]);
+        return cmdExecutePhaseDryRun(cwd, args[1], raw);
+      }
+      // Non-dry-run execute-phase falls through to init workflow
+      const includes: Set<string> = parseIncludeFlag(args);
+      const phase = args[1];
+      if (!phase || phase.startsWith('--')) error('phase required. Usage: gd execute-phase <phase>');
+      validatePhaseArg(phase);
+      const { cmdInitExecutePhase } = require('../lib/context/index') as {
+        cmdInitExecutePhase: (cwd: string, phase: string, includes: Set<string>, raw: boolean) => void;
+      };
+      return cmdInitExecutePhase(cwd, phase, includes, raw);
+    },
+  },
+  {
+    command: 'knowledge',
+    handler: (args, cwd, raw) => {
+      const sub = args[1];
+      if (sub === 'search') {
+        const query = args.slice(2).filter((a: string) => !a.startsWith('--')).join(' ');
+        if (!query) error('query required. Usage: gd knowledge search <query>');
+        const topN = parseInt(flag(args, '--top') ?? '10', 10);
+        return cmdKnowhowSearch(cwd, query, topN, raw);
+      }
+      error(`Unknown knowledge subcommand: ${sub || '(none)'}. Valid: search`);
+    },
+  },
+  {
+    command: 'check-plans',
+    handler: (args, cwd, raw) => {
+      const phase = flag(args, '--phase') ?? null;
+      const milestone = flag(args, '--milestone') ?? null;
+      return cmdCheckPlans(cwd, { phase, milestone }, raw);
+    },
+  },
+  {
+    command: 'eval',
+    handler: (args, cwd, raw) => {
+      const sub = args[1];
+      if (sub === 'diff') {
+        const phaseA = args[2];
+        const phaseB = args[3] ?? 'latest';
+        if (!phaseA) error('Usage: gd eval diff <phaseA> <phaseB> — or: gd eval diff latest');
+        if (phaseA !== 'latest') validatePhaseArg(phaseA);
+        if (phaseB !== 'latest') validatePhaseArg(phaseB);
+        return cmdEvalDiff(cwd, phaseA, phaseB, raw);
+      }
+      error(`Unknown eval subcommand: ${sub || '(none)'}. Valid: diff`);
+    },
+  },
+  {
+    command: 'tail',
+    handler: (args, cwd, raw) => {
+      const phaseFilter = flag(args, '--phase') ?? null;
+      const follow = args.includes('-f') || args.includes('--follow');
+      return cmdTail(cwd, phaseFilter, follow, raw);
+    },
+  },
+  {
+    command: 'forecast-phase',
+    handler: (args, cwd, raw) => {
+      const phase = args[1];
+      if (!phase) error('phase required. Usage: gd forecast-phase <phase>');
+      validatePhaseArg(phase);
+
+      const { phasesDir: _phasesDir } = require('../lib/paths') as { phasesDir: (cwd: string) => string };
+      const { safeReadFile: _safeRead, execGit: _execGit } = require('../lib/utils') as {
+        safeReadFile: (p: string) => string | null;
+        execGit: (cwd: string, args: string[]) => { exitCode: number; stdout: string; stderr: string };
+      };
+
+      const phasesBase = _phasesDir(cwd);
+      let phaseDir: string | null = null;
+      try {
+        const dirs: string[] = fs.readdirSync(phasesBase);
+        const match = dirs.find((d: string) => d === phase || d.startsWith(`${phase}-`));
+        if (match) phaseDir = path.join(phasesBase, match);
+      } catch { /* phases dir not found */ }
+
+      if (!phaseDir) {
+        output({ phase, error: `Phase ${phase} not found`, files: [] }, raw, `Phase ${phase} not found`);
+        return;
+      }
+
+      // Extract file paths from all PLAN.md files via regex
+      const fileRegex = /(?:^|[\s`"'(,])([a-zA-Z][a-zA-Z0-9_/-]*\.[a-zA-Z]{1,5})(?=$|[\s`"',):])/gm;
+      const fileCounts = new Map<string, number>();
+
+      let planFiles: string[] = [];
+      try {
+        planFiles = (fs.readdirSync(phaseDir) as string[]).filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md');
+      } catch { /* ignore */ }
+
+      for (const pf of planFiles) {
+        const content = _safeRead(path.join(phaseDir, pf));
+        if (!content) continue;
+        let m: RegExpExecArray | null;
+        fileRegex.lastIndex = 0;
+        while ((m = fileRegex.exec(content)) !== null) {
+          const fp = m[1];
+          if (fp && fp.length > 3 && fp.includes('.') && !fp.startsWith('.')) {
+            fileCounts.set(fp, (fileCounts.get(fp) ?? 0) + 1);
+          }
+        }
+      }
+
+      // Cross-reference with git history for co-modification frequency
+      interface ForecastEntry { file: string; mentions: number; git_touches: number; confidence: number; last_modified: string }
+      const fileScores: ForecastEntry[] = [];
+      for (const [fp, mentions] of fileCounts) {
+        const logResult = _execGit(cwd, ['log', '--oneline', '--', fp]);
+        const gitTouches = logResult.exitCode === 0 ? logResult.stdout.trim().split('\n').filter(Boolean).length : 0;
+        const lastResult = _execGit(cwd, ['log', '-1', '--format=%ci', '--', fp]);
+        const lastModified = lastResult.exitCode === 0 ? lastResult.stdout.trim().slice(0, 10) : '';
+        const confidence = Math.round(Math.min(1, mentions * 0.4 + Math.min(gitTouches, 10) * 0.06) * 100) / 100;
+        fileScores.push({ file: fp, mentions, git_touches: gitTouches, confidence, last_modified: lastModified });
+      }
+
+      fileScores.sort((a, b) => b.confidence - a.confidence || b.mentions - a.mentions);
+      const top = fileScores.slice(0, 20);
+
+      // Write FORECAST.md to phase dir
+      let forecastPath: string | null = null;
+      try {
+        const lines = [
+          `# File Touch Forecast — Phase ${phase}`,
+          '',
+          `Generated: ${new Date().toISOString().slice(0, 10)}`,
+          '',
+          '| File | Mentions | Git Touches | Confidence | Last Modified |',
+          '|------|----------|-------------|------------|---------------|',
+          ...top.map((r) => `| \`${r.file}\` | ${r.mentions} | ${r.git_touches} | ${r.confidence} | ${r.last_modified || 'n/a'} |`),
+        ];
+        const fp = path.join(phaseDir, 'FORECAST.md');
+        fs.writeFileSync(fp, lines.join('\n') + '\n', 'utf-8');
+        forecastPath = path.relative(cwd, fp);
+      } catch { /* non-fatal */ }
+
+      const summary = top.length > 0
+        ? `Top predicted files:\n${top.slice(0, 5).map((r, i) => `  ${i + 1}. ${r.file} (confidence: ${r.confidence})`).join('\n')}`
+        : 'No file paths found in plan descriptions';
+
+      output({ phase, files_found: fileScores.length, top_files: top, forecast_path: forecastPath }, raw, summary);
+    },
+  },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1772,6 +2101,12 @@ async function routeCommand(
         'parallel-progress',
         'overstory',
         'metrics',
+        'diagnose',
+        'export-research',
+        'import-research',
+        'deps',
+        'todos',
+        'knowhow',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

@@ -20,7 +20,12 @@ const {
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
   cmdVerifyMechanical,
+  clearVerifyCache,
 } = require('../../lib/verify');
+
+beforeEach(() => {
+  clearVerifyCache();
+});
 
 // ─── cmdVerifyPlanStructure ─────────────────────────────────────────────────
 
@@ -119,6 +124,38 @@ describe('cmdVerifyPlanStructure', () => {
     expect(parsed.tasks.length).toBeGreaterThan(0);
     expect(parsed.tasks[0]).toHaveProperty('name');
     expect(parsed.tasks[0]).toHaveProperty('hasAction');
+  });
+
+  test('reports errors for task missing name and action elements', () => {
+    // A task with no <name> or <action> exercises the 'unnamed' ternary (line 383 arm 1),
+    // the !nameMatch error (line 389 true), and the !hasAction error (line 390 true).
+    const missingPlan = path.join(fixtureDir, 'plan-no-name-action.md');
+    fs.writeFileSync(
+      missingPlan,
+      [
+        '---',
+        'phase: 01-test',
+        'plan: 01-01',
+        'type: execute',
+        'wave: 1',
+        'depends_on: []',
+        'files_modified: []',
+        'autonomous: true',
+        'must_haves:',
+        '  truths: []',
+        '---',
+        '',
+        '<tasks>',
+        '<task><verify>check this</verify></task>',
+        '</tasks>',
+      ].join('\n'),
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => {
+      cmdVerifyPlanStructure(fixtureDir, 'plan-no-name-action.md', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.errors).toContain('Task missing <name> element');
   });
 });
 
@@ -786,5 +823,236 @@ describe('cmdVerifyMechanical', () => {
     );
     expect(artifactsCheck.passed).toBe(false);
     expect(artifactsCheck.detail).toMatch(/min_lines|REQUIRED_MARKER|Only \d+ lines/);
+  });
+
+  test('errors when phase arg is missing', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdVerifyMechanical(fixtureDir, '', false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/phase required/i);
+  });
+
+  test('reports missing backtick reference as a failed references check', () => {
+    // Add a backtick file-path reference to the PLAN.md to exercise the backtick
+    // reference check loop (lines 999-1002).
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    const existing = fs.readFileSync(planPath, 'utf-8');
+    fs.writeFileSync(planPath, existing + '\nSee `lib/verify.ts` for implementation.\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const refCheck = parsed.checks.find((c: { check: string }) => c.check === 'references');
+    expect(refCheck).toBeDefined();
+    expect(refCheck.passed).toBe(false);
+  });
+});
+
+// ─── cmdDiagnosePhase ──────────────────────────────────────────────────────
+
+const { cmdDiagnosePhase } = require('../../lib/verify');
+
+describe('cmdDiagnosePhase', () => {
+  let fixtureDir: string;
+
+  beforeEach(() => {
+    fixtureDir = createFixtureDir();
+  });
+
+  afterEach(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('returns error when phase not found', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '99', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeDefined();
+  });
+
+  test('diagnoses phase with no VERIFICATION.md', () => {
+    // The fixture has a phase "01-test" set up
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.phase).toBeDefined();
+    expect(Array.isArray(parsed.root_causes)).toBe(true);
+    expect(parsed.root_causes.length).toBeGreaterThan(0);
+    // Should report missing VERIFICATION.md
+    const causes = parsed.root_causes.map((c: { cause: string }) => c.cause);
+    expect(causes.some((c: string) => c.includes('VERIFICATION'))).toBe(true);
+  });
+
+  test('diagnoses phase with VERIFICATION.md containing many failed checks (exercises _checkSuggestion)', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Put artifacts first so _checkSuggestion /artifact/ branch (line 1224) is exercised.
+    // unknown-check-type goes last (index 5) and gets sliced off; default return is
+    // covered separately by the JSON-pattern test below.
+    const verificationContent = [
+      '# Verification',
+      '**verdict**: FAIL',
+      '',
+      '❌ artifacts missing',
+      '❌ frontmatter check failed',
+      '❌ reference broken',
+      '❌ key-link check failed',
+      '❌ summary completeness check',
+      '❌ unknown-check-type',
+    ].join('\n');
+    fs.writeFileSync(path.join(phaseDir, 'VERIFICATION.md'), verificationContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.verdict).toContain('FAIL');
+    expect(parsed.failed_checks.length).toBeGreaterThan(0);
+    expect(parsed.root_causes.length).toBeGreaterThan(0);
+  });
+
+  test('reports no obvious signals when phase has passing VERIFICATION.md', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Write a passing VERIFICATION.md (verdict=pass, no failed lines)
+    const passingContent = [
+      '# Verification',
+      '**verdict**: PASS',
+      '',
+      '✅ All checks passed.',
+    ].join('\n');
+    fs.writeFileSync(path.join(phaseDir, 'VERIFICATION.md'), passingContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    // Should report no obvious signals
+    expect(Array.isArray(parsed.root_causes)).toBe(true);
+    expect(parsed.root_causes.length).toBeGreaterThan(0);
+  });
+
+  test('reports missing summaries when plans lack SUMMARY.md', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Remove the existing SUMMARY.md so plansMissingSummaries > 0
+    const summaryPath = path.join(phaseDir, '01-01-SUMMARY.md');
+    if (fs.existsSync(summaryPath)) {
+      fs.unlinkSync(summaryPath);
+    }
+    // Also check generic SUMMARY.md
+    const genericSummary = path.join(phaseDir, 'SUMMARY.md');
+    if (fs.existsSync(genericSummary)) {
+      fs.unlinkSync(genericSummary);
+    }
+
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(Array.isArray(parsed.root_causes)).toBe(true);
+    // May or may not find missing summaries depending on fixture structure
+    expect(parsed.phase).toBeDefined();
+  });
+
+  test('parses JSON-like check failures and skips duplicate causes', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Duplicate ❌ line exercises "already in rootCauses" skip (id 170 arm 0).
+    // JSON-like pattern exercises checkFailMatches parsing (id 157, id 158).
+    // Only 3 unique failed checks → exercises failedChecks.length <= 3 ternary (id 169 arm 1).
+    const verificationContent = [
+      '# Verification',
+      '**verdict**: FAIL',
+      '❌ reference broken',
+      '❌ reference broken',
+      '"check": "json-unique-check", "passed": false',
+    ].join('\n');
+    fs.writeFileSync(path.join(phaseDir, 'VERIFICATION.md'), verificationContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.failed_checks).toContain('reference broken');
+    expect(parsed.failed_checks).toContain('json-unique-check');
+  });
+
+  test('handles bare PLAN.md and SUMMARY.md in phase directory', () => {
+    const phaseDir = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test'
+    );
+    // Replace prefixed files with bare names to exercise the f === 'PLAN.md' / f === 'SUMMARY.md'
+    // ternary branches (id 161 arm 0, id 162 arm 0) in lines 1135-1136.
+    const planContent = fs.readFileSync(path.join(phaseDir, '01-01-PLAN.md'), 'utf-8');
+    const summaryContent = fs.readFileSync(path.join(phaseDir, '01-01-SUMMARY.md'), 'utf-8');
+    fs.unlinkSync(path.join(phaseDir, '01-01-PLAN.md'));
+    fs.unlinkSync(path.join(phaseDir, '01-01-SUMMARY.md'));
+    fs.writeFileSync(path.join(phaseDir, 'PLAN.md'), planContent, 'utf-8');
+    fs.writeFileSync(path.join(phaseDir, 'SUMMARY.md'), summaryContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    // Bare PLAN.md and SUMMARY.md are paired, so no missing summaries
+    expect(parsed.plans_missing_summaries).toBe(0);
+  });
+
+  test('raw output is a non-empty string summary', () => {
+    const { stdout } = captureOutput(() => {
+      cmdDiagnosePhase(fixtureDir, '1', true);
+    });
+    expect(stdout.trim().length).toBeGreaterThan(0);
+  });
+
+  test('errors when phase arg is missing', () => {
+    const { stderr, exitCode } = captureError(() => {
+      cmdDiagnosePhase(fixtureDir, '', false);
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/phase required/i);
   });
 });

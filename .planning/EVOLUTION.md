@@ -5236,3 +5236,254 @@ _2026-03-07T02:05:58.397Z_
 - The config diff dotfile approach is good for simple session-to-session tracking but would be more robust with git-based diffing for longer-term change history
 
 ---
+## Iteration 3
+_2026-05-18T02:48:23.143Z_
+
+### Items Attempted
+
+- **gd autoresearch --max 0 means unlimited but docs imply "stop immediately"** — pass
+- **Rate-limit cooldown bypassed when window_minutes is 0** — pass
+- **autoresearch CLI flags produce NaN that reaches arithmetic and loop bounds** — pass
+- **Automated Phase Failure Post-Mortem** — pass
+- **KNOWHOW.md Stale Entry Auditor** — pass
+- **Todo Backlog ROI Ranker** — pass
+- **Phase Dependency Graph Visualizer** — pass
+- **Research Bundle Export/Import** — pass
+
+### Decisions Made
+
+None
+
+### Patterns Discovered
+
+None
+
+### Takeaways
+
+None
+
+---
+## Iteration 4
+_2026-05-18T04:43:19.120Z_
+
+### Items Attempted
+
+- **Implement phase-proximity scoring in selectTopEntries** — pass
+- **maxDeepDives option is parsed but never used** — pass
+- **Fix sub-phase sort collision in computeParallelGroups** — pass
+- **Make cmdTodoComplete atomic with fs.renameSync instead of write+unlink** — pass
+- **Fix coverage metric fallback broken by --silent flag** — pass
+- **Phase Token Budget Estimator** — pass
+- **Phase Blame: Map Files to Plans** — pass
+- **Cross-Milestone KNOWHOW Aggregator** — pass
+- **Autopilot Dry-Run Mode** — pass
+- **Research Freshness Scanner** — pass
+
+### Decisions Made
+
+- knowledge.ts phase-proximity: used a tertiary sort key (Math.abs diff) so entries equidistant from currentPhase don't change order — primary/secondary sort precedence preserved.
+- autoresearch.ts maxDeepDives: deep-dives are counted per-run (deepDivesThisRun) not per-keep, so the budget is a total cap rather than per-experiment, preventing unlimited deep-dive spawns in long runs.
+- deps.ts sub-phase sort: applied the same component-wise comparator to both computeParallelGroups (group.sort) and buildArtifactDAG (batch.sort) for consistency; kept the change minimal and self-contained.
+- todo.ts atomicity: used fs.renameSync as the atomic move (same FS assumption), wrote temp file first, then renamed source to dest, then rewrote dest with completion header — avoids both double-write and half-state.
+- autoresearch.ts coverage fix: removed --silent only from the 'coverage' metric branch to avoid affecting test_count/lint_errors branches which don't need stdout parsing.
+- autopilot.ts dry-run plan: attached execution_plan to the existing AutopilotResult instead of short-circuiting, preserving all existing test contracts that use --dry-run for test isolation.
+- New commands (budget/blame/freshness/knowhow-aggregator): implemented as standalone lib/commands/ modules and wired into ROUTE_DESCRIPTORS — did NOT add them to lib/commands/index.ts to avoid touching the barrel re-export contract used by tests.
+- knowhow aggregate: used 'agg' as an alias for 'aggregate' subcommand for convenience in CLI usage.
+
+### Patterns Discovered
+
+- The _ prefix convention (e.g. _currentPhase) is used to suppress unused-arg lint warnings, but it breaks the parameter name's communicative value — when implementing, always remove the _ and fix the actual behavior.
+- The autoresearch loop uses dryRun checks scattered across the loop body; the deep-dive spawn follows the same pattern as the survey spawn at line 510, making it easy to replicate.
+- bin/grd-tools.ts uses ROUTE_DESCRIPTORS for simple commands and a switch block for complex routing; new commands should go in ROUTE_DESCRIPTORS unless they need multi-subcommand dispatch.
+- Coverage thresholds are per-file in jest.config.js — adding new branches without tests immediately trips the branch threshold, requiring companion tests.
+- fs.renameSync is atomic within a single filesystem on Linux/macOS but not across filesystems — the todo atomicity fix relies on completedDir and pendingDir being on the same FS (both under .planning/).
+
+### Takeaways
+
+- The --dry-run flag in autopilot is used for two distinct purposes: test isolation (skips actual subprocess spawning) and user-facing preview. Conflating them would break many tests. Future features needing a clean preview mode should consider a dedicated flag like --preview.
+- The todo backlog is 857 items and extremely saturated — the knowhow-aggregator and freshness scanner features address real pain points (knowledge rot across phases, stale research) that the existing per-phase KNOWHOW structure creates.
+- The maxDeepDives parameter was silently ignored for potentially the entire lifetime of the feature — this is a good example of why function signatures should use _ prefix only as a last resort, and why CLI flag validation without downstream wiring is a silent contract violation.
+- The autoresearch coverage metric fallback was permanently broken by --silent: coverage-summary.json often does NOT exist in CI-lite environments, making the fallback path critical. Removing --silent from only that branch is the minimal targeted fix.
+
+---
+## Iteration 5
+_2026-05-18T07:37:13.807Z_
+
+### Items Attempted
+
+- **cmdTodoComplete writes tmpPath then never uses it** — pass
+- **Module-level _fileReadCache in verify.ts never cleared between calls** — pass
+- **Dry-run with --max 0 spins forever with no useful output** — pass
+- **execute-phase --dry-run: Preview Before You Commit** — pass
+- **gd rollback <N>: Safe Phase Undo Generator** — pass
+- **gd estimate <N>: Token Cost Preview Before Autopilot** — pass
+- **gd knowhow dedup: Clean Up the Compounding Knowledge Base** — pass
+- **Survey Staleness Alerts in gd progress** — pass
+- **Extract hardcoded LANDSCAPE.md truncation limit as named constant** — pass
+- **cmdListTodos returns todos in non-deterministic filesystem order** — pass
+
+### Decisions Made
+
+- cmdTodoComplete: removed the unused tmpPath write/delete entirely rather than just fixing the rename source, since writing a temp file that is never used adds unnecessary I/O risk (disk full, permissions) with zero benefit
+- clearVerifyCache exported as a named function rather than clearing inside each verify function, to keep the optimization for production use while making it testable
+- autoresearch dry-run cap set to 3 iterations rather than 1, giving a representative sample loop rather than just a single example — better matches 'preview what would happen'
+- LANDSCAPE_MAX_CHARS added as a simple module-level constant without config integration, because _buildResearchContext does not have access to arConfig scope — the task's 'consider reading from config' was deferred to avoid introducing a function signature change
+- buildWaves uses the `m` (multiline) flag on all frontmatter field regexes to correctly match fields anywhere in the frontmatter block, not just at string start
+- cmdExecutePhaseDryRun uses error() for not-found case (exit 1) rather than output({ error: ... }) (exit 0), consistent with all other command error patterns in the codebase
+- PhaseInfo.directory is a relative path from cwd — both cmdExecutePhaseDryRun and cmdEstimate join it with path.join(cwd, ...) to get the absolute path before calling fs.readdirSync
+- cmdKnowhowDedup uses trigram-Jaccard without external dependencies, consistent with the task spec and the codebase's zero-external-dependency style for CLI tools
+- Survey staleness check in progress.ts reads config once per invocation and silently falls back to the 30-day default if config is unavailable, matching GRD's lenient config-reading pattern
+- execute-phase route in ROUTE_DESCRIPTORS falls back to cmdInitExecutePhase for the non-dry-run case to avoid breaking the existing init workflow integration
+
+### Patterns Discovered
+
+- PhaseInfo.directory is a relative path (not absolute) — every caller must path.join(cwd, phaseInfo.directory) before filesystem operations; this is a subtle footgun
+- JavaScript .sort() on a single-element array never calls the comparator — coverage tools catch this; need >=2 pair tests to cover sort comparators
+- Module-level Maps used as caches (like _fileReadCache) are valid optimizations in production but poison Jest's module caching between tests in the same worker — clearXxxCache() pattern is the standard fix
+- The codebase consistently uses error() (process.exit(1)) for user errors and output() (process.exit(0)) for successful JSON output — mixing them breaks captureError/captureOutput test helpers
+- YAML frontmatter regex patterns in multiline strings require the 'm' flag for ^ to match non-first lines; this is easy to miss when writing new frontmatter parsers
+
+### Takeaways
+
+- The codebase's per-file coverage thresholds in jest.config.js are strict (functions: 100% for many files) — any new function must have test coverage or it will fail CI
+- New command files (rollback.ts, estimate.ts) do not need to be added to lib/commands/index.ts since they are imported directly in bin/grd-tools.ts — the index.ts pattern is only for older commands
+- The fixture at tests/fixtures/planning/milestones/anonymous/phases/01-test/01-01-PLAN.md already has a complete PLAN.md, so cmdExecutePhaseDryRun tests can rely on it without writing new plan files
+- The ROUTE_DESCRIPTORS dispatch table in bin/grd-tools.ts is checked before the switch statement — adding new routes there is cleaner than adding to the switch
+- Knowledge.ts's cmdKnowhowAudit already does cross-file contradiction detection; cmdKnowhowDedup adds a complementary similarity-based dedup that catches near-duplicates with different titles
+
+---
+## Iteration 6
+_2026-05-18T09:40:45.434Z_
+
+### Items Attempted
+
+- **cmdVerifySummary: passed:true despite missing commit hashes** — pass
+- **cmdTodoComplete: file lost if writeFileSync fails after renameSync** — pass
+- **autoresearch --time-budget 0 silently uses 2-hour timeout via scheduler** — pass
+- **_spawnClaudeSync hardcodes 'claude' binary, bypasses account rotation** — pass
+- **Cross-Milestone Knowledge Search** — pass
+- **Stale Plan File Validator** — pass
+- **Phase Execution Cost Estimator** — pass
+- **Eval Metric Diff Across Phases** — pass
+- **Live Autopilot Phase Tail** — pass
+- **cmdListTodos result should include current milestone in output** — pass
+
+### Decisions Made
+
+- Fix 1 (verify.ts): Added `commitsExist || hashes.length === 0` to the passed condition. The guard `hashes.length === 0` prevents false failures when the SUMMARY.md has no commit hashes at all — the pre-existing fixture has no hashes, so tests remain green.
+- Fix 2 (todo.ts): Reversed the order to write-then-delete instead of rename-then-write. This is the atomic write pattern: if writeFileSync fails, the source file is untouched; if unlinkSync fails, the completed file already exists with the correct content so the user can retry without data loss.
+- Fix 3 (autoresearch.ts): Used `timeBudget > 0 ? timeBudget * 60 * 1000 : undefined` at all 3 call sites. Passing `undefined` to scheduler.spawn correctly means 'no timeout', matching how spawnSync timeout:undefined works.
+- Fix 4 (autoresearch.ts): Added `binary?: string` to both `_spawnClaude` and `_spawnClaudeSync` opts. Imported ADAPTERS from scheduler.ts and threaded `ADAPTERS['claude']?.binary ?? 'claude'` through _spawnClaude's sync fallback path. The scheduler path already handles binary via its own adapter lookup.
+- Usability (todo.ts): Added `currentMilestone` import from paths.ts and added `milestone_version` to the TodoListResult type and output. Used paths.currentMilestone() directly rather than going through utils.getMilestoneInfo() to avoid pulling in heavier dependencies for a simple version string.
+- Product: Cross-Milestone Knowledge Search implemented in knowledge-search.ts with token-based scoring and bonus for pattern_name matches. Returns top-N results with milestone provenance.
+- Product: Stale Plan File Validator in check-plans.ts extracts file paths from '## Files' sections using regex, checks fs.existsSync for each. Limits full results to plans with issues or when only a few plans are being checked.
+- Product: Eval Metric Diff in eval-diff.ts replicates the metric parser from analysis.ts (duplicated to avoid coupling) and renders an ASCII side-by-side table with delta percentages. 'latest' resolves to the last two phase directories by alphabetical sort.
+- Product: Live Autopilot Phase Tail in tail.ts implements both a snapshot mode (last 50 lines) and a follow mode using setInterval + file size polling. Uses fs.readSync with offset for efficient incremental reads.
+- Routing: All 4 new commands were wired into bin/grd-tools.ts ROUTE_DESCRIPTORS as: 'knowledge' (subcommand 'search'), 'check-plans', 'eval' (subcommand 'diff'), and 'tail'.
+
+### Patterns Discovered
+
+- The codebase uses a ROUTE_DESCRIPTORS dispatch table in grd-tools.ts for most simple commands — adding a new command requires both the typed destructure block and a RouteDescriptor entry. Easy to miss one.
+- lib/commands/index.ts is the barrel export that bin/grd-tools.ts imports — new command modules must be added to both this barrel and the grd-tools.ts destructure.
+- _spawnClaudeSync was the only async-unaware entry point in autoresearch — it had accumulated several divergences from the scheduler path (binary hardcoding, timeout=0 behavior). Both are now fixed.
+- Evolve-generated SUMMARY.md fixture has commit hash 'abc1234' in the body but the verify.ts hashes extraction regex only picks up hex strings, so the fixture's hashes array is empty and the commitsExist guard is never tested by existing tests.
+
+### Takeaways
+
+- The integration test suite (deferred-validation.test.ts, npm-pack.test.ts) has pre-existing failures unrelated to this change — they require a compiled dist/ directory that is not present. Unit tests all pass.
+- The `timeBudget > 0 ? ... : undefined` pattern is better than checking for falsy values when 0 is a legitimate input meaning 'no timeout' — this is a common JS gotcha that can silently turn 0 into a large default.
+- The knowhow-aggregator.ts already handles cross-milestone KNOWHOW aggregation (deduplication and export), while knowledge-search.ts provides query-time search. These are complementary — the aggregator is for maintenance, the search is for agent-time retrieval.
+- Adding milestone_version to TodoListResult output is low-cost but high-value: it makes the 'empty list' case debuggable without requiring agents to separately call gd state.
+
+---
+## Iteration 7
+_2026-05-18T11:30:30.419Z_
+
+### Items Attempted
+
+- **evictExpiredSamples destroys all samples when windowMinutes is 0** — pass
+- **autopilot --timeout and --max-turns have no NaN guard after parseInt** — pass
+- **Autopilot Spin Detector with Pause-and-Advise** — pass
+- **KNOWHOW Relevance Ranking Injected at Phase Start** — pass
+- **Pre-Execution File Touch Forecast (`gd forecast-phase N`)** — pass
+- **Shareable Research Snapshot (`gd export-research`)** — pass
+- **Config Drift Validator in `gd health` with Upgrade Suggestions** — pass
+- **autoresearch --max-turns 0 is accepted but silently treated as unlimited** — pass
+- **buildArtifactDAG silently drops unresolvable requires with no trace in output** — pass
+- **autoresearch banner prints '0min/experiment' when --time-budget 0 means no timeout** — pass
+
+### Decisions Made
+
+- evictExpiredSamples: added guard `if (windowMinutes <= 0) return` at the top to prevent wiping all samples when window is uninitialized — mirroring the existing Math.max guard already used in the cooldown path at line 1103
+- autopilot NaN guard: used IIFE pattern `(() => { const parsed = parseInt(...); if (isNaN...) { process.stderr.write + process.exit(1) }; return parsed; })()` since autopilot.ts does not import the `error()` utility from utils.ts — writing directly to stderr avoids needing to thread through an import
+- autoresearch maxTurns: changed truthy guard `if (opts.maxTurns)` to `if (opts.maxTurns !== undefined && opts.maxTurns > 0)` — maxTurns=0 was silently treated as unlimited despite passing the validator; also tightened the validator from `>= 0` to `> 0` since 0 cannot be a meaningful turn cap
+- buildArtifactDAG missing_requires: split the original compound `if (providerPlanId !== undefined && providerPlanId !== node.id)` into an explicit if/else-if to separately track the missing-provider case, which added one new branch requiring a self-dependency test to restore branch coverage above 87%
+- autoresearch banner: used conditional interpolation `${timeBudget > 0 ? timeBudget + 'min' : 'unlimited'}` matching the existing `maxExperiments || 'unlimited'` pattern on the same line
+- rankKnowhowByPhaseGoal: implemented TF-IDF scoring using per-entry token frequency (TF) multiplied by log-smoothed inverse document frequency (IDF) across the full entry corpus; chose applicability+pattern_name as the entry text since these are the most semantically informative fields (not code_snippet which is too low-level)
+- detectSpin: used bigram Jaccard similarity rather than raw string comparison for robustness to minor output variations; returns detected=true only when consecutiveCount >= 2 (meaning 3+ consecutive pairs exceeded threshold)
+- handleSpinEvent: generates recovery suggestions via regex pattern matching on the error text, covering the three most common spin causes (type errors, test failures, missing modules); falls back to generic suggestions if no pattern matches
+- validateConfigDrift: implemented as a flat list of key entries with dot-path support for nested keys rather than a full schema diff — keeps it simple and maintainable; wired into cmdHealth TUI output as a new section with copy-paste fix commands
+- forecast-phase: implemented inline in grd-tools.ts using execGit (whitelist-enforced, uses execFileSync not exec) to safely call `git log --oneline -- <file>` per extracted path; confidence formula weights mentions (0.4/match) and git touches (0.06/touch, capped at 10)
+
+### Patterns Discovered
+
+- autopilot.ts does not import the `error()` utility from lib/utils.ts — CLI error handling is done via process.stderr.write + process.exit(1) directly
+- lib/scheduler.ts already uses Math.max guards in the cooldown path but was missing the same guard in evictExpiredSamples — a good pattern to watch for: guard both production paths symmetrically
+- Coverage threshold enforcement revealed that splitting a compound `&&` condition into separate if/else-if blocks adds branch points that need explicit tests for each path
+- The detectSpin bigram test using 'different output A' vs 'different output B' passes the 0.8 similarity threshold because the shared words create many common bigrams — test data for similarity functions needs to be truly different, not just superficially different
+
+### Takeaways
+
+- The product-ideation items in group 2 span a wide range of complexity: some (spin detector, knowhow ranking) required new algorithmic code, while others (export-research) were already implemented
+- grd-tools.ts forecast-phase was implemented inline rather than in a lib/ module because it's a data-gathering command that orchestrates existing utilities (execGit, safeReadFile, fs) without new reusable logic
+- The context/agents.ts module imports knowledge functions but needs a safeReadFile import added separately — the module does not re-export utilities from utils.ts even though it imports from it
+- lib/utils.ts is the right home for validateConfigDrift since it already owns loadConfig and the KNOWN_CONFIG_KEYS set — keeping config schema knowledge centralized
+- Adding new branches to well-covered files (deps.ts at 86.71% branch) can require adding edge-case tests (self-dependency) that would otherwise be low priority but are necessary to stay above thresholds
+
+---
+## Iteration 8
+_2026-05-18T11:46:24.915Z_
+
+### Items Attempted
+
+- **Add caching for repeated file reads in knowledge.ts** — pass
+- **Make timeout configurable in autoresearch.ts** — pass
+- **Make timeout configurable in autoresearch.ts** — pass
+- **Make timeout configurable in autoresearch.ts** — pass
+- **Make timeout configurable in backend.ts** — pass
+- **Make timeout configurable in discussion.ts** — pass
+- **Make timeout configurable in overstory.ts** — pass
+- **Make timeout configurable in overstory.ts** — pass
+- **Add progress output to loop in knowledge.ts line 124** — pass
+- **Add progress output to loop in knowledge.ts line 535** — pass
+- **Use paths module instead of hardcoded path in invariants.ts** — skip
+- **Pre-execution Plan Linter (`gd lint-plan <N>`)** — skip
+- **Structured Pause/Resume Handoff (`gd stash-context`)** — skip
+- **Pre-flight Cost Estimate for Autopilot** — skip
+- **Human-Readable Phase Summary (`gd explain-phase <N>`)** — skip
+- **Cross-Project KNOWHOW Export and Import** — skip
+
+### Decisions Made
+
+- Added 7 new fields to GrdTimeouts in types.ts (autoresearch_test_ms, autoresearch_coverage_ms, autoresearch_lint_ms, backend_probe_ms, discussion_git_ms, overstory_probe_ms, overstory_install_ms) with defaults matching the previously hardcoded values — preserving backward-compatible behavior while enabling user overrides.
+- Passed GrdTimeouts to _collectMetric via parameter rather than re-loading config inside the function, since arConfig was already loaded at the top of _runAutoresearchLoop — avoids redundant config reads in the hot experiment loop.
+- Used inline config read (safeReadFile + JSON.parse) in discussion.ts rather than importing loadConfig to avoid adding a new import to a file that already uses a lighter readConfig pattern — consistent with the existing discussion.ts style.
+- Used safeReadJSON (already imported) in overstory.ts for config access rather than adding safeReadFile + JSON.parse — reuses the available abstraction.
+- Implemented the knowledge.ts cache as mtime-keyed to detect file changes: if the file is modified externally (e.g., by another process), the cache is automatically invalidated. Also explicitly invalidates after appendKnowhowEntries writes.
+- Added progress output only when entry/pair counts exceed a threshold (50 for merge loop, 20 for dedup loop) to avoid noisy output for typical small KNOWHOW files.
+
+### Patterns Discovered
+
+- backend.ts uses a private readConfig() that reads config.json directly (avoids circular dep with utils.ts); discussion.ts, overstory.ts should follow the same lightweight config-read pattern rather than importing loadConfig.
+- GrdTimeouts is a flat struct — all timeout fields in one place — making it easy to document all tunable timeouts for users in one config section.
+- The _cachedParseKnowhow pattern (mtime-keyed module cache with explicit invalidation on write) is reusable for other frequently-read, rarely-changed files in the knowledge pipeline.
+- Three functions (buildKnowledgeInjectionBlock, cmdKnowhowRank, and the autoresearch loop) all previously re-read the same KNOWHOW.md on each call; the cache eliminates O(n) redundant file reads per autoresearch experiment run.
+
+### Takeaways
+
+- The codebase uses a consistent pattern for reading config in non-utils modules: a local inline readConfig or safeReadJSON call with a fallback, not a full loadConfig import. This avoids circular dependency issues.
+- Hardcoded timeouts were scattered across 5 different files with no cross-reference; centralizing them in GrdTimeouts makes the full set of tunable timeouts discoverable from a single config key.
+- The knowledge module is called once per experiment in autoresearch (potentially hundreds of times in a long run), making the read cache a meaningful optimization for users running long autoresearch sessions.
+- Test count grew from 2839 (per memory) to 4522 — significant expansion of test coverage since the memory entry was written.
+
+---

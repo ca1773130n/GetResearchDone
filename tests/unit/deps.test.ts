@@ -18,6 +18,8 @@ const {
   cmdPhaseAnalyzeDeps,
   buildArtifactDAG,
   validateArtifactDAG,
+  buildWaves,
+  cmdExecutePhaseDryRun,
 } = require('../../lib/deps');
 const { COMMAND_DESCRIPTORS } = require('../../lib/mcp-server');
 
@@ -224,6 +226,55 @@ describe('computeParallelGroups', () => {
     };
     const groups = computeParallelGroups(graph);
     expect(groups).toEqual([['27']]);
+  });
+
+  test('sorts sub-phase IDs component-wise to avoid parseFloat collision (1.1 vs 1.10)', () => {
+    // parseFloat('1.10') === parseFloat('1.1') === 1.1 — component-wise sort must distinguish them
+    const graph = {
+      nodes: [
+        { id: '1.10', name: 'TenthSub' },
+        { id: '1.2', name: 'SecondSub' },
+        { id: '1.1', name: 'FirstSub' },
+      ],
+      edges: [],
+    };
+    const groups = computeParallelGroups(graph);
+    expect(groups).toHaveLength(1);
+    // Component-wise order: 1.1 < 1.2 < 1.10
+    expect(groups[0]).toEqual(['1.1', '1.2', '1.10']);
+  });
+
+  test('component-wise sort handles mixed-depth IDs (1 vs 1.1) via ?? 0 fallback', () => {
+    // '1' has 1 component, '1.1' has 2 — the ?? 0 fallback fires for the missing component
+    const graph = {
+      nodes: [
+        { id: '1.1', name: 'Sub' },
+        { id: '1', name: 'Root' },
+        { id: '2', name: 'Other' },
+      ],
+      edges: [],
+    };
+    const groups = computeParallelGroups(graph);
+    expect(groups).toHaveLength(1);
+    // '1' < '1.1' < '2' component-wise
+    expect(groups[0]).toEqual(['1', '1.1', '2']);
+  });
+
+  test('component-wise sort returns 0 for numerically-equal but differently-spelled IDs', () => {
+    // '01' and '1' both parse to Number 1, so d = 0 and the comparator returns 0
+    const graph = {
+      nodes: [
+        { id: '01', name: 'A' },
+        { id: '1', name: 'B' },
+        { id: '2', name: 'C' },
+      ],
+      edges: [],
+    };
+    const groups = computeParallelGroups(graph);
+    expect(groups).toHaveLength(1);
+    // '01' and '1' tie-break at 0; '2' sorts last
+    expect(groups[0]).toHaveLength(3);
+    expect(groups[0]).toContain('2');
   });
 
   test('returns partial groups when cycle present (breaks out of loop)', () => {
@@ -881,5 +932,345 @@ describe('validateArtifactDAG', () => {
     // X is referenced as an integration_point so it should NOT generate unused warning
     const hasUnusedX = result.warnings.some((w: string) => w.includes('Unused') && w.includes('"X"'));
     expect(hasUnusedX).toBe(false);
+  });
+
+  test('missing_requires is empty when all requires are satisfied', () => {
+    const planA = makePlan({ plan: 1, provides: ['lib/foo.ts:X'], requires: [] });
+    const planB = makePlan({ plan: 2, provides: [], requires: ['lib/foo.ts:X'] });
+    const dag = buildArtifactDAG([planA, planB]);
+    expect(dag.missing_requires).toEqual([]);
+  });
+
+  test('missing_requires includes artifact names with no matching provider', () => {
+    const planA = makePlan({ plan: 1, provides: [], requires: ['lib/missing.ts:NoProvider'] });
+    const dag = buildArtifactDAG([planA]);
+    expect(dag.missing_requires).toContain('lib/missing.ts:NoProvider');
+  });
+
+  test('missing_requires is empty for empty plan set', () => {
+    const dag = buildArtifactDAG([]);
+    expect(dag.missing_requires).toEqual([]);
+  });
+
+  test('missing_requires collects multiple unresolvable requires', () => {
+    const planA = makePlan({ plan: 1, provides: [], requires: ['ArtX', 'ArtY'] });
+    const dag = buildArtifactDAG([planA]);
+    expect(dag.missing_requires).toContain('ArtX');
+    expect(dag.missing_requires).toContain('ArtY');
+  });
+
+  test('self-dependency: plan requiring artifact it also provides creates no edge and no missing_requires', () => {
+    // A plan that provides and requires the same artifact should not create an edge to itself
+    const planA = makePlan({ plan: 1, provides: ['lib/self.ts:X'], requires: ['lib/self.ts:X'] });
+    const dag = buildArtifactDAG([planA]);
+    expect(dag.edges).toHaveLength(0);
+    expect(dag.missing_requires).toHaveLength(0);
+  });
+});
+
+// ─── cmdPhaseDepsVisualize ───────────────────────────────────────────────────
+
+const { cmdPhaseDepsVisualize } = require('../../lib/deps');
+
+describe('cmdPhaseDepsVisualize', () => {
+  let fixtureDir: string;
+
+  afterEach(() => {
+    if (fixtureDir) {
+      cleanupFixtureDir(fixtureDir);
+      fixtureDir = '';
+    }
+  });
+
+  function writeRoadmap(dir: string, content: string): void {
+    const roadmapPath = path.join(dir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(roadmapPath, content, 'utf-8');
+  }
+
+  test('renders mermaid diagram for simple two-phase roadmap', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '## M1 v1.0: Test',
+        '### Phase 1: Alpha',
+        '**Goal:** do alpha',
+        '**Depends on:** Nothing',
+        '### Phase 2: Beta',
+        '**Goal:** do beta',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'mermaid' }, false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.format).toBe('mermaid');
+    expect(parsed.diagram).toContain('flowchart LR');
+    expect(parsed.phase_count).toBe(2);
+    expect(parsed.has_cycle).toBe(false);
+  });
+
+  test('renders ascii diagram', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '## M1 v1.0: Test',
+        '### Phase 1: First',
+        '**Goal:** go',
+        '**Depends on:** Nothing',
+      ].join('\n')
+    );
+
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'ascii' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.format).toBe('ascii');
+    expect(parsed.diagram).toContain('Group 1');
+    expect(parsed.diagram).toContain('Phase 1');
+  });
+
+  test('defaults to mermaid when format not specified', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      ['# Roadmap', '## M1 v1.0: Test', '### Phase 1: X', '**Goal:** go', '**Depends on:** Nothing'].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, {}, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.format).toBe('mermaid');
+  });
+
+  test('returns error for missing ROADMAP.md', () => {
+    fixtureDir = createFixtureDir();
+    const roadmapPath = path.join(fixtureDir, '.planning', 'ROADMAP.md');
+    if (fs.existsSync(roadmapPath)) fs.unlinkSync(roadmapPath);
+
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, {}, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeDefined();
+  });
+
+  test('flags cycle in mermaid output', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '## M1 v1.0: Test',
+        '### Phase 1: Alpha',
+        '**Goal:** go',
+        '**Depends on:** Phase 2',
+        '### Phase 2: Beta',
+        '**Goal:** go',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'mermaid' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.has_cycle).toBe(true);
+    expect(parsed.diagram).toContain('WARNING');
+  });
+
+  test('raw mode returns the diagram text', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      ['# Roadmap', '## M1 v1.0: Test', '### Phase 1: X', '**Goal:** go', '**Depends on:** Nothing'].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'mermaid' }, true);
+    });
+    expect(stdout).toContain('flowchart LR');
+  });
+
+  test('milestone filter returns error when no matching phases', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      ['# Roadmap', '## M1 v1.0: Test', '### Phase 1: X', '**Goal:** go', '**Depends on:** Nothing'].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { milestone: 'nonexistent-milestone-xyz' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error).toBeDefined();
+  });
+
+  test('ascii format with dependency shows dep arrows', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '## M1 v1.0: Test',
+        '### Phase 1: Alpha',
+        '**Goal:** do alpha',
+        '**Depends on:** Nothing',
+        '### Phase 2: Beta',
+        '**Goal:** do beta',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'ascii' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.format).toBe('ascii');
+    // Phase 2 depends on Phase 1 — should show arrow
+    expect(parsed.diagram).toContain('depends on');
+  });
+
+  test('ascii format with cycle shows warning', () => {
+    fixtureDir = createFixtureDir();
+    writeRoadmap(
+      fixtureDir,
+      [
+        '# Roadmap',
+        '## M1 v1.0: Test',
+        '### Phase 1: Alpha',
+        '**Goal:** go',
+        '**Depends on:** Phase 2',
+        '### Phase 2: Beta',
+        '**Goal:** go',
+        '**Depends on:** Phase 1',
+      ].join('\n')
+    );
+    const { stdout } = captureOutput(() => {
+      cmdPhaseDepsVisualize(fixtureDir, { format: 'ascii' }, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.has_cycle).toBe(true);
+    expect(parsed.diagram).toContain('Cycle detected');
+  });
+});
+
+// ─── buildWaves ──────────────────────────────────────────────────────────────
+
+describe('buildWaves', () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function makePhaseDir(plans: Array<{ name: string; wave?: number; agentType?: string; files?: string[] }>): string {
+    tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'grd-waves-'));
+    for (const p of plans) {
+      const fm = [
+        '---',
+        `phase: 1`,
+        `plan: 01`,
+        `type: execute`,
+        `wave: ${p.wave ?? 1}`,
+        `agent_type: ${p.agentType ?? 'grd-executor'}`,
+        `files_modified: [${(p.files ?? []).join(', ')}]`,
+        `depends_on: []`,
+        `autonomous: true`,
+        `must_haves:`,
+        `  truths: []`,
+        '---',
+        '',
+        '## Objective',
+        'test',
+      ].join('\n');
+      fs.writeFileSync(path.join(tmpDir, p.name), fm, 'utf-8');
+    }
+    return tmpDir;
+  }
+
+  test('groups plans by wave number', () => {
+    const dir = makePhaseDir([
+      { name: '01-01-PLAN.md', wave: 1 },
+      { name: '01-02-PLAN.md', wave: 2 },
+      { name: '01-03-PLAN.md', wave: 1 },
+    ]);
+    const waves = buildWaves(dir);
+    expect(waves).toHaveLength(2);
+    expect(waves[0].wave).toBe(1);
+    expect(waves[0].plans).toHaveLength(2);
+    expect(waves[1].wave).toBe(2);
+    expect(waves[1].plans).toHaveLength(1);
+  });
+
+  test('defaults to wave 1 when no wave frontmatter', () => {
+    tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'grd-waves-'));
+    fs.writeFileSync(path.join(tmpDir, 'PLAN.md'), '# Plan\n\nNo frontmatter', 'utf-8');
+    const waves = buildWaves(tmpDir);
+    expect(waves).toHaveLength(1);
+    expect(waves[0].wave).toBe(1);
+  });
+
+  test('returns empty array for nonexistent directory', () => {
+    const waves = buildWaves('/nonexistent/path/does/not/exist');
+    expect(waves).toEqual([]);
+  });
+
+  test('returns empty array when no plan files present', () => {
+    tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'grd-waves-'));
+    fs.writeFileSync(path.join(tmpDir, 'README.md'), '# Not a plan', 'utf-8');
+    const waves = buildWaves(tmpDir);
+    expect(waves).toEqual([]);
+  });
+
+  test('extracts target_files from files_modified frontmatter', () => {
+    const dir = makePhaseDir([
+      { name: '01-01-PLAN.md', wave: 1, files: ['lib/foo.ts', 'lib/bar.ts'] },
+    ]);
+    const waves = buildWaves(dir);
+    expect(waves[0].plans[0].target_files).toEqual(['lib/foo.ts', 'lib/bar.ts']);
+  });
+});
+
+// ─── cmdExecutePhaseDryRun ────────────────────────────────────────────────────
+
+describe('cmdExecutePhaseDryRun', () => {
+  let fixtureDir: string;
+
+  afterEach(() => {
+    if (fixtureDir) cleanupFixtureDir(fixtureDir);
+  });
+
+  test('errors for unknown phase', () => {
+    fixtureDir = createFixtureDir();
+    const { exitCode } = captureError(() => {
+      cmdExecutePhaseDryRun(fixtureDir, '999', false);
+    });
+    expect(exitCode).toBe(1);
+  });
+
+  test('returns dry_run:true and wave data for valid phase with plans', () => {
+    fixtureDir = createFixtureDir();
+    // The fixture already has 01-test with 01-01-PLAN.md
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdExecutePhaseDryRun(fixtureDir, '01', false);
+    });
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.wave_count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('raw=true output includes wave table text', () => {
+    fixtureDir = createFixtureDir();
+    // The fixture already has 01-test with 01-01-PLAN.md
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdExecutePhaseDryRun(fixtureDir, '01', true);
+    });
+    expect(exitCode).toBe(0);
+    // raw=true still outputs JSON (output() serializes to stdout) but with rawValue as string
+    expect(stdout.trim().length).toBeGreaterThan(0);
   });
 });

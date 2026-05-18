@@ -5733,3 +5733,62 @@ describe('lib/autopilot', () => {
     });
   });
 });
+
+// ─── handleSpinEvent ─────────────────────────────────────────────────────────
+
+describe('handleSpinEvent', () => {
+  const { handleSpinEvent } = require('../../lib/autopilot') as {
+    handleSpinEvent: (
+      phaseDir: string,
+      spinEvent: { repeated_pattern: string; consecutive_count: number; max_similarity: number },
+      phaseName: string
+    ) => string | null;
+  };
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-spin-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes SPIN-REPORT.md to phaseDir and returns its path', () => {
+    const spinEvent = {
+      repeated_pattern: 'TypeError: Cannot find property x',
+      consecutive_count: 3,
+      max_similarity: 0.95,
+    };
+    const reportPath = handleSpinEvent(tmpDir, spinEvent, 'Phase 5 — Test');
+    expect(reportPath).not.toBeNull();
+    expect(fs.existsSync(path.join(tmpDir, 'SPIN-REPORT.md'))).toBe(true);
+  });
+
+  it('includes phase name in the report', () => {
+    const spinEvent = { repeated_pattern: 'Error: test failed', consecutive_count: 3, max_similarity: 0.9 };
+    handleSpinEvent(tmpDir, spinEvent, 'Phase 7 — My Feature');
+    const content = fs.readFileSync(path.join(tmpDir, 'SPIN-REPORT.md'), 'utf-8');
+    expect(content).toContain('Phase 7 — My Feature');
+  });
+
+  it('includes the repeated error pattern in the report', () => {
+    const pattern = 'TypeError: Cannot read property of undefined';
+    const spinEvent = { repeated_pattern: pattern, consecutive_count: 3, max_similarity: 0.92 };
+    handleSpinEvent(tmpDir, spinEvent, 'Phase 3');
+    const content = fs.readFileSync(path.join(tmpDir, 'SPIN-REPORT.md'), 'utf-8');
+    expect(content).toContain(pattern);
+  });
+
+  it('adds type-error recovery suggestion when pattern contains TypeError', () => {
+    const spinEvent = { repeated_pattern: 'TypeError: Property x does not exist on type Y', consecutive_count: 3, max_similarity: 0.9 };
+    handleSpinEvent(tmpDir, spinEvent, 'Phase 4');
+    const content = fs.readFileSync(path.join(tmpDir, 'SPIN-REPORT.md'), 'utf-8');
+    expect(content).toContain('build:check');
+  });
+
+  it('returns null when phaseDir does not exist', () => {
+    const result = handleSpinEvent('/nonexistent/path/that/does/not/exist', { repeated_pattern: 'err', consecutive_count: 3, max_similarity: 0.9 }, 'Phase');
+    expect(result).toBeNull();
+  });
+});

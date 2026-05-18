@@ -105,6 +105,26 @@ const _analysis: {
   cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
 } = require('./analysis');
 
+// ─── Knowledge Search ────────────────────────────────────────────────────────
+const _knowledgeSearch: {
+  cmdKnowhowSearch: (cwd: string, query: string, topN: number, raw: boolean) => void;
+} = require('./knowledge-search');
+
+// ─── Check Plans ─────────────────────────────────────────────────────────────
+const _checkPlans: {
+  cmdCheckPlans: (cwd: string, options: { phase?: string | null; milestone?: string | null }, raw: boolean) => void;
+} = require('./check-plans');
+
+// ─── Eval Diff ───────────────────────────────────────────────────────────────
+const _evalDiff: {
+  cmdEvalDiff: (cwd: string, phaseA: string, phaseB: string, raw: boolean) => void;
+} = require('./eval-diff');
+
+// ─── Tail ────────────────────────────────────────────────────────────────────
+const _tail: {
+  cmdTail: (cwd: string, phaseFilter: string | null, follow: boolean, raw: boolean) => void;
+} = require('./tail');
+
 // ─── Requirements (re-export from lib/requirements) ─────────────────────────
 const _requirements: {
   cmdRequirementGet: (...args: unknown[]) => void;
@@ -181,6 +201,18 @@ module.exports = {
   cmdCitationGraph: _analysis.cmdCitationGraph,
   cmdArtifactDAG: _analysis.cmdArtifactDAG,
   cmdBenchmarkReport: _analysis.cmdBenchmarkReport,
+
+  // knowledge-search
+  cmdKnowhowSearch: _knowledgeSearch.cmdKnowhowSearch,
+
+  // check-plans
+  cmdCheckPlans: _checkPlans.cmdCheckPlans,
+
+  // eval-diff
+  cmdEvalDiff: _evalDiff.cmdEvalDiff,
+
+  // tail
+  cmdTail: _tail.cmdTail,
 
   // requirements (pass-through re-export)
   cmdRequirementGet: _requirements.cmdRequirementGet,

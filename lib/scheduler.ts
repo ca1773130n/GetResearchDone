@@ -1,5 +1,13 @@
 'use strict';
 
+/**
+ * GRD Scheduler -- Backend subprocess spawning, account rotation, budget pressure tracking,
+ * and idle watchdog. Dispatches agents to claude/codex/gemini/opencode CLI backends with
+ * per-account token budget monitoring and adaptive model-tier downgrade under pressure.
+ *
+ * @module scheduler
+ */
+
 import type {
   BackendId,
   AdapterBackendId,
@@ -203,6 +211,7 @@ export function updateEWMA(state: BackendUsageState, tokens: number, alpha: numb
  * @param windowMinutes - rolling window duration in minutes
  */
 export function evictExpiredSamples(state: BackendUsageState, windowMinutes: number): void {
+  if (windowMinutes <= 0) return;
   const cutoff = Date.now() - windowMinutes * 60 * 1000;
   state.samples = state.samples.filter((s) => s.timestamp >= cutoff);
   state.tokens_consumed_in_window = state.samples.reduce((sum, s) => sum + s.tokenEstimate, 0);
@@ -1099,7 +1108,8 @@ export function createScheduler(
 
       // Rate limit retry: if rate-limited despite prediction, cooldown and retry
       if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
-        state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000;
+        // Enforce a minimum 5-minute cooldown so a zero/missing window_minutes never skips the guard
+        state.cooldown_until = Date.now() + Math.max(prediction.window_minutes || 60, 5) * 60 * 1000;
 
         // Max retry guard: cap recursive retries
         if (retryCount >= maxRetries) {
@@ -1198,6 +1208,77 @@ export function createScheduler(
   return scheduler;
 }
 
+// ─── Spin Detection ──────────────────────────────────────────────────────────
+
+/** Result from detectSpin analysis. */
+export interface SpinDetectedEvent {
+  detected: boolean;
+  /** The repeated pattern excerpt (first 200 chars of the repeated chunk). */
+  repeated_pattern: string;
+  /** Number of consecutive similar chunks detected. */
+  consecutive_count: number;
+  /** Similarity score of the most repeated pair (0-1). */
+  max_similarity: number;
+}
+
+/**
+ * Analyze the last N stdout chunks from an agent run to detect spin (looping on
+ * the same error without progress). Uses bigram overlap (Jaccard similarity) to
+ * compare consecutive chunks.
+ *
+ * Returns SpinDetectedEvent with detected=true if 3+ consecutive pairs have
+ * similarity >= threshold (default 0.80).
+ *
+ * @param chunks - Array of stdout text chunks (ordered chronologically)
+ * @param threshold - Similarity threshold for spin detection (default 0.80)
+ * @param windowSize - Number of recent chunks to analyze (default 5)
+ */
+export function detectSpin(chunks: string[], threshold = 0.80, windowSize = 5): SpinDetectedEvent {
+  const NO_SPIN: SpinDetectedEvent = { detected: false, repeated_pattern: '', consecutive_count: 0, max_similarity: 0 };
+  const recent = chunks.slice(-windowSize);
+  if (recent.length < 3) return NO_SPIN;
+
+  /** Compute bigram set from a normalized text chunk. */
+  function bigrams(text: string): Set<string> {
+    const normalized = text.toLowerCase().replace(/[^a-z0-9\n]/g, ' ').replace(/\s+/g, ' ').trim();
+    const set = new Set<string>();
+    for (let i = 0; i + 1 < normalized.length; i++) {
+      set.add(normalized.slice(i, i + 2));
+    }
+    return set;
+  }
+
+  function jaccard(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 && b.size === 0) return 1;
+    let intersection = 0;
+    for (const t of a) { if (b.has(t)) intersection++; }
+    const union = a.size + b.size - intersection;
+    return union === 0 ? 0 : intersection / union;
+  }
+
+  let consecutiveCount = 0;
+  let maxSimilarity = 0;
+  let repeatedPattern = '';
+
+  for (let i = 1; i < recent.length; i++) {
+    const sim = jaccard(bigrams(recent[i - 1]), bigrams(recent[i]));
+    if (sim >= threshold) {
+      consecutiveCount++;
+      if (sim > maxSimilarity) {
+        maxSimilarity = sim;
+        repeatedPattern = recent[i].slice(0, 200);
+      }
+    } else {
+      consecutiveCount = 0;
+    }
+  }
+
+  if (consecutiveCount >= 2) {
+    return { detected: true, repeated_pattern: repeatedPattern, consecutive_count: consecutiveCount + 1, max_similarity: Math.round(maxSimilarity * 100) / 100 };
+  }
+  return NO_SPIN;
+}
+
 module.exports = {
   ADAPTERS,
   ENV_VAR_MAP,
@@ -1221,4 +1302,5 @@ module.exports = {
   isBudgetPressured,
   computeBudgetPressureLevel,
   logPressureTransition,
+  detectSpin,
 };

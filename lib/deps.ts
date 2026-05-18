@@ -12,7 +12,13 @@
 
 import type { DependencyGraph, DependencyNode, DependencyEdge, ArtifactDAG, ArtifactDAGNode, ArtifactDAGEdge, ArtifactDAGValidation, PlanArtifact } from './types';
 
-const { output } = require('./utils');
+const fs = require('fs') as typeof import('fs');
+const path = require('path') as typeof import('path');
+const { output, error: _depsError, findPhaseInternal } = require('./utils') as {
+  output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
+  error: (msg: string) => never;
+  findPhaseInternal: (cwd: string, phase: string) => import('./types').PhaseInfo | null;
+};
 const { analyzeRoadmap } = require('./roadmap');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -144,8 +150,16 @@ function computeParallelGroups(graph: DependencyGraph): string[][] {
       break;
     }
 
-    // Sort numerically for deterministic output
-    group.sort((a, b) => parseFloat(a) - parseFloat(b));
+    // Sort component-wise to avoid parseFloat('1.10') === parseFloat('1.1') collision
+    group.sort((a, b) => {
+      const pa = a.split('.').map(Number);
+      const pb = b.split('.').map(Number);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+        if (d !== 0) return d;
+      }
+      return 0;
+    });
     groups.push(group);
 
     // Remove current group's nodes and decrement in-degrees
@@ -309,11 +323,14 @@ function buildArtifactDAG(plans: PlanArtifact[]): ArtifactDAG {
 
   // Step 3: Build edges
   const edges: ArtifactDAGEdge[] = [];
+  const missing_requires: string[] = [];
   for (const node of nodes) {
     // Hard dependency edges from requires
     for (const artifact of node.requires) {
       const providerPlanId = providers[artifact];
-      if (providerPlanId !== undefined && providerPlanId !== node.id) {
+      if (providerPlanId === undefined) {
+        missing_requires.push(artifact);
+      } else if (providerPlanId !== node.id) {
         edges.push({
           from_plan: node.id,
           to_plan: providerPlanId,
@@ -372,7 +389,7 @@ function buildArtifactDAG(plans: PlanArtifact[]): ArtifactDAG {
       break;
     }
 
-    // Sort lexicographically for deterministic output
+    // Sort lexicographically for deterministic output (plan IDs are string slugs, not numeric)
     batch.sort();
     for (const nodeId of batch) {
       sorted_plans.push(nodeId);
@@ -385,7 +402,7 @@ function buildArtifactDAG(plans: PlanArtifact[]): ArtifactDAG {
     }
   }
 
-  return { nodes, edges, sorted_plans, providers };
+  return { nodes, edges, sorted_plans, providers, missing_requires };
 }
 
 // ─── validateArtifactDAG ─────────────────────────────────────────────────────
@@ -523,6 +540,223 @@ function validateArtifactDAG(dag: ArtifactDAG, plans: PlanArtifact[]): ArtifactD
   };
 }
 
+// ─── cmdPhaseDepsVisualize ───────────────────────────────────────────────────
+
+/**
+ * Render a phase dependency graph as a Mermaid flowchart or ASCII tree.
+ *
+ * Reads ROADMAP.md for the project, builds the dependency graph using the same
+ * Kahn's algorithm as cmdPhaseAnalyzeDeps, then formats for human consumption.
+ *
+ * Mermaid format: valid `flowchart LR` block (paste into any Mermaid renderer).
+ * ASCII format: indented tree showing parallel groups.
+ *
+ * @param cwd - Project working directory
+ * @param opts - Options: milestone (override), format ('mermaid' | 'ascii')
+ * @param raw - Output raw text instead of JSON
+ */
+function cmdPhaseDepsVisualize(
+  cwd: string,
+  opts: { milestone?: string | null; format?: string | null },
+  raw: boolean
+): void {
+  const roadmapResult = analyzeRoadmap(cwd) as {
+    error?: string;
+    phases?: PhaseInput[];
+  };
+
+  if (roadmapResult.error || !roadmapResult.phases || roadmapResult.phases.length === 0) {
+    output({ error: roadmapResult.error || 'ROADMAP.md not found or empty' }, raw);
+    return;
+  }
+
+  let phases = roadmapResult.phases;
+
+  // Apply milestone filter if specified (match phase names containing milestone string)
+  const milestoneFilter = opts.milestone;
+  if (milestoneFilter) {
+    phases = phases.filter(
+      (p) => p.name.toLowerCase().includes(milestoneFilter.toLowerCase()) ||
+             String(p.number).startsWith(milestoneFilter)
+    );
+    if (phases.length === 0) {
+      output({ error: `No phases found matching milestone "${milestoneFilter}"` }, raw);
+      return;
+    }
+  }
+
+  const graph: DependencyGraph = buildDependencyGraph(phases);
+  const cycle = detectCycle(graph);
+  const parallelGroups = computeParallelGroups(graph);
+  const format = opts.format || 'mermaid';
+
+  let diagram: string;
+
+  if (format === 'ascii') {
+    const lines: string[] = [`Phase Dependency Graph (${graph.nodes.length} phases, ${parallelGroups.length} groups)`];
+    lines.push('');
+    parallelGroups.forEach((group, i) => {
+      lines.push(`Group ${i + 1} [parallel]:`);
+      for (const id of group) {
+        const node = graph.nodes.find((n) => n.id === id);
+        const deps = graph.edges.filter((e) => e.to === id).map((e) => e.from);
+        const depStr = deps.length > 0 ? ` ← depends on: ${deps.join(', ')}` : '';
+        lines.push(`  Phase ${id}: ${node?.name || ''}${depStr}`);
+      }
+    });
+    if (cycle) {
+      lines.push('');
+      lines.push(`⚠ Cycle detected: ${cycle.join(' → ')}`);
+    }
+    diagram = lines.join('\n');
+  } else {
+    // Mermaid flowchart LR
+    const lines: string[] = ['flowchart LR'];
+    for (const node of graph.nodes) {
+      const label = `Phase ${node.id}: ${node.name.replace(/"/g, "'")}`;
+      lines.push(`  ${_mermaidId(node.id)}["${label}"]`);
+    }
+    for (const edge of graph.edges) {
+      lines.push(`  ${_mermaidId(edge.from)} --> ${_mermaidId(edge.to)}`);
+    }
+    if (cycle) {
+      lines.push(`  %% WARNING: cycle detected ${cycle.join(' -> ')}`);
+    }
+    diagram = lines.join('\n');
+  }
+
+  output(
+    {
+      format,
+      phase_count: graph.nodes.length,
+      group_count: parallelGroups.length,
+      has_cycle: Boolean(cycle),
+      cycle_path: cycle ?? null,
+      diagram,
+    },
+    raw,
+    diagram
+  );
+}
+
+/** Sanitize a phase ID for use as a Mermaid node identifier. */
+function _mermaidId(id: string): string {
+  return `ph${id.replace(/\./g, '_')}`;
+}
+
+// ─── buildWaves ──────────────────────────────────────────────────────────────
+
+interface PlanWaveEntry {
+  plan_file: string;
+  wave: number;
+  agent_type: string;
+  target_files: string[];
+}
+
+/**
+ * Read all *-PLAN.md files in phaseDir and group them by their `wave` frontmatter field.
+ * Returns an array of wave groups sorted by wave number, each group containing the plan entries.
+ * Plans without a wave field are assigned to wave 1.
+ *
+ * @param phaseDir - Path to the phase directory containing PLAN.md files
+ * @returns Array of wave groups: [{wave, plans: PlanWaveEntry[]}]
+ */
+function buildWaves(phaseDir: string): { wave: number; plans: PlanWaveEntry[] }[] {
+  let files: string[];
+  try {
+    files = (fs.readdirSync(phaseDir) as string[]).filter(
+      (f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md'
+    ).sort();
+  } catch {
+    return [];
+  }
+
+  const waveMap = new Map<number, PlanWaveEntry[]>();
+
+  for (const file of files) {
+    const content = (() => {
+      try { return fs.readFileSync(path.join(phaseDir, file), 'utf-8') as string; } catch { return null; }
+    })();
+    if (!content) continue;
+
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const fm = fmMatch ? fmMatch[1] : '';
+
+    const waveMatch = fm.match(/^wave:\s*(\d+)/m);
+    const waveNum = waveMatch ? parseInt(waveMatch[1], 10) : 1;
+
+    const agentMatch = fm.match(/^agent_type:\s*(.+)$/m);
+    const agentType = agentMatch ? agentMatch[1].trim() : 'grd-executor';
+
+    const filesMatch = fm.match(/^files_modified:\s*\[([^\]]*)\]/m);
+    const targetFiles = filesMatch
+      ? filesMatch[1].split(',').map((f: string) => f.trim()).filter(Boolean)
+      : [];
+
+    const entry: PlanWaveEntry = { plan_file: file, wave: waveNum, agent_type: agentType, target_files: targetFiles };
+    const bucket = waveMap.get(waveNum) ?? [];
+    bucket.push(entry);
+    waveMap.set(waveNum, bucket);
+  }
+
+  return Array.from(waveMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([wave, plans]) => ({ wave, plans }));
+}
+
+// Effort-to-token band map for the dry-run preview.
+const EFFORT_TOKEN_BANDS: Record<string, string> = {
+  high: '~200K tokens',
+  medium: '~80K tokens',
+  low: '~30K tokens',
+};
+
+/**
+ * CLI command: Dry-run preview of gd execute-phase <N>.
+ * Reads plan files, groups by wave, and prints a wave table without spawning agents.
+ *
+ * @param cwd - Project working directory
+ * @param phase - Phase number/name
+ * @param raw - Output raw text instead of JSON
+ */
+function cmdExecutePhaseDryRun(cwd: string, phase: string, raw: boolean): void {
+  const phaseInfo = findPhaseInternal(cwd, phase);
+  if (!phaseInfo || !phaseInfo.found) {
+    _depsError(`Phase ${phase} not found`);
+  }
+
+  const waves = buildWaves(path.join(cwd, (phaseInfo as import('./types').PhaseInfo).directory));
+  if (waves.length === 0) {
+    output({ dry_run: true, wave_count: 0, waves: [] }, raw, 'No plan files found in phase directory');
+    return;
+  }
+
+  const rows = waves.map(({ wave, plans }) => ({
+    wave,
+    agent_count: plans.length,
+    agents: plans.map((p) => ({
+      plan_file: p.plan_file,
+      agent_type: p.agent_type,
+      estimated_tokens: EFFORT_TOKEN_BANDS['medium'],
+      target_files: p.target_files,
+    })),
+  }));
+
+  if (raw) {
+    const lines: string[] = [`Dry-run: Phase ${phase} — ${waves.length} wave(s), ${waves.reduce((s, w) => s + w.plans.length, 0)} plan(s)\n`];
+    for (const row of rows) {
+      lines.push(`Wave ${row.wave} (${row.agent_count} agent${row.agent_count !== 1 ? 's' : ''}):`);
+      for (const a of row.agents) {
+        const files = a.target_files.length > 0 ? ` → ${a.target_files.join(', ')}` : '';
+        lines.push(`  ${a.plan_file} [${a.agent_type}] ${a.estimated_tokens}${files}`);
+      }
+    }
+    output({ dry_run: true, wave_count: waves.length, waves: rows }, raw, lines.join('\n'));
+  } else {
+    output({ dry_run: true, phase, wave_count: waves.length, waves: rows }, raw, `${waves.length} waves, ${waves.reduce((s, w) => s + w.plans.length, 0)} plans`);
+  }
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -531,6 +765,9 @@ module.exports = {
   computeParallelGroups,
   detectCycle,
   cmdPhaseAnalyzeDeps,
+  cmdPhaseDepsVisualize,
   buildArtifactDAG,
   validateArtifactDAG,
+  buildWaves,
+  cmdExecutePhaseDryRun,
 };

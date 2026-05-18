@@ -1440,16 +1440,61 @@ async function cmdAutopilot(cwd: string, args: string[], raw: boolean): Promise<
     skipPlan: hasFlag('--skip-plan'),
     skipExecute: hasFlag('--skip-execute'),
     skipPostPipeline: hasFlag('--skip-post-pipeline'),
-    timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
-    maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
+    timeout: (() => {
+      if (!hasFlag('--timeout')) return undefined;
+      const parsed = parseInt(flag('--timeout', '0')!, 10);
+      if (isNaN(parsed) || parsed <= 0) { process.stderr.write('Error: --timeout must be a positive integer\n'); process.exit(1); }
+      return parsed;
+    })(),
+    maxTurns: (() => {
+      if (!flag('--max-turns', null)) return undefined;
+      const parsed = parseInt(flag('--max-turns', '0')!, 10);
+      if (isNaN(parsed) || parsed <= 0) { process.stderr.write('Error: --max-turns must be a positive integer\n'); process.exit(1); }
+      return parsed;
+    })(),
     model: flag('--model', undefined as unknown as null) ?? undefined,
   };
 
+  // Pre-execution dry-run plan: compute phase order, parallel groups, and model routing
+  // and attach to the result (without short-circuiting — runAutopilot still runs).
+  let dryRunPlan: Array<{
+    wave: number;
+    phases: Array<{ phase: string; name: string; plan_model: string; execute_model: string }>;
+  }> | undefined;
+  if (options.dryRun) {
+    const drConfig: GrdConfig = loadConfig(cwd);
+    const drAnalysis = analyzeRoadmap(cwd);
+    const drPhases = (drAnalysis.phases ?? []).filter((p) => {
+      if (options.phaseFrom && parseFloat(p.number) < parseFloat(options.phaseFrom!)) return false;
+      if (options.phaseTo && parseFloat(p.number) > parseFloat(options.phaseTo!)) return false;
+      return !(p as { roadmap_complete?: boolean }).roadmap_complete;
+    });
+    const drWaves: string[][] = buildWaves(drPhases, {});
+    const drScheduler = createScheduler(drConfig.scheduler, drConfig.superpowers);
+    dryRunPlan = [];
+    for (let wi = 0; wi < drWaves.length; wi++) {
+      const wavePlan = drWaves[wi].map((phaseNum) => {
+        const phaseInfo = drPhases.find((p) => p.number === phaseNum);
+        const planPrompt = `plan phase ${phaseNum}`;
+        const execPrompt = `execute phase ${phaseNum}`;
+        const planTier = getEffectiveTierForDispatch({ agentType: 'grd-planner', prompt: planPrompt, config: drConfig, scheduler: drScheduler, schedulerConfig: drConfig.scheduler, superpowersConfig: drConfig.superpowers, modelProfiles: MODEL_PROFILES });
+        const execTier = getEffectiveTierForDispatch({ agentType: 'grd-executor', prompt: execPrompt, config: drConfig, scheduler: drScheduler, schedulerConfig: drConfig.scheduler, superpowersConfig: drConfig.superpowers, modelProfiles: MODEL_PROFILES });
+        const planModel = options.model ?? resolveModelForAgent(drConfig, 'grd-planner', cwd, { effectiveTierOverride: planTier });
+        const execModel = options.model ?? resolveModelForAgent(drConfig, 'grd-executor', cwd, { effectiveTierOverride: execTier });
+        return { phase: phaseNum, name: phaseInfo?.name ?? '', plan_model: planModel, execute_model: execModel };
+      });
+      dryRunPlan.push({ wave: wi + 1, phases: wavePlan });
+    }
+  }
+
   const result: AutopilotResult = await runAutopilot(cwd, options);
+  const finalResult = dryRunPlan !== undefined
+    ? { ...result, execution_plan: dryRunPlan }
+    : result;
   const rawSummary: string | undefined = raw
     ? `Autopilot: ${result.phases_completed}/${result.phases_attempted} phases completed${result.stopped_at ? ` (stopped: ${result.stopped_at})` : ''}`
     : undefined;
-  output(result, raw, rawSummary);
+  output(finalResult, raw, rawSummary);
 }
 
 /**
@@ -1523,8 +1568,18 @@ async function cmdMultiMilestoneAutopilot(
       ? parseInt(flag('--max-milestones', '10')!, 10)
       : undefined,
     dryRun: hasFlag('--dry-run'),
-    timeout: hasFlag('--timeout') ? parseInt(flag('--timeout', '0')!, 10) : undefined,
-    maxTurns: flag('--max-turns', null) ? parseInt(flag('--max-turns', '0')!, 10) : undefined,
+    timeout: (() => {
+      if (!hasFlag('--timeout')) return undefined;
+      const parsed = parseInt(flag('--timeout', '0')!, 10);
+      if (isNaN(parsed) || parsed <= 0) { process.stderr.write('Error: --timeout must be a positive integer\n'); process.exit(1); }
+      return parsed;
+    })(),
+    maxTurns: (() => {
+      if (!flag('--max-turns', null)) return undefined;
+      const parsed = parseInt(flag('--max-turns', '0')!, 10);
+      if (isNaN(parsed) || parsed <= 0) { process.stderr.write('Error: --max-turns must be a positive integer\n'); process.exit(1); }
+      return parsed;
+    })(),
     model: flag('--model', undefined as unknown as null) ?? undefined,
     skipPlan: hasFlag('--skip-plan'),
     skipExecute: hasFlag('--skip-execute'),
@@ -1607,6 +1662,77 @@ function cmdInitMultiMilestoneAutopilot(cwd: string, raw: boolean): void {
   output(result, raw, raw ? JSON.stringify(result) : undefined);
 }
 
+// ─── Spin Event Handler ──────────────────────────────────────────────────────
+
+/**
+ * Handle a spin detection event by writing a SPIN-REPORT.md to the phase directory
+ * and returning action options (resume, skip, abort) for the caller to present to the user.
+ *
+ * @param phaseDir - Absolute path to the phase directory
+ * @param spinEvent - The SpinDetectedEvent from detectSpin()
+ * @param phaseName - Human-readable phase name for the report header
+ * @returns Path to the written SPIN-REPORT.md, or null if write failed
+ */
+function handleSpinEvent(
+  phaseDir: string,
+  spinEvent: { repeated_pattern: string; consecutive_count: number; max_similarity: number },
+  phaseName: string
+): string | null {
+  const pattern = spinEvent.repeated_pattern;
+
+  // Auto-generate recovery suggestions based on error keywords in the pattern
+  const suggestions: string[] = [];
+  const lower = pattern.toLowerCase();
+  if (/type.?error|cannot find|property .* does not exist/i.test(lower)) {
+    suggestions.push('Run `npm run build:check` to identify type errors and fix them before retrying');
+  }
+  if (/test failed|expect|assertion/i.test(lower)) {
+    suggestions.push('Run `npm test` to identify failing tests; review the test output for clues on missing implementation');
+  }
+  if (/cannot find module|module not found|require.*failed/i.test(lower)) {
+    suggestions.push('Check that all required packages are installed (`npm install`) and import paths are correct');
+  }
+  if (suggestions.length === 0) {
+    suggestions.push('Review the error pattern above and check for missing files, imports, or API mismatches');
+    suggestions.push('Consider breaking the phase into smaller tasks or skipping and addressing manually');
+  }
+  suggestions.push('Check ROADMAP.md for any prerequisite phases that may not be complete yet');
+
+  const reportLines = [
+    `# Spin Detected — ${phaseName}`,
+    '',
+    `Generated: ${new Date().toISOString().slice(0, 19).replace('T', ' ')} UTC`,
+    '',
+    `## Summary`,
+    '',
+    `The autopilot detected **${spinEvent.consecutive_count} consecutive similar output chunks** (similarity: ${spinEvent.max_similarity}) suggesting the agent is looping on the same error without progress.`,
+    '',
+    '## Repeated Error Pattern',
+    '',
+    '```',
+    pattern,
+    '```',
+    '',
+    '## Recovery Suggestions',
+    '',
+    ...suggestions.map((s, i) => `${i + 1}. ${s}`),
+    '',
+    '## Actions',
+    '',
+    '- **Resume**: Fix the underlying issue above, then re-run `gd execute-phase <N>`',
+    '- **Skip**: Mark the phase as skipped and continue autopilot with the next phase',
+    '- **Abort**: Stop the autopilot run and investigate manually',
+  ];
+
+  try {
+    const reportPath = path.join(phaseDir, 'SPIN-REPORT.md');
+    fs.writeFileSync(reportPath, reportLines.join('\n') + '\n', 'utf-8');
+    return reportPath;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1647,4 +1773,5 @@ module.exports = {
   DEFAULT_TIMEOUT_MINUTES,
   HEARTBEAT_INTERVAL_MS,
   _getSchedulerStates,
+  handleSpinEvent,
 };

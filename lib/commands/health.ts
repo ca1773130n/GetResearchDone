@@ -11,10 +11,12 @@ const {
   safeReadFile,
   loadConfig,
   output,
+  validateConfigDrift,
 }: {
   safeReadFile: (p: string) => string | null;
   loadConfig: (cwd: string) => Record<string, unknown> & { timeouts: Record<string, number> };
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
+  validateConfigDrift: (cwd: string) => { missing_keys: Array<{ key: string; default: unknown; fix_command: string }>; deprecated_keys: string[]; total_checks: number };
 } = require('../utils');
 const {
   phasesDir: getPhasesDirPath,
@@ -84,6 +86,12 @@ interface DriftSection {
   ontology: { score: number; sufficient_data: boolean; reason?: string };
 }
 
+interface ConfigDriftSection {
+  missing_count: number;
+  missing_keys: Array<{ key: string; default: unknown; fix_command: string }>;
+  deprecated_keys: string[];
+}
+
 interface HealthResult {
   blockers: { count: number; items: string[] };
   deferred_validations: {
@@ -97,6 +105,7 @@ interface HealthResult {
   risks: RiskEntry[];
   baseline: { exists: boolean } | null;
   drift: DriftSection;
+  config_drift: ConfigDriftSection;
 }
 
 interface HealthCheckResults {
@@ -286,6 +295,14 @@ function cmdHealth(cwd: string, raw: boolean): void {
   const driftThreshold = typeof driftConfig.threshold === 'number' ? driftConfig.threshold : 0.3;
   const drift: DriftSection = computeDriftScore(cwd, driftWeights, driftThreshold);
 
+  // Config drift: detect missing keys added after initial gd init
+  const configDriftReport = validateConfigDrift(cwd);
+  const configDrift: ConfigDriftSection = {
+    missing_count: configDriftReport.missing_keys.length,
+    missing_keys: configDriftReport.missing_keys,
+    deprecated_keys: configDriftReport.deprecated_keys,
+  };
+
   const result: HealthResult = {
     blockers: { count: blockerItems.length, items: blockerItems },
     deferred_validations: {
@@ -299,6 +316,7 @@ function cmdHealth(cwd: string, raw: boolean): void {
     risks,
     baseline,
     drift,
+    config_drift: configDrift,
   };
 
   // TUI rendering
@@ -351,6 +369,18 @@ function cmdHealth(cwd: string, raw: boolean): void {
   tui += `  ${formatComponent('goal       ', drift.goal)}  (weight ${drift.weights.goal})\n`;
   tui += `  ${formatComponent('constraint ', drift.constraint)}  (weight ${drift.weights.constraint})\n`;
   tui += `  ${formatComponent('ontology   ', drift.ontology)}  (weight ${drift.weights.ontology})\n`;
+
+  // Config drift
+  tui += '\n## Config Drift\n';
+  if (configDrift.missing_count === 0) {
+    tui += 'Config is up to date ✓\n';
+  } else {
+    tui += `⚠ ${configDrift.missing_count} missing key(s) (added after gd init):\n`;
+    for (const mk of configDrift.missing_keys) {
+      tui += `  ○ ${mk.key} (default: ${JSON.stringify(mk.default)})\n`;
+      tui += `    Fix: ${mk.fix_command}\n`;
+    }
+  }
 
   // Risk register
   if (risks.length > 0) {

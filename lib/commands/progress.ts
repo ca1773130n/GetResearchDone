@@ -26,6 +26,11 @@ const {
 }: {
   readCachedState: (statePath: string) => string | null;
 } = require('./phase-info');
+const {
+  loadConfig,
+}: {
+  loadConfig: (cwd: string) => { survey?: { staleness_days?: number }; [key: string]: unknown };
+} = require('../utils');
 
 // ─── Domain Types ────────────────────────────────────────────────────────────
 
@@ -86,6 +91,45 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
 
   const percent = totalPlans > 0 ? Math.round((totalSummaries / totalPlans) * 100) : 0;
 
+  // Check research file staleness
+  let stalenessDays = 30;
+  try {
+    const cfg = loadConfig(cwd);
+    if (cfg.survey && typeof cfg.survey.staleness_days === 'number') {
+      stalenessDays = cfg.survey.staleness_days;
+    }
+  } catch {
+    // Config unavailable — use default
+  }
+  const stalenessMs = stalenessDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const staleResearchFiles: string[] = [];
+  const planningBase = getPlanningDir(cwd);
+  const researchFilesToCheck: string[] = [
+    path.join(planningBase, 'research', 'LANDSCAPE.md'),
+  ];
+  try {
+    const milestonesBase = path.join(planningBase, 'milestones');
+    const msDirs = (fs.readdirSync(milestonesBase) as string[]).filter((d: string) => {
+      try { return fs.statSync(path.join(milestonesBase, d)).isDirectory(); } catch { return false; }
+    });
+    for (const ms of msDirs) {
+      researchFilesToCheck.push(path.join(milestonesBase, ms, 'research', 'SUMMARY.md'));
+    }
+  } catch {
+    // milestones dir may not exist
+  }
+  for (const resFile of researchFilesToCheck) {
+    try {
+      const stat = fs.statSync(resFile);
+      if (now - stat.mtimeMs > stalenessMs) {
+        staleResearchFiles.push(path.relative(cwd, resFile));
+      }
+    } catch {
+      // File doesn't exist — not stale, just absent
+    }
+  }
+
   // Parse active blockers from STATE.md
   const blockerItems: string[] = [];
   try {
@@ -114,6 +158,12 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
       for (const b of blockerItems) out += `> - ${b}\n`;
       out += `\n`;
     }
+    if (staleResearchFiles.length > 0) {
+      out += `## Research Freshness Warnings\n\n`;
+      out += `The following research files are older than ${stalenessDays} days. Run \`/grd:survey\` to refresh:\n\n`;
+      for (const f of staleResearchFiles) out += `- \`${f}\`\n`;
+      out += `\n`;
+    }
     out += `| Phase | Name | Plans | Status |\n|-------|------|-------|--------|\n`;
     for (const p of phases)
       out += `| ${p.number} | ${p.name} | ${p.summaries}/${p.plans} | ${p.status} |\n`;
@@ -136,6 +186,8 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
         percent,
         active_blockers: blockerItems.length,
         blocker_items: blockerItems,
+        stale_research_files: staleResearchFiles,
+        staleness_threshold_days: stalenessDays,
       },
       raw,
       humanSummary

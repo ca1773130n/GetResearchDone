@@ -22,6 +22,10 @@ const { extractFrontmatter } = require('./frontmatter') as {
   extractFrontmatter: (content: string) => Record<string, unknown>;
 };
 const fs = require('fs') as typeof import('fs');
+const path = require('path') as typeof import('path');
+const { planningDir: getPlanningDir } = require('./paths') as {
+  planningDir: (cwd: string) => string;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -197,7 +201,8 @@ function validateSemantic(plan: PlanArtifact, cwd: string): ValidationResult {
   }
 
   // Check if the objective references known lib/ modules or directories
-  const knownDirs = ['lib/', 'bin/', 'commands/', 'agents/', 'tests/', '.planning/', 'examples/'];
+  const planningRelDir = path.relative(cwd, getPlanningDir(cwd)) + '/';
+  const knownDirs = ['lib/', 'bin/', 'commands/', 'agents/', 'tests/', planningRelDir, 'examples/'];
   const objectiveLower = plan.objective.toLowerCase();
   const referencesKnown = knownDirs.some((d) => objectiveLower.includes(d));
 

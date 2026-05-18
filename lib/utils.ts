@@ -325,6 +325,13 @@ function loadConfig(cwd: string): GrdConfig {
     tracker_auth_ms: 10000,
     backend_detect_ms: 10000,
     autopilot_check_ms: 5000,
+    autoresearch_test_ms: 120000,
+    autoresearch_coverage_ms: 180000,
+    autoresearch_lint_ms: 60000,
+    backend_probe_ms: 5000,
+    discussion_git_ms: 10000,
+    overstory_probe_ms: 5000,
+    overstory_install_ms: 120000,
   };
   const defaults: GrdConfig = {
     model_profile: 'balanced',
@@ -586,6 +593,13 @@ function loadConfig(cwd: string): GrdConfig {
           tracker_auth_ms: (t.tracker_auth_ms ?? d.tracker_auth_ms) as number,
           backend_detect_ms: (t.backend_detect_ms ?? d.backend_detect_ms) as number,
           autopilot_check_ms: (t.autopilot_check_ms ?? d.autopilot_check_ms) as number,
+          autoresearch_test_ms: (t.autoresearch_test_ms ?? d.autoresearch_test_ms) as number,
+          autoresearch_coverage_ms: (t.autoresearch_coverage_ms ?? d.autoresearch_coverage_ms) as number,
+          autoresearch_lint_ms: (t.autoresearch_lint_ms ?? d.autoresearch_lint_ms) as number,
+          backend_probe_ms: (t.backend_probe_ms ?? d.backend_probe_ms) as number,
+          discussion_git_ms: (t.discussion_git_ms ?? d.discussion_git_ms) as number,
+          overstory_probe_ms: (t.overstory_probe_ms ?? d.overstory_probe_ms) as number,
+          overstory_install_ms: (t.overstory_install_ms ?? d.overstory_install_ms) as number,
         };
       })(),
     };
@@ -1258,6 +1272,69 @@ function resolveEffortForAgent(config: GrdConfig, agentType: string, cwd?: strin
   return resolveEffortLevel(agentType, profile);
 }
 
+// ─── Config Drift Validator ───────────────────────────────────────────────────
+
+/**
+ * Known config keys with their default values, organized for drift detection.
+ * Each entry has: key (dot-path for nested keys), default value, and the gd settings
+ * command to fix it.
+ */
+const CONFIG_DRIFT_KEYS: Array<{ key: string; default: unknown; fix: string }> = [
+  { key: 'token_profile', default: 'balanced', fix: 'gd settings token_profile balanced' },
+  { key: 'phase_complete_llm_fallback', default: false, fix: 'gd settings phase_complete_llm_fallback false' },
+  { key: 'autonomous_mode', default: false, fix: 'gd settings autonomous_mode false' },
+  { key: 'branching_strategy', default: 'none', fix: 'gd settings branching_strategy none' },
+  { key: 'scheduler.idle_timeout_seconds', default: 900, fix: 'gd settings scheduler.idle_timeout_seconds 900' },
+  { key: 'scheduler.budget_pressure_thresholds', default: { warning: 0.6, high: 0.8, critical: 0.95 }, fix: 'gd settings scheduler.budget_pressure_thresholds \'{"warning":0.6,"high":0.8,"critical":0.95}\'' },
+  { key: 'drift', default: { weights: { goal: 1, constraint: 1, ontology: 1 }, threshold: 0.3 }, fix: 'gd settings drift \'{"weights":{"goal":1,"constraint":1,"ontology":1},"threshold":0.3}\'' },
+  { key: 'autopilot', default: {}, fix: 'gd settings autopilot \'{}\''},
+];
+
+interface DriftReport {
+  missing_keys: Array<{ key: string; default: unknown; fix_command: string }>;
+  deprecated_keys: string[];
+  total_checks: number;
+}
+
+/**
+ * Validate config.json against the current schema defaults, identifying keys that
+ * were added after initial `gd init` and are missing from the user's config.
+ *
+ * @param cwd - Project working directory
+ * @returns DriftReport with missing keys, fix commands, and deprecated keys
+ */
+function validateConfigDrift(cwd: string): DriftReport {
+  const configPath = path.join(cwd, '.planning', 'config.json');
+  let parsed: Record<string, unknown> = {};
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    parsed = JSON.parse(raw);
+  } catch {
+    // Config doesn't exist or is malformed — all keys are "missing"
+  }
+
+  const missing: DriftReport['missing_keys'] = [];
+
+  for (const entry of CONFIG_DRIFT_KEYS) {
+    // Support dot-path for nested keys (e.g. "scheduler.idle_timeout_seconds")
+    const parts = entry.key.split('.');
+    let cur: unknown = parsed;
+    for (const part of parts) {
+      if (cur === null || typeof cur !== 'object') { cur = undefined; break; }
+      cur = (cur as Record<string, unknown>)[part];
+    }
+    if (cur === undefined) {
+      missing.push({ key: entry.key, default: entry.default, fix_command: entry.fix });
+    }
+  }
+
+  return {
+    missing_keys: missing,
+    deprecated_keys: [],
+    total_checks: CONFIG_DRIFT_KEYS.length,
+  };
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1315,4 +1392,5 @@ module.exports = {
   levenshteinDistance,
   findClosestCommand,
   clearPhaseCache,
+  validateConfigDrift,
 };

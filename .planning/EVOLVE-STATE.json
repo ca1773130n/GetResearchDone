@@ -1,9 +1,174 @@
 {
-  "iteration": 2,
-  "timestamp": "2026-03-07T02:05:58.398Z",
+  "iteration": 8,
+  "timestamp": "2026-05-18T11:46:24.917Z",
   "milestone": "",
   "pick_pct": 50,
   "selected_groups": [
+    {
+      "id": "improve-features/feature-enhancements",
+      "theme": "feature-enhancements",
+      "dimension": "improve-features",
+      "title": "Feature Enhancements (improve-features)",
+      "items": [
+        {
+          "id": "improve-features/enhance-caching-knowledge",
+          "dimension": "improve-features",
+          "slug": "enhance-caching-knowledge",
+          "title": "Add caching for repeated file reads in knowledge.ts",
+          "description": "lib/knowledge.ts reads knowhowPath 3 times. Cache the result in a local variable to avoid redundant I/O.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 15,
+      "effort": "small",
+      "status": "selected"
+    },
+    {
+      "id": "new-features/configurable-defaults",
+      "theme": "configurable-defaults",
+      "dimension": "new-features",
+      "title": "Configurable Defaults (new-features)",
+      "items": [
+        {
+          "id": "new-features/configurable-default-autoresearch-L260",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L260",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 120000ms at line 260. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-autoresearch-L276",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L276",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 180000ms at line 276. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-autoresearch-L294",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L294",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 60000ms at line 294. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-backend-L911",
+          "dimension": "new-features",
+          "slug": "configurable-default-backend-L911",
+          "title": "Make timeout configurable in backend.ts",
+          "description": "lib/backend.ts has a hardcoded timeout value of 5000ms at line 911. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-discussion-L1155",
+          "dimension": "new-features",
+          "slug": "configurable-default-discussion-L1155",
+          "title": "Make timeout configurable in discussion.ts",
+          "description": "lib/discussion.ts has a hardcoded timeout value of 10000ms at line 1155. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-overstory-L98",
+          "dimension": "new-features",
+          "slug": "configurable-default-overstory-L98",
+          "title": "Make timeout configurable in overstory.ts",
+          "description": "lib/overstory.ts has a hardcoded timeout value of 5000ms at line 98. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-overstory-L110",
+          "dimension": "new-features",
+          "slug": "configurable-default-overstory-L110",
+          "title": "Make timeout configurable in overstory.ts",
+          "description": "lib/overstory.ts has a hardcoded timeout value of 120000ms at line 110. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "medium",
+      "status": "selected"
+    },
+    {
+      "id": "new-features/progress-feedback",
+      "theme": "progress-feedback",
+      "dimension": "new-features",
+      "title": "Progress Feedback (new-features)",
+      "items": [
+        {
+          "id": "new-features/missing-progress-knowledge-L124",
+          "dimension": "new-features",
+          "slug": "missing-progress-knowledge-L124",
+          "title": "Add progress output to loop in knowledge.ts line 124",
+          "description": "lib/knowledge.ts iterates over entries at line 124 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-progress-knowledge-L535",
+          "dimension": "new-features",
+          "slug": "missing-progress-knowledge-L535",
+          "title": "Add progress output to loop in knowledge.ts line 535",
+          "description": "lib/knowledge.ts iterates over pairs at line 535 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "small",
+      "status": "selected"
+    },
+    {
+      "id": "stability/hardcoded-paths",
+      "theme": "hardcoded-paths",
+      "dimension": "stability",
+      "title": "Hardcoded Paths (stability)",
+      "items": [
+        {
+          "id": "stability/use-paths-module-invariants-L200",
+          "dimension": "stability",
+          "slug": "use-paths-module-invariants-L200",
+          "title": "Use paths module instead of hardcoded path in invariants.ts",
+          "description": "lib/invariants.ts has a hardcoded \".planning/\" path at line 200. Use lib/paths module functions for path resolution to ensure consistency across environments.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "small",
+      "status": "selected"
+    },
     {
       "id": "product-ideation/miscellaneous",
       "theme": "miscellaneous",
@@ -11,738 +176,309 @@
       "title": "Miscellaneous (product-ideation)",
       "items": [
         {
-          "id": "product-ideation/interactive-phase-dependency-graph",
+          "id": "product-ideation/plan-static-linter",
           "dimension": "product-ideation",
-          "slug": "interactive-phase-dependency-graph",
-          "title": "Interactive Phase Dependency Graph",
-          "description": "Visual TUI or HTML rendering of phase dependencies, showing which phases are blocked, ready, in-flight, or complete. Users can't easily see the critical path when planning multi-phase milestones — this gives them a Gantt-like view directly in the terminal or browser, revealing parallelization opportunities and bottlenecks at a glance.",
+          "slug": "plan-static-linter",
+          "title": "Pre-execution Plan Linter (`gd lint-plan <N>`)",
+          "description": "Users currently discover broken plans only at execution time — mid-agent, after burning tokens. Add `gd lint-plan <N>` in `bin/grd-tools.ts` backed by a new `lib/plan-linter.ts` that statically validates a phase's PLAN.md files: checks for circular dependencies in provides/requires DAG, tasks referencing non-existent files, missing acceptance criteria, and duplicate task IDs. Wire as an optional gate in `gd execute-phase` pre-flight (behind `config.gates.lint_plan`). Output: structured list of errors/warnings with line references. Solves: silent broken plans that waste a full execution cycle.",
           "effort": "medium",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/research-citation-backlink-tracker",
+          "id": "product-ideation/phase-handoff-snapshot",
           "dimension": "product-ideation",
-          "slug": "research-citation-backlink-tracker",
-          "title": "Research Citation Backlink Tracker",
-          "description": "Automatically tracks which phases, plans, and SUMMARY.md files reference each paper in PAPERS.md. When a user asks 'where did we actually use this paper?', they currently have to grep manually. This adds a reverse index so every paper shows its downstream usage, helping prune stale research and understand which papers drove real implementation decisions.",
+          "slug": "phase-handoff-snapshot",
+          "title": "Structured Pause/Resume Handoff (`gd stash-context`)",
+          "description": "When users pause work and return days later, they lose all mental context — what decision was being made, what blockers existed, what the next step was. Add `gd stash-context` command in `bin/grd-tools.ts` that writes `.planning/milestones/{m}/handoff-{phase}.md` containing: current git diff summary, open blockers from HEALTH.md, last 5 EVOLVE-STATE entries, and a Claude-generated 'resume from here' narrative. Wire into `gd pause-work` skill as auto-step, and have `gd resume-project` auto-load and display the latest handoff. Modify `lib/commands/progress.ts` and add `lib/handoff.ts`.",
           "effort": "medium",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/phase-risk-assessment",
+          "id": "product-ideation/token-cost-estimator",
           "dimension": "product-ideation",
-          "slug": "phase-risk-assessment",
-          "title": "Phase Risk Assessment Agent",
-          "description": "Before executing a phase, analyze the plan files for risk signals: vague success criteria, missing baselines, overly large scope, unclear dependencies, or no fallback strategy. Surfaces a risk score with actionable remediation suggestions. Prevents teams from executing poorly-scoped phases that will fail verification and require expensive rework.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/cross-project-knowledge-import",
-          "dimension": "product-ideation",
-          "slug": "cross-project-knowledge-import",
-          "title": "Cross-Project Knowledge Import",
-          "description": "Import LANDSCAPE.md, PAPERS.md, or KNOWHOW.md from another GRD project into the current one. Researchers often start new projects in adjacent domains where prior survey work is highly relevant. Instead of re-running expensive surveys, they can pull vetted knowledge from a sibling project and annotate what transfers vs. what needs updating.",
+          "slug": "token-cost-estimator",
+          "title": "Pre-flight Cost Estimate for Autopilot",
+          "description": "Users have no idea how expensive `gd autopilot` or `gd execute-phase` will be before they confirm. Add a `lib/cost-estimator.ts` module that reads plan task counts, agent frontmatter (effort level, maxTurns), model tier from config, and historical token-per-task averages from EVOLVE-STATE.json to output a `~$X.XX / ~Xk tokens` range estimate. Wire into `gd autopilot` and `gd execute-phase` confirmation prompt in `lib/autopilot.ts` and `bin/grd-tools.ts`. Show estimate alongside phase list before user approves. Solves: sticker shock after a long unattended run depletes an account.",
           "effort": "small",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/evaluation-regression-alerts",
+          "id": "product-ideation/phase-explainer",
           "dimension": "product-ideation",
-          "slug": "evaluation-regression-alerts",
-          "title": "Evaluation Regression Alerts",
-          "description": "After each eval-report run, automatically compare metrics against the stored baseline and emit a prominent warning (or block completion) if any key metric regressed beyond a configurable threshold. Users currently have to manually diff eval results — this makes regressions impossible to miss and catches them before they compound across phases.",
+          "slug": "phase-explainer",
+          "title": "Human-Readable Phase Summary (`gd explain-phase <N>`)",
+          "description": "After a phase completes, there's no artifact that explains what was built in plain English — making it hard to write PR descriptions, update stakeholders, or onboard teammates. Add `gd explain-phase <N>` in `bin/grd-tools.ts` with handler in `lib/commands/analysis.ts` that reads the phase's PLAN.md files + git log between phase-start and phase-end tags + RESEARCH.md, then uses a lightweight Claude call (haiku tier) to synthesize a 150-200 word narrative: what was built, why it was needed, key design decisions, and how it connects to the milestone goal. Output to stdout and optionally append to `.planning/milestones/{m}/phases/{n}/SUMMARY.md`.",
           "effort": "small",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/plan-template-library",
+          "id": "product-ideation/cross-project-knowhow-export",
           "dimension": "product-ideation",
-          "slug": "plan-template-library",
-          "title": "Plan Template Library",
-          "description": "A curated set of PLAN.md templates for common R&D patterns: ablation study, dataset collection, model fine-tuning, API integration, benchmark reproduction. When running /grd:plan-phase, the planner can select or suggest a template as a starting scaffold. Reduces the blank-page problem and ensures common verification steps aren't forgotten.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/natural-language-progress-query",
-          "dimension": "product-ideation",
-          "slug": "natural-language-progress-query",
-          "title": "Natural Language Progress Query",
-          "description": "Ask questions like 'what did we ship last week?', 'which phases are over budget?', 'what blockers are unresolved?' and get structured answers synthesized from STATE.md, SUMMARY.md files, and roadmap. Currently users must manually read multiple files. This makes project status instantly accessible without context-loading overhead.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/experiment-notebook-export",
-          "dimension": "product-ideation",
-          "slug": "experiment-notebook-export",
-          "title": "Experiment Notebook Export",
-          "description": "Export a phase's research + plans + summaries + eval results as a self-contained Jupyter notebook or Markdown report suitable for sharing with stakeholders or publishing as a blog post. Bridges the gap between internal R&D artifacts and external communication — currently researchers must manually reformat everything when presenting results.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/automated-literature-gap-detection",
-          "dimension": "product-ideation",
-          "slug": "automated-literature-gap-detection",
-          "title": "Automated Literature Gap Detection",
-          "description": "After surveying a topic, automatically compare the methods in LANDSCAPE.md against the implementation in plans/code to identify research areas that were surveyed but never attempted. Surfaces 'we read about X but never tried it' gaps, helping teams decide whether to revisit promising approaches before closing a milestone.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-time-budget-tracking",
-          "dimension": "product-ideation",
-          "slug": "phase-time-budget-tracking",
-          "title": "Phase Time Budget Tracking",
-          "description": "Track actual wall-clock time per phase against the declared Duration field, and surface variance trends across the project. Teams consistently underestimate phase duration — this gives historical data to calibrate future estimates and flags phases that are running 2x+ over budget before they derail the milestone timeline.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/multi-repo-federation",
-          "dimension": "product-ideation",
-          "slug": "multi-repo-federation",
-          "title": "Multi-Repo GRD Federation",
-          "description": "A parent project that aggregates STATE.md and progress from multiple child GRD projects (e.g., separate repos for data pipeline, model training, and serving). Research platforms often span multiple repos — this gives a unified dashboard showing cross-repo phase status, blockers, and eval metrics in one view without requiring a monorepo.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/requirement-coverage-heatmap",
-          "dimension": "product-ideation",
-          "slug": "requirement-coverage-heatmap",
-          "title": "Requirement Coverage Heatmap",
-          "description": "Visualize which requirements from REQUIREMENTS.md are covered by which phases and plans, with color coding for coverage density. Uncovers requirements that have zero plan coverage (at risk of being forgotten) and requirements covered by 5+ plans (potential redundancy). Makes traceability gaps visible before milestone completion.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/slack-standup-digest",
-          "dimension": "product-ideation",
-          "slug": "slack-standup-digest",
-          "title": "Slack Standup Digest",
-          "description": "Push a daily standup summary to a Slack channel: what completed yesterday, what's in-flight today, current blockers. Research teams using async collaboration need status visibility without manual updates. Integrates with existing STATE.md and roadmap data — no new data entry required from team members.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/hypothesis-tracking",
-          "dimension": "product-ideation",
-          "slug": "hypothesis-tracking",
-          "title": "Hypothesis Tracking System",
-          "description": "A structured way to record research hypotheses with their status (proposed, testing, confirmed, rejected) and link them to phases and eval results. Currently hypotheses live in freeform research docs and get lost. This makes scientific rigor explicit: you state what you expect, test it, and record whether it held — creating an audit trail of scientific reasoning.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/code-experiment-sandbox",
-          "dimension": "product-ideation",
-          "slug": "code-experiment-sandbox",
-          "title": "Code Experiment Sandbox",
-          "description": "Spin up an isolated branch with a minimal harness for trying a specific technique before committing to a full phase. Think 'spike' formalized: creates a time-boxed sandbox phase with auto-cleanup after N days. Prevents experimental code from polluting main branches while giving researchers a structured place to validate ideas cheaply before planning full execution.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/eval-benchmark-harness-integration",
-          "dimension": "product-ideation",
-          "slug": "eval-benchmark-harness-integration",
-          "title": "Eval Benchmark Harness Integration",
-          "description": "Native connectors for running standard ML benchmarks (MMLU, HumanEval, BIG-Bench, GLUE) as GRD eval targets, with results automatically written into EVAL.md. Researchers currently have to manually run harnesses and copy numbers. This closes the loop between standard benchmarks and GRD's eval tracking, making reproducing published results a one-command operation.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-kickoff-readiness-checklist",
-          "dimension": "product-ideation",
-          "slug": "phase-kickoff-readiness-checklist",
-          "title": "Phase Kickoff Readiness Checklist",
-          "description": "Before executing a phase, verify a pre-flight checklist: baseline metrics captured, dependencies completed, research questions answered, compute resources available, eval plan written. Catches phases that are structurally ready (plans exist) but scientifically unready (no baseline to compare against). Prevents executing phases that will fail verification for avoidable reasons.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/retrospective-generator",
-          "dimension": "product-ideation",
-          "slug": "retrospective-generator",
-          "title": "Milestone Retrospective Generator",
-          "description": "After completing a milestone, synthesize a structured retrospective from all SUMMARY.md, REVIEW.md, and eval data: what worked, what didn't, how estimates compared to actuals, which techniques were abandoned and why. Captures institutional knowledge that otherwise evaporates at milestone boundaries, making future planning substantially more accurate.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/config-diff-viewer",
-          "dimension": "product-ideation",
-          "slug": "config-diff-viewer",
-          "title": "Config Change Diff Viewer",
-          "description": "Show a human-readable diff of config.json changes between sessions, explaining what each changed setting means for agent behavior. Users change settings like ceremony level, yolo mode, or execution concurrency without remembering their previous values or understanding downstream effects. This makes config drift visible and auditable.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/parallel-ablation-runner",
-          "dimension": "product-ideation",
-          "slug": "parallel-ablation-runner",
-          "title": "Parallel Ablation Runner",
-          "description": "Define an ablation matrix (e.g., learning rate × batch size × architecture) and automatically spawn parallel phases to test each combination, then collect results into a comparison table. Ablation studies are the most tedious part of ML research — this turns a week of manual experiment management into a declarative config plus one command.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/paper-to-phase-converter",
-          "dimension": "product-ideation",
-          "slug": "paper-to-phase-converter",
-          "title": "Paper-to-Phase Converter",
-          "description": "Given a paper slug from PAPERS.md, generate a draft implementation phase with plan structure, verification criteria, and eval metrics derived from the paper's methodology and reported results. Eliminates the gap between 'we want to implement this paper' and 'we have a concrete plan' — currently requires substantial manual translation work.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/decision-log-timeline",
-          "dimension": "product-ideation",
-          "slug": "decision-log-timeline",
-          "title": "Decision Log Timeline",
-          "description": "A chronological view of all decisions recorded across STATE.md, CONTEXT.md files, and discussion artifacts, with links to the phases they affected. Research projects accumulate hundreds of decisions that become hard to reconstruct later ('why did we choose X over Y?'). This surfaces the decision history without requiring users to read every planning file.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/live-eval-streaming",
-          "dimension": "product-ideation",
-          "slug": "live-eval-streaming",
-          "title": "Live Eval Result Streaming",
-          "description": "Stream eval metrics as they compute (per-sample or per-batch) into a live-updating terminal view, rather than waiting for the full eval to complete before seeing any results. Long evals (hours) give zero feedback until completion — this lets researchers abort early if results are clearly off-track, saving substantial compute time.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/knowledge-base-search",
-          "dimension": "product-ideation",
-          "slug": "knowledge-base-search",
-          "title": "Cross-Artifact Full-Text Search",
-          "description": "Search across all .planning/ artifacts — LANDSCAPE.md, PAPERS.md, KNOWHOW.md, SUMMARY.md, phase plans, decisions — with ranked results and context snippets. As projects grow to 50+ phases, finding where a specific technique or decision was discussed becomes a multi-minute grep session. This makes institutional knowledge instantly retrievable.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/agent-performance-analytics",
-          "dimension": "product-ideation",
-          "slug": "agent-performance-analytics",
-          "title": "Agent Performance Analytics",
-          "description": "Track which agents (executor, planner, reviewer, etc.) consume the most tokens, take the longest, and produce the most rework (measured by re-runs and failed verifications). Helps teams optimize ceremony levels and model profiles by showing actual cost-per-phase data rather than relying on intuition about which agents are expensive.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-handoff-briefing",
-          "dimension": "product-ideation",
-          "slug": "phase-handoff-briefing",
-          "title": "Phase Handoff Briefing",
-          "description": "When starting a new work session mid-project, generate a focused briefing: what phase is active, what's completed vs. outstanding in the current phase, key decisions made, any blockers, and the single most important next action. Eliminates the 10-minute context reload that starts every session — teams can get to productive work in under a minute.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/what-if-scenario-planner",
-          "dimension": "product-ideation",
-          "slug": "what-if-scenario-planner",
-          "title": "What-If Scenario Planner",
-          "description": "Model the impact of scope changes, phase insertions, or requirement additions on milestone timeline and effort. When a stakeholder asks 'what if we add X?', the PM currently has to manually reason about cascading effects. This answers that question quantitatively using existing duration estimates and dependency graphs.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/semantic-duplicate-detector",
-          "dimension": "product-ideation",
-          "slug": "semantic-duplicate-detector",
-          "title": "Semantic Todo Duplicate Detector",
-          "description": "Before adding a new todo or phase, automatically check for semantically similar existing items (not just keyword overlap) and surface near-duplicates with similarity scores. The todo backlog already has 857 items with significant overlap — this prevents wasted planning effort and keeps the backlog actionable rather than a growing graveyard of redundant ideas.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/milestone-health-score",
-          "dimension": "product-ideation",
-          "slug": "milestone-health-score",
-          "title": "Milestone Health Score",
-          "description": "A composite score (0-100) computed from: phase completion rate, eval target hit rate, blocker age, estimate accuracy, and code review severity trends. Gives leadership a single number that reflects whether a milestone is on track, at risk, or in trouble — without requiring them to read detailed planning artifacts.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/research-reading-list-curator",
-          "dimension": "product-ideation",
-          "slug": "research-reading-list-curator",
-          "title": "Research Reading List Curator",
-          "description": "Based on the current milestone's LANDSCAPE.md and open research questions, automatically suggest 5-10 papers to read next, ranked by relevance and novelty relative to already-read papers. Researchers waste time deciding what to read next — this turns the survey knowledge base into an active recommendation engine that surfaces the highest-signal papers first.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-retrospective-generator",
-          "dimension": "product-ideation",
-          "slug": "phase-retrospective-generator",
-          "title": "Phase Retrospective Generator",
-          "description": "After a phase completes, automatically generate a structured retrospective document from SUMMARY.md files, eval results, and git history. Surfaces what worked, what failed, and lessons learned. Solves the problem of institutional knowledge evaporating between milestones — future phases can reference past retrospectives to avoid repeating mistakes.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/research-to-requirements-bridge",
-          "dimension": "product-ideation",
-          "slug": "research-to-requirements-bridge",
-          "title": "Research → Requirements Auto-Bridge",
-          "description": "After a survey or deep-dive, automatically propose new REQUIREMENTS.md entries derived from the research findings. The agent identifies gaps between current requirements and what the literature suggests is needed. Eliminates the manual step of translating research insights into traceable requirements.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-risk-scorer",
-          "dimension": "product-ideation",
-          "slug": "phase-risk-scorer",
-          "title": "Phase Risk Scorer",
-          "description": "Before executing a phase, score it across dimensions: scope clarity, dependency depth, novelty (how different from past phases), eval coverage. Output a risk dashboard that helps users decide whether to add more research, split the phase, or adjust the verification level. Prevents over-confident execution of poorly scoped phases.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/eval-regression-detector",
-          "dimension": "product-ideation",
-          "slug": "eval-regression-detector",
-          "title": "Eval Regression Detector",
-          "description": "Track eval metrics across phase executions and automatically flag regressions between iterations. If PSNR drops 2% or accuracy falls below baseline after a code change, trigger an alert before the phase is marked complete. Prevents silent regressions from shipping undetected across long iteration cycles.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/natural-language-roadmap-editor",
-          "dimension": "product-ideation",
-          "slug": "natural-language-roadmap-editor",
-          "title": "Natural Language Roadmap Editor",
-          "description": "Let users say 'move phase 4 after phase 6 and rename it to X' or 'split phase 3 into two phases' and have GRD apply the structural change to ROADMAP.md, renumber phases, and update all dependent references. Eliminates friction of manual YAML/markdown editing for roadmap restructuring.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/dependency-graph-visualizer",
-          "dimension": "product-ideation",
-          "slug": "dependency-graph-visualizer",
-          "title": "Phase Dependency Graph Visualizer",
-          "description": "Generate an SVG or Mermaid diagram of the phase dependency graph from ROADMAP.md, showing which phases are parallelizable, which are on the critical path, and current completion status. Helps project leads identify scheduling bottlenecks and opportunities to parallelize work.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/paper-citation-network",
-          "dimension": "product-ideation",
-          "slug": "paper-citation-network",
-          "title": "Paper Citation Network Explorer",
-          "description": "From PAPERS.md references, fetch citation graphs and surface which papers are most cited by the papers in your research base. Identify foundational works the team hasn't read yet. Solves the problem of missing seminal papers that could invalidate or strengthen an approach.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/milestone-velocity-forecast",
-          "dimension": "product-ideation",
-          "slug": "milestone-velocity-forecast",
-          "title": "Milestone Velocity Forecast",
-          "description": "Using historical phase duration data from SUMMARY.md metrics, forecast remaining milestone completion date with confidence intervals. Shows velocity trend (accelerating/decelerating) and flags phases that are likely to slip based on past patterns. Helps teams set realistic expectations with stakeholders.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/hypothesis-tracker",
-          "dimension": "product-ideation",
-          "slug": "hypothesis-tracker",
-          "title": "Research Hypothesis Tracker",
-          "description": "Structured tracking of research hypotheses: state the hypothesis, link it to phases that test it, and automatically update its status (confirmed/refuted/inconclusive) from eval results. Prevents the common problem where teams lose track of why they started a line of inquiry and whether it was validated.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/interactive-eval-dashboard",
-          "dimension": "product-ideation",
-          "slug": "interactive-eval-dashboard",
-          "title": "Interactive Eval Results Dashboard",
-          "description": "Generate an HTML dashboard from all EVAL.md and SUMMARY.md files showing metric trends over time with charts. Exportable as a self-contained HTML file. Solves the pain of manually scanning dozens of markdown files to understand whether the project is improving or stagnating.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/plan-complexity-estimator",
-          "dimension": "product-ideation",
-          "slug": "plan-complexity-estimator",
-          "title": "Plan Complexity Estimator",
-          "description": "Before plan execution, analyze the PLAN.md to estimate complexity: count must_haves, count files touched, identify cross-module dependencies, detect novelty vs. prior work. Output an effort estimate with reasoning. Helps users decide whether to split plans or add buffer time before execution.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/research-gap-spotter",
-          "dimension": "product-ideation",
-          "slug": "research-gap-spotter",
-          "title": "Research Gap Spotter",
-          "description": "Compare current LANDSCAPE.md against the phase's stated success criteria and identify research questions that aren't answered by any known paper or prior experiment. Surface these as explicit unknowns that need addressing before execution. Prevents executing plans built on shaky research foundations.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/standup-report-generator",
-          "dimension": "product-ideation",
-          "slug": "standup-report-generator",
-          "title": "Daily Standup Report Generator",
-          "description": "Generate a concise daily standup report from STATE.md, recent SUMMARY.md files, and git log: what was completed yesterday, what's in progress today, and any blockers. Output as plain text or post directly to Slack. Eliminates the manual overhead of writing status updates for async teams.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-split-advisor",
-          "dimension": "product-ideation",
-          "slug": "phase-split-advisor",
-          "title": "Phase Split Advisor",
-          "description": "Detect when a phase has grown too large (too many plans, too broad a goal, too many file changes) and recommend how to split it into two focused phases with clear boundaries. Solves the common anti-pattern of 'mega-phases' that are hard to verify and take too long to execute.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/requirements-coverage-heatmap",
-          "dimension": "product-ideation",
-          "slug": "requirements-coverage-heatmap",
-          "title": "Requirements Coverage Heatmap",
-          "description": "For each requirement in REQUIREMENTS.md, show which phases address it, whether it has tests, and whether it's been verified. Render as a color-coded matrix. Ensures no requirement falls through the cracks between phases and makes audit trails visible.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/experiment-reproducibility-checker",
-          "dimension": "product-ideation",
-          "slug": "experiment-reproducibility-checker",
-          "title": "Experiment Reproducibility Checker",
-          "description": "Scan SUMMARY.md files for experiment results and verify that the code, data, and config needed to reproduce them are still present and unchanged (using checksums). Alert when experiments become non-reproducible due to code drift. Critical for research credibility.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/pr-to-phase-mapper",
-          "dimension": "product-ideation",
-          "slug": "pr-to-phase-mapper",
-          "title": "PR → Phase Auto-Mapper",
-          "description": "When a PR is opened, automatically detect which GRD phase it corresponds to (by branch name, commit messages, or file patterns), attach the PR link to the phase SUMMARY.md, and update tracker status. Closes the loop between code review and R&D tracking without manual effort.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/context-window-optimizer",
-          "dimension": "product-ideation",
-          "slug": "context-window-optimizer",
-          "title": "Context Window Optimizer",
-          "description": "Before agent invocations, analyze which planning artifacts are actually needed and prune irrelevant content. For a phase-5 execution, don't load phase-1 research. Reduces token costs and improves agent focus. Surfaces estimated token savings to the user.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/agent-cost-tracker",
-          "dimension": "product-ideation",
-          "slug": "agent-cost-tracker",
-          "title": "Agent Cost Tracker",
-          "description": "Track estimated token usage and cost per phase, per agent, and per milestone. Show cost-to-date and cost forecast in the progress dashboard. Helps teams budget API usage and identify unexpectedly expensive phases before they run over budget.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/one-click-milestone-report",
-          "dimension": "product-ideation",
-          "slug": "one-click-milestone-report",
-          "title": "One-Click Milestone Report",
-          "description": "Generate a polished PDF or HTML milestone completion report: executive summary, phases completed, key metrics, eval results, lessons learned, and next steps. Suitable for sharing with stakeholders who don't use GRD. Eliminates hours of manual report writing at milestone close.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/eval-target-negotiator",
-          "dimension": "product-ideation",
-          "slug": "eval-target-negotiator",
-          "title": "Eval Target Negotiator",
-          "description": "When success criteria are too ambitious or trivially easy based on baseline metrics, suggest calibrated targets with rationale. If baseline PSNR is 28dB and the target is 40dB, flag this as unrealistic and suggest 30dB as a stretch goal. Prevents wasted iteration cycles chasing unachievable targets.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/method-ablation-planner",
-          "dimension": "product-ideation",
-          "slug": "method-ablation-planner",
-          "title": "Method Ablation Planner",
-          "description": "From a PLAN.md describing a multi-component method, automatically generate an ablation study plan that isolates each component's contribution. Produces a structured EVAL.md section with ablation experiment designs. Ensures research claims are properly supported by evidence.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/blocker-escalation-workflow",
-          "dimension": "product-ideation",
-          "slug": "blocker-escalation-workflow",
-          "title": "Blocker Escalation Workflow",
-          "description": "When a blocker is added to STATE.md and remains unresolved for >24 hours, automatically draft an escalation message with context, options, and recommended next steps. Optionally post to Slack or GitHub. Prevents blockers from silently stalling projects for days.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/phase-template-library",
-          "dimension": "product-ideation",
-          "slug": "phase-template-library",
-          "title": "Phase Template Library",
-          "description": "Curated PLAN.md templates for common R&D phase types: 'baseline evaluation', 'architecture comparison', 'hyperparameter search', 'data pipeline', 'inference optimization'. Users pick a template and get a pre-structured plan with appropriate verification levels and common must_haves. Reduces planning time from hours to minutes.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/git-blame-to-phase-trace",
-          "dimension": "product-ideation",
-          "slug": "git-blame-to-phase-trace",
-          "title": "Git Blame → Phase Tracer",
-          "description": "Given a file and line range, trace back to the GRD phase that introduced that code. Links git commits to phase SUMMARY.md files via branch naming conventions. Answers the question 'why was this written this way?' by surfacing the original plan and research rationale.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/multi-repo-project-federation",
-          "dimension": "product-ideation",
-          "slug": "multi-repo-project-federation",
-          "title": "Multi-Repo Project Federation",
-          "description": "Aggregate progress, blockers, and eval results from multiple GRD-managed repositories into a single federated dashboard. For research teams where different components live in separate repos. Solves the visibility problem for technical leads managing distributed R&D efforts.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/what-if-phase-simulator",
-          "dimension": "product-ideation",
-          "slug": "what-if-phase-simulator",
-          "title": "What-If Phase Simulator",
-          "description": "Before committing to a phase plan, simulate alternative approaches: 'what if we use method A vs method B?' and generate skeleton plans for each approach with estimated tradeoffs in complexity, risk, and expected eval gain. Helps teams make informed architecture decisions before writing code.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/smart-phase-ordering",
-          "dimension": "product-ideation",
-          "slug": "smart-phase-ordering",
-          "title": "Smart Phase Ordering Recommender",
-          "description": "Analyze the dependency graph and phase properties (risk, effort, uncertainty) and suggest an optimized execution order that front-loads risk reduction and enables maximum parallelism. Goes beyond simple dependency resolution to optimize for project success probability.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/live-execution-log-stream",
-          "dimension": "product-ideation",
-          "slug": "live-execution-log-stream",
-          "title": "Live Execution Log Stream",
-          "description": "Stream agent execution logs in real time to a terminal UI with color coding by agent type, elapsed time, and current operation. Users can see exactly what the executor agent is doing without waiting for the final SUMMARY.md. Reduces anxiety during long autonomous execution runs.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/paper-implementation-validator",
-          "dimension": "product-ideation",
-          "slug": "paper-implementation-validator",
-          "title": "Paper Implementation Validator",
-          "description": "Given a research paper and its code implementation in the project, validate that key algorithm steps from the paper are reflected in the code (via semantic comparison of paper pseudocode to function names and logic). Catches implementation drift from the intended algorithm early.",
-          "effort": "large",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/milestone-changelog-generator",
-          "dimension": "product-ideation",
-          "slug": "milestone-changelog-generator",
-          "title": "Milestone Changelog Generator",
-          "description": "Auto-generate a user-facing CHANGELOG.md entry from all phase SUMMARY.md files when a milestone is completed. Summarizes features added, metrics improved, bugs fixed, and breaking changes. Eliminates the tedious work of writing changelogs manually from dozens of technical summaries.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/interactive-phase-wizard",
-          "dimension": "product-ideation",
-          "slug": "interactive-phase-wizard",
-          "title": "Interactive New Phase Wizard",
-          "description": "A guided TUI wizard for adding a new phase: asks about goal, type, dependencies, duration, and success criteria with smart defaults and validation at each step. Much friendlier than hand-editing ROADMAP.md. Reduces onboarding friction for users new to GRD's planning model.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/research-freshness-monitor",
-          "dimension": "product-ideation",
-          "slug": "research-freshness-monitor",
-          "title": "Research Freshness Monitor",
-          "description": "Track the age of papers and survey data in LANDSCAPE.md and alert when key references are >12 months old in a fast-moving field. Suggest running a fresh survey to update the landscape. Prevents teams from executing plans based on outdated SoTA that has since been superseded.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        }
-      ],
-      "priority": 13.063492063492063,
-      "effort": "large",
-      "status": "selected"
-    },
-    {
-      "id": "quality/missing-test-files",
-      "theme": "missing-test-files",
-      "dimension": "quality",
-      "title": "Missing Test Files (quality)",
-      "items": [
-        {
-          "id": "quality/add-tests-requirements",
-          "dimension": "quality",
-          "slug": "add-tests-requirements",
-          "title": "Add test file for requirements.ts",
-          "description": "lib/requirements.ts has no corresponding test file at tests/unit/requirements.test.ts. Add unit tests to ensure code correctness.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "quality/add-tests-types",
-          "dimension": "quality",
-          "slug": "add-tests-types",
-          "title": "Add test file for types.ts",
-          "description": "lib/types.ts has no corresponding test file at tests/unit/types.test.ts. Add unit tests to ensure code correctness.",
+          "slug": "cross-project-knowhow-export",
+          "title": "Cross-Project KNOWHOW Export and Import",
+          "description": "KNOWHOW.md entries are confined to a single project, but teams repeatedly solve the same problems across repos. Add `gd knowhow export [--filter <tag>]` that packages `.planning/KNOWHOW.md` entries into a portable JSON bundle at `~/.grd/knowhow-exports/{timestamp}.json`, and `gd knowhow import <path>` that merges external entries into the local KNOWHOW.md (deduplication by slug). Add `lib/knowhow-exchange.ts` with export/import/deduplicate logic, wire commands into `bin/grd-tools.ts`. Optionally auto-import from a `config.knowhow_import_path` at session start in `lib/knowledge.ts`. Solves: knowledge siloed per-project when teams run GRD across multiple repos.",
           "effort": "medium",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         }
       ],
-      "priority": 8,
-      "effort": "small",
+      "priority": 13.4,
+      "effort": "medium",
       "status": "selected"
     }
   ],
   "remaining_groups": [
+    {
+      "id": "new-features/dry-run-support",
+      "theme": "dry-run-support",
+      "dimension": "new-features",
+      "title": "Dry Run Support (new-features)",
+      "items": [
+        {
+          "id": "new-features/missing-dry-run-configdiff",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-configdiff",
+          "title": "Add --dry-run support to cmdConfigDiff",
+          "description": "Command cmdConfigDiff in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-dry-run-importknowledge",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-importknowledge",
+          "title": "Add --dry-run support to cmdImportKnowledge",
+          "description": "Command cmdImportKnowledge in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-dry-run-knowhowaggregate",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-knowhowaggregate",
+          "title": "Add --dry-run support to cmdKnowhowAggregate",
+          "description": "Command cmdKnowhowAggregate in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 13,
+      "effort": "small",
+      "status": "pending"
+    },
+    {
+      "id": "consistency/module-headers",
+      "theme": "module-headers",
+      "dimension": "consistency",
+      "title": "Module Headers (consistency)",
+      "items": [
+        {
+          "id": "consistency/add-module-header-scheduler",
+          "dimension": "consistency",
+          "slug": "add-module-header-scheduler",
+          "title": "Add module JSDoc header to scheduler.ts",
+          "description": "lib/scheduler.ts is missing the standard JSDoc module header comment at the top of the file.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 12,
+      "effort": "small",
+      "status": "pending"
+    },
+    {
+      "id": "quality/miscellaneous",
+      "theme": "miscellaneous",
+      "dimension": "quality",
+      "title": "Miscellaneous (quality)",
+      "items": [
+        {
+          "id": "quality/autopilot-cli-nan-timeout",
+          "dimension": "quality",
+          "slug": "autopilot-cli-nan-timeout",
+          "title": "Invalid --timeout and --max-turns flags silently become no-timeout",
+          "description": "In lib/autopilot.ts lines 1443 and 1526, `parseInt(flag('--timeout', '0')!, 10)` returns NaN for non-numeric input (e.g., `--timeout abc`). NaN is then silently dropped by the falsy check at line 555 (`timeout ? timeout * 60 * 1000 : undefined`), producing no-timeout behavior with no error message. Same pattern for --max-turns at line 1443. Fix: after parseInt, add `if (isNaN(v) || v < 0) error('--timeout must be a positive integer');` before returning, using the same `error()` pattern already used throughout the file.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/autopilot-timeout-falsy-check",
+          "dimension": "quality",
+          "slug": "autopilot-timeout-falsy-check",
+          "title": "Falsy timeout check silently converts NaN to no-timeout",
+          "description": "In lib/autopilot.ts lines 555 and 1164, `const timeoutMs = timeout ? timeout * 60 * 1000 : undefined` uses a falsy check. NaN (from invalid CLI input) and 0 are both falsy, so they silently become undefined (no timeout). Change both to `const timeoutMs = timeout != null && isFinite(timeout) ? timeout * 60 * 1000 : undefined` so only genuinely absent timeouts produce undefined. The same falsy pattern is also in lib/evolve/orchestrator.ts line 638 but there the return type is `number` so the fix is `isFinite(timeout) ? timeout * 60 * 1000 : DEFAULT_TIMEOUT_MINUTES * 60 * 1000`.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/autopilot-timeout-or-default",
+          "dimension": "quality",
+          "slug": "autopilot-timeout-or-default",
+          "title": "timeout || default silently uses default for 0; should use ??",
+          "description": "In lib/autopilot.ts line 695, `timeout_minutes: timeout || DEFAULT_TIMEOUT_MINUTES` uses `||` which substitutes the default for `timeout=0`. The intention is to substitute only when timeout is absent (undefined/null). Change to `timeout_minutes: timeout ?? DEFAULT_TIMEOUT_MINUTES`. Same pattern appears in lib/evolve/orchestrator.ts line 638 where `timeout ? timeout * 60 : DEFAULT_TIMEOUT_MINUTES * 60` should be `timeout != null ? timeout * 60 : DEFAULT_TIMEOUT_MINUTES * 60`.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/scheduler-catch-block-no-stderr",
+          "dimension": "quality",
+          "slug": "scheduler-catch-block-no-stderr",
+          "title": "Scheduler spawn exception loses error message; caller sees generic exit-1",
+          "description": "In lib/scheduler.ts around line 1113, the catch block returns `{ exitCode: 1, timedOut: false, backend, tokensUsed: 0, workItemId }` with no `stderr` field. Callers (autopilot, evolve) log `exit 1` with no context about what actually threw. Add `stderr: (_err instanceof Error ? _err.message : String(_err))` to the returned object so diagnostics show the actual exception. The `SchedulerSpawnResult` type already has an optional `stderr?: string` field, so no type changes are needed.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/todos-rank-regex-g-flag",
+          "dimension": "quality",
+          "slug": "todos-rank-regex-g-flag",
+          "title": "Fix missing /g flag in cmdTodosRank keyword regexes",
+          "description": "In lib/commands/todo.ts lines 161–162, HIGH_VALUE_KEYWORDS and MED_VALUE_KEYWORDS lack the /g flag. String.match(non-global-regex) returns only the first match, so a todo titled 'Security Auth Hardening' only scores for 'security' (3 pts) instead of 'security' + 'auth' (6 pts). Change `/\\b(security|auth|...)\\b/i` to `/\\b(security|auth|...)\\b/gi` and `MED_VALUE_KEYWORDS` likewise. This fixes under-scoring for any todo with 2+ matching keywords.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/todos-rank-multi-keyword-test",
+          "dimension": "quality",
+          "slug": "todos-rank-multi-keyword-test",
+          "title": "Add test asserting multi-keyword todos score all matching keywords",
+          "description": "In tests/unit/commands.test.ts, the existing cmdTodosRank tests (starting line 4108) never assert the signals array or that multiple distinct keywords within one todo each contribute to the score. After the fix to add /g flags, add a test: create a todo with title 'Security audit performance research', call cmdTodosRank, assert the returned todo's signals array contains at least 4 '+3 (...)' entries and score >= 12 (4 high-value keywords × 3 points). This prevents regression of the /g flag fix.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/knowhow-wrong-path",
+          "dimension": "quality",
+          "slug": "knowhow-wrong-path",
+          "title": "Knowledge injection reads wrong KNOWHOW.md path",
+          "description": "In lib/knowledge.ts:203, buildKnowledgeInjectionBlock reads `path.join(cwd, 'KNOWHOW.md')` (project root), but KNOWHOW.md is stored at `.planning/milestones/{milestone}/research/KNOWHOW.md` (returned by `researchDir(cwd)` in lib/paths.ts:183-187). As a result the function always returns `''` for every project unless users happen to have a root KNOWHOW.md. Fix: replace line 203 with `const { researchDir } = require('./paths'); const knowhowPath = path.join(researchDir(cwd), 'KNOWHOW.md');`",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/todo-rank-regex-no-gflag",
+          "dimension": "quality",
+          "slug": "todo-rank-regex-no-gflag",
+          "title": "Todo ranking only scores the first keyword match per todo",
+          "description": "In lib/commands/todo.ts:170-171, HIGH_VALUE_KEYWORDS and MED_VALUE_KEYWORDS are declared without the `g` flag. Without `g`, `String.match()` returns at most one match (plus capture groups). A todo mentioning both 'security' and 'auth' only scores +3 (for the first match), not +6. The `[...new Set(highMatches.map(...))]` dedup on line 229 works correctly but only ever sees one unique keyword. Fix: change both regex literals at lines 170-171 to add the `g` flag: `.../i` → `.../gi` (with `g`, match() returns all matches without capture groups, so Set dedup still works).",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/deps-visualize-startswith-prefix-match",
+          "dimension": "quality",
+          "slug": "deps-visualize-startswith-prefix-match",
+          "title": "Phase number filter uses startsWith, matching unintended phases",
+          "description": "In lib/deps.ts:571 inside cmdPhaseDepsVisualize, the milestone filter condition `String(p.number).startsWith(milestoneFilter)` incorrectly matches phase \"10\", \"11\", \"12\" when the user passes milestoneFilter=\"1\". Fix: replace that condition with strict equality: `String(p.number) === milestoneFilter`. The line is inside the `phases.filter()` callback at line 569-573; the full condition should become `p.name.toLowerCase().includes(milestoneFilter.toLowerCase()) || String(p.number) === milestoneFilter`.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/knowhow-tertiary-sort-dead-code",
+          "dimension": "quality",
+          "slug": "knowhow-tertiary-sort-dead-code",
+          "title": "selectTopEntries tertiary proximity sort always returns 0",
+          "description": "In lib/knowledge.ts:182-184, the tertiary sort `Math.abs(currentPhase - a.phase_number) - Math.abs(currentPhase - b.phase_number)` is inside the branch where `b.phase_number === a.phase_number` (primary sort equality). Since both entries have the same phase_number, both distances are identical and the expression always returns 0 — the sort is dead code. Fix: replace the tertiary with a stable tiebreaker, e.g. `a.pattern_name.localeCompare(b.pattern_name)`, or move the proximity comparison to the top-level sort (before the phase_number comparison) if cross-bucket proximity ordering is the intent.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/todo-rank-missing-global-flag",
+          "dimension": "quality",
+          "slug": "todo-rank-missing-global-flag",
+          "title": "Fix keyword scoring in cmdTodosRank — missing /g flag",
+          "description": "lib/commands/todo.ts lines 161-162: HIGH_VALUE_KEYWORDS and MED_VALUE_KEYWORDS lack the /g flag. String.match(non-global-regex) returns [fullMatch, captureGroup] for only the FIRST match, so a todo with 'security audit performance' scores +3 instead of +9. Fix: change /\\b(security|auth|...)\\b/i to /\\b(security|auth|...)\\b/gi and /\\b(test|fix|...)\\b/i to /\\b(test|fix|...)\\b/gi on both lines. With /g, String.match returns all matches without capture groups, making the Set dedup correct.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/extract-module-hints-block-yaml",
+          "dimension": "quality",
+          "slug": "extract-module-hints-block-yaml",
+          "title": "extractModuleHints silently skips block-sequence YAML for files_modified",
+          "description": "lib/knowledge.ts lines 263-266: regex `files_modified:\\s*\\[([^\\]]*)\\]` only matches inline YAML arrays (files_modified: [a.ts, b.ts]). Plans that use YAML block-sequence syntax (`files_modified:\\n  - a.ts\\n  - b.ts`) return no hints, so buildKnowledgeInjectionBlock injects nothing useful. Fix: after the inline match fails, add a block-sequence fallback: `const blockMatch = fmContent.match(/files_modified:\\s*\\n((?:\\s*-\\s*.+\\n?)+)/); if (blockMatch) { const filesList = (blockMatch[1].match(/^\\s*-\\s*(.+)$/gm) || []).map(l => l.replace(/^\\s*-\\s*/, '').trim()); ... }`",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/verify-summary-missing-commit-test",
+          "dimension": "quality",
+          "slug": "verify-summary-missing-commit-test",
+          "title": "Add test: cmdVerifySummary should set passed:false for non-existent commit hashes",
+          "description": "tests/unit/verify.test.ts: No test covers the case where a SUMMARY.md references a well-formed commit hash that doesn't exist in the repo. The current passed-logic bug (see slug verify-summary-passed-ignores-commits) has no regression test. Add a test in the cmdVerifySummary describe block that writes a SUMMARY.md containing a string like 'commit abc1234' (a hash that won't resolve in the fixture git repo), calls cmdVerifySummary, and asserts `parsed.passed === false` and `parsed.errors` contains the commit message.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/todo-rank-regex-missing-g-flag",
+          "dimension": "quality",
+          "slug": "todo-rank-regex-missing-g-flag",
+          "title": "cmdTodosRank keyword scoring always counts only one keyword",
+          "description": "In lib/commands/todo.ts:165-166, HIGH_VALUE_KEYWORDS and MED_VALUE_KEYWORDS are declared without the 'g' flag: /\\b(security|auth|perf|...)\\b/i and /\\b(test|fix|bug|...)\\b/i. String.match() without 'g' returns [fullMatch, captureGroup1] — at most one keyword hit. A todo with 'security auth audit' in its text gets the same score (+3) as one with just 'security', because Set deduplication on the repeated match collapses everything. Fix: change both regexes to /gi so match() returns all occurrences.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/select-top-entries-proximity-sort-noop",
+          "dimension": "quality",
+          "slug": "select-top-entries-proximity-sort-noop",
+          "title": "selectTopEntries phase-proximity sort is always a no-op",
+          "description": "In lib/knowledge.ts, function selectTopEntries (~line 175), the proximity sort `Math.abs(currentPhase - a.phase_number) - Math.abs(currentPhase - b.phase_number)` is only reached inside the `a.phase_number === b.phase_number` branch (the primary sort already separated different phases). When the two entries share the same phase_number, their distances to currentPhase are identical, so the comparison always returns 0 and never reorders anything. The JSDoc describes this as a real tertiary sort, but it is dead code. Fix: if proximity sorting across different phases is desired, compute a composite score before sorting rather than relying on the nested comparator structure.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 9,
+      "effort": "large",
+      "status": "pending"
+    },
     {
       "id": "quality/test-coverage",
       "theme": "test-coverage",
@@ -858,10 +594,197 @@
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-discussion.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-discussion.ts",
+          "title": "Improve test coverage for discussion.ts",
+          "description": "lib/discussion.ts has a coverage threshold of 85% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-autopilot.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-autopilot.ts",
+          "title": "Improve test coverage for autopilot.ts",
+          "description": "lib/autopilot.ts has a coverage threshold of 83% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-autopilot-waves.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-autopilot-waves.ts",
+          "title": "Improve test coverage for autopilot-waves.ts",
+          "description": "lib/autopilot-waves.ts has a coverage threshold of 80% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-autopilot-milestone.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-autopilot-milestone.ts",
+          "title": "Improve test coverage for autopilot-milestone.ts",
+          "description": "lib/autopilot-milestone.ts has a coverage threshold of 80% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-autopilot-pipeline.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-autopilot-pipeline.ts",
+          "title": "Improve test coverage for autopilot-pipeline.ts",
+          "description": "lib/autopilot-pipeline.ts has a coverage threshold of 75% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-citations.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-citations.ts",
+          "title": "Improve test coverage for citations.ts",
+          "description": "lib/citations.ts has a coverage threshold of 85% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-got.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-got.ts",
+          "title": "Improve test coverage for got.ts",
+          "description": "lib/got.ts has a coverage threshold of 80% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-knowledge.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-knowledge.ts",
+          "title": "Improve test coverage for knowledge.ts",
+          "description": "lib/knowledge.ts has a coverage threshold of 85% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-refinement.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-refinement.ts",
+          "title": "Improve test coverage for refinement.ts",
+          "description": "lib/refinement.ts has a coverage threshold of 85% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/improve-coverage-benchmark.ts",
+          "dimension": "quality",
+          "slug": "improve-coverage-benchmark.ts",
+          "title": "Improve test coverage for benchmark.ts",
+          "description": "lib/benchmark.ts has a coverage threshold of 85% lines (target: 90%). Increase test coverage to strengthen code quality.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
         }
       ],
       "priority": 8,
       "effort": "large",
+      "status": "pending"
+    },
+    {
+      "id": "quality/missing-test-files",
+      "theme": "missing-test-files",
+      "dimension": "quality",
+      "title": "Missing Test Files (quality)",
+      "items": [
+        {
+          "id": "quality/add-tests-autopilot-milestone",
+          "dimension": "quality",
+          "slug": "add-tests-autopilot-milestone",
+          "title": "Add test file for autopilot-milestone.ts",
+          "description": "lib/autopilot-milestone.ts has no corresponding test file at tests/unit/autopilot-milestone.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/add-tests-autopilot-pipeline",
+          "dimension": "quality",
+          "slug": "add-tests-autopilot-pipeline",
+          "title": "Add test file for autopilot-pipeline.ts",
+          "description": "lib/autopilot-pipeline.ts has no corresponding test file at tests/unit/autopilot-pipeline.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/add-tests-autopilot-waves",
+          "dimension": "quality",
+          "slug": "add-tests-autopilot-waves",
+          "title": "Add test file for autopilot-waves.ts",
+          "description": "lib/autopilot-waves.ts has no corresponding test file at tests/unit/autopilot-waves.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/add-tests-autoresearch",
+          "dimension": "quality",
+          "slug": "add-tests-autoresearch",
+          "title": "Add test file for autoresearch.ts",
+          "description": "lib/autoresearch.ts has no corresponding test file at tests/unit/autoresearch.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/add-tests-requirements",
+          "dimension": "quality",
+          "slug": "add-tests-requirements",
+          "title": "Add test file for requirements.ts",
+          "description": "lib/requirements.ts has no corresponding test file at tests/unit/requirements.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "quality/add-tests-types",
+          "dimension": "quality",
+          "slug": "add-tests-types",
+          "title": "Add test file for types.ts",
+          "description": "lib/types.ts has no corresponding test file at tests/unit/types.test.ts. Add unit tests to ensure code correctness.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 8,
+      "effort": "medium",
       "status": "pending"
     }
   ],
@@ -1899,11 +1822,242 @@
       "priority": 13.063492063492063,
       "effort": "large",
       "status": "completed"
+    },
+    {
+      "id": "improve-features/miscellaneous",
+      "theme": "miscellaneous",
+      "dimension": "improve-features",
+      "title": "Miscellaneous (improve-features)",
+      "items": [
+        {
+          "id": "improve-features/autoresearch-max-experiments-zero-guard",
+          "dimension": "improve-features",
+          "slug": "autoresearch-max-experiments-zero-guard",
+          "title": "gd autoresearch --max 0 means unlimited but docs imply \"stop immediately\"",
+          "description": "In lib/autoresearch.ts line 747, `maxExperiments: parseInt(flagVal('--max', '0')!, 10)` defaults to 0. The value 0 likely means \"no limit\" in the loop that checks it, but there is no guard or documentation making this explicit. A user passing `--max 0` expecting the command to do nothing actually gets unlimited experiments. Add an explicit check: if `maxExperiments === 0` treat as unlimited (already current behavior) and document it in the CLI help string near line 747 by setting default to `''` and parsing with `flagVal('--max') ? parseInt(...) : 0`, adding a comment `// 0 = unlimited`.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 15,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "stability/miscellaneous",
+      "theme": "miscellaneous",
+      "dimension": "stability",
+      "title": "Miscellaneous (stability)",
+      "items": [
+        {
+          "id": "stability/scheduler-cooldown-zero-window",
+          "dimension": "stability",
+          "slug": "scheduler-cooldown-zero-window",
+          "title": "Rate-limit cooldown bypassed when window_minutes is 0",
+          "description": "In lib/scheduler.ts line 1102, `state.cooldown_until = Date.now() + prediction.window_minutes * 60 * 1000` sets cooldown_until to Date.now() when window_minutes is 0 (possible if the scheduler config omits or zeroes the field). The guard at line 255 checks `cooldown_until > now`, which immediately fails (now <= now), so the backend is re-selected on the very next retry despite being rate-limited. Fix: replace line 1102 with `state.cooldown_until = Date.now() + Math.max(prediction.window_minutes || 60, 5) * 60 * 1000;` to enforce a minimum 5-minute cooldown.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "stability/autoresearch-cli-nan-flags",
+          "dimension": "stability",
+          "slug": "autoresearch-cli-nan-flags",
+          "title": "autoresearch CLI flags produce NaN that reaches arithmetic and loop bounds",
+          "description": "In lib/autoresearch.ts lines 747-753, `maxExperiments: parseInt(flagVal('--max', '0')!, 10)`, `timeBudget: parseInt(flagVal('--time-budget', '10')!, 10)`, and `maxTurns: flagVal('--max-turns') ? parseInt(flagVal('--max-turns')!, 10) : undefined` all produce NaN for non-numeric input. `timeBudget * 60 * 1000 = NaN` is passed as a spawn timeout (line 511, 582). `maxExperiments = NaN` breaks loop bounds (any `experiments >= NaN` comparison is false). Fix: after each parseInt, add `if (isNaN(v) || v < 0) error('--<flag> must be a non-negative integer');` the same way other CLI parse functions in the project do it.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "usability/miscellaneous",
+      "theme": "miscellaneous",
+      "dimension": "usability",
+      "title": "Miscellaneous (usability)",
+      "items": [
+        {
+          "id": "usability/autoresearch-landscape-truncation-constant",
+          "dimension": "usability",
+          "slug": "autoresearch-landscape-truncation-constant",
+          "title": "Extract hardcoded LANDSCAPE.md truncation limit as named constant",
+          "description": "In lib/autoresearch.ts line 337, `content.slice(0, 3000)` hardcodes 3000 characters for LANDSCAPE.md truncation inside _buildResearchContext. Projects with large LANDSCAPE.md files silently lose context. Extract to a module-level constant `const LANDSCAPE_MAX_CHARS = 3000` at the top of the file, and replace the inline literal. Also consider reading the value from config (arConfig) using an optional key like `autoresearch.landscape_max_chars` with the constant as fallback, consistent with how other GRD config knobs are exposed.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "usability/todo-list-nondeterministic-order",
+          "dimension": "usability",
+          "slug": "todo-list-nondeterministic-order",
+          "title": "cmdListTodos returns todos in non-deterministic filesystem order",
+          "description": "In lib/commands/todo.ts:54, `fs.readdirSync(pendingDir)` returns files in inode order which varies between Linux, macOS, and CI environments. Todos are never sorted before being returned or displayed. This causes different ordering in JSON output across machines. Fix: add `.sort()` after the `.filter()` at line 54: `const files: string[] = fs.readdirSync(pendingDir).filter(...).sort();`",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 10,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "improve-features/feature-enhancements",
+      "theme": "feature-enhancements",
+      "dimension": "improve-features",
+      "title": "Feature Enhancements (improve-features)",
+      "items": [
+        {
+          "id": "improve-features/enhance-caching-knowledge",
+          "dimension": "improve-features",
+          "slug": "enhance-caching-knowledge",
+          "title": "Add caching for repeated file reads in knowledge.ts",
+          "description": "lib/knowledge.ts reads knowhowPath 3 times. Cache the result in a local variable to avoid redundant I/O.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 15,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "new-features/configurable-defaults",
+      "theme": "configurable-defaults",
+      "dimension": "new-features",
+      "title": "Configurable Defaults (new-features)",
+      "items": [
+        {
+          "id": "new-features/configurable-default-autoresearch-L260",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L260",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 120000ms at line 260. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-autoresearch-L276",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L276",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 180000ms at line 276. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-autoresearch-L294",
+          "dimension": "new-features",
+          "slug": "configurable-default-autoresearch-L294",
+          "title": "Make timeout configurable in autoresearch.ts",
+          "description": "lib/autoresearch.ts has a hardcoded timeout value of 60000ms at line 294. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-backend-L911",
+          "dimension": "new-features",
+          "slug": "configurable-default-backend-L911",
+          "title": "Make timeout configurable in backend.ts",
+          "description": "lib/backend.ts has a hardcoded timeout value of 5000ms at line 911. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-discussion-L1155",
+          "dimension": "new-features",
+          "slug": "configurable-default-discussion-L1155",
+          "title": "Make timeout configurable in discussion.ts",
+          "description": "lib/discussion.ts has a hardcoded timeout value of 10000ms at line 1155. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-overstory-L98",
+          "dimension": "new-features",
+          "slug": "configurable-default-overstory-L98",
+          "title": "Make timeout configurable in overstory.ts",
+          "description": "lib/overstory.ts has a hardcoded timeout value of 5000ms at line 98. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/configurable-default-overstory-L110",
+          "dimension": "new-features",
+          "slug": "configurable-default-overstory-L110",
+          "title": "Make timeout configurable in overstory.ts",
+          "description": "lib/overstory.ts has a hardcoded timeout value of 120000ms at line 110. Move it to config.json so users can tune it for their environment.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "medium",
+      "status": "completed"
+    },
+    {
+      "id": "new-features/progress-feedback",
+      "theme": "progress-feedback",
+      "dimension": "new-features",
+      "title": "Progress Feedback (new-features)",
+      "items": [
+        {
+          "id": "new-features/missing-progress-knowledge-L124",
+          "dimension": "new-features",
+          "slug": "missing-progress-knowledge-L124",
+          "title": "Add progress output to loop in knowledge.ts line 124",
+          "description": "lib/knowledge.ts iterates over entries at line 124 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-progress-knowledge-L535",
+          "dimension": "new-features",
+          "slug": "missing-progress-knowledge-L535",
+          "title": "Add progress output to loop in knowledge.ts line 535",
+          "description": "lib/knowledge.ts iterates over pairs at line 535 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "small",
+      "status": "completed"
     }
   ],
   "failed_groups": [],
-  "all_items_count": 211,
-  "groups_count": 3,
+  "all_items_count": 381,
+  "groups_count": 10,
   "history": [
     {
       "iteration": 1,
@@ -1917,6 +2071,48 @@
       "timestamp": "2026-03-07T02:05:58.398Z",
       "selected_count": 2,
       "completed_count": 4,
+      "failed_count": 0
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2026-05-18T02:48:23.145Z",
+      "selected_count": 3,
+      "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2026-05-18T04:43:19.122Z",
+      "selected_count": 3,
+      "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2026-05-18T07:37:13.809Z",
+      "selected_count": 3,
+      "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 6,
+      "timestamp": "2026-05-18T09:40:45.438Z",
+      "selected_count": 3,
+      "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 7,
+      "timestamp": "2026-05-18T11:30:30.421Z",
+      "selected_count": 3,
+      "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 8,
+      "timestamp": "2026-05-18T11:46:24.917Z",
+      "selected_count": 5,
+      "completed_count": 3,
       "failed_count": 0
     }
   ]

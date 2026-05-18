@@ -143,6 +143,13 @@ export interface GrdTimeouts {
   tracker_auth_ms: number;
   backend_detect_ms: number;
   autopilot_check_ms: number;
+  autoresearch_test_ms: number;
+  autoresearch_coverage_ms: number;
+  autoresearch_lint_ms: number;
+  backend_probe_ms: number;
+  discussion_git_ms: number;
+  overstory_probe_ms: number;
+  overstory_install_ms: number;
 }
 
 /**
@@ -840,6 +847,8 @@ export interface ArtifactDAG {
   sorted_plans: string[];
   /** Map from artifact name to providing plan ID */
   providers: Record<string, string>;
+  /** Artifact names in requires declarations with no matching provider */
+  missing_requires: string[];
 }
 
 /**

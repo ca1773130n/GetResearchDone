@@ -205,6 +205,11 @@ function readFileCached(fullPath: string): string | null {
   return _fileReadCache.get(fullPath) as string | null;
 }
 
+/** Clear the module-level file read cache. Call in test beforeEach to prevent stale reads across tests. */
+function clearVerifyCache(): void {
+  _fileReadCache.clear();
+}
+
 // ─── Verification Command Functions ──────────────────────────────────────────
 
 /**
@@ -321,7 +326,7 @@ function cmdVerifySummary(
     self_check: selfCheck,
   };
 
-  const passed: boolean = missing.length === 0 && selfCheck !== 'failed';
+  const passed: boolean = missing.length === 0 && selfCheck !== 'failed' && (commitsExist || hashes.length === 0);
   const result: SummaryVerifyResult = { passed, checks, errors };
   output(result, raw, passed ? 'passed' : 'failed');
 }
@@ -1050,6 +1055,184 @@ function cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void {
   output(result, raw, failedCount === 0 ? 'pass' : 'fail');
 }
 
+// ─── Diagnose Phase ──────────────────────────────────────────────────────────
+
+/** A single ranked root-cause finding from phase diagnosis. */
+interface DiagnosisEntry {
+  rank: number;
+  cause: string;
+  evidence: string;
+  suggestion: string;
+}
+
+/** Result of phase diagnosis. */
+interface DiagnosisResult {
+  phase: string;
+  verdict: string;
+  root_causes: DiagnosisEntry[];
+  failed_checks: string[];
+  git_diff_lines: number;
+  plans_missing_summaries: number;
+}
+
+/**
+ * CLI command: Diagnose a failed phase by reading VERIFICATION.md, plan files,
+ * and running git diff to produce a ranked root-cause list.
+ *
+ * Intended as a quick forensics tool after `gd verify-phase N` fails.
+ * Reads:
+ *   - .planning/milestones/{m}/phases/{N}/VERIFICATION.md (verdict + failed checks)
+ *   - *-PLAN.md files in phase dir (detect plans without summaries)
+ *   - `git diff HEAD` (scope estimate of uncommitted changes)
+ * Ranks causes by heuristic signal strength.
+ *
+ * @param cwd - Project working directory
+ * @param phase - Phase number or name
+ * @param raw - Output raw text instead of JSON
+ */
+function cmdDiagnosePhase(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) {
+    error('phase required. Usage: gd diagnose <phase>');
+  }
+
+  const phaseInfo: PhaseInfo | null = findPhaseInternal(cwd, phase);
+  if (!phaseInfo || !phaseInfo.found) {
+    output({ error: 'Phase not found', phase }, raw);
+    return;
+  }
+
+  const phaseDir: string = path.join(cwd, phaseInfo.directory);
+  const verificationPath: string = path.join(phaseDir, 'VERIFICATION.md');
+  const verificationContent: string | null = safeReadFile(verificationPath);
+
+  // Parse failed checks from VERIFICATION.md
+  const failedChecks: string[] = [];
+  let verdict = 'unknown';
+  if (verificationContent) {
+    const verdictMatch = verificationContent.match(/\*\*verdict\*\*[:\s]*([^\n]+)/i);
+    if (verdictMatch) verdict = verdictMatch[1].trim();
+
+    // Extract lines starting with ❌ or [FAIL] or "- FAIL"
+    const failLines = verificationContent.match(/^(?:❌|[-*]\s*\[?FAIL[^]]*]?).*$/gim) || [];
+    for (const line of failLines) {
+      const clean = line.replace(/^[-*\s❌✗x]+/i, '').trim();
+      if (clean) failedChecks.push(clean);
+    }
+    // Also parse "check: X passed: false" patterns in JSON-like blocks
+    const checkFailMatches = verificationContent.match(/"check"\s*:\s*"([^"]+)"[^}]*"passed"\s*:\s*false/g) || [];
+    for (const m of checkFailMatches) {
+      const nameMatch = m.match(/"check"\s*:\s*"([^"]+)"/);
+      if (nameMatch && !failedChecks.includes(nameMatch[1])) {
+        failedChecks.push(nameMatch[1]);
+      }
+    }
+  }
+
+  // Check for plans without summaries
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(phaseDir) as string[];
+  } catch {
+    // phase dir unreadable
+  }
+  const plans = files.filter((f) => /-PLAN\.md$/i.test(f) || f === 'PLAN.md');
+  const summaries = files.filter((f) => /-SUMMARY\.md$/i.test(f) || f === 'SUMMARY.md');
+  const planIds = plans.map((f) => (f === 'PLAN.md' ? '' : f.replace(/-PLAN\.md$/i, '')));
+  const summaryIds = new Set(summaries.map((f) => (f === 'SUMMARY.md' ? '' : f.replace(/-SUMMARY\.md$/i, ''))));
+  const plansMissingSummaries = planIds.filter((id) => !summaryIds.has(id)).length;
+
+  // Measure uncommitted git diff size
+  let gitDiffLines = 0;
+  try {
+    const diffResult = execGit(cwd, ['diff', 'HEAD', '--stat'], { allowBlocked: true });
+    if (diffResult.stdout) {
+      gitDiffLines = (diffResult.stdout.match(/\n/g) || []).length;
+    }
+  } catch {
+    // git not available or not a repo
+  }
+
+  // Build ranked root causes
+  const rootCauses: DiagnosisEntry[] = [];
+  let rank = 1;
+
+  if (plansMissingSummaries > 0) {
+    rootCauses.push({
+      rank: rank++,
+      cause: `${plansMissingSummaries} plan(s) missing SUMMARY.md`,
+      evidence: `Found ${plans.length} PLAN.md files, ${summaries.length} SUMMARY.md files`,
+      suggestion: 'Run gd execute-phase N or manually write SUMMARY.md for each incomplete plan',
+    });
+  }
+
+  if (!verificationContent) {
+    rootCauses.push({
+      rank: rank++,
+      cause: 'VERIFICATION.md not found',
+      evidence: `Expected at ${path.relative(cwd, verificationPath)}`,
+      suggestion: 'Run gd verify-phase N to generate VERIFICATION.md before diagnosing',
+    });
+  } else if (verdict.toLowerCase().includes('fail') || verdict === 'unknown') {
+    rootCauses.push({
+      rank: rank++,
+      cause: `Verification verdict: ${verdict}`,
+      evidence: `${failedChecks.length} failed check(s) recorded`,
+      suggestion: `Address failed checks: ${failedChecks.slice(0, 3).join(', ')}${failedChecks.length > 3 ? '...' : ''}`,
+    });
+  }
+
+  for (const check of failedChecks.slice(0, 5)) {
+    const cause = `Failed check: ${check}`;
+    if (rootCauses.some((c) => c.cause === cause)) continue;
+    rootCauses.push({
+      rank: rank++,
+      cause,
+      evidence: `Recorded in VERIFICATION.md`,
+      suggestion: _checkSuggestion(check),
+    });
+  }
+
+  if (gitDiffLines > 10) {
+    rootCauses.push({
+      rank: rank,
+      cause: `${gitDiffLines} uncommitted lines in working tree`,
+      evidence: 'git diff HEAD --stat shows pending changes',
+      suggestion: 'Commit or stash changes before re-running verification',
+    });
+  }
+
+  if (rootCauses.length === 0) {
+    rootCauses.push({
+      rank: 1,
+      cause: 'No obvious failure signals found',
+      evidence: 'VERIFICATION.md exists, no missing summaries, no large diffs',
+      suggestion: 'Review VERIFICATION.md manually or re-run gd verify-phase N for details',
+    });
+  }
+
+  const result: DiagnosisResult = {
+    phase: phaseInfo.phase_number,
+    verdict,
+    root_causes: rootCauses,
+    failed_checks: failedChecks,
+    git_diff_lines: gitDiffLines,
+    plans_missing_summaries: plansMissingSummaries,
+  };
+
+  const summary = `Phase ${phaseInfo.phase_number}: ${rootCauses.length} root cause(s) — top: ${rootCauses[0].cause}`;
+  output(result, raw, summary);
+}
+
+/** Map a failed check name to a human-readable next-step suggestion. */
+function _checkSuggestion(check: string): string {
+  if (/frontmatter/i.test(check)) return 'Ensure PLAN.md has all required frontmatter fields (phase, plan, type, wave, depends_on, files_modified, autonomous, must_haves)';
+  if (/artifact/i.test(check)) return 'Verify all must_haves artifacts exist at the declared paths with required content';
+  if (/reference/i.test(check)) return 'Fix broken @file or `path` references in PLAN.md';
+  if (/key.?link/i.test(check)) return 'Confirm all key_links pairs are wired together in source/target files';
+  if (/summary|completeness/i.test(check)) return 'Write a SUMMARY.md for each PLAN.md in the phase directory';
+  return `Review the "${check}" section in VERIFICATION.md for details`;
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -1061,4 +1244,6 @@ module.exports = {
   cmdVerifyArtifacts,
   cmdVerifyKeyLinks,
   cmdVerifyMechanical,
+  cmdDiagnosePhase,
+  clearVerifyCache,
 };

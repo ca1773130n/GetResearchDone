@@ -1151,8 +1151,13 @@ function buildElicitationContext(
 
   // ## Recent Changes — git diff --stat HEAD~3..HEAD
   try {
+    const _gitCfg = (() => {
+      try { return JSON.parse(safeReadFile(path.join(cwd, '.planning', 'config.json')) ?? '{}') as Record<string, unknown>; } catch { return {}; }
+    })();
+    const _gitTimeouts = _gitCfg.timeouts as Record<string, unknown> | undefined;
+    const gitTimeout: number = typeof _gitTimeouts?.discussion_git_ms === 'number' ? _gitTimeouts.discussion_git_ms : 10000;
     const diffStat = execFileSync('git', ['diff', '--stat', 'HEAD~3..HEAD'], {
-      timeout: 10000,
+      timeout: gitTimeout,
       encoding: 'utf-8',
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],

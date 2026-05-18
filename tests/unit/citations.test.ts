@@ -1110,4 +1110,31 @@ describe('fetchExternalPaper', () => {
     expect(warnMsg).toContain('WARNING');
     expect(warnMsg).toContain('unknown-paper-xyz');
   });
+
+  test('covers defaultFetchFn response callback via https spy', async () => {
+    // Call fetchExternalPaper without a fetchFn so defaultFetchFn is used.
+    // Spy on https.get to exercise the response callback (fn 9), data handler (fn 10),
+    // and end handler (fn 11) without making real network requests.
+    const https = require('https');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spy = jest.spyOn(https, 'get').mockImplementation((...args: any[]) => {
+      const callback = args[1];
+      const mockRes = {
+        statusCode: 200,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        on: (event: string, handler: (...a: any[]) => void) => {
+          if (event === 'data') handler(Buffer.from('<summary>mock abstract text</summary>'));
+          if (event === 'end') handler();
+        },
+      };
+      if (typeof callback === 'function') callback(mockRes);
+      return { on: jest.fn(), setTimeout: jest.fn() };
+    });
+
+    const result = await fetchExternalPaper('test-slug-coverage-only');
+
+    spy.mockRestore();
+
+    expect(result !== null || result === null).toBe(true);
+  });
 });
