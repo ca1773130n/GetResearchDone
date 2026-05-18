@@ -114,7 +114,10 @@ function cmdProgressRender(cwd: string, format: string, raw: boolean): void {
       try { return fs.statSync(path.join(milestonesBase, d)).isDirectory(); } catch { return false; }
     });
     for (const ms of msDirs) {
-      researchFilesToCheck.push(path.join(milestonesBase, ms, 'research', 'SUMMARY.md'));
+      // Codex r3 P2: survey output is LANDSCAPE.md (path helpers'
+      // canonical name); SUMMARY.md is a phase artifact, not a
+      // research artifact, so it would never trigger staleness.
+      researchFilesToCheck.push(path.join(milestonesBase, ms, 'research', 'LANDSCAPE.md'));
     }
   } catch {
     // milestones dir may not exist
@@ -263,7 +266,17 @@ function cmdResearchGaps(cwd: string, raw: boolean): void {
   const globalCited = new Set<string>();
 
   for (const { phaseId, dir } of phaseDirs) {
-    const candidates = ['RESEARCH.md', 'PLAN.md'].map((f) => path.join(dir, f));
+    // Codex r3 P2: phase plans are typically prefixed like
+    // `01-01-PLAN.md`, not bare `PLAN.md`. Include all *-PLAN.md and
+    // *-RESEARCH.md files so citation scanning matches the real layout.
+    const candidates: string[] = [];
+    try {
+      for (const f of fs.readdirSync(dir) as string[]) {
+        if (f === 'RESEARCH.md' || f === 'PLAN.md' || /-PLAN\.md$/.test(f) || /-RESEARCH\.md$/.test(f)) {
+          candidates.push(path.join(dir, f));
+        }
+      }
+    } catch { /* skip */ }
     let phaseText = '';
     for (const c of candidates) {
       if (fs.existsSync(c)) {

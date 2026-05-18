@@ -50,8 +50,13 @@ const TOKENS_PER_DEP_CHAIN = 500;
 const LARGE_PLAN_THRESHOLD = 15000;
 
 function _estimatePlan(content: string, planName: string): PlanBudget {
+  // Codex r3 P2: GRD plans use `<task>...</task>` XML blocks inside
+  // `<tasks>`. Counting only markdown checkboxes / numbered lists gave
+  // zero for normal plans, making the budget command unusable. Sum
+  // markdown + XML task forms.
   const taskItems = (content.match(/^[-*]\s+\[[ x]\]/gm) ?? []).length
-    + (content.match(/^\d+\.\s+/gm) ?? []).length;
+    + (content.match(/^\d+\.\s+/gm) ?? []).length
+    + (content.match(/<task\b[^>]*>/gi) ?? []).length;
   const codeBlocks = (content.match(/^```/gm) ?? []).length / 2;
   const depChains = (content.match(/\b(depends_on|requires|after|blocks|before):/gi) ?? []).length;
 

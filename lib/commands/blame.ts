@@ -37,19 +37,34 @@ interface BlameResult {
   total_files: number;
 }
 
-function _getPhaseFiles(cwd: string, _phaseDir: string): string[] {
-  // Use git log to find files touched in the phase commit range.
-  // Strategy: find commits that touch files under .planning/milestones/.../phases/<N>
+function _getPhaseFiles(cwd: string, phaseDir: string): string[] {
+  // Codex r3 P2: scope file collection to the phase. Find commits that
+  // touched .planning/<phase>/ first, derive the phase commit range
+  // from those, then ask git for non-.planning files touched in that
+  // range. Falls back to empty when the phase has no commits.
+  const phaseRel = path.relative(cwd, phaseDir);
+  const phaseShas = childProcess.spawnSync(
+    'git',
+    ['log', '--pretty=format:%H', '--', phaseRel],
+    { cwd, encoding: 'utf-8', stdio: 'pipe' }
+  );
+  if (phaseShas.status !== 0) return [];
+  const shas = (phaseShas.stdout || '').split('\n').filter((s: string) => s.length === 40);
+  if (shas.length === 0) return [];
+  const earliest = shas[shas.length - 1];
+  const latest = shas[0];
+  const range = earliest === latest ? `${earliest}^!` : `${earliest}^..${latest}`;
   const result = childProcess.spawnSync(
     'git',
-    ['log', '--name-only', '--pretty=format:', '--diff-filter=ACMR', '--', '.'],
+    ['log', range, '--name-only', '--pretty=format:', '--diff-filter=ACMR'],
     { cwd, encoding: 'utf-8', stdio: 'pipe' }
   );
   if (result.status !== 0) return [];
-  return (result.stdout || '')
-    .split('\n')
-    .map((l: string) => l.trim())
-    .filter((l: string) => l.length > 0 && !l.startsWith('.planning/'));
+  const seen = new Set<string>();
+  for (const l of (result.stdout || '').split('\n').map((s: string) => s.trim())) {
+    if (l.length > 0 && !l.startsWith('.planning/')) seen.add(l);
+  }
+  return Array.from(seen);
 }
 
 function _extractTasksFromPlan(content: string): string[] {

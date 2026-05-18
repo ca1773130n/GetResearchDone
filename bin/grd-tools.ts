@@ -998,7 +998,22 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     handler: (args, cwd, raw) => {
       const sub = args[1];
       if (sub === 'search') {
-        const query = args.slice(2).filter((a: string) => !a.startsWith('--')).join(' ');
+        // Codex r3 P2: skip both the flag and its value so e.g.
+        // `gd knowledge search cache --top 5` searches for "cache",
+        // not "cache 5". Walks the slice, skipping flags and the
+        // token immediately following any value-bearing flag.
+        const FLAGS_WITH_VALUE = new Set(['--top']);
+        const queryParts: string[] = [];
+        const rest = args.slice(2);
+        for (let i = 0; i < rest.length; i++) {
+          const a = rest[i];
+          if (a.startsWith('--')) {
+            if (FLAGS_WITH_VALUE.has(a)) i++;
+            continue;
+          }
+          queryParts.push(a);
+        }
+        const query = queryParts.join(' ');
         if (!query) error('query required. Usage: gd knowledge search <query>');
         const topN = parseInt(flag(args, '--top') ?? '10', 10);
         return cmdKnowhowSearch(cwd, query, topN, raw);
