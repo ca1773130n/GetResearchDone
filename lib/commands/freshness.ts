@@ -14,7 +14,7 @@ const {
   safeReadFile: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-  findPhaseInternal: (cwd: string, phase: string) => { dir: string; phase: string } | null;
+  findPhaseInternal: (cwd: string, phase: string) => { found: boolean; directory: string } | null;
 } = require('../utils');
 
 const {
@@ -147,10 +147,12 @@ function cmdFreshness(cwd: string, phaseArg: string | null, raw: boolean): void 
   if (phaseArg) {
     // Codex r2 P2: numeric phase ids resolve through findPhaseInternal.
     const phaseInfo = findPhaseInternal(cwd, phaseArg);
-    if (!phaseInfo) {
+    if (!phaseInfo || !phaseInfo.found) {
       error(`Phase not found: ${phaseArg}`);
     }
-    const candidates = ['RESEARCH.md', 'LANDSCAPE.md'].map((f) => path.join(phaseInfo!.dir, f));
+    // Codex r4 P2: directory is cwd-relative.
+    const phaseDir = path.join(cwd, phaseInfo!.directory);
+    const candidates = ['RESEARCH.md', 'LANDSCAPE.md'].map((f) => path.join(phaseDir, f));
     for (const p of candidates) {
       if (fs.existsSync(p)) filePaths.push(p);
     }

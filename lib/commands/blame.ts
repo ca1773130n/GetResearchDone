@@ -15,7 +15,7 @@ const {
   safeReadFile: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-  findPhaseInternal: (cwd: string, phase: string) => { dir: string; phase: string } | null;
+  findPhaseInternal: (cwd: string, phase: string) => { found: boolean; directory: string } | null;
 } = require('../utils');
 
 const {
@@ -114,10 +114,11 @@ function cmdBlame(cwd: string, phaseArg: string, raw: boolean): void {
   // Codex r2 P2: resolve numeric phase ids via findPhaseInternal so
   // `gd blame 1` works (was looking for a literal `phases/1/` dir).
   const phaseInfo = findPhaseInternal(cwd, phaseArg!);
-  if (!phaseInfo) {
+  if (!phaseInfo || !phaseInfo.found) {
     error(`Phase not found: ${phaseArg}`);
   }
-  const phaseDir = phaseInfo!.dir;
+  // Codex r4 P2: directory is cwd-relative.
+  const phaseDir = path.join(cwd, phaseInfo!.directory);
 
   let planFiles: string[] = [];
   try {

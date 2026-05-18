@@ -14,7 +14,7 @@ const {
   safeReadFile: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
-  findPhaseInternal: (cwd: string, phase: string) => { dir: string; phase: string } | null;
+  findPhaseInternal: (cwd: string, phase: string) => { found: boolean; directory: string } | null;
 } = require('../utils');
 
 const {
@@ -97,10 +97,12 @@ function cmdBudget(cwd: string, phaseArg: string, raw: boolean): void {
   // `gd budget 1` resolves to `phases/01-test/` instead of looking for
   // a literal `phases/1/` directory.
   const phaseInfo = findPhaseInternal(cwd, phaseArg!);
-  if (!phaseInfo) {
+  if (!phaseInfo || !phaseInfo.found) {
     error(`Phase not found: ${phaseArg}`);
   }
-  const phaseDir = phaseInfo!.dir;
+  // Codex r4 P2: findPhaseInternal returns `directory` (cwd-relative),
+  // not `dir`. Resolve to absolute.
+  const phaseDir = path.join(cwd, phaseInfo!.directory);
 
   let files: string[];
   try {
