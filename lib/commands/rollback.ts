@@ -65,12 +65,14 @@ function cmdRollback(cwd: string, phase: string, raw: boolean): void {
   ], { allowBlocked: true });
 
   let mergeSha: string | null = null;
+  let isConfirmedMerge = false;
   if (logResult.exitCode === 0 && logResult.stdout.trim()) {
     const firstLine = logResult.stdout.trim().split('\n')[0];
     mergeSha = firstLine.split(' ')[0] || null;
+    if (mergeSha) isConfirmedMerge = true;
   }
 
-  // Fallback: look for branch tip SHA
+  // Fallback: look for branch tip SHA. Not necessarily a merge commit.
   if (!mergeSha) {
     const branchResult = execGit(cwd, ['rev-parse', '--verify', `${branchName}`], { allowBlocked: true });
     if (branchResult.exitCode === 0 && branchResult.stdout.trim()) {
@@ -78,14 +80,27 @@ function cmdRollback(cwd: string, phase: string, raw: boolean): void {
     }
   }
 
+  // Codex r6 P2: `git revert -m 1 <sha>` already creates the revert
+  // commit (no --no-commit), so the prior `git commit --no-edit` would
+  // fail with "nothing to commit". Also, `-m 1` is invalid for
+  // non-merge commits, so the branch-tip fallback path needs a
+  // different command shape.
   const revertCommands: string[] = [];
-  if (mergeSha) {
-    revertCommands.push(`git revert -m 1 ${mergeSha}  # Revert merge of ${branchName}`);
-    revertCommands.push(`git commit --no-edit`);
+  if (mergeSha && isConfirmedMerge) {
+    revertCommands.push(
+      `git revert -m 1 --no-edit ${mergeSha}  # Revert merge of ${branchName}`
+    );
+  } else if (mergeSha) {
+    revertCommands.push(
+      `# Branch tip ${mergeSha} may not be a merge commit. If it is, add \`-m 1\`:`
+    );
+    revertCommands.push(
+      `git revert --no-edit ${mergeSha}  # Revert tip of ${branchName}`
+    );
   } else {
     revertCommands.push(`# Could not locate merge commit for ${branchName}`);
     revertCommands.push(`# Manual steps: git log --oneline --merges --all | grep "${branchName}"`);
-    revertCommands.push(`# Then: git revert -m 1 <sha>`);
+    revertCommands.push(`# Then: git revert -m 1 --no-edit <sha>`);
   }
 
   // Write rollback plan to .planning/rollback-plan.md
