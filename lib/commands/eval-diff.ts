@@ -79,10 +79,14 @@ function _parseMetrics(content: string): Record<string, number> {
 function _resolveLatestTwoPhases(cwd: string): [string, string] | null {
   const phasesPath = getPhasesDirPath(cwd);
   try {
+    // Codex r8 P2: only consider phases that actually have EVAL.md.
+    // Picking the last two by name fails when the newest phases are
+    // still planned/in-progress (no EVAL.md yet).
     const dirs = (fs.readdirSync(phasesPath, { withFileTypes: true }) as import('fs').Dirent[])
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
       .filter((n) => /^\d{2}/.test(n))
+      .filter((n) => fs.existsSync(path.join(phasesPath, n, 'EVAL.md')))
       .sort();
     if (dirs.length < 2) return null;
     const last = dirs[dirs.length - 1].match(/^(\d+)/)?.[1] ?? '';

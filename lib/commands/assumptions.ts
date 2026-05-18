@@ -165,8 +165,10 @@ function cmdCheckAssumptions(cwd: string, phase: string, raw: boolean, skipCheck
 
   let planFiles: string[] = [];
   try {
+    // Codex r8 P2: include bare `PLAN.md` alongside `*-PLAN.md` so
+    // single-plan phases are not silently skipped.
     planFiles = (fs.readdirSync(phaseDir) as string[])
-      .filter((f: string) => f.endsWith('-PLAN.md'))
+      .filter((f: string) => f === 'PLAN.md' || f.endsWith('-PLAN.md'))
       .map((f: string) => path.join(phaseDir!, f));
   } catch {
     /* ignore */
