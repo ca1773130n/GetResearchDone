@@ -159,13 +159,19 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
 
   const commonKeys = Object.keys(metricsA).filter((k) => k in metricsB);
 
+  // Codex r11 P2: for lower-is-better metrics (latency, errors, durations),
+  // an increase is regression and a decrease is improvement. Detect by
+  // metric-name heuristic — same parser already accepts ms/s/min units.
+  const lowerIsBetterRe = /\b(latency|duration|elapsed|time|error|fail|loss|cost|memory|leak|bytes|ms\b|seconds?\b|minutes?\b)\b/i;
   const deltas: MetricDelta[] = commonKeys.map((metric) => {
     const vA = metricsA[metric];
     const vB = metricsB[metric];
     const delta = vB - vA;
     const deltaPct = vA !== 0 ? (delta / Math.abs(vA)) * 100 : 0;
+    const lowerBetter = lowerIsBetterRe.test(metric);
+    const improvedSign = lowerBetter ? delta < 0 : delta > 0;
     const direction: MetricDelta['direction'] =
-      Math.abs(deltaPct) < 0.5 ? 'unchanged' : delta > 0 ? 'improved' : 'regressed';
+      Math.abs(deltaPct) < 0.5 ? 'unchanged' : improvedSign ? 'improved' : 'regressed';
     return { metric, value_a: vA, value_b: vB, delta, delta_pct: Math.round(deltaPct * 100) / 100, direction };
   });
 

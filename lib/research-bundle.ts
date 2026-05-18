@@ -213,7 +213,17 @@ function cmdImportResearch(cwd: string, bundlePath: string, raw: boolean): void 
     ) {
       continue;
     }
-    if (!fs.existsSync(srcPath)) continue;
+    // Codex r11 P2: extending r1 P1 — fs.existsSync + readFileSync
+    // follow symlinks, so a malicious bundle can include a symlink at
+    // a containment-valid path that points outside the staging dir
+    // (e.g. ../STATE.md). Reject anything that isn't a regular file.
+    let stat: import('fs').Stats;
+    try {
+      stat = fs.lstatSync(srcPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isFile()) continue; // skips symlinks, dirs, sockets, etc.
 
     let content: string;
     try {

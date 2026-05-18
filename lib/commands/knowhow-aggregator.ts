@@ -284,21 +284,24 @@ function cmdImportKnowhow(
     return;
   }
 
-  // Determine target KNOWHOW.md path (current milestone or root planning dir)
+  // Codex r11 P2: use the active milestone from STATE.md / config, not
+  // reverse-lexicographic ordering — that picks `v9.0` over `v10.0`,
+  // and picks archived/future milestones over the current one.
   let targetPath = path.join(localPlanningDir, 'KNOWHOW.md');
   const milestonesBase = path.join(localPlanningDir, 'milestones');
   if (fs.existsSync(milestonesBase)) {
     try {
-      const msDirs = (fs.readdirSync(milestonesBase) as string[])
-        .filter((d: string) => {
-          try { return fs.statSync(path.join(milestonesBase, d)).isDirectory(); } catch { return false; }
-        })
-        .sort()
-        .reverse();
-      if (msDirs.length > 0) {
-        targetPath = path.join(milestonesBase, msDirs[0], 'KNOWHOW.md');
+      const { currentMilestone: currentMilestoneFn } = require('../paths') as {
+        currentMilestone: (cwd: string) => string;
+      };
+      const activeMs = currentMilestoneFn(cwd);
+      const activePath = path.join(milestonesBase, activeMs, 'KNOWHOW.md');
+      if (fs.existsSync(path.dirname(activePath))) {
+        targetPath = activePath;
       }
-    } catch { /* use default */ }
+    } catch {
+      // Fall back to root KNOWHOW.md when no active milestone is set.
+    }
   }
 
   const result: ImportKnowhowResult = {
