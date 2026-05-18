@@ -1279,15 +1279,19 @@ function resolveEffortForAgent(config: GrdConfig, agentType: string, cwd?: strin
  * Each entry has: key (dot-path for nested keys), default value, and the gd settings
  * command to fix it.
  */
+// Codex r2 P2: `gd settings` tool-mode only accepts token_profile and
+// phase_complete_llm_fallback. All other keys must use `gd config-set
+// <dot.path> <value>` (canonical route at lib/cli/index.ts:42), so emit
+// runnable commands for those instead of broken `gd settings ...` hints.
 const CONFIG_DRIFT_KEYS: Array<{ key: string; default: unknown; fix: string }> = [
   { key: 'token_profile', default: 'balanced', fix: 'gd settings token_profile balanced' },
   { key: 'phase_complete_llm_fallback', default: false, fix: 'gd settings phase_complete_llm_fallback false' },
-  { key: 'autonomous_mode', default: false, fix: 'gd settings autonomous_mode false' },
-  { key: 'branching_strategy', default: 'none', fix: 'gd settings branching_strategy none' },
-  { key: 'scheduler.idle_timeout_seconds', default: 900, fix: 'gd settings scheduler.idle_timeout_seconds 900' },
-  { key: 'scheduler.budget_pressure_thresholds', default: { warning: 0.6, high: 0.8, critical: 0.95 }, fix: 'gd settings scheduler.budget_pressure_thresholds \'{"warning":0.6,"high":0.8,"critical":0.95}\'' },
-  { key: 'drift', default: { weights: { goal: 1, constraint: 1, ontology: 1 }, threshold: 0.3 }, fix: 'gd settings drift \'{"weights":{"goal":1,"constraint":1,"ontology":1},"threshold":0.3}\'' },
-  { key: 'autopilot', default: {}, fix: 'gd settings autopilot \'{}\''},
+  { key: 'autonomous_mode', default: false, fix: 'gd config-set autonomous_mode false' },
+  { key: 'branching_strategy', default: 'none', fix: 'gd config-set branching_strategy none' },
+  { key: 'scheduler.idle_timeout_seconds', default: 900, fix: 'gd config-set scheduler.idle_timeout_seconds 900' },
+  { key: 'scheduler.budget_pressure_thresholds', default: { warning: 0.6, high: 0.8, critical: 0.95 }, fix: 'gd config-set scheduler.budget_pressure_thresholds \'{"warning":0.6,"high":0.8,"critical":0.95}\'' },
+  { key: 'drift', default: { weights: { goal: 1, constraint: 1, ontology: 1 }, threshold: 0.3 }, fix: 'gd config-set drift \'{"weights":{"goal":1,"constraint":1,"ontology":1},"threshold":0.3}\'' },
+  { key: 'autopilot', default: {}, fix: 'gd config-set autopilot \'{}\''},
 ];
 
 interface DriftReport {

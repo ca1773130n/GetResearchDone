@@ -9,17 +9,17 @@ const {
   safeReadFile,
   output,
   error,
+  findPhaseInternal,
 }: {
   safeReadFile: (p: string) => string | null;
   output: (result: unknown, raw: boolean, rawValue?: unknown) => never;
   error: (message: string) => never;
+  findPhaseInternal: (cwd: string, phase: string) => { dir: string; phase: string } | null;
 } = require('../utils');
 
 const {
-  phasesDir: getPhasesDirPath,
   currentMilestone,
 }: {
-  phasesDir: (cwd: string, milestone?: string | null) => string;
   currentMilestone: (cwd: string) => string;
 } = require('../paths');
 
@@ -82,17 +82,20 @@ function cmdBudget(cwd: string, phaseArg: string, raw: boolean): void {
     error('phase required. Usage: gd budget <phase>');
   }
 
-  let milestone: string;
   try {
-    milestone = currentMilestone(cwd);
+    currentMilestone(cwd);
   } catch {
     error('No active milestone found. Run gd init first.');
   }
 
-  const phaseDir = path.join(getPhasesDirPath(cwd, milestone!), phaseArg!);
-  if (!fs.existsSync(phaseDir)) {
-    error(`Phase directory not found: ${path.relative(cwd, phaseDir)}`);
+  // Codex r2 P2: route numeric phase ids through findPhaseInternal so
+  // `gd budget 1` resolves to `phases/01-test/` instead of looking for
+  // a literal `phases/1/` directory.
+  const phaseInfo = findPhaseInternal(cwd, phaseArg!);
+  if (!phaseInfo) {
+    error(`Phase not found: ${phaseArg}`);
   }
+  const phaseDir = phaseInfo!.dir;
 
   let files: string[];
   try {
