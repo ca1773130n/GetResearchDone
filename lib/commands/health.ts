@@ -21,9 +21,11 @@ const {
 const {
   phasesDir: getPhasesDirPath,
   planningDir: getPlanningDir,
+  currentMilestone,
 }: {
   phasesDir: (cwd: string) => string;
   planningDir: (cwd: string) => string;
+  currentMilestone: (cwd: string) => string;
 } = require('../paths');
 const {
   readCachedRoadmap,
@@ -113,6 +115,65 @@ interface HealthCheckResults {
   lint: { status: string; errors: number; warnings: number };
   format: { status: string; clean: boolean };
   consistency: { status: string; passed: boolean; errors?: number; warnings?: number };
+}
+
+// ─── Research Staleness Check ─────────────────────────────────────────────────
+
+/** Blocker type surfaced when research artifacts exceed the staleness threshold. */
+interface StaleResearchBlocker {
+  type: 'STALE_RESEARCH';
+  file: string;
+  age_days: number;
+  threshold_days: number;
+  fix: string;
+}
+
+/**
+ * Check whether RESEARCH.md, LANDSCAPE.md, or PAPERS.md are stale relative to
+ * a configurable threshold (default 14 days). Returns one blocker per stale file.
+ */
+function checkResearchStaleness(cwd: string, config: Record<string, unknown>): StaleResearchBlocker[] {
+  const thresholdDays =
+    typeof (config as { research_staleness_days?: number }).research_staleness_days === 'number'
+      ? (config as { research_staleness_days: number }).research_staleness_days
+      : 14;
+  const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const planningPath = getPlanningDir(cwd);
+  const milestone = currentMilestone(cwd);
+  const researchFiles = ['RESEARCH.md', 'LANDSCAPE.md', 'PAPERS.md'];
+  const searchDirs = [
+    path.join(planningPath, 'milestones', milestone, 'research'),
+    path.join(planningPath, 'research'),
+    path.join(planningPath, 'milestones', milestone),
+  ];
+
+  const blockers: StaleResearchBlocker[] = [];
+  for (const researchFile of researchFiles) {
+    for (const dir of searchDirs) {
+      const filePath = path.join(dir, researchFile);
+      if (!fs.existsSync(filePath)) continue;
+      try {
+        const stat = fs.statSync(filePath) as { mtimeMs: number };
+        const ageMs = now - stat.mtimeMs;
+        if (ageMs > thresholdMs) {
+          const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+          blockers.push({
+            type: 'STALE_RESEARCH',
+            file: researchFile,
+            age_days: ageDays,
+            threshold_days: thresholdDays,
+            fix: `Re-run /grd:survey to refresh ${researchFile}`,
+          });
+        }
+      } catch {
+        /* skip unreadable files */
+      }
+      break; // found in this dir, don't look further
+    }
+  }
+  return blockers;
 }
 
 // ─── CLI: Health ─────────────────────────────────────────────────────────────
@@ -284,13 +345,20 @@ function cmdHealth(cwd: string, raw: boolean): void {
     baseline = { exists: true };
   }
 
-  // 7. Compute project drift score (Tier-2 #7 of Ouroboros integration).
+  // 7. Research staleness check
+  const config = loadConfig(cwd) as Record<string, unknown>;
+  const staleResearchBlockers = checkResearchStaleness(cwd, config);
+  for (const sb of staleResearchBlockers) {
+    blockerItems.push(`[STALE_RESEARCH] ${sb.file} is ${sb.age_days} days old (threshold: ${sb.threshold_days}d) — ${sb.fix}`);
+  }
+
+  // 8. Compute project drift score (Tier-2 #7 of Ouroboros integration).
   // Pure-file pass — no LLM calls. Weights and threshold configurable via
   // .planning/config.json `drift` section; falls back to Q00 defaults.
   // The `drift` key is registered in lib/utils.ts KNOWN_CONFIG_KEYS and
   // typed on GrdConfig (codex r1 P2 on PR #38: previously dropped by
   // loadConfig's normalisation and never reached this function).
-  const driftConfig = (loadConfig(cwd) as { drift?: { weights?: { goal: number; constraint: number; ontology: number }; threshold?: number } }).drift ?? {};
+  const driftConfig = (config as { drift?: { weights?: { goal: number; constraint: number; ontology: number }; threshold?: number } }).drift ?? {};
   const driftWeights = driftConfig.weights ?? DRIFT_DEFAULT_WEIGHTS;
   const driftThreshold = typeof driftConfig.threshold === 'number' ? driftConfig.threshold : 0.3;
   const drift: DriftSection = computeDriftScore(cwd, driftWeights, driftThreshold);
@@ -535,4 +603,5 @@ function cmdHealthCheck(cwd: string, options: { fix?: boolean }, raw: boolean): 
 module.exports = {
   cmdHealth,
   cmdHealthCheck,
+  checkResearchStaleness,
 };

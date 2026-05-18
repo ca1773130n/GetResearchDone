@@ -529,6 +529,138 @@ function cmdSummaryExtract(
   output(fullResult, raw, fullResult.one_liner || path.basename(summaryPath));
 }
 
+// ─── Phase Dependency Risk Scorer ────────────────────────────────────────────
+
+type RiskLevel = 'green' | 'yellow' | 'red';
+
+interface PhaseRiskRow {
+  phase: string;
+  risk: RiskLevel;
+  reasons: string[];
+}
+
+interface DepsRiskResult {
+  start_phase: string | null;
+  phases_checked: number;
+  risks: PhaseRiskRow[];
+  red_count: number;
+  yellow_count: number;
+}
+
+/**
+ * Traverse the phase dependency chain from start_phase, scoring each phase
+ * green/yellow/red based on: open DEFER- items, missing VERIFICATION.md,
+ * and failed test state from EVOLVE-STATE.json.
+ */
+function cmdDepsRisk(cwd: string, startPhase: string | null, raw: boolean): void {
+  const planningDir = getPlanningDir(cwd) as string;
+
+  // Load EVOLVE-STATE for last test-pass info
+  let evolveState: Record<string, unknown> = {};
+  const evolveStatePath = path.join(planningDir, 'EVOLVE-STATE.json');
+  if (fs.existsSync(evolveStatePath)) {
+    try {
+      evolveState = JSON.parse(safeReadFile(evolveStatePath) ?? '{}') as Record<string, unknown>;
+    } catch { /* use empty */ }
+  }
+
+  // Load ROADMAP.md to build ordered phase list
+  const roadmapPath = path.join(planningDir, 'ROADMAP.md');
+  const roadmapContent = safeReadFile(roadmapPath);
+  const phaseLineRe = /^\|\s*Phase\s+(\d+)\s*\|([^|]*)\|([^|]*)\|([^|]*)\|/;
+  const orderedPhases: string[] = [];
+  if (roadmapContent) {
+    for (const line of roadmapContent.split('\n')) {
+      const m = line.match(phaseLineRe);
+      if (m) orderedPhases.push(m[1].trim());
+    }
+  }
+
+  // If no roadmap, fall back to scanning phase directories
+  const phasesDir = getPhasesDirPath(cwd) as string;
+  if (orderedPhases.length === 0 && fs.existsSync(phasesDir)) {
+    try {
+      (fs.readdirSync(phasesDir) as string[])
+        .filter((d: string) => /^\d+/.test(d))
+        .sort()
+        .forEach((d: string) => orderedPhases.push(d.replace(/^(\d+).*/, '$1')));
+    } catch { /* skip */ }
+  }
+
+  // Determine which phases to scan
+  let phasesToCheck = orderedPhases;
+  if (startPhase) {
+    const idx = orderedPhases.findIndex((p) => p === startPhase.replace(/^Phase\s+/i, '').trim());
+    if (idx >= 0) phasesToCheck = orderedPhases.slice(idx);
+  }
+
+  const risks: PhaseRiskRow[] = [];
+
+  for (const phaseNum of phasesToCheck) {
+    const reasons: string[] = [];
+
+    // Check VERIFICATION.md
+    let verificationPath: string | null;
+    if (fs.existsSync(phasesDir)) {
+      try {
+        const phaseDir = (fs.readdirSync(phasesDir) as string[]).find((d: string) =>
+          d === phaseNum || d.startsWith(`${phaseNum}-`) || d.startsWith(`${phaseNum}_`)
+        );
+        if (phaseDir) {
+          const vPath = path.join(phasesDir, phaseDir, 'VERIFICATION.md');
+          verificationPath = fs.existsSync(vPath) ? vPath : null;
+          if (!verificationPath) reasons.push('missing VERIFICATION.md');
+
+          if (verificationPath) {
+            const vContent = safeReadFile(verificationPath) ?? '';
+            const deferCount = (vContent.match(/DEFER-/g) ?? []).length;
+            if (deferCount > 0) reasons.push(`${deferCount} open DEFER- items`);
+          }
+        } else {
+          reasons.push('phase directory not found');
+        }
+      } catch { /* skip */ }
+    }
+
+    // Check test pass state from EVOLVE-STATE
+    const phaseTimings = evolveState['phase_timings'];
+    if (Array.isArray(phaseTimings)) {
+      const phaseRecord = (phaseTimings as Array<Record<string, unknown>>).find(
+        (r) => String(r['phase']) === phaseNum
+      );
+      if (phaseRecord && phaseRecord['tests_passed'] === false) {
+        reasons.push('tests failed in last recorded run');
+      }
+    }
+
+    let risk: RiskLevel;
+    if (reasons.some((r) => r.includes('DEFER') || r.includes('failed'))) {
+      risk = 'red';
+    } else if (reasons.length > 0) {
+      risk = 'yellow';
+    } else {
+      risk = 'green';
+    }
+
+    risks.push({ phase: phaseNum, risk, reasons });
+  }
+
+  const result: DepsRiskResult = {
+    start_phase: startPhase,
+    phases_checked: risks.length,
+    risks,
+    red_count: risks.filter((r) => r.risk === 'red').length,
+    yellow_count: risks.filter((r) => r.risk === 'yellow').length,
+  };
+
+  const redCount = result.red_count;
+  const yellowCount = result.yellow_count;
+  const summary = redCount === 0 && yellowCount === 0
+    ? `All ${risks.length} phases green — safe to run autopilot`
+    : `${redCount} red, ${yellowCount} yellow across ${risks.length} phases`;
+  output(result, raw, summary);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -542,4 +674,5 @@ module.exports = {
   cmdCommit,
   cmdPhasePlanIndex,
   cmdSummaryExtract,
+  cmdDepsRisk,
 };

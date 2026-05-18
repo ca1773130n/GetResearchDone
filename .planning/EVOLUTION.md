@@ -5487,3 +5487,46 @@ _2026-05-18T11:46:24.915Z_
 - Test count grew from 2839 (per memory) to 4522 — significant expansion of test coverage since the memory entry was written.
 
 ---
+## Iteration 9
+_2026-05-18T14:29:45.739Z_
+
+### Items Attempted
+
+- **Use paths module instead of hardcoded path in invariants.ts** — pass
+- **Pre-Execution Phase Cost Estimator** — pass
+- **Research Staleness Detector in Health Check** — pass
+- **Downstream Phase Impact Analyzer** — pass
+- **Stale Assumption Guard Before Phase Execution** — pass
+- **KNOWHOW.md Entry Usage and Effectiveness Tracker** — pass
+- **Add --dry-run support to cmdConfigDiff** — pass
+- **Add --dry-run support to cmdImportKnowledge** — pass
+- **Add --dry-run support to cmdKnowhowAggregate** — pass
+- **Add module JSDoc header to scheduler.ts** — pass
+
+### Decisions Made
+
+- Used path.relative(cwd, getPlanningDir(cwd)) + '/' in validateSemantic to derive '.planning/' from the paths module rather than hardcoding it — same result but sourced from a single authority
+- Added checkResearchStaleness() to health.ts as a standalone function appending [STALE_RESEARCH] entries to the existing blockerItems array, reusing the current blocker display flow
+- Added dryRun as last optional arg with default=false on cmdConfigDiff, cmdImportKnowledge, cmdKnowhowAggregate to preserve backward compatibility at all call sites
+- Implemented knowledge usage tracking in a separate .planning/knowledge-stats.json file (not embedded in KnowhowEntry) to avoid breaking KNOWHOW.md serialization roundtrip
+- computeDownstreamImpact uses sequential-dependency inference (phase N to N+1) as fallback when no explicit dependency chains are found in ROADMAP.md
+- estimatePhaseTokens flags a cheaper_alternative when estimated cost exceeds $0.50, using model_profile from config to pick the token/cost tier
+- Used execGit from utils instead of direct subprocess calls in assumptions.ts — goes through the git operation whitelist
+- Deduplicated the loadConfig(cwd) call in cmdHealth: config loaded for research staleness is reused for the drift section
+
+### Patterns Discovered
+
+- All new commands follow the pattern: private _helper functions, one public cmdXxx calling output(), export at bottom of file
+- The ROUTE_DESCRIPTORS array in grd-tools.ts is the canonical place to add CLI commands — no switch/case needed
+- commands/index.ts barrel has two sections per module: type-annotated require() and named re-exports — both must be updated when adding commands
+- grd-tools.ts destructures all commands from commands/index in a single typed block — new commands require updating both the destructured names list AND the type annotation block
+
+### Takeaways
+
+- The git operation whitelist in execGit (lib/utils.ts) gates which git subcommands are allowed — new code using git must go through execGit rather than raw subprocess APIs
+- The test suite has grown to 4524 tests — the prior memory entry count (2839) is stale
+- knowledge-stats.json is purely additive (never needed for KNOWHOW.md correctness) so write failures are silently ignored — a good pattern for optional instrumentation
+- The downstream impact analyzer's sequential dependency fallback works well for projects without explicit declarations but may over-report impact with non-linear phase ordering
+- Research staleness uses file mtime which resets on git clone — a future improvement could use git log dates for the research files instead
+
+---

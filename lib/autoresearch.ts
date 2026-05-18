@@ -215,7 +215,7 @@ function _spawnClaudeSync(
   prompt: string,
   opts: { timeout?: number; maxTurns?: number; model?: string; captureOutput?: boolean; binary?: string } = {}
 ): { exitCode: number; stdout: string; timedOut: boolean } {
-  const binary = opts.binary ?? 'claude';
+  const binary = opts.binary ?? (_ADAPTERS['claude']?.binary ?? 'claude');
   const args: string[] = ['-p', prompt, '--verbose', '--dangerously-skip-permissions'];
   if (opts.maxTurns !== undefined && opts.maxTurns > 0) args.push('--max-turns', String(opts.maxTurns));
   if (opts.model) args.push('--model', opts.model);

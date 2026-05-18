@@ -1,152 +1,9 @@
 {
-  "iteration": 8,
-  "timestamp": "2026-05-18T11:46:24.917Z",
+  "iteration": 9,
+  "timestamp": "2026-05-18T14:29:45.743Z",
   "milestone": "",
   "pick_pct": 50,
   "selected_groups": [
-    {
-      "id": "improve-features/feature-enhancements",
-      "theme": "feature-enhancements",
-      "dimension": "improve-features",
-      "title": "Feature Enhancements (improve-features)",
-      "items": [
-        {
-          "id": "improve-features/enhance-caching-knowledge",
-          "dimension": "improve-features",
-          "slug": "enhance-caching-knowledge",
-          "title": "Add caching for repeated file reads in knowledge.ts",
-          "description": "lib/knowledge.ts reads knowhowPath 3 times. Cache the result in a local variable to avoid redundant I/O.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        }
-      ],
-      "priority": 15,
-      "effort": "small",
-      "status": "selected"
-    },
-    {
-      "id": "new-features/configurable-defaults",
-      "theme": "configurable-defaults",
-      "dimension": "new-features",
-      "title": "Configurable Defaults (new-features)",
-      "items": [
-        {
-          "id": "new-features/configurable-default-autoresearch-L260",
-          "dimension": "new-features",
-          "slug": "configurable-default-autoresearch-L260",
-          "title": "Make timeout configurable in autoresearch.ts",
-          "description": "lib/autoresearch.ts has a hardcoded timeout value of 120000ms at line 260. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-autoresearch-L276",
-          "dimension": "new-features",
-          "slug": "configurable-default-autoresearch-L276",
-          "title": "Make timeout configurable in autoresearch.ts",
-          "description": "lib/autoresearch.ts has a hardcoded timeout value of 180000ms at line 276. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-autoresearch-L294",
-          "dimension": "new-features",
-          "slug": "configurable-default-autoresearch-L294",
-          "title": "Make timeout configurable in autoresearch.ts",
-          "description": "lib/autoresearch.ts has a hardcoded timeout value of 60000ms at line 294. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-backend-L911",
-          "dimension": "new-features",
-          "slug": "configurable-default-backend-L911",
-          "title": "Make timeout configurable in backend.ts",
-          "description": "lib/backend.ts has a hardcoded timeout value of 5000ms at line 911. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-discussion-L1155",
-          "dimension": "new-features",
-          "slug": "configurable-default-discussion-L1155",
-          "title": "Make timeout configurable in discussion.ts",
-          "description": "lib/discussion.ts has a hardcoded timeout value of 10000ms at line 1155. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-overstory-L98",
-          "dimension": "new-features",
-          "slug": "configurable-default-overstory-L98",
-          "title": "Make timeout configurable in overstory.ts",
-          "description": "lib/overstory.ts has a hardcoded timeout value of 5000ms at line 98. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/configurable-default-overstory-L110",
-          "dimension": "new-features",
-          "slug": "configurable-default-overstory-L110",
-          "title": "Make timeout configurable in overstory.ts",
-          "description": "lib/overstory.ts has a hardcoded timeout value of 120000ms at line 110. Move it to config.json so users can tune it for their environment.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        }
-      ],
-      "priority": 14,
-      "effort": "medium",
-      "status": "selected"
-    },
-    {
-      "id": "new-features/progress-feedback",
-      "theme": "progress-feedback",
-      "dimension": "new-features",
-      "title": "Progress Feedback (new-features)",
-      "items": [
-        {
-          "id": "new-features/missing-progress-knowledge-L124",
-          "dimension": "new-features",
-          "slug": "missing-progress-knowledge-L124",
-          "title": "Add progress output to loop in knowledge.ts line 124",
-          "description": "lib/knowledge.ts iterates over entries at line 124 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "new-features/missing-progress-knowledge-L535",
-          "dimension": "new-features",
-          "slug": "missing-progress-knowledge-L535",
-          "title": "Add progress output to loop in knowledge.ts line 535",
-          "description": "lib/knowledge.ts iterates over pairs at line 535 performing heavy operations (file I/O or process spawn) without progress feedback. Add a log statement showing N/total to help users track long-running operations.",
-          "effort": "small",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        }
-      ],
-      "priority": 14,
-      "effort": "small",
-      "status": "selected"
-    },
     {
       "id": "stability/hardcoded-paths",
       "theme": "hardcoded-paths",
@@ -176,67 +33,65 @@
       "title": "Miscellaneous (product-ideation)",
       "items": [
         {
-          "id": "product-ideation/plan-static-linter",
+          "id": "product-ideation/phase-cost-estimator",
           "dimension": "product-ideation",
-          "slug": "plan-static-linter",
-          "title": "Pre-execution Plan Linter (`gd lint-plan <N>`)",
-          "description": "Users currently discover broken plans only at execution time — mid-agent, after burning tokens. Add `gd lint-plan <N>` in `bin/grd-tools.ts` backed by a new `lib/plan-linter.ts` that statically validates a phase's PLAN.md files: checks for circular dependencies in provides/requires DAG, tasks referencing non-existent files, missing acceptance criteria, and duplicate task IDs. Wire as an optional gate in `gd execute-phase` pre-flight (behind `config.gates.lint_plan`). Output: structured list of errors/warnings with line references. Solves: silent broken plans that waste a full execution cycle.",
+          "slug": "phase-cost-estimator",
+          "title": "Pre-Execution Phase Cost Estimator",
+          "description": "Before running a phase, show users a token/dollar cost forecast so they can decide whether to proceed, downgrade the model profile, or trim the plan. Pain: users get surprised by expensive autopilot runs. Add `gd estimate-phase <N>` in `bin/grd-tools.ts`; implement `estimatePhaseTokens(phaseNum, config)` in `lib/commands/analysis.ts` that counts tasks across `.planning/milestones/{m}/phases/{N}/*.md`, looks up model tier from `config.json`, and cross-references historical per-agent token averages stored in `EVOLVE-STATE.json`. Output: a table of (agent, tasks, est. tokens, est. cost) plus a total and a suggested cheaper alternative if cost exceeds a configurable threshold.",
           "effort": "medium",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/phase-handoff-snapshot",
+          "id": "product-ideation/research-staleness-alerts",
           "dimension": "product-ideation",
-          "slug": "phase-handoff-snapshot",
-          "title": "Structured Pause/Resume Handoff (`gd stash-context`)",
-          "description": "When users pause work and return days later, they lose all mental context — what decision was being made, what blockers existed, what the next step was. Add `gd stash-context` command in `bin/grd-tools.ts` that writes `.planning/milestones/{m}/handoff-{phase}.md` containing: current git diff summary, open blockers from HEALTH.md, last 5 EVOLVE-STATE entries, and a Claude-generated 'resume from here' narrative. Wire into `gd pause-work` skill as auto-step, and have `gd resume-project` auto-load and display the latest handoff. Modify `lib/commands/progress.ts` and add `lib/handoff.ts`.",
-          "effort": "medium",
-          "source": "discovery",
-          "status": "pending",
-          "iteration_added": 1
-        },
-        {
-          "id": "product-ideation/token-cost-estimator",
-          "dimension": "product-ideation",
-          "slug": "token-cost-estimator",
-          "title": "Pre-flight Cost Estimate for Autopilot",
-          "description": "Users have no idea how expensive `gd autopilot` or `gd execute-phase` will be before they confirm. Add a `lib/cost-estimator.ts` module that reads plan task counts, agent frontmatter (effort level, maxTurns), model tier from config, and historical token-per-task averages from EVOLVE-STATE.json to output a `~$X.XX / ~Xk tokens` range estimate. Wire into `gd autopilot` and `gd execute-phase` confirmation prompt in `lib/autopilot.ts` and `bin/grd-tools.ts`. Show estimate alongside phase list before user approves. Solves: sticker shock after a long unattended run depletes an account.",
+          "slug": "research-staleness-alerts",
+          "title": "Research Staleness Detector in Health Check",
+          "description": "Surface a blocker in `gd health` when RESEARCH.md, LANDSCAPE.md, or PAPERS.md are older than a configurable threshold (default 14 days) relative to the current phase start date. Pain: teams re-run execution phases on stale research without realizing surveys are months old, leading to plans that miss recent SOTA. Add `checkResearchStaleness(projectPaths, config)` to `lib/commands/health.ts`; read file mtimes of research artifacts in `.planning/milestones/{m}/`, compare to `config.json` `research_staleness_days`, and push a new `STALE_RESEARCH` blocker type into the existing health blocker array. Display with a `gd health --fix` suggestion to re-run `/grd:survey`.",
           "effort": "small",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/phase-explainer",
+          "id": "product-ideation/phase-impact-graph",
           "dimension": "product-ideation",
-          "slug": "phase-explainer",
-          "title": "Human-Readable Phase Summary (`gd explain-phase <N>`)",
-          "description": "After a phase completes, there's no artifact that explains what was built in plain English — making it hard to write PR descriptions, update stakeholders, or onboard teammates. Add `gd explain-phase <N>` in `bin/grd-tools.ts` with handler in `lib/commands/analysis.ts` that reads the phase's PLAN.md files + git log between phase-start and phase-end tags + RESEARCH.md, then uses a lightweight Claude call (haiku tier) to synthesize a 150-200 word narrative: what was built, why it was needed, key design decisions, and how it connects to the milestone goal. Output to stdout and optionally append to `.planning/milestones/{m}/phases/{n}/SUMMARY.md`.",
+          "slug": "phase-impact-graph",
+          "title": "Downstream Phase Impact Analyzer",
+          "description": "When a phase is delayed, fails, or is about to be re-planned, show users exactly which downstream phases are affected and their current status. Pain: users change a phase without knowing it unblocks or breaks 3 others. Add `gd impact <N>` in `bin/grd-tools.ts`; implement `computeDownstreamImpact(phaseNum, roadmap)` in `lib/commands/analysis.ts` reusing the existing Kahn's-algorithm dependency graph already in `lib/scheduler.ts`. Output: a tree of affected phases, their status (planned/executing/done), and a risk score (phases with in-progress dependents = HIGH). No new parsing logic needed—just new traversal direction over the existing graph.",
           "effort": "small",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         },
         {
-          "id": "product-ideation/cross-project-knowhow-export",
+          "id": "product-ideation/plan-assumption-freshness-check",
           "dimension": "product-ideation",
-          "slug": "cross-project-knowhow-export",
-          "title": "Cross-Project KNOWHOW Export and Import",
-          "description": "KNOWHOW.md entries are confined to a single project, but teams repeatedly solve the same problems across repos. Add `gd knowhow export [--filter <tag>]` that packages `.planning/KNOWHOW.md` entries into a portable JSON bundle at `~/.grd/knowhow-exports/{timestamp}.json`, and `gd knowhow import <path>` that merges external entries into the local KNOWHOW.md (deduplication by slug). Add `lib/knowhow-exchange.ts` with export/import/deduplicate logic, wire commands into `bin/grd-tools.ts`. Optionally auto-import from a `config.knowhow_import_path` at session start in `lib/knowledge.ts`. Solves: knowledge siloed per-project when teams run GRD across multiple repos.",
+          "slug": "plan-assumption-freshness-check",
+          "title": "Stale Assumption Guard Before Phase Execution",
+          "description": "Extract `## Assumptions` sections from plan markdown files and validate them against the current codebase before `gd execute-phase` dispatches any agent, blocking on stale assumptions. Pain: executor agents act on assumptions like 'lib/state.ts exports X' that have since changed, causing expensive failed runs. Add `lib/commands/assumptions.ts` with `parseAssumptions(planPaths)` and `validateAssumptionsFreshness(assumptions, gitDiff)`. Wire it as a pre-flight step in `lib/commands/progress.ts` executePhase flow: run `git diff HEAD~5 --stat`, pass to a fast claude query that flags which assumptions may be violated, and surface as pre-execution warnings the user must acknowledge or skip with `--skip-assumption-check`.",
           "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "product-ideation/knowledge-entry-effectiveness-tracker",
+          "dimension": "product-ideation",
+          "slug": "knowledge-entry-effectiveness-tracker",
+          "title": "KNOWHOW.md Entry Usage and Effectiveness Tracker",
+          "description": "Track which knowledge entries from KNOWHOW.md actually get injected into agent prompts and surface unused or over-used entries so users can prune dead weight. Pain: KNOWHOW.md grows to 200+ entries with no signal about which ones matter, slowing knowledge injection and inflating prompts. In `lib/knowledge.ts`, add `hit_count: number` and `last_used: string` fields to `KnowledgeEntry`; increment them inside `buildKnowledgeInjectionBlock()` and persist counters to `.planning/knowledge-stats.json` after each injection. Expose via `gd metrics` as 'top 5 most-injected entries' and 'entries unused in last 30 days (candidates for removal)'. No schema migration needed—stats file is additive.",
+          "effort": "small",
           "source": "discovery",
           "status": "pending",
           "iteration_added": 1
         }
       ],
-      "priority": 13.4,
+      "priority": 13.6,
       "effort": "medium",
       "status": "selected"
-    }
-  ],
-  "remaining_groups": [
+    },
     {
       "id": "new-features/dry-run-support",
       "theme": "dry-run-support",
@@ -279,7 +134,7 @@
       ],
       "priority": 13,
       "effort": "small",
-      "status": "pending"
+      "status": "selected"
     },
     {
       "id": "consistency/module-headers",
@@ -301,8 +156,10 @@
       ],
       "priority": 12,
       "effort": "small",
-      "status": "pending"
-    },
+      "status": "selected"
+    }
+  ],
+  "remaining_groups": [
     {
       "id": "quality/miscellaneous",
       "theme": "miscellaneous",
@@ -2053,11 +1910,99 @@
       "priority": 14,
       "effort": "small",
       "status": "completed"
+    },
+    {
+      "id": "stability/hardcoded-paths",
+      "theme": "hardcoded-paths",
+      "dimension": "stability",
+      "title": "Hardcoded Paths (stability)",
+      "items": [
+        {
+          "id": "stability/use-paths-module-invariants-L200",
+          "dimension": "stability",
+          "slug": "use-paths-module-invariants-L200",
+          "title": "Use paths module instead of hardcoded path in invariants.ts",
+          "description": "lib/invariants.ts has a hardcoded \".planning/\" path at line 200. Use lib/paths module functions for path resolution to ensure consistency across environments.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 14,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "new-features/dry-run-support",
+      "theme": "dry-run-support",
+      "dimension": "new-features",
+      "title": "Dry Run Support (new-features)",
+      "items": [
+        {
+          "id": "new-features/missing-dry-run-configdiff",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-configdiff",
+          "title": "Add --dry-run support to cmdConfigDiff",
+          "description": "Command cmdConfigDiff in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-dry-run-importknowledge",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-importknowledge",
+          "title": "Add --dry-run support to cmdImportKnowledge",
+          "description": "Command cmdImportKnowledge in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        },
+        {
+          "id": "new-features/missing-dry-run-knowhowaggregate",
+          "dimension": "new-features",
+          "slug": "missing-dry-run-knowhowaggregate",
+          "title": "Add --dry-run support to cmdKnowhowAggregate",
+          "description": "Command cmdKnowhowAggregate in lib/commands.js writes files but does not support --dry-run. Adding dry-run would let users preview changes before applying them.",
+          "effort": "medium",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 13,
+      "effort": "small",
+      "status": "completed"
+    },
+    {
+      "id": "consistency/module-headers",
+      "theme": "module-headers",
+      "dimension": "consistency",
+      "title": "Module Headers (consistency)",
+      "items": [
+        {
+          "id": "consistency/add-module-header-scheduler",
+          "dimension": "consistency",
+          "slug": "add-module-header-scheduler",
+          "title": "Add module JSDoc header to scheduler.ts",
+          "description": "lib/scheduler.ts is missing the standard JSDoc module header comment at the top of the file.",
+          "effort": "small",
+          "source": "discovery",
+          "status": "pending",
+          "iteration_added": 1
+        }
+      ],
+      "priority": 12,
+      "effort": "small",
+      "status": "completed"
     }
   ],
   "failed_groups": [],
   "all_items_count": 381,
-  "groups_count": 10,
+  "groups_count": 7,
   "history": [
     {
       "iteration": 1,
@@ -2113,6 +2058,13 @@
       "timestamp": "2026-05-18T11:46:24.917Z",
       "selected_count": 5,
       "completed_count": 3,
+      "failed_count": 0
+    },
+    {
+      "iteration": 9,
+      "timestamp": "2026-05-18T14:29:45.743Z",
+      "selected_count": 4,
+      "completed_count": 4,
       "failed_count": 0
     }
   ]

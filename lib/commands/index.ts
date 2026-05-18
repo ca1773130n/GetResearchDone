@@ -39,6 +39,7 @@ const _phaseInfo: {
   readCachedRoadmap: (roadmapPath: string) => string | null;
   readCachedState: (statePath: string) => string | null;
   _stateContentCache: Map<string, string>;
+  cmdDepsRisk: (cwd: string, startPhase: string | null, raw: boolean) => void;
 } = require('./phase-info');
 
 // ─── Progress ────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ const _analysis: {
   cmdCitationBacklinks: (cwd: string, raw: boolean) => void;
   cmdEvalRegressionCheck: (cwd: string, phase: string, raw: boolean, thresholdPct?: number) => void;
   cmdPhaseTimeBudget: (cwd: string, raw: boolean) => void;
-  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean) => void;
+  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean, dryRun?: boolean) => void;
   cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
   cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
   cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
@@ -96,14 +97,22 @@ const _analysis: {
     sourcePath: string,
     types: string,
     raw: boolean,
-    force?: boolean
+    force?: boolean,
+    dryRun?: boolean
   ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
   cmdKnowhowList: (cwd: string, raw: boolean, moduleHint?: string, limit?: number) => void;
   cmdCitationGraph: (cwd: string, raw: boolean, unresolvedOnly?: boolean) => void;
   cmdArtifactDAG: (cwd: string, phase: string, raw: boolean) => void;
   cmdBenchmarkReport: (cwd: string, raw: boolean) => void;
+  cmdEstimatePhase: (cwd: string, phase: string, raw: boolean) => void;
+  cmdImpact: (cwd: string, phase: string, raw: boolean) => void;
 } = require('./analysis');
+
+// ─── Assumptions ─────────────────────────────────────────────────────────────
+const _assumptions: {
+  cmdCheckAssumptions: (cwd: string, phase: string, raw: boolean, skipCheck?: boolean) => void;
+} = require('./assumptions');
 
 // ─── Knowledge Search ────────────────────────────────────────────────────────
 const _knowledgeSearch: {
@@ -132,6 +141,23 @@ const _requirements: {
   cmdRequirementTraceability: (...args: unknown[]) => void;
   cmdRequirementUpdateStatus: (...args: unknown[]) => void;
 } = require('../requirements');
+
+// ─── KnowhowAggregator (import-knowhow) ──────────────────────────────────────
+const _knowhowAggregator: {
+  cmdKnowhowAggregate: (cwd: string, raw: boolean, exportFlag?: boolean, dryRun?: boolean) => void;
+  cmdImportKnowhow: (cwd: string, sourcePath: string, raw: boolean, topN?: number, importAll?: boolean, dryRun?: boolean) => void;
+} = require('./knowhow-aggregator');
+
+// ─── Progress (research-gaps) ────────────────────────────────────────────────
+const _progressExtended: {
+  cmdProgressRender: (cwd: string, format: string, raw: boolean) => void;
+  cmdResearchGaps: (cwd: string, raw: boolean) => void;
+} = require('./progress');
+
+// ─── Live Execution Watch ────────────────────────────────────────────────────
+const _watch: {
+  cmdWatch: (cwd: string, raw: boolean) => void;
+} = require('./watch');
 
 // ─── Barrel Exports ─────────────────────────────────────────────────────────
 
@@ -201,6 +227,11 @@ module.exports = {
   cmdCitationGraph: _analysis.cmdCitationGraph,
   cmdArtifactDAG: _analysis.cmdArtifactDAG,
   cmdBenchmarkReport: _analysis.cmdBenchmarkReport,
+  cmdEstimatePhase: _analysis.cmdEstimatePhase,
+  cmdImpact: _analysis.cmdImpact,
+
+  // assumptions
+  cmdCheckAssumptions: _assumptions.cmdCheckAssumptions,
 
   // knowledge-search
   cmdKnowhowSearch: _knowledgeSearch.cmdKnowhowSearch,
@@ -219,4 +250,17 @@ module.exports = {
   cmdRequirementList: _requirements.cmdRequirementList,
   cmdRequirementTraceability: _requirements.cmdRequirementTraceability,
   cmdRequirementUpdateStatus: _requirements.cmdRequirementUpdateStatus,
+
+  // phase-info extended
+  cmdDepsRisk: _phaseInfo.cmdDepsRisk,
+
+  // knowhow-aggregator
+  cmdKnowhowAggregate: _knowhowAggregator.cmdKnowhowAggregate,
+  cmdImportKnowhow: _knowhowAggregator.cmdImportKnowhow,
+
+  // progress extended
+  cmdResearchGaps: _progressExtended.cmdResearchGaps,
+
+  // watch
+  cmdWatch: _watch.cmdWatch,
 };

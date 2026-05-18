@@ -453,6 +453,9 @@ const {
   cmdCheckPlans,
   cmdEvalDiff,
   cmdTail,
+  cmdEstimatePhase,
+  cmdImpact,
+  cmdCheckAssumptions,
 }: {
   cmdGenerateSlug: (text: string, raw: boolean) => void;
   cmdCurrentTimestamp: (format: string, raw: boolean) => void;
@@ -506,7 +509,7 @@ const {
   cmdCitationBacklinks: (cwd: string, raw: boolean) => void;
   cmdEvalRegressionCheck: (cwd: string, phase: string, raw: boolean, thresholdPct?: number) => void;
   cmdPhaseTimeBudget: (cwd: string, raw: boolean) => void;
-  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean) => void;
+  cmdConfigDiff: (cwd: string, raw: boolean, reset?: boolean, dryRun?: boolean) => void;
   cmdPhaseReadiness: (cwd: string, phase: string, raw: boolean) => void;
   cmdMilestoneHealth: (cwd: string, raw: boolean) => void;
   cmdDecisionTimeline: (cwd: string, raw: boolean) => void;
@@ -515,7 +518,8 @@ const {
     sourcePath: string,
     types: string,
     raw: boolean,
-    force?: boolean
+    force?: boolean,
+    dryRun?: boolean
   ) => void;
   cmdTodoDuplicates: (cwd: string, raw: boolean, threshold?: number) => void;
   cmdKnowhowList: (cwd: string, raw: boolean, moduleHint?: string, limit?: number) => void;
@@ -526,6 +530,9 @@ const {
   cmdCheckPlans: (cwd: string, options: { phase?: string | null; milestone?: string | null }, raw: boolean) => void;
   cmdEvalDiff: (cwd: string, phaseA: string, phaseB: string, raw: boolean) => void;
   cmdTail: (cwd: string, phaseFilter: string | null, follow: boolean, raw: boolean) => void;
+  cmdEstimatePhase: (cwd: string, phase: string, raw: boolean) => void;
+  cmdImpact: (cwd: string, phase: string, raw: boolean) => void;
+  cmdCheckAssumptions: (cwd: string, phase: string, raw: boolean, skipCheck?: boolean) => void;
 } = require('../lib/commands/index');
 
 const {
@@ -630,8 +637,10 @@ const {
 
 const {
   cmdKnowhowAggregate,
+  cmdImportKnowhow,
 }: {
-  cmdKnowhowAggregate: (cwd: string, raw: boolean, exportFlag?: boolean) => void;
+  cmdKnowhowAggregate: (cwd: string, raw: boolean, exportFlag?: boolean, dryRun?: boolean) => void;
+  cmdImportKnowhow: (cwd: string, sourcePath: string, raw: boolean, topN?: number, importAll?: boolean, dryRun?: boolean) => void;
 } = require('../lib/commands/knowhow-aggregator');
 
 const {
@@ -649,6 +658,24 @@ const {
   cmdGenomeShow: (cwd: string, raw: boolean) => void;
   cmdGenomeSnapshot: (cwd: string, raw: boolean) => void;
 } = require('../lib/genome');
+
+const {
+  cmdResearchGaps,
+}: {
+  cmdResearchGaps: (cwd: string, raw: boolean) => void;
+} = require('../lib/commands/progress');
+
+const {
+  cmdDepsRisk,
+}: {
+  cmdDepsRisk: (cwd: string, startPhase: string | null, raw: boolean) => void;
+} = require('../lib/commands/phase-info');
+
+const {
+  cmdWatch,
+}: {
+  cmdWatch: (cwd: string, raw: boolean) => void;
+} = require('../lib/commands/watch');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -768,7 +795,7 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'phase-time-budget', handler: (_args, cwd, raw) => cmdPhaseTimeBudget(cwd, raw) },
   {
     command: 'config-diff',
-    handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset')),
+    handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset'), args.includes('--dry-run')),
   },
   {
     command: 'phase-readiness',
@@ -788,7 +815,8 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
         args[1],
         flag(args, '--types') || 'all',
         raw,
-        args.includes('--force')
+        args.includes('--force'),
+        args.includes('--dry-run')
       );
     },
   },
@@ -867,7 +895,7 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     handler: (args, cwd, raw) => {
       const sub = args[1];
       if (sub === 'audit') return cmdKnowhowAudit(cwd, raw);
-      if (sub === 'aggregate' || sub === 'agg') return cmdKnowhowAggregate(cwd, raw, args.includes('--export'));
+      if (sub === 'aggregate' || sub === 'agg') return cmdKnowhowAggregate(cwd, raw, args.includes('--export'), args.includes('--dry-run'));
       if (sub === 'dedup') {
         const t = flag(args, '--threshold');
         return cmdKnowhowDedup(cwd, raw, t ? parseFloat(t) : undefined);
@@ -920,6 +948,30 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       if (!args[1]) error('phase required. Usage: gd estimate <phase>');
       validatePhaseArg(args[1]);
       return cmdEstimate(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'estimate-phase',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd estimate-phase <phase>');
+      validatePhaseArg(args[1]);
+      return cmdEstimatePhase(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'impact',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd impact <phase>');
+      validatePhaseArg(args[1]);
+      return cmdImpact(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'check-assumptions',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('phase required. Usage: gd check-assumptions <phase>');
+      validatePhaseArg(args[1]);
+      return cmdCheckAssumptions(cwd, args[1], raw, args.includes('--skip-assumption-check'));
     },
   },
   {
@@ -1072,6 +1124,21 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       output({ phase, files_found: fileScores.length, top_files: top, forecast_path: forecastPath }, raw, summary);
     },
   },
+  {
+    command: 'import-knowhow',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) error('source project directory required. Usage: gd import-knowhow <source-dir>');
+      const topStr = flag(args, '--top');
+      const topN = topStr ? parseInt(topStr, 10) : undefined;
+      return cmdImportKnowhow(cwd, args[1], raw, topN, args.includes('--all'), args.includes('--dry-run'));
+    },
+  },
+  { command: 'research-gaps', handler: (_args, cwd, raw) => cmdResearchGaps(cwd, raw) },
+  {
+    command: 'deps-risk',
+    handler: (args, cwd, raw) => cmdDepsRisk(cwd, args[1] ?? null, raw),
+  },
+  { command: 'watch', handler: (_args, cwd, raw) => cmdWatch(cwd, raw) },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -2107,6 +2174,39 @@ async function routeCommand(
         'deps',
         'todos',
         'knowhow',
+        'budget',
+        'blame',
+        'freshness',
+        'rollback',
+        'estimate',
+        'estimate-phase',
+        'impact',
+        'check-assumptions',
+        'execute-phase',
+        'phase-risk',
+        'citation-backlinks',
+        'eval-regression-check',
+        'phase-time-budget',
+        'config-diff',
+        'phase-readiness',
+        'milestone-health',
+        'decision-timeline',
+        'import-knowledge',
+        'todo-duplicates',
+        'citation-graph',
+        'artifact-dag',
+        'benchmark-report',
+        'forecast-phase',
+        'tail',
+        'eval',
+        'check-plans',
+        'knowledge',
+        'autoresearch',
+        'wireup',
+        'watch',
+        'research-gaps',
+        'deps-risk',
+        'import-knowhow',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

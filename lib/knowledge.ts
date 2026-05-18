@@ -194,19 +194,38 @@ function selectTopEntries(
     }
   }
 
-  const sorted = [...entries].sort((a, b) => {
-    if (b.phase_number !== a.phase_number) {
-      return b.phase_number - a.phase_number;
-    }
-    const hintDiff = (hintMatches.has(b) ? 1 : 0) - (hintMatches.has(a) ? 1 : 0);
-    if (hintDiff !== 0) return hintDiff;
-    if (currentPhase !== undefined) {
-      return Math.abs(currentPhase - a.phase_number) - Math.abs(currentPhase - b.phase_number);
-    }
-    return 0;
-  });
+  const scoreEntry = (e: KnowhowEntry): number =>
+    e.phase_number * 1000 +
+    (hintMatches.has(e) ? 100 : 0) -
+    (currentPhase !== undefined ? Math.abs(currentPhase - e.phase_number) : 0);
+  const sorted = [...entries].sort((a, b) => scoreEntry(b) - scoreEntry(a));
 
   return sorted.slice(0, n);
+}
+
+// ─── Knowledge Stats Tracking ─────────────────────────────────────────────────
+
+interface KnowhowStat {
+  hit_count: number;
+  last_used: string;
+}
+
+function _loadKnowledgeStats(statsPath: string): Record<string, KnowhowStat> {
+  try {
+    const raw = fs.readFileSync(statsPath, 'utf8') as string;
+    return JSON.parse(raw) as Record<string, KnowhowStat>;
+  } catch {
+    return {};
+  }
+}
+
+function _saveKnowledgeStats(statsPath: string, stats: Record<string, KnowhowStat>): void {
+  try {
+    fs.mkdirSync(path.dirname(statsPath), { recursive: true });
+    fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf8');
+  } catch {
+    /* stats are best-effort; never crash injection on write failure */
+  }
 }
 
 /**
@@ -214,6 +233,7 @@ function selectTopEntries(
  *
  * Reads KNOWHOW.md from path.join(cwd, 'KNOWHOW.md'), selects top 5 entries
  * using selectTopEntries, and wraps them in <knowhow_context> XML tags.
+ * Increments hit_count and last_used in .planning/knowledge-stats.json after each injection.
  *
  * @param cwd - Project root directory
  * @param _phaseNum - Current phase number (reserved for future phase-proximity scoring)
@@ -233,6 +253,19 @@ function buildKnowledgeInjectionBlock(cwd: string, _phaseNum: string, moduleHint
   if (top.length === 0) {
     return '';
   }
+
+  // Track which entries were injected
+  const statsPath = path.join(cwd, '.planning', 'knowledge-stats.json');
+  const stats = _loadKnowledgeStats(statsPath);
+  const now = new Date().toISOString();
+  for (const entry of top) {
+    const existing = stats[entry.pattern_name];
+    stats[entry.pattern_name] = {
+      hit_count: (existing?.hit_count ?? 0) + 1,
+      last_used: now,
+    };
+  }
+  _saveKnowledgeStats(statsPath, stats);
 
   const formatted = top.map(formatKnowhowEntry).join('\n');
   return `<knowhow_context>\n${formatted}\n</knowhow_context>`;
@@ -512,8 +545,8 @@ function cmdKnowhowDedup(cwd: string, raw: boolean, threshold = 0.75): void {
   const pairs: KnowhowDedupPair[] = [];
   const totalEntryCount = allEntries.length;
   for (let i = 0; i < totalEntryCount; i++) {
-    if (totalEntryCount > 20 && i % 10 === 0) {
-      process.stderr.write(`[knowledge:dedup] comparing pair ${i + 1}/${totalEntryCount}\n`);
+    if (totalEntryCount > 20 && i % Math.max(1, Math.floor(totalEntryCount / 20)) === 0) {
+      process.stderr.write(`[knowledge:dedup] scanning entry ${i + 1}/${totalEntryCount}\n`);
     }
     for (let j = i + 1; j < totalEntryCount; j++) {
       const sim = _jaccard(allEntries[i].trigrams, allEntries[j].trigrams);
