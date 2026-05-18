@@ -178,12 +178,17 @@ function _listPhaseDirs(cwd: string): string[] {
   }
 }
 
-/** Collect all PLAN.md files in a specific phase directory. */
+/**
+ * Collect all PLAN.md files in a specific phase directory. Codex r7 P2:
+ * include bare `PLAN.md` alongside the prefixed `*-PLAN.md` form so
+ * single-plan phases are not silently skipped by callers like
+ * `gd estimate-phase`.
+ */
 function _collectPlanFiles(phasePath: string): string[] {
   try {
     return fs
       .readdirSync(phasePath)
-      .filter((f: string) => f.endsWith('-PLAN.md'))
+      .filter((f: string) => f === 'PLAN.md' || f.endsWith('-PLAN.md'))
       .map((f: string) => path.join(phasePath, f));
   } catch {
     return [];
@@ -1589,10 +1594,12 @@ function estimatePhaseTokens(cwd: string, phaseNum: string, config: Record<strin
   const totalTokens = agents.reduce((s, a) => s + a.est_tokens, 0);
   const totalCost = parseFloat(agents.reduce((s, a) => s + a.est_cost_usd, 0).toFixed(4));
 
-  // Suggest cheaper tier if cost exceeds $0.50
+  // Codex r7 P3: model_profile values are quality/balanced/budget;
+  // `frugal` is a token_profile value. Recommend the correct flag
+  // (model_profile=budget) so users don't introduce config drift.
   const cheaperAlternative =
     totalCost > 0.5 && tier !== 'low'
-      ? `Use model_profile=frugal to reduce cost by ~${Math.round((1 - COST_PER_MILLION_BY_TIER.low / costPerMillion) * 100)}%`
+      ? `Use model_profile=budget to reduce cost by ~${Math.round((1 - COST_PER_MILLION_BY_TIER.low / costPerMillion) * 100)}%`
       : undefined;
 
   return { phase: phaseNum, agents, total_tokens: totalTokens, total_cost_usd: totalCost, model_tier: tier, cheaper_alternative: cheaperAlternative };

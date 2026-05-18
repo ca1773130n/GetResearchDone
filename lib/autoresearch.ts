@@ -602,7 +602,9 @@ async function _runAutoresearchLoop(
         });
     // Spawn experiment subprocess
     const spawnResult = await _spawnClaude(cwd, prompt, {
-      timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
+      // Codex r7 P2: pass 0 explicitly so scheduler interprets as
+      // "unlimited" (vs undefined → scheduler 2hr default).
+      timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : 0,
       model: experimentModel,
       maxTurns,
       captureOutput: true,

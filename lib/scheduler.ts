@@ -971,7 +971,14 @@ export function createScheduler(
 
     try {
       const { spawn } = require('child_process') as typeof import('child_process');
-      const totalTimeoutMs = opts.timeout || 120 * 60 * 1000;
+      // Codex r7 P2: callers can request "unlimited" total timeout by
+      // passing 0 explicitly (autoresearch --time-budget 0 path).
+      // Distinguish missing (undefined → 2hr default) from explicit 0
+      // (no total timeout — only idle watchdog applies).
+      const totalTimeoutMs =
+        opts.timeout === 0
+          ? null
+          : (typeof opts.timeout === 'number' ? opts.timeout : 120 * 60 * 1000);
       const idleTimeoutMs = _resolveIdleTimeoutSeconds(backend, schedulerConfig) * 1000;
       const MAX_BUFFER_BYTES = 50 * 1024 * 1024;
 
@@ -1017,15 +1024,18 @@ export function createScheduler(
           }, 5000);
         });
 
-        const totalTimer = setTimeout(() => {
-          totalTimedOut = true;
-          _killProcessTree(child, 'SIGTERM');
-          totalKillTimer = setTimeout(() => {
-            if (child.exitCode === null && child.signalCode === null) {
-              _killProcessTree(child, 'SIGKILL');
-            }
-          }, 5000);
-        }, totalTimeoutMs);
+        const totalTimer =
+          totalTimeoutMs === null
+            ? null
+            : setTimeout(() => {
+                totalTimedOut = true;
+                _killProcessTree(child, 'SIGTERM');
+                totalKillTimer = setTimeout(() => {
+                  if (child.exitCode === null && child.signalCode === null) {
+                    _killProcessTree(child, 'SIGKILL');
+                  }
+                }, 5000);
+              }, totalTimeoutMs);
 
         child.stdout?.on('data', (chunk: Buffer) => {
           watchdog.markActivity();
@@ -1044,7 +1054,7 @@ export function createScheduler(
 
         child.on('error', (err) => {
           watchdog.stop();
-          clearTimeout(totalTimer);
+          if (totalTimer) clearTimeout(totalTimer);
           if (idleKillTimer) clearTimeout(idleKillTimer);
           if (totalKillTimer) clearTimeout(totalKillTimer);
           markComplete(state);
@@ -1062,7 +1072,7 @@ export function createScheduler(
 
         child.on('close', (code) => {
           watchdog.stop();
-          clearTimeout(totalTimer);
+          if (totalTimer) clearTimeout(totalTimer);
           if (idleKillTimer) clearTimeout(idleKillTimer);
           if (totalKillTimer) clearTimeout(totalKillTimer);
           const duration = Date.now() - startTime;
