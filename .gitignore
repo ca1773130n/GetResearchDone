@@ -38,6 +38,31 @@ build/
 # Test artifacts
 tmp/
 testbed/
+.3eb8*.dylib
+.*.dylib
+grd-test-*/
+grd-e2e-*/
+grd-e2e-bare-*/
+grd-e2e-concurrent-*/
+grd-e2e-p47-*/
+grd-integ-*/
+grd-wt-test-*/
+grd-evolve-test-*/
+grd-cleanup-test-*/
+grd-autopilot-*/
+grd-autopilot-bad-*/
+grd-backend-utils-*/
+grd-golden-*/
+citations/
+jest_dx/
+node-compile-cache/
+tsx-501/
+
+# Evolve session logs (per-run; the canonical one is .planning/autopilot/evolve.log)
+.planning/autopilot/evolve-*.log
+
+# Scratch space
+.planning/thoughts/
 
 # Claude Code local settings
 .claude/
