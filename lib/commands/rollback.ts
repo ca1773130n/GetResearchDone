@@ -52,7 +52,39 @@ function cmdRollback(cwd: string, phase: string, raw: boolean): void {
     return;
   }
 
-  const branchName = `grd/phase-${phase}`;
+  // Codex r10 P2: derive the branch name from the configured
+  // phase_branch_template (default `grd/{milestone}/{phase}-{slug}`).
+  // The legacy hardcoded `grd/phase-${phase}` matched nothing in
+  // current projects.
+  const { loadConfig } = require('../utils') as {
+    loadConfig: (cwd: string) => { phase_branch_template?: string };
+  };
+  const { findPhaseInternal } = require('../utils') as {
+    findPhaseInternal: (
+      cwd: string,
+      phase: string
+    ) => { found: boolean; phase_number?: string; phase_slug?: string | null } | null;
+  };
+  const { currentMilestone: currentMilestoneFn } = require('../paths') as {
+    currentMilestone: (cwd: string) => string;
+  };
+  const cfg = loadConfig(cwd);
+  const template = cfg.phase_branch_template || 'grd/{milestone}/{phase}-{slug}';
+  const phaseInfo = findPhaseInternal(cwd, phase);
+  let ms = '';
+  try {
+    ms = currentMilestoneFn(cwd);
+  } catch {
+    /* milestone may not be set; template can still fill phase */
+  }
+  const slug = phaseInfo?.phase_slug ?? '';
+  const phaseNum = phaseInfo?.phase_number ?? phase;
+  const branchName = template
+    .replace('{milestone}', ms)
+    .replace('{phase}', phaseNum)
+    .replace('{slug}', slug)
+    .replace(/\/+/g, '/')
+    .replace(/-+$/, '');
 
   // Find merge commit for the phase branch
   const logResult = execGit(cwd, [

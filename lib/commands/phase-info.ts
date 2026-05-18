@@ -603,8 +603,14 @@ function cmdDepsRisk(cwd: string, startPhase: string | null, raw: boolean): void
     let verificationPath: string | null;
     if (fs.existsSync(phasesDir)) {
       try {
+        // Codex r10 P2: normalize phaseNum to the canonical zero-padded
+        // form (matches the rest of the CLI's resolver) so phase ids
+        // like `1` find the on-disk `01-test` directory.
+        const padded = /^\d+$/.test(phaseNum) ? phaseNum.padStart(2, '0') : phaseNum;
         const phaseDir = (fs.readdirSync(phasesDir) as string[]).find((d: string) =>
-          d === phaseNum || d.startsWith(`${phaseNum}-`) || d.startsWith(`${phaseNum}_`)
+          d === phaseNum || d === padded ||
+          d.startsWith(`${phaseNum}-`) || d.startsWith(`${phaseNum}_`) ||
+          d.startsWith(`${padded}-`) || d.startsWith(`${padded}_`)
         );
         if (phaseDir) {
           const vPath = path.join(phasesDir, phaseDir, 'VERIFICATION.md');

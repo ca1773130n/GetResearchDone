@@ -162,8 +162,11 @@ interface RankedTodo {
 }
 
 /** High-value keyword signals (security, perf, user-facing score highest). */
-const HIGH_VALUE_KEYWORDS = /\b(security|auth|perf|performance|user.facing|critical|export|import|diagnos|audit|rank|visual|bundle|research)\b/i;
-const MED_VALUE_KEYWORDS = /\b(test|fix|bug|error|fail|slow|memory|cache|refactor)\b/i;
+// Codex r10 P3: needs the `g` flag so .match() returns ALL hits, not
+// just the first. Without it, the unique-dedupe step is fed at most
+// one keyword and multi-signal todos score too low.
+const HIGH_VALUE_KEYWORDS = /\b(security|auth|perf|performance|user.facing|critical|export|import|diagnos|audit|rank|visual|bundle|research)\b/gi;
+const MED_VALUE_KEYWORDS = /\b(test|fix|bug|error|fail|slow|memory|cache|refactor)\b/gi;
 
 /**
  * CLI command: Rank pending todos by keyword signal, title quality, and milestone age.
