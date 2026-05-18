@@ -197,8 +197,22 @@ function cmdImportResearch(cwd: string, bundlePath: string, raw: boolean): void 
   const filesToImport = manifest.files ?? _collectResearchFiles(tmpDir);
   const imported: string[] = [];
 
+  const absImportedDir = path.resolve(importedDir);
+  const absTmpDir = path.resolve(tmpDir);
   for (const relPath of filesToImport) {
-    const srcPath = path.join(tmpDir, relPath);
+    // Reject bundle entries whose path escapes either the staging dir or
+    // the destination dir. A malicious bundle could otherwise overwrite
+    // arbitrary project files via `../STATE.md` in its manifest
+    // (codex r1 P1).
+    const srcPath = path.resolve(tmpDir, relPath);
+    const destPath = path.resolve(importedDir, relPath);
+    if (
+      path.relative(absTmpDir, srcPath).startsWith('..') ||
+      path.relative(absImportedDir, destPath).startsWith('..') ||
+      path.isAbsolute(relPath)
+    ) {
+      continue;
+    }
     if (!fs.existsSync(srcPath)) continue;
 
     let content: string;
@@ -215,8 +229,6 @@ function cmdImportResearch(cwd: string, bundlePath: string, raw: boolean): void 
       ? content
       : sourceHeader + content;
 
-    // Mirror directory structure under imported/
-    const destPath = path.join(importedDir, relPath);
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
     fs.writeFileSync(destPath, finalContent, 'utf-8');
     imported.push(path.relative(cwd, destPath));

@@ -1637,8 +1637,12 @@ function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpac
   const deps = new Map<string, string[]>(); // parent → children
   const phaseNames = new Map<string, string>();
 
+  // Codex r1 P2: roadmap uses `- [x] **Phase 87: name**` form (bold,
+  // checklist marker, comma-separated description); the prior regex
+  // expected a bare `Phase N: name` and matched nothing on real
+  // roadmaps. Accept both the canonical form and the lighter form.
   for (const m of roadmapContent.matchAll(
-    /^[-*]\s+(?:Phase\s+)?(\d+(?:\.\d+)?)[:\s]+([^\n]+)/gim
+    /^[-*]\s+(?:\[[ x]\]\s+)?(?:\*\*)?(?:Phase\s+)?(\d+(?:\.\d+)?)[:\s]+([^\n*]+)/gim
   )) {
     const num = m[1].trim();
     const name = m[2].replace(/\s*\(.*\)$/, '').trim();
@@ -1646,14 +1650,16 @@ function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpac
     if (!deps.has(num)) deps.set(num, []);
   }
 
-  // Parse explicit "depends on" references in roadmap
+  // Parse explicit "depends on" references. The roadmap commonly writes
+  // `**Depends on**: Phase 86 (...)` for a single parent, so match
+  // either a one-phase or two-phase pattern (codex r1 P2).
   for (const m of roadmapContent.matchAll(
-    /[Dd]epends?\s+on\s+[Pp]hase\s+(\d+(?:\.\d+)?)[^.]*[Pp]hase\s+(\d+(?:\.\d+)?)/g
+    /[Dd]epends?\s+on(?:\*\*)?[:\s]+[Pp]hase\s+(\d+(?:\.\d+)?)(?:[^\n]*?[Pp]hase\s+(\d+(?:\.\d+)?))?/g
   )) {
     const parent = m[1].trim();
-    const child = m[2].trim();
+    const child = m[2]?.trim();
     if (!deps.has(parent)) deps.set(parent, []);
-    deps.get(parent)!.push(child);
+    if (child) deps.get(parent)!.push(child);
   }
 
   // Also infer sequential deps: phase N+1 depends on phase N if no explicit deps declared

@@ -76,14 +76,21 @@ function cmdTail(cwd: string, phaseFilter: string | null, follow: boolean, raw: 
   }
 
   const lastN = follow ? lines : lines.slice(-50);
-  for (const line of lastN) {
-    process.stdout.write(_formatLine(line) + '\n');
-  }
 
   if (!follow) {
+    // Codex r1 P2: do not interleave human-formatted lines before the
+    // `output()` call — tool callers parsing JSON from stdout cannot
+    // skip the prefix. Pass the formatted block to `output()` so that
+    // `--raw` mode emits structured JSON only, and default mode emits
+    // the formatted lines via output's human-readable channel.
+    const formatted = lastN.map(_formatLine).join('\n');
     const result: TailResult = { log_path: path.relative(cwd, logPath), lines_shown: lastN.length };
-    output(result, raw, `${lastN.length} lines`);
+    output(result, raw, formatted);
     return;
+  }
+
+  for (const line of lastN) {
+    process.stdout.write(_formatLine(line) + '\n');
   }
 
   // Follow mode: poll for new content
