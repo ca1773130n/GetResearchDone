@@ -530,7 +530,9 @@ async function _runAutoresearchLoop(
               effectiveTierOverride: surveyTier,
             });
         await _spawnClaude(cwd, surveyPrompt, {
-          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
+          // Codex r9 P2: pass 0 explicitly for unlimited (same fix as
+          // the experiment spawn path).
+          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : 0,
           model: surveyModel,
           maxTurns,
           scheduler,
@@ -708,7 +710,8 @@ async function _runAutoresearchLoop(
               effectiveTierOverride: deepDiveTier,
             });
         await _spawnClaude(cwd, deepDivePrompt, {
-          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : undefined,
+          // Codex r9 P2: pass 0 explicitly for unlimited.
+          timeout: timeBudget > 0 ? timeBudget * 60 * 1000 : 0,
           model: deepDiveModel,
           maxTurns,
           scheduler,

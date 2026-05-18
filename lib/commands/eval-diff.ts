@@ -86,7 +86,17 @@ function _resolveLatestTwoPhases(cwd: string): [string, string] | null {
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
       .filter((n) => /^\d{2}/.test(n))
-      .filter((n) => fs.existsSync(path.join(phasesPath, n, 'EVAL.md')))
+      .filter((n) => {
+        // Codex r9 P2: phase dirs commonly use prefixed EVAL names like
+        // `100-EVAL.md`. Match both forms (same as _findEvalFile).
+        try {
+          return (fs.readdirSync(path.join(phasesPath, n)) as string[]).some(
+            (f: string) => f === 'EVAL.md' || /-EVAL\.md$/.test(f)
+          );
+        } catch {
+          return false;
+        }
+      })
       .sort();
     if (dirs.length < 2) return null;
     const last = dirs[dirs.length - 1].match(/^(\d+)/)?.[1] ?? '';

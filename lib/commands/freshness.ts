@@ -151,11 +151,16 @@ function cmdFreshness(cwd: string, phaseArg: string | null, raw: boolean): void 
       error(`Phase not found: ${phaseArg}`);
     }
     // Codex r4 P2: directory is cwd-relative.
+    // Codex r9 P2: phase research artifacts commonly use prefixed names
+    // like `83-RESEARCH.md`. Match both bare and prefixed forms.
     const phaseDir = path.join(cwd, phaseInfo!.directory);
-    const candidates = ['RESEARCH.md', 'LANDSCAPE.md'].map((f) => path.join(phaseDir, f));
-    for (const p of candidates) {
-      if (fs.existsSync(p)) filePaths.push(p);
-    }
+    try {
+      for (const f of fs.readdirSync(phaseDir) as string[]) {
+        if (f === 'RESEARCH.md' || f === 'LANDSCAPE.md' || /-(RESEARCH|LANDSCAPE)\.md$/.test(f)) {
+          filePaths.push(path.join(phaseDir, f));
+        }
+      }
+    } catch { /* skip */ }
   } else {
     // Scan all phases and the milestone research dir
     const resDir = getResearchDir(cwd, milestone!);
@@ -168,10 +173,14 @@ function cmdFreshness(cwd: string, phaseArg: string | null, raw: boolean): void 
     if (fs.existsSync(phasesBase)) {
       try {
         for (const phaseDir of fs.readdirSync(phasesBase) as string[]) {
-          for (const f of ['RESEARCH.md', 'LANDSCAPE.md']) {
-            const p = path.join(phasesBase, phaseDir, f);
-            if (fs.existsSync(p)) filePaths.push(p);
-          }
+          const phaseFull = path.join(phasesBase, phaseDir);
+          try {
+            for (const f of fs.readdirSync(phaseFull) as string[]) {
+              if (f === 'RESEARCH.md' || f === 'LANDSCAPE.md' || /-(RESEARCH|LANDSCAPE)\.md$/.test(f)) {
+                filePaths.push(path.join(phaseFull, f));
+              }
+            }
+          } catch { /* skip */ }
         }
       } catch { /* skip */ }
     }
