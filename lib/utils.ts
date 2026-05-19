@@ -307,6 +307,13 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'drift',
   // Autopilot termination knobs (Tier-3 #10 of Ouroboros integration)
   'autopilot',
+  // Evolve r9 + r14: surface-level keys consumed by Ouroboros r9 CLIs.
+  // research_staleness_days drives `gd health`'s STALE_RESEARCH blocker;
+  // `survey` carries staleness_days for `gd progress`'s freshness warn.
+  'research_staleness_days',
+  'survey',
+  // Plug-in / context-mode knowledge stats path
+  'token_profile',
 ]);
 
 /**
@@ -494,6 +501,13 @@ function loadConfig(cwd: string): GrdConfig {
       drift: (parsed.drift || undefined) as GrdConfig['drift'],
       // Autopilot termination knobs (pass-through; Tier-3 #10)
       autopilot: (parsed.autopilot || undefined) as GrdConfig['autopilot'],
+      // Codex r14 P2/P3: Ouroboros r9 staleness knobs need to survive
+      // loadConfig so cmdHealth + cmdProgress can read them. Cast the
+      // whole return at the bottom to widen the type.
+      ...(parsed.research_staleness_days !== undefined
+        ? { research_staleness_days: parsed.research_staleness_days as number }
+        : {}),
+      ...(parsed.survey !== undefined ? { survey: parsed.survey } : {}),
       // Backend roles config: validate each value against VALID_BACKENDS
       backend_roles: ((): BackendRolesConfig | undefined => {
         const raw = parsed.backend_roles;

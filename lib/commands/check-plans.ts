@@ -40,8 +40,34 @@ interface CheckPlansResult {
   plan_results: PlanCheckResult[];
 }
 
+function _extractFilePathsFromFrontmatter(fm: string): string[] {
+  // Codex r14 P2: standard GRD plans declare paths via `files_modified:`
+  // and per-artifact `path:` entries under `must_haves.artifacts`, not
+  // a `## Files` section. Parse those before falling back to the
+  // section scanner so check-plans reports the right missing files.
+  const paths: string[] = [];
+  const filesModifiedBlock = fm.match(/^files_modified\s*:\s*((?:\n\s+-\s+.*|\s*\[[^\]]*\]).*)/m);
+  if (filesModifiedBlock) {
+    for (const m of filesModifiedBlock[0].matchAll(/-\s+["']?([^"'\n]+?)["']?\s*$/gm)) {
+      const p = m[1].trim();
+      if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
+    }
+    for (const m of filesModifiedBlock[0].matchAll(/['"]([^'"]+\.\w+)['"]/g)) {
+      if (!m[1].startsWith('http')) paths.push(m[1]);
+    }
+  }
+  for (const m of fm.matchAll(/^\s+path\s*:\s*["']?([^"'\n]+?)["']?\s*$/gm)) {
+    const p = m[1].trim();
+    if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
+  }
+  return paths;
+}
+
 function _extractFilePaths(content: string): string[] {
   const paths: string[] = [];
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (fmMatch) paths.push(..._extractFilePathsFromFrontmatter(fmMatch[1]));
+
   const filesSectionMatch = content.search(/^##\s*Files?\b/im);
   if (filesSectionMatch === -1) return paths;
 
