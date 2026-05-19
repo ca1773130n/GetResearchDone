@@ -457,13 +457,30 @@ async function spawnStep(
             phaseName: string
           ) => string | null;
         };
-        // Codex r16 P2: derive the persistent project cwd from a
-        // worktree path if needed, so the report survives worktree
-        // cleanup. `.worktrees/<name>/` → parent of `.worktrees/`.
-        let targetCwd = reportCwd ?? stepCwd;
-        const wtIdx = targetCwd.indexOf('/.worktrees/');
-        if (wtIdx > 0) targetCwd = targetCwd.slice(0, wtIdx);
-        handleSpinEvent(targetCwd, schedResult.spinEvent, workItemId);
+        const { findPhaseInternal } = require('./utils') as {
+          findPhaseInternal: (
+            cwd: string,
+            phase: string
+          ) => { found: boolean; directory: string } | null;
+        };
+        // Codex r16/r17 P2: 1) trim worktree path back to the project
+        // root so the report survives worktree cleanup; 2) derive the
+        // phase dir from workItemId (`phase-N-step`) and pass the
+        // ABSOLUTE phase dir to handleSpinEvent — which writes
+        // SPIN-REPORT.md directly under the path it receives.
+        let projectCwd = reportCwd ?? stepCwd;
+        const wtIdx = projectCwd.indexOf('/.worktrees/');
+        if (wtIdx > 0) projectCwd = projectCwd.slice(0, wtIdx);
+        const phaseMatch = workItemId.match(/phase-([\d.]+)/);
+        let targetDir = projectCwd;
+        if (phaseMatch) {
+          const info = findPhaseInternal(projectCwd, phaseMatch[1]);
+          if (info && info.found) {
+            const path = require('path') as typeof import('path');
+            targetDir = path.join(projectCwd, info.directory);
+          }
+        }
+        handleSpinEvent(targetDir, schedResult.spinEvent, workItemId);
       } catch {
         /* spin handling is best-effort; never block the step */
       }

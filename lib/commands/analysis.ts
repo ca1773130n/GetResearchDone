@@ -1731,8 +1731,15 @@ function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpac
       if (!dir) return 'not_found';
       const phaseDir = path.join(phasesPath, dir.name);
       const files: string[] = require('fs').readdirSync(phaseDir);
-      const plans = files.filter((f: string) => f.endsWith('-PLAN.md')).length;
-      const summaries = files.filter((f: string) => f.endsWith('-SUMMARY.md')).length;
+      // Codex r17 P2: include bare PLAN.md / SUMMARY.md so single-plan
+      // phases are not misclassified as `planned` (the rest of this
+      // module's plan discovery already handles both forms).
+      const plans = files.filter(
+        (f: string) => f === 'PLAN.md' || f.endsWith('-PLAN.md')
+      ).length;
+      const summaries = files.filter(
+        (f: string) => f === 'SUMMARY.md' || f.endsWith('-SUMMARY.md')
+      ).length;
       if (plans === 0) return 'planned';
       if (summaries >= plans) return 'done';
       if (summaries > 0) return 'executing';
