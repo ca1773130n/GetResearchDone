@@ -119,12 +119,29 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
   let resolvedA = phaseA;
   let resolvedB = phaseB;
 
-  if (phaseA === 'latest' || phaseB === 'latest') {
+  // Codex r12 P2: only resolve sides that are literally `latest`. The
+  // prior branch overwrote both sides whenever either was `latest`,
+  // so `gd eval diff 5 latest` discarded the explicit `5`. When both
+  // are `latest`, fall back to the previous behaviour (last two with
+  // EVAL.md). When only one is `latest`, pick the most recent phase
+  // with EVAL.md that differs from the explicit side.
+  const aLatest = phaseA === 'latest';
+  const bLatest = phaseB === 'latest';
+  if (aLatest && bLatest) {
     const pair = _resolveLatestTwoPhases(cwd);
     if (!pair) {
       error('Could not find two completed phases with EVAL.md files');
     }
     [resolvedA, resolvedB] = pair!;
+  } else if (aLatest || bLatest) {
+    const pair = _resolveLatestTwoPhases(cwd);
+    if (!pair) {
+      error('Could not find a phase with EVAL.md to resolve `latest`');
+    }
+    const explicit = aLatest ? phaseB : phaseA;
+    const latestResolved = pair![1] === explicit ? pair![0] : pair![1];
+    if (aLatest) resolvedA = latestResolved;
+    else resolvedB = latestResolved;
   }
 
   const dirA = _findPhaseDir(cwd, resolvedA);
@@ -159,16 +176,17 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
 
   const commonKeys = Object.keys(metricsA).filter((k) => k in metricsB);
 
-  // Codex r11 P2: for lower-is-better metrics (latency, errors, durations),
-  // an increase is regression and a decrease is improvement. Detect by
-  // metric-name heuristic — same parser already accepts ms/s/min units.
-  const lowerIsBetterRe = /\b(latency|duration|elapsed|time|error|fail|loss|cost|memory|leak|bytes|ms\b|seconds?\b|minutes?\b)\b/i;
+  // Codex r11 P2 + r12 P2: lower-is-better metrics need direction flip.
+  // `_parseMetrics` normalizes labels to snake_case (`Response time` →
+  // `response_time`), so the regex needs to match underscore-separated
+  // tokens too. Normalize underscores to spaces before testing.
+  const lowerIsBetterRe = /\b(latency|duration|elapsed|time|error|fail|loss|cost|memory|leak|bytes|ms|seconds?|minutes?)\b/i;
   const deltas: MetricDelta[] = commonKeys.map((metric) => {
     const vA = metricsA[metric];
     const vB = metricsB[metric];
     const delta = vB - vA;
     const deltaPct = vA !== 0 ? (delta / Math.abs(vA)) * 100 : 0;
-    const lowerBetter = lowerIsBetterRe.test(metric);
+    const lowerBetter = lowerIsBetterRe.test(metric.replace(/_/g, ' '));
     const improvedSign = lowerBetter ? delta < 0 : delta > 0;
     const direction: MetricDelta['direction'] =
       Math.abs(deltaPct) < 0.5 ? 'unchanged' : improvedSign ? 'improved' : 'regressed';
