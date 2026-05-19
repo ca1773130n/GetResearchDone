@@ -1694,13 +1694,21 @@ function computeDownstreamImpact(cwd: string, phaseNum: string): DownstreamImpac
     if (child && child !== parent) deps.get(parent)!.push(child);
   }
 
-  // Also infer sequential deps: phase N+1 depends on phase N if no explicit deps declared
+  // Codex r13 P2: only infer the sequential N → N+1 edge when the
+  // child has no explicit parent declared. The prior loop always
+  // added the edge, so `gd impact 2` over-reported phase 3 as
+  // affected even when phase 3 declared `Depends on: Phase 1` only.
   const allPhaseNums = Array.from(phaseNames.keys()).sort(
     (a, b) => parseFloat(a) - parseFloat(b)
   );
+  const childrenWithExplicitParent = new Set<string>();
+  for (const [, kids] of deps) {
+    for (const k of kids) childrenWithExplicitParent.add(k);
+  }
   for (let i = 0; i < allPhaseNums.length - 1; i++) {
     const parent = allPhaseNums[i];
     const child = allPhaseNums[i + 1];
+    if (childrenWithExplicitParent.has(child)) continue;
     const parentChildren = deps.get(parent) || [];
     if (!parentChildren.includes(child)) parentChildren.push(child);
     deps.set(parent, parentChildren);

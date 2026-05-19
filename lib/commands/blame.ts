@@ -73,6 +73,18 @@ function _extractTasksFromPlan(content: string): string[] {
     const m = line.match(/^[-*]\s+\[[ x]\]\s+(.+)/) ?? line.match(/^\d+\.\s+(.+)/);
     if (m) tasks.push(m[1].trim());
   }
+  // Codex r13 P2: GRD plans typically use `<task>title=...>...</task>`
+  // XML blocks; extractor was missing those entirely. Pick a label from
+  // common attributes or the inner text first line.
+  for (const m of content.matchAll(/<task\b([^>]*)>([\s\S]*?)<\/task>/gi)) {
+    const attrs = m[1] || '';
+    const inner = (m[2] || '').trim();
+    const titleAttr = attrs.match(/(?:title|name|summary)\s*=\s*"([^"]+)"/i)?.[1];
+    const idAttr = attrs.match(/\bid\s*=\s*"([^"]+)"/i)?.[1];
+    const innerFirst = inner.split('\n')[0]?.replace(/^[#*\-\s]+/, '').trim();
+    const label = titleAttr ?? idAttr ?? innerFirst;
+    if (label) tasks.push(label);
+  }
   return tasks;
 }
 

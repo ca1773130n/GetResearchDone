@@ -102,15 +102,34 @@ function cmdCheckPlans(
   let planFiles: string[] = [];
 
   if (options.phase) {
-    const phaseInfo = findPhaseInternal(cwd, options.phase);
-    if (!phaseInfo || !phaseInfo.found) {
-      error(`Phase ${options.phase} not found`);
+    // Codex r13 P2: when --milestone is explicit, look up the phase
+    // inside that milestone's phases dir instead of letting
+    // findPhaseInternal default to the current milestone.
+    let phaseDir: string | null = null;
+    if (options.milestone) {
+      const padded = /^\d+$/.test(options.phase) ? options.phase.padStart(2, '0') : options.phase;
+      try {
+        const match = (fs.readdirSync(phasesBase) as string[]).find(
+          (d: string) =>
+            d === options.phase || d === padded ||
+            d.startsWith(`${options.phase}-`) || d.startsWith(`${padded}-`)
+        );
+        if (match) phaseDir = path.join(phasesBase, match);
+      } catch { /* fall through */ }
+      if (!phaseDir) {
+        error(`Phase ${options.phase} not found in milestone ${options.milestone}`);
+      }
+    } else {
+      const phaseInfo = findPhaseInternal(cwd, options.phase);
+      if (!phaseInfo || !phaseInfo.found) {
+        error(`Phase ${options.phase} not found`);
+      }
+      phaseDir = path.join(cwd, (phaseInfo as import('../types').PhaseInfo).directory);
     }
-    const phaseDir = path.join(cwd, (phaseInfo as import('../types').PhaseInfo).directory);
     try {
-      planFiles = (fs.readdirSync(phaseDir) as string[])
+      planFiles = (fs.readdirSync(phaseDir!) as string[])
         .filter((f: string) => f.endsWith('-PLAN.md') || f === 'PLAN.md')
-        .map((f: string) => path.join(phaseDir, f));
+        .map((f: string) => path.join(phaseDir!, f));
     } catch {
       error(`Cannot read phase directory: ${phaseDir}`);
     }

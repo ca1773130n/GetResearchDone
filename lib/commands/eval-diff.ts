@@ -97,7 +97,15 @@ function _resolveLatestTwoPhases(cwd: string): [string, string] | null {
           return false;
         }
       })
-      .sort();
+      // Codex r13 P2: lexicographic sort puts `100-...` before `99-...`.
+      // Sort by numeric prefix; ties broken lexicographically as a
+      // safety net.
+      .sort((a, b) => {
+        const na = parseInt(a.match(/^(\d+)/)?.[1] ?? '0', 10);
+        const nb = parseInt(b.match(/^(\d+)/)?.[1] ?? '0', 10);
+        if (na !== nb) return na - nb;
+        return a.localeCompare(b);
+      });
     if (dirs.length < 2) return null;
     const last = dirs[dirs.length - 1].match(/^(\d+)/)?.[1] ?? '';
     const secondLast = dirs[dirs.length - 2].match(/^(\d+)/)?.[1] ?? '';
