@@ -369,13 +369,35 @@ function cmdInitExecutor(cwd: string, phase: string, includes: Set<string>, raw:
     result.roadmap_content = safeReadMarkdown(path.join(cwd, '.planning', 'ROADMAP.md'));
   }
 
-  // Inject top-5 KNOWHOW entries ranked by relevance to the phase goal (TF-IDF)
+  // Inject top-5 KNOWHOW entries ranked by relevance to the phase goal (TF-IDF).
+  // Codex r18 P2: KNOWHOW lives under the milestone (and per-phase),
+  // not the project root. Scan all known locations and merge entries.
   result.knowhow_block = (() => {
-    const knowhowPath = path.join(cwd, 'KNOWHOW.md');
-    const content = _safeReadFile(knowhowPath);
-    if (!content || !content.trim()) return null;
-    const entries = _parseKnowhowEntries(content);
-    if (entries.length === 0) return null;
+    const candidates: string[] = [];
+    candidates.push(path.join(cwd, '.planning', 'KNOWHOW.md'));
+    candidates.push(path.join(cwd, 'KNOWHOW.md'));
+    const milestonesDir = path.join(cwd, '.planning', 'milestones');
+    try {
+      for (const ms of require('fs').readdirSync(milestonesDir) as string[]) {
+        candidates.push(path.join(milestonesDir, ms, 'KNOWHOW.md'));
+        candidates.push(path.join(milestonesDir, ms, 'research', 'KNOWHOW.md'));
+        const phasesBase = path.join(milestonesDir, ms, 'phases');
+        try {
+          for (const ph of require('fs').readdirSync(phasesBase) as string[]) {
+            candidates.push(path.join(phasesBase, ph, 'KNOWHOW.md'));
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+
+    const allEntries: ReturnType<typeof _parseKnowhowEntries> = [];
+    for (const p of candidates) {
+      const content = _safeReadFile(p);
+      if (!content || !content.trim()) continue;
+      allEntries.push(..._parseKnowhowEntries(content));
+    }
+    if (allEntries.length === 0) return null;
+    const entries = allEntries;
     const goal = [phaseInfo?.phase_name, phaseInfo?.phase_number ? `phase ${phaseInfo.phase_number}` : ''].filter(Boolean).join(' ');
     const ranked = rankKnowhowByPhaseGoal(goal || 'implementation', entries, 5);
     if (ranked.length === 0) return null;

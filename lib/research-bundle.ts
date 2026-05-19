@@ -170,6 +170,34 @@ function cmdImportResearch(cwd: string, bundlePath: string, raw: boolean): void 
   const tmpDir = path.join(cwd, '.planning', '_import-tmp');
   fs.mkdirSync(tmpDir, { recursive: true });
 
+  // Codex r18 P1: list archive entries before extraction. A crafted
+  // bundle could include `../escape.txt` or symlinks that write
+  // outside tmpDir during `tar -xzf`. Reject the bundle if any entry
+  // is absolute or escapes the staging root. Use BSD tar's
+  // --no-same-permissions where available; rely on portable list-only
+  // pre-check otherwise.
+  const listResult: SpawnSyncReturns<Buffer> = spawnSync(
+    'tar',
+    ['-tzf', absBundlePath],
+    { cwd, encoding: 'buffer' }
+  );
+  if (listResult.status !== 0) {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    error(`tar listing failed: ${(listResult.stderr?.toString() ?? '').slice(0, 200)}`);
+  }
+  const entries = (listResult.stdout?.toString() ?? '').split('\n').filter(Boolean);
+  for (const entry of entries) {
+    const normalized = entry.replace(/\\/g, '/');
+    if (
+      path.isAbsolute(normalized) ||
+      normalized.startsWith('/') ||
+      normalized.split('/').some((seg) => seg === '..')
+    ) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+      error(`Bundle rejected: archive entry escapes staging dir (${entry})`);
+    }
+  }
+
   const extractResult: SpawnSyncReturns<Buffer> = spawnSync(
     'tar',
     ['-xzf', absBundlePath, '-C', tmpDir],

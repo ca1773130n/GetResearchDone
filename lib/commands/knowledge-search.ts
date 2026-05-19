@@ -84,31 +84,46 @@ function cmdKnowhowSearch(cwd: string, query: string, topN: number, raw: boolean
     msDirs = [];
   }
 
+  // Codex r18 P2: KNOWHOW entries live in three places per milestone —
+  // top-level KNOWHOW.md, the research/ subdir, and per-phase dirs.
+  // Scan all three so cross-milestone search finds real entries.
   for (const ms of msDirs) {
-    const knowhowPath = path.join(milestonesBase, ms, 'KNOWHOW.md');
-    let content: string;
+    const msPaths: string[] = [
+      path.join(milestonesBase, ms, 'KNOWHOW.md'),
+      path.join(milestonesBase, ms, 'research', 'KNOWHOW.md'),
+    ];
     try {
-      content = fs.readFileSync(knowhowPath, 'utf-8');
-    } catch {
-      continue;
-    }
+      const phasesBase = path.join(milestonesBase, ms, 'phases');
+      for (const ph of fs.readdirSync(phasesBase) as string[]) {
+        msPaths.push(path.join(phasesBase, ph, 'KNOWHOW.md'));
+      }
+    } catch { /* no phases dir */ }
 
-    const entries = parseKnowhowEntries(content);
-    totalSearched += entries.length;
+    for (const knowhowPath of msPaths) {
+      let content: string;
+      try {
+        content = fs.readFileSync(knowhowPath, 'utf-8');
+      } catch {
+        continue;
+      }
 
-    for (const entry of entries) {
-      const score = _score(entry, queryTokens);
-      if (score > 0) {
-        hits.push({
-          pattern_name: entry.pattern_name,
-          milestone: ms,
-          source: entry.source,
-          applicability: entry.applicability,
-          code_snippet: entry.code_snippet,
-          phase_number: entry.phase_number,
-          created_at: entry.created_at,
-          score,
-        });
+      const entries = parseKnowhowEntries(content);
+      totalSearched += entries.length;
+
+      for (const entry of entries) {
+        const score = _score(entry, queryTokens);
+        if (score > 0) {
+          hits.push({
+            pattern_name: entry.pattern_name,
+            milestone: ms,
+            source: entry.source,
+            applicability: entry.applicability,
+            code_snippet: entry.code_snippet,
+            phase_number: entry.phase_number,
+            created_at: entry.created_at,
+            score,
+          });
+        }
       }
     }
   }
