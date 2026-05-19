@@ -77,6 +77,32 @@ const TOOL_COMMANDS = new Set([
   'plan-tournament',
   'think',
   'genome',
+  // Codex r23 P2: Ouroboros r9/r10 commands need to reach the tool
+  // router via the public `gd` CLI. Without these entries
+  // classifyCommand falls through to "unknown command" or routes
+  // execute-phase --dry-run to the agent path.
+  'blame',
+  'budget',
+  'check-assumptions',
+  'check-plans',
+  'deps',
+  'deps-risk',
+  'diagnose',
+  'estimate',
+  'estimate-phase',
+  'eval',
+  'export-research',
+  'forecast-phase',
+  'freshness',
+  'impact',
+  'import-knowhow',
+  'import-research',
+  'knowledge',
+  'research-gaps',
+  'rollback',
+  'tail',
+  'todos',
+  'watch',
 ]);
 
 /**

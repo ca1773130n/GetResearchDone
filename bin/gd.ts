@@ -85,7 +85,20 @@ if (flags.help) {
 }
 
 const cwd = flags.cwd || process.cwd();
-const classification = classifyCommand(command, subcommand);
+let classification = classifyCommand(command, subcommand);
+
+// Codex r23 P2: `gd execute-phase <N> --dry-run` should hit the tool
+// dry-run preview, not the agent execute path. Override the agent
+// classification when the user passes --dry-run on an agent command
+// that exposes a tool-side dry-run handler.
+const DRYRUN_TOOL_OVERRIDES = new Set(['execute-phase']);
+if (
+  classification === 'agent' &&
+  DRYRUN_TOOL_OVERRIDES.has(command) &&
+  (extraArgs.includes('--dry-run') || flags.passthrough.includes('--dry-run'))
+) {
+  classification = 'tool';
+}
 
 if (classification === 'tool') {
   const result = runToolCommand(command, subcommand, extraArgs, flags.json, cwd, flags.passthrough);
