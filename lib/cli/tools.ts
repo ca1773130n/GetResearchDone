@@ -153,6 +153,23 @@ export function runToolCommand(
   const args = buildToolArgs(command, subcommand, extraArgs, jsonFlag, passthrough);
   const grdTools = join(__dirname, '..', '..', 'bin', 'grd-tools.js');
 
+  // Codex r24 P2: live/follow commands need streaming stdio. execFileSync
+  // buffers stdout until child exits, so `gd tail --follow` and `gd watch`
+  // appear hung. Detect these cases and use spawnSync with inherited
+  // stdio. Returns empty stdout/stderr since output already went to the
+  // user's terminal.
+  const isFollowTail = command === 'tail' && (extraArgs.includes('-f') || extraArgs.includes('--follow') || passthrough.includes('-f') || passthrough.includes('--follow'));
+  const isWatch = command === 'watch';
+  if (isFollowTail || isWatch) {
+    const { spawnSync } = require('child_process') as typeof import('child_process');
+    const result = spawnSync('node', [grdTools, ...args], {
+      cwd,
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
+    return { exitCode: result.status ?? 0, stdout: '', stderr: '' };
+  }
+
   try {
     const stdout = execFileSync('node', [grdTools, ...args], {
       cwd,

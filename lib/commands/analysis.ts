@@ -1272,7 +1272,10 @@ function cmdImportKnowledge(
     }
 
     const destExists = fs.existsSync(destFile);
-    if (destExists && !force) {
+    // Codex r24 P3: dry-run should preview `would overwrite` for
+    // existing files without requiring --force. Skip the hard
+    // conflict only when actually writing.
+    if (destExists && !force && !dryRun) {
       results.push({
         source: srcFile,
         type,
