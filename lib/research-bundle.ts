@@ -166,8 +166,11 @@ function cmdImportResearch(cwd: string, bundlePath: string, raw: boolean): void 
     error(`Bundle not found: ${absBundlePath}`);
   }
 
-  // Extract to temp dir
+  // Extract to temp dir. Codex r19 P2: clear any stale extraction from
+  // an interrupted prior import so leftover files cannot leak into
+  // this run (manifest.files lookups would otherwise hit them).
   const tmpDir = path.join(cwd, '.planning', '_import-tmp');
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   fs.mkdirSync(tmpDir, { recursive: true });
 
   // Codex r18 P1: list archive entries before extraction. A crafted
