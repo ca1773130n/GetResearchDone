@@ -431,7 +431,8 @@ async function spawnStep(
   stepCwd: string,
   workItemId: string,
   scheduler: Scheduler | null,
-  opts: SpawnOptions
+  opts: SpawnOptions,
+  reportCwd?: string
 ): Promise<SpawnResult> {
   if (scheduler) {
     const schedResult = await scheduler.spawn(prompt, {
@@ -442,9 +443,11 @@ async function spawnStep(
       workItemId,
       agentType: opts.agentType,
     });
-    // Codex r15 P2: when the scheduler reports a spin (repeating-output
-    // pattern), write a SPIN-REPORT.md into the step cwd so users see
-    // recovery suggestions. workItemId carries the phase context.
+    // Codex r15 P2 / r16 P2: when the scheduler reports a spin, write
+    // the SPIN-REPORT into the canonical phase dir under the main cwd
+    // (reportCwd) rather than the temporary worktree (stepCwd) — the
+    // worktree gets cleaned up after the pipeline, deleting the
+    // report before the user can read it.
     if (schedResult.spinEvent && schedResult.spinEvent.detected) {
       try {
         const { handleSpinEvent } = require('./autopilot') as {
@@ -454,7 +457,13 @@ async function spawnStep(
             phaseName: string
           ) => string | null;
         };
-        handleSpinEvent(stepCwd, schedResult.spinEvent, workItemId);
+        // Codex r16 P2: derive the persistent project cwd from a
+        // worktree path if needed, so the report survives worktree
+        // cleanup. `.worktrees/<name>/` → parent of `.worktrees/`.
+        let targetCwd = reportCwd ?? stepCwd;
+        const wtIdx = targetCwd.indexOf('/.worktrees/');
+        if (wtIdx > 0) targetCwd = targetCwd.slice(0, wtIdx);
+        handleSpinEvent(targetCwd, schedResult.spinEvent, workItemId);
       } catch {
         /* spin handling is best-effort; never block the step */
       }

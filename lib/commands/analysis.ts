@@ -1235,7 +1235,10 @@ function cmdImportKnowledge(
   }
 
   const destResearchDir = getResearchDir(cwd);
-  fs.mkdirSync(destResearchDir, { recursive: true });
+  // Codex r16 P2: defer mkdir to the actual copy site so --dry-run is
+  // truly side-effect-free. If we are not dry-running, create on first
+  // use right before the cpSync call.
+  if (!dryRun) fs.mkdirSync(destResearchDir, { recursive: true });
 
   const results: ImportResult[] = [];
 
