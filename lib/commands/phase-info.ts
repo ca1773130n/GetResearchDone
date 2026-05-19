@@ -613,8 +613,22 @@ function cmdDepsRisk(cwd: string, startPhase: string | null, raw: boolean): void
           d.startsWith(`${padded}-`) || d.startsWith(`${padded}_`)
         );
         if (phaseDir) {
-          const vPath = path.join(phasesDir, phaseDir, 'VERIFICATION.md');
-          verificationPath = fs.existsSync(vPath) ? vPath : null;
+          // Codex r20 P2: include prefixed VERIFICATION names (e.g.
+          // `99-VERIFICATION.md`) so completed phases are not flagged
+          // as missing verification.
+          const phaseAbsDir = path.join(phasesDir, phaseDir);
+          let vPath: string | null = path.join(phaseAbsDir, 'VERIFICATION.md');
+          if (!fs.existsSync(vPath)) {
+            try {
+              const prefixed = (fs.readdirSync(phaseAbsDir) as string[]).find(
+                (f: string) => /-VERIFICATION\.md$/.test(f)
+              );
+              vPath = prefixed ? path.join(phaseAbsDir, prefixed) : null;
+            } catch {
+              vPath = null;
+            }
+          }
+          verificationPath = vPath;
           if (!verificationPath) reasons.push('missing VERIFICATION.md');
 
           if (verificationPath) {

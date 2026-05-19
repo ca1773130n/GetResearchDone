@@ -1115,7 +1115,16 @@ function cmdDiagnosePhase(cwd: string, phase: string, raw: boolean): void {
   }
 
   const phaseDir: string = path.join(cwd, phaseInfo.directory);
-  const verificationPath: string = path.join(phaseDir, 'VERIFICATION.md');
+  // Codex r20 P2: scaffold/execution flow produces prefixed names like
+  // `75-VERIFICATION.md`. Match both forms.
+  let verificationPath: string = path.join(phaseDir, 'VERIFICATION.md');
+  try {
+    const files = require('fs').readdirSync(phaseDir) as string[];
+    const prefixed = files.find((f: string) => /-VERIFICATION\.md$/.test(f));
+    if (prefixed && !require('fs').existsSync(verificationPath)) {
+      verificationPath = path.join(phaseDir, prefixed);
+    }
+  } catch { /* fall through */ }
   const verificationContent: string | null = safeReadFile(verificationPath);
 
   // Parse failed checks from VERIFICATION.md
