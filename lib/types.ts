@@ -635,6 +635,18 @@ export interface SchedulerSpawnResult {
   backend: BackendId;
   tokensUsed: number;
   workItemId: string;
+  /**
+   * Codex r15 P2: when the subprocess emitted a repeating-pattern
+   * output (bigram-Jaccard ≥ threshold for ≥3 consecutive chunks),
+   * the scheduler attaches a SpinDetectedEvent so autopilot can write
+   * a SPIN-REPORT.md with recovery suggestions.
+   */
+  spinEvent?: {
+    detected: boolean;
+    repeated_pattern: string;
+    consecutive_count: number;
+    max_similarity: number;
+  };
 }
 
 /**

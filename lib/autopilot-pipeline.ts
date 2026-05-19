@@ -434,16 +434,32 @@ async function spawnStep(
   opts: SpawnOptions
 ): Promise<SpawnResult> {
   if (scheduler) {
-    return toSpawnResult(
-      await scheduler.spawn(prompt, {
-        timeout: opts.timeout,
-        maxTurns: opts.maxTurns,
-        model: opts.model,
-        cwd: stepCwd,
-        workItemId,
-        agentType: opts.agentType,
-      })
-    );
+    const schedResult = await scheduler.spawn(prompt, {
+      timeout: opts.timeout,
+      maxTurns: opts.maxTurns,
+      model: opts.model,
+      cwd: stepCwd,
+      workItemId,
+      agentType: opts.agentType,
+    });
+    // Codex r15 P2: when the scheduler reports a spin (repeating-output
+    // pattern), write a SPIN-REPORT.md into the step cwd so users see
+    // recovery suggestions. workItemId carries the phase context.
+    if (schedResult.spinEvent && schedResult.spinEvent.detected) {
+      try {
+        const { handleSpinEvent } = require('./autopilot') as {
+          handleSpinEvent: (
+            phaseDir: string,
+            spinEvent: { repeated_pattern: string; consecutive_count: number; max_similarity: number },
+            phaseName: string
+          ) => string | null;
+        };
+        handleSpinEvent(stepCwd, schedResult.spinEvent, workItemId);
+      } catch {
+        /* spin handling is best-effort; never block the step */
+      }
+    }
+    return toSpawnResult(schedResult);
   }
   return spawnClaudeAsync(stepCwd, prompt, opts);
 }

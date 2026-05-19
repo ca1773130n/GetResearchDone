@@ -1103,6 +1103,21 @@ export function createScheduler(
             scheduler.persistState(join(opts.cwd, '.planning'));
           }
 
+          // Codex r15 P2: run detectSpin on the captured stdout so
+          // callers can react when a subprocess loops. Split the buffer
+          // into reasonable chunks (large enough to detect repeated
+          // error-block emissions, small enough that bigram Jaccard is
+          // meaningful).
+          let spinEvent: import('./scheduler').SpinDetectedEvent | undefined;
+          if (stdoutBuf.length > 500) {
+            const chunkSize = Math.max(200, Math.floor(stdoutBuf.length / 12));
+            const chunks: string[] = [];
+            for (let i = 0; i < stdoutBuf.length; i += chunkSize) {
+              chunks.push(stdoutBuf.slice(i, i + chunkSize));
+            }
+            const evt = detectSpin(chunks);
+            if (evt.detected) spinEvent = evt;
+          }
           safeResolve({
             exitCode,
             stdout: opts.captureOutput && !stdoutOverflowed ? stdoutBuf : undefined,
@@ -1112,6 +1127,7 @@ export function createScheduler(
             backend: backend as BackendId,
             tokensUsed: tokens,
             workItemId,
+            spinEvent,
           });
         });
       });

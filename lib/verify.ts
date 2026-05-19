@@ -277,23 +277,32 @@ function cmdVerifySummary(
     }
   }
 
-  // Check 3: Commits exist
+  // Check 3: Commits exist. Codex r15 P2: every referenced commit must
+  // exist (was sampling 3 and passing if any one resolved). Check the
+  // first ~10 unique hashes to keep the cost bounded but catch
+  // partial-failure cases.
   const commitHashPattern = /\b[0-9a-f]{7,40}\b/g;
   const hashes: string[] = content.match(commitHashPattern) || [];
   let commitsExist = false;
+  const invalidHashes: string[] = [];
   if (hashes.length > 0) {
-    for (const hash of hashes.slice(0, 3)) {
+    const uniqueHashes = Array.from(new Set(hashes)).slice(0, 10);
+    let allValid = true;
+    for (const hash of uniqueHashes) {
       try {
         validateGitRef(hash);
       } catch {
+        allValid = false;
+        invalidHashes.push(hash);
         continue;
       }
       const result: ExecGitResult = execGit(cwd, ['cat-file', '-t', hash]);
-      if (result.exitCode === 0 && result.stdout === 'commit') {
-        commitsExist = true;
-        break;
+      if (!(result.exitCode === 0 && result.stdout === 'commit')) {
+        allValid = false;
+        invalidHashes.push(hash);
       }
     }
+    commitsExist = allValid;
   }
 
   // Check 4: Self-check section
@@ -312,7 +321,11 @@ function cmdVerifySummary(
 
   if (missing.length > 0) errors.push('Missing files: ' + missing.join(', '));
   if (!commitsExist && hashes.length > 0)
-    errors.push('Referenced commit hashes not found in git history');
+    errors.push(
+      invalidHashes.length > 0
+        ? `Referenced commit hashes not found in git history: ${invalidHashes.join(', ')}`
+        : 'Referenced commit hashes not found in git history'
+    );
   if (selfCheck === 'failed') errors.push('Self-check section indicates failure');
 
   const checks: SummaryVerifyChecks = {

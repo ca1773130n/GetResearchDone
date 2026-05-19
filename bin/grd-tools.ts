@@ -1068,8 +1068,15 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       const phasesBase = _phasesDir(cwd);
       let phaseDir: string | null = null;
       try {
+        // Codex r15 P2: match the canonical zero-padded form too so
+        // `gd forecast-phase 1` resolves to `01-test/`.
+        const padded = /^\d+$/.test(phase) ? phase.padStart(2, '0') : phase;
         const dirs: string[] = fs.readdirSync(phasesBase);
-        const match = dirs.find((d: string) => d === phase || d.startsWith(`${phase}-`));
+        const match = dirs.find(
+          (d: string) =>
+            d === phase || d === padded ||
+            d.startsWith(`${phase}-`) || d.startsWith(`${padded}-`)
+        );
         if (match) phaseDir = path.join(phasesBase, match);
       } catch { /* phases dir not found */ }
 

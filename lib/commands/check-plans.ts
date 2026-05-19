@@ -46,16 +46,38 @@ function _extractFilePathsFromFrontmatter(fm: string): string[] {
   // a `## Files` section. Parse those before falling back to the
   // section scanner so check-plans reports the right missing files.
   const paths: string[] = [];
-  const filesModifiedBlock = fm.match(/^files_modified\s*:\s*((?:\n\s+-\s+.*|\s*\[[^\]]*\]).*)/m);
-  if (filesModifiedBlock) {
-    for (const m of filesModifiedBlock[0].matchAll(/-\s+["']?([^"'\n]+?)["']?\s*$/gm)) {
-      const p = m[1].trim();
-      if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
+
+  // Codex r15 P2: prior regex matched only the first list item of a
+  // multi-line YAML block. Walk the frontmatter line-by-line so every
+  // entry under `files_modified:` is captured.
+  const lines = fm.split('\n');
+  let inFilesModified = false;
+  for (const line of lines) {
+    // Inline-array form: `files_modified: [a.ts, b.ts]`
+    const inlineMatch = line.match(/^files_modified\s*:\s*\[(.+)\]/);
+    if (inlineMatch) {
+      for (const item of inlineMatch[1].split(',')) {
+        const p = item.trim().replace(/^["']|["']$/g, '');
+        if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
+      }
+      continue;
     }
-    for (const m of filesModifiedBlock[0].matchAll(/['"]([^'"]+\.\w+)['"]/g)) {
-      if (!m[1].startsWith('http')) paths.push(m[1]);
+    if (/^files_modified\s*:\s*$/.test(line)) {
+      inFilesModified = true;
+      continue;
+    }
+    if (inFilesModified) {
+      const item = line.match(/^\s+-\s+["']?([^"'\n]+?)["']?\s*$/);
+      if (item) {
+        const p = item[1].trim();
+        if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
+        continue;
+      }
+      // Any non-indented line ends the block
+      if (/^\S/.test(line) || line.trim() === '') inFilesModified = false;
     }
   }
+
   for (const m of fm.matchAll(/^\s+path\s*:\s*["']?([^"'\n]+?)["']?\s*$/gm)) {
     const p = m[1].trim();
     if (p && p.includes('.') && !p.startsWith('http')) paths.push(p);
