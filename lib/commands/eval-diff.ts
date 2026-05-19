@@ -146,8 +146,11 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
     if (!pair) {
       error('Could not find a phase with EVAL.md to resolve `latest`');
     }
+    // Codex r22 P2: compare phase ids by their numeric value so zero-
+    // padding does not cause `05` vs `5` to be treated as different.
     const explicit = aLatest ? phaseB : phaseA;
-    const latestResolved = pair![1] === explicit ? pair![0] : pair![1];
+    const sameNum = (a: string, b: string): boolean => parseInt(a, 10) === parseInt(b, 10);
+    const latestResolved = sameNum(pair![1], explicit) ? pair![0] : pair![1];
     if (aLatest) resolvedA = latestResolved;
     else resolvedB = latestResolved;
   }
