@@ -690,8 +690,29 @@ function rankKnowhowByPhaseGoal(goal: string, entries: KnowhowEntry[], topN = 5)
  * @param raw - Output raw text instead of JSON
  */
 function cmdKnowhowRank(cwd: string, query: string, topN: number, raw: boolean): void {
-  const knowhowPath = path.join(cwd, 'KNOWHOW.md');
-  const entries = _cachedParseKnowhow(knowhowPath);
+  // Codex r21 P2: KNOWHOW lives in milestone/research dirs and per-phase
+  // dirs, not the project root. Match the multi-location scan from
+  // r18 (lib/context/agents.ts knowhow_block + lib/commands/knowledge-search.ts).
+  const fs = require('fs') as typeof import('fs');
+  const candidates: string[] = [
+    path.join(cwd, '.planning', 'KNOWHOW.md'),
+    path.join(cwd, 'KNOWHOW.md'),
+  ];
+  const milestonesBase = path.join(cwd, '.planning', 'milestones');
+  try {
+    for (const ms of fs.readdirSync(milestonesBase) as string[]) {
+      candidates.push(path.join(milestonesBase, ms, 'KNOWHOW.md'));
+      candidates.push(path.join(milestonesBase, ms, 'research', 'KNOWHOW.md'));
+      const phasesBase = path.join(milestonesBase, ms, 'phases');
+      try {
+        for (const ph of fs.readdirSync(phasesBase) as string[]) {
+          candidates.push(path.join(phasesBase, ph, 'KNOWHOW.md'));
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* skip */ }
+  const entries: ReturnType<typeof _cachedParseKnowhow> = [];
+  for (const p of candidates) entries.push(..._cachedParseKnowhow(p));
   if (entries.length === 0) {
     output({ query, top_n: topN, entries: [], message: 'KNOWHOW.md not found or empty' }, raw, 'KNOWHOW.md not found');
     return;
