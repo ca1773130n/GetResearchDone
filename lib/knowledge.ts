@@ -373,13 +373,27 @@ function cmdKnowhowAudit(cwd: string, raw: boolean): void {
       if (fs.existsSync(msKnowhow)) knowhowPaths.push(msKnowhow);
       const resKnowhow = path.join(milestonesBase, ms, 'research', 'KNOWHOW.md');
       if (fs.existsSync(resKnowhow)) knowhowPaths.push(resKnowhow);
+      // Codex r25 P2: per-phase KNOWHOW.md files are where the knowledge
+      // miner writes new entries; audit/dedup must scan them or they
+      // miss the common case entirely.
+      const phasesBase = path.join(milestonesBase, ms, 'phases');
+      try {
+        for (const ph of fs.readdirSync(phasesBase) as string[]) {
+          const phKnowhow = path.join(phasesBase, ph, 'KNOWHOW.md');
+          if (fs.existsSync(phKnowhow)) knowhowPaths.push(phKnowhow);
+        }
+      } catch { /* skip */ }
     }
   } catch {
     // milestones dir doesn't exist
   }
-  // Also check root planning research dir
+  // Also check root planning research dir + project-root KNOWHOW.md
   const rootResearchKnowhow = path.join(cwd, '.planning', 'research', 'KNOWHOW.md');
   if (fs.existsSync(rootResearchKnowhow)) knowhowPaths.push(rootResearchKnowhow);
+  const rootKnowhow = path.join(cwd, '.planning', 'KNOWHOW.md');
+  if (fs.existsSync(rootKnowhow)) knowhowPaths.push(rootKnowhow);
+  const projectRootKnowhow = path.join(cwd, 'KNOWHOW.md');
+  if (fs.existsSync(projectRootKnowhow)) knowhowPaths.push(projectRootKnowhow);
 
   let totalEntries = 0;
   // Track all entries across files for contradiction detection (by pattern_name)
@@ -515,12 +529,25 @@ function cmdKnowhowDedup(cwd: string, raw: boolean, threshold = 0.75): void {
       if (fs.existsSync(msKnowhow)) knowhowPaths.push(msKnowhow);
       const resKnowhow = path.join(milestonesBase, ms, 'research', 'KNOWHOW.md');
       if (fs.existsSync(resKnowhow)) knowhowPaths.push(resKnowhow);
+      // Codex r25 P2: include per-phase KNOWHOW.md — that's where the
+      // knowledge miner writes the entries that most often dup.
+      const phasesBase = path.join(milestonesBase, ms, 'phases');
+      try {
+        for (const ph of fs.readdirSync(phasesBase) as string[]) {
+          const phKnowhow = path.join(phasesBase, ph, 'KNOWHOW.md');
+          if (fs.existsSync(phKnowhow)) knowhowPaths.push(phKnowhow);
+        }
+      } catch { /* skip */ }
     }
   } catch {
     // milestones dir doesn't exist
   }
   const rootResearchKnowhow = path.join(cwd, '.planning', 'research', 'KNOWHOW.md');
   if (fs.existsSync(rootResearchKnowhow)) knowhowPaths.push(rootResearchKnowhow);
+  const rootKnowhow = path.join(cwd, '.planning', 'KNOWHOW.md');
+  if (fs.existsSync(rootKnowhow)) knowhowPaths.push(rootKnowhow);
+  const projectRootKnowhow = path.join(cwd, 'KNOWHOW.md');
+  if (fs.existsSync(projectRootKnowhow)) knowhowPaths.push(projectRootKnowhow);
 
   // Load all entries with source file info
   const allEntries: { entry: KnowhowEntry; file: string; fingerprint: string; trigrams: Set<string> }[] = [];
