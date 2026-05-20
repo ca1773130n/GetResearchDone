@@ -349,10 +349,14 @@ function cmdVerifySummary(
       labelledHashes.push(h.toLowerCase());
     }
   }
-  // Codex r31 P2: markdown tables with a `Commit` column header but
-  // no `## Commits` heading are common. Find table headers with a
-  // commit-column, then sweep subsequent table rows for hex tokens.
+  // Codex r31 P2 / r33 P2: markdown tables with a `Commit` column
+  // header. Find the commit-column INDEX from the header row, then
+  // only harvest hex tokens from that specific cell in each row —
+  // otherwise a `| task | commit | checksum |` table would also try
+  // to validate the unrelated `checksum` column against git.
   const lines = content.split('\n');
+  const splitCells = (s: string): string[] =>
+    s.split('|').map((c) => c.trim()).filter((_, i, arr) => i !== 0 && i !== arr.length - 1);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (
@@ -362,11 +366,15 @@ function cmdVerifySummary(
     ) {
       continue;
     }
-    // Walk subsequent rows until we leave the table.
+    const headerCells = splitCells(line);
+    const commitColIdx = headerCells.findIndex((c) => /\bcommit\b/i.test(c));
+    if (commitColIdx === -1) continue;
     for (let j = i + 2; j < lines.length; j++) {
       const row = lines[j];
       if (!row.startsWith('|')) break;
-      for (const h of row.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
+      const rowCells = splitCells(row);
+      const cell = rowCells[commitColIdx] ?? '';
+      for (const h of cell.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
         labelledHashes.push(h.toLowerCase());
       }
     }
