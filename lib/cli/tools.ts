@@ -158,7 +158,14 @@ export function runToolCommand(
   // appear hung. Detect these cases and use spawnSync with inherited
   // stdio. Returns empty stdout/stderr since output already went to the
   // user's terminal.
-  const isFollowTail = command === 'tail' && (extraArgs.includes('-f') || extraArgs.includes('--follow') || passthrough.includes('-f') || passthrough.includes('--follow'));
+  // Codex r26 P2: parseFlags treats the bare `-f` short flag as the
+  // subcommand. Match it there too so `gd tail -f` streams instead of
+  // hanging in execFileSync.
+  const isFollowTail =
+    command === 'tail' &&
+    (subcommand === '-f' || subcommand === '--follow' ||
+     extraArgs.includes('-f') || extraArgs.includes('--follow') ||
+     passthrough.includes('-f') || passthrough.includes('--follow'));
   const isWatch = command === 'watch';
   if (isFollowTail || isWatch) {
     const { spawnSync } = require('child_process') as typeof import('child_process');
