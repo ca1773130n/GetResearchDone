@@ -311,13 +311,18 @@ function cmdVerifySummary(
   for (const m of content.matchAll(/\(([0-9a-f]{7,40})\)/gi)) {
     labelledHashes.push(m[1].toLowerCase());
   }
+  // Codex r29 P2: a SUMMARY can have both labelled hashes AND an
+  // unlabelled commit table / bullet list. Always combine: labelled
+  // pass (always) + bare hash scan (when content mentions "commit"),
+  // dedupe.
   const commitHashPattern = /\b[0-9a-f]{7,40}\b/g;
-  const hashes: string[] =
-    labelledHashes.length > 0
-      ? labelledHashes
-      : /\bcommit\b/i.test(content)
-        ? content.match(commitHashPattern) || []
-        : [];
+  const allHashes: string[] = [...labelledHashes];
+  if (/\bcommit\b/i.test(content)) {
+    for (const h of content.match(commitHashPattern) ?? []) {
+      allHashes.push(h.toLowerCase());
+    }
+  }
+  const hashes: string[] = Array.from(new Set(allHashes));
   let commitsExist = false;
   const invalidHashes: string[] = [];
   if (hashes.length > 0) {

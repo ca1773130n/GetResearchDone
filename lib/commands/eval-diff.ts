@@ -196,18 +196,24 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
     const vA = metricsA[metric];
     const vB = metricsB[metric];
     const delta = vB - vA;
-    const deltaPct = vA !== 0 ? (delta / Math.abs(vA)) * 100 : 0;
     const lowerBetter = lowerIsBetterRe.test(metric.replace(/_/g, ' '));
     const improvedSign = lowerBetter ? delta < 0 : delta > 0;
-    // Codex r27 P2: when baseline is 0, deltaPct is forced to 0 and
-    // direction would always be `unchanged`, hiding important cases
-    // like `lint_errors: 0 → 5` or `coverage: 0 → 80`. Fall back to
-    // the raw delta sign when baseline is 0.
+    // Codex r27/r29 P2: zero-baseline metrics. Direction comes from
+    // delta sign; magnitude can't be expressed as a percentage of 0,
+    // so use Infinity (clamped to 999.99 on display so the user sees
+    // a huge but bounded value, and so sorting puts these changes at
+    // the top instead of burying them at 0%).
     const isZeroBaseline = vA === 0;
+    const deltaPct = isZeroBaseline
+      ? (delta === 0 ? 0 : Number.POSITIVE_INFINITY)
+      : (delta / Math.abs(vA)) * 100;
     const direction: MetricDelta['direction'] = isZeroBaseline
       ? (delta === 0 ? 'unchanged' : improvedSign ? 'improved' : 'regressed')
       : Math.abs(deltaPct) < 0.5 ? 'unchanged' : improvedSign ? 'improved' : 'regressed';
-    return { metric, value_a: vA, value_b: vB, delta, delta_pct: Math.round(deltaPct * 100) / 100, direction };
+    const displayPct = isZeroBaseline
+      ? (delta === 0 ? 0 : (delta > 0 ? 999.99 : -999.99))
+      : Math.round(deltaPct * 100) / 100;
+    return { metric, value_a: vA, value_b: vB, delta, delta_pct: displayPct, direction };
   });
 
   deltas.sort((a, b) => Math.abs(b.delta_pct) - Math.abs(a.delta_pct));
