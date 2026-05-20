@@ -281,8 +281,29 @@ function cmdVerifySummary(
   // exist (was sampling 3 and passing if any one resolved). Check the
   // first ~10 unique hashes to keep the cost bounded but catch
   // partial-failure cases.
+  // Codex r27 P2: a context-free hex-token regex also matches
+  // checksums, cache keys, content-hash IDs, and other non-commit
+  // hex strings. Anchor on explicit commit labels first (commit:,
+  // SHA:, ref:, hash:, parent:, `**Commit**`, hyperlinks to
+  // /commit/<sha>, conventional `(abcdef1)` parens), and only fall
+  // back to the bare hex scan if the labelled set is empty AND the
+  // SUMMARY explicitly mentions "commit" somewhere (so we keep the
+  // backward-compatible behaviour without false-failing on summaries
+  // that legitimately reference no commits).
+  const labelledPattern =
+    /(?:commit|sha|ref|hash|parent)[s]?[:\s]+`?([0-9a-f]{7,40})\b|\/commit\/([0-9a-f]{7,40})\b|\(([0-9a-f]{7,40})\)/gi;
+  const labelledHashes: string[] = [];
+  for (const m of content.matchAll(labelledPattern)) {
+    const h = m[1] ?? m[2] ?? m[3];
+    if (h) labelledHashes.push(h.toLowerCase());
+  }
   const commitHashPattern = /\b[0-9a-f]{7,40}\b/g;
-  const hashes: string[] = content.match(commitHashPattern) || [];
+  const hashes: string[] =
+    labelledHashes.length > 0
+      ? labelledHashes
+      : /\bcommit\b/i.test(content)
+        ? content.match(commitHashPattern) || []
+        : [];
   let commitsExist = false;
   const invalidHashes: string[] = [];
   if (hashes.length > 0) {

@@ -1304,7 +1304,11 @@ const CONFIG_DRIFT_KEYS: Array<{ key: string; default: unknown; fix: string }> =
   { key: 'branching_strategy', default: 'none', fix: 'gd config-set branching_strategy none' },
   { key: 'scheduler.idle_timeout_seconds', default: 900, fix: 'gd config-set scheduler.idle_timeout_seconds 900' },
   { key: 'scheduler.budget_pressure_thresholds', default: { warning: 0.6, high: 0.8, critical: 0.95 }, fix: 'gd config-set scheduler.budget_pressure_thresholds \'{"warning":0.6,"high":0.8,"critical":0.95}\'' },
-  { key: 'drift', default: { weights: { goal: 1, constraint: 1, ontology: 1 }, threshold: 0.3 }, fix: 'gd config-set drift \'{"weights":{"goal":1,"constraint":1,"ontology":1},"threshold":0.3}\'' },
+  // Codex r27 P2: cmdHealth uses DEFAULT_WEIGHTS from lib/drift.ts
+  // (0.5/0.3/0.2) when `drift` is missing. The fix command must
+  // materialize the same runtime default so users don't accidentally
+  // change drift-scoring semantics by applying it.
+  { key: 'drift', default: { weights: { goal: 0.5, constraint: 0.3, ontology: 0.2 }, threshold: 0.3 }, fix: 'gd config-set drift \'{"weights":{"goal":0.5,"constraint":0.3,"ontology":0.2},"threshold":0.3}\'' },
   { key: 'autopilot', default: {}, fix: 'gd config-set autopilot \'{}\''},
 ];
 

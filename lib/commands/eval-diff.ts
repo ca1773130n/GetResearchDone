@@ -199,8 +199,14 @@ function cmdEvalDiff(cwd: string, phaseA: string, phaseB: string, raw: boolean):
     const deltaPct = vA !== 0 ? (delta / Math.abs(vA)) * 100 : 0;
     const lowerBetter = lowerIsBetterRe.test(metric.replace(/_/g, ' '));
     const improvedSign = lowerBetter ? delta < 0 : delta > 0;
-    const direction: MetricDelta['direction'] =
-      Math.abs(deltaPct) < 0.5 ? 'unchanged' : improvedSign ? 'improved' : 'regressed';
+    // Codex r27 P2: when baseline is 0, deltaPct is forced to 0 and
+    // direction would always be `unchanged`, hiding important cases
+    // like `lint_errors: 0 → 5` or `coverage: 0 → 80`. Fall back to
+    // the raw delta sign when baseline is 0.
+    const isZeroBaseline = vA === 0;
+    const direction: MetricDelta['direction'] = isZeroBaseline
+      ? (delta === 0 ? 'unchanged' : improvedSign ? 'improved' : 'regressed')
+      : Math.abs(deltaPct) < 0.5 ? 'unchanged' : improvedSign ? 'improved' : 'regressed';
     return { metric, value_a: vA, value_b: vB, delta, delta_pct: Math.round(deltaPct * 100) / 100, direction };
   });
 
