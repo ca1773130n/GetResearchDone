@@ -318,7 +318,24 @@ function cmdVerifySummary(
   const linesAll = content.split('\n');
   for (let i = 0; i < linesAll.length; i++) {
     const line = linesAll[i];
-    if (!/(?:[-*]\s+|^|\*\*)\s*(?:commit|sha|ref|hash|parent)s?\s*[:*]/i.test(line)) {
+    // Codex r34 P2: also accept colonless forms used in real
+    // SUMMARYs:
+    //   - `Commit 29c6883 exists`           (label + space + hash)
+    //   - `### Task 1 ... (29c6883)`        (paren-suffix on a
+    //                                         heading/task line)
+    //   - `- [x] Task X completed (abc1234)` (paren-suffix on a
+    //                                         checklist line)
+    const isColonLabel = /(?:[-*]\s+|^|\*\*)\s*(?:commit|sha|ref|hash|parent)s?\s*[:*]/i.test(line);
+    const colonlessMatch = line.match(/\b(?:commit|sha|ref|hash|parent)s?\s+([0-9a-f]{7,40})\b/i);
+    const isTaskLine = /^(?:#{1,6}\s+|\s*[-*]\s+(?:\[[ x]\]\s+)?)/i.test(line);
+    const parenSuffixMatch = isTaskLine ? line.match(/\(([0-9a-f]{7,40})\)\s*$/i) : null;
+    if (colonlessMatch) {
+      labelledHashes.push(colonlessMatch[1].toLowerCase());
+    }
+    if (parenSuffixMatch) {
+      labelledHashes.push(parenSuffixMatch[1].toLowerCase());
+    }
+    if (!isColonLabel) {
       continue;
     }
     const hashesOnLine = line.match(/[0-9a-f]{7,40}/gi) ?? [];
