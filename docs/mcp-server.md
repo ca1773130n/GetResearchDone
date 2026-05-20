@@ -4,9 +4,16 @@ The GRD MCP Server exposes 155 GRD CLI commands as [Model Context Protocol](http
 
 > **Not yet exposed via MCP:** the Ouroboros self-monitoring tools
 > (`gd-tools drift`, `dead-end`, `plan-tournament`, `think`, `genome`,
-> `gd scan`, `gd metrics`) currently ship as CLI subcommands only. Use
-> them via `gd-tools <subcommand>` from a shell tool or via the
-> `Bash` tool in your MCP client.
+> `gd scan`, `gd metrics`) and the autonomous-evolve additions
+> (`gd diagnose`, `impact`, `blame`, `budget`, `estimate`,
+> `estimate-phase`, `check-plans`, `check-assumptions`, `freshness`,
+> `rollback`, `forecast-phase`, `deps`, `deps-risk`,
+> `knowhow rank|audit|dedup|aggregate`, `knowledge search`,
+> `import-knowhow`, `import-knowledge`, `export-research`,
+> `import-research`, `eval diff`, `research-gaps`, `tail`, `watch`)
+> currently ship as CLI subcommands only. Use them via
+> `gd <subcommand>` from a shell tool or via the `Bash` tool in your
+> MCP client.
 
 ## Setup
 

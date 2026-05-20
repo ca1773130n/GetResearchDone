@@ -5,6 +5,129 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added (Autonomous evolve loop — iters 3-10)
+
+10 autonomous evolve iterations against v0.3.24 added ~19 new CLI
+commands (all wired into both `bin/grd-tools.ts` and the public `gd`
+CLI router via `lib/cli/index.ts`):
+
+- **Phase forensics & planning**
+  - `gd diagnose <N>` — phase failure post-mortem reading
+    `<N>-VERIFICATION.md` (prefixed and bare forms)
+  - `gd budget <N>`, `gd estimate <N>`, `gd estimate-phase <N>` —
+    token + cost forecast per plan agent (counts both markdown
+    checkboxes and `<task>` XML blocks)
+  - `gd blame <N>` — map phase-range commits to plan tasks
+  - `gd impact <N>` — BFS the phase dep graph from explicit
+    `Depends on: Phase M` declarations plus sequential fallback
+  - `gd deps`, `gd deps-risk`, `gd check-plans`,
+    `gd check-assumptions`, `gd freshness [<N>]`, `gd rollback <N>`,
+    `gd forecast-phase <N>`
+- **Eval + research diffs**
+  - `gd eval diff <A> <B>` (and `gd eval diff <A> latest`) —
+    side-by-side metric deltas with lower-is-better direction
+    inversion for latency/error/duration metrics
+  - `gd research-gaps` — citation gap report across milestone +
+    prefixed plan files
+- **Knowledge maintenance**
+  - `gd knowhow rank "<query>"` (TF-IDF), `gd knowhow audit`,
+    `gd knowhow dedup`, `gd knowhow aggregate`,
+    `gd knowledge search "<query>"`, `gd import-knowhow <src>`
+  - All scan canonical KNOWHOW locations
+    (`.planning/KNOWHOW.md`, `milestones/*/KNOWHOW.md`,
+    `milestones/*/research/KNOWHOW.md`, and per-phase
+    `phases/*/KNOWHOW.md`)
+- **Live monitoring**
+  - `gd tail [-f]` and `gd watch` — both streamed via inherited
+    stdio so `--follow` mode no longer hangs in the CLI wrapper
+- **Imports**
+  - `gd export-research` / `gd import-research` —
+    `.planning/research/` bundle pack/unpack with archive
+    pre-validation (list entries via `tar -tzf`, reject absolute
+    paths + `..` segments + symlinks before extraction). Staging
+    dir is cleared before each extraction so stale prior-run
+    files don't leak in.
+  - `gd import-knowledge` — `--dry-run` is truly side-effect free
+    (no mkdir, no destExists-blocked previews)
+
+### Added (autopilot reliability)
+
+- **Spin detector**: scheduler now runs bigram-Jaccard similarity
+  detection on captured stdout when buffer > 500 bytes, attaches a
+  `SpinDetectedEvent` to `SchedulerSpawnResult`, and
+  `autopilot-pipeline.spawnStep` writes a per-phase `SPIN-REPORT.md`
+  (resolved via `findPhaseInternal` from `workItemId`) to the
+  durable project tree, not the soon-to-be-deleted worktree.
+
+### Changed
+
+- **`evolve.auto_genome_snapshot`** is now also honored by
+  `runInfiniteEvolve` (was wired through one path; now both paths
+  emit a deterministic snapshot at end of cycle).
+- **Scheduler `opts.timeout: 0`** is now treated as "unlimited"
+  (`null` total timer) instead of being coerced to the 2-hour
+  default. `autoresearch` passes `0` explicitly on `--time-budget 0`
+  so survey / experiment / deep-dive spawns can run unbounded.
+- **`loadConfig`** passes `research_staleness_days` and `survey`
+  through (were silently dropped), so `gd health`'s
+  `STALE_RESEARCH` blocker and `gd progress`'s research-freshness
+  warning respect configured thresholds.
+- **`cmdVerifySummary`** now requires *every* referenced commit
+  hash to resolve (was sampling 3 and passing if any one resolved),
+  catching partial-failure cases.
+- **`computeParallelGroups` + `_resolveLatestTwoPhases`** sort
+  numerically by leading digits so `100-...` no longer collates
+  before `99-...`.
+
+### Fixed
+
+The autonomous-evolve batch landed with project-convention bugs that
+26 rounds of `codex exec review` flagged and the same codex pass
+recommended fixes for. Highlights:
+
+- **path traversal in `gd import-research` (P1)** — bundle import
+  now resolves manifest entries against the staging + destination
+  dirs and rejects anything that escapes either, plus rejects
+  symlinks via `lstat`/`isFile()`. Archive entries are also
+  pre-validated before `tar -xzf`.
+- **phase-id resolution** — `gd budget`, `gd blame`, `gd freshness`,
+  `gd check-plans`, `gd diagnose`, `gd estimate-phase`,
+  `gd forecast-phase`, `gd deps-risk` all route phase args through
+  `findPhaseInternal` (or padded resolution) so `gd budget 1`
+  matches `phases/01-test/`.
+- **prefixed artifact filenames** — every new command that reads
+  PLAN/SUMMARY/VERIFICATION/EVAL/RESEARCH/LANDSCAPE/KNOWHOW now
+  accepts both bare and `<N>-` prefixed forms.
+- **CI Jest 30 flag** — `--testPathPattern` → `--testPathPatterns`
+  in `.github/workflows/ci.yml`. Every CI run since the Jest 30
+  upgrade had been failing.
+- **`gd settings` drift-fix suggestions** — `gd health`'s
+  config-drift remediation now emits `gd config-set <key> <value>`
+  for keys that `gd settings` doesn't accept (autonomous_mode,
+  branching_strategy, scheduler.*, drift, autopilot).
+- **`gd execute-phase <N> --dry-run`** — now routes to the tool
+  preview handler instead of the agent execute path
+  (`bin/gd.ts` override on `--dry-run`).
+- **`gd eval diff <padded> latest`** — phase ids are compared
+  numerically when deciding whether `latest` resolved to the same
+  phase as the explicit side; `05` no longer collapses to `5` and
+  vice-versa.
+- **lower-is-better metrics in `gd eval diff`** — latency/error/
+  duration/memory/cost metric increases are now reported as
+  regressions (with snake-case awareness so `response_time` is
+  matched the same as `response time`).
+- **knowhow_block injection at phase start** — `lib/context/agents.ts`
+  scans all canonical KNOWHOW locations so the relevance-ranked
+  block is no longer silently null on real projects.
+
+### Ported from PR #25
+
+- **`lib/invariants.ts`**: segment-based `..` check
+  (`filePath.split('/').includes('..')`) so legitimate filenames
+  like `file..backup.ts` aren't flagged; basename-based extension
+  check so paths like `config.d/Makefile` are correctly warned
+  about. Stale PR #25 closed with reference to this commit.
+
 ## [0.3.24] - 2026-05-18
 
 ### Added (Ouroboros integration — agentic self-monitoring and self-improvement)

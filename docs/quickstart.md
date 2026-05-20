@@ -54,6 +54,9 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 | **Verification** | `verify-phase`, `verify-work`, `gd-tools verify mechanical` (PLAN.md mechanical bundle) |
 | **Navigation** | `progress`, `help`, `settings`, `set-profile`, `yolo`, `gd-tools think` (project briefing) |
 | **Self-monitoring** | `gd health` (drift score), `gd-tools dead-end add / promote-from-phase`, `gd-tools genome init / show / snapshot`, `gd-tools plan-tournament score` |
+| **Forensics** | `gd diagnose <N>`, `gd impact <N>`, `gd blame <N>`, `gd budget <N>`, `gd estimate <N>`, `gd estimate-phase <N>`, `gd check-plans`, `gd check-assumptions`, `gd freshness`, `gd rollback <N>`, `gd forecast-phase <N>`, `gd deps`, `gd deps-risk` |
+| **Knowledge** | `gd knowhow rank \| audit \| dedup \| aggregate`, `gd knowledge search`, `gd import-knowhow`, `gd import-knowledge`, `gd export-research`, `gd import-research` |
+| **Eval + monitoring** | `gd eval diff <A> <B>` (or `<A> latest`), `gd research-gaps`, `gd tail [-f]`, `gd watch` |
 | **Lifecycle** | `pause-work`, `resume-project`, `complete-milestone`, `new-milestone` |
 
 ## Key Files

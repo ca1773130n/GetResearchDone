@@ -93,12 +93,43 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 ### Self-monitoring & self-improvement (Ouroboros integration)
 | Command | Description |
 |---------|-------------|
-| `gd health` | Weighted drift score (goal / constraint / ontology) + blockers |
+| `gd health` | Weighted drift score (goal / constraint / ontology) + blockers, with config-drift fix suggestions |
 | `gd-tools dead-end add` | Record a falsified approach in `.planning/DEAD-ENDS.md` |
 | `gd-tools dead-end promote-from-phase` | Auto-promote `verdict: falsified` reflections from a phase |
 | `gd-tools genome init / show / snapshot` | Manage `.planning/GENOME.md` (project-scoped strategy snapshots) |
 | `gd-tools plan-tournament score` | Score candidate PLAN.md files against the phase goal |
 | `gd-tools verify mechanical` | Bundle the four PLAN.md mechanical checks (frontmatter, artifacts, exports, content) |
+
+### Phase forensics & planning (added by autonomous evolve loop)
+| Command | Description |
+|---------|-------------|
+| `gd diagnose <N>` | Phase failure post-mortem from VERIFICATION.md |
+| `gd budget <N>` / `gd estimate <N>` / `gd estimate-phase <N>` | Token + cost forecast (markdown + `<task>` XML) |
+| `gd blame <N>` | Map phase-range commits to plan tasks |
+| `gd impact <N>` | BFS the phase dep graph from `Depends on` declarations |
+| `gd deps` / `gd deps-risk` | Phase dependency graph visualizer and risk report |
+| `gd check-plans [--phase N]` | Validate plan file references against disk |
+| `gd check-assumptions <N>` | Validate `## Assumptions` blocks vs git diff |
+| `gd freshness [<N>]` | Citation freshness scanner (RESEARCH.md / LANDSCAPE.md) |
+| `gd rollback <N>` | Generate runnable `git revert` plan from `phase_branch_template` |
+| `gd forecast-phase <N>` | Pre-execution file-touch forecast |
+
+### Knowledge maintenance
+| Command | Description |
+|---------|-------------|
+| `gd knowhow rank "<query>"` | TF-IDF relevance ranking across all KNOWHOW.md locations |
+| `gd knowhow audit` / `gd knowhow dedup` / `gd knowhow aggregate` | Stale-entry audit, similarity-based dedup, cross-milestone aggregator |
+| `gd knowledge search "<query>"` | Keyword search across milestone + per-phase KNOWHOW.md |
+| `gd import-knowhow <src>` / `gd import-knowledge` | Import knowledge entries (`--dry-run` is side-effect free) |
+| `gd export-research` / `gd import-research` | Bundle pack/unpack with archive pre-validation |
+
+### Eval + live monitoring
+| Command | Description |
+|---------|-------------|
+| `gd eval diff <A> <B>` / `gd eval diff <A> latest` | Side-by-side metric deltas (direction-aware for latency/error metrics) |
+| `gd research-gaps` | Citation gap report across milestone + prefixed plans |
+| `gd tail [-f]` | Tail / follow `.planning/autopilot/autopilot.log` |
+| `gd watch` | Live execution monitor (autopilot.log-backed) |
 
 ## Architecture
 
