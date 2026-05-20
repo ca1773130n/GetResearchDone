@@ -417,7 +417,10 @@ function cmdVerifySummary(
     return cells;
   };
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    // Codex r40 P2: trim leading whitespace before checking for table
+    // start — indented tables (inside a list or quoted block) also
+    // need their commit column scanned.
+    const line = lines[i].trimStart();
     if (
       !line.startsWith('|') ||
       !/\bcommit\b/i.test(line) ||
@@ -429,7 +432,7 @@ function cmdVerifySummary(
     const commitColIdx = headerCells.findIndex((c) => /\bcommit\b/i.test(c));
     if (commitColIdx === -1) continue;
     for (let j = i + 2; j < lines.length; j++) {
-      const row = lines[j];
+      const row = lines[j].trimStart();
       if (!row.startsWith('|')) break;
       const rowCells = splitCells(row);
       const cell = rowCells[commitColIdx] ?? '';
