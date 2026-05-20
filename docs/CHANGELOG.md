@@ -5,6 +5,43 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.26] - 2026-05-21
+
+### Fixed (codex-rescue r27–r41 — verify.ts SUMMARY commit-hash detection)
+
+15 rounds of `codex exec review --base v0.3.25` against the
+verify-summary commit-hash extractor, after r1–r26 hardened
+everything else. Codex r42 returns clean.
+
+The new extractor only collects hex tokens from commit contexts (no
+more whole-document hash scan that false-failed on checksums / cache
+keys / artifact IDs). Supported formats now include:
+
+- Labelled lines: `Commit: <sha>`, `**Commits:**`, `- **Commits:** a, b`
+- Colonless: `Commit <sha>`, `Commits a68da32, deadbee exist`,
+  including backticked hashes (`` `8880489` ``)
+- `/commit/<sha>` hyperlinks
+- `## Commits`, `## Task Commits`, `### Commits` headings (with
+  nested subheadings included until a sibling/shallower heading)
+- Task-heading paren-suffix: `### Task 1: add parser (deadbee)`
+- Checked-task paren-suffix: `- [x] Task X completed (abc1234)`
+- Markdown commit-column tables (with or without trailing pipe;
+  indented inside lists; commit-column-only scan, not whole row)
+- Word boundaries everywhere so `Hash: <sha256>` isn't truncated to
+  the first 40 chars and validated as a commit
+
+### Fixed (other r27 codex findings)
+
+- **eval-diff.ts**: zero-baseline metrics no longer report
+  `unchanged` for nonzero deltas. `0 → 5` shows as `regressed`
+  (or `improved` for lower-is-better), with sentinel `±999.99%`
+  for display + sort so changes don't get buried at 0%.
+- **utils.ts CONFIG_DRIFT_KEYS**: `drift` fix command now suggests
+  `{weights: {goal:0.5, constraint:0.3, ontology:0.2}, threshold:0.3}`
+  to match `lib/drift.ts` `DEFAULT_WEIGHTS` runtime fallback —
+  applying the fix command no longer silently changes drift scoring
+  semantics.
+
 ## [0.3.25] - 2026-05-20
 
 ### Added (Autonomous evolve loop — iters 3-10)
