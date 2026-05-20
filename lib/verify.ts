@@ -329,7 +329,10 @@ function cmdVerifySummary(
     // Codex r38 P2: colonless `Commits a, b, c` should capture every
     // hash on the line, not just the first. Detect the colonless
     // label and then harvest *all* hex tokens from the line.
-    const hasColonlessLabel = /\b(?:commit|sha|ref|hash|parent)s?\s+[0-9a-f]{7,40}\b/i.test(line);
+    // Codex r39 P2: also accept backticked hashes after a colonless
+    // label, e.g. `- [x] Commit \`8880489\` exists`. Allow optional
+    // backticks between the label and the hash.
+    const hasColonlessLabel = /\b(?:commit|sha|ref|hash|parent)s?\s+`?[0-9a-f]{7,40}`?\b/i.test(line);
     const colonlessHashes = hasColonlessLabel
       ? line.match(/\b[0-9a-f]{7,40}\b/gi) ?? []
       : [];
