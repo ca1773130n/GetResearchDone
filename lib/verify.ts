@@ -327,6 +327,28 @@ function cmdVerifySummary(
       labelledHashes.push(h.toLowerCase());
     }
   }
+  // Codex r31 P2: markdown tables with a `Commit` column header but
+  // no `## Commits` heading are common. Find table headers with a
+  // commit-column, then sweep subsequent table rows for hex tokens.
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (
+      !line.startsWith('|') ||
+      !/\bcommit\b/i.test(line) ||
+      !lines[i + 1]?.match(/^\s*\|?\s*[-:]+/)
+    ) {
+      continue;
+    }
+    // Walk subsequent rows until we leave the table.
+    for (let j = i + 2; j < lines.length; j++) {
+      const row = lines[j];
+      if (!row.startsWith('|')) break;
+      for (const h of row.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
+        labelledHashes.push(h.toLowerCase());
+      }
+    }
+  }
   const hashes: string[] = Array.from(new Set(labelledHashes));
   let commitsExist = false;
   const invalidHashes: string[] = [];
