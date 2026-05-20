@@ -308,11 +308,33 @@ function cmdVerifySummary(
   // dropped — they re-introduced the false positives r27 was trying
   // to fix.
   const labelledHashes: string[] = [];
-  const labelLinePattern =
-    /(?:^|\n)\s*(?:commit|sha|ref|hash|parent)s?[:\s][^\n]*/gi;
-  for (const m of content.matchAll(labelLinePattern)) {
-    for (const h of m[0].match(/[0-9a-f]{7,40}/gi) ?? []) {
-      labelledHashes.push(h.toLowerCase());
+  // Codex r32 P2: accept bold/bulleted label forms documented in
+  // agents/grd-executor.md, e.g.:
+  //   - **Commits:** abc, def
+  //   **Commits:**
+  //     - abc
+  // Match the *label line* generically, then if it's a bare label
+  // (no hash on the same line) sweep subsequent bullet rows.
+  const linesAll = content.split('\n');
+  for (let i = 0; i < linesAll.length; i++) {
+    const line = linesAll[i];
+    if (!/(?:[-*]\s+|^|\*\*)\s*(?:commit|sha|ref|hash|parent)s?\s*[:*]/i.test(line)) {
+      continue;
+    }
+    const hashesOnLine = line.match(/[0-9a-f]{7,40}/gi) ?? [];
+    if (hashesOnLine.length > 0) {
+      for (const h of hashesOnLine) labelledHashes.push(h.toLowerCase());
+      continue;
+    }
+    // Bare label — sweep following bullet lines until indent drops
+    // back or a non-bullet line appears.
+    for (let j = i + 1; j < linesAll.length; j++) {
+      const row = linesAll[j];
+      if (/^\s*$/.test(row)) continue;
+      if (!/^\s*[-*]\s+/.test(row)) break;
+      for (const h of row.match(/[0-9a-f]{7,40}/gi) ?? []) {
+        labelledHashes.push(h.toLowerCase());
+      }
     }
   }
   for (const m of content.matchAll(/\/commit\/([0-9a-f]{7,40})\b/gi)) {
