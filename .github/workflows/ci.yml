@@ -60,7 +60,7 @@ jobs:
           echo "dist/ CLI: OK"
 
       - name: Unit tests
-        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPattern='tests/unit/(?!worktree\.|autopilot\.|backend\.)' --coverage
+        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPatterns='tests/unit/(?!worktree\.|autopilot\.|backend\.)' --coverage
 
   test-integration:
     runs-on: ubuntu-latest
@@ -83,7 +83,7 @@ jobs:
         run: npm ci
 
       - name: Slow tests (worktree, autopilot, backend, integration)
-        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPattern='tests/(integration/|unit/(worktree\.|autopilot\.|backend\.))' --coverage --coverageThreshold='{}'
+        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPatterns='tests/(integration/|unit/(worktree\.|autopilot\.|backend\.))' --coverage --coverageThreshold='{}'
 
   validate:
     runs-on: ubuntu-latest
