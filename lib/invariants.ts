@@ -192,10 +192,16 @@ function validateSemantic(plan: PlanArtifact, cwd: string): ValidationResult {
     if (filePath.startsWith('/')) {
       errors.push(`file path must be relative, not absolute: "${filePath}"`);
     }
-    if (filePath.includes('..')) {
+    // From PR #25: use segment-based `..` check so filenames containing
+    // `..` (e.g. `file..backup.ts`) aren't falsely flagged. Check the
+    // basename for the extension warning so paths like `config.d/Makefile`
+    // are warned about (legitimately extensionless) without false
+    // positives on directories containing `.`.
+    if (filePath.split('/').includes('..')) {
       errors.push(`file path must not use .. traversal: "${filePath}"`);
     }
-    if (!filePath.includes('.')) {
+    const basename = filePath.split('/').pop() || filePath;
+    if (!basename.includes('.')) {
       warnings.push(`file path has no extension: "${filePath}"`);
     }
   }
