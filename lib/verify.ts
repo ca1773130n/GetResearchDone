@@ -347,7 +347,11 @@ function cmdVerifySummary(
     if (!isColonLabel) {
       continue;
     }
-    const hashesOnLine = line.match(/[0-9a-f]{7,40}/gi) ?? [];
+    // Codex r36 P2: use word boundaries so a SHA-256 artifact hash
+    // (64 hex chars) isn't truncated to its first 40 and treated as
+    // a commit. Boundary-aware match is consistent with the table
+    // and block scanners below.
+    const hashesOnLine = line.match(/\b[0-9a-f]{7,40}\b/gi) ?? [];
     if (hashesOnLine.length > 0) {
       for (const h of hashesOnLine) labelledHashes.push(h.toLowerCase());
       continue;
@@ -358,7 +362,7 @@ function cmdVerifySummary(
       const row = linesAll[j];
       if (/^\s*$/.test(row)) continue;
       if (!/^\s*[-*]\s+/.test(row)) break;
-      for (const h of row.match(/[0-9a-f]{7,40}/gi) ?? []) {
+      for (const h of row.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
         labelledHashes.push(h.toLowerCase());
       }
     }
