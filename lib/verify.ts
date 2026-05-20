@@ -290,12 +290,26 @@ function cmdVerifySummary(
   // SUMMARY explicitly mentions "commit" somewhere (so we keep the
   // backward-compatible behaviour without false-failing on summaries
   // that legitimately reference no commits).
-  const labelledPattern =
-    /(?:commit|sha|ref|hash|parent)[s]?[:\s]+`?([0-9a-f]{7,40})\b|\/commit\/([0-9a-f]{7,40})\b|\(([0-9a-f]{7,40})\)/gi;
+  // Codex r28 P2: a labelled `Commits: <a>, <b>, <c>` list contains
+  // multiple hashes. Capture the full label line (up to newline or
+  // next section) and pull every hex token from it, instead of only
+  // matching one hash per label.
   const labelledHashes: string[] = [];
-  for (const m of content.matchAll(labelledPattern)) {
-    const h = m[1] ?? m[2] ?? m[3];
-    if (h) labelledHashes.push(h.toLowerCase());
+  const labelLinePattern =
+    /(?:^|\n)\s*(?:commit|sha|ref|hash|parent)s?[:\s][^\n]*/gi;
+  for (const m of content.matchAll(labelLinePattern)) {
+    const line = m[0];
+    for (const h of line.match(/[0-9a-f]{7,40}/gi) ?? []) {
+      labelledHashes.push(h.toLowerCase());
+    }
+  }
+  // Also pick up `/commit/<sha>` hyperlinks and `(abcdef1)` parens
+  // outside labelled lists.
+  for (const m of content.matchAll(/\/commit\/([0-9a-f]{7,40})\b/gi)) {
+    labelledHashes.push(m[1].toLowerCase());
+  }
+  for (const m of content.matchAll(/\(([0-9a-f]{7,40})\)/gi)) {
+    labelledHashes.push(m[1].toLowerCase());
   }
   const commitHashPattern = /\b[0-9a-f]{7,40}\b/g;
   const hashes: string[] =
