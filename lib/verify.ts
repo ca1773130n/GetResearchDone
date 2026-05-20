@@ -326,7 +326,13 @@ function cmdVerifySummary(
     //   - `- [x] Task X completed (abc1234)` (paren-suffix on a
     //                                         checklist line)
     const isColonLabel = /(?:[-*]\s+|^|\*\*)\s*(?:commit|sha|ref|hash|parent)s?\s*[:*]/i.test(line);
-    const colonlessMatch = line.match(/\b(?:commit|sha|ref|hash|parent)s?\s+([0-9a-f]{7,40})\b/i);
+    // Codex r38 P2: colonless `Commits a, b, c` should capture every
+    // hash on the line, not just the first. Detect the colonless
+    // label and then harvest *all* hex tokens from the line.
+    const hasColonlessLabel = /\b(?:commit|sha|ref|hash|parent)s?\s+[0-9a-f]{7,40}\b/i.test(line);
+    const colonlessHashes = hasColonlessLabel
+      ? line.match(/\b[0-9a-f]{7,40}\b/gi) ?? []
+      : [];
     // Codex r35 P2: paren-suffix `(<sha>)` is ambiguous — it's also
     // used for checksums/artifact IDs. Require the line itself to
     // mention something commit-flavored OR be a task-completion
@@ -338,8 +344,8 @@ function cmdVerifySummary(
       (isCheckedTask || lineHasCommitWord)
         ? line.match(/\(([0-9a-f]{7,40})\)\s*$/i)
         : null;
-    if (colonlessMatch) {
-      labelledHashes.push(colonlessMatch[1].toLowerCase());
+    for (const h of colonlessHashes) {
+      labelledHashes.push(h.toLowerCase());
     }
     if (parenSuffixMatch) {
       labelledHashes.push(parenSuffixMatch[1].toLowerCase());
