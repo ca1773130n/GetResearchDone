@@ -294,35 +294,40 @@ function cmdVerifySummary(
   // multiple hashes. Capture the full label line (up to newline or
   // next section) and pull every hex token from it, instead of only
   // matching one hash per label.
+  // Codex r30 P2: only collect hex tokens that appear in commit
+  // contexts. Three kinds of context count:
+  //   1. Labelled lines: `Commit: <sha>`, `SHA: <sha>`, etc., and
+  //      multi-hash lists like `Commits: <a>, <b>`. The line itself
+  //      is the context; harvest every hex token on it.
+  //   2. /commit/<sha> hyperlinks.
+  //   3. A commits-block heading (`## (Task )?Commits`, `### Commits`,
+  //      `# Commits`) — harvest every hex token in lines until the
+  //      next heading at the same or shallower level, or the next
+  //      blank line followed by a non-list line.
+  // Bare `(deadbeef)` parens and the prior whole-document scan are
+  // dropped — they re-introduced the false positives r27 was trying
+  // to fix.
   const labelledHashes: string[] = [];
   const labelLinePattern =
     /(?:^|\n)\s*(?:commit|sha|ref|hash|parent)s?[:\s][^\n]*/gi;
   for (const m of content.matchAll(labelLinePattern)) {
-    const line = m[0];
-    for (const h of line.match(/[0-9a-f]{7,40}/gi) ?? []) {
+    for (const h of m[0].match(/[0-9a-f]{7,40}/gi) ?? []) {
       labelledHashes.push(h.toLowerCase());
     }
   }
-  // Also pick up `/commit/<sha>` hyperlinks and `(abcdef1)` parens
-  // outside labelled lists.
   for (const m of content.matchAll(/\/commit\/([0-9a-f]{7,40})\b/gi)) {
     labelledHashes.push(m[1].toLowerCase());
   }
-  for (const m of content.matchAll(/\(([0-9a-f]{7,40})\)/gi)) {
-    labelledHashes.push(m[1].toLowerCase());
-  }
-  // Codex r29 P2: a SUMMARY can have both labelled hashes AND an
-  // unlabelled commit table / bullet list. Always combine: labelled
-  // pass (always) + bare hash scan (when content mentions "commit"),
-  // dedupe.
-  const commitHashPattern = /\b[0-9a-f]{7,40}\b/g;
-  const allHashes: string[] = [...labelledHashes];
-  if (/\bcommit\b/i.test(content)) {
-    for (const h of content.match(commitHashPattern) ?? []) {
-      allHashes.push(h.toLowerCase());
+  // Scan commit-block sections.
+  const commitsBlockPattern =
+    /^#{1,6}\s+(?:Task\s+)?Commits?\s*$([\s\S]*?)(?=^#{1,6}\s+|$(?![\s\S]))/gim;
+  for (const m of content.matchAll(commitsBlockPattern)) {
+    const block = m[1] ?? '';
+    for (const h of block.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
+      labelledHashes.push(h.toLowerCase());
     }
   }
-  const hashes: string[] = Array.from(new Set(allHashes));
+  const hashes: string[] = Array.from(new Set(labelledHashes));
   let commitsExist = false;
   const invalidHashes: string[] = [];
   if (hashes.length > 0) {
