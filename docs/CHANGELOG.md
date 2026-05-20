@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.25] - 2026-05-20
+
 ### Added (Autonomous evolve loop — iters 3-10)
 
 10 autonomous evolve iterations against v0.3.24 added ~19 new CLI
