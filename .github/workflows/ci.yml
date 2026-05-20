@@ -143,4 +143,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npx gd scan --diff origin/${{ github.base_ref || 'main' }}
+      # bin/gd.js may land without executable bit when npm ci writes it
+      # via the package's `bin` field on certain runner images, causing
+      # `sh: gd: Permission denied`. Invoke through node directly to
+      # bypass the shebang/perm bit entirely.
+      - name: Prompt injection scan
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: node bin/gd.js scan --diff "origin/$BASE_REF"
