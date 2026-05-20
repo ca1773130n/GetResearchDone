@@ -343,8 +343,12 @@ function cmdVerifySummary(
     // `### Artifact checksum (deadbeef)` are no longer matched.
     const isCheckedTask = /^\s*[-*]\s+\[x\]\s+/i.test(line);
     const lineHasCommitWord = /\b(?:commit|merge|landed|shipped)\b/i.test(line);
+    // Codex r41 P2: also accept task-heading paren suffixes such as
+    // `### Task 1: add parser (deadbee)`. The heading-with-"Task"
+    // signal disambiguates from `### Artifact checksum (deadbeef)`.
+    const isTaskHeading = /^#{1,6}\s+(?:Task|Step|Plan|Phase|Subtask)\b/i.test(line);
     const parenSuffixMatch =
-      (isCheckedTask || lineHasCommitWord)
+      (isCheckedTask || lineHasCommitWord || isTaskHeading)
         ? line.match(/\(([0-9a-f]{7,40})\)\s*$/i)
         : null;
     for (const h of colonlessHashes) {
