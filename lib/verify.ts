@@ -327,8 +327,17 @@ function cmdVerifySummary(
     //                                         checklist line)
     const isColonLabel = /(?:[-*]\s+|^|\*\*)\s*(?:commit|sha|ref|hash|parent)s?\s*[:*]/i.test(line);
     const colonlessMatch = line.match(/\b(?:commit|sha|ref|hash|parent)s?\s+([0-9a-f]{7,40})\b/i);
-    const isTaskLine = /^(?:#{1,6}\s+|\s*[-*]\s+(?:\[[ x]\]\s+)?)/i.test(line);
-    const parenSuffixMatch = isTaskLine ? line.match(/\(([0-9a-f]{7,40})\)\s*$/i) : null;
+    // Codex r35 P2: paren-suffix `(<sha>)` is ambiguous — it's also
+    // used for checksums/artifact IDs. Require the line itself to
+    // mention something commit-flavored OR be a task-completion
+    // checklist marker (`- [x]`). Plain headings like
+    // `### Artifact checksum (deadbeef)` are no longer matched.
+    const isCheckedTask = /^\s*[-*]\s+\[x\]\s+/i.test(line);
+    const lineHasCommitWord = /\b(?:commit|merge|landed|shipped)\b/i.test(line);
+    const parenSuffixMatch =
+      (isCheckedTask || lineHasCommitWord)
+        ? line.match(/\(([0-9a-f]{7,40})\)\s*$/i)
+        : null;
     if (colonlessMatch) {
       labelledHashes.push(colonlessMatch[1].toLowerCase());
     }
@@ -357,13 +366,23 @@ function cmdVerifySummary(
   for (const m of content.matchAll(/\/commit\/([0-9a-f]{7,40})\b/gi)) {
     labelledHashes.push(m[1].toLowerCase());
   }
-  // Scan commit-block sections.
-  const commitsBlockPattern =
-    /^#{1,6}\s+(?:Task\s+)?Commits?\s*$([\s\S]*?)(?=^#{1,6}\s+|$(?![\s\S]))/gim;
-  for (const m of content.matchAll(commitsBlockPattern)) {
-    const block = m[1] ?? '';
-    for (const h of block.match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
-      labelledHashes.push(h.toLowerCase());
+  // Codex r35 P2: a `## Commits` section can contain nested `### Task N`
+  // subheadings with the actual hashes. The prior pattern stopped at
+  // any heading of any depth, missing those. Walk lines explicitly:
+  // when we hit a `## Commits` heading at depth D, harvest hashes
+  // from following lines until we see a heading at depth ≤ D
+  // (siblings or shallower).
+  const headingRe = /^(#{1,6})\s+(?:Task\s+)?Commits?\s*$/i;
+  for (let i = 0; i < linesAll.length; i++) {
+    const headingMatch = linesAll[i].match(headingRe);
+    if (!headingMatch) continue;
+    const depth = headingMatch[1].length;
+    for (let j = i + 1; j < linesAll.length; j++) {
+      const nextHeading = linesAll[j].match(/^(#{1,6})\s+/);
+      if (nextHeading && nextHeading[1].length <= depth) break;
+      for (const h of linesAll[j].match(/\b[0-9a-f]{7,40}\b/gi) ?? []) {
+        labelledHashes.push(h.toLowerCase());
+      }
     }
   }
   // Codex r31 P2 / r33 P2: markdown tables with a `Commit` column
