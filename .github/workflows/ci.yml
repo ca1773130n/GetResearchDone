@@ -60,7 +60,13 @@ jobs:
           echo "dist/ CLI: OK"
 
       - name: Unit tests
-        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPatterns='tests/unit/(?!worktree\.|autopilot\.|backend\.)' --coverage
+        # --coverageThreshold='{}' because per-file thresholds in
+        # jest.config.js assume the full test suite. This job filters
+        # out worktree/autopilot/backend tests (they run in
+        # test-integration), so files whose tests didn't run would
+        # otherwise fail thresholds with low coverage. Full-suite
+        # thresholds are still enforced by `npm test` locally.
+        run: npx jest --testPathIgnorePatterns='.worktrees' --testPathPatterns='tests/unit/(?!worktree\.|autopilot\.|backend\.)' --coverage --coverageThreshold='{}'
 
   test-integration:
     runs-on: ubuntu-latest
