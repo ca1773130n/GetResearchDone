@@ -395,8 +395,18 @@ function cmdVerifySummary(
   // otherwise a `| task | commit | checksum |` table would also try
   // to validate the unrelated `checksum` column against git.
   const lines = content.split('\n');
-  const splitCells = (s: string): string[] =>
-    s.split('|').map((c) => c.trim()).filter((_, i, arr) => i !== 0 && i !== arr.length - 1);
+  // Codex r37 P2: only drop the trailing-pipe artifact when one
+  // actually exists. Otherwise tables without a trailing `|`
+  // (`| Task | Commit` / `| 1 | deadbeef`) lose their last real
+  // cell — the Commit column — and the scanner misses every hash.
+  const splitCells = (s: string): string[] => {
+    const trimmed = s.trimEnd();
+    const hasTrailingPipe = trimmed.endsWith('|');
+    const cells = trimmed.split('|').map((c) => c.trim());
+    cells.shift(); // drop leading empty before first `|`
+    if (hasTrailingPipe) cells.pop();
+    return cells;
+  };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (
