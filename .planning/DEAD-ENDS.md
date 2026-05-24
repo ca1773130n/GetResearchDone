@@ -20,6 +20,12 @@ evidence:
   - codex_review: "task b2lc9ahqn — 3 P1 + 2 P2 findings"
   - paper: "docs/ouroboros-loop.md §8.3 (where LLM-judged ranking does/doesn't belong)"
   - existing_alternative: "lib/plan-tournament.ts:_scorePlan"
+forbidden_terms:
+  - "elo tournament"
+  - "elo-rated"
+  - "elo rating"
+  - "llm debate"
+  - "multi-round debate"
 dead_end_added_via: manual
 date: 2026-05-24
 ```
@@ -36,6 +42,12 @@ evidence:
   - codex_review: "task b2lc9ahqn — P1 finding #3"
   - paper: "docs/ouroboros-loop.md §8.2 excluded list"
   - surviving_fraction: "docs/ROADMAP-V0.4.md item 5 (deterministic pattern extractor, suggest-don't-write)"
+forbidden_terms:
+  - "meta-reviewer agent"
+  - "meta-review agent"
+  - "auto-promote heuristic"
+  - "auto-write to genome"
+  - "llm-curated genome"
 dead_end_added_via: manual
 date: 2026-05-24
 ```
@@ -51,6 +63,10 @@ why_failed: "Text similarity is not intent similarity. Hard actions need hard si
 evidence:
   - codex_review: "task bkknb6i9g — P1 #1"
   - mitigation: "Phase 3 PLAN.md v2 — fuzzy match is now advisory (logged to PLAN-SELECTION.json as warning); hard-fail only on explicit DEAD-ENDS slug citation OR appearance of a curated forbidden-mechanism term (e.g. 'elo', 'meta-review-agent', 'llm-as-judge')."
+forbidden_terms:
+  - "jaccard hard-fail"
+  - "fuzzy hard-fail"
+  - "vocabulary-only hard-fail"
 dead_end_added_via: manual
 date: 2026-05-24
 ```
@@ -66,6 +82,10 @@ why_failed: "Cluster representative selection is pre-scoring lossy; pairing it w
 evidence:
   - codex_review: "task bkknb6i9g — P1 #4"
   - mitigation: "Phase 4 PLAN.md v2 — DEAD-ENDS hard-fail runs BEFORE clustering. Clustering operates only on survivors."
+forbidden_terms:
+  - "cluster before hard-fail"
+  - "dedup before dead-ends"
+  - "richest-as-representative"
 dead_end_added_via: manual
 date: 2026-05-24
 ```
@@ -81,6 +101,10 @@ why_failed: "Co-located storage implies co-equal status to a reader (human or ag
 evidence:
   - codex_review: "task bkknb6i9g — P1 #5"
   - mitigation: "Phase 5 PLAN.md v2 — writes to .planning/GENOME-SUGGESTIONS.md (separate file, planner does not read). Promotion requires `gd genome promote-suggestion <slug>` (human-curated)."
+forbidden_terms:
+  - "auto-append to genome"
+  - "auto-write genome.md"
+  - "suggestions section in genome"
 dead_end_added_via: manual
 date: 2026-05-24
 ```
@@ -97,6 +121,11 @@ evidence:
   - codex_review: "task biff8i32r (r43) — P1 finding #1"
   - fix_commit: "7e48fe9 in v0.3.27"
   - module: "lib/autopilot-pipeline.ts:_measureMetrics"
+forbidden_terms:
+  - "ask claude to describe tool output"
+  - "llm-described coverage"
+  - "regex-parse llm response for metrics"
+  - "simulate npx jest via prompt"
 dead_end_added_via: manual
 date: 2026-05-24
 ```

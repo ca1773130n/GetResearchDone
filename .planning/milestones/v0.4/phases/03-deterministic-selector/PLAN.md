@@ -7,18 +7,21 @@ depends_on: ["2"]
 autonomous: true
 verification_level: proxy
 files_modified:
-  - lib/plan-tournament.ts
+  - lib/commands/select-candidate.ts
   - lib/autopilot.ts
-  - tests/unit/plan-tournament.test.ts
+  - tests/unit/select-candidate.test.ts
+  - .planning/DEAD-ENDS.md
 must_haves:
   artifacts:
-    - lib/plan-tournament.ts
-    - tests/unit/plan-tournament.test.ts
+    - lib/commands/select-candidate.ts
+    - tests/unit/select-candidate.test.ts
   key_links:
-    - "_scorePlan extended with must_haves coverage + DEAD-ENDS hard-fail (slug+forbidden_terms) + verification-commands axis + cost tiebreaker"
-    - "autopilot auto-selects highest-scoring candidate when multiple PLAN-N.md exist"
-    - "DEAD-ENDS violation = hard-fail the candidate (-Infinity score) ONLY via slug citation or curated forbidden_terms (Jaccard is advisory only)"
-    - "verification-commands axis runs ONLY commands explicitly listed in PLAN.md frontmatter verification_commands field"
+    - "lib/commands/select-candidate.ts wraps lib/plan-tournament.ts:scorePlanCandidate, adding must_haves coverage + DEAD-ENDS hard-fail (slug+forbidden_terms) + verification_commands axis + cost tiebreaker"
+    - "gd select-candidate <N> [--dry-run] promotes the winning PLAN-N.md to PLAN.md + writes PLAN-SELECTION.json audit trail"
+    - "autopilot runs selectCandidate when multiple PLAN-N.md exist (replacing the Phase 2 'selection pending' gate)"
+    - "DEAD-ENDS violation = hard-fail the candidate (-Infinity score) ONLY via slug citation or curated forbidden_terms (Jaccard is advisory only, logged to PLAN-SELECTION.json)"
+    - "verification_commands axis runs ONLY commands explicitly listed in PLAN.md frontmatter verification_commands field, via argv-array spawnSync (no shell)"
+    - "DEAD-ENDS.md schema extended with forbidden_terms field (all 6 entries backfilled)"
 ---
 
 # Phase 3 — Deterministic candidate selector
@@ -76,11 +79,14 @@ signal. Hard actions need hard signals.
 </task>
 
 <task name="extend-dead-ends-schema">
-Add a `forbidden_terms: [str]` field to the DEAD-ENDS YAML schema
-in `agents/grd-planner.md` and `lib/dead-ends.ts`. Backfill the
-existing 6 entries with curated term lists. Round-trip the new
-field through read + write paths. This is a small, contained
-schema extension.
+Add a `forbidden_terms: [str]` field to the DEAD-ENDS YAML entries
+in `.planning/DEAD-ENDS.md`. Backfill all 6 existing entries with
+curated term lists (the exact mechanism phrases that confess the
+dead end — e.g. "elo tournament", "meta-reviewer agent"). The
+selector reads this field via its own `parseDeadEnds` in
+`lib/commands/select-candidate.ts`; the `lib/dead-ends.ts` CLI-add
+path does not yet emit the field (deferred — manual entries carry
+it for v0.4, CLI round-trip is a v0.5 follow-up).
 </task>
 
 <task name="verification-commands-axis">

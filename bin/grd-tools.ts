@@ -704,6 +704,17 @@ const {
   ) => void;
 } = require('../lib/commands/plan-phase');
 
+const {
+  cmdSelectCandidate,
+}: {
+  cmdSelectCandidate: (
+    cwd: string,
+    phaseNum: string,
+    opts: { dryRun?: boolean },
+    raw: boolean
+  ) => void;
+} = require('../lib/commands/select-candidate');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1271,6 +1282,17 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
         error(`--candidates must be a positive integer, got "${candidatesArg}"`);
       }
       cmdPlanPhase(cwd, phaseNum, { candidates, inputFile, allowPartial }, raw);
+    },
+  },
+  {
+    command: 'select-candidate',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) {
+        error('phase number required. Usage: gd select-candidate <N> [--dry-run]');
+      }
+      const phaseNum: string = args[1];
+      const dryRun: boolean = args.includes('--dry-run');
+      cmdSelectCandidate(cwd, phaseNum, { dryRun }, raw);
     },
   },
 ];

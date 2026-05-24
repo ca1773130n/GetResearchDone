@@ -192,6 +192,15 @@ const {
   buildMilestoneCompletePrompt: (version: string) => string;
 };
 const {
+  selectCandidate,
+} = require('./commands/select-candidate') as {
+  selectCandidate: (
+    cwd: string,
+    phaseNum: string,
+    opts?: { dryRun?: boolean; milestone?: string }
+  ) => import('./commands/select-candidate').SelectionResult;
+};
+const {
   toSpawnResult,
   spawnClaude,
   spawnClaudeAsync,
@@ -882,21 +891,33 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
           execTasks.push({ phaseNum, skipped: true });
           continue;
         }
-        // v0.4 Phase 2 gate: skip execution when multiple PLAN candidates
-        // exist and none has been promoted to PLAN.md yet. Phase 3 will wire
-        // the deterministic selector that auto-promotes.
+        // v0.4 Phase 3: when multiple PLAN candidates exist and none has been
+        // promoted to PLAN.md yet, run the deterministic selector. It scores
+        // each candidate, hard-fails DEAD-ENDS violators, picks the highest
+        // survivor, promotes it to PLAN.md, and writes PLAN-SELECTION.json.
         if (hasMultipleCandidates(cwd, phaseNum)) {
-          log(
-            `Phase ${phaseNum}: selection pending — multiple PLAN candidates present; Phase 3 selector will pick`
-          );
-          results.push({
-            phase: phaseNum,
-            step: 'execute',
-            status: 'skipped',
-            reason: 'multi-candidate selection pending (Phase 3 selector not yet wired)',
-          });
-          execTasks.push({ phaseNum, skipped: true });
-          continue;
+          if (dryRun) {
+            log(`Phase ${phaseNum}: [dry-run] would run deterministic selector over candidates`);
+          } else {
+            const selection = selectCandidate(cwd, phaseNum);
+            if (!selection.winner) {
+              log(
+                `Phase ${phaseNum}: all PLAN candidates hard-failed DEAD-ENDS checks — cannot select`
+              );
+              failedPlanPhases.add(phaseNum);
+              results.push({
+                phase: phaseNum,
+                step: 'execute',
+                status: 'skipped',
+                reason: 'all candidates hard-failed DEAD-ENDS; no viable plan to execute',
+              });
+              execTasks.push({ phaseNum, skipped: true });
+              continue;
+            }
+            log(
+              `Phase ${phaseNum}: selected ${selection.winner.relPath} (score ${selection.winner.total_score.toFixed(3)}) → promoted to PLAN.md`
+            );
+          }
         }
         if (dryRun) {
           results.push({

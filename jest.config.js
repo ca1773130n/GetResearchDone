@@ -52,6 +52,7 @@ module.exports = {
     './lib/complexity.ts': { lines: 95, functions: 100, branches: 85 },
     './lib/commands/plan-lint.ts': { lines: 85, functions: 90, branches: 75 },
     './lib/commands/plan-phase.ts': { lines: 88, functions: 60, branches: 80 },
+    './lib/commands/select-candidate.ts': { lines: 90, functions: 90, branches: 75 },
   },
   testTimeout: 15000,
 };
