@@ -1107,7 +1107,15 @@ export function createScheduler(
           if (idleKillTimer) clearTimeout(idleKillTimer);
           if (totalKillTimer) clearTimeout(totalKillTimer);
           const duration = Date.now() - startTime;
-          const exitCode = code ?? (idleTimedOut || totalTimedOut ? 1 : 0);
+          // Codex r45 P1 #6 followup: when we killed the subprocess
+          // because of a live spin detection, the process exits with
+          // code=null (SIGTERM). The prior `code ?? 0` fallback then
+          // reported success, so callers wrote SPIN-REPORT.md AND
+          // marked the phase completed. Treat a spin-kill as a
+          // failure exit so autopilot does not advance on a killed
+          // step.
+          const exitCode =
+            code ?? (idleTimedOut || totalTimedOut || liveSpinEvent ? 1 : 0);
           const tokens = adapter.parseTokenUsage(stderrBuf) ?? Math.round(duration * 10);
 
           const sample: UsageSample = {
