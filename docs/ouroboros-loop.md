@@ -310,10 +310,13 @@ the place where this lesson can compound across projects.
 
 ## 8. Future work
 
-- Publish a benchmark score against SWE-bench-Lite or a curated 30-task
-  internal benchmark.
-- Add a "Singularity %" metric — the fraction of GRD's own code authored
-  by `gd evolve`. The data is already in `EVOLUTION.md`.
+### 8.1 Originally planned
+
+- Publish a benchmark score on the internal 30-task bench (8 of 30
+  task fixtures populated as of this writing; agent-driven harness
+  in `scripts/run-internal-bench.mjs`).
+- ~~Add a "Singularity %" metric~~ — **done in v0.3.28**:
+  `gd singularity` reports 92.2% on `v0.3.24..HEAD`.
 - Promote `drift_exceeded` from informational to a soft gate with a
   human-confirmation prompt.
 - Cross-project GENOME — let one project's snapshots inform another
@@ -321,23 +324,136 @@ the place where this lesson can compound across projects.
 - Replace codex-rescue with an in-loop verifier agent that reads
   DEAD-ENDS to learn what to flag aggressively.
 
+### 8.2 Co-Scientist-inspired additions (scoped for v0.4.x)
+
+The DeepMind Co-Scientist (Gottweis et al., 2025) demonstrates four
+mechanisms that map cleanly onto the Ouroboros substrate. Adding
+them brings the closed-loop framework closer to a true
+generate–debate–evolve cycle:
+
+1. **Elo-rated plan tournament.** Today `gd plan-tournament score`
+   takes ≥2 candidate PLAN.md files and emits one-shot scores. The
+   Co-Scientist analog runs *repeated head-to-head debates* and
+   accumulates Elo ratings per candidate, with higher Elo correlating
+   to higher GPQA-diamond accuracy in their published validation.
+   Concrete step: persist Elo state per phase
+   (`.planning/phases/<N>/PLAN-ELO.json`); add `gd plan-tournament
+   debate <A> <B>` and `gd plan-tournament leaderboard`. The Elo
+   floor decides which plan goes to `execute-phase`.
+2. **Meta-review agent.** Co-Scientist's *Meta-review* periodically
+   summarizes patterns across all prior agent outputs to feed back
+   into Generation. The Ouroboros analog reads N recent
+   VERIFICATION.md `<reflection>` blocks, extracts higher-order
+   prescriptive heuristics (e.g. "evolve-generated CLI commands
+   miss prefixed-filename conventions in ~80% of cases"), and
+   *appends them to GENOME.md as prescriptive rules*, distinct from
+   the existing descriptive snapshots. The DEAD-ENDS registry
+   already records *what failed*; meta-review records *why it tends
+   to fail*.
+3. **Proximity clustering on competing hypotheses.** Co-Scientist's
+   *Proximity* agent clusters similar hypotheses to avoid
+   redundancy. The Ouroboros analog uses the vocabulary-Jaccard
+   infrastructure already in `lib/drift.ts`'s ontology dimension to
+   cluster plan candidates before scoring. Plans within a cluster
+   debate first; only cluster winners enter the global tournament.
+4. **Test-time compute scaling as an explicit configuration knob.**
+   Today `--iterations N` exists per-loop. Co-Scientist's framing —
+   "more compute → higher Elo → higher accuracy" — suggests a
+   project-scoped `effort` setting (`thrifty | balanced | deep`)
+   that scales tournament rounds, refinement iterations, and
+   critique-agent depth in proportion. GRD already has a
+   `model_profile` axis; this adds an orthogonal `effort` axis.
+
+### 8.3 Honest gap (open question)
+
+Co-Scientist showed a clear *correlation* between Elo and GPQA
+accuracy in their domain. We do not yet have evidence that the
+same holds for *coding* domains. The right next experiment is to
+run the 8 populated benchmark tasks through both modes — naive
+plan-once vs Elo-rated plan-tournament — and report the
+correlation between Elo and `verify.sh` pass rate. This is the
+empirical claim §6 of this paper should eventually carry.
+
 ## 9. Related work
 
+### 9.1 Closely related (multi-agent loops)
+
+- **Google DeepMind AI Co-Scientist** (Gottweis et al., 2025;
+  arXiv:2502.18864) — the closest published system. A coalition of
+  six specialized agents (*Generation, Reflection, Ranking,
+  Evolution, Proximity, Meta-review*) coordinated by a *Supervisor*,
+  running a generate–debate–evolve loop with **Elo-rated tournament
+  ranking** over hypotheses. Validated on biomedical drug
+  repurposing (AML), novel epigenetic target discovery (liver
+  fibrosis), and bacterial AMR mechanisms.
+
+  **Comparison with Ouroboros:**
+
+  | Dimension | Co-Scientist | Ouroboros / GRD |
+  |---|---|---|
+  | Domain | biomedical hypothesis generation | agentic coding |
+  | Agent count | 6 (named after scientific-method roles) | 1 planner + 1 verifier + 1 optional critique-agent; the loop primitives are *files*, not agents |
+  | Memory substrate | implicit in agent dialogue + Elo ratings | explicit, project-scoped, on-disk (DEAD-ENDS.md, GENOME.md) |
+  | Quality signal | Elo tournament between competing hypotheses; correlates with GPQA-diamond | falsifiable per-plan reflection verdicts + drift score |
+  | Test-time compute | scales generation; more debate → higher Elo | scales project memory; more iterations → more dead ends ruled out + more GENOME heuristics |
+  | Validation | wet-lab biomedical experiments | unit tests, type checks, lint via real `spawnSync` (no LLM-judged scoring on the core path) |
+
+  Co-Scientist optimizes for **breadth of viable hypotheses** in a
+  high-stakes domain where wet-lab validation is the ground truth.
+  Ouroboros optimizes for **continuity of project memory** in a
+  lower-stakes domain where the ground truth is fast (tests, types,
+  lint) but the project is long-lived. The systems are complementary
+  rather than competing — Co-Scientist's Elo-ranked tournaments
+  would be a natural addition to our `plan-tournament` primitive
+  (see §8).
+
 - **Reflexion** (Shinn et al., 2023) — proposed self-reflection as a
-  verbal RL signal. Our reflections are stricter (required schema, binary
-  verdict, evidence-anchored) and project-scoped rather than agent-scoped.
+  verbal RL signal. Our reflections are stricter (required schema,
+  binary verdict, evidence-anchored) and project-scoped rather than
+  agent-scoped.
+
+### 9.2 Single-agent coding loops
+
 - **SWE-agent** (Yang et al., 2024) — established the YAML-configured
-  agent-as-tool-user. Our refinement loop adapts their measurement
-  discipline (real tool output, not LLM prose) to a closed loop.
+  agent-as-tool-user pattern. Our refinement loop adapts their
+  measurement discipline (real tool output, not LLM prose) to a
+  closed loop.
+- **OpenHands / OpenDevin** (Wang et al., 2024) — community-maintained
+  agentic coding framework reporting SWE-bench Verified 77.6 at this
+  writing. We borrow their tier separation (SDK / CLI / GUI) idea
+  but ship as a Claude Code plugin so the hero verbs share a single
+  surface.
+- **Aider** (Gauthier, 2023–) — Git-aware pair programming with a
+  published "Singularity %" (88% of last release written by Aider).
+  We adopt the metric directly (`gd singularity`); GRD's current
+  measure on `v0.3.24..HEAD` is 92.2%.
+
+### 9.3 Autonomous research generation
+
 - **Sakana AI Scientist** (Lu et al., 2024) — fully automated paper
   generation. Our DEAD-ENDS + reflections are conceptually the
   no-rework / no-rediscovery substrate they identify as a gap.
-- **STORM** (Shao et al., 2024) — multi-perspective research synthesis.
-  Our GENOME's "heuristics in use" section borrows the multi-perspective
-  framing for self-curated rules.
+- **STORM / Co-STORM** (Shao et al., 2024) — multi-perspective
+  research synthesis via discrete agent roles (experts + moderator).
+  Our GENOME's "heuristics in use" section borrows the
+  multi-perspective framing for self-curated rules.
+- **GPT-Researcher** (Elovic, 2023–) — open deep-research agent
+  inspired by Plan-and-Solve + RAG. Demonstrated value of
+  parallelized agent work for breadth; orthogonal to our depth
+  focus.
+
+### 9.4 Skill / memory libraries
+
 - **Voyager** (Wang et al., 2023) — lifelong skill library in
   Minecraft. Our GENOME snapshots play a similar role for coding
   agents — durable cross-session memory of what worked.
+- **Karpathy-style hypothesis–implement–evaluate iteration**
+  (Karpathy, talks/tweets passim) — the general pattern of treating
+  an agent as a scientific iteration loop. Our `lib/autoresearch.ts`
+  uses this name for an internal experiment-iteration mode but does
+  not cite a specific published Karpathy artifact (no such named
+  project exists). The pattern is widely shared in the agentic-coding
+  community.
 
 ## 10. Reproducibility
 
@@ -374,13 +490,29 @@ gd think     # one-shot project briefing aggregating all primitives
 
 ## 11. References
 
-(arXiv preprint IDs and DOIs to be added on submission.)
+- **Gottweis et al. (2025).** *Towards an AI co-scientist.*
+  arXiv:2502.18864 (cs.AI). The DeepMind multi-agent system with
+  Generation/Reflection/Ranking/Evolution/Proximity/Meta-review
+  agents and Elo-rated tournament ranking. Most closely related to
+  this work; see §9.1 for detailed comparison.
+- **Shinn et al. (2023).** *Reflexion: Language Agents with Verbal
+  Reinforcement Learning.* arXiv:2303.11366.
+- **Yang et al. (2024).** *SWE-agent: Agent-Computer Interfaces Enable
+  Automated Software Engineering.* arXiv:2405.15793.
+- **Wang et al. (2024).** *OpenHands: An Open Platform for AI Software
+  Developers as Generalist Agents.* arXiv:2407.16741.
+- **Lu et al. (2024).** *The AI Scientist: Towards Fully Automated
+  Open-Ended Scientific Discovery.* arXiv:2408.06292.
+- **Shao et al. (2024).** *Assisting in Writing Wikipedia-like Articles
+  From Scratch with Large Language Models.* arXiv:2402.14207. (STORM)
+- **Wang et al. (2023).** *Voyager: An Open-Ended Embodied Agent with
+  Large Language Models.* arXiv:2305.16291.
+- **Snell et al. (2024).** *Scaling LLM Test-Time Compute Optimally can
+  be More Effective than Scaling Model Parameters.* arXiv:2408.03314.
+  (Cited by Co-Scientist for their Elo-via-test-time-compute claim.)
 
-- Shinn et al. (2023). *Reflexion: Language Agents with Verbal Reinforcement Learning*.
-- Yang et al. (2024). *SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering*. arXiv:2405.15793
-- Lu et al. (2024). *The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery*. arXiv:2408.06292
-- Shao et al. (2024). *Assisting in Writing Wikipedia-like Articles From Scratch with Large Language Models*. arXiv:2402.14207
-- Wang et al. (2023). *Voyager: An Open-Ended Embodied Agent with Large Language Models*. arXiv:2305.16291
+Aider (Gauthier, 2023–) and GPT-Researcher (Elovic, 2023–) are cited
+by repository / project page rather than paper.
 
 ---
 

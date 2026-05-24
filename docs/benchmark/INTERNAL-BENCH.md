@@ -104,3 +104,28 @@ honesty metric (falsification rate) measures the actual differentiator.
 
 We'll also report SWE-bench Lite as a sanity score once the harness is
 ready, but the internal bench is the primary scoreboard.
+
+## The Elo-correlation experiment (planned for v0.5)
+
+DeepMind's Co-Scientist (Gottweis et al., arXiv:2502.18864) showed
+that Elo ratings derived from agent-internal tournaments correlate
+with downstream accuracy on GPQA-diamond. We do not yet know whether
+the same correlation holds in agentic coding domains.
+
+Once ≥16 tasks are populated and the v0.4 Elo-rated plan-tournament
+ships (see `docs/ROADMAP-V0.4.md` item A), each task gets run in
+two modes:
+
+- **naive** — `gd plan-phase` → `gd execute-phase` (one shot)
+- **tournament** — generate ≥3 candidate plans → `gd plan-tournament
+  debate` (3 rounds) → `gd execute-phase` the Elo-leader
+
+Reported metrics:
+
+- per-bucket pass rate, naive vs tournament
+- Spearman correlation between Elo-leader margin and `verify.sh`
+  pass probability
+
+If correlation is strong, tournament-by-default ships in v0.5. If
+weak, tournament stays opt-in and the failure mode is documented in
+`docs/ouroboros-loop.md` §6.
