@@ -60,6 +60,8 @@ tsx-501/
 
 # Evolve session logs (per-run; the canonical one is .planning/autopilot/evolve.log)
 .planning/autopilot/evolve-*.log
+# Autopilot run log — transient per-run output, not project state
+.planning/autopilot/autopilot.log
 
 # Scratch space
 .planning/thoughts/
@@ -69,17 +71,26 @@ tsx-501/
 
 # HarnessSync targets (auto-generated, per-machine)
 .aider.conf.yml
+.agents/
 .avante/
+.cline/
 .clinerules
 .codecompanion/
+.codeium/
 .codex/
 .continue/
 .cursor/
+.gemini/
 .harness-sync/
 .opencode/
 .prettierrc
 .prettierignore
 .roo/
+.rules
 .serena/
 .zed/
+config.toml
+opencode.json
 GEMINI.md
+.github/copilot-instructions.md
+.github/prompts/

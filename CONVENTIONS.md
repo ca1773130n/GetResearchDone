@@ -1,388 +1,260 @@
 <!-- Managed by HarnessSync -->
 # Project Conventions (synced from Claude Code)
 
+<!-- [harness-sync:start source=CLAUDE.md line=1-250] -->
 # [Project rules from CLAUDE.md]
 
 # GRD — Get Research Done
 
-R&D workflow automation for Claude Code. Paper-driven development, tiered evaluation, autonomous iteration loops.
-
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm test` | Run all tests with coverage (2,646+ tests) |
-| `npm run test:unit` | Unit tests only with coverage |
-| `npm run test:integration` | Integration + E2E tests |
-| `npm run test:watch` | Watch mode for development |
-| `npm run lint` | ESLint on `bin/` and `lib/` |
-| `npm run lint:fix` | Auto-fix lint issues |
-| `npm run format:check` | Prettier check (CI-safe) |
-| `npm run format` | Prettier auto-format |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run build:check` | Type-check without emitting (`tsc --noEmit`) |
+### Context-Mode MCP (prefer over Bash/Read for large output)
 
-Single test file: `npx jest tests/unit/state.test.ts`
-Single test name: `npx jest -t "should parse frontmatter"`
+| Tool                  | Use Instead Of          | Description                                              |
+| --------------------- | ----------------------- | -------------------------------------------------------- |
+| `ctx_batch_execute`   | Multiple Bash calls     | Run multiple commands + search results in ONE call       |
+| `ctx_execute`         | Bash (>20 lines output) | Run code in sandbox; only printed summary enters context |
+| `ctx_execute_file`    | Read/cat for analysis   | Read file into sandbox; process and print summary only   |
+| `ctx_search`          | Grep (follow-up)        | Search previously indexed content with multiple queries  |
+| `ctx_index`           | Read (large docs)       | Index markdown/docs into searchable knowledge base       |
+| `ctx_fetch_and_index` | WebFetch                | Fetch URL, convert to markdown, index for search         |
+| `ctx_stats`           | —                       | Show session context consumption statistics              |
+| `ctx_doctor`          | —                       | Diagnose context-mode installation                       |
+| `ctx_upgrade`         | —                       | Upgrade context-mode to latest version                   |
 
-## Source Architecture
+### Dev
 
-```
-bin/
-├── grd-tools.ts            # Main CLI — all deterministic operations
-├── grd-tools.js            # CJS proxy (requires grd-tools.ts)
-├── grd-mcp-server.ts       # MCP server for tool exposure
-├── grd-mcp-server.js       # CJS proxy
-├── grd-manifest.ts         # SHA256 file tracking for self-update
-└── postinstall.ts          # npm postinstall hook
-lib/                        # 21 modules + 3 decomposed sub-module directories
-├── autopilot.ts            # Autopilot orchestration
-├── backend.ts              # Claude Code backend detection + capabilities
-├── cleanup.ts              # Phase-boundary quality analysis
-├── commands/               # CLI command routing (decomposed from commands.js)
-│   ├── index.ts            # Barrel re-export + routing
-│   ├── dashboard.ts        # Dashboard rendering
-│   ├── health.ts           # Health check commands
-│   ├── progress.ts         # Progress display
-│   └── ... (12 sub-modules)
-├── context/                # Context optimization (decomposed from context.js)
-│   ├── index.ts            # Barrel re-export
-│   ├── base.ts             # Shared init context builder
-│   ├── execute.ts          # Execute-phase init
-│   └── ... (7 sub-modules)
-├── deps.ts                 # Dependency management
-├── evolve/                 # Self-evolution loop (decomposed from evolve.js)
-│   ├── index.ts            # Barrel re-export
-│   ├── orchestrator.ts     # Evolution orchestration
-│   ├── discovery.ts        # Codebase discovery
-│   └── ... (10 sub-modules)
-├── frontmatter.ts          # YAML frontmatter CRUD
-├── gates.ts                # Research + confirmation gates
-├── long-term-roadmap.ts    # LT milestone CRUD + protection rules
-├── markdown-split.ts       # Markdown file splitting for context
-├── mcp-server.ts           # MCP tool registration
-├── parallel.ts             # Parallel execution engine
-├── paths.ts                # Milestone-scoped path resolution for .planning/
-├── phase.ts                # Phase lifecycle (add/insert/remove/complete)
-├── requirements.ts         # Requirements parsing + traceability
-├── roadmap.ts              # ROADMAP.md parsing + manipulation
-├── scaffold.ts             # Directory/file scaffolding
-├── state.ts                # STATE.md read/write/patch
-├── tracker.ts              # GitHub Issues / MCP Atlassian sync
-├── types.ts                # Shared TypeScript type definitions
-├── utils.ts                # Shared utilities (slug, date, markdown)
-├── verify.ts               # Plan/phase/commit verification suite
-└── worktree.ts             # Git worktree parallel execution
-commands/                   # 39 skill definitions (markdown with frontmatter)
-agents/                     # 19 subagent definitions (markdown with frontmatter)
-tests/
-├── unit/                   # Unit tests — one per lib/ module (.test.ts)
-├── integration/            # CLI + E2E workflow tests (.test.ts)
-├── golden/                 # Golden output snapshot tests
-├── fixtures/               # Shared test fixtures
-└── helpers/                # Test utilities (.ts)
-dist/                       # Compiled TypeScript output (generated by npm run build)
-docs/                       # Tutorials, quickstart, diagrams
-.claude-plugin/plugin.json  # Claude Code plugin manifest
-```
+| Command               | Description                 |
+| --------------------- | --------------------------- |
+| `npm test`            | Run all tests with coverage |
+| `npm run test:unit`   | Unit tests only             |
+| `npm run lint`        | ESLint on `bin/` and `lib/` |
+| `npm run build:check` | Type-check (`tsc --noEmit`) |
 
-## Key Files
+Single test: `npx jest tests/unit/state.test.ts`
+By name: `npx jest -t "should parse frontmatter"`
 
-- `bin/grd-tools.ts` — Main CLI implementation (TypeScript)
-- `bin/grd-tools.js` — CJS proxy entry point; requires grd-tools.ts at runtime
-- `tsconfig.json` — TypeScript config (strict mode, noEmit for type-checking)
-- `tsconfig.build.json` — Build config (extends tsconfig.json, emits to dist/)
-- `.planning/config.json` — Project configuration (gates, tracker, eval, execution settings)
-- `.planning/STATE.md` — Living memory; always read this first to understand project state
-- `.planning/ROADMAP.md` — Phase structure; source of truth for what to build
-- `jest.config.js` — Per-file coverage thresholds (enforced in CI)
-- `eslint.config.js` — ESLint flat config with `no-unused-vars` (prefix unused args with `_`)
+### GD CLI (`gd <command> [args] [--json]`)
 
-## Testing
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `gd progress`          | Project status and next action   |
+| `gd state load`        | Load full project config + state |
+| `gd plan-phase <N>`    | Plan a phase                     |
+| `gd execute-phase <N>` | Execute a phase                  |
+| `gd autopilot`         | Run phases autonomously          |
+| `gd evolve`            | Self-improvement loop            |
+| `gd quick <desc>`      | Ad-hoc task with GRD guarantees  |
+| `gd health`            | Blockers, velocity, risk         |
+| `gd settings`          | Configure workflow               |
+| `gd metrics`           | Print in-memory counter snapshot |
+| `gd help`              | Full command reference           |
 
-- Tests mirror `lib/` structure: `lib/state.ts` → `tests/unit/state.test.ts`
-- All 37 test files are TypeScript (.test.ts), transformed via ts-jest
-- Per-file coverage thresholds in `jest.config.js` — do not lower them
-- Golden tests (`tests/golden/`) use `capture.sh` to snapshot CLI output
-- Pre-commit hook runs `npm run lint` — commits fail if lint errors exist
-- Integration tests (`tests/integration/`) spawn real CLI processes
-- Test timeout: 15s (configured in `jest.config.js`)
+## Architecture
 
-## Shell Safety (zsh)
-
-zsh escapes `!` inside strings, breaking `!=` and `!==` in inline shell scripts.
-
-**Rules for ad-hoc Bash commands:**
-- NEVER use `node -e` or `python3 -c` with `!=` or `!==` operators
-- NEVER pipe `--raw` JSON through inline one-liner scripts
-- Instead: use `grd-tools.js` pre-formatted output directly, or write a temp `.js` file, or use `===`/`==` with inverted logic (e.g., `status === "shipped"` + filter instead of `status !== "shipped"`)
-- Prefer `grd-tools.js` subcommands over ad-hoc JSON parsing — the CLI already provides formatted output for all queries
+- `bin/*.js` — Entry points (register tsx, load `.ts`). `bin/*.ts` — Actual implementations.
+- `lib/` — 24 TypeScript modules + 4 subdirectories (`cli/`, `commands/`, `context/`, `evolve/`)
+- `commands/` — 43 skill definitions (markdown). `agents/` — 20 subagent definitions (markdown).
+- `tests/unit/` — One test file per `lib/` module. `tests/integration/` — CLI + E2E tests.
+- `examples/` — Tutorial projects. `examples/taskmark/` — hands-on GRD tutorial (Quick + Deep paths).
+- `.planning/` — Project plans, roadmap, state, and config. Read `.planning/STATE.md` first.
 
 ## Code Style
 
-- TypeScript with `strict: true` (all lib/ and bin/ files are .ts)
-- CommonJS `require()`/`module.exports` pattern (not ESM imports)
-- CJS proxy pattern: each lib/*.js is a thin proxy that `require()`s the .ts file
+- TypeScript `strict: true`, CommonJS (`require`/`module.exports`, not ESM)
+- `tsx` at entry points for direct `.ts` resolution — no CJS proxy files
 - `'use strict'` at top of every file
-- ESLint flat config with `typescript-eslint` for .ts files
-- Prefix unused function args with `_` (e.g., `function handler(_req: Request, res: Response)`)
-- Prettier for formatting (no config file — uses defaults)
-- Node >=18 required
-- Zero `any` types in core lib/ modules (use `Record<string, unknown>` or specific interfaces)
-- Typed `require()` pattern: `const { fn } = require('./module') as { fn: (arg: Type) => ReturnType }`
+- Prefix unused args with `_` (enforced by ESLint `no-unused-vars`)
+- Zero `any` — use `Record<string, unknown>` or specific interfaces
+- Typed require: `const { fn } = require('./module') as { fn: (arg: Type) => ReturnType }`
 
-## Planning Directory
+## Testing
 
+- Tests mirror `lib/`: `lib/state.ts` → `tests/unit/state.test.ts`
+- Per-file coverage thresholds in `jest.config.js` — do not lower them
+- Pre-commit hook (optional, installed via `npm run hooks:install`) runs `gd scan` on staged markdown to block prompt injection patterns before commit. No other pre-commit hooks are installed by default.
+- Timeout: 15s
+
+## Backend Capabilities
+
+Capability flags per backend. Source: `BACKEND_CAPABILITIES` in `lib/backend.ts`.
+
+| Flag                        | claude   | codex | gemini | opencode |
+| --------------------------- | -------- | ----- | ------ | -------- |
+| `subagents`                 | true     | true  | true   | true     |
+| `parallel`                  | true     | true  | true   | true     |
+| `teams`                     | true     | true  | false  | false    |
+| `hooks`                     | true     | true  | true   | true     |
+| `mcp`                       | true     | true  | true   | true     |
+| `native_worktree_isolation` | true     | false | false  | false    |
+| `effort`                    | true     | false | false  | false    |
+| `http_hooks`                | true     | false | false  | false    |
+| `cron`                      | true     | false | false  | false    |
+| `smart_approvals`           | false    | true  | false  | false    |
+| `plan_mode`                 | false    | false | true   | false    |
+| `sandbox_gvisor`            | false    | false | true   | false    |
+| `sandbox_lxc`               | false    | false | false  | false    |
+| `mcp_elicitation`           | true     | false | false  | false    |
+| `model_overrides`           | true     | true  | true   | true     |
+| `max_output_tokens`         | 64K/128K | null  | null   | null     |
+
+## Agent Frontmatter
+
+Three fields control per-agent behavior (Claude Code v2.1.68+ for `effort`):
+
+- **`effort`** (`low` / `medium` / `high`) — Controls reasoning depth. Set per agent per profile from `EFFORT_PROFILES` in `lib/backend.ts`.
+- **`maxTurns`** — Caps the number of turns an agent can take before stopping.
+- **`disallowedTools`** — Restricts which tools an agent may call (e.g. `["Bash", "Write"]`).
+
+### Effort Profiles (from EFFORT_PROFILES)
+
+| Agent               | quality     | balanced   | budget |
+| ------------------- | ----------- | ---------- | ------ |
+| grd-planner         | high        | high       | low    |
+| grd-executor        | high        | medium     | low    |
+| grd-verifier        | medium      | low        | low    |
+| grd-debugger        | high        | medium     | low    |
+| grd-codebase-mapper | medium      | low        | low    |
+| (others)            | high/medium | medium/low | low    |
+
+### /effort Slash Command
+
+- `/effort` (Claude Code v2.1.76+) lets users override effort level mid-session.
+- GRD sets effort via agent frontmatter using `EFFORT_PROFILES`; user `/effort` overrides take precedence.
+- A user can lower effort for fast iteration or raise it for thorough analysis, independent of GRD's profile system.
+
+## Plugin Data
+
+Clear boundary between project state and plugin state:
+
+- **`.planning/`** — Project-scoped state: plans, roadmap, config, research, state. Lives in the repo, committed with the project.
+- **`CLAUDE_PLUGIN_DATA`** — Plugin-scoped state that survives plugin updates. Used for cross-project config (scheduler state, evolve global config). Set by Claude Code, points to a persistent directory outside the project.
+- Rule: project artifacts go in `.planning/`; plugin infrastructure goes in `CLAUDE_PLUGIN_DATA`.
+
+## Backend-Specific Notes
+
+### Codex CLI (v0.115.0+)
+
+- Realtime websocket sessions and filesystem RPC capabilities are available but not currently used by GRD.
+- Smart approvals (`smart_approvals: true`) route code review requests through a guardian subagent before applying changes.
+- `CODEX_THREAD_ID` kept for backward compatibility; may be deprecated in newer versions.
+
+### Gemini CLI (v0.31–v0.34)
+
+- **v0.34**: Tracker CRUD MCP tools added; plan mode enabled by default (`plan_mode: true`).
+- **v0.32**: Generalist agent added.
+- **v0.31**: Browser agent added (experimental).
+- A2A agent timeout increased to 30 minutes (was shorter in earlier versions).
+- gVisor sandboxing available (`sandbox_gvisor: true`); LXC sandboxing not yet supported.
+
+### OpenCode (v1.2.25–v1.2.27)
+
+- **v1.2.27**: Fix for lost sessions across worktrees and orphan branches — directly relevant to GRD's worktree isolation mode.
+- 5-minute chunk timeout (increased from 2 minutes in earlier versions).
+- Multi-account workspace authentication support.
+- Non-OpenAI Azure completions endpoint support.
+
+### Token profile (Spec 4)
+
+`token_profile` is a user preference in `.planning/config.json` orthogonal
+to `model_profile`. Values: `frugal`, `balanced` (default), `quality`.
+Controls adaptive model-tier downgrade under budget pressure or low task
+complexity. Set via `gd settings token_profile <value>`.
+
+- `quality`: never downgrade unless budget pressure is >=95% (critical).
+- `balanced`: downgrade 0-2 steps based on (pressure, complexity).
+- `frugal`: aggressively downgrade non-high-complexity tasks even at
+  low pressure.
+
+Budget pressure is classified as `none` / `warning` (>=60%) / `high`
+(>=80%) / `critical` (>=95%) per account. Autopilot, evolve, and
+autoresearch check this before each agent dispatch. Thresholds are
+configurable via `.planning/config.json`
+`scheduler.budget_pressure_thresholds`.
+
+### AI account rotation
+
+Account rotation lets users register multiple AI service accounts (e.g., personal + work Claude subscriptions) so the scheduler can route tasks to a healthy account when another hits a rate limit. Rotation interacts with `token_profile`: per-account budget pressure drives adaptive model-tier selection, and `max_wait_minutes` controls how long the scheduler blocks before falling back when all priority accounts are exhausted.
+
+**Env var injected per backend:**
+
+| Backend    | Env var injected         |
+| ---------- | ------------------------ |
+| `claude`   | `CLAUDE_CONFIG_DIR`      |
+| `codex`    | `CODEX_HOME`             |
+| `gemini`   | `GEMINI_CLI_HOME`        |
+| `opencode` | `OPENCODE_CONFIG_DIR`    |
+| `overstory`| `OVERSTORY_HOME`         |
+
+**Example config shape** (`superpowers` key in `.planning/config.json`):
+
+```json
+"superpowers": {
+  "account_rotation": true,
+  "accounts": {
+    "claude": [
+      { "config_dir": "~/.claude-personal" },
+      { "config_dir": "~/.claude-work" }
+    ],
+    "codex": [
+      { "config_dir": "~/.codex-personal" }
+    ]
+  }
+}
 ```
-.planning/
-├── PROJECT.md              # Product vision, research objectives, quality targets
-├── ROADMAP.md              # Phase structure with verification levels
-├── STATE.md                # Living memory with baselines, deferred validations
-├── BASELINE.md             # Current quantitative performance metrics
-├── PRODUCT-QUALITY.md      # Product-level quality targets and gaps
-├── PRINCIPLES.md           # Project principles that shape agent behavior (optional)
-├── REQUIREMENTS.md         # Requirements with traceability
-├── config.json             # GRD configuration
-├── TRACKER.md              # Issue tracker mapping (created at runtime)
-├── standards/              # Discovered codebase standards (from /grd:discover)
-│   ├── index.yml           # Standard catalog with area/tag metadata
-│   └── {area}/             # Standards grouped by area (api, database, etc.)
-│       └── {pattern}.md    # Individual standard definition
-└── milestones/
-    ├── {milestone}/                    # e.g., v0.2.1 (active milestone)
-    │   ├── phases/
-    │   │   └── {NN}-{name}/
-    │   │       ├── {NN}-RESEARCH.md    # Phase research with paper references
-    │   │       ├── {NN}-CONTEXT.md     # User decisions from discuss-phase
-    │   │       ├── {NN}-{MM}-PLAN.md   # Execution plan with verification_level
-    │   │       ├── {NN}-{MM}-SUMMARY.md # Execution results with experiment data
-    │   │       ├── {NN}-{MM}-REVIEW.md # Code review findings (per wave)
-    │   │       ├── {NN}-EVAL.md        # Tiered evaluation plan and results
-    │   │       └── {NN}-VERIFICATION.md # Tiered verification report
-    │   ├── research/                   # Milestone-scoped research knowledge base
-    │   │   ├── LANDSCAPE.md            # SoTA map (methods, benchmarks, trends)
-    │   │   ├── PAPERS.md               # Paper index with summaries
-    │   │   ├── BENCHMARKS.md           # Evaluation metrics and datasets
-    │   │   ├── KNOWHOW.md              # Paper-to-production gap knowledge
-    │   │   └── deep-dives/             # Individual paper analyses
-    │   │       └── {paper-slug}.md
-    │   ├── codebase/                   # Codebase analysis (from map-codebase)
-    │   └── todos/                      # Milestone-scoped captured ideas
-    │       ├── pending/
-    │       └── completed/
-    └── anonymous/                      # Operations without a milestone
-        ├── quick/
-        │   └── {N}-{slug}/
-        │       └── {N}-SUMMARY.md
-        ├── research/
-        └── todos/
-```
 
-## R&D Workflow
+**Setup:** Use `gd init` (Round 5 interview) or `gd settings` (mention accounts/rotation/credentials). Do not edit the JSON directly.
 
-```
-Idea → Survey → Feasibility → Product Plan → Roadmap
-  → [per phase: Research → Plan → Execute → Review → Eval → Iterate?]
-  → Integration → Product Verification → Done
-         ↑                                    ↑
-         └──── LANDSCAPE.md continuously ─────┘
-```
+**Authentication:** Authenticate each account via the standard CLI flow before using GRD — e.g. `CLAUDE_CONFIG_DIR=~/.claude-work claude auth login`. GRD handles routing only; OAuth is handled by the backend CLI.
 
-## Tiered Verification
+### LLM fallback for phase completion (Spec 3B)
 
-R&D phases use three verification levels:
+`phase_complete_llm_fallback` is an opt-in config flag (default `false`).
+When `true`, both `gd autopilot`'s phase-finalize step and `gd phase complete N`
+fall back to asking Claude to perform the ROADMAP.md and STATE.md edits
+directly via the scheduler, if the regex-based mechanical path throws or
+gate-fails. Verification is shallow: ROADMAP.md is re-read and checked for a
+ticked `- [x] Phase N` checkbox.
 
-| Level | Name | When | Example |
-|-------|------|------|---------|
-| 1 | Sanity | Always in-phase | Format checks, crash tests, distribution viz |
-| 2 | Proxy | Indirect in-phase | Small-subset eval, ablation reproduction |
-| 3 | Deferred | Integration only | Full PSNR/SSIM/LPIPS on complete pipeline |
+Set via `gd settings phase_complete_llm_fallback true`. Opt-in only —
+existing users see no change.
 
-Deferred validations are tracked in STATE.md and automatically collected at integration phases.
+The fallback respects `token_profile`, budget pressure, and the idle
+watchdog just like any other scheduler spawn.
 
-## Scale-Adaptive Ceremony
+### Scheduler idle watchdog (Spec 2B)
 
-Three ceremony levels control which agents run during planning and execution:
+`scheduler.idle_timeout_seconds` (default 900) kills a spawned backend
+subprocess if it produces no stdout/stderr data for the configured
+number of seconds. Distinct from the total-timeout upper bound: the
+idle timeout only fires when the subprocess is completely silent, so
+legitimate streaming inference is unaffected. On trip: SIGTERM →
+5-second grace → SIGKILL. Result carries `idleTimedOut: true` flag
+so callers can distinguish idle-kills from total-timeout kills.
 
-| Level | When | Agents Used |
-|-------|------|-------------|
-| Light | Small scope, ≤1 plan | planner (quick mode) + executor |
-| Standard | Normal phase, 2-4 plans | researcher + planner + checker + executor + verifier |
-| Full | Complex R&D, 5+ plans, experiments | All agents, all gates, review, eval, verification |
+Per-backend overrides are available via
+`SchedulerConfig.idle_timeout_seconds_by_backend` (e.g. set a higher
+limit for `gemini` if it batches output less frequently).
 
-Auto-inferred from phase signals (plan count, research refs, eval targets). Override via:
-- Config: `ceremony.default_level` or `ceremony.phase_overrides`
-- CLI: `/grd:plan-phase N --ceremony light`
-- Quick toggle: `/grd:settings ceremony <level>`
+### In-process metrics (Spec gsd-2 follow-up)
 
-Ceremony controls WHICH agents are skipped, not WHICH model they use. When an agent runs, it runs at full quality.
+`gd metrics` prints a JSON snapshot of in-memory counters for the
+current process. Counters reset on each `gd` invocation; they are
+most useful in long-running `gd autopilot` sessions. Tracked events:
 
-## Autonomous Mode (YOLO)
+- `scheduler.pressure_transitions.<level>` — budget pressure level changes
+- `scheduler.idle_kills_total` — idle watchdog trips
+- `phase_complete_llm_fallback.attempts_total` — LLM fallback phase-complete attempts
+- `phase_complete_llm_fallback.successes_total` — successful LLM fallback completions
 
-Toggle with `/grd:settings yolo`. When enabled:
-- All research gates → disabled
-- All confirmation gates → disabled
-- Agent makes its own decisions using available context
-- All decisions are logged for review
+## Gotchas
 
-## Memory Model
+- **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
+- **CLI output**: `gd` tool commands output JSON by default (`--json` flag, `--raw` for plain text via grd-tools).
+- **Config**: `.planning/config.json` controls all workflow behavior (gates, scheduler, ceremony, tracker, code review).
 
-GRD uses a dual-memory architecture:
-
-- **STATE.md** (structured, persistent) — Project decisions, metrics, deferred validations, phase progress, and accumulated context. Read/written by GRD tools. Source of truth for project state across sessions.
-- **Auto-memory** (Claude Code native, session-level) — Claude Code's `/memory` command (v2.1.59+) manages session-level context automatically. Stores user preferences, workflow patterns, and frequently-used context.
-
-**Interaction model:** STATE.md and auto-memory are complementary, not competing. STATE.md handles project-specific structured data that must survive across milestones. Auto-memory handles ephemeral session preferences. GRD never reads or writes auto-memory directly — it operates exclusively through STATE.md and .planning/ files.
-
-## Tracker Integration (GitHub / MCP Atlassian)
-
-When `tracker.provider` is `"github"` or `"mcp-atlassian"` in config:
-- One-way push: GRD → Tracker (GRD is source of truth)
-- Mapping: Milestone → Epic, Phase → Task (child of Epic), Plan → Sub-task (child of Task)
-- Status updates, eval results, and verification posted as comments on phase Tasks
-- Idempotency via `.planning/TRACKER.md` mapping file
-- All tracker calls non-blocking (never blocks workflow)
-- MCP Atlassian uses prepare/execute/record pattern (agents call MCP tools directly)
-- Date scheduling: milestone `**Start:**`/`**Target:**` + phase `**Duration:** Nd` → computed dates synced to Jira Plans timeline
-- Cascade reschedule: phase add/insert → automatic date shift for subsequent phases via `prepare-reschedule`
-
-## Key Commands
-
-### Research
-- `/grd:survey <topic>` — SoTA landscape scan
-- `/grd:deep-dive <paper>` — Paper deep analysis
-- `/grd:compare-methods` — Method comparison matrix
-- `/grd:feasibility <approach>` — Paper→production gap analysis
-
-### Planning & Execution
-- `/grd:init` — Initialize R&D project
-- `/grd:product-plan` — Product-level planning
-- `/grd:long-term-roadmap [list|add|remove|update|refine|link|unlink|display|init]` — Manage LT milestones
-- `/grd:discuss-phase <N>` — Brainstorming with no-solutions-before-questions protocol
-- `/grd:plan-phase <N>` — Phase planning with research context (flags: `--research-only`, `--eval-only`)
-- `/grd:execute-phase <N>` — Phase execution (supports Agent Teams)
-- `/grd:plan-milestone-gaps` — Create phases to close gaps from milestone audit
-
-### Evaluation
-- `/grd:assess-baseline` — Current performance baseline
-- `/grd:eval-report <N>` — Collect and analyze results
-- `/grd:iterate <N>` — Iteration loop on failed metrics
-
-### Project Configuration
-- `/grd:settings` — Configure workflow settings (subcommands: `yolo`, `profile`, `ceremony`)
-- `/grd:principles` — Create/edit PRINCIPLES.md project principles
-- `/grd:discover [area]` — Discover and extract codebase standards
-- `/grd:progress` — Project progress (modes: `dashboard`, `health`, `phase <N>`)
-
-### Integration
-- `/grd:sync [roadmap | phase <N> | status | reschedule]` — Sync GRD state to issue tracker
-- `/grd:tracker-setup` — Configure GitHub Issues or MCP Atlassian integration
-
-## Agent Model Profiles
-
-| Agent | Quality | Balanced | Budget | Effort (Quality) | Effort (Balanced) | Effort (Budget) |
-|-------|---------|----------|--------|-------------------|-------------------|-----------------|
-| grd-planner | opus | opus | sonnet | high | high | low |
-| grd-executor | opus | sonnet | sonnet | high | medium | low |
-| grd-surveyor | opus | sonnet | sonnet | medium | medium | low |
-| grd-deep-diver | opus | sonnet | haiku | high | medium | low |
-| grd-eval-planner | opus | opus | sonnet | high | medium | low |
-| grd-product-owner | opus | opus | sonnet | high | high | low |
-| grd-code-reviewer | opus | sonnet | haiku | high | medium | low |
-| grd-verifier | sonnet | sonnet | haiku | medium | low | low |
-
-## Configuration
-
-`.planning/config.json` controls:
-- `research_gates` — Human review points for research decisions
-- `autonomous_mode` — YOLO mode toggle
-- `tracker` — Issue tracker integration (GitHub Issues / MCP Atlassian)
-- `eval_config` — Default metrics and baseline tracking
-- `ceremony` — Scale-adaptive ceremony (default_level: auto/light/standard/full, phase_overrides)
-- `code_review` — Auto code review (enabled, timing, severity gate)
-- `execution` — Agent Teams toggle, timeout, concurrency limits
-- `git` — Worktree isolation (enabled, worktree_dir, base_branch, branch_template)
-- `phase_cleanup` — Phase-boundary quality analysis (complexity, dead exports, file size, doc drift, test coverage gaps, export consistency, doc staleness, config schema drift)
-- Standard GSD settings (parallelization, gates, safety)
-
-## Hook Events
-
-GRD registers hooks in `.claude-plugin/plugin.json` for Claude Code lifecycle events:
-
-| Event | When | GRD Usage |
-|-------|------|-----------|
-| SessionStart | Claude Code session begins | Verify .planning/ exists |
-| WorktreeCreate | Native worktree created | Copy .planning/ to worktree |
-| WorktreeRemove | Native worktree removed | Clean up worktree state |
-| TeammateIdle | Teammate has no pending work | Available for task routing |
-| TaskCompleted | A task finishes execution | Progress tracking, next-step routing |
-| InstructionsLoaded | Instructions/CLAUDE.md loaded | Context verification |
-
-## Git Isolation
-
-When `git.enabled` is `true` in `.planning/config.json`, phase execution runs in an isolated git worktree:
-- Worktree created in project-local `.worktrees/` directory (added to `.gitignore` automatically)
-- Branch naming follows `git.branch_template` (default: `grd/{milestone}/{phase}-{slug}`)
-- Base branch configurable via `git.base_branch` (default: `main`)
-- After execution, 4 completion options: merge locally, push and create PR, keep branch, discard work
-- Merge and PR paths run test gate before proceeding; test failures block the action
-- Internally, the init JSON uses `branching_strategy` field (values: `"none"`, `"phase"`, etc.) derived from `git.enabled`
-
-## CLI Tooling (`grd-tools.js`)
-
-Deterministic operations delegated from commands to `bin/grd-tools.js`. All commands output JSON (with `--raw` for plain text).
-
-### State Management
-- `state load` — Full config + state + roadmap status
-- `state get [section]` — Read STATE.md field or section
-- `state patch --field val` — Batch update fields
-- `state advance-plan` — Increment plan counter
-- `state record-metric --phase N --plan M --duration Xmin` — Record execution metrics
-- `state add-decision --summary "..." [--phase N]` — Log decision
-- `state add-blocker / resolve-blocker` — Track blockers
-
-### Verification Suite
-- `verify plan-structure <file>` — Validate PLAN.md structure + frontmatter
-- `verify phase-completeness <phase>` — Check plans have summaries
-- `verify references <file>` — Validate @-refs and file paths
-- `verify commits <hash>...` — Batch verify git commits
-- `verify artifacts <plan>` — Check must_haves.artifacts exist
-- `verify key-links <plan>` — Validate must_haves.key_links
-
-### Phase & Roadmap
-- `phase add/insert/remove/complete` — Phase lifecycle operations
-- `roadmap get-phase <N> / analyze` — Roadmap queries
-- `milestone complete [--name]` — Archive milestone
-- `validate consistency` — Phase numbering + disk/roadmap sync
-- `long-term-roadmap list/add/remove/update/refine/link/unlink/display/init/history/parse/validate` — LT milestone CRUD
-
-### Scaffold
-- `scaffold context/uat/verification/phase-dir/research-dir/eval/baseline`
-
-### Context Optimization
-- `phase-plan-index <N>` — Index plans with waves and status
-- `state-snapshot` — Structured STATE.md parse
-- `summary-extract <path> [--fields]` — Extract structured summary data
-- `history-digest` — Aggregate all SUMMARY.md metrics
-- `progress [json|table|bar]` — Render progress in multiple formats
-
-### Frontmatter CRUD
-- `frontmatter get/set/merge/validate` — YAML frontmatter operations
-
-### Tracker
-- `tracker get-config/sync-roadmap/sync-phase/update-status/add-comment/sync-status/prepare-roadmap-sync/prepare-phase-sync/record-mapping/record-status/schedule/prepare-reschedule`
-
-### Workflow Init (21 workflows)
-- `init execute-phase/plan-phase/new-project/new-milestone/quick/resume/verify-work/phase-op/todos/milestone-op/plan-milestone-gaps/map-codebase/progress`
-- `init survey/deep-dive/feasibility/eval-plan/eval-report/assess-baseline/product-plan/iterate`
-
-## Self-Update
-
-- `/grd:update` — Check for updates, display changelog, backup modifications, pull latest
-- `/grd:reapply-patches` — Restore local modifications after update
-- `bin/grd-manifest.ts` — SHA256-based file tracking (`generate`, `detect`, `save-patches`, `load-patches`)
-
+<!-- [harness-sync:end] -->
 
 ---
-*Last synced by HarnessSync: 2026-03-13 05:14:36 UTC*
+*Last synced by HarnessSync: 2026-05-24 15:13:12 UTC*
 <!-- End HarnessSync managed content -->

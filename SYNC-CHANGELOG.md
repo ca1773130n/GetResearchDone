@@ -142,3 +142,52 @@
 - **zed** ✓  synced=1 skipped=5 failed=0
   - `/Users/neo/Developer/Projects/GetResearchDone/.zed/system-prompt.md`
 
+## 2026-05-25T00:13:14   scope=all
+
+<!-- attribution: author: Cameleon X <ca1773130n@gmail.com> | commit: a4a4702 — fix(release): unblock v0.4.1 deploy (plugin.json + workflow path) -->
+
+- **aider** ✓  synced=2 skipped=170 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/CONVENTIONS.md`
+  - `.aider.conf.yml`
+  - `.aider.conf.yml`
+  - `.aider.conf.yml`
+- **cline** ✗  synced=106 skipped=25 failed=1
+  - `/Users/neo/Developer/Projects/GetResearchDone/.roo/mcp.json`
+- **codex** ✗  synced=0 skipped=0 failed=1
+- **continue** ✓  synced=210 skipped=25 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/.continue/rules/harnesssync.md`
+  - `/Users/neo/Developer/Projects/GetResearchDone/.continue/config.yaml`
+- **cursor** ✓  synced=210 skipped=25 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/.cursor/mcp.json`
+- **gemini** ✗  synced=0 skipped=0 failed=1
+- **neovim** ✓  synced=211 skipped=25 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/.avante/mcp.json`
+- **opencode** ✓  synced=233 skipped=2 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/AGENTS.md`
+  - `animate (symlink)`
+  - `quieter (symlink)`
+  - `optimize (symlink)`
+  - `adapt (symlink)`
+  - `clarify (symlink)`
+  - `distill (symlink)`
+  - `delight (symlink)`
+  - `teach-impeccable (symlink)`
+  - `onboard (symlink)`
+  - … and 217 more
+- **vscode** ✓  synced=211 skipped=25 failed=0
+  - `.github/copilot-instructions.md`
+  - `.codeium/instructions.md`
+  - `.github/copilot-instructions.md`
+  - `.github/copilot-instructions.md`
+  - `.github/prompts/code-review.prompt.md`
+  - `.github/prompts/feature-dev.prompt.md`
+  - `.github/prompts/help.prompt.md`
+  - `.github/prompts/cancel-ralph.prompt.md`
+  - `.github/prompts/ralph-loop.prompt.md`
+  - `.github/prompts/commit-push-pr.prompt.md`
+  - … and 100 more
+- **windsurf** ✓  synced=0 skipped=1 failed=0
+- **zed** ✓  synced=210 skipped=25 failed=0
+  - `/Users/neo/Developer/Projects/GetResearchDone/.rules`
+  - `/Users/neo/Developer/Projects/GetResearchDone/.zed/settings.json`
+
