@@ -43,15 +43,18 @@ GENOME heuristic *"No LLM-judged scoring on the core execution
 path"* applies: effort scales deterministic compute (number of
 plan candidates) — not LLM judging.
 
-This phase is foundational for phases 2-4. Specifically:
+This phase has **exactly one direct consumer in v0.4: Phase 2**.
+Phases 3, 4, and 5 do not read the `effort` axis. Per-phase:
 
-- **Phase 2** reads `effort` to decide N for `--candidates N`
-  (1 / 3 / 7) via `resolveEffortKnob(config, 'candidates_per_plan_phase')`.
+- **Phase 2** is the sole direct consumer — reads `effort` to
+  decide N for `--candidates N` (1 / 3 / 7) via
+  `resolveEffortKnob(config, 'candidates_per_plan_phase')`.
 - **Phase 3** does NOT use `effort` — the deterministic selector
   scores whatever candidates Phase 2 produced. No refinement loop
   in v0.4 scope.
-- **Phase 4** uses `effort` only indirectly (it operates on whatever
-  N phase 2 produced).
+- **Phase 4** does NOT read `effort` either. It operates on the
+  candidate set Phase 2 produced (so effort affects its input size
+  but not its behavior).
 - **Phase 5** is independent of `effort` — its statistical floor
   (n >= 10, effect_size >= 0.20, BH-FDR q < 0.10) is fixed,
   not effort-scaled. (Phase 5's CLI flags can override the floor

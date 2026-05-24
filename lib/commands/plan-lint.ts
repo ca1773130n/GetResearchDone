@@ -350,9 +350,9 @@ export function lintSummaryDetail(roadmap: string, phases: PhaseFile[]): LintIss
     if (!bullet) continue;
     const roadmapTerms = extractTechnicalTerms(bullet.text);
     if (roadmapTerms.size === 0) continue;
-    const planText = phase.content;
+    const planTextLower = phase.content.toLowerCase();
     for (const term of roadmapTerms) {
-      if (!planText.includes(term)) {
+      if (!planTextLower.includes(term.toLowerCase())) {
         issues.push({
           category: 'summary_detail',
           file: phase.relPath,

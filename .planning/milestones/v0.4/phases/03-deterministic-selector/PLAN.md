@@ -25,11 +25,11 @@ must_haves:
 
 ## Goal
 
-Extend the existing deterministic scorer `_scorePlan` in
-`lib/plan-tournament.ts` with four real-cost / real-signal axes,
-then auto-select the highest-scoring candidate for
-`gd execute-phase` consumption. No LLM judge anywhere on the
-selection path.
+Extend `lib/plan-tournament.ts:_scorePlan` (the existing
+deterministic scorer) with four real-cost / real-signal axes,
+then auto-feeds the highest-scoring candidate to `gd execute-phase`
+via golden-file-tested selection logic. No LLM judge anywhere on
+the selection path.
 
 ## Context
 
