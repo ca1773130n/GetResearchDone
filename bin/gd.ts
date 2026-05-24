@@ -125,15 +125,20 @@ function printHelp(): void {
 
 Usage: gd <command> [args] [--json] [--help] [--version]
 
+Hero verbs (the closed loop):
+  init                 Bootstrap a new R&D project from a template
+  plan-phase <N>       Compose PLAN.md (Ouroboros context auto-injected)
+  execute-phase <N>    Run plans (wave-parallel + worktree-isolated)
+  verify-phase <N>     Reflection-loop verifier with Evidence Standard
+  autopilot            Run N phases end-to-end (the closed loop)
+  evolve               Autonomous self-improvement loop
+  health               Drift score + blockers + Ouroboros status
+  think                One-shot project briefing aggregating all primitives
+  singularity          % of recent LOC authored by gd evolve itself
+
 Workflow:
-  init                 Initialize a new R&D project
   new-milestone        Start a new milestone cycle
-  plan-phase <N>       Plan a phase
-  execute-phase <N>    Execute a phase
-  verify-phase <N>     Verify phase goal achievement
-  autopilot            Run phases on autopilot
   autoplan             Auto-generate milestones from discoveries
-  evolve               Run self-improvement loop
   progress             Show project progress
   resume-project       Restore project context
   pause-work           Save work state for later
@@ -166,17 +171,32 @@ Configuration:
 
 Tools (deterministic, fast):
   state <sub>          State management
-  verify <sub>         Verification suite
+  verify <sub>         Verification suite (incl. \`verify mechanical\`)
   phase <sub>          Phase lifecycle ops
   scaffold <sub>       Directory scaffolding
   frontmatter <sub>    YAML frontmatter CRUD
   tracker <sub>        Issue tracker sync
   roadmap <sub>        Roadmap queries
   init <sub>           Workflow init contexts (internal)
-  dashboard            Dashboard view
-  health               Health check
   version              Print version
   phases               List all phases
+
+Ouroboros primitives (see docs/ouroboros-loop.md):
+  dead-end <sub>       DEAD-ENDS.md registry CRUD + promote-from-phase
+  genome <sub>         GENOME.md init / show / snapshot
+  plan-tournament      Score candidate PLAN.md files
+  scan                 Prompt-injection scanner
+
+Auxiliary (run \`gd <cmd> --help\` for details):
+  diagnose, blame, budget, impact, freshness, rollback, estimate,
+  estimate-phase, forecast-phase, check-plans, check-assumptions,
+  deps, deps-risk, knowledge, knowhow, eval, tail, watch,
+  research-gaps, import-knowhow, import-knowledge, export-research,
+  import-research, metrics
+
+Note: dashboard, health-check, coverage-report, phase-time-budget,
+todo-duplicates, markdown-split, and setup are DEPRECATED — see
+docs/DEPRECATIONS.md for the v0.4.x trim plan.
 
 Global Flags:
   --json               Machine-parseable JSON output

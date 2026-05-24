@@ -695,6 +695,30 @@ function flag(args: string[], name: string, fallback?: string): string | undefin
   return i !== -1 ? args[i + 1] : fallback;
 }
 
+/**
+ * Print a deprecation warning to stderr. See docs/DEPRECATIONS.md for the
+ * v0.4.x trim plan. Commands listed in DEPRECATED_COMMANDS will be removed
+ * in v0.4.0; this helper fires once per invocation.
+ */
+const DEPRECATED_COMMANDS: Record<string, string> = {
+  dashboard: 'Use `gd health` + `gd think` instead',
+  'health-check': 'Subset of `gd health`',
+  'coverage-report': 'Use `npx jest --coverage` directly',
+  'phase-time-budget': 'Subsumed by `gd estimate-phase`',
+  'todo-duplicates': 'One-off helper; rarely used',
+  'markdown-split': 'Internal infrastructure — surfaced by accident',
+  setup: '`gd init` does this',
+};
+function _warnDeprecated(cmd: string): void {
+  const replacement = DEPRECATED_COMMANDS[cmd];
+  if (!replacement) return;
+  process.stderr.write(
+    `Warning: \`gd ${cmd}\` is DEPRECATED and will be removed in v0.4.0.\n` +
+      `         ${replacement}.\n` +
+      `         See docs/DEPRECATIONS.md.\n`
+  );
+}
+
 // ─── Route Descriptor Interface ─────────────────────────────────────────────
 
 interface RouteDescriptor {
@@ -738,14 +762,26 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     command: 'migrate-dirs',
     handler: (args, cwd, raw) => cmdMigrateDirs(cwd, raw, args.includes('--dry-run')),
   },
-  { command: 'dashboard', handler: (_args, cwd, raw) => cmdDashboard(cwd, raw) },
+  {
+    command: 'dashboard',
+    handler: (_args, cwd, raw) => {
+      _warnDeprecated('dashboard');
+      cmdDashboard(cwd, raw);
+    },
+  },
   { command: 'health', handler: (_args, cwd, raw) => cmdHealth(cwd, raw) },
   { command: 'detect-backend', handler: (_args, cwd, raw) => cmdDetectBackend(cwd, raw) },
   {
     command: 'quality-analysis',
     handler: (args, cwd, raw) => cmdQualityAnalysis(cwd, args.slice(1), raw),
   },
-  { command: 'setup', handler: (_args, cwd, raw) => cmdSetup(cwd, raw) },
+  {
+    command: 'setup',
+    handler: (_args, cwd, raw) => {
+      _warnDeprecated('setup');
+      cmdSetup(cwd, raw);
+    },
+  },
   {
     command: 'parallel-progress',
     handler: (args, _cwd, raw) => cmdParallelProgress(args.slice(1), raw),
@@ -754,16 +790,21 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   { command: 'find-phase', handler: (args, cwd, raw) => cmdFindPhase(cwd, args[1], raw) },
   {
     command: 'coverage-report',
-    handler: (args, cwd, raw) =>
-      cmdCoverageReport(
+    handler: (args, cwd, raw) => {
+      _warnDeprecated('coverage-report');
+      return cmdCoverageReport(
         cwd,
         { threshold: parseInt(flag(args, '--threshold', '85') as string, 10) },
         raw
-      ),
+      );
+    },
   },
   {
     command: 'health-check',
-    handler: (args, cwd, raw) => cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw),
+    handler: (args, cwd, raw) => {
+      _warnDeprecated('health-check');
+      return cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw);
+    },
   },
   {
     command: 'phase-detail',
@@ -802,7 +843,13 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       return cmdEvalRegressionCheck(cwd, args[1], raw, t ? parseFloat(t) : undefined);
     },
   },
-  { command: 'phase-time-budget', handler: (_args, cwd, raw) => cmdPhaseTimeBudget(cwd, raw) },
+  {
+    command: 'phase-time-budget',
+    handler: (_args, cwd, raw) => {
+      _warnDeprecated('phase-time-budget');
+      cmdPhaseTimeBudget(cwd, raw);
+    },
+  },
   {
     command: 'config-diff',
     handler: (args, cwd, raw) => cmdConfigDiff(cwd, raw, args.includes('--reset'), args.includes('--dry-run')),
@@ -833,6 +880,7 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
   {
     command: 'todo-duplicates',
     handler: (args, cwd, raw) => {
+      _warnDeprecated('todo-duplicates');
       const t = flag(args, '--threshold');
       return cmdTodoDuplicates(cwd, raw, t ? parseFloat(t) : undefined);
     },
@@ -2053,6 +2101,7 @@ async function routeCommand(
       cmdHealthCheck(cwd, { fix: args.includes('--fix') }, raw);
       break;
     case 'markdown-split': {
+      _warnDeprecated('markdown-split');
       const sub: string = args[1];
       validateSubcommand(sub, ['split', 'check'], 'markdown-split');
       switch (sub) {
