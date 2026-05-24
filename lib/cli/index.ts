@@ -108,6 +108,7 @@ const TOOL_COMMANDS = new Set([
   'plan-candidates',
   'select-candidate',
   'patterns',
+  'install',
 ]);
 
 /**

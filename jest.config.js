@@ -61,6 +61,7 @@ module.exports = {
     './lib/commands/plan-phase.ts': { lines: 88, functions: 60, branches: 80 },
     './lib/commands/select-candidate.ts': { lines: 90, functions: 90, branches: 75 },
     './lib/commands/patterns.ts': { lines: 90, functions: 90, branches: 70 },
+    './lib/commands/install.ts': { lines: 95, functions: 100, branches: 85 },
   },
   testTimeout: 15000,
 };

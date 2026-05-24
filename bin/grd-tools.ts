@@ -733,6 +733,21 @@ const {
   ) => void;
 } = require('../lib/commands/patterns');
 
+const {
+  cmdInstall,
+}: {
+  cmdInstall: (
+    cwd: string,
+    opts: {
+      harnesses?: Array<'claude' | 'codex' | 'gemini' | 'opencode'>;
+      all?: boolean;
+      list?: boolean;
+      dryRun?: boolean;
+    },
+    raw: boolean
+  ) => void;
+} = require('../lib/commands/install');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1334,6 +1349,25 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
           minOccurrences: minOcc !== undefined ? parseInt(minOcc, 10) : undefined,
           effectSize: effSize !== undefined ? parseFloat(effSize) : undefined,
           fdrQ: fdr !== undefined ? parseFloat(fdr) : undefined,
+        },
+        raw
+      );
+    },
+  },
+  {
+    command: 'install',
+    handler: (args, cwd, raw) => {
+      // Positional harness names (everything after `install` that isn't a flag).
+      const harnesses = args
+        .slice(1)
+        .filter((a) => !a.startsWith('--')) as Array<'claude' | 'codex' | 'gemini' | 'opencode'>;
+      cmdInstall(
+        cwd,
+        {
+          harnesses,
+          all: args.includes('--all'),
+          list: args.includes('--list'),
+          dryRun: args.includes('--dry-run'),
         },
         raw
       );
