@@ -18,5 +18,11 @@
     "rootDir": "."
   },
   "include": ["lib/**/*.ts", "bin/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist", "coverage", "testbed"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "testbed",
+    "tests/benchmark/tasks"
+  ]
 }
