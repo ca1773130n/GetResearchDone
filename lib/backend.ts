@@ -250,6 +250,7 @@ const EFFORT_PROFILES: AgentEffortProfiles = {
   'grd-debugger': { quality: 'high', balanced: 'medium', budget: 'low' },
   'grd-codebase-mapper': { quality: 'medium', balanced: 'low', budget: 'low' },
   'grd-verifier': { quality: 'medium', balanced: 'low', budget: 'low' },
+  'grd-critique-agent': { quality: 'medium', balanced: 'low', budget: 'low' },
   'grd-plan-checker': { quality: 'medium', balanced: 'medium', budget: 'low' },
   'grd-integration-checker': { quality: 'medium', balanced: 'medium', budget: 'low' },
   'grd-surveyor': { quality: 'medium', balanced: 'medium', budget: 'low' },

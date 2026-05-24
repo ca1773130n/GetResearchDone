@@ -269,6 +269,7 @@ const {
       log: (msg: string) => void;
       maxIterations?: number;
       targets?: import('./types').RefinementMetrics;
+      workCwd?: string;
     }
   ) => Promise<void>;
   runPostPhasePipeline: (
@@ -943,8 +944,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
         // Knowledge mining (non-blocking — runKnowledgeMining never rejects)
         await runKnowledgeMining(cwd, task.phaseNum, { scheduler, log });
 
-        // Refinement loop (non-blocking — runRefinementLoop never rejects)
-        await runRefinementLoop(cwd, task.phaseNum, { scheduler, log });
+        // Refinement loop (non-blocking — runRefinementLoop never rejects).
+        // Codex r43 P1 #2: pass wtPath so critique-agent edits land in
+        // the phase worktree the post-pipeline merges.
+        await runRefinementLoop(cwd, task.phaseNum, { scheduler, log, workCwd: wtPath });
 
         // Launch post-phase pipeline concurrently (Steps 1-3 run in parallel across
         // phases; Step 4 rebase+merge is serialized via the shared mergeQueue).

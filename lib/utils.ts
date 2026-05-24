@@ -73,6 +73,9 @@ const MODEL_PROFILES: AgentModelProfiles = {
   'grd-debugger': { quality: 'opus', balanced: 'sonnet', budget: 'sonnet' },
   'grd-codebase-mapper': { quality: 'sonnet', balanced: 'haiku', budget: 'haiku' },
   'grd-verifier': { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
+  // NERFIFY refinement-loop critic (codex r43 P2: was routed through
+  // grd-verifier, which never loaded the agent definition).
+  'grd-critique-agent': { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
   'grd-plan-checker': { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
   'grd-integration-checker': { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
   // R&D-specific agents

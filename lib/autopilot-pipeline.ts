@@ -713,6 +713,67 @@ async function runKnowledgeMining(
  * @param phaseNum - Phase number (used in status markers and prompts)
  * @param options - Configuration including scheduler, log function, and targets
  */
+/**
+ * Run the configured metric command via real shell execution (NOT
+ * `claude -p`). Captures stdout+stderr concatenated so jest's
+ * threshold-failure block and tsc's error output are both visible
+ * to `collectMetrics`.
+ *
+ * Codex r43 P1 #1: previously the refinement loop sent the strings
+ * "npm test", "tsc", "eslint" through `spawnStep` which routes to
+ * `claude -p`. The LLM then *described* what those commands might
+ * output, and `collectMetrics` regex-parsed that description.
+ */
+function _measureMetrics(measureCwd: string, log: (msg: string) => void): {
+  testOutput: string;
+  tscOutput: string;
+  lintOutput: string;
+} {
+  const { spawnSync } = require('child_process') as typeof import('child_process');
+  const runShell = (cmd: string, args: string[]): string => {
+    try {
+      const r = spawnSync(cmd, args, {
+        cwd: measureCwd,
+        encoding: 'utf-8',
+        env: { ...process.env, FORCE_COLOR: '0', CI: '1' },
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      return (r.stdout ?? '') + '\n' + (r.stderr ?? '');
+    } catch (e) {
+      log(`Phase metric command failed (non-blocking): ${cmd} ${args.join(' ')}: ${String(e)}`);
+      return '';
+    }
+  };
+  return {
+    testOutput: runShell('npx', ['jest', '--coverage', '--silent', '--ci', '--passWithNoTests']),
+    tscOutput: runShell('npx', ['tsc', '--noEmit']),
+    lintOutput: runShell('npx', ['eslint', 'bin/', 'lib/']),
+  };
+}
+
+/**
+ * True iff the second snapshot regressed on any dimension. Coverage
+ * dropping or error counts rising counts as regression.
+ */
+function _critiqueRegressed(before: RefinementMetrics, after: RefinementMetrics): {
+  regressed: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  if (after.test_coverage_pct < before.test_coverage_pct - 0.5) {
+    reasons.push(
+      `coverage ${before.test_coverage_pct.toFixed(1)}% → ${after.test_coverage_pct.toFixed(1)}%`
+    );
+  }
+  if (after.type_error_count > before.type_error_count) {
+    reasons.push(`type_errors ${before.type_error_count} → ${after.type_error_count}`);
+  }
+  if (after.lint_violation_count > before.lint_violation_count) {
+    reasons.push(`lint ${before.lint_violation_count} → ${after.lint_violation_count}`);
+  }
+  return { regressed: reasons.length > 0, reasons };
+}
+
 async function runRefinementLoop(
   cwd: string,
   phaseNum: string,
@@ -721,13 +782,22 @@ async function runRefinementLoop(
     log: (msg: string) => void;
     maxIterations?: number;
     targets?: RefinementMetrics;
+    workCwd?: string;
   }
 ): Promise<void> {
   const { scheduler, log } = options;
+  // Codex r43 P1 #2: refinement must run in the same worktree the
+  // phase implementation ran in, so critique edits land on the
+  // phase branch the post-pipeline merges. Fall back to cwd only
+  // when no worktree was supplied (legacy callers + tests).
+  const workCwd = options.workCwd ?? cwd;
 
   // Skip when not explicitly enabled via config (opt-in, same as citation_gate pattern)
   if (loadConfig(cwd).refinement_loop !== true) {
     log(`Phase ${phaseNum}: refinement loop skipped — refinement_loop config not enabled`);
+    // Codex r43 P2 #5: status marker even on config-skip so users
+    // inspecting .planning/autopilot can tell why no refinement ran.
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'skipped-disabled');
     return;
   }
 
@@ -735,7 +805,7 @@ async function runRefinementLoop(
 
   if (!fs.existsSync(agentDefPath)) {
     log(`Phase ${phaseNum}: refinement loop skipped — grd-critique-agent.md not found`);
-    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'skipped');
+    writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'skipped-no-agent');
     return;
   }
 
@@ -754,7 +824,7 @@ async function runRefinementLoop(
   };
 
   writeStatusMarker(cwd, phaseNum, 'refinement-loop', 'started');
-  log(`Phase ${phaseNum}: refinement loop started (maxIterations=${maxIterations})`);
+  log(`Phase ${phaseNum}: refinement loop started (maxIterations=${maxIterations}, cwd=${workCwd})`);
 
   try {
     const history: MetricSnapshot[] = [];
@@ -763,37 +833,13 @@ async function runRefinementLoop(
       log(`Phase ${phaseNum}: refinement loop iteration ${iteration}/${maxIterations}`);
       writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}`);
 
-      // Step 1: Collect metrics from npm test, build:check, and lint
-      const testResult = await spawnStep(
-        'npm test -- --coverage --silent 2>&1',
-        cwd,
-        `phase-${phaseNum}-refinement-test-${iteration}`,
-        null,
-        { captureOutput: true }
-      );
-      const tscResult = await spawnStep(
-        'npm run build:check 2>&1',
-        cwd,
-        `phase-${phaseNum}-refinement-tsc-${iteration}`,
-        null,
-        { captureOutput: true }
-      );
-      const lintResult = await spawnStep(
-        'npm run lint 2>&1',
-        cwd,
-        `phase-${phaseNum}-refinement-lint-${iteration}`,
-        null,
-        { captureOutput: true }
-      );
+      // Step 1: REAL metric collection via child_process — not claude -p.
+      const { testOutput, tscOutput, lintOutput } = _measureMetrics(workCwd, log);
 
-      // Step 2: Parse metrics from captured outputs
-      const currentMetrics = _collectMetrics(
-        testResult.stdout ?? '',
-        tscResult.stdout ?? '',
-        lintResult.stdout ?? ''
-      );
+      // Step 2: Parse metrics from captured tool outputs.
+      const currentMetrics = _collectMetrics(testOutput, tscOutput, lintOutput);
 
-      // Step 3: Push snapshot to history
+      // Step 3: Push snapshot to history.
       const snapshot: MetricSnapshot = {
         metrics: currentMetrics,
         phase: phaseNum,
@@ -806,7 +852,8 @@ async function runRefinementLoop(
           `type_errors=${currentMetrics.type_error_count}, lint=${currentMetrics.lint_violation_count}`
       );
 
-      // Step 4: Check convergence
+      // Step 4: Check convergence (now returns false on all-zero
+      // sentinel — see lib/refinement.ts).
       const convergenceResult = _checkConvergence(history, convergenceConfig);
       if (convergenceResult.converged) {
         log(`Phase ${phaseNum}: refinement loop converged — ${convergenceResult.reason}`);
@@ -814,16 +861,25 @@ async function runRefinementLoop(
         return;
       }
 
-      // Step 5: Classify branch and detect minima
+      // Step 5: Classify branch and detect minima.
       const branch = _classifyBranch(currentMetrics, targets);
       const minimaRegions = _detectMinima(history);
       log(`Phase ${phaseNum}: refinement loop classifying branch as '${branch}'`);
 
-      // Step 6: Build critique prompt and spawn critique agent.
-      // Verify-fail retry escalation (Tier-2 #5 of Ouroboros integration):
-      // iteration 1 is the first attempt; iteration 2+ is a retry after a
-      // previous iteration failed to converge. Escalate the model tier by
-      // (iteration - 1) notches, capped at the strongest tier.
+      // Step 6: Snapshot worktree HEAD so we can revert a regressing
+      // critique. Codex r43 P1 #4.
+      const headBefore = (() => {
+        try {
+          return execGit(workCwd, ['rev-parse', 'HEAD']).stdout.trim();
+        } catch {
+          return null;
+        }
+      })();
+
+      // Step 7: Build critique prompt and spawn the critique agent.
+      // Codex r43 P2 #7: agentType is grd-critique-agent (not
+      // grd-verifier), so model + scheduler routing pick the right
+      // profile and the agent definition file is honored.
       const critiquePrompt = buildCritiqueAgentPrompt(
         phaseNum,
         branch,
@@ -833,7 +889,7 @@ async function runRefinementLoop(
       );
       const critiqueConfig = loadConfig(cwd);
       const critiqueTier = getEffectiveTierForDispatch({
-        agentType: 'grd-verifier',
+        agentType: 'grd-critique-agent',
         prompt: critiquePrompt,
         config: critiqueConfig,
         scheduler: scheduler ?? null,
@@ -842,20 +898,44 @@ async function runRefinementLoop(
         modelProfiles: _MODEL_PROFILES_FOR_REFINEMENT,
         retry_attempt: iteration - 1,
       });
-      const critiqueModel = resolveModelForAgent(critiqueConfig, 'grd-verifier', cwd, {
+      const critiqueModel = resolveModelForAgent(critiqueConfig, 'grd-critique-agent', cwd, {
         effectiveTierOverride: critiqueTier,
       });
-      await spawnStep(
+      const critiqueResult = await spawnStep(
         critiquePrompt,
-        cwd,
+        workCwd,
         `phase-${phaseNum}-critique-${iteration}`,
         scheduler ?? null,
         {
           captureOutput: true,
-          agentType: 'grd-verifier',
+          agentType: 'grd-critique-agent',
           model: critiqueModel,
         }
       );
+      if (critiqueResult.exitCode !== 0) {
+        log(`Phase ${phaseNum}: critique exited ${critiqueResult.exitCode}; skipping regression check`);
+        writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-critique-failed`);
+        continue;
+      }
+
+      // Step 8: Re-measure and reject regressions. Codex r43 P1 #4.
+      const afterMeasure = _measureMetrics(workCwd, log);
+      const afterMetrics = _collectMetrics(afterMeasure.testOutput, afterMeasure.tscOutput, afterMeasure.lintOutput);
+      const regression = _critiqueRegressed(currentMetrics, afterMetrics);
+      if (regression.regressed) {
+        log(
+          `Phase ${phaseNum}: critique regressed metrics (${regression.reasons.join('; ')}) — rolling back`
+        );
+        if (headBefore) {
+          try {
+            execGit(workCwd, ['reset', '--hard', headBefore]);
+          } catch (e) {
+            log(`Phase ${phaseNum}: rollback failed (non-blocking): ${String(e)}`);
+          }
+        }
+        writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-rolled-back`);
+        continue;
+      }
 
       writeStatusMarker(cwd, phaseNum, 'refinement-loop', `iteration-${iteration}-complete`);
     }

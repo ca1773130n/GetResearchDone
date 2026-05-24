@@ -176,6 +176,25 @@ export function checkConvergence(
   const last = snapshots[snapshots.length - 1].metrics;
   const prev = snapshots[snapshots.length - 2].metrics;
 
+  // Codex r43 P1 #3: detect the "no real progress" sentinel — when both
+  // snapshots report all zeros, the measurement path is almost
+  // certainly broken (e.g. jest/tsc/eslint never ran, or stdout was
+  // discarded). Don't celebrate this as convergence.
+  const lastAllZero =
+    last.test_coverage_pct === 0 &&
+    last.type_error_count === 0 &&
+    last.lint_violation_count === 0;
+  const prevAllZero =
+    prev.test_coverage_pct === 0 &&
+    prev.type_error_count === 0 &&
+    prev.lint_violation_count === 0;
+  if (lastAllZero && prevAllZero) {
+    return {
+      converged: false,
+      reason: 'no progress (all metrics zero — measurement path likely broken)',
+    };
+  }
+
   const deltaCoverage = Math.abs(last.test_coverage_pct - prev.test_coverage_pct);
   const deltaTypeErrors = Math.abs(last.type_error_count - prev.type_error_count);
   const deltaLint = Math.abs(last.lint_violation_count - prev.lint_violation_count);
