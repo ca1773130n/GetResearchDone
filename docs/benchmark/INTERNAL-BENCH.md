@@ -86,9 +86,13 @@ when tasks are populated).
 
 ## Status
 
-- 2026-05-24 — spec drafted; tasks not yet populated. **Next step:**
-  port 8 refactor tasks from publicly-reported bug-fix histories in this
-  repo (we have 47 codex-rescue rounds of real bugs to draw from).
+- 2026-05-24 — spec drafted; **8 of 30 tasks populated** (4 refactor,
+  3 bug-fix, 1 feature-add). Harness supports smoke mode (verify
+  before/ fails + after/ passes) and agent-driven mode (give the
+  agent `prompt.md`, then run `verify.sh` on the result; default
+  agent `claude`, supports `aider`, `codex`, or `--agent-cmd '<tmpl>'`).
+- 22 tasks remaining to populate from the codex-rescue history we
+  have on hand (47 review rounds, 51 logged P0/P1/P2/P3 findings).
 
 ## Why no SWE-bench yet?
 
