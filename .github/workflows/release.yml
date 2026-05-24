@@ -27,7 +27,7 @@ jobs:
         run: |
           VERSION_FILE=$(cat VERSION)
           PLUGIN_VERSION=$(node -e "console.log(require('./.claude-plugin/plugin.json').version)")
-          CHANGELOG_HAS=$(grep -c "\[$VERSION_FILE\]" CHANGELOG.md || true)
+          CHANGELOG_HAS=$(grep -c "\[$VERSION_FILE\]" docs/CHANGELOG.md || true)
           echo "VERSION file: $VERSION_FILE"
           echo "plugin.json:  $PLUGIN_VERSION"
           echo "CHANGELOG:    $CHANGELOG_HAS match(es)"
@@ -48,9 +48,9 @@ jobs:
       - name: Extract release notes
         run: |
           VERSION=$(cat VERSION)
-          # Extract the section for current version from CHANGELOG.md
+          # Extract the section for current version from docs/CHANGELOG.md
           # Matches from "## [$VERSION]" to the next "## [" or end of file
-          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | head -n -1 > release-notes.md
+          awk "/^## \[$VERSION\]/,/^## \[/" docs/CHANGELOG.md | head -n -1 > release-notes.md
           echo "--- Release Notes ---"
           cat release-notes.md
 

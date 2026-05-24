@@ -38,6 +38,16 @@ describe('package.json npm configuration', () => {
     expect(pkg.version).toBe(version);
   });
 
+  test('.claude-plugin/plugin.json version matches VERSION file', () => {
+    // The release workflow gates on VERSION == plugin.json. plugin.json drifted
+    // to 0.3.28 across the whole 0.4 line because nothing pinned it; this test
+    // closes that gap so the release gate can never be surprised again.
+    const version = fs.readFileSync(VERSION_PATH, 'utf8').trim();
+    const pluginPath = path.resolve(PROJECT_ROOT, '.claude-plugin/plugin.json');
+    const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    expect(plugin.version).toBe(version);
+  });
+
   test('private field is absent (not false — completely absent)', () => {
     expect(pkg).not.toHaveProperty('private');
   });
