@@ -1,6 +1,13 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testMatch: ['**/tests/**/*.test.js', '**/tests/**/*.test.ts'],
+  // Benchmark task fixtures (tests/benchmark/tasks/**) are standalone
+  // before/after code samples the internal-bench harness copies into a
+  // sandbox and runs THERE. They reference sandbox-local modules
+  // (e.g. ./_helpers) that don't exist in-tree, so they must not be
+  // collected as part of the project test suite. (Mirror of the tsconfig
+  // exclude; jest has its own discovery.)
+  testPathIgnorePatterns: ['/node_modules/', '/tests/benchmark/tasks/'],
   collectCoverageFrom: ['lib/**/*.js', 'lib/**/*.ts', '!lib/**/*.d.ts'],
   coverageDirectory: 'coverage',
   // Only .ts files are transformed (via ts-jest). .js files have no transform
@@ -53,6 +60,7 @@ module.exports = {
     './lib/commands/plan-lint.ts': { lines: 85, functions: 90, branches: 75 },
     './lib/commands/plan-phase.ts': { lines: 88, functions: 60, branches: 80 },
     './lib/commands/select-candidate.ts': { lines: 90, functions: 90, branches: 75 },
+    './lib/commands/patterns.ts': { lines: 90, functions: 90, branches: 70 },
   },
   testTimeout: 15000,
 };

@@ -107,6 +107,7 @@ const TOOL_COMMANDS = new Set([
   'plan-lint',
   'plan-candidates',
   'select-candidate',
+  'patterns',
 ]);
 
 /**

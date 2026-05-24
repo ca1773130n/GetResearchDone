@@ -653,10 +653,12 @@ const {
   cmdGenomeInit,
   cmdGenomeShow,
   cmdGenomeSnapshot,
+  cmdGenomePromoteSuggestion,
 }: {
   cmdGenomeInit: (cwd: string, raw: boolean) => void;
   cmdGenomeShow: (cwd: string, raw: boolean) => void;
   cmdGenomeSnapshot: (cwd: string, raw: boolean) => void;
+  cmdGenomePromoteSuggestion: (cwd: string, slug: string, raw: boolean) => void;
 } = require('../lib/genome');
 
 const {
@@ -714,6 +716,22 @@ const {
     raw: boolean
   ) => void;
 } = require('../lib/commands/select-candidate');
+
+const {
+  cmdPatterns,
+}: {
+  cmdPatterns: (
+    cwd: string,
+    opts: {
+      minOccurrences?: number;
+      effectSize?: number;
+      fdrQ?: number;
+      apply?: boolean;
+      yes?: boolean;
+    },
+    raw: boolean
+  ) => void;
+} = require('../lib/commands/patterns');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -1299,6 +1317,28 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       cmdSelectCandidate(cwd, phaseNum, { dryRun, force, runVerificationCommands }, raw);
     },
   },
+  {
+    command: 'patterns',
+    handler: (args, cwd, raw) => {
+      // --dry-run is the default; --apply requires --yes (never-auto-write).
+      const apply: boolean = args.includes('--apply');
+      const yes: boolean = args.includes('--yes');
+      const minOcc = flag(args, '--min-occurrences');
+      const effSize = flag(args, '--effect-size');
+      const fdr = flag(args, '--fdr-q');
+      cmdPatterns(
+        cwd,
+        {
+          apply,
+          yes,
+          minOccurrences: minOcc !== undefined ? parseInt(minOcc, 10) : undefined,
+          effectSize: effSize !== undefined ? parseFloat(effSize) : undefined,
+          fdrQ: fdr !== undefined ? parseFloat(fdr) : undefined,
+        },
+        raw
+      );
+    },
+  },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────
@@ -1597,8 +1637,13 @@ async function routeCommand(
         cmdGenomeShow(cwd, raw);
       } else if (sub === 'snapshot') {
         cmdGenomeSnapshot(cwd, raw);
+      } else if (sub === 'promote-suggestion') {
+        const slug = args[2] && !args[2].startsWith('--') ? args[2] : '';
+        cmdGenomePromoteSuggestion(cwd, slug, raw);
       } else {
-        error(`Unknown genome subcommand: ${sub}. Valid: init, show, snapshot`);
+        error(
+          `Unknown genome subcommand: ${sub}. Valid: init, show, snapshot, promote-suggestion`
+        );
       }
       break;
     }

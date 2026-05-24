@@ -19,6 +19,7 @@ const {
   cmdGenomeInit,
   cmdGenomeShow,
   cmdGenomeSnapshot,
+  cmdGenomePromoteSuggestion,
   runGenomeSnapshot,
   GenomeSplitIndexError,
 } = require('../../lib/genome');
@@ -360,5 +361,80 @@ describe('cmdGenomeSnapshot', () => {
     // history of *when* the command was run).
     const matches = body.match(/^## Snapshot /gm) ?? [];
     expect(matches.length).toBe(2);
+  });
+});
+
+// ─── cmdGenomePromoteSuggestion (v0.4 Phase 5) ──────────────────────────────
+
+describe('cmdGenomePromoteSuggestion', () => {
+  const SUGGESTIONS = [
+    '# GENOME suggestions (auto-generated — NOT read by the planner)',
+    '',
+    '## Run 2026-05-24',
+    '',
+    '- Plans containing "refactor" have 90% confirmed (baseline 60%, n=12, raw_p=0.0025, fdr_q=0.02, effect_size=+0.30).',
+    '  Suggested heuristic: "Plans involving `refactor` succeed more often than baseline."',
+    '  Promote with: `gd genome promote-suggestion refactor-rate`',
+    '',
+  ].join('\n');
+
+  test('promotes a suggestion into GENOME.md under the promoted section', () => {
+    const projectDir = makeProject();
+    try {
+      fs.writeFileSync(path.join(projectDir, '.planning', 'GENOME-SUGGESTIONS.md'), SUGGESTIONS);
+      fs.writeFileSync(path.join(projectDir, '.planning', 'GENOME.md'), '# GENOME\n\nbody\n');
+      const { stdout, exitCode } = captureOutput(() =>
+        cmdGenomePromoteSuggestion(projectDir, 'refactor-rate', false)
+      );
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout);
+      expect(result.promoted).toBe('refactor-rate');
+      const genome = fs.readFileSync(path.join(projectDir, '.planning', 'GENOME.md'), 'utf-8');
+      expect(genome).toMatch(/## Heuristics in use \(promoted\)/);
+      expect(genome).toMatch(/Plans involving `refactor` succeed more often/);
+      expect(genome).toMatch(/promoted .* from suggestion `refactor-rate`/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('unknown slug errors (exit 1)', () => {
+    const projectDir = makeProject();
+    try {
+      fs.writeFileSync(path.join(projectDir, '.planning', 'GENOME-SUGGESTIONS.md'), SUGGESTIONS);
+      const { stderr, exitCode } = captureError(() =>
+        cmdGenomePromoteSuggestion(projectDir, 'nonexistent-rate', false)
+      );
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/not found/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('missing GENOME-SUGGESTIONS.md errors with guidance', () => {
+    const projectDir = makeProject();
+    try {
+      const { stderr, exitCode } = captureError(() =>
+        cmdGenomePromoteSuggestion(projectDir, 'refactor-rate', false)
+      );
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/no GENOME-SUGGESTIONS\.md|gd patterns/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('empty slug errors', () => {
+    const projectDir = makeProject();
+    try {
+      const { stderr, exitCode } = captureError(() =>
+        cmdGenomePromoteSuggestion(projectDir, '', false)
+      );
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/slug required/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
   });
 });

@@ -306,10 +306,85 @@ function cmdGenomeSnapshot(cwd: string, raw: boolean): void {
   output(result, raw, `${result.action} snapshot ${result.snapshot_date}`);
 }
 
+// ─── promote-suggestion (v0.4 Phase 5) ──────────────────────────────────────
+
+/**
+ * Human-curated promotion of a `gd patterns` suggestion from
+ * .planning/GENOME-SUGGESTIONS.md into the prescriptive GENOME.md.
+ *
+ * Finds the suggestion block whose `Promote with: gd genome
+ * promote-suggestion <slug>` line matches `slug`, copies its
+ * "Suggested heuristic:" text into GENOME.md under a
+ * "## Heuristics in use (promoted)" section as a human-editable draft,
+ * and records provenance (date + source slug). This is the ONLY path
+ * from advisory suggestion to prescriptive heuristic — keeping the
+ * deterministic-or-human-reviewed write contract
+ * (DEAD-ENDS: auto-suggestions-in-genome-file). The human is expected to
+ * refine the wording afterward; the command just moves the text across
+ * the prescriptive boundary deliberately.
+ */
+function cmdGenomePromoteSuggestion(cwd: string, slug: string, raw: boolean): void {
+  if (!slug) error('slug required. Usage: gd genome promote-suggestion <slug>');
+  const planning = getPlanningDir(cwd);
+  const suggPath = path.join(planning, 'GENOME-SUGGESTIONS.md');
+  const suggContent = safeReadMarkdown(suggPath);
+  if (!suggContent) {
+    error(`no GENOME-SUGGESTIONS.md found at ${path.relative(cwd, suggPath)}. Run \`gd patterns --apply --yes\` first.`);
+  }
+
+  // Find the suggested-heuristic line for this slug. Blocks end with
+  // `Promote with: ... promote-suggestion <slug>`; the heuristic is the
+  // preceding `Suggested heuristic: "..."` line.
+  const heuristic = extractSuggestedHeuristic(suggContent as string, slug);
+  if (!heuristic) {
+    error(`slug "${slug}" not found in GENOME-SUGGESTIONS.md.`);
+  }
+
+  const genomePath = path.join(planning, 'GENOME.md');
+  const existing = safeReadFile(genomePath);
+  if (existing !== null && isIndexFile(existing)) {
+    error('GENOME.md is a GRD-INDEX split file; promote into the reassembled source manually.');
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  const entry = `- ${heuristic} _(promoted ${date} from suggestion \`${slug}\`; edit wording as needed)_\n`;
+  const header = '## Heuristics in use (promoted)';
+
+  let next: string;
+  const base = existing ?? '# GENOME\n\nProject meta-strategy.\n';
+  if (base.includes(header)) {
+    // Append under the existing section (right after the header line).
+    next = base.replace(header, `${header}\n${entry.trimEnd()}`);
+  } else {
+    next = `${base.trimEnd()}\n\n${header}\n\n${entry}`;
+  }
+  atomicWriteFileSync(genomePath, next);
+  output(
+    { promoted: slug, heuristic, genome_path: path.relative(cwd, genomePath) },
+    raw,
+    `promoted "${slug}" into ${path.relative(cwd, genomePath)} (edit wording as needed)`
+  );
+}
+
+/** Extract the "Suggested heuristic" text for a given promote slug. */
+function extractSuggestedHeuristic(suggestions: string, slug: string): string | null {
+  const lines = suggestions.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`promote-suggestion ${slug}`)) {
+      // Walk backward to the nearest "Suggested heuristic:" line.
+      for (let j = i; j >= 0 && j > i - 6; j--) {
+        const m = lines[j].match(/Suggested heuristic:\s*"([^"]+)"/);
+        if (m) return m[1];
+      }
+    }
+  }
+  return null;
+}
+
 module.exports = {
   cmdGenomeInit,
   cmdGenomeShow,
   cmdGenomeSnapshot,
+  cmdGenomePromoteSuggestion,
   runGenomeSnapshot,
   GenomeSplitIndexError,
 };

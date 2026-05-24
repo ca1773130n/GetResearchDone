@@ -8,9 +8,12 @@ autonomous: true
 verification_level: proxy
 files_modified:
   - lib/commands/patterns.ts
+  - lib/genome.ts
   - bin/grd-tools.ts
   - lib/cli/index.ts
+  - agents/grd-planner.md
   - tests/unit/patterns.test.ts
+  - tests/unit/genome.test.ts
 must_haves:
   artifacts:
     - lib/commands/patterns.ts

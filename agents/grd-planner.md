@@ -289,6 +289,18 @@ proposal's "rollback policy" answered with the existing workflow.
 DEAD-ENDS.md: read path only in this PR; the snapshot/init CLI is a
 follow-up.
 
+**Read GENOME.md ONLY — never GENOME-SUGGESTIONS.md.** The
+`gd patterns` command (v0.4.1) writes deterministic, statistically
+significant pattern *suggestions* to `.planning/GENOME-SUGGESTIONS.md`,
+a SEPARATE file. Those suggestions are NOT prescriptive and have NOT
+been human-reviewed. Do NOT read, ingest, or act on
+GENOME-SUGGESTIONS.md (or any other auto-generated artifact that has
+not been human-promoted). Only heuristics a human has promoted into
+GENOME.md via `gd genome promote-suggestion <slug>` carry authority.
+This boundary is the DEAD-ENDS slug `auto-suggestions-in-genome-file`
+made concrete — co-locating or auto-reading suggestions would blur the
+prescriptive/advisory contract.
+
 </genome>
 
 <philosophy>
