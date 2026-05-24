@@ -53,13 +53,23 @@ jobs:
         run: npm test -- --coverageThreshold='{}'
 
       - name: Extract release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION=$(cat VERSION)
-          # Extract the section for current version from docs/CHANGELOG.md
-          # Matches from "## [$VERSION]" to the next "## [" or end of file
-          awk "/^## \[$VERSION\]/,/^## \[/" docs/CHANGELOG.md | head -n -1 > release-notes.md
+          # Flag-based extraction: print the "## [$VERSION]" header, then every
+          # line until the NEXT "## [" section. A naive awk range
+          # (/start/,/end/) is WRONG here — the version header matches BOTH the
+          # start and the end pattern "^## \[", so the range closes on the same
+          # line it opens and yields one line. The flag form gates the end
+          # pattern on f so it only fires at the following section.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { f = 1; print; next }
+            /^## \[/ && f { exit }
+            f { print }
+          ' docs/CHANGELOG.md > release-notes.md
           echo "--- Release Notes ---"
           cat release-notes.md
+          test -s release-notes.md || { echo "::error::release notes are empty for $VERSION"; exit 1; }
 
       - name: Create GitHub Release
         if: success()
