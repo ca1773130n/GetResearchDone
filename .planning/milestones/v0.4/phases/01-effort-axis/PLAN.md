@@ -27,10 +27,15 @@ must_haves:
 
 Add a project-scoped `effort` configuration key, orthogonal to the
 existing `model_profile` and `token_profile` axes. Values:
-`thrifty | balanced | deep`. The key gates *real-cost knobs* (how
-many candidates / iterations / benchmark runs to do); it does NOT
-gate any LLM debate rounds, because there are no LLM debate rounds
-in v0.4 ([DEAD-ENDS: `elo-rated-plan-tournament`](../../../../DEAD-ENDS.md)).
+`thrifty | balanced | deep`. The key gates a *real-cost knob*
+(how many plan candidates to generate per phase — 1 / 3 / 7); it
+does NOT gate any LLM debate rounds, because there are no LLM
+debate rounds in v0.4
+([DEAD-ENDS: `elo-rated-plan-tournament`](../../../../DEAD-ENDS.md)).
+v0.4 ships exactly one effort-scaled knob
+(`candidates_per_plan_phase`); the `EFFORT_PROFILES` table and
+`resolveEffortKnob` helper are structured for v0.5+ to add more
+knobs (one row + one call site) without changing the API.
 
 ## Context
 

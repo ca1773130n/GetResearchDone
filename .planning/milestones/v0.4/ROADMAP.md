@@ -39,9 +39,12 @@ for v0.4.1 (item 5). Each PLAN.md publishes both numbers.
 ## Phases
 
 - [ ] **Phase 1: `effort` config axis** — orthogonal to model_profile
-  / token_profile. Values `thrifty | balanced | deep` scale candidate
-  count, refinement iterations, and benchmark runs. Unblocks 2-4.
-  Verification: proxy (config round-trip + per-knob unit tests).
+  / token_profile. Values `thrifty | balanced | deep` scale the
+  single v0.4 knob `candidates_per_plan_phase` (1 / 3 / 7). The
+  `resolveEffortKnob` helper and `EFFORT_PROFILES` table are
+  structured to add more knobs in v0.5+ without changing the API.
+  Unblocks Phase 2 (the only v0.4 consumer). Verification: proxy
+  (config round-trip + per-knob unit tests).
 - [ ] **Phase 2: multi-candidate plan generation** — `gd plan-phase
   --candidates N` emits `PLAN-1.md ... PLAN-N.md` in a single planner
   dispatch. Verification: proxy (integration test on a small fixture
