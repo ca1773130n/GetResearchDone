@@ -36,21 +36,28 @@ in v0.4 ([DEAD-ENDS: `elo-rated-plan-tournament`](../../../../DEAD-ENDS.md)).
 
 GENOME heuristic *"No LLM-judged scoring on the core execution
 path"* applies: effort scales deterministic compute (number of
-plan candidates, refinement-loop iteration cap, benchmark runs)
-not LLM judging.
+plan candidates) — not LLM judging.
 
 This phase is foundational for phases 2-4. Specifically:
 
 - **Phase 2** reads `effort` to decide N for `--candidates N`
-  (1 / 3 / 7).
-- **Phase 3**'s refinement-loop max-iterations and benchmark-runs-
-  per-phase counts come from `effort` knobs.
+  (1 / 3 / 7) via `resolveEffortKnob(config, 'candidates_per_plan_phase')`.
+- **Phase 3** does NOT use `effort` — the deterministic selector
+  scores whatever candidates Phase 2 produced. No refinement loop
+  in v0.4 scope.
 - **Phase 4** uses `effort` only indirectly (it operates on whatever
   N phase 2 produced).
 - **Phase 5** is independent of `effort` — its statistical floor
   (n >= 10, effect_size >= 0.20, BH-FDR q < 0.10) is fixed,
   not effort-scaled. (Phase 5's CLI flags can override the floor
   but `effort` does not.)
+
+**Single-knob scope:** v0.4 ships exactly one effort-scaled knob
+(`candidates_per_plan_phase`). The `resolveEffortKnob` helper and
+`EFFORT_PROFILES` table are designed to extend to more knobs in
+v0.5+ (e.g. autopilot refinement iterations, benchmark replications),
+but adding more knobs without a consumer is dead weight — codex r6
+explicitly flagged this.
 
 Note: phase 3 does NOT have a "dry-run-verifier" concept in the
 v2 design. The renamed `verification-commands` axis runs only the
@@ -74,23 +81,28 @@ to `KNOWN_CONFIG_KEYS` so it doesn't warn.
 
 <task name="add-effort-profiles-table">
 Define an `EFFORT_PROFILES` table in `lib/utils.ts` with the
-per-knob values per setting:
+single v0.4 knob:
 
 | Knob | thrifty | balanced | deep |
 |---|---|---|---|
 | `candidates_per_plan_phase` | 1 | 3 | 7 |
-| `refinement_max_iterations` | 1 | 3 | 7 |
-| `benchmark_runs_per_phase` | 0 | 1 | 3 |
+
+The table is structured (object keyed by knob name) so v0.5+ can
+add knobs without changing the `resolveEffortKnob` signature.
+Codex r6 caught the earlier draft listing 3 knobs that had no
+consumers — v0.4 ships only what's wired.
 </task>
 
 <task name="add-resolveeffort-helper">
 Export `resolveEffortKnob(config, knob)` that returns the integer
 value for the given knob under the current `effort` setting.
-Callers in phases 2-4 use this for `candidates_per_plan_phase`,
-`refinement_max_iterations`, and `benchmark_runs_per_phase`.
-Phase 5 is independent — its statistical floor (n>=10,
-effect_size>=0.20, BH-FDR q<0.10) is fixed and does NOT use
-this helper.
+v0.4 has exactly one caller — Phase 2 uses it for
+`candidates_per_plan_phase`. Phase 3 (deterministic selector) and
+Phase 4 (proximity dedup) do not consume effort knobs. Phase 5's
+statistical floor (n>=10, effect_size>=0.20, BH-FDR q<0.10) is
+fixed and does NOT use this helper. The helper exists to make
+adding v0.5+ knobs trivial (one row in EFFORT_PROFILES + one
+call site).
 </task>
 
 <task name="cli-gd-settings-effort">
@@ -130,8 +142,8 @@ schema is the source of truth per the ROADMAP prose-only
 declaration.)
 
 ```yaml
-hypothesis: "A single orthogonal `effort` config axis is sufficient to scale real-cost knobs across phases 2-4 (candidates_per_plan_phase, refinement_max_iterations, benchmark_runs_per_phase) without polluting model_profile or token_profile semantics. Phase 5's statistical floor is fixed and intentionally does NOT use this axis."
-predicted_outcome: "After this phase, `gd settings effort deep` produces a config that resolveEffortKnob returns 7/7/3 from. Round-trip tests pass. No callers in lib/ read `effort` yet (that's phases 2-4)."
+hypothesis: "A single orthogonal `effort` config axis (initially scaling only `candidates_per_plan_phase` in v0.4, designed to extend cleanly in v0.5+) is sufficient to surface a generate-then-select knob to users without polluting model_profile or token_profile semantics. Phase 3, Phase 4, and Phase 5 deliberately do NOT consume effort in v0.4."
+predicted_outcome: "After this phase, `gd settings effort deep` produces a config that `resolveEffortKnob(config, 'candidates_per_plan_phase')` returns 7 from (3 for balanced, 1 for thrifty). Round-trip tests pass. No callers in lib/ read `effort` yet (that's phase 2)."
 deferred_validations: []
 ```
 
