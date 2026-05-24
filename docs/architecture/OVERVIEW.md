@@ -1,6 +1,6 @@
 # GRD Architecture Overview
 
-GRD (Get Research Done) is an R&D project orchestrator CLI that drives AI coding backends (Claude Code, Codex, Gemini, OpenCode) through agent-based workflows. It manages multi-phase project lifecycles — from planning and execution to verification and evaluation — using a deterministic Node.js orchestration layer that spawns LLM subprocesses. Version 0.3.27, licensed privately.
+GRD (Get Research Done) is an R&D project orchestrator CLI that drives AI coding backends (Claude Code, Codex, Gemini, OpenCode) through agent-based workflows. It manages multi-phase project lifecycles — from planning and execution to verification and evaluation — using a deterministic Node.js orchestration layer that spawns LLM subprocesses. Version 0.3.28, licensed privately.
 
 ---
 

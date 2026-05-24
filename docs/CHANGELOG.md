@@ -5,6 +5,64 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.28] - 2026-05-24
+
+Positioning + benchmarking release. No new runtime features for the core
+agent loop; this release ships the artifacts the autoresearch
+reality-check called out as missing.
+
+### Added
+
+- **`gd singularity`** — new deterministic CLI command measuring what
+  fraction of LOC in a window was authored by `gd evolve`. Default
+  window = most-recent-tag..HEAD; flags `--since <ref>`, `--all`,
+  `--by-iteration`, `--raw`. Inspired by Aider's "Singularity %".
+  Current Singularity on `v0.3.24..HEAD`: **92.2%**.
+- **Ouroboros loop technical report** — `docs/ouroboros-loop.md`,
+  11-section paper-style writeup suitable for arXiv preprint
+  (cs.SE / cs.AI). Covers the four primitives (falsifiable
+  reflections, DEAD-ENDS, drift, GENOME), the closed loop, codex-
+  rescue validation methodology (47 review rounds), limitations,
+  related work (Reflexion, SWE-agent, Sakana, STORM, Voyager).
+- **Domain starter templates** — `templates/starters/{ml-train,
+  fastapi-service, cli-tool}/` with PROJECT.md + ROADMAP.md scaffolds
+  tailored to common R&D project shapes.
+- **Internal benchmark spec + 8 task fixtures** —
+  `docs/benchmark/INTERNAL-BENCH.md` defines 30 tasks across 5
+  buckets; `tests/benchmark/tasks/` ships the first 8 (4 refactor +
+  3 bug-fix + 1 feature-add), each ported from real codex-rescue
+  history. `scripts/run-internal-bench.mjs` supports smoke mode and
+  agent-driven mode (`--agent claude|aider|codex` or
+  `--agent-cmd '<template>'`).
+- **Single-page demo viewer** — `docs/demo/index.html`, zero infra,
+  hostable on GitHub Pages or Vercel without a build step.
+
+### Changed
+
+- **`gd --help` reorganized.** New "Hero verbs" section at the top
+  surfaces the 9 closed-loop verbs (init, plan-phase, execute-phase,
+  verify-phase, autopilot, evolve, health, think, singularity).
+  Auxiliary commands listed by name only.
+- **README rewritten.** Top-line is now the hero output statement
+  ("turns a research idea into a working, falsifiable feature — and
+  remembers what didn't work") plus Singularity + Ouroboros paper
+  badges. Four-primitive table replaces the prior bulleted feature
+  list.
+
+### Deprecated
+
+Seven commands now emit stderr deprecation warnings; scheduled for
+removal in v0.4.0. See `docs/DEPRECATIONS.md` for the full v0.4.x
+trim plan (9 hero verbs + 30 demoted to `gd-tools` + 7 removed):
+
+- `gd dashboard` → use `gd health` + `gd think`
+- `gd health-check` → subset of `gd health`
+- `gd coverage-report` → use `npx jest --coverage` directly
+- `gd phase-time-budget` → subsumed by `gd estimate-phase`
+- `gd todo-duplicates` → one-off helper; rarely used
+- `gd markdown-split` → internal infrastructure exposed by accident
+- `gd setup` → `gd init` does this
+
 ## [0.3.27] - 2026-05-24
 
 ### Fixed (codex-rescue r43–r47 — feature wiring audit)
