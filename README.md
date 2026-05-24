@@ -1,21 +1,27 @@
 # GRD — Get Research Done
 
 [![CI](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml/badge.svg)](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml)
+[![Singularity](https://img.shields.io/badge/🔄_Singularity-92.2%25-e74c3c?style=flat-square)](docs/ouroboros-loop.md)
+[![Ouroboros Paper](https://img.shields.io/badge/📄_Paper-Ouroboros_loop-blueviolet?style=flat-square)](docs/ouroboros-loop.md)
 
-R&D workflow automation plugin for [Claude Code](https://claude.com/claude-code). Built for projects where research papers drive implementation, quantitative evaluation matters, and autonomous iteration is the norm.
+**GRD turns a research idea into a working, falsifiable feature — and remembers what didn't work.**
 
-## What is GRD?
+The closed-loop self-monitoring is the headline. Every plan commits to a *hypothesis + predicted outcome*; the verifier resolves it to `{confirmed, partial, falsified}` with evidence; falsified approaches auto-promote to a project-scoped `DEAD-ENDS.md` so the planner can never re-propose them. A drift score, a strategy GENOME, and an opt-in metric-driven refinement loop keep the agent grounded in the project's stated goal. See [Ouroboros loop](docs/ouroboros-loop.md) for the full technical report.
 
-GRD brings research rigor to AI-assisted software development:
+92.2% of GRD's most recent release window was written by `gd evolve` itself — measured deterministically by `gd singularity`, not LLM-judged.
 
-- **Paper-driven development** — survey SoTA, deep-dive papers, assess feasibility before coding
-- **Tiered verification** — sanity checks in-phase, proxy metrics for quick feedback, deferred evaluation at integration
-- **Falsifiable reflections** — every plan emits a `hypothesis` + `predicted_outcome`; verifier reconciles a `verdict` (`confirmed` / `partial` / `falsified`), auto-promoted to `DEAD-ENDS.md` so falsified approaches aren't re-tried
-- **Project drift score + ontology convergence** — `gd health` reports weighted drift across goal / constraint / ontology dimensions; autopilot terminates gracefully when successive phases converge on the same ontology
-- **Strategy genome** — project-scoped `GENOME.md` captures heuristics and auto-appends post-cycle snapshots, fed back into the planner
-- **Autonomous iteration** — YOLO mode lets the agent plan, execute, evaluate, and iterate without supervision
-- **Multi-backend scheduling** — rate-limit-aware routing across Claude, Codex, Gemini, OpenCode, and Overstory with EWMA token prediction
-- **Scale-adaptive ceremony** — light/standard/full agent configurations based on phase complexity
+## Why this exists
+
+Autonomous coding agents (Aider, OpenHands, SWE-agent, Cursor) have converged on a plan → execute → verify loop that is *amnesic*. GRD adds four lightweight, deterministic, project-scoped primitives that turn each agent dispatch into a step in a learning loop:
+
+| Primitive | What it does |
+|---|---|
+| **Falsifiable reflections** | Every plan must commit to `hypothesis` + `predicted_outcome`; verifier resolves to a verdict with evidence |
+| **DEAD-ENDS registry** | Falsified hypotheses auto-promote; planner reads it and refuses to re-propose |
+| **Drift score** | Weighted goal/constraint/ontology distance from project objective; computed from on-disk artifacts, not LLM judgment |
+| **Strategy GENOME** | Project-scoped append-only registry of heuristics + dated snapshots; planner reads before composing each plan |
+
+Behind those: multi-backend scheduling (Claude/Codex/Gemini/OpenCode/Overstory), worktree-isolated parallel phase execution, tiered verification (sanity/proxy/deferred), and a critique-agent refinement loop with automatic git-revert on metric regression.
 
 ## Quick Start
 
