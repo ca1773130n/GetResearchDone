@@ -2028,9 +2028,19 @@ async function routeCommand(
           );
         }
         cmdConfigSet(cwd, 'phase_complete_llm_fallback', value, raw);
+      } else if (sub === 'effort') {
+        // v0.4 Phase 1: effort axis
+        const value: string = args[2];
+        const validEffortLevels: string[] = ['thrifty', 'balanced', 'deep'];
+        if (!value || !validEffortLevels.includes(value)) {
+          error(
+            `Invalid effort value "${value || ''}". Valid values: ${validEffortLevels.join(', ')}`
+          );
+        }
+        cmdConfigSet(cwd, 'effort', value, raw);
       } else {
         error(
-          `Unknown settings subcommand "${sub || ''}". Tool-mode settings subcommands: token_profile, phase_complete_llm_fallback`
+          `Unknown settings subcommand "${sub || ''}". Tool-mode settings subcommands: token_profile, effort, phase_complete_llm_fallback`
         );
       }
       break;

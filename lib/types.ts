@@ -46,6 +46,23 @@ export type ModelProfileName = 'quality' | 'balanced' | 'budget';
 export type TokenProfileName = 'frugal' | 'balanced' | 'quality';
 
 /**
+ * Effort axis (v0.4 Phase 1). Orthogonal to model_profile and token_profile.
+ * Scales deterministic compute knobs — currently only the count of plan
+ * candidates generated per phase. Distinct from `EffortLevel`
+ * (low/medium/high), which controls per-agent Claude reasoning effort.
+ * - 'thrifty': 1 candidate per phase
+ * - 'balanced': 3 candidates per phase (default)
+ * - 'deep': 7 candidates per phase
+ */
+export type EffortAxisLevel = 'thrifty' | 'balanced' | 'deep';
+
+/**
+ * Names of effort-scaled knobs. v0.4 ships exactly one
+ * (candidates_per_plan_phase); v0.5+ may add more.
+ */
+export type EffortKnobName = 'candidates_per_plan_phase';
+
+/**
  * Budget pressure classification based on rolling-window consumption.
  * Thresholds are configurable via SchedulerConfig.budget_pressure_thresholds.
  */
@@ -383,6 +400,17 @@ export interface GrdConfig {
    * Default: 'balanced'. Set via `gd settings token_profile <value>`.
    */
   token_profile?: TokenProfileName;
+  /**
+   * Effort axis (v0.4 Phase 1). Orthogonal to model_profile and token_profile.
+   * Scales the count of plan candidates generated per phase (1 / 3 / 7 for
+   * thrifty / balanced / deep). Default: 'balanced'. Set via
+   * `gd settings effort <value>`. The EFFORT_PROFILES table and
+   * resolveEffortKnob helper in lib/utils.ts are structured for v0.5+ to
+   * add more knobs without changing the API. Type `EffortAxisLevel` is
+   * intentionally distinct from `EffortLevel` (low/medium/high), which
+   * controls per-agent Claude reasoning effort and predates this field.
+   */
+  effort?: EffortAxisLevel;
   commit_docs: boolean;
   search_gitignored: boolean;
   branching_strategy: string;

@@ -19,6 +19,8 @@ import type {
   AgentModelProfiles,
   BackendRolesConfig,
   DiscussionConfig,
+  EffortAxisLevel,
+  EffortKnobName,
 } from './types';
 
 const fs = require('fs');
@@ -317,7 +319,36 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'survey',
   // Plug-in / context-mode knowledge stats path
   'token_profile',
+  // v0.4 Phase 1: orthogonal effort axis
+  'effort',
 ]);
+
+// ─── Effort Axis (v0.4 Phase 1) ─────────────────────────────────────────────
+
+/**
+ * v0.4 effort-scaled knobs. Single-knob scope by design (codex r6) — only
+ * `candidates_per_plan_phase` is wired in v0.4. The table is structured
+ * (object keyed by knob name) so v0.5+ can add knobs without changing the
+ * `resolveEffortKnob` signature.
+ */
+const EFFORT_PROFILES: Record<EffortAxisLevel, Record<EffortKnobName, number>> = {
+  thrifty: { candidates_per_plan_phase: 1 },
+  balanced: { candidates_per_plan_phase: 3 },
+  deep: { candidates_per_plan_phase: 7 },
+};
+
+/**
+ * Return the integer value of an effort-scaled knob for the current
+ * `effort` setting in config. Defaults to 'balanced' when unset.
+ *
+ * @param config - GrdConfig (effort field optional, defaults to 'balanced')
+ * @param knob - Name of the effort-scaled knob to resolve
+ * @returns Integer value for the knob under the active effort level
+ */
+function resolveEffortKnob(config: GrdConfig, knob: EffortKnobName): number {
+  const level: EffortAxisLevel = config.effort || 'balanced';
+  return EFFORT_PROFILES[level][knob];
+}
 
 /**
  * Load and merge .planning/config.json with default configuration values.
@@ -401,6 +432,17 @@ function loadConfig(cwd: string): GrdConfig {
       );
     }
 
+    // Warn about invalid effort values (v0.4 Phase 1)
+    const validEffortLevels: string[] = ['thrifty', 'balanced', 'deep'];
+    if (
+      parsed.effort !== undefined &&
+      !validEffortLevels.includes(parsed.effort as string)
+    ) {
+      process.stderr.write(
+        `Warning: Invalid effort value "${parsed.effort}" in .planning/config.json. Valid values: ${validEffortLevels.join(', ')}\n`
+      );
+    }
+
     const get = (key: string, nested?: { section: string; field: string }): unknown => {
       if (parsed[key] !== undefined) return parsed[key];
       if (nested) {
@@ -422,6 +464,10 @@ function loadConfig(cwd: string): GrdConfig {
 
     return {
       model_profile: (get('model_profile') ?? defaults.model_profile) as ModelProfileName,
+      // v0.4 Phase 1: effort axis. Invalid values pass through as warnings
+      // above; we keep raw here so resolveEffortKnob's default ('balanced')
+      // takes effect when the field is absent.
+      ...(parsed.effort !== undefined ? { effort: parsed.effort as EffortAxisLevel } : {}),
       commit_docs: (get('commit_docs', { section: 'planning', field: 'commit_docs' }) ??
         defaults.commit_docs) as boolean,
       search_gitignored: (get('search_gitignored', {
@@ -1302,6 +1348,8 @@ function resolveEffortForAgent(config: GrdConfig, agentType: string, cwd?: strin
 // runnable commands for those instead of broken `gd settings ...` hints.
 const CONFIG_DRIFT_KEYS: Array<{ key: string; default: unknown; fix: string }> = [
   { key: 'token_profile', default: 'balanced', fix: 'gd settings token_profile balanced' },
+  // v0.4 Phase 1: effort axis (tool-mode settings key, alongside the other two).
+  { key: 'effort', default: 'balanced', fix: 'gd settings effort balanced' },
   { key: 'phase_complete_llm_fallback', default: false, fix: 'gd settings phase_complete_llm_fallback false' },
   { key: 'autonomous_mode', default: false, fix: 'gd config-set autonomous_mode false' },
   { key: 'branching_strategy', default: 'none', fix: 'gd config-set branching_strategy none' },
@@ -1418,4 +1466,7 @@ module.exports = {
   findClosestCommand,
   clearPhaseCache,
   validateConfigDrift,
+  // v0.4 Phase 1: effort axis
+  EFFORT_PROFILES,
+  resolveEffortKnob,
 };

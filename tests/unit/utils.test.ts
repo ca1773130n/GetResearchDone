@@ -39,6 +39,8 @@ const {
   findPhaseDir,
   parsePhaseNumber,
   walkJsFiles,
+  EFFORT_PROFILES,
+  resolveEffortKnob,
 } = require('../../lib/utils');
 const { clearModelCache } = require('../../lib/backend');
 
@@ -1358,5 +1360,102 @@ describe('walkJsFiles', () => {
   test('returns empty array for non-existent directory', () => {
     const results = walkJsFiles('/tmp/nonexistent-walk-dir-xyz');
     expect(results).toEqual([]);
+  });
+});
+
+// ─── EFFORT_PROFILES + resolveEffortKnob (v0.4 Phase 1) ────────────────────
+
+describe('EFFORT_PROFILES (v0.4 effort axis)', () => {
+  test('declares exactly the three v0.4 effort levels', () => {
+    expect(Object.keys(EFFORT_PROFILES).sort()).toEqual(['balanced', 'deep', 'thrifty']);
+  });
+
+  test('each level declares exactly the v0.4 single knob', () => {
+    for (const level of ['thrifty', 'balanced', 'deep']) {
+      expect(Object.keys(EFFORT_PROFILES[level])).toEqual(['candidates_per_plan_phase']);
+    }
+  });
+
+  test('candidates_per_plan_phase values are 1 / 3 / 7', () => {
+    expect(EFFORT_PROFILES.thrifty.candidates_per_plan_phase).toBe(1);
+    expect(EFFORT_PROFILES.balanced.candidates_per_plan_phase).toBe(3);
+    expect(EFFORT_PROFILES.deep.candidates_per_plan_phase).toBe(7);
+  });
+});
+
+describe('resolveEffortKnob', () => {
+  test('returns the value for the configured effort level', () => {
+    expect(resolveEffortKnob({ effort: 'thrifty' }, 'candidates_per_plan_phase')).toBe(1);
+    expect(resolveEffortKnob({ effort: 'balanced' }, 'candidates_per_plan_phase')).toBe(3);
+    expect(resolveEffortKnob({ effort: 'deep' }, 'candidates_per_plan_phase')).toBe(7);
+  });
+
+  test("defaults to 'balanced' when effort is undefined", () => {
+    expect(resolveEffortKnob({}, 'candidates_per_plan_phase')).toBe(3);
+  });
+
+  test("defaults to 'balanced' when effort is missing from a populated config", () => {
+    expect(
+      resolveEffortKnob({ model_profile: 'quality' }, 'candidates_per_plan_phase')
+    ).toBe(3);
+  });
+});
+
+describe('loadConfig — effort field (v0.4 Phase 1)', () => {
+  test('passes through valid effort value', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-effort-valid-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ effort: 'deep' })
+      );
+      const config = loadConfig(tmpDir);
+      expect(config.effort).toBe('deep');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('warns about invalid effort value but still passes it through', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-effort-invalid-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ effort: 'turbo' })
+      );
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).toContain('Invalid effort value "turbo"');
+      expect(stderr).toContain('thrifty, balanced, deep');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('does NOT warn about unrecognized key for effort', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-effort-known-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, '.planning', 'config.json'),
+        JSON.stringify({ effort: 'thrifty' })
+      );
+      const { stderr } = captureError(() => loadConfig(tmpDir));
+      expect(stderr).not.toContain('Unrecognized config key "effort"');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('returns no effort field when missing from config', () => {
+    const config = loadConfig('/tmp/nonexistent-effort-dir-zzz');
+    expect(config.effort).toBeUndefined();
   });
 });
