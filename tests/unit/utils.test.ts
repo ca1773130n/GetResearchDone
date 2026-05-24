@@ -1399,6 +1399,14 @@ describe('resolveEffortKnob', () => {
       resolveEffortKnob({ model_profile: 'quality' }, 'candidates_per_plan_phase')
     ).toBe(3);
   });
+
+  test("falls back to 'balanced' on an invalid-but-preserved effort value (no crash)", () => {
+    // loadConfig warns about invalid effort but keeps the raw value; the
+    // resolver must not crash with TypeError (codex review P2).
+    expect(
+      resolveEffortKnob({ effort: 'turbo' } as never, 'candidates_per_plan_phase')
+    ).toBe(3);
+  });
 });
 
 describe('loadConfig — effort field (v0.4 Phase 1)', () => {

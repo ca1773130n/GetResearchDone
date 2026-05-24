@@ -710,7 +710,7 @@ const {
   cmdSelectCandidate: (
     cwd: string,
     phaseNum: string,
-    opts: { dryRun?: boolean },
+    opts: { dryRun?: boolean; force?: boolean; runVerificationCommands?: boolean },
     raw: boolean
   ) => void;
 } = require('../lib/commands/select-candidate');
@@ -1288,11 +1288,15 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     command: 'select-candidate',
     handler: (args, cwd, raw) => {
       if (!args[1]) {
-        error('phase number required. Usage: gd select-candidate <N> [--dry-run]');
+        error(
+          'phase number required. Usage: gd select-candidate <N> [--dry-run] [--force] [--run-verification-commands]'
+        );
       }
       const phaseNum: string = args[1];
       const dryRun: boolean = args.includes('--dry-run');
-      cmdSelectCandidate(cwd, phaseNum, { dryRun }, raw);
+      const force: boolean = args.includes('--force');
+      const runVerificationCommands: boolean = args.includes('--run-verification-commands');
+      cmdSelectCandidate(cwd, phaseNum, { dryRun, force, runVerificationCommands }, raw);
     },
   },
 ];

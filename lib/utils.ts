@@ -346,7 +346,14 @@ const EFFORT_PROFILES: Record<EffortAxisLevel, Record<EffortKnobName, number>> =
  * @returns Integer value for the knob under the active effort level
  */
 function resolveEffortKnob(config: GrdConfig, knob: EffortKnobName): number {
-  const level: EffortAxisLevel = config.effort || 'balanced';
+  // Codex review P2: loadConfig preserves invalid `effort` values (warns but
+  // keeps them), so guard against EFFORT_PROFILES[level] being undefined.
+  // An unrecognized level falls back to 'balanced' rather than crashing.
+  const raw = config.effort;
+  const level: EffortAxisLevel =
+    raw !== undefined && Object.prototype.hasOwnProperty.call(EFFORT_PROFILES, raw)
+      ? raw
+      : 'balanced';
   return EFFORT_PROFILES[level][knob];
 }
 

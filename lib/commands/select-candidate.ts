@@ -128,6 +128,18 @@ export interface SelectCandidateOptions {
   dryRun?: boolean;
   /** Override the milestone (default: read from STATE.md). */
   milestone?: string;
+  /**
+   * Allow the verification_commands axis to execute commands. Default
+   * false (codex review P1) — the axis would otherwise run
+   * planner-authored commands during selection, before a plan is chosen.
+   */
+  runVerificationCommands?: boolean;
+  /**
+   * Overwrite an existing resolved PLAN.md when promoting the winner.
+   * Default false (codex review P2) — refuse to clobber a PLAN.md that
+   * a human or a prior selection already resolved.
+   */
+  force?: boolean;
 }
 
 // ─── DEAD-ENDS parsing ────────────────────────────────────────────────────
@@ -196,20 +208,16 @@ export function checkDeadEnds(
 
   for (const entry of deadEnds) {
     if (!hardFail) {
-      if (candidateText.includes(entry.slug)) {
-        hardFail = {
-          kind: 'slug_citation',
-          dead_end_slug: entry.slug,
-          matched: entry.slug,
-        };
+      // Codex review P2: match the slug case-insensitively and on word
+      // boundaries so `Elo-Rated-Plan-Tournament` still confesses while an
+      // unrelated longer token merely *containing* the slug does not
+      // false-positive.
+      if (slugCited(lower, entry.slug)) {
+        hardFail = { kind: 'slug_citation', dead_end_slug: entry.slug, matched: entry.slug };
       } else {
         for (const term of entry.forbidden_terms) {
           if (lower.includes(term.toLowerCase())) {
-            hardFail = {
-              kind: 'forbidden_term',
-              dead_end_slug: entry.slug,
-              matched: term,
-            };
+            hardFail = { kind: 'forbidden_term', dead_end_slug: entry.slug, matched: term };
             break;
           }
         }
@@ -230,6 +238,26 @@ const STOP: Set<string> = new Set([
   'are', 'was', 'were', 'has', 'have', 'had', 'will', 'would', 'should',
   'phase', 'plan', 'summary', 'roadmap', 'task', 'goal',
 ]);
+
+/**
+ * True when `slug` appears in `lowerText` (already lower-cased) bounded by
+ * non-slug-characters on both sides. Slug chars are [a-z0-9-]; a boundary
+ * is any character outside that class (or string edge). This avoids the
+ * substring false-positive where a slug is a fragment of a longer token.
+ */
+function slugCited(lowerText: string, slug: string): boolean {
+  const slugLower = slug.toLowerCase();
+  let from = 0;
+  for (;;) {
+    const idx = lowerText.indexOf(slugLower, from);
+    if (idx === -1) return false;
+    const before = idx === 0 ? '' : lowerText[idx - 1];
+    const after = idx + slugLower.length >= lowerText.length ? '' : lowerText[idx + slugLower.length];
+    const isSlugChar = (c: string): boolean => c !== '' && /[a-z0-9-]/.test(c);
+    if (!isSlugChar(before) && !isSlugChar(after)) return true;
+    from = idx + 1;
+  }
+}
 
 function tokens(text: string): Set<string> {
   const set = new Set<string>();
@@ -296,38 +324,60 @@ function extractRequiredArtifacts(requirementsText: string): string[] {
 // ─── verification_commands axis ───────────────────────────────────────────
 
 /**
+ * Allowlist of permitted verification-command executables. Codex review
+ * P1: a blocklist of dangerous binaries is bypassable via absolute paths
+ * (`/bin/rm`), relative paths (`./rm`), and unlisted destructive tools.
+ * v0.4 uses an ALLOWLIST instead — only these deterministic check tools
+ * may run, and only when the bare name matches (no path separators).
+ */
+const VERIFICATION_ALLOWLIST: Set<string> = new Set([
+  'npx', 'npm', 'pnpm', 'yarn', 'node', 'tsx', 'tsc', 'eslint', 'jest', 'prettier',
+]);
+
+/**
  * Run each command from the candidate's `verification_commands:` YAML
- * frontmatter and return pass-rate as a score in [0, 10]. Returns 0
- * when the field is absent (other axes carry the decision).
+ * frontmatter and return pass-rate as a score in [0, 10].
  *
- * Each command is split on whitespace; argv[0] is the binary, the
- * rest are positional args. No shell — no pipes, redirects, or glob
- * expansion. A blocklist of dangerous binaries (rm, curl, wget, sudo,
- * chmod, mkfs, dd) skips and counts as failure.
+ * SECURITY (codex review P1): verification commands are planner-authored
+ * input that would otherwise execute during candidate *selection* —
+ * before a plan is even chosen, so a candidate that will be REJECTED
+ * could still run code. Two guards:
+ *   1. The axis is OFF unless `enabled` is true (selectCandidate reads
+ *      `plan_selection.run_verification_commands` from config, default
+ *      false). When off, returns 0 and runs nothing.
+ *   2. When on, only allowlisted executables run, and argv[0] must be a
+ *      bare name (no `/` or `\\`) so `/bin/rm` / `./rm` cannot bypass.
  *
- * Timeout: 10s per command.
+ * Each command is split on whitespace; argv[0] is the binary, the rest
+ * positional args. No shell — no pipes, redirects, or glob expansion.
+ * Per-command 10s timeout with SIGKILL (codex review P2: SIGTERM lets a
+ * child ignore the signal and hang selection).
  */
 export function scoreVerificationCommands(
   candidateFm: Record<string, unknown>,
-  cwd: string
+  cwd: string,
+  enabled: boolean
 ): number {
+  if (!enabled) return 0;
   const cmds = candidateFm['verification_commands'];
   if (!Array.isArray(cmds) || cmds.length === 0) return 0;
-  const blockedBins = new Set([
-    'rm', 'curl', 'wget', 'sudo', 'chmod', 'chown', 'mkfs', 'dd', 'mv',
-  ]);
   let passed = 0;
   let total = 0;
   for (const raw of cmds) {
     if (typeof raw !== 'string' || !raw.trim()) continue;
     total++;
     const argv = raw.trim().split(/\s+/);
-    if (argv.length === 0) continue;
-    if (blockedBins.has(argv[0])) continue;
+    const exe = argv[0];
+    if (!exe) continue;
+    // Reject path separators: an absolute / relative path bypasses the
+    // allowlist (e.g. `/bin/rm`, `./rm`, `..\\rm`).
+    if (exe.includes('/') || exe.includes('\\')) continue;
+    if (!VERIFICATION_ALLOWLIST.has(exe)) continue;
     try {
-      const result = spawnSync(argv[0], argv.slice(1), {
+      const result = spawnSync(exe, argv.slice(1), {
         cwd,
         timeout: 10000,
+        killSignal: 'SIGKILL',
         stdio: 'pipe',
       });
       if (result.status === 0) passed++;
@@ -359,6 +409,8 @@ export function scoreExtendedCandidate(
   context: {
     deadEnds: DeadEndEntry[];
     requirementsText: string | null;
+    /** Whether the verification_commands axis may execute commands. */
+    runVerificationCommands: boolean;
   }
 ): ExtendedCandidateResult {
   const relPath: string = path.relative(cwd, candidatePath);
@@ -387,7 +439,7 @@ export function scoreExtendedCandidate(
   const { hardFail, advisory } = checkDeadEnds(content, context.deadEnds);
 
   const mustHavesScore = scoreMustHavesCoverage(content, fm, context.requirementsText);
-  const verificationScore = scoreVerificationCommands(fm, cwd);
+  const verificationScore = scoreVerificationCommands(fm, cwd, context.runVerificationCommands);
   const tokenEst = estimateTokens(content);
 
   // Composition: base [0,1] + must_haves (potentially negative) + verification [0,1].
@@ -441,8 +493,13 @@ export function selectCandidate(
     path.join(phaseDir, 'REQUIREMENTS.md')
   );
 
+  const runVerificationCommands: boolean = opts.runVerificationCommands ?? false;
   const scored: ExtendedCandidateResult[] = candidates.map((p) =>
-    scoreExtendedCandidate(p, cwd, phaseNum, { deadEnds, requirementsText })
+    scoreExtendedCandidate(p, cwd, phaseNum, {
+      deadEnds,
+      requirementsText,
+      runVerificationCommands,
+    })
   );
 
   // Primary sort: total_score desc (finite scores above -Infinity).
@@ -461,7 +518,17 @@ export function selectCandidate(
 
   let promotedTo: string | null = null;
   if (winner && !opts.dryRun) {
-    promotedTo = path.join(phaseDir, 'PLAN.md');
+    const planPath = path.join(phaseDir, 'PLAN.md');
+    // Codex review P2: refuse to clobber an already-resolved PLAN.md unless
+    // --force. Autopilot never hits this (hasMultipleCandidates requires no
+    // resolved PLAN.md), but the public CLI could otherwise destroy a plan.
+    if (fs.existsSync(planPath) && !opts.force) {
+      error(
+        `${path.relative(cwd, planPath)} already exists. Refusing to overwrite a resolved plan. ` +
+          `Re-run with --force to replace it, or remove it first.`
+      );
+    }
+    promotedTo = planPath;
     const winnerContent: string = fs.readFileSync(winner.path, 'utf-8');
     atomicWriteFileSync(promotedTo, winnerContent);
   }
@@ -514,10 +581,14 @@ function listCandidateFiles(phaseDir: string): string[] {
 export function cmdSelectCandidate(
   cwd: string,
   phaseNum: string,
-  opts: { dryRun?: boolean },
+  opts: { dryRun?: boolean; force?: boolean; runVerificationCommands?: boolean },
   raw: boolean
 ): void {
-  const result = selectCandidate(cwd, phaseNum, { dryRun: opts.dryRun });
+  const result = selectCandidate(cwd, phaseNum, {
+    dryRun: opts.dryRun,
+    force: opts.force,
+    runVerificationCommands: opts.runVerificationCommands,
+  });
   output(
     result,
     raw,

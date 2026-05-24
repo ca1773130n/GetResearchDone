@@ -15,6 +15,9 @@
 const fs = require('fs') as typeof import('fs');
 const path = require('path') as typeof import('path');
 const os = require('os') as typeof import('os');
+const { captureError } = require('../helpers/setup') as {
+  captureError: (fn: () => void) => { stderr: string; exitCode: number };
+};
 
 const {
   parseDeadEnds,
@@ -41,12 +44,21 @@ const {
     fm: Record<string, unknown>,
     requirementsText: string | null
   ) => number;
-  scoreVerificationCommands: (fm: Record<string, unknown>, cwd: string) => number;
+  scoreVerificationCommands: (
+    fm: Record<string, unknown>,
+    cwd: string,
+    enabled: boolean
+  ) => number;
   estimateTokens: (text: string) => number;
   selectCandidate: (
     cwd: string,
     phaseNum: string,
-    opts?: { dryRun?: boolean; milestone?: string }
+    opts?: {
+      dryRun?: boolean;
+      milestone?: string;
+      force?: boolean;
+      runVerificationCommands?: boolean;
+    }
   ) => {
     winner: { relPath: string; total_score: number } | null;
     candidates: Array<{ relPath: string; total_score: number; hard_fail: unknown }>;
@@ -178,6 +190,26 @@ describe('checkDeadEnds', () => {
     expect(res.hardFail).toBeNull();
     expect(res.advisory.length).toBe(0);
   });
+
+  test('slug citation is case-insensitive (codex P2)', () => {
+    const res = checkDeadEnds('We adopt Elo-Rated-Plan-Tournament here', deadEnds);
+    expect(res.hardFail).not.toBeNull();
+    expect(res.hardFail!.kind).toBe('slug_citation');
+  });
+
+  test('slug as a fragment of a larger token does NOT false-positive (word boundary)', () => {
+    // Use the meta-review slug, whose forbidden_terms ("meta-reviewer agent",
+    // "auto-write to genome") are NOT substrings of the slug — so embedding
+    // the slug inside a longer token must not trip slug OR forbidden_term.
+    const res = checkDeadEnds('xmeta-review-agent-with-write-accessx is unrelated', deadEnds);
+    expect(res.hardFail).toBeNull();
+  });
+
+  test('slug bounded by punctuation still confesses', () => {
+    const res = checkDeadEnds('see (elo-rated-plan-tournament).', deadEnds);
+    expect(res.hardFail).not.toBeNull();
+    expect(res.hardFail!.kind).toBe('slug_citation');
+  });
 });
 
 // ─── scoreMustHavesCoverage ────────────────────────────────────────────────
@@ -223,32 +255,57 @@ must_haves:
 // ─── scoreVerificationCommands ─────────────────────────────────────────────
 
 describe('scoreVerificationCommands', () => {
-  test('no verification_commands field → score 0', () => {
-    expect(scoreVerificationCommands({}, process.cwd())).toBe(0);
+  test('disabled (enabled=false) → score 0, runs nothing', () => {
+    expect(scoreVerificationCommands({ verification_commands: ['node -e ""'] }, process.cwd(), false)).toBe(0);
   });
 
-  test('all commands pass → score 10', () => {
+  test('no verification_commands field → score 0 even when enabled', () => {
+    expect(scoreVerificationCommands({}, process.cwd(), true)).toBe(0);
+  });
+
+  test('allowlisted commands that pass → score 10', () => {
     const score = scoreVerificationCommands(
-      { verification_commands: ['true', 'true'] },
-      process.cwd()
+      { verification_commands: ['node -e ""', 'node -e ""'] },
+      process.cwd(),
+      true
     );
     expect(score).toBe(10);
   });
 
-  test('half pass → score 5', () => {
+  test('half pass → score 5 (node exit 0 vs node exit 1)', () => {
     const score = scoreVerificationCommands(
-      { verification_commands: ['true', 'false'] },
-      process.cwd()
+      { verification_commands: ['node -e ""', 'node -e process.exit(1)'] },
+      process.cwd(),
+      true
     );
     expect(score).toBe(5);
   });
 
-  test('blocklisted binary counts as failure', () => {
+  test('non-allowlisted binary counts as failure (true is not allowlisted)', () => {
     const score = scoreVerificationCommands(
-      { verification_commands: ['rm -rf /tmp/xyz', 'true'] },
-      process.cwd()
+      { verification_commands: ['true', 'node -e ""'] },
+      process.cwd(),
+      true
     );
-    expect(score).toBe(5); // rm skipped (fail), true passes → 1/2
+    expect(score).toBe(5); // `true` not allowlisted (fail), node passes → 1/2
+  });
+
+  test('absolute-path binary is rejected (allowlist bypass blocked)', () => {
+    const score = scoreVerificationCommands(
+      { verification_commands: ['/bin/echo hi', 'node -e ""'] },
+      process.cwd(),
+      true
+    );
+    expect(score).toBe(5); // /bin/echo rejected (path separator), node passes
+  });
+
+  test('relative-path binary is rejected', () => {
+    const score = scoreVerificationCommands(
+      { verification_commands: ['./rm -rf x'] },
+      process.cwd(),
+      true
+    );
+    expect(score).toBe(0); // ./rm rejected → 0/1
   });
 });
 
@@ -350,6 +407,64 @@ describe('selectCandidate — pipeline', () => {
       expect(result.promoted_to).toBeNull();
       expect(fs.existsSync(path.join(phaseDir, 'PLAN.md'))).toBe(false);
       expect(fs.existsSync(path.join(phaseDir, 'PLAN-SELECTION.json'))).toBe(false);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('refuses to overwrite an existing PLAN.md without --force (codex P2)', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      fs.writeFileSync(path.join(phaseDir, 'PLAN-1.md'), makePlan({ filesModified: ['lib/a.ts'] }));
+      fs.writeFileSync(path.join(phaseDir, 'PLAN-2.md'), makePlan({ filesModified: ['lib/b.ts'] }));
+      fs.writeFileSync(path.join(phaseDir, 'PLAN.md'), '# pre-existing resolved plan\n');
+      const { stderr, exitCode } = captureError(() => selectCandidate(cwd, '1'));
+      expect(exitCode).toBe(1);
+      expect(stderr).toMatch(/already exists.*Refusing to overwrite/);
+      // PLAN.md must be untouched.
+      expect(fs.readFileSync(path.join(phaseDir, 'PLAN.md'), 'utf-8')).toBe(
+        '# pre-existing resolved plan\n'
+      );
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('--force overwrites an existing PLAN.md', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-1.md'),
+        makePlan({ filesModified: ['lib/a.ts'], hypothesis: 'forced winner' })
+      );
+      fs.writeFileSync(path.join(phaseDir, 'PLAN-2.md'), makePlan({ filesModified: ['lib/b.ts'] }));
+      fs.writeFileSync(path.join(phaseDir, 'PLAN.md'), '# stale\n');
+      const result = selectCandidate(cwd, '1', { force: true });
+      expect(result.winner).not.toBeNull();
+      expect(fs.readFileSync(path.join(phaseDir, 'PLAN.md'), 'utf-8')).not.toBe('# stale\n');
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('verification_commands axis stays off by default during selection', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      // A candidate with verification_commands that would fail if run; since
+      // the axis is off by default, the score must not reflect any run.
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-1.md'),
+        makePlan({
+          filesModified: ['lib/a.ts'],
+          verificationCommands: ['node -e process.exit(1)'],
+          hypothesis: 'has verification commands',
+        })
+      );
+      fs.writeFileSync(path.join(phaseDir, 'PLAN-2.md'), makePlan({ filesModified: ['lib/b.ts'] }));
+      const result = selectCandidate(cwd, '1');
+      const c1 = result.candidates.find((c) => c.relPath.endsWith('PLAN-1.md'))!;
+      // Axis off → verification_commands score 0, no execution.
+      expect((c1 as unknown as { extended: { verification_commands: number } }).extended.verification_commands).toBe(0);
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
