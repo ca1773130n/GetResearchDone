@@ -646,14 +646,35 @@ function buildCritiqueAgentPrompt(
   branch: CritiqueBranch,
   metrics: RefinementMetrics,
   targets: RefinementMetrics,
-  minimaRegions: MinimaRegion[]
+  minimaRegions: MinimaRegion[],
+  agentDefPath?: string
 ): string {
   const critiquePrompt = _buildCritiquePromptFn(branch, metrics, targets, minimaRegions);
+
+  // Codex r44 P1 #1: embed the agent definition file content into the
+  // prompt. Previously the file's existence was checked but the
+  // markdown content (constraints, output schema, guardrails) was
+  // never sent to the subprocess — only a one-line "You are the
+  // grd-critique-agent" preamble was. `agentType` is just model/
+  // scheduler routing metadata, not a system-prompt loader.
+  let agentDefinition = '';
+  if (agentDefPath) {
+    try {
+      agentDefinition = fs.readFileSync(agentDefPath, 'utf-8') as string;
+    } catch {
+      /* fall through: prompt still works with just the preamble */
+    }
+  }
+
+  const definitionBlock = agentDefinition
+    ? `\n\n<agent-definition>\n${agentDefinition}\n</agent-definition>\n`
+    : '';
+
   return `You are the grd-critique-agent. Your branch is ${branch}.
 
 Phase: ${phaseNum}
 Working directory: project root (all paths are relative to it)
-
+${definitionBlock}
 ${critiquePrompt}
 
 Apply the targeted fixes described above. Focus on the ${branch} branch instructions. Emit the CRITIQUE-RESULT block at the end of your response.`;
@@ -885,7 +906,8 @@ async function runRefinementLoop(
         branch,
         currentMetrics,
         targets,
-        minimaRegions
+        minimaRegions,
+        agentDefPath
       );
       const critiqueConfig = loadConfig(cwd);
       const critiqueTier = getEffectiveTierForDispatch({

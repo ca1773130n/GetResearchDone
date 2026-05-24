@@ -1513,7 +1513,33 @@ function cmdArtifactDAG(cwd: string, phase: string, raw: boolean): void {
 // ─── Benchmark Report ───────────────────────────────────────────────────────
 
 function cmdBenchmarkReport(cwd: string, raw: boolean): void {
-  const { loadCorpus, formatBenchmarkReport }: { loadCorpus: (dir: string) => import('../types').BenchmarkEntry[]; formatBenchmarkReport: (entries: import('../types').BenchmarkEntry[]) => string } = require('../benchmark');
+  // Codex r44 P1 #5: formatBenchmarkReport requires (results, entries).
+  // The prior call passed entries-only, so the function iterated
+  // undefined.semantic and crashed at runtime. Evaluate each corpus
+  // entry first (with empty observation strings — this surfaces the
+  // category multiplier + zero-baseline so the report is structurally
+  // valid even before an eval run), then pass both arrays.
+  const {
+    loadCorpus,
+    formatBenchmarkReport,
+    evaluateEntry,
+  }: {
+    loadCorpus: (dir: string) => import('../types').BenchmarkEntry[];
+    formatBenchmarkReport: (
+      results: import('../types').BenchmarkResult[],
+      entries: import('../types').BenchmarkEntry[]
+    ) => string;
+    evaluateEntry: (
+      entry: import('../types').BenchmarkEntry,
+      semanticSummary: string,
+      buildOutput: string,
+      runOutput: string,
+      stderr: string,
+      executionTimeMs: number,
+      rubricVersion: string,
+      evaluator: string
+    ) => import('../types').BenchmarkResult;
+  } = require('../benchmark');
 
   const researchDir = getResearchDir(cwd);
   const corpusDir = path.join(researchDir, 'benchmarks');
@@ -1523,8 +1549,11 @@ function cmdBenchmarkReport(cwd: string, raw: boolean): void {
   const entries = loadCorpus(corpusDir);
   if (entries.length === 0) { output({ entries: 0, message: 'Benchmark corpus is empty' }, raw, 'Benchmark corpus is empty'); return; }
 
-  const report = formatBenchmarkReport(entries);
-  output({ entries: entries.length, report }, raw, report);
+  const results = entries.map((e) =>
+    evaluateEntry(e, '', '', '', '', 0, '1.0', 'gd-benchmark-report')
+  );
+  const report = formatBenchmarkReport(results, entries);
+  output({ entries: entries.length, results: results.length, report }, raw, report);
 }
 
 // ─── Phase Cost Estimator ─────────────────────────────────────────────────────

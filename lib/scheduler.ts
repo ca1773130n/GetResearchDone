@@ -1037,13 +1037,44 @@ export function createScheduler(
                 }, 5000);
               }, totalTimeoutMs);
 
+        // Codex r44 P1 #6: detect live spinning subprocesses. The
+        // prior implementation only ran detectSpin on the captured
+        // stdout buffer in the `close` handler, so an actively-
+        // looping subprocess that keeps printing would never trigger
+        // until total timeout. Keep a rolling window of recent stdout
+        // chunks (each chunk = ~one streamed Claude output token block),
+        // and run detectSpin every SPIN_CHECK_EVERY chunks. If detected
+        // and not yet acted on, kill the subprocess so the parent sees
+        // the spinEvent and can react.
+        const SPIN_CHECK_WINDOW = 5;
+        const SPIN_CHECK_EVERY = 5;
+        const recentChunks: string[] = [];
+        let liveSpinEvent: import('./scheduler').SpinDetectedEvent | null = null;
+        let chunksSinceCheck = 0;
+
         child.stdout?.on('data', (chunk: Buffer) => {
           watchdog.markActivity();
           if (stdoutBuf.length + chunk.length > MAX_BUFFER_BYTES) {
             stdoutOverflowed = true;
             return;
           }
-          stdoutBuf += chunk.toString('utf-8');
+          const text = chunk.toString('utf-8');
+          stdoutBuf += text;
+          recentChunks.push(text);
+          if (recentChunks.length > SPIN_CHECK_WINDOW) recentChunks.shift();
+          chunksSinceCheck++;
+          if (
+            !liveSpinEvent &&
+            recentChunks.length >= SPIN_CHECK_WINDOW &&
+            chunksSinceCheck >= SPIN_CHECK_EVERY
+          ) {
+            chunksSinceCheck = 0;
+            const evt = detectSpin(recentChunks);
+            if (evt.detected) {
+              liveSpinEvent = evt;
+              _killProcessTree(child, 'SIGTERM');
+            }
+          }
         });
 
         child.stderr?.on('data', (chunk: Buffer) => {
@@ -1103,13 +1134,12 @@ export function createScheduler(
             scheduler.persistState(join(opts.cwd, '.planning'));
           }
 
-          // Codex r15 P2: run detectSpin on the captured stdout so
-          // callers can react when a subprocess loops. Split the buffer
-          // into reasonable chunks (large enough to detect repeated
-          // error-block emissions, small enough that bigram Jaccard is
-          // meaningful).
-          let spinEvent: import('./scheduler').SpinDetectedEvent | undefined;
-          if (stdoutBuf.length > 500) {
+          // Codex r15 P2 / r44 P1 #6: prefer the live spin event if
+          // detected during streaming (the process was killed for it);
+          // otherwise scan the final buffer for post-hoc detection.
+          let spinEvent: import('./scheduler').SpinDetectedEvent | undefined =
+            liveSpinEvent ?? undefined;
+          if (!spinEvent && stdoutBuf.length > 500) {
             const chunkSize = Math.max(200, Math.floor(stdoutBuf.length / 12));
             const chunks: string[] = [];
             for (let i = 0; i < stdoutBuf.length; i += chunkSize) {

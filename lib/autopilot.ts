@@ -335,6 +335,30 @@ interface AutopilotOptions {
   model?: string;
 }
 
+/**
+ * Codex r44 P1 #6: invoke handleSpinEvent when the scheduler detected a
+ * spinning subprocess. `spawnStep` (lib/autopilot-pipeline.ts) already
+ * does this for post-pipeline steps, but the main autopilot plan and
+ * execute calls go through `scheduler.spawn` directly and previously
+ * dropped the event. Helper de-duplicates the wiring so every direct
+ * scheduler.spawn caller surfaces SPIN-REPORT.md.
+ */
+function _handleSpinIfDetected(
+  cwd: string,
+  phaseNum: string,
+  result: { spinEvent?: { detected: boolean; repeated_pattern: string; consecutive_count: number; max_similarity: number } }
+): void {
+  if (!result.spinEvent || !result.spinEvent.detected) return;
+  try {
+    const info = findPhaseInternal(cwd, phaseNum);
+    const phaseDir =
+      info && info.found ? require('path').join(cwd, info.directory) : cwd;
+    handleSpinEvent(phaseDir, result.spinEvent, `phase-${phaseNum}`);
+  } catch {
+    /* spin handling is best-effort */
+  }
+}
+
 /** Per-phase step result. */
 interface PhaseStepResult {
   phase: string;
@@ -727,7 +751,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                   workItemId: `phase-${phaseNum}-plan`,
                   agentType: 'grd-planner',
                 })
-                .then(toSpawnResult);
+                .then((sr) => {
+                  _handleSpinIfDetected(cwd, phaseNum, sr);
+                  return toSpawnResult(sr);
+                });
             }
           } else {
             promise = scheduler
@@ -740,7 +767,10 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
                     workItemId: `phase-${phaseNum}-plan`,
                     agentType: 'grd-planner',
                   })
-                  .then(toSpawnResult)
+                  .then((sr) => {
+                    _handleSpinIfDetected(cwd, phaseNum, sr);
+                    return toSpawnResult(sr);
+                  })
               : spawnClaudeAsync(cwd, planPrompt, {
                   timeout: timeoutMs,
                   maxTurns,
@@ -889,22 +919,25 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             });
 
         const promise = (async (): Promise<{ execResult: SpawnResult; wtPath: string }> => {
-          const execResult: SpawnResult = scheduler
-            ? toSpawnResult(
-                await scheduler.spawn(executePrompt, {
-                  timeout: timeoutMs,
-                  maxTurns,
-                  model: executeModel,
-                  cwd: wtPath,
-                  workItemId: `phase-${phaseNum}-execute`,
-                  agentType: 'grd-executor',
-                })
-              )
-            : await spawnClaudeAsync(wtPath, executePrompt, {
-                timeout: timeoutMs,
-                maxTurns,
-                model: executeModel,
-              });
+          let execResult: SpawnResult;
+          if (scheduler) {
+            const sr = await scheduler.spawn(executePrompt, {
+              timeout: timeoutMs,
+              maxTurns,
+              model: executeModel,
+              cwd: wtPath,
+              workItemId: `phase-${phaseNum}-execute`,
+              agentType: 'grd-executor',
+            });
+            _handleSpinIfDetected(cwd, phaseNum, sr);
+            execResult = toSpawnResult(sr);
+          } else {
+            execResult = await spawnClaudeAsync(wtPath, executePrompt, {
+              timeout: timeoutMs,
+              maxTurns,
+              model: executeModel,
+            });
+          }
           return { execResult, wtPath };
         })();
 

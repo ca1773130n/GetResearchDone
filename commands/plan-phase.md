@@ -205,6 +205,13 @@ RESEARCH_CONTENT=$(echo "$INIT" | jq -r '.research_content // empty')
 VERIFICATION_CONTENT=$(echo "$INIT" | jq -r '.verification_content // empty')
 UAT_CONTENT=$(echo "$INIT" | jq -r '.uat_content // empty')
 CONTEXT_CONTENT=$(echo "$INIT" | jq -r '.context_content // empty')
+# Ouroboros context (codex r44 P1 #2-4): the planner agent's <dead-ends>,
+# <genome>, and prior_reflections blocks document these inputs, but the
+# orchestrator must extract them from INIT and inject them into the
+# planner prompt — otherwise the planner never sees them.
+DEAD_ENDS_MD=$(echo "$INIT" | jq -r '.dead_ends_md // empty')
+GENOME_MD=$(echo "$INIT" | jq -r '.genome_md // empty')
+PRIOR_REFLECTIONS=$(echo "$INIT" | jq -r '.prior_reflections // empty')
 ```
 
 ## 8. Spawn grd-planner Agent
@@ -247,6 +254,18 @@ IMPORTANT: If context exists below, it contains USER DECISIONS from /grd:discuss
 
 **Research Landscape:**
 {research_landscape_context}
+
+**Prior Reflections (from completed phases):**
+{prior_reflections}
+NOTE: If verdict is "falsified" for any pattern in your considered approach, refuse to re-propose that approach. Reference the prior phase in your plan rationale.
+
+**Dead Ends Registry (.planning/DEAD-ENDS.md):**
+{dead_ends_md}
+NOTE: Each entry is an approach that has been tried and failed. Treat as hard "do-not-propose" list.
+
+**Strategy Genome (.planning/GENOME.md):**
+{genome_md}
+NOTE: Curated heuristics + dated snapshots of past project state. Use heuristics to inform plan choices.
 
 **Gap Closure (if --gaps):** {verification_content} {uat_content}
 </planning_context>
