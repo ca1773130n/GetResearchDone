@@ -193,6 +193,88 @@ function _scoreConciseness(content: string): number {
   );
 }
 
+// ─── Proximity dedup (v0.4 Phase 4) ────────────────────────────────────────
+
+/**
+ * v0.4 hardcoded Jaccard-similarity threshold for clustering near-identical
+ * plan candidates. Codex r8 P1: v0.4 ships zero new user-facing config knobs
+ * besides `effort`, so this is a `const` (not config). Promotion to a knob is
+ * deferred to v0.5 (DEFER-v0.4-4-threshold-tuning). Higher → fewer merges:
+ * 0.50 over-merges loosely related plans, 0.95 leaves paraphrases separate,
+ * 0.85 merges near-clones only.
+ */
+export const PROXIMITY_THRESHOLD = 0.85;
+
+/**
+ * Build the clustering vocabulary for a candidate from its
+ * `files_modified` frontmatter + reflection `hypothesis` + the full plan
+ * body (covers the PLAN.md "files_modified + tasks + reflection.hypothesis"
+ * sources). Uses the same tokenizer/stopwords as drift + scoring.
+ */
+export function extractPlanVocabulary(
+  content: string,
+  fm: Record<string, unknown>
+): Set<string> {
+  const filesModified: string[] = Array.isArray(fm['files_modified'])
+    ? (fm['files_modified'] as unknown[]).map(String)
+    : [];
+  const hypothesis: string = typeof fm['hypothesis'] === 'string' ? (fm['hypothesis'] as string) : '';
+  return _tokens(`${filesModified.join(' ')}\n${hypothesis}\n${content}`);
+}
+
+/**
+ * Single-link agglomerative clustering of candidate vocabularies by Jaccard
+ * SIMILARITY. Two candidates are linked when their Jaccard similarity is
+ * `>= threshold`; single-link means transitively connected candidates land
+ * in the same cluster (A~B and B~C ⇒ {A,B,C} even if A≁C).
+ *
+ * Returns an array of clusters, each a sorted list of the original indices
+ * into `vocabularies`. Deterministic: clusters and their members are
+ * returned in ascending-index order. Pure — no I/O, no scoring (the caller
+ * picks each cluster's representative).
+ */
+export function clusterByJaccard(
+  vocabularies: Set<string>[],
+  threshold: number = PROXIMITY_THRESHOLD
+): number[][] {
+  const n = vocabularies.length;
+  // Union-find over indices.
+  const parent: number[] = Array.from({ length: n }, (_, i) => i);
+  const find = (x: number): number => {
+    let r = x;
+    while (parent[r] !== r) r = parent[r];
+    // Path compression.
+    let c = x;
+    while (parent[c] !== r) {
+      const next = parent[c];
+      parent[c] = r;
+      c = next;
+    }
+    return r;
+  };
+  const union = (a: number, b: number): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
+  };
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (_jaccard(vocabularies[i], vocabularies[j]) >= threshold) union(i, j);
+    }
+  }
+
+  const groups = new Map<number, number[]>();
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    const g = groups.get(root);
+    if (g) g.push(i);
+    else groups.set(root, [i]);
+  }
+  // Sort clusters by their smallest member index for determinism.
+  return Array.from(groups.values()).sort((a, b) => a[0] - b[0]);
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────
 
 /**
@@ -337,4 +419,8 @@ module.exports = {
   runTournament,
   cmdPlanTournament,
   DEFAULT_WEIGHTS,
+  // v0.4 Phase 4: proximity dedup
+  PROXIMITY_THRESHOLD,
+  extractPlanVocabulary,
+  clusterByJaccard,
 };

@@ -8,14 +8,17 @@ autonomous: true
 verification_level: proxy
 files_modified:
   - lib/plan-tournament.ts
+  - lib/commands/select-candidate.ts
   - tests/unit/plan-tournament.test.ts
+  - tests/unit/select-candidate.test.ts
 must_haves:
   artifacts:
     - lib/plan-tournament.ts
   key_links:
-    - "clusterCandidates(plans, threshold) implemented"
-    - "selector pipeline order: applyDeadEndsHardFail → clusterCandidates → per-cluster _scorePlan representative → final _scorePlan across representatives"
-    - "PLAN-SELECTION.json records hard-failed candidates (with reason) AND cluster representatives"
+    - "clusterByJaccard(vocabularies, threshold) + extractPlanVocabulary in lib/plan-tournament.ts (single-link agglomerative, Jaccard SIMILARITY)"
+    - "selectCandidate pipeline order: hard-fail (scoring -Infinity) → cluster survivors → per-cluster highest-_scorePlan representative → winner across representatives"
+    - "PLAN-SELECTION.json records hard_failed[], per-candidate cluster {cluster_id, is_representative, merged_into}, clusters_formed, proximity_threshold"
+    - "PROXIMITY_THRESHOLD = 0.85 hardcoded const (no config knob); tests parametrize via clusterByJaccard threshold arg"
 ---
 
 # Phase 4 — Proximity dedup before scoring
@@ -37,46 +40,52 @@ component).
 
 <tasks>
 <task name="cluster-helper">
-Implement `clusterCandidates(plans: ParsedPlan[], threshold:
-number = 0.85): Cluster[]` in `lib/plan-tournament.ts`. Each
-Cluster contains a representative + the rest of its members.
+Implement `clusterByJaccard(vocabularies: Set<string>[],
+threshold: number = PROXIMITY_THRESHOLD): number[][]` in
+`lib/plan-tournament.ts`. Returns clusters as arrays of original
+indices (the caller — selectCandidate — picks each cluster's
+representative, keeping clustering a pure math primitive).
 
-Algorithm: single-link agglomerative clustering. For each plan,
-extract a vocabulary token set from
-`files_modified + tasks + reflection.hypothesis`. Two plans go in
-the same cluster if **Jaccard similarity ≥ threshold** (higher
+Algorithm: single-link agglomerative clustering (union-find). Two
+candidates merge when **Jaccard similarity ≥ threshold** (higher
 similarity → more likely to merge: at threshold 0.50 even loosely
 related plans collapse; at threshold 0.95 even paraphrases stay
-separate; default 0.85 merges near-clones only). Representative
-= **highest deterministic _scorePlan within the cluster**
-(codex review P1 #4: NOT "most files_modified", which can let a
-richer-but-DEAD-ENDS-violating member silently eliminate
-innocent siblings).
+separate; default 0.85 merges near-clones only). Single-link means
+transitively connected candidates land in one cluster (A~B, B~C ⇒
+{A,B,C}). selectCandidate then sets each cluster's representative =
+**highest deterministic total_score within the cluster** (codex
+review P1 #4: NOT "most files_modified", which can let a
+richer-but-DEAD-ENDS-violating member silently eliminate innocent
+siblings — and the violator is hard-failed BEFORE clustering, so it
+is never a clustermate at all).
 </task>
 
 <task name="vocabulary-extraction">
-Reuse the stopword list + tokenizer from `lib/drift.ts` (already
-used for ontology distance). Token sets exclude common words like
-"the", "and", and very short tokens (<3 chars).
+`extractPlanVocabulary(content, fm)` in `lib/plan-tournament.ts`
+reuses the existing `_tokens` tokenizer + stopword list (the same
+primitive lib/drift.ts uses for ontology distance) over
+`files_modified + reflection.hypothesis + plan body`. Token sets
+exclude common words like "the", "and", and very short tokens
+(<3 chars).
 </task>
 
 <task name="selector-integration-correct-ordering">
-**Codex review P1 #4: ordering matters.** Selector pipeline:
+**Codex review P1 #4: ordering matters.** selectCandidate pipeline:
 
-1. `applyDeadEndsHardFail(candidates)` — filter out -Infinity
-   candidates (slug citation or forbidden_terms match from
-   phase 3)
-2. `clusterCandidates(survivors)` — group remaining candidates
-   by Jaccard ≥ threshold
-3. Within each cluster: pick representative = highest
-   `_scorePlan` (already deterministic; no LLM)
-4. Run `_scorePlan` again on cluster representatives only
-   (now picking between clusters)
-5. Pick highest scorer overall; rename to PLAN.md
+1. Score every candidate (Phase 3). DEAD-ENDS violators already
+   carry total_score = -Infinity — that IS the hard-fail filter.
+2. survivors = candidates with finite total_score. Only survivors
+   are clustered, so a violator can never be a clustermate.
+3. `clusterByJaccard(survivorVocabularies)` groups survivors.
+4. Within each cluster: representative = highest total_score
+   (cost tiebreaker: fewer estimated_tokens). Already deterministic;
+   no LLM.
+5. winner = highest-scoring representative across clusters; promote
+   to PLAN.md (refusing to clobber an existing one without --force).
 
-PLAN-SELECTION.json records which candidates were hard-failed
-(with reason: slug or term), which were collapsed into which
-clusters, and the per-cluster representative's selection score.
+PLAN-SELECTION.json records `hard_failed[]` (relPaths), each
+survivor's `cluster {cluster_id, is_representative, merged_into}`,
+`clusters_formed`, and `proximity_threshold`.
 </task>
 
 <task name="threshold-hardcoded-for-v0.4">

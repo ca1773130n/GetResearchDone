@@ -14,6 +14,9 @@ const {
   runTournament,
   cmdPlanTournament,
   DEFAULT_WEIGHTS,
+  PROXIMITY_THRESHOLD,
+  extractPlanVocabulary,
+  clusterByJaccard,
 } = require('../../lib/plan-tournament');
 
 // ─── Fixture helpers ───────────────────────────────────────────────────────
@@ -419,5 +422,84 @@ describe('cmdPlanTournament', () => {
     );
     const result = JSON.parse(stdout);
     expect(result.winner.path).toBe(path.join(projectDir, 'relative.md'));
+  });
+});
+
+// ─── Proximity dedup (v0.4 Phase 4) ─────────────────────────────────────────
+
+describe('clusterByJaccard', () => {
+  const S = (...words: string[]): Set<string> => new Set(words);
+
+  test('single candidate → one cluster of one', () => {
+    const clusters = clusterByJaccard([S('alpha', 'beta', 'gamma')]);
+    expect(clusters).toEqual([[0]]);
+  });
+
+  test('two identical vocabularies merge into one cluster', () => {
+    const v = S('alpha', 'beta', 'gamma', 'delta');
+    const clusters = clusterByJaccard([v, new Set(v)]);
+    expect(clusters).toEqual([[0, 1]]);
+  });
+
+  test('three near-identical vocabularies → one cluster', () => {
+    // Each shares >=0.85 with the others (5 of 6 tokens common).
+    const base = ['a', 'b', 'c', 'd', 'e'];
+    const v1 = new Set([...base, 'x']);
+    const v2 = new Set([...base, 'x']);
+    const v3 = new Set([...base, 'x']);
+    const clusters = clusterByJaccard([v1, v2, v3]);
+    expect(clusters.length).toBe(1);
+    expect(clusters[0]).toEqual([0, 1, 2]);
+  });
+
+  test('three disjoint vocabularies → three clusters', () => {
+    const clusters = clusterByJaccard([S('a', 'b', 'c'), S('d', 'e', 'f'), S('g', 'h', 'i')]);
+    expect(clusters.length).toBe(3);
+  });
+
+  test('threshold 0.95 keeps paraphrases (one differing token) separate', () => {
+    const v1 = S('a', 'b', 'c', 'd', 'e');
+    const v2 = S('a', 'b', 'c', 'd', 'z'); // Jaccard = 4/6 ≈ 0.67
+    const clusters = clusterByJaccard([v1, v2], 0.95);
+    expect(clusters.length).toBe(2);
+  });
+
+  test('threshold 0.50 over-merges loosely related vocabularies', () => {
+    const v1 = S('a', 'b', 'c', 'd');
+    const v2 = S('a', 'b', 'e', 'f'); // Jaccard = 2/6 ≈ 0.33 — still separate at 0.5
+    const v3 = S('a', 'b', 'c', 'e'); // overlaps both
+    const clusters = clusterByJaccard([v1, v2, v3], 0.3);
+    expect(clusters.length).toBe(1); // all transitively linked at 0.3
+  });
+
+  test('single-link transitivity: A~B, B~C, A≁C still one cluster', () => {
+    const A = S('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h');
+    const B = S('a', 'b', 'c', 'd', 'e', 'f', 'g', 'x'); // ~A (7/9)
+    const C = S('a', 'b', 'c', 'd', 'e', 'f', 'x', 'y'); // ~B but less so vs A
+    const clusters = clusterByJaccard([A, B, C], 0.7);
+    // B links A and C transitively.
+    expect(clusters.length).toBe(1);
+  });
+
+  test('PROXIMITY_THRESHOLD default is 0.85', () => {
+    expect(PROXIMITY_THRESHOLD).toBe(0.85);
+  });
+});
+
+describe('extractPlanVocabulary', () => {
+  test('includes files_modified, hypothesis, and body tokens', () => {
+    const vocab = extractPlanVocabulary('refactor the parser module', {
+      files_modified: ['lib/parser.ts'],
+      hypothesis: 'splitting parser improves clarity',
+    });
+    expect(vocab.has('parser')).toBe(true);
+    expect(vocab.has('refactor')).toBe(true);
+    expect(vocab.has('clarity')).toBe(true);
+  });
+
+  test('drops stopwords and short tokens', () => {
+    const vocab = extractPlanVocabulary('the a an of', {});
+    expect(vocab.has('the')).toBe(false);
+    expect(vocab.has('a')).toBe(false);
   });
 });

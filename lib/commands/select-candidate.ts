@@ -64,6 +64,9 @@ const {
 const {
   scorePlanCandidate,
   DEFAULT_WEIGHTS,
+  extractPlanVocabulary,
+  clusterByJaccard,
+  PROXIMITY_THRESHOLD,
 }: {
   scorePlanCandidate: (
     candidatePath: string,
@@ -72,6 +75,9 @@ const {
     weights?: import('../plan-tournament').ScoringWeights
   ) => import('../plan-tournament').CandidateResult;
   DEFAULT_WEIGHTS: import('../plan-tournament').ScoringWeights;
+  extractPlanVocabulary: (content: string, fm: Record<string, unknown>) => Set<string>;
+  clusterByJaccard: (vocabularies: Set<string>[], threshold?: number) => number[][];
+  PROXIMITY_THRESHOLD: number;
 } = require('../plan-tournament');
 
 const {
@@ -103,6 +109,19 @@ export interface HardFailReason {
   matched: string;
 }
 
+export interface ClusterInfo {
+  /** Cluster index (assigned among DEAD-ENDS survivors only). */
+  cluster_id: number;
+  /** True if this candidate is its cluster's representative (highest score). */
+  is_representative: boolean;
+  /**
+   * relPath of the representative this candidate was merged into. null when
+   * this candidate IS the representative. Hard-failed candidates are not
+   * clustered and carry no ClusterInfo.
+   */
+  merged_into: string | null;
+}
+
 export interface ExtendedCandidateResult {
   path: string;
   relPath: string;
@@ -112,6 +131,8 @@ export interface ExtendedCandidateResult {
   extended: ExtendedAxes;
   hard_fail: HardFailReason | null;
   advisory_warnings: AdvisoryWarning[];
+  /** v0.4 Phase 4: set for DEAD-ENDS survivors after proximity clustering. */
+  cluster?: ClusterInfo;
 }
 
 export interface SelectionResult {
@@ -502,8 +523,61 @@ export function selectCandidate(
     })
   );
 
-  // Primary sort: total_score desc (finite scores above -Infinity).
-  // Tiebreaker: estimated_tokens asc (cheaper plans win on parity).
+  // v0.4 Phase 4 pipeline ordering (codex r1 P1 #4):
+  //   1. DEAD-ENDS hard-fail already happened during scoring (-Infinity).
+  //   2. Cluster the SURVIVORS by vocabulary Jaccard so near-clones don't
+  //      each consume a full scoring slot. Hard-failed candidates are never
+  //      clustered — a violator cannot eliminate an innocent clustermate.
+  //   3. Each cluster's representative = its highest-scoring member.
+  //   4. Winner = highest-scoring representative across clusters.
+  const survivorIdx: number[] = scored
+    .map((s, i) => (isFinite(s.total_score) ? i : -1))
+    .filter((i) => i >= 0);
+
+  // Compare two scored candidates: higher total_score wins; cheaper (fewer
+  // estimated tokens) breaks ties. Returns the index (into `scored`) of the
+  // better one.
+  const better = (a: number, b: number): number => {
+    if (scored[a].total_score !== scored[b].total_score) {
+      return scored[a].total_score > scored[b].total_score ? a : b;
+    }
+    return scored[a].extended.estimated_tokens <= scored[b].extended.estimated_tokens ? a : b;
+  };
+
+  const representativeIdx: number[] = [];
+  if (survivorIdx.length > 0) {
+    const survivorVocabs: Set<string>[] = survivorIdx.map((i) => {
+      const content = safeReadFile(scored[i].path) ?? '';
+      return extractPlanVocabulary(content, extractFrontmatter(content));
+    });
+    const clusters: number[][] = clusterByJaccard(survivorVocabs, PROXIMITY_THRESHOLD);
+    clusters.forEach((memberPositions, clusterId) => {
+      // memberPositions index into survivorIdx; map to scored indices.
+      const memberScoredIdx = memberPositions.map((p) => survivorIdx[p]);
+      let repScored = memberScoredIdx[0];
+      for (const m of memberScoredIdx) repScored = better(repScored, m);
+      representativeIdx.push(repScored);
+      for (const m of memberScoredIdx) {
+        scored[m].cluster = {
+          cluster_id: clusterId,
+          is_representative: m === repScored,
+          merged_into: m === repScored ? null : scored[repScored].relPath,
+        };
+      }
+    });
+  }
+
+  // Winner = best representative. (Representatives are the only candidates
+  // eligible to be promoted — merged-away members and hard-fails are out.)
+  let winner: ExtendedCandidateResult | null = null;
+  if (representativeIdx.length > 0) {
+    let best = representativeIdx[0];
+    for (const r of representativeIdx) best = better(best, r);
+    winner = scored[best];
+  }
+
+  // Present `scored` deterministically for the audit: total_score desc,
+  // cheaper first on parity. -Infinity (hard-fails) sink to the bottom.
   scored.sort((a, b) => {
     if (a.total_score !== b.total_score) {
       if (!isFinite(a.total_score) && isFinite(b.total_score)) return 1;
@@ -512,9 +586,6 @@ export function selectCandidate(
     }
     return a.extended.estimated_tokens - b.extended.estimated_tokens;
   });
-
-  const winner: ExtendedCandidateResult | null =
-    scored.length > 0 && isFinite(scored[0].total_score) ? scored[0] : null;
 
   let promotedTo: string | null = null;
   if (winner && !opts.dryRun) {
@@ -544,6 +615,9 @@ export function selectCandidate(
     promoted_to: promotedTo ? path.relative(cwd, promotedTo) : null,
     dead_ends_loaded: deadEnds.length,
     requirements_loaded: requirementsText !== null,
+    proximity_threshold: PROXIMITY_THRESHOLD,
+    hard_failed: scored.filter((s) => s.hard_fail !== null).map((s) => s.relPath),
+    clusters_formed: representativeIdx.length,
   };
   if (!opts.dryRun) {
     atomicWriteFileSync(auditPath, JSON.stringify(audit, null, 2));

@@ -61,7 +61,12 @@ const {
     }
   ) => {
     winner: { relPath: string; total_score: number } | null;
-    candidates: Array<{ relPath: string; total_score: number; hard_fail: unknown }>;
+    candidates: Array<{
+      relPath: string;
+      total_score: number;
+      hard_fail: unknown;
+      cluster?: { cluster_id: number; is_representative: boolean; merged_into: string | null };
+    }>;
     promoted_to: string | null;
   };
 } = require('../../lib/commands/select-candidate');
@@ -483,6 +488,107 @@ describe('selectCandidate — pipeline', () => {
       const result = selectCandidate(cwd, '1');
       // Equal base/must_haves/verification → tiebreaker picks fewer tokens (PLAN-1).
       expect(result.winner!.relPath).toMatch(/PLAN-1\.md$/);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── Proximity dedup pipeline (v0.4 Phase 4) ────────────────────────────────
+
+describe('selectCandidate — proximity dedup', () => {
+  test('three near-identical candidates collapse to one cluster; one representative', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      // Identical files_modified + body, paraphrased hypotheses → same vocab.
+      const body = '# Plan\n\nrefactor the parser tokenizer lexer grammar evaluator runtime';
+      for (let i = 1; i <= 3; i++) {
+        fs.writeFileSync(
+          path.join(phaseDir, `PLAN-${i}.md`),
+          makePlan({
+            filesModified: ['lib/parser.ts', 'lib/lexer.ts'],
+            body,
+            hypothesis: `variant ${i} of the same parser refactor approach`,
+          })
+        );
+      }
+      const result = selectCandidate(cwd, '1');
+      expect(result.winner).not.toBeNull();
+      // All three share one cluster_id; exactly one is representative.
+      const clustered = result.candidates.filter((c) => c.cluster);
+      expect(clustered.length).toBe(3);
+      const clusterIds = new Set(clustered.map((c) => c.cluster!.cluster_id));
+      expect(clusterIds.size).toBe(1);
+      const reps = clustered.filter((c) => c.cluster!.is_representative);
+      expect(reps.length).toBe(1);
+      // The two non-reps record merged_into = representative relPath.
+      const merged = clustered.filter((c) => !c.cluster!.is_representative);
+      expect(merged.length).toBe(2);
+      for (const m of merged) expect(m.cluster!.merged_into).toBe(reps[0].relPath);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('three distinct candidates → three clusters, none merged', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-1.md'),
+        makePlan({ filesModified: ['lib/auth.ts'], body: '# Plan\n\nauthentication oauth tokens sessions login' })
+      );
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-2.md'),
+        makePlan({ filesModified: ['lib/render.ts'], body: '# Plan\n\nrendering canvas pixels shaders viewport' })
+      );
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-3.md'),
+        makePlan({ filesModified: ['lib/db.ts'], body: '# Plan\n\ndatabase migrations indexes queries transactions' })
+      );
+      const result = selectCandidate(cwd, '1');
+      const clusterIds = new Set(
+        result.candidates.filter((c) => c.cluster).map((c) => c.cluster!.cluster_id)
+      );
+      expect(clusterIds.size).toBe(3);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test('hard-fail runs BEFORE clustering: a violator never eliminates clean siblings', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      const sharedBody = 'parser tokenizer lexer grammar evaluator runtime pipeline';
+      // #1 is a near-duplicate of #2/#3 but cites a DEAD-ENDS slug → hard-fail.
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-1.md'),
+        makePlan({
+          filesModified: ['lib/parser.ts'],
+          body: `# Plan\n\n${sharedBody} via elo-rated-plan-tournament`,
+        })
+      );
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-2.md'),
+        makePlan({ filesModified: ['lib/parser.ts'], body: `# Plan\n\n${sharedBody} clean variant two` })
+      );
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-3.md'),
+        makePlan({ filesModified: ['lib/parser.ts'], body: `# Plan\n\n${sharedBody} clean variant three` })
+      );
+      const result = selectCandidate(cwd, '1');
+      const c1 = result.candidates.find((c) => c.relPath.endsWith('PLAN-1.md'))!;
+      // Violator: hard-failed, NOT clustered.
+      expect(c1.total_score).toBe(-Infinity);
+      expect(c1.hard_fail).not.toBeNull();
+      expect(c1.cluster).toBeUndefined();
+      // #2 and #3 are clean → clustered among themselves; winner is one of them.
+      expect(result.winner).not.toBeNull();
+      expect(result.winner!.relPath).toMatch(/PLAN-[23]\.md$/);
+      // PLAN-SELECTION.json records the hard-fail.
+      const audit = JSON.parse(
+        fs.readFileSync(path.join(phaseDir, 'PLAN-SELECTION.json'), 'utf-8')
+      );
+      expect(audit.hard_failed).toContain(c1.relPath);
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
