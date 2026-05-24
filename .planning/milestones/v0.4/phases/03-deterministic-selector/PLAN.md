@@ -15,9 +15,10 @@ must_haves:
     - lib/plan-tournament.ts
     - tests/unit/plan-tournament.test.ts
   key_links:
-    - "_scorePlan extended with must_haves coverage + DEAD-ENDS check + dry-run-verifier + cost tiebreaker"
+    - "_scorePlan extended with must_haves coverage + DEAD-ENDS hard-fail (slug+forbidden_terms) + verification-commands axis + cost tiebreaker"
     - "autopilot auto-selects highest-scoring candidate when multiple PLAN-N.md exist"
-    - "DEAD-ENDS violation = hard-fail the candidate (-Infinity score)"
+    - "DEAD-ENDS violation = hard-fail the candidate (-Infinity score) ONLY via slug citation or curated forbidden_terms (Jaccard is advisory only)"
+    - "verification-commands axis runs ONLY commands explicitly listed in PLAN.md frontmatter verification_commands field"
 ---
 
 # Phase 3 — Deterministic candidate selector
@@ -125,13 +126,19 @@ autopilot pick this plan?".
 </task>
 
 <task name="tests">
-- Unit test: must_haves coverage scores
-- Unit test: DEAD-ENDS hard-fail triggers
-- Unit test: dry-run-verifier axis on a plan with one executable task
-- Unit test: cost tiebreaker only fires on score parity
+- Unit: must_haves coverage scores (full / partial / none)
+- Unit: DEAD-ENDS hard-fail via explicit slug citation triggers
+- Unit: DEAD-ENDS hard-fail via forbidden_terms exact match triggers
+- Unit: Jaccard fuzzy match does NOT trigger hard-fail; advisory
+  warning is logged to PLAN-SELECTION.json instead
+- Unit: verification-commands axis runs each command in
+  `verification_commands` frontmatter; pass-rate becomes the score.
+  Plans with no `verification_commands` get axis score 0
+- Unit: cost tiebreaker only fires on score parity
 - Integration test: 3-candidate fixture with one DEAD-ENDS violation
-  → that one is filtered out → highest-scoring survivor is selected
-  → PLAN-SELECTION.json correctly logs all 3 scores
+  → that one is filtered (slug match) → highest-scoring survivor
+  selected → PLAN-SELECTION.json logs all 3 scores + hard-fail
+  reason + Jaccard advisory warnings if any
 </task>
 </tasks>
 
@@ -140,7 +147,9 @@ autopilot pick this plan?".
 ```yaml
 sanity:
   - "_scorePlan returns higher value for a plan whose files_modified covers all must_haves"
-  - "_scorePlan returns -Infinity for a plan whose hypothesis matches a DEAD-ENDS entry"
+  - "_scorePlan returns -Infinity for a plan citing a DEAD-ENDS slug literally"
+  - "_scorePlan returns -Infinity for a plan whose tasks contain a curated forbidden_term"
+  - "_scorePlan does NOT return -Infinity on Jaccard match alone (logs advisory warning instead)"
   - "autopilot picks the highest-score survivor"
 proxy:
   - "integration test: 3-candidate phase with stubbed planner runs end-to-end; correct candidate selected and renamed; PLAN-SELECTION.json shape valid"

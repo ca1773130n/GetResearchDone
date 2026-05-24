@@ -107,9 +107,15 @@ deferred: []
 
 ## <reflection>
 
+(Codex r2 review noted phase 1 lacked the `deferred_validations`
+schema block other phases carry. Adding for consistency — the
+schema is the source of truth per the ROADMAP prose-only
+declaration.)
+
 ```yaml
 hypothesis: "A single orthogonal `effort` config axis is sufficient to scale real-cost knobs across phases 2-5 without polluting model_profile or token_profile semantics."
 predicted_outcome: "After this phase, `gd settings effort deep` produces a config that resolveEffortKnob returns 7/7/3 from. Round-trip tests pass. No callers in lib/ read `effort` yet (that's phases 2-5)."
+deferred_validations: []
 ```
 
 ## Notes

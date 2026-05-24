@@ -17,7 +17,10 @@ must_haves:
     - tests/unit/patterns.test.ts
   key_links:
     - "`gd patterns --dry-run` lists suggested heuristics from VERIFICATION.md verdicts"
-    - "`--apply` requires explicit flag; writes to GENOME.md only with confirmation"
+    - "`--apply --yes` writes to .planning/GENOME-SUGGESTIONS.md (separate file), NEVER GENOME.md"
+    - "promotion to GENOME.md requires `gd genome promote-suggestion <slug>` (human-curated)"
+    - "planner contract: planner reads GENOME.md only; never reads GENOME-SUGGESTIONS.md"
+    - "statistical floor: n >= 10, effect_size >= 0.20, BH-FDR q < 0.10"
     - "no LLM round-trip on the read or write path"
 ---
 
@@ -115,9 +118,13 @@ context-injection drift.
 
 <task name="cli-wireup">
 Register `patterns` in lib/cli/index.ts (TOOL_COMMANDS) and
-bin/grd-tools.ts. Flags: `--dry-run` (default), `--apply`,
-`--min-occurrences N` (default 5), `--significance P` (default
-0.05).
+bin/grd-tools.ts. Flags:
+- `--dry-run` (default)
+- `--apply` (requires `--yes`)
+- `--min-occurrences N` (default **10** to match the v2
+  statistical floor; codex r2 caught the stale 5)
+- `--effect-size F` (default 0.20)
+- `--fdr-q F` (default 0.10 for BH-FDR cutoff)
 </task>
 
 <task name="never-auto-write">
@@ -133,13 +140,21 @@ command. (GENOME heuristic enforcement.)
   GENOME heuristic).
 - Unit: verdict-statistics on a synthetic reflection corpus with
   known token-to-verdict distributions.
-- Unit: significance threshold (binomial test) correctly fires
-  only when n is large enough.
+- Unit: statistical floor honored — n=9 never significant; n=10
+  with skewed mix AND effect_size >= 0.20 AND BH-FDR q < 0.10
+  is significant.
+- Unit: BH-FDR multiple-comparison correction reduces spurious
+  positives on a synthetic null corpus (verdicts assigned
+  uniform-random) to ≤1 false positive across 10 runs.
 - Integration: `gd patterns --dry-run` on the live GRD .planning/
   tree produces a sensible list (manual eyeball check; not
   asserted in tests).
 - Integration: `gd patterns --apply` without --yes flag refuses
-  to write; with --yes appends correctly to GENOME.md.
+  to write; with --yes appends correctly to
+  **.planning/GENOME-SUGGESTIONS.md** (NOT GENOME.md).
+- Integration: GENOME.md is byte-identical before and after
+  `gd patterns --apply --yes` (defensive check that we don't
+  accidentally write to the prescriptive file).
 </task>
 </tasks>
 
@@ -150,9 +165,10 @@ sanity:
   - "gd patterns --help works"
   - "gd patterns --dry-run on empty .planning/ exits 0 with empty list"
 proxy:
-  - "synthetic-corpus unit test: tokens with skewed verdict mix flagged correctly"
-  - "binomial test boundary: n=4 never significant; n=5 with skewed mix significant"
+  - "synthetic-corpus unit test: tokens with skewed verdict mix flagged correctly only when n>=10 AND effect_size>=0.20 AND BH-FDR q<0.10"
+  - "boundary test: n=9 never significant; n=10 with skewed mix significant when other thresholds met"
   - "gd patterns --apply requires --yes (refuses otherwise)"
+  - "gd patterns --apply --yes writes to GENOME-SUGGESTIONS.md; GENOME.md byte-identical"
 deferred:
   - id: DEFER-v0.4-5-1
     description: "Real value of suggested heuristics — requires manual review of output on a project with ≥30 reflections"
