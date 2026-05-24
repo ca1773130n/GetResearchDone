@@ -512,6 +512,29 @@ function isPhaseExecuted(cwd: string, phaseNum: string): boolean {
 }
 
 /**
+ * v0.4 Phase 2 gate: detect when a phase has multiple PLAN candidates
+ * (PLAN-1.md ... PLAN-N.md) instead of a single resolved PLAN.md.
+ *
+ * Multi-candidate phases are NOT yet runnable by execute-phase — Phase 3's
+ * deterministic selector picks one and renames it to PLAN.md before
+ * execution can proceed. Until Phase 3 lands, this gate logs and skips
+ * execution; an operator must select manually.
+ */
+function hasMultipleCandidates(cwd: string, phaseNum: string): boolean {
+  const info: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
+  if (!info) return false;
+  // Phase has PLAN-N.md candidates AND no resolved bare PLAN.md.
+  const candidateRe = /^PLAN-\d+\.md$/;
+  let candidateCount = 0;
+  let hasResolvedPlan = false;
+  for (const filename of info.plans) {
+    if (candidateRe.test(filename)) candidateCount++;
+    if (filename === 'PLAN.md') hasResolvedPlan = true;
+  }
+  return candidateCount >= 2 && !hasResolvedPlan;
+}
+
+/**
  * Prepend "ultrathink" keyword when the backend supports the effort capability.
  */
 function withUltrathink(prompt: string, backend?: string): string {
@@ -855,6 +878,22 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
             step: 'execute',
             status: 'skipped',
             reason: 'already executed',
+          });
+          execTasks.push({ phaseNum, skipped: true });
+          continue;
+        }
+        // v0.4 Phase 2 gate: skip execution when multiple PLAN candidates
+        // exist and none has been promoted to PLAN.md yet. Phase 3 will wire
+        // the deterministic selector that auto-promotes.
+        if (hasMultipleCandidates(cwd, phaseNum)) {
+          log(
+            `Phase ${phaseNum}: selection pending — multiple PLAN candidates present; Phase 3 selector will pick`
+          );
+          results.push({
+            phase: phaseNum,
+            step: 'execute',
+            status: 'skipped',
+            reason: 'multi-candidate selection pending (Phase 3 selector not yet wired)',
           });
           execTasks.push({ phaseNum, skipped: true });
           continue;
@@ -1782,6 +1821,7 @@ module.exports = {
   resolvePhaseRange,
   isPhasePlanned,
   isPhaseExecuted,
+  hasMultipleCandidates,
   isMilestoneComplete,
   resolveNextMilestone,
   buildNewMilestonePrompt,

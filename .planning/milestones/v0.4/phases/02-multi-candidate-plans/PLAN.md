@@ -15,21 +15,32 @@ must_haves:
   artifacts:
     - lib/commands/plan-phase.ts
     - commands/plan-phase.md
+    - lib/autopilot.ts
   key_links:
-    - "`gd plan-phase --candidates N` writes PLAN-1.md ... PLAN-N.md"
-    - "default N from resolveEffortKnob(config, 'candidates_per_plan_phase')"
-    - "no PLAN.md (singular) emitted when --candidates used"
+    - "`gd plan-candidates <N> --candidates K` parses planner output and writes PLAN-1.md ... PLAN-K.md"
+    - "default K from resolveEffortKnob(config, 'candidates_per_plan_phase') when --candidates is omitted"
+    - "no PLAN.md (singular) emitted when --candidates K>1 active"
+    - "autopilot.ts hasMultipleCandidates() gate: skip execute-phase with 'selection pending — Phase 3 will pick' when PLAN-N.md present and no resolved PLAN.md"
+    - "command named plan-candidates (not plan-phase) to avoid clashing with the existing /grd:plan-phase agent skill that already routes through bin/grd-tools.ts"
 ---
 
 # Phase 2 — Multi-candidate plan generation
 
 ## Goal
 
-`gd plan-phase --candidates N` emits N alternative PLAN.md files
-in a single planner dispatch. Today the planner emits one PLAN.md;
-with N candidates we have a comparison set for phase 3's
-deterministic selector to choose from, without paying for N
-separate dispatches.
+`gd plan-candidates <phase> --candidates N` parses planner output
+(marker-fenced `<<<PLAN-i>>>...<<</PLAN-i>>>` blocks) and writes
+N alternative `PLAN-1.md ... PLAN-N.md` files into the phase
+directory atomically. Today the planner emits one PLAN.md; with N
+candidates we have a comparison set for phase 3's deterministic
+selector to choose from, without paying for N separate dispatches.
+
+The command name was originally drafted as `gd plan-phase` but
+the existing `/grd:plan-phase` agent skill already routes through
+that name in bin/grd-tools.ts, so the tool subcommand is
+`gd plan-candidates` instead. The skill itself (`commands/plan-phase.md`)
+remains the orchestrator that invokes both the planner agent and
+this tool command.
 
 ## Context
 
@@ -48,8 +59,12 @@ proposing; no head-to-head ranking happens in this phase.
 
 <tasks>
 <task name="cli-flag-parsing">
-Add `--candidates N` flag parsing to `bin/grd-tools.ts`'s
-plan-phase route. Default value comes from
+Add `gd plan-candidates <N> --candidates K --input FILE
+[--allow-partial-candidates]` as a new tool command. Wire via
+`ROUTE_DESCRIPTORS` in `bin/grd-tools.ts` and `TOOL_COMMANDS` in
+`lib/cli/index.ts` (alongside `plan-lint`). The plain `plan-phase`
+command remains the agent skill route — DO NOT add `plan-phase` to
+`TOOL_COMMANDS` (would shadow the agent). Default K comes from
 `resolveEffortKnob(config, 'candidates_per_plan_phase')` (phase 1).
 Cap at 9 (sanity bound).
 </task>
@@ -105,10 +120,12 @@ pending — phase 3 will pick" line and do NOT proceed to execute.
 </task>
 
 <task name="integration-test">
-`tests/integration/plan-phase.test.ts`: fixture phase, run
-`gd plan-phase 1 --candidates 3` against a stubbed planner that
-returns 3 marker-fenced blocks. Assert PLAN-1.md, PLAN-2.md,
-PLAN-3.md exist with distinct content. Assert no bare PLAN.md.
+`tests/unit/plan-phase.test.ts`: fixture phase, feed a
+marker-fenced text file to `cmdPlanPhase` via `--input`. Assert
+PLAN-1.md, PLAN-2.md, PLAN-3.md exist with distinct content.
+Assert no bare PLAN.md. Also cover all 7 deliberate-failure cases
+from the reflection (count mismatch, nested, mismatched close,
+orphan close, unclosed, duplicate, missing index).
 </task>
 </tasks>
 
@@ -116,16 +133,21 @@ PLAN-3.md exist with distinct content. Assert no bare PLAN.md.
 
 ```yaml
 sanity:
-  - "gd plan-phase 1 --candidates 1 still writes PLAN.md (backward compat)"
-  - "gd plan-phase 1 --candidates 3 writes PLAN-1.md PLAN-2.md PLAN-3.md"
-  - "no candidates flag uses resolveEffortKnob default"
+  - "gd plan-candidates 1 --candidates 1 --input <single-block> writes PLAN-1.md (no bare PLAN.md emitted; backward-compat single-PLAN behavior continues to come from the unchanged /grd:plan-phase agent skill when --candidates is absent)"
+  - "gd plan-candidates 1 --candidates 3 --input <3-block> writes PLAN-1.md PLAN-2.md PLAN-3.md"
+  - "no --candidates flag uses resolveEffortKnob default (3 for balanced, 1 for thrifty, 7 for deep)"
+  - "--candidates > 9 rejected as sanity-bound violation"
 proxy:
-  - "integration test: 3 generated PLAN files have distinct <reflection> hypotheses"
-  - "integration test: each PLAN passes existing PLAN.md mechanical-verify bundle"
+  - "unit tests: 7 deliberate-failure cases (count mismatch, nested, mismatched close, orphan close, unclosed, duplicate, missing index) each produce exit 1 and write no files (fail-closed)"
+  - "autopilot hasMultipleCandidates() gate: when PLAN-N.md candidates exist without a resolved PLAN.md, execute-phase is skipped with 'selection pending — Phase 3 will pick' reason"
 deferred:
   - id: DEFER-v0.4-2-1
-    description: "Real planner behavior with N=7 on a non-trivial phase — needs Claude subprocess"
+    description: "Real planner behavior with N=7 on a non-trivial phase — needs Claude subprocess and Phase 3's selector to consume the candidates"
     validates_at: phase 3 integration
+  - id: DEFER-v0.4-2-distinct-plans
+    claim: "Real planner subprocess on a representative phase produces N plans whose hypotheses are meaningfully different (not paraphrases)"
+    validates_at: phase 3 integration with real planner
+    measure: "Jaccard similarity between any two reflection.hypothesis fields <= 0.6"
 ```
 
 ## <reflection>

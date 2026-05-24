@@ -51,6 +51,7 @@ module.exports = {
     './lib/phase-complete.ts': { lines: 93, functions: 100, branches: 61 },
     './lib/complexity.ts': { lines: 95, functions: 100, branches: 85 },
     './lib/commands/plan-lint.ts': { lines: 85, functions: 90, branches: 75 },
+    './lib/commands/plan-phase.ts': { lines: 88, functions: 60, branches: 80 },
   },
   testTimeout: 15000,
 };

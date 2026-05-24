@@ -77,7 +77,34 @@ Store as `research_landscape_context` — this will be passed to the planner age
 
 ## 2. Parse and Normalize Arguments
 
-Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`--research`, `--skip-research`, `--gaps`, `--skip-verify`, `--research-only`, `--eval-only`).
+Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`--research`, `--skip-research`, `--gaps`, `--skip-verify`, `--research-only`, `--eval-only`, `--candidates N`).
+
+**v0.4 multi-candidate mode (`--candidates N`, N > 1):** When the caller passes `--candidates N` with N > 1, the planner agent MUST emit N alternative plans for the phase. Each alternative goes between marker fences and is captured by `gd plan-candidates <phase> --candidates N`. See the `<multi_candidate>` block below — it activates ONLY when N > 1 and is otherwise silent (N === 1 is the v0.3.x default and keeps writing a single bare `PLAN.md` via the Write tool).
+
+<multi_candidate>
+**Active only when `--candidates N` is set with N > 1.**
+
+You are producing {N} ALTERNATIVE plans for this phase. They must:
+
+- Differ in **approach**, not just in wording. Choose meaningfully distinct strategies — e.g. one might emphasize adding new modules, another refactoring existing modules, another delegating to existing helpers.
+- All satisfy the same `must_haves` (REQUIREMENTS.md).
+- Each include their own `<reflection>` block; the `hypothesis` MUST differ across candidates (this is what `gd plan-lint` and Phase 3's deterministic selector will compare).
+- Be emitted as marker-fenced text blocks, NOT written to disk via the Write tool. Do NOT call Write for `PLAN-i.md` files — the orchestrator runs `gd plan-candidates <phase> --candidates {N}` against your stdout and writes the files itself, with fail-closed count validation.
+
+**Output format (REQUIRED — no other content between markers):**
+
+```
+<<<PLAN-1>>>
+<full PLAN.md content for candidate 1: YAML frontmatter + body + tasks + reflection>
+<<</PLAN-1>>>
+<<<PLAN-2>>>
+<full PLAN.md content for candidate 2>
+<<</PLAN-2>>>
+... (repeat for each candidate up to N) ...
+```
+
+Do NOT nest markers. Do NOT skip indices. Do NOT emit a bare `PLAN.md`. The orchestrator will fail closed (no files written, non-zero exit) if the count is wrong, the indices don't cover 1..N exactly, or any block is malformed. Use `--allow-partial-candidates` only on retry after explicit confirmation.
+</multi_candidate>
 
 **Focused mode routing:**
 - If `--research-only`: After initialization (steps 1-4), jump to step 5 (Handle Research, forced). After researcher returns, skip to step 14 (Present Final Status) with research-only summary. Do NOT run planner, checker, or eval-planner.

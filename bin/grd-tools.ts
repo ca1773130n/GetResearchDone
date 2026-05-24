@@ -693,6 +693,17 @@ const {
   cmdPlanLint: (cwd: string, milestone: string, raw: boolean) => void;
 } = require('../lib/commands/plan-lint');
 
+const {
+  cmdPlanPhase,
+}: {
+  cmdPlanPhase: (
+    cwd: string,
+    phaseNum: string,
+    opts: { candidates: number; inputFile?: string; allowPartial?: boolean },
+    raw: boolean
+  ) => void;
+} = require('../lib/commands/plan-phase');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1241,6 +1252,25 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
         error('milestone name required. Usage: gd plan-lint <milestone>');
       }
       cmdPlanLint(cwd, args[1], raw);
+    },
+  },
+  {
+    command: 'plan-candidates',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) {
+        error(
+          'phase number required. Usage: gd plan-candidates <N> --candidates K [--input FILE] [--allow-partial-candidates]'
+        );
+      }
+      const phaseNum: string = args[1];
+      const candidatesArg: string | undefined = flag(args, '--candidates');
+      const inputFile: string | undefined = flag(args, '--input');
+      const allowPartial: boolean = args.includes('--allow-partial-candidates');
+      const candidates: number = candidatesArg ? parseInt(candidatesArg, 10) : 0;
+      if (candidatesArg && (!Number.isInteger(candidates) || candidates < 1)) {
+        error(`--candidates must be a positive integer, got "${candidatesArg}"`);
+      }
+      cmdPlanPhase(cwd, phaseNum, { candidates, inputFile, allowPartial }, raw);
     },
   },
 ];
