@@ -7,11 +7,14 @@
 > run per-phase against PLAN.md, not against this ROADMAP.
 
 **Milestone goal:** Replace single-plan dispatch with multi-candidate
-generation + deterministic selection, gated on the cheap verifier
-(`verify.sh`-style outcomes from real `npx jest / tsc / eslint` runs).
-Zero LLM-judged scoring on the execution path. Five phases, all opt-in
-via new `effort` config axis; the v0.4.0 release ships items 1-4
-together; item 5 ships as v0.4.1.
+generation + deterministic selection. The selector ranks candidates
+by deterministic axes — must_haves coverage, DEAD-ENDS hard-fail,
+verification-commands outcomes (when a candidate's frontmatter
+declares them; advisory otherwise), and cost tiebreaker. Zero
+LLM-judged scoring on the execution path. Five phases. Phases 1-4
+are wired together and opt-in via the new `effort` config axis;
+Phase 5 (deterministic pattern extractor) ships independently and
+is NOT effort-gated. v0.4.0 ships phases 1-4; v0.4.1 ships phase 5.
 
 **Why now:** the autoresearch reality-check (2026-05-24) showed every
 peer agent has a published metric backing their identity. GRD's

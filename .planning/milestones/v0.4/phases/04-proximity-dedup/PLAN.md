@@ -79,10 +79,14 @@ PLAN-SELECTION.json records which candidates were hard-failed
 clusters, and the per-cluster representative's selection score.
 </task>
 
-<task name="threshold-config">
-Make the threshold configurable via
-`config.planTournament?.proximityThreshold` (default 0.85).
-Document in `lib/types.ts`. Add to KNOWN_CONFIG_KEYS.
+<task name="threshold-hardcoded-for-v0.4">
+**Codex r8 P1:** v0.4 deliberately ships ZERO new user-facing
+config knobs besides `effort` (`candidates_per_plan_phase`). The
+Jaccard threshold is hardcoded to 0.85 as a `const` in
+`lib/plan-tournament.ts`. Tests parametrize the threshold via
+direct function argument (not config). Promotion to a config knob
+is deferred to v0.5 after benchmark data justifies the value —
+see DEFER-v0.4-4-threshold-tuning in the reflection.
 </task>
 
 <task name="tests">
