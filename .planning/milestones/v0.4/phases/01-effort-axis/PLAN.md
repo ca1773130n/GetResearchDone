@@ -130,8 +130,8 @@ schema is the source of truth per the ROADMAP prose-only
 declaration.)
 
 ```yaml
-hypothesis: "A single orthogonal `effort` config axis is sufficient to scale real-cost knobs across phases 2-5 without polluting model_profile or token_profile semantics."
-predicted_outcome: "After this phase, `gd settings effort deep` produces a config that resolveEffortKnob returns 7/7/3 from. Round-trip tests pass. No callers in lib/ read `effort` yet (that's phases 2-5)."
+hypothesis: "A single orthogonal `effort` config axis is sufficient to scale real-cost knobs across phases 2-4 (candidates_per_plan_phase, refinement_max_iterations, benchmark_runs_per_phase) without polluting model_profile or token_profile semantics. Phase 5's statistical floor is fixed and intentionally does NOT use this axis."
+predicted_outcome: "After this phase, `gd settings effort deep` produces a config that resolveEffortKnob returns 7/7/3 from. Round-trip tests pass. No callers in lib/ read `effort` yet (that's phases 2-4)."
 deferred_validations: []
 ```
 

@@ -48,9 +48,11 @@ for v0.4.1 (item 5). Each PLAN.md publishes both numbers.
   generates 3 distinct PLAN files).
 - [ ] **Phase 3: deterministic candidate selector** — extend
   `lib/plan-tournament.ts:_scorePlan` with must_haves coverage +
-  DEAD-ENDS violations + dry-run verifier + cost tiebreaker. Selected
-  plan auto-feeds `gd execute-phase`. Verification: proxy (golden-
-  file tests against benchmark task fixtures).
+  DEAD-ENDS hard-fail (slug citation or forbidden_terms exact match;
+  Jaccard advisory only) + verification-commands axis (scoped to an
+  explicit frontmatter field) + cost tiebreaker. Selected plan
+  auto-feeds `gd execute-phase`. Verification: proxy (golden-file
+  tests against benchmark task fixtures).
 - [ ] **Phase 4: proximity dedup** — cluster candidates by vocabulary
   Jaccard before scoring; one representative per cluster moves
   forward. Verification: proxy (unit test: 3 near-identical plans

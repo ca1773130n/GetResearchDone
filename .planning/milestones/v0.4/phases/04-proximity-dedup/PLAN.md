@@ -14,8 +14,8 @@ must_haves:
     - lib/plan-tournament.ts
   key_links:
     - "clusterCandidates(plans, threshold) implemented"
-    - "selector calls clusterCandidates before _scorePlan"
-    - "PLAN-SELECTION.json records cluster representatives"
+    - "selector pipeline order: applyDeadEndsHardFail → clusterCandidates → per-cluster _scorePlan representative → final _scorePlan across representatives"
+    - "PLAN-SELECTION.json records hard-failed candidates (with reason) AND cluster representatives"
 ---
 
 # Phase 4 — Proximity dedup before scoring
