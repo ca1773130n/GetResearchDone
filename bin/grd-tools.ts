@@ -677,6 +677,16 @@ const {
   cmdWatch: (cwd: string, raw: boolean) => void;
 } = require('../lib/commands/watch');
 
+const {
+  cmdSingularity,
+}: {
+  cmdSingularity: (
+    cwd: string,
+    options: { since?: string | null; all?: boolean; byIteration?: boolean },
+    raw: boolean
+  ) => void;
+} = require('../lib/commands/singularity');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1161,6 +1171,15 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     handler: (args, cwd, raw) => cmdDepsRisk(cwd, args[1] ?? null, raw),
   },
   { command: 'watch', handler: (_args, cwd, raw) => cmdWatch(cwd, raw) },
+  {
+    command: 'singularity',
+    handler: (args, cwd, raw) => {
+      const since = flag(args, '--since') ?? null;
+      const all = args.includes('--all');
+      const byIteration = args.includes('--by-iteration');
+      cmdSingularity(cwd, { since, all, byIteration }, raw);
+    },
+  },
 ];
 
 // ─── Subcommand Arrays ──────────────────────────────────────────────────────

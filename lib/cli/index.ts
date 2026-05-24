@@ -103,6 +103,7 @@ const TOOL_COMMANDS = new Set([
   'tail',
   'todos',
   'watch',
+  'singularity',
 ]);
 
 /**
