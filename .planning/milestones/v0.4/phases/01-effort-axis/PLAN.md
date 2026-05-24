@@ -39,11 +39,23 @@ path"* applies: effort scales deterministic compute (number of
 plan candidates, refinement-loop iteration cap, benchmark runs)
 not LLM judging.
 
-This phase is foundational for phases 2-4. Phase 2 reads `effort`
-to decide N for `--candidates N`; phase 3 reads `effort` to decide
-whether dry-run-verifier counts (skipped when `thrifty`); phase 5
-reads `effort` for "min reflections to consider before suggesting
-a heuristic".
+This phase is foundational for phases 2-4. Specifically:
+
+- **Phase 2** reads `effort` to decide N for `--candidates N`
+  (1 / 3 / 7).
+- **Phase 3**'s refinement-loop max-iterations and benchmark-runs-
+  per-phase counts come from `effort` knobs.
+- **Phase 4** uses `effort` only indirectly (it operates on whatever
+  N phase 2 produced).
+- **Phase 5** is independent of `effort` — its statistical floor
+  (n >= 10, effect_size >= 0.20, BH-FDR q < 0.10) is fixed,
+  not effort-scaled. (Phase 5's CLI flags can override the floor
+  but `effort` does not.)
+
+Note: phase 3 does NOT have a "dry-run-verifier" concept in the
+v2 design. The renamed `verification-commands` axis runs only the
+explicit commands declared in a candidate's frontmatter — no
+effort-dependent gating.
 
 ## Tasks
 
@@ -78,9 +90,10 @@ Callers in phases 2-5 use this instead of reading raw config.
 </task>
 
 <task name="cli-gd-settings-effort">
-Add `gd settings effort <thrifty|balanced|deep>` as one of the
-two tool-mode settings keys (alongside `token_profile` and
-`phase_complete_llm_fallback`). Persists to `.planning/config.json`.
+Add `gd settings effort <thrifty|balanced|deep>` as a third
+tool-mode settings key, alongside the existing `token_profile`
+and `phase_complete_llm_fallback`. Persists to
+`.planning/config.json`.
 </task>
 
 <task name="tests-roundtrip-and-knobs">

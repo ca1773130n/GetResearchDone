@@ -193,8 +193,10 @@ deferred_validations:
 ## Notes
 
 - This is the most P2-prone phase on v0.4. Statistics on a small
-  corpus produce false positives; the `--min-occurrences` and
-  `--significance` defaults exist to mitigate but won't eliminate.
+  corpus produce false positives; the `--min-occurrences` (n>=10),
+  `--effect-size` (>=0.20), and `--fdr-q` (BH-FDR cutoff 0.10)
+  defaults exist to mitigate but won't eliminate. Synthetic-null-
+  corpus unit test (see tasks) is the empirical guard.
 - The intent is "suggest heuristics to a human"; the intent is
   NOT "auto-curate GENOME". The `--yes` requirement enforces this.
 - Estimated cost: ~1 day. ~350 lines incl. tests.
