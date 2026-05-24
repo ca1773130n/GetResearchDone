@@ -84,9 +84,23 @@ const {
 const {
   loadCorpus,
   formatBenchmarkReport,
+  evaluateEntry,
 }: {
   loadCorpus: (dir: string) => import('../types').BenchmarkEntry[];
-  formatBenchmarkReport: (entries: import('../types').BenchmarkEntry[]) => string;
+  formatBenchmarkReport: (
+    results: import('../types').BenchmarkResult[],
+    entries: import('../types').BenchmarkEntry[]
+  ) => string;
+  evaluateEntry: (
+    entry: import('../types').BenchmarkEntry,
+    semanticSummary: string,
+    buildOutput: string,
+    runOutput: string,
+    stderr: string,
+    executionTimeMs: number,
+    rubricVersion: string,
+    evaluator: string
+  ) => import('../types').BenchmarkResult;
 } = require('../benchmark');
 
 // ─── Research Workflow Init ──────────────────────────────────────────────────
@@ -378,15 +392,23 @@ function cmdInitEvalReport(cwd: string, phase: string | null, raw: boolean): voi
     phases_dir: path.relative(cwd, getPhasesDirPath(cwd)),
     research_dir: path.relative(cwd, researchDir),
 
-    // Benchmark corpus (NERFIFY): load scored entries for comparative eval
+    // Benchmark corpus (NERFIFY): load scored entries for comparative eval.
+    // Codex r46 P1: formatBenchmarkReport requires (results, entries).
+    // The prior call passed entries-only, so this branch silently fell
+    // into the catch and dropped the benchmark report whenever a corpus
+    // existed. Evaluate each entry first.
     benchmark_corpus: (() => {
       const corpusDir = path.join(researchDir, 'benchmarks');
       try {
         if (!fs.existsSync(corpusDir)) return { entries: [], report: null };
         const entries = loadCorpus(corpusDir);
+        if (entries.length === 0) return { entries: 0, report: null };
+        const results = entries.map((e) =>
+          evaluateEntry(e, '', '', '', '', 0, '1.0', 'eval-reporter-init')
+        );
         return {
           entries: entries.length,
-          report: entries.length > 0 ? formatBenchmarkReport(entries) : null,
+          report: formatBenchmarkReport(results, entries),
         };
       } catch {
         return { entries: 0, report: null };
