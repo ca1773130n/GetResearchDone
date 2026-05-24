@@ -687,6 +687,12 @@ const {
   ) => void;
 } = require('../lib/commands/singularity');
 
+const {
+  cmdPlanLint,
+}: {
+  cmdPlanLint: (cwd: string, milestone: string, raw: boolean) => void;
+} = require('../lib/commands/plan-lint');
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Extract --flag value from args, returns value or fallback */
@@ -1226,6 +1232,15 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
       const all = args.includes('--all');
       const byIteration = args.includes('--by-iteration');
       cmdSingularity(cwd, { since, all, byIteration }, raw);
+    },
+  },
+  {
+    command: 'plan-lint',
+    handler: (args, cwd, raw) => {
+      if (!args[1]) {
+        error('milestone name required. Usage: gd plan-lint <milestone>');
+      }
+      cmdPlanLint(cwd, args[1], raw);
     },
   },
 ];

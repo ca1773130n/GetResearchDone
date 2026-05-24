@@ -104,6 +104,7 @@ const TOOL_COMMANDS = new Set([
   'todos',
   'watch',
   'singularity',
+  'plan-lint',
 ]);
 
 /**
