@@ -30,7 +30,7 @@ existing `model_profile` and `token_profile` axes. Values:
 `thrifty | balanced | deep`. The key gates *real-cost knobs* (how
 many candidates / iterations / benchmark runs to do); it does NOT
 gate any LLM debate rounds, because there are no LLM debate rounds
-in v0.4 ([DEAD-ENDS: `elo-rated-plan-tournament`](../../../DEAD-ENDS.md)).
+in v0.4 ([DEAD-ENDS: `elo-rated-plan-tournament`](../../../../DEAD-ENDS.md)).
 
 ## Context
 

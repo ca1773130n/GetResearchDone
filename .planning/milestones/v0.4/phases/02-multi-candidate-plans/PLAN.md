@@ -77,15 +77,24 @@ When N === 1, the block is suppressed; behavior is unchanged from
 v0.3.x (single PLAN.md emitted).
 </task>
 
-<task name="file-emission">
-After the planner subprocess returns, scaffold the writes:
-- Read N from --candidates (or effort default).
+<task name="file-emission-fail-closed">
+After the planner subprocess returns, scaffold the writes.
+**Codex review P1 #3: fail closed by default** (autopilot should not
+silently degrade to 1 candidate when the user asked for N).
+
+- Read N from `--candidates` (or effort default).
 - Expect the planner output to contain N PLAN-blocks fenced by
-  `<<<PLAN-i>>>` / `<<</PLAN-i>>>` markers. Each block's content
-  is written to `<phaseDir>/PLAN-i.md`.
-- If the planner emits fewer than N blocks, write what it did and
-  print a warning (do not fail).
-- If the planner emits more than N, write the first N and warn.
+  `<<<PLAN-i>>>` / `<<</PLAN-i>>>` markers.
+- Validate the count exactly:
+  - If count !== N: **fail with non-zero exit code**, log which
+    blocks were found, do NOT write any files.
+  - If `--allow-partial-candidates` flag is set: degrade to writing
+    what was found and warn loudly.
+- Single retry on malformed output: if the planner subprocess
+  produces 0 or > 2× N blocks, re-dispatch once with an explicit
+  reminder paragraph appended to the prompt. If the second attempt
+  also fails, fail closed.
+- Each valid block's content is written to `<phaseDir>/PLAN-i.md`.
 </task>
 
 <task name="autopilot-default">
@@ -121,9 +130,18 @@ deferred:
 
 ## <reflection>
 
+(Codex review P2 #6: original reflection deferred all interesting
+claims to phase 3. v2 splits into an in-phase falsifiable claim and
+a separately tracked deferred validation.)
+
 ```yaml
-hypothesis: "Asking the planner for N candidates in a single dispatch produces meaningfully different plans (not paraphrases of one), as measured by distinct hypotheses in the <reflection> blocks across the N outputs."
-predicted_outcome: "Stubbed-planner integration test passes (mechanical). The 'meaningfully different' claim is deferred to phase 3 integration with a real planner subprocess on a representative fixture."
+hypothesis: "Marker-fence parsing + fail-closed validation reliably distinguishes a correct N-block planner response from a malformed one across the test fixtures."
+predicted_outcome: "Stubbed-planner integration test passes for the three deliberate-failure cases (N-1 blocks, N+1 blocks, nested fences) — each produces a non-zero exit and writes no files. Same test passes for the happy path (exactly N valid blocks → N files written)."
+deferred_validations:
+  - id: DEFER-v0.4-2-distinct-plans
+    claim: "Real planner subprocess on a representative phase produces N plans whose hypotheses are meaningfully different (not paraphrases)."
+    validates_at: phase 3 integration with real planner
+    measure: "Jaccard distance between any two reflection.hypothesis fields >= 0.4"
 ```
 
 ## Notes

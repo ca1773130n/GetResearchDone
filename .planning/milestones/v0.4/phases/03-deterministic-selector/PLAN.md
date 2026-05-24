@@ -53,25 +53,52 @@ penalty. Each found artifact = +1.
 </task>
 
 <task name="dead-ends-violation-check">
-Read `.planning/DEAD-ENDS.md`. Tokenize each candidate's tasks +
-reflection.hypothesis. For each DEAD-ENDS entry, run a fuzzy
-match (Jaccard ≥ 0.6) between the entry's hypothesis and the
-candidate's hypothesis. Any match = candidate score set to
-`-Infinity` (hard fail). Log which DEAD-ENDS slug triggered.
+Read `.planning/DEAD-ENDS.md`. For each candidate, check two
+*hard signals* (codex review P1 #1 + DEAD-ENDS slug
+`fuzzy-jaccard-as-deadends-hard-fail`):
 
-This is the *teeth* of the DEAD-ENDS registry. Without this
-check, the registry is purely informational.
+1. **Explicit slug citation** — does the candidate mention any
+   DEAD-ENDS slug literally (e.g. `elo-rated-plan-tournament`)
+   in tasks / files_modified / reflection.hypothesis? If yes,
+   that's a confession → hard-fail (-Infinity).
+2. **Curated forbidden-mechanism vocabulary** — each DEAD-ENDS
+   entry carries a `forbidden_terms: [str]` field (NEW SCHEMA
+   ADDITION — see task `extend-dead-ends-schema`). Exact
+   case-insensitive match of any term in the candidate's tasks /
+   hypothesis triggers hard-fail.
+
+The Jaccard score against each DEAD-ENDS hypothesis IS still
+computed, but only logged to `PLAN-SELECTION.json` as an
+*advisory warning* ("candidate X shares 0.65 vocabulary with
+DEAD-ENDS entry Y — review"). No hard action on the fuzzy
+signal. Hard actions need hard signals.
 </task>
 
-<task name="dry-run-verifier-axis">
-When the candidate's tasks include shell-executable steps
-(e.g., a `<task name="add-test">` with a clear command), attempt
-a dry-run via the same `_measureMetrics` infrastructure from
-`lib/autopilot-pipeline.ts`. Pass-rate of the dry-run becomes a
-score component in [0, 10].
+<task name="extend-dead-ends-schema">
+Add a `forbidden_terms: [str]` field to the DEAD-ENDS YAML schema
+in `agents/grd-planner.md` and `lib/dead-ends.ts`. Backfill the
+existing 6 entries with curated term lists. Round-trip the new
+field through read + write paths. This is a small, contained
+schema extension.
+</task>
 
-For non-executable plans (design-doc tasks, etc.) this axis
-contributes 0; the other axes carry the decision.
+<task name="verification-commands-axis">
+**Renamed from `dry-run-verifier-axis` per codex review P1 #2.**
+Running `npx jest` against the *current* repo before applying a
+candidate plan mostly measures ambient repo health, not the
+candidate's specific quality. The original framing was misleading.
+
+v0.4 ships this axis only when the candidate PLAN.md frontmatter
+includes an explicit `verification_commands: [...]` field. Each
+command is a safe deterministic check (e.g. `npx tsc --noEmit
+src/new-module.ts` if the candidate proposes a new module). The
+selector runs those commands and uses their pass-rate as a score
+component in [0, 10].
+
+Applying the *whole* candidate in an isolated worktree to run
+the full verifier is out of scope for v0.4 — that's the v0.5
+benchmark validation gate. The axis defaults to score 0 when
+`verification_commands` is absent; other axes carry the decision.
 </task>
 
 <task name="cost-tiebreaker">
@@ -126,9 +153,16 @@ deferred:
 
 ## <reflection>
 
+(Codex review P2 #6: rewrite reflection to be falsifiable in-phase.)
+
 ```yaml
-hypothesis: "Extending the existing deterministic _scorePlan with must_haves coverage + DEAD-ENDS hard-fail + dry-run-verifier + cost tiebreaker produces a selector that beats the v0.3.x single-plan baseline on benchmark pass rate without regressing tokens-to-pass by more than 2×."
-predicted_outcome: "Unit tests pass mechanically. The pass-rate-vs-baseline claim is deferred to the v0.5 benchmark gate (≥16 tasks populated)."
+hypothesis: "Extending _scorePlan with the four axes (must_haves coverage + DEAD-ENDS hard-fail via slug+forbidden_terms + verification_commands axis + cost tiebreaker) produces an auditable selector whose decisions can be reconstructed from PLAN-SELECTION.json without any LLM call."
+predicted_outcome: "On the unit test fixtures: (a) PLAN-SELECTION.json contains all 4 axis scores per candidate, (b) any DEAD-ENDS hard-fail records the matching slug or forbidden_term verbatim, (c) the winning candidate's selection can be replayed by a human reader using only the JSON, with no further information needed."
+deferred_validations:
+  - id: DEFER-v0.4-3-real-bench
+    claim: "The selector beats v0.3.x single-plan baseline on internal-bench pass rate by ≥10pp without regressing tokens-to-pass by more than 2×."
+    validates_at: v0.5 benchmark gate (≥16 tasks populated)
+    measure: "per-task verify.sh exit code; tokens-to-pass from gd estimate-phase actuals"
 ```
 
 ## Notes

@@ -56,29 +56,61 @@ Scan `.planning/milestones/*/phases/*/VERIFICATION.md` (and bare
 phase's PLAN.md token vocabulary.
 </task>
 
-<task name="verdict-statistics">
+<task name="verdict-statistics-with-fdr">
+**Codex review P2 #7: per-token binomial p<0.05 across many
+tokens invites multiple-comparison noise.** v2 adds standard
+corrections:
+
 Compute per-token verdict statistics:
 - For each vocabulary token T appearing in a plan: `confirmed_rate
   = confirmed_count / total_count_for_T`.
 - Compute the project-wide baseline rate.
-- Token is "statistically significant" if (a) it appears in ≥5
-  plans, (b) its rate deviates from baseline by ≥1.5 standard
-  deviations, AND (c) the deviation reaches p<0.05 via a binomial
-  test against the baseline.
+- Token is "statistically significant" if ALL of:
+  (a) appears in ≥10 plans (raised from 5)
+  (b) absolute effect size ≥ 0.20 (NEW — rate deviates from
+      baseline by ≥20 percentage points)
+  (c) raw p < 0.05 via binomial test against baseline
+  (d) **Benjamini-Hochberg FDR-corrected** q < 0.10 across all
+      tokens tested in the run (NEW — prevents multiple-
+      comparison noise)
+- Suppress low-information implementation tokens (configurable
+  stopword list: `function`, `const`, `import`, `test`, `module`,
+  etc. + the existing `lib/drift.ts` stopword list).
 </task>
 
-<task name="suggestion-output">
-For each significant token, generate a suggested heuristic line:
+<task name="suggestion-output-to-separate-file">
+**Codex review P1 #5 + DEAD-ENDS slug
+`auto-suggestions-in-genome-file`**: writes go to
+`.planning/GENOME-SUGGESTIONS.md`, NOT GENOME.md. The planner
+contract is that GENOME.md sections are prescriptive; mixing
+auto-generated suggestions in the same file blurs that.
+
+For each significant token, append a suggested heuristic to
+GENOME-SUGGESTIONS.md (under a per-run dated header):
 
 ```
-- Plans containing "{token}" have {rate}% confirmed (baseline
-  {baseline}%, n={count}, p={pvalue}). Consider promoting to
-  prescriptive heuristic.
+## Run 2026-05-24
+
+- Plans containing "refactor" have 78% confirmed (baseline 35%,
+  n=12, raw_p=0.0021, fdr_q=0.018, effect_size=+0.43).
+  Suggested heuristic: "Plans with explicit refactor-style task
+  names succeed more often."
+  Promote with: `gd genome promote-suggestion refactor-rate`
 ```
 
-In `--dry-run`, just print. In `--apply`, append to GENOME.md
-under a new `## Suggested heuristics (auto-generated)` section
-(separate from the human-curated `## Heuristics in use`).
+In `--dry-run`, print only. In `--apply --yes`, write the file.
+Promotion to GENOME.md `## Heuristics in use` is a SEPARATE
+human-curated command (`gd genome promote-suggestion <slug>`)
+that takes the suggestion text + a human-edited heuristic
+formulation. The planner never reads GENOME-SUGGESTIONS.md.
+</task>
+
+<task name="planner-contract-no-suggestions-leak">
+Update `agents/grd-planner.md` `<genome>` block to explicitly
+state: "Read GENOME.md only. NEVER read GENOME-SUGGESTIONS.md
+or other auto-generated artifacts that have not been
+human-promoted." This is a defensive measure against future
+context-injection drift.
 </task>
 
 <task name="cli-wireup">
@@ -129,9 +161,17 @@ deferred:
 
 ## <reflection>
 
+(Codex review P2 #6 + P2 #7: in-phase falsifiable + tracked
+deferred + FDR-corrected statistical floor.)
+
 ```yaml
-hypothesis: "Deterministic vocabulary-frequency-vs-verdict statistics over reflection history produces useful heuristic suggestions that a human reviewer would accept ≥50% of the time."
-predicted_outcome: "Mechanical tests pass. The 'useful' claim requires manual review on real data; deferred to post-ship."
+hypothesis: "FDR-corrected per-token binomial test + n≥10 + effect-size ≥ 0.20 + stopword suppression yields zero false-positive heuristic suggestions on a synthetic null corpus (all reflections randomly verdicted with uniform 50/50 confirmed/falsified)."
+predicted_outcome: "Unit test: feed the extractor 100 synthetic reflections with verdicts assigned by uniform random. Expected output: empty suggestion list (within 1 spurious suggestion across 10 runs at q<0.10 FDR cutoff)."
+deferred_validations:
+  - id: DEFER-v0.4-5-real-utility
+    claim: "On the real GRD reflection history (≥47 reflections), the extractor produces ≥1 suggestion that a human reviewer accepts as a real, actionable heuristic."
+    validates_at: post-ship manual review
+    measure: "human accept / reject rate on the first N suggestions emitted"
 ```
 
 ## Notes

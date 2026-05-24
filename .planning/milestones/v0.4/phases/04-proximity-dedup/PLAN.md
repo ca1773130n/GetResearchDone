@@ -45,7 +45,10 @@ Algorithm: single-link agglomerative clustering. For each plan,
 extract a vocabulary token set from
 `files_modified + tasks + reflection.hypothesis`. Two plans go in
 the same cluster if Jaccard distance ≥ threshold. Representative
-= the cluster member with the most files_modified (richest plan).
+= **highest deterministic _scorePlan within the cluster**
+(codex review P1 #4: NOT "most files_modified", which can let a
+richer-but-DEAD-ENDS-violating member silently eliminate
+innocent siblings).
 </task>
 
 <task name="vocabulary-extraction">
@@ -54,11 +57,23 @@ used for ontology distance). Token sets exclude common words like
 "the", "and", and very short tokens (<3 chars).
 </task>
 
-<task name="selector-integration">
-In `lib/autopilot.ts`'s plan-selection step, call
-`clusterCandidates` before `_scorePlan`. Score only cluster
-representatives. PLAN-SELECTION.json records which candidates
-were collapsed into which clusters (audit trail).
+<task name="selector-integration-correct-ordering">
+**Codex review P1 #4: ordering matters.** Selector pipeline:
+
+1. `applyDeadEndsHardFail(candidates)` — filter out -Infinity
+   candidates (slug citation or forbidden_terms match from
+   phase 3)
+2. `clusterCandidates(survivors)` — group remaining candidates
+   by Jaccard ≥ threshold
+3. Within each cluster: pick representative = highest
+   `_scorePlan` (already deterministic; no LLM)
+4. Run `_scorePlan` again on cluster representatives only
+   (now picking between clusters)
+5. Pick highest scorer overall; rename to PLAN.md
+
+PLAN-SELECTION.json records which candidates were hard-failed
+(with reason: slug or term), which were collapsed into which
+clusters, and the per-cluster representative's selection score.
 </task>
 
 <task name="threshold-config">
@@ -92,9 +107,16 @@ deferred: []
 
 ## <reflection>
 
+(Codex review P2 #6: in-phase falsifiable + tracked deferred.)
+
 ```yaml
-hypothesis: "Jaccard threshold 0.85 over the vocabulary of files_modified + tasks + hypothesis correctly identifies near-duplicate plans without collapsing meaningfully different ones."
-predicted_outcome: "Unit tests at thresholds 0.50 / 0.85 / 0.95 produce the expected merge / correct / no-merge outcomes. Real-world threshold tuning happens in v0.5 once we have benchmark-task multi-candidate data."
+hypothesis: "Hard-fail-before-cluster + score-based representative selection prevents any non-violating candidate from being silently eliminated by a clustermate's DEAD-ENDS violation."
+predicted_outcome: "Unit test fixture: 3 candidates where #1 violates DEAD-ENDS and #2/#3 are near-duplicates of #1. Pipeline produces: #1 filtered (hard-fail logged in JSON), #2 and #3 cluster together with #2 OR #3 as representative based on their own _scorePlan. #1's violation does not affect #2/#3."
+deferred_validations:
+  - id: DEFER-v0.4-4-threshold-tuning
+    claim: "Jaccard threshold 0.85 is appropriate on real-world planner output (not over-merge, not under-merge)."
+    validates_at: v0.5 benchmark data collection
+    measure: "manual eyeball check of 20 representative cluster decisions on the benchmark task corpus"
 ```
 
 ## Notes

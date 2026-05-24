@@ -40,6 +40,51 @@ dead_end_added_via: manual
 date: 2026-05-24
 ```
 
+## fuzzy-jaccard-as-deadends-hard-fail
+
+```yaml
+slug: fuzzy-jaccard-as-deadends-hard-fail
+hypothesis: "Jaccard >= 0.6 on candidate-hypothesis vs DEAD-ENDS-entry text is a reliable hard-fail trigger for the deterministic selector."
+predicted_outcome: "Candidates that match a DEAD-ENDS entry's hypothesis by Jaccard >= 0.6 are correctly hard-failed; legitimate plans pass through."
+actual_outcome: "Codex design review (task bkknb6i9g, 2026-05-24) flagged P1: shared vocabulary like 'deterministic selector', 'reflection', 'heuristic', 'GENOME', 'plan candidates' will false-positive without sharing intent. Hard-failing on bag-of-words match contradicts the planner contract to compare on intent."
+why_failed: "Text similarity is not intent similarity. Hard actions need hard signals."
+evidence:
+  - codex_review: "task bkknb6i9g — P1 #1"
+  - mitigation: "Phase 3 PLAN.md v2 — fuzzy match is now advisory (logged to PLAN-SELECTION.json as warning); hard-fail only on explicit DEAD-ENDS slug citation OR appearance of a curated forbidden-mechanism term (e.g. 'elo', 'meta-review-agent', 'llm-as-judge')."
+dead_end_added_via: manual
+date: 2026-05-24
+```
+
+## dedup-before-hardfail-ordering
+
+```yaml
+slug: dedup-before-hardfail-ordering
+hypothesis: "Running proximity dedup before DEAD-ENDS hard-fail is a safe ordering."
+predicted_outcome: "Cluster representatives selected by 'most files_modified' are reasonable stand-ins for their cluster mates in subsequent scoring."
+actual_outcome: "Codex design review (task bkknb6i9g) flagged P1: a richer near-duplicate that trips a DEAD-ENDS entry can represent its cluster, get -Infinity, and eliminate clean non-violating cluster members."
+why_failed: "Cluster representative selection is pre-scoring lossy; pairing it with downstream hard-fail means one violator silently eliminates innocent siblings."
+evidence:
+  - codex_review: "task bkknb6i9g — P1 #4"
+  - mitigation: "Phase 4 PLAN.md v2 — DEAD-ENDS hard-fail runs BEFORE clustering. Clustering operates only on survivors."
+dead_end_added_via: manual
+date: 2026-05-24
+```
+
+## auto-suggestions-in-genome-file
+
+```yaml
+slug: auto-suggestions-in-genome-file
+hypothesis: "Writing pattern-extractor suggestions to a new section in GENOME.md is safe as long as the section header says 'Suggested'."
+predicted_outcome: "Planner ignores 'Suggested' sections; only humans promote them to prescriptive heuristics."
+actual_outcome: "Codex design review (task bkknb6i9g) flagged P1: GENOME's contract is that the planner reads it before every plan. Mixing auto-generated suggestions with prescriptive heuristics in the same file blurs the contract."
+why_failed: "Co-located storage implies co-equal status to a reader (human or agent)."
+evidence:
+  - codex_review: "task bkknb6i9g — P1 #5"
+  - mitigation: "Phase 5 PLAN.md v2 — writes to .planning/GENOME-SUGGESTIONS.md (separate file, planner does not read). Promotion requires `gd genome promote-suggestion <slug>` (human-curated)."
+dead_end_added_via: manual
+date: 2026-05-24
+```
+
 ## llm-prose-as-tool-output
 
 ```yaml

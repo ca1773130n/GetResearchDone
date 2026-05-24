@@ -1,5 +1,11 @@
 # v0.4 — Validation-first deterministic candidate selection
 
+> **Format note (codex review P2 #8):** This ROADMAP.md is
+> intentionally prose-only. The PLAN.md files under
+> `phases/<N>-<slug>/` are the machine-checkable schema source of
+> truth. `gd-tools verify-summary` and `gd-tools verify mechanical`
+> run per-phase against PLAN.md, not against this ROADMAP.
+
 **Milestone goal:** Replace single-plan dispatch with multi-candidate
 generation + deterministic selection, gated on the cheap verifier
 (`verify.sh`-style outcomes from real `npx jest / tsc / eslint` runs).
@@ -13,12 +19,22 @@ Singularity 92.2% is a context number; the *quality* claim needs a
 benchmark. Multi-candidate + deterministic selector is the minimum
 substrate that produces a measurable improvement we can report.
 
-**DEAD-ENDS respected:** `elo-rated-plan-tournament`,
+**DEAD-ENDS respected** (planner must not re-propose): six entries in
+[`.planning/DEAD-ENDS.md`](../../DEAD-ENDS.md). Three from prior
+cycles: `elo-rated-plan-tournament`,
 `meta-review-agent-with-write-access`, `llm-prose-as-tool-output`.
-Each is documented at [`.planning/DEAD-ENDS.md`](../DEAD-ENDS.md).
+Three new entries from codex review of the v0.4 design itself
+(task `bkknb6i9g`): `fuzzy-jaccard-as-deadends-hard-fail`,
+`dedup-before-hardfail-ordering`, `auto-suggestions-in-genome-file`.
 
 **GENOME heuristic applied:** "No LLM-judged scoring on the core
 execution path." Every phase below follows it.
+
+**Cost note (codex review P2 #9):** Per-phase nominal estimates
+total ~3.5 days. Adjusted for typical codex-rescue overhead
+(50-100% of nominal based on rounds 1-47 history), realistic ship
+is **5-7 days** for v0.4.0 (items 1-4) plus another **1-2 days**
+for v0.4.1 (item 5). Each PLAN.md publishes both numbers.
 
 ## Phases
 
