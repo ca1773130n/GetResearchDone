@@ -42,6 +42,7 @@
     "format:check": "prettier --check bin/ lib/ tests/ jest.config.js",
     "build": "tsc -p tsconfig.build.json",
     "build:check": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
     "postinstall": "node bin/postinstall.js",
     "scan": "gd scan",
     "scan:all": "gd scan --all",
