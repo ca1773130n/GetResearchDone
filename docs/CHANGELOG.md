@@ -5,6 +5,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-25
+
+Completes the v0.4 milestone with phase 5 (deterministic pattern
+extractor) and brings the internal benchmark to the v0.5 promotion-gate
+floor. Per-phase codex code review continued: the Phase 5 statistical
+core (binomial test, Benjamini-Hochberg FDR) was independently executed
+against reference values and confirmed exact; two P2s were fixed.
+
+### Added
+
+- **`gd patterns`** — deterministic pattern extractor. Scans
+  VERIFICATION.md `<reflection>` verdicts, computes per-token statistics
+  over each plan's vocabulary, and *suggests* heuristics that clear a
+  statistical floor: appears in ≥10 plans, effect size ≥0.20, raw
+  two-sided binomial p<0.05, AND Benjamini-Hochberg FDR q<0.10. The
+  synthetic-null-corpus test confirms ≤1 false positive across 10 runs
+  of random verdicts. Flags: `--dry-run` (default), `--apply` (requires
+  `--yes`), `--min-occurrences`, `--effect-size`, `--fdr-q`. No LLM on
+  the read or write path.
+- **Suggestion/prescription separation** — `gd patterns` writes ONLY to
+  `.planning/GENOME-SUGGESTIONS.md` (a separate file), NEVER GENOME.md.
+  The planner contract (`agents/grd-planner.md`) now explicitly forbids
+  reading GENOME-SUGGESTIONS.md. `gd genome promote-suggestion <slug>`
+  is the sole human-curated path from advisory suggestion to
+  prescriptive heuristic.
+- **8 internal-benchmark fixtures** (`tests/benchmark/tasks/`, 8 → 16),
+  meeting the v0.5 gate's ≥16-task floor. Ported from this milestone's
+  per-phase codex reviews — real bugs with known fixes (verification-exec
+  allowlist, effort-knob fallback, slug word-boundary, fail-closed
+  parser, BH-FDR order, settings routing, hard-fail-before-cluster,
+  PLAN.md overwrite guard).
+
+### Fixed
+
+- `gd patterns` baseline non-independence documented as a caveat
+  (approximate association signal, not a calibrated p-value; suitable
+  for a human-reviewed suggester). `promote-suggestion` now picks the
+  latest run for a repeated slug and matches the slug exactly (codex P2).
+- Benchmark task fixtures excluded from the jest test run (they are
+  sandbox-only; jest was collecting two as project tests).
+
 ## [0.4.0] - 2026-05-24
 
 Multi-candidate plan generation + deterministic selection. Replaces
