@@ -263,28 +263,60 @@ agent (Claude Code via GRD). The reviewer's findings are themselves
 falsifiable claims that can be promoted to DEAD-ENDS or stored as GENOME
 heuristics on subsequent projects.
 
-## 6. Observations from 10 autonomous evolve iterations
+## 6. Preliminary empirical observations
 
-We ran `gd evolve --iterations 10` against the GRD codebase itself. Each
-iteration: (a) discover improvements, (b) plan a milestone from
-discoveries, (c) execute it via multi-milestone autopilot, (d) commit
-results.
+This section is deliberately narrow. Reported numbers come from one
+project (GRD itself) across the v0.3.24 → v0.3.27 release cycles.
+Broader empirical claims await the internal benchmark harness
+(`scripts/run-internal-bench.mjs`, 8 of 30 task fixtures populated
+as of this writing).
 
-Tests grew from 4,478 to 4,524 (+46). 19 new CLI commands were added
-(many later trimmed). Every iteration triggered codex review afterward.
+**Observed failure mode of adversarial review.** Across 47
+fresh-context codex review rounds, the reviewer found 51 issues:
+1 P1 security, 6 additional P1 correctness, 40 P2, 4 P3. The
+*dominant* failure mode by count was **convention coverage**:
+LLM-generated implementations passed local tests but missed
+project-specific artifact naming (bare vs prefixed PLAN.md /
+VERIFICATION.md / KNOWHOW.md), markdown variants (split-index
+files, multi-line YAML lists, markdown commit-column tables),
+config-loading paths (drift / survey / research_staleness keys
+that loadConfig silently dropped), and CLI parsing edge cases
+(short-flag `-f` ending up as subcommand position, padded vs
+unpadded phase ids). Only 1 of 51 findings was a fundamental
+architectural error (the v0.3.26 refinement loop fed `npm test`
+strings to `claude -p` instead of running them — codex r43 P1 #1).
 
-**Headline observation:** the evolve loop is good at *discovery* (finding
-genuine bugs, missing features, brittle regexes) and *implementation*
-(landing real code that passes unit tests). It is *bad* at *project-
-convention coverage* — almost every new command had 2–4 P1/P2 findings on
-first codex review because it ignored prefixed artifact names, alternate
-markdown forms, alternate config-loading paths, etc.
+The implication is narrow but useful: an evolve-only loop without
+adversarial review produces *plausible-looking, test-passing*
+code that fails on real project conventions. The Ouroboros
+substrate is the place where this lesson can compound — DEAD-ENDS
+records the *what*, deterministic pattern extraction over
+verdicts (v0.4 §8.2 item 5) records the *frequency*.
 
-**Implication:** the codex-rescue step is not optional. An evolve-only
-loop without an adversarial reviewer produces plausible-looking,
-test-passing code that fails on real project conventions. The Ouroboros
-substrate (especially the GENOME snapshots that record verdict mix) is
-the place where this lesson can compound across projects.
+**Reproducibility context, not evidence of quality.** Two metrics
+that contextualize but do *not* validate the substrate:
+
+- **Singularity 92.2%** on `v0.3.24..HEAD` measured by
+  `gd singularity` (LOC authored by commits with an evolve
+  signature, divided by total LOC). This says "GRD's recent
+  evolution is mostly self-driven"; it says nothing about
+  whether the output is *good*. The codex-rescue findings above
+  are the quality signal.
+- **8 of 30 benchmark tasks populated** with paired before/after
+  fixtures and deterministic verifiers. This is reproducibility
+  scaffolding — the actual cross-agent scoreboard awaits the
+  remaining 22 tasks plus runs against Claude / Aider / SWE-agent
+  / OpenHands.
+
+What this paper does **not** yet show:
+
+- That the Ouroboros substrate outperforms an equivalent agent
+  loop without DEAD-ENDS / GENOME / drift.
+- A statistical comparison of GRD vs peer agents on any shared
+  benchmark.
+- Generalization across projects beyond GRD itself.
+
+These are the §8 / §10 follow-ups, listed honestly.
 
 ## 7. Limitations
 
@@ -324,55 +356,81 @@ the place where this lesson can compound across projects.
 - Replace codex-rescue with an in-loop verifier agent that reads
   DEAD-ENDS to learn what to flag aggressively.
 
-### 8.2 Co-Scientist-inspired additions (scoped for v0.4.x)
+### 8.2 v0.4 roadmap — validation-first deterministic candidate selection
 
-The DeepMind Co-Scientist (Gottweis et al., 2025) demonstrates four
-mechanisms that map cleanly onto the Ouroboros substrate. Adding
-them brings the closed-loop framework closer to a true
-generate–debate–evolve cycle:
+The §1 / §2 thesis of this paper is that ground truth in agentic
+coding is *cheap and absolute* (jest / tsc / lint), so the core
+loop should avoid LLM-judged proxies. v0.4 follows the thesis;
+each item is a deterministic computation over on-disk artifacts:
 
-1. **Elo-rated plan tournament.** Today `gd plan-tournament score`
-   takes ≥2 candidate PLAN.md files and emits one-shot scores. The
-   Co-Scientist analog runs *repeated head-to-head debates* and
-   accumulates Elo ratings per candidate, with higher Elo correlating
-   to higher GPQA-diamond accuracy in their published validation.
-   Concrete step: persist Elo state per phase
-   (`.planning/phases/<N>/PLAN-ELO.json`); add `gd plan-tournament
-   debate <A> <B>` and `gd plan-tournament leaderboard`. The Elo
-   floor decides which plan goes to `execute-phase`.
-2. **Meta-review agent.** Co-Scientist's *Meta-review* periodically
-   summarizes patterns across all prior agent outputs to feed back
-   into Generation. The Ouroboros analog reads N recent
-   VERIFICATION.md `<reflection>` blocks, extracts higher-order
-   prescriptive heuristics (e.g. "evolve-generated CLI commands
-   miss prefixed-filename conventions in ~80% of cases"), and
-   *appends them to GENOME.md as prescriptive rules*, distinct from
-   the existing descriptive snapshots. The DEAD-ENDS registry
-   already records *what failed*; meta-review records *why it tends
-   to fail*.
-3. **Proximity clustering on competing hypotheses.** Co-Scientist's
-   *Proximity* agent clusters similar hypotheses to avoid
-   redundancy. The Ouroboros analog uses the vocabulary-Jaccard
-   infrastructure already in `lib/drift.ts`'s ontology dimension to
-   cluster plan candidates before scoring. Plans within a cluster
-   debate first; only cluster winners enter the global tournament.
-4. **Test-time compute scaling as an explicit configuration knob.**
-   Today `--iterations N` exists per-loop. Co-Scientist's framing —
-   "more compute → higher Elo → higher accuracy" — suggests a
-   project-scoped `effort` setting (`thrifty | balanced | deep`)
-   that scales tournament rounds, refinement iterations, and
-   critique-agent depth in proportion. GRD already has a
-   `model_profile` axis; this adds an orthogonal `effort` axis.
+1. **Multi-candidate plan generation.** `gd plan-phase --candidates
+   N` produces N alternative PLAN.md files in a single dispatch.
+   Today the planner produces one plan; with N candidates we get a
+   comparison set without paying for N separate dispatches.
+2. **Deterministic candidate selector.** Extend the existing
+   deterministic scorer in `lib/plan-tournament.ts` (which already
+   scores on completeness + goal alignment + hypothesis presence
+   + conciseness — see `_scorePlan` in that module) with:
+   - `must_haves` coverage from REQUIREMENTS.md (regex match)
+   - DEAD-ENDS violations (planner shouldn't propose them; if it
+     does, hard fail the candidate)
+   - dry-run verifier outcome when the plan has executable steps
+   - token / wall-clock cost as a tiebreaker
+   The selected plan goes to `gd execute-phase`. No LLM judge.
+3. **Proximity dedup before scoring.** Cluster candidates by
+   vocabulary Jaccard (reuses `lib/drift.ts` ontology infra).
+   Within a cluster, keep one representative. Stops the loop from
+   executing three near-identical plans. *Not* tournament
+   machinery — pure deduplication.
+4. **`effort` axis (orthogonal to `model_profile`).** A new
+   `.planning/config.json` key scaling *real-cost* knobs:
+   candidate count, refinement-loop max iterations, benchmark runs
+   per phase. Values: `thrifty | balanced | deep`. Pure config
+   knob, not a new mechanism. Notably it does **not** scale LLM
+   debate rounds — there are no LLM debate rounds in v0.4.
+5. **Deterministic pattern extractor.** Scan recent VERIFICATION.md
+   `<reflection>` blocks, count verdict outcomes per plan
+   vocabulary token, and *suggest* (not auto-write) statistically
+   significant patterns for GENOME.md heuristics. Dry-run first
+   (`gd patterns --dry-run`); writes to GENOME require either
+   `--apply` or human review. Pure regex + stats, no LLM
+   round-trip on the write path.
 
-### 8.3 Honest gap (open question)
+What v0.4 deliberately does **NOT** include:
 
-Co-Scientist showed a clear *correlation* between Elo and GPQA
-accuracy in their domain. We do not yet have evidence that the
-same holds for *coding* domains. The right next experiment is to
-run the 8 populated benchmark tasks through both modes — naive
-plan-once vs Elo-rated plan-tournament — and report the
-correlation between Elo and `verify.sh` pass rate. This is the
-empirical claim §6 of this paper should eventually carry.
+- **Elo-rated tournaments.** Wrong domain prerequisite — see §8.3.
+- **Meta-review agent.** Letting another LLM read reflections and
+  auto-write GENOME entries is the same sausage-factory problem
+  the §1 thesis rules out. Item 5 above covers the defensible
+  fraction of this idea (deterministic stats, suggest-don't-write).
+- **LLM-judged plan ranking by default.** See §8.3 for the narrow
+  exception.
+
+### 8.3 Where LLM-judged ranking *does* belong
+
+The §1 thesis ("avoid LLM-judged scoring on the core path") still
+admits LLM-judged ranking as the *least bad* signal when no cheap
+verifier exists for the task type:
+
+- **Design-doc bucket** of the internal benchmark (architecture
+  proposals with no executable test).
+- **Migration plans** before test fixtures exist.
+- **Ambiguous UX / product tradeoffs** with no objective metric.
+- **Early requirement clarification** where the verifier hasn't
+  been written yet.
+
+For these cases LLM-judged ranking is *triage*, not truth. The
+output should feed a deterministic-or-human-reviewed next step,
+not gate execution directly. v0.5 may add `gd plan-tournament
+--llm-rank` for the design-doc-style tasks only, gated on an
+explicit flag and clearly labelled as triage in the output.
+
+This is the **inverse** of Co-Scientist's framing: their domain
+has delayed/expensive ground truth (wet-lab experiments take weeks
+and dollars), so an LLM-judged Elo proxy is *cheap relative to the
+truth*. Ours has cheap ground truth (`jest` runs in seconds), so
+an LLM-judged proxy is *expensive relative to the truth* — only
+used when the cheap one isn't available.
 
 ## 9. Related work
 
@@ -402,10 +460,12 @@ empirical claim §6 of this paper should eventually carry.
   high-stakes domain where wet-lab validation is the ground truth.
   Ouroboros optimizes for **continuity of project memory** in a
   lower-stakes domain where the ground truth is fast (tests, types,
-  lint) but the project is long-lived. The systems are complementary
-  rather than competing — Co-Scientist's Elo-ranked tournaments
-  would be a natural addition to our `plan-tournament` primitive
-  (see §8).
+  lint) but the project is long-lived. The two systems address
+  different problems: Co-Scientist's Elo tournaments are a *proxy*
+  for expensive validation; Ouroboros has cheap validation
+  available and so does not need (and should not use) such a
+  proxy on its core path. LLM-judged ranking remains useful for
+  task types where no cheap verifier exists — see §8.3.
 
 - **Reflexion** (Shinn et al., 2023) — proposed self-reflection as a
   verbal RL signal. Our reflections are stricter (required schema,

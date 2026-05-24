@@ -105,27 +105,32 @@ honesty metric (falsification rate) measures the actual differentiator.
 We'll also report SWE-bench Lite as a sanity score once the harness is
 ready, but the internal bench is the primary scoreboard.
 
-## The Elo-correlation experiment (planned for v0.5)
+## The multi-candidate validation experiment (gate for v0.5)
 
-DeepMind's Co-Scientist (Gottweis et al., arXiv:2502.18864) showed
-that Elo ratings derived from agent-internal tournaments correlate
-with downstream accuracy on GPQA-diamond. We do not yet know whether
-the same correlation holds in agentic coding domains.
+After codex adversarial review (task `b2lc9ahqn`), we dropped the
+Elo-correlation experiment originally drafted here. Reason: our
+domain has cheap absolute ground truth (`verify.sh`) so an
+LLM-judged Elo proxy is strictly worse than direct measurement.
+See `docs/ouroboros-loop.md` §8.3 and `docs/ROADMAP-V0.4.md` for
+the longer argument.
 
-Once ≥16 tasks are populated and the v0.4 Elo-rated plan-tournament
-ships (see `docs/ROADMAP-V0.4.md` item A), each task gets run in
-two modes:
+What we run instead, once ≥16 tasks are populated and the v0.4
+deterministic selector ships:
 
-- **naive** — `gd plan-phase` → `gd execute-phase` (one shot)
-- **tournament** — generate ≥3 candidate plans → `gd plan-tournament
-  debate` (3 rounds) → `gd execute-phase` the Elo-leader
+- **baseline** — `gd plan-phase` → `gd execute-phase` (single plan)
+- **multi-candidate** — `gd plan-phase --candidates 5` +
+  deterministic selector (must_haves coverage + DEAD-ENDS check +
+  dry-run verifier + cost tiebreaker) + proximity dedup →
+  `gd execute-phase` the selected plan
 
-Reported metrics:
+Reported metrics per task:
 
-- per-bucket pass rate, naive vs tournament
-- Spearman correlation between Elo-leader margin and `verify.sh`
-  pass probability
+- pass / fail on `verify.sh`
+- tokens spent
+- wall-clock to pass
 
-If correlation is strong, tournament-by-default ships in v0.5. If
-weak, tournament stays opt-in and the failure mode is documented in
-`docs/ouroboros-loop.md` §6.
+Promote multi-candidate to default in v0.5 only if it wins on
+pass rate AND doesn't regress tokens-to-pass by more than 2×.
+
+No correlation experiments. The benchmark is binary: did
+`verify.sh` exit 0? Yes / no.
