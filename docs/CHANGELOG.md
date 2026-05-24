@@ -5,6 +5,60 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-24
+
+Multi-candidate plan generation + deterministic selection. Replaces
+single-plan dispatch with a generate→dedup→score→promote loop, gated
+on deterministic axes only — zero LLM-judged scoring on the execution
+path (GENOME heuristic). Phases 1-4 of the v0.4 milestone; phase 5
+(pattern extractor) ships as v0.4.1.
+
+Design converged through 9 rounds of codex adversarial review on the
+specs (`v0.4.0-design` tag) plus per-phase code review. The
+`gd plan-lint` spec-consistency linter (added below) automates the
+deterministic fraction of that review.
+
+### Added
+
+- **`effort` config axis** — orthogonal to `model_profile` /
+  `token_profile`. Values `thrifty | balanced | deep` scale the v0.4
+  knob `candidates_per_plan_phase` (1 / 3 / 7). Set via
+  `gd settings effort <value>`. `resolveEffortKnob` + `EFFORT_PROFILES`
+  are structured to add more knobs in v0.5+ without an API change.
+- **`gd plan-candidates <N> --candidates K`** — parses marker-fenced
+  planner output (`<<<PLAN-i>>>…<<</PLAN-i>>>`) and writes
+  `PLAN-1.md … PLAN-K.md` atomically. Fail-closed on count mismatch /
+  nested / unclosed / duplicate / missing-index (no files written,
+  exit 1) unless `--allow-partial-candidates`. Default K from the
+  effort knob.
+- **`gd select-candidate <N>`** — deterministic selector. Extends the
+  v0.3.x `_scorePlan` with four axes: must_haves coverage, DEAD-ENDS
+  hard-fail (slug citation OR curated `forbidden_terms`; Jaccard is
+  advisory only), `verification_commands` (opt-in, allowlisted,
+  shell-free), and a cost tiebreaker. Promotes the winner to `PLAN.md`
+  and writes a `PLAN-SELECTION.json` audit trail. `--dry-run`,
+  `--force`, `--run-verification-commands`.
+- **Proximity dedup** — `clusterByJaccard` (single-link agglomerative)
+  collapses near-identical candidates before scoring; one
+  representative per cluster. Runs AFTER DEAD-ENDS hard-fail so a
+  violator can never eliminate an innocent near-duplicate sibling.
+- **`gd plan-lint <milestone>`** — deterministic spec-consistency
+  linter detecting four drift categories (stale-text, over-promise,
+  summary-vs-detail, scope-creep) across a milestone's ROADMAP.md +
+  PLAN.md files. Built from the taxonomy the 9 codex rounds produced.
+- **DEAD-ENDS `forbidden_terms`** — schema field carrying the curated
+  mechanism phrases that confess a dead end; all 6 entries backfilled.
+
+### Changed
+
+- Autopilot detects multi-candidate phases and runs the selector
+  inline (score → dedup → promote) before executing.
+
+### Fixed
+
+- Benchmark task fixtures (`tests/benchmark/tasks/**`) excluded from
+  `tsc` — sandbox-only fixtures were breaking project type-check.
+
 ## [0.3.28] - 2026-05-24
 
 Positioning + benchmarking release. No new runtime features for the core
