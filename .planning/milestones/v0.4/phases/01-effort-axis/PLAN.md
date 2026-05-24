@@ -86,7 +86,11 @@ per-knob values per setting:
 <task name="add-resolveeffort-helper">
 Export `resolveEffortKnob(config, knob)` that returns the integer
 value for the given knob under the current `effort` setting.
-Callers in phases 2-5 use this instead of reading raw config.
+Callers in phases 2-4 use this for `candidates_per_plan_phase`,
+`refinement_max_iterations`, and `benchmark_runs_per_phase`.
+Phase 5 is independent — its statistical floor (n>=10,
+effect_size>=0.20, BH-FDR q<0.10) is fixed and does NOT use
+this helper.
 </task>
 
 <task name="cli-gd-settings-effort">

@@ -44,7 +44,10 @@ Cluster contains a representative + the rest of its members.
 Algorithm: single-link agglomerative clustering. For each plan,
 extract a vocabulary token set from
 `files_modified + tasks + reflection.hypothesis`. Two plans go in
-the same cluster if Jaccard distance ≥ threshold. Representative
+the same cluster if **Jaccard similarity ≥ threshold** (higher
+similarity → more likely to merge: at threshold 0.50 even loosely
+related plans collapse; at threshold 0.95 even paraphrases stay
+separate; default 0.85 merges near-clones only). Representative
 = **highest deterministic _scorePlan within the cluster**
 (codex review P1 #4: NOT "most files_modified", which can let a
 richer-but-DEAD-ENDS-violating member silently eliminate
@@ -123,7 +126,9 @@ deferred_validations:
 
 - This phase has the lowest codex-rescue exposure on v0.4. Math
   primitive, well-tested existing infrastructure.
-- The "richest = representative" heuristic is a guess; could be
-  refined later (e.g. "highest-scoring = representative" after
-  scoring once per cluster). v0.4 ships the guess.
+- Representative = **highest `_scorePlan` within the cluster**
+  (after the hard-fail filter, per codex r1 P1 #4). Earlier drafts
+  guessed "most files_modified"; that's dead — a richer-but-
+  DEAD-ENDS-violating member would silently dominate innocent
+  siblings (the violator is now hard-failed BEFORE clustering).
 - Estimated cost: ~0.5 day. ~150 lines incl. tests.

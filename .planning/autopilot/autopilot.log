@@ -521,3 +521,6 @@ fatal: a branch named 'grd/v0.3.22/91-91' already exists
 [2026-03-29T10:37:59.086Z] Phase 91: executing in worktree /Users/neo/Developer/Projects/GetResearchDone/.worktrees/grd-worktree-v0.3.22-91...
 [2026-03-29T10:56:40.486Z] Phase 91: execute completed
 [2026-03-29T10:56:40.673Z] Done: 1/1 phases completed
+[2026-05-24T03:31:17.010Z] STOP_FAILURE: reason=unknown error=(none) agent=unknown
+[2026-05-24T05:15:41.943Z] STOP_FAILURE: reason=unknown error=(none) agent=unknown
+[2026-05-24T07:16:01.525Z] STOP_FAILURE: reason=unknown error=(none) agent=unknown
