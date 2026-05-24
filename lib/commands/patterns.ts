@@ -306,6 +306,16 @@ export function benjaminiHochberg(pvalues: number[]): number[] {
  * counted in the multiple-comparison correction). A tested token is
  * `significant` iff effect_size >= effectSize AND raw_p < 0.05 AND
  * fdr_q < fdrQ.
+ *
+ * STATISTICAL CAVEAT (codex review P2): the null rate is the observed global
+ * baseline, which INCLUDES the token's own rows. The token and the baseline
+ * are therefore not independent, so `raw_p` / `fdr_q` are an *approximate
+ * association signal*, NOT exactly calibrated p-values. This is deliberate
+ * and acceptable for a suggest-to-a-human heuristic miner — the floor exists
+ * to rank and gate noise, not to publish inference. A properly independent
+ * test (two-sample / Fisher exact: token-rows vs non-token-rows) is a v0.5
+ * follow-up if these suggestions ever feed an automated decision. They do
+ * not: every suggestion is human-reviewed before promotion.
  */
 export function computeTokenStats(
   reflections: Reflection[],

@@ -365,12 +365,24 @@ function cmdGenomePromoteSuggestion(cwd: string, slug: string, raw: boolean): vo
   );
 }
 
-/** Extract the "Suggested heuristic" text for a given promote slug. */
+/**
+ * Extract the "Suggested heuristic" text for a given promote slug.
+ *
+ * Codex review P2: `gd patterns` appends repeatable `${token}-rate` slugs, so
+ * the same slug can recur across run blocks with a LATER run reporting the
+ * opposite direction. Scan BOTTOM-UP so the most recent run wins, and match
+ * the promote command EXACTLY (anchored to end-of-token) so `foo-rate` does
+ * not collide with `foo-rate-2` or `xfoo-rate`.
+ */
 function extractSuggestedHeuristic(suggestions: string, slug: string): string | null {
   const lines = suggestions.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(`promote-suggestion ${slug}`)) {
-      // Walk backward to the nearest "Suggested heuristic:" line.
+  // Exact match: the slug is the final token of the promote command line
+  // (allow a trailing backtick from the markdown formatting).
+  const promoteRe = new RegExp(
+    `promote-suggestion ${slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\`?\\s*$`
+  );
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (promoteRe.test(lines[i])) {
       for (let j = i; j >= 0 && j > i - 6; j--) {
         const m = lines[j].match(/Suggested heuristic:\s*"([^"]+)"/);
         if (m) return m[1];

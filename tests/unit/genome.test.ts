@@ -437,4 +437,61 @@ describe('cmdGenomePromoteSuggestion', () => {
       fs.rmSync(projectDir, { recursive: true, force: true });
     }
   });
+
+  test('repeated slug across runs promotes the LATEST run (codex P2)', () => {
+    const projectDir = makeProject();
+    try {
+      // Two run blocks for the same slug; the later one flips direction.
+      const sugg = [
+        '# GENOME suggestions',
+        '',
+        '## Run 2026-05-01',
+        '',
+        '- old stats.',
+        '  Suggested heuristic: "OLD: refactor succeeds more often."',
+        '  Promote with: `gd genome promote-suggestion refactor-rate`',
+        '',
+        '## Run 2026-05-24',
+        '',
+        '- new stats.',
+        '  Suggested heuristic: "NEW: refactor succeeds less often."',
+        '  Promote with: `gd genome promote-suggestion refactor-rate`',
+        '',
+      ].join('\n');
+      fs.writeFileSync(path.join(projectDir, '.planning', 'GENOME-SUGGESTIONS.md'), sugg);
+      captureOutput(() => cmdGenomePromoteSuggestion(projectDir, 'refactor-rate', false));
+      const genome = fs.readFileSync(path.join(projectDir, '.planning', 'GENOME.md'), 'utf-8');
+      expect(genome).toMatch(/NEW: refactor succeeds less often/);
+      expect(genome).not.toMatch(/OLD: refactor succeeds more often/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  test('exact slug match: "refactor-rate" does not collide with "refactor-rate-2"', () => {
+    const projectDir = makeProject();
+    try {
+      const sugg = [
+        '# GENOME suggestions',
+        '',
+        '## Run 2026-05-24',
+        '',
+        '- a.',
+        '  Suggested heuristic: "heuristic for the two variant."',
+        '  Promote with: `gd genome promote-suggestion refactor-rate-2`',
+        '',
+        '- b.',
+        '  Suggested heuristic: "heuristic for the base variant."',
+        '  Promote with: `gd genome promote-suggestion refactor-rate`',
+        '',
+      ].join('\n');
+      fs.writeFileSync(path.join(projectDir, '.planning', 'GENOME-SUGGESTIONS.md'), sugg);
+      captureOutput(() => cmdGenomePromoteSuggestion(projectDir, 'refactor-rate', false));
+      const genome = fs.readFileSync(path.join(projectDir, '.planning', 'GENOME.md'), 'utf-8');
+      expect(genome).toMatch(/heuristic for the base variant/);
+      expect(genome).not.toMatch(/heuristic for the two variant/);
+    } finally {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
 });
