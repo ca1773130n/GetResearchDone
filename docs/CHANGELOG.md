@@ -5,6 +5,81 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.27] - 2026-05-24
+
+### Fixed (codex-rescue r43–r47 — feature wiring audit)
+
+Comprehensive feature-wiring audit found that several Ouroboros /
+NERFIFY subsystems were *defined* but not *invoked* end-to-end. r43–
+r47 closed every flagged gap. Codex r47: "all clean".
+
+**NERFIFY closed-loop refinement (`lib/refinement.ts`,
+`lib/autopilot-pipeline.ts`)**
+
+- Metrics: `_measureMetrics` now runs **real** `npx jest --coverage`,
+  `npx tsc --noEmit`, `npx eslint bin/ lib/` via `spawnSync`. The
+  prior implementation sent the literal strings `"npm test"`/
+  `"tsc"`/`"eslint"` to `claude -p` and regexed the LLM's prose
+  reply, silently producing `0% coverage / 0 errors / 0 lint`.
+- Worktree: `runRefinementLoop` accepts `workCwd` and runs
+  measurements + critique inside `wtPath`, so edits land in the
+  same branch the post-pipeline merges.
+- Convergence: `checkConvergence` now returns
+  `no progress (all metrics zero — measurement path likely broken)`
+  instead of "all dimensions within epsilon" when both snapshots
+  are all zeros.
+- Regression guard: snapshot HEAD → run critique → re-measure → if
+  coverage drops or error counts rise, `git reset --hard <head>`
+  in the worktree and log `iteration-N-rolled-back`.
+- Critique agent: dispatch metadata uses `agentType:
+  'grd-critique-agent'` (was `grd-verifier`), with profile rows
+  added to `MODEL_PROFILES` and `EFFORT_PROFILES`. The agent's
+  markdown file (`agents/grd-critique-agent.md`) is now read into
+  the prompt under `<agent-definition>` so its constraints and
+  output schema actually reach the subprocess.
+- Status: config-disabled skip now writes `skipped-disabled` marker
+  (was silent).
+
+**Plan-phase Ouroboros context injection (`commands/plan-phase.md`)**
+
+- `DEAD_ENDS_MD`, `GENOME_MD`, `PRIOR_REFLECTIONS` are now extracted
+  from the INIT JSON alongside the other context keys and injected
+  into the planner prompt's `<planning_context>` block with explicit
+  guidance:
+  - Prior Reflections: "If verdict is falsified, refuse to re-propose"
+  - Dead Ends Registry: "hard do-not-propose list"
+  - Strategy Genome: "use heuristics to inform plan choices"
+- Previously: `cmdInitPlanPhase` loaded all three into context, the
+  planner agent docs documented them, but the orchestrator skill
+  never piped them into the prompt — so the planner never saw any
+  of it on real `/grd:plan-phase` runs.
+
+**Benchmark report (`lib/commands/analysis.ts`,
+`lib/context/research.ts`)**
+
+- `cmdBenchmarkReport` now evaluates each corpus entry via
+  `evaluateEntry()` then passes `(results, entries)` to
+  `formatBenchmarkReport()`. Previously passed entries-only,
+  crashing on `undefined.semantic` at runtime.
+- Same fix applied to the sibling caller in eval-reporter init
+  (`lib/context/research.ts`).
+
+**Spin detector (`lib/scheduler.ts`, `lib/autopilot.ts`)**
+
+- Live detection: rolling window of the last 5 stdout chunks scanned
+  by `detectSpin` every 5 chunks during streaming. On detection,
+  subprocess killed via SIGTERM and `liveSpinEvent` attached to the
+  result. Previously only ran in the `close` handler, so an
+  actively-spinning subprocess ran until total timeout.
+- Spin-kill exit semantics: `code === null` from SIGTERM now maps
+  to `exitCode: 1` when `liveSpinEvent` is set, so autopilot
+  doesn't advance past a killed plan/execute step. Previously
+  killed steps reported success.
+- Wireup: new `_handleSpinIfDetected(cwd, phaseNum, result)` helper
+  invoked from the plan and execute `scheduler.spawn` callsites in
+  `autopilot.ts`. Previously only `spawnStep` (post-pipeline) wrote
+  SPIN-REPORT.md — main autopilot dispatches dropped the event.
+
 ## [0.3.26] - 2026-05-21
 
 ### Fixed (codex-rescue r27–r41 — verify.ts SUMMARY commit-hash detection)
