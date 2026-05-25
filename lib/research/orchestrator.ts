@@ -206,6 +206,14 @@ async function runResearch(cwd: string, question: string, opts: ResearchOptions 
 async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {}): Promise<ResearchResult> {
   const config = loadConfig(cwd);
   const thread = loadThread(cwd, id);
+  const TERMINAL = new Set(['supported', 'exhausted', 'abandoned']);
+  if (TERMINAL.has(thread.status)) {
+    // Already finished — nothing to resume; return the thread unchanged (no re-run).
+    return {
+      threadId: thread.id, status: thread.status, iterations: thread.iteration,
+      findingPath: findingPath(cwd, thread.id),
+    };
+  }
   const pending = thread.pendingGate;
   thread.pendingGate = null; thread.status = 'active'; saveThread(cwd, thread);
   if (pending === 'kg_write') {

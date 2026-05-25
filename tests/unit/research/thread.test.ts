@@ -42,4 +42,15 @@ describe('research thread', () => {
     createThread(cwd, 'B', {});
     expect(listThreads(cwd).length).toBe(2);
   });
+
+  it('re-running the same question creates a fresh isolated thread (no clobber)', () => {
+    const cwd = tmp();
+    const t1 = createThread(cwd, 'Same question', {});
+    saveThread(cwd, { ...t1, iteration: 3, status: 'supported' }); // simulate a finished run
+    const t2 = createThread(cwd, 'Same question', {});
+    expect(t2.id).not.toBe(t1.id);
+    expect(t2.status).toBe('active');
+    expect(t2.iteration).toBe(1);
+    expect(loadThread(cwd, t1.id).status).toBe('supported'); // prior run preserved, not clobbered
+  });
 });

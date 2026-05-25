@@ -21,6 +21,15 @@ function threadDir(cwd: string, id: string): string {
   return path.join(cwd, THREADS_REL, id);
 }
 
+function allocateThreadId(cwd: string, question: string): string {
+  const base = threadId(question);
+  if (!fs.existsSync(threadDir(cwd, base))) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base}-${n}`;
+    if (!fs.existsSync(threadDir(cwd, candidate))) return candidate;
+  }
+}
+
 interface CreateOpts {
   maxIterations?: number;
   gates?: ThreadGates;
@@ -29,7 +38,7 @@ interface CreateOpts {
 }
 
 function createThread(cwd: string, question: string, opts: CreateOpts): ResearchThread {
-  const id = threadId(question);
+  const id = allocateThreadId(cwd, question);
   const thread: ResearchThread = {
     id,
     question,
@@ -84,6 +93,6 @@ function listThreads(cwd: string): ResearchThread[] {
 }
 
 module.exports = {
-  THREADS_REL, slugify, threadId, threadDir,
+  THREADS_REL, slugify, threadId, threadDir, allocateThreadId,
   createThread, loadThread, saveThread, listThreads, renderThreadLog,
 };

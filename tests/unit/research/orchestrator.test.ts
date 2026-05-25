@@ -147,4 +147,14 @@ describe('orchestrator', () => {
     const led = readLedger(cwd, res.threadId);
     expect(led[0].status).toBe('supported');
   });
+
+  it('resuming a completed thread is a no-op (does not re-run or corrupt it)', async () => {
+    const cwd = tmp();
+    const res = await runResearch(cwd, 'Done Q', { maxIterations: 5, noGates: true, spawn: makeSpawn(), runner: makeRunner() });
+    expect(res.status).toBe('supported');
+    const ledgerBefore = readLedger(cwd, res.threadId).length;
+    const again = await resumeResearch(cwd, res.threadId, { spawn: makeSpawn(), runner: makeRunner(), noGates: true });
+    expect(again.status).toBe('supported');
+    expect(readLedger(cwd, res.threadId).length).toBe(ledgerBefore); // no new hypotheses appended
+  });
 });
