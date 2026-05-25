@@ -2,7 +2,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runResearch } = require('../../../lib/research/orchestrator');
+const { runResearch, resumeResearch } = require('../../../lib/research/orchestrator');
 const { readLedger } = require('../../../lib/research/ledger');
 
 function tmp() {
@@ -64,6 +64,43 @@ describe('orchestrator', () => {
     });
     expect(res.paused).toBe(true);
     expect(res.pendingGate).toBe('execute');
+  });
+
+  it('resume after execute-gate reuses the hypothesis (no duplicate, no re-hypothesize)', async () => {
+    const cwd = tmp();
+    const spawn = makeSpawn();
+    const runner = makeRunner();
+    const first = await runResearch(cwd, 'Reuse Q', { maxIterations: 5, noGates: false, spawn, runner });
+    expect(first.paused).toBe(true);
+    expect(first.pendingGate).toBe('execute');
+    const res = await resumeResearch(cwd, first.threadId, { spawn, runner, noGates: false });
+    // After one resume, iteration 1's hypothesis was REUSED and measured (refuted), not duplicated.
+    const led = readLedger(cwd, first.threadId);
+    const iter1 = led.filter((h: any) => h.iteration === 1);
+    expect(iter1.length).toBe(1);
+    expect(iter1[0].status).toBe('refuted');
+    // It then advanced to iteration 2 and paused again at the execute gate.
+    expect(res.pendingGate).toBe('execute');
+  });
+
+  it('pauses at kg_write gate then resumes via finishKgSync', async () => {
+    const cwd = tmp();
+    // Both gates are on by default (no config file). Runner always returns supported accuracy.
+    const runner = { run: () => ({
+      metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess',
+      durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+    // First pause: at execute gate
+    const first = await runResearch(cwd, 'KG gate Q', { maxIterations: 2, noGates: false, spawn: makeSpawn(), runner });
+    expect(first.paused).toBe(true);
+    expect(first.pendingGate).toBe('execute');
+    // Resume through execute gate -> runs experiment (accuracy 0.9 = supported) -> hits kg_write gate
+    const second = await resumeResearch(cwd, first.threadId, { spawn: makeSpawn(), runner, noGates: false });
+    expect(second.paused).toBe(true);
+    expect(second.pendingGate).toBe('kg_write');
+    // Resume through kg_write gate -> finishKgSync completes
+    const res = await resumeResearch(cwd, second.threadId, { spawn: makeSpawn(), runner, noGates: false });
+    expect(res.status).toBe('supported');
+    expect(res.paused).toBeFalsy();
   });
 
   it('exhausts when never supported', async () => {

@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 import type {
-  ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway,
+  ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
 } from './types';
 import type { Runner } from './runner';
 
@@ -43,6 +43,12 @@ export interface ResearchResult {
   pendingGate?: 'execute' | 'kg_write';
 }
 
+const VERDICT_COUNTER: Record<Verdict, string> = {
+  supported: 'research.hypotheses_supported',
+  refuted: 'research.hypotheses_refuted',
+  inconclusive: 'research.hypotheses_inconclusive',
+};
+
 function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: string): SpawnFn {
   const scheduler = createScheduler(
     (config as { scheduler?: unknown }).scheduler,
@@ -64,6 +70,20 @@ function errExit(cwd: string, thread: ResearchThread): ResearchResult {
   return { threadId: thread.id, status: 'error', iterations: thread.iteration };
 }
 
+// Finding.md is already written before the kg_write gate; this completes the KG sync.
+function finishKgSync(
+  cwd: string, thread: ResearchThread, verdict: Verdict | undefined, status: ThreadStatus,
+): ResearchResult {
+  const sync = syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id));
+  writeKgProvenance(cwd, thread.id, { wrote: sync.synced ? [`finding:${thread.id}`] : [] });
+  if (sync.synced) incrementCounter('research.kg_writes_total');
+  thread.status = status; thread.pendingGate = null; saveThread(cwd, thread);
+  return {
+    threadId: thread.id, status, iterations: thread.iteration,
+    verdict, findingPath: findingPath(cwd, thread.id),
+  };
+}
+
 async function runLoop(
   cwd: string, thread: ResearchThread, opts: ResearchOptions,
   config: Record<string, unknown>, approved: { execute: boolean; kg_write: boolean },
@@ -71,50 +91,65 @@ async function runLoop(
   const runner: Runner = opts.runner || createSubprocessRunner({ timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
 
-  while (true) {
+  for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
-    const lastHyp = priorHyps[priorHyps.length - 1] || null;
-    const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
-
-    // HYPOTHESIZE
-    thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
-    const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict), 'grd-hypothesizer');
-    const parsed = parseHypothesisOutput(hOut);
-    if (!parsed) return errExit(cwd, thread);
-    const hyp: Hypothesis = {
-      id: nextHypothesisId(priorHyps), iteration: thread.iteration,
-      statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
-      status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
-    };
-    appendHypothesis(cwd, thread.id, hyp);
-
-    // DESIGN
-    thread.currentStation = 'design'; saveThread(cwd, thread);
     const iterRel = path.join('experiments', String(thread.iteration));
-    fs.mkdirSync(path.join(threadDir(cwd, thread.id), iterRel), { recursive: true });
-    const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterRel), 'grd-experiment-runner');
-    const plan = parsePlanOutput(pOut);
-    if (!plan) return errExit(cwd, thread);
+    const iterDir = path.join(threadDir(cwd, thread.id), iterRel);
+    const planFile = path.join(iterDir, 'plan.json');
+    const resumable = priorHyps.find((h) => h.iteration === thread.iteration && h.status === 'testing');
 
-    // GATE 1 — execute
-    const g1 = checkGate(thread, 'execute', approved.execute);
-    approved.execute = false;
-    if (!g1.proceed) {
-      Object.assign(thread, g1.thread); thread.currentStation = 'run'; saveThread(cwd, thread);
-      incrementCounter('research.gate_pauses_total');
-      return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'execute' };
+    let hyp: Hypothesis;
+    let plan: ExperimentPlan;
+
+    if (approved.execute && resumable && fs.existsSync(planFile)) {
+      // RESUME after execute-gate approval: reuse the reviewed hypothesis + plan.
+      hyp = resumable;
+      plan = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
+      approved.execute = false;
+    } else {
+      // HYPOTHESIZE
+      const lastHyp = priorHyps[priorHyps.length - 1] || null;
+      const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
+      thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
+      const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict), 'grd-hypothesizer');
+      const parsed = parseHypothesisOutput(hOut);
+      if (!parsed) return errExit(cwd, thread);
+      hyp = {
+        id: nextHypothesisId(priorHyps), iteration: thread.iteration,
+        statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
+        status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
+      };
+      appendHypothesis(cwd, thread.id, hyp);
+
+      // DESIGN
+      thread.currentStation = 'design'; saveThread(cwd, thread);
+      fs.mkdirSync(iterDir, { recursive: true });
+      const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterRel), 'grd-experiment-runner');
+      const parsedPlan = parsePlanOutput(pOut);
+      if (!parsedPlan) return errExit(cwd, thread);
+      plan = parsedPlan as ExperimentPlan;
+      fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
+
+      // GATE 1 — execute
+      const g1 = checkGate(thread, 'execute', approved.execute);
+      approved.execute = false;
+      if (!g1.proceed) {
+        Object.assign(thread, g1.thread); thread.currentStation = 'run'; saveThread(cwd, thread);
+        incrementCounter('research.gate_pauses_total');
+        return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'execute' };
+      }
     }
 
     // RUN
     thread.currentStation = 'run'; thread.budgetUsed += 1; saveThread(cwd, thread);
-    const result = runner.run(plan as never, threadDir(cwd, thread.id));
-    fs.writeFileSync(path.join(threadDir(cwd, thread.id), iterRel, 'result.json'), JSON.stringify(result, null, 2));
+    const result = runner.run(plan, threadDir(cwd, thread.id));
+    fs.writeFileSync(path.join(iterDir, 'result.json'), JSON.stringify(result, null, 2));
 
     // MEASURE
     thread.currentStation = 'measure'; saveThread(cwd, thread);
-    const outcome = evaluateVerdict(plan as never, result);
+    const outcome = evaluateVerdict(plan, result);
     updateHypothesisStatus(cwd, thread.id, hyp.id, verdictToStatus(outcome.verdict), outcome.verdict);
-    incrementCounter(outcome.verdict === 'supported' ? 'research.hypotheses_supported' : 'research.hypotheses_refuted');
+    incrementCounter(VERDICT_COUNTER[outcome.verdict as Verdict]);
 
     // LEARN
     thread.currentStation = 'learn'; saveThread(cwd, thread);
@@ -136,7 +171,7 @@ async function runLoop(
     incrementCounter('research.iterations_total');
 
     if (term.done || branch === 'finalize') {
-      // FINALIZE
+      // FINALIZE — always write the finding before the kg_write gate.
       thread.currentStation = 'finalize';
       const finding = buildFinding(thread, readLedger(cwd, thread.id), readTakeaways(cwd, thread.id), result);
       writeFinding(cwd, thread.id, finding);
@@ -148,15 +183,7 @@ async function runLoop(
         incrementCounter('research.gate_pauses_total');
         return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'kg_write' };
       }
-      const sync = syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id));
-      writeKgProvenance(cwd, thread.id, { wrote: sync.synced ? [`finding:${thread.id}`] : [] });
-      if (sync.synced) incrementCounter('research.kg_writes_total');
-
-      thread.status = term.status; saveThread(cwd, thread);
-      return {
-        threadId: thread.id, status: term.status, iterations: thread.iteration,
-        verdict: outcome.verdict, findingPath: findingPath(cwd, thread.id),
-      };
+      return finishKgSync(cwd, thread, outcome.verdict, term.status);
     }
 
     thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);
@@ -179,9 +206,15 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
   const thread = loadThread(cwd, id);
   const pending = thread.pendingGate;
   thread.pendingGate = null; thread.status = 'active'; saveThread(cwd, thread);
-  return runLoop(cwd, thread, opts, config, {
-    execute: pending === 'execute', kg_write: pending === 'kg_write',
-  });
+  if (pending === 'kg_write') {
+    // Finding.md already written before the pause; just complete the KG sync.
+    const led: Hypothesis[] = readLedger(cwd, thread.id);
+    const supported = led.some((h) => h.status === 'supported');
+    const status: ThreadStatus = supported ? 'supported' : 'exhausted';
+    const verdict: Verdict | undefined = supported ? 'supported' : undefined;
+    return finishKgSync(cwd, thread, verdict, status);
+  }
+  return runLoop(cwd, thread, opts, config, { execute: pending === 'execute', kg_write: false });
 }
 
 module.exports = { runResearch, resumeResearch, defaultSpawn, verdictToStatus };
