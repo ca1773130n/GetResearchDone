@@ -1,7 +1,8 @@
 ---
 name: grd-experiment-runner
 description: Designs one minimal reproducible experiment for a hypothesis and writes a runnable script plus a structured plan. Does not execute the script — the orchestrator runs it behind an execution gate.
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Grep, Glob
+disallowedTools: ["Bash"]
 color: orange
 effort: medium
 maxTurns: 25
