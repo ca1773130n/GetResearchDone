@@ -36,26 +36,32 @@ function createSubprocessRunner(opts: { timeoutMs?: number } = {}): Runner {
         ? plan.scriptPath : path.join(threadDir, plan.scriptPath);
       const bin = plan.language === 'python' ? 'python3' : 'bash';
       const start = Date.now();
-      let stdout = ''; let stderr = ''; let exitCode = 0; let timedOut = false;
       try {
-        stdout = execFileSync(bin, [scriptFile], {
+        const stdout: string = execFileSync(bin, [scriptFile], {
           cwd: threadDir, timeout: timeoutMs, encoding: 'utf8',
         });
+        return {
+          metrics: parseMetricsLine(stdout),
+          exitCode: 0,
+          runner: 'subprocess',
+          durationMs: Date.now() - start,
+          stdoutExcerpt: stdout.slice(0, 2000),
+          failureClass: 'none',
+        };
       } catch (e: unknown) {
         const err = e as { status?: number; stdout?: string; stderr?: string; signal?: string };
-        stdout = err.stdout || '';
-        stderr = err.stderr || String(e);
-        exitCode = typeof err.status === 'number' ? err.status : 1;
-        timedOut = err.signal === 'SIGTERM';
+        const stdout = err.stdout || '';
+        const exitCode = typeof err.status === 'number' ? err.status : 1;
+        const timedOut = err.signal === 'SIGTERM';
+        return {
+          metrics: parseMetricsLine(stdout),
+          exitCode,
+          runner: 'subprocess',
+          durationMs: Date.now() - start,
+          stdoutExcerpt: stdout.slice(0, 2000),
+          failureClass: classifyRunFailure(err.stderr || String(e), timedOut),
+        };
       }
-      return {
-        metrics: parseMetricsLine(stdout),
-        exitCode,
-        runner: 'subprocess',
-        durationMs: Date.now() - start,
-        stdoutExcerpt: stdout.slice(0, 2000),
-        failureClass: exitCode === 0 ? 'none' : classifyRunFailure(stderr, timedOut),
-      };
     },
   };
 }
