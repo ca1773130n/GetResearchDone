@@ -2242,8 +2242,8 @@ async function routeCommand(
       const sub: string | undefined = args[1];
       const noGates: boolean = args.includes('--no-gates');
       const maxIdx: number = args.indexOf('--max-iterations');
-      const maxIterations: number | undefined =
-        maxIdx !== -1 ? Number(args[maxIdx + 1]) : undefined;
+      const maxRaw = maxIdx !== -1 ? Number(args[maxIdx + 1]) : undefined;
+      const maxIterations = (maxRaw !== undefined && !Number.isNaN(maxRaw)) ? maxRaw : undefined;
       const opts: ResearchOptions = { noGates, maxIterations };
       if (sub === 'status') {
         cmdResearchStatus(cwd, args[2], raw);

@@ -262,6 +262,7 @@ export function classifyCommand(
   if (command === 'settings' && subcommand && SETTINGS_TOOL_SUBS.has(subcommand)) {
     return 'tool';
   }
+  if (command === 'research' && subcommand && RESEARCH_TOOL_SUBS.has(subcommand)) return 'tool';
   // `gd init <workflow>` → tool (init context), `gd init` (no args) → agent (project init)
   if (command === 'init') {
     if (subcommand && INIT_TOOL_SUBS.has(subcommand)) return 'tool';
