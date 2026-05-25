@@ -25,20 +25,22 @@ function field(block: string, name: string): string {
 }
 
 function parseTakeaways(content: string): Takeaway[] {
-  return content.split(/(?=^### iter )/m)
-    .map((b) => b.trim())
-    .filter((b) => b.startsWith('### iter '))
-    .map((b) => {
-      const head = b.match(/^### iter (\d+): (\w+)/);
-      return {
-        iteration: Number(head![1]),
-        kind: head![2] as TakeawayKind,
-        content: field(b, 'content'),
-        confidence: Number(field(b, 'confidence')) || 0,
-        evidence: field(b, 'evidence'),
-        failureClass: (field(b, 'failure_class') || 'none') as FailureClass,
-      };
+  const out: Takeaway[] = [];
+  for (const raw of content.split(/(?=^### iter )/m)) {
+    const b = raw.trim();
+    if (!b.startsWith('### iter ')) continue;
+    const head = b.match(/^### iter (\d+): (\w+)/);
+    if (!head) continue;
+    out.push({
+      iteration: Number(head[1]),
+      kind: head[2] as TakeawayKind,
+      content: field(b, 'content'),
+      confidence: Number(field(b, 'confidence')) || 0,
+      evidence: field(b, 'evidence'),
+      failureClass: (field(b, 'failure_class') || 'none') as FailureClass,
     });
+  }
+  return out;
 }
 
 function readTakeaways(cwd: string, id: string): Takeaway[] {
@@ -49,7 +51,9 @@ function readTakeaways(cwd: string, id: string): Takeaway[] {
 function appendTakeaway(cwd: string, id: string, t: Takeaway): void {
   const all = readTakeaways(cwd, id);
   all.push(t);
-  fs.writeFileSync(takeawaysPath(cwd, id), all.map(formatTakeaway).join('\n'));
+  const p = takeawaysPath(cwd, id);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, all.map(formatTakeaway).join('\n'));
 }
 
 module.exports = { takeawaysPath, formatTakeaway, parseTakeaways, readTakeaways, appendTakeaway };
