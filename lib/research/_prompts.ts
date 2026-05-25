@@ -1,13 +1,17 @@
 'use strict';
-import type { Hypothesis, ExperimentResult, Verdict } from './types';
+import type { Hypothesis, ExperimentResult, Verdict, Takeaway } from './types';
 
 function buildHypothesizePrompt(
   thread: { id: string; question: string },
   priorHyps: Pick<Hypothesis, 'id' | 'statement' | 'verdict'>[],
   priorVerdict: Verdict | null,
+  priorTakeaways: Pick<Takeaway, 'iteration' | 'kind' | 'content' | 'failureClass'>[] = [],
 ): string {
   const history = priorHyps.length
     ? priorHyps.map((h) => `- ${h.id} [${h.verdict ?? 'open'}]: ${h.statement}`).join('\n')
+    : '(none yet)';
+  const learned = priorTakeaways.length
+    ? priorTakeaways.map((t) => `- (iter ${t.iteration}, ${t.kind}, ${t.failureClass}): ${t.content}`).join('\n')
     : '(none yet)';
   return [
     'You are grd-hypothesizer. Generate ONE ranked, testable hypothesis for this research question.',
@@ -20,7 +24,10 @@ function buildHypothesizePrompt(
     '',
     'Prior hypotheses in this thread:',
     history,
-    priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose a DIFFERENT, more promising hypothesis.` : '',
+    '',
+    'Takeaways learned so far (use these to steer the next hypothesis):',
+    learned,
+    priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose a DIFFERENT, more promising hypothesis informed by the takeaways above.` : '',
     '',
     'Emit exactly one final block (no prose after it):',
     '__HYPOTHESIS__',

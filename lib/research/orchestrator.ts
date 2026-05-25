@@ -111,7 +111,8 @@ async function runLoop(
       const lastHyp = priorHyps[priorHyps.length - 1] || null;
       const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
       thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
-      const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict), 'grd-hypothesizer');
+      const priorTakeaways = readTakeaways(cwd, thread.id);
+      const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways), 'grd-hypothesizer');
       const parsed = parseHypothesisOutput(hOut);
       if (!parsed) return errExit(cwd, thread);
       hyp = {

@@ -15,6 +15,11 @@ describe('prompts', () => {
     const prior = [{ id: 'h1', statement: 'old', verdict: 'refuted' }];
     expect(buildHypothesizePrompt(thread, prior, 'refuted')).toContain('refuted');
   });
+  it('hypothesize prompt includes prior takeaway content', () => {
+    const tks = [{ iteration: 1, kind: 'failure_root_cause', content: 'cache invalidation race', failureClass: 'H3' }];
+    const p = buildHypothesizePrompt(thread, [{ id: 'h1', statement: 'old', verdict: 'refuted' }], 'refuted', tks);
+    expect(p).toContain('cache invalidation race');
+  });
   it('experiment prompt embeds hypothesis, iter dir and __PLAN__ contract', () => {
     const p = buildExperimentPrompt(thread, { id: 'h1', statement: 'S' }, 'experiments/1');
     expect(p).toContain('S');
