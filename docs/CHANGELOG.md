@@ -5,6 +5,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-25
+
+Harness installer + npm distribution. First release published to npm
+(scoped) and the first to carry `gd install`.
+
+### Added
+
+- **`gd install <harness>`** — register GRD's MCP server (grd-mcp-server)
+  into the AI coding harnesses GRD targets. Every supported backend
+  advertises MCP, so MCP registration is the universal integration
+  point. `gd install <harness…>` / `--all` / `--list` / `--dry-run`.
+  Supports claude / codex / gemini / opencode, each written in its
+  native schema (claude/gemini `mcpServers`, codex TOML
+  `[mcp_servers.grd]`, opencode `mcp` with `type:local`). Home dirs
+  honor CODEX_HOME / GEMINI_CLI_HOME / OPENCODE_CONFIG_DIR /
+  CLAUDE_CONFIG_DIR. Idempotent and non-clobbering; the server runs as
+  `node <abs grd-mcp-server.js>` so it works for local checkouts and
+  global npm installs alike.
+
+### Changed
+
+- **npm package name is now `@jokerized/getresearchdone`** (scoped).
+  npm's similarity filter rejected the unscoped names (`grd-tools` ~
+  grpc-tools/rc-tools; `getresearchdone` ~ get-research-done). Install:
+  `npm i -g @jokerized/getresearchdone`. Bin commands are unchanged:
+  `gd`, `grd-tools`, `grd-mcp-server`.
+
+### Fixed
+
+- Release pipeline made reliable: `prepublishOnly` rebuilds `dist/`;
+  the release gate verifies tests pass without re-enforcing per-file
+  coverage (CI-runner skips suites needing absent binaries); release
+  notes use a flag-based awk (a naive range matched the header against
+  both range bounds and produced empty notes); `.claude-plugin/plugin.json`
+  version is now test-pinned to VERSION (it had drifted to 0.3.28);
+  workflow reads `docs/CHANGELOG.md` (not a nonexistent root path).
+- HarnessSync / AI-tool artifacts (config.toml, opencode.json, .agents/,
+  .cline/, .codeium/, .gemini/, .rules, .github/copilot-instructions.md,
+  .github/prompts/) and the transient `.planning/autopilot/autopilot.log`
+  are gitignored.
+
 ## [0.4.1] - 2026-05-25
 
 Completes the v0.4 milestone with phase 5 (deterministic pattern
