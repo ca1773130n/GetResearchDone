@@ -49,6 +49,32 @@ const VERDICT_COUNTER: Record<Verdict, string> = {
   inconclusive: 'research.hypotheses_inconclusive',
 };
 
+// The Claude scheduler runs with --output-format json, so stdout is an envelope
+// like {"result":"<agent text>", ...}. Other backends emit raw text. Decode the
+// result field when stdout is such an envelope; otherwise return it unchanged.
+function decodeSpawnStdout(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const env = JSON.parse(trimmed) as { result?: unknown };
+      if (typeof env.result === 'string') return env.result;
+    } catch { /* not a JSON envelope — fall through */ }
+  }
+  return raw;
+}
+
+function readResearchGatesConfig(
+  cwd: string,
+): { research_gates?: { experiment_execution?: boolean; kg_write?: boolean } } {
+  try {
+    const raw = fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8');
+    const cfg = JSON.parse(raw) as { research_gates?: { experiment_execution?: boolean; kg_write?: boolean } };
+    return { research_gates: cfg.research_gates };
+  } catch {
+    return {};
+  }
+}
+
 function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: string): SpawnFn {
   const scheduler = createScheduler(
     (config as { scheduler?: unknown }).scheduler,
@@ -57,7 +83,7 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
   return async (prompt: string, agentType: string): Promise<string> => {
     if (!scheduler) throw new Error('no scheduler available for research loop');
     const r = await scheduler.spawn(prompt, { agentType, model, captureOutput: true, cwd });
-    return r.stdout || '';
+    return decodeSpawnStdout(r.stdout || '');
   };
 }
 
@@ -194,7 +220,7 @@ async function runLoop(
 
 async function runResearch(cwd: string, question: string, opts: ResearchOptions = {}): Promise<ResearchResult> {
   const config = loadConfig(cwd);
-  const gates = resolveGates(config, opts.noGates === true);
+  const gates = resolveGates(readResearchGatesConfig(cwd), opts.noGates === true);
   const thread = createThread(cwd, question, {
     maxIterations: opts.maxIterations, gates,
     modelProfile: String((config as { model_profile?: string }).model_profile || 'balanced'),
@@ -227,4 +253,7 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
   return runLoop(cwd, thread, opts, config, { execute: pending === 'execute', kg_write: false });
 }
 
-module.exports = { runResearch, resumeResearch, defaultSpawn, verdictToStatus };
+module.exports = {
+  runResearch, resumeResearch, defaultSpawn, verdictToStatus,
+  decodeSpawnStdout, readResearchGatesConfig,
+};

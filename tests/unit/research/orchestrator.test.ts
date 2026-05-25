@@ -2,7 +2,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runResearch, resumeResearch } = require('../../../lib/research/orchestrator');
+const { runResearch, resumeResearch, decodeSpawnStdout, readResearchGatesConfig } = require('../../../lib/research/orchestrator');
 const { readLedger } = require('../../../lib/research/ledger');
 
 function tmp() {
@@ -146,6 +146,26 @@ describe('orchestrator', () => {
     expect(res.status).toBe('supported');
     const led = readLedger(cwd, res.threadId);
     expect(led[0].status).toBe('supported');
+  });
+
+  it('decodeSpawnStdout unwraps the Claude JSON envelope and passes through raw text', () => {
+    const envelope = JSON.stringify({ result: '__HYPOTHESIS__ {"statement":"S"}' });
+    expect(decodeSpawnStdout(envelope)).toBe('__HYPOTHESIS__ {"statement":"S"}');
+    expect(decodeSpawnStdout('__HYPOTHESIS__ {"statement":"S"}')).toBe('__HYPOTHESIS__ {"statement":"S"}');
+    expect(decodeSpawnStdout('{not json')).toBe('{not json');
+  });
+
+  it('honors per-gate research_gates config (experiment_execution=false skips the execute gate)', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'),
+      JSON.stringify({ research_gates: { experiment_execution: false, kg_write: true } }));
+    expect(readResearchGatesConfig(cwd).research_gates).toEqual({ experiment_execution: false, kg_write: true });
+    // immediate-supported runner so it reaches finalize in iteration 1
+    const runner = { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+    const res = await runResearch(cwd, 'Per-gate Q', { maxIterations: 2, spawn: makeSpawn(), runner });
+    // execute gate disabled by config → it should NOT pause at execute; it runs, then pauses at kg_write
+    expect(res.paused).toBe(true);
+    expect(res.pendingGate).toBe('kg_write');
   });
 
   it('resuming a completed thread is a no-op (does not re-run or corrupt it)', async () => {
