@@ -1,5 +1,5 @@
 'use strict';
-const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } =
+const { compare, evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } =
   require('../../../lib/research/verdict');
 
 const plan = (over = {}) => ({
@@ -12,6 +12,19 @@ const result = (over = {}) => ({
 });
 
 describe('verdict', () => {
+  it('compare covers all operators and the default', () => {
+    expect(compare(2, '>=', 2)).toBe(true);
+    expect(compare(1, '>=', 2)).toBe(false);
+    expect(compare(1, '<=', 2)).toBe(true);
+    expect(compare(3, '<=', 2)).toBe(false);
+    expect(compare(3, '>', 2)).toBe(true);
+    expect(compare(2, '>', 2)).toBe(false);
+    expect(compare(1, '<', 2)).toBe(true);
+    expect(compare(2, '<', 2)).toBe(false);
+    expect(compare(2, '==', 2)).toBe(true);
+    expect(compare(2, '==', 3)).toBe(false);
+    expect(compare(1, 'unknown' as any, 2)).toBe(false);
+  });
   it('supported when metric meets target', () => {
     expect(evaluateVerdict(plan(), result()).verdict).toBe('supported');
   });
