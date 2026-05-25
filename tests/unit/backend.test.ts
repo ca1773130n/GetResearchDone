@@ -1861,3 +1861,17 @@ describe('lib/backend.js', () => {
     });
   });
 });
+
+// ─── EFFORT_PROFILES research agents ─────────────────────────────────────────
+
+describe('EFFORT_PROFILES research agents', () => {
+  it('defines effort for grd-hypothesizer and grd-experiment-runner across profiles', () => {
+    for (const profile of ['quality', 'balanced', 'budget']) {
+      expect(EFFORT_PROFILES['grd-hypothesizer']).toBeDefined();
+      expect(EFFORT_PROFILES['grd-experiment-runner']).toBeDefined();
+      expect(EFFORT_PROFILES['grd-hypothesizer'][profile]).toBeDefined();
+      expect(EFFORT_PROFILES['grd-experiment-runner'][profile]).toBeDefined();
+    }
+    expect(EFFORT_PROFILES['grd-hypothesizer']['quality']).toBe('high');
+  });
+});

@@ -261,6 +261,8 @@ const EFFORT_PROFILES: AgentEffortProfiles = {
   'grd-product-owner': { quality: 'high', balanced: 'high', budget: 'low' },
   'grd-baseline-assessor': { quality: 'medium', balanced: 'medium', budget: 'low' },
   'grd-code-reviewer': { quality: 'high', balanced: 'medium', budget: 'low' },
+  'grd-hypothesizer': { quality: 'high', balanced: 'high', budget: 'low' },
+  'grd-experiment-runner': { quality: 'high', balanced: 'medium', budget: 'low' },
 };
 
 /**
