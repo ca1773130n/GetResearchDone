@@ -11,6 +11,7 @@ const path = require('path');
 
 import type { Scheduler } from '../lib/scheduler';
 import type { GrdConfig, TokenProfileName } from '../lib/types';
+import type { ResearchOptions } from '../lib/research/orchestrator';
 
 // ─── Typed Imports ──────────────────────────────────────────────────────────
 
@@ -2216,6 +2217,53 @@ async function routeCommand(
           return;
       }
       break;
+    }
+    case 'research': {
+      const {
+        cmdResearchStart,
+        cmdResearchResume,
+        cmdResearchStatus,
+      } = require('../lib/research') as {
+        cmdResearchStart: (
+          cwd: string,
+          q: string,
+          o: ResearchOptions,
+          raw: boolean
+        ) => Promise<never>;
+        cmdResearchResume: (
+          cwd: string,
+          id: string,
+          o: ResearchOptions,
+          raw: boolean
+        ) => Promise<never>;
+        cmdResearchStatus: (cwd: string, id: string | undefined, raw: boolean) => never;
+      };
+      // args[0] === 'research'; subcommand (if any) is args[1].
+      const sub: string | undefined = args[1];
+      const noGates: boolean = args.includes('--no-gates');
+      const maxIdx: number = args.indexOf('--max-iterations');
+      const maxIterations: number | undefined =
+        maxIdx !== -1 ? Number(args[maxIdx + 1]) : undefined;
+      const opts: ResearchOptions = { noGates, maxIterations };
+      if (sub === 'status') {
+        cmdResearchStatus(cwd, args[2], raw);
+        return;
+      }
+      if (sub === 'resume') {
+        await cmdResearchResume(cwd, args[2], opts, raw);
+        return;
+      }
+      // No recognized subcommand → treat remaining non-flag args (after the
+      // 'research' command token at index 0) as the question. Skip the value
+      // that follows --max-iterations.
+      const question: string = args
+        .filter(
+          (a, i) =>
+            i >= 1 && !a.startsWith('--') && !(maxIdx !== -1 && i === maxIdx + 1)
+        )
+        .join(' ');
+      await cmdResearchStart(cwd, question, opts, raw);
+      return;
     }
     case 'wireup': {
       const sub: string = args[1];
