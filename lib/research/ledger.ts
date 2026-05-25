@@ -26,24 +26,26 @@ function field(block: string, name: string): string {
 }
 
 function parseHypotheses(content: string): Hypothesis[] {
-  return content.split(/(?=^### h\d)/m)
-    .map((b) => b.trim())
-    .filter((b) => b.startsWith('### h'))
-    .map((b) => {
-      const head = b.match(/^### (h\d+) \(iter (\d+)\) \[(\w+)\]/);
-      const parent = field(b, 'parent');
-      const verdict = field(b, 'verdict');
-      return {
-        id: head![1],
-        iteration: Number(head![2]),
-        status: head![3] as HypothesisStatus,
-        statement: field(b, 'statement'),
-        rationale: field(b, 'rationale'),
-        predictedOutcome: field(b, 'predicted_outcome'),
-        parentId: parent === 'none' ? null : parent,
-        verdict: verdict === 'none' ? null : (verdict as Verdict),
-      };
+  const out: Hypothesis[] = [];
+  for (const raw of content.split(/(?=^### h\d)/m)) {
+    const b = raw.trim();
+    if (!b.startsWith('### h')) continue;
+    const head = b.match(/^### (h\d+) \(iter (\d+)\) \[(\w+)\]/);
+    if (!head) continue;
+    const parent = field(b, 'parent');
+    const verdict = field(b, 'verdict');
+    out.push({
+      id: head[1],
+      iteration: Number(head[2]),
+      status: head[3] as HypothesisStatus,
+      statement: field(b, 'statement'),
+      rationale: field(b, 'rationale'),
+      predictedOutcome: field(b, 'predicted_outcome'),
+      parentId: parent === 'none' ? null : parent,
+      verdict: verdict === 'none' ? null : (verdict as Verdict),
     });
+  }
+  return out;
 }
 
 function nextHypothesisId(hyps: Hypothesis[]): string {
@@ -57,7 +59,9 @@ function readLedger(cwd: string, id: string): Hypothesis[] {
 }
 
 function writeLedger(cwd: string, id: string, hyps: Hypothesis[]): void {
-  fs.writeFileSync(ledgerPath(cwd, id), hyps.map(formatHypothesis).join('\n'));
+  const p = ledgerPath(cwd, id);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, hyps.map(formatHypothesis).join('\n'));
 }
 
 function appendHypothesis(cwd: string, id: string, h: Hypothesis): void {
