@@ -14,8 +14,8 @@ describe('Agent frontmatter audit', () => {
     .readdirSync(agentDir)
     .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'));
 
-  test('agent count is 22', () => {
-    expect(agentFiles.length).toBe(22);
+  test('agent count is 24', () => {
+    expect(agentFiles.length).toBe(24);
   });
 
   test('all agents have unique grd- prefixed names', () => {
