@@ -177,4 +177,16 @@ describe('orchestrator', () => {
     expect(again.status).toBe('supported');
     expect(readLedger(cwd, res.threadId).length).toBe(ledgerBefore); // no new hypotheses appended
   });
+
+  it('resume with --no-gates disables the remaining gates and runs to completion', async () => {
+    const cwd = tmp();
+    const spawn = makeSpawn();
+    const runner = makeRunner();
+    const first = await runResearch(cwd, 'NoGates resume Q', { maxIterations: 5, noGates: false, spawn, runner });
+    expect(first.paused).toBe(true); // paused at the first execute gate
+    const res = await resumeResearch(cwd, first.threadId, { spawn, runner, noGates: true });
+    // gates now disabled → it should run to a terminal status without pausing again
+    expect(res.paused).toBeFalsy();
+    expect(['supported', 'exhausted']).toContain(res.status);
+  });
 });

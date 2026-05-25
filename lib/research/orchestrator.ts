@@ -240,6 +240,9 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
       findingPath: findingPath(cwd, thread.id),
     };
   }
+  if (opts.noGates) {
+    thread.gates = { execute: false, kg_write: false };
+  }
   const pending = thread.pendingGate;
   thread.pendingGate = null; thread.status = 'active'; saveThread(cwd, thread);
   if (pending === 'kg_write') {
