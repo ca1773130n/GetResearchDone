@@ -7,11 +7,24 @@ function extractTaggedJson<T>(stdout: string, tag: string): T | null {
   const start = rest.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
+  let inStr = false;
+  let escaped = false;
   for (let i = start; i < rest.length; i++) {
-    if (rest[i] === '{') depth++;
-    else if (rest[i] === '}') { depth--; if (depth === 0) {
-      try { return JSON.parse(rest.slice(start, i + 1)) as T; } catch { return null; }
-    } }
+    const ch = rest[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(rest.slice(start, i + 1)) as T; } catch { return null; }
+      }
+    }
   }
   return null;
 }

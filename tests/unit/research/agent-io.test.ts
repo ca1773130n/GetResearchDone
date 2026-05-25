@@ -14,6 +14,27 @@ describe('agent-io', () => {
   it('extractTaggedJson returns null when tag present but no brace', () => {
     expect(extractTaggedJson('__X__ no json here', 'X')).toBeNull();
   });
+  it('extractTaggedJson handles braces inside string values', () => {
+    const out = '__HYPOTHESIS__ {"statement":"use a { dict } and a closing }{ here","rationale":"r","predictedOutcome":"p"}';
+    expect(extractTaggedJson(out, 'HYPOTHESIS')).toEqual({
+      statement: 'use a { dict } and a closing }{ here', rationale: 'r', predictedOutcome: 'p',
+    });
+  });
+  it('extractTaggedJson handles escaped quotes around braces', () => {
+    const out = '__PLAN__ {"procedure":"echo \\"{x}\\" done","metricKey":"acc","scriptPath":"run.sh"}';
+    const o = extractTaggedJson(out, 'PLAN');
+    expect(o.procedure).toBe('echo "{x}" done');
+    expect(o.metricKey).toBe('acc');
+  });
+  it('extractTaggedJson returns null on unterminated string', () => {
+    expect(extractTaggedJson('__X__ {"a":"no end', 'X')).toBeNull();
+  });
+  it('parseHypothesisOutput parses a rationale containing code braces', () => {
+    const out = '__HYPOTHESIS__ {"statement":"S","rationale":"call fn() { return {a:1}; }","predictedOutcome":"P"}';
+    expect(parseHypothesisOutput(out)).toEqual({
+      statement: 'S', rationale: 'call fn() { return {a:1}; }', predictedOutcome: 'P',
+    });
+  });
   it('parseHypothesisOutput requires statement', () => {
     expect(parseHypothesisOutput('__HYPOTHESIS__ {"statement":"S","rationale":"R","predictedOutcome":"P"}'))
       .toEqual({ statement: 'S', rationale: 'R', predictedOutcome: 'P' });
