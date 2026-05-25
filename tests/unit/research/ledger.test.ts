@@ -38,4 +38,28 @@ describe('hypothesis ledger', () => {
     expect(led[0].verdict).toBe('refuted');
     expect(led[1].parentId).toBe('h1');
   });
+
+  it('ledgerPath returns the expected file path', () => {
+    const { ledgerPath } = require('../../../lib/research/ledger');
+    const p = ledgerPath('/proj', 'tid');
+    expect(p).toContain('.planning/research/threads');
+    expect(p).toContain('HYPOTHESES.md');
+  });
+
+  it('writeLedger creates file with formatted hypotheses', () => {
+    const { writeLedger } = require('../../../lib/research/ledger');
+    const cwd = tmp();
+    const id = 'wl-test';
+    writeLedger(cwd, id, [H({ id: 'h1' }), H({ id: 'h2' })]);
+    const p = path.join(cwd, '.planning/research/threads', id, 'HYPOTHESES.md');
+    const content = fs.readFileSync(p, 'utf8');
+    expect(content).toContain('### h1');
+    expect(content).toContain('### h2');
+  });
+
+  it('parseHypotheses skips malformed blocks', () => {
+    const { parseHypotheses } = require('../../../lib/research/ledger');
+    const content = '### h1 BADFORMAT\n- **statement:** X\n';
+    expect(parseHypotheses(content)).toEqual([]);
+  });
 });

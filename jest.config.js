@@ -62,6 +62,11 @@ module.exports = {
     './lib/commands/select-candidate.ts': { lines: 90, functions: 90, branches: 75 },
     './lib/commands/patterns.ts': { lines: 90, functions: 90, branches: 70 },
     './lib/commands/install.ts': { lines: 95, functions: 100, branches: 85 },
+    './lib/research/ledger.ts': { lines: 85, functions: 90, branches: 70 },
+    './lib/research/verdict.ts': { lines: 90, functions: 100, branches: 85 },
+    './lib/research/runner.ts': { lines: 80, functions: 100, branches: 70 },
+    './lib/research/gates.ts': { lines: 90, functions: 100, branches: 80 },
+    './lib/research/agent-io.ts': { lines: 85, functions: 100, branches: 75 },
   },
   testTimeout: 15000,
 };

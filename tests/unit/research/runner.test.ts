@@ -37,4 +37,20 @@ describe('runner', () => {
     expect(res.exitCode).not.toBe(0);
     expect(res.failureClass).toBe('H3');
   });
+
+  it('parseMetricsLine returns {} on invalid JSON', () => {
+    expect(parseMetricsLine('__RESULT__ {invalid json}')).toEqual({});
+  });
+
+  it('classifyRunFailure returns H4 for generic stderr', () => {
+    expect(classifyRunFailure('some unknown error', false)).toBe('H4');
+  });
+
+  it('subprocess runner uses python3 for python language', () => {
+    const dir = tmp();
+    fs.writeFileSync(path.join(dir, 'run.py'), 'print("__RESULT__ {\\"accuracy\\": 0.5}")');
+    const res = createSubprocessRunner().run(plan({ language: 'python', scriptPath: 'run.py' }), dir);
+    expect(res.exitCode).toBe(0);
+    expect(res.metrics.accuracy).toBe(0.5);
+  });
 });
