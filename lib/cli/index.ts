@@ -109,6 +109,7 @@ const TOOL_COMMANDS = new Set([
   'select-candidate',
   'patterns',
   'install',
+  'research',
 ]);
 
 /**
@@ -207,6 +208,7 @@ export const AGENT_COMMANDS = new Set([
 
 const EVOLVE_TOOL_SUBS = new Set(['run', 'discover', 'state', 'advance', 'reset']);
 const SETTINGS_TOOL_SUBS = new Set(['token_profile', 'effort', 'phase_complete_llm_fallback']);
+const RESEARCH_TOOL_SUBS = new Set(['resume', 'status']);
 
 export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
@@ -260,6 +262,7 @@ export function classifyCommand(
   if (command === 'settings' && subcommand && SETTINGS_TOOL_SUBS.has(subcommand)) {
     return 'tool';
   }
+  if (command === 'research' && subcommand && RESEARCH_TOOL_SUBS.has(subcommand)) return 'tool';
   // `gd init <workflow>` → tool (init context), `gd init` (no args) → agent (project init)
   if (command === 'init') {
     if (subcommand && INIT_TOOL_SUBS.has(subcommand)) return 'tool';
@@ -270,4 +273,11 @@ export function classifyCommand(
   return 'unknown';
 }
 
-module.exports = { parseFlags, classifyCommand, TOOL_COMMANDS, AGENT_COMMANDS, INIT_WORKFLOWS };
+module.exports = {
+  parseFlags,
+  classifyCommand,
+  TOOL_COMMANDS,
+  AGENT_COMMANDS,
+  INIT_WORKFLOWS,
+  RESEARCH_TOOL_SUBS,
+};
