@@ -38,6 +38,8 @@ build/
 # Test artifacts
 tmp/
 testbed/
+# mkdtemp fixture dirs that leak to repo root when TMPDIR resolves here (dirs only)
+/grd-*/
 .3eb8*.dylib
 .*.dylib
 grd-test-*/
