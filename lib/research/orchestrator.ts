@@ -125,7 +125,7 @@ async function runLoop(
       // DESIGN
       thread.currentStation = 'design'; saveThread(cwd, thread);
       fs.mkdirSync(iterDir, { recursive: true });
-      const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterRel), 'grd-experiment-runner');
+      const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterDir), 'grd-experiment-runner');
       const parsedPlan = parsePlanOutput(pOut);
       if (!parsedPlan) return errExit(cwd, thread);
       plan = parsedPlan as ExperimentPlan;
@@ -172,8 +172,9 @@ async function runLoop(
     incrementCounter('research.iterations_total');
 
     if (term.done || branch === 'finalize') {
-      // FINALIZE — always write the finding before the kg_write gate.
+      // FINALIZE — set the terminal verdict, then write the finding before the kg_write gate.
       thread.currentStation = 'finalize';
+      thread.status = term.status;
       const finding = buildFinding(thread, readLedger(cwd, thread.id), readTakeaways(cwd, thread.id), result);
       writeFinding(cwd, thread.id, finding);
 

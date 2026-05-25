@@ -51,7 +51,7 @@ function buildExperimentPrompt(
     'Do NOT run the script yourself — the orchestrator runs it behind an execution gate.',
     'Pick a single numeric metricKey, a comparator (>=, <=, >, <, ==), and a target threshold.',
     '',
-    'Emit exactly one final block (scriptPath relative to the thread dir):',
+    'Emit exactly one final block (scriptPath = the absolute path where you wrote the script):',
     '__PLAN__',
     `{"procedure":"...","metricKey":"...","comparator":">=","target":0.0,"language":"shell","scriptPath":"${iterDir}/run.sh"}`,
   ].join('\n');

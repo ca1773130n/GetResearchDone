@@ -13,7 +13,7 @@ experiment that would support or refute it.
 </role>
 
 <rules>
-- Write the plan to the experiment iteration directory as PLAN.md.
+- Write the plan + runnable script to the absolute experiment iteration directory the orchestrator names in the prompt.
 - Write a runnable script (run.sh for bash, run.py for python) to the same directory.
 - The script MUST print its result as a final line: __RESULT__ {"<metricKey>": <number>}
 - Do NOT run the script yourself — execution is gated and performed by the orchestrator.
@@ -23,5 +23,5 @@ experiment that would support or refute it.
 <output_contract>
 Emit exactly one final block (scriptPath relative to the thread dir):
 __PLAN__
-{"procedure":"...","metricKey":"...","comparator":">=","target":0.0,"language":"shell","scriptPath":"experiments/N/run.sh"}
+{"procedure":"...","metricKey":"...","comparator":">=","target":0.0,"language":"shell","scriptPath":"<absolute path to the run script you wrote>"}
 </output_contract>

@@ -55,6 +55,9 @@ describe('orchestrator', () => {
     expect(led[1].status).toBe('supported');
     expect(led[1].parentId).toBe('h1');
     expect(fs.existsSync(path.join(cwd, '.planning/research/threads', res.threadId, 'FINDING.md'))).toBe(true);
+    const findingText = fs.readFileSync(res.findingPath, 'utf8');
+    expect(findingText).toContain('supported');
+    expect(findingText).not.toMatch(/verdict:\*\* active/);
   });
 
   it('pauses at the execute gate when gates are on', async () => {
@@ -113,5 +116,35 @@ describe('orchestrator', () => {
     });
     expect(res.status).toBe('exhausted');
     expect(res.iterations).toBe(2);
+  });
+
+  it('experiment-runner writes the script where the real runner executes it', async () => {
+    const cwd = tmp();
+    const { createSubprocessRunner } = require('../../../lib/research/runner');
+    let hypo = 0;
+    const spawn = async (prompt: string, agentType: string) => {
+      if (agentType === 'grd-hypothesizer') {
+        hypo++;
+        return `__HYPOTHESIS__ {"statement":"H${hypo}","rationale":"r","predictedOutcome":"p"}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        // The prompt names the absolute dir to write into. Extract it and write a real script there.
+        const m = prompt.match(/runnable script to (\S+)\/run\.sh/);
+        const dir = (m as RegExpMatchArray)[1];
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'run.sh'), 'echo "__RESULT__ {\\"accuracy\\": 0.95}"');
+        return `__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"${dir}/run.sh"}`;
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"success_pattern","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    const res = await runResearch(cwd, 'Real runner Q', {
+      maxIterations: 2, noGates: true, spawn, runner: createSubprocessRunner({ timeoutMs: 30000 }),
+    });
+    expect(res.status).toBe('supported');
+    const led = readLedger(cwd, res.threadId);
+    expect(led[0].status).toBe('supported');
   });
 });
