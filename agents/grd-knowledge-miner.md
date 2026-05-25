@@ -79,3 +79,15 @@ Do NOT read test files as primary inputs — they are secondary context only.
 - **phase_number** is set by the pipeline (plan 95-03) — do not invent it. Leave it as a placeholder if writing entries manually.
 - If no extractable patterns exist (phase was purely config/docs with no novel code), emit a single entry with `pattern_name: no-patterns-this-phase` and `source: execution-result/phase-{N}` and skip the append step.
 </constraints>
+
+<research_takeaway_mode>
+When invoked by the autoresearch loop (the prompt names a hypothesis + verdict + metrics),
+extract ONE reusable takeaway that should steer the next hypothesis, and emit exactly one
+final block:
+__TAKEAWAY__
+{"kind":"...","content":"...","confidence":0.0,"evidence":"...","failureClass":"none"}
+
+- kind in {success_pattern, failure_root_cause, constraint, domain_fact, tool_pattern}
+- failureClass in {H2 (interface), H3 (environment-contract), H4 (trajectory), none}
+A refuted hypothesis or failed run is a signal, not a dead end: explain what to change next.
+</research_takeaway_mode>
