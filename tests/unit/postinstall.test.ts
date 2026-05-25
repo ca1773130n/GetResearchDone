@@ -29,8 +29,8 @@ describe('package.json npm configuration', () => {
     pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'));
   });
 
-  test('name is "grd-tools"', () => {
-    expect(pkg.name).toBe('grd-tools');
+  test('name is "@jokerized/getresearchdone"', () => {
+    expect(pkg.name).toBe('@jokerized/getresearchdone');
   });
 
   test('version matches VERSION file', () => {

@@ -17,6 +17,14 @@ const path = require('path');
 jest.setTimeout(60000);
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../');
+// Derive the package name from package.json so a rename can't silently break
+// these assertions (the name moved from grd-tools -> getresearchdone).
+const PKG_NAME: string = JSON.parse(
+  fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf-8')
+).name;
+// npm tarball filename for a scoped name @scope/pkg is "scope-pkg-<ver>.tgz"
+// (leading @ dropped, / -> -). Unscoped names are unchanged.
+const TARBALL_PREFIX: string = PKG_NAME.replace(/^@/, '').replace(/\//g, '-');
 
 let tarballPath: string;
 let tarballName: string;
@@ -89,7 +97,7 @@ describe('npm pack validation', () => {
   });
 
   test('npm pack produces a .tgz tarball', () => {
-    expect(tarballName).toMatch(/^grd-tools-.*\.tgz$/);
+    expect(tarballName).toMatch(new RegExp(`^${TARBALL_PREFIX}-.*\\.tgz$`));
     expect(fs.existsSync(tarballPath)).toBe(true);
   });
 
@@ -141,8 +149,8 @@ describe('npm pack validation', () => {
 // --- 2. npm install from tarball ---------------------------------------------
 
 describe('npm install from tarball', () => {
-  test('consumer project has node_modules/grd-tools/', () => {
-    const installedDir = path.join(consumerDir, 'node_modules', 'grd-tools');
+  test('consumer project has node_modules/<pkg>/', () => {
+    const installedDir = path.join(consumerDir, 'node_modules', PKG_NAME);
     expect(fs.existsSync(installedDir)).toBe(true);
   });
 
@@ -162,7 +170,7 @@ describe('npm install from tarball', () => {
   });
 
   test('installed package contains bin/ lib/ dist/ agents/ commands/ directories', () => {
-    const installedDir = path.join(consumerDir, 'node_modules', 'grd-tools');
+    const installedDir = path.join(consumerDir, 'node_modules', PKG_NAME);
     expect(fs.existsSync(path.join(installedDir, 'bin'))).toBe(true);
     expect(fs.existsSync(path.join(installedDir, 'lib'))).toBe(true);
     expect(fs.existsSync(path.join(installedDir, 'dist'))).toBe(true);
@@ -178,7 +186,7 @@ describe('bin entry execution', () => {
     const grdToolsPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       'dist',
       'bin',
       'grd-tools.js'
@@ -203,7 +211,7 @@ describe('bin entry execution', () => {
     const mcpServerPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       'dist',
       'bin',
       'grd-mcp-server.js'
@@ -239,7 +247,7 @@ describe('bin entry execution', () => {
     const postinstallPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       'bin',
       'postinstall.js'
     );
@@ -255,7 +263,7 @@ describe('plugin.json path resolution', () => {
     const pluginPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       '.claude-plugin',
       'plugin.json'
     );
@@ -266,7 +274,7 @@ describe('plugin.json path resolution', () => {
     const pluginPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       '.claude-plugin',
       'plugin.json'
     );
@@ -280,7 +288,7 @@ describe('plugin.json path resolution', () => {
     const pluginPath = path.join(
       consumerDir,
       'node_modules',
-      'grd-tools',
+      PKG_NAME,
       '.claude-plugin',
       'plugin.json'
     );
