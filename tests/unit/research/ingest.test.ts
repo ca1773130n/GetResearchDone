@@ -50,4 +50,19 @@ describe('ingest', () => {
     const res = await ingest(cwd, src, { client });
     expect(res.status).toBe('partial');
   });
+
+  it('ingests a directory of markdown files', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-ing-'));
+    fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const dir = path.join(cwd, 'papers');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'a.md'), '# A');
+    fs.writeFileSync(path.join(dir, 'b.md'), '# B');
+    fs.writeFileSync(path.join(dir, 'ignore.txt'), 'not markdown');
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['n1'], detail: 'ok' } });
+    const res = await ingest(cwd, dir, { client });
+    expect(res.status).toBe('compiled');
+    expect(res.files).toBe(2); // only the two .md files, not the .txt
+    expect(fs.readdirSync(path.join(cwd, '.planning/research/corpus')).length).toBe(2);
+  });
 });
