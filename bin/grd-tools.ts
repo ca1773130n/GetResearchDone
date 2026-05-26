@@ -2265,6 +2265,20 @@ async function routeCommand(
       await cmdResearchStart(cwd, question, opts, raw);
       return;
     }
+    case 'ingest': {
+      const { cmdIngest } = require('../lib/research/cli-kb') as {
+        cmdIngest: (cwd: string, p: string, raw: boolean) => Promise<never>;
+      };
+      await cmdIngest(cwd, args[1], raw);
+      break;
+    }
+    case 'synthesize': {
+      const { cmdSynthesize } = require('../lib/research/cli-kb') as {
+        cmdSynthesize: (cwd: string, t: string, raw: boolean) => Promise<never>;
+      };
+      await cmdSynthesize(cwd, args.slice(1).filter((a) => !a.startsWith('--')).join(' '), raw);
+      break;
+    }
     case 'wireup': {
       const sub: string = args[1];
       validateSubcommand(sub, ['run'], 'wireup');

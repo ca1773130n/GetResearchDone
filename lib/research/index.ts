@@ -2,6 +2,9 @@
 const thread = require('./thread');
 const orchestrator = require('./orchestrator');
 const cli = require('./cli');
+const cliKb = require('./cli-kb');
+const ingestMod = require('./ingest');
+const synthesizeMod = require('./synthesize');
 
 module.exports = {
   createThread: thread.createThread,
@@ -13,4 +16,8 @@ module.exports = {
   cmdResearchStart: cli.cmdResearchStart,
   cmdResearchResume: cli.cmdResearchResume,
   cmdResearchStatus: cli.cmdResearchStatus,
+  cmdIngest: cliKb.cmdIngest,
+  cmdSynthesize: cliKb.cmdSynthesize,
+  ingest: ingestMod.ingest,
+  synthesize: synthesizeMod.synthesize,
 };
