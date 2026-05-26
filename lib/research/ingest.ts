@@ -70,28 +70,24 @@ async function ingest(cwd: string, inputPath: string, opts: IngestOpts = {}): Pr
   }
 
   const compileRes = await client.compile(cwd, [corpusDir(cwd)]);
-  let status: TesseraeStatus = compileRes.status;
-  let nodeIds: string[] = [];
-
-  if (compileRes.status === 'compiled') {
-    const smoke = await client.querySmokeCheck(cwd, path.basename(files[0], '.md'));
-    nodeIds = smoke.nodeIds;
-    if (!smoke.found) status = 'partial';
-  }
-
-  const updated = readManifest(manifest) as Array<{ key: string; [k: string]: unknown }>;
-  for (const e of updated) {
-    if (e.status === 'pending') {
-      upsertManifest(manifest, String(e.key), {
-        ...e,
-        status,
-        lastAttemptAt: new Date().toISOString(),
-        nodeIds,
-      });
+  if (compileRes.status !== 'compiled') {
+    for (const e of readManifest(manifest) as Array<{ key: string; [k: string]: unknown }>) {
+      if (e.status === 'pending') {
+        upsertManifest(manifest, String(e.key), { ...e, status: compileRes.status, lastAttemptAt: new Date().toISOString(), nodeIds: [] });
+      }
     }
+    return { status: compileRes.status, files: files.length, detail: compileRes.detail };
   }
-
-  return { status, files: files.length, detail: compileRes.detail };
+  // compiled: smoke-check EACH changed file individually so a non-retrievable file isn't marked compiled.
+  let anyPartial = false;
+  for (const e of readManifest(manifest) as Array<{ key: string; [k: string]: unknown }>) {
+    if (e.status !== 'pending') continue;
+    const smoke = await client.querySmokeCheck(cwd, path.basename(String(e.key), '.md'));
+    const fileStatus: TesseraeStatus = smoke.found ? 'compiled' : 'partial';
+    if (!smoke.found) anyPartial = true;
+    upsertManifest(manifest, String(e.key), { ...e, status: fileStatus, lastAttemptAt: new Date().toISOString(), nodeIds: smoke.nodeIds });
+  }
+  return { status: anyPartial ? 'partial' : 'compiled', files: files.length, detail: compileRes.detail };
 }
 
 module.exports = { ingest, corpusDir, ingestManifest, listMarkdown };

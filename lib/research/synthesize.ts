@@ -81,6 +81,10 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });
+  if (fs.existsSync(docPath) && prior && prior.synthKey && prior.synthKey !== key) {
+    // Preserve the superseded version so history is reconstructable.
+    fs.renameSync(docPath, path.join(synthDir(cwd), `${topicId}.${String(prior.synthKey).slice(0, 8)}.md`));
+  }
   fs.writeFileSync(docPath, doc.raw);
 
   const compileRes = await client.compile(cwd, [synthDir(cwd)]);

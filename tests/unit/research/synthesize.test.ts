@@ -62,6 +62,19 @@ describe('synthesize', () => {
     expect(compiles).toBe(1);
   });
 
+  it('archives the prior synthesis when re-synthesized with a different signature', async () => {
+    const cwd = tmp();
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
+    const doc1 = DOC; // source_node_ids: [n2, n1]
+    await synthesize(cwd, 'RAG', { spawn: async () => doc1, client });
+    const doc2 = DOC.replace('source_node_ids: [n2, n1]', 'source_node_ids: [n3]'); // different signature
+    await synthesize(cwd, 'RAG', { spawn: async () => doc2, client });
+    const dir = path.join(cwd, '.planning/research/synthesis');
+    const mds = fs.readdirSync(dir).filter((f: string) => f.endsWith('.md'));
+    expect(mds.length).toBe(2); // rag.md (new) + rag.<priorKey8>.md (archived)
+    expect(fs.existsSync(path.join(dir, 'rag.md'))).toBe(true);
+  });
+
   it('recompiles when graph.json is missing (gitignored artifact gone)', async () => {
     const cwd = tmp();
     let compiles = 0;

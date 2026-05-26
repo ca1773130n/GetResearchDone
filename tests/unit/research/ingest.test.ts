@@ -63,6 +63,23 @@ describe('ingest', () => {
     expect(res.status).toBe('partial');
   });
 
+  it('directory ingest smoke-checks each file (partial if any file is not retrievable)', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-ing-'));
+    fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const dir = path.join(cwd, 'papers');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'alpha.md'), '# Alpha');
+    fs.writeFileSync(path.join(dir, 'beta.md'), '# Beta');
+    const client = { isAvailable: () => true,
+      compile: async (c: string) => { fs.mkdirSync(path.join(c, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(c, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
+      querySmokeCheck: async (_c: string, topic: string) => topic.includes('alpha') ? { found: true, nodeIds: ['na'], detail: '' } : { found: false, nodeIds: [], detail: '' } };
+    const res = await ingest(cwd, dir, { client });
+    expect(res.status).toBe('partial'); // beta not retrievable
+    const man = readManifest(path.join(cwd, '.planning/research/ingest/manifest.json'));
+    expect(man.find((e: any) => String(e.key).endsWith('alpha.md')).status).toBe('compiled');
+    expect(man.find((e: any) => String(e.key).endsWith('beta.md')).status).toBe('partial');
+  });
+
   it('ingests a directory of markdown files', async () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-ing-'));
     fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
