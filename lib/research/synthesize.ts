@@ -11,7 +11,7 @@ const SYNTH_VERSION = 1;
 export type SynthSpawnFn = (prompt: string, agentType: string) => Promise<string>;
 export interface SynthesisDoc { frontmatter: Record<string, unknown>; body: string; raw: string; }
 export interface SynthesizeResult { status: TesseraeStatus; topicId: string; docPath: string | null; detail: string; }
-interface SynthesizeOpts { spawn?: SynthSpawnFn; client?: TesseraeClient; }
+interface SynthesizeOpts { spawn: SynthSpawnFn; client?: TesseraeClient; }
 
 function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'topic';
@@ -63,12 +63,12 @@ function buildSynthesizePrompt(topic: string): string {
   ].join('\n');
 }
 
-async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts = {}): Promise<SynthesizeResult> {
+async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Promise<SynthesizeResult> {
   const client: TesseraeClient = opts.client || createCliTesseraeClient();
   const topicId = slug(topic);
   const docPath = path.join(synthDir(cwd), `${topicId}.md`);
 
-  const out = await (opts.spawn as SynthSpawnFn)(buildSynthesizePrompt(topic), 'grd-synthesizer');
+  const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
   const doc = parseSynthesisDoc(out);
   if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)' };
 
