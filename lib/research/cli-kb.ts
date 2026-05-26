@@ -22,18 +22,49 @@ const { defaultSpawn } = require('./orchestrator') as {
   ) => (prompt: string, agentType: string) => Promise<string>;
 };
 
-async function cmdIngest(cwd: string, inputPath: string, raw: boolean): Promise<never> {
+/**
+ * Returns a loud warning string when a compile produced no retrievable nodes (Spec §9).
+ * Returns null for statuses that need no warning.
+ */
+function statusWarning(status: string, detail: string): string | null {
+  if (status === 'partial') {
+    return `Warning: compiled but content is not retrievable yet (the research loop may ground on nothing): ${detail}`;
+  }
+  return null;
+}
+
+interface IngestDeps {
+  ingest?: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }>;
+}
+
+async function cmdIngest(cwd: string, inputPath: string, raw: boolean, deps: IngestDeps = {}): Promise<never> {
   if (!inputPath) error('ingest: a markdown file or directory path is required');
-  const res = await ingest(cwd, inputPath);
+  const run = deps.ingest || ingest;
+  const res = await run(cwd, inputPath);
+  const warn = statusWarning(res.status, res.detail);
+  if (warn) process.stderr.write(warn + '\n');
+  if (res.status === 'compile_failed') error(`ingest: compile failed — ${res.detail}`);
   return output(res, raw, raw ? JSON.stringify(res) : `ingest: ${res.status} (${res.files} files)\n`);
 }
 
-async function cmdSynthesize(cwd: string, topic: string, raw: boolean): Promise<never> {
+interface SynthDeps {
+  synthesize?: (
+    cwd: string,
+    topic: string,
+    opts: { spawn: (prompt: string, agentType: string) => Promise<string> }
+  ) => Promise<{ status: string; topicId: string; docPath: string | null; detail: string }>;
+}
+
+async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: SynthDeps = {}): Promise<never> {
   if (!topic || !topic.trim())
     error('synthesize: a topic is required, e.g. gd synthesize "retrieval augmented generation"');
+  const run = deps.synthesize || synthesize;
   const spawn = defaultSpawn(cwd, loadConfig(cwd));
-  const res = await synthesize(cwd, topic, { spawn });
+  const res = await run(cwd, topic, { spawn });
+  const warn = statusWarning(res.status, res.detail);
+  if (warn) process.stderr.write(warn + '\n');
+  if (res.status === 'compile_failed') error(`synthesize: failed — ${res.detail}`);
   return output(res, raw, raw ? JSON.stringify(res) : `synthesize: ${res.status} (${res.topicId})\n`);
 }
 
-module.exports = { cmdIngest, cmdSynthesize };
+module.exports = { cmdIngest, cmdSynthesize, statusWarning };
