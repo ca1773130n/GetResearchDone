@@ -94,7 +94,7 @@ interface TesseraeClient {
 - **Copy** (not symlink) each file into a GRD-managed corpus dir `.planning/research/corpus/`
   as `<hash[:12]>-<basename>` to avoid basename collisions.
 - Write/update an **ingest manifest** `.planning/research/ingest/manifest.json`:
-  `[{ sourcePath, hash, corpusName, status, compiledAt, nodeIds }]`. `sourcePath` is
+  `[{ sourcePath, hash, corpusName, status, lastAttemptAt, nodeIds }]`. `sourcePath` is
   project-relative when under `cwd`, else absolute.
 - **Idempotent:** skip files whose hash matches the manifest entry. Source *deletions* are out
   of scope for this slice (the manifest is additive; pruning is a later concern).
@@ -117,8 +117,10 @@ interface TesseraeClient {
   with `supersedes:` pointing at the prior synthesis for the same `topic_id` (don't delete).
 - Update a **synthesis manifest** `.planning/research/synthesis/manifest.json`.
 - `TesseraeClient.compile` → `querySmokeCheck(topic)` → record status + nodeIds.
-- **Idempotent:** if the synthesis key is unchanged (same topic, same KG signature, same
-  synthesizer version), skip regeneration.
+- **Idempotent (two levels):** a cheap *pre-spawn* check (topic + `synthesizer_version` + a KG
+  freshness marker such as the last compile id / node count) skips the agent spawn entirely
+  when nothing relevant changed. Otherwise the agent runs, then the `source_node_ids`-based
+  synthesis key decides whether to write + compile a new (superseding) doc or no-op.
 
 ### 4.4 `agents/grd-synthesizer.md`
 - Tools: `Read, Grep, Glob, mcp__plugin_tesserae_tesserae__*` (KG query only — **no `Write`/`Bash`**,
@@ -200,8 +202,9 @@ frontmatter) so GRD's view is authoritative even if Tesserae's extraction differ
 
 `TesseraeClient` returns one of `compiled` / `skipped_no_tesserae` / `compile_failed` /
 `partial`. Command behavior:
-- `skipped_no_tesserae` — Tesserae not installed/registered: clear message, exit 0 (the KB
-  just isn't updated), NOT a fake success.
+- `skipped_no_tesserae` — Tesserae not installed/registered: exit 0 (the KB just isn't
+  updated), NOT a fake success. Output reads e.g. "skipped: Tesserae not available" —
+  never "completed successfully".
 - `compile_failed` — surfaced with the CLI error, **non-zero exit**.
 - `partial` — compiled but `querySmokeCheck` found nothing for the topic/doc: warn loudly
   ("ingested content is not retrievable — the research loop may ground on nothing").
