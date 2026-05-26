@@ -67,8 +67,22 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       }
     },
 
-    async querySmokeCheck(): Promise<SmokeResult> {
-      return { found: false, nodeIds: [], detail: 'not implemented in this task' };
+    async querySmokeCheck(cwd: string, topic: string): Promise<SmokeResult> {
+      const graph = graphJsonPath(cwd);
+      if (!fs.existsSync(graph)) return { found: false, nodeIds: [], detail: 'no graph.json' };
+      let nodes: Array<{ id?: string; name?: string; source_path?: string }> = [];
+      try {
+        const parsed = JSON.parse(fs.readFileSync(graph, 'utf8')) as { nodes?: typeof nodes };
+        nodes = parsed.nodes || [];
+      } catch { return { found: false, nodeIds: [], detail: 'unreadable graph.json' }; }
+      const needle = topic.toLowerCase();
+      const matched = nodes.filter((n) =>
+        (n.name || '').toLowerCase().includes(needle) || (n.source_path || '').toLowerCase().includes(needle));
+      return {
+        found: matched.length > 0,
+        nodeIds: matched.map((n) => String(n.id)).filter(Boolean),
+        detail: `${matched.length} match(es)`,
+      };
     },
   };
 }

@@ -56,3 +56,30 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(res.status).toBe('skipped_no_tesserae');
   });
 });
+
+describe('querySmokeCheck', () => {
+  function withGraph(nodes: object[]) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    fs.mkdirSync(path.join(cwd, '.tesserae'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.tesserae/graph.json'), JSON.stringify({ nodes }));
+    return cwd;
+  }
+  it('finds nodes whose name matches the topic (case-insensitive)', async () => {
+    const cwd = withGraph([{ id: 'n1', name: 'Retrieval Augmented Generation' }, { id: 'n2', name: 'Other' }]);
+    const r = await createCliTesseraeClient({ whichOk: true }).querySmokeCheck(cwd, 'retrieval augmented');
+    expect(r.found).toBe(true);
+    expect(r.nodeIds).toContain('n1');
+  });
+  it('returns found:false when no node matches or no graph', async () => {
+    const cwd = withGraph([{ id: 'n1', name: 'Other' }]);
+    expect((await createCliTesseraeClient({ whichOk: true }).querySmokeCheck(cwd, 'nope')).found).toBe(false);
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    expect((await createCliTesseraeClient({ whichOk: true }).querySmokeCheck(empty, 'x')).found).toBe(false);
+  });
+  it('returns found:false on unreadable graph.json', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    fs.mkdirSync(path.join(cwd, '.tesserae'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.tesserae/graph.json'), '{not json');
+    expect((await createCliTesseraeClient({ whichOk: true }).querySmokeCheck(cwd, 'x')).found).toBe(false);
+  });
+});
