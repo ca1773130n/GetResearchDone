@@ -1,14 +1,10 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-// execFileSync only (NOT exec): no shell, args passed as an array (injection-safe).
-// Tests inject a stub `run` so no real process is spawned.
-const { execFileSync } = require('child_process');
-
-type RunFn = (bin: string, args: string[], cwd: string) => string;
-
-const defaultRun: RunFn = (bin, args, cwd) =>
-  execFileSync(bin, args, { cwd, encoding: 'utf8', timeout: 120000 });
+import type { TesseraeClient } from './tesserae';
+const { createCliTesseraeClient } = require('./tesserae') as {
+  createCliTesseraeClient: () => TesseraeClient;
+};
 
 function kgPath(cwd: string, id: string): string {
   return path.join(cwd, '.planning/research/threads', id, 'kg.json');
@@ -23,18 +19,15 @@ function writeKgProvenance(
     { read: data.read || [], wrote: data.wrote || [], at: new Date().toISOString() }, null, 2));
 }
 
-function syncFindingToKg(
-  cwd: string, id: string, _findingPath: string, opts: { run?: RunFn } = {},
-): { synced: boolean; reason?: string } {
-  const run = opts.run || defaultRun;
-  try {
-    // Register the project (idempotent) then refresh so the new FINDING.md is compiled in.
-    try { run('tesserae', ['register', '--root', cwd], cwd); } catch { /* already registered */ }
-    run('tesserae', ['refresh', '--root', cwd], cwd);
-    return { synced: true };
-  } catch (e: unknown) {
-    return { synced: false, reason: `tesserae sync skipped: ${String((e as Error).message || e)}` };
-  }
+async function syncFindingToKg(
+  cwd: string, id: string, _findingPath: string, opts: { client?: TesseraeClient } = {},
+): Promise<{ synced: boolean; reason?: string }> {
+  const client: TesseraeClient = opts.client || createCliTesseraeClient();
+  if (!client.isAvailable()) return { synced: false, reason: 'tesserae sync skipped: CLI not available' };
+  const res = await client.compile(cwd, [path.join(cwd, '.planning/research')]);
+  return res.status === 'compiled'
+    ? { synced: true }
+    : { synced: false, reason: `tesserae sync skipped: ${res.status} (${res.detail})` };
 }
 
 module.exports = { kgPath, writeKgProvenance, syncFindingToKg };
