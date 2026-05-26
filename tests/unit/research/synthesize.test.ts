@@ -75,6 +75,17 @@ describe('synthesize', () => {
     expect(fs.existsSync(path.join(dir, 'rag.md'))).toBe(true);
   });
 
+  it('skips before spawning when tesserae is unavailable', async () => {
+    const cwd = tmp();
+    let spawned = 0;
+    const res = await synthesize(cwd, 'RAG', {
+      spawn: async () => { spawned++; return ''; },
+      client: createFakeTesseraeClient({}), // unavailable
+    });
+    expect(res.status).toBe('skipped_no_tesserae');
+    expect(spawned).toBe(0); // never spawned the agent
+  });
+
   it('recompiles when graph.json is missing (gitignored artifact gone)', async () => {
     const cwd = tmp();
     let compiles = 0;

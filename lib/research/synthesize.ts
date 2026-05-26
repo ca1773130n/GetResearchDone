@@ -68,6 +68,10 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const topicId = slug(topic);
   const docPath = path.join(synthDir(cwd), `${topicId}.md`);
 
+  if (!client.isAvailable()) {
+    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available' };
+  }
+
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
   const doc = parseSynthesisDoc(out);
   if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)' };
