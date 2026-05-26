@@ -68,9 +68,9 @@ interface CompileResult { status: TesseraeStatus; detail: string; }
 interface SmokeResult { found: boolean; nodeIds: string[]; detail: string; }
 
 interface TesseraeClient {
-  isAvailable(): boolean;                          // tesserae CLI present + project registered
-  compile(cwd: string, sources?: string[]): CompileResult;   // trigger a (re)compile
-  querySmokeCheck(cwd: string, topic: string): SmokeResult;   // confirm content is retrievable
+  isAvailable(): boolean;                                             // tesserae CLI present + project registered
+  compile(cwd: string, sources?: string[]): Promise<CompileResult>;  // trigger a (re)compile
+  querySmokeCheck(cwd: string, topic: string): Promise<SmokeResult>; // confirm content is retrievable
 }
 ```
 
@@ -78,6 +78,10 @@ interface TesseraeClient {
   (see §6) using `execFileSync` (shell-free, args array). `isAvailable()` checks the binary
   resolves and the project is registered. On any failure: returns a typed status, never
   throws out.
+- **Async + smoke-check backend (Codex P1):** the methods are `async`. The smoke check routes
+  through a Tesserae **CLI query** if one exists, or — if Tesserae exposes query only via MCP —
+  a lightweight **scheduler-spawned agent** MCP query (`search_nodes`/`ask`); §6 resolves which.
+  The interface is the same either way.
 - **Injectable** for tests (a fake client). The orchestrator/ingest/synthesize accept a
   `TesseraeClient` (default: the CLI backend).
 - **Replaces** SP1's `lib/research/kg.ts` direct shell-outs: `syncFindingToKg` is refactored
@@ -86,11 +90,14 @@ interface TesseraeClient {
 
 ### 4.2 `lib/research/ingest.ts` — `gd ingest <local-md path>` (Layer 1)
 - Resolve input path (file or dir) → markdown files only.
-- For each file: compute a content hash (sha256 of normalized bytes).
-- Copy/link into a GRD-managed corpus dir under `.planning/research/corpus/`.
+- For each file: compute `sha256` of the file's raw UTF-8 bytes (no normalization).
+- **Copy** (not symlink) each file into a GRD-managed corpus dir `.planning/research/corpus/`
+  as `<hash[:12]>-<basename>` to avoid basename collisions.
 - Write/update an **ingest manifest** `.planning/research/ingest/manifest.json`:
-  `[{ path, hash, status, compiledAt, nodeIds }]`.
-- **Idempotent:** skip files whose hash is unchanged since last compile.
+  `[{ sourcePath, hash, corpusName, status, compiledAt, nodeIds }]`. `sourcePath` is
+  project-relative when under `cwd`, else absolute.
+- **Idempotent:** skip files whose hash matches the manifest entry. Source *deletions* are out
+  of scope for this slice (the manifest is additive; pruning is a later concern).
 - Call `TesseraeClient.compile(cwd, [corpusDir])` → record status.
 - On `compiled`: `querySmokeCheck` for the ingested filename/title → record observed
   `nodeIds` in the manifest. If the smoke check finds nothing → status `partial` (compiled
@@ -99,10 +106,13 @@ interface TesseraeClient {
 
 ### 4.3 `lib/research/synthesize.ts` — `gd synthesize "<topic>"` (Layer 2)
 - Spawn `grd-synthesizer` (via the scheduler, reusing the loop's `defaultSpawn`/decode) with
-  a prompt instructing it to query the KG (MCP) for the topic and emit a synthesis doc per
-  the §7 schema.
-- Parse the emitted doc; validate required frontmatter fields.
-- Compute a synthesis key = `hash(topic + kgQuerySignature + synthesizerVersion)`.
+  a prompt instructing it to query the KG (MCP) for the topic and **emit** one synthesis doc
+  to stdout (via a `__SYNTHESIS__` contract block) per the §7 schema. The agent does NOT write
+  files — **GRD owns persistence** (Codex P1).
+- Parse + validate the emitted doc (required frontmatter fields, incl. `source_node_ids`).
+- Compute a synthesis key = `sha256(topic_id + sorted(source_node_ids) + synthesizer_version)`.
+  The agent-emitted `source_node_ids` (§7) ARE the captured KG signature, so GRD derives the
+  key deterministically from the agent's output — no separate query transcript needed (Codex P1).
 - Write the synthesis doc into the corpus (`.planning/research/synthesis/<topic-slug>.md`)
   with `supersedes:` pointing at the prior synthesis for the same `topic_id` (don't delete).
 - Update a **synthesis manifest** `.planning/research/synthesis/manifest.json`.
@@ -111,7 +121,9 @@ interface TesseraeClient {
   synthesizer version), skip regeneration.
 
 ### 4.4 `agents/grd-synthesizer.md`
-- Tools: `Read, Write, Grep, Glob, mcp__plugin_tesserae_tesserae__*` (KG query, no execution).
+- Tools: `Read, Grep, Glob, mcp__plugin_tesserae_tesserae__*` (KG query only — **no `Write`/`Bash`**,
+  Codex P1). Emits exactly one synthesis document to stdout via a `__SYNTHESIS__` contract block;
+  GRD validates and persists it.
 - Queries the KG for the topic (`search_nodes`, `ask`, `node_context`), reads related source
   docs, and emits exactly one schema-conformant synthesis document (§7) — a domain compendium
   + ranked open questions.
@@ -171,16 +183,18 @@ Body sections (stable headings): `## Compendium` (the synthesized domain summary
 `## Claims` (bulleted, each with an `evidence_refs:` to source node ids), `## Open Questions`
 (ranked, each a candidate research question — the bridge to sub-project C).
 
-A **local manifest** records what GRD *intended* to write (topic, key, doc path, frontmatter)
-so GRD's view is authoritative even if Tesserae's extraction differs.
+`source_node_ids` is required and doubles as the **KG signature** for synthesis idempotency
+(§8). A **local manifest** records what GRD *intended* to write (topic, key, doc path,
+frontmatter) so GRD's view is authoritative even if Tesserae's extraction differs.
 
 ## 8. Manifests & idempotency (Codex P2-7)
 
 - `.planning/research/ingest/manifest.json` — content-hash per source; recompile only
   changed files.
-- `.planning/research/synthesis/manifest.json` — synthesis key per topic; regenerate only
-  when topic, KG-query signature, or synthesizer version changes; old synthesis marked
-  `supersedes` (never blind-overwritten/deleted).
+- `.planning/research/synthesis/manifest.json` — synthesis key =
+  `sha256(topic_id + sorted(source_node_ids) + synthesizer_version)`; regenerate only when the
+  topic, the set of source nodes the synthesis drew on, or the synthesizer version changes; old
+  synthesis marked `supersedes` (never blind-overwritten/deleted).
 
 ## 9. Error handling & statuses (Codex P1-4, P2-6)
 
@@ -193,7 +207,9 @@ so GRD's view is authoritative even if Tesserae's extraction differs.
   ("ingested content is not retrievable — the research loop may ground on nothing").
 - `compiled` — smoke check found nodes; record their ids in the manifest.
 
-`gd ingest` / `gd synthesize` NEVER report success on `compile_failed`.
+`gd ingest` / `gd synthesize` NEVER report success on `compile_failed`. Manifests and command
+summaries record the **actual** status — `skipped_no_tesserae` / `compile_failed` / `partial`
+are never recorded or summarized as a successful ingest/synthesis (Codex P2-6).
 
 ## 10. Testing (Codex P1-4)
 
@@ -233,6 +249,12 @@ Codex (independent review of the draft) raised 7 findings; all adopted:
 - **P1-5** code-HTTP fetch (not agents) for arXiv — deferred with the fetch slice (→ §2).
 - **P2-6** post-compile smoke check + provenance node ids (→ §4.2, §4.3, §9).
 - **P2-7** content-hash + synthesis-key idempotency via manifests (→ §8).
+
+A second Codex pass on the *written* spec raised 5 contract gaps, all folded in: async
+`TesseraeClient` with smoke-check via CLI-query-or-agent (§4.1); synthesis idempotency keyed
+off the agent-emitted `source_node_ids` rather than an undefined signature (§4.3, §7, §8);
+the synthesizer has no `Write` and emits to stdout while GRD persists (§4.3, §4.4); pinned
+ingest file identity (§4.2); and skip/fail/partial never recorded as success (§9).
 
 ## 13. Out of scope / follow-ups
 
