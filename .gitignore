@@ -26,6 +26,10 @@ grd-local-patches/
 .planning/monitor/
 .planning/scheduler-state.json
 
+# Tesserae compiled knowledge graph + ingested corpus (build artifacts)
+.tesserae/
+.planning/research/corpus/
+
 # Build/coverage artifacts
 coverage/
 .nyc_output/
