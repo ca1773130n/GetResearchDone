@@ -19,11 +19,17 @@ interface FakeOpts {
 function createFakeTesseraeClient(opts: FakeOpts): TesseraeClient {
   return {
     isAvailable: () => opts.available === true,
-    compile: async () => ({
-      status: opts.available === true ? (opts.compileStatus || 'compiled') : 'skipped_no_tesserae',
-      detail: 'fake',
-      graphPath: null,
-    }),
+    compile: async (cwd: string) => {
+      const status = opts.available === true ? (opts.compileStatus || 'compiled') : 'skipped_no_tesserae';
+      let graphPath: string | null = null;
+      if (status === 'compiled' || status === 'partial') {
+        const dir = path.join(cwd, '.tesserae');
+        fs.mkdirSync(dir, { recursive: true });
+        graphPath = path.join(dir, 'graph.json');
+        fs.writeFileSync(graphPath, JSON.stringify({ nodes: [{ id: 'fake', name: 'fake' }] }));
+      }
+      return { status, detail: 'fake', graphPath };
+    },
     querySmokeCheck: async () => opts.smoke || { found: false, nodeIds: [], detail: 'fake' },
   };
 }

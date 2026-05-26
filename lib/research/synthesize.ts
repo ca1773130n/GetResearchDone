@@ -75,7 +75,8 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const sourceIds = (doc.frontmatter.source_node_ids as string[]).slice().sort();
   const key = crypto.createHash('sha256').update(`${topicId}|${sourceIds.join(',')}|${SYNTH_VERSION}`).digest('hex');
   const prior = readManifest(synthManifest(cwd)).find((e: { key: string }) => e.key === topicId) as { synthKey?: string } | undefined;
-  if (prior && prior.synthKey === key && fs.existsSync(docPath)) {
+  const graphExists = fs.existsSync(path.join(cwd, '.tesserae', 'graph.json'));
+  if (prior && prior.synthKey === key && fs.existsSync(docPath) && graphExists) {
     return { status: 'compiled', topicId, docPath, detail: 'unchanged (idempotent)' };
   }
 

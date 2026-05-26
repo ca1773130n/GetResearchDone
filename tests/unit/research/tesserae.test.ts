@@ -1,31 +1,33 @@
 'use strict';
-const { createFakeTesseraeClient } = require('../../../lib/research/tesserae');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { createFakeTesseraeClient, createCliTesseraeClient } = require('../../../lib/research/tesserae');
 
 describe('TesseraeClient (fake)', () => {
   it('fake client reports configured availability + compile/smoke results', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
     const fake = createFakeTesseraeClient({
       available: true,
       compileStatus: 'compiled',
       smoke: { found: true, nodeIds: ['n1'], detail: 'ok' },
     });
     expect(fake.isAvailable()).toBe(true);
-    expect((await fake.compile('/cwd', ['corpus'])).status).toBe('compiled');
-    const s = await fake.querySmokeCheck('/cwd', 'topic');
+    const compiled = await fake.compile(cwd, ['corpus']);
+    expect(compiled.status).toBe('compiled');
+    expect(fs.existsSync(path.join(cwd, '.tesserae/graph.json'))).toBe(true); // fake now writes the KG artifact
+    const s = await fake.querySmokeCheck(cwd, 'topic');
     expect(s.found).toBe(true);
     expect(s.nodeIds).toEqual(['n1']);
   });
 
   it('fake client defaults to unavailable / skipped', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
     const fake = createFakeTesseraeClient({});
     expect(fake.isAvailable()).toBe(false);
-    expect((await fake.compile('/cwd', [])).status).toBe('skipped_no_tesserae');
+    expect((await fake.compile(cwd, [])).status).toBe('skipped_no_tesserae');
   });
 });
-
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { createCliTesseraeClient } = require('../../../lib/research/tesserae');
 
 describe('TesseraeClient (CLI backend)', () => {
   it('compile invokes the real tesserae extractor with the right args', async () => {

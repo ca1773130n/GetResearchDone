@@ -31,11 +31,23 @@ describe('ingest', () => {
     const { cwd, src } = projectWithDoc('p.md', 'same');
     let compiles = 0;
     const client = { isAvailable: () => true,
-      compile: async () => { compiles++; return { status: 'compiled', detail: '', graphPath: null }; },
+      compile: async (cwd: string) => { compiles++; fs.mkdirSync(path.join(cwd, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(cwd, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
       querySmokeCheck: async () => ({ found: true, nodeIds: ['n'], detail: '' }) };
     await ingest(cwd, src, { client });
     await ingest(cwd, src, { client });
     expect(compiles).toBe(1);
+  });
+
+  it('recompiles when graph.json is missing (gitignored artifact gone)', async () => {
+    const { cwd, src } = projectWithDoc('p.md', 'same');
+    let compiles = 0;
+    const client = { isAvailable: () => true,
+      compile: async (c: string) => { compiles++; fs.mkdirSync(path.join(c, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(c, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
+      querySmokeCheck: async () => ({ found: true, nodeIds: ['n'], detail: '' }) };
+    await ingest(cwd, src, { client });
+    fs.rmSync(path.join(cwd, '.tesserae/graph.json')); // simulate git clean / fresh checkout
+    await ingest(cwd, src, { client });
+    expect(compiles).toBe(2); // recompiled because the KG artifact was missing
   });
 
   it('reports skipped_no_tesserae without faking success', async () => {

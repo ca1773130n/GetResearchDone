@@ -43,6 +43,7 @@ async function ingest(cwd: string, inputPath: string, opts: IngestOpts = {}): Pr
   fs.mkdirSync(corpusDir(cwd), { recursive: true });
   const manifest = ingestManifest(cwd);
   const existing = readManifest(manifest) as Array<{ key: string; hash?: string; status?: string; corpusName?: string }>;
+  const graphExists = fs.existsSync(path.join(cwd, '.tesserae', 'graph.json'));
 
   let changed = 0;
   for (const file of files) {
@@ -50,7 +51,7 @@ async function ingest(cwd: string, inputPath: string, opts: IngestOpts = {}): Pr
     const hash = crypto.createHash('sha256').update(bytes).digest('hex') as string;
     const sourcePath = file.startsWith(cwd) ? path.relative(cwd, file) : file;
     const prior = existing.find((e) => e.key === sourcePath);
-    if (prior && prior.hash === hash && prior.status === 'compiled') continue;
+    if (graphExists && prior && prior.hash === hash && prior.status === 'compiled') continue;
     const corpusName = `${hash.slice(0, 12)}-${path.basename(file)}`;
     fs.copyFileSync(file, path.join(corpusDir(cwd), corpusName));
     upsertManifest(manifest, sourcePath, {
