@@ -28,4 +28,49 @@ function createFakeTesseraeClient(opts: FakeOpts): TesseraeClient {
   };
 }
 
-module.exports = { createFakeTesseraeClient };
+const fs = require('fs');
+const path = require('path');
+// execFileSync only (NOT a shell): no shell is spawned, args are passed as an array.
+const { execFileSync } = require('child_process');
+
+type RunFn = (bin: string, args: string[], cwd: string) => string;
+interface CliOpts { run?: RunFn; whichOk?: boolean; }
+
+function tesseraeDir(cwd: string): string { return path.join(cwd, '.tesserae'); }
+function graphJsonPath(cwd: string): string { return path.join(tesseraeDir(cwd), 'graph.json'); }
+function sqlitePath(cwd: string): string { return path.join(tesseraeDir(cwd), 'sqlite.db'); }
+
+function binaryResolves(): boolean {
+  try { execFileSync('tesserae', ['--help'], { encoding: 'utf8', timeout: 15000 }); return true; }
+  catch { return false; }
+}
+
+function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
+  const run: RunFn = opts.run
+    || ((bin, args, cwd) => execFileSync(bin, args, { cwd, encoding: 'utf8', timeout: 600000 }));
+  const available = opts.whichOk !== undefined ? opts.whichOk : binaryResolves();
+
+  return {
+    isAvailable: () => available,
+
+    async compile(cwd: string, sources: string[]): Promise<CompileResult> {
+      if (!available) return { status: 'skipped_no_tesserae', detail: 'tesserae CLI not found', graphPath: null };
+      fs.mkdirSync(tesseraeDir(cwd), { recursive: true });
+      const graph = graphJsonPath(cwd);
+      const args = [...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize'];
+      try {
+        run('tesserae', args, cwd);
+        return { status: 'compiled', detail: 'compiled', graphPath: graph };
+      } catch (e: unknown) {
+        const err = e as { stderr?: string; message?: string };
+        return { status: 'compile_failed', detail: err.stderr || err.message || String(e), graphPath: null };
+      }
+    },
+
+    async querySmokeCheck(): Promise<SmokeResult> {
+      return { found: false, nodeIds: [], detail: 'not implemented in this task' };
+    },
+  };
+}
+
+module.exports = { createFakeTesseraeClient, createCliTesseraeClient };
