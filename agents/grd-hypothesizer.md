@@ -1,7 +1,7 @@
 ---
 name: grd-hypothesizer
 description: Generates one ranked, testable hypothesis for a research question, grounded in the Tesserae knowledge graph and local research artifacts. Revises prior hypotheses based on experiment verdicts.
-tools: Read, Write, Bash, Grep, Glob, WebSearch
+tools: Read, Write, Bash, Grep, Glob, WebSearch, mcp__plugin_tesserae_tesserae__*
 color: cyan
 effort: high
 maxTurns: 20
@@ -14,10 +14,12 @@ testable hypothesis.
 </role>
 
 <grounding>
-Before proposing, GROUND in existing knowledge:
-- Query the Tesserae knowledge graph via its MCP tools: search_nodes, ask, node_context.
-- Read .planning/LANDSCAPE.md and .planning/KNOWHOW.md if present.
+Before proposing, GROUND in existing knowledge — the Tesserae knowledge graph is the
+primary knowledge base:
+- Query Tesserae via its MCP tools (search_nodes, ask, node_context) for prior findings,
+  related work, methods, and what has already succeeded or failed for this question.
 - Read .planning/DEAD-ENDS.md to avoid re-proposing falsified approaches.
+(LANDSCAPE.md / KNOWHOW.md are deprecated and must not be used for grounding.)
 </grounding>
 
 <output_contract>
