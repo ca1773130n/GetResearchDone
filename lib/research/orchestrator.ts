@@ -97,10 +97,10 @@ function errExit(cwd: string, thread: ResearchThread): ResearchResult {
 }
 
 // Finding.md is already written before the kg_write gate; this completes the KG sync.
-function finishKgSync(
+async function finishKgSync(
   cwd: string, thread: ResearchThread, verdict: Verdict | undefined, status: ThreadStatus,
-): ResearchResult {
-  const sync = syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id));
+): Promise<ResearchResult> {
+  const sync = await syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id));
   writeKgProvenance(cwd, thread.id, { wrote: sync.synced ? [`finding:${thread.id}`] : [] });
   if (sync.synced) incrementCounter('research.kg_writes_total');
   thread.status = status; thread.pendingGate = null; saveThread(cwd, thread);
@@ -211,7 +211,7 @@ async function runLoop(
         incrementCounter('research.gate_pauses_total');
         return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'kg_write' };
       }
-      return finishKgSync(cwd, thread, outcome.verdict, term.status);
+      return await finishKgSync(cwd, thread, outcome.verdict, term.status);
     }
 
     thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);
@@ -251,7 +251,7 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
     const supported = led.some((h) => h.status === 'supported');
     const status: ThreadStatus = supported ? 'supported' : 'exhausted';
     const verdict: Verdict | undefined = supported ? 'supported' : undefined;
-    return finishKgSync(cwd, thread, verdict, status);
+    return await finishKgSync(cwd, thread, verdict, status);
   }
   return runLoop(cwd, thread, opts, config, { execute: pending === 'execute', kg_write: false });
 }

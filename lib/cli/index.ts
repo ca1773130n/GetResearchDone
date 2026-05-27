@@ -110,6 +110,8 @@ const TOOL_COMMANDS = new Set([
   'patterns',
   'install',
   'research',
+  'ingest',
+  'synthesize',
 ]);
 
 /**
@@ -263,6 +265,7 @@ export function classifyCommand(
     return 'tool';
   }
   if (command === 'research' && subcommand && RESEARCH_TOOL_SUBS.has(subcommand)) return 'tool';
+  if (command === 'ingest' || command === 'synthesize') return 'tool';
   // `gd init <workflow>` → tool (init context), `gd init` (no args) → agent (project init)
   if (command === 'init') {
     if (subcommand && INIT_TOOL_SUBS.has(subcommand)) return 'tool';

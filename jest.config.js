@@ -67,6 +67,10 @@ module.exports = {
     './lib/research/runner.ts': { lines: 80, functions: 100, branches: 70 },
     './lib/research/gates.ts': { lines: 90, functions: 100, branches: 80 },
     './lib/research/agent-io.ts': { lines: 85, functions: 100, branches: 75 },
+    './lib/research/synthesize.ts': { lines: 80, functions: 78, branches: 65 },
+    './lib/research/tesserae.ts': { lines: 85, functions: 76, branches: 65 },
+    './lib/research/manifest.ts': { lines: 90, functions: 100, branches: 80 },
+    './lib/research/ingest.ts': { lines: 90, functions: 75, branches: 70 },
   },
   testTimeout: 15000,
 };
