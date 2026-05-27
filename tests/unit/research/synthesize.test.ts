@@ -50,29 +50,36 @@ describe('synthesize', () => {
     expect(res.status).toBe('compile_failed');
   });
 
-  it('is idempotent on identical source_node_ids + version', async () => {
+  it('pre-spawn idempotency: unchanged KG skips the second spawn and compile', async () => {
     const cwd = tmp();
     let compiles = 0;
-    const spawn = async () => DOC;
+    let spawns = 0;
+    const spawn = async () => { spawns++; return DOC; };
     const client = { isAvailable: () => true,
-      compile: async (cwd: string) => { compiles++; fs.mkdirSync(path.join(cwd, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(cwd, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
+      compile: async (c: string) => { compiles++; fs.mkdirSync(path.join(c, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(c, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
       querySmokeCheck: async () => ({ found: true, nodeIds: ['s1'], detail: '' }) };
     await synthesize(cwd, 'RAG', { spawn, client });
     await synthesize(cwd, 'RAG', { spawn, client });
     expect(compiles).toBe(1);
+    expect(spawns).toBe(1); // 2nd run short-circuited BEFORE spawning the agent
   });
 
-  it('archives the prior synthesis when re-synthesized with a different signature', async () => {
+  it('archives the prior synthesis (and sets supersedes) when the KG changes and the signature differs', async () => {
     const cwd = tmp();
     const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
     const doc1 = DOC; // source_node_ids: [n2, n1]
     await synthesize(cwd, 'RAG', { spawn: async () => doc1, client });
+    // Simulate the KG being recompiled (newer marker) so the next synthesize re-runs.
+    const gp = path.join(cwd, '.tesserae/graph.json');
+    const future = new Date(Date.now() + 60000);
+    fs.utimesSync(gp, future, future);
     const doc2 = DOC.replace('source_node_ids: [n2, n1]', 'source_node_ids: [n3]'); // different signature
     await synthesize(cwd, 'RAG', { spawn: async () => doc2, client });
     const dir = path.join(cwd, '.planning/research/synthesis');
     const mds = fs.readdirSync(dir).filter((f: string) => f.endsWith('.md'));
     expect(mds.length).toBe(2); // rag.md (new) + rag.<priorKey8>.md (archived)
     expect(fs.existsSync(path.join(dir, 'rag.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(dir, 'rag.md'), 'utf8')).toMatch(/supersedes: rag\.[0-9a-f]{8}\.md/); // lineage set
   });
 
   it('skips before spawning when tesserae is unavailable', async () => {

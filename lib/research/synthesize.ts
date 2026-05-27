@@ -72,24 +72,46 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available' };
   }
 
+  const graphPath = path.join(cwd, '.tesserae', 'graph.json');
+  const graphExists = fs.existsSync(graphPath);
+  const kgMarker = graphExists ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
+  const prior = readManifest(synthManifest(cwd)).find((e: { key: string }) => e.key === topicId) as
+    { synthKey?: string; kgMarker?: string; synthVersion?: number; status?: TesseraeStatus } | undefined;
+
+  // Level 1 (cheap, PRE-SPAWN): the KG is unchanged since this topic was last synthesized
+  // (same graph marker + synthesizer version) and the doc still exists — skip the agent run.
+  if (prior && graphExists && fs.existsSync(docPath)
+      && prior.kgMarker === kgMarker && prior.synthVersion === SYNTH_VERSION) {
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)' };
+  }
+
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
   const doc = parseSynthesisDoc(out);
   if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)' };
 
   const sourceIds = (doc.frontmatter.source_node_ids as string[]).slice().sort();
   const key = crypto.createHash('sha256').update(`${topicId}|${sourceIds.join(',')}|${SYNTH_VERSION}`).digest('hex');
-  const prior = readManifest(synthManifest(cwd)).find((e: { key: string }) => e.key === topicId) as { synthKey?: string } | undefined;
-  const graphExists = fs.existsSync(path.join(cwd, '.tesserae', 'graph.json'));
+
+  // Level 2 (POST-SPAWN): the specific source nodes this synthesis drew on are unchanged —
+  // skip the rewrite/compile, but refresh the KG marker so the next pre-spawn check can short-circuit.
   if (prior && prior.synthKey === key && fs.existsSync(docPath) && graphExists) {
-    return { status: 'compiled', topicId, docPath, detail: 'unchanged (idempotent)' };
+    upsertManifest(synthManifest(cwd), topicId, {
+      key: topicId, synthKey: key, kgMarker, synthVersion: SYNTH_VERSION,
+      docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
+      lastAttemptAt: new Date().toISOString(), nodeIds: [],
+    });
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)' };
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });
+  let raw = doc.raw;
   if (fs.existsSync(docPath) && prior && prior.synthKey && prior.synthKey !== key) {
-    // Preserve the superseded version so history is reconstructable.
-    fs.renameSync(docPath, path.join(synthDir(cwd), `${topicId}.${String(prior.synthKey).slice(0, 8)}.md`));
+    // Preserve the superseded version AND point the new doc's lineage at it.
+    const archivedName = `${topicId}.${String(prior.synthKey).slice(0, 8)}.md`;
+    fs.renameSync(docPath, path.join(synthDir(cwd), archivedName));
+    raw = raw.replace(/^supersedes:.*$/m, `supersedes: ${archivedName}`);
   }
-  fs.writeFileSync(docPath, doc.raw);
+  fs.writeFileSync(docPath, raw);
 
   const compileRes = await client.compile(cwd, [synthDir(cwd)]);
   let status: TesseraeStatus = compileRes.status;
@@ -99,9 +121,10 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     nodeIds = smoke.nodeIds;
     if (!smoke.found) status = 'partial';
   }
+  const newMarker = fs.existsSync(graphPath) ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
   upsertManifest(synthManifest(cwd), topicId, {
-    key: topicId, synthKey: key, docPath: path.relative(cwd, docPath),
-    status, lastAttemptAt: new Date().toISOString(), nodeIds,
+    key: topicId, synthKey: key, kgMarker: newMarker, synthVersion: SYNTH_VERSION,
+    docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds,
   });
   return { status, topicId, docPath, detail: compileRes.detail };
 }
