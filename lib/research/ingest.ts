@@ -52,6 +52,12 @@ async function ingest(cwd: string, inputPath: string, opts: IngestOpts = {}): Pr
     const sourcePath = file.startsWith(cwd) ? path.relative(cwd, file) : file;
     const prior = existing.find((e) => e.key === sourcePath);
     if (graphExists && prior && prior.hash === hash && prior.status === 'compiled') continue;
+    // Re-ingesting a changed file: drop the stale prior copy so the full-corpus
+    // compile doesn't keep grounding on the obsolete version.
+    if (prior && typeof prior.corpusName === 'string') {
+      const stale = path.join(corpusDir(cwd), prior.corpusName);
+      if (fs.existsSync(stale)) fs.rmSync(stale);
+    }
     const corpusName = `${hash.slice(0, 12)}-${path.basename(file)}`;
     fs.copyFileSync(file, path.join(corpusDir(cwd), corpusName));
     upsertManifest(manifest, sourcePath, {

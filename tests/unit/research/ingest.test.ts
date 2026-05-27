@@ -94,4 +94,15 @@ describe('ingest', () => {
     expect(res.files).toBe(2); // only the two .md files, not the .txt
     expect(fs.readdirSync(path.join(cwd, '.planning/research/corpus')).length).toBe(2);
   });
+
+  it('removes the stale corpus copy when a file is re-ingested after editing', async () => {
+    const { cwd, src } = projectWithDoc('p.md', 'v1 content');
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['n'], detail: 'ok' } });
+    await ingest(cwd, src, { client });
+    expect(fs.readdirSync(path.join(cwd, '.planning/research/corpus')).length).toBe(1);
+    fs.writeFileSync(src, 'v2 edited content'); // change content -> new hash
+    await ingest(cwd, src, { client });
+    const copies = fs.readdirSync(path.join(cwd, '.planning/research/corpus'));
+    expect(copies.length).toBe(1); // stale v1 copy removed; only the v2 copy remains
+  });
 });
