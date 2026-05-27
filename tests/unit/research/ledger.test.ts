@@ -10,7 +10,8 @@ const {
 function tmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'grd-ledger-')); }
 const H = (over = {}) => ({
   id: 'h1', iteration: 1, statement: 'S', rationale: 'R',
-  predictedOutcome: 'P', status: 'testing', parentId: null, verdict: null, ...over,
+  predictedOutcome: 'P', status: 'testing', parentId: null, verdict: null,
+  origin: 'loop', sourceNodeIds: [], ...over,
 });
 
 describe('hypothesis ledger', () => {
@@ -61,5 +62,24 @@ describe('hypothesis ledger', () => {
     const { parseHypotheses } = require('../../../lib/research/ledger');
     const content = '### h1 BADFORMAT\n- **statement:** X\n';
     expect(parseHypotheses(content)).toEqual([]);
+  });
+
+  it('round-trips origin + sourceNodeIds through updateHypothesisStatus (no erasure)', () => {
+    const cwd = tmp();
+    appendHypothesis(cwd, 't1', H({ origin: 'synthesis', sourceNodeIds: ['n1', 'n2'] }));
+    updateHypothesisStatus(cwd, 't1', 'h1', 'supported', 'supported');
+    const [h] = readLedger(cwd, 't1');
+    expect(h.origin).toBe('synthesis');
+    expect(h.sourceNodeIds).toEqual(['n1', 'n2']);
+    expect(h.status).toBe('supported');
+    expect(h.verdict).toBe('supported');
+  });
+
+  it('defaults legacy hypotheses (no origin line) to origin=loop / sourceNodeIds=[]', () => {
+    const legacy = '### h1 (iter 1) [testing]\n\n- **statement:** S\n- **rationale:** R\n' +
+      '- **predicted_outcome:** P\n- **parent:** none\n- **verdict:** none\n';
+    const [h] = parseHypotheses(legacy);
+    expect(h.origin).toBe('loop');
+    expect(h.sourceNodeIds).toEqual([]);
   });
 });

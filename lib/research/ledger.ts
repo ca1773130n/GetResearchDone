@@ -16,6 +16,8 @@ function formatHypothesis(h: Hypothesis): string {
     `- **predicted_outcome:** ${h.predictedOutcome}`,
     `- **parent:** ${h.parentId ?? 'none'}`,
     `- **verdict:** ${h.verdict ?? 'none'}`,
+    `- **origin:** ${h.origin ?? 'loop'}`,
+    `- **source_node_ids:** ${h.sourceNodeIds && h.sourceNodeIds.length ? h.sourceNodeIds.join(', ') : 'none'}`,
     '',
   ].join('\n');
 }
@@ -43,6 +45,11 @@ function parseHypotheses(content: string): Hypothesis[] {
       predictedOutcome: field(b, 'predicted_outcome'),
       parentId: parent === 'none' ? null : parent,
       verdict: verdict === 'none' ? null : (verdict as Verdict),
+      origin: field(b, 'origin') === 'synthesis' ? 'synthesis' : 'loop',
+      sourceNodeIds: (() => {
+        const s = field(b, 'source_node_ids');
+        return s && s !== 'none' ? s.split(',').map((x) => x.trim()).filter(Boolean) : [];
+      })(),
     });
   }
   return out;
