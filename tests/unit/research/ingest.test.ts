@@ -105,4 +105,15 @@ describe('ingest', () => {
     const copies = fs.readdirSync(path.join(cwd, '.planning/research/corpus'));
     expect(copies.length).toBe(1); // stale v1 copy removed; only the v2 copy remains
   });
+
+  it('compiles the full research tree (not just the corpus subdir)', async () => {
+    const { cwd, src } = projectWithDoc('p.md', 'x');
+    let sources: string[] | null = null;
+    const client = { isAvailable: () => true,
+      compile: async (c: string, srcs: string[]) => { sources = srcs; fs.mkdirSync(path.join(c, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(c, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
+      querySmokeCheck: async () => ({ found: true, nodeIds: ['n'], detail: '' }) };
+    await ingest(cwd, src, { client });
+    expect(sources!.length).toBe(1);
+    expect(sources![0].endsWith(path.join('.planning', 'research'))).toBe(true); // full tree, not /corpus
+  });
 });

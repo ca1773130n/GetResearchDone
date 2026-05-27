@@ -75,7 +75,9 @@ async function ingest(cwd: string, inputPath: string, opts: IngestOpts = {}): Pr
     return { status: 'compiled', files: files.length, detail: 'no changes (idempotent)' };
   }
 
-  const compileRes = await client.compile(cwd, [corpusDir(cwd)]);
+  // Compile the FULL research tree (corpus + synthesis + findings), not just the corpus,
+  // so a later synthesize/ingest compile never overwrites the rest of the KB.
+  const compileRes = await client.compile(cwd, [path.join(cwd, '.planning/research')]);
   if (compileRes.status !== 'compiled') {
     for (const e of readManifest(manifest) as Array<{ key: string; [k: string]: unknown }>) {
       if (e.status === 'pending') {

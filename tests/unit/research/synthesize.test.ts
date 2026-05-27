@@ -105,4 +105,15 @@ describe('synthesize', () => {
     await synthesize(cwd, 'RAG', { spawn, client });
     expect(compiles).toBe(2); // recompiled because the KG artifact was missing
   });
+
+  it('compiles the full research tree (not just the synthesis subdir)', async () => {
+    const cwd = tmp();
+    let sources: string[] | null = null;
+    const client = { isAvailable: () => true,
+      compile: async (c: string, srcs: string[]) => { sources = srcs; fs.mkdirSync(path.join(c, '.tesserae'), { recursive: true }); fs.writeFileSync(path.join(c, '.tesserae/graph.json'), '{"nodes":[]}'); return { status: 'compiled', detail: '', graphPath: null }; },
+      querySmokeCheck: async () => ({ found: true, nodeIds: ['s1'], detail: '' }) };
+    await synthesize(cwd, 'RAG', { spawn: async () => DOC, client });
+    expect(sources!.length).toBe(1);
+    expect(sources![0].endsWith(path.join('.planning', 'research'))).toBe(true); // full tree, not /synthesis
+  });
 });

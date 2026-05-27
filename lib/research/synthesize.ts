@@ -113,7 +113,9 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   }
   fs.writeFileSync(docPath, raw);
 
-  const compileRes = await client.compile(cwd, [synthDir(cwd)]);
+  // Compile the FULL research tree (corpus + synthesis + findings), not just the synthesis
+  // dir, so this compile never overwrites the previously ingested KB.
+  const compileRes = await client.compile(cwd, [path.join(cwd, '.planning/research')]);
   let status: TesseraeStatus = compileRes.status;
   let nodeIds: string[] = [];
   if (compileRes.status === 'compiled') {
