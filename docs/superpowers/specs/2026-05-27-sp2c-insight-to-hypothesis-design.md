@@ -212,12 +212,9 @@ Composes with `synthesize()`'s existing two-level idempotency:
    prediction; degrade gracefully (skip candidates missing it).
 2. Auto-running rank-1 spends loop budget up to the first gate. Bounded by the default
    execute gate (human checkpoint) and `max_candidates`.
-3. **Rare seed-skip crash window (narrowed; accepted):** the **Level 2 post-spawn** idempotent
-   path returns the freshly-parsed `candidates` (the agent ran this invocation), so a re-run with
-   a bumped KG marker but unchanged source-node signature *recovers* seeding (seed.ts dedups). The
-   only remaining gap is the **Level 1 pre-spawn** path: if the manifest+doc exist and the KG
-   marker is unchanged, the agent is not re-run, so no candidates can be produced. Non-corrupting:
-   the insight is still in the synthesis doc; the user re-seeds by editing the corpus (bumps the KG
-   marker) or via a future `--reseed`. Documented, not fixed in this slice (sidecar-persisting
-   candidates would close it but is scope creep). The common crash window (seed started, manifest
-   write lost) IS covered by the `listThreads` scan.
+3. **Seed-skip on idempotent reruns (closed):** the parsed `candidates` are **persisted in the
+   synthesis manifest entry** at first synthesis. Both idempotent paths now return them — Level 2
+   from the fresh parse, Level 1 by reloading from the manifest (no agent spawn). So a rerun
+   recovers seeding after a crash-before-seed, *and* honors a later-raised `research_max_candidates`
+   (seed.ts dedups already-seeded candidates; the newly-uncapped ones get seeded). The
+   manifest-write-lost-after-seed window is still covered by the `listThreads` scan.

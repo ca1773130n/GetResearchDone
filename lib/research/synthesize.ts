@@ -132,13 +132,19 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const graphExists = fs.existsSync(graphPath);
   const kgMarker = graphExists ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
   const prior = readManifest(synthManifest(cwd)).find((e: { key: string }) => e.key === topicId) as
-    { synthKey?: string; kgMarker?: string; synthVersion?: number; status?: TesseraeStatus } | undefined;
+    { synthKey?: string; kgMarker?: string; synthVersion?: number; status?: TesseraeStatus; candidates?: Candidate[] } | undefined;
 
   // Level 1 (cheap, PRE-SPAWN): the KG is unchanged since this topic was last synthesized
   // (same graph marker + synthesizer version) and the doc still exists — skip the agent run.
   if (prior && graphExists && fs.existsSync(docPath)
       && prior.kgMarker === kgMarker && prior.synthVersion === SYNTH_VERSION) {
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)', candidates: [], synthKey: (prior.synthKey as string) || '' };
+    // Reload persisted candidates so a rerun can still seed: covers a crash before seeding and
+    // a later raise of research_max_candidates (seed.ts is idempotent, so already-seeded ones
+    // are no-ops). No agent spawn needed — the candidates were saved at first synthesis.
+    return {
+      status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)',
+      candidates: Array.isArray(prior.candidates) ? prior.candidates : [], synthKey: (prior.synthKey as string) || '',
+    };
   }
 
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
@@ -160,7 +166,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     upsertManifest(synthManifest(cwd), topicId, {
       key: topicId, synthKey: key, kgMarker, synthVersion: SYNTH_VERSION,
       docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
-      lastAttemptAt: new Date().toISOString(), nodeIds: [],
+      lastAttemptAt: new Date().toISOString(), nodeIds: [], candidates,
     });
     return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates, synthKey: key };
   }
@@ -188,7 +194,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const newMarker = fs.existsSync(graphPath) ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
   upsertManifest(synthManifest(cwd), topicId, {
     key: topicId, synthKey: key, kgMarker: newMarker, synthVersion: SYNTH_VERSION,
-    docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds,
+    docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds, candidates,
   });
   return { status, topicId, docPath, detail: compileRes.detail, candidates, synthKey: key };
 }

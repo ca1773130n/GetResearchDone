@@ -147,6 +147,21 @@ describe('synthesize', () => {
     expect(p).toContain('source_node_ids');
   });
 
+  it('Level-1 pre-spawn idempotent path reloads persisted candidates (no agent spawn)', async () => {
+    const cwd = tmp();
+    const docOut = DOC + '\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
+      { rank: 1, statement: 'A', rationale: 'r', predicted_outcome: 'p', source_node_ids: ['n1'] },
+      { rank: 2, statement: 'B', rationale: 'r', predicted_outcome: 'p', source_node_ids: ['n2'] }] });
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
+    await synthesize(cwd, 'RAG', { spawn: async () => docOut, client });
+    // KG marker unchanged → Level-1 short-circuits and must NOT spawn the agent...
+    let spawns = 0;
+    const res = await synthesize(cwd, 'RAG', { spawn: async () => { spawns++; return docOut; }, client });
+    expect(spawns).toBe(0);
+    expect(res.detail).toMatch(/pre-spawn idempotent/);
+    expect(res.candidates.map((c: { statement: string }) => c.statement)).toEqual(['A', 'B']); // reloaded
+  });
+
   it('Level-2 idempotent path still returns freshly-parsed candidates (recoverable re-seed)', async () => {
     const cwd = tmp();
     const docOut = DOC + '\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
