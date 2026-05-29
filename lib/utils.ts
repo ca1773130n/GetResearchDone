@@ -279,6 +279,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'ceremony',
   'phase_cleanup',
   'research_gates',
+  'research_max_candidates',
   'confirmation_gates',
   'timeouts',
   'evolve',

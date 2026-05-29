@@ -5,12 +5,31 @@ const crypto = require('crypto');
 import type { TesseraeClient, TesseraeStatus } from './tesserae';
 const { createCliTesseraeClient } = require('./tesserae');
 const { readManifest, upsertManifest } = require('./manifest');
+const { extractTaggedJson } = require('./agent-io') as {
+  extractTaggedJson: <T>(stdout: string, tag: string) => T | null;
+};
 
-const SYNTH_VERSION = 1;
+// v2: output contract gained the __CANDIDATES__ block (SP2-C). Bumping invalidates
+// pre-SP2-C manifest entries so previously-synthesized topics re-run and emit candidates.
+const SYNTH_VERSION = 2;
 
 export type SynthSpawnFn = (prompt: string, agentType: string) => Promise<string>;
 export interface SynthesisDoc { frontmatter: Record<string, unknown>; body: string; raw: string; }
-export interface SynthesizeResult { status: TesseraeStatus; topicId: string; docPath: string | null; detail: string; }
+export interface Candidate {
+  rank: number;
+  statement: string;
+  rationale: string;
+  predictedOutcome: string;
+  sourceNodeIds: string[];
+}
+export interface SynthesizeResult {
+  status: TesseraeStatus; topicId: string; docPath: string | null; detail: string;
+  candidates: Candidate[];
+  // The synthesis signature sha256(topicId | sorted(source_node_ids) | SYNTH_VERSION). Used as
+  // the seedKey base so a KG change (new source nodes) yields a new seed generation. Empty
+  // string on paths where the agent did not run (no candidates → seeding is skipped anyway).
+  synthKey: string;
+}
 interface SynthesizeOpts { spawn: SynthSpawnFn; client?: TesseraeClient; }
 
 function slug(s: string): string {
@@ -40,12 +59,41 @@ function parseSynthesisDoc(stdout: string): SynthesisDoc | null {
   return { frontmatter, body: m[2], raw };
 }
 
+/**
+ * Parse the `__CANDIDATES__` object-wrapper block emitted after the synthesis doc.
+ * Defensive: missing/malformed input → []; candidates lacking statement or
+ * predicted_outcome are skipped; output sorted by (rank asc, original-index asc).
+ */
+function parseCandidates(stdout: string): Candidate[] {
+  const wrap = extractTaggedJson<{ candidates?: unknown }>(stdout, 'CANDIDATES');
+  if (!wrap || !Array.isArray(wrap.candidates)) return [];
+  const parsed: Candidate[] = [];
+  wrap.candidates.forEach((raw, i) => {
+    const o = (raw || {}) as Record<string, unknown>;
+    const statement = typeof o.statement === 'string' ? o.statement.trim() : '';
+    const predictedOutcome = typeof o.predicted_outcome === 'string' ? o.predicted_outcome.trim() : '';
+    if (!statement || !predictedOutcome) return; // skip incomplete
+    parsed.push({
+      rank: Number.isFinite(Number(o.rank)) ? Number(o.rank) : i + 1,
+      statement,
+      rationale: typeof o.rationale === 'string' ? o.rationale : '',
+      predictedOutcome,
+      sourceNodeIds: Array.isArray(o.source_node_ids) ? o.source_node_ids.map(String) : [],
+    });
+  });
+  return parsed
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => a.c.rank - b.c.rank || a.i - b.i)
+    .map((x) => x.c);
+}
+
 function buildSynthesizePrompt(topic: string): string {
   return [
     'You are grd-synthesizer. Query the Tesserae knowledge graph (search_nodes, ask, node_context)',
     `for the topic: "${topic}". Produce a domain compendium + ranked open questions.`,
     '',
-    'Emit exactly one final block to stdout (no prose after it):',
+    'Emit two final blocks to stdout (__SYNTHESIS__ then __CANDIDATES__), in that order,',
+    'with no prose after them:',
     '__SYNTHESIS__',
     '---',
     'type: synthesis',
@@ -60,6 +108,14 @@ function buildSynthesizePrompt(topic: string): string {
     '<synthesized domain summary>',
     '## Open Questions',
     '- <ranked candidate research questions>',
+    '',
+    'Then emit a SECOND block — testable, loop-ready hypotheses derived from the synthesis,',
+    'ranked best-first. Each MUST include a measurable predicted_outcome:',
+    '__CANDIDATES__',
+    '{ "candidates": [',
+    '  { "rank": 1, "statement": "<testable claim>", "rationale": "<why, grounded in the KG>",',
+    '    "predicted_outcome": "<measurable expectation if true>", "source_node_ids": ["<kg id>"] }',
+    '] }',
   ].join('\n');
 }
 
@@ -69,38 +125,50 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const docPath = path.join(synthDir(cwd), `${topicId}.md`);
 
   if (!client.isAvailable()) {
-    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available' };
+    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available', candidates: [], synthKey: '' };
   }
 
   const graphPath = path.join(cwd, '.tesserae', 'graph.json');
   const graphExists = fs.existsSync(graphPath);
   const kgMarker = graphExists ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
   const prior = readManifest(synthManifest(cwd)).find((e: { key: string }) => e.key === topicId) as
-    { synthKey?: string; kgMarker?: string; synthVersion?: number; status?: TesseraeStatus } | undefined;
+    { synthKey?: string; kgMarker?: string; synthVersion?: number; status?: TesseraeStatus; candidates?: Candidate[] } | undefined;
 
   // Level 1 (cheap, PRE-SPAWN): the KG is unchanged since this topic was last synthesized
   // (same graph marker + synthesizer version) and the doc still exists — skip the agent run.
   if (prior && graphExists && fs.existsSync(docPath)
       && prior.kgMarker === kgMarker && prior.synthVersion === SYNTH_VERSION) {
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)' };
+    // Reload persisted candidates so a rerun can still seed: covers a crash before seeding and
+    // a later raise of research_max_candidates (seed.ts is idempotent, so already-seeded ones
+    // are no-ops). No agent spawn needed — the candidates were saved at first synthesis.
+    return {
+      status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)',
+      candidates: Array.isArray(prior.candidates) ? prior.candidates : [], synthKey: (prior.synthKey as string) || '',
+    };
   }
 
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
-  const doc = parseSynthesisDoc(out);
-  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)' };
+  const ci = out.indexOf('__CANDIDATES__');
+  const synthPart = ci >= 0 ? out.slice(0, ci) : out;
+  const candidates = ci >= 0 ? parseCandidates(out.slice(ci)) : [];
+  const doc = parseSynthesisDoc(synthPart);
+  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)', candidates: [], synthKey: '' };
 
   const sourceIds = (doc.frontmatter.source_node_ids as string[]).slice().sort();
   const key = crypto.createHash('sha256').update(`${topicId}|${sourceIds.join(',')}|${SYNTH_VERSION}`).digest('hex');
 
   // Level 2 (POST-SPAWN): the specific source nodes this synthesis drew on are unchanged —
   // skip the rewrite/compile, but refresh the KG marker so the next pre-spawn check can short-circuit.
+  // The agent DID run this invocation, so we return the freshly-parsed candidates (not []): a prior
+  // run may have written the doc/manifest but failed before seeding. seedThreadsFromCandidates is
+  // idempotent (seedKey dedup), so re-seeding already-seeded candidates is a safe no-op.
   if (prior && prior.synthKey === key && fs.existsSync(docPath) && graphExists) {
     upsertManifest(synthManifest(cwd), topicId, {
       key: topicId, synthKey: key, kgMarker, synthVersion: SYNTH_VERSION,
       docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
-      lastAttemptAt: new Date().toISOString(), nodeIds: [],
+      lastAttemptAt: new Date().toISOString(), nodeIds: [], candidates,
     });
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)' };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates, synthKey: key };
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });
@@ -126,9 +194,9 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const newMarker = fs.existsSync(graphPath) ? String((fs.statSync(graphPath) as { mtimeMs: number }).mtimeMs) : 'none';
   upsertManifest(synthManifest(cwd), topicId, {
     key: topicId, synthKey: key, kgMarker: newMarker, synthVersion: SYNTH_VERSION,
-    docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds,
+    docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds, candidates,
   });
-  return { status, topicId, docPath, detail: compileRes.detail };
+  return { status, topicId, docPath, detail: compileRes.detail, candidates, synthKey: key };
 }
 
-module.exports = { parseSynthesisDoc, buildSynthesizePrompt, synthesize, SYNTH_VERSION };
+module.exports = { parseSynthesisDoc, parseCandidates, buildSynthesizePrompt, synthesize, SYNTH_VERSION };

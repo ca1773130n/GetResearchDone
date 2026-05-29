@@ -28,6 +28,7 @@ export interface ResearchThread {
   currentStation: Station;
   pendingGate: 'execute' | 'kg_write' | null;
   createdAt: string;
+  seededFrom?: { synthesisTopicId: string; sourceNodeIds: string[]; seedKey: string };
 }
 
 export interface Hypothesis {
@@ -39,6 +40,8 @@ export interface Hypothesis {
   status: HypothesisStatus;
   parentId: string | null;
   verdict: Verdict | null;
+  origin?: 'loop' | 'synthesis';
+  sourceNodeIds?: string[];
 }
 
 export interface ExperimentPlan {

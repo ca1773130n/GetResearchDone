@@ -35,6 +35,7 @@ interface CreateOpts {
   gates?: ThreadGates;
   modelProfile?: string;
   tokenProfile?: string;
+  seededFrom?: { synthesisTopicId: string; sourceNodeIds: string[]; seedKey: string };
 }
 
 function createThread(cwd: string, question: string, opts: CreateOpts): ResearchThread {
@@ -52,6 +53,7 @@ function createThread(cwd: string, question: string, opts: CreateOpts): Research
     currentStation: 'seed',
     pendingGate: null,
     createdAt: new Date().toISOString(),
+    seededFrom: opts.seededFrom,
   };
   fs.mkdirSync(threadDir(cwd, id), { recursive: true });
   saveThread(cwd, thread);
@@ -72,6 +74,9 @@ function renderThreadLog(t: ResearchThread): string {
     `- **iteration:** ${t.iteration} / ${t.maxIterations}`,
     `- **station:** ${t.currentStation}`,
     `- **pending gate:** ${t.pendingGate ?? 'none'}`,
+    ...(t.seededFrom
+      ? [`- **seeded from:** synthesis "${t.seededFrom.synthesisTopicId}" (${t.seededFrom.sourceNodeIds.length} source nodes)`]
+      : []),
     `- **created:** ${t.createdAt}`,
     '',
   ].join('\n');

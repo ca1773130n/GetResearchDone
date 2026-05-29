@@ -133,20 +133,30 @@ async function runLoop(
       plan = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
       approved.execute = false;
     } else {
-      // HYPOTHESIZE
-      const lastHyp = priorHyps[priorHyps.length - 1] || null;
-      const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
-      thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
-      const priorTakeaways = readTakeaways(cwd, thread.id);
-      const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways), 'grd-hypothesizer');
-      const parsed = parseHypothesisOutput(hOut);
-      if (!parsed) return errExit(cwd, thread);
-      hyp = {
-        id: nextHypothesisId(priorHyps), iteration: thread.iteration,
-        statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
-        status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
-      };
-      appendHypothesis(cwd, thread.id, hyp);
+      const seededHyp = priorHyps.find(
+        (h) => h.iteration === thread.iteration && h.origin === 'synthesis'
+          && h.verdict === null && h.status === 'testing',
+      );
+      if (seededHyp && thread.currentStation === 'seed' && thread.pendingGate === null) {
+        // SEEDED: adopt the pre-seeded synthesis hypothesis; skip the cold grd-hypothesizer
+        // spawn. It is already in the ledger — do NOT append it again.
+        hyp = seededHyp;
+      } else {
+        // HYPOTHESIZE (cold)
+        const lastHyp = priorHyps[priorHyps.length - 1] || null;
+        const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
+        thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
+        const priorTakeaways = readTakeaways(cwd, thread.id);
+        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways), 'grd-hypothesizer');
+        const parsed = parseHypothesisOutput(hOut);
+        if (!parsed) return errExit(cwd, thread);
+        hyp = {
+          id: nextHypothesisId(priorHyps), iteration: thread.iteration,
+          statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
+          status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
+        };
+        appendHypothesis(cwd, thread.id, hyp);
+      }
 
       // DESIGN
       thread.currentStation = 'design'; saveThread(cwd, thread);

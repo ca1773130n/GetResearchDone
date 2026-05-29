@@ -6,13 +6,14 @@ const { captureErrorAsync, captureOutputAsync } = require('../../helpers/setup')
   captureErrorAsync: (fn: () => Promise<void>) => Promise<{ stderr: string; exitCode: number }>;
   captureOutputAsync: (fn: () => Promise<void>) => Promise<{ stdout: string; exitCode: number }>;
 };
-const { cmdIngest, statusWarning } = require('../../../lib/research/cli-kb') as {
+const { cmdIngest, cmdSynthesize, statusWarning } = require('../../../lib/research/cli-kb') as {
   cmdIngest: (
     cwd: string,
     inputPath: string,
     raw: boolean,
     deps?: { ingest?: (cwd: string, p: string) => Promise<{ status: string; files: number; detail: string }> }
   ) => Promise<never>;
+  cmdSynthesize: (cwd: string, topic: string, raw: boolean, deps?: Record<string, unknown>) => Promise<never>;
   statusWarning: (status: string, detail: string) => string | null;
 };
 
@@ -87,6 +88,85 @@ describe('cli-kb', () => {
       const res = await captureErrorAsync(() => cmdIngest(cwd, '', false));
       expect(res.exitCode).toBe(1);
       expect(res.stderr).toMatch(/required/i);
+    });
+  });
+
+  describe('cmdSynthesize', () => {
+    it('seeds candidates and auto-runs only rank-1', async () => {
+      const cwd = tmp();
+      fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });
+      const resumed: string[] = [];
+      const deps = {
+        synthesize: async () => ({
+          status: 'compiled', topicId: 'topic', synthKey: 'sk1', docPath: path.join(cwd, 'd.md'), detail: 'ok',
+          candidates: [
+            { rank: 1, statement: 'A', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n1'] },
+            { rank: 2, statement: 'B', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n2'] },
+          ],
+        }),
+        resumeRunner: async (_cwd: string, id: string) => { resumed.push(id); return { threadId: id, status: 'paused' }; },
+      };
+      const res = await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps));
+      expect(res.exitCode).toBe(0);
+      const { listThreads } = require('../../../lib/research/thread');
+      expect(listThreads(cwd).length).toBe(2);   // both seeded
+      expect(resumed.length).toBe(1);            // only rank-1 auto-run
+    });
+
+    it('does not auto-run (or double-seed) when the same candidates are re-synthesized', async () => {
+      const cwd = tmp();
+      fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });
+      const resumed: string[] = [];
+      const deps = {
+        synthesize: async () => ({
+          status: 'compiled', topicId: 'topic', synthKey: 'sk1', docPath: path.join(cwd, 'd.md'), detail: 'ok',
+          candidates: [
+            { rank: 1, statement: 'A', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n1'] },
+            { rank: 2, statement: 'B', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n2'] },
+          ],
+        }),
+        resumeRunner: async (_cwd: string, id: string) => { resumed.push(id); return { threadId: id, status: 'paused' }; },
+      };
+      await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps)); // first: seeds 2, auto-runs rank-1
+      await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps)); // second: all already seeded
+      const { listThreads } = require('../../../lib/research/thread');
+      expect(listThreads(cwd).length).toBe(2);   // no double-seed
+      expect(resumed.length).toBe(1);            // rank-1 NOT resumed again (no spurious auto-ran)
+    });
+
+    it('honors research_max_candidates from .planning/config.json', async () => {
+      const cwd = tmp();
+      fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });
+      fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_max_candidates: 1 }));
+      const resumed: string[] = [];
+      const deps = {
+        synthesize: async () => ({
+          status: 'compiled', topicId: 'topic', synthKey: 'sk1', docPath: path.join(cwd, 'd.md'), detail: 'ok',
+          candidates: [
+            { rank: 1, statement: 'A', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n1'] },
+            { rank: 2, statement: 'B', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n2'] },
+            { rank: 3, statement: 'C', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n3'] },
+          ],
+        }),
+        resumeRunner: async (_cwd: string, id: string) => { resumed.push(id); return { threadId: id, status: 'paused' }; },
+      };
+      const res = await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(require('../../../lib/research/thread').listThreads(cwd).length).toBe(1); // capped at 1
+    });
+
+    it('does not seed when synthesize returns no candidates (idempotent)', async () => {
+      const cwd = tmp();
+      fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });
+      const resumed: string[] = [];
+      const deps = {
+        synthesize: async () => ({ status: 'compiled', topicId: 'topic', synthKey: '', docPath: null, detail: 'unchanged (idempotent)', candidates: [] }),
+        resumeRunner: async (_cwd: string, id: string) => { resumed.push(id); return { threadId: id, status: 'paused' }; },
+      };
+      const res = await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(require('../../../lib/research/thread').listThreads(cwd).length).toBe(0);
+      expect(resumed.length).toBe(0);
     });
   });
 });
