@@ -1,7 +1,9 @@
 # arXiv / Web Ingestion (Design)
 
 - **Date:** 2026-05-28
-- **Status:** Codex-reviewed (2×P1 + 4×P2 + 2×P3 folded in); ready for plan
+- **Status:** Codex-reviewed twice (R1: 2×P1 + 4×P2 + 2×P3; R2: 1×P1 + 1×P2 + 2×P3). All folded
+  in except DNS-rebinding pinning, intentionally scoped out (best-effort guard — see SSRF §).
+  Ready for plan.
 - **Depends on:** SP2-B ingest/synthesize (merged), SP2-C seeding (merged).
 - **Slice 2 of 4** remaining SP2 deferred slices (then PDF/session import → SP2-D hybrid retrieval).
 
@@ -76,7 +78,9 @@ the body (stable, useful provenance).
 
 ### Detection precedence (Codex P2)
 
-1. `fs.existsSync(input)` → local path → `ingest()` directly (today's behavior).
+1. `fs.existsSync(path.resolve(cwd, input))` → local path → `ingest()` directly (today's
+   behavior). Local detection resolves relative inputs against the passed `cwd` (the CLI
+   functions take an explicit `cwd`), not `process.cwd()` (Codex P3).
 2. arXiv: `arxiv.org` `http(s)` URL (abs/pdf), or `arxiv:<id>`, or a **bare id matching
    `^\d{4}\.\d{4,5}(v\d+)?$`** with no path separators / `./` / file extension.
 3. other `http(s)://` URL → generic web.
@@ -93,16 +97,29 @@ normalize failure, nothing is written.
 
 ## Security — SSRF guard (Codex P1)
 
-`assertFetchableUrl(url)` runs before every fetch **and on every redirect target**:
+`assertFetchableUrl(url)` runs before every fetch **and on every redirect target** (manual
+redirect handling — `fetch(..., { redirect: 'manual' })` — so each hop is re-validated):
 - scheme must be `http` or `https` (reject `file:`, `ftp:`, `data:`, etc.);
 - reject embedded credentials (`user:pass@host`);
-- reject host = `localhost`/`*.localhost`, loopback (`127.0.0.0/8`, `::1`), private
-  (`10/8`, `172.16/12`, `192.168/16`), link-local (`169.254/16`, `fe80::/10`),
-  unspecified (`0.0.0.0`, `::`);
+- **canonical IP parsing (Codex P2):** parse the WHATWG-normalized hostname into a canonical IP
+  before range checks — fold IPv4-mapped IPv6 (`::ffff:127.0.0.1` → `127.0.0.1`), accept
+  bracketed IPv6, and normalize alternate IPv4 encodings (decimal `2130706433`, octal
+  `0177.0.0.1`, hex `0x7f.0.0.1`) to dotted-quad. Then reject host = `localhost`/`*.localhost`,
+  loopback (`127.0.0.0/8`, `::1`), private (`10/8`, `172.16/12`, `192.168/16`), link-local
+  (`169.254/16` — includes the cloud metadata IP `169.254.169.254`, `fe80::/10`), unspecified
+  (`0.0.0.0`, `::`);
 - cap redirects at 5; re-validate each hop; never auto-follow to a non-http(s) target.
 
 The arXiv host (`export.arxiv.org`) is fixed, so the arXiv path is inherently safe but still
 passes through the same guard.
+
+**DNS-rebinding residual (accepted, scoped — Codex P1):** the guard validates the URL's host
+literal but does **not** resolve the hostname and pin the connection to the validated IP, so a
+public hostname that resolves to a private IP at connect time is not closed. This is an
+intentional scope decision: `gd ingest` is a local CLI run against user-supplied URLs (no
+attacker crosses a trust boundary), and the realistic autonomous-on-cloud footgun (metadata at
+`169.254.169.254`) is already blocked as a literal. Full DNS-resolution pinning (custom undici
+dispatcher) is deferred; if GRD later exposes URL ingestion to untrusted input, add it then.
 
 ## Network error handling
 
@@ -129,16 +146,20 @@ is staged. Covered:
     under ingest).
   - atomic write: no partial file remains on a normalize failure.
   - SSRF guard: rejects `file://`, `http://localhost`, `http://127.0.0.1`, `http://10.0.0.1`,
-    `http://169.254.169.254`, `http://user:pass@host`, and a redirect to any of these.
+    `http://169.254.169.254`, `http://user:pass@host`, and a redirect (via `redirect:'manual'`)
+    to any of these. Encoding edge cases (Codex P2): `http://2130706433/`, `http://0177.0.0.1/`,
+    `http://0x7f.0.0.1/`, `http://[::ffff:127.0.0.1]/`, `http://[::1]/` all rejected; a normal
+    public literal/host passes.
   - detection precedence: existing local path; `arxiv.org/abs/...`; bare `2401.12345`;
     `arxiv:...`; generic URL; non-arxiv bare string with a `/` is NOT treated as arXiv;
     unrecognized → error.
   - network errors: non-2xx, timeout (injected fetcher rejects/aborts), oversized response.
 - **`cli-kb.ts`**: `cmdIngest` routes local vs arXiv vs URL to the correct path with injected
   fake `fetchSource` + `ingest`; offline; remote-fetch failure surfaces as exit-1.
-- **CJS interop smoke test**: one test that lazy-`require()`s turndown + @mozilla/readability +
-  jsdom and converts a trivial HTML string; `it.skip`-guarded if the deps are not installed, so
-  the suite never hard-fails on environments without them.
+- **CJS interop test (not skipped)**: since the deps are declared in `package.json`, a test
+  lazy-`require()`s turndown + @mozilla/readability + jsdom and converts a trivial HTML string;
+  it **must fail** (not skip) if a declared dep cannot be required under CommonJS, so CI catches
+  an ESM-only regression (Codex P3). Current majors are require-compatible.
 - Per-file coverage threshold for `fetch.ts` set to deterministic-test actuals (the real Node
   `fetch` and the lazy dep adapter are not unit-tested directly).
 
