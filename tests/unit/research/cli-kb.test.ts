@@ -113,6 +113,27 @@ describe('cli-kb', () => {
       expect(resumed.length).toBe(1);            // only rank-1 auto-run
     });
 
+    it('honors research_max_candidates from .planning/config.json', async () => {
+      const cwd = tmp();
+      fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });
+      fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_max_candidates: 1 }));
+      const resumed: string[] = [];
+      const deps = {
+        synthesize: async () => ({
+          status: 'compiled', topicId: 'topic', docPath: path.join(cwd, 'd.md'), detail: 'ok',
+          candidates: [
+            { rank: 1, statement: 'A', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n1'] },
+            { rank: 2, statement: 'B', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n2'] },
+            { rank: 3, statement: 'C', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n3'] },
+          ],
+        }),
+        resumeRunner: async (_cwd: string, id: string) => { resumed.push(id); return { threadId: id, status: 'paused' }; },
+      };
+      const res = await captureOutputAsync(() => cmdSynthesize(cwd, 'topic', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(require('../../../lib/research/thread').listThreads(cwd).length).toBe(1); // capped at 1
+    });
+
     it('does not seed when synthesize returns no candidates (idempotent)', async () => {
       const cwd = tmp();
       fs.mkdirSync(path.join(cwd, '.planning/research'), { recursive: true });

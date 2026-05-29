@@ -1,4 +1,6 @@
 'use strict';
+const fs = require('fs');
+const path = require('path');
 const { output, error, loadConfig } = require('./../utils') as {
   output: (r: unknown, raw: boolean, rawVal?: unknown) => never;
   error: (m: string) => never;
@@ -40,6 +42,22 @@ const { seedThreadsFromCandidates } = require('./seed') as {
  * Returns a loud warning string when a compile produced no retrievable nodes (Spec §9).
  * Returns null for statuses that need no warning.
  */
+/**
+ * Read the top-level `research_max_candidates` from raw `.planning/config.json`.
+ * loadConfig() normalizes only a fixed set of fields and drops this key, so we read it
+ * directly (same pattern as readResearchGatesConfig). Defaults to 3; ignores invalid values.
+ */
+function readMaxCandidates(cwd: string): number {
+  try {
+    const raw = fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8');
+    const v = (JSON.parse(raw) as { research_max_candidates?: unknown }).research_max_candidates;
+    const n = Number(v);
+    return Number.isInteger(n) && n > 0 ? n : 3;
+  } catch {
+    return 3;
+  }
+}
+
 function statusWarning(status: string, detail: string): string | null {
   if (status === 'partial') {
     return `Warning: compiled but content is not retrievable yet (the research loop may ground on nothing): ${detail}`;
@@ -83,8 +101,7 @@ async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: Syn
   // SP2-C: seed one thread per candidate, then auto-run only the #1-ranked (if newly seeded).
   let seeded: Array<{ rank: number; threadId: string; newlySeeded: boolean }> = [];
   if (res.candidates && res.candidates.length > 0) {
-    const cfg = loadConfig(cwd) as { research_max_candidates?: number };
-    const maxCandidates = Number(cfg.research_max_candidates ?? 3);
+    const maxCandidates = readMaxCandidates(cwd);
     // Seeded threads must honor the same configured research gates as `gd research`.
     const gates = resolveGates(readResearchGatesConfig(cwd), false);
     // res.topicId is the stable synthKey component: seedKey = sha256(topicId | statement).
