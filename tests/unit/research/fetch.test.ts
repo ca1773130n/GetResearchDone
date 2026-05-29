@@ -131,6 +131,31 @@ describe('fetchSource — arXiv', () => {
   });
 });
 
+describe('fetchSource — web', () => {
+  const { fetchSource } = require('../../../lib/research/fetch');
+
+  it('fetches HTML → markdown via the injected htmlToMd adapter (deterministic, no timestamp)', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const fetcher = async () => ({ status: 200, headers: { get: () => null }, text: async () => '<html><body><h1>T</h1><p>Body</p></body></html>' });
+    const htmlToMd = (_html: string, _url: string) => '# T\n\nBody';
+    const r = await fetchSource(cwd, 'https://example.com/post', { fetcher, htmlToMd });
+    expect(r.kind).toBe('web');
+    expect(r.slug).toMatch(/^web-example-com-[0-9a-f]{8}$/);
+    const md = fs.readFileSync(r.filePath, 'utf8');
+    expect(md).toContain('# T');
+    expect(md).toContain('Body');
+    expect(md).toMatch(/_Source: https:\/\/example\.com\/post_/);
+    expect(md).not.toMatch(/fetched_at/i);
+  });
+
+  it('errors when extraction yields empty content', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const fetcher = async () => ({ status: 200, headers: { get: () => null }, text: async () => '<html></html>' });
+    const htmlToMd = () => '   ';
+    await expect(fetchSource(cwd, 'https://example.com/x', { fetcher, htmlToMd })).rejects.toThrow(/empty|extract/i);
+  });
+});
+
 describe('slugFor', () => {
   it('arxiv slug is stable and id-based', () => {
     expect(slugFor({ kind: 'arxiv', ref: '2401.12345v2' })).toBe('arxiv-2401.12345v2');

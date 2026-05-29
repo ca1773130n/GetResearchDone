@@ -146,6 +146,22 @@ function recordSidecar(cwd: string, entry: { slug: string; kind: string; canonic
   fs.writeFileSync(p, JSON.stringify(all, null, 2));
 }
 
+/** Default HTML→markdown: lazy-loads readability+turndown+jsdom only when invoked. */
+function defaultHtmlToMd(html: string, url: string): string {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const { JSDOM } = require('jsdom') as { JSDOM: new (h: string, o?: { url?: string }) => { window: { document: unknown } } };
+  const { Readability } = require('@mozilla/readability') as { Readability: new (d: unknown) => { parse(): { title?: string; content?: string } | null } };
+  const TurndownService = require('turndown') as new () => { turndown(html: string): string };
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  const dom = new JSDOM(html, { url });
+  const article = new Readability((dom.window as { document: unknown }).document).parse();
+  const td = new TurndownService();
+  const title = article && article.title ? article.title : '';
+  const bodyHtml = article && article.content ? article.content : html;
+  const body = td.turndown(bodyHtml);
+  return (title ? `# ${title}\n\n` : '') + body;
+}
+
 export interface FetchSourceResult { filePath: string; slug: string; kind: SourceKind; }
 interface FetchSourceOpts { fetcher?: Fetcher; htmlToMd?: (html: string, url: string) => string; }
 
@@ -167,8 +183,12 @@ async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {
     markdown = arxivAtomToMarkdown(body, d.ref);
     canonicalUrl = `https://arxiv.org/abs/${d.ref}`;
   } else {
-    // web branch — implemented in Task 5
-    throw new Error('web ingestion not yet implemented');
+    const html = (await httpGet(d.ref, { fetcher: opts.fetcher })).body;
+    const conv = opts.htmlToMd || defaultHtmlToMd;
+    const converted = conv(html, d.ref).trim();
+    if (!converted) throw new Error(`web: extraction produced empty content for ${d.ref}`);
+    markdown = `${converted}\n\n_Source: ${d.ref}_\n`;
+    canonicalUrl = d.ref;
   }
 
   const filePath = writeStaging(cwd, slug, markdown);
