@@ -7,19 +7,28 @@ const { output, error, loadConfig } = require('./../utils') as {
 const { ingest } = require('./ingest') as {
   ingest: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }>;
 };
+interface SynthCandidate { rank: number; statement: string; rationale: string; predictedOutcome: string; sourceNodeIds: string[]; }
+interface SynthResult { status: string; topicId: string; docPath: string | null; detail: string; candidates: SynthCandidate[]; }
 const { synthesize } = require('./synthesize') as {
   synthesize: (
     cwd: string,
     topic: string,
     opts: { spawn: (prompt: string, agentType: string) => Promise<string> }
-  ) => Promise<{ status: string; topicId: string; docPath: string | null; detail: string }>;
+  ) => Promise<SynthResult>;
 };
-const { defaultSpawn } = require('./orchestrator') as {
+const { defaultSpawn, resumeResearch } = require('./orchestrator') as {
   defaultSpawn: (
     cwd: string,
     config: Record<string, unknown>,
     model?: string
   ) => (prompt: string, agentType: string) => Promise<string>;
+  resumeResearch: (cwd: string, id: string, opts: Record<string, unknown>) => Promise<{ threadId: string; status: string }>;
+};
+const { seedThreadsFromCandidates } = require('./seed') as {
+  seedThreadsFromCandidates: (
+    cwd: string, topicId: string, synthKey: string,
+    candidates: SynthCandidate[], opts: { maxCandidates?: number },
+  ) => Array<{ rank: number; threadId: string; seedKey: string; newlySeeded: boolean }>;
 };
 
 /**
@@ -52,7 +61,8 @@ interface SynthDeps {
     cwd: string,
     topic: string,
     opts: { spawn: (prompt: string, agentType: string) => Promise<string> }
-  ) => Promise<{ status: string; topicId: string; docPath: string | null; detail: string }>;
+  ) => Promise<SynthResult>;
+  resumeRunner?: (cwd: string, id: string, opts: Record<string, unknown>) => Promise<{ threadId: string; status: string }>;
 }
 
 async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: SynthDeps = {}): Promise<never> {
@@ -64,7 +74,25 @@ async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: Syn
   const warn = statusWarning(res.status, res.detail);
   if (warn) process.stderr.write(warn + '\n');
   if (res.status === 'compile_failed') error(`synthesize: failed — ${res.detail}`);
-  return output(res, raw, raw ? JSON.stringify(res) : `synthesize: ${res.status} (${res.topicId})\n`);
+
+  // SP2-C: seed one thread per candidate, then auto-run only the #1-ranked (if newly seeded).
+  let seeded: Array<{ rank: number; threadId: string; newlySeeded: boolean }> = [];
+  if (res.candidates && res.candidates.length > 0) {
+    const cfg = loadConfig(cwd) as { research_max_candidates?: number };
+    const maxCandidates = Number(cfg.research_max_candidates ?? 3);
+    // res.topicId is the stable synthKey component: seedKey = sha256(topicId | statement).
+    seeded = seedThreadsFromCandidates(cwd, res.topicId, res.topicId, res.candidates, { maxCandidates });
+    const minRank = Math.min(...seeded.map((s) => s.rank));
+    const rank1 = seeded.find((s) => s.rank === minRank);
+    if (rank1 && rank1.newlySeeded) {
+      const resume = deps.resumeRunner || resumeResearch;
+      await resume(cwd, rank1.threadId, { spawn });
+    }
+  }
+  const autoRan = seeded.some((s) => s.newlySeeded) ? 1 : 0;
+  const payload = { ...res, seeded };
+  const summary = `synthesize: ${res.status} (${res.topicId}) — seeded ${seeded.length}, auto-ran ${autoRan}\n`;
+  return output(payload, raw, raw ? JSON.stringify(payload) : summary);
 }
 
 module.exports = { cmdIngest, cmdSynthesize, statusWarning };
