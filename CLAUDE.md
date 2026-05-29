@@ -241,6 +241,26 @@ most useful in long-running `gd autopilot` sessions. Tracked events:
 - `phase_complete_llm_fallback.attempts_total` — LLM fallback phase-complete attempts
 - `phase_complete_llm_fallback.successes_total` — successful LLM fallback completions
 
+## Autoresearch Loop (`lib/research/`)
+
+The scientific loop: `gd research "<q>"` runs SEED→GROUND→HYPOTHESIZE→DESIGN→RUN→MEASURE→
+LEARN→DECIDE→PERSIST→FINALIZE in `.planning/research/threads/<id>/`, with two default-on
+checkpoint gates (execute, kg_write). `gd ingest <md>` + `gd synthesize "<topic>"` feed a
+Tesserae knowledge graph (compiled via the `TesseraeClient` adapter; never edit graph.json
+by hand). The hypothesizer grounds on the Tesserae KG via MCP (LANDSCAPE/KNOWHOW are
+deprecated for the loop's grounding).
+
+### Insight → hypothesis seeding (SP2-C)
+
+`gd synthesize "<topic>"` auto-emits ranked candidate hypotheses (a `__CANDIDATES__` block
+after `__SYNTHESIS__`), seeds one research thread per candidate (capped by
+`research_max_candidates`, default 3 — a top-level `config.json` key), and auto-runs only the
+#1-ranked thread (which pauses at the default execute gate). Seeded hypotheses carry
+`origin: 'synthesis'` + `sourceNodeIds` (KG provenance); the orchestrator adopts them
+directly, skipping the cold HYPOTHESIZE spawn. Idempotent via
+`.planning/research/seed-manifest.json` plus a thread-scan fallback. Remaining candidates wait
+for `gd research resume <id>`.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.

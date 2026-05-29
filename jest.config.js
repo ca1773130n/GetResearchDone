@@ -71,6 +71,7 @@ module.exports = {
     './lib/research/tesserae.ts': { lines: 85, functions: 76, branches: 65 },
     './lib/research/manifest.ts': { lines: 90, functions: 100, branches: 80 },
     './lib/research/ingest.ts': { lines: 90, functions: 75, branches: 70 },
+    './lib/research/seed.ts': { lines: 95, functions: 100, branches: 80 },
   },
   testTimeout: 15000,
 };
