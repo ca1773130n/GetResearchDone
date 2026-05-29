@@ -31,9 +31,9 @@ describe('detectSource', () => {
     const cwd = tmp();
     expect(detectSource(cwd, 'https://example.com/post')).toEqual({ kind: 'web', ref: 'https://example.com/post' });
   });
-  it('does NOT treat a slash-containing non-existent string as arXiv', () => {
+  it('does NOT treat a slash-containing string as arXiv (path-like → local)', () => {
     const cwd = tmp();
-    expect(detectSource(cwd, 'docs/2401.12345').kind).toBe('unknown');
+    expect(detectSource(cwd, 'docs/2401.12345').kind).toBe('local');
   });
   it('returns unknown for unrecognized input', () => {
     const cwd = tmp();

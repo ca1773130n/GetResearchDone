@@ -27,6 +27,9 @@ function detectSource(cwd: string, input: string): DetectedSource {
     }
     return { kind: 'web', ref: s };
   }
+  // Path-like input that doesn't exist yet (e.g. a typo'd .md or a directory): treat as local
+  // so ingest() reports a clear file-not-found error rather than "unrecognized".
+  if (/\.md$/i.test(s) || s.includes('/') || s.includes('\\')) return { kind: 'local', ref: s };
   return { kind: 'unknown', ref: s };
 }
 
