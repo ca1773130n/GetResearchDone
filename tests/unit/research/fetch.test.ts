@@ -41,6 +41,54 @@ describe('detectSource', () => {
   });
 });
 
+describe('httpGet', () => {
+  const { httpGet } = require('../../../lib/research/fetch');
+  const resp = (status: number, body: string, headers: Record<string, string> = {}) => ({
+    status,
+    headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    text: async () => body,
+  });
+
+  it('returns the body on 200', async () => {
+    const fetcher = async () => resp(200, 'hello', { etag: 'W/"1"' });
+    const r = await httpGet('https://example.com/x', { fetcher });
+    expect(r.body).toBe('hello');
+    expect(r.etag).toBe('W/"1"');
+  });
+
+  it('follows a redirect and re-validates the target', async () => {
+    let calls = 0;
+    const fetcher = async (url: string) => {
+      calls++;
+      if (url === 'https://example.com/a') return resp(302, '', { location: 'https://example.com/b' });
+      return resp(200, 'final');
+    };
+    const r = await httpGet('https://example.com/a', { fetcher });
+    expect(r.body).toBe('final');
+    expect(calls).toBe(2);
+  });
+
+  it('rejects a redirect to a blocked host', async () => {
+    const fetcher = async () => resp(302, '', { location: 'http://169.254.169.254/latest/meta-data/' });
+    await expect(httpGet('https://example.com/a', { fetcher })).rejects.toThrow(/private|loopback|link-local/i);
+  });
+
+  it('throws on non-2xx', async () => {
+    const fetcher = async () => resp(404, 'nope');
+    await expect(httpGet('https://example.com/x', { fetcher })).rejects.toThrow(/HTTP 404/);
+  });
+
+  it('throws when the response exceeds the size cap', async () => {
+    const fetcher = async () => resp(200, 'x'.repeat(20));
+    await expect(httpGet('https://example.com/x', { fetcher, maxBytes: 10 })).rejects.toThrow(/too large|size/i);
+  });
+
+  it('throws too-many-redirects past the cap', async () => {
+    const fetcher = async () => resp(302, '', { location: 'https://example.com/loop' });
+    await expect(httpGet('https://example.com/loop', { fetcher, maxRedirects: 2 })).rejects.toThrow(/redirect/i);
+  });
+});
+
 describe('slugFor', () => {
   it('arxiv slug is stable and id-based', () => {
     expect(slugFor({ kind: 'arxiv', ref: '2401.12345v2' })).toBe('arxiv-2401.12345v2');

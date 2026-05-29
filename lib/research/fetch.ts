@@ -38,4 +38,48 @@ function slugFor(d: DetectedSource): string {
   return `web-${host}-${h}`;
 }
 
-module.exports = { detectSource, slugFor };
+export interface FetchResponse {
+  status: number;
+  headers: { get(name: string): string | null };
+  text(): Promise<string>;
+}
+export type Fetcher = (url: string, init: { redirect: 'manual'; signal: AbortSignal }) => Promise<FetchResponse>;
+
+interface HttpOpts { fetcher?: Fetcher; maxBytes?: number; timeoutMs?: number; maxRedirects?: number; }
+
+/** GET a URL with manual redirect handling; every hop passes the SSRF guard. */
+async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string; finalUrl: string; etag: string | null }> {
+  const fetcher: Fetcher = opts.fetcher || ((globalThis as { fetch?: Fetcher }).fetch as Fetcher);
+  const maxBytes = opts.maxBytes ?? 5_000_000;
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const maxRedirects = opts.maxRedirects ?? 5;
+  let current = assertFetchableUrl(url).toString();
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let resp: FetchResponse;
+    try {
+      resp = await fetcher(current, { redirect: 'manual', signal: ctrl.signal });
+    } catch (e) {
+      throw new Error(`request failed: ${(e as Error).message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (resp.status >= 300 && resp.status < 400) {
+      const loc = resp.headers.get('location');
+      if (!loc) throw new Error(`redirect (${resp.status}) with no Location header`);
+      current = assertFetchableUrl(new URL(loc, current).toString()).toString();
+      continue;
+    }
+    if (resp.status < 200 || resp.status >= 300) throw new Error(`HTTP ${resp.status}`);
+    const cl = resp.headers.get('content-length');
+    if (cl && Number(cl) > maxBytes) throw new Error(`response too large (${cl} bytes > ${maxBytes})`);
+    const body = await resp.text();
+    if (body.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
+    return { body, finalUrl: current, etag: resp.headers.get('etag') };
+  }
+  throw new Error(`too many redirects (> ${maxRedirects})`);
+}
+
+module.exports = { detectSource, slugFor, httpGet };
