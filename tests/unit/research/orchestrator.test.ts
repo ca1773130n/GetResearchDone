@@ -189,4 +189,30 @@ describe('orchestrator', () => {
     expect(res.paused).toBeFalsy();
     expect(['supported', 'exhausted']).toContain(res.status);
   });
+
+  it('a seeded synthesis thread skips grd-hypothesizer and goes straight to DESIGN', async () => {
+    const cwd = tmp();
+    const { seedThreadsFromCandidates } = require('../../../lib/research/seed');
+    const [seed] = seedThreadsFromCandidates(cwd, 'topic', 'k', [{
+      rank: 1, statement: 'Seeded claim', rationale: 'r', predictedOutcome: 'p', sourceNodeIds: ['n1'],
+    }], {});
+    const calls: string[] = [];
+    const spawn = async (_p: string, agentType: string) => {
+      calls.push(agentType);
+      if (agentType === 'grd-experiment-runner') {
+        return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.5,"language":"shell","scriptPath":"run.sh"}';
+      }
+      return '__TAKEAWAY__ {"content":"t"}';
+    };
+    // Runner returns acc=0.9 >= target 0.5 → SUPPORTED in iteration 1, so the loop terminates
+    // before any iteration-2 cold revision (which WOULD spawn grd-hypothesizer).
+    const runner = { run: () => ({
+      metrics: { acc: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1,
+      stdoutExcerpt: '', failureClass: 'none',
+    }) };
+    const res = await resumeResearch(cwd, seed.threadId, { spawn, runner, noGates: true });
+    expect(calls).toContain('grd-experiment-runner');     // DESIGN reached
+    expect(calls).not.toContain('grd-hypothesizer');      // cold HYPOTHESIZE skipped
+    expect(res.status).toBe('supported');
+  });
 });
