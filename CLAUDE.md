@@ -261,6 +261,19 @@ directly, skipping the cold HYPOTHESIZE spawn. Idempotent via
 `.planning/research/seed-manifest.json` plus a thread-scan fallback. Remaining candidates wait
 for `gd research resume <id>`.
 
+### Remote ingestion (arXiv / web)
+
+`gd ingest <arg>` auto-detects the argument: an existing local `.md` path (ingested as today),
+an arXiv id/URL (`2401.12345`, `arxiv:<id>`, `arxiv.org/abs|pdf/<id>` → fetched via the
+dependency-free Atom API as title/authors/abstract markdown), or an `http(s)` URL (fetched and
+converted to markdown via lazy-loaded readability+turndown+jsdom; arXiv stays dep-free). Remote
+sources are normalized to a deterministic staging file at `.planning/fetched/<slug>.md`
+(committed; provenance in `.planning/fetched/fetch-manifest.json`) **outside** the compile root,
+then run through the normal `ingest()` pipeline. A best-effort SSRF guard (`lib/research/url-guard.ts`)
+blocks non-http(s) schemes, credentials-in-URL, and loopback/private/link-local/metadata hosts
+(all IP encodings) on the initial URL and every redirect hop. PDF body extraction is a separate
+deferred slice.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.

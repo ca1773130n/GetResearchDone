@@ -72,6 +72,8 @@ module.exports = {
     './lib/research/manifest.ts': { lines: 90, functions: 100, branches: 80 },
     './lib/research/ingest.ts': { lines: 90, functions: 75, branches: 70 },
     './lib/research/seed.ts': { lines: 95, functions: 100, branches: 80 },
+    './lib/research/url-guard.ts': { lines: 85, functions: 90, branches: 70 },
+    './lib/research/fetch.ts': { lines: 85, functions: 85, branches: 65 },
   },
   testTimeout: 15000,
 };

@@ -19,7 +19,7 @@ function detectSource(cwd: string, input: string): DetectedSource {
   }
   if (ARXIV_BARE.test(s)) return { kind: 'arxiv', ref: s };
   if (/^https?:\/\//i.test(s)) {
-    let host = '';
+    let host: string;
     try { host = new URL(s).hostname.toLowerCase(); } catch { return { kind: 'unknown', ref: s }; }
     if (host === 'arxiv.org' || host.endsWith('.arxiv.org')) {
       const m = s.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/i);
@@ -65,7 +65,7 @@ async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string
     try {
       resp = await fetcher(current, { redirect: 'manual', signal: ctrl.signal });
     } catch (e) {
-      throw new Error(`request failed: ${(e as Error).message}`);
+      throw new Error(`request failed: ${(e as Error).message}`, { cause: e });
     } finally {
       clearTimeout(timer);
     }
@@ -142,7 +142,7 @@ function writeStaging(cwd: string, slug: string, markdown: string): string {
 
 function recordSidecar(cwd: string, entry: { slug: string; kind: string; canonicalUrl: string; etag: string | null }): void {
   const p = sidecarPath(cwd);
-  let all: Array<Record<string, unknown>> = [];
+  let all: Array<Record<string, unknown>>;
   try { all = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { all = []; }
   all = all.filter((e) => e.slug !== entry.slug);
   all.push({ ...entry, fetchedAt: new Date().toISOString() });
@@ -151,11 +151,9 @@ function recordSidecar(cwd: string, entry: { slug: string; kind: string; canonic
 
 /** Default HTML→markdown: lazy-loads readability+turndown+jsdom only when invoked. */
 function defaultHtmlToMd(html: string, url: string): string {
-  /* eslint-disable @typescript-eslint/no-var-requires */
   const { JSDOM } = require('jsdom') as { JSDOM: new (h: string, o?: { url?: string }) => { window: { document: unknown } } };
   const { Readability } = require('@mozilla/readability') as { Readability: new (d: unknown) => { parse(): { title?: string; content?: string } | null } };
   const TurndownService = require('turndown') as new () => { turndown(html: string): string };
-  /* eslint-enable @typescript-eslint/no-var-requires */
   const dom = new JSDOM(html, { url });
   const article = new Readability((dom.window as { document: unknown }).document).parse();
   const td = new TurndownService();
