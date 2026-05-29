@@ -91,6 +91,54 @@ describe('cli-kb', () => {
     });
   });
 
+  describe('cmdIngest remote routing', () => {
+    it('routes a local path to ingest() (no fetch)', async () => {
+      const cwd = tmp();
+      let fetched = 0; let ingested = '';
+      fs.writeFileSync(path.join(cwd, 'a.md'), '# x');
+      const deps = {
+        ingest: async (_c: string, p: string) => { ingested = p; return { status: 'compiled', files: 1, detail: 'ok' }; },
+        fetchSource: async () => { fetched++; return { filePath: 'X', slug: 's', kind: 'web' }; },
+      };
+      const res = await captureOutputAsync(() => cmdIngest(cwd, 'a.md', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(fetched).toBe(0);
+      expect(ingested).toBe('a.md');
+    });
+
+    it('routes an arXiv id through fetchSource then ingest', async () => {
+      const cwd = tmp();
+      const calls: string[] = [];
+      const deps = {
+        ingest: async (_c: string, p: string) => { calls.push(`ingest:${p}`); return { status: 'compiled', files: 1, detail: 'ok' }; },
+        fetchSource: async (_c: string, input: string) => { calls.push(`fetch:${input}`); return { filePath: '/abs/arxiv-2401.00001.md', slug: 'arxiv-2401.00001', kind: 'arxiv' }; },
+      };
+      const res = await captureOutputAsync(() => cmdIngest(cwd, '2401.00001', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(calls).toEqual(['fetch:2401.00001', 'ingest:/abs/arxiv-2401.00001.md']);
+    });
+
+    it('exits 1 with a clear message when fetch fails', async () => {
+      const cwd = tmp();
+      const deps = {
+        ingest: async () => ({ status: 'compiled', files: 1, detail: 'ok' }),
+        fetchSource: async () => { throw new Error('HTTP 404'); },
+      };
+      const res = await captureErrorAsync(() => cmdIngest(cwd, 'https://example.com/x', true, deps));
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toMatch(/HTTP 404/);
+    });
+
+    it('exits 1 on unrecognized input', async () => {
+      const cwd = tmp();
+      const res = await captureErrorAsync(() => cmdIngest(cwd, 'just-text', true, {
+        ingest: async () => ({ status: 'compiled', files: 1, detail: 'ok' }),
+      }));
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toMatch(/unrecognized|expected/i);
+    });
+  });
+
   describe('cmdSynthesize', () => {
     it('seeds candidates and auto-runs only rank-1', async () => {
       const cwd = tmp();

@@ -29,6 +29,8 @@ grd-local-patches/
 # Tesserae compiled knowledge graph + ingested corpus (build artifacts)
 .tesserae/
 .planning/research/corpus/
+# Transient fetch staging temp files (the final .planning/fetched/*.md are committed)
+.planning/fetched/.*.tmp
 
 # Build/coverage artifacts
 coverage/
