@@ -89,6 +89,48 @@ describe('httpGet', () => {
   });
 });
 
+describe('fetchSource — arXiv', () => {
+  const { fetchSource } = require('../../../lib/research/fetch');
+  const ATOM = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><title>Attention Is All You Need</title>
+    <summary>We propose the Transformer.</summary>
+    <published>2017-06-12T00:00:00Z</published>
+    <author><name>Ashish Vaswani</name></author><author><name>Noam Shazeer</name></author>
+    <category term="cs.CL"/></entry></feed>`;
+
+  it('fetches arXiv metadata → deterministic markdown + sidecar (no timestamp in body)', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const fetcher = async () => ({ status: 200, headers: { get: () => null }, text: async () => ATOM });
+    const r = await fetchSource(cwd, '2401.00001', { fetcher });
+    expect(r.kind).toBe('arxiv');
+    expect(r.filePath).toBe(path.join(cwd, '.planning/fetched/arxiv-2401.00001.md'));
+    const md = fs.readFileSync(r.filePath, 'utf8');
+    expect(md).toContain('# Attention Is All You Need');
+    expect(md).toContain('Ashish Vaswani');
+    expect(md).toContain('We propose the Transformer.');
+    expect(md).toMatch(/_Source: https:\/\/arxiv\.org\/abs\/2401\.00001_/);
+    expect(md).not.toMatch(/fetched_at/i); // no fetch timestamp in body (the published date is source content)
+    const sidecar = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/fetched/fetch-manifest.json'), 'utf8'));
+    expect(sidecar[0].slug).toBe('arxiv-2401.00001');
+    expect(sidecar[0].kind).toBe('arxiv');
+  });
+
+  it('is deterministic: two fetches of identical metadata produce byte-identical markdown', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const fetcher = async () => ({ status: 200, headers: { get: () => null }, text: async () => ATOM });
+    const a = await fetchSource(cwd, '2401.00001', { fetcher });
+    const first = fs.readFileSync(a.filePath, 'utf8');
+    const b = await fetchSource(cwd, '2401.00001', { fetcher });
+    expect(fs.readFileSync(b.filePath, 'utf8')).toBe(first);
+  });
+
+  it('errors when the Atom feed has no entry', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    const fetcher = async () => ({ status: 200, headers: { get: () => null }, text: async () => '<feed></feed>' });
+    await expect(fetchSource(cwd, '2401.99999', { fetcher })).rejects.toThrow(/no.*entry|not found/i);
+  });
+});
+
 describe('slugFor', () => {
   it('arxiv slug is stable and id-based', () => {
     expect(slugFor({ kind: 'arxiv', ref: '2401.12345v2' })).toBe('arxiv-2401.12345v2');

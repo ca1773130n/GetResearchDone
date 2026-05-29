@@ -82,4 +82,98 @@ async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string
   throw new Error(`too many redirects (> ${maxRedirects})`);
 }
 
-module.exports = { detectSource, slugFor, httpGet };
+function fetchedDir(cwd: string): string { return path.join(cwd, '.planning/fetched'); }
+function sidecarPath(cwd: string): string { return path.join(fetchedDir(cwd), 'fetch-manifest.json'); }
+
+function xmlTag(block: string, tag: string): string {
+  const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+}
+function xmlAll(block: string, tag: string): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'gi');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block)) !== null) out.push(m[1].replace(/\s+/g, ' ').trim());
+  return out;
+}
+
+/** Parse an arXiv Atom feed entry into deterministic markdown. Throws if no entry/abstract. */
+function arxivAtomToMarkdown(xml: string, id: string): string {
+  const entry = (xml.match(/<entry[\s\S]*?<\/entry>/i) || [])[0];
+  if (!entry) throw new Error(`arXiv: no entry found for ${id}`);
+  const title = xmlTag(entry, 'title') || `arXiv:${id}`;
+  const summary = xmlTag(entry, 'summary');
+  if (!summary) throw new Error(`arXiv: empty abstract for ${id}`);
+  const authors = xmlAll(entry, 'name');
+  const published = xmlTag(entry, 'published');
+  const cats: string[] = [];
+  const catRe = /<category[^>]*term="([^"]+)"/gi;
+  let cm: RegExpExecArray | null;
+  while ((cm = catRe.exec(entry)) !== null) cats.push(cm[1]);
+  const lines = [
+    `# ${title}`,
+    '',
+    `_Source: https://arxiv.org/abs/${id}_`,
+    '',
+    authors.length ? `**Authors:** ${authors.join(', ')}` : '',
+    published ? `**Published:** ${published}` : '',
+    cats.length ? `**Categories:** ${cats.join(', ')}` : '',
+    '',
+    '## Abstract',
+    '',
+    summary,
+    '',
+  ].filter((l, i, a) => !(l === '' && a[i - 1] === '')); // collapse double blanks
+  return lines.join('\n');
+}
+
+function writeStaging(cwd: string, slug: string, markdown: string): string {
+  const dir = fetchedDir(cwd);
+  fs.mkdirSync(dir, { recursive: true });
+  const finalPath = path.join(dir, `${slug}.md`);
+  const tmpPath = path.join(dir, `.${slug}.tmp`);
+  fs.writeFileSync(tmpPath, markdown);
+  fs.renameSync(tmpPath, finalPath); // atomic
+  return finalPath;
+}
+
+function recordSidecar(cwd: string, entry: { slug: string; kind: string; canonicalUrl: string; etag: string | null }): void {
+  const p = sidecarPath(cwd);
+  let all: Array<Record<string, unknown>> = [];
+  try { all = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { all = []; }
+  all = all.filter((e) => e.slug !== entry.slug);
+  all.push({ ...entry, fetchedAt: new Date().toISOString() });
+  fs.writeFileSync(p, JSON.stringify(all, null, 2));
+}
+
+export interface FetchSourceResult { filePath: string; slug: string; kind: SourceKind; }
+interface FetchSourceOpts { fetcher?: Fetcher; htmlToMd?: (html: string, url: string) => string; }
+
+const ARXIV_API = 'https://export.arxiv.org/api/query?id_list=';
+
+async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {}): Promise<FetchSourceResult> {
+  const d = detectSource(cwd, input);
+  if (d.kind === 'local') throw new Error(`fetchSource called on a local path: ${input}`);
+  if (d.kind === 'unknown') {
+    throw new Error(`unrecognized input "${input}" — expected a local .md path, an arXiv id/URL, or an http(s) URL`);
+  }
+  const slug = slugFor(d);
+  let markdown: string;
+  let canonicalUrl: string;
+  const etag: string | null = null;
+
+  if (d.kind === 'arxiv') {
+    const { body } = await httpGet(`${ARXIV_API}${encodeURIComponent(d.ref)}`, { fetcher: opts.fetcher });
+    markdown = arxivAtomToMarkdown(body, d.ref);
+    canonicalUrl = `https://arxiv.org/abs/${d.ref}`;
+  } else {
+    // web branch — implemented in Task 5
+    throw new Error('web ingestion not yet implemented');
+  }
+
+  const filePath = writeStaging(cwd, slug, markdown);
+  recordSidecar(cwd, { slug, kind: d.kind, canonicalUrl, etag });
+  return { filePath, slug, kind: d.kind };
+}
+
+module.exports = { detectSource, slugFor, httpGet, arxivAtomToMarkdown, fetchSource };
