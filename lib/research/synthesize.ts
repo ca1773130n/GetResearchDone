@@ -5,12 +5,25 @@ const crypto = require('crypto');
 import type { TesseraeClient, TesseraeStatus } from './tesserae';
 const { createCliTesseraeClient } = require('./tesserae');
 const { readManifest, upsertManifest } = require('./manifest');
+const { extractTaggedJson } = require('./agent-io') as {
+  extractTaggedJson: <T>(stdout: string, tag: string) => T | null;
+};
 
 const SYNTH_VERSION = 1;
 
 export type SynthSpawnFn = (prompt: string, agentType: string) => Promise<string>;
 export interface SynthesisDoc { frontmatter: Record<string, unknown>; body: string; raw: string; }
-export interface SynthesizeResult { status: TesseraeStatus; topicId: string; docPath: string | null; detail: string; }
+export interface Candidate {
+  rank: number;
+  statement: string;
+  rationale: string;
+  predictedOutcome: string;
+  sourceNodeIds: string[];
+}
+export interface SynthesizeResult {
+  status: TesseraeStatus; topicId: string; docPath: string | null; detail: string;
+  candidates: Candidate[];
+}
 interface SynthesizeOpts { spawn: SynthSpawnFn; client?: TesseraeClient; }
 
 function slug(s: string): string {
@@ -40,12 +53,41 @@ function parseSynthesisDoc(stdout: string): SynthesisDoc | null {
   return { frontmatter, body: m[2], raw };
 }
 
+/**
+ * Parse the `__CANDIDATES__` object-wrapper block emitted after the synthesis doc.
+ * Defensive: missing/malformed input → []; candidates lacking statement or
+ * predicted_outcome are skipped; output sorted by (rank asc, original-index asc).
+ */
+function parseCandidates(stdout: string): Candidate[] {
+  const wrap = extractTaggedJson<{ candidates?: unknown }>(stdout, 'CANDIDATES');
+  if (!wrap || !Array.isArray(wrap.candidates)) return [];
+  const parsed: Candidate[] = [];
+  wrap.candidates.forEach((raw, i) => {
+    const o = (raw || {}) as Record<string, unknown>;
+    const statement = typeof o.statement === 'string' ? o.statement.trim() : '';
+    const predictedOutcome = typeof o.predicted_outcome === 'string' ? o.predicted_outcome.trim() : '';
+    if (!statement || !predictedOutcome) return; // skip incomplete
+    parsed.push({
+      rank: Number.isFinite(Number(o.rank)) ? Number(o.rank) : i + 1,
+      statement,
+      rationale: typeof o.rationale === 'string' ? o.rationale : '',
+      predictedOutcome,
+      sourceNodeIds: Array.isArray(o.source_node_ids) ? o.source_node_ids.map(String) : [],
+    });
+  });
+  return parsed
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => a.c.rank - b.c.rank || a.i - b.i)
+    .map((x) => x.c);
+}
+
 function buildSynthesizePrompt(topic: string): string {
   return [
     'You are grd-synthesizer. Query the Tesserae knowledge graph (search_nodes, ask, node_context)',
     `for the topic: "${topic}". Produce a domain compendium + ranked open questions.`,
     '',
-    'Emit exactly one final block to stdout (no prose after it):',
+    'Emit two final blocks to stdout (__SYNTHESIS__ then __CANDIDATES__), in that order,',
+    'with no prose after them:',
     '__SYNTHESIS__',
     '---',
     'type: synthesis',
@@ -60,6 +102,14 @@ function buildSynthesizePrompt(topic: string): string {
     '<synthesized domain summary>',
     '## Open Questions',
     '- <ranked candidate research questions>',
+    '',
+    'Then emit a SECOND block — testable, loop-ready hypotheses derived from the synthesis,',
+    'ranked best-first. Each MUST include a measurable predicted_outcome:',
+    '__CANDIDATES__',
+    '{ "candidates": [',
+    '  { "rank": 1, "statement": "<testable claim>", "rationale": "<why, grounded in the KG>",',
+    '    "predicted_outcome": "<measurable expectation if true>", "source_node_ids": ["<kg id>"] }',
+    '] }',
   ].join('\n');
 }
 
@@ -69,7 +119,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const docPath = path.join(synthDir(cwd), `${topicId}.md`);
 
   if (!client.isAvailable()) {
-    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available' };
+    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available', candidates: [] };
   }
 
   const graphPath = path.join(cwd, '.tesserae', 'graph.json');
@@ -82,12 +132,15 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   // (same graph marker + synthesizer version) and the doc still exists — skip the agent run.
   if (prior && graphExists && fs.existsSync(docPath)
       && prior.kgMarker === kgMarker && prior.synthVersion === SYNTH_VERSION) {
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)' };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)', candidates: [] };
   }
 
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
-  const doc = parseSynthesisDoc(out);
-  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)' };
+  const ci = out.indexOf('__CANDIDATES__');
+  const synthPart = ci >= 0 ? out.slice(0, ci) : out;
+  const candidates = ci >= 0 ? parseCandidates(out.slice(ci)) : [];
+  const doc = parseSynthesisDoc(synthPart);
+  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)', candidates: [] };
 
   const sourceIds = (doc.frontmatter.source_node_ids as string[]).slice().sort();
   const key = crypto.createHash('sha256').update(`${topicId}|${sourceIds.join(',')}|${SYNTH_VERSION}`).digest('hex');
@@ -100,7 +153,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
       docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
       lastAttemptAt: new Date().toISOString(), nodeIds: [],
     });
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)' };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates: [] };
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });
@@ -128,7 +181,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     key: topicId, synthKey: key, kgMarker: newMarker, synthVersion: SYNTH_VERSION,
     docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds,
   });
-  return { status, topicId, docPath, detail: compileRes.detail };
+  return { status, topicId, docPath, detail: compileRes.detail, candidates };
 }
 
-module.exports = { parseSynthesisDoc, buildSynthesizePrompt, synthesize, SYNTH_VERSION };
+module.exports = { parseSynthesisDoc, parseCandidates, buildSynthesizePrompt, synthesize, SYNTH_VERSION };

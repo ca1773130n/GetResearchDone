@@ -116,4 +116,45 @@ describe('synthesize', () => {
     expect(sources!.length).toBe(1);
     expect(sources![0].endsWith(path.join('.planning', 'research'))).toBe(true); // full tree, not /synthesis
   });
+
+  it('parseCandidates: parses object-wrapper, sorts by rank, maps snake_case', () => {
+    const { parseCandidates } = require('../../../lib/research/synthesize');
+    const out = '__SYNTHESIS__\n...\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
+      { rank: 2, statement: 'B', rationale: 'rb', predicted_outcome: 'pb', source_node_ids: ['n2'] },
+      { rank: 1, statement: 'A', rationale: 'ra', predicted_outcome: 'pa', source_node_ids: ['n1'] },
+    ] });
+    const c = parseCandidates(out);
+    expect(c.map((x: { statement: string }) => x.statement)).toEqual(['A', 'B']);
+    expect(c[0].predictedOutcome).toBe('pa');
+    expect(c[0].sourceNodeIds).toEqual(['n1']);
+  });
+
+  it('parseCandidates: missing/malformed/incomplete → graceful', () => {
+    const { parseCandidates } = require('../../../lib/research/synthesize');
+    expect(parseCandidates('no tag here')).toEqual([]);
+    expect(parseCandidates('__CANDIDATES__\n{not json')).toEqual([]);
+    const partial = '__CANDIDATES__\n' + JSON.stringify({ candidates: [
+      { rank: 1, statement: 'ok', predicted_outcome: 'p' },
+      { rank: 2, statement: 'no-prediction' },
+    ] });
+    expect(parseCandidates(partial).length).toBe(1);
+  });
+
+  it('buildSynthesizePrompt instructs the __CANDIDATES__ block', () => {
+    const p = require('../../../lib/research/synthesize').buildSynthesizePrompt('rag');
+    expect(p).toContain('__CANDIDATES__');
+    expect(p).toContain('predicted_outcome');
+    expect(p).toContain('source_node_ids');
+  });
+
+  it('synthesize does not leak __CANDIDATES__ into the written doc + returns candidates', async () => {
+    const cwd = tmp();
+    const docOut = DOC + '\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
+      { rank: 1, statement: 'A', rationale: 'r', predicted_outcome: 'p', source_node_ids: ['n1'] }] });
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
+    const res = await synthesize(cwd, 'RAG', { spawn: async () => docOut, client });
+    expect(res.candidates.length).toBe(1);
+    const written = fs.readFileSync(res.docPath, 'utf8');
+    expect(written).not.toContain('__CANDIDATES__');
+  });
 });
