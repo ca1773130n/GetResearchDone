@@ -25,6 +25,10 @@ export interface Candidate {
 export interface SynthesizeResult {
   status: TesseraeStatus; topicId: string; docPath: string | null; detail: string;
   candidates: Candidate[];
+  // The synthesis signature sha256(topicId | sorted(source_node_ids) | SYNTH_VERSION). Used as
+  // the seedKey base so a KG change (new source nodes) yields a new seed generation. Empty
+  // string on paths where the agent did not run (no candidates → seeding is skipped anyway).
+  synthKey: string;
 }
 interface SynthesizeOpts { spawn: SynthSpawnFn; client?: TesseraeClient; }
 
@@ -121,7 +125,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const docPath = path.join(synthDir(cwd), `${topicId}.md`);
 
   if (!client.isAvailable()) {
-    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available', candidates: [] };
+    return { status: 'skipped_no_tesserae', topicId, docPath: null, detail: 'tesserae not available', candidates: [], synthKey: '' };
   }
 
   const graphPath = path.join(cwd, '.tesserae', 'graph.json');
@@ -134,7 +138,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   // (same graph marker + synthesizer version) and the doc still exists — skip the agent run.
   if (prior && graphExists && fs.existsSync(docPath)
       && prior.kgMarker === kgMarker && prior.synthVersion === SYNTH_VERSION) {
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)', candidates: [] };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (pre-spawn idempotent)', candidates: [], synthKey: (prior.synthKey as string) || '' };
   }
 
   const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
@@ -142,7 +146,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
   const synthPart = ci >= 0 ? out.slice(0, ci) : out;
   const candidates = ci >= 0 ? parseCandidates(out.slice(ci)) : [];
   const doc = parseSynthesisDoc(synthPart);
-  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)', candidates: [] };
+  if (!doc) return { status: 'compile_failed', topicId, docPath: null, detail: 'invalid synthesis doc (missing tag/frontmatter)', candidates: [], synthKey: '' };
 
   const sourceIds = (doc.frontmatter.source_node_ids as string[]).slice().sort();
   const key = crypto.createHash('sha256').update(`${topicId}|${sourceIds.join(',')}|${SYNTH_VERSION}`).digest('hex');
@@ -158,7 +162,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
       docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
       lastAttemptAt: new Date().toISOString(), nodeIds: [],
     });
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates, synthKey: key };
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });
@@ -186,7 +190,7 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     key: topicId, synthKey: key, kgMarker: newMarker, synthVersion: SYNTH_VERSION,
     docPath: path.relative(cwd, docPath), status, lastAttemptAt: new Date().toISOString(), nodeIds,
   });
-  return { status, topicId, docPath, detail: compileRes.detail, candidates };
+  return { status, topicId, docPath, detail: compileRes.detail, candidates, synthKey: key };
 }
 
 module.exports = { parseSynthesisDoc, parseCandidates, buildSynthesizePrompt, synthesize, SYNTH_VERSION };

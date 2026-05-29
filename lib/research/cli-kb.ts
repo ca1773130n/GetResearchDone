@@ -10,7 +10,7 @@ const { ingest } = require('./ingest') as {
   ingest: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }>;
 };
 interface SynthCandidate { rank: number; statement: string; rationale: string; predictedOutcome: string; sourceNodeIds: string[]; }
-interface SynthResult { status: string; topicId: string; docPath: string | null; detail: string; candidates: SynthCandidate[]; }
+interface SynthResult { status: string; topicId: string; docPath: string | null; detail: string; candidates: SynthCandidate[]; synthKey: string; }
 const { synthesize } = require('./synthesize') as {
   synthesize: (
     cwd: string,
@@ -100,20 +100,23 @@ async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: Syn
 
   // SP2-C: seed one thread per candidate, then auto-run only the #1-ranked (if newly seeded).
   let seeded: Array<{ rank: number; threadId: string; newlySeeded: boolean }> = [];
+  let autoRan = 0; // 1 only if the rank-1 thread was actually resumed this invocation
   if (res.candidates && res.candidates.length > 0) {
     const maxCandidates = readMaxCandidates(cwd);
     // Seeded threads must honor the same configured research gates as `gd research`.
     const gates = resolveGates(readResearchGatesConfig(cwd), false);
-    // res.topicId is the stable synthKey component: seedKey = sha256(topicId | statement).
-    seeded = seedThreadsFromCandidates(cwd, res.topicId, res.topicId, res.candidates, { maxCandidates, gates });
+    // Key seeds on the synthesis signature (source-node aware), not the topic id, so a KG
+    // change yields a new seed generation per the spec (falls back to topicId only if absent).
+    const synthKey = res.synthKey || res.topicId;
+    seeded = seedThreadsFromCandidates(cwd, res.topicId, synthKey, res.candidates, { maxCandidates, gates });
     const minRank = Math.min(...seeded.map((s) => s.rank));
     const rank1 = seeded.find((s) => s.rank === minRank);
     if (rank1 && rank1.newlySeeded) {
       const resume = deps.resumeRunner || resumeResearch;
       await resume(cwd, rank1.threadId, { spawn });
+      autoRan = 1;
     }
   }
-  const autoRan = seeded.some((s) => s.newlySeeded) ? 1 : 0;
   const payload = { ...res, seeded };
   const summary = `synthesize: ${res.status} (${res.topicId}) — seeded ${seeded.length}, auto-ran ${autoRan}\n`;
   return output(payload, raw, raw ? JSON.stringify(payload) : summary);
