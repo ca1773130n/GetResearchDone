@@ -41,6 +41,22 @@ describe('seedThreadsFromCandidates', () => {
     expect(again.every((r: { newlySeeded: boolean }) => !r.newlySeeded)).toBe(true);
   });
 
+  it('applies the gates passed in opts to seeded threads (config-honoring)', () => {
+    const cwd = tmp();
+    const { loadThread } = require('../../../lib/research/thread');
+    const [r] = seedThreadsFromCandidates(cwd, 'topic-x', 'k', cands(1), {
+      gates: { execute: false, kg_write: false },
+    });
+    expect(loadThread(cwd, r.threadId).gates).toEqual({ execute: false, kg_write: false });
+  });
+
+  it('defaults to both gates on when no gates opt is given', () => {
+    const cwd = tmp();
+    const { loadThread } = require('../../../lib/research/thread');
+    const [r] = seedThreadsFromCandidates(cwd, 'topic-y', 'k', cands(1), {});
+    expect(loadThread(cwd, r.threadId).gates).toEqual({ execute: true, kg_write: true });
+  });
+
   it('is idempotent even if the seed manifest was lost (listThreads scan via seededFrom.seedKey)', () => {
     const cwd = tmp();
     const first = seedThreadsFromCandidates(cwd, 'topic-x', 'k', cands(1), {});

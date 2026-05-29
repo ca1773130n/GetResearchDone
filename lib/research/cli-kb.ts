@@ -16,18 +16,23 @@ const { synthesize } = require('./synthesize') as {
     opts: { spawn: (prompt: string, agentType: string) => Promise<string> }
   ) => Promise<SynthResult>;
 };
-const { defaultSpawn, resumeResearch } = require('./orchestrator') as {
+const { defaultSpawn, resumeResearch, readResearchGatesConfig } = require('./orchestrator') as {
   defaultSpawn: (
     cwd: string,
     config: Record<string, unknown>,
     model?: string
   ) => (prompt: string, agentType: string) => Promise<string>;
   resumeResearch: (cwd: string, id: string, opts: Record<string, unknown>) => Promise<{ threadId: string; status: string }>;
+  readResearchGatesConfig: (cwd: string) => { research_gates?: { experiment_execution?: boolean; kg_write?: boolean } };
+};
+const { resolveGates } = require('./gates') as {
+  resolveGates: (config: { research_gates?: { experiment_execution?: boolean; kg_write?: boolean } }, noGates: boolean)
+    => { execute: boolean; kg_write: boolean };
 };
 const { seedThreadsFromCandidates } = require('./seed') as {
   seedThreadsFromCandidates: (
     cwd: string, topicId: string, synthKey: string,
-    candidates: SynthCandidate[], opts: { maxCandidates?: number },
+    candidates: SynthCandidate[], opts: { maxCandidates?: number; gates?: { execute: boolean; kg_write: boolean } },
   ) => Array<{ rank: number; threadId: string; seedKey: string; newlySeeded: boolean }>;
 };
 
@@ -80,8 +85,10 @@ async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: Syn
   if (res.candidates && res.candidates.length > 0) {
     const cfg = loadConfig(cwd) as { research_max_candidates?: number };
     const maxCandidates = Number(cfg.research_max_candidates ?? 3);
+    // Seeded threads must honor the same configured research gates as `gd research`.
+    const gates = resolveGates(readResearchGatesConfig(cwd), false);
     // res.topicId is the stable synthKey component: seedKey = sha256(topicId | statement).
-    seeded = seedThreadsFromCandidates(cwd, res.topicId, res.topicId, res.candidates, { maxCandidates });
+    seeded = seedThreadsFromCandidates(cwd, res.topicId, res.topicId, res.candidates, { maxCandidates, gates });
     const minRank = Math.min(...seeded.map((s) => s.rank));
     const rank1 = seeded.find((s) => s.rank === minRank);
     if (rank1 && rank1.newlySeeded) {

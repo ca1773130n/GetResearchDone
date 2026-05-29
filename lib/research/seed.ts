@@ -1,9 +1,8 @@
 'use strict';
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 import type { Candidate } from './synthesize';
-import type { Hypothesis } from './types';
+import type { Hypothesis, ThreadGates } from './types';
 const { createThread, listThreads } = require('./thread') as {
   createThread: (cwd: string, question: string, opts: Record<string, unknown>) => { id: string };
   listThreads: (cwd: string) => Array<{ id: string; seededFrom?: { seedKey?: string } }>;
@@ -17,7 +16,7 @@ const { readManifest, upsertManifest } = require('./manifest') as {
 };
 
 export interface SeedResult { rank: number; threadId: string; seedKey: string; newlySeeded: boolean; }
-interface SeedOpts { maxCandidates?: number; }
+interface SeedOpts { maxCandidates?: number; gates?: ThreadGates; }
 
 function seedManifestPath(cwd: string): string {
   return path.join(cwd, '.planning/research/seed-manifest.json');
@@ -59,6 +58,7 @@ function seedThreadsFromCandidates(
     }
     const thread = createThread(cwd, c.statement, {
       seededFrom: { synthesisTopicId: topicId, sourceNodeIds: c.sourceNodeIds, seedKey },
+      ...(opts.gates ? { gates: opts.gates } : {}),
     });
     const hyp: Hypothesis = {
       id: 'h1', iteration: 1, statement: c.statement, rationale: c.rationale,

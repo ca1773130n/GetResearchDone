@@ -9,7 +9,9 @@ const { extractTaggedJson } = require('./agent-io') as {
   extractTaggedJson: <T>(stdout: string, tag: string) => T | null;
 };
 
-const SYNTH_VERSION = 1;
+// v2: output contract gained the __CANDIDATES__ block (SP2-C). Bumping invalidates
+// pre-SP2-C manifest entries so previously-synthesized topics re-run and emit candidates.
+const SYNTH_VERSION = 2;
 
 export type SynthSpawnFn = (prompt: string, agentType: string) => Promise<string>;
 export interface SynthesisDoc { frontmatter: Record<string, unknown>; body: string; raw: string; }
