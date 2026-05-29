@@ -37,7 +37,7 @@ All changes live in `lib/research/` and `agents/grd-synthesizer.md`.
 | `orchestrator.ts` | add branch | HYPOTHESIZE: if iter 1 and a seeded iter-1 hypothesis already exists in the ledger → use it, skip the cold `grd-hypothesizer` spawn → DESIGN |
 | `cli-kb.ts` `cmdSynthesize` | wire | after `synthesize()`: seed all → auto-run rank-1 thread → report |
 | `types.ts` / `ledger.ts` | extend | `Hypothesis.sourceNodeIds?: string[]`, `Hypothesis.origin?: 'loop' \| 'synthesis'`; `Thread.seededFrom?: { synthesisTopicId: string; sourceNodeIds: string[] }` |
-| `utils.ts` config | add | `research.max_candidates` (default 3) bounds how many candidates seed threads |
+| `utils.ts` config | add | `research_max_candidates` (default 3) bounds how many candidates seed threads |
 
 ### `__CANDIDATES__` contract
 
@@ -174,8 +174,10 @@ Composes with `synthesize()`'s existing two-level idempotency:
 
 ## Config
 
-- `research.max_candidates` (default **3**) caps candidates that seed threads — bounds loop
-  budget. Surfaced through `loadConfig` defaults like other `research.*` settings.
+- `research_max_candidates` (default **3**) caps candidates that seed threads — bounds loop
+  budget. Top-level `config.json` key (sibling to `research_gates`; NOT nested under the
+  boolean `research` workflow flag). Read via `loadConfig(cwd).research_max_candidates ?? 3`;
+  `seed.ts` also accepts it as an injectable opt for tests.
 
 ## Testing (deterministic; injected `spawn`/`runner`/`client`, per SP2-B)
 
@@ -210,3 +212,12 @@ Composes with `synthesize()`'s existing two-level idempotency:
    prediction; degrade gracefully (skip candidates missing it).
 2. Auto-running rank-1 spends loop budget up to the first gate. Bounded by the default
    execute gate (human checkpoint) and `max_candidates`.
+3. **Rare seed-skip crash window (narrowed; accepted):** the **Level 2 post-spawn** idempotent
+   path returns the freshly-parsed `candidates` (the agent ran this invocation), so a re-run with
+   a bumped KG marker but unchanged source-node signature *recovers* seeding (seed.ts dedups). The
+   only remaining gap is the **Level 1 pre-spawn** path: if the manifest+doc exist and the KG
+   marker is unchanged, the agent is not re-run, so no candidates can be produced. Non-corrupting:
+   the insight is still in the synthesis doc; the user re-seeds by editing the corpus (bumps the KG
+   marker) or via a future `--reseed`. Documented, not fixed in this slice (sidecar-persisting
+   candidates would close it but is scope creep). The common crash window (seed started, manifest
+   write lost) IS covered by the `listThreads` scan.

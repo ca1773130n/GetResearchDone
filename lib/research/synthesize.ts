@@ -149,13 +149,16 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
 
   // Level 2 (POST-SPAWN): the specific source nodes this synthesis drew on are unchanged —
   // skip the rewrite/compile, but refresh the KG marker so the next pre-spawn check can short-circuit.
+  // The agent DID run this invocation, so we return the freshly-parsed candidates (not []): a prior
+  // run may have written the doc/manifest but failed before seeding. seedThreadsFromCandidates is
+  // idempotent (seedKey dedup), so re-seeding already-seeded candidates is a safe no-op.
   if (prior && prior.synthKey === key && fs.existsSync(docPath) && graphExists) {
     upsertManifest(synthManifest(cwd), topicId, {
       key: topicId, synthKey: key, kgMarker, synthVersion: SYNTH_VERSION,
       docPath: path.relative(cwd, docPath), status: prior.status || 'compiled',
       lastAttemptAt: new Date().toISOString(), nodeIds: [],
     });
-    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates: [] };
+    return { status: prior.status || 'compiled', topicId, docPath, detail: 'unchanged (idempotent)', candidates };
   }
 
   fs.mkdirSync(synthDir(cwd), { recursive: true });

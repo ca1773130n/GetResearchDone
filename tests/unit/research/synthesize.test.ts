@@ -147,6 +147,24 @@ describe('synthesize', () => {
     expect(p).toContain('source_node_ids');
   });
 
+  it('Level-2 idempotent path still returns freshly-parsed candidates (recoverable re-seed)', async () => {
+    const cwd = tmp();
+    const docOut = DOC + '\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
+      { rank: 1, statement: 'A', rationale: 'r', predicted_outcome: 'p', source_node_ids: ['n1'] }] });
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
+    // First run writes doc + manifest (synthKey from source_node_ids [n2,n1]).
+    await synthesize(cwd, 'RAG', { spawn: async () => docOut, client });
+    // Bump the graph marker so Level-1 (pre-spawn) does NOT short-circuit → agent re-runs.
+    const gp = path.join(cwd, '.tesserae/graph.json');
+    const future = new Date(Date.now() + 60000);
+    fs.utimesSync(gp, future, future);
+    // Same source_node_ids → same synthKey → Level-2 path; candidates must still come back.
+    const res = await synthesize(cwd, 'RAG', { spawn: async () => docOut, client });
+    expect(res.detail).toMatch(/idempotent/);
+    expect(res.candidates.length).toBe(1);
+    expect(res.candidates[0].statement).toBe('A');
+  });
+
   it('synthesize does not leak __CANDIDATES__ into the written doc + returns candidates', async () => {
     const cwd = tmp();
     const docOut = DOC + '\n__CANDIDATES__\n' + JSON.stringify({ candidates: [
