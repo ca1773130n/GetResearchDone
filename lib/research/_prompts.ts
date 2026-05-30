@@ -6,6 +6,7 @@ function buildHypothesizePrompt(
   priorHyps: Pick<Hypothesis, 'id' | 'statement' | 'verdict'>[],
   priorVerdict: Verdict | null,
   priorTakeaways: Pick<Takeaway, 'iteration' | 'kind' | 'content' | 'failureClass'>[] = [],
+  pack = '',
 ): string {
   const history = priorHyps.length
     ? priorHyps.map((h) => `- ${h.id} [${h.verdict ?? 'open'}]: ${h.statement}`).join('\n')
@@ -21,6 +22,7 @@ function buildHypothesizePrompt(
     'GROUND first: query the Tesserae knowledge graph (your primary knowledge base) for prior',
     'related findings, related work, and methods using the tesserae MCP tools (search_nodes,',
     'ask, node_context). Read .planning/DEAD-ENDS.md to avoid re-proposing falsified approaches.',
+    ...(pack ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack] : []),
     '',
     'Prior hypotheses in this thread:',
     history,

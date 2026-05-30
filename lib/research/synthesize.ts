@@ -87,10 +87,11 @@ function parseCandidates(stdout: string): Candidate[] {
     .map((x) => x.c);
 }
 
-function buildSynthesizePrompt(topic: string): string {
+function buildSynthesizePrompt(topic: string, pack = ''): string {
   return [
     'You are grd-synthesizer. Query the Tesserae knowledge graph (search_nodes, ask, node_context)',
     `for the topic: "${topic}". Produce a domain compendium + ranked open questions.`,
+    ...(pack ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it:', pack] : []),
     '',
     'Emit two final blocks to stdout (__SYNTHESIS__ then __CANDIDATES__), in that order,',
     'with no prose after them:',

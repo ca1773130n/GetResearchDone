@@ -140,6 +140,14 @@ describe('synthesize', () => {
     expect(parseCandidates(partial).length).toBe(1);
   });
 
+  it('buildSynthesizePrompt injects a grounding pack when provided', () => {
+    const { buildSynthesizePrompt } = require('../../../lib/research/synthesize');
+    const p = buildSynthesizePrompt('rag', '## Retrieved grounding (hybrid) for "rag"\n\n- **RAG**: x');
+    expect(p).toContain('## Retrieved grounding');
+    expect(p).toContain('- **RAG**');
+    expect(buildSynthesizePrompt('rag')).not.toContain('Retrieved grounding');
+  });
+
   it('buildSynthesizePrompt instructs the __CANDIDATES__ block', () => {
     const p = require('../../../lib/research/synthesize').buildSynthesizePrompt('rag');
     expect(p).toContain('__CANDIDATES__');
