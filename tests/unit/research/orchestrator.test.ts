@@ -190,6 +190,28 @@ describe('orchestrator', () => {
     expect(['supported', 'exhausted']).toContain(res.status);
   });
 
+  it('injects a hybrid grounding pack into the hypothesizer prompt', async () => {
+    const cwd = tmp();
+    let hypoPrompt = '';
+    const spawn = async (prompt: string, agentType: string) => {
+      if (agentType === 'grd-hypothesizer') { hypoPrompt = prompt; return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}'; }
+      if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.5,"language":"shell","scriptPath":"run.sh"}';
+      return '__TAKEAWAY__ {"content":"t"}';
+    };
+    const runner = { run: () => ({ metrics: { acc: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+    const retrieveFn = async () => ({ results: [{ id: 'n1', name: 'GroundNode', description: 'd', source_path: 'corpus/x.md', score: 0.9, modes: ['lexical'] }], modes: { lexical: true, semantic: false, structure: true }, detail: '1' });
+    await runResearch(cwd, 'Does X help?', { maxIterations: 1, noGates: true, spawn, runner, retrieve: retrieveFn });
+    expect(hypoPrompt).toContain('Retrieved grounding');
+    expect(hypoPrompt).toContain('GroundNode');
+  });
+
+  it('still completes if retrieve throws (degrade)', async () => {
+    const cwd = tmp();
+    const retrieveFn = async () => { throw new Error('boom'); };
+    const res = await runResearch(cwd, 'Q', { maxIterations: 1, noGates: true, spawn: makeSpawn(), runner: makeRunner(), retrieve: retrieveFn });
+    expect(['supported', 'exhausted']).toContain(res.status);
+  });
+
   it('a seeded synthesis thread skips grd-hypothesizer and goes straight to DESIGN', async () => {
     const cwd = tmp();
     const { seedThreadsFromCandidates } = require('../../../lib/research/seed');
