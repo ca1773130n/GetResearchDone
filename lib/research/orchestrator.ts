@@ -15,7 +15,7 @@ const { createThread, loadThread, saveThread, threadDir } = require('./thread');
 const { resolveGates, checkGate } = require('./gates');
 const { readLedger, appendHypothesis, updateHypothesisStatus, nextHypothesisId } = require('./ledger');
 const { appendTakeaway, readTakeaways } = require('./takeaways');
-const { evaluateVerdict, decideBranch, shouldTerminate } = require('./verdict');
+const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } = require('./verdict');
 const { buildFinding, writeFinding, findingPath } = require('./finding');
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
@@ -142,7 +142,7 @@ async function runLoop(
 ): Promise<ResearchResult> {
   const runner: Runner = opts.runner || createSubprocessRunner({ timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
-  const retrieveFn = opts.retrieve || ((c: string, q: string) => retrieve(c, q, { embedder: defaultEmbedder() }));
+  const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -174,9 +174,17 @@ async function runLoop(
         const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
         thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
         const priorTakeaways = readTakeaways(cwd, thread.id);
+        const pivot = thread.pendingPivot === true;
+        if (pivot) { thread.pendingPivot = false; saveThread(cwd, thread); }
+        const groundQuery = pivot
+          ? [thread.question, ...priorTakeaways.map((t: Takeaway) => t.content)].join(' ')
+          : thread.question;
         let pack = '';
-        try { const r = await retrieveFn(cwd, thread.question); pack = buildGroundingPack(r.results, thread.question); } catch { /* degrade */ }
-        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack), 'grd-hypothesizer');
+        try {
+          const r = await retrieveFn(cwd, groundQuery, pivot ? { k: 16 } : undefined);
+          pack = buildGroundingPack(r.results, thread.question);
+        } catch { /* degrade */ }
+        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot), 'grd-hypothesizer');
         const parsed = parseHypothesisOutput(hOut);
         if (!parsed) return errExit(cwd, thread);
         hyp = {
@@ -230,6 +238,17 @@ async function runLoop(
       iteration: thread.iteration,
     };
     appendTakeaway(cwd, thread.id, takeaway);
+
+    // RE-SURVEY on plateau: broaden + pivot the next hypothesis instead of drifting to exhausted.
+    const { cap, window } = readResurveyConfig(cwd);
+    const completed = readLedger(cwd, thread.id).filter((h: Hypothesis) => h.verdict !== null).map((h: Hypothesis) => h.verdict as Verdict);
+    if (outcome.verdict !== 'supported' && (thread.resurveyCount ?? 0) < cap && detectPlateau(completed, window)) {
+      thread.resurveyCount = (thread.resurveyCount ?? 0) + 1;
+      thread.pendingPivot = true;
+      thread.maxIterations += window;
+      incrementCounter('research.resurveys_total');
+      saveThread(cwd, thread);
+    }
 
     // DECIDE + terminate
     const term = shouldTerminate(thread, outcome.verdict);
