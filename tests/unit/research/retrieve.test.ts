@@ -45,6 +45,49 @@ describe('retrieve — lexical + structure', () => {
   });
 });
 
+describe('retrieve — semantic', () => {
+  // Fake embedder: vector = [overlap-with("vector"), overlap-with("graph")] so we can steer ranking.
+  const fakeEmbedder = async (texts: string[]) =>
+    texts.map((t) => [/vector|embedding/i.test(t) ? 1 : 0, /graph/i.test(t) ? 1 : 0]);
+
+  it('uses semantic similarity to rank a non-lexical match and reports semantic mode', async () => {
+    const cwd = fixture([
+      { id: 'n1', name: 'embeddings', description: 'dense vector representations' }, // lexical miss for "vector"? has "vector" in desc
+      { id: 'n2', name: 'cats', description: 'felines' },
+    ]);
+    // query embeds to [1,0]; n1 → [1,0] (cos 1), n2 → [0,0]; semantic surfaces n1.
+    const res = await retrieve(cwd, 'vector', { embedder: fakeEmbedder });
+    expect(res.modes.semantic).toBe(true);
+    expect(res.results[0].id).toBe('n1');
+  });
+
+  it('caches node vectors by content hash — second retrieve does not re-embed', async () => {
+    const cwd = fixture([{ id: 'n1', name: 'vector', description: 'x' }]);
+    let calls = 0;
+    const counting = async (texts: string[]) => { calls++; return texts.map(() => [1, 0]); };
+    await retrieve(cwd, 'vector', { embedder: counting });
+    const afterFirst = calls;
+    await retrieve(cwd, 'vector', { embedder: counting });
+    // The query is embedded each call (+1), but node vectors are served from cache.
+    expect(calls).toBeLessThan(afterFirst * 2);
+    expect(fs.existsSync(path.join(cwd, '.planning/research/.embeddings.json'))).toBe(true);
+  });
+
+  it('still returns results (semantic off) when the embedder yields null', async () => {
+    const cwd = fixture([{ id: 'n1', name: 'vector', description: 'x' }]);
+    const res = await retrieve(cwd, 'vector', { embedder: async () => null });
+    expect(res.modes.semantic).toBe(false);
+    expect(res.results[0].id).toBe('n1');
+  });
+
+  it('degrades (does not reject) when the embedder throws', async () => {
+    const cwd = fixture([{ id: 'n1', name: 'vector', description: 'x' }]);
+    const res = await retrieve(cwd, 'vector', { embedder: async () => { throw new Error('boom'); } });
+    expect(res.modes.semantic).toBe(false);
+    expect(res.results[0].id).toBe('n1');
+  });
+});
+
 describe('buildGroundingPack', () => {
   it('formats a markdown block from ranked nodes', () => {
     const md = buildGroundingPack([

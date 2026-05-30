@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 import type { Embedder } from './embedder';
 
 interface GraphNode { id: string; name?: string; type?: string; description?: string; source_path?: string; aliases?: string[]; }
@@ -92,9 +93,52 @@ function rrf(rankings: string[][]): Array<{ id: string; score: number; modes: nu
   return Array.from(fused.entries()).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.score - a.score);
 }
 
-// Semantic ranking is added in Task 3; this seam keeps it off until then.
-async function rankSemantic(_nodes: GraphNode[], _query: string, _cwd: string, _embedder?: Embedder): Promise<string[] | null> {
-  return null;
+function cachePath(cwd: string): string { return path.join(cwd, '.planning/research/.embeddings.json'); }
+
+function loadCache(cwd: string, model: string): Map<string, number[]> {
+  try {
+    const c = JSON.parse(fs.readFileSync(cachePath(cwd), 'utf8')) as { model?: string; vectors?: Record<string, number[]> };
+    if (c.model !== model || !c.vectors) return new Map();
+    return new Map(Object.entries(c.vectors));
+  } catch { return new Map(); }
+}
+function saveCache(cwd: string, model: string, vectors: Map<string, number[]>): void {
+  try {
+    fs.mkdirSync(path.dirname(cachePath(cwd)), { recursive: true });
+    fs.writeFileSync(cachePath(cwd), JSON.stringify({ model, vectors: Object.fromEntries(vectors) }));
+  } catch { /* cache is best-effort */ }
+}
+function sha1(s: string): string { return crypto.createHash('sha1').update(s).digest('hex'); }
+function cosine(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+}
+
+/** Semantic cosine ranking using an injectable embedder; node vectors cached by content hash. */
+async function rankSemantic(nodes: GraphNode[], query: string, cwd: string, embedder?: Embedder): Promise<string[] | null> {
+  if (!embedder) return null;
+  try {
+    const model = process.env.GRD_EMBED_MODEL || 'text-embedding-3-small';
+    const cache = loadCache(cwd, model);
+    const texts = nodes.map((n) => nodeText(n));
+    const missingIdx = texts.map((t, i) => ({ t, i })).filter(({ t }) => !cache.has(sha1(t)));
+    if (missingIdx.length) {
+      const fresh = await embedder(missingIdx.map((m) => m.t));
+      if (!fresh) return null; // degrade
+      missingIdx.forEach((m, j) => cache.set(sha1(m.t), fresh[j]));
+      saveCache(cwd, model, cache);
+    }
+    const qVecArr = await embedder([query]);
+    if (!qVecArr) return null;
+    const qVec = qVecArr[0];
+    const scored = nodes.map((n, i) => ({ id: n.id, s: cosine(qVec, cache.get(sha1(texts[i])) || []) }))
+      .filter((x) => x.s > 0);
+    scored.sort((a, b) => b.s - a.s);
+    return scored.map((x) => x.id);
+  } catch {
+    return null; // any embedder/cache failure degrades to lexical+structure
+  }
 }
 
 async function retrieve(cwd: string, query: string, opts: RetrieveOpts = {}): Promise<RetrieveResult> {
