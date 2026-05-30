@@ -564,3 +564,13 @@ Quality indicators:
 - **Comparable:** Methods in the same table use consistent metrics
 
 </success_criteria>
+
+<plateau_resurvey_mode>
+When invoked by the autoresearch plateau re-survey (loop deepening), instead of (or in addition
+to) the LANDSCAPE table, emit a final block listing up to 3 NEW high-relevance sources, one per
+line — an arXiv id like `2401.12345` or an `http(s)` URL:
+
+__SOURCES__
+2401.12345
+https://example.com/paper
+</plateau_resurvey_mode>

@@ -46,6 +46,7 @@ function createThread(cwd: string, question: string, opts: CreateOpts): Research
     status: 'active',
     iteration: 1,
     maxIterations: opts.maxIterations ?? 5,
+    baseMaxIterations: opts.maxIterations ?? 5,
     gates: opts.gates ?? defaultGates(),
     budgetUsed: 0,
     modelProfile: opts.modelProfile ?? 'balanced',
@@ -77,6 +78,7 @@ function renderThreadLog(t: ResearchThread): string {
     ...(t.seededFrom
       ? [`- **seeded from:** synthesis "${t.seededFrom.synthesisTopicId}" (${t.seededFrom.sourceNodeIds.length} source nodes)`]
       : []),
+    ...(t.resurveyCount ? [`- **re-surveys:** ${t.resurveyCount}`] : []),
     `- **created:** ${t.createdAt}`,
     '',
   ].join('\n');

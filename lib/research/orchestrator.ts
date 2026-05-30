@@ -15,7 +15,7 @@ const { createThread, loadThread, saveThread, threadDir } = require('./thread');
 const { resolveGates, checkGate } = require('./gates');
 const { readLedger, appendHypothesis, updateHypothesisStatus, nextHypothesisId } = require('./ledger');
 const { appendTakeaway, readTakeaways } = require('./takeaways');
-const { evaluateVerdict, decideBranch, shouldTerminate } = require('./verdict');
+const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } = require('./verdict');
 const { buildFinding, writeFinding, findingPath } = require('./finding');
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
@@ -26,6 +26,8 @@ const { retrieve, buildGroundingPack } = require('./retrieve') as {
   buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
 };
 const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
+const { ingest } = require('./ingest') as { ingest: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }> };
+const { fetchSource } = require('./fetch') as { fetchSource: (cwd: string, input: string, opts?: Record<string, unknown>) => Promise<{ filePath: string }> };
 
 export type SpawnFn = (prompt: string, agentType: string) => Promise<string>;
 
@@ -37,6 +39,7 @@ export interface ResearchOptions {
   spawn?: SpawnFn;
   runner?: Runner;
   retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
+  resurveyFetch?: (cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }) => Promise<void>;
 }
 
 export interface ResearchResult {
@@ -81,6 +84,39 @@ function readResearchGatesConfig(
   }
 }
 
+/** Read the raw top-level plateau re-survey config keys (loadConfig drops unknown keys). */
+function readResurveyConfig(cwd: string): { cap: number; window: number; fetch: boolean } {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_max_resurveys?: unknown; research_plateau_window?: unknown; research_resurvey_fetch?: unknown;
+    };
+    const capN = Number(raw.research_max_resurveys);
+    const winN = Number(raw.research_plateau_window);
+    return {
+      // cap: clamp a present value to >= 0 (0 = disabled); absent/non-numeric → default 2.
+      cap: raw.research_max_resurveys !== undefined && Number.isFinite(capN) ? Math.max(0, Math.trunc(capN)) : 2,
+      // window: must be >= 1; a present-but-invalid value (0/negative) → default 3.
+      window: Number.isFinite(winN) && winN > 0 ? Math.trunc(winN) : 3,
+      fetch: raw.research_resurvey_fetch === true,
+    };
+  } catch {
+    return { cap: 2, window: 3, fetch: false };
+  }
+}
+
+/** Plateau fetch path: spawn grd-surveyor for new sources, ingest up to 3. Fully tolerant. */
+async function defaultResurveyFetch(cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }): Promise<void> {
+  try {
+    const out = await deps.spawn(`You are grd-surveyor. Find up to 3 NEW sources (arXiv ids or http(s) URLs) most relevant to: "${thread.question}". Emit exactly one final block:\n__SOURCES__\n<one arxiv id or url per line>`, 'grd-surveyor');
+    const idx = out.indexOf('__SOURCES__');
+    if (idx === -1) return;
+    const sources = out.slice(idx + '__SOURCES__'.length).split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 3);
+    for (const src of sources) {
+      try { const f = await fetchSource(cwd, src); await ingest(cwd, f.filePath); } catch { /* skip this source */ }
+    }
+  } catch { /* surveyor unavailable → degrade */ }
+}
+
 function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: string): SpawnFn {
   const scheduler = createScheduler(
     (config as { scheduler?: unknown }).scheduler,
@@ -122,7 +158,7 @@ async function runLoop(
 ): Promise<ResearchResult> {
   const runner: Runner = opts.runner || createSubprocessRunner({ timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
-  const retrieveFn = opts.retrieve || ((c: string, q: string) => retrieve(c, q, { embedder: defaultEmbedder() }));
+  const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -154,9 +190,17 @@ async function runLoop(
         const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
         thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
         const priorTakeaways = readTakeaways(cwd, thread.id);
+        const pivot = thread.pendingPivot === true;
+        if (pivot) { thread.pendingPivot = false; saveThread(cwd, thread); }
+        const groundQuery = pivot
+          ? [thread.question, ...priorTakeaways.map((t: Takeaway) => t.content)].join(' ')
+          : thread.question;
         let pack = '';
-        try { const r = await retrieveFn(cwd, thread.question); pack = buildGroundingPack(r.results, thread.question); } catch { /* degrade */ }
-        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack), 'grd-hypothesizer');
+        try {
+          const r = await retrieveFn(cwd, groundQuery, pivot ? { k: 16 } : undefined);
+          pack = buildGroundingPack(r.results, thread.question);
+        } catch { /* degrade */ }
+        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot), 'grd-hypothesizer');
         const parsed = parseHypothesisOutput(hOut);
         if (!parsed) return errExit(cwd, thread);
         hyp = {
@@ -210,6 +254,21 @@ async function runLoop(
       iteration: thread.iteration,
     };
     appendTakeaway(cwd, thread.id, takeaway);
+
+    // RE-SURVEY on plateau: broaden + pivot the next hypothesis instead of drifting to exhausted.
+    const { cap, window, fetch: resurveyFetchOn } = readResurveyConfig(cwd);
+    const completed = readLedger(cwd, thread.id).filter((h: Hypothesis) => h.verdict !== null).map((h: Hypothesis) => h.verdict as Verdict);
+    if (outcome.verdict !== 'supported' && (thread.resurveyCount ?? 0) < cap && detectPlateau(completed, window)) {
+      thread.resurveyCount = (thread.resurveyCount ?? 0) + 1;
+      thread.pendingPivot = true;
+      thread.maxIterations += window;
+      incrementCounter('research.resurveys_total');
+      saveThread(cwd, thread);
+      if (resurveyFetchOn) {
+        const fetchFn = opts.resurveyFetch || defaultResurveyFetch;
+        try { await fetchFn(cwd, thread, { spawn }); } catch { /* degrade */ }
+      }
+    }
 
     // DECIDE + terminate
     const term = shouldTerminate(thread, outcome.verdict);
@@ -277,5 +336,5 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
 
 module.exports = {
   runResearch, resumeResearch, defaultSpawn, verdictToStatus,
-  decodeSpawnStdout, readResearchGatesConfig,
+  decodeSpawnStdout, readResearchGatesConfig, readResurveyConfig,
 };

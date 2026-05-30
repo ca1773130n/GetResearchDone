@@ -29,6 +29,9 @@ export interface ResearchThread {
   pendingGate: 'execute' | 'kg_write' | null;
   createdAt: string;
   seededFrom?: { synthesisTopicId: string; sourceNodeIds: string[]; seedKey: string };
+  resurveyCount?: number;
+  pendingPivot?: boolean;
+  baseMaxIterations?: number;
 }
 
 export interface Hypothesis {

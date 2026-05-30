@@ -7,6 +7,7 @@ function buildHypothesizePrompt(
   priorVerdict: Verdict | null,
   priorTakeaways: Pick<Takeaway, 'iteration' | 'kind' | 'content' | 'failureClass'>[] = [],
   pack = '',
+  pivot = false,
 ): string {
   const history = priorHyps.length
     ? priorHyps.map((h) => `- ${h.id} [${h.verdict ?? 'open'}]: ${h.statement}`).join('\n')
@@ -30,6 +31,7 @@ function buildHypothesizePrompt(
     'Takeaways learned so far (use these to steer the next hypothesis):',
     learned,
     priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose a DIFFERENT, more promising hypothesis informed by the takeaways above.` : '',
+    pivot ? '\nPLATEAU: your last several hypotheses all failed to be supported. PIVOT HARD — propose a substantially different approach or angle, not a variation of prior attempts.' : '',
     '',
     'Emit exactly one final block (no prose after it):',
     '__HYPOTHESIS__',
