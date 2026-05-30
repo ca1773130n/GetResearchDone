@@ -294,7 +294,7 @@ function rrf(rankings: string[][]): Array<{ id: string; score: number; modes: nu
   rankings.forEach((rk, mi) => {
     rk.forEach((id, rank) => {
       const cur = fused.get(id) || { score: 0, modes: [] };
-      cur.score += 1 / (RRF_K + rank);
+      cur.score += 1 / (RRF_K + rank + 1); // 1-based rank (standard RRF)
       cur.modes.push(mi);
       fused.set(id, cur);
     });
@@ -319,34 +319,36 @@ async function retrieve(cwd: string, query: string, opts: RetrieveOpts = {}): Pr
 
   const lexical = rankLexical(graph.nodes, query);
   const semantic = await rankSemantic(graph.nodes, query, cwd, opts.embedder);
-  const MODE_NAMES = ['lexical', 'semantic', 'structure'];
 
-  const prelimRankings = [lexical, semantic].filter(Boolean) as string[][];
+  const prelimRankings = [lexical, semantic].filter((r) => r && r.length) as string[][];
   const seeds = rrf(prelimRankings).slice(0, seedCount).map((x) => x.id);
   const adj = buildAdjacency(graph.edges);
   const structure = rankStructure(seeds, adj, hops);
 
-  const orderedModes = [lexical, semantic, structure];
-  const fused = rrf(orderedModes.filter(Boolean) as string[][]);
-  // Map the filtered mode index back to a stable mode name.
-  const presentModeNames: string[] = [];
-  if (lexical) presentModeNames.push('lexical');
-  if (semantic) presentModeNames.push('semantic');
-  if (structure) presentModeNames.push('structure');
+  // Only non-empty rankings participate in fusion AND in the mode names (so detail/modes agree).
+  const present: Array<{ name: string; ranking: string[] }> = [];
+  if (lexical.length) present.push({ name: 'lexical', ranking: lexical });
+  if (semantic && semantic.length) present.push({ name: 'semantic', ranking: semantic });
+  if (structure.length) present.push({ name: 'structure', ranking: structure });
+  const presentModeNames = present.map((p) => p.name);
+  const fused = rrf(present.map((p) => p.ranking));
 
-  const results: RankedNode[] = fused.slice(0, k).map((f) => {
-    const n = byId.get(f.id) as GraphNode;
-    return {
-      id: f.id, name: n.name || f.id, description: n.description || '',
-      source_path: n.source_path || '', score: Number(f.score.toFixed(6)),
-      modes: f.modes.map((mi) => presentModeNames[mi]).filter(Boolean),
-    };
-  });
+  const results: RankedNode[] = fused
+    .filter((f) => byId.has(f.id)) // a structure id may reference a node missing from `nodes`
+    .slice(0, k)
+    .map((f) => {
+      const n = byId.get(f.id) as GraphNode;
+      return {
+        id: f.id, name: n.name || f.id, description: n.description || '',
+        source_path: n.source_path || '', score: Number(f.score.toFixed(6)),
+        modes: f.modes.map((mi) => presentModeNames[mi]).filter(Boolean),
+      };
+    });
 
   return {
     results,
-    modes: { lexical: lexical.length > 0, semantic: semantic !== null, structure: structure.length > 0 },
-    detail: `${results.length} result(s) [${presentModeNames.join('+')}]`,
+    modes: { lexical: lexical.length > 0, semantic: !!(semantic && semantic.length), structure: structure.length > 0 },
+    detail: `${results.length} result(s) [${presentModeNames.join('+') || 'none'}]`,
   };
 }
 
@@ -421,6 +423,13 @@ describe('retrieve — semantic', () => {
     expect(res.modes.semantic).toBe(false);
     expect(res.results[0].id).toBe('n1');
   });
+
+  it('degrades (does not reject) when the embedder throws', async () => {
+    const cwd = fixture([{ id: 'n1', name: 'vector', description: 'x' }]);
+    const res = await retrieve(cwd, 'vector', { embedder: async () => { throw new Error('boom'); } });
+    expect(res.modes.semantic).toBe(false);
+    expect(res.results[0].id).toBe('n1');
+  });
 });
 ```
 
@@ -461,23 +470,27 @@ Replace the placeholder `rankSemantic` with the real implementation:
 ```ts
 async function rankSemantic(nodes: GraphNode[], query: string, cwd: string, embedder?: Embedder): Promise<string[] | null> {
   if (!embedder) return null;
-  const model = process.env.GRD_EMBED_MODEL || 'text-embedding-3-small';
-  const cache = loadCache(cwd, model);
-  const texts = nodes.map((n) => nodeText(n));
-  const missingIdx = texts.map((t, i) => ({ t, i })).filter(({ t }) => !cache.has(sha1(t)));
-  if (missingIdx.length) {
-    const fresh = await embedder(missingIdx.map((m) => m.t));
-    if (!fresh) return null; // degrade
-    missingIdx.forEach((m, j) => cache.set(sha1(m.t), fresh[j]));
-    saveCache(cwd, model, cache);
+  try {
+    const model = process.env.GRD_EMBED_MODEL || 'text-embedding-3-small';
+    const cache = loadCache(cwd, model);
+    const texts = nodes.map((n) => nodeText(n));
+    const missingIdx = texts.map((t, i) => ({ t, i })).filter(({ t }) => !cache.has(sha1(t)));
+    if (missingIdx.length) {
+      const fresh = await embedder(missingIdx.map((m) => m.t));
+      if (!fresh) return null; // degrade
+      missingIdx.forEach((m, j) => cache.set(sha1(m.t), fresh[j]));
+      saveCache(cwd, model, cache);
+    }
+    const qVecArr = await embedder([query]);
+    if (!qVecArr) return null;
+    const qVec = qVecArr[0];
+    const scored = nodes.map((n, i) => ({ id: n.id, s: cosine(qVec, cache.get(sha1(texts[i])) || []) }))
+      .filter((x) => x.s > 0);
+    scored.sort((a, b) => b.s - a.s);
+    return scored.map((x) => x.id);
+  } catch {
+    return null; // any embedder/cache failure degrades to lexical+structure
   }
-  const qVecArr = await embedder([query]);
-  if (!qVecArr) return null;
-  const qVec = qVecArr[0];
-  const scored = nodes.map((n, i) => ({ id: n.id, s: cosine(qVec, cache.get(sha1(texts[i])) || []) }))
-    .filter((x) => x.s > 0);
-  scored.sort((a, b) => b.s - a.s);
-  return scored.map((x) => x.id);
 }
 ```
 
