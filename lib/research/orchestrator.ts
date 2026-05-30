@@ -81,6 +81,26 @@ function readResearchGatesConfig(
   }
 }
 
+/** Read the raw top-level plateau re-survey config keys (loadConfig drops unknown keys). */
+function readResurveyConfig(cwd: string): { cap: number; window: number; fetch: boolean } {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_max_resurveys?: unknown; research_plateau_window?: unknown; research_resurvey_fetch?: unknown;
+    };
+    const capN = Number(raw.research_max_resurveys);
+    const winN = Number(raw.research_plateau_window);
+    return {
+      // cap: clamp a present value to >= 0 (0 = disabled); absent/non-numeric → default 2.
+      cap: raw.research_max_resurveys !== undefined && Number.isFinite(capN) ? Math.max(0, Math.trunc(capN)) : 2,
+      // window: must be >= 1; a present-but-invalid value (0/negative) → default 3.
+      window: Number.isFinite(winN) && winN > 0 ? Math.trunc(winN) : 3,
+      fetch: raw.research_resurvey_fetch === true,
+    };
+  } catch {
+    return { cap: 2, window: 3, fetch: false };
+  }
+}
+
 function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: string): SpawnFn {
   const scheduler = createScheduler(
     (config as { scheduler?: unknown }).scheduler,
@@ -277,5 +297,5 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
 
 module.exports = {
   runResearch, resumeResearch, defaultSpawn, verdictToStatus,
-  decodeSpawnStdout, readResearchGatesConfig,
+  decodeSpawnStdout, readResearchGatesConfig, readResurveyConfig,
 };

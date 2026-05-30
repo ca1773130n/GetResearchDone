@@ -190,6 +190,18 @@ describe('orchestrator', () => {
     expect(['supported', 'exhausted']).toContain(res.status);
   });
 
+  it('readResurveyConfig: defaults + parsed values + validation', () => {
+    const { readResurveyConfig } = require('../../../lib/research/orchestrator');
+    const cwd = tmp();
+    expect(readResurveyConfig(cwd)).toEqual({ cap: 2, window: 3, fetch: false });
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'),
+      JSON.stringify({ research_max_resurveys: 1, research_plateau_window: 4, research_resurvey_fetch: true }));
+    expect(readResurveyConfig(cwd)).toEqual({ cap: 1, window: 4, fetch: true });
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'),
+      JSON.stringify({ research_max_resurveys: -5, research_plateau_window: 0 }));
+    expect(readResurveyConfig(cwd)).toEqual({ cap: 0, window: 3, fetch: false }); // sanitized
+  });
+
   it('injects a hybrid grounding pack into the hypothesizer prompt', async () => {
     const cwd = tmp();
     let hypoPrompt = '';
