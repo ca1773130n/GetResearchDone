@@ -31,6 +31,8 @@ grd-local-patches/
 .planning/research/corpus/
 # Transient fetch staging temp files (the final .planning/fetched/*.md are committed)
 .planning/fetched/.*.tmp
+# Hybrid-retrieval embedding cache (build artifact; can grow large)
+.planning/research/.embeddings.json
 
 # Build/coverage artifacts
 coverage/

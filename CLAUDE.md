@@ -280,6 +280,18 @@ dynamic ESM import in `lib/research/pdf.ts`) and a **Claude Code / Codex session
 normalize to a staging `.md` and run through the same pipeline. arXiv ids/URLs without `--pdf`
 stay metadata-only. Suffix-based `.pdf`/`.jsonl` detection runs before the existing-path check.
 
+### Hybrid retrieval (SP2-D)
+
+`gd retrieve "<query>"` runs a deterministic hybrid retriever over the compiled `graph.json`:
+lexical (BM25-lite) + graph-structure (PPR-lite over edges) + optional semantic (cosine over
+embeddings), fused via Reciprocal Rank Fusion. The orchestrator (cold HYPOTHESIZE) and
+`gd synthesize` inject the top-K as a grounding pack into the agent prompt — augmenting, not
+replacing, the agent's Tesserae MCP grounding. Retrieval degrades gracefully (missing graph,
+no embedder → it never blocks the loop). Semantic mode is **opt-in**: it embeds via an
+OpenAI-compatible endpoint only when `GRD_EMBED_API_KEY` (or `OPENAI_API_KEY`) is set
+(`GRD_EMBED_MODEL`/`GRD_EMBED_URL` optional) — otherwise zero network egress. Node vectors are
+cached in `.planning/research/.embeddings.json` (gitignored) by content hash.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
