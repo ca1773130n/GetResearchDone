@@ -45,13 +45,14 @@ export interface FetchResponse {
   status: number;
   headers: { get(name: string): string | null };
   text(): Promise<string>;
+  arrayBuffer?(): Promise<ArrayBuffer>;
 }
 export type Fetcher = (url: string, init: { redirect: 'manual'; signal: AbortSignal }) => Promise<FetchResponse>;
 
 interface HttpOpts { fetcher?: Fetcher; maxBytes?: number; timeoutMs?: number; maxRedirects?: number; }
 
-/** GET a URL with manual redirect handling; every hop passes the SSRF guard. */
-async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string; finalUrl: string; etag: string | null }> {
+/** Resolve a URL through manual redirects (each hop SSRF-guarded) to a 2xx response. */
+async function httpResolve(url: string, opts: HttpOpts = {}): Promise<{ resp: FetchResponse; finalUrl: string; maxBytes: number }> {
   const fetcher: Fetcher = opts.fetcher || ((globalThis as { fetch?: Fetcher }).fetch as Fetcher);
   const maxBytes = opts.maxBytes ?? 5_000_000;
   const timeoutMs = opts.timeoutMs ?? 30_000;
@@ -78,11 +79,26 @@ async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string
     if (resp.status < 200 || resp.status >= 300) throw new Error(`HTTP ${resp.status}`);
     const cl = resp.headers.get('content-length');
     if (cl && Number(cl) > maxBytes) throw new Error(`response too large (${cl} bytes > ${maxBytes})`);
-    const body = await resp.text();
-    if (body.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
-    return { body, finalUrl: current, etag: resp.headers.get('etag') };
+    return { resp, finalUrl: current, maxBytes };
   }
   throw new Error(`too many redirects (> ${maxRedirects})`);
+}
+
+/** GET text (≤5 MB default); manual redirect, every hop SSRF-guarded. */
+async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string; finalUrl: string; etag: string | null }> {
+  const { resp, finalUrl, maxBytes } = await httpResolve(url, opts);
+  const body = await resp.text();
+  if (body.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
+  return { body, finalUrl, etag: resp.headers.get('etag') };
+}
+
+/** GET binary bytes (≤25 MB default — for PDFs); manual redirect, every hop SSRF-guarded. */
+async function httpGetBytes(url: string, opts: HttpOpts = {}): Promise<{ bytes: Buffer; finalUrl: string; etag: string | null }> {
+  const { resp, finalUrl, maxBytes } = await httpResolve(url, { maxBytes: 25_000_000, ...opts });
+  if (!resp.arrayBuffer) throw new Error('response has no binary body');
+  const bytes = Buffer.from(await resp.arrayBuffer());
+  if (bytes.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
+  return { bytes, finalUrl, etag: resp.headers.get('etag') };
 }
 
 function fetchedDir(cwd: string): string { return path.join(cwd, '.planning/fetched'); }
@@ -197,4 +213,4 @@ async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {
   return { filePath, slug, kind: d.kind };
 }
 
-module.exports = { detectSource, slugFor, httpGet, arxivAtomToMarkdown, fetchSource };
+module.exports = { detectSource, slugFor, httpGet, httpGetBytes, arxivAtomToMarkdown, fetchSource };

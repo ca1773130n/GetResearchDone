@@ -156,6 +156,33 @@ describe('fetchSource — web', () => {
   });
 });
 
+describe('httpGetBytes', () => {
+  const { httpGetBytes } = require('../../../lib/research/fetch');
+  const resp = (status: number, body: string, headers: Record<string, string> = {}) => ({
+    status,
+    headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    arrayBuffer: async () => new TextEncoder().encode(body).buffer,
+    text: async () => body,
+  });
+
+  it('returns a Buffer of the body on 200', async () => {
+    const fetcher = async () => resp(200, 'PDFBYTES');
+    const r = await httpGetBytes('https://example.com/x.pdf', { fetcher });
+    expect(Buffer.isBuffer(r.bytes)).toBe(true);
+    expect(r.bytes.toString()).toBe('PDFBYTES');
+  });
+
+  it('re-validates a redirect target (blocks metadata host)', async () => {
+    const fetcher = async () => resp(302, '', { location: 'http://169.254.169.254/' });
+    await expect(httpGetBytes('https://example.com/a.pdf', { fetcher })).rejects.toThrow(/private|loopback|link-local/i);
+  });
+
+  it('enforces the byte size cap', async () => {
+    const fetcher = async () => resp(200, 'x'.repeat(50));
+    await expect(httpGetBytes('https://example.com/x.pdf', { fetcher, maxBytes: 10 })).rejects.toThrow(/too large|size/i);
+  });
+});
+
 describe('slugFor', () => {
   it('arxiv slug is stable and id-based', () => {
     expect(slugFor({ kind: 'arxiv', ref: '2401.12345v2' })).toBe('arxiv-2401.12345v2');
