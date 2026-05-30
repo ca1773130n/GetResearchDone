@@ -1,7 +1,7 @@
 # Paper-Draft Generation (Design)
 
 - **Date:** 2026-05-30
-- **Status:** Brainstormed; ready for plan.
+- **Status:** Codex-reviewed (no P1; 3 P2 folded in); ready for plan.
 - **Depends on:** SP1 + SP2 (all slices) + sub-project-#3 slice 1 (plateau re-survey) — all merged.
 - **Sub-project #3 (Loop deepening), slice 2 of 3** (slice 3 = multi-thread research).
 
@@ -29,7 +29,7 @@ prose, and the result is written to `PAPER.md`.
 | **`paper.ts`** (new) | new | `gatherPaperBundle(cwd, id, {retrieve?})` → `PaperBundle`; `buildPaperPrompt(bundle)` → agent prompt with a `__PAPER__` contract; `generatePaper(cwd, id, {spawn, retrieve?})` → gather → spawn → parse → atomic-write `PAPER.md`. |
 | **`agents/grd-paper-writer.md`** (new) | new | Reads the bundle embedded in the prompt; emits `__PAPER__\n<markdown>` (Title/Abstract, Introduction, Related Work, Method, Results, Discussion, Limitations, Future Work). `tools: Read, Grep, Glob` (no Write/Bash). |
 | `lib/research/cli.ts` | extend | `cmdResearchReport(cwd, id, raw, deps?)` — validate thread exists + terminal, call `generatePaper`, print the `PAPER.md` path. |
-| `bin/grd-tools.ts` + `lib/cli/index.ts` | extend | register `gd research report <id>` as a research tool-subcommand (alongside `start`/`resume`/`status`). |
+| `bin/grd-tools.ts` + `lib/cli/index.ts` + `lib/research/index.ts` | extend | register `gd research report <id>` — **four exact changes** (Codex P2c): (a) add `'report'` to `RESEARCH_TOOL_SUBS` in `lib/cli/index.ts`; (b) destructure+type `cmdResearchReport` in the `case 'research'` block of `bin/grd-tools.ts`; (c) add an `if (sub === 'report') { await cmdResearchReport(cwd, args[2], raw); return; }` branch **before** the default "treat remaining args as the question" path (else `report <id>` becomes a new research question); (d) export `cmdResearchReport` from `lib/research/index.ts`. |
 
 ### `PaperBundle` shape
 ```ts
@@ -38,10 +38,20 @@ interface PaperBundle {
   supported: Hypothesis | null;
   ledger: Hypothesis[];
   takeaways: Takeaway[];
-  experiments: Array<{ iter: number; plan: ExperimentPlan | null; metrics: Record<string, number> }>;
+  experiments: Array<{
+    iter: number;
+    plan: Partial<ExperimentPlan> | null; // plan.json may be a partial plan (e.g. no predictedOutcome) — Codex P2
+    metrics: Record<string, number>;
+    verdict: Verdict | null;              // pulled from the ledger by iteration (captures failed-run verdicts) — Codex P2
+  }>;
   relatedWork: Array<{ name: string; description: string; source_path: string }>;
 }
 ```
+**Per-iteration verdict (Codex P2):** the results table's verdict comes from the ledger
+(`ledger.find(h => h.iteration === iter)?.verdict ?? null`), not re-derived from `plan`+`metrics`
+— this preserves verdicts for failed/inconclusive runs (`exitCode`/`failureClass`) that
+`evaluateVerdict` produced at run time. `plan.json` is read as a **partial** plan and rendered
+defensively (any missing field → omitted/`—`).
 
 ## Data flow (`generatePaper`)
 
@@ -67,6 +77,11 @@ results beyond the bundle." Output: `__PAPER__` then the markdown. **Honesty rul
 `exhausted` thread's paper frames the outcome as negative/inconclusive, not a fabricated success.
 
 ## Error handling
+
+Terminal set = `{supported, exhausted, abandoned}` — the same set `resumeResearch` already uses
+(there is no centralized constant; Codex P3). To avoid drift, `cli.ts` defines the set once
+locally with a comment pointing at `resumeResearch`. `error` and `active`/`paused` are non-terminal
+→ report refused.
 
 Thread missing / not terminal → deterministic `report: <reason>` exit-1. `retrieve` failure →
 Related Work omitted (degrade). `spawn` failure or no `__PAPER__` → error. Writes are atomic, so
