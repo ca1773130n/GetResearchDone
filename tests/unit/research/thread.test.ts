@@ -53,4 +53,17 @@ describe('research thread', () => {
     expect(t2.iteration).toBe(1);
     expect(loadThread(cwd, t1.id).status).toBe('supported'); // prior run preserved, not clobbered
   });
+
+  it('round-trips resurveyCount / pendingPivot / baseMaxIterations and shows re-surveys in THREAD.md', () => {
+    const cwd = tmp();
+    const t = createThread(cwd, 'Q', { maxIterations: 5 });
+    expect(t.baseMaxIterations).toBe(5);
+    t.resurveyCount = 2; t.pendingPivot = true;
+    saveThread(cwd, t);
+    const r = loadThread(cwd, t.id);
+    expect(r.resurveyCount).toBe(2);
+    expect(r.pendingPivot).toBe(true);
+    const md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
+    expect(md).toMatch(/re-surveys:\*\*\s*2/);
+  });
 });
