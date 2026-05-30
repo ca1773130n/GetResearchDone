@@ -2281,6 +2281,13 @@ async function routeCommand(
       await cmdSynthesize(cwd, args.slice(1).filter((a) => !a.startsWith('--')).join(' '), raw);
       break;
     }
+    case 'retrieve': {
+      const { cmdRetrieve } = require('../lib/research/cli-kb') as {
+        cmdRetrieve: (cwd: string, q: string, raw: boolean) => Promise<never>;
+      };
+      await cmdRetrieve(cwd, args.slice(1).filter((a) => !a.startsWith('--')).join(' '), raw);
+      break;
+    }
     case 'wireup': {
       const sub: string = args[1];
       validateSubcommand(sub, ['run'], 'wireup');
