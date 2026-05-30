@@ -10,7 +10,8 @@ const { ingest } = require('./ingest') as {
   ingest: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }>;
 };
 const { detectSource, fetchSource } = require('./fetch') as {
-  detectSource: (cwd: string, input: string) => { kind: 'local' | 'arxiv' | 'web' | 'unknown'; ref: string };
+  detectSource: (cwd: string, input: string, opts?: { pdfBody?: boolean })
+    => { kind: 'local' | 'arxiv' | 'web' | 'pdf' | 'session' | 'unknown'; ref: string };
   fetchSource: (cwd: string, input: string, opts?: Record<string, unknown>)
     => Promise<{ filePath: string; slug: string; kind: string }>;
 };
@@ -76,19 +77,19 @@ interface IngestDeps {
     => Promise<{ filePath: string; slug: string; kind: string }>;
 }
 
-async function cmdIngest(cwd: string, inputPath: string, raw: boolean, deps: IngestDeps = {}): Promise<never> {
-  if (!inputPath) error('ingest: a local .md path, an arXiv id/URL, or an http(s) URL is required');
+async function cmdIngest(cwd: string, inputPath: string, raw: boolean, deps: IngestDeps = {}, pdfBody = false): Promise<never> {
+  if (!inputPath) error('ingest: a local .md/.pdf/.jsonl path, an arXiv id/URL, or an http(s) URL is required');
   const run = deps.ingest || ingest;
   const fetchRemote = deps.fetchSource || fetchSource;
 
-  const detected = detectSource(cwd, inputPath);
+  const detected = detectSource(cwd, inputPath, { pdfBody });
   let ingestPath = inputPath;
   if (detected.kind === 'unknown') {
-    error(`ingest: unrecognized input "${inputPath}" — expected a local .md path, an arXiv id/URL, or an http(s) URL`);
+    error(`ingest: unrecognized input "${inputPath}" — expected a local .md/.pdf/.jsonl path, an arXiv id/URL, or an http(s) URL`);
   }
   if (detected.kind !== 'local') {
     try {
-      const fetched = await fetchRemote(cwd, inputPath);
+      const fetched = await fetchRemote(cwd, inputPath, { pdfBody });
       ingestPath = fetched.filePath;
     } catch (e) {
       error(`ingest: fetch failed — ${(e as Error).message}`);

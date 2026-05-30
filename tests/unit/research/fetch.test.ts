@@ -156,6 +156,93 @@ describe('fetchSource — web', () => {
   });
 });
 
+describe('httpGetBytes', () => {
+  const { httpGetBytes } = require('../../../lib/research/fetch');
+  const resp = (status: number, body: string, headers: Record<string, string> = {}) => ({
+    status,
+    headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    arrayBuffer: async () => new TextEncoder().encode(body).buffer,
+    text: async () => body,
+  });
+
+  it('returns a Buffer of the body on 200', async () => {
+    const fetcher = async () => resp(200, 'PDFBYTES');
+    const r = await httpGetBytes('https://example.com/x.pdf', { fetcher });
+    expect(Buffer.isBuffer(r.bytes)).toBe(true);
+    expect(r.bytes.toString()).toBe('PDFBYTES');
+  });
+
+  it('re-validates a redirect target (blocks metadata host)', async () => {
+    const fetcher = async () => resp(302, '', { location: 'http://169.254.169.254/' });
+    await expect(httpGetBytes('https://example.com/a.pdf', { fetcher })).rejects.toThrow(/private|loopback|link-local/i);
+  });
+
+  it('enforces the byte size cap', async () => {
+    const fetcher = async () => resp(200, 'x'.repeat(50));
+    await expect(httpGetBytes('https://example.com/x.pdf', { fetcher, maxBytes: 10 })).rejects.toThrow(/too large|size/i);
+  });
+});
+
+describe('detectSource — pdf/session', () => {
+  const { detectSource } = require('../../../lib/research/fetch');
+  it('local .pdf suffix → pdf (even if non-existent)', () => {
+    expect(detectSource(tmp(), 'paper.pdf')).toEqual({ kind: 'pdf', ref: 'paper.pdf' });
+    expect(detectSource(tmp(), 'docs/paper.pdf').kind).toBe('pdf');
+  });
+  it('remote non-arXiv .pdf URL → pdf', () => {
+    expect(detectSource(tmp(), 'https://example.com/a/x.pdf')).toEqual({ kind: 'pdf', ref: 'https://example.com/a/x.pdf' });
+  });
+  it('local .jsonl suffix → session', () => {
+    expect(detectSource(tmp(), 'sess.jsonl')).toEqual({ kind: 'session', ref: 'sess.jsonl' });
+  });
+  it('--pdf flag on an arXiv id/URL → pdf body (ref = bare id)', () => {
+    expect(detectSource(tmp(), '2401.12345', { pdfBody: true })).toEqual({ kind: 'pdf', ref: '2401.12345' });
+    expect(detectSource(tmp(), 'https://arxiv.org/abs/2401.12345', { pdfBody: true })).toEqual({ kind: 'pdf', ref: '2401.12345' });
+  });
+  it('arXiv pdf URL WITHOUT --pdf stays metadata (slice-2 unchanged)', () => {
+    expect(detectSource(tmp(), 'https://arxiv.org/pdf/2401.12345')).toEqual({ kind: 'arxiv', ref: '2401.12345' });
+  });
+});
+
+describe('fetchSource — pdf/session', () => {
+  const { fetchSource } = require('../../../lib/research/fetch');
+
+  it('local pdf → markdown via injected pdfToMarkdown, staged + sidecar', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 'p.pdf'), 'binarybytes');
+    const r = await fetchSource(cwd, 'p.pdf', { pdfToMarkdown: async () => 'Extracted body' });
+    expect(r.kind).toBe('pdf');
+    const md = fs.readFileSync(r.filePath, 'utf8');
+    expect(md).toContain('Extracted body');
+    expect(md).toMatch(/_Source: p\.pdf_/);
+  });
+
+  it('arXiv pdf body (--pdf) fetches arxiv.org/pdf/<id> as bytes', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    let fetchedUrl = '';
+    const fetcher = async (url: string) => { fetchedUrl = url; return { status: 200, headers: { get: () => null }, arrayBuffer: async () => new TextEncoder().encode('PDF').buffer, text: async () => 'PDF' }; };
+    const r = await fetchSource(cwd, '2401.12345', { pdfBody: true, fetcher, pdfToMarkdown: async () => 'Body text' });
+    expect(fetchedUrl).toBe('https://arxiv.org/pdf/2401.12345');
+    expect(r.slug).toBe('arxiv-pdf-2401.12345');
+    expect(fs.readFileSync(r.filePath, 'utf8')).toContain('Body text');
+  });
+
+  it('session jsonl → markdown, staged', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 's.jsonl'), JSON.stringify({ role: 'user', content: 'hi' }));
+    const r = await fetchSource(cwd, 's.jsonl', {});
+    expect(r.kind).toBe('session');
+    expect(r.slug).toMatch(/^session-s-[0-9a-f]{8}$/);
+    expect(fs.readFileSync(r.filePath, 'utf8')).toContain('## user');
+  });
+
+  it('pdf extraction empty → error', async () => {
+    const cwd = tmp(); fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 'p.pdf'), 'x');
+    await expect(fetchSource(cwd, 'p.pdf', { pdfToMarkdown: async () => '   ' })).rejects.toThrow(/empty/i);
+  });
+});
+
 describe('slugFor', () => {
   it('arxiv slug is stable and id-based', () => {
     expect(slugFor({ kind: 'arxiv', ref: '2401.12345v2' })).toBe('arxiv-2401.12345v2');

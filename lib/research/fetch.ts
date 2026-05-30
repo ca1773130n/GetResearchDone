@@ -3,32 +3,65 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { assertFetchableUrl } = require('./url-guard') as { assertFetchableUrl: (u: string) => URL };
+const { pdfToMarkdown: defaultPdfToMarkdown } = require('./pdf') as {
+  pdfToMarkdown: (bytes: Uint8Array, opts?: Record<string, unknown>) => Promise<string>;
+};
+const { sessionJsonlToMarkdown } = require('./session') as {
+  sessionJsonlToMarkdown: (text: string) => string;
+};
 
-export type SourceKind = 'local' | 'arxiv' | 'web' | 'unknown';
+export type SourceKind = 'local' | 'arxiv' | 'web' | 'pdf' | 'session' | 'unknown';
 export interface DetectedSource { kind: SourceKind; ref: string; }
 
 const ARXIV_BARE = /^\d{4}\.\d{4,5}(v\d+)?$/;
 
-/** Classify an ingest argument. Existing local path wins; then arXiv; then http(s) URL. */
-function detectSource(cwd: string, input: string): DetectedSource {
-  const s = input.trim();
-  if (fs.existsSync(path.resolve(cwd, s))) return { kind: 'local', ref: s };
-  if (/^arxiv:/i.test(s)) {
-    const id = s.replace(/^arxiv:/i, '');
-    if (ARXIV_BARE.test(id)) return { kind: 'arxiv', ref: id };
-  }
-  if (ARXIV_BARE.test(s)) return { kind: 'arxiv', ref: s };
+/** Extract a bare arXiv id from an `arxiv:`/bare/`arxiv.org/abs|pdf` form, else null. */
+function arxivIdFrom(s: string): string | null {
+  if (/^arxiv:/i.test(s)) { const id = s.replace(/^arxiv:/i, ''); return ARXIV_BARE.test(id) ? id : null; }
+  if (ARXIV_BARE.test(s)) return s;
   if (/^https?:\/\//i.test(s)) {
-    let host: string;
-    try { host = new URL(s).hostname.toLowerCase(); } catch { return { kind: 'unknown', ref: s }; }
-    if (host === 'arxiv.org' || host.endsWith('.arxiv.org')) {
-      const m = s.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/i);
-      if (m) return { kind: 'arxiv', ref: m[1] };
-    }
+    try {
+      const u = new URL(s);
+      if (u.hostname === 'arxiv.org' || u.hostname.endsWith('.arxiv.org')) {
+        const m = s.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/i);
+        return m ? m[1] : null;
+      }
+    } catch { return null; }
+  }
+  return null;
+}
+
+/**
+ * Classify an ingest argument. Suffix-based pdf/session checks run BEFORE the existing-local-path
+ * check (an existing .pdf would otherwise be 'local' and ingest() — which only collects .md —
+ * would silently ignore it). `pdfBody` (the --pdf flag) forces arXiv inputs to the PDF body path.
+ */
+function detectSource(cwd: string, input: string, opts: { pdfBody?: boolean } = {}): DetectedSource {
+  const s = input.trim();
+  const isUrl = /^https?:\/\//i.test(s);
+  const arxiv = arxivIdFrom(s);
+  // 1. --pdf on an arXiv id/URL → pdf body
+  if (opts.pdfBody && arxiv) return { kind: 'pdf', ref: arxiv };
+  // 2. local .pdf suffix
+  if (!isUrl && /\.pdf$/i.test(s)) return { kind: 'pdf', ref: s };
+  // 3. remote non-arXiv .pdf URL
+  if (isUrl && !arxiv) {
+    let u: URL;
+    try { u = new URL(s); } catch { return { kind: 'unknown', ref: s }; }
+    if (/\.pdf$/i.test(u.pathname)) return { kind: 'pdf', ref: s };
+  }
+  // 4. local .jsonl suffix
+  if (!isUrl && /\.jsonl$/i.test(s)) return { kind: 'session', ref: s };
+  // 5. existing local path (.md files, directories)
+  if (fs.existsSync(path.resolve(cwd, s))) return { kind: 'local', ref: s };
+  // 6. arXiv metadata (no --pdf)
+  if (arxiv) return { kind: 'arxiv', ref: arxiv };
+  // 7. other http(s) URL → web
+  if (isUrl) {
+    try { new URL(s); } catch { return { kind: 'unknown', ref: s }; }
     return { kind: 'web', ref: s };
   }
-  // Path-like input that doesn't exist yet (e.g. a typo'd .md or a directory): treat as local
-  // so ingest() reports a clear file-not-found error rather than "unrecognized".
+  // 8. path-like local (typo'd .md / directory): let ingest() report a clear not-found error
   if (/\.md$/i.test(s) || s.includes('/') || s.includes('\\')) return { kind: 'local', ref: s };
   return { kind: 'unknown', ref: s };
 }
@@ -36,6 +69,17 @@ function detectSource(cwd: string, input: string): DetectedSource {
 /** Deterministic, collision-resistant staging slug for a detected source. */
 function slugFor(d: DetectedSource): string {
   if (d.kind === 'arxiv') return `arxiv-${d.ref.replace(/[^\w.]/g, '')}`;
+  if (d.kind === 'pdf') {
+    if (ARXIV_BARE.test(d.ref)) return `arxiv-pdf-${d.ref.replace(/[^\w.]/g, '')}`;
+    const base = path.basename(d.ref.split('?')[0]).replace(/\.pdf$/i, '')
+      .replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'doc';
+    return `pdf-${base}-${crypto.createHash('sha1').update(d.ref).digest('hex').slice(0, 8)}`;
+  }
+  if (d.kind === 'session') {
+    const base = path.basename(d.ref).replace(/\.jsonl$/i, '')
+      .replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'session';
+    return `session-${base}-${crypto.createHash('sha1').update(d.ref).digest('hex').slice(0, 8)}`;
+  }
   const host = new URL(d.ref).hostname.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40);
   const h = crypto.createHash('sha1').update(d.ref).digest('hex').slice(0, 8);
   return `web-${host}-${h}`;
@@ -45,13 +89,14 @@ export interface FetchResponse {
   status: number;
   headers: { get(name: string): string | null };
   text(): Promise<string>;
+  arrayBuffer?(): Promise<ArrayBuffer>;
 }
 export type Fetcher = (url: string, init: { redirect: 'manual'; signal: AbortSignal }) => Promise<FetchResponse>;
 
 interface HttpOpts { fetcher?: Fetcher; maxBytes?: number; timeoutMs?: number; maxRedirects?: number; }
 
-/** GET a URL with manual redirect handling; every hop passes the SSRF guard. */
-async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string; finalUrl: string; etag: string | null }> {
+/** Resolve a URL through manual redirects (each hop SSRF-guarded) to a 2xx response. */
+async function httpResolve(url: string, opts: HttpOpts = {}): Promise<{ resp: FetchResponse; finalUrl: string; maxBytes: number }> {
   const fetcher: Fetcher = opts.fetcher || ((globalThis as { fetch?: Fetcher }).fetch as Fetcher);
   const maxBytes = opts.maxBytes ?? 5_000_000;
   const timeoutMs = opts.timeoutMs ?? 30_000;
@@ -78,11 +123,26 @@ async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string
     if (resp.status < 200 || resp.status >= 300) throw new Error(`HTTP ${resp.status}`);
     const cl = resp.headers.get('content-length');
     if (cl && Number(cl) > maxBytes) throw new Error(`response too large (${cl} bytes > ${maxBytes})`);
-    const body = await resp.text();
-    if (body.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
-    return { body, finalUrl: current, etag: resp.headers.get('etag') };
+    return { resp, finalUrl: current, maxBytes };
   }
   throw new Error(`too many redirects (> ${maxRedirects})`);
+}
+
+/** GET text (≤5 MB default); manual redirect, every hop SSRF-guarded. */
+async function httpGet(url: string, opts: HttpOpts = {}): Promise<{ body: string; finalUrl: string; etag: string | null }> {
+  const { resp, finalUrl, maxBytes } = await httpResolve(url, opts);
+  const body = await resp.text();
+  if (body.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
+  return { body, finalUrl, etag: resp.headers.get('etag') };
+}
+
+/** GET binary bytes (≤25 MB default — for PDFs); manual redirect, every hop SSRF-guarded. */
+async function httpGetBytes(url: string, opts: HttpOpts = {}): Promise<{ bytes: Buffer; finalUrl: string; etag: string | null }> {
+  const { resp, finalUrl, maxBytes } = await httpResolve(url, { maxBytes: 25_000_000, ...opts });
+  if (!resp.arrayBuffer) throw new Error('response has no binary body');
+  const bytes = Buffer.from(await resp.arrayBuffer());
+  if (bytes.length > maxBytes) throw new Error(`response too large (> ${maxBytes} bytes)`);
+  return { bytes, finalUrl, etag: resp.headers.get('etag') };
 }
 
 function fetchedDir(cwd: string): string { return path.join(cwd, '.planning/fetched'); }
@@ -164,15 +224,20 @@ function defaultHtmlToMd(html: string, url: string): string {
 }
 
 export interface FetchSourceResult { filePath: string; slug: string; kind: SourceKind; }
-interface FetchSourceOpts { fetcher?: Fetcher; htmlToMd?: (html: string, url: string) => string; }
+interface FetchSourceOpts {
+  fetcher?: Fetcher;
+  htmlToMd?: (html: string, url: string) => string;
+  pdfBody?: boolean;
+  pdfToMarkdown?: (bytes: Uint8Array, opts?: Record<string, unknown>) => Promise<string>;
+}
 
 const ARXIV_API = 'https://export.arxiv.org/api/query?id_list=';
 
 async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {}): Promise<FetchSourceResult> {
-  const d = detectSource(cwd, input);
+  const d = detectSource(cwd, input, { pdfBody: opts.pdfBody });
   if (d.kind === 'local') throw new Error(`fetchSource called on a local path: ${input}`);
   if (d.kind === 'unknown') {
-    throw new Error(`unrecognized input "${input}" — expected a local .md path, an arXiv id/URL, or an http(s) URL`);
+    throw new Error(`unrecognized input "${input}" — expected a local .md/.pdf/.jsonl path, an arXiv id/URL, or an http(s) URL`);
   }
   const slug = slugFor(d);
   let markdown: string;
@@ -183,13 +248,37 @@ async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {
     const { body } = await httpGet(`${ARXIV_API}${encodeURIComponent(d.ref)}`, { fetcher: opts.fetcher });
     markdown = arxivAtomToMarkdown(body, d.ref);
     canonicalUrl = `https://arxiv.org/abs/${d.ref}`;
-  } else {
+  } else if (d.kind === 'web') {
     const html = (await httpGet(d.ref, { fetcher: opts.fetcher })).body;
     const conv = opts.htmlToMd || defaultHtmlToMd;
     const converted = conv(html, d.ref).trim();
     if (!converted) throw new Error(`web: extraction produced empty content for ${d.ref}`);
     markdown = `${converted}\n\n_Source: ${d.ref}_\n`;
     canonicalUrl = d.ref;
+  } else if (d.kind === 'pdf') {
+    const toMd = opts.pdfToMarkdown || defaultPdfToMarkdown;
+    let bytes: Buffer;
+    if (/^https?:\/\//i.test(d.ref)) {
+      bytes = (await httpGetBytes(d.ref, { fetcher: opts.fetcher })).bytes;
+      canonicalUrl = d.ref;
+    } else if (ARXIV_BARE.test(d.ref)) {
+      canonicalUrl = `https://arxiv.org/pdf/${d.ref}`;
+      bytes = (await httpGetBytes(canonicalUrl, { fetcher: opts.fetcher })).bytes;
+    } else {
+      bytes = fs.readFileSync(path.resolve(cwd, d.ref));
+      canonicalUrl = d.ref;
+    }
+    const text = (await toMd(new Uint8Array(bytes))).trim();
+    if (!text) throw new Error(`pdf: extraction produced empty content for ${d.ref}`);
+    markdown = `${text}\n\n_Source: ${canonicalUrl}_\n`;
+  } else if (d.kind === 'session') {
+    const raw = fs.readFileSync(path.resolve(cwd, d.ref), 'utf8');
+    const conv = sessionJsonlToMarkdown(raw).trim();
+    if (!conv) throw new Error(`session: no parseable turns in ${d.ref}`);
+    markdown = `${conv}\n\n_Source: ${d.ref}_\n`;
+    canonicalUrl = d.ref;
+  } else {
+    throw new Error(`fetchSource: unsupported kind ${d.kind}`);
   }
 
   const filePath = writeStaging(cwd, slug, markdown);
@@ -197,4 +286,4 @@ async function fetchSource(cwd: string, input: string, opts: FetchSourceOpts = {
   return { filePath, slug, kind: d.kind };
 }
 
-module.exports = { detectSource, slugFor, httpGet, arxivAtomToMarkdown, fetchSource };
+module.exports = { detectSource, slugFor, httpGet, httpGetBytes, arxivAtomToMarkdown, fetchSource };
