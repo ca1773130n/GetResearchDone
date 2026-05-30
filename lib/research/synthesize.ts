@@ -8,6 +8,11 @@ const { readManifest, upsertManifest } = require('./manifest');
 const { extractTaggedJson } = require('./agent-io') as {
   extractTaggedJson: <T>(stdout: string, tag: string) => T | null;
 };
+const { retrieve, buildGroundingPack } = require('./retrieve') as {
+  retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
+  buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
+};
+const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
 
 // v2: output contract gained the __CANDIDATES__ block (SP2-C). Bumping invalidates
 // pre-SP2-C manifest entries so previously-synthesized topics re-run and emit candidates.
@@ -30,7 +35,11 @@ export interface SynthesizeResult {
   // string on paths where the agent did not run (no candidates → seeding is skipped anyway).
   synthKey: string;
 }
-interface SynthesizeOpts { spawn: SynthSpawnFn; client?: TesseraeClient; }
+interface SynthesizeOpts {
+  spawn: SynthSpawnFn;
+  client?: TesseraeClient;
+  retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
+}
 
 function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'topic';
@@ -148,7 +157,10 @@ async function synthesize(cwd: string, topic: string, opts: SynthesizeOpts): Pro
     };
   }
 
-  const out = await opts.spawn(buildSynthesizePrompt(topic), 'grd-synthesizer');
+  const retrieveFn = opts.retrieve || ((c: string, q: string) => retrieve(c, q, { embedder: defaultEmbedder() }));
+  let pack = '';
+  try { const r = await retrieveFn(cwd, topic); pack = buildGroundingPack(r.results, topic); } catch { /* degrade */ }
+  const out = await opts.spawn(buildSynthesizePrompt(topic, pack), 'grd-synthesizer');
   const ci = out.indexOf('__CANDIDATES__');
   const synthPart = ci >= 0 ? out.slice(0, ci) : out;
   const candidates = ci >= 0 ? parseCandidates(out.slice(ci)) : [];
