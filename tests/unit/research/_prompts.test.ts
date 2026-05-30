@@ -12,3 +12,15 @@ describe('buildHypothesizePrompt grounding pack', () => {
     expect(buildHypothesizePrompt(thread, [], null, [])).not.toContain('Retrieved grounding');
   });
 });
+
+describe('buildHypothesizePrompt pivot directive', () => {
+  const thread = { id: 't', question: 'Does X help?' };
+  it('injects the PLATEAU pivot directive when pivot=true', () => {
+    const p = buildHypothesizePrompt(thread, [], null, [], '', true);
+    expect(p).toMatch(/PLATEAU/);
+    expect(p).toMatch(/pivot/i);
+  });
+  it('omits it when pivot is falsey', () => {
+    expect(buildHypothesizePrompt(thread, [], null, [], '')).not.toMatch(/PLATEAU/);
+  });
+});
