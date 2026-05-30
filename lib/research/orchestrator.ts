@@ -26,6 +26,8 @@ const { retrieve, buildGroundingPack } = require('./retrieve') as {
   buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
 };
 const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
+const { ingest } = require('./ingest') as { ingest: (cwd: string, inputPath: string) => Promise<{ status: string; files: number; detail: string }> };
+const { fetchSource } = require('./fetch') as { fetchSource: (cwd: string, input: string, opts?: Record<string, unknown>) => Promise<{ filePath: string }> };
 
 export type SpawnFn = (prompt: string, agentType: string) => Promise<string>;
 
@@ -37,6 +39,7 @@ export interface ResearchOptions {
   spawn?: SpawnFn;
   runner?: Runner;
   retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
+  resurveyFetch?: (cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }) => Promise<void>;
 }
 
 export interface ResearchResult {
@@ -99,6 +102,19 @@ function readResurveyConfig(cwd: string): { cap: number; window: number; fetch: 
   } catch {
     return { cap: 2, window: 3, fetch: false };
   }
+}
+
+/** Plateau fetch path: spawn grd-surveyor for new sources, ingest up to 3. Fully tolerant. */
+async function defaultResurveyFetch(cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }): Promise<void> {
+  try {
+    const out = await deps.spawn(`You are grd-surveyor. Find up to 3 NEW sources (arXiv ids or http(s) URLs) most relevant to: "${thread.question}". Emit exactly one final block:\n__SOURCES__\n<one arxiv id or url per line>`, 'grd-surveyor');
+    const idx = out.indexOf('__SOURCES__');
+    if (idx === -1) return;
+    const sources = out.slice(idx + '__SOURCES__'.length).split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 3);
+    for (const src of sources) {
+      try { const f = await fetchSource(cwd, src); await ingest(cwd, f.filePath); } catch { /* skip this source */ }
+    }
+  } catch { /* surveyor unavailable → degrade */ }
 }
 
 function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: string): SpawnFn {
@@ -240,7 +256,7 @@ async function runLoop(
     appendTakeaway(cwd, thread.id, takeaway);
 
     // RE-SURVEY on plateau: broaden + pivot the next hypothesis instead of drifting to exhausted.
-    const { cap, window } = readResurveyConfig(cwd);
+    const { cap, window, fetch: resurveyFetchOn } = readResurveyConfig(cwd);
     const completed = readLedger(cwd, thread.id).filter((h: Hypothesis) => h.verdict !== null).map((h: Hypothesis) => h.verdict as Verdict);
     if (outcome.verdict !== 'supported' && (thread.resurveyCount ?? 0) < cap && detectPlateau(completed, window)) {
       thread.resurveyCount = (thread.resurveyCount ?? 0) + 1;
@@ -248,6 +264,10 @@ async function runLoop(
       thread.maxIterations += window;
       incrementCounter('research.resurveys_total');
       saveThread(cwd, thread);
+      if (resurveyFetchOn) {
+        const fetchFn = opts.resurveyFetch || defaultResurveyFetch;
+        try { await fetchFn(cwd, thread, { spawn }); } catch { /* degrade */ }
+      }
     }
 
     // DECIDE + terminate

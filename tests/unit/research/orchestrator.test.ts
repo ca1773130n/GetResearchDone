@@ -225,6 +225,27 @@ describe('orchestrator', () => {
     expect(t.maxIterations).toBe(6); // 3 + window(3)
   });
 
+  it('calls resurveyFetch on plateau only when research_resurvey_fetch is set', async () => {
+    const mk = (fetchOn: boolean) => {
+      const cwd = tmp();
+      fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_max_resurveys: 1, research_plateau_window: 3, research_resurvey_fetch: fetchOn }));
+      return cwd;
+    };
+    const spawn = async (_p: string, agentType: string) => {
+      if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+      if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.9,"language":"shell","scriptPath":"run.sh"}';
+      return '__TAKEAWAY__ {"content":"t"}';
+    };
+    const runner = { run: () => ({ metrics: { acc: 0.1 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+
+    let calls = 0;
+    const resurveyFetch = async () => { calls++; };
+    await runResearch(mk(false), 'Q', { maxIterations: 3, noGates: true, spawn, runner, resurveyFetch });
+    expect(calls).toBe(0);
+    await runResearch(mk(true), 'Q', { maxIterations: 3, noGates: true, spawn, runner, resurveyFetch });
+    expect(calls).toBe(1);
+  });
+
   it('injects a hybrid grounding pack into the hypothesizer prompt', async () => {
     const cwd = tmp();
     let hypoPrompt = '';
