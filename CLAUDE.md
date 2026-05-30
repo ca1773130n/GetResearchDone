@@ -271,8 +271,14 @@ sources are normalized to a deterministic staging file at `.planning/fetched/<sl
 (committed; provenance in `.planning/fetched/fetch-manifest.json`) **outside** the compile root,
 then run through the normal `ingest()` pipeline. A best-effort SSRF guard (`lib/research/url-guard.ts`)
 blocks non-http(s) schemes, credentials-in-URL, and loopback/private/link-local/metadata hosts
-(all IP encodings) on the initial URL and every redirect hop. PDF body extraction is a separate
-deferred slice.
+(all IP encodings) on the initial URL and every redirect hop.
+
+`gd ingest` also accepts a **PDF** (local `.pdf`, a direct `.pdf` URL, or `gd ingest --pdf
+<arxiv-id|url>` to fetch + extract an arXiv paper's body via pdfjs-dist, lazy-loaded through a
+dynamic ESM import in `lib/research/pdf.ts`) and a **Claude Code / Codex session transcript**
+(`.jsonl` → readable markdown via the GRD-native parser in `lib/research/session.ts`). Both
+normalize to a staging `.md` and run through the same pipeline. arXiv ids/URLs without `--pdf`
+stay metadata-only. Suffix-based `.pdf`/`.jsonl` detection runs before the existing-path check.
 
 ## Gotchas
 
