@@ -11,7 +11,8 @@ const { cmdIngest, cmdSynthesize, statusWarning } = require('../../../lib/resear
     cwd: string,
     inputPath: string,
     raw: boolean,
-    deps?: { ingest?: (cwd: string, p: string) => Promise<{ status: string; files: number; detail: string }> }
+    deps?: Record<string, unknown>,
+    pdfBody?: boolean
   ) => Promise<never>;
   cmdSynthesize: (cwd: string, topic: string, raw: boolean, deps?: Record<string, unknown>) => Promise<never>;
   statusWarning: (status: string, detail: string) => string | null;
@@ -136,6 +137,30 @@ describe('cli-kb', () => {
       }));
       expect(res.exitCode).toBe(1);
       expect(res.stderr).toMatch(/unrecognized|expected/i);
+    });
+
+    it('routes a local .pdf through fetchSource then ingest', async () => {
+      const cwd = tmp();
+      const calls: string[] = [];
+      const deps = {
+        ingest: async (_c: string, p: string) => { calls.push(`ingest:${p}`); return { status: 'compiled', files: 1, detail: 'ok' }; },
+        fetchSource: async (_c: string, input: string) => { calls.push(`fetch:${input}`); return { filePath: '/abs/pdf-x.md', slug: 'pdf-x', kind: 'pdf' }; },
+      };
+      const res = await captureOutputAsync(() => cmdIngest(cwd, 'paper.pdf', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(calls).toEqual(['fetch:paper.pdf', 'ingest:/abs/pdf-x.md']);
+    });
+
+    it('passes pdfBody=true to fetchSource when the --pdf flag is set', async () => {
+      const cwd = tmp();
+      let sawPdfBody = false;
+      const deps = {
+        ingest: async () => ({ status: 'compiled', files: 1, detail: 'ok' }),
+        fetchSource: async (_c: string, _i: string, o: { pdfBody?: boolean }) => { sawPdfBody = !!(o && o.pdfBody); return { filePath: '/abs/arxiv-pdf.md', slug: 'arxiv-pdf-2401.00001', kind: 'pdf' }; },
+      };
+      const res = await captureOutputAsync(() => cmdIngest(cwd, '2401.00001', true, deps, true));
+      expect(res.exitCode).toBe(0);
+      expect(sawPdfBody).toBe(true);
     });
   });
 

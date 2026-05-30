@@ -2267,9 +2267,11 @@ async function routeCommand(
     }
     case 'ingest': {
       const { cmdIngest } = require('../lib/research/cli-kb') as {
-        cmdIngest: (cwd: string, p: string, raw: boolean) => Promise<never>;
+        cmdIngest: (cwd: string, p: string, raw: boolean, deps?: Record<string, unknown>, pdfBody?: boolean) => Promise<never>;
       };
-      await cmdIngest(cwd, args[1], raw);
+      const pdfBody = args.includes('--pdf');
+      const target = args.slice(1).find((a) => !a.startsWith('--')) || '';
+      await cmdIngest(cwd, target, raw, {}, pdfBody);
       break;
     }
     case 'synthesize': {
