@@ -6,7 +6,7 @@ const { captureErrorAsync, captureOutputAsync } = require('../../helpers/setup')
   captureErrorAsync: (fn: () => Promise<void>) => Promise<{ stderr: string; exitCode: number }>;
   captureOutputAsync: (fn: () => Promise<void>) => Promise<{ stdout: string; exitCode: number }>;
 };
-const { cmdIngest, cmdSynthesize, statusWarning } = require('../../../lib/research/cli-kb') as {
+const { cmdIngest, cmdSynthesize, cmdRetrieve, statusWarning } = require('../../../lib/research/cli-kb') as {
   cmdIngest: (
     cwd: string,
     inputPath: string,
@@ -15,6 +15,7 @@ const { cmdIngest, cmdSynthesize, statusWarning } = require('../../../lib/resear
     pdfBody?: boolean
   ) => Promise<never>;
   cmdSynthesize: (cwd: string, topic: string, raw: boolean, deps?: Record<string, unknown>) => Promise<never>;
+  cmdRetrieve: (cwd: string, query: string, raw: boolean, deps?: Record<string, unknown>) => Promise<never>;
   statusWarning: (status: string, detail: string) => string | null;
 };
 
@@ -240,6 +241,22 @@ describe('cli-kb', () => {
       expect(res.exitCode).toBe(0);
       expect(require('../../../lib/research/thread').listThreads(cwd).length).toBe(0);
       expect(resumed.length).toBe(0);
+    });
+  });
+
+  describe('cmdRetrieve', () => {
+    it('prints ranked results from an injected retrieve', async () => {
+      const cwd = tmp();
+      const deps = { retrieve: async () => ({ results: [{ id: 'n1', name: 'RAG', description: 'd', source_path: 'corpus/x.md', score: 0.5, modes: ['lexical'] }], modes: { lexical: true, semantic: false, structure: true }, detail: '1 result(s)' }) };
+      const res = await captureOutputAsync(() => cmdRetrieve(cwd, 'rag', true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).toContain('RAG');
+    });
+    it('errors on an empty query', async () => {
+      const cwd = tmp();
+      const res = await captureErrorAsync(() => cmdRetrieve(cwd, '', true, {}));
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toMatch(/query|required/i);
     });
   });
 });

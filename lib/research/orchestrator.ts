@@ -21,6 +21,11 @@ const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
 const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io');
 const { createSubprocessRunner } = require('./runner');
+const { retrieve, buildGroundingPack } = require('./retrieve') as {
+  retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
+  buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
+};
+const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
 
 export type SpawnFn = (prompt: string, agentType: string) => Promise<string>;
 
@@ -31,6 +36,7 @@ export interface ResearchOptions {
   timeout?: number;
   spawn?: SpawnFn;
   runner?: Runner;
+  retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
 }
 
 export interface ResearchResult {
@@ -116,6 +122,7 @@ async function runLoop(
 ): Promise<ResearchResult> {
   const runner: Runner = opts.runner || createSubprocessRunner({ timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
+  const retrieveFn = opts.retrieve || ((c: string, q: string) => retrieve(c, q, { embedder: defaultEmbedder() }));
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -147,7 +154,9 @@ async function runLoop(
         const priorVerdict: Verdict | null = lastHyp ? lastHyp.verdict : null;
         thread.currentStation = 'hypothesize'; saveThread(cwd, thread);
         const priorTakeaways = readTakeaways(cwd, thread.id);
-        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways), 'grd-hypothesizer');
+        let pack = '';
+        try { const r = await retrieveFn(cwd, thread.question); pack = buildGroundingPack(r.results, thread.question); } catch { /* degrade */ }
+        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack), 'grd-hypothesizer');
         const parsed = parseHypothesisOutput(hOut);
         if (!parsed) return errExit(cwd, thread);
         hyp = {

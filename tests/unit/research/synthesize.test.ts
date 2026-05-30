@@ -140,6 +140,25 @@ describe('synthesize', () => {
     expect(parseCandidates(partial).length).toBe(1);
   });
 
+  it('injects a hybrid grounding pack into the synthesizer prompt', async () => {
+    const cwd = tmp();
+    let synthPrompt = '';
+    const spawn = async (prompt: string) => { synthPrompt = prompt; return DOC; };
+    const client = createFakeTesseraeClient({ available: true, compileStatus: 'compiled', smoke: { found: true, nodeIds: ['s1'], detail: 'ok' } });
+    const retrieveFn = async () => ({ results: [{ id: 'n1', name: 'GroundNode', description: 'd', source_path: 'corpus/x.md', score: 0.9, modes: ['lexical'] }], modes: { lexical: true, semantic: false, structure: true }, detail: '1' });
+    await synthesize(cwd, 'RAG', { spawn, client, retrieve: retrieveFn });
+    expect(synthPrompt).toContain('Retrieved grounding');
+    expect(synthPrompt).toContain('GroundNode');
+  });
+
+  it('buildSynthesizePrompt injects a grounding pack when provided', () => {
+    const { buildSynthesizePrompt } = require('../../../lib/research/synthesize');
+    const p = buildSynthesizePrompt('rag', '## Retrieved grounding (hybrid) for "rag"\n\n- **RAG**: x');
+    expect(p).toContain('## Retrieved grounding');
+    expect(p).toContain('- **RAG**');
+    expect(buildSynthesizePrompt('rag')).not.toContain('Retrieved grounding');
+  });
+
   it('buildSynthesizePrompt instructs the __CANDIDATES__ block', () => {
     const p = require('../../../lib/research/synthesize').buildSynthesizePrompt('rag');
     expect(p).toContain('__CANDIDATES__');

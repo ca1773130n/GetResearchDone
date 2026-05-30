@@ -37,6 +37,10 @@ const { resolveGates } = require('./gates') as {
   resolveGates: (config: { research_gates?: { experiment_execution?: boolean; kg_write?: boolean } }, noGates: boolean)
     => { execute: boolean; kg_write: boolean };
 };
+const { retrieve } = require('./retrieve') as {
+  retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<{ name: string; source_path: string; score: number }>; modes: Record<string, boolean>; detail: string }>;
+};
+const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
 const { seedThreadsFromCandidates } = require('./seed') as {
   seedThreadsFromCandidates: (
     cwd: string, topicId: string, synthKey: string,
@@ -146,4 +150,17 @@ async function cmdSynthesize(cwd: string, topic: string, raw: boolean, deps: Syn
   return output(payload, raw, raw ? JSON.stringify(payload) : summary);
 }
 
-module.exports = { cmdIngest, cmdSynthesize, statusWarning };
+interface RetrieveDeps {
+  retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<{ name: string; source_path: string; score: number }>; modes: Record<string, boolean>; detail: string }>;
+}
+
+async function cmdRetrieve(cwd: string, query: string, raw: boolean, deps: RetrieveDeps = {}): Promise<never> {
+  if (!query || !query.trim()) error('retrieve: a query is required, e.g. gd retrieve "retrieval augmented generation"');
+  const run = deps.retrieve || ((c: string, q: string) => retrieve(c, q, { embedder: defaultEmbedder() }));
+  const res = await run(cwd, query);
+  const lines = res.results.map((r, i) => `#${i + 1} ${r.name} (${r.score})${r.source_path ? ` — ${r.source_path}` : ''}`).join('\n');
+  const text = `${res.detail}\n${lines}\n`;
+  return output(res, raw, raw ? JSON.stringify(res) : text);
+}
+
+module.exports = { cmdIngest, cmdSynthesize, cmdRetrieve, statusWarning };
