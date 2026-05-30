@@ -292,6 +292,18 @@ OpenAI-compatible endpoint only when `GRD_EMBED_API_KEY` (or `OPENAI_API_KEY`) i
 (`GRD_EMBED_MODEL`/`GRD_EMBED_URL` optional) — otherwise zero network egress. Node vectors are
 cached in `.planning/research/.embeddings.json` (gitignored) by content hash.
 
+### Plateau re-survey (loop deepening #1)
+
+When the loop plateaus (`research_plateau_window` consecutive non-supported verdicts, default 3),
+the orchestrator triggers a **re-survey** instead of drifting to `exhausted`: it bumps
+`resurveyCount`, extends `maxIterations` by the window (hard ceiling
+`baseMaxIterations + research_max_resurveys × window`, default cap 2), and pivots the next
+hypothesis — one widened hybrid retrieval (k=16, query augmented with takeaways) plus a "PLATEAU,
+pivot hard" prompt directive. With `research_resurvey_fetch: true` it also spawns `grd-surveyor`
+to fetch+ingest up to 3 new sources first (degrades fully on any failure). Config keys
+`research_max_resurveys` / `research_plateau_window` / `research_resurvey_fetch` are top-level,
+read raw, and registered in KNOWN_CONFIG_KEYS.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
