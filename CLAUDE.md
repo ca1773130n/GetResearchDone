@@ -304,6 +304,16 @@ to fetch+ingest up to 3 new sources first (degrades fully on any failure). Confi
 `research_max_resurveys` / `research_plateau_window` / `research_resurvey_fetch` are top-level,
 read raw, and registered in KNOWN_CONFIG_KEYS.
 
+### Paper-draft generation (loop deepening #2)
+
+`gd research report <id>` turns a **completed** thread (status supported/exhausted/abandoned)
+into a publication-style `PAPER.md`. `lib/research/paper.ts` deterministically gathers a
+`PaperBundle` (question, supported hypothesis, full ledger, per-iteration plan+metrics+verdict,
+takeaways, and SP2-D Related Work via `retrieve`), then spawns `grd-paper-writer` which emits a
+`__PAPER__` markdown block (Abstract→Future Work). Honest by contract: an exhausted thread is
+written up as a negative/inconclusive result. Related Work degrades to empty if retrieval fails;
+non-terminal threads are refused. Written atomically (temp+rename), regenerated on each call.
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.

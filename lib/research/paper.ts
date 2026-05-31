@@ -36,8 +36,8 @@ async function gatherPaperBundle(cwd: string, id: string, opts: { retrieve?: Ret
   const experiments: PaperBundle['experiments'] = [];
   for (let n = 1; n <= thread.iteration; n++) {
     const dir = path.join(threadDir(cwd, id), 'experiments', String(n));
-    let plan: Partial<ExperimentPlan> | null = null;
-    let metrics: Record<string, number> = {};
+    let plan: Partial<ExperimentPlan> | null;
+    let metrics: Record<string, number>;
     try { plan = JSON.parse(fs.readFileSync(path.join(dir, 'plan.json'), 'utf8')); } catch { plan = null; }
     try { metrics = (JSON.parse(fs.readFileSync(path.join(dir, 'result.json'), 'utf8')).metrics) || {}; } catch { metrics = {}; }
     experiments.push({ iter: n, plan, metrics, verdict: verdictByIter.get(n) ?? null });
