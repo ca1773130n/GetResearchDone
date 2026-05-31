@@ -2223,6 +2223,7 @@ async function routeCommand(
         cmdResearchStart,
         cmdResearchResume,
         cmdResearchStatus,
+        cmdResearchReport,
       } = require('../lib/research') as {
         cmdResearchStart: (
           cwd: string,
@@ -2237,6 +2238,7 @@ async function routeCommand(
           raw: boolean
         ) => Promise<never>;
         cmdResearchStatus: (cwd: string, id: string | undefined, raw: boolean) => never;
+        cmdResearchReport: (cwd: string, id: string, raw: boolean) => Promise<never>;
       };
       // args[0] === 'research'; subcommand (if any) is args[1].
       const sub: string | undefined = args[1];
@@ -2251,6 +2253,10 @@ async function routeCommand(
       }
       if (sub === 'resume') {
         await cmdResearchResume(cwd, args[2], opts, raw);
+        return;
+      }
+      if (sub === 'report') {
+        await cmdResearchReport(cwd, args[2], raw);
         return;
       }
       // No recognized subcommand → treat remaining non-flag args (after the
