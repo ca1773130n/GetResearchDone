@@ -79,6 +79,7 @@ module.exports = {
     './lib/research/retrieve.ts': { lines: 90, functions: 90, branches: 75 },
     './lib/research/embedder.ts': { lines: 90, functions: 100, branches: 75 },
     './lib/research/paper.ts': { lines: 90, functions: 100, branches: 70 },
+    './lib/research/portfolio.ts': { lines: 90, functions: 90, branches: 60 },
   },
   testTimeout: 15000,
 };
