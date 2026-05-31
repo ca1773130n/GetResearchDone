@@ -13,6 +13,9 @@ const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (t
 const { generatePaper } = require('./paper') as {
   generatePaper: (cwd: string, id: string, opts: { spawn: (p: string, a: string) => Promise<string>; retrieve?: (c: string, q: string, o?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }> }) => Promise<{ paperPath: string; status: string }>;
 };
+const { runPortfolio } = require('./portfolio') as {
+  runPortfolio: (cwd: string, opts: Record<string, unknown>) => Promise<{ ran: number; paused: number; supported: number; skipped: number; failed: number; noGates: boolean; concurrency: number; reportPath: string; threads: unknown[] }>;
+};
 
 async function cmdResearchStart(cwd: string, question: string, opts: ResearchOptions, raw: boolean): Promise<never> {
   if (!question || !question.trim()) error('research: a question is required, e.g. gd research "Does X improve Y?"');
@@ -58,4 +61,18 @@ async function cmdResearchReport(cwd: string, id: string, raw: boolean, deps: Re
   }
 }
 
-module.exports = { cmdResearchStart, cmdResearchResume, cmdResearchStatus, cmdResearchReport };
+interface PortfolioCliOpts { ids?: string[]; topicId?: string; concurrency?: number; force?: boolean; noGates?: boolean; }
+interface PortfolioDeps { runPortfolio?: (cwd: string, opts: Record<string, unknown>) => Promise<{ ran: number; paused: number; supported: number; skipped: number; failed: number; noGates: boolean; concurrency: number; reportPath: string; threads: unknown[] }>; }
+
+async function cmdResearchPortfolio(cwd: string, opts: PortfolioCliOpts, raw: boolean, deps: PortfolioDeps = {}): Promise<never> {
+  const run = deps.runPortfolio || runPortfolio;
+  try {
+    const res = await run(cwd, opts as Record<string, unknown>);
+    const summary = `portfolio: ran ${res.ran}, paused ${res.paused}, supported ${res.supported}, skipped ${res.skipped}, failed ${res.failed} (concurrency ${res.concurrency}, noGates ${res.noGates}) — ${res.reportPath}\n`;
+    return output(res, raw, raw ? JSON.stringify(res) : summary);
+  } catch (e) {
+    return error(`research portfolio: ${(e as Error).message}`);
+  }
+}
+
+module.exports = { cmdResearchStart, cmdResearchResume, cmdResearchStatus, cmdResearchReport, cmdResearchPortfolio };
