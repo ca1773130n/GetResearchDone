@@ -211,7 +211,7 @@ export const AGENT_COMMANDS = new Set([
 
 const EVOLVE_TOOL_SUBS = new Set(['run', 'discover', 'state', 'advance', 'reset']);
 const SETTINGS_TOOL_SUBS = new Set(['token_profile', 'effort', 'phase_complete_llm_fallback']);
-const RESEARCH_TOOL_SUBS = new Set(['resume', 'status']);
+const RESEARCH_TOOL_SUBS = new Set(['resume', 'status', 'report']);
 
 export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
