@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const {
   createMutex, mapWithConcurrency, wrapClientWithCompileLock,
-  classifyThread, rankEntries, buildPortfolioReport, runPortfolio,
+  classifyThread, rankEntries, buildPortfolioReport, runPortfolio, readPortfolioConcurrency,
 } = require('../../../lib/research/portfolio');
 const { createThread, saveThread } = require('../../../lib/research/thread');
 const { appendHypothesis } = require('../../../lib/research/ledger');
@@ -159,5 +159,85 @@ describe('runPortfolio', () => {
     fs.writeFileSync(path.join(badDir, 'thread.json'), '{not json');
     const res = await runPortfolio(cwd, { resume: async (_c: string, id: string) => ({ threadId: id, status: 'exhausted', iterations: 1 }) });
     expect(res.threads.some((e: { id: string; action: string }) => e.id === 'broken' && e.action === 'not-found')).toBe(true);
+  });
+
+  it('injects ONE shared kgClient + spawn/retrieve + noGates into every resume', async () => {
+    const cwd = tmp();
+    mk(cwd, { status: 'paused', question: 'A' });
+    mk(cwd, { status: 'active', currentStation: 'seed', question: 'B' });
+    const sentinel = { isAvailable: () => true, compile: async () => ({ status: 'compiled', detail: '', graphPath: null }), querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }) };
+    const seenDeps: Array<Record<string, unknown>> = [];
+    const resume = async (_c: string, id: string, deps: Record<string, unknown>) => { seenDeps.push(deps); return { threadId: id, status: 'exhausted', iterations: 1 }; };
+    await runPortfolio(cwd, { resume, client: sentinel, noGates: true, concurrency: 2 });
+    expect(seenDeps).toHaveLength(2);
+    for (const d of seenDeps) {
+      expect(d.kgClient).toBe(sentinel);     // the SAME injected client object reaches every thread
+      expect(d.noGates).toBe(true);
+      expect(typeof d.spawn).toBe('function');
+      expect(typeof d.retrieve).toBe('function');
+    }
+    expect(seenDeps[0]).toBe(seenDeps[1]);    // ONE shared deps object, not per-thread
+  });
+
+  it('bounds parallelism to the concurrency cap end-to-end through runPortfolio', async () => {
+    const cwd = tmp();
+    for (let i = 0; i < 5; i++) mk(cwd, { status: 'paused', question: `Q${i}` });
+    let active = 0; let maxActive = 0;
+    const resume = async (_c: string, id: string) => {
+      active++; maxActive = Math.max(maxActive, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active--; return { threadId: id, status: 'exhausted', iterations: 1 };
+    };
+    const res = await runPortfolio(cwd, { resume, client: { isAvailable: () => true, compile: async () => ({ status: 'compiled', detail: '', graphPath: null }), querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }) }, concurrency: 2 });
+    expect(maxActive).toBeLessThanOrEqual(2);
+    expect(res.ran).toBe(5);
+  });
+
+  it('captures a paused result as a paused entry/count, and the ledger verdict on a ran entry', async () => {
+    const cwd = tmp();
+    const pid = mk(cwd, { status: 'paused', question: 'P' });
+    const rid = mk(cwd, { status: 'paused', question: 'R', lastVerdict: 'refuted' });
+    const resume = async (_c: string, id: string) => id === pid
+      ? { threadId: id, status: 'paused', iterations: 1 }
+      : { threadId: id, status: 'exhausted', iterations: 2 };
+    const res = await runPortfolio(cwd, { resume, client: { isAvailable: () => true, compile: async () => ({ status: 'compiled', detail: '', graphPath: null }), querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }) } });
+    expect(res.paused).toBe(1);
+    expect(res.threads.find((e: { id: string }) => e.id === pid).action).toBe('paused');
+    expect(res.threads.find((e: { id: string }) => e.id === rid).verdict).toBe('refuted'); // recovered from the ledger
+  });
+
+  it('writes a report and returns zero counts when nothing is runnable', async () => {
+    const cwd = tmp();
+    mk(cwd, { status: 'supported', lastVerdict: 'supported', question: 'done' });
+    let called = 0;
+    const res = await runPortfolio(cwd, { resume: async () => { called++; return { threadId: 'x', status: 'exhausted', iterations: 1 }; } });
+    expect(called).toBe(0);
+    expect(res.ran).toBe(0);
+    expect(fs.existsSync(path.join(cwd, '.planning/research/PORTFOLIO.md'))).toBe(true);
+  });
+
+  it('does not abort the whole run when a thread throws a non-Error value', async () => {
+    const cwd = tmp();
+    mk(cwd, { status: 'paused', question: 'A' });
+    mk(cwd, { status: 'paused', question: 'B' });
+    let n = 0;
+    const resume = async (_c: string, id: string) => { n++; if (n === 1) throw null; return { threadId: id, status: 'exhausted', iterations: 1 }; };
+    const res = await runPortfolio(cwd, { resume, concurrency: 1, client: { isAvailable: () => true, compile: async () => ({ status: 'compiled', detail: '', graphPath: null }), querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }) } });
+    expect(res.failed).toBe(1);
+    expect(fs.existsSync(path.join(cwd, '.planning/research/PORTFOLIO.md'))).toBe(true);
+  });
+});
+
+describe('readPortfolioConcurrency', () => {
+  const fs2 = require('fs'); const os2 = require('os'); const path2 = require('path');
+  function cfgTmp(): string { const d = fs2.mkdtempSync(path2.join(os2.tmpdir(), 'grd-pfc-')); fs2.mkdirSync(path2.join(d, '.planning'), { recursive: true }); return d; }
+  it('defaults to 2 with no config', () => { expect(readPortfolioConcurrency(cfgTmp())).toBe(2); });
+  it('reads a valid configured value', () => {
+    const cwd = cfgTmp(); fs2.writeFileSync(path2.join(cwd, '.planning/config.json'), JSON.stringify({ research_portfolio_concurrency: 4 }));
+    expect(readPortfolioConcurrency(cwd)).toBe(4);
+  });
+  it('falls back to 2 on an invalid value (<1 or non-integer)', () => {
+    const cwd = cfgTmp(); fs2.writeFileSync(path2.join(cwd, '.planning/config.json'), JSON.stringify({ research_portfolio_concurrency: 0 }));
+    expect(readPortfolioConcurrency(cwd)).toBe(2);
   });
 });

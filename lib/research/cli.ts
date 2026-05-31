@@ -13,8 +13,9 @@ const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (t
 const { generatePaper } = require('./paper') as {
   generatePaper: (cwd: string, id: string, opts: { spawn: (p: string, a: string) => Promise<string>; retrieve?: (c: string, q: string, o?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }> }) => Promise<{ paperPath: string; status: string }>;
 };
+import type { PortfolioResult } from './portfolio';
 const { runPortfolio } = require('./portfolio') as {
-  runPortfolio: (cwd: string, opts: Record<string, unknown>) => Promise<{ ran: number; paused: number; supported: number; skipped: number; failed: number; noGates: boolean; concurrency: number; reportPath: string; threads: unknown[] }>;
+  runPortfolio: (cwd: string, opts: Record<string, unknown>) => Promise<PortfolioResult>;
 };
 
 async function cmdResearchStart(cwd: string, question: string, opts: ResearchOptions, raw: boolean): Promise<never> {
@@ -62,7 +63,7 @@ async function cmdResearchReport(cwd: string, id: string, raw: boolean, deps: Re
 }
 
 interface PortfolioCliOpts { ids?: string[]; topicId?: string; concurrency?: number; force?: boolean; noGates?: boolean; }
-interface PortfolioDeps { runPortfolio?: (cwd: string, opts: Record<string, unknown>) => Promise<{ ran: number; paused: number; supported: number; skipped: number; failed: number; noGates: boolean; concurrency: number; reportPath: string; threads: unknown[] }>; }
+interface PortfolioDeps { runPortfolio?: (cwd: string, opts: Record<string, unknown>) => Promise<PortfolioResult>; }
 
 async function cmdResearchPortfolio(cwd: string, opts: PortfolioCliOpts, raw: boolean, deps: PortfolioDeps = {}): Promise<never> {
   const run = deps.runPortfolio || runPortfolio;

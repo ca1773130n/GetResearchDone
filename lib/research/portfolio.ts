@@ -135,7 +135,8 @@ function latestVerdict(cwd: string, id: string): Verdict | null {
 async function runPortfolio(cwd: string, opts: PortfolioOpts = {}): Promise<PortfolioResult> {
   const force = opts.force === true;
   const noGates = opts.noGates === true;
-  const concurrency = Math.max(1, opts.concurrency ?? readPortfolioConcurrency(cwd));
+  // A finite integer override wins; anything else (undefined, NaN from a bad --concurrency) → config.
+  const concurrency = Number.isInteger(opts.concurrency) ? Math.max(1, opts.concurrency as number) : readPortfolioConcurrency(cwd);
   const resume: ResumeFn = opts.resume || resumeResearch;
 
   // 1. Resolve candidate ids (never throws).
@@ -175,7 +176,8 @@ async function runPortfolio(cwd: string, opts: PortfolioOpts = {}): Promise<Port
         iterations: res.iterations, action: res.status === 'paused' ? 'paused' : 'ran',
       } as PortfolioEntry;
     } catch (e) {
-      return { id: r.id, question: r.question, status: 'error', verdict: null, iterations: 0, action: 'failed', error: (e as Error).message } as PortfolioEntry;
+      const msg = e instanceof Error ? e.message : String(e); // a non-Error throw must not escape the envelope
+      return { id: r.id, question: r.question, status: 'error', verdict: null, iterations: 0, action: 'failed', error: msg } as PortfolioEntry;
     }
   });
 
