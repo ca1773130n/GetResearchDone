@@ -42,6 +42,18 @@ function makeRunner() {
 }
 
 describe('orchestrator', () => {
+  it('forwards an injected kgClient to the KG sync compile at finalize', async () => {
+    const cwd = tmp();
+    let compiled = 0;
+    const kgClient = {
+      isAvailable: () => true,
+      compile: async () => { compiled++; return { status: 'compiled', detail: '', graphPath: null }; },
+      querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }),
+    };
+    await runResearch(cwd, 'Does X help?', { maxIterations: 5, noGates: true, spawn: makeSpawn(), runner: makeRunner(), kgClient });
+    expect(compiled).toBeGreaterThanOrEqual(1);
+  });
+
   it('closes the loop: refuted h1 -> revised h2 -> supported -> finalize', async () => {
     const cwd = tmp();
     const res = await runResearch(cwd, 'Does X help?', {
