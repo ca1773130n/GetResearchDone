@@ -2224,6 +2224,7 @@ async function routeCommand(
         cmdResearchResume,
         cmdResearchStatus,
         cmdResearchReport,
+        cmdResearchPortfolio,
       } = require('../lib/research') as {
         cmdResearchStart: (
           cwd: string,
@@ -2239,6 +2240,7 @@ async function routeCommand(
         ) => Promise<never>;
         cmdResearchStatus: (cwd: string, id: string | undefined, raw: boolean) => never;
         cmdResearchReport: (cwd: string, id: string, raw: boolean) => Promise<never>;
+        cmdResearchPortfolio: (cwd: string, o: Record<string, unknown>, raw: boolean) => Promise<never>;
       };
       // args[0] === 'research'; subcommand (if any) is args[1].
       const sub: string | undefined = args[1];
@@ -2257,6 +2259,21 @@ async function routeCommand(
       }
       if (sub === 'report') {
         await cmdResearchReport(cwd, args[2], raw);
+        return;
+      }
+      if (sub === 'portfolio') {
+        const rest = args.slice(2);
+        const pIds: string[] = [];
+        let topicId: string | undefined;
+        let concurrency: number | undefined;
+        for (let i = 0; i < rest.length; i++) {
+          const a = rest[i];
+          if (a === '--topic') { topicId = rest[++i]; continue; }
+          if (a === '--concurrency') { concurrency = Number(rest[++i]); continue; }
+          if (a.startsWith('--')) continue; // --force / --no-gates handled below
+          pIds.push(a);
+        }
+        await cmdResearchPortfolio(cwd, { ids: pIds, topicId, concurrency, force: args.includes('--force'), noGates }, raw);
         return;
       }
       // No recognized subcommand → treat remaining non-flag args (after the

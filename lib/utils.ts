@@ -283,6 +283,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'research_max_resurveys',
   'research_plateau_window',
   'research_resurvey_fetch',
+  'research_portfolio_concurrency',
   'confirmation_gates',
   'timeouts',
   'evolve',

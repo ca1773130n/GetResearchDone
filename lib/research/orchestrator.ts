@@ -40,6 +40,7 @@ export interface ResearchOptions {
   runner?: Runner;
   retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
   resurveyFetch?: (cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }) => Promise<void>;
+  kgClient?: import('./tesserae').TesseraeClient;
 }
 
 export interface ResearchResult {
@@ -141,8 +142,9 @@ function errExit(cwd: string, thread: ResearchThread): ResearchResult {
 // Finding.md is already written before the kg_write gate; this completes the KG sync.
 async function finishKgSync(
   cwd: string, thread: ResearchThread, verdict: Verdict | undefined, status: ThreadStatus,
+  kgClient?: import('./tesserae').TesseraeClient,
 ): Promise<ResearchResult> {
-  const sync = await syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id));
+  const sync = await syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id), { client: kgClient });
   writeKgProvenance(cwd, thread.id, { wrote: sync.synced ? [`finding:${thread.id}`] : [] });
   if (sync.synced) incrementCounter('research.kg_writes_total');
   thread.status = status; thread.pendingGate = null; saveThread(cwd, thread);
@@ -289,7 +291,7 @@ async function runLoop(
         incrementCounter('research.gate_pauses_total');
         return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'kg_write' };
       }
-      return await finishKgSync(cwd, thread, outcome.verdict, term.status);
+      return await finishKgSync(cwd, thread, outcome.verdict, term.status, opts.kgClient);
     }
 
     thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);
@@ -329,7 +331,7 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
     const supported = led.some((h) => h.status === 'supported');
     const status: ThreadStatus = supported ? 'supported' : 'exhausted';
     const verdict: Verdict | undefined = supported ? 'supported' : undefined;
-    return await finishKgSync(cwd, thread, verdict, status);
+    return await finishKgSync(cwd, thread, verdict, status, opts.kgClient);
   }
   return runLoop(cwd, thread, opts, config, { execute: pending === 'execute', kg_write: false });
 }

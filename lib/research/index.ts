@@ -17,6 +17,7 @@ module.exports = {
   cmdResearchResume: cli.cmdResearchResume,
   cmdResearchStatus: cli.cmdResearchStatus,
   cmdResearchReport: cli.cmdResearchReport,
+  cmdResearchPortfolio: cli.cmdResearchPortfolio,
   cmdIngest: cliKb.cmdIngest,
   cmdSynthesize: cliKb.cmdSynthesize,
   ingest: ingestMod.ingest,

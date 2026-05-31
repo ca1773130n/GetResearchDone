@@ -51,4 +51,22 @@ describe('research cli', () => {
       expect(res.stderr).toMatch(/not finished/i);
     });
   });
+
+  describe('cmdResearchPortfolio', () => {
+    const { cmdResearchPortfolio } = require('../../../lib/research/cli');
+    it('calls the injected runPortfolio and prints the summary', async () => {
+      const cwd = tmp();
+      const deps = { runPortfolio: async () => ({ ran: 1, paused: 0, supported: 1, skipped: 2, failed: 0, noGates: false, concurrency: 2, threads: [], reportPath: '/abs/PORTFOLIO.md' }) };
+      const res = await captureOutputAsync(() => cmdResearchPortfolio(cwd, {}, true, deps));
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).toContain('PORTFOLIO.md');
+    });
+    it('exits 1 when runPortfolio throws (e.g. report write failure)', async () => {
+      const cwd = tmp();
+      const deps = { runPortfolio: async () => { throw new Error('cannot write report'); } };
+      const res = await captureErrorAsync(() => cmdResearchPortfolio(cwd, {}, true, deps));
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toMatch(/cannot write report/i);
+    });
+  });
 });

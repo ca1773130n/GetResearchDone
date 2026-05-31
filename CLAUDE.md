@@ -314,6 +314,17 @@ takeaways, and SP2-D Related Work via `retrieve`), then spawns `grd-paper-writer
 written up as a negative/inconclusive result. Related Work degrades to empty if retrieval fails;
 non-terminal threads are refused. Written atomically (temp+rename), regenerated on each call.
 
+### Multi-thread portfolio (loop deepening #3)
+
+`gd research portfolio [ids...] [--topic <id>] [--concurrency N] [--force] [--no-gates]` advances a
+set of existing threads with bounded concurrency (default `research_portfolio_concurrency`=2) and
+writes a ranked `.planning/research/PORTFOLIO.md`. It runs only **safely-resumable** threads (paused,
+or active-at-`seed`); interrupted (`active` mid-station) / `error` threads are skipped+reported unless
+`--force`. All threads share ONE scheduler `spawn`, ONE retriever, and ONE mutex-wrapped `kgClient`
+(so the `kg_write` compile serializes — via `ResearchOptions.kgClient`). Per-thread failures are
+isolated (envelopes); only a report-write failure exits non-zero. Default selection = all threads;
+`--topic` = the SP2-C synthesis-seeded set. The compile lock is process-local (not a global KG lock).
+
 ## Gotchas
 
 - **zsh `!` escaping**: Never use `node -e` with `!=`/`!==` — zsh mangles them. Use `gd` subcommands instead of ad-hoc JSON parsing.
