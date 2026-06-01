@@ -314,6 +314,21 @@ takeaways, and SP2-D Related Work via `retrieve`), then spawns `grd-paper-writer
 written up as a negative/inconclusive result. Related Work degrades to empty if retrieval fails;
 non-terminal threads are refused. Written atomically (temp+rename), regenerated on each call.
 
+### Knowledge promotion (LEARN → shared KB)
+
+At PERSIST (inside `finishKgSync`, after the `kg_write` gate — so both the
+`runLoop` finalize path and the `resumeResearch` kg_write-resume path are
+covered), a terminal thread's takeaways are promoted into the shared project
+knowledge base via `lib/research/promote.ts`: positive takeaways (kinds
+success_pattern/constraint/domain_fact/tool_pattern, confidence ≥ 0.5) →
+`KNOWHOW.md` (`appendKnowhowEntries`, dedup by pattern_name); refuted ledger
+hypotheses → `.planning/DEAD-ENDS.md` via the existing `lib/dead-ends.ts`
+`addDeadEnd` (approach-schema, slug-merge, the file the hypothesizer reads to
+avoid re-proposing dead approaches). Provenance is tagged
+`source: research:<id>#iterN` / `tried_in_phases: research:<id>#iterN`.
+Default-on; disable with `research_persist_knowledge: false`. Fully
+degrade-safe — any failure logs and returns zeros, never breaking the loop.
+
 ### Docker experiment sandbox (RUN station)
 
 The RUN station can run each experiment script inside a Docker container instead
