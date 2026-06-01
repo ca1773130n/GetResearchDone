@@ -1000,3 +1000,54 @@ describe('prediction defaults (first-run robustness)', () => {
     expect(s).not.toBeNull();
   });
 });
+
+describe('parseClaudeResult + claude detectFromStdout (rate-limit rotation)', () => {
+  const { parseClaudeResult } = require('../../lib/scheduler');
+  const healthy = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'rate_limit_event', rate_limit_info: { status: 'allowed', resetsAt: 1780329000 } },
+    { type: 'assistant', message: { content: [{ text: 'ignored' }] } },
+    { type: 'result', subtype: 'success', is_error: false, result: 'PROBE_OK' },
+  ]);
+  const limited = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: 1780606800 } },
+    { type: 'result', subtype: 'success', is_error: true, result: "You've hit your weekly limit · resets Jun 5" },
+  ]);
+  const loggedOut = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'result', subtype: 'success', is_error: true, result: 'Not logged in · Please run /login' },
+  ]);
+
+  it('healthy → text extracted, not rate-limited', () => {
+    expect(parseClaudeResult(healthy)).toEqual({ text: 'PROBE_OK', isError: false, rateLimited: false, loggedOut: false, resetsAtMs: null });
+  });
+  it('rate-limited → rateLimited + resetsAtMs (secs*1000), text null', () => {
+    const r = parseClaudeResult(limited);
+    expect(r.isError).toBe(true); expect(r.rateLimited).toBe(true); expect(r.resetsAtMs).toBe(1780606800000); expect(r.text).toBeNull();
+  });
+  it('logged-out → loggedOut, not rate-limited', () => {
+    const r = parseClaudeResult(loggedOut);
+    expect(r.isError).toBe(true); expect(r.loggedOut).toBe(true); expect(r.rateLimited).toBe(false);
+  });
+  it('single result object → text', () => {
+    expect(parseClaudeResult('{"type":"result","result":"hi","is_error":false}').text).toBe('hi');
+  });
+  it('plain text → passthrough', () => {
+    expect(parseClaudeResult('hello').text).toBe('hello');
+  });
+  it('garbage JSON → raw passthrough, no throw', () => {
+    expect(parseClaudeResult('{bad').text).toBe('{bad');
+  });
+  it('invalid/past resetsAt → resetsAtMs null', () => {
+    const bad = JSON.stringify([{ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: 'nope' } }, { type: 'result', is_error: true, result: 'x' }]);
+    expect(parseClaudeResult(bad).resetsAtMs).toBeNull();
+  });
+  it('detectFromStdout: rejected → unhealthy; codex has none', () => {
+    const d = ADAPTERS.claude.detectFromStdout!(limited);
+    expect(d).toEqual({ rateLimited: true, resetsAtMs: 1780606800000, unhealthy: true });
+    expect(ADAPTERS.claude.detectFromStdout!(loggedOut)).toEqual({ rateLimited: false, resetsAtMs: null, unhealthy: true });
+    expect(ADAPTERS.claude.detectFromStdout!(healthy).unhealthy).toBe(false);
+    expect(ADAPTERS.codex.detectFromStdout).toBeUndefined();
+  });
+});

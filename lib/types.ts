@@ -686,6 +686,12 @@ export interface BackendAdapter {
   buildArgs(prompt: string, opts: SpawnOpts): string[];
   parseTokenUsage(stderr: string): number | null;
   isRateLimited(exitCode: number, stderr: string): boolean;
+  /**
+   * Optional: detect rate-limit / unhealthy state from the backend's stdout
+   * (for CLIs like claude that report limits as exit-0 JSON). Undefined for
+   * backends that only signal via exit code + stderr (handled by isRateLimited).
+   */
+  detectFromStdout?(stdout: string): { rateLimited: boolean; resetsAtMs: number | null; unhealthy: boolean };
 }
 
 // ─── Phase and Milestone Types ───────────────────────────────────────────────

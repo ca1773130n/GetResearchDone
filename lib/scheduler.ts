@@ -42,6 +42,64 @@ const { incrementCounter } = require('./metrics') as {
  * Meta-backends (superpowers, grd) are not included — they are scheduling
  * strategies that resolve to one of these real adapters at spawn time.
  */
+interface ClaudeResult {
+  text: string | null;
+  isError: boolean;
+  rateLimited: boolean;
+  loggedOut: boolean;
+  resetsAtMs: number | null;
+}
+
+/**
+ * Parse Claude Code's `--output-format json` stdout (a single `{...}` result
+ * object, the `[...]` event array, or plain text) into a structured result.
+ * Total + never throws. Claude reports rate limits / logged-out as exit-0 JSON,
+ * so this is how the scheduler detects an unhealthy account.
+ */
+export function parseClaudeResult(stdout: string): ClaudeResult {
+  const base: ClaudeResult = { text: stdout, isError: false, rateLimited: false, loggedOut: false, resetsAtMs: null };
+  const trimmed = (stdout || '').trim();
+  if (!trimmed || (trimmed[0] !== '[' && trimmed[0] !== '{')) return base;
+  let parsed: unknown;
+  try { parsed = JSON.parse(trimmed); } catch { return base; }
+  const events: Array<Record<string, unknown>> = Array.isArray(parsed)
+    ? (parsed as Array<Record<string, unknown>>)
+    : [parsed as Record<string, unknown>];
+  const resultEv = events.find((e) => e && e.type === 'result')
+    || (Array.isArray(parsed) ? undefined : events[0]);
+  const isError = resultEv ? resultEv.is_error === true : false;
+  let rateLimited = false;
+  let resetsAtMs: number | null = null;
+  for (const e of events) {
+    if (e && e.type === 'rate_limit_event') {
+      const info = e.rate_limit_info as { status?: string; resetsAt?: unknown } | undefined;
+      if (info && info.status === 'rejected') {
+        rateLimited = true;
+        const secs = Number(info.resetsAt);
+        if (Number.isFinite(secs) && secs > 0) resetsAtMs = secs * 1000;
+      }
+    }
+  }
+  const rawResult = resultEv && typeof resultEv.result === 'string' ? (resultEv.result as string) : null;
+  const loggedOut = isError && !!rawResult && /not logged in|\/login/i.test(rawResult);
+  let text: string | null;
+  if (!isError && rawResult) {
+    text = rawResult;
+  } else if (!isError) {
+    const asst = events
+      .filter((e) => e && e.type === 'assistant')
+      .map((e) => {
+        const m = e.message as { content?: Array<{ text?: string }> } | undefined;
+        return (m?.content || []).map((c) => c.text || '').join('');
+      })
+      .join('');
+    text = asst || stdout;
+  } else {
+    text = null;
+  }
+  return { text, isError, rateLimited, loggedOut, resetsAtMs };
+}
+
 const _claudeAdapter: BackendAdapter = {
   binary: 'claude',
   buildArgs(prompt: string, opts: SpawnOpts): string[] {
@@ -68,6 +126,10 @@ const _claudeAdapter: BackendAdapter = {
   isRateLimited(exitCode: number, stderr: string): boolean {
     if (exitCode === 0) return false;
     return /rate.limit|429|overloaded_error|too many requests/i.test(stderr);
+  },
+  detectFromStdout(stdout: string): { rateLimited: boolean; resetsAtMs: number | null; unhealthy: boolean } {
+    const r = parseClaudeResult(stdout);
+    return { rateLimited: r.rateLimited, resetsAtMs: r.resetsAtMs, unhealthy: r.rateLimited || r.loggedOut };
   },
 };
 
@@ -1379,6 +1441,7 @@ module.exports = {
   createScheduler,
   DEFAULT_PREDICTION,
   normalizePrediction,
+  parseClaudeResult,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
