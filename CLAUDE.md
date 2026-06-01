@@ -314,6 +314,26 @@ takeaways, and SP2-D Related Work via `retrieve`), then spawns `grd-paper-writer
 written up as a negative/inconclusive result. Related Work degrades to empty if retrieval fails;
 non-terminal threads are refused. Written atomically (temp+rename), regenerated on each call.
 
+### Docker experiment sandbox (RUN station)
+
+The RUN station can run each experiment script inside a Docker container instead
+of as a host subprocess. Opt in with `research_sandbox: "docker"` (top-level
+config key, read raw via `readSandboxConfig` in `lib/research/docker-runner.ts`).
+`selectRunner(cwd, …)` picks the runner: docker when configured **and** the
+daemon probe (`docker version`) succeeds, else it degrades to the subprocess
+runner with a loud `UNSANDBOXED` stderr warning (the actual runner is recorded
+in `result.json` as `runner: subprocess|docker`). The container runs with a
+tight posture: only the iteration dir bind-mounted RW at `/work`, `--network
+none`, `--read-only` rootfs + `--tmpfs /tmp`, `--cap-drop ALL`,
+`--security-opt no-new-privileges`, `--ipc none`, non-root `--user` on POSIX,
+`--memory`/`--cpus`/`--pids-limit` caps, `--entrypoint` pinned to bash/python3,
+and a force-remove on timeout. `plan.scriptPath` is realpath-contained under the
+thread dir and `research_sandbox_image` is reference-validated (no flag
+injection). Config keys: `research_sandbox`, `research_sandbox_image`,
+`research_sandbox_memory` (default `512m`), `research_sandbox_cpus` (default
+`1`), `research_sandbox_network` (`none`|`bridge`). Defaults to slim images
+(`python:3.12-slim` / `bash:5`).
+
 ### Multi-thread portfolio (loop deepening #3)
 
 `gd research portfolio [ids...] [--topic <id>] [--concurrency N] [--force] [--no-gates]` advances a

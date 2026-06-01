@@ -20,7 +20,9 @@ const { buildFinding, writeFinding, findingPath } = require('./finding');
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
 const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io');
-const { createSubprocessRunner } = require('./runner');
+const { selectRunner } = require('./docker-runner') as {
+  selectRunner: (cwd: string, opts?: { timeoutMs?: number }) => Runner;
+};
 const { retrieve, buildGroundingPack } = require('./retrieve') as {
   retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
   buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
@@ -158,7 +160,7 @@ async function runLoop(
   cwd: string, thread: ResearchThread, opts: ResearchOptions,
   config: Record<string, unknown>, approved: { execute: boolean; kg_write: boolean },
 ): Promise<ResearchResult> {
-  const runner: Runner = opts.runner || createSubprocessRunner({ timeoutMs: opts.timeout });
+  const runner: Runner = opts.runner || selectRunner(cwd, { timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
   const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
 

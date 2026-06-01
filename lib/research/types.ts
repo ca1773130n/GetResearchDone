@@ -60,7 +60,7 @@ export interface ExperimentPlan {
 export interface ExperimentResult {
   metrics: Record<string, number>;
   exitCode: number;
-  runner: 'subprocess';
+  runner: 'subprocess' | 'docker';
   durationMs: number;
   stdoutExcerpt: string;
   failureClass: FailureClass;
