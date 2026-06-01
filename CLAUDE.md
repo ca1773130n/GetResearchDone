@@ -314,6 +314,18 @@ takeaways, and SP2-D Related Work via `retrieve`), then spawns `grd-paper-writer
 written up as a negative/inconclusive result. Related Work degrades to empty if retrieval fails;
 non-terminal threads are refused. Written atomically (temp+rename), regenerated on each call.
 
+### Eval-report augmentation (MEASURE, opt-in)
+
+With `research_eval_report: true` (default false), after the deterministic
+verdict and AFTER branch/termination are computed, the loop spawns a dedicated
+read-only `grd-research-evaluator` (Read/Grep/Glob only — cannot re-run or mutate
+anything) to write a per-iteration `experiments/<iter>/EVAL.md` from the
+already-collected `result.json` metrics (`lib/research/eval.ts`). The agent emits
+an `__EVAL__`…`__END_EVAL__` markdown block; the orchestrator is the only writer.
+The deterministic `evaluateVerdict` remains the sole authority for
+verdict/branch/terminate (LLM-judged core-path scoring is a registered
+dead-end) — this is purely an additive, degrade-safe human-facing report.
+
 ### Knowledge promotion (LEARN → shared KB)
 
 At PERSIST (inside `finishKgSync`, after the `kg_write` gate — so both the
