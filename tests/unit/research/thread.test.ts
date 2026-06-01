@@ -66,4 +66,15 @@ describe('research thread', () => {
     const md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
     expect(md).toMatch(/re-surveys:\*\*\s*2/);
   });
+
+  it('renders an error reason line in THREAD.md only when set', () => {
+    const cwd = tmp();
+    const t = createThread(cwd, 'Err Q?', {});
+    let md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
+    expect(md).not.toMatch(/error reason:/i);
+    t.status = 'error'; t.errorReason = 'hypothesizer output not parseable — Got: boom';
+    saveThread(cwd, t);
+    md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
+    expect(md).toMatch(/error reason:\*\*\s*hypothesizer output not parseable/i);
+  });
 });

@@ -79,6 +79,7 @@ function renderThreadLog(t: ResearchThread): string {
       ? [`- **seeded from:** synthesis "${t.seededFrom.synthesisTopicId}" (${t.seededFrom.sourceNodeIds.length} source nodes)`]
       : []),
     ...(t.resurveyCount ? [`- **re-surveys:** ${t.resurveyCount}`] : []),
+    ...(t.errorReason ? [`- **error reason:** ${t.errorReason}`] : []),
     `- **created:** ${t.createdAt}`,
     '',
   ].join('\n');
