@@ -289,6 +289,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'research_sandbox_memory',
   'research_sandbox_cpus',
   'research_sandbox_network',
+  'research_persist_knowledge',
   'confirmation_gates',
   'timeouts',
   'evolve',

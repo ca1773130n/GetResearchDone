@@ -41,6 +41,23 @@ function makeRunner() {
   };
 }
 
+function makeSpawnSuccess() {
+  let hypoCalls = 0;
+  return async (_prompt: string, agentType: string): Promise<string> => {
+    if (agentType === 'grd-hypothesizer') {
+      hypoCalls++;
+      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+    }
+    if (agentType === 'grd-experiment-runner') {
+      return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+    }
+    if (agentType === 'grd-knowledge-miner') {
+      return '__TAKEAWAY__ {"kind":"success_pattern","content":"Batching helps a lot","confidence":0.8,"evidence":"e","failureClass":"none"}';
+    }
+    return '';
+  };
+}
+
 describe('orchestrator', () => {
   it('forwards an injected kgClient to the KG sync compile at finalize', async () => {
     const cwd = tmp();
@@ -116,6 +133,36 @@ describe('orchestrator', () => {
     const res = await resumeResearch(cwd, second.threadId, { spawn: makeSpawn(), runner, noGates: false });
     expect(res.status).toBe('supported');
     expect(res.paused).toBeFalsy();
+  });
+
+  it('promotes takeaways to KNOWHOW.md and a refuted hypothesis to DEAD-ENDS.md at finalize', async () => {
+    const cwd = tmp();
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 5, noGates: true, spawn: makeSpawnSuccess(), runner: makeRunner(),
+    });
+    expect(fs.existsSync(path.join(cwd, 'KNOWHOW.md'))).toBe(true);
+    expect(fs.existsSync(path.join(cwd, '.planning/DEAD-ENDS.md'))).toBe(true);
+  });
+
+  it('still promotes when finalizing via the kg_write-resume path', async () => {
+    const cwd = tmp();
+    const runner = { run: () => ({
+      metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess',
+      durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+    const first = await runResearch(cwd, 'KG gate Q', { maxIterations: 2, noGates: false, spawn: makeSpawnSuccess(), runner });
+    const second = await resumeResearch(cwd, first.threadId, { spawn: makeSpawnSuccess(), runner, noGates: false });
+    expect(second.pendingGate).toBe('kg_write');
+    await resumeResearch(cwd, second.threadId, { spawn: makeSpawnSuccess(), runner, noGates: false });
+    expect(fs.existsSync(path.join(cwd, 'KNOWHOW.md'))).toBe(true);
+  });
+
+  it('does not promote when research_persist_knowledge is false', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_persist_knowledge: false }));
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 5, noGates: true, spawn: makeSpawnSuccess(), runner: makeRunner(),
+    });
+    expect(fs.existsSync(path.join(cwd, 'KNOWHOW.md'))).toBe(false);
   });
 
   it('exhausts when never supported', async () => {

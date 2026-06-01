@@ -23,6 +23,12 @@ const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require(
 const { selectRunner } = require('./docker-runner') as {
   selectRunner: (cwd: string, opts?: { timeoutMs?: number }) => Runner;
 };
+const { promoteThreadKnowledge } = require('./promote') as {
+  promoteThreadKnowledge: (
+    cwd: string, thread: ResearchThread, takeaways: Takeaway[], ledger: Hypothesis[],
+    opts: { iso: string },
+  ) => { knowhowAdded: number; deadEndsAdded: number; skipped: boolean };
+};
 const { retrieve, buildGroundingPack } = require('./retrieve') as {
   retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
   buildGroundingPack: (results: Array<Record<string, unknown>>, query: string) => string;
@@ -149,6 +155,12 @@ async function finishKgSync(
   const sync = await syncFindingToKg(cwd, thread.id, findingPath(cwd, thread.id), { client: kgClient });
   writeKgProvenance(cwd, thread.id, { wrote: sync.synced ? [`finding:${thread.id}`] : [] });
   if (sync.synced) incrementCounter('research.kg_writes_total');
+  // Promote takeaways → shared KB (KNOWHOW.md + DEAD-ENDS.md). Gated + degrade-safe.
+  // Lives here (the single PERSIST chokepoint) so both the runLoop finalize path
+  // and the resumeResearch kg_write-resume path promote after the gate.
+  promoteThreadKnowledge(cwd, thread,
+    readTakeaways(cwd, thread.id), readLedger(cwd, thread.id),
+    { iso: new Date().toISOString() });
   thread.status = status; thread.pendingGate = null; saveThread(cwd, thread);
   return {
     threadId: thread.id, status, iterations: thread.iteration,
