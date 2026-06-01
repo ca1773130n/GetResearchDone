@@ -1,8 +1,9 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-import type { Takeaway } from './types';
+import type { Takeaway, Hypothesis } from './types';
 import type { KnowhowEntry } from '../types';
+import type { DeadEndAddOpts } from '../dead-ends';
 
 const KNOWHOW_KINDS = new Set(['success_pattern', 'constraint', 'domain_fact', 'tool_pattern']);
 
@@ -32,4 +33,24 @@ function selectKnowhowTakeaways(takeaways: Takeaway[]): Takeaway[] {
   return takeaways.filter((t) => KNOWHOW_KINDS.has(t.kind) && t.confidence >= 0.5);
 }
 
-module.exports = { shouldPersistKnowledge, takeawayToKnowhow, selectKnowhowTakeaways };
+function buildDeadEndCalls(
+  thread: { id: string }, ledger: Hypothesis[], takeaways: Takeaway[],
+): DeadEndAddOpts[] {
+  return ledger
+    .filter((h) => h.verdict === 'refuted')
+    .map((h) => {
+      const why = takeaways.find(
+        (t) => t.iteration === h.iteration && t.kind === 'failure_root_cause',
+      );
+      return {
+        approach: h.statement,
+        phase: `research:${thread.id}#iter${h.iteration}`,
+        verdict: 'falsified',
+        evidence: [`predicted: ${h.predictedOutcome}`, why ? why.content : 'verdict: refuted'],
+      };
+    });
+}
+
+module.exports = {
+  shouldPersistKnowledge, takeawayToKnowhow, selectKnowhowTakeaways, buildDeadEndCalls,
+};

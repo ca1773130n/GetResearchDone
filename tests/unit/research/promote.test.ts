@@ -56,3 +56,26 @@ describe('selectKnowhowTakeaways', () => {
     expect(out.map((t: { kind: string }) => t.kind)).toEqual(['success_pattern', 'constraint']);
   });
 });
+
+describe('buildDeadEndCalls', () => {
+  const hyp = (over = {}) => ({
+    id: 'h1', iteration: 1, statement: 'GPU batching beats CPU', rationale: 'r',
+    predictedOutcome: 'throughput up 2x', status: 'refuted', parentId: null, verdict: 'refuted', ...over,
+  });
+  it('emits one DeadEndAddOpts per refuted hypothesis with ledger predictedOutcome', () => {
+    const calls = promote.buildDeadEndCalls(
+      { id: 't1' },
+      [hyp({ iteration: 1 }), hyp({ iteration: 2, verdict: 'supported', status: 'supported' })],
+      [{ kind: 'failure_root_cause', content: 'OOM at batch 512', confidence: 0.7, evidence: 'e', failureClass: 'H4', iteration: 1 }],
+    );
+    expect(calls.length).toBe(1);
+    expect(calls[0].approach).toBe('GPU batching beats CPU');
+    expect(calls[0].phase).toBe('research:t1#iter1');
+    expect(calls[0].verdict).toBe('falsified');
+    expect(calls[0].evidence).toEqual(['predicted: throughput up 2x', 'OOM at batch 512']);
+  });
+  it('falls back to verdict: refuted when no matching failure takeaway', () => {
+    const calls = promote.buildDeadEndCalls({ id: 't1' }, [hyp({ iteration: 3 })], []);
+    expect(calls[0].evidence).toEqual(['predicted: throughput up 2x', 'verdict: refuted']);
+  });
+});
