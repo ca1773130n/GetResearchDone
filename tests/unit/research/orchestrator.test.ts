@@ -182,6 +182,23 @@ describe('orchestrator', () => {
     expect(fs.existsSync(path.join(evalDir, 'EVAL.md'))).toBe(true);
   });
 
+  it('decodeSpawnStdout unwraps a claude event array to the result text', () => {
+    const arr = JSON.stringify([
+      { type: 'system', subtype: 'init' },
+      { type: 'assistant', message: { content: [{ text: 'ignored' }] } },
+      { type: 'result', is_error: false, result: '__HYPOTHESIS__ {"statement":"s"}' },
+    ]);
+    expect(decodeSpawnStdout(arr)).toBe('__HYPOTHESIS__ {"statement":"s"}');
+  });
+  it('decodeSpawnStdout falls back to assistant text when no result string', () => {
+    const arr = JSON.stringify([{ type: 'assistant', message: { content: [{ text: 'hello there' }] } }]);
+    expect(decodeSpawnStdout(arr)).toBe('hello there');
+  });
+  it('decodeSpawnStdout keeps the {result} object and plain-text paths', () => {
+    expect(decodeSpawnStdout('{"result":"x"}')).toBe('x');
+    expect(decodeSpawnStdout('plain hi')).toBe('plain hi');
+  });
+
   it('records errorReason when the hypothesizer output is unparseable', async () => {
     const cwd = tmp();
     const spawn = async (_p: string, a: string) => (a === 'grd-hypothesizer' ? 'garbage no block' : '');

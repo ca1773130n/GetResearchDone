@@ -1000,3 +1000,129 @@ describe('prediction defaults (first-run robustness)', () => {
     expect(s).not.toBeNull();
   });
 });
+
+describe('parseClaudeResult + claude detectFromStdout (rate-limit rotation)', () => {
+  const { parseClaudeResult } = require('../../lib/scheduler');
+  const healthy = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'rate_limit_event', rate_limit_info: { status: 'allowed', resetsAt: 1780329000 } },
+    { type: 'assistant', message: { content: [{ text: 'ignored' }] } },
+    { type: 'result', subtype: 'success', is_error: false, result: 'PROBE_OK' },
+  ]);
+  const limited = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: 1780606800 } },
+    { type: 'result', subtype: 'success', is_error: true, result: "You've hit your weekly limit · resets Jun 5" },
+  ]);
+  const loggedOut = JSON.stringify([
+    { type: 'system', subtype: 'init' },
+    { type: 'result', subtype: 'success', is_error: true, result: 'Not logged in · Please run /login' },
+  ]);
+
+  it('healthy → text extracted, not rate-limited', () => {
+    expect(parseClaudeResult(healthy)).toEqual({ text: 'PROBE_OK', isError: false, rateLimited: false, loggedOut: false, resetsAtMs: null });
+  });
+  it('rate-limited → rateLimited + resetsAtMs (secs*1000), text null', () => {
+    const r = parseClaudeResult(limited);
+    expect(r.isError).toBe(true); expect(r.rateLimited).toBe(true); expect(r.resetsAtMs).toBe(1780606800000); expect(r.text).toBeNull();
+  });
+  it('logged-out → loggedOut, not rate-limited', () => {
+    const r = parseClaudeResult(loggedOut);
+    expect(r.isError).toBe(true); expect(r.loggedOut).toBe(true); expect(r.rateLimited).toBe(false);
+  });
+  it('single result object → text', () => {
+    expect(parseClaudeResult('{"type":"result","result":"hi","is_error":false}').text).toBe('hi');
+  });
+  it('plain text → passthrough', () => {
+    expect(parseClaudeResult('hello').text).toBe('hello');
+  });
+  it('garbage JSON → raw passthrough, no throw', () => {
+    expect(parseClaudeResult('{bad').text).toBe('{bad');
+  });
+  it('invalid/past resetsAt → resetsAtMs null', () => {
+    const bad = JSON.stringify([{ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: 'nope' } }, { type: 'result', is_error: true, result: 'x' }]);
+    expect(parseClaudeResult(bad).resetsAtMs).toBeNull();
+  });
+  it('detectFromStdout: rejected → unhealthy; codex has none', () => {
+    const d = ADAPTERS.claude.detectFromStdout!(limited);
+    expect(d).toEqual({ rateLimited: true, resetsAtMs: 1780606800000, unhealthy: true });
+    expect(ADAPTERS.claude.detectFromStdout!(loggedOut)).toEqual({ rateLimited: false, resetsAtMs: null, unhealthy: true });
+    expect(ADAPTERS.claude.detectFromStdout!(healthy).unhealthy).toBe(false);
+    expect(ADAPTERS.codex.detectFromStdout).toBeUndefined();
+  });
+});
+
+describe('_postSpawnDecision (rotation + exhaustion)', () => {
+  const { _postSpawnDecision } = require('../../lib/scheduler');
+  const fakeAdapter = {
+    isRateLimited: (code: number, stderr: string) => code !== 0 && /rate.limit/i.test(stderr),
+    detectFromStdout: (stdout: string) => require('../../lib/scheduler').parseClaudeResult(stdout),
+  };
+  // wrap detect to the {unhealthy,...} shape like the real adapter
+  const adapter = {
+    isRateLimited: fakeAdapter.isRateLimited,
+    detectFromStdout: (stdout: string) => {
+      const r = fakeAdapter.detectFromStdout(stdout);
+      return { rateLimited: r.rateLimited, resetsAtMs: r.resetsAtMs, unhealthy: r.rateLimited || r.loggedOut };
+    },
+  };
+  const NOW = 1_000_000_000_000;
+  const limited = JSON.stringify([{ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: (NOW / 1000) + 9999 } }, { type: 'result', is_error: true, result: 'limit' }]);
+  const healthy = JSON.stringify([{ type: 'result', is_error: false, result: 'PROBE_OK' }]);
+  const loggedOut = JSON.stringify([{ type: 'result', is_error: true, result: 'Not logged in · /login' }]);
+  const res = (over = {}) => ({ exitCode: 0, stdout: healthy, stderr: '', timedOut: false, idleTimedOut: false, backend: 'claude', tokensUsed: 0, workItemId: 'w', ...over });
+
+  it('healthy → not unhealthy, no rotation', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: healthy }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(false);
+  });
+  it('rate-limited mid-retry → unhealthy, cooldown ≈ resetsAtMs, not exhausted', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: limited }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(true);
+    expect(d.exhausted).toBe(false);
+    expect(d.cooldownUntil).toBe(((NOW / 1000) + 9999) * 1000);
+  });
+  it('rate-limited at exhaustion → coerces exitCode to non-zero', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: limited, exitCode: 0 }), 3, 3, 60, NOW);
+    expect(d.exhausted).toBe(true);
+    expect(d.coercedResult.exitCode).not.toBe(0);
+  });
+  it('logged-out → unhealthy with floor cooldown (no resetsAt)', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: loggedOut }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(true);
+    expect(d.cooldownUntil).toBe(NOW + 60 * 60 * 1000);
+  });
+});
+
+describe('cooldown-aware recovery + fallback (rotation task 3)', () => {
+  const { computeSoonestRecovery, resolveAccount, createBackendState } = require('../../lib/scheduler');
+
+  it('computeSoonestRecovery considers cooldown_until even with no samples', () => {
+    const states = new Map();
+    const st = createBackendState(80000);
+    const future = Date.now() + 5 * 60 * 1000;
+    st.cooldown_until = future;
+    states.set('claude/a', st);
+    const r = computeSoonestRecovery(states, ['claude'], { claude: [{ config_dir: 'a' }] }, 60, 60 * 60 * 1000);
+    expect(r).toBe(future);
+  });
+
+  it('computeSoonestRecovery returns null when cooldown is beyond maxWaitMs', () => {
+    const states = new Map();
+    const st = createBackendState(80000);
+    st.cooldown_until = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days
+    states.set('claude/a', st);
+    expect(computeSoonestRecovery(states, ['claude'], { claude: [{ config_dir: 'a' }] }, 60, 60 * 60 * 1000)).toBeNull();
+  });
+
+  it('resolveAccount fallback skips a cooled fallback account', () => {
+    const superpowers = { default_backend: 'claude', account_rotation: true, accounts: { claude: [{ config_dir: 'a' }, { config_dir: 'b' }] } };
+    const sched = { backend_priority: ['claude'], free_fallback: { backend: 'claude' }, prediction: { window_minutes: 60, ewma_alpha: 0.3, safety_margin_tasks: 2, min_samples: 3 } };
+    const states = new Map();
+    const a = createBackendState(80000); a.cooldown_until = Date.now() + 60 * 60 * 1000; // cooled
+    const b = createBackendState(80000); b.ewma_tokens_per_task = 50000; b.tokens_consumed_in_window = 80000; // budget-exhausted, not cooled
+    states.set('claude/a', a); states.set('claude/b', b);
+    const r = resolveAccount(superpowers, sched, states, 2);
+    expect(r.account.config_dir).toBe('b');
+  });
+});

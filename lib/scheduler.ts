@@ -42,6 +42,64 @@ const { incrementCounter } = require('./metrics') as {
  * Meta-backends (superpowers, grd) are not included — they are scheduling
  * strategies that resolve to one of these real adapters at spawn time.
  */
+interface ClaudeResult {
+  text: string | null;
+  isError: boolean;
+  rateLimited: boolean;
+  loggedOut: boolean;
+  resetsAtMs: number | null;
+}
+
+/**
+ * Parse Claude Code's `--output-format json` stdout (a single `{...}` result
+ * object, the `[...]` event array, or plain text) into a structured result.
+ * Total + never throws. Claude reports rate limits / logged-out as exit-0 JSON,
+ * so this is how the scheduler detects an unhealthy account.
+ */
+export function parseClaudeResult(stdout: string): ClaudeResult {
+  const base: ClaudeResult = { text: stdout, isError: false, rateLimited: false, loggedOut: false, resetsAtMs: null };
+  const trimmed = (stdout || '').trim();
+  if (!trimmed || (trimmed[0] !== '[' && trimmed[0] !== '{')) return base;
+  let parsed: unknown;
+  try { parsed = JSON.parse(trimmed); } catch { return base; }
+  const events: Array<Record<string, unknown>> = Array.isArray(parsed)
+    ? (parsed as Array<Record<string, unknown>>)
+    : [parsed as Record<string, unknown>];
+  const resultEv = events.find((e) => e && e.type === 'result')
+    || (Array.isArray(parsed) ? undefined : events[0]);
+  const isError = resultEv ? resultEv.is_error === true : false;
+  let rateLimited = false;
+  let resetsAtMs: number | null = null;
+  for (const e of events) {
+    if (e && e.type === 'rate_limit_event') {
+      const info = e.rate_limit_info as { status?: string; resetsAt?: unknown } | undefined;
+      if (info && info.status === 'rejected') {
+        rateLimited = true;
+        const secs = Number(info.resetsAt);
+        if (Number.isFinite(secs) && secs > 0) resetsAtMs = secs * 1000;
+      }
+    }
+  }
+  const rawResult = resultEv && typeof resultEv.result === 'string' ? (resultEv.result as string) : null;
+  const loggedOut = isError && !!rawResult && /not logged in|\/login/i.test(rawResult);
+  let text: string | null;
+  if (!isError && rawResult) {
+    text = rawResult;
+  } else if (!isError) {
+    const asst = events
+      .filter((e) => e && e.type === 'assistant')
+      .map((e) => {
+        const m = e.message as { content?: Array<{ text?: string }> } | undefined;
+        return (m?.content || []).map((c) => c.text || '').join('');
+      })
+      .join('');
+    text = asst || stdout;
+  } else {
+    text = null;
+  }
+  return { text, isError, rateLimited, loggedOut, resetsAtMs };
+}
+
 const _claudeAdapter: BackendAdapter = {
   binary: 'claude',
   buildArgs(prompt: string, opts: SpawnOpts): string[] {
@@ -68,6 +126,10 @@ const _claudeAdapter: BackendAdapter = {
   isRateLimited(exitCode: number, stderr: string): boolean {
     if (exitCode === 0) return false;
     return /rate.limit|429|overloaded_error|too many requests/i.test(stderr);
+  },
+  detectFromStdout(stdout: string): { rateLimited: boolean; resetsAtMs: number | null; unhealthy: boolean } {
+    const r = parseClaudeResult(stdout);
+    return { rateLimited: r.rateLimited, resetsAtMs: r.resetsAtMs, unhealthy: r.rateLimited || r.loggedOut };
   },
 };
 
@@ -448,6 +510,11 @@ export function computeSoonestRecovery(
     for (const account of backendAccounts) {
       const stateKey = `${backend}/${account.config_dir}`;
       const state = states.get(stateKey);
+      // An explicit cooldown (e.g. from a rate_limit_event resetsAt) is itself a
+      // recovery time, even with no token samples yet.
+      if (state && state.cooldown_until && state.cooldown_until > now && state.cooldown_until < soonest) {
+        soonest = state.cooldown_until;
+      }
       if (!state || state.samples.length === 0) continue;
       if (state.ewma_tokens_per_task === 0) continue;
 
@@ -626,15 +693,24 @@ export function resolveAccount(
     }
   }
 
-  // Exhaustion fallback: use free_fallback backend
+  // Exhaustion fallback: use free_fallback backend, preferring an account that
+  // is NOT in cooldown (so a rate-limited fallback account isn't retried early).
   const fallbackBackend = schedulerConfig.free_fallback.backend;
   const fallbackAccounts = accounts[fallbackBackend];
   if (fallbackAccounts && fallbackAccounts.length > 0) {
-    return {
-      backend: fallbackBackend,
-      account: fallbackAccounts[0],
-      stateKey: `${fallbackBackend}/${fallbackAccounts[0].config_dir}`,
-    };
+    const nowF = Date.now();
+    const pick = fallbackAccounts.find((a) => {
+      const s = states.get(`${fallbackBackend}/${a.config_dir}`);
+      return !s || !s.cooldown_until || s.cooldown_until <= nowF;
+    });
+    if (pick) {
+      return {
+        backend: fallbackBackend,
+        account: pick,
+        stateKey: `${fallbackBackend}/${pick.config_dir}`,
+      };
+    }
+    // All fallback accounts are cooled — fall through to the empty-config_dir default.
   }
 
   // No accounts configured for fallback — use default account (empty config_dir)
@@ -797,6 +873,34 @@ export function normalizePrediction(
   raw?: Partial<typeof DEFAULT_PREDICTION>,
 ): typeof DEFAULT_PREDICTION {
   return { ...DEFAULT_PREDICTION, ...(raw || {}) };
+}
+
+/**
+ * Pure post-spawn decision: given an adapter + result, decide whether the
+ * account is unhealthy (rate-limited / logged-out via stdout JSON, or stderr
+ * rate-limit), what cooldown to apply, and — at retry exhaustion — coerce a
+ * non-zero exitCode so callers never mistake an exit-0 limit JSON for success.
+ */
+export function _postSpawnDecision(
+  adapter: BackendAdapter,
+  result: SchedulerSpawnResult,
+  retryCount: number,
+  maxRetries: number,
+  windowMinutes: number,
+  nowMs: number,
+): { unhealthy: boolean; cooldownUntil: number | null; exhausted: boolean; coercedResult: SchedulerSpawnResult | null } {
+  const det = adapter.detectFromStdout ? adapter.detectFromStdout(result.stdout || '') : null;
+  const unhealthy = !!(det && det.unhealthy) || adapter.isRateLimited(result.exitCode, result.stderr || '');
+  if (!unhealthy) return { unhealthy: false, cooldownUntil: null, exhausted: false, coercedResult: null };
+  const floor = nowMs + Math.max(windowMinutes || 60, 5) * 60 * 1000;
+  const cooldownUntil = det && det.resetsAtMs && det.resetsAtMs > nowMs ? det.resetsAtMs : floor;
+  if (retryCount >= maxRetries) {
+    return {
+      unhealthy: true, cooldownUntil, exhausted: true,
+      coercedResult: { ...result, exitCode: result.exitCode === 0 ? 1 : result.exitCode },
+    };
+  }
+  return { unhealthy: true, cooldownUntil, exhausted: false, coercedResult: null };
 }
 
 export function createScheduler(
@@ -1189,16 +1293,19 @@ export function createScheduler(
         });
       });
 
-      // Rate limit retry: if rate-limited despite prediction, cooldown and retry
-      if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
-        // Enforce a minimum 5-minute cooldown so a zero/missing window_minutes never skips the guard
-        state.cooldown_until = Date.now() + Math.max(prediction.window_minutes || 60, 5) * 60 * 1000;
-
-        // Max retry guard: cap recursive retries
-        if (retryCount >= maxRetries) {
-          return result; // Exhausted all retries, return last result
+      // Rate-limit / unhealthy-account detection. Claude reports limits and
+      // logged-out as exit-0 JSON, so detectFromStdout (not just exit+stderr)
+      // drives rotation. On unhealthy: cooldown the account (until resetsAt when
+      // known, else now+window) and rotate to the next account; at exhaustion,
+      // return a non-zero exitCode so callers don't read the limit JSON as success.
+      const decision = _postSpawnDecision(
+        adapter, result, retryCount, maxRetries, prediction.window_minutes, Date.now(),
+      );
+      if (decision.unhealthy) {
+        state.cooldown_until = decision.cooldownUntil ?? undefined;
+        if (decision.exhausted) {
+          return decision.coercedResult as SchedulerSpawnResult;
         }
-
         return _spawnWithRetry(prompt, opts, retryCount + 1);
       }
 
@@ -1379,6 +1486,8 @@ module.exports = {
   createScheduler,
   DEFAULT_PREDICTION,
   normalizePrediction,
+  parseClaudeResult,
+  _postSpawnDecision,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
