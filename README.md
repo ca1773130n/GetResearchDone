@@ -1,60 +1,101 @@
 # GRD — Get Research Done
 
-[![CI](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml/badge.svg)](https://github.com/ca1773130n/GetResearchDone/actions/workflows/ci.yml)
 [![Singularity](https://img.shields.io/badge/🔄_Singularity-92.2%25-e74c3c?style=flat-square)](docs/ouroboros-loop.md)
 [![Ouroboros Paper](https://img.shields.io/badge/📄_Paper-Ouroboros_loop-blueviolet?style=flat-square)](docs/ouroboros-loop.md)
 
-**GRD turns a research idea into a working, falsifiable feature — and remembers what didn't work.**
+**GRD runs a real research loop for you: it turns a question into a falsifiable hypothesis, designs and runs an experiment, measures the result, learns from it, and iterates to a verdict — remembering what didn't work.**
 
-The closed-loop self-monitoring is the headline. Every plan commits to a *hypothesis + predicted outcome*; the verifier resolves it to `{confirmed, partial, falsified}` with evidence; falsified approaches auto-promote to a project-scoped `DEAD-ENDS.md` so the planner can never re-propose them. A drift score, a strategy GENOME, and an opt-in metric-driven refinement loop keep the agent grounded in the project's stated goal. See [Ouroboros loop](docs/ouroboros-loop.md) for the full technical report.
+It is two things in one tool:
 
-92.2% of GRD's most recent release window was written by `gd evolve` itself — measured deterministically by `gd singularity`, not LLM-judged.
+1. **An autoresearch loop** — `gd research "<question>"` drives a hypothesis-centric scientific cycle (hypothesize → experiment → measure → learn → revise) to a supported/exhausted verdict, grounded on a knowledge graph you build from papers, PDFs, web pages, and past sessions. **→ [Step-by-step tutorial](docs/autoresearch-tutorial.md)**
+2. **An R&D engineering workflow** — survey → plan → execute → verify → iterate, with closed-loop self-monitoring (falsifiable reflections, a `DEAD-ENDS` registry, a drift score, and a strategy GENOME) so the agent stays grounded in the project's goal.
 
-## Why this exists
+92.2% of GRD's most recent release window was written by `gd evolve` itself — measured deterministically by `gd singularity`, not LLM-judged. See the [Ouroboros loop](docs/ouroboros-loop.md) technical report.
 
-Autonomous coding agents (Aider, OpenHands, SWE-agent, Cursor) have converged on a plan → execute → verify loop that is *amnesic*. GRD adds four lightweight, deterministic, project-scoped primitives that turn each agent dispatch into a step in a learning loop:
+---
 
-| Primitive | What it does |
-|---|---|
-| **Falsifiable reflections** | Every plan must commit to `hypothesis` + `predicted_outcome`; verifier resolves to a verdict with evidence |
-| **DEAD-ENDS registry** | Falsified hypotheses auto-promote; planner reads it and refuses to re-propose |
-| **Drift score** | Weighted goal/constraint/ontology distance from project objective; computed from on-disk artifacts, not LLM judgment |
-| **Strategy GENOME** | Project-scoped append-only registry of heuristics + dated snapshots; planner reads before composing each plan |
+## The autoresearch loop
 
-Behind those: multi-backend scheduling (Claude/Codex/Gemini/OpenCode/Overstory), worktree-isolated parallel phase execution, tiered verification (sanity/proxy/deferred), and a critique-agent refinement loop with automatic git-revert on metric regression.
+```
+            ┌─────────────────────── re-survey on plateau ──────────────────────┐
+            ▼                                                                    │
+SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → PERSIST → FINALIZE
+                    │           │       │       │         │       │         │
+              one testable   plan +  sandboxed  metric  typed   supported  FINDING.md
+              hypothesis     script  experiment vs       takeaway →finalize +PAPER.md
+              (KG-grounded)          (Docker/   target           else      +KNOWHOW/
+                                      subprocess) →verdict        revise   DEAD-ENDS
+```
+
+- **Grounded, not hallucinated.** The hypothesizer grounds on a [Tesserae](docs/autoresearch-tutorial.md) knowledge graph you compile from real sources, plus a deterministic hybrid retriever (lexical + graph + optional semantic).
+- **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path.
+- **Honest.** A loop that never reaches support is written up as a negative/inconclusive result, not hidden.
+- **Safe by default.** Two checkpoint gates (before running experiment code, before writing to the shared KG); optional Docker isolation for experiment scripts.
+- **Compounding.** Confirmed learnings promote to a shared `KNOWHOW.md`; falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.
+
+```bash
+gd research "Does retrieval-augmented prompting beat few-shot on our eval?"
+```
+
+That single command runs the loop to a verdict and leaves a complete, inspectable audit trail under `.planning/research/threads/<id>/`. **The [autoresearch tutorial](docs/autoresearch-tutorial.md) walks the whole thing end to end.**
+
+### Research commands
+
+| Command | Description |
+|---------|-------------|
+| `gd research "<question>"` | Start a new research thread; runs the loop to a verdict |
+| `gd research resume <id>` | Resume a thread paused at a checkpoint gate |
+| `gd research status [<id>]` | List threads, or show one thread's state |
+| `gd research report <id>` | Generate a publication-style `PAPER.md` for a finished thread |
+| `gd research portfolio [ids…]` | Advance multiple threads with bounded concurrency → ranked `PORTFOLIO.md` |
+| `gd ingest <md\|arxiv\|url\|pdf\|session>` | Add a source to the knowledge graph (local md, arXiv id/URL, web URL, PDF, or `.jsonl` transcript) |
+| `gd synthesize "<topic>"` | Layered synthesis over the KG; auto-emits ranked candidate hypotheses and can seed threads |
+| `gd retrieve "<query>"` | Hybrid retrieval over the compiled graph (lexical + graph-structure + optional semantic) |
+
+Flags: `--max-iterations N` (default 5), `--no-gates` (run unattended), `--json`.
+
+---
 
 ## Quick Start
 
+### Install
+
+GRD is a Claude Code plugin and a standalone CLI.
+
 ```bash
-# Install as Claude Code plugin
-claude plugin add https://github.com/ca1773130n/GRD.git
+# As a Claude Code plugin
+claude plugin add https://github.com/ca1773130n/GetResearchDone.git
 
-# Initialize a new R&D project
-/grd:init
+# Or as a global CLI (provides `gd`, `grd-tools`, `grd-mcp-server`)
+npm install -g @jokerized/getresearchdone
 
-# Or jump straight in
-/grd:survey "topic"          # Survey state of the art
-/grd:plan-phase 1            # Plan the first phase
-/grd:execute-phase 1         # Execute it
-/grd:autopilot               # Let it run autonomously
+# Register the MCP server into a harness's config (optional)
+gd install claude
 ```
 
-### Hands-On Tutorial
+**Prerequisites:** Node.js 18+ and a supported backend CLI (Claude Code, Codex, Gemini, or OpenCode).
 
-New to GRD? The [TaskMark tutorial](examples/taskmark/) walks you through the full workflow by improving a real (deliberately imperfect) CLI tool. Two tracks: **Quick Path** (5 minutes) or **Deep Path** (30 minutes).
+### Your first research thread
 
-### Prerequisites
+```bash
+gd research "Does X improve Y on our benchmark?"
+# → pauses at the execute gate before running experiment code
+gd research status                 # see the thread + where it paused
+gd research resume <id>            # approve and continue
+gd research report <id>            # once finished: write PAPER.md
+```
 
-- Node.js 18+
-- Claude Code CLI (or any supported backend)
+Full walkthrough — grounding on papers, going unattended, deepening the loop, and reading the outputs — in the **[autoresearch tutorial](docs/autoresearch-tutorial.md)**.
 
-### Optional Integrations
+### Hands-on engineering tutorial
 
-- GitHub CLI (`gh`) — for issue tracking
-- MCP Atlassian — for Jira integration
-- Overstory — for multi-agent orchestration
+New to GRD's R&D engineering side? The [TaskMark tutorial](examples/taskmark/) improves a real (deliberately imperfect) CLI tool — Quick Path (5 min) or Deep Path (30 min).
 
-## Core Workflow
+---
+
+## The R&D engineering workflow
+
+Beyond single research threads, GRD manages a full R&D project lifecycle with the same falsifiable discipline:
 
 ```
 Idea → Survey → Feasibility → Product Plan → Roadmap
@@ -62,150 +103,94 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
   → Integration → Product Verification → Done
 ```
 
-## Commands (45+)
+| Phase | Command |
+|---|---|
+| Initialize a project | `/grd:init` |
+| Survey the state of the art | `/grd:survey "<topic>"` |
+| Plan a phase (research-backed) | `/grd:plan-phase <N>` |
+| Execute a phase (wave-parallel, atomic commits) | `/grd:execute-phase <N>` |
+| Run autonomously | `/grd:autopilot` |
+| Ad-hoc task with GRD guarantees | `/grd:quick "<desc>"` |
+| Self-improvement loop | `/grd:evolve` |
 
-### Research
-| Command | Description |
-|---------|-------------|
-| `/grd:survey <topic>` | SoTA landscape scan |
-| `/grd:deep-dive <paper>` | Paper deep analysis |
-| `/grd:compare-methods` | Method comparison matrix |
-| `/grd:feasibility <approach>` | Paper-to-production gap analysis |
+### Closed-loop self-monitoring
 
-### Planning & Execution
-| Command | Description |
-|---------|-------------|
-| `/grd:init` | Initialize R&D project |
-| `/grd:plan-phase <N>` | Phase planning with research context |
-| `/grd:execute-phase <N>` | Phase execution with wave parallelization |
-| `/grd:autopilot` | Multi-phase autonomous execution |
-| `/grd:quick <desc>` | Quick task with GRD guarantees |
+Each agent dispatch is a step in a learning loop, via four deterministic, project-scoped primitives:
 
-### Evaluation
-| Command | Description |
-|---------|-------------|
-| `/grd:assess-baseline` | Current performance baseline |
-| `/grd:eval-report <N>` | Collect and analyze results |
-| `/grd:iterate <N>` | Iteration loop on failed metrics |
+| Primitive | What it does |
+|---|---|
+| **Falsifiable reflections** | Every plan commits to `hypothesis` + `predicted_outcome`; the verifier resolves it to a verdict with evidence |
+| **DEAD-ENDS registry** | Falsified hypotheses auto-promote; the planner reads it and refuses to re-propose them |
+| **Drift score** | Weighted goal/constraint/ontology distance from the objective — from on-disk artifacts, not LLM judgment |
+| **Strategy GENOME** | Project-scoped append-only registry of heuristics + dated snapshots, read before composing each plan |
 
-### Navigation
-| Command | Description |
-|---------|-------------|
-| `/grd:progress` | Project progress and smart routing |
-| `gd-tools think` | One-shot project-state briefing (active phase, recent verdicts, drift, dead-ends, open todos) |
-| `/grd:settings` | Configure workflow and preferences |
-| `/grd:help` | Full command reference |
+Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Overstory), worktree-isolated parallel phase execution, tiered verification (sanity / proxy / deferred), and a critique-agent refinement loop with automatic git-revert on metric regression.
 
-### Self-monitoring & self-improvement (Ouroboros integration)
-| Command | Description |
-|---------|-------------|
-| `gd health` | Weighted drift score (goal / constraint / ontology) + blockers, with config-drift fix suggestions |
-| `gd-tools dead-end add` | Record a falsified approach in `.planning/DEAD-ENDS.md` |
-| `gd-tools dead-end promote-from-phase` | Auto-promote `verdict: falsified` reflections from a phase |
-| `gd-tools genome init / show / snapshot` | Manage `.planning/GENOME.md` (project-scoped strategy snapshots) |
-| `gd-tools plan-tournament score` | Score candidate PLAN.md files against the phase goal |
-| `gd-tools verify mechanical` | Bundle the four PLAN.md mechanical checks (frontmatter, artifacts, exports, content) |
-
-### Phase forensics & planning (added by autonomous evolve loop)
-| Command | Description |
-|---------|-------------|
-| `gd diagnose <N>` | Phase failure post-mortem from VERIFICATION.md |
-| `gd budget <N>` / `gd estimate <N>` / `gd estimate-phase <N>` | Token + cost forecast (markdown + `<task>` XML) |
-| `gd blame <N>` | Map phase-range commits to plan tasks |
-| `gd impact <N>` | BFS the phase dep graph from `Depends on` declarations |
-| `gd deps` / `gd deps-risk` | Phase dependency graph visualizer and risk report |
-| `gd check-plans [--phase N]` | Validate plan file references against disk |
-| `gd check-assumptions <N>` | Validate `## Assumptions` blocks vs git diff |
-| `gd freshness [<N>]` | Citation freshness scanner (RESEARCH.md / LANDSCAPE.md) |
-| `gd rollback <N>` | Generate runnable `git revert` plan from `phase_branch_template` |
-| `gd forecast-phase <N>` | Pre-execution file-touch forecast |
-
-### Knowledge maintenance
-| Command | Description |
-|---------|-------------|
-| `gd knowhow rank "<query>"` | TF-IDF relevance ranking across all KNOWHOW.md locations |
-| `gd knowhow audit` / `gd knowhow dedup` / `gd knowhow aggregate` | Stale-entry audit, similarity-based dedup, cross-milestone aggregator |
-| `gd knowledge search "<query>"` | Keyword search across milestone + per-phase KNOWHOW.md |
-| `gd import-knowhow <src>` / `gd import-knowledge` | Import knowledge entries (`--dry-run` is side-effect free) |
-| `gd export-research` / `gd import-research` | Bundle pack/unpack with archive pre-validation |
-
-### Eval + live monitoring
-| Command | Description |
-|---------|-------------|
-| `gd eval diff <A> <B>` / `gd eval diff <A> latest` | Side-by-side metric deltas (direction-aware for latency/error metrics) |
-| `gd research-gaps` | Citation gap report across milestone + prefixed plans |
-| `gd tail [-f]` | Tail / follow `.planning/autopilot/autopilot.log` |
-| `gd watch` | Live execution monitor (autopilot.log-backed) |
-
-## Architecture
-
-GRD uses a thin orchestrator pattern: markdown skill files handle orchestration intelligence, while `bin/grd-tools.ts` handles all deterministic operations (state management, verification, scaffolding, tracker sync). The `gd` CLI provides a unified entry point for both tool and agent commands across backends.
-
-```
-bin/
-├── grd-tools.ts        # Deterministic CLI (state, verify, scaffold, tracker)
-├── gd.ts               # Unified CLI (agent + tool routing)
-├── grd-mcp-server.ts   # MCP server exposing all tools
-└── *.js                # Entry points (register tsx for .ts resolution)
-lib/
-├── scheduler.ts        # Cross-backend rate limit scheduler
-├── autopilot.ts        # Multi-phase orchestration
-├── evolve/             # Self-evolution loop
-├── commands/           # CLI command handlers
-├── context/            # Context optimization for agents
-└── ...                 # 25+ TypeScript modules
-```
-
-All source is TypeScript with `strict: true`. Entry points use [tsx](https://github.com/privatenumber/tsx) for direct `.ts` resolution — no compilation needed for development.
+---
 
 ## Configuration
 
-`.planning/config.json` controls all behavior:
+`.planning/config.json` controls all behavior. Autoresearch-specific keys:
 
-```json
-{
-  "autonomous_mode": false,
-  "ceremony": { "default_level": "auto" },
-  "code_review": { "enabled": true },
-  "scheduler": {
-    "backend_priority": ["claude", "gemini"],
-    "free_fallback": { "backend": "opencode" }
-  }
-}
+| Key | Default | Effect |
+|---|---|---|
+| `research_gates` | `{execute:true, kg_write:true}` | Per-gate checkpoints (override with `--no-gates`) |
+| `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads |
+| `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey |
+| `research_max_resurveys` | `2` | Cap on plateau re-surveys per thread |
+| `research_resurvey_fetch` | `false` | On re-survey, fetch + ingest new sources first |
+| `research_portfolio_concurrency` | `2` | Bounded concurrency for `gd research portfolio` |
+| `research_sandbox` | `"subprocess"` | `"docker"` to isolate experiment scripts |
+| `research_sandbox_image` / `_memory` / `_cpus` / `_network` | slim / `512m` / `1` / `none` | Docker sandbox knobs |
+| `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` / `DEAD-ENDS.md` |
+| `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator |
+
+Semantic retrieval is opt-in and only embeds when `GRD_EMBED_API_KEY` (or `OPENAI_API_KEY`) is set — otherwise zero network egress. See the [tutorial](docs/autoresearch-tutorial.md#configuration-reference) for the complete reference, and `/grd:settings` for interactive configuration.
+
+---
+
+## Architecture
+
+GRD uses a thin orchestrator pattern: markdown skill files handle orchestration intelligence, while `bin/grd-tools.ts` handles all deterministic operations. The `gd` CLI is the unified entry point for both tool and agent commands across backends.
+
+```
+bin/
+├── grd-tools.ts        # Deterministic CLI (state, verify, scaffold, research)
+├── gd.ts               # Unified CLI (agent + tool routing)
+└── grd-mcp-server.ts   # MCP server exposing all tools
+lib/
+├── research/           # Autoresearch loop (orchestrator, ingest, synthesize,
+│                       #   retrieve, runner, docker-runner, promote, eval, paper, portfolio)
+├── scheduler.ts        # Cross-backend rate-limit scheduler
+├── autopilot.ts        # Multi-phase orchestration
+├── evolve/             # Self-evolution loop
+└── ...                 # 25+ TypeScript modules
 ```
 
-See `/grd:settings` for interactive configuration or `/grd:help` for full reference.
+All source is TypeScript with `strict: true`. Entry points use [tsx](https://github.com/privatenumber/tsx) for direct `.ts` resolution — no build step for development.
 
 ## MCP Server
 
-GRD includes an MCP server exposing all CLI commands as structured tools:
+GRD exposes all CLI commands as structured MCP tools:
 
 ```json
-{
-  "mcpServers": {
-    "grd": { "command": "grd-mcp-server" }
-  }
-}
+{ "mcpServers": { "grd": { "command": "grd-mcp-server" } } }
 ```
 
-## Credits
-
-Built on [GSD (Get Shit Done)](https://github.com/gsd-build/gsd-2) by Cole Medin (v1 heritage) and the gsd-build team (v2 patterns). Extended for R&D workflows by Cameleon X.
+Run `gd install <harness>` to register it automatically. See [docs/mcp-server.md](docs/mcp-server.md).
 
 ## Security
 
-GRD scans its bundled markdown (`commands/`, `agents/`, `templates/`, `docs/`) for prompt injection patterns — system prompt markers, role overrides, hidden HTML directives, tool-call injection, and base64-obfuscated variants of the same. The scanner is available as a CLI:
+GRD scans its bundled markdown for prompt-injection patterns (system-prompt markers, role overrides, hidden HTML directives, tool-call injection, and base64-obfuscated variants):
 
 ```bash
-gd scan              # scan staged .md files (use as pre-commit)
+gd scan              # scan staged .md files (use as a pre-commit hook)
 gd scan --all        # full repo sweep
-gd scan --diff main  # scan .md files changed vs main (CI mode)
+gd scan --diff main  # scan .md changed vs main
 ```
 
-A CI job (`docs-check` in `.github/workflows/ci.yml`) blocks PRs that introduce unignored patterns. To install an opt-in pre-commit hook locally:
+Install the opt-in pre-commit hook with `npm run hooks:install`. Remote ingestion (`gd ingest <url>`) runs through a best-effort SSRF guard that blocks non-http(s) schemes, credentials-in-URL, and loopback/private/link-local/metadata hosts on the initial URL and every redirect hop.
 
-```bash
-npm run hooks:install
-```
+## Credits
 
-Pattern set adopted from [gsd-2](https://github.com/gsd-build/gsd-2) v2.67 `scripts/docs-prompt-injection-scan.sh` and `scripts/base64-scan.sh`.
+Built on [GSD (Get Shit Done)](https://github.com/gsd-build/gsd-2) by Cole Medin (v1 heritage) and the gsd-build team (v2 patterns). Extended for R&D and autoresearch workflows by Cameleon X.
