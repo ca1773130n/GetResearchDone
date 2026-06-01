@@ -988,3 +988,15 @@ describe('detectSpin', () => {
     expect(result.repeated_pattern).toContain('TypeError');
   });
 });
+
+describe('prediction defaults (first-run robustness)', () => {
+  const { createScheduler: mkSched, normalizePrediction } = require('../../lib/scheduler');
+  it('normalizePrediction fills all four fields', () => {
+    expect(normalizePrediction(undefined)).toEqual({ window_minutes: 60, ewma_alpha: 0.3, safety_margin_tasks: 2, min_samples: 3 });
+    expect(normalizePrediction({ ewma_alpha: 0.9 })).toEqual({ window_minutes: 60, ewma_alpha: 0.9, safety_margin_tasks: 2, min_samples: 3 });
+  });
+  it('createScheduler does not throw on a config missing prediction', () => {
+    const s = mkSched({ backend_priority: ['claude'], free_fallback: { backend: 'claude' } });
+    expect(s).not.toBeNull();
+  });
+});

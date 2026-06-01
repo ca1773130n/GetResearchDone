@@ -382,6 +382,10 @@ GRD's autoresearch loop is built to keep going:
 - **An experiment fails to run?** That's data: the verdict is `inconclusive` with
   a failure class (H2 missing dep, H3 missing file/permission, H4 runtime/timeout),
   and the loop revises.
+- **An agent returns unparseable output?** The thread ends with `status: error`
+  and a recorded `errorReason` (with a short excerpt of what the agent actually
+  returned) — visible in `THREAD.md`, `thread.json`, and the command's `--json`
+  output, so you can see *why* it failed rather than guessing.
 
 ---
 

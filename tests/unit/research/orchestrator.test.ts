@@ -182,6 +182,28 @@ describe('orchestrator', () => {
     expect(fs.existsSync(path.join(evalDir, 'EVAL.md'))).toBe(true);
   });
 
+  it('records errorReason when the hypothesizer output is unparseable', async () => {
+    const cwd = tmp();
+    const spawn = async (_p: string, a: string) => (a === 'grd-hypothesizer' ? 'garbage no block' : '');
+    const res = await runResearch(cwd, 'Q?', { maxIterations: 2, noGates: true, spawn, runner: makeRunner() });
+    expect(res.status).toBe('error');
+    expect(res.errorReason).toMatch(/hypothesizer output not parseable/i);
+    const tj = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/research/threads', res.threadId, 'thread.json'), 'utf8'));
+    expect(tj.errorReason).toMatch(/hypothesizer output not parseable/i);
+  });
+
+  it('records errorReason when the plan output is unparseable', async () => {
+    const cwd = tmp();
+    const spawn = async (_p: string, a: string) => {
+      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p"}';
+      if (a === 'grd-experiment-runner') return 'nope';
+      return '';
+    };
+    const res = await runResearch(cwd, 'Q?', { maxIterations: 2, noGates: true, spawn, runner: makeRunner() });
+    expect(res.status).toBe('error');
+    expect(res.errorReason).toMatch(/experiment-runner output not parseable/i);
+  });
+
   it('does not spawn grd-research-evaluator or write EVAL.md when the flag is off', async () => {
     const cwd = tmp();
     let evalSpawns = 0;

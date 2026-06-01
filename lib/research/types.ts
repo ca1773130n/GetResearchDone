@@ -32,6 +32,7 @@ export interface ResearchThread {
   resurveyCount?: number;
   pendingPivot?: boolean;
   baseMaxIterations?: number;
+  errorReason?: string;
 }
 
 export interface Hypothesis {

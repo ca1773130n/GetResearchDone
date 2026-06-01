@@ -98,6 +98,7 @@ import type { Scheduler } from './scheduler';
 const {
   createScheduler,
   resolveAccount,
+  normalizePrediction,
 }: {
   createScheduler: (
     config: import('./types').SchedulerConfig | undefined,
@@ -109,6 +110,9 @@ const {
     states: Map<string, import('./types').BackendUsageState>,
     safetyMargin: number
   ) => import('./types').AccountResolution;
+  normalizePrediction: (raw?: {
+    window_minutes?: number; ewma_alpha?: number; safety_margin_tasks?: number; min_samples?: number;
+  }) => { window_minutes: number; ewma_alpha: number; safety_margin_tasks: number; min_samples: number };
 } = require('./scheduler');
 const {
   slingPlanAsync,
@@ -711,7 +715,7 @@ async function runAutopilot(cwd: string, options: AutopilotOptions = {}): Promis
               config.superpowers,
               config.scheduler,
               _getSchedulerStates(scheduler, config.scheduler, config.superpowers),
-              config.scheduler.prediction.safety_margin_tasks
+              normalizePrediction(config.scheduler.prediction).safety_margin_tasks
             );
             const caps = getBackendCapabilities(resolution.backend);
             if (caps.native_worktree_isolation) {
