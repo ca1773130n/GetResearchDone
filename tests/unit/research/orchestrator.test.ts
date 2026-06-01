@@ -58,6 +58,14 @@ function makeSpawnSuccess() {
   };
 }
 
+function makeSpawnEval() {
+  const base = makeSpawnSuccess();
+  return async (prompt: string, agentType: string): Promise<string> => {
+    if (agentType === 'grd-research-evaluator') return '__EVAL__\niteration=x\n## Results\nok\n__END_EVAL__';
+    return base(prompt, agentType);
+  };
+}
+
 describe('orchestrator', () => {
   it('forwards an injected kgClient to the KG sync compile at finalize', async () => {
     const cwd = tmp();
@@ -163,6 +171,28 @@ describe('orchestrator', () => {
       maxIterations: 5, noGates: true, spawn: makeSpawnSuccess(), runner: makeRunner(),
     });
     expect(fs.existsSync(path.join(cwd, 'KNOWHOW.md'))).toBe(false);
+  });
+
+  it('writes per-iteration EVAL.md when research_eval_report is on (verdict unchanged)', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_eval_report: true }));
+    const res = await runResearch(cwd, 'Does X help?', { maxIterations: 5, noGates: true, spawn: makeSpawnEval(), runner: makeRunner() });
+    expect(res.status).toBe('supported'); // same verdict as the flag-off baseline
+    const evalDir = path.join(cwd, '.planning/research/threads', res.threadId, 'experiments', '1');
+    expect(fs.existsSync(path.join(evalDir, 'EVAL.md'))).toBe(true);
+  });
+
+  it('does not spawn grd-research-evaluator or write EVAL.md when the flag is off', async () => {
+    const cwd = tmp();
+    let evalSpawns = 0;
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-research-evaluator') { evalSpawns++; return ''; }
+      return makeSpawnSuccess()(prompt, agentType);
+    };
+    const res = await runResearch(cwd, 'Does X help?', { maxIterations: 5, noGates: true, spawn, runner: makeRunner() });
+    expect(evalSpawns).toBe(0);
+    const evalDir = path.join(cwd, '.planning/research/threads', res.threadId, 'experiments', '1');
+    expect(fs.existsSync(path.join(evalDir, 'EVAL.md'))).toBe(false);
   });
 
   it('exhausts when never supported', async () => {
