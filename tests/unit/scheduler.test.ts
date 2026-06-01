@@ -1051,3 +1051,45 @@ describe('parseClaudeResult + claude detectFromStdout (rate-limit rotation)', ()
     expect(ADAPTERS.codex.detectFromStdout).toBeUndefined();
   });
 });
+
+describe('_postSpawnDecision (rotation + exhaustion)', () => {
+  const { _postSpawnDecision } = require('../../lib/scheduler');
+  const fakeAdapter = {
+    isRateLimited: (code: number, stderr: string) => code !== 0 && /rate.limit/i.test(stderr),
+    detectFromStdout: (stdout: string) => require('../../lib/scheduler').parseClaudeResult(stdout),
+  };
+  // wrap detect to the {unhealthy,...} shape like the real adapter
+  const adapter = {
+    isRateLimited: fakeAdapter.isRateLimited,
+    detectFromStdout: (stdout: string) => {
+      const r = fakeAdapter.detectFromStdout(stdout);
+      return { rateLimited: r.rateLimited, resetsAtMs: r.resetsAtMs, unhealthy: r.rateLimited || r.loggedOut };
+    },
+  };
+  const NOW = 1_000_000_000_000;
+  const limited = JSON.stringify([{ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: (NOW / 1000) + 9999 } }, { type: 'result', is_error: true, result: 'limit' }]);
+  const healthy = JSON.stringify([{ type: 'result', is_error: false, result: 'PROBE_OK' }]);
+  const loggedOut = JSON.stringify([{ type: 'result', is_error: true, result: 'Not logged in · /login' }]);
+  const res = (over = {}) => ({ exitCode: 0, stdout: healthy, stderr: '', timedOut: false, idleTimedOut: false, backend: 'claude', tokensUsed: 0, workItemId: 'w', ...over });
+
+  it('healthy → not unhealthy, no rotation', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: healthy }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(false);
+  });
+  it('rate-limited mid-retry → unhealthy, cooldown ≈ resetsAtMs, not exhausted', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: limited }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(true);
+    expect(d.exhausted).toBe(false);
+    expect(d.cooldownUntil).toBe(((NOW / 1000) + 9999) * 1000);
+  });
+  it('rate-limited at exhaustion → coerces exitCode to non-zero', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: limited, exitCode: 0 }), 3, 3, 60, NOW);
+    expect(d.exhausted).toBe(true);
+    expect(d.coercedResult.exitCode).not.toBe(0);
+  });
+  it('logged-out → unhealthy with floor cooldown (no resetsAt)', () => {
+    const d = _postSpawnDecision(adapter, res({ stdout: loggedOut }), 0, 3, 60, NOW);
+    expect(d.unhealthy).toBe(true);
+    expect(d.cooldownUntil).toBe(NOW + 60 * 60 * 1000);
+  });
+});

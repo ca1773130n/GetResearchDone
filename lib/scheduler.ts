@@ -861,6 +861,34 @@ export function normalizePrediction(
   return { ...DEFAULT_PREDICTION, ...(raw || {}) };
 }
 
+/**
+ * Pure post-spawn decision: given an adapter + result, decide whether the
+ * account is unhealthy (rate-limited / logged-out via stdout JSON, or stderr
+ * rate-limit), what cooldown to apply, and — at retry exhaustion — coerce a
+ * non-zero exitCode so callers never mistake an exit-0 limit JSON for success.
+ */
+export function _postSpawnDecision(
+  adapter: BackendAdapter,
+  result: SchedulerSpawnResult,
+  retryCount: number,
+  maxRetries: number,
+  windowMinutes: number,
+  nowMs: number,
+): { unhealthy: boolean; cooldownUntil: number | null; exhausted: boolean; coercedResult: SchedulerSpawnResult | null } {
+  const det = adapter.detectFromStdout ? adapter.detectFromStdout(result.stdout || '') : null;
+  const unhealthy = !!(det && det.unhealthy) || adapter.isRateLimited(result.exitCode, result.stderr || '');
+  if (!unhealthy) return { unhealthy: false, cooldownUntil: null, exhausted: false, coercedResult: null };
+  const floor = nowMs + Math.max(windowMinutes || 60, 5) * 60 * 1000;
+  const cooldownUntil = det && det.resetsAtMs && det.resetsAtMs > nowMs ? det.resetsAtMs : floor;
+  if (retryCount >= maxRetries) {
+    return {
+      unhealthy: true, cooldownUntil, exhausted: true,
+      coercedResult: { ...result, exitCode: result.exitCode === 0 ? 1 : result.exitCode },
+    };
+  }
+  return { unhealthy: true, cooldownUntil, exhausted: false, coercedResult: null };
+}
+
 export function createScheduler(
   config: SchedulerConfig | undefined,
   superpowersConfig?: SuperpowersConfig
@@ -1251,16 +1279,19 @@ export function createScheduler(
         });
       });
 
-      // Rate limit retry: if rate-limited despite prediction, cooldown and retry
-      if (adapter.isRateLimited(result.exitCode, result.stderr || '')) {
-        // Enforce a minimum 5-minute cooldown so a zero/missing window_minutes never skips the guard
-        state.cooldown_until = Date.now() + Math.max(prediction.window_minutes || 60, 5) * 60 * 1000;
-
-        // Max retry guard: cap recursive retries
-        if (retryCount >= maxRetries) {
-          return result; // Exhausted all retries, return last result
+      // Rate-limit / unhealthy-account detection. Claude reports limits and
+      // logged-out as exit-0 JSON, so detectFromStdout (not just exit+stderr)
+      // drives rotation. On unhealthy: cooldown the account (until resetsAt when
+      // known, else now+window) and rotate to the next account; at exhaustion,
+      // return a non-zero exitCode so callers don't read the limit JSON as success.
+      const decision = _postSpawnDecision(
+        adapter, result, retryCount, maxRetries, prediction.window_minutes, Date.now(),
+      );
+      if (decision.unhealthy) {
+        state.cooldown_until = decision.cooldownUntil ?? undefined;
+        if (decision.exhausted) {
+          return decision.coercedResult as SchedulerSpawnResult;
         }
-
         return _spawnWithRetry(prompt, opts, retryCount + 1);
       }
 
@@ -1442,6 +1473,7 @@ module.exports = {
   DEFAULT_PREDICTION,
   normalizePrediction,
   parseClaudeResult,
+  _postSpawnDecision,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
