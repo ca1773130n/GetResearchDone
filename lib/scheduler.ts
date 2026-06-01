@@ -781,6 +781,24 @@ function _computeMaxRetries(
  * @param superpowersConfig - optional superpowers configuration for account rotation
  * @returns Scheduler instance, or null if config is absent
  */
+/** Default EWMA-prediction tuning, applied when a scheduler config omits fields. */
+export const DEFAULT_PREDICTION = {
+  window_minutes: 60,
+  ewma_alpha: 0.3,
+  safety_margin_tasks: 2,
+  min_samples: 3,
+};
+
+/**
+ * Field-merge a (possibly partial / undefined) prediction config over the
+ * defaults so every consumer can read its fields unguarded.
+ */
+export function normalizePrediction(
+  raw?: Partial<typeof DEFAULT_PREDICTION>,
+): typeof DEFAULT_PREDICTION {
+  return { ...DEFAULT_PREDICTION, ...(raw || {}) };
+}
+
 export function createScheduler(
   config: SchedulerConfig | undefined,
   superpowersConfig?: SuperpowersConfig
@@ -797,6 +815,7 @@ export function createScheduler(
   const schedulerConfig: SchedulerConfig = {
     ...config,
     max_wait_minutes: config.max_wait_minutes ?? 90,
+    prediction: normalizePrediction(config.prediction),
   };
   const states = new Map<string, BackendUsageState>();
   const prediction = schedulerConfig.prediction;
@@ -1358,6 +1377,8 @@ module.exports = {
   markInFlight,
   markComplete,
   createScheduler,
+  DEFAULT_PREDICTION,
+  normalizePrediction,
   computeSoonestRecovery,
   _anyPriorityHasHeadroom,
   _startIdleWatchdog,
