@@ -372,11 +372,18 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
  * appended (if not already present), status flips from `active` to
  * `reopened`, and notes overwrite when provided.
  */
-function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
-  if (!opts.approach) error('--approach required');
-  if (!opts.phase) error('--phase required');
+/**
+ * Programmatic add/update of a `.planning/DEAD-ENDS.md` entry. Throws on invalid
+ * input (CLI callers translate to `error()`); returns the upsert action so
+ * non-CLI callers (e.g. the research loop) can count created vs merged entries.
+ */
+function addDeadEnd(
+  cwd: string, opts: DeadEndAddOpts,
+): { action: 'created' | 'updated'; slug: string; total: number } {
+  if (!opts.approach) throw new Error('--approach required');
+  if (!opts.phase) throw new Error('--phase required');
   const slug: string | null = generateSlugInternal(opts.approach);
-  if (!slug) error('Could not generate slug from approach');
+  if (!slug) throw new Error('Could not generate slug from approach');
 
   const planningDir = path.join(cwd, '.planning');
   const filePath = path.join(planningDir, 'DEAD-ENDS.md');
@@ -385,15 +392,29 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
     existing = parseDeadEndsFile(fs.readFileSync(filePath, 'utf-8'));
   }
 
-  const { action } = _upsertEntry(existing, opts, slug as string);
+  const { action } = _upsertEntry(existing, opts, slug);
 
   fs.mkdirSync(planningDir, { recursive: true });
   atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
 
+  return { action, slug, total: existing.length };
+}
+
+function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
+  let res: { action: 'created' | 'updated'; slug: string; total: number };
+  try {
+    res = addDeadEnd(cwd, opts);
+  } catch (e: unknown) {
+    error(e instanceof Error ? e.message : String(e));
+    return;
+  }
   output(
-    { action, slug, total_entries: existing.length, path: path.relative(cwd, filePath) },
+    {
+      action: res.action, slug: res.slug, total_entries: res.total,
+      path: path.relative(cwd, path.join(cwd, '.planning', 'DEAD-ENDS.md')),
+    },
     raw,
-    `${action}: ${slug}`
+    `${res.action}: ${res.slug}`
   );
 }
 
@@ -501,6 +522,7 @@ module.exports = {
   parseDeadEndsFile,
   serializeDeadEndsFile,
   parseReflectionSection,
+  addDeadEnd,
   cmdDeadEndAdd,
   cmdDeadEndPromoteFromPhase,
 };

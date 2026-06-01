@@ -529,3 +529,35 @@ describe('cmdDeadEndPromoteFromPhase', () => {
     expect(result.total_entries).toBe(1);
   });
 });
+
+describe('addDeadEnd (programmatic core)', () => {
+  const { addDeadEnd, parseDeadEndsFile } = require('../../lib/dead-ends');
+  function tmpA() { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-de-')); fs.mkdirSync(path.join(d, '.planning'), { recursive: true }); return d; }
+
+  it('creates a new entry and returns action:created', () => {
+    const cwd = tmpA();
+    const res = addDeadEnd(cwd, { approach: 'Use Elo tournament for plan selection', phase: 'research:t1#iter0', verdict: 'falsified', evidence: ['predicted: better selector'] });
+    expect(res.action).toBe('created');
+    expect(res.slug).toBeTruthy();
+    const entries = parseDeadEndsFile(fs.readFileSync(path.join(cwd, '.planning/DEAD-ENDS.md'), 'utf8'));
+    expect(entries.length).toBe(1);
+    expect(entries[0].approach).toBe('Use Elo tournament for plan selection');
+    expect(entries[0].tried_in_phases).toContain('research:t1#iter0');
+  });
+
+  it('merges a same-approach re-add (action:updated, no duplicate slug)', () => {
+    const cwd = tmpA();
+    addDeadEnd(cwd, { approach: 'Use Elo tournament for plan selection', phase: 'research:t1#iter0' });
+    const res = addDeadEnd(cwd, { approach: 'Use Elo tournament for plan selection', phase: 'research:t2#iter1', evidence: ['more'] });
+    expect(res.action).toBe('updated');
+    const content = fs.readFileSync(path.join(cwd, '.planning/DEAD-ENDS.md'), 'utf8');
+    const slugCount = (content.match(/^## /gm) || []).length;
+    expect(slugCount).toBe(1);
+    const entries = parseDeadEndsFile(content);
+    expect(entries[0].tried_in_phases).toEqual(expect.arrayContaining(['research:t1#iter0', 'research:t2#iter1']));
+  });
+
+  it('throws (does not exit) on a blank approach', () => {
+    expect(() => addDeadEnd(tmpA(), { approach: '', phase: 'p' })).toThrow();
+  });
+});
