@@ -47,7 +47,9 @@ research loop`; if the `prediction` block is missing you'll see a
 `superpowers.accounts` rotation block + a scheduler block for you (so you don't
 hand-edit config dirs). `gd accounts discover` previews without writing. The loop
 then rotates across accounts and skips ones that hit a rate limit automatically.
-(Needs the ai-accounts sidecar running: `just playground` in its repo.)
+(Needs the ai-accounts API running: `just playground-api` in its repo — that's
+the sidecar API only; `just playground` additionally starts the Vite browser UI,
+which GRD doesn't need.)
 
 ---
 
