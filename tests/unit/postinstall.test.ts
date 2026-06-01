@@ -74,14 +74,15 @@ describe('package.json npm configuration', () => {
     expect(pkg.engines.node).toBe('>=18');
   });
 
-  test('dependencies field contains only tsx (TS loader)', () => {
-    if (pkg.dependencies) {
-      const deps = Object.keys(pkg.dependencies);
-      expect(deps).toEqual(['tsx']);
-    } else {
-      // tsx should be present as a runtime dependency
-      expect(pkg.dependencies).toBeDefined();
-    }
+  test('dependencies are tsx plus the lazy-loaded ingestion libs', () => {
+    // tsx is the TS loader; the rest are lazy-loaded (dynamic import) by the
+    // remote-ingestion pipeline (web via readability/turndown/jsdom, PDF via
+    // pdfjs-dist) and pulled in only when those code paths run.
+    expect(pkg.dependencies).toBeDefined();
+    const deps = Object.keys(pkg.dependencies).sort();
+    expect(deps).toEqual(
+      ['@mozilla/readability', 'jsdom', 'pdfjs-dist', 'tsx', 'turndown'].sort()
+    );
   });
 
   test('scripts.postinstall references bin/postinstall.js', () => {
