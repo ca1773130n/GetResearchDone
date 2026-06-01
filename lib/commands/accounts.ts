@@ -12,9 +12,9 @@ const { atomicWriteFileSync } = require('../autopilot-waves') as {
 const { DEFAULT_PREDICTION } = require('../scheduler') as {
   DEFAULT_PREDICTION: { window_minutes: number; ewma_alpha: number; safety_margin_tasks: number; min_samples: number };
 };
-const { discoverAccounts, aiAccountsBaseUrl } = require('../account-discovery') as {
+const { discoverAccounts, aiAccountsDbPath } = require('../account-discovery') as {
   discoverAccounts: () => Promise<DiscoverResult | null>;
-  aiAccountsBaseUrl: () => string;
+  aiAccountsDbPath: () => string;
 };
 
 interface DiscoveredAccount { kind: string; displayName: string; status: string; configDir: string; lastError?: string | null; }
@@ -24,8 +24,9 @@ interface Deps { discover?: () => Promise<DiscoverResult | null> }
 const KIND_ORDER = ['claude', 'codex', 'gemini', 'opencode'];
 
 function unreachableMsg(): string {
-  return `ai-accounts API not reachable at ${aiAccountsBaseUrl()} — start it with \`just playground-api\` `
-    + '(API only, no Vite UI) in ~/Developer/Projects/ai-accounts, or set AI_ACCOUNTS_URL (loopback only)';
+  return `no ai-accounts store found at ${aiAccountsDbPath()} — set AI_ACCOUNTS_DB to your `
+    + 'ai-accounts playground.db (or AI_ACCOUNTS_DIR to its repo). No server needed; '
+    + 'alternatively set AI_ACCOUNTS_URL to a running sidecar (loopback only).';
 }
 
 async function cmdAccountsDiscover(cwd: string, raw: boolean, deps: Deps = {}): Promise<void> {

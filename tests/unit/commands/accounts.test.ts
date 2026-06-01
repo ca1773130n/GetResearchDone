@@ -28,7 +28,7 @@ describe('cmdAccountsDiscover', () => {
   it('errors when the API is unreachable (discover null)', async () => {
     const res = await captureErrorAsync(() => cmdAccountsDiscover(tmp(), true, { discover: async () => null }));
     expect(res.exitCode).toBe(1);
-    expect(res.stderr).toMatch(/not reachable|loopback/i);
+    expect(res.stderr).toMatch(/no ai-accounts store found|AI_ACCOUNTS_DB|loopback/i);
   });
 });
 
