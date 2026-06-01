@@ -119,3 +119,19 @@ describe('readSandboxConfig', () => {
     expect(dr.readSandboxConfig(cfgDir({ research_sandbox: 'vm' })).mode).toBe('subprocess');
   });
 });
+
+describe('dockerAvailable', () => {
+  it('returns true when the version probe succeeds', () => {
+    const calls: string[][] = [];
+    const exec = (args: string[]) => { calls.push(args); return '24.0.7\n'; };
+    expect(dr.dockerAvailable(exec, 5000)).toBe(true);
+    expect(calls[0]).toEqual(['version', '--format', '{{.Server.Version}}']);
+  });
+  it('returns false when the probe throws', () => {
+    const exec = () => { throw new Error('Cannot connect to the Docker daemon'); };
+    expect(dr.dockerAvailable(exec, 5000)).toBe(false);
+  });
+  it('returns false when the probe returns empty output', () => {
+    expect(dr.dockerAvailable(() => '  \n', 5000)).toBe(false);
+  });
+});

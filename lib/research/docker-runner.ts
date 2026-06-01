@@ -86,6 +86,21 @@ function readSandboxConfig(cwd: string): SandboxConfig {
   }
 }
 
+export type DockerExec = (args: string[], opts?: { timeout?: number }) => string;
+
+const defaultExec: DockerExec = (args, opts) =>
+  execFileSync('docker', args, { encoding: 'utf8', timeout: opts?.timeout }) as string;
+
+function dockerAvailable(exec: DockerExec, timeoutMs: number): boolean {
+  try {
+    const out = exec(['version', '--format', '{{.Server.Version}}'], { timeout: timeoutMs });
+    return typeof out === 'string' && out.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   validateImage, validateMemory, validateCpus, buildDockerArgs, readSandboxConfig,
+  dockerAvailable,
 };
