@@ -55,3 +55,37 @@ describe('validators', () => {
     expect(dr.validateCpus('nan')).toBe('1');
   });
 });
+
+describe('buildDockerArgs', () => {
+  const base = {
+    containerName: 'grd-exp-t1-0-123', iterDir: '/threads/t1/experiments/0',
+    scriptBasename: 'run.sh', bin: 'bash', image: 'bash:5',
+    memory: '512m', cpus: '1', network: 'none', user: null as string | null,
+  };
+  it('produces the hardened tight-posture arg vector', () => {
+    const a = dr.buildDockerArgs(base);
+    expect(a.slice(0, 4)).toEqual(['run', '--rm', '--name', 'grd-exp-t1-0-123']);
+    expect(a).toEqual(expect.arrayContaining(['--network', 'none']));
+    expect(a).toEqual(expect.arrayContaining(['--memory', '512m', '--cpus', '1', '--pids-limit', '256']));
+    expect(a).toEqual(expect.arrayContaining(['--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--ipc', 'none']));
+    expect(a).toEqual(expect.arrayContaining(['--read-only', '--tmpfs', '/tmp', '-w', '/work']));
+    expect(a).toEqual(expect.arrayContaining(['--mount', 'type=bind,src=/threads/t1/experiments/0,dst=/work']));
+    // image immediately precedes the script arg, at the very end
+    expect(a.slice(-2)).toEqual(['bash:5', '/work/run.sh']);
+    // entrypoint pins the interpreter just before the image
+    const ei = a.indexOf('--entrypoint');
+    expect(a[ei + 1]).toBe('bash');
+    expect(a.indexOf('bash:5')).toBe(ei + 2);
+    // no --user when uid absent
+    expect(a).not.toContain('--user');
+  });
+  it('adds --user only when a uid is supplied', () => {
+    const a = dr.buildDockerArgs({ ...base, user: '501:20' });
+    expect(a).toEqual(expect.arrayContaining(['--user', '501:20']));
+  });
+  it('honors network bridge and a custom image', () => {
+    const a = dr.buildDockerArgs({ ...base, network: 'bridge', image: 'python:3.12-slim', bin: 'python3', scriptBasename: 'run.py' });
+    expect(a).toEqual(expect.arrayContaining(['--network', 'bridge']));
+    expect(a.slice(-2)).toEqual(['python:3.12-slim', '/work/run.py']);
+  });
+});

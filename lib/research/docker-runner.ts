@@ -32,4 +32,31 @@ function validateCpus(value: unknown): string {
   return Number.isFinite(n) && n > 0 ? String(n) : '1';
 }
 
-module.exports = { validateImage, validateMemory, validateCpus };
+interface DockerArgParams {
+  containerName: string;
+  iterDir: string;
+  scriptBasename: string;
+  bin: string;
+  image: string;
+  memory: string;
+  cpus: string;
+  network: string;
+  user: string | null;
+}
+
+function buildDockerArgs(p: DockerArgParams): string[] {
+  return [
+    'run', '--rm', '--name', p.containerName,
+    '--network', p.network,
+    '--memory', p.memory, '--cpus', p.cpus, '--pids-limit', '256',
+    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--ipc', 'none',
+    '--read-only', '--tmpfs', '/tmp',
+    '--mount', `type=bind,src=${p.iterDir},dst=/work`, '-w', '/work',
+    ...(p.user ? ['--user', p.user] : []),
+    '--entrypoint', p.bin,
+    p.image,
+    `/work/${p.scriptBasename}`,
+  ];
+}
+
+module.exports = { validateImage, validateMemory, validateCpus, buildDockerArgs };
