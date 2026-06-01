@@ -5,7 +5,20 @@ import type { Takeaway, Hypothesis } from './types';
 import type { KnowhowEntry } from '../types';
 import type { DeadEndAddOpts } from '../dead-ends';
 
+const { appendKnowhowEntries, parseKnowhowEntries } = require('../knowledge') as {
+  appendKnowhowEntries: (knowhowPath: string, entries: KnowhowEntry[]) => void;
+  parseKnowhowEntries: (content: string) => KnowhowEntry[];
+};
+const { addDeadEnd } = require('../dead-ends') as {
+  addDeadEnd: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number };
+};
+
 const KNOWHOW_KINDS = new Set(['success_pattern', 'constraint', 'domain_fact', 'tool_pattern']);
+
+interface PromoteDeps {
+  appendKnowhowEntries?: (knowhowPath: string, entries: KnowhowEntry[]) => void;
+  addDeadEnd?: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number };
+}
 
 function shouldPersistKnowledge(cwd: string): boolean {
   try {
@@ -51,6 +64,36 @@ function buildDeadEndCalls(
     });
 }
 
+function promoteThreadKnowledge(
+  cwd: string, thread: { id: string }, takeaways: Takeaway[], ledger: Hypothesis[],
+  opts: { iso: string; deps?: PromoteDeps },
+): { knowhowAdded: number; deadEndsAdded: number; skipped: boolean } {
+  if (!shouldPersistKnowledge(cwd)) return { knowhowAdded: 0, deadEndsAdded: 0, skipped: true };
+  const appendKh = opts.deps?.appendKnowhowEntries || appendKnowhowEntries;
+  const addDe = opts.deps?.addDeadEnd || addDeadEnd;
+  try {
+    const knowhowPath = path.join(cwd, 'KNOWHOW.md');
+    const before = fs.existsSync(knowhowPath)
+      ? parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8')).length : 0;
+    const entries = selectKnowhowTakeaways(takeaways).map((t) => takeawayToKnowhow(t, thread.id, opts.iso));
+    appendKh(knowhowPath, entries);
+    const after = fs.existsSync(knowhowPath)
+      ? parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8')).length : 0;
+
+    let deadEndsAdded = 0;
+    for (const call of buildDeadEndCalls(thread, ledger, takeaways)) {
+      if (addDe(cwd, call).action === 'created') deadEndsAdded += 1;
+    }
+    return { knowhowAdded: after - before, deadEndsAdded, skipped: false };
+  } catch (e: unknown) {
+    process.stderr.write(
+      `[research] knowledge promotion failed (degraded): ${e instanceof Error ? e.message : String(e)}\n`,
+    );
+    return { knowhowAdded: 0, deadEndsAdded: 0, skipped: false };
+  }
+}
+
 module.exports = {
   shouldPersistKnowledge, takeawayToKnowhow, selectKnowhowTakeaways, buildDeadEndCalls,
+  promoteThreadKnowledge,
 };
