@@ -87,6 +87,24 @@ function decodeSpawnStdout(raw: string): string {
       if (typeof env.result === 'string') return env.result;
     } catch { /* not a JSON envelope — fall through */ }
   }
+  // Claude Code `--verbose --output-format json` emits a JSON array of events
+  // ([system, rate_limit_event?, assistant…, result]). Extract the result text,
+  // falling back to concatenated assistant content.
+  if (trimmed.startsWith('[')) {
+    try {
+      const events = JSON.parse(trimmed) as Array<Record<string, unknown>>;
+      const resultEv = events.find((e) => e && e.type === 'result');
+      if (resultEv && typeof resultEv.result === 'string') return resultEv.result;
+      const asst = events
+        .filter((e) => e && e.type === 'assistant')
+        .map((e) => {
+          const m = e.message as { content?: Array<{ text?: string }> } | undefined;
+          return (m?.content || []).map((c) => c.text || '').join('');
+        })
+        .join('');
+      if (asst) return asst;
+    } catch { /* not a JSON event array — fall through */ }
+  }
   return raw;
 }
 
