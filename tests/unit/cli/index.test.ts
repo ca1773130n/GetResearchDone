@@ -62,6 +62,10 @@ describe('command classification', () => {
     expect(classifyCommand('plan-tournament')).toBe('tool');
   });
 
+  it('classifies accounts as a tool command', () => {
+    expect(classifyCommand('accounts')).toBe('tool');
+  });
+
   it('classifies think as a tool command (Tier-3 #11 on PR #42)', () => {
     expect(classifyCommand('think')).toBe('tool');
   });
