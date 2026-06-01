@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
+  ExperimentResult, MeasureOutcome,
 } from './types';
 import type { Runner } from './runner';
 
@@ -28,6 +29,13 @@ const { promoteThreadKnowledge } = require('./promote') as {
     cwd: string, thread: ResearchThread, takeaways: Takeaway[], ledger: Hypothesis[],
     opts: { iso: string },
   ) => { knowhowAdded: number; deadEndsAdded: number; skipped: boolean };
+};
+const { readEvalReportConfig, maybeRunEvalReport } = require('./eval') as {
+  readEvalReportConfig: (cwd: string) => boolean;
+  maybeRunEvalReport: (
+    cwd: string, thread: ResearchThread, plan: ExperimentPlan, result: ExperimentResult,
+    outcome: MeasureOutcome, deps: { spawn: SpawnFn },
+  ) => Promise<{ wrote: boolean }>;
 };
 const { retrieve, buildGroundingPack } = require('./retrieve') as {
   retrieve: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
@@ -290,6 +298,12 @@ async function runLoop(
     const term = shouldTerminate(thread, outcome.verdict);
     const branch = decideBranch(outcome.verdict);
     incrementCounter('research.iterations_total');
+
+    // OPTIONAL eval-report augmentation (opt-in). term/branch are already computed
+    // and are NOT read back; this only writes a human-facing EVAL.md, degrade-safe.
+    if (readEvalReportConfig(cwd)) {
+      await maybeRunEvalReport(cwd, thread, plan, result, outcome, { spawn });
+    }
 
     if (term.done || branch === 'finalize') {
       // FINALIZE — set the terminal verdict, then write the finding before the kg_write gate.
