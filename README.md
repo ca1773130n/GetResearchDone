@@ -77,6 +77,12 @@ gd install claude
 
 ### Your first research thread
 
+> **Prerequisite:** `gd research` spawns backend agents, so it needs a backend
+> CLI authenticated **and** a `scheduler` block in `.planning/config.json`.
+> `/grd:init` sets this up for you; see the
+> [tutorial's Prerequisites](docs/autoresearch-tutorial.md#prerequisites) for a
+> minimal hand-config.
+
 ```bash
 gd research "Does X improve Y on our benchmark?"
 # → pauses at the execute gate before running experiment code

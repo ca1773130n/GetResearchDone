@@ -14,6 +14,35 @@ literature, let it run unattended, deepen it, and read the outputs.
 
 ---
 
+## Prerequisites
+
+The loop spawns backend agents (to hypothesize, design experiments, and extract
+takeaways), so two things must be in place **before** `gd research` will run:
+
+1. **A backend CLI, installed and authenticated** — Claude Code, Codex, Gemini,
+   or OpenCode. The loop shells out to it.
+2. **A scheduler configured in `.planning/config.json`.** The easiest way is to
+   create the project with `/grd:init`, which writes a complete `scheduler`
+   block for you. If you're adding autoresearch to an existing `.planning/`
+   directory, ensure it has at least:
+
+   ```jsonc
+   // .planning/config.json
+   {
+     "scheduler": {
+       "backend_priority": ["claude"],
+       "free_fallback": { "backend": "claude" },
+       "prediction": { "safety_margin_tasks": 2, "window_minutes": 60, "ewma_alpha": 0.3 }
+     }
+   }
+   ```
+
+If the scheduler isn't configured you'll see `no scheduler available for
+research loop`; if the `prediction` block is missing you'll see a
+`safety_margin_tasks` error. (`/grd:init` avoids both.)
+
+---
+
 ## 0. What the loop actually does
 
 `gd research "<question>"` runs a hypothesis-centric scientific cycle to a
