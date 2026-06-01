@@ -171,7 +171,33 @@ function createDockerRunner(opts: DockerRunnerOpts = {}): import('./runner').Run
   };
 }
 
+interface SelectOpts {
+  timeoutMs?: number;
+  exec?: DockerExec;                 // injected for tests
+  warn?: (msg: string) => void;      // injected for tests
+}
+
+function selectRunner(cwd: string, opts: SelectOpts = {}): import('./runner').Runner {
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  const cfg = readSandboxConfig(cwd);
+  if (cfg.mode !== 'docker') return createSubprocessRunner({ timeoutMs });
+
+  const exec = opts.exec || defaultExec;
+  const warn = opts.warn || ((m: string) => { process.stderr.write(m); });
+  if (!dockerAvailable(exec, 5000)) {
+    warn('[research] docker sandbox requested but unavailable — running UNSANDBOXED on host\n');
+    return createSubprocessRunner({ timeoutMs });
+  }
+  const user = typeof process.getuid === 'function'
+    ? `${process.getuid()}:${typeof process.getgid === 'function' ? process.getgid() : process.getuid()}`
+    : null;
+  return createDockerRunner({
+    exec, image: cfg.image ?? undefined, memory: cfg.memory, cpus: cfg.cpus,
+    network: cfg.network, timeoutMs, user,
+  });
+}
+
 module.exports = {
   validateImage, validateMemory, validateCpus, buildDockerArgs, readSandboxConfig,
-  dockerAvailable, createDockerRunner,
+  dockerAvailable, createDockerRunner, selectRunner,
 };

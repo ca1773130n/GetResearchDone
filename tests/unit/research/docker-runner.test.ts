@@ -209,3 +209,34 @@ describe('createDockerRunner.run', () => {
     expect(() => dr.createDockerRunner({ exec }).run(plan(), t.threadDir)).not.toThrow();
   });
 });
+
+describe('selectRunner', () => {
+  function cfgDir(obj: Record<string, unknown>) {
+    const d = tmp();
+    fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
+    return d;
+  }
+  it('returns subprocess runner and never probes when mode is subprocess', () => {
+    let probed = false;
+    const exec = () => { probed = true; return '24'; };
+    const r = dr.selectRunner(tmp(), { timeoutMs: 1000, exec });
+    expect(typeof r.run).toBe('function');
+    expect(probed).toBe(false);
+  });
+  it('returns a docker runner when docker is configured and available', () => {
+    const cwd = cfgDir({ research_sandbox: 'docker' });
+    const calls: string[][] = [];
+    const exec = (args: string[]) => { calls.push(args); return '24.0\n'; };
+    const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec });
+    expect(typeof r.run).toBe('function');
+    expect(calls.some((a) => a[0] === 'version')).toBe(true);
+  });
+  it('degrades to subprocess with a loud warning when docker is unavailable', () => {
+    const cwd = cfgDir({ research_sandbox: 'docker' });
+    const warnings: string[] = [];
+    const exec = () => { throw new Error('no daemon'); };
+    const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec, warn: (m: string) => warnings.push(m) });
+    expect(typeof r.run).toBe('function');
+    expect(warnings.join('')).toMatch(/UNSANDBOXED/);
+  });
+});
