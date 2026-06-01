@@ -78,4 +78,32 @@ function buildEvalPrompt(
   ].join('\n');
 }
 
-module.exports = { readEvalReportConfig, parseEvalReport, readPriorMetrics, buildEvalPrompt };
+function writeEvalReport(cwd: string, threadId: string, iteration: number, markdown: string): void {
+  const dir = path.join(cwd, '.planning/research/threads', threadId, 'experiments', String(iteration));
+  fs.mkdirSync(dir, { recursive: true });
+  atomicWriteFileSync(path.join(dir, 'EVAL.md'), markdown);
+}
+
+async function maybeRunEvalReport(
+  cwd: string, thread: ResearchThread & { question?: string }, plan: ExperimentPlan,
+  result: ExperimentResult, outcome: MeasureOutcome, deps: { spawn: SpawnFn },
+): Promise<{ wrote: boolean }> {
+  try {
+    const prior = readPriorMetrics(cwd, thread.id, thread.iteration);
+    const out = await deps.spawn(buildEvalPrompt(thread, plan, result, outcome, prior), 'grd-research-evaluator');
+    const md = parseEvalReport(out);
+    if (!md) return { wrote: false };
+    writeEvalReport(cwd, thread.id, thread.iteration, md);
+    return { wrote: true };
+  } catch (e: unknown) {
+    process.stderr.write(
+      `[research] eval report failed (degraded): ${e instanceof Error ? e.message : String(e)}\n`,
+    );
+    return { wrote: false };
+  }
+}
+
+module.exports = {
+  readEvalReportConfig, parseEvalReport, readPriorMetrics, buildEvalPrompt,
+  writeEvalReport, maybeRunEvalReport,
+};

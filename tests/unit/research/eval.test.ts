@@ -82,3 +82,43 @@ describe('buildEvalPrompt', () => {
     expect(p).toMatch(/no prior/i);
   });
 });
+
+describe('writeEvalReport', () => {
+  it('writes experiments/<iter>/EVAL.md creating the dir', () => {
+    const cwd = tmp();
+    ev.writeEvalReport(cwd, 't1', 2, '## Results\nok');
+    const p = path.join(cwd, '.planning/research/threads/t1/experiments/2/EVAL.md');
+    expect(fs.readFileSync(p, 'utf8')).toBe('## Results\nok');
+  });
+});
+
+describe('maybeRunEvalReport', () => {
+  const plan = { procedure: 'p', metricKey: 'accuracy', comparator: '>=', target: 0.8, predictedOutcome: 'po', scriptPath: 'experiments/1/run.sh', language: 'shell' };
+  const result = { metrics: { accuracy: 0.6 }, exitCode: 0, runner: 'subprocess', durationMs: 5, stdoutExcerpt: 'x', failureClass: 'none' };
+  const outcome = { verdict: 'refuted', detail: 'd' };
+  const thread = { id: 't1', iteration: 1, question: 'Q' };
+  const evalPath = (cwd: string) => path.join(cwd, '.planning/research/threads/t1/experiments/1/EVAL.md');
+
+  it('spawns grd-research-evaluator and writes EVAL.md on a complete block', async () => {
+    const cwd = tmp();
+    let agent = '';
+    const spawn = async (_p: string, a: string) => { agent = a; return '__EVAL__\nbody here\n__END_EVAL__'; };
+    const res = await ev.maybeRunEvalReport(cwd, thread, plan, result, outcome, { spawn });
+    expect(res).toEqual({ wrote: true });
+    expect(agent).toBe('grd-research-evaluator');
+    expect(fs.readFileSync(evalPath(cwd), 'utf8')).toBe('body here');
+  });
+  it('does not write and leaves prior EVAL.md intact when no block parses', async () => {
+    const cwd = tmp();
+    ev.writeEvalReport(cwd, 't1', 1, 'OLD');
+    const spawn = async () => 'no markers here';
+    const res = await ev.maybeRunEvalReport(cwd, thread, plan, result, outcome, { spawn });
+    expect(res).toEqual({ wrote: false });
+    expect(fs.readFileSync(evalPath(cwd), 'utf8')).toBe('OLD');
+  });
+  it('swallows a spawn throw (no throw, wrote:false)', async () => {
+    const cwd = tmp();
+    const spawn = async () => { throw new Error('boom'); };
+    await expect(ev.maybeRunEvalReport(cwd, thread, plan, result, outcome, { spawn })).resolves.toEqual({ wrote: false });
+  });
+});
