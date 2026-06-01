@@ -41,6 +41,14 @@ If the scheduler isn't configured you'll see `no scheduler available for
 research loop`; if the `prediction` block is missing you'll see a
 `safety_margin_tasks` error. (`/grd:init` avoids both.)
 
+**Multiple accounts?** If you manage your AI CLI accounts with
+[ai-accounts](https://github.com/) (the local Litestar sidecar), run
+`gd accounts sync` — it discovers your registered, ready accounts and writes the
+`superpowers.accounts` rotation block + a scheduler block for you (so you don't
+hand-edit config dirs). `gd accounts discover` previews without writing. The loop
+then rotates across accounts and skips ones that hit a rate limit automatically.
+(Needs the ai-accounts sidecar running: `just playground` in its repo.)
+
 ---
 
 ## 0. What the loop actually does

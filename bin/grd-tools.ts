@@ -2311,6 +2311,17 @@ async function routeCommand(
       await cmdRetrieve(cwd, args.slice(1).filter((a) => !a.startsWith('--')).join(' '), raw);
       break;
     }
+    case 'accounts': {
+      const sub: string = args[1];
+      validateSubcommand(sub, ['discover', 'sync'], 'accounts');
+      const { cmdAccountsDiscover, cmdAccountsSync } = require('../lib/commands/accounts') as {
+        cmdAccountsDiscover: (cwd: string, raw: boolean) => Promise<void>;
+        cmdAccountsSync: (cwd: string, opts: { dryRun: boolean; raw: boolean }) => Promise<void>;
+      };
+      if (sub === 'discover') await cmdAccountsDiscover(cwd, raw);
+      else await cmdAccountsSync(cwd, { dryRun: args.includes('--dry-run'), raw });
+      break;
+    }
     case 'wireup': {
       const sub: string = args[1];
       validateSubcommand(sub, ['run'], 'wireup');
