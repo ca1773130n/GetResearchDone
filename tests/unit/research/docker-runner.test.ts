@@ -135,3 +135,77 @@ describe('dockerAvailable', () => {
     expect(dr.dockerAvailable(() => '  \n', 5000)).toBe(false);
   });
 });
+
+describe('createDockerRunner.run', () => {
+  function thread() {
+    const d = tmp();
+    const iter = path.join(d, 'threads', 't1', 'experiments', '0');
+    fs.mkdirSync(iter, { recursive: true });
+    fs.writeFileSync(path.join(iter, 'run.sh'), 'echo hi');
+    // realpath because resolveContained normalizes symlinks (e.g. macOS /tmp -> /private/tmp).
+    return { threadDir: path.join(d, 'threads', 't1'), iter: fs.realpathSync(iter) };
+  }
+  const plan = (over = {}) => ({
+    procedure: 'p', metricKey: 'accuracy', comparator: '>=', target: 0.8,
+    predictedOutcome: 'x', scriptPath: 'experiments/0/run.sh', language: 'shell', ...over,
+  });
+
+  it('runs the script in docker and parses __RESULT__', () => {
+    const t = thread();
+    const calls: string[][] = [];
+    const exec = (args: string[]) => { calls.push(args); return 'log\n__RESULT__ {"accuracy": 0.91}\n'; };
+    const r = dr.createDockerRunner({ exec });
+    const res = r.run(plan(), t.threadDir);
+    expect(res.runner).toBe('docker');
+    expect(res.exitCode).toBe(0);
+    expect(res.metrics.accuracy).toBe(0.91);
+    expect(res.failureClass).toBe('none');
+    const runArgs = calls.find((a) => a[0] === 'run')!;
+    expect(runArgs).toEqual(expect.arrayContaining(['--mount', `type=bind,src=${t.iter},dst=/work`]));
+    expect(runArgs).toEqual(expect.arrayContaining(['--entrypoint', 'bash']));
+    expect(runArgs[runArgs.length - 1]).toBe('/work/run.sh');
+  });
+
+  it('classifies a failing run via stderr', () => {
+    const t = thread();
+    const exec = () => { const e: any = new Error('boom'); e.status = 1; e.stderr = 'ModuleNotFoundError: x'; throw e; };
+    const res = dr.createDockerRunner({ exec }).run(plan({ language: 'python', scriptPath: 'experiments/0/run.sh' }), t.threadDir);
+    expect(res.runner).toBe('docker');
+    expect(res.exitCode).toBe(1);
+    expect(res.failureClass).toBe('H2');
+  });
+
+  it('rejects a scriptPath outside threadDir without calling docker', () => {
+    const t = thread();
+    const calls: string[][] = [];
+    const exec = (args: string[]) => { calls.push(args); return ''; };
+    const res = dr.createDockerRunner({ exec }).run(plan({ scriptPath: '../../../../etc/passwd' }), t.threadDir);
+    expect(res.failureClass).toBe('H3');
+    expect(res.exitCode).toBe(1);
+    expect(calls.length).toBe(0);
+  });
+
+  it('force-removes the container on timeout', () => {
+    const t = thread();
+    const calls: string[][] = [];
+    const exec = (args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'run') { const e: any = new Error('timeout'); e.signal = 'SIGTERM'; e.stdout = ''; throw e; }
+      return '';
+    };
+    const res = dr.createDockerRunner({ exec }).run(plan(), t.threadDir);
+    expect(res.failureClass).toBe('H4');
+    const rm = calls.find((a) => a[0] === 'rm');
+    expect(rm && rm[1]).toBe('-f');
+    expect(rm && rm[2]).toMatch(/^grd-exp-/);
+  });
+
+  it('swallows a throw from the cleanup rm call', () => {
+    const t = thread();
+    const exec = (args: string[]) => {
+      if (args[0] === 'run') { const e: any = new Error('timeout'); e.signal = 'SIGTERM'; throw e; }
+      throw new Error('rm failed too');
+    };
+    expect(() => dr.createDockerRunner({ exec }).run(plan(), t.threadDir)).not.toThrow();
+  });
+});

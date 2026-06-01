@@ -100,7 +100,78 @@ function dockerAvailable(exec: DockerExec, timeoutMs: number): boolean {
   }
 }
 
+interface DockerRunnerOpts {
+  exec?: DockerExec;
+  image?: string;        // validated override (both languages)
+  memory?: string;
+  cpus?: string;
+  network?: 'none' | 'bridge';
+  timeoutMs?: number;
+  user?: string | null;  // 'uid:gid' on POSIX, else null
+}
+
+// Resolve plan.scriptPath against threadDir and require the result to stay inside threadDir.
+// Returns the resolved absolute path, or null if it escapes containment.
+function resolveContained(threadDir: string, scriptPath: string): string | null {
+  const resolved = path.resolve(threadDir, scriptPath);
+  let real: string; let realRoot: string;
+  try { real = fs.realpathSync(resolved); } catch { real = resolved; }
+  try { realRoot = fs.realpathSync(threadDir); } catch { realRoot = path.resolve(threadDir); }
+  if (real === realRoot || real.startsWith(realRoot + path.sep)) return real;
+  return null;
+}
+
+function createDockerRunner(opts: DockerRunnerOpts = {}): import('./runner').Runner {
+  const exec = opts.exec || defaultExec;
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  return {
+    run(plan: ExperimentPlan, threadDir: string): ExperimentResult {
+      const start = Date.now();
+      const resolved = resolveContained(threadDir, plan.scriptPath);
+      if (!resolved) {
+        return {
+          metrics: {}, exitCode: 1, runner: 'docker', durationMs: Date.now() - start,
+          stdoutExcerpt: '', failureClass: 'H3',
+        };
+      }
+      const iterDir = path.dirname(resolved);
+      const isPy = plan.language === 'python';
+      const bin = isPy ? 'python3' : 'bash';
+      const image = opts.image || (isPy ? 'python:3.12-slim' : 'bash:5');
+      const containerName =
+        `grd-exp-${path.basename(threadDir)}-${path.basename(iterDir)}-${start}`;
+      const args = buildDockerArgs({
+        containerName, iterDir, scriptBasename: path.basename(resolved), bin, image,
+        memory: opts.memory ?? '512m', cpus: opts.cpus ?? '1',
+        network: opts.network ?? 'none', user: opts.user ?? null,
+      });
+      try {
+        const stdout = exec(args, { timeout: timeoutMs });
+        return {
+          metrics: parseMetricsLine(stdout), exitCode: 0, runner: 'docker',
+          durationMs: Date.now() - start, stdoutExcerpt: stdout.slice(0, 2000),
+          failureClass: 'none',
+        };
+      } catch (e: unknown) {
+        const err = e as { status?: number; stdout?: string; stderr?: string; signal?: string };
+        const timedOut = err.signal === 'SIGTERM';
+        if (timedOut) {
+          try { exec(['rm', '-f', containerName], { timeout: 5000 }); } catch { /* best effort */ }
+        }
+        const stdout = err.stdout || '';
+        return {
+          metrics: parseMetricsLine(stdout),
+          exitCode: typeof err.status === 'number' ? err.status : 1,
+          runner: 'docker', durationMs: Date.now() - start,
+          stdoutExcerpt: stdout.slice(0, 2000),
+          failureClass: classifyRunFailure(err.stderr || String(e), timedOut),
+        };
+      }
+    },
+  };
+}
+
 module.exports = {
   validateImage, validateMemory, validateCpus, buildDockerArgs, readSandboxConfig,
-  dockerAvailable,
+  dockerAvailable, createDockerRunner,
 };
