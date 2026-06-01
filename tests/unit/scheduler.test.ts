@@ -1093,3 +1093,36 @@ describe('_postSpawnDecision (rotation + exhaustion)', () => {
     expect(d.cooldownUntil).toBe(NOW + 60 * 60 * 1000);
   });
 });
+
+describe('cooldown-aware recovery + fallback (rotation task 3)', () => {
+  const { computeSoonestRecovery, resolveAccount, createBackendState } = require('../../lib/scheduler');
+
+  it('computeSoonestRecovery considers cooldown_until even with no samples', () => {
+    const states = new Map();
+    const st = createBackendState(80000);
+    const future = Date.now() + 5 * 60 * 1000;
+    st.cooldown_until = future;
+    states.set('claude/a', st);
+    const r = computeSoonestRecovery(states, ['claude'], { claude: [{ config_dir: 'a' }] }, 60, 60 * 60 * 1000);
+    expect(r).toBe(future);
+  });
+
+  it('computeSoonestRecovery returns null when cooldown is beyond maxWaitMs', () => {
+    const states = new Map();
+    const st = createBackendState(80000);
+    st.cooldown_until = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days
+    states.set('claude/a', st);
+    expect(computeSoonestRecovery(states, ['claude'], { claude: [{ config_dir: 'a' }] }, 60, 60 * 60 * 1000)).toBeNull();
+  });
+
+  it('resolveAccount fallback skips a cooled fallback account', () => {
+    const superpowers = { default_backend: 'claude', account_rotation: true, accounts: { claude: [{ config_dir: 'a' }, { config_dir: 'b' }] } };
+    const sched = { backend_priority: ['claude'], free_fallback: { backend: 'claude' }, prediction: { window_minutes: 60, ewma_alpha: 0.3, safety_margin_tasks: 2, min_samples: 3 } };
+    const states = new Map();
+    const a = createBackendState(80000); a.cooldown_until = Date.now() + 60 * 60 * 1000; // cooled
+    const b = createBackendState(80000); b.ewma_tokens_per_task = 50000; b.tokens_consumed_in_window = 80000; // budget-exhausted, not cooled
+    states.set('claude/a', a); states.set('claude/b', b);
+    const r = resolveAccount(superpowers, sched, states, 2);
+    expect(r.account.config_dir).toBe('b');
+  });
+});

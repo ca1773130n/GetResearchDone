@@ -510,6 +510,11 @@ export function computeSoonestRecovery(
     for (const account of backendAccounts) {
       const stateKey = `${backend}/${account.config_dir}`;
       const state = states.get(stateKey);
+      // An explicit cooldown (e.g. from a rate_limit_event resetsAt) is itself a
+      // recovery time, even with no token samples yet.
+      if (state && state.cooldown_until && state.cooldown_until > now && state.cooldown_until < soonest) {
+        soonest = state.cooldown_until;
+      }
       if (!state || state.samples.length === 0) continue;
       if (state.ewma_tokens_per_task === 0) continue;
 
@@ -688,15 +693,24 @@ export function resolveAccount(
     }
   }
 
-  // Exhaustion fallback: use free_fallback backend
+  // Exhaustion fallback: use free_fallback backend, preferring an account that
+  // is NOT in cooldown (so a rate-limited fallback account isn't retried early).
   const fallbackBackend = schedulerConfig.free_fallback.backend;
   const fallbackAccounts = accounts[fallbackBackend];
   if (fallbackAccounts && fallbackAccounts.length > 0) {
-    return {
-      backend: fallbackBackend,
-      account: fallbackAccounts[0],
-      stateKey: `${fallbackBackend}/${fallbackAccounts[0].config_dir}`,
-    };
+    const nowF = Date.now();
+    const pick = fallbackAccounts.find((a) => {
+      const s = states.get(`${fallbackBackend}/${a.config_dir}`);
+      return !s || !s.cooldown_until || s.cooldown_until <= nowF;
+    });
+    if (pick) {
+      return {
+        backend: fallbackBackend,
+        account: pick,
+        stateKey: `${fallbackBackend}/${pick.config_dir}`,
+      };
+    }
+    // All fallback accounts are cooled — fall through to the empty-config_dir default.
   }
 
   // No accounts configured for fallback — use default account (empty config_dir)
