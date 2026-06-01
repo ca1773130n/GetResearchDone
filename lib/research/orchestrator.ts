@@ -67,6 +67,7 @@ export interface ResearchResult {
   findingPath?: string;
   paused?: boolean;
   pendingGate?: 'execute' | 'kg_write';
+  errorReason?: string;
 }
 
 const VERDICT_COUNTER: Record<Verdict, string> = {
@@ -140,7 +141,13 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
     (config as { superpowers?: unknown }).superpowers,
   );
   return async (prompt: string, agentType: string): Promise<string> => {
-    if (!scheduler) throw new Error('no scheduler available for research loop');
+    if (!scheduler) {
+      throw new Error(
+        'no scheduler configured for the research loop — run `/grd:init`, or add a '
+        + '`scheduler` block to .planning/config.json '
+        + '(see docs/autoresearch-tutorial.md#prerequisites)',
+      );
+    }
     const r = await scheduler.spawn(prompt, { agentType, model, captureOutput: true, cwd });
     return decodeSpawnStdout(r.stdout || '');
   };
@@ -150,9 +157,14 @@ function verdictToStatus(v: Verdict): HypothesisStatus {
   return v === 'supported' ? 'supported' : v === 'refuted' ? 'refuted' : 'inconclusive';
 }
 
-function errExit(cwd: string, thread: ResearchThread): ResearchResult {
-  thread.status = 'error'; saveThread(cwd, thread);
-  return { threadId: thread.id, status: 'error', iterations: thread.iteration };
+/** Coerce + bound any spawn output to a short, single-line excerpt for diagnostics. */
+function excerpt(s: unknown): string {
+  return String(s ?? '').slice(0, 2000).replace(/\s+/g, ' ').trim().slice(0, 280) || '(empty)';
+}
+
+function errExit(cwd: string, thread: ResearchThread, reason: string): ResearchResult {
+  thread.status = 'error'; thread.errorReason = reason; saveThread(cwd, thread);
+  return { threadId: thread.id, status: 'error', iterations: thread.iteration, errorReason: reason };
 }
 
 // Finding.md is already written before the kg_write gate; this completes the KG sync.
@@ -226,7 +238,7 @@ async function runLoop(
         } catch { /* degrade */ }
         const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot), 'grd-hypothesizer');
         const parsed = parseHypothesisOutput(hOut);
-        if (!parsed) return errExit(cwd, thread);
+        if (!parsed) return errExit(cwd, thread, `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hOut)}`);
         hyp = {
           id: nextHypothesisId(priorHyps), iteration: thread.iteration,
           statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
@@ -240,7 +252,7 @@ async function runLoop(
       fs.mkdirSync(iterDir, { recursive: true });
       const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterDir), 'grd-experiment-runner');
       const parsedPlan = parsePlanOutput(pOut);
-      if (!parsedPlan) return errExit(cwd, thread);
+      if (!parsedPlan) return errExit(cwd, thread, `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pOut)}`);
       plan = parsedPlan as ExperimentPlan;
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
