@@ -24,8 +24,8 @@ interface Deps { discover?: () => Promise<DiscoverResult | null> }
 const KIND_ORDER = ['claude', 'codex', 'gemini', 'opencode'];
 
 function unreachableMsg(): string {
-  return `ai-accounts API not reachable at ${aiAccountsBaseUrl()} — start it with \`just playground\` `
-    + 'in ~/Developer/Projects/ai-accounts, or set AI_ACCOUNTS_URL (loopback only)';
+  return `ai-accounts API not reachable at ${aiAccountsBaseUrl()} — start it with \`just playground-api\` `
+    + '(API only, no Vite UI) in ~/Developer/Projects/ai-accounts, or set AI_ACCOUNTS_URL (loopback only)';
 }
 
 async function cmdAccountsDiscover(cwd: string, raw: boolean, deps: Deps = {}): Promise<void> {
