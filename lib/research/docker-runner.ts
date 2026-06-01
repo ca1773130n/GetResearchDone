@@ -59,4 +59,33 @@ function buildDockerArgs(p: DockerArgParams): string[] {
   ];
 }
 
-module.exports = { validateImage, validateMemory, validateCpus, buildDockerArgs };
+interface SandboxConfig {
+  mode: 'subprocess' | 'docker';
+  image: string | null;
+  memory: string;
+  cpus: string;
+  network: 'none' | 'bridge';
+}
+
+function readSandboxConfig(cwd: string): SandboxConfig {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_sandbox?: unknown; research_sandbox_image?: unknown;
+      research_sandbox_memory?: unknown; research_sandbox_cpus?: unknown;
+      research_sandbox_network?: unknown;
+    };
+    return {
+      mode: raw.research_sandbox === 'docker' ? 'docker' : 'subprocess',
+      image: validateImage(raw.research_sandbox_image),
+      memory: validateMemory(raw.research_sandbox_memory),
+      cpus: validateCpus(raw.research_sandbox_cpus),
+      network: raw.research_sandbox_network === 'bridge' ? 'bridge' : 'none',
+    };
+  } catch {
+    return { mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none' };
+  }
+}
+
+module.exports = {
+  validateImage, validateMemory, validateCpus, buildDockerArgs, readSandboxConfig,
+};

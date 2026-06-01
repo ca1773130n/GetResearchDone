@@ -89,3 +89,33 @@ describe('buildDockerArgs', () => {
     expect(a.slice(-2)).toEqual(['python:3.12-slim', '/work/run.py']);
   });
 });
+
+describe('readSandboxConfig', () => {
+  function cfgDir(obj: Record<string, unknown>) {
+    const d = tmp();
+    fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
+    return d;
+  }
+  it('defaults to subprocess mode with no config', () => {
+    expect(dr.readSandboxConfig(tmp())).toEqual({
+      mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none',
+    });
+  });
+  it('reads docker mode and validated knobs', () => {
+    const c = dr.readSandboxConfig(cfgDir({
+      research_sandbox: 'docker', research_sandbox_image: 'python:3.12-slim',
+      research_sandbox_memory: '2g', research_sandbox_cpus: '2', research_sandbox_network: 'bridge',
+    }));
+    expect(c).toEqual({ mode: 'docker', image: 'python:3.12-slim', memory: '2g', cpus: '2', network: 'bridge' });
+  });
+  it('rejects an injection image and bad network/knobs', () => {
+    const c = dr.readSandboxConfig(cfgDir({
+      research_sandbox: 'docker', research_sandbox_image: '--privileged',
+      research_sandbox_memory: 'lots', research_sandbox_cpus: '0', research_sandbox_network: 'host',
+    }));
+    expect(c).toEqual({ mode: 'docker', image: null, memory: '512m', cpus: '1', network: 'none' });
+  });
+  it('treats an unknown mode as subprocess', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: 'vm' })).mode).toBe('subprocess');
+  });
+});
