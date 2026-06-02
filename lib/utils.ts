@@ -291,6 +291,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'research_sandbox_network',
   'research_persist_knowledge',
   'research_eval_report',
+  'research_spawn_retries',
   'confirmation_gates',
   'timeouts',
   'evolve',
