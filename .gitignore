@@ -104,3 +104,13 @@ opencode.json
 GEMINI.md
 .github/copilot-instructions.md
 .github/prompts/
+
+# HarnessSync artifacts (removed; do not re-track)
+CONVENTIONS.md
+SYNC-CHANGELOG.md
+GEMINI.md
+opencode.json
+config.toml
+.clinerules
+.rules
+.aider.conf.yml
