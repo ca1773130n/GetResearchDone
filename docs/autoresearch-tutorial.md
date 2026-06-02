@@ -392,10 +392,14 @@ GRD's autoresearch loop is built to keep going:
 - **An experiment fails to run?** That's data: the verdict is `inconclusive` with
   a failure class (H2 missing dep, H3 missing file/permission, H4 runtime/timeout),
   and the loop revises.
-- **An agent returns unparseable output?** The thread ends with `status: error`
-  and a recorded `errorReason` (with a short excerpt of what the agent actually
-  returned) — visible in `THREAD.md`, `thread.json`, and the command's `--json`
-  output, so you can see *why* it failed rather than guessing.
+- **An agent returns empty/unparseable output?** The HYPOTHESIZE and DESIGN
+  spawns are retried up to `research_spawn_retries` times (default 2) before
+  giving up — a transient blank agent response won't kill a multi-iteration
+  thread. Only after the retries are exhausted does the thread end with
+  `status: error` and a recorded `errorReason` (with a short excerpt of the last
+  output) — visible in `THREAD.md`, `thread.json`, and the command's `--json`
+  output. (A hard scheduler failure — all accounts rate-limited — is surfaced
+  immediately, not retried.)
 
 ---
 
