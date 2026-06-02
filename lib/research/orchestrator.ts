@@ -20,7 +20,11 @@ const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } = requir
 const { buildFinding, writeFinding, findingPath } = require('./finding');
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
-const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io');
+const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io') as {
+  parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string } | null;
+  parsePlanOutput: (stdout: string) => { procedure: string; metricKey: string; comparator: string; target: number; language: string; scriptPath: string } | null;
+  parseTakeawayOutput: (stdout: string) => Record<string, unknown> | null;
+};
 const { selectRunner } = require('./docker-runner') as {
   selectRunner: (cwd: string, opts?: { timeoutMs?: number }) => Runner;
 };
@@ -167,8 +171,63 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
       );
     }
     const r = await scheduler.spawn(prompt, { agentType, model, captureOutput: true, cwd });
-    return decodeSpawnStdout(r.stdout || '');
+    return decodeSpawnResult(r, agentType);
   };
+}
+
+/**
+ * Turn a scheduler spawn result into agent text — but THROW on a nonzero exit
+ * (the scheduler coerces nonzero when it exhausts rate-limit rotation), so the
+ * loop's retry helper never re-spawns a hard scheduler failure as if it were a
+ * transient empty (which would amplify a rate-limit storm).
+ */
+function decodeSpawnResult(r: { exitCode?: number; stdout?: string }, agentType: string): string {
+  if (typeof r.exitCode === 'number' && r.exitCode !== 0) {
+    throw new Error(
+      `scheduler spawn failed (exit ${r.exitCode}) for ${agentType} — accounts may be rate-limited/exhausted`,
+    );
+  }
+  return decodeSpawnStdout(r.stdout || '');
+}
+
+/**
+ * Spawn an agent and parse its output, retrying on a null parse (empty /
+ * non-block / transient response) up to `retries` times before giving up. A
+ * thrown spawn (hard scheduler failure) propagates immediately — only parse
+ * failures are retried. `beforeAttempt` runs before each spawn (DESIGN uses it
+ * to clear stale generated artifacts so a failed attempt can't leave a runnable
+ * script behind).
+ */
+async function spawnAndParse<T>(
+  spawn: SpawnFn,
+  prompt: string,
+  agentType: string,
+  parse: (stdout: string) => T | null,
+  retries: number,
+  beforeAttempt?: () => void,
+): Promise<{ value: T | null; lastRaw: string }> {
+  let lastRaw = '';
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (beforeAttempt) beforeAttempt();
+    lastRaw = await spawn(prompt, agentType);
+    const value = parse(lastRaw);
+    if (value) return { value, lastRaw };
+  }
+  return { value: null, lastRaw };
+}
+
+/** Read research_spawn_retries (default 2, clamp [0,5]); non-number → default. */
+function readSpawnRetries(cwd: string): number {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_spawn_retries?: unknown;
+    };
+    const n = raw.research_spawn_retries;
+    if (typeof n !== 'number' || !Number.isFinite(n)) return 2;
+    return Math.min(5, Math.max(0, Math.trunc(n)));
+  } catch {
+    return 2;
+  }
 }
 
 function verdictToStatus(v: Verdict): HypothesisStatus {
@@ -213,6 +272,7 @@ async function runLoop(
   const runner: Runner = opts.runner || selectRunner(cwd, { timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
   const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
+  const spawnRetries = readSpawnRetries(cwd);
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -254,9 +314,12 @@ async function runLoop(
           const r = await retrieveFn(cwd, groundQuery, pivot ? { k: 16 } : undefined);
           pack = buildGroundingPack(r.results, thread.question);
         } catch { /* degrade */ }
-        const hOut = await spawn(buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot), 'grd-hypothesizer');
-        const parsed = parseHypothesisOutput(hOut);
-        if (!parsed) return errExit(cwd, thread, `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hOut)}`);
+        const hRes = await spawnAndParse(
+          spawn, buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot),
+          'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
+        );
+        const parsed = hRes.value;
+        if (!parsed) return errExit(cwd, thread, `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
         hyp = {
           id: nextHypothesisId(priorHyps), iteration: thread.iteration,
           statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
@@ -268,9 +331,15 @@ async function runLoop(
       // DESIGN
       thread.currentStation = 'design'; saveThread(cwd, thread);
       fs.mkdirSync(iterDir, { recursive: true });
-      const pOut = await spawn(buildExperimentPrompt(thread, hyp, iterDir), 'grd-experiment-runner');
-      const parsedPlan = parsePlanOutput(pOut);
-      if (!parsedPlan) return errExit(cwd, thread, `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pOut)}`);
+      const pRes = await spawnAndParse(
+        spawn, buildExperimentPrompt(thread, hyp, iterDir), 'grd-experiment-runner',
+        parsePlanOutput, spawnRetries,
+        // Clear stale generated artifacts before each attempt so a failed attempt
+        // can't leave a runnable script behind (the runner executes scriptPath).
+        () => { for (const f of ['run.sh', 'run.py', 'PLAN.md']) { try { fs.rmSync(path.join(iterDir, f)); } catch { /* absent */ } } },
+      );
+      const parsedPlan = pRes.value;
+      if (!parsedPlan) return errExit(cwd, thread, `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pRes.lastRaw)}`);
       plan = parsedPlan as ExperimentPlan;
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
@@ -301,9 +370,9 @@ async function runLoop(
     const tk = parseTakeawayOutput(tOut);
     const takeaway: Takeaway = {
       kind: (tk?.kind as Takeaway['kind']) || 'domain_fact',
-      content: tk?.content || outcome.detail,
-      confidence: tk?.confidence ?? 0.4,
-      evidence: tk?.evidence || outcome.detail,
+      content: (tk?.content as string) || outcome.detail,
+      confidence: (tk?.confidence as number) ?? 0.4,
+      evidence: (tk?.evidence as string) || outcome.detail,
       failureClass: (tk?.failureClass as Takeaway['failureClass']) || result.failureClass,
       iteration: thread.iteration,
     };
@@ -396,5 +465,6 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
 
 module.exports = {
   runResearch, resumeResearch, defaultSpawn, verdictToStatus,
-  decodeSpawnStdout, readResearchGatesConfig, readResurveyConfig,
+  decodeSpawnStdout, decodeSpawnResult, spawnAndParse, readSpawnRetries,
+  readResearchGatesConfig, readResurveyConfig,
 };

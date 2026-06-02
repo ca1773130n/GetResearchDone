@@ -422,3 +422,66 @@ describe('orchestrator', () => {
     expect(res.status).toBe('supported');
   });
 });
+
+describe('spawn-retry robustness', () => {
+  const orch = require('../../../lib/research/orchestrator');
+
+  describe('spawnAndParse', () => {
+    const parse = (s: string) => (s.includes('OK') ? { ok: true } : null);
+    it('retries on null parse then succeeds; counts attempts', async () => {
+      let n = 0;
+      const spawn = async () => { n++; return n < 3 ? '' : 'OK'; };
+      const r = await orch.spawnAndParse(spawn, 'p', 'a', parse, 2);
+      expect(r.value).toEqual({ ok: true });
+      expect(n).toBe(3);
+    });
+    it('returns {value:null} after exhausting retries', async () => {
+      let n = 0;
+      const spawn = async () => { n++; return ''; };
+      const r = await orch.spawnAndParse(spawn, 'p', 'a', parse, 2);
+      expect(r.value).toBeNull();
+      expect(n).toBe(3);
+      expect(r.lastRaw).toBe('');
+    });
+    it('one call when first parses; retries:0 → one call', async () => {
+      let n = 0; const spawn = async () => { n++; return 'OK'; };
+      await orch.spawnAndParse(spawn, 'p', 'a', parse, 2); expect(n).toBe(1);
+      n = 0; const empty = async () => { n++; return ''; };
+      await orch.spawnAndParse(empty, 'p', 'a', parse, 0); expect(n).toBe(1);
+    });
+    it('a thrown spawn propagates (not retried/swallowed)', async () => {
+      let n = 0;
+      const spawn = async () => { n++; throw new Error('hard fail'); };
+      await expect(orch.spawnAndParse(spawn, 'p', 'a', parse, 2)).rejects.toThrow('hard fail');
+      expect(n).toBe(1);
+    });
+    it('calls beforeAttempt once per attempt', async () => {
+      let before = 0; const spawn = async () => '';
+      await orch.spawnAndParse(spawn, 'p', 'a', parse, 2, () => { before++; });
+      expect(before).toBe(3);
+    });
+  });
+
+  describe('readSpawnRetries', () => {
+    function cfg(obj?: object) {
+      const d = tmp();
+      if (obj) fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
+      return d;
+    }
+    it('defaults 2; clamps; rejects non-number', () => {
+      expect(orch.readSpawnRetries(cfg())).toBe(2);
+      expect(orch.readSpawnRetries(cfg({ research_spawn_retries: 4 }))).toBe(4);
+      expect(orch.readSpawnRetries(cfg({ research_spawn_retries: -1 }))).toBe(0);
+      expect(orch.readSpawnRetries(cfg({ research_spawn_retries: 99 }))).toBe(5);
+      expect(orch.readSpawnRetries(cfg({ research_spawn_retries: false }))).toBe(2);
+      expect(orch.readSpawnRetries(cfg({ research_spawn_retries: 'x' }))).toBe(2);
+    });
+  });
+
+  describe('decodeSpawnResult', () => {
+    it('throws on nonzero exit; decodes on exit 0', () => {
+      expect(() => orch.decodeSpawnResult({ exitCode: 1, stdout: '' }, 'grd-hypothesizer')).toThrow(/exit 1|rate-limited|exhausted/i);
+      expect(orch.decodeSpawnResult({ exitCode: 0, stdout: 'hello' }, 'a')).toBe('hello');
+    });
+  });
+});
