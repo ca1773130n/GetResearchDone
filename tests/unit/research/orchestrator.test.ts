@@ -449,10 +449,12 @@ describe('spawn-retry robustness', () => {
       n = 0; const empty = async () => { n++; return ''; };
       await orch.spawnAndParse(empty, 'p', 'a', parse, 0); expect(n).toBe(1);
     });
-    it('a thrown spawn propagates (not retried/swallowed)', async () => {
+    it('a thrown spawn is caught → {value:null, error} after one call (not retried)', async () => {
       let n = 0;
       const spawn = async () => { n++; throw new Error('hard fail'); };
-      await expect(orch.spawnAndParse(spawn, 'p', 'a', parse, 2)).rejects.toThrow('hard fail');
+      const r = await orch.spawnAndParse(spawn, 'p', 'a', parse, 2);
+      expect(r.value).toBeNull();
+      expect(r.error).toMatch(/hard fail/);
       expect(n).toBe(1);
     });
     it('calls beforeAttempt once per attempt', async () => {
@@ -479,9 +481,38 @@ describe('spawn-retry robustness', () => {
   });
 
   describe('decodeSpawnResult', () => {
-    it('throws on nonzero exit; decodes on exit 0', () => {
-      expect(() => orch.decodeSpawnResult({ exitCode: 1, stdout: '' }, 'grd-hypothesizer')).toThrow(/exit 1|rate-limited|exhausted/i);
+    it('throws on nonzero exit with exit code + stderr (no rate-limit over-attribution)', () => {
+      try {
+        orch.decodeSpawnResult({ exitCode: 2, stdout: '', stderr: 'boom crash' }, 'grd-experiment-runner');
+        throw new Error('should have thrown');
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        expect(msg).toMatch(/exit 2/);
+        expect(msg).toMatch(/boom crash/);
+        expect(msg).not.toMatch(/rate.limit/i);
+      }
       expect(orch.decodeSpawnResult({ exitCode: 0, stdout: 'hello' }, 'a')).toBe('hello');
+    });
+  });
+
+  describe('crash-iteration hypothesis reuse', () => {
+    const { createThread, saveThread, loadThread } = require('../../../lib/research/thread');
+    const { appendHypothesis, readLedger } = require('../../../lib/research/ledger');
+    const spawnReaching = async (_p: string, a: string): Promise<string> => {
+      if (a === 'grd-experiment-runner') return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.4,"language":"shell","scriptPath":"experiments/1/run.sh"}';
+      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"NEW","rationale":"r","predictedOutcome":"p"}';
+      return '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+    };
+    it('reuses an existing iter testing hypothesis (no plan) instead of cold-generating a new one', async () => {
+      const cwd = tmp();
+      const t = createThread(cwd, 'Q crash?', {});
+      // simulate a crash after HYPOTHESIZE: a testing hyp exists for iter 1, station design, no plan.json
+      appendHypothesis(cwd, t.id, { id: 'h1', iteration: t.iteration, statement: 'CRASHED', rationale: 'r', predictedOutcome: 'p', status: 'testing', parentId: null, verdict: null });
+      t.currentStation = 'design'; t.status = 'active'; saveThread(cwd, t);
+      await resumeResearch(cwd, t.id, { noGates: true, spawn: spawnReaching, runner: makeRunner() });
+      const iter1 = readLedger(cwd, t.id).filter((h: { iteration: number }) => h.iteration === t.iteration);
+      expect(iter1.length).toBe(1); // reused h1 — no orphan
+      expect(iter1[0].statement).toBe('CRASHED'); // the existing hyp, not a fresh "NEW" one
     });
   });
 });

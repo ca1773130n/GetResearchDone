@@ -177,14 +177,17 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
 
 /**
  * Turn a scheduler spawn result into agent text — but THROW on a nonzero exit
- * (the scheduler coerces nonzero when it exhausts rate-limit rotation), so the
- * loop's retry helper never re-spawns a hard scheduler failure as if it were a
- * transient empty (which would amplify a rate-limit storm).
+ * (a backend CLI crash, or the scheduler coercing nonzero after exhausting
+ * rate-limit rotation), so the loop's retry helper never re-spawns a hard
+ * failure as a "transient empty". The message reports the exit code + a stderr
+ * excerpt (no rate-limit over-attribution — a nonzero exit is not necessarily a
+ * rate limit).
  */
-function decodeSpawnResult(r: { exitCode?: number; stdout?: string }, agentType: string): string {
+function decodeSpawnResult(r: { exitCode?: number; stdout?: string; stderr?: string }, agentType: string): string {
   if (typeof r.exitCode === 'number' && r.exitCode !== 0) {
+    const err = excerpt(r.stderr || '');
     throw new Error(
-      `scheduler spawn failed (exit ${r.exitCode}) for ${agentType} — accounts may be rate-limited/exhausted`,
+      `${agentType} backend spawn failed (exit ${r.exitCode})${err !== '(empty)' ? ` — ${err}` : ''}`,
     );
   }
   return decodeSpawnStdout(r.stdout || '');
@@ -205,11 +208,18 @@ async function spawnAndParse<T>(
   parse: (stdout: string) => T | null,
   retries: number,
   beforeAttempt?: () => void,
-): Promise<{ value: T | null; lastRaw: string }> {
+): Promise<{ value: T | null; lastRaw: string; error?: string }> {
   let lastRaw = '';
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (beforeAttempt) beforeAttempt();
-    lastRaw = await spawn(prompt, agentType);
+    try {
+      lastRaw = await spawn(prompt, agentType);
+    } catch (e) {
+      // Hard spawn failure (backend crash / nonzero exit / no scheduler). Do NOT
+      // retry (preserves the no-amplification guarantee); surface for a clean
+      // errExit instead of bubbling an uncaught stack trace.
+      return { value: null, lastRaw: '', error: e instanceof Error ? e.message : String(e) };
+    }
     const value = parse(lastRaw);
     if (value) return { value, lastRaw };
   }
@@ -298,6 +308,12 @@ async function runLoop(
         // SEEDED: adopt the pre-seeded synthesis hypothesis; skip the cold grd-hypothesizer
         // spawn. It is already in the ledger — do NOT append it again.
         hyp = seededHyp;
+      } else if (resumable && !fs.existsSync(planFile)) {
+        // CRASH RECOVERY: a hypothesis exists for this iteration but DESIGN never
+        // produced a plan (crashed after HYPOTHESIZE). Reuse it and re-run DESIGN
+        // instead of orphaning it with a fresh one. The `!planFile` guard confines
+        // this to the no-plan case, so it can never re-design a started experiment.
+        hyp = resumable;
       } else {
         // HYPOTHESIZE (cold)
         const lastHyp = priorHyps[priorHyps.length - 1] || null;
@@ -319,7 +335,9 @@ async function runLoop(
           'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
         );
         const parsed = hRes.value;
-        if (!parsed) return errExit(cwd, thread, `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
+        if (!parsed) return errExit(cwd, thread, hRes.error
+          ? `hypothesizer spawn failed: ${hRes.error}`
+          : `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
         hyp = {
           id: nextHypothesisId(priorHyps), iteration: thread.iteration,
           statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
@@ -339,7 +357,9 @@ async function runLoop(
         () => { for (const f of ['run.sh', 'run.py', 'PLAN.md']) { try { fs.rmSync(path.join(iterDir, f)); } catch { /* absent */ } } },
       );
       const parsedPlan = pRes.value;
-      if (!parsedPlan) return errExit(cwd, thread, `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pRes.lastRaw)}`);
+      if (!parsedPlan) return errExit(cwd, thread, pRes.error
+        ? `experiment-runner spawn failed: ${pRes.error}`
+        : `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pRes.lastRaw)}`);
       plan = parsedPlan as ExperimentPlan;
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
