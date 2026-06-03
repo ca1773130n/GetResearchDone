@@ -42,7 +42,8 @@ research loop`; if the `prediction` block is missing you'll see a
 `safety_margin_tasks` error. (`/grd:init` avoids both.)
 
 **Multiple accounts?** If you manage your AI CLI accounts with
-[ai-accounts](https://github.com/) (the local Litestar sidecar), run
+**ai-accounts** (the local Litestar sidecar at `~/Developer/Projects/ai-accounts`,
+or set `AI_ACCOUNTS_DIR`/`AI_ACCOUNTS_URL`), run
 `gd accounts sync` — it discovers your registered, ready accounts and writes the
 `superpowers.accounts` rotation block + a scheduler block for you (so you don't
 hand-edit config dirs). `gd accounts discover` previews without writing. The loop
@@ -98,11 +99,21 @@ A good question is **falsifiable and measurable** — it implies a metric and a
 target. "Is X better?" works; "Tell me about X" does not.
 
 The loop runs SEED → GROUND → HYPOTHESIZE → DESIGN and then **pauses at the
-execute gate** before running any generated code:
+execute gate** before running any generated code. Every `gd` command emits JSON,
+so you'll see the thread's state (pretty-printed by default):
 
+```json
+{
+  "threadId": "gd-research-a1b2c3",
+  "status": "paused",
+  "iterations": 0,
+  "paused": true,
+  "pendingGate": "execute"
+}
 ```
-thread gd-research-a1b2c3 paused at gate: execute
-```
+
+(`pendingGate: "execute"` is the gate you're paused at; add `--json` for the
+compact single-line form.)
 
 ### 1.2 Inspect before approving
 
@@ -354,7 +365,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 
 | Key | Type / default | Effect |
 |---|---|---|
-| `research_gates` | `{execute:true, kg_write:true}` | Per-gate checkpoints. `experiment_execution:false` skips the execute gate; `kg_write:false` skips the KG-write gate. |
+| `research_gates` | `{experiment_execution:true, kg_write:true}` | Per-gate checkpoints. `experiment_execution:false` skips the execute gate; `kg_write:false` skips the KG-write gate. (The *config* sub-key is `experiment_execution`; the runtime gate it controls is named `execute`.) |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads. |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey. |
 | `research_max_resurveys` | `2` | Max re-surveys per thread (`0` disables). |
@@ -366,6 +377,14 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | `research_sandbox_network` | `"none"` | `"bridge"` to allow network inside the container. |
 | `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` and refuted hypotheses → `DEAD-ENDS.md`. |
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator (verdict untouched). |
+
+> **Note — `research_gates` is a shared object.** The autoresearch loop reads only
+> the `experiment_execution` and `kg_write` sub-keys. If you open
+> `.planning/config.json` you may also see phase/R&D-workflow gate keys under the
+> same `research_gates` object (e.g. `verification_design`, `survey_approval`,
+> `phase_plan_approval`) — those are consumed by other GRD commands and are
+> ignored by the research loop. Unrecognized/absent keys leave the two research
+> gates **on**.
 
 **Environment variables (semantic retrieval, all optional):**
 

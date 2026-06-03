@@ -65,11 +65,50 @@
     "enabled": true,
     "before_planning": true,
     "before_execution": true,
-    "participants": ["claude", "codex", "gemini", "opencode"],
+    "participants": [
+      "claude",
+      "codex",
+      "gemini",
+      "opencode"
+    ],
     "synthesizer": "claude"
   },
   "backend_roles": {
     "brainstormer": "gemini",
     "reviewer": "codex"
+  },
+  "superpowers": {
+    "default_backend": "claude",
+    "account_rotation": true,
+    "accounts": {
+      "codex": [
+        {
+          "config_dir": "/Users/neo/.codex-personal2"
+        }
+      ],
+      "claude": [
+        {
+          "config_dir": "/Users/neo/.claude-personal1"
+        },
+        {
+          "config_dir": "/Users/neo/.claude-personal2"
+        }
+      ]
+    }
+  },
+  "scheduler": {
+    "backend_priority": [
+      "claude",
+      "codex"
+    ],
+    "free_fallback": {
+      "backend": "codex"
+    },
+    "prediction": {
+      "window_minutes": 60,
+      "ewma_alpha": 0.3,
+      "safety_margin_tasks": 2,
+      "min_samples": 3
+    }
   }
 }
