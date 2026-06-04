@@ -1,0 +1,112 @@
+{
+  "_meta": {
+    "version": 1,
+    "canonical": "autoresearch-core: parity/vectors.json",
+    "vendored": "GetResearchDone: tests/fixtures/autoresearch-parity-vectors.json",
+    "rule": "Both copies must stay byte-identical. Behavior changes in either implementation require updating BOTH copies in the same change, deliberately. See RELEASING.md (autoresearch-core).",
+    "excluded_deviations": [
+      "VerdictRecord.detail / MeasureOutcome.detail strings are human-readable, not parity-guaranteed (only the verdict outcome is).",
+      "parse_metrics_line: overflowing JSON numbers (1e999) — GRD keeps Infinity, the kernel drops the key (deliberate hardening). Literal NaN/Infinity tokens reject the whole line in both and ARE covered here.",
+      "check_gate: unknown gate names — GRD silently proceeds, the kernel raises ValueError (deliberate fail-fast)."
+    ]
+  },
+  "compare": [
+    { "value": 2, "comparator": ">=", "target": 2, "expect": true },
+    { "value": 1, "comparator": ">=", "target": 2, "expect": false },
+    { "value": 1, "comparator": "<=", "target": 2, "expect": true },
+    { "value": 3, "comparator": "<=", "target": 2, "expect": false },
+    { "value": 3, "comparator": ">", "target": 2, "expect": true },
+    { "value": 2, "comparator": ">", "target": 2, "expect": false },
+    { "value": 1, "comparator": "<", "target": 2, "expect": true },
+    { "value": 2, "comparator": "<", "target": 2, "expect": false },
+    { "value": 2, "comparator": "==", "target": 2, "expect": true },
+    { "value": 2, "comparator": "==", "target": 3, "expect": false },
+    { "value": 0.83, "comparator": ">=", "target": 0.8, "expect": true },
+    { "value": 0.30000000000000004, "comparator": "==", "target": 0.3, "expect": false },
+    { "value": -1.5, "comparator": "<", "target": 0, "expect": true },
+    { "value": 0, "comparator": ">=", "target": -0.0, "expect": true },
+    { "value": 1, "comparator": "!=", "target": 2, "expect": false }
+  ],
+  "evaluate_verdict": [
+    { "name": "boundary pass", "metric_key": "acc", "comparator": ">=", "target": 0.8, "metrics": { "acc": 0.8 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "supported" },
+    { "name": "just below target", "metric_key": "acc", "comparator": ">=", "target": 0.8, "metrics": { "acc": 0.79 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "refuted" },
+    { "name": "failed run is inconclusive", "metric_key": "acc", "comparator": ">=", "target": 0.8, "metrics": {}, "exit_code": 1, "failure_class": "H2", "expect_verdict": "inconclusive" },
+    { "name": "metric not reported", "metric_key": "acc", "comparator": ">=", "target": 0.8, "metrics": { "other": 0.9 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "inconclusive" },
+    { "name": "lte pass", "metric_key": "loss", "comparator": "<=", "target": 0.2, "metrics": { "loss": 0.1 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "supported" },
+    { "name": "exact equality", "metric_key": "n", "comparator": "==", "target": 5, "metrics": { "n": 5 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "supported" },
+    { "name": "strict gt boundary fails", "metric_key": "acc", "comparator": ">", "target": 0.8, "metrics": { "acc": 0.8 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "refuted" },
+    { "name": "timeout beats passing metric", "metric_key": "acc", "comparator": ">=", "target": 0.8, "metrics": { "acc": 0.95 }, "exit_code": 124, "failure_class": "H4", "expect_verdict": "inconclusive" },
+    { "name": "negative metric", "metric_key": "delta", "comparator": "<", "target": 0, "metrics": { "delta": -3.2 }, "exit_code": 0, "failure_class": "none", "expect_verdict": "supported" }
+  ],
+  "parse_metrics_line": [
+    { "name": "basic", "stdout": "__RESULT__ {\"recall_at_10\": 0.83}", "expect": { "recall_at_10": 0.83 } },
+    { "name": "surrounded by log lines", "stdout": "setup\n__RESULT__ {\"acc\": 0.9, \"n\": 100}\ndone\n", "expect": { "acc": 0.9, "n": 100 } },
+    { "name": "no space after marker", "stdout": "__RESULT__{\"a\":1}", "expect": { "a": 1 } },
+    { "name": "newline after marker", "stdout": "__RESULT__\n{\"a\": 1}", "expect": { "a": 1 } },
+    { "name": "non-numeric values dropped", "stdout": "__RESULT__ {\"ok\": true, \"msg\": \"hi\", \"x\": 2}", "expect": { "x": 2 } },
+    { "name": "null array object dropped", "stdout": "__RESULT__ {\"a\": null, \"b\": [1], \"c\": {\"d\": 1}, \"e\": 3}", "expect": { "e": 3 } },
+    { "name": "no marker", "stdout": "just logs {\"a\": 1}", "expect": {} },
+    { "name": "malformed json", "stdout": "__RESULT__ {bad json}", "expect": {} },
+    { "name": "first occurrence wins", "stdout": "__RESULT__ {\"a\": 1}\n__RESULT__ {\"a\": 2}", "expect": { "a": 1 } },
+    { "name": "literal NaN rejects line", "stdout": "__RESULT__ {\"a\": NaN}", "expect": {} },
+    { "name": "literal Infinity rejects line", "stdout": "__RESULT__ {\"a\": Infinity}", "expect": {} },
+    { "name": "greedy match across two objects is invalid", "stdout": "__RESULT__ {\"a\": 1} {\"b\": 2}", "expect": {} },
+    { "name": "scientific notation", "stdout": "__RESULT__ {\"a\": -2.5e-3}", "expect": { "a": -0.0025 } },
+    { "name": "empty object", "stdout": "__RESULT__ {}", "expect": {} }
+  ],
+  "classify_run_failure": [
+    { "stderr": "", "timed_out": true, "expect": "H4" },
+    { "stderr": "ModuleNotFoundError: No module named 'faiss'", "timed_out": false, "expect": "H2" },
+    { "stderr": "bash: foo: command not found", "timed_out": false, "expect": "H2" },
+    { "stderr": "zsh: tool not found: tool", "timed_out": false, "expect": "H2" },
+    { "stderr": "ImportError: cannot import name 'x'", "timed_out": false, "expect": "H2" },
+    { "stderr": "cat: /data/x.json: No such file or directory", "timed_out": false, "expect": "H3" },
+    { "stderr": "Error: ENOENT: no such file or directory, open 'x'", "timed_out": false, "expect": "H3" },
+    { "stderr": "bash: /script.sh: Permission denied", "timed_out": false, "expect": "H3" },
+    { "stderr": "", "timed_out": false, "expect": "none" },
+    { "stderr": "Segmentation fault (core dumped)", "timed_out": false, "expect": "H4" },
+    { "stderr": "ModuleNotFoundError: x", "timed_out": true, "expect": "H4" },
+    { "stderr": "COMMAND NOT FOUND", "timed_out": false, "expect": "H2" },
+    { "stderr": "ModuleNotFoundError after No such file or directory", "timed_out": false, "expect": "H2" }
+  ],
+  "resolve_gates": [
+    { "config": {}, "no_gates": false, "expect": { "execute": true, "kg_write": true } },
+    { "config": { "research_gates": {} }, "no_gates": false, "expect": { "execute": true, "kg_write": true } },
+    { "config": { "research_gates": { "experiment_execution": false } }, "no_gates": false, "expect": { "execute": false, "kg_write": true } },
+    { "config": { "research_gates": { "kg_write": false } }, "no_gates": false, "expect": { "execute": true, "kg_write": false } },
+    { "config": { "research_gates": { "experiment_execution": true, "kg_write": true } }, "no_gates": false, "expect": { "execute": true, "kg_write": true } },
+    { "config": { "research_gates": { "experiment_execution": true, "kg_write": true } }, "no_gates": true, "expect": { "execute": false, "kg_write": false } },
+    { "config": { "research_gates": { "experiment_execution": 0 } }, "no_gates": false, "expect": { "execute": true, "kg_write": true } },
+    { "config": { "research_gates": "bogus" }, "no_gates": false, "expect": { "execute": true, "kg_write": true } }
+  ],
+  "check_gate": [
+    { "gates": { "execute": true, "kg_write": true }, "gate": "execute", "approved": false, "expect_proceed": false, "expect_pending_gate": "execute" },
+    { "gates": { "execute": true, "kg_write": true }, "gate": "execute", "approved": true, "expect_proceed": true, "expect_pending_gate": null },
+    { "gates": { "execute": false, "kg_write": true }, "gate": "execute", "approved": false, "expect_proceed": true, "expect_pending_gate": null },
+    { "gates": { "execute": true, "kg_write": true }, "gate": "kg_write", "approved": false, "expect_proceed": false, "expect_pending_gate": "kg_write" },
+    { "gates": { "execute": true, "kg_write": false }, "gate": "kg_write", "approved": false, "expect_proceed": true, "expect_pending_gate": null },
+    { "gates": { "execute": false, "kg_write": true }, "gate": "execute", "approved": true, "expect_proceed": true, "expect_pending_gate": null }
+  ],
+  "decide_branch": [
+    { "verdict": "supported", "expect": "finalize" },
+    { "verdict": "refuted", "expect": "revise" },
+    { "verdict": "inconclusive", "expect": "revise" }
+  ],
+  "should_terminate": [
+    { "iteration": 1, "max_iterations": 5, "last_verdict": "supported", "expect_done": true, "expect_status": "supported" },
+    { "iteration": 5, "max_iterations": 5, "last_verdict": "refuted", "expect_done": true, "expect_status": "exhausted" },
+    { "iteration": 6, "max_iterations": 5, "last_verdict": "inconclusive", "expect_done": true, "expect_status": "exhausted" },
+    { "iteration": 2, "max_iterations": 5, "last_verdict": "refuted", "expect_done": false, "expect_status": "active" },
+    { "iteration": 5, "max_iterations": 5, "last_verdict": "supported", "expect_done": true, "expect_status": "supported" },
+    { "iteration": 0, "max_iterations": 0, "last_verdict": "refuted", "expect_done": true, "expect_status": "exhausted" }
+  ],
+  "detect_plateau": [
+    { "verdicts": ["refuted", "refuted"], "window": 3, "expect": false },
+    { "verdicts": ["refuted", "refuted", "refuted"], "window": 3, "expect": true },
+    { "verdicts": ["refuted", "supported", "refuted"], "window": 3, "expect": false },
+    { "verdicts": ["supported", "refuted", "inconclusive", "refuted"], "window": 3, "expect": true },
+    { "verdicts": ["refuted", "refuted", "supported"], "window": 3, "expect": false },
+    { "verdicts": ["refuted", "refuted"], "window": 2, "expect": true },
+    { "verdicts": [], "window": 3, "expect": false }
+  ]
+}
