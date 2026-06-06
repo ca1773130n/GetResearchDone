@@ -114,3 +114,4 @@ config.toml
 .clinerules
 .rules
 .aider.conf.yml
+__pycache__/

@@ -29,6 +29,7 @@ try:
     from autoresearch_core import (
         EvalCheck, EvalReport, Finding, PatchEntry, RoundPatch, RoundRecord,
         decide_round, patch_hash, resolve_autonomy, select_evidence,
+        validate_round_patch, should_skip_patch,
     )
 except ImportError:  # pragma: no cover
     sys.stderr.write("autoresearch-core>=0.2 is required: pip install 'autoresearch-core>=0.2'\n")
@@ -128,8 +129,14 @@ class RepoEvaluator:
         self.full_eval = full_eval
 
     def _apply_entries(self, patch: RoundPatch, workdir: str) -> None:
+        workdir_real = Path(workdir).resolve()
         for e in patch.entries:
-            target = Path(workdir) / e.path
+            p = Path(e.path)
+            if p.is_absolute() or any(part == ".." for part in p.parts):
+                raise ValueError(f"unsafe patch path: {e.path}")
+            target = (workdir_real / p).resolve()
+            if not target.is_relative_to(workdir_real):
+                raise ValueError(f"patch path escapes workdir: {e.path}")
             if e.op == "delete":
                 target.unlink(missing_ok=True)
             else:
@@ -270,7 +277,27 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
                                evidence_count=len(evidence), created_at=_now())
         patch = RoundPatch(round_id=rid, entries=patch.entries,
                            summary=patch.summary, confidence=patch.confidence)
-        eval_report = RepoEvaluator(full_eval).evaluate(patch, str(workdir))
+        errors = validate_round_patch(
+            patch, autonomy, deny_paths=DENY_PATHS, config_path=CONFIG_PATH,
+            current_harness=h if h else None,
+        )
+        if errors:
+            return RoundRecord(round_id=rid, status="rejected",
+                               detail="validation: " + "; ".join(errors),
+                               evidence_count=len(evidence), patch_hash=patch_hash(patch),
+                               created_at=_now())
+        if should_skip_patch(patch_hash(patch), store.load_patch_hashes()):
+            return RoundRecord(round_id=rid, status="skipped",
+                               detail=f"duplicate of a prior round (patch_hash {patch_hash(patch)})",
+                               evidence_count=len(evidence), patch_hash=patch_hash(patch),
+                               created_at=_now())
+        try:
+            eval_report = RepoEvaluator(full_eval).evaluate(patch, str(workdir))
+        except ValueError as exc:
+            return RoundRecord(round_id=rid, status="rejected",
+                               detail=f"eval apply failed: {exc}",
+                               evidence_count=len(evidence), patch_hash=patch_hash(patch),
+                               created_at=_now())
         status, detail = decide_round(
             patch, autonomy, store.load_patch_hashes(), eval_report,
             deny_paths=DENY_PATHS, config_path=CONFIG_PATH,
