@@ -80,6 +80,13 @@ These are correctly part of the surface but their docs are stale:
 3. **v0.4.1**: hide `gd internal` from `gd --help`; only surfaces via
    `gd internal --help`
 
+## evolve (deprecated 2026-06-06)
+
+`gd evolve` (static-scan self-improvement) is replaced by the life-harness:
+`gd harness round` — evidence from Tesserae session findings, eval-gated,
+git-reversible. `lib/evolve/` stays in-tree for `gd singularity` history;
+removal tracked separately.
+
 ## Why this isn't done yet
 
 Cutting 30+ commands needs:

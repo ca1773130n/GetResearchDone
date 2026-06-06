@@ -19,7 +19,7 @@ const {
     positional: string[];
     passthrough: string[];
   };
-  classifyCommand: (command: string, subcommand?: string) => 'tool' | 'agent' | 'unknown';
+  classifyCommand: (command: string, subcommand?: string) => 'tool' | 'agent' | 'deprecated' | 'unknown';
 } = require('../lib/cli/index');
 
 const {
@@ -100,6 +100,16 @@ if (
   classification = 'tool';
 }
 
+if (classification === 'deprecated') {
+  process.stderr.write(
+    `gd evolve is deprecated and no longer runs.\n` +
+    `Self-improvement moved to the life-harness:  gd harness round\n` +
+    `(evidence from Tesserae session findings; eval-gated; git-reversible)\n` +
+    `See docs/DEPRECATIONS.md and docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md\n`
+  );
+  process.exit(1);
+}
+
 if (classification === 'tool') {
   const result = runToolCommand(command, subcommand, extraArgs, flags.json, cwd, flags.passthrough);
   if (result.stdout) process.stdout.write(result.stdout);
@@ -131,7 +141,6 @@ Hero verbs (the closed loop):
   execute-phase <N>    Run plans (wave-parallel + worktree-isolated)
   verify-phase <N>     Reflection-loop verifier with Evidence Standard
   autopilot            Run N phases end-to-end (the closed loop)
-  evolve               Autonomous self-improvement loop
   harness              Life-harness round: evidence-driven self-improvement (round|status|revert)
   health               Drift score + blockers + Ouroboros status
   think                One-shot project briefing aggregating all primitives
@@ -196,7 +205,7 @@ Auxiliary (run \`gd <cmd> --help\` for details):
   import-research, metrics
 
 Note: dashboard, health-check, coverage-report, phase-time-budget,
-todo-duplicates, markdown-split, and setup are DEPRECATED — see
+todo-duplicates, markdown-split, setup, and evolve are DEPRECATED — see
 docs/DEPRECATIONS.md for the v0.4.x trim plan.
 
 Global Flags:

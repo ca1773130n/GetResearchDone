@@ -260,9 +260,14 @@ export function parseFlags(argv: string[]): Flags {
 export function classifyCommand(
   command: string,
   subcommand?: string
-): 'tool' | 'agent' | 'unknown' {
+): 'tool' | 'agent' | 'deprecated' | 'unknown' {
   if (command === 'evolve' && subcommand && EVOLVE_TOOL_SUBS.has(subcommand)) {
     return 'tool';
+  }
+  // evolve agent path is deprecated — bare `gd evolve` and any non-tool sub
+  // now exit 1 with a pointer to `gd harness round`.
+  if (command === 'evolve') {
+    return 'deprecated';
   }
   if (command === 'settings' && subcommand && SETTINGS_TOOL_SUBS.has(subcommand)) {
     return 'tool';
