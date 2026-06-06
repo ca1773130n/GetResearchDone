@@ -473,6 +473,165 @@ describe('cmdVerifySummary', () => {
   });
 });
 
+// ─── cmdVerifySummary commit-hash scanning ──────────────────────────────────
+
+describe('cmdVerifySummary commit-hash scanning', () => {
+  let fixtureDir: string;
+  let headHash: string;
+
+  /** Write a SUMMARY in the fixture dir and run cmdVerifySummary over it. */
+  function verifySummaryContent(name: string, content: string) {
+    fs.writeFileSync(path.join(fixtureDir, name), content, 'utf-8');
+    const { stdout } = captureOutput(() => {
+      cmdVerifySummary(fixtureDir, name, 0, false);
+    });
+    return JSON.parse(stdout);
+  }
+
+  beforeAll(() => {
+    fixtureDir = createFixtureDir();
+    // A real git repo so cat-file can validate harvested hashes.
+    execFileSync('git', ['init', '-q'], { cwd: fixtureDir });
+    execFileSync(
+      'git',
+      ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-q', '-m', 'seed'],
+      { cwd: fixtureDir }
+    );
+    headHash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: fixtureDir,
+      encoding: 'utf-8',
+    }).trim();
+  });
+
+  afterAll(() => {
+    cleanupFixtureDir(fixtureDir);
+  });
+
+  test('harvests the commit column from a markdown table (trailing pipe)', () => {
+    const parsed = verifySummaryContent(
+      'tbl-SUMMARY.md',
+      `# Summary\n\n| Task | Commit |\n| --- | --- |\n| 1 | ${headHash} |\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('harvests an indented table without trailing pipes (codex r37/r40)', () => {
+    const parsed = verifySummaryContent(
+      'tbl-indent-SUMMARY.md',
+      `# Summary\n\n  | Task | Commit\n  | --- | ---\n  | 1 | ${headHash}\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('only validates the commit column, not a checksum column (codex r33/r36)', () => {
+    const sha256 = 'a1b2c3d4'.repeat(8); // 64 hex chars — must not be harvested
+    const parsed = verifySummaryContent(
+      'tbl-checksum-SUMMARY.md',
+      `# Summary\n\n| Task | Commit | Checksum |\n| --- | --- | --- |\n| 1 | ${headHash} | ${sha256} |\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('fails with the offending hash listed when a table hash is not in git', () => {
+    const parsed = verifySummaryContent(
+      'tbl-bogus-SUMMARY.md',
+      `# Summary\n\n| Task | Commit |\n| --- | --- |\n| 1 | deadbeef |\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(false);
+    expect(parsed.passed).toBe(false);
+    expect(parsed.errors.join(' ')).toContain('deadbeef');
+  });
+
+  test('harvests a paren-suffix hash on a Task heading (codex r41)', () => {
+    const parsed = verifySummaryContent(
+      'paren-task-SUMMARY.md',
+      `# Summary\n\n### Task 1: add parser (${headHash})\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('does not harvest a paren-suffix on a non-task heading (codex r41)', () => {
+    const parsed = verifySummaryContent(
+      'paren-artifact-SUMMARY.md',
+      `# Summary\n\n### Artifact checksum (deadbeef)\n`
+    );
+    // Not commit-flavored — no hashes harvested, so the check is vacuous.
+    expect(parsed.checks.commits_exist).toBe(false);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('harvests a backticked hash after a colonless label (codex r39)', () => {
+    const parsed = verifySummaryContent(
+      'backtick-SUMMARY.md',
+      `# Summary\n\n- [x] Commit \`${headHash}\` exists\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('sweeps bullet lines under a bare colon label', () => {
+    const parsed = verifySummaryContent(
+      'bare-label-SUMMARY.md',
+      // blank line inside the sweep + non-bullet terminator line cover
+      // both sweep-loop exits; deadbeef after the terminator must not
+      // be harvested (commits_exist=true proves it).
+      `# Summary\n\nCommits:\n\n- ${headHash}\n- follow-up note without hash\nplain terminator line\n- deadbeef\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('errors when summary path is empty', () => {
+    const { exitCode } = captureError(() => {
+      cmdVerifySummary(fixtureDir, '', 0, false);
+    });
+    expect(exitCode).toBe(1);
+  });
+
+  test('walks a ## Commits section into Task subheadings, stops at siblings (codex r35)', () => {
+    const parsed = verifySummaryContent(
+      'commits-section-SUMMARY.md',
+      `# Summary\n\n## Commits\n\n### Task 1\n- ${headHash}\n\n## Next steps\n- deadbeef is mentioned but outside the section\n`
+    );
+    // deadbeef sits after a sibling heading — if it were harvested, the
+    // git check would fail. commits_exist=true proves the walk stopped.
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('harvests hashes from /commit/ URLs', () => {
+    const parsed = verifySummaryContent(
+      'url-SUMMARY.md',
+      `# Summary\n\nSee https://github.com/o/r/commit/${headHash} for details.\n`
+    );
+    expect(parsed.checks.commits_exist).toBe(true);
+    expect(parsed.passed).toBe(true);
+  });
+
+  test('reports self-check failure', () => {
+    const parsed = verifySummaryContent(
+      'selfcheck-fail-SUMMARY.md',
+      `# Summary\n\n## Self-Check\n\nSome checks fail ✗\n`
+    );
+    expect(parsed.checks.self_check).toBe('failed');
+    expect(parsed.passed).toBe(false);
+    expect(parsed.errors).toContain('Self-check section indicates failure');
+  });
+
+  test('reports self-check pass', () => {
+    const parsed = verifySummaryContent(
+      'selfcheck-pass-SUMMARY.md',
+      `# Summary\n\n## Self-Check\n\nAll pass ✓\n`
+    );
+    expect(parsed.checks.self_check).toBe('passed');
+    expect(parsed.passed).toBe(true);
+  });
+});
+
 // ─── cmdVerifyCommits ───────────────────────────────────────────────────────
 
 describe('cmdVerifyCommits', () => {
@@ -583,6 +742,67 @@ describe('cmdVerifyMechanical', () => {
     expect(artifactsCheck.passed).toBe(false);
     expect(artifactsCheck.detail).toMatch(/src\/does-not-exist\.js/);
     expect(parsed.passed).toBe(false);
+  });
+
+  test('key_links check verifies pattern/include links and reports failures', () => {
+    const planPath = path.join(
+      fixtureDir,
+      '.planning',
+      'milestones',
+      'anonymous',
+      'phases',
+      '01-test',
+      '01-01-PLAN.md'
+    );
+    // src/a.js: matches link 1's pattern and contains link 4's literal `to`.
+    fs.mkdirSync(path.join(fixtureDir, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(fixtureDir, 'src', 'a.js'),
+      'const b = require("./b"); // wired into src/b.js\n',
+      'utf-8'
+    );
+    // src/c.js: carries the pattern link 2's `from` lacks (to-side fallback).
+    fs.writeFileSync(path.join(fixtureDir, 'src', 'c.js'), '// IN_TARGET_ONLY marker\n', 'utf-8');
+    const planContent = [
+      '---',
+      'phase: 01-test',
+      'plan: 01',
+      'type: execute',
+      'wave: 1',
+      'depends_on: []',
+      'files_modified: []',
+      'autonomous: true',
+      'must_haves:',
+      '    key_links:',
+      '      - "plain string entries are skipped"',
+      '      - from: "src/a.js"',
+      '        to: "src/b.js"',
+      '        pattern: "require.*b"',
+      '      - from: "src/a.js"',
+      '        to: "src/c.js"',
+      '        pattern: "IN_TARGET_ONLY"',
+      '      - from: "src/a.js"',
+      '        to: "src/d.js"',
+      '        pattern: "[unclosed("',
+      '      - from: "src/a.js"',
+      '        to: "src/b.js"',
+      '---',
+      '',
+      '<task><name>t1</name><action>do</action></task>',
+      '',
+    ].join('\n');
+    fs.writeFileSync(planPath, planContent, 'utf-8');
+
+    const { stdout } = captureOutput(() => {
+      cmdVerifyMechanical(fixtureDir, '1', false);
+    });
+    const parsed = JSON.parse(stdout);
+    const keyLinksCheck = parsed.checks.find((c: { check: string }) => c.check === 'key_links');
+    expect(keyLinksCheck).toBeDefined();
+    // The invalid-regex link is the only failure; the rest verify.
+    expect(keyLinksCheck.passed).toBe(false);
+    expect(keyLinksCheck.detail).toMatch(/src\/d\.js/);
+    expect(keyLinksCheck.detail).not.toMatch(/src\/c\.js/);
   });
 
   test('plan_summary_completeness fails when summary is missing', () => {
