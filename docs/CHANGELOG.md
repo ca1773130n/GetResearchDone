@@ -5,6 +5,42 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-06-07
+
+The life-harness: evidence-driven self-improvement replaces `gd evolve`.
+
+### Added
+
+- **`gd harness round [--auto|--dry-run|--full-eval]`** — one life-harness
+  round: gather Tesserae Session findings (takeaways/decisions/insights
+  compiled from real sessions), have a spawned agent propose ONE focused
+  patch to GRD's primitives (commands/agents/skill markdown,
+  `.planning/config.json`, `lib/**`), eval-gate it (frontmatter/JSON
+  structural checks; lint + tsc + jest when code is touched), and land it
+  as a single git commit on `harness/round-<id>`. Review mode by default —
+  the branch waits for a human merge; `--auto` applies only when eval is
+  green and confidence clears the configured floor. `gd harness status` /
+  `gd harness revert <round-id>` complete the surface.
+- **`harness` config block** (`.planning/config.json`): `autonomy`
+  (review|auto), `kill_switch`, `min_confidence`, `min_interval_hours`,
+  `allowed_targets`, `backend`, `min/max_evidence`.
+- Round records persist under `.planning/harness/rounds/<id>/`
+  (evidence.md, patch.json, eval.json, RECORD.json); deterministic
+  rejections enter a dedupe set so refuted patches are never re-proposed.
+- The round decision logic is pure and lives in the
+  **`autoresearch-core>=0.4.3`** Python package (version-locked to GRD
+  from this release on): path guards, self-protection deny-list (a round
+  cannot patch its own driver or harness config), apply gate, dedupe.
+  Driver: `bin/harness_driver.py` (requires Python 3.11+).
+
+### Deprecated
+
+- **`gd evolve`** no longer runs: static-scan discovery saturated (its
+  dimensions were 100% false positives for 5+ consecutive iterations).
+  It prints a pointer to `gd harness round` and exits 1. Read-only
+  introspection subcommands keep working; `lib/evolve/` stays in-tree
+  for `gd singularity` history.
+
 ## [0.4.2] - 2026-05-25
 
 Harness installer + npm distribution. First release published to npm
