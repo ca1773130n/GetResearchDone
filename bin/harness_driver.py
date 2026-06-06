@@ -32,7 +32,7 @@ try:
         validate_round_patch, should_skip_patch,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.2 is required: pip install 'autoresearch-core>=0.2'\n")
+    sys.stderr.write("autoresearch-core>=0.4.3 is required: pip install 'autoresearch-core>=0.4.3'\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)

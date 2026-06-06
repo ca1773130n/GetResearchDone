@@ -12,5 +12,5 @@ description: Run a life-harness round — improve GRD primitives from Tesserae s
 
 Config: `.planning/config.json` → `harness` block (autonomy, kill_switch,
 min_confidence, min_interval_hours, allowed_targets, backend, min/max_evidence).
-Requires: `pip install 'autoresearch-core>=0.2'`; a compiled Tesserae project
+Requires: `pip install 'autoresearch-core>=0.4.3'`; a compiled Tesserae project
 (`tesserae sessions-import` + `tesserae refresh`).
