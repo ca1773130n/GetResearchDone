@@ -15,6 +15,7 @@ const os = require('os');
 const path = require('path');
 
 const GRD_TOOLS = path.resolve(__dirname, '../../bin/grd-tools.js');
+const GD_BIN = path.resolve(__dirname, '../../bin/gd.js');
 const FIXTURE_SOURCE = path.resolve(__dirname, '../fixtures/planning');
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -2689,5 +2690,35 @@ describe('think --limit arg validation', () => {
     const { stderr, exitCode } = runCLI(['think', '--limit', '--raw'], tmpDir);
     expect(exitCode).toBe(1);
     expect(stderr).toMatch(/--limit requires a positive integer/);
+  });
+});
+
+// ─── evolve deprecation ──────────────────────────────────────────────────────
+
+describe('evolve deprecation', () => {
+  function runGD(args: string[], cwd: string): CLIResult {
+    try {
+      const stdout = execFileSync('node', [GD_BIN, ...args], {
+        cwd,
+        encoding: 'utf-8',
+        timeout: 15000,
+        env: { ...process.env, NODE_NO_WARNINGS: '1' },
+      });
+      return { stdout, stderr: '', exitCode: 0 };
+    } catch (err: unknown) {
+      const e = err as { stdout?: string; stderr?: string; status?: number };
+      return {
+        stdout: e.stdout || '',
+        stderr: e.stderr || '',
+        exitCode: e.status || 1,
+      };
+    }
+  }
+
+  test('gd evolve is deprecated and points to gd harness round', () => {
+    const { stdout, stderr, exitCode } = runGD(['evolve'], fixtureDir);
+    expect(exitCode).toBe(1);
+    expect(stdout + stderr).toMatch(/gd harness round/);
+    expect(stdout + stderr).toMatch(/deprecated/i);
   });
 });
