@@ -132,6 +132,7 @@ Hero verbs (the closed loop):
   verify-phase <N>     Reflection-loop verifier with Evidence Standard
   autopilot            Run N phases end-to-end (the closed loop)
   evolve               Autonomous self-improvement loop
+  harness              Life-harness round: evidence-driven self-improvement (round|status|revert)
   health               Drift score + blockers + Ouroboros status
   think                One-shot project briefing aggregating all primitives
   singularity          % of recent LOC authored by gd evolve itself

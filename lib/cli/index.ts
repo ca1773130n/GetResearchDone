@@ -31,6 +31,7 @@ const TOOL_COMMANDS = new Set([
   'resolve-model',
   'version',
   'dashboard',
+  'harness',
   'health',
   'health-check',
   'coverage-report',

@@ -150,6 +150,34 @@ export function runToolCommand(
     return _runScanCommand([...extraArgs, ...passthrough], jsonFlag, cwd);
   }
 
+  // In-process dispatch for harness (round/status/revert)
+  if (command === 'harness') {
+    const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert } =
+      require('../commands/harness') as {
+        cmdHarnessRound: (cwd: string, opts: { auto: boolean; dryRun: boolean; fullEval: boolean }, raw: boolean) => void;
+        cmdHarnessStatus: (cwd: string, raw: boolean) => void;
+        cmdHarnessRevert: (cwd: string, roundId: string, raw: boolean) => void;
+      };
+    const { error: cliError } = require('../utils') as { error: (msg: string) => never };
+    // gd tool commands: JSON by default, --raw for human text (raw = !jsonFlag)
+    const raw = !jsonFlag;
+    const allArgs = [...extraArgs, ...passthrough];
+    if (subcommand === 'status') {
+      cmdHarnessStatus(cwd, raw);
+    } else if (subcommand === 'revert') {
+      cmdHarnessRevert(cwd, allArgs[0] ?? '', raw);
+    } else if (subcommand === 'round' || subcommand === undefined) {
+      cmdHarnessRound(cwd, {
+        auto: allArgs.includes('--auto'),
+        dryRun: allArgs.includes('--dry-run'),
+        fullEval: allArgs.includes('--full-eval'),
+      }, raw);
+    } else {
+      cliError(`unknown harness subcommand: ${subcommand}`);
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  }
+
   const args = buildToolArgs(command, subcommand, extraArgs, jsonFlag, passthrough);
   const grdTools = join(__dirname, '..', '..', 'bin', 'grd-tools.js');
 
