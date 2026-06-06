@@ -212,7 +212,7 @@ class FsRoundStore:
         # Spec §5: only deterministic refutations (eval failures) and applied rounds
         # enter the dedupe set — validation noise is not a dead-end signal.
         eval_failed = (record.eval_report is not None and
-                       any(c.returncode != 0 for c in record.eval_report.checks))
+                       any(c.exit_code != 0 for c in record.eval_report.checks))
         if record.patch_hash and (
             record.status == "applied" or
             (record.status == "rejected" and eval_failed)
