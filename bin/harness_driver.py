@@ -75,6 +75,7 @@ class TesseraeFindings:
             created = str(node.get("created_at") or node.get("timestamp") or "")
             if since and created and created <= since:
                 continue
+            # nodes without created_at always pass — undated evidence is still valid
             content = str(node.get("content") or node.get("description") or node.get("name") or "")
             if content:
                 out.append(Finding(kind=kind, content=content,  # type: ignore[arg-type]
@@ -208,7 +209,14 @@ class FsRoundStore:
         d = self.root / "rounds" / record.round_id
         d.mkdir(parents=True, exist_ok=True)
         (d / "RECORD.json").write_text(json.dumps(asdict(record), indent=2) + "\n")
-        if record.patch_hash and record.status in ("applied", "rejected"):
+        # Spec §5: only deterministic refutations (eval failures) and applied rounds
+        # enter the dedupe set — validation noise is not a dead-end signal.
+        eval_failed = (record.eval_report is not None and
+                       any(c.returncode != 0 for c in record.eval_report.checks))
+        if record.patch_hash and (
+            record.status == "applied" or
+            (record.status == "rejected" and eval_failed)
+        ):
             with (self.root / "hashes.jsonl").open("a") as f:
                 f.write(json.dumps({"hash": record.patch_hash, "round": record.round_id,
                                     "status": record.status}) + "\n")
@@ -262,6 +270,11 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
         return RoundRecord(round_id=rid, status="gathered", detail="dry run",
                            evidence_count=len(evidence), created_at=_now())
 
+    # Persist evidence.md into round dir so auditors can inspect what drove the round.
+    round_dir = store.root / "rounds" / rid
+    round_dir.mkdir(parents=True, exist_ok=True)
+    (round_dir / "evidence.md").write_text(evidence_md + "\n")
+
     # scratch worktree on a round branch
     branch = f"harness/round-{rid}"
     workdir = Path(os.environ.get("TMPDIR", "/tmp")) / f"grd-harness-{rid}"
@@ -277,6 +290,8 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
                                evidence_count=len(evidence), created_at=_now())
         patch = RoundPatch(round_id=rid, entries=patch.entries,
                            summary=patch.summary, confidence=patch.confidence)
+        # Persist the normalized patch so applied/rejected rounds can be audited.
+        (round_dir / "patch.json").write_text(json.dumps(asdict(patch), indent=2) + "\n")
         errors = validate_round_patch(
             patch, autonomy, deny_paths=DENY_PATHS, config_path=CONFIG_PATH,
             current_harness=h if h else None,
@@ -298,6 +313,8 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
                                detail=f"eval apply failed: {exc}",
                                evidence_count=len(evidence), patch_hash=patch_hash(patch),
                                created_at=_now())
+        # Persist eval results for audit trail.
+        (round_dir / "eval.json").write_text(json.dumps(asdict(eval_report), indent=2) + "\n")
         status, detail = decide_round(
             patch, autonomy, store.load_patch_hashes(), eval_report,
             deny_paths=DENY_PATHS, config_path=CONFIG_PATH,
