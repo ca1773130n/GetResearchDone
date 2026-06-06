@@ -87,13 +87,22 @@ describe('command classification', () => {
     expect(classifyCommand('execute-phase')).toBe('agent');
     expect(classifyCommand('autopilot')).toBe('agent');
     expect(classifyCommand('survey')).toBe('agent');
-    expect(classifyCommand('evolve')).toBe('agent');
   });
 
-  it('classifies evolve with subcommand as tool', () => {
+  it('classifies evolve with EVOLVE_TOOL_SUBS subcommand as tool (introspection kept)', () => {
     expect(classifyCommand('evolve', 'discover')).toBe('tool');
     expect(classifyCommand('evolve', 'state')).toBe('tool');
-    expect(classifyCommand('evolve', undefined)).toBe('agent');
+    expect(classifyCommand('evolve', 'run')).toBe('tool');
+    expect(classifyCommand('evolve', 'advance')).toBe('tool');
+    expect(classifyCommand('evolve', 'reset')).toBe('tool');
+  });
+
+  it('classifies bare gd evolve and non-tool subs as deprecated (harness round supersedes)', () => {
+    // Bare `gd evolve` must not reach the agent path — exits 1 with pointer.
+    expect(classifyCommand('evolve')).toBe('deprecated');
+    expect(classifyCommand('evolve', undefined)).toBe('deprecated');
+    // Non-tool-sub agent subs also deprecated
+    expect(classifyCommand('evolve', 'some-agent-sub')).toBe('deprecated');
   });
 
   it('classifies init with tool subcommand as tool, bare init as agent', () => {
