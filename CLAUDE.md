@@ -79,7 +79,9 @@ exit-0 JSON — detected via `detectFromStdout`). Top-level `.planning/config.js
 keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 `research_plateau_window`, `research_resurvey_fetch`, `research_portfolio_concurrency`,
 `research_sandbox` (+ `_image`/`_memory`/`_cpus`/`_network`),
-`research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`.
+`research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`;
+harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
+`min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`).
 Account rotation: `superpowers.{account_rotation, accounts, default_backend}` —
 each account's `config_dir` is injected as `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, so
 use **absolute** paths (`~` is not expanded). `gd accounts sync` populates this
