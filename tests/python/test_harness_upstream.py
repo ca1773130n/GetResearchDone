@@ -165,5 +165,28 @@ class TestRoundWiring(unittest.TestCase):
             self.assertEqual(up.mark_consumed(ids), 1)
 
 
+class TestUpstreamCli(unittest.TestCase):
+    def test_upstream_list_and_clear_json(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {**os.environ, "CLAUDE_PLUGIN_DATA": tmp,
+                   "PYTHONPATH": os.environ.get("PYTHONPATH", "")}
+            store = hd.UpstreamStore(Path(tmp) / "harness" / "upstream")
+            store.emit("ProjA", [_f("gd harness round skipped on thin evidence")],
+                       round_id="r1", round_status="evaluated",
+                       gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            out = subprocess.run(
+                [sys.executable, str(REPO / "bin" / "harness_driver.py"),
+                 "upstream", "--op", "list"],
+                capture_output=True, text=True, env=env)
+            data = json.loads(out.stdout)
+            self.assertEqual(data["pending"][0]["count"], 1)
+            out = subprocess.run(
+                [sys.executable, str(REPO / "bin" / "harness_driver.py"),
+                 "upstream", "--op", "clear", "--origin", "ProjA"],
+                capture_output=True, text=True, env=env)
+            self.assertEqual(json.loads(out.stdout)["cleared"], 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

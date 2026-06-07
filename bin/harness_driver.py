@@ -542,7 +542,10 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[R
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("action", choices=["round", "revert"])
+    ap.add_argument("action", choices=["round", "revert", "upstream"])
+    ap.add_argument("--op", choices=["list", "clear"], default="list")
+    ap.add_argument("--origin", default="")
+    ap.add_argument("--ttl", type=int, default=90)
     ap.add_argument("--auto", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--full-eval", action="store_true")
@@ -550,6 +553,14 @@ def main() -> int:
     ap.add_argument("--cwd", default=".")
     args = ap.parse_args()
     repo = Path(args.cwd).resolve()
+    if args.action == "upstream":
+        store = UpstreamStore()
+        if args.op == "clear":
+            sys.stdout.write(json.dumps({"cleared": store.clear(args.origin or None)}) + "\n")
+        else:
+            sys.stdout.write(json.dumps(
+                {"pending": store.pending(ttl_days=args.ttl, now=_now())}, indent=2) + "\n")
+        return 0
     if args.action == "revert":
         if not args.sha:
             sys.stderr.write("revert requires --sha\n")
