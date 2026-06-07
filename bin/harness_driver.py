@@ -242,11 +242,27 @@ class FsRoundStore:
         return {json.loads(line)["hash"] for line in f.read_text().splitlines() if line}
 
     def last_round_at(self) -> str | None:
+        """Timestamp of the last round that CONSUMED evidence.
+
+        Skipped rounds (kill switch / interval / thin evidence / bootstrap
+        records) must advance neither the evidence `since` cursor nor the
+        interval guard — otherwise a skipped round permanently hides the
+        finding backlog from the next round (first-live-round bug,
+        2026-06-08: findings are back-dated to their session's
+        first_seen_at, so any cursor newer than the newest session blanks
+        the evidence forever).
+        """
         rounds = sorted((self.root / "rounds").glob("*/RECORD.json")) \
             if (self.root / "rounds").exists() else []
-        if not rounds:
-            return None
-        return str(json.loads(rounds[-1].read_text()).get("created_at") or "") or None
+        latest: str | None = None
+        for rec_path in rounds:
+            rec = json.loads(rec_path.read_text())
+            if rec.get("status") not in ("applied", "evaluated", "rejected"):
+                continue
+            created = str(rec.get("created_at") or "")
+            if created and (latest is None or created > latest):
+                latest = created
+        return latest
 
 
 # ── Phase E: upstream candidates (collective layer) ───────────────────────────
