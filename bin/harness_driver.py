@@ -197,7 +197,13 @@ class GitApplier:
 
     def apply(self, patch: RoundPatch, workdir: str) -> str:
         rid = patch.round_id
-        _run(["git", "add", "-A"], cwd=workdir)
+        # Stage ONLY the patch's own entry paths — never `git add -A`, which
+        # would sweep in the proposer scaffolding (evidence.md / patch.json /
+        # INSTRUCTIONS.md) the round writes into the worktree. Those already
+        # live under .planning/harness/rounds/<id>/; they don't belong in the
+        # patch commit. `git add <path>` also stages deletions.
+        for e in patch.entries:
+            _run(["git", "add", "--", e.path], cwd=workdir)
         msg = f"harness(round-{rid}): {patch.summary}\n\n[life-harness round {rid}]"
         p = _run(["git", "commit", "-m", msg], cwd=workdir)
         if p.returncode != 0:
