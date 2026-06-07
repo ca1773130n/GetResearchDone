@@ -39,7 +39,9 @@ downstream project, the driver emits findings that are *about GRD itself* as
 Selection v1 is a conservative heuristic: findings whose content references
 `gd `/`/grd:` commands, GRD agent names, or harness vocabulary — plus the
 round's own outcome metadata (a rejected patch in project A is signal for
-GRD). No LLM call, no network; CLAUDE_PLUGIN_DATA is local-machine state GRD
+GRD). Implementation note (v1): emit draws from the round's *selected*
+evidence (post-`select_evidence`, capped at `max_evidence`), not the full
+finding set — high-volume projects may not propagate beyond the top-N. No LLM call, no network; CLAUDE_PLUGIN_DATA is local-machine state GRD
 already owns.
 
 **Flow 2 — aggregation in the GRD repo (new, small).** When the repo is the
