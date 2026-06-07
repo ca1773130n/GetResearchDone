@@ -50,6 +50,13 @@ def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _gd_version(repo: Path) -> str:
+    try:
+        return json.loads((repo / "package.json").read_text()).get("version", "unknown")
+    except (OSError, ValueError):
+        return "unknown"
+
+
 def _run(argv: list[str], cwd: str, timeout: int = 600) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
@@ -205,10 +212,13 @@ class FsRoundStore:
     def __init__(self, repo: Path) -> None:
         self.root = repo / ".planning" / "harness"
 
-    def save_round(self, record: RoundRecord) -> None:
+    def save_round(self, record: RoundRecord, extra: dict | None = None) -> None:
         d = self.root / "rounds" / record.round_id
         d.mkdir(parents=True, exist_ok=True)
-        (d / "RECORD.json").write_text(json.dumps(asdict(record), indent=2) + "\n")
+        payload = asdict(record)
+        if extra:
+            payload.update(extra)
+        (d / "RECORD.json").write_text(json.dumps(payload, indent=2) + "\n")
         # Spec §5: only deterministic refutations (eval failures) and applied rounds
         # enter the dedupe set — validation noise is not a dead-end signal.
         eval_failed = (record.eval_report is not None and
@@ -364,8 +374,48 @@ class UpstreamStore:
         return n
 
 
+class CompositeFindings:
+    """Local Tesserae findings + pending upstream candidates (upstream root only).
+
+    `local_findings` is a callable so tests can inject; production passes
+    `TesseraeFindings(repo).findings`. Consumption is two-phase: `findings()`
+    only REMEMBERS the candidate id per emitted Finding; the driver calls
+    `consumed_for(evidence)` AFTER `select_evidence` truncation so only
+    candidates that actually entered the round count as consumed
+    (codex plan-review P1 #3).
+    """
+
+    def __init__(self, *, local_findings, store: UpstreamStore, ttl_days: int, now: str) -> None:
+        self._local = local_findings
+        self._store = store
+        self._ttl = ttl_days
+        self._now = now
+        self._id_by_key: dict[tuple[str, str], str] = {}
+
+    def findings(self, since: str | None):
+        out = list(self._local(since))
+        for c in self._store.pending(ttl_days=self._ttl, now=self._now):
+            kind = c["kind"] if c["kind"] in _FINDING_KINDS else "insight"
+            f = Finding(
+                kind=kind, content=c["content"],
+                source=f"upstream:{'+'.join(c['origins'])}:{c.get('source_session','')}",
+                created_at=c.get("created_at", ""),
+            )
+            self._id_by_key[(f.source, f.content)] = c["id"]
+            out.append(f)
+        return out
+
+    def consumed_for(self, evidence) -> set[str]:
+        """Candidate ids for the findings that survived selection."""
+        return {
+            self._id_by_key[(f.source, f.content)]
+            for f in evidence
+            if (f.source, f.content) in self._id_by_key
+        }
+
+
 # ── Orchestration ─────────────────────────────────────────────────────────────
-def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRecord:
+def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[RoundRecord, dict]:
     config = json.loads((repo / CONFIG_PATH).read_text()) if (repo / CONFIG_PATH).exists() else {}
     autonomy = resolve_autonomy(config, no_gates=auto)
     store = FsRoundStore(repo)
@@ -373,7 +423,7 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
 
     if autonomy.kill_switch:
         return RoundRecord(round_id=rid, status="skipped", detail="kill switch is on",
-                           created_at=_now())
+                           created_at=_now()), {}
     last = store.last_round_at()
     if last:
         age_h = (_dt.datetime.now(_dt.timezone.utc)
@@ -381,23 +431,31 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
                  ).total_seconds() / 3600
         if age_h < autonomy.min_interval_hours:
             return RoundRecord(round_id=rid, status="skipped", created_at=_now(),
-                               detail=f"last round {age_h:.1f}h ago (< {autonomy.min_interval_hours}h)")
+                               detail=f"last round {age_h:.1f}h ago (< {autonomy.min_interval_hours}h)"), {}
 
     h = config.get("harness") if isinstance(config.get("harness"), dict) else {}
+    upstream_root = h.get("upstream_root") is True
+    upstream_emit = h.get("upstream_emit") is not False
+    ttl_days = h.get("upstream_ttl_days") if isinstance(h.get("upstream_ttl_days"), int) else 90
+    if upstream_root:
+        source = CompositeFindings(local_findings=TesseraeFindings(repo).findings,
+                                   store=UpstreamStore(), ttl_days=ttl_days, now=_now())
+    else:
+        source = TesseraeFindings(repo)
     evidence = select_evidence(
-        TesseraeFindings(repo).findings(last),
+        source.findings(last),
         max_items=h.get("max_evidence", 25) if isinstance(h.get("max_evidence"), int) else 25,
         min_items=h.get("min_evidence", 3) if isinstance(h.get("min_evidence"), int) else 3,
     )
     if not evidence:
         return RoundRecord(round_id=rid, status="skipped", detail="not enough evidence",
-                           evidence_count=0, created_at=_now())
+                           evidence_count=0, created_at=_now()), {}
     evidence_md = "# Session evidence\n\n" + "\n".join(
         f"- **{f.kind}** ({f.source}): {f.content}" for f in evidence)
     if dry_run:
         sys.stdout.write(evidence_md + "\n")
         return RoundRecord(round_id=rid, status="gathered", detail="dry run",
-                           evidence_count=len(evidence), created_at=_now())
+                           evidence_count=len(evidence), created_at=_now()), {}
 
     # Persist evidence.md into round dir so auditors can inspect what drove the round.
     round_dir = store.root / "rounds" / rid
@@ -416,7 +474,7 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
             patch = AgentProposer(spawn_argv).propose(evidence_md, str(workdir))
         except (ValueError, json.JSONDecodeError, KeyError) as exc:
             return RoundRecord(round_id=rid, status="rejected", detail=f"proposal failed: {exc}",
-                               evidence_count=len(evidence), created_at=_now())
+                               evidence_count=len(evidence), created_at=_now()), {}
         patch = RoundPatch(round_id=rid, entries=patch.entries,
                            summary=patch.summary, confidence=patch.confidence)
         # Persist the normalized patch so applied/rejected rounds can be audited.
@@ -429,19 +487,19 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
             return RoundRecord(round_id=rid, status="rejected",
                                detail="validation: " + "; ".join(errors),
                                evidence_count=len(evidence), patch_hash=patch_hash(patch),
-                               created_at=_now())
+                               created_at=_now()), {}
         if should_skip_patch(patch_hash(patch), store.load_patch_hashes()):
             return RoundRecord(round_id=rid, status="skipped",
                                detail=f"duplicate of a prior round (patch_hash {patch_hash(patch)})",
                                evidence_count=len(evidence), patch_hash=patch_hash(patch),
-                               created_at=_now())
+                               created_at=_now()), {}
         try:
             eval_report = RepoEvaluator(full_eval).evaluate(patch, str(workdir))
         except ValueError as exc:
             return RoundRecord(round_id=rid, status="rejected",
                                detail=f"eval apply failed: {exc}",
                                evidence_count=len(evidence), patch_hash=patch_hash(patch),
-                               created_at=_now())
+                               created_at=_now()), {}
         # Persist eval results for audit trail.
         (round_dir / "eval.json").write_text(json.dumps(asdict(eval_report), indent=2) + "\n")
         status, detail = decide_round(
@@ -457,9 +515,22 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRe
                           f"harness: merge round {rid}", branch], cwd=str(repo))
                 if p.returncode != 0:
                     status, detail = "rejected", f"merge failed: {p.stderr[-400:]}"
-        return RoundRecord(round_id=rid, status=status, detail=detail,
-                           evidence_count=len(evidence), patch_hash=patch_hash(patch),
-                           eval_report=eval_report, applied_sha=applied_sha, created_at=_now())
+        rec = RoundRecord(round_id=rid, status=status, detail=detail,
+                          evidence_count=len(evidence), patch_hash=patch_hash(patch),
+                          eval_report=eval_report, applied_sha=applied_sha, created_at=_now())
+        extra: dict[str, int] = {}
+        if not dry_run and rec.status in ("applied", "evaluated", "rejected"):
+            if upstream_root and isinstance(source, CompositeFindings):
+                # ONLY candidates that survived select_evidence truncation count
+                # as consumed (codex plan-review P1 #3).
+                used = source.consumed_for(evidence)
+                if used:
+                    extra["upstream_consumed"] = UpstreamStore().mark_consumed(used)
+            elif (not upstream_root) and upstream_emit:
+                extra["upstream_emitted"] = UpstreamStore().emit(
+                    repo.name, evidence, round_id=rec.round_id,
+                    round_status=rec.status, gd_version=_gd_version(repo), now=_now())
+        return rec, extra
     finally:
         _run(["git", "worktree", "remove", "--force", str(workdir)], cwd=str(repo))
         # keep the branch when a commit landed on it (review flow); else delete
@@ -486,9 +557,10 @@ def main() -> int:
         sha = GitApplier(repo).revert(args.sha)
         sys.stdout.write(json.dumps({"reverted_to": sha}) + "\n")
         return 0
-    record = run_round(repo, args.auto, args.dry_run, args.full_eval)
-    FsRoundStore(repo).save_round(record)
-    sys.stdout.write(json.dumps(asdict(record), indent=2) + "\n")
+    record, extra = run_round(repo, args.auto, args.dry_run, args.full_eval)
+    FsRoundStore(repo).save_round(record, extra=extra or None)
+    out = asdict(record); out.update(extra)
+    sys.stdout.write(json.dumps(out, indent=2) + "\n")
     return 0
 
 

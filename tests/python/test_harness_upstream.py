@@ -117,5 +117,53 @@ class TestUpstreamStore(unittest.TestCase):
                 os.environ["CLAUDE_PLUGIN_DATA"] = old
 
 
+class TestRoundWiring(unittest.TestCase):
+    """save_round extra-merge + the emit/consume config gates (pure parts)."""
+
+    def test_save_round_merges_extra_keys(self):
+        from autoresearch_core import RoundRecord
+        with tempfile.TemporaryDirectory() as tmp:
+            store = hd.FsRoundStore(Path(tmp))
+            rec = RoundRecord(round_id="r1", status="skipped", detail="x")
+            store.save_round(rec, extra={"upstream_emitted": 3})
+            # FsRoundStore(repo) roots at <repo>/.planning/harness (codex P1 #4)
+            data = json.loads(
+                (Path(tmp) / ".planning" / "harness" / "rounds" / "r1" / "RECORD.json").read_text())
+            self.assertEqual(data["upstream_emitted"], 3)
+            self.assertEqual(data["status"], "skipped")
+
+    def test_composite_findings_appends_upstream_and_two_phase_consume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            up = hd.UpstreamStore(Path(tmp))
+            up.emit("ProjA", [_f("gd harness round skipped on thin evidence")],
+                    round_id="r1", round_status="evaluated",
+                    gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            local = [_f("local finding", kind="insight")]
+            comp = hd.CompositeFindings(local_findings=lambda since: local,
+                                        store=up, ttl_days=90,
+                                        now="2026-06-07T02:00:00Z")
+            got = comp.findings(None)
+            self.assertEqual(len(got), 2)
+            upstream = [g for g in got if g.source.startswith("upstream:")][0]
+            self.assertIn("proja", upstream.source)
+            self.assertEqual(upstream.kind, "takeaway")
+            # two-phase consume: only findings that survive selection count
+            self.assertEqual(len(comp.consumed_for(got)), 1)        # included
+            self.assertEqual(comp.consumed_for(local), set())       # truncated away
+
+    def test_mark_consumed_counts_deduped_candidates_not_rows(self):
+        # upstream_consumed semantics = deduped candidates (codex P2 #7):
+        # the same content emitted by TWO origins is ONE consumed candidate.
+        with tempfile.TemporaryDirectory() as tmp:
+            up = hd.UpstreamStore(Path(tmp))
+            f = [_f("gd harness round skipped on thin evidence")]
+            up.emit("ProjA", f, round_id="r1", round_status="evaluated",
+                    gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            up.emit("ProjB", f, round_id="r2", round_status="evaluated",
+                    gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            ids = {c["id"] for c in up.pending(ttl_days=90, now="2026-06-07T02:00:00Z")}
+            self.assertEqual(up.mark_consumed(ids), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
