@@ -10,7 +10,7 @@ It is two things in one tool:
 1. **An autoresearch loop** — `gd research "<question>"` drives a hypothesis-centric scientific cycle (hypothesize → experiment → measure → learn → revise) to a supported/exhausted verdict, grounded on a knowledge graph you build from papers, PDFs, web pages, and past sessions. **→ [Step-by-step tutorial](docs/autoresearch-tutorial.md)**
 2. **An R&D engineering workflow** — survey → plan → execute → verify → iterate, with closed-loop self-monitoring (falsifiable reflections, a `DEAD-ENDS` registry, a drift score, and a strategy GENOME) so the agent stays grounded in the project's goal.
 
-92.2% of GRD's most recent release window was written by `gd evolve` itself — measured deterministically by `gd singularity`, not LLM-judged. See the [Ouroboros loop](docs/ouroboros-loop.md) technical report.
+92.2% of one GRD release window was written by GRD itself — measured deterministically by `gd singularity`, not LLM-judged. See the [Ouroboros loop](docs/ouroboros-loop.md) technical report. That era's `gd evolve` (static code scanning) is now retired; self-improvement runs on the **life-harness** — `gd harness round` patches GRD's own primitives from evidence mined out of real sessions, eval-gated and git-reversible.
 
 ---
 
@@ -117,7 +117,7 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | Execute a phase (wave-parallel, atomic commits) | `/grd:execute-phase <N>` |
 | Run autonomously | `/grd:autopilot` |
 | Ad-hoc task with GRD guarantees | `/grd:quick "<desc>"` |
-| Self-improvement loop | `/grd:evolve` |
+| Self-improvement round (life-harness) | `gd harness round` |
 
 ### Closed-loop self-monitoring
 
@@ -163,13 +163,14 @@ GRD uses a thin orchestrator pattern: markdown skill files handle orchestration 
 bin/
 ├── grd-tools.ts        # Deterministic CLI (state, verify, scaffold, research)
 ├── gd.ts               # Unified CLI (agent + tool routing)
+├── harness_driver.py   # Life-harness round driver (logic: autoresearch-core, PyPI)
 └── grd-mcp-server.ts   # MCP server exposing all tools
 lib/
 ├── research/           # Autoresearch loop (orchestrator, ingest, synthesize,
 │                       #   retrieve, runner, docker-runner, promote, eval, paper, portfolio)
 ├── scheduler.ts        # Cross-backend rate-limit scheduler
 ├── autopilot.ts        # Multi-phase orchestration
-├── evolve/             # Self-evolution loop
+├── evolve/             # Legacy self-evolution loop (deprecated — see gd harness)
 └── ...                 # 25+ TypeScript modules
 ```
 

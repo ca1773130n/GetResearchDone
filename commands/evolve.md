@@ -1,7 +1,14 @@
 ---
-description: Run autonomous self-improvement loop with sonnet-tier models
+description: DEPRECATED — superseded by the life-harness (gd harness round); evolve's static-scan discovery saturated
 argument-hint: "[--iterations N] [--pick-pct N] [--dry-run] [--no-worktree] [--infinite]"
 ---
+
+> **DEPRECATED (v0.4.3).** Do not run this workflow. `gd evolve` is superseded
+> by the **life-harness**: `gd harness round` improves GRD's primitives from
+> Tesserae session evidence, eval-gated and git-reversible. Tell the user to
+> run `gd harness round` (see `commands/harness.md` and
+> `docs/DEPRECATIONS.md`). The instructions below are retained only as a
+> historical reference for the tool-level introspection subcommands.
 
 Run the evolve command to discover improvements and execute them autonomously:
 

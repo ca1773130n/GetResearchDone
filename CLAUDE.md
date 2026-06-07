@@ -28,7 +28,8 @@ never clean up — `npm test` floods the root with thousands of gitignored
 
 `gd <command> [args] [--json|--raw]` — tool commands output JSON by default,
 `--raw` for human text. Core: `progress`, `plan-phase N`, `execute-phase N`,
-`autopilot`, `evolve`, `quick "<desc>"`, `health`, `settings`, `metrics`, `help`.
+`autopilot`, `harness round|status|revert`, `quick "<desc>"`, `health`,
+`settings`, `metrics`, `help` (`evolve` is deprecated → `gd harness round`).
 Research: `research "<q>"` (+ `resume <id>` / `status` / `report <id>` /
 `portfolio`), `ingest <md|arxiv|url|pdf|jsonl>`, `synthesize "<topic>"`,
 `retrieve "<q>"`, `accounts discover|sync`.
@@ -48,7 +49,9 @@ Prefer `ctx_*` MCP tools over Bash/Read for large output (`ctx_batch_execute`,
     `synthesize`, `retrieve`, `runner`/`docker-runner`, `promote`, `eval`,
     `paper`, `portfolio`, `account-discovery`.
   - `lib/scheduler.ts` — cross-backend rate-limit scheduler + account rotation.
-  - `lib/evolve/`, `lib/commands/`, `lib/context/`.
+  - `lib/commands/`, `lib/context/`, `lib/evolve/` (deprecated — life-harness
+    replaced it; rounds: `lib/commands/harness.ts` + `bin/harness_driver.py`,
+    logic in the `autoresearch-core` PyPI package, version-locked to GRD).
 - `commands/` — skill markdown. `agents/` — subagent definitions.
 - `tests/unit/` mirrors `lib/` (`lib/x.ts` → `tests/unit/x.test.ts`).
 - `.planning/` — project state (plans, roadmap, config, research threads).
