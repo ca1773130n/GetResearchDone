@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- Life-harness Phase E (collective layer): downstream rounds emit
+  GRD-referencing findings as upstream candidates
+  (`$CLAUDE_PLUGIN_DATA/harness/upstream`, fallback `~/.grd/harness/upstream`);
+  rounds in the upstream root (`harness.upstream_root: true`) consume them as
+  extra evidence with cross-project occurrence counting.
+  `gd harness upstream list|clear`. Config: `harness.upstream_emit` (default
+  on), `harness.upstream_root`, `harness.upstream_ttl_days` (90).
+
 ## [0.4.3] - 2026-06-07
 
 The life-harness: evidence-driven self-improvement replaces `gd evolve`.
