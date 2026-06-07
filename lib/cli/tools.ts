@@ -152,11 +152,12 @@ export function runToolCommand(
 
   // In-process dispatch for harness (round/status/revert)
   if (command === 'harness') {
-    const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert } =
+    const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream } =
       require('../commands/harness') as {
         cmdHarnessRound: (cwd: string, opts: { auto: boolean; dryRun: boolean; fullEval: boolean }, raw: boolean) => void;
         cmdHarnessStatus: (cwd: string, raw: boolean) => void;
         cmdHarnessRevert: (cwd: string, roundId: string, raw: boolean) => void;
+        cmdHarnessUpstream: (cwd: string, op: string, origin: string, raw: boolean) => void;
       };
     const { error: cliError } = require('../utils') as { error: (msg: string) => never };
     // gd tool commands: JSON by default, --raw for human text (raw = !jsonFlag)
@@ -166,6 +167,13 @@ export function runToolCommand(
       cmdHarnessStatus(cwd, raw);
     } else if (subcommand === 'revert') {
       cmdHarnessRevert(cwd, allArgs[0] ?? '', raw);
+    } else if (subcommand === 'upstream') {
+      // op is positionally first; a find() over allArgs could pick a flag's
+      // VALUE (e.g. `--origin ProjA` → ProjA) — codex plan-review P3 #8.
+      const op = extraArgs[0] && !extraArgs[0].startsWith('--') ? extraArgs[0] : 'list';
+      const originIdx = allArgs.indexOf('--origin');
+      const origin = originIdx >= 0 ? (allArgs[originIdx + 1] ?? '') : '';
+      cmdHarnessUpstream(cwd, op, origin, raw);
     } else if (subcommand === 'round' || subcommand === undefined) {
       cmdHarnessRound(cwd, {
         auto: allArgs.includes('--auto'),
