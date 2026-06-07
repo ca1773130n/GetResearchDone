@@ -41,8 +41,9 @@ CONFIG_PATH = ".planning/config.json"
 # Verified against the local tesserae version at implementation time; the
 # fallback accepts a bare `kind` field carrying one of the six finding kinds.
 _FINDING_KINDS = ("insight", "decision", "question", "todo", "hypothesis", "takeaway")
+# tesserae mints "SessionTODO" (all-caps) — match kinds case-insensitively
 _FINDING_TYPE_RE = re.compile(
-    r"^Session(Insight|Decision|Question|Todo|Hypothesis|Takeaway)$"
+    r"^Session(Insight|Decision|Question|Todo|Hypothesis|Takeaway)$", re.IGNORECASE
 )
 
 
@@ -79,7 +80,10 @@ class TesseraeFindings:
             kind = m.group(1).lower() if m else str(node.get("kind", ""))
             if kind not in _FINDING_KINDS:
                 continue
-            created = str(node.get("created_at") or node.get("timestamp") or "")
+            metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
+            # tesserae session-llm nodes carry their date as metadata.first_seen_at
+            created = str(node.get("created_at") or node.get("timestamp")
+                          or metadata.get("first_seen_at") or "")
             if since and created and created <= since:
                 continue
             # nodes without created_at always pass — undated evidence is still valid
