@@ -123,6 +123,7 @@
     ],
     "backend": "claude",
     "min_evidence": 3,
-    "max_evidence": 25
+    "max_evidence": 25,
+    "upstream_root": true
   }
 }
