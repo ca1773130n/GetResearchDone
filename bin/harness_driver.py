@@ -235,6 +235,135 @@ class FsRoundStore:
         return str(json.loads(rounds[-1].read_text()).get("created_at") or "") or None
 
 
+# ── Phase E: upstream candidates (collective layer) ───────────────────────────
+# Downstream projects emit GRD-referencing findings here; a round running in
+# the upstream root (harness.upstream_root) consumes them as extra evidence.
+# Spec: docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md
+# Conservative GRD-reference filter (codex plan-review P2 #6): qualified forms
+# only — `gd <cmd>`, `/grd:<skill>`, `grd-<agent>`, the word GRD itself, and
+# the distinctive compound "life-harness". Deliberately NOT bare "harness
+# round" (collides with e.g. "test harness round-trip").
+_GD_REF_RE = re.compile(
+    r"\bgd [a-z][a-z-]+|/grd:[a-z-]+|\bgrd-[a-z][a-z-]+\b|\blife-harness\b|\bgrd\b",
+    re.IGNORECASE,
+)
+
+
+def upstream_dir() -> Path:
+    """$CLAUDE_PLUGIN_DATA/harness/upstream, else ~/.grd/harness/upstream.
+
+    The env var only exists under the plugin runtime; plain-terminal `gd`
+    falls back to a stable machine-local dir so both entry points share state.
+    """
+    base = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if base:
+        return Path(base) / "harness" / "upstream"
+    return Path.home() / ".grd" / "harness" / "upstream"
+
+
+def _candidate_id(content: str) -> str:
+    import hashlib
+    normalized = re.sub(r"\s+", " ", content.strip().lower())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+
+
+def _origin_slug(origin: str) -> str:
+    return re.sub(r"[^a-z0-9-]+", "-", origin.lower()).strip("-") or "unknown"
+
+
+class UpstreamStore:
+    """One JSONL file per origin project under the shared upstream dir."""
+
+    def __init__(self, root: Path | None = None) -> None:
+        self.root = root if root is not None else upstream_dir()
+
+    def _rows(self, path: Path) -> list[dict]:
+        return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+    def emit(self, origin: str, findings, *, round_id: str, round_status: str,
+             gd_version: str, now: str) -> int:
+        """Append GRD-referencing findings as pending candidates. Dedup by id."""
+        slug = _origin_slug(origin)
+        rows = [
+            {
+                "id": _candidate_id(f.content), "origin": slug, "created_at": now,
+                "kind": f.kind, "content": f.content, "source_session": f.source,
+                "gd_version": gd_version, "round_id": round_id,
+                "round_status": round_status, "status": "pending",
+            }
+            for f in findings if _GD_REF_RE.search(f.content)
+        ]
+        if not rows:
+            return 0
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = self.root / f"{slug}.jsonl"
+        existing = {r["id"] for r in self._rows(path)} if path.exists() else set()
+        fresh, seen = [], set(existing)
+        for r in rows:
+            if r["id"] in seen:
+                continue
+            seen.add(r["id"])
+            fresh.append(r)
+        with path.open("a") as fh:
+            for r in fresh:
+                fh.write(json.dumps(r) + "\n")
+        return len(fresh)
+
+    def pending(self, *, ttl_days: int = 90, now: str) -> list[dict]:
+        """Pending candidates, TTL-pruned on read, deduped across origins
+        with an occurrence count (same content from N projects → count N)."""
+        if not self.root.exists():
+            return []
+        cutoff = (
+            _dt.datetime.strptime(now, "%Y-%m-%dT%H:%M:%SZ")
+            - _dt.timedelta(days=ttl_days)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        out: dict[str, dict] = {}
+        for path in sorted(self.root.glob("*.jsonl")):
+            keep = [r for r in self._rows(path) if r.get("created_at", "") >= cutoff]
+            path.write_text("".join(json.dumps(r) + "\n" for r in keep))
+            for r in keep:
+                if r.get("status") != "pending":
+                    continue
+                cur = out.get(r["id"])
+                if cur:
+                    cur["count"] += 1
+                    cur["origins"] = sorted(set(cur["origins"] + [r["origin"]]))
+                else:
+                    out[r["id"]] = {**r, "count": 1, "origins": [r["origin"]]}
+        return sorted(out.values(), key=lambda c: (-c["count"], c["created_at"]))
+
+    def mark_consumed(self, ids: set[str]) -> int:
+        """Flip pending rows to consumed. Returns DEDUPED candidates consumed
+        (unique ids), not origin rows — one candidate seen from N projects
+        counts once (codex plan-review P2 #7)."""
+        if not self.root.exists():
+            return 0
+        flipped: set[str] = set()
+        for path in sorted(self.root.glob("*.jsonl")):
+            rows = self._rows(path)
+            changed = False
+            for r in rows:
+                if r["id"] in ids and r.get("status") == "pending":
+                    r["status"] = "consumed"
+                    changed = True
+                    flipped.add(r["id"])
+            if changed:
+                path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        return len(flipped)
+
+    def clear(self, origin: str | None = None) -> int:
+        """Delete candidate files; returns files removed."""
+        if not self.root.exists():
+            return 0
+        n = 0
+        for path in sorted(self.root.glob("*.jsonl")):
+            if origin is None or path.stem == _origin_slug(origin):
+                path.unlink()
+                n += 1
+        return n
+
+
 # ── Orchestration ─────────────────────────────────────────────────────────────
 def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> RoundRecord:
     config = json.loads((repo / CONFIG_PATH).read_text()) if (repo / CONFIG_PATH).exists() else {}
