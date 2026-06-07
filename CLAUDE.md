@@ -84,7 +84,8 @@ keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 `research_sandbox` (+ `_image`/`_memory`/`_cpus`/`_network`),
 `research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`;
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
-`min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`).
+`min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,
+`upstream_emit`, `upstream_root`, `upstream_ttl_days`).
 Account rotation: `superpowers.{account_rotation, accounts, default_backend}` —
 each account's `config_dir` is injected as `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, so
 use **absolute** paths (`~` is not expanded). `gd accounts sync` populates this

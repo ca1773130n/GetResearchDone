@@ -127,4 +127,23 @@ function cmdHarnessRevert(
   process.stdout.write(result.stdout);
 }
 
-module.exports = { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, _buildSpawnArgv };
+function cmdHarnessUpstream(
+  cwd: string,
+  op: string,
+  origin: string,
+  raw: boolean,
+  deps: HarnessDeps = {}
+): void {
+  if (op !== 'list' && op !== 'clear') error(`usage: gd harness upstream list|clear [--origin <slug>]`);
+  const spawn = deps.spawnSync ?? (nodeSpawnSync as unknown as NonNullable<HarnessDeps['spawnSync']>);
+  const args = [_driverPath(), 'upstream', '--op', op, '--cwd', cwd];
+  if (origin) args.push('--origin', origin);
+  const result = spawn('python3', args, { encoding: 'utf-8', timeout: 60000, env: process.env });
+  if (result.error?.code === 'ENOENT') {
+    error('python3 not found — the harness driver requires Python 3.11+ with autoresearch-core>=0.4.3');
+  }
+  if (result.status !== 0) error(`harness driver failed (exit ${result.status}): ${result.stderr.slice(-500)}`);
+  process.stdout.write(result.stdout);
+}
+
+module.exports = { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream, _buildSpawnArgv };

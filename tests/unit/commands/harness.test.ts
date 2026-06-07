@@ -1,6 +1,6 @@
 'use strict';
 const path = require('path');
-const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, _buildSpawnArgv } =
+const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream, _buildSpawnArgv } =
   require('../../../lib/commands/harness');
 const { captureOutput, captureError } = require('../../helpers/setup');
 const { createFixtureDir, cleanupFixtureDir } = require('../../helpers/fixtures');
@@ -135,5 +135,34 @@ describe('harness command', () => {
     });
     expect(exitCode).toBe(1);
     expect(stderr).toMatch(/unknown round/);
+  });
+
+  test('upstream list shells to the driver and prints its JSON', () => {
+    const calls: Array<{ argv: string[] }> = [];
+    const fakeSpawn = (cmd: string, args: string[], _opts: Record<string, unknown>) => {
+      calls.push({ argv: [cmd, ...args] });
+      return { status: 0, stdout: '{"pending":[]}', stderr: '' };
+    };
+    const { stdout, exitCode } = captureOutput(() => {
+      cmdHarnessUpstream(fixtureDir, 'list', '', false, { spawnSync: fakeSpawn });
+    });
+    expect(exitCode).toBe(0);
+    expect(calls[0].argv.join(' ')).toContain('harness_driver.py');
+    expect(calls[0].argv).toContain('upstream');
+    expect(calls[0].argv).toContain('list');
+    expect(JSON.parse(stdout).pending).toEqual([]);
+  });
+
+  test('upstream clear passes --origin through', () => {
+    const calls: Array<{ argv: string[] }> = [];
+    const fakeSpawn = (cmd: string, args: string[], _opts: Record<string, unknown>) => {
+      calls.push({ argv: [cmd, ...args] });
+      return { status: 0, stdout: '{"cleared":1}', stderr: '' };
+    };
+    captureOutput(() => {
+      cmdHarnessUpstream(fixtureDir, 'clear', 'ProjA', false, { spawnSync: fakeSpawn });
+    });
+    expect(calls[0].argv).toContain('--origin');
+    expect(calls[0].argv).toContain('ProjA');
   });
 });

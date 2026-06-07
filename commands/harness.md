@@ -9,6 +9,9 @@ description: Run a life-harness round — improve GRD primitives from Tesserae s
   `harness/round-<id>` for human merge.
 - `gd harness status` — list recorded rounds.
 - `gd harness revert <round-id>` — git-revert an applied round.
+- `gd harness upstream list` / `gd harness upstream clear [--origin <slug>]` —
+  inspect or prune cross-project upstream candidates
+  (`$CLAUDE_PLUGIN_DATA/harness/upstream`, fallback `~/.grd/harness/upstream`).
 
 Config: `.planning/config.json` → `harness` block (autonomy, kill_switch,
 min_confidence, min_interval_hours, allowed_targets, backend, min/max_evidence).

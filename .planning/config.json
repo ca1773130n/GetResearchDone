@@ -110,5 +110,20 @@
       "safety_margin_tasks": 2,
       "min_samples": 3
     }
+  },
+  "harness": {
+    "autonomy": "review",
+    "kill_switch": false,
+    "min_confidence": 0.7,
+    "min_interval_hours": 6,
+    "allowed_targets": [
+      "markdown",
+      "config",
+      "code"
+    ],
+    "backend": "claude",
+    "min_evidence": 3,
+    "max_evidence": 25,
+    "upstream_root": true
   }
 }
