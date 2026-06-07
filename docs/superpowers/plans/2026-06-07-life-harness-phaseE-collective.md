@@ -57,6 +57,7 @@ class TestHeuristic(unittest.TestCase):
             "the /grd:plan-phase skill asked twice",
             "grd-executor forgot to commit after wave 2",
             "the life-harness round rejected a good patch",
+            "GRD executor prompt is too long",   # bare GRD qualifier (codex P2 #6)
         ):
             self.assertTrue(hd._GD_REF_RE.search(text), text)
 
@@ -65,6 +66,7 @@ class TestHeuristic(unittest.TestCase):
             "RRF uses zero-based rank formula",
             "compression gains come from entropy coding",
             "the API returns 403 on missing 2FA",
+            "the test harness round-trips serialization",  # NOT a GRD ref (codex P2 #6)
         ):
             self.assertFalse(hd._GD_REF_RE.search(text), text)
 
@@ -157,8 +159,12 @@ Expected: FAIL — `AttributeError: module 'hd' has no attribute '_GD_REF_RE'`
 # Downstream projects emit GRD-referencing findings here; a round running in
 # the upstream root (harness.upstream_root) consumes them as extra evidence.
 # Spec: docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md
+# Conservative GRD-reference filter (codex plan-review P2 #6): qualified forms
+# only — `gd <cmd>`, `/grd:<skill>`, `grd-<agent>`, the word GRD itself, and
+# the distinctive compound "life-harness". Deliberately NOT bare "harness
+# round" (collides with e.g. "test harness round-trip").
 _GD_REF_RE = re.compile(
-    r"\bgd [a-z][a-z-]+|/grd:[a-z-]+|\bgrd-[a-z][a-z-]+\b|life-harness|harness round",
+    r"\bgd [a-z][a-z-]+|/grd:[a-z-]+|\bgrd-[a-z][a-z-]+\b|\blife-harness\b|\bgrd\b",
     re.IGNORECASE,
 )
 
@@ -248,9 +254,12 @@ class UpstreamStore:
         return sorted(out.values(), key=lambda c: (-c["count"], c["created_at"]))
 
     def mark_consumed(self, ids: set[str]) -> int:
+        """Flip pending rows to consumed. Returns DEDUPED candidates consumed
+        (unique ids), not origin rows — one candidate seen from N projects
+        counts once (codex plan-review P2 #7)."""
         if not self.root.exists():
             return 0
-        n = 0
+        flipped: set[str] = set()
         for path in sorted(self.root.glob("*.jsonl")):
             rows = self._rows(path)
             changed = False
@@ -258,10 +267,10 @@ class UpstreamStore:
                 if r["id"] in ids and r.get("status") == "pending":
                     r["status"] = "consumed"
                     changed = True
-                    n += 1
+                    flipped.add(r["id"])
             if changed:
                 path.write_text("".join(json.dumps(r) + "\n" for r in rows))
-        return n
+        return len(flipped)
 
     def clear(self, origin: str | None = None) -> int:
         """Delete candidate files; returns files removed."""
@@ -313,11 +322,13 @@ class TestRoundWiring(unittest.TestCase):
             store = hd.FsRoundStore(Path(tmp))
             rec = RoundRecord(round_id="r1", status="skipped", detail="x")
             store.save_round(rec, extra={"upstream_emitted": 3})
-            data = json.loads((Path(tmp) / "harness" / "rounds" / "r1" / "RECORD.json").read_text())
+            # FsRoundStore(repo) roots at <repo>/.planning/harness (codex P1 #4)
+            data = json.loads(
+                (Path(tmp) / ".planning" / "harness" / "rounds" / "r1" / "RECORD.json").read_text())
             self.assertEqual(data["upstream_emitted"], 3)
             self.assertEqual(data["status"], "skipped")
 
-    def test_composite_findings_appends_upstream(self):
+    def test_composite_findings_appends_upstream_and_two_phase_consume(self):
         with tempfile.TemporaryDirectory() as tmp:
             up = hd.UpstreamStore(Path(tmp))
             up.emit("ProjA", [_f("gd harness round skipped on thin evidence")],
@@ -332,7 +343,22 @@ class TestRoundWiring(unittest.TestCase):
             upstream = [g for g in got if g.source.startswith("upstream:")][0]
             self.assertIn("proja", upstream.source)
             self.assertEqual(upstream.kind, "takeaway")
-            self.assertEqual(comp.consumed_ids and len(comp.consumed_ids), 1)
+            # two-phase consume: only findings that survive selection count
+            self.assertEqual(len(comp.consumed_for(got)), 1)        # included
+            self.assertEqual(comp.consumed_for(local), set())       # truncated away
+
+    def test_mark_consumed_counts_deduped_candidates_not_rows(self):
+        # upstream_consumed semantics = deduped candidates (codex P2 #7):
+        # the same content emitted by TWO origins is ONE consumed candidate.
+        with tempfile.TemporaryDirectory() as tmp:
+            up = hd.UpstreamStore(Path(tmp))
+            f = [_f("gd harness round skipped on thin evidence")]
+            up.emit("ProjA", f, round_id="r1", round_status="evaluated",
+                    gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            up.emit("ProjB", f, round_id="r2", round_status="evaluated",
+                    gd_version="0.4.3", now="2026-06-07T01:00:00Z")
+            ids = {c["id"] for c in up.pending(ttl_days=90, now="2026-06-07T02:00:00Z")}
+            self.assertEqual(up.mark_consumed(ids), 1)
 ```
 
 Run: `PYTHONPATH=$HOME/Developer/Projects/autoresearch-core python3 tests/python/test_harness_upstream.py`
@@ -360,7 +386,11 @@ class CompositeFindings:
     """Local Tesserae findings + pending upstream candidates (upstream root only).
 
     `local_findings` is a callable so tests can inject; production passes
-    `TesseraeFindings(repo).findings`.
+    `TesseraeFindings(repo).findings`. Consumption is two-phase: `findings()`
+    only REMEMBERS the candidate id per emitted Finding; the driver calls
+    `consumed_for(evidence)` AFTER `select_evidence` truncation so only
+    candidates that actually entered the round count as consumed
+    (codex plan-review P1 #3).
     """
 
     def __init__(self, *, local_findings, store: UpstreamStore, ttl_days: int, now: str) -> None:
@@ -368,19 +398,28 @@ class CompositeFindings:
         self._store = store
         self._ttl = ttl_days
         self._now = now
-        self.consumed_ids: set[str] = set()
+        self._id_by_key: dict[tuple[str, str], str] = {}
 
     def findings(self, since: str | None):
         out = list(self._local(since))
         for c in self._store.pending(ttl_days=self._ttl, now=self._now):
-            self.consumed_ids.add(c["id"])
             kind = c["kind"] if c["kind"] in _FINDING_KINDS else "insight"
-            out.append(Finding(
+            f = Finding(
                 kind=kind, content=c["content"],
                 source=f"upstream:{'+'.join(c['origins'])}:{c.get('source_session','')}",
                 created_at=c.get("created_at", ""),
-            ))
+            )
+            self._id_by_key[(f.source, f.content)] = c["id"]
+            out.append(f)
         return out
+
+    def consumed_for(self, evidence) -> set[str]:
+        """Candidate ids for the findings that survived selection."""
+        return {
+            self._id_by_key[(f.source, f.content)]
+            for f in evidence
+            if (f.source, f.content) in self._id_by_key
+        }
 ```
 
 (c) `run_round` wiring — three surgical changes:
@@ -404,12 +443,16 @@ class CompositeFindings:
 ```python
     extra: dict[str, int] = {}
     if not dry_run and rec.status in ("applied", "evaluated", "rejected"):
-        if upstream_root and isinstance(source, CompositeFindings) and source.consumed_ids:
-            extra["upstream_consumed"] = UpstreamStore().mark_consumed(source.consumed_ids)
+        if upstream_root and isinstance(source, CompositeFindings):
+            # ONLY candidates that survived select_evidence truncation count
+            # as consumed (codex plan-review P1 #3).
+            used = source.consumed_for(evidence)
+            if used:
+                extra["upstream_consumed"] = UpstreamStore().mark_consumed(used)
         elif (not upstream_root) and upstream_emit:
             extra["upstream_emitted"] = UpstreamStore().emit(
                 repo.name, evidence, round_id=rec.round_id,
-                round_status=rec.status, gd_version=GD_VERSION, now=_now())
+                round_status=rec.status, gd_version=_gd_version(repo), now=_now())
     return rec, extra
 ```
 `run_round` now returns `tuple[RoundRecord, dict]`; `main()` becomes:
@@ -419,9 +462,21 @@ class CompositeFindings:
     out = asdict(record); out.update(extra)
     sys.stdout.write(json.dumps(out, indent=2) + "\n")
 ```
-All OTHER `return RoundRecord(...)` early exits (kill switch / interval / thin
-evidence / dry-run) become `return RoundRecord(...), {}` — update every one.
-`GD_VERSION`: read once near the top of the module:
+**EVERY other `return RoundRecord(...)` site becomes `return RoundRecord(...), {}`
+— there are MORE than the obvious four** (codex plan-review P1 #2). Current
+sites in `run_round`: kill switch, interval, thin evidence, dry-run, proposal
+failure (the `except` inside the worktree block), and the final post-decide
+return; double-check with:
+
+```
+grep -n "return RoundRecord" bin/harness_driver.py
+```
+
+and confirm every listed line inside `run_round` returns a tuple. (Sites
+inside `FsRoundStore`/tests don't exist; `main()`'s `revert` path returns
+ints, untouched.)
+
+`_gd_version` helper (place near `_now()`):
 ```python
 def _gd_version(repo: Path) -> str:
     try:
@@ -429,17 +484,26 @@ def _gd_version(repo: Path) -> str:
     except (OSError, ValueError):
         return "unknown"
 ```
-and call it in `run_round` (the repo param is in scope; pass the value into the
-emit call — do NOT make it a module global since `repo` is per-invocation).
+It takes `repo` per-invocation — there is deliberately NO module-level
+`GD_VERSION` constant (codex plan-review P1 #1).
 
 - [ ] **Step 3: Run to verify**
 
 Run: `PYTHONPATH=$HOME/Developer/Projects/autoresearch-core python3 tests/python/test_harness_upstream.py`
-Expected: OK (10 tests)
+Expected: OK (11 tests)
 Run: `python3 -m py_compile bin/harness_driver.py && echo OK`
-Run (regression — dry-run still works, no upstream side effects):
-`CLAUDE_PLUGIN_DATA=$(mktemp -d) PYTHONPATH=$HOME/Developer/Projects/autoresearch-core node bin/gd.js harness round --dry-run --json | python3 -c "import sys,json; j=json.load(sys.stdin); print(j['status'])"`
-Expected: `skipped` or `gathered`; the mktemp dir stays empty.
+Run (regression — dry-run still works, no upstream side effects). NOTE the
+gathered path prints `evidence.md` BEFORE the JSON record, so don't pipe the
+whole stdout into a JSON parser (codex plan-review P2 #5):
+
+```bash
+PD=$(mktemp -d)
+CLAUDE_PLUGIN_DATA=$PD PYTHONPATH=$HOME/Developer/Projects/autoresearch-core \
+  node bin/gd.js harness round --dry-run --json > /tmp/phasee-dryrun.txt
+grep -o '"status": "[a-z]*"' /tmp/phasee-dryrun.txt | tail -1   # skipped|gathered
+ls -A "$PD"   # expected: empty (dry-run never emits)
+rm -rf "$PD"
+```
 
 - [ ] **Step 4: Commit**
 
@@ -504,7 +568,7 @@ Run + expect FAIL (`argparse` rejects `upstream`).
 
 (Place before the `revert` branch; `--sha`/`--cwd` args unchanged.)
 
-- [ ] **Step 3: Verify** — unittest OK (11 tests), py_compile OK.
+- [ ] **Step 3: Verify** — unittest OK (12 tests), py_compile OK.
 
 - [ ] **Step 4: Commit**
 
@@ -590,7 +654,9 @@ assertions check.
 
 ```typescript
     } else if (subcommand === 'upstream') {
-      const op = allArgs.find((a) => !a.startsWith('--')) ?? 'list';
+      // op is positionally first; a find() over allArgs could pick a flag's
+      // VALUE (e.g. `--origin ProjA` → ProjA) — codex plan-review P3 #8.
+      const op = extraArgs[0] && !extraArgs[0].startsWith('--') ? extraArgs[0] : 'list';
       const originIdx = allArgs.indexOf('--origin');
       const origin = originIdx >= 0 ? (allArgs[originIdx + 1] ?? '') : '';
       cmdHarnessUpstream(cwd, op, origin, raw);
@@ -746,6 +812,16 @@ git commit -m "docs(harness): Phase E config keys + changelog"
 ```
 
 ---
+
+## Codex plan review (xhigh, 2026-06-07) — all 8 findings fixed in this revision
+
+P1: `_gd_version(repo)` call-site (no GD_VERSION global) · ALL `return RoundRecord`
+sites enumerated + grep check · two-phase consume (`consumed_for(evidence)` after
+truncation) · save_round test path under `.planning/harness`. P2: dry-run smoke
+greps status instead of JSON-parsing mixed stdout · heuristic regex requires
+qualified GRD forms (drops bare "harness round", adds `\bgrd\b`) ·
+`upstream_consumed`/`mark_consumed` defined as DEDUPED candidates (+test).
+P3: dispatch takes op from `extraArgs[0]`, never a flag value.
 
 ## Self-review notes (plan time)
 
