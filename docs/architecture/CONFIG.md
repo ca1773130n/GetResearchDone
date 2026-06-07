@@ -107,11 +107,29 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 | `ceremony.default_level` | `'auto' \| 'light' \| 'standard' \| 'full'` | `undefined` | Default ceremony level. `'auto'` selects based on project size. |
 | `ceremony.phase_overrides` | `Record<string, 'light' \| 'standard' \| 'full'>` | `undefined` | Per-phase ceremony overrides keyed by phase number string. |
 
-### Evolve
+### Life-Harness
+
+Configuration block for `gd harness round` — the current GRD self-improvement mechanism (v0.4.3+). Analogous to `research_gates` in the autoresearch loop: the `autonomy` key controls the merge gate and defaults to `"review"` (leave branch for human merge).
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `evolve` | `EvolveConfig \| undefined` | `undefined` | Configuration for the `gd evolve` self-improvement loop. |
+| `harness` | `HarnessConfig \| undefined` | `undefined` | Configuration for `gd harness round`. When absent, all harness defaults apply. |
+| `harness.autonomy` | `'review' \| 'auto'` | `'review'` | `'review'` leaves branch `harness/round-<id>` for human merge; `'auto'` merges when eval is green AND confidence >= `min_confidence`. |
+| `harness.kill_switch` | `boolean` | `false` | When `true`, all round execution is blocked immediately (emergency stop). |
+| `harness.min_confidence` | `number` | `0.7` | Confidence threshold required for `--auto` merge. Range 0–1. |
+| `harness.min_interval_hours` | `number` | `24` | Minimum wall-clock hours between rounds (prevents runaway self-modification). |
+| `harness.allowed_targets` | `string[]` | `["markdown","config","code"]` | Patch target categories the harness is allowed to modify. |
+| `harness.backend` | `string` | `'codex'` | Backend used to spawn the proposal agent. |
+| `harness.min_evidence` | `number` | `3` | Minimum Tesserae session findings required to start a round. |
+| `harness.max_evidence` | `number` | `25` | Maximum findings fed to the proposal agent (caps context size). |
+
+### Evolve (Deprecated v0.4.3)
+
+**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept for `gd singularity` history. `gd evolve` now exits 1 with a pointer to `gd harness round`. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `evolve` | `EvolveConfig \| undefined` | `undefined` | Configuration for the deprecated `gd evolve` self-improvement loop. |
 | `evolve.auto_commit` | `boolean` | `true` | Auto-commit changes produced by evolve iterations. |
 | `evolve.create_pr` | `boolean` | `true` | Create a PR for each evolve iteration. |
 

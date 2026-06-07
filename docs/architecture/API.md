@@ -97,7 +97,7 @@ type DirectBackendId = AdapterBackendId
 Capability flags per backend. Fields: `subagents`, `parallel`, `teams`, `hooks`, `mcp`, `native_worktree_isolation`, `effort`, `http_hooks`, `cron`, `smart_approvals`, `plan_mode`, `sandbox_gvisor`, `sandbox_lxc`, `mcp_elicitation`, `model_overrides`, `max_output_tokens`.
 
 #### `GrdConfig`
-Full project config as returned by `loadConfig()`. Includes `model_profile`, `branching_strategy`, `scheduler`, `superpowers`, `ceremony`, `discussion`, `evolve`, `citation_gate`, `refinement_loop`, `phase_complete_llm_fallback`, `timeouts`, and all code review / execution settings.
+Full project config as returned by `loadConfig()`. Includes `model_profile`, `branching_strategy`, `scheduler`, `superpowers`, `ceremony`, `discussion`, `evolve` (deprecated v0.4.3), `harness` (v0.4.3+), `citation_gate`, `refinement_loop`, `phase_complete_llm_fallback`, `timeouts`, and all code review / execution settings.
 
 #### `SchedulerConfig`
 Scheduler configuration block from `config.json`. Fields include `backend_priority`, `free_fallback`, `prediction` (ewma, window, safety margins), `backend_limits`, `max_wait_minutes`, `idle_timeout_seconds`, `idle_timeout_seconds_by_backend`, `budget_pressure_thresholds`.
@@ -1252,6 +1252,25 @@ Builds a critique prompt for an agent given current metrics and plan content.
 
 ---
 
+## lib/commands/harness.ts
+
+**Current self-improvement mechanism (v0.4.3+).** TS CLI surface for the life-harness — routed as TOOL_COMMANDS via `lib/cli`.
+
+### Commands
+
+#### `gd harness round [--auto] [--dry-run] [--full-eval]`
+Runs one gather→propose→validate→eval→decide→persist cycle. Gathers Tesserae session findings, spawns an agent to propose one patch to GRD primitives, validates and evals, then either creates a review branch (`autonomy: "review"`) or auto-merges (`autonomy: "auto"` with sufficient confidence). Records stored under `.planning/harness/rounds/<id>/`.
+
+#### `gd harness status`
+Outputs the last round result (`RECORD.json`), current kill-switch state, and the earliest time the next round is eligible to run (respects `min_interval_hours`).
+
+#### `gd harness revert <id>`
+Reverts a previously merged harness round by id. Runs `git revert` on the commit recorded in `RECORD.json` for the given round.
+
+See `bin/harness_driver.py` for the Python I/O driver and `CONFIG.md` for the `harness` config block.
+
+---
+
 ## lib/worktree.ts
 
 Git worktree management: create/remove/list/merge worktrees for parallel execution and evolve iterations.
@@ -1268,11 +1287,11 @@ Computes the branch name for a phase/plan worktree.
 Creates the `.worktrees/` directory if it doesn't exist.
 
 #### `createEvolveWorktree(cwd: string, iteration: number): { path: string; branch: string }`
-Creates a git worktree for an evolve iteration.
+Creates a git worktree for an evolve iteration. **Deprecated (v0.4.3):** `gd evolve` is superseded by `gd harness round`; this function remains in-tree for `gd singularity` history.
 - **Side effects** — runs `git worktree add`.
 
 #### `removeEvolveWorktree(cwd: string, iteration: number): void`
-Removes the evolve worktree for the given iteration.
+Removes the evolve worktree for the given iteration. **Deprecated (v0.4.3):** see `createEvolveWorktree`.
 - **Side effects** — runs `git worktree remove`.
 
 #### `pushAndCreatePR(cwd: string, worktreePath: string, branch: string, title: string, body: string): string`

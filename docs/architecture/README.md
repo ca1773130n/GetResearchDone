@@ -10,7 +10,7 @@ Nine reference documents plus this index:
 |---|---|---|---|
 | [OVERVIEW.md](OVERVIEW.md) | Every new contributor | High-level mental model — 5-10 minute read | ~1,800 words |
 | [MODULES.md](MODULES.md) | Engineers searching "which file does X?" | Per-file reference for every `lib/` module with purpose, exports, dependencies | ~4,100 words |
-| [FLOWS.md](FLOWS.md) | Engineers tracing user commands | Call sequences for 10 key flows (`init`, `plan-phase`, `autopilot`, `evolve`, etc.) | ~2,600 words |
+| [FLOWS.md](FLOWS.md) | Engineers tracing user commands | Call sequences for 10 key flows (`init`, `plan-phase`, `autopilot`, `harness round`, etc.); `gd evolve` flow retained as deprecated historical reference | ~2,600 words |
 | [USE_CASES.md](USE_CASES.md) | Product / onboarding | Personas, scenarios, decision matrix | ~2,400 words |
 | [RISKS.md](RISKS.md) | Maintainers doing triage | 14 findings (0 critical, 9 important, 3 minor, 4 observations) with file:line refs | ~3,100 words |
 | [MAINTENANCE.md](MAINTENANCE.md) | Engineers adding features | 12 step-by-step procedures (add command, agent, backend, gate, config, etc.) | ~2,100 words |
@@ -53,7 +53,7 @@ From the parallel-agent exploration:
 - **`lib/autopilot.ts` is 2,706 lines and still growing** — every recent spec landed code here. Candidate for extraction into `lib/autopilot-pipeline.ts`, `lib/autopilot-milestone.ts`, `lib/autopilot-waves.ts`.
 - **Two parallel dispatch paths from a single CLI** — `classifyCommand()` in `lib/cli/index.ts` routes commands to either tool-path (deterministic) or agent-path (LLM-driven). The split is controlled by two static Sets.
 - **`.planning/` is runtime state, not just documentation** — autopilot reads and writes `ROADMAP.md` and `STATE.md` as its primary coordination mechanism.
-- **~85 config fields** across `GrdConfig`, `SchedulerConfig`, `SuperpowersConfig`, `CleanupConfig`, `DiscussionConfig`, `CeremonyConfig`, `EvolveConfig`, and agent frontmatter.
+- **~85 config fields** across `GrdConfig`, `SchedulerConfig`, `SuperpowersConfig`, `CleanupConfig`, `DiscussionConfig`, `CeremonyConfig`, `HarnessConfig` (v0.4.3+), `EvolveConfig` (deprecated v0.4.3), and agent frontmatter.
 - **No global coverage threshold in `jest.config.js`** — every `lib/` file has an explicit per-file threshold (35 entries). New files must register a threshold.
 - **CI has 4 jobs** — lint, test-unit (with thresholds), test-integration (with relaxed thresholds), validate (`npm pack` smoke test). A separate `docs-check` job runs `gd scan --diff` on PRs.
 - **7 backends exist in code** (claude, codex, gemini, opencode, overstory, superpowers, grd) but CLAUDE.md's capability table only lists the first 4 — a documentation gap noted in [BACKENDS.md](BACKENDS.md).

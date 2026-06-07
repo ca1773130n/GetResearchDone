@@ -32,7 +32,7 @@ Who uses GRD, what they accomplish with it, and narrative walkthroughs of real s
 - Multi-phase runs that silently stall at rate limits and require babysitting
 - Phases that complete their pipelines but never actually get marked done, causing `gd autopilot` to misreport progress
 
-**Commands used most:** `gd autopilot`, `gd settings token_profile balanced`, `gd health`, `gd progress`, `gd evolve`
+**Commands used most:** `gd autopilot`, `gd settings token_profile balanced`, `gd health`, `gd progress`, `gd harness round`
 
 ---
 
@@ -98,13 +98,15 @@ After 14 iterations overnight, the loop finds a combination of label smoothing a
 
 ---
 
-### Scenario 4: Self-Improving via Evolve
+### Scenario 4: Self-Improving via Life-Harness
 
-**Context:** A builder has accumulated several months of GRD-managed code. Tests are green but the codebase has grown organically — some functions are long, some error messages are unhelpful, and there are a handful of missing JSDoc blocks.
+**Context (v0.4.3+):** A builder has been running GRD-managed sessions for several months. Tesserae has accumulated session findings — takeaways, decisions, and insights from real usage. They want GRD to self-improve based on what it actually learned.
 
-They run `gd evolve --iterations 3` in the background. Each iteration runs a discover phase that finds 5–10 specific, immediately implementable improvements (long function refactors, error message clarity, JSDoc gaps), groups them by theme, selects the top 50% by priority, executes them in a single subprocess call, then runs a review pass and commits. The next iteration discovers against the now-improved codebase, building on prior changes. After three iterations, GRD opens a PR with the cumulative improvements. All execution is ceiling-capped at sonnet-tier models — evolve never uses opus-class models — keeping the cost predictable.
+They run `gd harness round`. The round gathers the latest Tesserae session findings (bounded by `harness.min_evidence` / `harness.max_evidence`), spawns an agent to propose one concrete patch to GRD primitives (skills, config, or lib code), validates the patch against path guards, and runs the eval gate (lint + tsc + targeted jest when code is touched). In the default `autonomy: "review"` mode, the round leaves a branch `harness/round-<id>` for the builder to review and merge. A full record — evidence bundle, patch, eval result — is written to `.planning/harness/rounds/<id>/`.
 
-For teams that want more autonomy, `gd evolve --infinite --max-cycles 5` extends the loop further: each cycle discovers improvements, creates a new milestone via `autoplan`, and executes all phases via `autopilot`, repeating until the cycle limit or time budget runs out.
+For teams that want autonomous merging, `harness.autonomy: "auto"` in `.planning/config.json` causes rounds to merge automatically when eval passes and the proposal confidence exceeds `min_confidence` (default 0.7). A kill switch (`harness.kill_switch: true`) halts all round execution immediately without touching any files.
+
+**Note:** `gd evolve` is deprecated as of v0.4.3 — it prints a pointer to `gd harness round` and exits 1. Its read-only introspection subcommands (`gd evolve state`, `gd evolve advance`, `gd evolve reset`) still work. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 ---
 
@@ -155,15 +157,17 @@ After a phase pipeline completes, `completePhaseAfterPostPipeline` runs but `_ph
 | Want full control over each step's outcome | Manual |
 | Comfortable leaving the run unattended | `gd autopilot` |
 
-### `gd evolve` vs `gd autoresearch`
+### `gd harness round` vs `gd autoresearch`
 
 | Situation | Use |
 |---|---|
-| Improving the codebase itself (refactors, error messages, docs) | `gd evolve` |
+| Improving GRD itself based on real session learnings | `gd harness round` |
 | Iterating toward a quantitative metric (accuracy, throughput) | `gd autoresearch` |
-| No specific target — general quality improvements | `gd evolve` |
+| One evidence-driven patch to GRD primitives | `gd harness round` |
 | Have a measurable target and want autonomous iteration toward it | `gd autoresearch` |
-| Want a PR with improvements to review | Either (both open PRs) |
+| Want a branch/PR with a single improvement to review | `gd harness round` (default `autonomy: "review"`) |
+
+> **Note:** `gd evolve` is deprecated (v0.4.3) — use `gd harness round` instead. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 ### `token_profile: frugal` vs `balanced` vs `quality`
 
@@ -181,7 +185,7 @@ After a phase pipeline completes, `completePhaseAfterPostPipeline` runs but `_ph
 
 **Running `gd autopilot` on phases with no plans yet.** Autopilot expects plans to exist (or creates them). If you have an empty roadmap and run autopilot cold, the planning agents will make assumptions about scope that may not match your intent. Better to run `/grd:plan-phase 1` interactively first so you can steer the plan, then hand off to autopilot.
 
-**Using `gd evolve` as a substitute for design decisions.** Evolve's discover→execute loop finds patterns that are mechanically improvable: long functions, missing JSDoc, weak error messages. It does not make architectural decisions. If your codebase has a fundamental design problem, evolve will polish the surface without addressing the root. Use `gd deep-dive` or `gd discuss` for architectural reasoning instead.
+**Using `gd harness round` as a substitute for design decisions.** The harness proposes one evidence-driven patch per round. It does not make architectural decisions. If your codebase has a fundamental design problem, the harness will improve surface details without addressing the root. Use `gd deep-dive` or `gd discuss` for architectural reasoning instead. (Note: `gd evolve` is deprecated — use `gd harness round`.)
 
 **Expecting `gd quick` to update ROADMAP.md or advance milestones.** Quick tasks are intentionally kept out of the roadmap system. If a quick task turns out to be significant enough to track, convert it into a proper phase with `gd add-phase` or `gd insert-phase`.
 

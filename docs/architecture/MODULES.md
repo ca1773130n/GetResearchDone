@@ -90,7 +90,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 
 - **Path:** `lib/autoplan.ts`
 - **Size:** ~280 lines
-- **Purpose:** Converts evolve discovery results into structured milestones — bridges the evolve subsystem's grouped work items with the new-milestone skill to create phases, requirements, and a roadmap without human input.
+- **Purpose:** Converts evolve discovery results into structured milestones — bridges the evolve subsystem's (now-deprecated) grouped work items with the new-milestone skill to create phases, requirements, and a roadmap without human input.
 - **Key exports:** `cmdAutoplan`, `runAutoplan`
 - **Direct dependencies:** `utils`, `evolve/discovery`, `evolve/state`
 - **Used by:** `mcp-server.ts`
@@ -536,9 +536,24 @@ Seven files providing context initialization for all 48 agent `cmdInit*` functio
 
 ---
 
-## Subdirectory: lib/evolve/
+## Subdirectory: lib/commands/ — harness.ts (Life-Harness)
 
-Eleven files implementing the self-evolution loop.
+**Current self-improvement mechanism (v0.4.3+).** `gd harness round [--auto|--dry-run|--full-eval]` replaces `gd evolve` for ongoing GRD self-improvement.
+
+| File | Purpose |
+|------|---------|
+| `lib/commands/harness.ts` | TS CLI surface for `gd harness round\|status\|revert <id>` — routed via `lib/cli` TOOL_COMMANDS |
+| `bin/harness_driver.py` | Python 3.11+ I/O driver; binds the pure decision kernel (`autoresearch-core>=0.4.3`) with GRD file I/O; entry point for `gd harness round` subprocess |
+
+Records land under `.planning/harness/rounds/<id>/` (evidence.md, patch.json, eval.json, RECORD.json). Deterministic rejections are deduplicated via `hashes.jsonl`. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md).
+
+---
+
+## Subdirectory: lib/evolve/ (Deprecated v0.4.3)
+
+**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept in-tree for `gd singularity` history. `gd evolve` now exits 1 with a pointer to `gd harness round`; its read-only introspection subcommands (`evolve-discover`, `evolve-state`, `evolve-advance`, `evolve-reset`) still work as tool commands.
+
+Eleven files implementing the former self-evolution loop.
 
 | File | Purpose |
 |------|---------|
@@ -546,7 +561,7 @@ Eleven files implementing the self-evolution loop.
 | `lib/evolve/types.ts` | Domain types: `WorkGroup`, `GroupDiscoveryResult`, `EvolveGroupState`, `EvolveState`, etc. |
 | `lib/evolve/state.ts` | Constants, state I/O, work item factory — reads/writes evolve iteration state |
 | `lib/evolve/discovery.ts` | Claude-powered and hardcoded codebase discovery — `runDiscovery`, `runGroupDiscovery`, output parsing |
-| `lib/evolve/orchestrator.ts` | Main evolve iteration loop, iteration step handling, evolution notes, todos integration |
+| `lib/evolve/orchestrator.ts` | Former main evolve iteration loop, iteration step handling, evolution notes, todos integration |
 | `lib/evolve/scoring.ts` | Scores discovered work items and groups by priority and impact |
 | `lib/evolve/_dimensions.ts` | Dimension-specific discoverers for code quality axes (error-recovery, JSDoc gaps, process.exit cleanup, refactors) |
 | `lib/evolve/_dimensions-features.ts` | Feature-axis discoverers (product ideas, agent workflow gaps) |

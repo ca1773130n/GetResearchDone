@@ -59,10 +59,18 @@ Key files: `lib/gates.ts` (662 lines), `lib/invariants.ts`, `lib/verify.ts` (763
 
 `gates.ts` runs pre-flight checks (phase collisions, orphaned phases, stale artifacts, milestone inconsistencies) before commands execute. `invariants.ts` validates plan artifact structure. `verify.ts` checks plan completeness, Git refs, and key-links.
 
-### Evolve Loop
+### Life-Harness (Self-Improvement)
+Key files: `lib/commands/harness.ts`, `bin/harness_driver.py`
+
+**Current mechanism (v0.4.3+):** `gd harness round` runs one gather→propose→validate→eval→decide→persist cycle using real session findings from Tesserae. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md) and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+
+### Evolve Loop (Deprecated v0.4.3)
+
+**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept in-tree for `gd singularity` history. `gd evolve` now prints a pointer to `gd harness round` and exits 1; its read-only introspection subcommands still work as tool commands.
+
 Key files: `lib/evolve/` (7 files, ~3000 lines total)
 
-`lib/evolve/orchestrator.ts` (1086 lines) drives the self-improvement loop: discovering work items, scoring them, dispatching agents, and advancing state. `lib/evolve/discovery.ts` (570 lines) finds gaps across 6 dimensions (JSDoc, error recovery, refactors, etc.). `lib/evolve/state.ts` manages `EVOLVE-STATE.json`. `lib/evolve/_product-ideation.ts` runs product idea discovery.
+`lib/evolve/orchestrator.ts` (1086 lines) drove the self-improvement loop: discovering work items, scoring them, dispatching agents, and advancing state. `lib/evolve/discovery.ts` (570 lines) finds gaps across 6 dimensions (JSDoc, error recovery, refactors, etc.). `lib/evolve/state.ts` manages `EVOLVE-STATE.json`. `lib/evolve/_product-ideation.ts` runs product idea discovery.
 
 ### Wireup and Feature Discovery
 Key files: `lib/wireup/` (10 files, ~3500 lines total)

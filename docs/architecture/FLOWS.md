@@ -166,13 +166,42 @@ If `_phaseCompleteCore` throws or returns `gate_failed`:
 
 ---
 
-## Flow 6: `gd evolve`
+## Flow 6: `gd harness round` — Life-Harness Round (v0.4.3+)
 
-Self-improvement loop.
+One self-improvement round: gather → propose → validate → eval → decide → persist.
+
+**Entry point:** `classifyCommand('harness')` → `'tool'` → `lib/commands/harness.ts` → `cmdHarness(cwd, ['round', ...flags], raw)` → `bin/harness_driver.py` (Python 3.11+ subprocess).
+
+**Key call sequence:**
+
+1. **Gather** — `harness_driver.py` calls Tesserae to collect session findings (takeaways, decisions, insights) from real GRD sessions. Bounded by `harness.min_evidence` / `harness.max_evidence` from config.
+2. **Propose** — spawns a codex/claude agent (configured by `harness.backend`) with the evidence bundle; agent proposes ONE patch to GRD primitives (`commands/*.md`, `agents/*.md`, `.planning/config.json`, or `lib/**`).
+3. **Validate (path guards)** — deny-list check: patch must not target `bin/harness_driver.py` or the `harness` config block itself; path guards prevent out-of-tree modifications.
+4. **Eval gate** — markdown frontmatter/JSON schema checks; when code is touched: lint + tsc + targeted jest run against affected modules.
+5. **Decide** — with `autonomy: "review"` (default): creates branch `harness/round-<id>` for human merge; with `autonomy: "auto"`: merges only when eval passes AND `confidence >= harness.min_confidence` (default 0.7).
+6. **Persist** — records land in `.planning/harness/rounds/<id>/`: `evidence.md`, `patch.json`, `eval.json`, `RECORD.json`. Deterministic rejections are hashed into `hashes.jsonl` to deduplicate future proposals.
+
+**Supporting commands:** `gd harness status` — shows last round result and next-eligible time; `gd harness revert <id>` — reverts a merged round by id.
+
+**Config:** `harness` block in `.planning/config.json` — see [CONFIG.md](CONFIG.md). Kill-switch: `harness.kill_switch: true` blocks all round execution immediately.
+
+**Side effects:** Branch `harness/round-<id>` created (or merged on `--auto`); `.planning/harness/rounds/<id>/` directory written; `hashes.jsonl` appended.
+
+**Error paths:** Fewer than `min_evidence` findings → round exits early with `{ status: 'insufficient_evidence' }`. Validation failure → patch rejected, hash recorded, no branch created. Eval failure → patch rejected on `--auto`; branch created but not merged on `--dry-run`. Kill-switch active → exit 1 immediately.
+
+See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md) and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+
+---
+
+## Flow 6b: `gd evolve` (Deprecated v0.4.3)
+
+**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept for `gd singularity` history. Running `gd evolve` now prints a pointer to `gd harness round` and exits 1. The read-only introspection subcommands (`gd evolve state`, `gd evolve advance`, `gd evolve reset`) still route as tool commands for history inspection.
+
+**Former self-improvement loop** (for historical reference):
 
 **Entry point:** `classifyCommand('evolve')` → `'agent'`; but `gd evolve run` → `'tool'` (evolve tool subcommands: `lib/cli/index.ts:221`).
 
-**Agent path** invokes `commands/evolve.md` skill, which internally calls `gd evolve run` as a tool to execute the actual loop. The agent handles progress reporting and user interaction.
+**Agent path** invoked `commands/evolve.md` skill, which internally called `gd evolve run` as a tool to execute the actual loop. The agent handled progress reporting and user interaction.
 
 **Tool path** `gd evolve run` → `bin/grd-tools.ts:1397` → `cmdEvolve(cwd, args, raw)` → `lib/evolve/cli.ts:100` → `runEvolve(cwd, options)` → `lib/evolve/orchestrator.ts:613`:
 
@@ -189,11 +218,7 @@ Self-improvement loop.
    c. `writeEvolveState(cwd, state)` → `.planning/EVOLVE-STATE.json`
 4. Post-loop: if worktree has commits → `pushAndCreatePR()` → cleanup
 
-**Data transformations:** Codebase scan → `WorkGroup` items (grouped by type: product-ideation, error-recovery, jsdoc-gaps, etc.) → batch prompt capped at 10 items → code changes → `EvolveGroupState` update with carried-over vs completed items.
-
-**Side effects:** Code changes committed to worktree branch or main, `EVOLVE-STATE.json` updated with iteration number and group completion status, `evolve.log` appended under `.planning/autopilot/evolve.log`, optional PR created via `pushAndCreatePR()`.
-
-**Error paths:** Discovery produces no groups → loop exits cleanly with result `{ status: 'no_groups' }`. Spawn failure → iteration marked failed but loop continues. Worktree creation failure → falls back to main branch without isolation. The `gd evolve state`, `gd evolve advance`, and `gd evolve reset` subcommands provide manual state management without re-running discovery.
+**Why deprecated:** static-scan discovery saturated after 5+ consecutive iterations of 100% false-positive discoveries across all 6 quality dimensions. The life-harness replaces static scan with real session evidence (Tesserae findings), resolving the saturation problem.
 
 ---
 
