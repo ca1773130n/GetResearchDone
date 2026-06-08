@@ -1,0 +1,10 @@
+{
+  "round_id": "20260607-162233",
+  "status": "skipped",
+  "detail": "not enough evidence",
+  "evidence_count": 0,
+  "patch_hash": null,
+  "eval_report": null,
+  "applied_sha": null,
+  "created_at": "2026-06-07T16:22:33Z"
+}

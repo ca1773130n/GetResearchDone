@@ -1,0 +1,18 @@
+{
+  "round_id": "20260607-162514",
+  "status": "evaluated",
+  "detail": "awaiting review (harness_review)",
+  "evidence_count": 25,
+  "patch_hash": "1b400c8c721656de",
+  "eval_report": {
+    "checks": [
+      {
+        "name": "frontmatter:agents/grd-hypothesizer.md",
+        "exit_code": 0,
+        "detail": ""
+      }
+    ]
+  },
+  "applied_sha": "0bea9259a680734d9c0dbd3e6f369d5791c84aa8",
+  "created_at": "2026-06-07T16:26:35Z"
+}

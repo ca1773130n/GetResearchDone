@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "name": "frontmatter:agents/grd-hypothesizer.md",
+      "exit_code": 0,
+      "detail": ""
+    }
+  ]
+}
