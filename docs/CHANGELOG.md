@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-06-08
+
+Life-harness collective layer + first real evidence-fed round.
+
 ### Added
 - Life-harness Phase E (collective layer): downstream rounds emit
   GRD-referencing findings as upstream candidates
@@ -13,6 +17,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   extra evidence with cross-project occurrence counting.
   `gd harness upstream list|clear`. Config: `harness.upstream_emit` (default
   on), `harness.upstream_root`, `harness.upstream_ttl_days` (90).
+
+### Fixed
+- The first live round surfaced three driver bugs, all fixed:
+  - `TesseraeFindings` now matches `SessionTODO` (Tesserae mints the kind
+    all-caps) and reads a finding's date from `metadata.first_seen_at` — the
+    driver sees all 6 finding kinds with dates for recency ranking.
+  - The evidence `since` cursor and interval guard advance only on rounds
+    that consumed evidence; a skipped round no longer hides the (back-dated)
+    finding backlog from the next round.
+  - `Applier.apply` stages only the patch's entry paths, not the proposer
+    scaffolding (evidence.md / patch.json / INSTRUCTIONS.md) it writes into
+    the worktree.
 
 ## [0.4.3] - 2026-06-07
 
