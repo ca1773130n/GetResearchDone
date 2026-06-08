@@ -62,7 +62,7 @@ Key files: `lib/gates.ts` (662 lines), `lib/invariants.ts`, `lib/verify.ts` (763
 ### Life-Harness (Self-Improvement)
 Key files: `lib/commands/harness.ts`, `bin/harness_driver.py`
 
-**Current mechanism (v0.4.3+):** `gd harness round` runs one gather→propose→validate→eval→decide→persist cycle using real session findings from Tesserae. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md) and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+**Current mechanism (v0.4.4+):** `gd harness round` runs one gather→propose→validate→eval→decide→persist cycle using real session findings from Tesserae. As of v0.4.4 the harness has a **cross-project collective layer** (Phase E): downstream projects using GRD emit findings *about GRD itself* as upstream candidates into `$CLAUDE_PLUGIN_DATA/harness/upstream/`, and the GRD repo — the **upstream root** (`harness.upstream_root: true`) — consumes them so evidence accrued in every project feeds GRD's self-improvement. Surfaced via `gd harness upstream list|clear`. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md), the Phase E spec [docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md](../superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md), and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 ### Evolve Loop (Deprecated v0.4.3)
 

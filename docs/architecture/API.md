@@ -97,7 +97,7 @@ type DirectBackendId = AdapterBackendId
 Capability flags per backend. Fields: `subagents`, `parallel`, `teams`, `hooks`, `mcp`, `native_worktree_isolation`, `effort`, `http_hooks`, `cron`, `smart_approvals`, `plan_mode`, `sandbox_gvisor`, `sandbox_lxc`, `mcp_elicitation`, `model_overrides`, `max_output_tokens`.
 
 #### `GrdConfig`
-Full project config as returned by `loadConfig()`. Includes `model_profile`, `branching_strategy`, `scheduler`, `superpowers`, `ceremony`, `discussion`, `evolve` (deprecated v0.4.3), `harness` (v0.4.3+), `citation_gate`, `refinement_loop`, `phase_complete_llm_fallback`, `timeouts`, and all code review / execution settings.
+Full project config as returned by `loadConfig()`. Includes `model_profile`, `branching_strategy`, `scheduler`, `superpowers`, `ceremony`, `discussion`, `evolve` (deprecated v0.4.3), `harness` (v0.4.4+; includes the Phase E `upstream_*` collective-layer keys), `citation_gate`, `refinement_loop`, `phase_complete_llm_fallback`, `timeouts`, and all code review / execution settings.
 
 #### `SchedulerConfig`
 Scheduler configuration block from `config.json`. Fields include `backend_priority`, `free_fallback`, `prediction` (ewma, window, safety margins), `backend_limits`, `max_wait_minutes`, `idle_timeout_seconds`, `idle_timeout_seconds_by_backend`, `budget_pressure_thresholds`.
@@ -1254,7 +1254,7 @@ Builds a critique prompt for an agent given current metrics and plan content.
 
 ## lib/commands/harness.ts
 
-**Current self-improvement mechanism (v0.4.3+).** TS CLI surface for the life-harness — routed as TOOL_COMMANDS via `lib/cli`.
+**Current self-improvement mechanism (v0.4.4+).** TS CLI surface for the life-harness — routed as TOOL_COMMANDS via `lib/cli`.
 
 ### Commands
 
@@ -1267,7 +1267,10 @@ Outputs the last round result (`RECORD.json`), current kill-switch state, and th
 #### `gd harness revert <id>`
 Reverts a previously merged harness round by id. Runs `git revert` on the commit recorded in `RECORD.json` for the given round.
 
-See `bin/harness_driver.py` for the Python I/O driver and `CONFIG.md` for the `harness` config block.
+#### `gd harness upstream list` / `gd harness upstream clear [--origin <slug>]`
+**Collective layer (Phase E, v0.4.4+).** Backed by `cmdHarnessUpstream` in this module. `list` prints pending upstream candidates grouped by origin project, with per-content occurrence counts (same finding from N projects = stronger evidence). `clear` manually prunes the candidate store, optionally scoped to a single origin slug. Candidates live in `$CLAUDE_PLUGIN_DATA/harness/upstream/<origin-slug>.jsonl` (fallback `~/.grd/harness/upstream/`) and are TTL-pruned per `harness.upstream_ttl_days`.
+
+See `bin/harness_driver.py` for the Python I/O driver and `CONFIG.md` for the `harness` config block. As of v0.4.4 the driver gained an `UpstreamStore` (emit/read/prune of `UpstreamCandidate` records) and a `CompositeFindingsSource` (local Tesserae findings + pending upstream candidates) for the upstream root, plus the conservative "about GRD" emit heuristic. Both are pure I/O on the GRD host side — the autoresearch-core decision kernel is unchanged (`Finding.source` already carries the `upstream:<project>:<session>` provenance).
 
 ---
 

@@ -538,14 +538,14 @@ Seven files providing context initialization for all 48 agent `cmdInit*` functio
 
 ## Subdirectory: lib/commands/ — harness.ts (Life-Harness)
 
-**Current self-improvement mechanism (v0.4.3+).** `gd harness round [--auto|--dry-run|--full-eval]` replaces `gd evolve` for ongoing GRD self-improvement.
+**Current self-improvement mechanism (v0.4.4+).** `gd harness round [--auto|--dry-run|--full-eval]` replaces `gd evolve` for ongoing GRD self-improvement. As of v0.4.4 it has a **collective layer** (Phase E): a cross-project `upstream` command surface plus emit/consume machinery in the driver.
 
 | File | Purpose |
 |------|---------|
-| `lib/commands/harness.ts` | TS CLI surface for `gd harness round\|status\|revert <id>` — routed via `lib/cli` TOOL_COMMANDS |
-| `bin/harness_driver.py` | Python 3.11+ I/O driver; binds the pure decision kernel (`autoresearch-core>=0.4.3`) with GRD file I/O; entry point for `gd harness round` subprocess |
+| `lib/commands/harness.ts` | TS CLI surface for `gd harness round\|status\|revert <id>` — routed via `lib/cli` TOOL_COMMANDS. v0.4.4 adds `cmdHarnessUpstream` backing `gd harness upstream list\|clear [--origin <slug>]`. |
+| `bin/harness_driver.py` | Python 3.11+ I/O driver; binds the pure decision kernel (`autoresearch-core>=0.4.3`) with GRD file I/O; entry point for `gd harness round` subprocess. v0.4.4 adds `UpstreamStore` (emit/read/prune of `UpstreamCandidate` records to `$CLAUDE_PLUGIN_DATA/harness/upstream/`), `CompositeFindings` (local Tesserae findings + pending upstream candidates for the upstream root), and the conservative "about GRD" emit heuristic — all pure I/O; the kernel is unchanged. |
 
-Records land under `.planning/harness/rounds/<id>/` (evidence.md, patch.json, eval.json, RECORD.json). Deterministic rejections are deduplicated via `hashes.jsonl`. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md).
+Records land under `.planning/harness/rounds/<id>/` (evidence.md, patch.json, eval.json, RECORD.json), with additive `upstream_emitted` / `upstream_consumed` counts as of v0.4.4. Deterministic rejections are deduplicated via `hashes.jsonl`. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md) and the Phase E collective-layer spec [docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md](../superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md).
 
 ---
 

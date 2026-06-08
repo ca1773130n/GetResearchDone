@@ -109,7 +109,7 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 
 ### Life-Harness
 
-Configuration block for `gd harness round` — the current GRD self-improvement mechanism (v0.4.3+). Analogous to `research_gates` in the autoresearch loop: the `autonomy` key controls the merge gate and defaults to `"review"` (leave branch for human merge).
+Configuration block for `gd harness round` — the current GRD self-improvement mechanism (v0.4.4+). Analogous to `research_gates` in the autoresearch loop: the `autonomy` key controls the merge gate and defaults to `"review"` (leave branch for human merge). As of v0.4.4 the harness also has a **collective layer** (Phase E): downstream projects emit GRD-about findings as upstream candidates, and the GRD repo (the upstream root) consumes them — governed by the `upstream_*` keys below.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -122,6 +122,9 @@ Configuration block for `gd harness round` — the current GRD self-improvement 
 | `harness.backend` | `string` | `'codex'` | Backend used to spawn the proposal agent. |
 | `harness.min_evidence` | `number` | `3` | Minimum Tesserae session findings required to start a round. |
 | `harness.max_evidence` | `number` | `25` | Maximum findings fed to the proposal agent (caps context size). |
+| `harness.upstream_emit` | `boolean` | `true` | **Collective layer (downstream side).** After a round persists in any project, emit findings *about GRD itself* as upstream candidates into `$CLAUDE_PLUGIN_DATA/harness/upstream/` (fallback `~/.grd/harness/upstream/`). Per-project off switch — distilled finding text only, never transcripts or patches. |
+| `harness.upstream_root` | `boolean` | `false` | **Collective layer (aggregator side).** When `true`, this repo is the upstream root: the round binds a `CompositeFindingsSource` (local Tesserae findings + pending upstream candidates, deduped across origins with occurrence counts) and marks consumed candidates. Set explicitly in GRD's own `.planning/config.json`; no magic detection. |
+| `harness.upstream_ttl_days` | `number` | `90` | **Upstream root only.** Staleness cutoff: upstream candidates older than this are ignored and TTL-pruned on read. |
 
 ### Evolve (Deprecated v0.4.3)
 

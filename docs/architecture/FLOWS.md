@@ -166,7 +166,7 @@ If `_phaseCompleteCore` throws or returns `gate_failed`:
 
 ---
 
-## Flow 6: `gd harness round` — Life-Harness Round (v0.4.3+)
+## Flow 6: `gd harness round` — Life-Harness Round (v0.4.4+)
 
 One self-improvement round: gather → propose → validate → eval → decide → persist.
 
@@ -190,6 +190,30 @@ One self-improvement round: gather → propose → validate → eval → decide 
 **Error paths:** Fewer than `min_evidence` findings → round exits early with `{ status: 'insufficient_evidence' }`. Validation failure → patch rejected, hash recorded, no branch created. Eval failure → patch rejected on `--auto`; branch created but not merged on `--dry-run`. Kill-switch active → exit 1 immediately.
 
 See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md) and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+
+---
+
+## Flow 6a: Life-Harness Collective Layer (Phase E, v0.4.4+)
+
+Cross-project self-improvement: rounds running in *downstream* projects feed GRD-about evidence to the *upstream root* (the GRD repo). Zero kernel change — `Finding.source` already carries provenance.
+
+**Downstream side (emit), gated by `harness.upstream_emit: true` (default):**
+
+1. A round persists in any project using GRD (Flow 6, step 6).
+2. The driver's emit heuristic scans the round's *selected* evidence (post-`select_evidence`, capped at `max_evidence`) for findings *about GRD itself* — content referencing `gd ` / `/grd:` commands, `grd-<agent>` names, the `GRD` token, or `life-harness` vocabulary.
+3. Matches are written as `UpstreamCandidate` records (distilled finding text only — never transcripts, never patches) into `$CLAUDE_PLUGIN_DATA/harness/upstream/<origin-slug>.jsonl` (fallback `~/.grd/harness/upstream/`). The round's `RECORD.json` gains an additive `upstream_emitted: N` count.
+
+**Upstream side (consume), gated by `harness.upstream_root: true` (set in GRD's own config):**
+
+4. A round in the GRD repo binds a `CompositeFindingsSource` = local Tesserae findings + pending upstream candidates. Candidates arrive as ordinary `Finding`s with `source="upstream:<project>:<session>"`, so proposal rationales cite their origin.
+5. Candidates are deduped across origins by content hash with an **occurrence count** — the same finding from N projects is stronger evidence. Stale candidates (older than `harness.upstream_ttl_days`, default 90) are ignored and TTL-pruned on read.
+6. `select_evidence` consumes the composite bundle; consumed candidates are marked (status flip) and `RECORD.json` gains `upstream_consumed: N`.
+
+**Operator surface:** `gd harness upstream list` (pending candidates by origin, with counts); `gd harness upstream clear [--origin <slug>]` (manual prune).
+
+**Safety:** candidates are evidence, not patches — the existing kernel guards (path validation, deny-list, eval gate, review-mode default) contain them; an origin project can suggest but never apply. `upstream_emit` is a single per-project off switch.
+
+**Implementation:** `UpstreamStore` + `CompositeFindings` + emit heuristic in `bin/harness_driver.py`; `cmdHarnessUpstream` in `lib/commands/harness.ts`. See [docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md](../superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md).
 
 ---
 
