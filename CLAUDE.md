@@ -28,7 +28,7 @@ never clean up — `npm test` floods the root with thousands of gitignored
 
 `gd <command> [args] [--json|--raw]` — tool commands output JSON by default,
 `--raw` for human text. Core: `progress`, `plan-phase N`, `execute-phase N`,
-`autopilot`, `harness round|status|revert`, `quick "<desc>"`, `health`,
+`autopilot`, `harness round|status|revert|upstream`, `quick "<desc>"`, `health`,
 `settings`, `metrics`, `help` (`evolve` is deprecated → `gd harness round`).
 Research: `research "<q>"` (+ `resume <id>` / `status` / `report <id>` /
 `portfolio`), `ingest <md|arxiv|url|pdf|jsonl>`, `synthesize "<topic>"`,
