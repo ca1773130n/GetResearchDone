@@ -198,13 +198,41 @@ export function _phaseCompleteCore(
     );
     roadmapContent = roadmapContent.replace(checkboxPattern, `$1x$2 (completed ${today})`);
 
-    // Progress table: update Status to Complete, add date
+    // Progress table: update the Status column. Header-aware — roadmap
+    // tables vary in layout (e.g. | Phase | Name | Requirements | Depends
+    // on | Verification | Status |), so locate the "Status" column from
+    // the table header and rewrite only that cell. If no Status header is
+    // found, leave the table untouched (checkbox + phase-section updates
+    // above still record completion).
     const phaseEscaped: string = phaseNum.replace(/\./g, '\\.');
-    const tablePattern: RegExp = new RegExp(
-      `(\\|\\s*${phaseEscaped}\\.?\\s[^|]*\\|[^|]*\\|)\\s*[^|]*(\\|)\\s*[^|]*(\\|)`,
-      'i'
-    );
-    roadmapContent = roadmapContent.replace(tablePattern, `$1 Complete    $2 ${today} $3`);
+    const tableLines: string[] = roadmapContent.split('\n');
+    const phaseRowRe: RegExp = new RegExp(`^\\|\\s*${phaseEscaped}\\.?\\s`, 'i');
+    for (let i = 0; i < tableLines.length; i++) {
+      if (!phaseRowRe.test(tableLines[i])) continue;
+      // Walk up through table rows to the header line (the line above the
+      // |---|---| separator).
+      let headerIdx = -1;
+      for (let j = i - 1; j >= 0; j--) {
+        if (!tableLines[j].trim().startsWith('|')) break;
+        if (/^\|[\s:|-]*-{3,}/.test(tableLines[j]) && tableLines[j - 1]?.trim().startsWith('|')) {
+          headerIdx = j - 1;
+          break;
+        }
+      }
+      if (headerIdx === -1) break;
+      const headers: string[] = tableLines[headerIdx]
+        .split('|')
+        .map((h) => h.trim().toLowerCase());
+      const statusCol: number = headers.findIndex((h) => h === 'status');
+      if (statusCol === -1) break;
+      const cells: string[] = tableLines[i].split('|');
+      if (cells.length > statusCol) {
+        cells[statusCol] = ` Complete (${today}) `;
+        tableLines[i] = cells.join('|');
+        roadmapContent = tableLines.join('\n');
+      }
+      break;
+    }
 
     // Update plan count in phase section
     const planCountPattern: RegExp = new RegExp(
