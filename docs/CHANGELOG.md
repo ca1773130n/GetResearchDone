@@ -5,6 +5,40 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-06-14
+
+autoresearch-core conformance + planning-time clarification + Tesserae 0.9.0 wiring.
+
+### Added
+- **Planning-time clarification gate** (`research_gates.plan_clarification`,
+  default on): the planner raises a `TYPE: clarification` checkpoint for
+  ambiguous, unlocked design/implementation decisions, and `plan-phase` surfaces
+  them via `AskUserQuestion` (recommended default first), resuming the planner
+  with answers as `## Decisions`. Bounded to 2 rounds, de-duped by question text,
+  auto-skipped under `autonomous_mode`, autopilot, and `--candidates N>1`.
+  Enriched `discuss-phase` intake taxonomy. Exposed in `gd settings`.
+- **Tesserae 0.9.0 AgentRunbook memory**: the harness consumes distilled
+  `Runbook` (procedures) and `Gotcha` (failure-mode) nodes as evidence (mapped to
+  `takeaway`/`insight`, content prefixed `[runbook]`/`[gotcha]`; `Event` nodes
+  skipped). GRD's `tesserae compile` passes `--distill`; enable population via
+  `distillation.enabled` in the Tesserae project config.
+- **Loud-failure diagnostic**: the harness empty-evidence skip and the research
+  retriever's no-graph path now point at `tesserae config status`, surfacing the
+  rate-limited/silent-extraction trap Tesserae 0.9.0 reports.
+
+### Changed
+- The harness round-port classes (`TesseraeFindings`, `AgentProposer`,
+  `RepoEvaluator`, `GitApplier`, `FsRoundStore`, `CompositeFindings`) explicitly
+  conform to autoresearch-core's `@runtime_checkable` port Protocols; the import
+  guard now requires `autoresearch-core>=0.4.4`.
+
+### Fixed
+- Harness eval no longer crashes when `lint`/`tsc`/`jest` time out or the tool is
+  missing; failures are caught and classified via autoresearch-core
+  `classify_run_failure` (`[H2]`/`[H3]`/`[H4]`), with output tails preserved.
+- Autopilot: worktree-safe PR merge + local-main reconcile after merge.
+- Phase completion: header-aware Status-column stamping in the roadmap table.
+
 ## [0.4.4] - 2026-06-08
 
 Life-harness collective layer + first real evidence-fed round.
