@@ -30,6 +30,8 @@ try:
         EvalCheck, EvalReport, Finding, PatchEntry, RoundPatch, RoundRecord,
         decide_round, patch_hash, resolve_autonomy, select_evidence,
         validate_round_patch, should_skip_patch,
+        FindingsSource, PatchProposer, RoundEvaluator, Applier, RoundStore,
+        classify_run_failure,
     )
 except ImportError:  # pragma: no cover
     sys.stderr.write("autoresearch-core>=0.4.3 is required: pip install 'autoresearch-core>=0.4.3'\n")
@@ -63,7 +65,7 @@ def _run(argv: list[str], cwd: str, timeout: int = 600) -> subprocess.CompletedP
 
 
 # ── FindingsSource ────────────────────────────────────────────────────────────
-class TesseraeFindings:
+class TesseraeFindings(FindingsSource):
     def __init__(self, repo: Path) -> None:
         self.graph = repo / ".tesserae" / "graph.json"
 
@@ -109,7 +111,7 @@ evidence; never touch .git, bin/harness_driver.py, or the harness config block.
 """
 
 
-class AgentProposer:
+class AgentProposer(PatchProposer):
     def __init__(self, spawn_argv: list[str]) -> None:
         self.spawn_argv = spawn_argv  # e.g. ["codex", "exec", "--cd", "<replaced>"]
 
@@ -136,7 +138,7 @@ class AgentProposer:
 
 
 # ── RoundEvaluator ────────────────────────────────────────────────────────────
-class RepoEvaluator:
+class RepoEvaluator(RoundEvaluator):
     def __init__(self, full_eval: bool) -> None:
         self.full_eval = full_eval
 
@@ -191,7 +193,7 @@ class RepoEvaluator:
 
 
 # ── Applier ───────────────────────────────────────────────────────────────────
-class GitApplier:
+class GitApplier(Applier):
     def __init__(self, repo: Path) -> None:
         self.repo = repo
 
@@ -218,7 +220,7 @@ class GitApplier:
 
 
 # ── RoundStore ────────────────────────────────────────────────────────────────
-class FsRoundStore:
+class FsRoundStore(RoundStore):
     def __init__(self, repo: Path) -> None:
         self.root = repo / ".planning" / "harness"
 
@@ -400,7 +402,7 @@ class UpstreamStore:
         return n
 
 
-class CompositeFindings:
+class CompositeFindings(FindingsSource):
     """Local Tesserae findings + pending upstream candidates (upstream root only).
 
     `local_findings` is a callable so tests can inject; production passes
