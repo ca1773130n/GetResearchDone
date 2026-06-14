@@ -243,6 +243,20 @@ PRIOR_REFLECTIONS=$(echo "$INIT" | jq -r '.prior_reflections // empty')
 
 ## 8. Spawn grd-planner Agent
 
+**Resolve `clarification_allowed` (one time, before spawning):**
+
+```bash
+PLAN_CLARIFY=$(jq -r '.research_gates.plan_clarification // true' .planning/config.json 2>/dev/null)
+```
+
+`clarification_allowed` = `true` ONLY IF all hold:
+- `PLAN_CLARIFY` is `true` (default when the key is absent), AND
+- `autonomous_mode` is NOT true (from init JSON), AND
+- this run is NOT under autopilot (autopilot injects a "no questions" instruction — treat that as `false`), AND
+- NOT `--candidates N` with N > 1.
+
+Otherwise `clarification_allowed` = `false`. Initialize `clarification_rounds = 0`.
+
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -264,6 +278,7 @@ codebase_dir: ${codebase_dir}
 <planning_context>
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure}
+**Clarification:** {clarification_allowed}
 
 **Project State:** {state_content}
 **Roadmap:** {roadmap_content}
@@ -327,7 +342,17 @@ Task(
 ## 9. Handle Planner Return
 
 - **`## PLANNING COMPLETE`:** Display plan count. If `--skip-verify` or `plan_checker_enabled` is false (from init): skip to step 13. Otherwise: step 10.
-- **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation (step 12)
+- **`## CHECKPOINT REACHED`:**
+  - If `TYPE: clarification` AND `clarification_rounds < 2`: parse each
+    `<question>` and call **AskUserQuestion** (all questions in one call, max 4;
+    for each, the `<option recommended="true">` is listed FIRST and labeled
+    "(Recommended)"). Increment `clarification_rounds`. De-dupe: never re-ask a
+    question `id` already answered. Then spawn the clarification continuation
+    (step 12b) carrying the answers.
+  - If `TYPE: clarification` AND `clarification_rounds >= 2`: stop asking; spawn
+    the continuation with the planner's recommended defaults as decisions.
+  - Otherwise (non-clarification checkpoint): present to user, get response,
+    spawn continuation (step 12) as before.
 - **`## PLANNING INCONCLUSIVE`:** Show attempts, offer: Add context / Retry / Manual
 
 ## 10. Spawn grd-plan-checker Agent
@@ -434,6 +459,42 @@ After planner returns -> spawn checker again (step 10), increment iteration_coun
 Display: `Max iterations reached. {N} issues remain:` + issue list
 
 Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
+
+## 12b. Clarification Continuation
+
+Spawn the planner again with the answers folded in as locked decisions:
+
+```markdown
+<resume_context>
+**Phase:** {phase_number}
+**Mode:** resume_after_clarification
+
+**Phase Context:**
+{context_content}
+
+## Decisions
+{for each answered question: "- {ask} → {chosen option text}"}
+</resume_context>
+
+<instructions>
+These ## Decisions are now LOCKED. Do NOT raise another clarification
+checkpoint for them. Write PLAN.md honoring them, then return
+## PLANNING COMPLETE.
+</instructions>
+```
+
+```
+Task(
+  prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + resume_prompt,
+  subagent_type="general-purpose",
+  model="{planner_model}",
+  description="Resume Phase {phase} planning after clarification"
+)
+```
+
+On return, handle `## PLANNING COMPLETE` (step 9) normally. If the planner
+raises another clarification checkpoint and `clarification_rounds >= 2`, proceed
+with its recommended defaults (do not loop further).
 
 ## 13. Eval Planning Step
 
