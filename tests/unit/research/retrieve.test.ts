@@ -42,6 +42,7 @@ describe('retrieve — lexical + structure', () => {
     const res = await retrieve(cwd, 'anything');
     expect(res.results).toEqual([]);
     expect(res.modes).toEqual({ lexical: false, semantic: false, structure: false });
+    expect(res.detail).toContain('tesserae config status');
   });
 });
 

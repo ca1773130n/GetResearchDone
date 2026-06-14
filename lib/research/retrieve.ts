@@ -147,7 +147,10 @@ async function retrieve(cwd: string, query: string, opts: RetrieveOpts = {}): Pr
   const hops = opts.hops ?? 2;
   const graph = readGraph(cwd);
   if (!graph || graph.nodes.length === 0) {
-    return { results: [], modes: { lexical: false, semantic: false, structure: false }, detail: 'no graph' };
+    return {
+      results: [], modes: { lexical: false, semantic: false, structure: false },
+      detail: "no graph — if Tesserae extraction was rate-limited it can cache empty findings; run 'tesserae config status' (Tesserae 0.9.0)",
+    };
   }
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
 
