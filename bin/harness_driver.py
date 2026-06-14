@@ -138,6 +138,29 @@ class AgentProposer(PatchProposer):
 
 
 # ── RoundEvaluator ────────────────────────────────────────────────────────────
+def _run_check(name: str, argv: list[str], cwd: str, env: dict, timeout: int) -> EvalCheck:
+    """Run one eval subprocess as an EvalCheck, catching timeouts and missing
+    tooling instead of crashing the round. Failing checks are prefixed with the
+    autoresearch-core FailureClass ([H2]/[H3]/[H4])."""
+    timed_out = False
+    try:
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True,
+                           timeout=timeout, env=env)
+        rc, stdout, stderr = p.returncode, p.stdout or "", p.stderr or ""
+    except subprocess.TimeoutExpired as exc:
+        rc, timed_out = 124, True
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+    except (FileNotFoundError, OSError) as exc:
+        rc, stdout, stderr = 127, "", str(exc)
+    detail = (stdout[-400:] + stderr[-400:]) if rc != 0 else ""
+    if rc != 0:
+        cls = classify_run_failure(stderr, timed_out)
+        if cls != "none":
+            detail = f"[{cls}] " + detail
+    return EvalCheck(name, rc, detail)
+
+
 class RepoEvaluator(RoundEvaluator):
     def __init__(self, full_eval: bool) -> None:
         self.full_eval = full_eval
@@ -178,17 +201,10 @@ class RepoEvaluator(RoundEvaluator):
                 touched_code = True
         if touched_code:
             env = {**os.environ, "TMPDIR": str(Path(os.environ.get("TMPDIR", "/tmp")))}
-            for name, argv in (
-                ("lint", ["npm", "run", "lint"]),
-                ("tsc", ["npm", "run", "build:check"]),
-            ):
-                p = subprocess.run(argv, cwd=workdir, capture_output=True, text=True,
-                                   timeout=600, env=env)
-                checks.append(EvalCheck(name, p.returncode, p.stdout[-400:] + p.stderr[-400:]))
+            checks.append(_run_check("lint", ["npm", "run", "lint"], workdir, env, 600))
+            checks.append(_run_check("tsc", ["npm", "run", "build:check"], workdir, env, 600))
             if self.full_eval:
-                p = subprocess.run(["npm", "test"], cwd=workdir, capture_output=True,
-                                   text=True, timeout=1800, env=env)
-                checks.append(EvalCheck("jest", p.returncode, p.stderr[-400:]))
+                checks.append(_run_check("jest", ["npm", "test"], workdir, env, 1800))
         return EvalReport(checks=tuple(checks))
 
 

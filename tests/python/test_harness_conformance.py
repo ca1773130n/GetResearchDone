@@ -45,5 +45,39 @@ class TestPortConformance(unittest.TestCase):
             self.assertIsInstance(hd.AgentProposer([]), PatchProposer)
 
 
+class TestEvaluatorFaultHandling(unittest.TestCase):
+    def _code_patch(self):
+        from autoresearch_core import RoundPatch, PatchEntry
+        return RoundPatch(
+            round_id="r1",
+            entries=(PatchEntry(path="lib/x.ts", kind="code", op="modify",
+                                content="export const x = 1;\n", rationale="",
+                                evidence_refs=()),),
+            summary="s", confidence=0.5,
+        )
+
+    def test_timeout_classified_h4_no_crash(self):
+        patch = self._code_patch()
+        def fake_run(argv, cwd=None, capture_output=None, text=None, timeout=None, env=None):
+            raise subprocess.TimeoutExpired(argv, timeout)
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(hd.subprocess, "run", side_effect=fake_run):
+                report = hd.RepoEvaluator(full_eval=False).evaluate(patch, d)
+        details = " ".join(c.detail or "" for c in report.checks)
+        self.assertTrue(any(c.exit_code != 0 for c in report.checks))
+        self.assertIn("[H4]", details)
+
+    def test_missing_binary_classified_no_crash(self):
+        patch = self._code_patch()
+        def fake_run(argv, cwd=None, capture_output=None, text=None, timeout=None, env=None):
+            raise FileNotFoundError("[Errno 2] No such file or directory: 'npm'")
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(hd.subprocess, "run", side_effect=fake_run):
+                report = hd.RepoEvaluator(full_eval=False).evaluate(patch, d)
+        details = " ".join(c.detail or "" for c in report.checks)
+        self.assertTrue(any(c.exit_code != 0 for c in report.checks))
+        self.assertIn("[H3]", details)  # "No such file or directory" -> H3
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
