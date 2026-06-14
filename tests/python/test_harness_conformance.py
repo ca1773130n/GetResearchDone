@@ -67,6 +67,18 @@ class TestEvaluatorFaultHandling(unittest.TestCase):
         self.assertTrue(any(c.exit_code != 0 for c in report.checks))
         self.assertIn("[H4]", details)
 
+    def test_timeout_preserves_byte_output(self):
+        patch = self._code_patch()
+        def fake_run(argv, cwd=None, capture_output=None, text=None, timeout=None, env=None):
+            raise subprocess.TimeoutExpired(argv, timeout, output=b"OUT-marker", stderr=b"ERR-marker")
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(hd.subprocess, "run", side_effect=fake_run):
+                report = hd.RepoEvaluator(full_eval=False).evaluate(patch, d)
+        details = " ".join(c.detail or "" for c in report.checks)
+        self.assertIn("OUT-marker", details)
+        self.assertIn("ERR-marker", details)
+        self.assertIn("[H4]", details)
+
     def test_missing_binary_classified_no_crash(self):
         patch = self._code_patch()
         def fake_run(argv, cwd=None, capture_output=None, text=None, timeout=None, env=None):

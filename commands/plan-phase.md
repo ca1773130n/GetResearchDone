@@ -346,9 +346,11 @@ Task(
   - If `TYPE: clarification` AND `clarification_rounds < 2`: parse each
     `<question>` and call **AskUserQuestion** (all questions in one call, max 4;
     for each, the `<option recommended="true">` is listed FIRST and labeled
-    "(Recommended)"). Increment `clarification_rounds`. De-dupe: never re-ask a
-    question `id` already answered. Then spawn the clarification continuation
-    (step 12b) carrying the answers.
+    "(Recommended)"). Increment `clarification_rounds`. De-dupe by question
+    TEXT: never re-ask a question whose `<ask>` matches one already answered this
+    run (do NOT rely on `id` — it is a per-checkpoint label, not stable across
+    rounds). Then spawn the clarification continuation (step 12b) carrying the
+    answers.
   - If `TYPE: clarification` AND `clarification_rounds >= 2`: stop asking; spawn
     the continuation with the planner's recommended defaults as decisions.
   - Otherwise (non-clarification checkpoint): present to user, get response,

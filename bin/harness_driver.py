@@ -34,7 +34,7 @@ try:
         classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.3 is required: pip install 'autoresearch-core>=0.4.3'\n")
+    sys.stderr.write("autoresearch-core>=0.4.4 is required: pip install 'autoresearch-core>=0.4.4'\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)
@@ -138,10 +138,21 @@ class AgentProposer(PatchProposer):
 
 
 # ── RoundEvaluator ────────────────────────────────────────────────────────────
+def _as_text(x: object) -> str:
+    """Coerce subprocess output to str. TimeoutExpired.stdout/stderr are bytes
+    even under text=True (per the stdlib docs), so decode them defensively."""
+    if isinstance(x, str):
+        return x
+    if isinstance(x, (bytes, bytearray)):
+        return bytes(x).decode("utf-8", "replace")
+    return ""
+
+
 def _run_check(name: str, argv: list[str], cwd: str, env: dict, timeout: int) -> EvalCheck:
     """Run one eval subprocess as an EvalCheck, catching timeouts and missing
-    tooling instead of crashing the round. Failing checks are prefixed with the
-    autoresearch-core FailureClass ([H2]/[H3]/[H4])."""
+    tooling instead of crashing the round. Output tails are kept for both passing
+    and failing checks (audit parity); failing checks are additionally prefixed
+    with the autoresearch-core FailureClass ([H2]/[H3]/[H4])."""
     timed_out = False
     try:
         p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True,
@@ -149,11 +160,10 @@ def _run_check(name: str, argv: list[str], cwd: str, env: dict, timeout: int) ->
         rc, stdout, stderr = p.returncode, p.stdout or "", p.stderr or ""
     except subprocess.TimeoutExpired as exc:
         rc, timed_out = 124, True
-        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        stdout, stderr = _as_text(exc.stdout), _as_text(exc.stderr)
     except (FileNotFoundError, OSError) as exc:
         rc, stdout, stderr = 127, "", str(exc)
-    detail = (stdout[-400:] + stderr[-400:]) if rc != 0 else ""
+    detail = stdout[-400:] + stderr[-400:]
     if rc != 0:
         cls = classify_run_failure(stderr, timed_out)
         if cls != "none":

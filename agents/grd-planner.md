@@ -1350,6 +1350,22 @@ Present breakdown with wave structure. Wait for confirmation in interactive mode
 **YOLO mode:** If `autonomous_mode=true` in config, skip confirmation gates and proceed directly to writing plans.
 </step>
 
+<step name="clarification_checkpoint">
+**Before writing any PLAN.md (standard mode)** — honor the
+`**Clarification:** {true|false}` signal from planning_context:
+
+- If `false` (autonomous, autopilot, or `--candidates N>1`): exercise discretion
+  as today and continue to write_phase_prompt.
+- If `true`: scan for genuinely ambiguous, HIGH-IMPACT, *unlocked* decisions NOT
+  already fixed by `## Decisions`. If any exist, STOP and return
+  `## CHECKPOINT REACHED` in the clarification format (see "Checkpoint Reached /
+  Revision Complete"); write NO PLAN.md. On resume the answers arrive as
+  `## Decisions` — honor them as locked, then continue to write_phase_prompt.
+
+On a SECOND checkpoint, raise ONLY questions not already asked this run (the
+orchestrator stops asking after 2 rounds).
+</step>
+
 <step name="write_phase_prompt">
 Use template structure for each PLAN.md.
 
@@ -1501,8 +1517,11 @@ TYPE: clarification
 </clarification>
 ```
 
-Exactly one `<option recommended="true">` per question. On resume the
-orchestrator re-spawns you with the answers as `## Decisions` entries; honor
+Exactly one `<option recommended="true">` per question. Question `id`s
+(`q1..q4`) are labels WITHIN a single checkpoint — they are NOT stable across
+checkpoints, so on a second checkpoint include ONLY questions you have not
+already asked this run (the orchestrator de-dupes by question text). On resume
+the orchestrator re-spawns you with the answers as `## Decisions` entries; honor
 them as locked, then write PLAN.md normally.
 
 </structured_returns>
