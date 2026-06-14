@@ -86,6 +86,10 @@ keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 `min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,
 `upstream_emit`, `upstream_root`, `upstream_ttl_days`).
+`research_gates.plan_clarification` (default on) makes `plan-phase` ask the user
+via AskUserQuestion to resolve ambiguous, unlocked design/implementation
+decisions mid-planning (planner raises a `TYPE: clarification` checkpoint);
+auto-skipped under `autonomous_mode`, autopilot, and `--candidates N>1`.
 Account rotation: `superpowers.{account_rotation, accounts, default_backend}` —
 each account's `config_dir` is injected as `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, so
 use **absolute** paths (`~` is not expanded). `gd accounts sync` populates this
