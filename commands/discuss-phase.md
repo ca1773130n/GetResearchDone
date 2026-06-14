@@ -55,7 +55,14 @@ Use AskUserQuestion:
 Analyze the phase to identify gray areas worth discussing. Read the phase description from ROADMAP.md and determine:
 
 1. **Domain boundary** — What capability is this phase delivering?
-2. **Gray areas by category** — For each relevant category, identify 1-2 specific ambiguities
+2. **Gray areas by category** — For each relevant category, identify 1-2
+   specific ambiguities. Cover at least these design-spec categories so fewer
+   ambiguities survive to the planner's clarification checkpoint:
+   - **Architecture / layout** — module boundaries, where new code lives
+   - **Libraries / dependencies** — which lib, or build vs. reuse
+   - **Interfaces / data flow** — contracts between units, data shapes
+   - **Scope boundaries** — what is explicitly in vs. deferred
+   - **Error-handling posture** — fail-closed vs. fallback, surfacing vs. swallowing
 3. **Skip assessment** — If no meaningful gray areas exist, the phase may not need discussion
 </step>
 
