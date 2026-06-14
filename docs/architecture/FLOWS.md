@@ -62,9 +62,20 @@ Creating a phase plan via agent dispatch.
 5. `lib/context/execute.ts:547` — `runPreflightGates(cwd, 'plan-phase', { phase })` → `lib/gates.ts`
 6. On pass: assembles result object with `backend`, `phase_found`, `planner_model`, `researcher_model`, `plan_checker_enabled`, etc.
 7. Agent receives context JSON, runs `grd-phase-researcher` and `grd-planner` sub-agents
-8. Each plan is written to `.planning/milestones/<ver>/phases/phase-<N>/PLAN-<slug>.md`
+8. **Clarification checkpoint (v0.4.5):** before writing PLAN.md, the `grd-planner` may pause to ask the user about ambiguous design decisions (see sub-section below)
+9. Each plan is written to `.planning/milestones/<ver>/phases/phase-<N>/PLAN-<slug>.md`
 
-**Data transformations:** Phase number → preflight gate check → context JSON → agent-authored PLAN.md files with YAML frontmatter (`provides`, `requires`, `integration_points`, `files_modified`). The `requires`/`provides` fields are used later by `buildWavesFromPlans` to construct the artifact-level dependency DAG for wave grouping during execution.
+### Clarification checkpoint (v0.4.5)
+
+When the `research_gates.plan_clarification` gate is on (default) **and** the run is interactive — i.e. **not** `autonomous_mode`, **not** under `autopilot`, and **not** a batch plan request (`--candidates N` with `N > 1`) — the `grd-planner` agent is permitted to halt before authoring PLAN.md and return a `## CHECKPOINT REACHED` block with `TYPE: clarification`. It does this only for genuinely ambiguous, *unlocked* design/implementation decisions (decisions not already pinned by research, requirements, or prior `discuss-phase` output).
+
+1. The planner surfaces each open decision as a question (each with a recommended default).
+2. The plan-phase orchestrator presents the questions to the user via `AskUserQuestion`, with the planner's recommended default offered first.
+3. The orchestrator resumes the **same** planner run (a continuation, not a fresh dispatch) with the user's answers folded in as a `## Decisions` section, and the planner proceeds to write PLAN.md.
+
+The loop is bounded to **2 rounds** — after the second round the planner must commit to defaults and write the plan. Questions are de-duped by text so the same decision is never asked twice across rounds. In any non-interactive mode (autonomous, autopilot, or multi-candidate batch) the gate is bypassed and the planner takes its recommended defaults silently.
+
+**Data transformations:** Phase number → preflight gate check → context JSON → (optional clarification round-trip: planner questions → `AskUserQuestion` → `## Decisions`) → agent-authored PLAN.md files with YAML frontmatter (`provides`, `requires`, `integration_points`, `files_modified`). The `requires`/`provides` fields are used later by `buildWavesFromPlans` to construct the artifact-level dependency DAG for wave grouping during execution.
 
 **Side effects:** PLAN.md files written under `.planning/milestones/<ver>/phases/phase-<N>/`. Optional `RESEARCH-<phase>.md` if `research_enabled` is true.
 

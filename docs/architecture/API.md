@@ -1256,6 +1256,8 @@ Builds a critique prompt for an agent given current metrics and plan content.
 
 **Current self-improvement mechanism (v0.4.4+).** TS CLI surface for the life-harness — routed as TOOL_COMMANDS via `lib/cli`.
 
+**v0.4.5:** The harness round-port classes now explicitly conform to autoresearch-core's `@runtime_checkable` port Protocols, and the import guard requires `autoresearch-core>=0.4.4`. `RepoEvaluator` catches lint/tsc/jest timeouts and missing tooling (it no longer crashes the round) and classifies failures via autoresearch-core's `classify_run_failure` ([H2]/[H3]/[H4]). The harness also consumes Tesserae 0.9.0 AgentRunbook distilled memory: `Runbook` nodes become takeaway evidence and `Gotcha` nodes become insight evidence (content prefixed accordingly), while `Event` nodes are skipped. An empty-evidence round — and the research retriever's no-graph path — hint at `tesserae config status`; `tesserae compile` is invoked with `--distill`.
+
 ### Commands
 
 #### `gd harness round [--auto] [--dry-run] [--full-eval]`
@@ -1270,7 +1272,7 @@ Reverts a previously merged harness round by id. Runs `git revert` on the commit
 #### `gd harness upstream list` / `gd harness upstream clear [--origin <slug>]`
 **Collective layer (Phase E, v0.4.4+).** Backed by `cmdHarnessUpstream` in this module. `list` prints pending upstream candidates grouped by origin project, with per-content occurrence counts (same finding from N projects = stronger evidence). `clear` manually prunes the candidate store, optionally scoped to a single origin slug. Candidates live in `$CLAUDE_PLUGIN_DATA/harness/upstream/<origin-slug>.jsonl` (fallback `~/.grd/harness/upstream/`) and are TTL-pruned per `harness.upstream_ttl_days`.
 
-See `bin/harness_driver.py` for the Python I/O driver and `CONFIG.md` for the `harness` config block. As of v0.4.4 the driver gained an `UpstreamStore` (emit/read/prune of `UpstreamCandidate` records) and a `CompositeFindingsSource` (local Tesserae findings + pending upstream candidates) for the upstream root, plus the conservative "about GRD" emit heuristic. Both are pure I/O on the GRD host side — the autoresearch-core decision kernel is unchanged (`Finding.source` already carries the `upstream:<project>:<session>` provenance).
+See `bin/harness_driver.py` for the Python I/O driver and `CONFIG.md` for the `harness` config block. As of v0.4.4 the driver gained an `UpstreamStore` (emit/read/prune of `UpstreamCandidate` records) and a `CompositeFindingsSource` (local Tesserae findings + pending upstream candidates) for the upstream root, plus the conservative "about GRD" emit heuristic. Both are pure I/O on the GRD host side — the autoresearch-core decision kernel is unchanged (`Finding.source` already carries the `upstream:<project>:<session>` provenance). As of v0.4.5 the driver's port classes explicitly satisfy autoresearch-core's `@runtime_checkable` Protocols (import guard pins `autoresearch-core>=0.4.4`), the `RepoEvaluator` tolerates lint/tsc/jest timeouts and missing tooling and routes failures through `classify_run_failure` ([H2]/[H3]/[H4]), and the findings source ingests Tesserae 0.9.0 AgentRunbook distilled memory (`Runbook`→takeaway, `Gotcha`→insight, prefixed content; `Event` nodes skipped, empty-evidence rounds hint at `tesserae config status`).
 
 ---
 

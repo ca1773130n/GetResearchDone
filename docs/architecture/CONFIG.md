@@ -79,6 +79,7 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 |---|---|---|---|
 | `citation_gate` | `boolean` | `false` | When `true`, the plan-phase gate blocks on unresolved critical citation nodes in PAPERS.md. |
 | `transitive_citation_gate` | `boolean` | `false` | When `true`, run transitive citation gate during plan-phase (warning severity only — non-blocking). |
+| `research_gates.plan_clarification` | `boolean` | `true` | **(v0.4.5+)** Interactive planning clarification gate, alongside `research_gates.phase_plan_approval`. When on, the `grd-planner` agent may return a `## CHECKPOINT REACHED` / `TYPE: clarification` block for ambiguous, *unlocked* design/implementation decisions; the `plan-phase` orchestrator surfaces these via `AskUserQuestion` (recommended default option first), then resumes the planner with the answers framed as `## Decisions`. Bounded to 2 rounds and de-duped by question text. Auto-skipped under `autonomous_mode`, autopilot, and `--candidates N` with N>1. |
 
 ### Post-Phase Pipeline
 
@@ -110,6 +111,8 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 ### Life-Harness
 
 Configuration block for `gd harness round` — the current GRD self-improvement mechanism (v0.4.4+). Analogous to `research_gates` in the autoresearch loop: the `autonomy` key controls the merge gate and defaults to `"review"` (leave branch for human merge). As of v0.4.4 the harness also has a **collective layer** (Phase E): downstream projects emit GRD-about findings as upstream candidates, and the GRD repo (the upstream root) consumes them — governed by the `upstream_*` keys below.
+
+As of v0.4.5 the harness also consumes Tesserae 0.9.0 **AgentRunbook** distilled memory (`Runbook` / `Gotcha` nodes) as round evidence, alongside raw session findings. This is enabled by `distillation.enabled` in the **Tesserae** project config — not a GRD config key.
 
 | Field | Type | Default | Description |
 |---|---|---|---|

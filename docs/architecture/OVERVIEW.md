@@ -64,6 +64,8 @@ Key files: `lib/commands/harness.ts`, `bin/harness_driver.py`
 
 **Current mechanism (v0.4.4+):** `gd harness round` runs one gather→propose→validate→eval→decide→persist cycle using real session findings from Tesserae. As of v0.4.4 the harness has a **cross-project collective layer** (Phase E): downstream projects using GRD emit findings *about GRD itself* as upstream candidates into `$CLAUDE_PLUGIN_DATA/harness/upstream/`, and the GRD repo — the **upstream root** (`harness.upstream_root: true`) — consumes them so evidence accrued in every project feeds GRD's self-improvement. Surfaced via `gd harness upstream list|clear`. See [docs/superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md](../superpowers/specs/2026-06-06-life-harness-rounds-grd-host.md), the Phase E spec [docs/superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md](../superpowers/specs/2026-06-07-life-harness-phaseE-collective-design.md), and [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
+As of v0.4.5 the harness also consumes Tesserae 0.9.0 AgentRunbook distilled memory — `Runbook` procedures and `Gotcha` failure-modes — as evidence alongside raw session findings, so proven know-how and recurring pitfalls feed proposals directly. An empty round now hints at `tesserae config status` (Tesserae 0.9.0's loud diagnostic for silently rate-limited extraction).
+
 ### Evolve Loop (Deprecated v0.4.3)
 
 **Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept in-tree for `gd singularity` history. `gd evolve` now prints a pointer to `gd harness round` and exits 1; its read-only introspection subcommands still work as tool commands.
@@ -114,7 +116,7 @@ Key files: `lib/types.ts` (1566 lines), `lib/utils.ts` (1308 lines), `lib/cleanu
 
 **Status Markers:** Phase plans use YAML frontmatter fields (`status: pending | running | complete`) written by the post-pipeline step. `disk_status` is derived by reading these markers from disk. `completePhaseAfterPostPipeline()` (`lib/phase-complete.ts`) ticks the ROADMAP.md checkbox and advances STATE.md's `Current Phase`.
 
-**Gates (`lib/gates.ts`):** A registry maps command names to arrays of gate-check function names. `runPreflightGates()` runs all registered checks before a command executes and returns `PreflightResult` with violations.
+**Gates (`lib/gates.ts`):** A registry maps command names to arrays of gate-check function names. `runPreflightGates()` runs all registered checks before a command executes and returns `PreflightResult` with violations. As of v0.4.5, phase planning adds a planning-time clarification gate (`research_gates.plan_clarification`, default on): the planner uses AskUserQuestion to resolve ambiguous unlocked decisions with the user before writing the plan (skipped under autonomous/autopilot).
 
 **Config Profiles:** `model_profile` (`quality` / `balanced` / `budget`) controls global model tier selection per agent. `token_profile` (`frugal` / `balanced` / `quality`) is an orthogonal preference controlling how aggressively to downgrade under budget pressure. Both live in `.planning/config.json` and are loaded by `loadConfig()` (`lib/utils.ts`).
 

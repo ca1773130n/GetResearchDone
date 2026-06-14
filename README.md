@@ -10,7 +10,7 @@ It is two things in one tool:
 1. **An autoresearch loop** — `gd research "<question>"` drives a hypothesis-centric scientific cycle (hypothesize → experiment → measure → learn → revise) to a supported/exhausted verdict, grounded on a knowledge graph you build from papers, PDFs, web pages, and past sessions. **→ [Step-by-step tutorial](docs/autoresearch-tutorial.md)**
 2. **An R&D engineering workflow** — survey → plan → execute → verify → iterate, with closed-loop self-monitoring (falsifiable reflections, a `DEAD-ENDS` registry, a drift score, and a strategy GENOME) so the agent stays grounded in the project's goal.
 
-92.2% of one GRD release window was written by GRD itself — measured deterministically by `gd singularity`, not LLM-judged. See the [Ouroboros loop](docs/ouroboros-loop.md) technical report. That era's `gd evolve` (static code scanning) is now retired; self-improvement runs on the **life-harness** — `gd harness round` patches GRD's own primitives from evidence mined out of real sessions, eval-gated and git-reversible.
+92.2% of one GRD release window was written by GRD itself — measured deterministically by `gd singularity`, not LLM-judged. See the [Ouroboros loop](docs/ouroboros-loop.md) technical report. That era's `gd evolve` (static code scanning) is now retired; self-improvement runs on the **life-harness** — `gd harness round` patches GRD's own primitives from evidence mined out of real sessions, eval-gated and git-reversible. As of v0.4.5 the harness grounds on Tesserae 0.9.0 AgentRunbook memory (distilled `Runbook` procedures + `Gotcha` failure-modes) as evidence, and its eval gate no longer crashes on lint/tsc/jest timeouts or missing tools.
 
 ---
 
@@ -140,7 +140,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 
 | Key | Default | Effect |
 |---|---|---|
-| `research_gates` | `{execute:true, kg_write:true}` | Per-gate checkpoints (override with `--no-gates`) |
+| `research_gates` | `{execute:true, kg_write:true, plan_clarification:true}` | Per-gate checkpoints (override with `--no-gates`); `plan_clarification` (v0.4.5+) has `plan-phase` ask the user to resolve ambiguous design decisions before writing a plan |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey |
 | `research_max_resurveys` | `2` | Cap on plateau re-surveys per thread |
