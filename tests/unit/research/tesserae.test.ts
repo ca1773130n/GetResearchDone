@@ -42,6 +42,7 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(call).toContain('--sqlite-output');
     expect(call).toContain('--changed-only');
     expect(call).toContain('--canonicalize');
+    expect(call).toContain('--distill');
     expect(call.join(' ')).toContain('.tesserae/graph.json');
   });
 
