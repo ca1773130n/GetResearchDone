@@ -223,6 +223,17 @@ This runs the same hybrid retriever the loop uses internally: lexical (BM25-lite
 + graph-structure + optional semantic, fused with Reciprocal Rank Fusion. It's a
 quick way to see what the loop "knows" before you run it.
 
+### 2.4 Tesserae 0.9.0 AgentRunbook memory
+
+Tesserae 0.9.0 distills cross-session `Runbook` (procedures) and `Gotcha`
+(failure modes) nodes from your session findings. The GRD harness consumes them
+as high-signal evidence (alongside raw session findings), and the hybrid
+retriever surfaces them automatically once they're in the graph. To populate
+them, set `distillation.enabled: true` in your Tesserae project config (or run
+`tesserae refresh` with distillation), then run a harness round. If a round skips
+with "not enough evidence", run `tesserae config status` — a rate-limited backend
+can silently cache empty extractions, which 0.9.0 now reports loudly.
+
 > **Semantic mode is opt-in.** It only embeds when `GRD_EMBED_API_KEY` (or
 > `OPENAI_API_KEY`) is set. Without a key, retrieval uses lexical + graph only —
 > **zero network egress** — and never blocks the loop.
