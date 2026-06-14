@@ -47,6 +47,10 @@ _FINDING_KINDS = ("insight", "decision", "question", "todo", "hypothesis", "take
 _FINDING_TYPE_RE = re.compile(
     r"^Session(Insight|Decision|Question|Todo|Hypothesis|Takeaway)$", re.IGNORECASE
 )
+# AgentRunbook distilled-memory nodes (Tesserae 0.9.0). Mapped to a valid
+# FindingKind; content is prefixed to preserve provenance in evidence_md.
+# Event nodes (per-transition) are intentionally NOT consumed — too granular.
+_DISTILLED_NODE_KINDS = {"Runbook": "takeaway", "Gotcha": "insight"}
 
 
 def _now() -> str:
@@ -78,8 +82,13 @@ class TesseraeFindings(FindingsSource):
         out: list[Finding] = []
         for node in data.get("nodes", []):
             ntype = str(node.get("node_type") or node.get("type") or "")
-            m = _FINDING_TYPE_RE.match(ntype)
-            kind = m.group(1).lower() if m else str(node.get("kind", ""))
+            prefix = ""
+            if ntype in _DISTILLED_NODE_KINDS:
+                kind = _DISTILLED_NODE_KINDS[ntype]
+                prefix = f"[{ntype.lower()}] "
+            else:
+                m = _FINDING_TYPE_RE.match(ntype)
+                kind = m.group(1).lower() if m else str(node.get("kind", ""))
             if kind not in _FINDING_KINDS:
                 continue
             metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
@@ -91,7 +100,7 @@ class TesseraeFindings(FindingsSource):
             # nodes without created_at always pass — undated evidence is still valid
             content = str(node.get("content") or node.get("description") or node.get("name") or "")
             if content:
-                out.append(Finding(kind=kind, content=content,  # type: ignore[arg-type]
+                out.append(Finding(kind=kind, content=prefix + content,  # type: ignore[arg-type]
                                    source=str(node.get("node_id") or node.get("id") or ""),
                                    created_at=created))
         return out
@@ -502,8 +511,12 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[R
         min_items=h.get("min_evidence", 3) if isinstance(h.get("min_evidence"), int) else 3,
     )
     if not evidence:
-        return RoundRecord(round_id=rid, status="skipped", detail="not enough evidence",
-                           evidence_count=0, created_at=_now()), {}
+        return RoundRecord(
+            round_id=rid, status="skipped",
+            detail="not enough evidence — a rate-limited backend can cache empty "
+                   "extractions; run 'tesserae config status' to check provider "
+                   "liveness (Tesserae 0.9.0)",
+            evidence_count=0, created_at=_now()), {}
     evidence_md = "# Session evidence\n\n" + "\n".join(
         f"- **{f.kind}** ({f.source}): {f.content}" for f in evidence)
     if dry_run:

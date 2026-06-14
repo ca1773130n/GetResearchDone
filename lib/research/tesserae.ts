@@ -63,7 +63,7 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       if (!available) return { status: 'skipped_no_tesserae', detail: 'tesserae CLI not found', graphPath: null };
       fs.mkdirSync(tesseraeDir(cwd), { recursive: true });
       const graph = graphJsonPath(cwd);
-      const args = [...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize'];
+      const args = [...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize', '--distill'];
       try {
         run('tesserae', args, cwd);
         return { status: 'compiled', detail: 'compiled', graphPath: graph };

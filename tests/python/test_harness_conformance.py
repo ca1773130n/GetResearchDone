@@ -6,6 +6,7 @@ A jest wrapper (tests/unit/harness-conformance.test.ts) runs this in `npm test`
 and skips when python3/autoresearch_core are unavailable.
 """
 import importlib.util
+import json
 import subprocess
 import tempfile
 import unittest
@@ -89,6 +90,50 @@ class TestEvaluatorFaultHandling(unittest.TestCase):
         details = " ".join(c.detail or "" for c in report.checks)
         self.assertTrue(any(c.exit_code != 0 for c in report.checks))
         self.assertIn("[H3]", details)  # "No such file or directory" -> H3
+
+
+class TestRunbookEvidence(unittest.TestCase):
+    def _repo_with_graph(self, d):
+        graph = {
+            "nodes": [
+                {"node_type": "SessionDecision", "content": "chose X",
+                 "node_id": "s1", "created_at": "2026-06-10T00:00:00Z"},
+                {"node_type": "Runbook", "content": "to do Y, run Z", "node_id": "r1"},
+                {"node_type": "Gotcha", "content": "Z fails when W", "node_id": "g1"},
+                {"node_type": "Event", "content": "ran Z once", "node_id": "e1"},
+            ],
+            "edges": [],
+        }
+        tdir = Path(d) / ".tesserae"
+        tdir.mkdir(parents=True, exist_ok=True)
+        (tdir / "graph.json").write_text(json.dumps(graph))
+        return Path(d)
+
+    def test_consumes_runbook_gotcha_not_event(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo_with_graph(d)
+            found = hd.TesseraeFindings(repo).findings(None)
+        by_src = {f.source: f for f in found}
+        self.assertIn("s1", by_src)        # session finding still kept
+        self.assertIn("r1", by_src)        # runbook consumed
+        self.assertIn("g1", by_src)        # gotcha consumed
+        self.assertNotIn("e1", by_src)     # event excluded
+        self.assertEqual(by_src["r1"].kind, "takeaway")
+        self.assertTrue(by_src["r1"].content.startswith("[runbook] "))
+        self.assertEqual(by_src["g1"].kind, "insight")
+        self.assertTrue(by_src["g1"].content.startswith("[gotcha] "))
+
+    def test_empty_evidence_emits_config_status_hint(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / ".planning").mkdir()
+            (repo / ".planning" / "config.json").write_text("{}")
+            tdir = repo / ".tesserae"
+            tdir.mkdir()
+            (tdir / "graph.json").write_text(json.dumps({"nodes": [], "edges": []}))
+            rec, _ = hd.run_round(repo, auto=False, dry_run=False, full_eval=False)
+        self.assertEqual(rec.status, "skipped")
+        self.assertIn("tesserae config status", rec.detail)
 
 
 if __name__ == "__main__":

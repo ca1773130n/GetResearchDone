@@ -76,7 +76,14 @@ for offline, deterministic tests. Timeout 15s.
 LEARN → DECIDE → PERSIST → FINALIZE under two default-on gates (`execute`,
 `kg_write`). The verdict is **deterministic** (metric/comparator/target) — no
 LLM-judged scoring on the control path. Grounds on a Tesserae knowledge graph
-(built via `gd ingest` + `gd synthesize`) plus hybrid retrieval. The scheduler
+(built via `gd ingest` + `gd synthesize`) plus hybrid retrieval. As of Tesserae
+0.9.0 the harness also consumes AgentRunbook distilled memory — `Runbook`
+(reusable procedures) and `Gotcha` (failure modes) nodes — as evidence (mapped to
+`takeaway`/`insight`, content prefixed `[runbook]`/`[gotcha]`; `Event` nodes are
+skipped). Enable it by setting `distillation.enabled: true` in the Tesserae
+project config so `tesserae refresh` populates those nodes; GRD's own `tesserae
+compile` passes `--distill`. When findings come back empty, GRD points at
+`tesserae config status` (0.9.0 surfaces rate-limited/silent extraction). The scheduler
 does account rotation + rate-limit detection (claude reports limits/logged-out as
 exit-0 JSON — detected via `detectFromStdout`). Top-level `.planning/config.json`
 keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
