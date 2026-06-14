@@ -30,9 +30,11 @@ try:
         EvalCheck, EvalReport, Finding, PatchEntry, RoundPatch, RoundRecord,
         decide_round, patch_hash, resolve_autonomy, select_evidence,
         validate_round_patch, should_skip_patch,
+        FindingsSource, PatchProposer, RoundEvaluator, Applier, RoundStore,
+        classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.3 is required: pip install 'autoresearch-core>=0.4.3'\n")
+    sys.stderr.write("autoresearch-core>=0.4.4 is required: pip install 'autoresearch-core>=0.4.4'\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)
@@ -63,7 +65,7 @@ def _run(argv: list[str], cwd: str, timeout: int = 600) -> subprocess.CompletedP
 
 
 # ── FindingsSource ────────────────────────────────────────────────────────────
-class TesseraeFindings:
+class TesseraeFindings(FindingsSource):
     def __init__(self, repo: Path) -> None:
         self.graph = repo / ".tesserae" / "graph.json"
 
@@ -109,7 +111,7 @@ evidence; never touch .git, bin/harness_driver.py, or the harness config block.
 """
 
 
-class AgentProposer:
+class AgentProposer(PatchProposer):
     def __init__(self, spawn_argv: list[str]) -> None:
         self.spawn_argv = spawn_argv  # e.g. ["codex", "exec", "--cd", "<replaced>"]
 
@@ -136,7 +138,40 @@ class AgentProposer:
 
 
 # ── RoundEvaluator ────────────────────────────────────────────────────────────
-class RepoEvaluator:
+def _as_text(x: object) -> str:
+    """Coerce subprocess output to str. TimeoutExpired.stdout/stderr are bytes
+    even under text=True (per the stdlib docs), so decode them defensively."""
+    if isinstance(x, str):
+        return x
+    if isinstance(x, (bytes, bytearray)):
+        return bytes(x).decode("utf-8", "replace")
+    return ""
+
+
+def _run_check(name: str, argv: list[str], cwd: str, env: dict, timeout: int) -> EvalCheck:
+    """Run one eval subprocess as an EvalCheck, catching timeouts and missing
+    tooling instead of crashing the round. Output tails are kept for both passing
+    and failing checks (audit parity); failing checks are additionally prefixed
+    with the autoresearch-core FailureClass ([H2]/[H3]/[H4])."""
+    timed_out = False
+    try:
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True,
+                           timeout=timeout, env=env)
+        rc, stdout, stderr = p.returncode, p.stdout or "", p.stderr or ""
+    except subprocess.TimeoutExpired as exc:
+        rc, timed_out = 124, True
+        stdout, stderr = _as_text(exc.stdout), _as_text(exc.stderr)
+    except (FileNotFoundError, OSError) as exc:
+        rc, stdout, stderr = 127, "", str(exc)
+    detail = stdout[-400:] + stderr[-400:]
+    if rc != 0:
+        cls = classify_run_failure(stderr, timed_out)
+        if cls != "none":
+            detail = f"[{cls}] " + detail
+    return EvalCheck(name, rc, detail)
+
+
+class RepoEvaluator(RoundEvaluator):
     def __init__(self, full_eval: bool) -> None:
         self.full_eval = full_eval
 
@@ -176,22 +211,15 @@ class RepoEvaluator:
                 touched_code = True
         if touched_code:
             env = {**os.environ, "TMPDIR": str(Path(os.environ.get("TMPDIR", "/tmp")))}
-            for name, argv in (
-                ("lint", ["npm", "run", "lint"]),
-                ("tsc", ["npm", "run", "build:check"]),
-            ):
-                p = subprocess.run(argv, cwd=workdir, capture_output=True, text=True,
-                                   timeout=600, env=env)
-                checks.append(EvalCheck(name, p.returncode, p.stdout[-400:] + p.stderr[-400:]))
+            checks.append(_run_check("lint", ["npm", "run", "lint"], workdir, env, 600))
+            checks.append(_run_check("tsc", ["npm", "run", "build:check"], workdir, env, 600))
             if self.full_eval:
-                p = subprocess.run(["npm", "test"], cwd=workdir, capture_output=True,
-                                   text=True, timeout=1800, env=env)
-                checks.append(EvalCheck("jest", p.returncode, p.stderr[-400:]))
+                checks.append(_run_check("jest", ["npm", "test"], workdir, env, 1800))
         return EvalReport(checks=tuple(checks))
 
 
 # ── Applier ───────────────────────────────────────────────────────────────────
-class GitApplier:
+class GitApplier(Applier):
     def __init__(self, repo: Path) -> None:
         self.repo = repo
 
@@ -218,7 +246,7 @@ class GitApplier:
 
 
 # ── RoundStore ────────────────────────────────────────────────────────────────
-class FsRoundStore:
+class FsRoundStore(RoundStore):
     def __init__(self, repo: Path) -> None:
         self.root = repo / ".planning" / "harness"
 
@@ -400,7 +428,7 @@ class UpstreamStore:
         return n
 
 
-class CompositeFindings:
+class CompositeFindings(FindingsSource):
     """Local Tesserae findings + pending upstream candidates (upstream root only).
 
     `local_findings` is a callable so tests can inject; production passes

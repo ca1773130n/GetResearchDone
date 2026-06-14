@@ -1102,9 +1102,11 @@ async function runPostPhasePipeline(
       };
     }
 
-    // Merge the PR via gh CLI
+    // Merge the PR via gh CLI. Do NOT pass --delete-branch: gh's local
+    // cleanup checks out the default branch, which is illegal inside a
+    // linked worktree ("fatal: 'main' is already used by worktree ...").
     try {
-      childProcess.execFileSync('gh', ['pr', 'merge', prUrl, '--merge', '--delete-branch'], {
+      childProcess.execFileSync('gh', ['pr', 'merge', prUrl, '--merge'], {
         cwd: wtPath,
         stdio: 'pipe',
         encoding: 'utf-8',
@@ -1116,6 +1118,35 @@ async function runPostPhasePipeline(
         prUrl,
         reason: String((mergeErr as { stderr?: string }).stderr || mergeErr),
       };
+    }
+
+    // Delete the remote branch without touching any local checkout.
+    execGit(wtPath, ['push', 'origin', '--delete', branch.stdout.trim()], {
+      allowBlocked: true,
+    });
+
+    // Reconcile the primary checkout's main with origin/main. The execute
+    // step merged the phase into local main (no-ff), but the PR merge just
+    // landed rebased SHAs plus simplify/review-fix commits on origin/main —
+    // without this, local main diverges every phase and the next wave's
+    // worktrees branch from a stale tree. Rebase fast-forwards when local
+    // main is simply behind, and drops the redundant local merge commit
+    // when diverged; autoStash protects dirty files in the primary tree.
+    const fetchResult = execGit(cwd, ['fetch', 'origin', 'main']);
+    if (fetchResult.exitCode === 0) {
+      const reconcile = execGit(cwd, [
+        '-c',
+        'rebase.autoStash=true',
+        'rebase',
+        'origin/main',
+        'main',
+      ]);
+      if (reconcile.exitCode !== 0) {
+        execGit(cwd, ['rebase', '--abort']);
+        log(
+          `Phase ${phaseNum}: WARNING — could not reconcile local main with origin/main (${reconcile.stderr.trim().split('\n')[0] || 'rebase failed'}); local main may be diverged`
+        );
+      }
     }
 
     log(`Phase ${phaseNum}: post-pipeline complete — merged ${prUrl}`);
