@@ -90,6 +90,7 @@ asking the human. All decisions MUST be logged for post-hoc review.
 ║    verification_design:   {on/off}                          ║
 ║    product_plan_approval: {on/off}                          ║
 ║    phase_plan_approval:   {on/off}                          ║
+║    plan_clarification:    {on/off}                          ║
 ║    execution_approval:    {on/off}                          ║
 ║                                                             ║
 ║  Confirmation gates:                                        ║
@@ -122,6 +123,7 @@ If action is `status`: stop here, display only.
        "verification_design": false,
        "product_plan_approval": false,
        "phase_plan_approval": false,
+       "plan_clarification": false,
        "execution_approval": false
      },
      "confirmation_gates": {
