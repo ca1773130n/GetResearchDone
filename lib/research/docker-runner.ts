@@ -178,7 +178,14 @@ interface SelectOpts {
 }
 
 function selectRunner(cwd: string, opts: SelectOpts = {}): import('./runner').Runner {
-  const timeoutMs = opts.timeoutMs ?? 120000;
+  // Default bumped 120s -> 600s (env-overridable via GRD_EXPERIMENT_TIMEOUT_MS).
+  // A correct but compute-heavy experiment can exceed 120s under machine load;
+  // hitting the cap SIGTERMs the script -> empty metrics -> spurious H4. This is
+  // the effective default (passed explicitly to the subprocess/docker runner).
+  const envTimeout = Number(process.env.GRD_EXPERIMENT_TIMEOUT_MS);
+  const timeoutMs =
+    opts.timeoutMs
+    ?? (Number.isFinite(envTimeout) && envTimeout > 0 ? envTimeout : 600000);
   const cfg = readSandboxConfig(cwd);
   if (cfg.mode !== 'docker') return createSubprocessRunner({ timeoutMs });
 

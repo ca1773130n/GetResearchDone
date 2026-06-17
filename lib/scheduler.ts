@@ -104,6 +104,12 @@ const _claudeAdapter: BackendAdapter = {
   binary: 'claude',
   buildArgs(prompt: string, opts: SpawnOpts): string[] {
     const args = ['-p', prompt, '--verbose', '--dangerously-skip-permissions'];
+    if (opts.strictMcp) {
+      // Skip filesystem MCP servers — they add startup/per-call latency the
+      // research agents don't need, and silent json-mode runs that load them
+      // can starve the idle watchdog (→ exit 143). See SpawnOpts.strictMcp.
+      args.push('--strict-mcp-config');
+    }
     if (opts.maxTurns) {
       args.push('--max-turns', String(opts.maxTurns));
     }

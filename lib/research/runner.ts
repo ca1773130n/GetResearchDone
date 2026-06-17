@@ -29,7 +29,15 @@ function classifyRunFailure(stderr: string, timedOut: boolean): FailureClass {
 }
 
 function createSubprocessRunner(opts: { timeoutMs?: number } = {}): Runner {
-  const timeoutMs = opts.timeoutMs ?? 120000;
+  // Default bumped 120s -> 600s and made env-overridable. A correct but
+  // compute-heavy experiment (numpy/scipy over a real graph) can exceed 120s,
+  // especially under machine load; hitting the cap yields SIGTERM -> empty
+  // metrics -> a spurious H4 "trajectory failure" / inconclusive verdict on a
+  // sound script. GRD_EXPERIMENT_TIMEOUT_MS lets callers tune it further.
+  const envTimeout = Number(process.env.GRD_EXPERIMENT_TIMEOUT_MS);
+  const timeoutMs =
+    opts.timeoutMs
+    ?? (Number.isFinite(envTimeout) && envTimeout > 0 ? envTimeout : 600000);
   return {
     run(plan: ExperimentPlan, threadDir: string): ExperimentResult {
       const scriptFile = path.isAbsolute(plan.scriptPath)

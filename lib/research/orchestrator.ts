@@ -170,7 +170,7 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
         + '(see docs/autoresearch-tutorial.md#prerequisites)',
       );
     }
-    const r = await scheduler.spawn(prompt, { agentType, model, captureOutput: true, cwd });
+    const r = await scheduler.spawn(prompt, { agentType, model, captureOutput: true, cwd, strictMcp: true });
     return decodeSpawnResult(r, agentType);
   };
 }

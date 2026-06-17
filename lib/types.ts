@@ -547,6 +547,16 @@ export interface SpawnOpts {
    * Optional for backward compatibility.
    */
   agentType?: string;
+  /**
+   * When true, spawn the backend CLI with `--strict-mcp-config` so it ignores
+   * filesystem MCP config and loads zero MCP servers (unless explicitly given
+   * via --mcp-config). The research loop sets this: its agents use built-in
+   * tools (Read/Grep/Glob/Bash/Write) and loading the dev MCP servers
+   * (context7/playwright/codegraph/etc.) only adds startup + per-call latency,
+   * which — under `--output-format json` (silent until done) — can starve the
+   * scheduler's idle watchdog and get the spawn SIGTERM'd (exit 143).
+   */
+  strictMcp?: boolean;
 }
 
 /**
