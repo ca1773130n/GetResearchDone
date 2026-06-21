@@ -116,10 +116,12 @@ describe('backend adapters', () => {
     it('detects rate limit', () => {
       expect(ADAPTERS.codex.isRateLimited(1, 'rate_limit_exceeded')).toBe(true);
     });
-    it('builds correct args', () => {
+    it('builds codex exec args (0.14x interface)', () => {
       const args = ADAPTERS.codex.buildArgs('test prompt', {});
-      expect(args).toContain('--prompt');
-      expect(args).toContain('--approval-mode');
+      expect(args[0]).toBe('exec');
+      expect(args).toContain('test prompt');
+      expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
+      expect(args).not.toContain('--approval-mode');
     });
   });
   describe('gemini adapter', () => {

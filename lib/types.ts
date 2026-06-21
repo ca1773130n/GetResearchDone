@@ -22,10 +22,19 @@ export type BackendId =
   | 'claude'
   | 'codex'
   | 'gemini'
+  | 'antigravity'
   | 'opencode'
   | 'overstory'
   | 'superpowers'
   | 'grd';
+
+/**
+ * Reasoning-effort level for a single backend spawn. Distinct from the
+ * project-level `EffortAxisLevel` (thrifty/balanced/deep) and the per-agent
+ * `EffortLevel` — this maps directly to backend CLI knobs (claude `--effort`,
+ * codex `model_reasoning_effort`). `max` is claude's top level; codex clamps it.
+ */
+export type SpawnEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 /**
  * Abstract model tiers mapped to backend-specific model names.
@@ -557,6 +566,19 @@ export interface SpawnOpts {
    * scheduler's idle watchdog and get the spawn SIGTERM'd (exit 143).
    */
   strictMcp?: boolean;
+  /**
+   * Reasoning effort for this spawn. Threaded to the backend CLI
+   * (claude `--effort`, codex `model_reasoning_effort`). Falls back to the
+   * GRD_EFFORT env carrier when unset. See lib/ultracode.ts.
+   */
+  effort?: SpawnEffort;
+  /**
+   * ultracode "max cost" mode: best model + max effort, and for the claude
+   * backend inject the literal `ultracode` keyword into the prompt so Claude
+   * Code's native dynamic-workflow orchestration activates. Falls back to the
+   * GRD_ULTRACODE env carrier when unset. See lib/ultracode.ts.
+   */
+  ultracode?: boolean;
 }
 
 /**

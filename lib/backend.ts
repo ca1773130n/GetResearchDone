@@ -62,6 +62,7 @@ const VALID_BACKENDS: readonly BackendId[] = [
   'claude',
   'codex',
   'gemini',
+  'antigravity',
   'opencode',
   'overstory',
   'superpowers',
@@ -84,6 +85,11 @@ const DEFAULT_BACKEND_MODELS: Record<BackendId, ModelTierMap> = {
     opus: 'gemini-3.1-pro',
     sonnet: 'gemini-3.1-flash',
     haiku: 'gemini-3.1-flash-lite',
+  },
+  antigravity: {
+    opus: 'gemini-3-pro',
+    sonnet: 'gemini-3-flash',
+    haiku: 'gemini-3-flash-lite',
   },
   opencode: {
     opus: 'anthropic/claude-opus-4-6',
@@ -140,6 +146,29 @@ const BACKEND_CAPABILITIES: Record<BackendId, BackendCapabilities> = {
     subagents: true,
     parallel: true,
     teams: false,
+    hooks: true,
+    mcp: true,
+    native_worktree_isolation: false,
+    effort: false,
+    http_hooks: false,
+    cron: false,
+    smart_approvals: false,
+    plan_mode: true,
+    sandbox_gvisor: true,
+    sandbox_lxc: false,
+    mcp_elicitation: false,
+    model_overrides: true,
+    max_output_tokens: null,
+  },
+  // Antigravity 2.0 (I/O 2026) — Gemini CLI successor with the shared
+  // Antigravity agent harness (multi-agent orchestration, subagent workflows,
+  // scheduled tasks, browser tools, sandbox). Probed against agy 1.0.10:
+  // `--sandbox`, `--dangerously-skip-permissions`, `--model`, plugins exist;
+  // there is NO reasoning-effort flag, so effort:false.
+  antigravity: {
+    subagents: true,
+    parallel: true,
+    teams: true,
     hooks: true,
     mcp: true,
     native_worktree_isolation: false,
@@ -744,7 +773,7 @@ const AVAILABILITY_CACHE_TTL_MS: number = 5 * 60 * 1000;
  * Dispatchable backends — the four CLIs that discussion.ts can spawn directly.
  * Meta-backends (overstory, superpowers, grd) are probed as unavailable.
  */
-const DISPATCHABLE_BACKENDS: readonly string[] = ['claude', 'codex', 'gemini', 'opencode'];
+const DISPATCHABLE_BACKENDS: readonly string[] = ['claude', 'codex', 'gemini', 'antigravity', 'opencode'];
 
 /**
  * Environment variable that controls the config directory for each backend CLI.
@@ -755,6 +784,14 @@ const BACKEND_CONFIG_ENV: Record<string, string> = {
   codex: 'CODEX_HOME',
   gemini: 'GEMINI_CLI_HOME',
   opencode: 'OPENCODE_CONFIG_DIR',
+};
+
+/**
+ * Backend id → CLI binary name, for ids whose executable differs from the id.
+ * Antigravity's Homebrew cask links its binary as `agy`. Defaults to the id.
+ */
+const BACKEND_BINARY: Record<string, string> = {
+  antigravity: 'agy',
 };
 
 /**
@@ -906,6 +943,7 @@ function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailab
     claude: unavailable,
     codex: unavailable,
     gemini: unavailable,
+    antigravity: unavailable,
     opencode: unavailable,
     overstory: unavailable,
     superpowers: unavailable,
@@ -914,7 +952,7 @@ function detectAvailableBackends(cwd?: string): Record<BackendId, BackendAvailab
 
   for (const backend of DISPATCHABLE_BACKENDS) {
     try {
-      const stdout: string = execFileSync(backend, ['--version'], {
+      const stdout: string = execFileSync(BACKEND_BINARY[backend] || backend, ['--version'], {
         cwd: effectiveCwd,
         timeout: probeTimeout,
         encoding: 'utf-8',

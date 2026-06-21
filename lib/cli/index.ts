@@ -8,6 +8,7 @@ export interface Flags {
   cwd?: string;
   backend?: string;
   model?: string;
+  ultracode?: boolean;
   positional: string[];
   passthrough: string[];
 }
@@ -242,6 +243,10 @@ export function parseFlags(argv: string[]): Flags {
       flags.backend = argv[++i];
     } else if (arg === '--model' && i + 1 < argv.length) {
       flags.model = argv[++i];
+    } else if (arg === '--ultracode' || arg === 'ultracode') {
+      // ultracode max-effort mode — accepted as a flag or a bare keyword.
+      // Swallowed here so it never leaks into a command's positional args.
+      flags.ultracode = true;
     } else if (arg.startsWith('--')) {
       flags.passthrough.push(arg);
       // If the next arg doesn't start with --, treat it as the value for this flag

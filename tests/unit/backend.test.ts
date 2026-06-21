@@ -90,15 +90,16 @@ describe('lib/backend.js', () => {
       expect(Array.isArray(VALID_BACKENDS)).toBe(true);
     });
 
-    test('contains exactly 7 backends', () => {
-      expect(VALID_BACKENDS).toHaveLength(7);
+    test('contains exactly 8 backends', () => {
+      expect(VALID_BACKENDS).toHaveLength(8);
     });
 
-    test('contains claude, codex, gemini, opencode, overstory, superpowers, grd', () => {
+    test('contains claude, codex, gemini, antigravity, opencode, overstory, superpowers, grd', () => {
       expect(VALID_BACKENDS).toEqual([
         'claude',
         'codex',
         'gemini',
+        'antigravity',
         'opencode',
         'overstory',
         'superpowers',
@@ -1751,11 +1752,11 @@ describe('lib/backend.js', () => {
       expect(result.codex.version).toBeNull();
     });
 
-    test('caching: second call does not re-probe (4 calls for 4 backends, not 8)', () => {
+    test('caching: second call does not re-probe (5 calls for 5 backends, not 10)', () => {
       mockedExecFileSync.mockReturnValue('1.0.0\n');
       mockedDetectAvailableBackends('/tmp');
       mockedDetectAvailableBackends('/tmp');
-      expect(mockedExecFileSync).toHaveBeenCalledTimes(4);
+      expect(mockedExecFileSync).toHaveBeenCalledTimes(5);
     });
 
     test('cache expiry: second call after TTL re-probes all backends', () => {
@@ -1763,13 +1764,13 @@ describe('lib/backend.js', () => {
       const realDateNow = Date.now;
 
       mockedDetectAvailableBackends('/tmp');
-      expect(mockedExecFileSync).toHaveBeenCalledTimes(4);
+      expect(mockedExecFileSync).toHaveBeenCalledTimes(5);
 
       // Advance time past the 5-minute TTL
       Date.now = (): number => realDateNow() + 6 * 60 * 1000;
       try {
         mockedDetectAvailableBackends('/tmp');
-        expect(mockedExecFileSync).toHaveBeenCalledTimes(8);
+        expect(mockedExecFileSync).toHaveBeenCalledTimes(10);
       } finally {
         Date.now = realDateNow;
       }

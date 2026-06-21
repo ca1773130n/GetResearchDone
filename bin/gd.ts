@@ -16,6 +16,7 @@ const {
     cwd?: string;
     backend?: string;
     model?: string;
+    ultracode?: boolean;
     positional: string[];
     passthrough: string[];
   };
@@ -53,6 +54,15 @@ const {
 } = require('../lib/cli/agent');
 
 const flags = parseFlags(process.argv.slice(2));
+
+// ultracode max-effort mode: set the process-tree env carrier so every spawn
+// downstream — the outer agent and its internal scheduler spawns (autopilot
+// pipeline, autoresearch loop) — runs at best-model + max effort. Set before
+// dispatch so both tool-path and agent-path commands inherit it.
+if (flags.ultracode) {
+  const { applyUltracodeEnv }: { applyUltracodeEnv: () => void } = require('../lib/ultracode');
+  applyUltracodeEnv();
+}
 
 // --version
 if (flags.version) {

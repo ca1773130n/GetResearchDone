@@ -21,6 +21,7 @@ import type {
   SchedulerSpawnResult,
   BudgetPressureLevel,
   BudgetPressureThresholds,
+  SpawnEffort,
 } from './types';
 import type * as childProcess from 'child_process';
 
@@ -30,6 +31,12 @@ const { waitUntilOrAbort } = require('./scheduler-wait') as {
 
 const { incrementCounter } = require('./metrics') as {
   incrementCounter: (name: string, delta?: number) => void;
+};
+
+const { resolveEffort, codexEffort, ULTRACODE_MODELS } = require('./ultracode') as {
+  resolveEffort: (opts: SpawnOpts) => { effort?: SpawnEffort; ultracode: boolean };
+  codexEffort: (level: SpawnEffort) => string;
+  ULTRACODE_MODELS: Record<string, string>;
 };
 
 // ─── Per-backend CLI Adapters ─────────────────────────────────────────────────
@@ -103,7 +110,11 @@ export function parseClaudeResult(stdout: string): ClaudeResult {
 const _claudeAdapter: BackendAdapter = {
   binary: 'claude',
   buildArgs(prompt: string, opts: SpawnOpts): string[] {
-    const args = ['-p', prompt, '--verbose', '--dangerously-skip-permissions'];
+    const { effort, ultracode } = resolveEffort(opts);
+    // ultracode: inject the literal keyword so Claude Code's native
+    // dynamic-workflow orchestration (multi-agent, internal phases) activates.
+    const finalPrompt = ultracode ? `ultracode\n\n${prompt}` : prompt;
+    const args = ['-p', finalPrompt, '--verbose', '--dangerously-skip-permissions'];
     if (opts.strictMcp) {
       // Skip filesystem MCP servers — they add startup/per-call latency the
       // research agents don't need, and silent json-mode runs that load them
@@ -113,8 +124,12 @@ const _claudeAdapter: BackendAdapter = {
     if (opts.maxTurns) {
       args.push('--max-turns', String(opts.maxTurns));
     }
-    if (opts.model) {
-      args.push('--model', opts.model);
+    const model = opts.model || (ultracode ? ULTRACODE_MODELS.claude : undefined);
+    if (model) {
+      args.push('--model', model);
+    }
+    if (effort) {
+      args.push('--effort', effort);
     }
     args.push('--output-format', 'json');
     return args;
@@ -144,10 +159,19 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
 
   codex: {
     binary: 'codex',
+    // Codex 0.14x non-interactive interface: `codex exec <prompt>` with
+    // sandbox/approvals bypassed for headless runs, `-m` for model, and
+    // `-c model_reasoning_effort=` for reasoning effort. (Replaces the old
+    // `codex --prompt … --approval-mode full-auto`, removed upstream.)
     buildArgs(prompt: string, opts: SpawnOpts): string[] {
-      const args = ['--prompt', prompt, '--approval-mode', 'full-auto'];
-      if (opts.model) {
-        args.push('--model', opts.model);
+      const { effort, ultracode } = resolveEffort(opts);
+      const args = ['exec', prompt, '--dangerously-bypass-approvals-and-sandbox', '--json'];
+      const model = opts.model || (ultracode ? ULTRACODE_MODELS.codex : undefined);
+      if (model) {
+        args.push('-m', model);
+      }
+      if (effort) {
+        args.push('-c', `model_reasoning_effort=${codexEffort(effort)}`);
       }
       return args;
     },
@@ -163,14 +187,43 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
   gemini: {
     binary: 'gemini',
     buildArgs(prompt: string, opts: SpawnOpts): string[] {
+      const { ultracode } = resolveEffort(opts);
       const args = ['-p', prompt, '--sandbox', 'off'];
-      if (opts.model) {
-        args.push('--model', opts.model);
+      const model = opts.model || (ultracode ? ULTRACODE_MODELS.gemini : undefined);
+      if (model) {
+        args.push('--model', model);
       }
       return args;
     },
     parseTokenUsage(stderr: string): number | null {
       const match = stderr.match(/tokenCount["\s:]*(\d+)/);
+      return match ? parseInt(match[1], 10) : null;
+    },
+    isRateLimited(_exitCode: number, stderr: string): boolean {
+      return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr);
+    },
+  },
+
+  // Antigravity CLI (Google I/O 2026) — successor to the Gemini CLI, sharing
+  // the Antigravity 2.0 agent harness. Binary is `agy` (Homebrew cask link).
+  // Verified against agy 1.0.10: `-p <prompt>` runs a single prompt
+  // non-interactively, `--dangerously-skip-permissions` auto-approves tools,
+  // `--model` selects the model. The CLI exposes NO reasoning-effort or JSON
+  // flag, so under ultracode antigravity only gets the best model (if a
+  // verified name is configured) — there is no effort knob to turn up.
+  antigravity: {
+    binary: 'agy',
+    buildArgs(prompt: string, opts: SpawnOpts): string[] {
+      const { ultracode } = resolveEffort(opts);
+      const args = ['-p', prompt, '--dangerously-skip-permissions'];
+      const model = opts.model || (ultracode ? ULTRACODE_MODELS.antigravity : undefined);
+      if (model) {
+        args.push('--model', model);
+      }
+      return args;
+    },
+    parseTokenUsage(stderr: string): number | null {
+      const match = stderr.match(/(?:tokenCount|total_tokens)["\s:]*(\d+)/i);
       return match ? parseInt(match[1], 10) : null;
     },
     isRateLimited(_exitCode: number, stderr: string): boolean {
@@ -223,6 +276,7 @@ export const ENV_VAR_MAP: Record<AdapterBackendId, string> = {
   claude: 'CLAUDE_CONFIG_DIR',
   codex: 'CODEX_HOME',
   gemini: 'GEMINI_CLI_HOME',
+  antigravity: 'ANTIGRAVITY_HOME',
   opencode: 'OPENCODE_CONFIG_DIR',
   overstory: 'OVERSTORY_HOME',
 };

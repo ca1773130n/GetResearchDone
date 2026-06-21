@@ -102,6 +102,21 @@ each account's `config_dir` is injected as `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, so
 use **absolute** paths (`~` is not expanded). `gd accounts sync` populates this
 from a local ai-accounts store. Full walkthrough: `docs/autoresearch-tutorial.md`.
 
+`ultracode` (max-effort mode): pass `--ultracode` or a bare `ultracode` keyword
+to any agent command (`gd autopilot ultracode`, `gd execute-phase N --ultracode`,
+`gd quick`, `gd research`). It sets the `GRD_ULTRACODE`/`GRD_EFFORT=max` env
+carrier (propagates through the whole process tree), so every spawn runs at best
+model + max reasoning effort. Per-backend (`lib/ultracode.ts` + scheduler
+adapters): claude → `--effort max` + opus, and the literal `ultracode` keyword is
+injected into the prompt so Claude Code's native dynamic-workflow orchestration
+fires; codex → `model_reasoning_effort=xhigh` + gpt-5.5 (codex adapter now uses
+the 0.14x `codex exec` interface); antigravity → adapter for the Antigravity
+CLI (Gemini-CLI successor; binary is **`agy`**, installed via `brew install
+antigravity-cli`). agy has no reasoning-effort or JSON flag, so ultracode only
+sets the account-default model — the spawn is `agy -p <prompt>
+--dangerously-skip-permissions [--model …]`. agy needs interactive Google
+sign-in (`agy` with no args) before non-interactive `-p` runs work.
+
 ## Gotchas
 
 - **Never create test/scratch artifacts in the repo.** Run live `gd research` /
