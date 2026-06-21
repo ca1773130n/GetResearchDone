@@ -5,6 +5,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-06-21
+
+ultracode max-effort mode + codex 0.14x exec + Antigravity backend.
+
+### Added
+- **ultracode max-effort mode** (`lib/ultracode.ts`): `--ultracode` flag or a
+  bare `ultracode` keyword on any agent command (`autopilot`, `execute-phase`,
+  `quick`, `research`) forces best model + maximum reasoning effort. Carried via
+  a `GRD_ULTRACODE`/`GRD_EFFORT=max` env that propagates through the whole
+  process tree (outer agent + internal scheduler spawns), so it reaches deep
+  autopilot-pipeline and autoresearch-loop spawns without per-command threading.
+  Per backend: claude → `--effort max` + opus, plus the literal `ultracode`
+  keyword injected into the prompt so Claude Code's native dynamic-workflow
+  orchestration fires; codex → `model_reasoning_effort=xhigh` + gpt-5.5.
+- **Antigravity backend** (Google's Antigravity CLI, the Gemini-CLI successor):
+  binary `agy` (`brew install antigravity-cli`). Wired through the scheduler
+  adapter, a `BACKEND_BINARY` id→binary map, availability probe, capabilities,
+  and `ENV_VAR_MAP`. Verified end-to-end against agy 1.0.10. agy exposes no
+  reasoning-effort or JSON flag, so ultracode there only sets the
+  account-default model.
+- `SpawnEffort` type and `SpawnOpts.{effort,ultracode}`.
+
+### Changed
+- **Codex adapter rewritten** to the 0.14x `codex exec` interface
+  (`codex exec <prompt> --dangerously-bypass-approvals-and-sandbox --json -m … -c
+  model_reasoning_effort=…`). The previous `codex --prompt … --approval-mode
+  full-auto` form was removed upstream and no longer worked.
+
+### Fixed
+- Backend availability probe now resolves the real binary name via
+  `BACKEND_BINARY`, so backends whose executable differs from their id (e.g.
+  antigravity → `agy`) are detected correctly.
+
 ## [0.4.5] - 2026-06-14
 
 autoresearch-core conformance + planning-time clarification + Tesserae 0.9.0 wiring.
