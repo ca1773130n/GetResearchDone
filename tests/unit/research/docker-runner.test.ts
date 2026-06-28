@@ -96,10 +96,13 @@ describe('readSandboxConfig', () => {
     fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
     return d;
   }
-  it('defaults to subprocess mode with no config', () => {
+  it('defaults to auto mode with no config (missing config = unset default)', () => {
     expect(dr.readSandboxConfig(tmp())).toEqual({
-      mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none',
+      mode: 'auto', image: null, memory: '512m', cpus: '1', network: 'none',
     });
+  });
+  it('treats null research_sandbox as auto mode', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: null })).mode).toBe('auto');
   });
   it('reads docker mode and validated knobs', () => {
     const c = dr.readSandboxConfig(cfgDir({
@@ -117,6 +120,16 @@ describe('readSandboxConfig', () => {
   });
   it('treats an unknown mode as subprocess', () => {
     expect(dr.readSandboxConfig(cfgDir({ research_sandbox: 'vm' })).mode).toBe('subprocess');
+  });
+  it('treats an unset research_sandbox key as auto mode', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_max_candidates: 3 })).mode).toBe('auto');
+  });
+  it('treats empty-string and "auto" research_sandbox as auto mode', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: '' })).mode).toBe('auto');
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: 'auto' })).mode).toBe('auto');
+  });
+  it('keeps explicit subprocess mode', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: 'subprocess' })).mode).toBe('subprocess');
   });
 });
 
@@ -168,7 +181,7 @@ describe('createDockerRunner.run', () => {
 
   it('classifies a failing run via stderr', () => {
     const t = thread();
-    const exec = () => { const e: any = new Error('boom'); e.status = 1; e.stderr = 'ModuleNotFoundError: x'; throw e; };
+    const exec = () => { throw Object.assign(new Error('boom'), { status: 1, stderr: 'ModuleNotFoundError: x' }); };
     const res = dr.createDockerRunner({ exec }).run(plan({ language: 'python', scriptPath: 'experiments/0/run.sh' }), t.threadDir);
     expect(res.runner).toBe('docker');
     expect(res.exitCode).toBe(1);
@@ -190,7 +203,7 @@ describe('createDockerRunner.run', () => {
     const calls: string[][] = [];
     const exec = (args: string[]) => {
       calls.push(args);
-      if (args[0] === 'run') { const e: any = new Error('timeout'); e.signal = 'SIGTERM'; e.stdout = ''; throw e; }
+      if (args[0] === 'run') { throw Object.assign(new Error('timeout'), { signal: 'SIGTERM', stdout: '' }); }
       return '';
     };
     const res = dr.createDockerRunner({ exec }).run(plan(), t.threadDir);
@@ -203,7 +216,7 @@ describe('createDockerRunner.run', () => {
   it('swallows a throw from the cleanup rm call', () => {
     const t = thread();
     const exec = (args: string[]) => {
-      if (args[0] === 'run') { const e: any = new Error('timeout'); e.signal = 'SIGTERM'; throw e; }
+      if (args[0] === 'run') { throw Object.assign(new Error('timeout'), { signal: 'SIGTERM' }); }
       throw new Error('rm failed too');
     };
     expect(() => dr.createDockerRunner({ exec }).run(plan(), t.threadDir)).not.toThrow();
@@ -216,12 +229,12 @@ describe('selectRunner', () => {
     fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
     return d;
   }
-  it('returns subprocess runner and never probes when mode is subprocess', () => {
+  it('missing config defaults to auto and probes docker', () => {
     let probed = false;
     const exec = () => { probed = true; return '24'; };
     const r = dr.selectRunner(tmp(), { timeoutMs: 1000, exec });
     expect(typeof r.run).toBe('function');
-    expect(probed).toBe(false);
+    expect(probed).toBe(true);
   });
   it('returns a docker runner when docker is configured and available', () => {
     const cwd = cfgDir({ research_sandbox: 'docker' });
@@ -238,5 +251,33 @@ describe('selectRunner', () => {
     const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec, warn: (m: string) => warnings.push(m) });
     expect(typeof r.run).toBe('function');
     expect(warnings.join('')).toMatch(/UNSANDBOXED/);
+  });
+  it('auto mode (unset key) probes and uses docker when available', () => {
+    const cwd = cfgDir({ research_max_candidates: 3 }); // research_sandbox unset -> auto
+    const calls: string[][] = [];
+    const exec = (args: string[]) => { calls.push(args); return '24.0\n'; };
+    const warnings: string[] = [];
+    const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec, warn: (m: string) => warnings.push(m) });
+    expect(typeof r.run).toBe('function');
+    expect(calls.some((a) => a[0] === 'version')).toBe(true); // probed once
+    expect(warnings.join('')).toBe(''); // no degrade when docker present
+  });
+  it('auto mode falls back to subprocess with a loud UNSANDBOXED warning when docker is absent', () => {
+    const cwd = cfgDir({ research_sandbox: 'auto' });
+    const warnings: string[] = [];
+    const exec = () => { throw new Error('no daemon'); };
+    const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec, warn: (m: string) => warnings.push(m) });
+    expect(typeof r.run).toBe('function');
+    expect(warnings.join('')).toMatch(/UNSANDBOXED/);
+  });
+  it('explicit subprocess mode never probes and never auto-upgrades', () => {
+    const cwd = cfgDir({ research_sandbox: 'subprocess' });
+    let probed = false;
+    const exec = () => { probed = true; return '24'; };
+    const warnings: string[] = [];
+    const r = dr.selectRunner(cwd, { timeoutMs: 1000, exec, warn: (m: string) => warnings.push(m) });
+    expect(typeof r.run).toBe('function');
+    expect(probed).toBe(false);
+    expect(warnings.join('')).toBe('');
   });
 });

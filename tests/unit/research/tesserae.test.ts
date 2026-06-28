@@ -39,10 +39,13 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(res.status).toBe('compiled');
     const call = calls[0];
     expect(call[0]).toBe('tesserae');
+    // tesserae 0.11.0: bare extraction moved to the `extract` subcommand.
+    expect(call[1]).toBe('extract');
     expect(call).toContain('--sqlite-output');
     expect(call).toContain('--changed-only');
     expect(call).toContain('--canonicalize');
-    expect(call).toContain('--distill');
+    // --distill is a compile-only flag in 0.11.0; `extract` rejects it.
+    expect(call).not.toContain('--distill');
     expect(call.join(' ')).toContain('.tesserae/graph.json');
   });
 

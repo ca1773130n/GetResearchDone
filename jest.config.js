@@ -80,6 +80,9 @@ module.exports = {
     './lib/research/embedder.ts': { lines: 90, functions: 100, branches: 75 },
     './lib/research/paper.ts': { lines: 90, functions: 100, branches: 70 },
     './lib/research/portfolio.ts': { lines: 90, functions: 90, branches: 60 },
+    './lib/research/verify-citations.ts': { lines: 90, functions: 100, branches: 85 },
+    './lib/research/bench-calibration.ts': { lines: 95, functions: 100, branches: 90 },
+    './lib/research/reconstructability.ts': { lines: 95, functions: 100, branches: 90 },
   },
   testTimeout: 15000,
 };

@@ -230,7 +230,10 @@ Tesserae 0.9.0 distills cross-session `Runbook` (procedures) and `Gotcha`
 as high-signal evidence (alongside raw session findings), and the hybrid
 retriever surfaces them automatically once they're in the graph. To populate
 them, set `distillation.enabled: true` in your Tesserae project config (or run
-`tesserae refresh` with distillation), then run a harness round. If a round skips
+`tesserae refresh` with distillation), then run a harness round. To keep stale
+playbooks out of a round, set `harness.distillation_max_age_days` (integer;
+default off) in `.planning/config.json` — distilled `Runbook`/`Gotcha` evidence
+older than N days is dropped before the round selects evidence. If a round skips
 with "not enough evidence", run `tesserae config status` — a rate-limited backend
 can silently cache empty extractions, which 0.9.0 now reports loudly.
 
@@ -284,6 +287,12 @@ directory is mounted, no network, read-only rootfs, dropped capabilities,
 non-root, and CPU/memory/pid caps. **If Docker isn't available it degrades to the
 subprocess runner with a loud `UNSANDBOXED` warning** — and `result.json` records
 which runner actually ran, so you can always tell.
+
+When `research_sandbox` is unset it defaults to `"auto"`: Docker is used when a
+usable binary is present, otherwise the loop falls back to the subprocess runner
+and prints the same loud `UNSANDBOXED`-on-host warning — so the default path is
+never silently un-sandboxed. Set `"docker"` to force the container or
+`"subprocess"` to always run on the host.
 
 ### 3.4 Run a portfolio of threads
 
@@ -382,7 +391,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | `research_max_resurveys` | `2` | Max re-surveys per thread (`0` disables). |
 | `research_resurvey_fetch` | `false` | On re-survey, fetch + ingest up to 3 new sources first. |
 | `research_portfolio_concurrency` | `2` | Bounded concurrency for `gd research portfolio`. |
-| `research_sandbox` | `"subprocess"` | `"docker"` to isolate experiment scripts (degrades to subprocess if Docker is unavailable). |
+| `research_sandbox` | `"auto"` | `"docker"` \| `"subprocess"` \| `"auto"`. `"auto"` (the unset default) uses Docker when a usable binary is present, else falls back to subprocess **and prints a visible `UNSANDBOXED`-on-host warning**. `"docker"` forces the container (still degrades to subprocess + warning if Docker is unavailable); `"subprocess"` always runs on the host. |
 | `research_sandbox_image` | slim defaults | Container image (`python:3.12-slim` / `bash:5` by language). |
 | `research_sandbox_memory` / `_cpus` | `"512m"` / `"1"` | Container resource caps. |
 | `research_sandbox_network` | `"none"` | `"bridge"` to allow network inside the container. |

@@ -3,7 +3,50 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.7] - 2026-06-28
+
+Autoresearch gap-fixes (see `docs/autoresearch-gap-analysis-2026-06.md`).
+
+### Added
+- **`research_sandbox: "auto"`** — `research_sandbox` now accepts `docker |
+  subprocess | auto`, and `auto` is the unset default. It uses Docker when a
+  usable binary is present, otherwise falls back to the subprocess runner **and
+  prints a visible `UNSANDBOXED`-on-host warning** on that default path
+  (previously the unset default was a silent subprocess). `lib/research/docker-runner.ts`.
+- **`harness.distillation_max_age_days`** (integer; default off/unset): drops
+  distilled `Runbook`/`Gotcha` evidence older than N days before a life-harness
+  round selects evidence. `bin/harness_driver.py`.
+- **Three off-control-path research primitives** in `lib/research/` — all
+  advisory; none gate the verdict or the paper:
+  - `verifyCitations(paperMd, bundle)` (`verify-citations.ts`) — deterministically
+    resolves cited names/sources against the assembled bundle/KG and flags
+    unresolved/likely-fabricated citations; advisory only, never blocks the paper.
+  - `scoreReconstructability(...)` (`reconstructability.ts`) — cheap
+    structural-completeness score (script present + non-empty, valid metric spec,
+    recognized language, runner metadata) reported at FINALIZE, never gating.
+  - `runBenchCalibration({ runner, ... })` (`bench-calibration.ts`) —
+    smoke-calibrates the runner + verdict against one tiny RE-bench-style task.
+- **Portfolio FDR + early-stop** (`portfolio.ts`): presentational `fdr_flag` on
+  supported winners (Benjamini–Hochberg, only when entries carry a p-value);
+  optional `stopOnFirstSupported` early-stop (default off).
+- **Keyless local embeddings** (`embedder.ts`): supports a keyless
+  OpenAI-compatible endpoint when `GRD_EMBED_URL` is set (empty `Authorization`).
+- **Harness lineage**: `RoundRecord.parent_sha` (= the prior applied_sha),
+  populated by `bin/harness_driver.py`.
+
+### Changed
+- **`embedder.ts`** now warns once on the no-key degrade instead of silently
+  dropping semantic retrieval.
+
+### Fixed
+- **Tesserae 0.11.0 compatibility** (`lib/research/tesserae.ts`): research-corpus
+  ingest now invokes `tesserae extract <paths>` — 0.11.0 retired the bare
+  `tesserae <paths>` form ("bare extraction has moved → tesserae extract"). The
+  `--distill` flag is dropped (now a project `compile`/`refresh` concern,
+  unsupported by `extract`), fixing `gd ingest` and `research-kb-cli` integration.
+- **VERSION** synced to match `package.json`/`.claude-plugin/plugin.json`, and two
+  pre-existing `no-useless-assignment` lint errors cleared (`account-discovery.ts`,
+  `commands/accounts.ts`).
 
 ## [0.4.6] - 2026-06-21
 

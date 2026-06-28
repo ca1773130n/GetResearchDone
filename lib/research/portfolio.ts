@@ -13,6 +13,7 @@ const { retrieve } = require('./retrieve') as { retrieve: (cwd: string, q: strin
 const { defaultEmbedder } = require('./embedder') as { defaultEmbedder: () => (texts: string[]) => Promise<number[][] | null> };
 const { createCliTesseraeClient } = require('./tesserae') as { createCliTesseraeClient: () => TesseraeClient };
 const { loadConfig } = require('./../utils') as { loadConfig: (cwd: string) => Record<string, unknown> };
+const { benjaminiHochberg } = require('../commands/patterns') as { benjaminiHochberg: (pvalues: number[]) => number[] };
 
 type Task<T> = () => Promise<T>;
 export type Mutex = <T>(fn: Task<T>) => Promise<T>;
@@ -27,13 +28,20 @@ function createMutex(): Mutex {
   };
 }
 
-/** Run `fn` over `items` with at most `limit` (>=1) concurrent; results preserve input order. */
-async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+/**
+ * Run `fn` over `items` with at most `limit` (>=1) concurrent; results preserve input order.
+ * Optional `shouldStop` is checked before each worker claims its next item: once it returns true,
+ * queued-but-unstarted items are skipped (their result slots stay empty) — in-flight items finish.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[], limit: number, fn: (item: T, index: number) => Promise<R>, shouldStop?: () => boolean,
+): Promise<R[]> {
   const n = Math.max(1, Math.floor(Number.isFinite(limit) ? limit : 1));
   const results: R[] = new Array(items.length);
   let next = 0;
   async function worker(): Promise<void> {
     while (next < items.length) {
+      if (shouldStop && shouldStop()) return;
       const i = next++;
       results[i] = await fn(items[i], i);
     }
@@ -55,7 +63,13 @@ export type PortfolioAction = 'ran' | 'paused' | 'skipped-terminal' | 'skipped-i
 export interface PortfolioEntry {
   id: string; question: string; status: string; verdict: Verdict | null; iterations: number;
   action: PortfolioAction; error?: string;
+  /** Optional raw p-value carrier (Gap 3). Deterministic verdicts have none; present only if an
+   *  upstream supplies one. When set on a 'supported' winner it feeds the presentational FDR flag. */
+  raw_p?: number;
 }
+
+/** q-value at/above which a 'supported' winner is treated as FDR-borderline (Gap 3, presentational). */
+const FDR_Q = 0.05;
 
 const TERMINAL = new Set(['supported', 'exhausted', 'abandoned']); // mirrors resumeResearch
 const STATUS_RANK: Record<string, number> = { supported: 0, paused: 1, active: 2, exhausted: 3, error: 4, abandoned: 4 };
@@ -83,17 +97,33 @@ function rankEntries(entries: PortfolioEntry[]): PortfolioEntry[] {
 function buildPortfolioReport(ranked: PortfolioEntry[]): string {
   const rows = ranked.map((e, i) =>
     `| ${i + 1} | ${e.id} | ${e.status} | ${e.verdict ?? '—'} | ${e.iterations} | ${e.action}${e.error ? ` (${e.error})` : ''} | ${e.question} |`);
-  const winners = ranked.filter((e) => e.status === 'supported').map((e) => e.id);
-  return [
+  const winnerEntries = ranked.filter((e) => e.status === 'supported');
+  const winners = winnerEntries.map((e) => e.id);
+  const lines = [
     '# Research Portfolio',
     '',
     `supported: ${winners.length ? winners.join(', ') : '(none)'}`,
+  ];
+  // Gap 3 (presentational FDR flag): GRD's verdicts are deterministic single-shot, so they carry
+  // NO p-value — we never invent one. Only when a supported winner actually carries a `raw_p` do we
+  // run the existing Benjamini-Hochberg primitive over those winners and flag the borderline ones
+  // (FDR-corrected q at/above FDR_Q). This is telemetry beside the verdict, never authoritative.
+  const withP = winnerEntries.filter((e) => typeof e.raw_p === 'number');
+  if (withP.length) {
+    const q = benjaminiHochberg(withP.map((e) => e.raw_p as number));
+    const flagged = withP.filter((_e, i) => q[i] >= FDR_Q).map((e) => e.id);
+    lines.push(`fdr_flag (q ≥ ${FDR_Q}): ${flagged.length ? flagged.join(', ') : '(none)'}`);
+  }
+  // ponytail: no `withP` → no fdr_flag line at all (ceiling: deterministic verdicts have no
+  // p-value to correct, so the honest move is to omit the marker rather than fabricate one).
+  lines.push(
     '',
     '| # | thread | status | verdict | iters | action | question |',
     '| --- | --- | --- | --- | --- | --- | --- |',
     ...rows,
     '',
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 type ResumeFn = (cwd: string, id: string, opts: Record<string, unknown>) => Promise<{ threadId: string; status: string; iterations: number; verdict?: Verdict }>;
@@ -104,6 +134,8 @@ export interface PortfolioResult {
 interface PortfolioOpts {
   ids?: string[]; topicId?: string; concurrency?: number; force?: boolean; noGates?: boolean;
   resume?: ResumeFn; client?: TesseraeClient;
+  /** Gap 5: when true, once a thread returns 'supported', skip queued-but-unstarted seeds. */
+  stopOnFirstSupported?: boolean;
 }
 
 function threadsRoot(cwd: string): string { return path.join(cwd, '.planning/research/threads'); }
@@ -168,9 +200,13 @@ async function runPortfolio(cwd: string, opts: PortfolioOpts = {}): Promise<Port
   const deps = { spawn, retrieve: retrieveFn, kgClient, noGates };
 
   // 4. Run runnables with bounded concurrency; each in a failure-isolating envelope.
-  const ranEntries: PortfolioEntry[] = await mapWithConcurrency(runnable, concurrency, async (r) => {
+  //    Gap 5: early-stop — once any thread returns 'supported', skip queued-but-unstarted seeds.
+  const stopOnFirstSupported = opts.stopOnFirstSupported === true;
+  let stop = false;
+  const ranResults = await mapWithConcurrency(runnable, concurrency, async (r) => {
     try {
       const res = await resume(cwd, r.id, deps);
+      if (stopOnFirstSupported && res.status === 'supported') stop = true;
       return {
         id: r.id, question: r.question, status: res.status, verdict: latestVerdict(cwd, r.id),
         iterations: res.iterations, action: res.status === 'paused' ? 'paused' : 'ran',
@@ -179,7 +215,9 @@ async function runPortfolio(cwd: string, opts: PortfolioOpts = {}): Promise<Port
       const msg = e instanceof Error ? e.message : String(e); // a non-Error throw must not escape the envelope
       return { id: r.id, question: r.question, status: 'error', verdict: null, iterations: 0, action: 'failed', error: msg } as PortfolioEntry;
     }
-  });
+  }, stopOnFirstSupported ? () => stop : undefined);
+  // Sparse slots for early-skipped seeds are dropped here (filter skips array holes).
+  const ranEntries: PortfolioEntry[] = ranResults.filter((e) => e !== undefined);
 
   // 5. Aggregate + rank + write report (write is the only step allowed to throw → CLI exit 1).
   const all = rankEntries([...ranEntries, ...skipped]);

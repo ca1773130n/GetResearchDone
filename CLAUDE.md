@@ -81,17 +81,21 @@ LLM-judged scoring on the control path. Grounds on a Tesserae knowledge graph
 (reusable procedures) and `Gotcha` (failure modes) nodes — as evidence (mapped to
 `takeaway`/`insight`, content prefixed `[runbook]`/`[gotcha]`; `Event` nodes are
 skipped). Enable it by setting `distillation.enabled: true` in the Tesserae
-project config so `tesserae refresh` populates those nodes; GRD's own `tesserae
-compile` passes `--distill`. When findings come back empty, GRD points at
+project config so `tesserae refresh` populates those nodes (GRD's research-corpus
+ingest uses `tesserae extract` as of tesserae 0.11.0, which dropped `--distill` —
+distillation is now a project `compile`/`refresh` concern). When findings come back empty, GRD points at
 `tesserae config status` (0.9.0 surfaces rate-limited/silent extraction). The scheduler
 does account rotation + rate-limit detection (claude reports limits/logged-out as
 exit-0 JSON — detected via `detectFromStdout`). Top-level `.planning/config.json`
 keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 `research_plateau_window`, `research_resurvey_fetch`, `research_portfolio_concurrency`,
-`research_sandbox` (+ `_image`/`_memory`/`_cpus`/`_network`),
+`research_sandbox` (`docker`/`subprocess`/`auto` — `auto`, the unset default, uses
+docker when available else subprocess with a visible UNSANDBOXED warning;
++ `_image`/`_memory`/`_cpus`/`_network`),
 `research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`;
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 `min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,
+`distillation_max_age_days` (drop runbook/gotcha evidence older than N days),
 `upstream_emit`, `upstream_root`, `upstream_ttl_days`).
 `research_gates.plan_clarification` (default on) makes `plan-phase` ask the user
 via AskUserQuestion to resolve ambiguous, unlocked design/implementation

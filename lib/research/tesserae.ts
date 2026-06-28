@@ -63,7 +63,11 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       if (!available) return { status: 'skipped_no_tesserae', detail: 'tesserae CLI not found', graphPath: null };
       fs.mkdirSync(tesseraeDir(cwd), { recursive: true });
       const graph = graphJsonPath(cwd);
-      const args = [...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize', '--distill'];
+      // tesserae 0.11.0 retired the bare `tesserae <paths>` form ("bare extraction
+      // has moved → tesserae extract <paths>"). --distill is now a compile-only flag,
+      // unsupported by `extract`, so it is dropped here (distilled memory is populated
+      // by `tesserae refresh`/`compile --distill` at the project level, not corpus extract).
+      const args = ['extract', ...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize'];
       try {
         run('tesserae', args, cwd);
         return { status: 'compiled', detail: 'compiled', graphPath: graph };

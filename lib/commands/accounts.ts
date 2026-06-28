@@ -49,7 +49,7 @@ async function cmdAccountsSync(cwd: string, opts: { dryRun: boolean; raw: boolea
 
   const defaultBackend = kinds.includes('claude') ? 'claude' : kinds[0];
   const cfgPath = path.join(cwd, '.planning/config.json');
-  let cfg: Record<string, unknown> = {};
+  let cfg: Record<string, unknown>;
   try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')) as Record<string, unknown>; } catch { cfg = {}; }
 
   cfg.superpowers = {

@@ -95,6 +95,18 @@ describe('generatePaper', () => {
     const res = await generatePaper(cwd, id, { spawn });
     expect(res.paperPath).toBe(path.join(cwd, '.planning/research/threads', id, 'PAPER.md'));
     expect(fs.readFileSync(res.paperPath, 'utf8')).toContain('# Draft');
+    expect(res.citations).toEqual({ total: 0, resolved: 0, unresolved: [] });
+  });
+
+  it('attaches advisory citation verification without altering the written paper', async () => {
+    const cwd = tmp();
+    const id = fixtureThread(cwd);
+    const retrieve = async () => ({ results: [{ name: 'RAG', description: 'd', source_path: 'corpus/x.md' }] });
+    const spawn = async () => '__PAPER__\n# Draft\nWe build on [RAG] but not [Imaginary2099].';
+    const res = await generatePaper(cwd, id, { spawn, retrieve });
+    expect(res.citations).toEqual({ total: 2, resolved: 1, unresolved: ['Imaginary2099'] });
+    // the paper markdown itself is unchanged by the (report-only) verification
+    expect(fs.readFileSync(res.paperPath, 'utf8')).toContain('[RAG]');
   });
   it('errors on a non-terminal thread (spawn not called)', async () => {
     const cwd = tmp();

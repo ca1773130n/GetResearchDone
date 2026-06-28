@@ -60,11 +60,21 @@ function buildDockerArgs(p: DockerArgParams): string[] {
 }
 
 interface SandboxConfig {
-  mode: 'subprocess' | 'docker';
+  mode: 'subprocess' | 'docker' | 'auto';
   image: string | null;
   memory: string;
   cpus: string;
   network: 'none' | 'bridge';
+}
+
+// Resolve the configured research_sandbox value to a sandbox mode.
+// - 'docker'                   -> always docker (explicit; behavior unchanged)
+// - unset / null / '' / 'auto' -> 'auto': prefer docker when available, else subprocess
+// - explicit 'subprocess' (and any unrecognized value) -> subprocess (unchanged)
+function resolveSandboxMode(value: unknown): SandboxConfig['mode'] {
+  if (value === 'docker') return 'docker';
+  if (value === undefined || value === null || value === '' || value === 'auto') return 'auto';
+  return 'subprocess';
 }
 
 function readSandboxConfig(cwd: string): SandboxConfig {
@@ -75,14 +85,17 @@ function readSandboxConfig(cwd: string): SandboxConfig {
       research_sandbox_network?: unknown;
     };
     return {
-      mode: raw.research_sandbox === 'docker' ? 'docker' : 'subprocess',
+      mode: resolveSandboxMode(raw.research_sandbox),
       image: validateImage(raw.research_sandbox_image),
       memory: validateMemory(raw.research_sandbox_memory),
       cpus: validateCpus(raw.research_sandbox_cpus),
       network: raw.research_sandbox_network === 'bridge' ? 'bridge' : 'none',
     };
   } catch {
-    return { mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none' };
+    // A missing/unreadable config.json is the unset default → 'auto' (probe docker,
+    // else subprocess with a visible UNSANDBOXED warning), so the safety warning
+    // shows on every default path — not only when a config file happens to exist.
+    return { mode: 'auto', image: null, memory: '512m', cpus: '1', network: 'none' };
   }
 }
 
@@ -187,12 +200,17 @@ function selectRunner(cwd: string, opts: SelectOpts = {}): import('./runner').Ru
     opts.timeoutMs
     ?? (Number.isFinite(envTimeout) && envTimeout > 0 ? envTimeout : 600000);
   const cfg = readSandboxConfig(cwd);
-  if (cfg.mode !== 'docker') return createSubprocessRunner({ timeoutMs });
+  // Explicit 'subprocess' (and unrecognized values) never probe and never upgrade.
+  if (cfg.mode === 'subprocess') return createSubprocessRunner({ timeoutMs });
 
+  // Both 'docker' (explicit) and 'auto' (unset/''/'auto') probe once for a usable
+  // docker binary; either way, a missing binary degrades to subprocess loudly.
   const exec = opts.exec || defaultExec;
   const warn = opts.warn || ((m: string) => { process.stderr.write(m); });
   if (!dockerAvailable(exec, 5000)) {
-    warn('[research] docker sandbox requested but unavailable — running UNSANDBOXED on host\n');
+    warn(cfg.mode === 'docker'
+      ? '[research] docker sandbox requested but unavailable — running UNSANDBOXED on host\n'
+      : '[research] no docker available for sandbox — running UNSANDBOXED on host\n');
     return createSubprocessRunner({ timeoutMs });
   }
   const user = typeof process.getuid === 'function'

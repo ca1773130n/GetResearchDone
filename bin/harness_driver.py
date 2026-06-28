@@ -34,7 +34,15 @@ try:
         classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.4 is required: pip install 'autoresearch-core>=0.4.4'\n")
+    sys.stderr.write("autoresearch-core>=0.4.7 is required: pip install 'autoresearch-core>=0.4.7'\n")
+    sys.exit(2)
+
+# RoundRecord.parent_sha landed in autoresearch-core 0.4.7. An older-but-importable
+# install passes the import above, then crashes with an unexpected-keyword
+# TypeError when this driver constructs RoundRecord(parent_sha=...). Fail fast.
+if "parent_sha" not in getattr(RoundRecord, "__dataclass_fields__", {}):  # pragma: no cover
+    sys.stderr.write("autoresearch-core>=0.4.7 is required (RoundRecord.parent_sha missing): "
+                     "pip install -U 'autoresearch-core>=0.4.7'\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)
@@ -55,6 +63,25 @@ _DISTILLED_NODE_KINDS = {"Runbook": "takeaway", "Gotcha": "insight"}
 
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _drop_stale_distilled(findings, max_age_days, now):
+    """Gap 6: drop distilled (runbook/gotcha) evidence older than the age horizon.
+
+    Distilled memory can go stale faster than the codebase it describes; this
+    lets a contradicting newer reality win without an LLM rewrite. Non-distilled
+    and undated findings are always kept (matching the "undated evidence is still
+    valid" rule). `max_age_days` falsy/<=0 -> no-op.
+    """
+    if not max_age_days or max_age_days <= 0:
+        return list(findings)
+    cutoff = (_dt.datetime.strptime(now, "%Y-%m-%dT%H:%M:%SZ")
+              - _dt.timedelta(days=max_age_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    prefixes = tuple(f"[{k.lower()}] " for k in _DISTILLED_NODE_KINDS)
+    return [
+        f for f in findings
+        if not (f.content.startswith(prefixes) and f.created_at and f.created_at < cutoff)
+    ]
 
 
 def _gd_version(repo: Path) -> str:
@@ -307,6 +334,26 @@ class FsRoundStore(RoundStore):
                 latest = created
         return latest
 
+    def last_applied_sha(self) -> str | None:
+        """Gap 2: applied_sha of the most recent APPLIED (merged-to-HEAD) round.
+
+        This is the ancestor the next round's worktree branches from, so it is
+        the lineage parent recorded in RoundRecord.parent_sha. Review-only
+        ("evaluated") rounds never reach HEAD and are excluded.
+        """
+        rounds = sorted((self.root / "rounds").glob("*/RECORD.json")) \
+            if (self.root / "rounds").exists() else []
+        latest_at: str | None = None
+        sha: str | None = None
+        for rec_path in rounds:
+            rec = json.loads(rec_path.read_text())
+            if rec.get("status") != "applied" or not rec.get("applied_sha"):
+                continue
+            created = str(rec.get("created_at") or "")
+            if latest_at is None or created > latest_at:
+                latest_at, sha = created, str(rec.get("applied_sha"))
+        return sha
+
 
 # ── Phase E: upstream candidates (collective layer) ───────────────────────────
 # Downstream projects emit GRD-referencing findings here; a round running in
@@ -482,6 +529,7 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[R
     config = json.loads((repo / CONFIG_PATH).read_text()) if (repo / CONFIG_PATH).exists() else {}
     autonomy = resolve_autonomy(config, no_gates=auto)
     store = FsRoundStore(repo)
+    parent = store.last_applied_sha()  # Gap 2: lineage parent for this round
     rid = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
 
     if autonomy.kill_switch:
@@ -505,8 +553,14 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[R
                                    store=UpstreamStore(), ttl_days=ttl_days, now=_now())
     else:
         source = TesseraeFindings(repo)
-    evidence = select_evidence(
+    _max_age = h.get("distillation_max_age_days")
+    findings = _drop_stale_distilled(
         source.findings(last),
+        _max_age if isinstance(_max_age, int) and not isinstance(_max_age, bool) else None,
+        _now(),
+    )
+    evidence = select_evidence(
+        findings,
         max_items=h.get("max_evidence", 25) if isinstance(h.get("max_evidence"), int) else 25,
         min_items=h.get("min_evidence", 3) if isinstance(h.get("min_evidence"), int) else 3,
     )
@@ -584,7 +638,8 @@ def run_round(repo: Path, auto: bool, dry_run: bool, full_eval: bool) -> tuple[R
                     status, detail = "rejected", f"merge failed: {p.stderr[-400:]}"
         rec = RoundRecord(round_id=rid, status=status, detail=detail,
                           evidence_count=len(evidence), patch_hash=patch_hash(patch),
-                          eval_report=eval_report, applied_sha=applied_sha, created_at=_now())
+                          eval_report=eval_report, applied_sha=applied_sha,
+                          parent_sha=parent, created_at=_now())
         extra: dict[str, int] = {}
         if not dry_run and rec.status in ("applied", "evaluated", "rejected"):
             if upstream_root and isinstance(source, CompositeFindings):

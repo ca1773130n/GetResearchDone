@@ -95,6 +95,15 @@ describe('orchestrator', () => {
     const findingText = fs.readFileSync(res.findingPath, 'utf8');
     expect(findingText).toContain('supported');
     expect(findingText).not.toMatch(/verdict:\*\* active/);
+    // Advisory reconstructability score is reported at FINALIZE but never gates:
+    // the verdict above is still 'supported' even though the script artifact is
+    // absent (mock runner writes no run.sh) so script_present is false.
+    expect(findingText).toContain('## Reconstructability (advisory)');
+    expect(findingText).toContain('- **score:** 0.75');
+    expect(findingText).toContain('[ ] script_present');
+    expect(findingText).toContain('[x] metric_spec_valid');
+    expect(findingText).toContain('[x] language_recognized');
+    expect(findingText).toContain('[x] runner_metadata');
   });
 
   it('pauses at the execute gate when gates are on', async () => {

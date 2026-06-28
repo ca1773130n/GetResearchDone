@@ -99,6 +99,35 @@ describe('rankEntries + buildPortfolioReport', () => {
   });
 });
 
+describe('buildPortfolioReport fdr_flag (Gap 3)', () => {
+  it('omits fdr_flag entirely when no supported winner carries a p-value', () => {
+    const md = buildPortfolioReport([
+      { id: 's', question: 'Q', status: 'supported', verdict: 'supported', iterations: 1, action: 'ran' },
+    ]);
+    expect(md).not.toMatch(/fdr_flag/);
+  });
+  it('flags only borderline supported winners via Benjamini-Hochberg when raw_p present', () => {
+    // BH over [0.01, 0.06] (m=2) → q=[0.02, 0.06]; threshold 0.05 flags only "b".
+    const md = buildPortfolioReport([
+      { id: 'a', question: 'Qa', status: 'supported', verdict: 'supported', iterations: 1, action: 'ran', raw_p: 0.01 },
+      { id: 'b', question: 'Qb', status: 'supported', verdict: 'supported', iterations: 1, action: 'ran', raw_p: 0.06 },
+    ]);
+    expect(md).toMatch(/fdr_flag/);
+    const fdrLine = md.split('\n').find((l: string) => l.includes('fdr_flag')) as string;
+    const flaggedIds = fdrLine.split(':')[1]; // the id list after "fdr_flag (q ≥ 0.05):"
+    expect(flaggedIds).toContain('b');
+    expect(flaggedIds).not.toContain('a');
+  });
+  it('renders the fdr_flag line with (none) when winners carry p-values but none are borderline', () => {
+    const md = buildPortfolioReport([
+      { id: 'a', question: 'Qa', status: 'supported', verdict: 'supported', iterations: 1, action: 'ran', raw_p: 0.0001 },
+      { id: 'b', question: 'Qb', status: 'supported', verdict: 'supported', iterations: 1, action: 'ran', raw_p: 0.0002 },
+    ]);
+    const fdrLine = md.split('\n').find((l: string) => l.includes('fdr_flag')) as string;
+    expect(fdrLine).toContain('(none)');
+  });
+});
+
 describe('runPortfolio', () => {
   function mk(cwd: string, over: Record<string, unknown>): string {
     const t = createThread(cwd, String(over.question || 'Q'), {});
@@ -214,6 +243,39 @@ describe('runPortfolio', () => {
     expect(called).toBe(0);
     expect(res.ran).toBe(0);
     expect(fs.existsSync(path.join(cwd, '.planning/research/PORTFOLIO.md'))).toBe(true);
+  });
+
+  const stubClient = () => ({ isAvailable: () => true, compile: async () => ({ status: 'compiled', detail: '', graphPath: null }), querySmokeCheck: async () => ({ found: false, nodeIds: [], detail: '' }) });
+
+  it('without stopOnFirstSupported, runs ALL runnable threads even after a supported result (default unchanged)', async () => {
+    const cwd = tmp();
+    for (let i = 0; i < 4; i++) mk(cwd, { status: 'paused', question: `Q${i}` });
+    const ran: string[] = [];
+    const resume = async (_c: string, id: string) => { ran.push(id); return { threadId: id, status: 'supported', iterations: 1 }; };
+    const res = await runPortfolio(cwd, { resume, concurrency: 1, client: stubClient() });
+    expect(ran.length).toBe(4);
+    expect(res.ran).toBe(4);
+  });
+
+  it('stopOnFirstSupported skips queued-but-unstarted seeds once a thread returns supported', async () => {
+    const cwd = tmp();
+    for (let i = 0; i < 4; i++) mk(cwd, { status: 'paused', question: `Q${i}` });
+    const ran: string[] = [];
+    const resume = async (_c: string, id: string) => { ran.push(id); return { threadId: id, status: 'supported', iterations: 1 }; };
+    const res = await runPortfolio(cwd, { resume, concurrency: 1, stopOnFirstSupported: true, client: stubClient() });
+    expect(ran.length).toBe(1);            // only the first started; the rest were skipped
+    expect(res.supported).toBe(1);
+    expect(res.ran).toBe(1);
+  });
+
+  it('stopOnFirstSupported keeps running while threads come back non-supported', async () => {
+    const cwd = tmp();
+    for (let i = 0; i < 3; i++) mk(cwd, { status: 'paused', question: `Q${i}` });
+    const ran: string[] = [];
+    const resume = async (_c: string, id: string) => { ran.push(id); return { threadId: id, status: 'exhausted', iterations: 1 }; };
+    const res = await runPortfolio(cwd, { resume, concurrency: 1, stopOnFirstSupported: true, client: stubClient() });
+    expect(ran.length).toBe(3);            // none supported → no early stop
+    expect(res.ran).toBe(3);
   });
 
   it('does not abort the whole run when a thread throws a non-Error value', async () => {
