@@ -68,12 +68,12 @@ interface SandboxConfig {
 }
 
 // Resolve the configured research_sandbox value to a sandbox mode.
-// - 'docker'            -> always docker (explicit; behavior unchanged)
-// - unset / '' / 'auto' -> 'auto': prefer docker when available, else subprocess
+// - 'docker'                   -> always docker (explicit; behavior unchanged)
+// - unset / null / '' / 'auto' -> 'auto': prefer docker when available, else subprocess
 // - explicit 'subprocess' (and any unrecognized value) -> subprocess (unchanged)
 function resolveSandboxMode(value: unknown): SandboxConfig['mode'] {
   if (value === 'docker') return 'docker';
-  if (value === undefined || value === '' || value === 'auto') return 'auto';
+  if (value === undefined || value === null || value === '' || value === 'auto') return 'auto';
   return 'subprocess';
 }
 
@@ -92,10 +92,10 @@ function readSandboxConfig(cwd: string): SandboxConfig {
       network: raw.research_sandbox_network === 'bridge' ? 'bridge' : 'none',
     };
   } catch {
-    // ponytail: an unreadable/absent config.json stays subprocess (conservative,
-    // no probe) — 'auto' is scoped to the parsed research_sandbox value, not the
-    // config-read-failure path. Ceiling: no auto-probe when config is missing.
-    return { mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none' };
+    // A missing/unreadable config.json is the unset default → 'auto' (probe docker,
+    // else subprocess with a visible UNSANDBOXED warning), so the safety warning
+    // shows on every default path — not only when a config file happens to exist.
+    return { mode: 'auto', image: null, memory: '512m', cpus: '1', network: 'none' };
   }
 }
 

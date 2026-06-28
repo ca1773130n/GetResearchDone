@@ -34,7 +34,15 @@ try:
         classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.4 is required: pip install 'autoresearch-core>=0.4.4'\n")
+    sys.stderr.write("autoresearch-core>=0.4.7 is required: pip install 'autoresearch-core>=0.4.7'\n")
+    sys.exit(2)
+
+# RoundRecord.parent_sha landed in autoresearch-core 0.4.7. An older-but-importable
+# install passes the import above, then crashes with an unexpected-keyword
+# TypeError when this driver constructs RoundRecord(parent_sha=...). Fail fast.
+if "parent_sha" not in getattr(RoundRecord, "__dataclass_fields__", {}):  # pragma: no cover
+    sys.stderr.write("autoresearch-core>=0.4.7 is required (RoundRecord.parent_sha missing): "
+                     "pip install -U 'autoresearch-core>=0.4.7'\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)

@@ -96,10 +96,13 @@ describe('readSandboxConfig', () => {
     fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
     return d;
   }
-  it('defaults to subprocess mode with no config', () => {
+  it('defaults to auto mode with no config (missing config = unset default)', () => {
     expect(dr.readSandboxConfig(tmp())).toEqual({
-      mode: 'subprocess', image: null, memory: '512m', cpus: '1', network: 'none',
+      mode: 'auto', image: null, memory: '512m', cpus: '1', network: 'none',
     });
+  });
+  it('treats null research_sandbox as auto mode', () => {
+    expect(dr.readSandboxConfig(cfgDir({ research_sandbox: null })).mode).toBe('auto');
   });
   it('reads docker mode and validated knobs', () => {
     const c = dr.readSandboxConfig(cfgDir({
@@ -226,12 +229,12 @@ describe('selectRunner', () => {
     fs.writeFileSync(path.join(d, '.planning/config.json'), JSON.stringify(obj));
     return d;
   }
-  it('returns subprocess runner and never probes when mode is subprocess', () => {
+  it('missing config defaults to auto and probes docker', () => {
     let probed = false;
     const exec = () => { probed = true; return '24'; };
     const r = dr.selectRunner(tmp(), { timeoutMs: 1000, exec });
     expect(typeof r.run).toBe('function');
-    expect(probed).toBe(false);
+    expect(probed).toBe(true);
   });
   it('returns a docker runner when docker is configured and available', () => {
     const cwd = cfgDir({ research_sandbox: 'docker' });
