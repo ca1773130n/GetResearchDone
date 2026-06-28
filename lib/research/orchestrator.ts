@@ -18,6 +18,12 @@ const { readLedger, appendHypothesis, updateHypothesisStatus, nextHypothesisId }
 const { appendTakeaway, readTakeaways } = require('./takeaways');
 const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } = require('./verdict');
 const { buildFinding, writeFinding, findingPath } = require('./finding');
+const { scoreReconstructability } = require('./reconstructability') as {
+  scoreReconstructability: (input: {
+    script?: string | null; metricKey?: string | null; comparator?: string | null;
+    target?: number | null; language?: string | null; runner?: string | null;
+  }) => { score: number; checks: Record<string, boolean> };
+};
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
 const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io') as {
@@ -254,6 +260,32 @@ function errExit(cwd: string, thread: ResearchThread, reason: string): ResearchR
   return { threadId: thread.id, status: 'error', iterations: thread.iteration, errorReason: reason };
 }
 
+// Cheap, deterministic structural reconstructability score appended to FINDING.md
+// at FINALIZE. Advisory telemetry — never gates or changes the verdict. Reads the
+// recorded script the same way the runner resolves it; degrades to absent on any
+// read error so it can never break finalization.
+function reconstructabilitySection(
+  cwd: string, thread: ResearchThread, plan: ExperimentPlan, result: ExperimentResult,
+): string {
+  let script: string | null = null;
+  try {
+    const sp = path.isAbsolute(plan.scriptPath)
+      ? plan.scriptPath : path.join(threadDir(cwd, thread.id), plan.scriptPath);
+    script = fs.readFileSync(sp, 'utf8');
+  } catch { /* artifact absent — script_present will be false */ }
+  const recon = scoreReconstructability({
+    script, metricKey: plan.metricKey, comparator: plan.comparator,
+    target: plan.target, language: plan.language, runner: result.runner,
+  });
+  return [
+    '## Reconstructability (advisory)',
+    '',
+    `- **score:** ${recon.score.toFixed(2)} _(structural completeness; does not affect the verdict)_`,
+    ...Object.entries(recon.checks).map(([k, v]) => `- [${v ? 'x' : ' '}] ${k}`),
+    '',
+  ].join('\n');
+}
+
 // Finding.md is already written before the kg_write gate; this completes the KG sync.
 async function finishKgSync(
   cwd: string, thread: ResearchThread, verdict: Verdict | undefined, status: ThreadStatus,
@@ -429,7 +461,9 @@ async function runLoop(
       thread.currentStation = 'finalize';
       thread.status = term.status;
       const finding = buildFinding(thread, readLedger(cwd, thread.id), readTakeaways(cwd, thread.id), result);
-      writeFinding(cwd, thread.id, finding);
+      // Advisory structural reconstructability score — telemetry only; it is
+      // computed AFTER term/verdict and never read back, so it can never gate.
+      writeFinding(cwd, thread.id, finding + reconstructabilitySection(cwd, thread, plan, result));
 
       // GATE 2 — kg_write
       const g2 = checkGate(thread, 'kg_write', approved.kg_write);

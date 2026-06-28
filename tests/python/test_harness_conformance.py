@@ -136,5 +136,54 @@ class TestRunbookEvidence(unittest.TestCase):
         self.assertIn("tesserae config status", rec.detail)
 
 
+class TestDistillationFreshness(unittest.TestCase):
+    """Gap 6: distilled (runbook/gotcha) evidence past an age horizon is dropped;
+    non-distilled and undated evidence is always kept."""
+
+    def _f(self, content, created_at):
+        from autoresearch_core import Finding
+        return Finding(kind="takeaway", content=content, source="s", created_at=created_at)
+
+    def test_no_max_age_keeps_all(self):
+        fs = [self._f("[runbook] old", "2020-01-01T00:00:00Z")]
+        self.assertEqual(len(hd._drop_stale_distilled(fs, None, "2026-06-28T00:00:00Z")), 1)
+
+    def test_drops_stale_distilled_only(self):
+        now = "2026-06-28T00:00:00Z"
+        fs = [
+            self._f("[runbook] stale", "2026-01-01T00:00:00Z"),   # distilled + old -> drop
+            self._f("[gotcha] fresh", "2026-06-20T00:00:00Z"),    # distilled + fresh -> keep
+            self._f("plain insight", "2020-01-01T00:00:00Z"),     # non-distilled old -> keep
+            self._f("[runbook] undated", ""),                      # undated -> keep
+        ]
+        contents = [f.content for f in hd._drop_stale_distilled(fs, 30, now)]
+        self.assertNotIn("[runbook] stale", contents)
+        self.assertIn("[gotcha] fresh", contents)
+        self.assertIn("plain insight", contents)
+        self.assertIn("[runbook] undated", contents)
+
+
+class TestLastAppliedSha(unittest.TestCase):
+    """Gap 2: parent_sha lineage — the store reports the most recent applied sha."""
+
+    def _write(self, store, rid, status, sha, created):
+        rd = store.root / "rounds" / rid
+        rd.mkdir(parents=True)
+        (rd / "RECORD.json").write_text(json.dumps(
+            {"round_id": rid, "status": status, "applied_sha": sha, "created_at": created}))
+
+    def test_returns_latest_applied_sha(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = hd.FsRoundStore(Path(d))
+            self._write(store, "20260101-000000", "applied", "sha_old", "2026-01-01T00:00:00Z")
+            self._write(store, "20260201-000000", "rejected", None, "2026-02-01T00:00:00Z")
+            self._write(store, "20260301-000000", "applied", "sha_new", "2026-03-01T00:00:00Z")
+            self.assertEqual(store.last_applied_sha(), "sha_new")
+
+    def test_none_when_no_applied(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(hd.FsRoundStore(Path(d)).last_applied_sha())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

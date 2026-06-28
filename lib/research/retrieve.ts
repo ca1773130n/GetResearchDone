@@ -8,9 +8,34 @@ interface GraphNode { id: string; name?: string; type?: string; description?: st
 interface GraphEdge { source?: string; target?: string; from?: string; to?: string; }
 export interface RankedNode { id: string; name: string; description: string; source_path: string; score: number; modes: string[]; }
 export interface RetrieveResult { results: RankedNode[]; modes: { lexical: boolean; semantic: boolean; structure: boolean }; detail: string; }
-export interface RetrieveOpts { embedder?: Embedder; k?: number; seedCount?: number; hops?: number; }
+export interface RetrieveOpts { embedder?: Embedder; k?: number; seedCount?: number; hops?: number; route?: boolean; }
+export type QueryShape = 'identifier' | 'conceptual' | 'mixed';
 
 const RRF_K = 60;
+
+// A token looks like a code symbol if it has a dot/slash, a camelCase boundary, or snake_case.
+const SYMBOL_RE = /[./\\]|[a-z][A-Z]|[A-Za-z0-9]_[A-Za-z0-9]/;
+
+/**
+ * Tiny query-shape heuristic: identifier (all tokens look like code symbols/paths),
+ * conceptual (natural-language prose, no symbol tokens), else mixed.
+ * // ponytail: heuristic classifier, no trained model.
+ */
+function classifyQuery(query: string): QueryShape {
+  const tokens = query.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return 'mixed';
+  const symbolic = tokens.filter((t) => SYMBOL_RE.test(t)).length;
+  if (symbolic === tokens.length) return 'identifier';
+  if (symbolic === 0) return 'conceptual';
+  return 'mixed';
+}
+
+// Per-mode RRF coefficients when routing is on: identifier→structure-heavy, conceptual→semantic-heavy.
+const ROUTE_WEIGHTS: Record<QueryShape, Record<string, number>> = {
+  identifier: { lexical: 1, semantic: 1, structure: 2 },
+  conceptual: { lexical: 1, semantic: 2, structure: 1 },
+  mixed: { lexical: 1, semantic: 1, structure: 1 },
+};
 
 function readGraph(cwd: string): { nodes: GraphNode[]; edges: GraphEdge[] } | null {
   const p = path.join(cwd, '.tesserae', 'graph.json');
@@ -79,13 +104,14 @@ function rankStructure(seeds: string[], adj: Map<string, string[]>, hops: number
   return Array.from(score.entries()).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
 }
 
-/** Reciprocal Rank Fusion over several best-first id rankings. */
-function rrf(rankings: string[][]): Array<{ id: string; score: number; modes: number[] }> {
+/** Reciprocal Rank Fusion over several best-first id rankings (optionally per-mode weighted). */
+function rrf(rankings: string[][], weights?: number[]): Array<{ id: string; score: number; modes: number[] }> {
   const fused = new Map<string, { score: number; modes: number[] }>();
   rankings.forEach((rk, mi) => {
+    const w = weights ? weights[mi] : 1; // unweighted ⇒ identical to the historical blend
     rk.forEach((id, rank) => {
       const cur = fused.get(id) || { score: 0, modes: [] };
-      cur.score += 1 / (RRF_K + rank + 1); // 1-based rank (standard RRF)
+      cur.score += w / (RRF_K + rank + 1); // 1-based rank (standard RRF)
       cur.modes.push(mi);
       fused.set(id, cur);
     });
@@ -168,7 +194,13 @@ async function retrieve(cwd: string, query: string, opts: RetrieveOpts = {}): Pr
   if (semantic && semantic.length) present.push({ name: 'semantic', ranking: semantic });
   if (structure.length) present.push({ name: 'structure', ranking: structure });
   const presentModeNames = present.map((p) => p.name);
-  const fused = rrf(present.map((p) => p.ranking));
+  // Optional query-type routing (default off): up-weight the mode that fits the query shape.
+  let weights: number[] | undefined;
+  if (opts.route) {
+    const w = ROUTE_WEIGHTS[classifyQuery(query)];
+    weights = present.map((p) => w[p.name]);
+  }
+  const fused = rrf(present.map((p) => p.ranking), weights);
 
   const results: RankedNode[] = fused
     .filter((f) => byId.has(f.id)) // a structure id may reference a node missing from `nodes`
@@ -200,4 +232,4 @@ function buildGroundingPack(results: RankedNode[], query: string): string {
   return [`## Retrieved grounding (hybrid) for "${query}"`, '', ...lines, ''].join('\n');
 }
 
-module.exports = { retrieve, buildGroundingPack };
+module.exports = { retrieve, buildGroundingPack, classifyQuery };

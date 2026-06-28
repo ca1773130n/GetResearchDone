@@ -11,6 +11,19 @@ describe('defaultEmbedder', () => {
     expect(await embed(['hello'])).toBeNull();
   });
 
+  it('warns exactly once at the no-key/no-url degrade point', async () => {
+    delete process.env.GRD_EMBED_API_KEY; delete process.env.OPENAI_API_KEY; delete process.env.GRD_EMBED_URL;
+    const writes: string[] = [];
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((s: string | Uint8Array) => { writes.push(String(s)); return true; });
+    try {
+      expect(await defaultEmbedder()(['hello'])).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toContain('semantic retrieval disabled (no embedding key set)');
+  });
+
   it('POSTs to the endpoint and parses embeddings when a key is set', async () => {
     process.env.GRD_EMBED_API_KEY = 'k';
     let sentAuth = ''; let sentBody: { input?: string[]; model?: string } = {};
@@ -35,5 +48,19 @@ describe('defaultEmbedder', () => {
     process.env.GRD_EMBED_API_KEY = 'k';
     const fetchImpl = async () => { throw new Error('network down'); };
     expect(await defaultEmbedder({ fetchImpl })(['a'])).toBeNull();
+  });
+
+  it('attempts fetch with no Authorization header when only GRD_EMBED_URL is set (keyless local)', async () => {
+    delete process.env.GRD_EMBED_API_KEY; delete process.env.OPENAI_API_KEY;
+    process.env.GRD_EMBED_URL = 'http://localhost:11434/v1/embeddings';
+    let sentUrl = ''; let hadAuth = true;
+    const fetchImpl = async (url: string, init: { headers: Record<string, string>; body: string }) => {
+      sentUrl = url; hadAuth = 'Authorization' in init.headers;
+      return { status: 200, json: async () => ({ data: [{ embedding: [0.5] }] }) };
+    };
+    const vecs = await defaultEmbedder({ fetchImpl })(['a']);
+    expect(vecs).toEqual([[0.5]]);
+    expect(sentUrl).toBe('http://localhost:11434/v1/embeddings');
+    expect(hadAuth).toBe(false);
   });
 });

@@ -81,6 +81,19 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 | `transitive_citation_gate` | `boolean` | `false` | When `true`, run transitive citation gate during plan-phase (warning severity only — non-blocking). |
 | `research_gates.plan_clarification` | `boolean` | `true` | **(v0.4.5+)** Interactive planning clarification gate, alongside `research_gates.phase_plan_approval`. When on, the `grd-planner` agent may return a `## CHECKPOINT REACHED` / `TYPE: clarification` block for ambiguous, *unlocked* design/implementation decisions; the `plan-phase` orchestrator surfaces these via `AskUserQuestion` (recommended default option first), then resumes the planner with the answers framed as `## Decisions`. Bounded to 2 rounds and de-duped by question text. Auto-skipped under `autonomous_mode`, autopilot, and `--candidates N` with N>1. |
 
+### Autoresearch Sandbox
+
+Top-level keys controlling how the autoresearch loop (`gd research`) executes
+generated experiment scripts during RUN. Implemented in `lib/research/docker-runner.ts`.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `research_sandbox` | `'docker' \| 'subprocess' \| 'auto'` | `'auto'` | Runner selection. `'auto'` (the unset default) uses Docker when a usable binary is present, otherwise falls back to the subprocess runner **and prints a visible `UNSANDBOXED`-on-host warning** — the default path is never silently un-sandboxed. `'docker'` forces the container (still degrades to subprocess + warning if Docker is unavailable); `'subprocess'` always runs on the host. `result.json` records which runner actually ran. |
+| `research_sandbox_image` | `string` | slim defaults | Container image for Docker mode (`python:3.12-slim` / `bash:5` by script language). |
+| `research_sandbox_memory` | `string` | `'512m'` | Container memory cap. |
+| `research_sandbox_cpus` | `string` | `'1'` | Container CPU cap. |
+| `research_sandbox_network` | `'none' \| 'bridge'` | `'none'` | Container network mode; `'bridge'` allows network inside the container. |
+
 ### Post-Phase Pipeline
 
 | Field | Type | Default | Description |
@@ -125,6 +138,7 @@ As of v0.4.5 the harness also consumes Tesserae 0.9.0 **AgentRunbook** distilled
 | `harness.backend` | `string` | `'codex'` | Backend used to spawn the proposal agent. |
 | `harness.min_evidence` | `number` | `3` | Minimum Tesserae session findings required to start a round. |
 | `harness.max_evidence` | `number` | `25` | Maximum findings fed to the proposal agent (caps context size). |
+| `harness.distillation_max_age_days` | `number \| undefined` | `undefined` | When set, drops distilled `Runbook`/`Gotcha` evidence older than N days before a round selects evidence (raw session findings are unaffected). Default off — no age filter applied. Implemented in `bin/harness_driver.py`. |
 | `harness.upstream_emit` | `boolean` | `true` | **Collective layer (downstream side).** After a round persists in any project, emit findings *about GRD itself* as upstream candidates into `$CLAUDE_PLUGIN_DATA/harness/upstream/` (fallback `~/.grd/harness/upstream/`). Per-project off switch — distilled finding text only, never transcripts or patches. |
 | `harness.upstream_root` | `boolean` | `false` | **Collective layer (aggregator side).** When `true`, this repo is the upstream root: the round binds a `CompositeFindingsSource` (local Tesserae findings + pending upstream candidates, deduped across origins with occurrence counts) and marks consumed candidates. Set explicitly in GRD's own `.planning/config.json`; no magic detection. |
 | `harness.upstream_ttl_days` | `number` | `90` | **Upstream root only.** Staleness cutoff: upstream candidates older than this are ignored and TTL-pruned on read. |

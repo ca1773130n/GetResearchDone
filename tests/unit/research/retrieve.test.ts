@@ -2,7 +2,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { retrieve, buildGroundingPack } = require('../../../lib/research/retrieve');
+const { retrieve, buildGroundingPack, classifyQuery } = require('../../../lib/research/retrieve');
 
 function fixture(nodes: unknown[], edges: unknown[] = []): string {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-retr-'));
@@ -86,6 +86,63 @@ describe('retrieve — semantic', () => {
     const res = await retrieve(cwd, 'vector', { embedder: async () => { throw new Error('boom'); } });
     expect(res.modes.semantic).toBe(false);
     expect(res.results[0].id).toBe('n1');
+  });
+});
+
+describe('classifyQuery (Gap 10 — query-shape heuristic)', () => {
+  it('classifies a camelCase symbol as identifier', () => {
+    expect(classifyQuery('getUserName')).toBe('identifier');
+  });
+  it('classifies a path/dotted token as identifier', () => {
+    expect(classifyQuery('lib/research/retrieve.ts')).toBe('identifier');
+  });
+  it('classifies a snake_case token as identifier', () => {
+    expect(classifyQuery('rank_lexical_score')).toBe('identifier');
+  });
+  it('classifies a natural-language sentence as conceptual', () => {
+    expect(classifyQuery('what is retrieval augmented generation')).toBe('conceptual');
+  });
+  it('classifies prose containing a code symbol as mixed', () => {
+    expect(classifyQuery('how does fooBar work here')).toBe('mixed');
+  });
+  it('treats a blank query as mixed', () => {
+    expect(classifyQuery('   ')).toBe('mixed');
+  });
+});
+
+describe('retrieve — query-type routing (Gap 10)', () => {
+  // Only the query and S3 align in embedding space → semantic = [S3] (P/Q/C/D filtered).
+  const fakeEmbedder = async (texts: string[]) =>
+    texts.map((t) => (t === 'fooBar' || /anchor/i.test(t) ? [1, 0] : [0, 0]));
+  // P is lexical-favored (more "foobar" hits); Q is the structure hub (boosted by the S3 seed).
+  function routedFixture(): string {
+    return fixture(
+      [
+        { id: 'P', name: 'fooBar fooBar', description: 'foobar foobar widget' },
+        { id: 'Q', name: 'fooBar', description: 'foobar core' },
+        { id: 'S3', name: 'central', description: 'semantic anchor' },
+        { id: 'C', name: 'leafc', description: 'cc' },
+        { id: 'D', name: 'leafd', description: 'dd' },
+      ],
+      [{ source: 'S3', target: 'Q' }, { source: 'Q', target: 'C' }, { source: 'Q', target: 'D' }],
+    );
+  }
+
+  it('route:false yields byte-for-byte identical ranking to the default blend', async () => {
+    const base = await retrieve(routedFixture(), 'fooBar', { embedder: fakeEmbedder });
+    const off = await retrieve(routedFixture(), 'fooBar', { embedder: fakeEmbedder, route: false });
+    expect(off.results.map((r: { id: string }) => r.id)).toEqual(base.results.map((r: { id: string }) => r.id));
+    expect(off.results.map((r: { score: number }) => r.score)).toEqual(base.results.map((r: { score: number }) => r.score));
+  });
+
+  it('route:true on an identifier query up-weights structure and reorders', async () => {
+    const off = await retrieve(routedFixture(), 'fooBar', { embedder: fakeEmbedder });
+    const on = await retrieve(routedFixture(), 'fooBar', { embedder: fakeEmbedder, route: true });
+    const offIds = off.results.map((r: { id: string }) => r.id);
+    const onIds = on.results.map((r: { id: string }) => r.id);
+    // structure-favored Q overtakes lexical-favored P only when routed.
+    expect(offIds.indexOf('P')).toBeLessThan(offIds.indexOf('Q'));
+    expect(onIds.indexOf('Q')).toBeLessThan(onIds.indexOf('P'));
   });
 });
 

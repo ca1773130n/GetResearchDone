@@ -5,6 +5,8 @@ import type { ResearchThread, Hypothesis, Takeaway, ExperimentPlan, Verdict } fr
 const { loadThread } = require('./thread') as { loadThread: (cwd: string, id: string) => ResearchThread };
 const { readLedger } = require('./ledger') as { readLedger: (cwd: string, id: string) => Hypothesis[] };
 const { readTakeaways } = require('./takeaways') as { readTakeaways: (cwd: string, id: string) => Takeaway[] };
+import type { CitationReport } from './verify-citations';
+const { verifyCitations } = require('./verify-citations') as { verifyCitations: (md: string, bundle: PaperBundle) => CitationReport };
 
 export type RetrieveFn = (cwd: string, query: string, opts?: Record<string, unknown>) =>
   Promise<{ results: Array<{ name?: string; description?: string; source_path?: string }> }>;
@@ -104,7 +106,7 @@ function buildPaperPrompt(bundle: PaperBundle): string {
 }
 
 /** Generate PAPER.md for a terminal thread. Throws on missing/active thread or empty agent output. */
-async function generatePaper(cwd: string, id: string, opts: { spawn: SpawnFn; retrieve?: RetrieveFn }): Promise<{ paperPath: string; status: string }> {
+async function generatePaper(cwd: string, id: string, opts: { spawn: SpawnFn; retrieve?: RetrieveFn }): Promise<{ paperPath: string; status: string; citations: CitationReport }> {
   let thread: ResearchThread;
   try { thread = loadThread(cwd, id); } catch { throw new Error(`thread "${id}" not found`); }
   if (!TERMINAL_STATUSES.has(thread.status)) {
@@ -121,7 +123,10 @@ async function generatePaper(cwd: string, id: string, opts: { spawn: SpawnFn; re
   const tmpPath = path.join(dir, '.PAPER.md.tmp');
   fs.writeFileSync(tmpPath, md);
   fs.renameSync(tmpPath, finalPath); // atomic
-  return { paperPath: finalPath, status: 'written' };
+  // Advisory, off-control-path (Gap 7): deterministically flag unresolved/fabricated
+  // citations against the assembled bundle. Report-only — never blocks or alters the paper.
+  const citations = verifyCitations(md, bundle);
+  return { paperPath: finalPath, status: 'written', citations };
 }
 
 module.exports = { gatherPaperBundle, buildPaperPrompt, generatePaper, threadDir };

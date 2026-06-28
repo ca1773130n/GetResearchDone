@@ -12,14 +12,21 @@ type FetchImpl = (url: string, init: { method: string; headers: Record<string, s
 function defaultEmbedder(opts: { fetchImpl?: FetchImpl } = {}): Embedder {
   return async (texts: string[]): Promise<number[][] | null> => {
     const key = process.env.GRD_EMBED_API_KEY || process.env.OPENAI_API_KEY;
-    if (!key) return null;
+    // A configured GRD_EMBED_URL (e.g. a local Ollama/OpenAI-compatible endpoint) is allowed to
+    // run keyless — proceed with an omitted Authorization header instead of degrading.
+    if (!key && !process.env.GRD_EMBED_URL) {
+      process.stderr.write('Warning: semantic retrieval disabled (no embedding key set)\n');
+      return null;
+    }
     const model = process.env.GRD_EMBED_MODEL || 'text-embedding-3-small';
     const url = process.env.GRD_EMBED_URL || 'https://api.openai.com/v1/embeddings';
     const doFetch: FetchImpl = opts.fetchImpl || ((globalThis as { fetch?: FetchImpl }).fetch as FetchImpl);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (key) headers.Authorization = `Bearer ${key}`;
     try {
       const resp = await doFetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        headers,
         body: JSON.stringify({ input: texts, model }),
       });
       if (resp.status < 200 || resp.status >= 300) {
