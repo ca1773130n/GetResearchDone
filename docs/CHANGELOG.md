@@ -38,6 +38,16 @@ Autoresearch gap-fixes (see `docs/autoresearch-gap-analysis-2026-06.md`).
 - **`embedder.ts`** now warns once on the no-key degrade instead of silently
   dropping semantic retrieval.
 
+### Fixed
+- **Tesserae 0.11.0 compatibility** (`lib/research/tesserae.ts`): research-corpus
+  ingest now invokes `tesserae extract <paths>` — 0.11.0 retired the bare
+  `tesserae <paths>` form ("bare extraction has moved → tesserae extract"). The
+  `--distill` flag is dropped (now a project `compile`/`refresh` concern,
+  unsupported by `extract`), fixing `gd ingest` and `research-kb-cli` integration.
+- **VERSION** synced to match `package.json`/`.claude-plugin/plugin.json`, and two
+  pre-existing `no-useless-assignment` lint errors cleared (`account-discovery.ts`,
+  `commands/accounts.ts`).
+
 ## [0.4.6] - 2026-06-21
 
 ultracode max-effort mode + codex 0.14x exec + Antigravity backend.
