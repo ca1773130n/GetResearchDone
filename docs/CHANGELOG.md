@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.7] - 2026-06-28
 
 Autoresearch gap-fixes (see `docs/autoresearch-gap-analysis-2026-06.md`).
 
