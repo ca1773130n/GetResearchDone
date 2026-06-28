@@ -106,7 +106,7 @@ function discoverAccountsFromStore(opts: { dbPath?: string } = {}): DiscoverResu
     db = new DatabaseSync(dbPath, { readOnly: true });
     const rows = db.prepare('SELECT kind, display_name, status, config FROM backends').all();
     const items: BackendItem[] = rows.map((r) => {
-      let config: { config_path?: unknown } = {};
+      let config: { config_path?: unknown };
       try { config = JSON.parse(String(r.config ?? '{}')); } catch { config = {}; } // per-row skip on bad JSON
       return { kind: r.kind, display_name: r.display_name, status: r.status, config };
     });
