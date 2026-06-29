@@ -26,6 +26,19 @@ describe('sandbox config keys are recognized', () => {
   });
 });
 
+describe('tesserae extractor config keys are recognized', () => {
+  it('loadConfig does not warn for research_tesserae_* keys', () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_tesserae_extractor: 'claude-cli',
+      research_tesserae_extract_include: 'corpus/**.md',
+      research_tesserae_extract_limit: 5,
+    }));
+    const res = captureError(() => loadConfig(cwd));
+    expect(res.stderr).not.toMatch(/Unrecognized config key "research_tesserae/);
+  });
+});
+
 const dr = require('../../../lib/research/docker-runner');
 
 describe('validators', () => {
