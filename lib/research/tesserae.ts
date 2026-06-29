@@ -46,11 +46,15 @@ function tesseraeDir(cwd: string): string { return path.join(cwd, '.tesserae'); 
 function graphJsonPath(cwd: string): string { return path.join(tesseraeDir(cwd), 'graph.json'); }
 function sqlitePath(cwd: string): string { return path.join(tesseraeDir(cwd), 'sqlite.db'); }
 
-// tesserae 0.12 `extract --extractor` (opt-in): builds the LLM concept/claim layer
-// the deterministic default leaves sparse. Default (unset/unknown) → null = no flag
-// = deterministic, so `gd ingest` keeps its current cost. selective-claude also reads
-// optional include/limit knobs.
-function readExtractorConfig(cwd: string): { extractor: string | null; include: string | null; limit: number | null } {
+// tesserae 0.13 flipped `extract --extractor` default to `llm` (the configured
+// provider — codex/claude/anthropic). GRD pins its OWN default — `deterministic`
+// (fast, key-free, byte-stable) — explicitly, so `gd ingest` never silently inherits
+// LLM extraction (cost + latency) when tesserae's default changes under it. Accepts
+// the 0.13 provider-agnostic values (`llm`/`selective-llm`) and the legacy 0.12 ones
+// (`claude-cli`/`selective-claude`); unset/unknown → `deterministic`. The selective
+// modes read optional include/limit knobs (new `--llm-*` vs legacy `--claude-*`).
+const _EXTRACTORS = new Set(['deterministic', 'llm', 'selective-llm', 'claude-cli', 'selective-claude']);
+function readExtractorConfig(cwd: string): { extractor: string; include: string | null; limit: number | null } {
   try {
     const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
       research_tesserae_extractor?: unknown;
@@ -61,11 +65,11 @@ function readExtractorConfig(cwd: string): { extractor: string | null; include: 
     const inc = raw.research_tesserae_extract_include;
     const lim = raw.research_tesserae_extract_limit;
     return {
-      extractor: v === 'claude-cli' || v === 'selective-claude' ? v : null,
+      extractor: typeof v === 'string' && _EXTRACTORS.has(v) ? v : 'deterministic',
       include: typeof inc === 'string' && inc.length > 0 ? inc : null,
       limit: typeof lim === 'number' && Number.isInteger(lim) && lim > 0 ? lim : null,
     };
-  } catch { return { extractor: null, include: null, limit: null }; }
+  } catch { return { extractor: 'deterministic', include: null, limit: null }; }
 }
 
 // tesserae's concept/claim layer node types (cli.py _CONCEPT_LAYER_TYPES, 0.12).
@@ -92,7 +96,7 @@ function conceptPoorHint(graphPath: string): string | null {
     if (conceptual > 0) return null;
     return `compiled ${nodes.length} nodes but no concept/claim layer — the deterministic `
       + 'extractor only mints concepts for known headings. For a richer typed graph set '
-      + '`research_tesserae_extractor: claude-cli` (tesserae 0.12).';
+      + '`research_tesserae_extractor: llm` (tesserae 0.13, uses your configured provider).';
   } catch { return null; }
 }
 
@@ -119,15 +123,20 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       // by `tesserae refresh`/`compile --distill` at the project level, not corpus extract).
       const args = ['extract', ...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize'];
       const ex = readExtractorConfig(cwd);
-      if (ex.extractor) {
-        args.push('--extractor', ex.extractor);
+      // Always pin the extractor explicitly (tesserae 0.13's own default is `llm`;
+      // GRD's is `deterministic` unless opted in) so ingest cost stays predictable.
+      args.push('--extractor', ex.extractor);
+      if (ex.extractor === 'selective-llm') {
+        if (ex.include) args.push('--llm-include', ex.include);
+        if (ex.limit !== null) args.push('--llm-limit', String(ex.limit));
+      } else if (ex.extractor === 'selective-claude') {
         if (ex.include) args.push('--claude-include', ex.include);
         if (ex.limit !== null) args.push('--claude-limit', String(ex.limit));
       }
       try {
         run('tesserae', args, cwd);
-        // Only nudge when on the deterministic default; best-effort, never blocks.
-        const detail = ex.extractor ? 'compiled' : (conceptPoorHint(graph) || 'compiled');
+        // Nudge toward the LLM extractor only when on deterministic; best-effort, never blocks.
+        const detail = ex.extractor === 'deterministic' ? (conceptPoorHint(graph) || 'compiled') : 'compiled';
         return { status: 'compiled', detail, graphPath: graph };
       } catch (e: unknown) {
         const err = e as { stderr?: string; message?: string };
