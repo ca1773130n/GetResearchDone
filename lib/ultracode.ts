@@ -58,6 +58,21 @@ export function applyUltracodeEnv(): void {
 }
 
 /**
+ * Detect the ultracode flag/keyword in CLI tokens and, if present, set the
+ * process-tree env carrier. Returns whether ultracode was activated. Shared by
+ * the entrypoints (`gd.ts` and `grd-tools.ts`) so `--ultracode` / a bare
+ * `ultracode` keyword works on the `gd` CLI AND via the Claude Code plugin's
+ * `/grd:*` slash commands (which route through `grd-tools.js`).
+ */
+export function maybeApplyUltracode(tokens: string[]): boolean {
+  if (detectUltracode(tokens)) {
+    applyUltracodeEnv();
+    return true;
+  }
+  return false;
+}
+
+/**
  * Resolve effective effort + ultracode for a spawn, honoring explicit opts
  * first, then the GRD_ULTRACODE / GRD_EFFORT env carrier. ultracode implies
  * `max` effort unless an explicit level was given.
@@ -71,4 +86,6 @@ export function resolveEffort(opts: SpawnOpts): { effort?: SpawnEffort; ultracod
   return { effort, ultracode };
 }
 
-module.exports = { ULTRACODE_MODELS, codexEffort, detectUltracode, applyUltracodeEnv, resolveEffort };
+module.exports = {
+  ULTRACODE_MODELS, codexEffort, detectUltracode, applyUltracodeEnv, maybeApplyUltracode, resolveEffort,
+};
