@@ -1,0 +1,6 @@
+# Python bytecode caches — never publish these (incl. the vendored
+# bin/vendor/autoresearch_core kernel). Without this, `npm pack` ships stray
+# __pycache__/*.pyc from bin/.
+**/__pycache__
+*.pyc
+*.pyo

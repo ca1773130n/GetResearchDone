@@ -3,6 +3,15 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Changed
+- **autoresearch-core kernel is now vendored into the GRD package**
+  (`bin/vendor/`), so `gd harness round` works with no manual `pip install` —
+  Python 3.11+ is the only prerequisite. `bin/harness_driver.py` prefers a
+  version-compatible installed copy and falls back to the vendored one;
+  `GRD_HARNESS_CORE=vendored` forces the vendored copy.
+
 ## [0.4.8] - 2026-06-29
 
 ### Added

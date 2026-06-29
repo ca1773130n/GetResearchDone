@@ -43,6 +43,7 @@
     "build": "tsc -p tsconfig.build.json",
     "build:check": "tsc --noEmit",
     "prepublishOnly": "npm run build",
+    "prepack": "node scripts/strip-pycache.mjs",
     "postinstall": "node bin/postinstall.js",
     "scan": "gd scan",
     "scan:all": "gd scan --all",

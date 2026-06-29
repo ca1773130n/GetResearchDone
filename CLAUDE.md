@@ -51,7 +51,7 @@ Prefer `ctx_*` MCP tools over Bash/Read for large output (`ctx_batch_execute`,
   - `lib/scheduler.ts` — cross-backend rate-limit scheduler + account rotation.
   - `lib/commands/`, `lib/context/`, `lib/evolve/` (deprecated — life-harness
     replaced it; rounds: `lib/commands/harness.ts` + `bin/harness_driver.py`,
-    logic in the `autoresearch-core` PyPI package, version-locked to GRD).
+    logic in the `autoresearch-core` kernel — vendored into `bin/vendor/` (ships with GRD, no pip install; `python3` >=3.11 only), version-locked to GRD).
 - `commands/` — skill markdown. `agents/` — subagent definitions.
 - `tests/unit/` mirrors `lib/` (`lib/x.ts` → `tests/unit/x.test.ts`).
 - `.planning/` — project state (plans, roadmap, config, research threads).
