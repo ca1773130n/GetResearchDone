@@ -46,7 +46,46 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(call).toContain('--canonicalize');
     // --distill is a compile-only flag in 0.11.0; `extract` rejects it.
     expect(call).not.toContain('--distill');
+    // 0.12 `--extractor` is opt-in; the unconfigured default is deterministic.
+    expect(call).not.toContain('--extractor');
     expect(call.join(' ')).toContain('.tesserae/graph.json');
+  });
+
+  function withConfig(cfg: Record<string, unknown>): string {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    fs.mkdirSync(path.join(cwd, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify(cfg));
+    return cwd;
+  }
+  async function argsFor(cfg: Record<string, unknown>): Promise<string[]> {
+    const calls: string[][] = [];
+    const run = (bin: string, args: string[]) => { calls.push([bin, ...args]); return ''; };
+    const cwd = withConfig(cfg);
+    await createCliTesseraeClient({ run, whichOk: true }).compile(cwd, [path.join(cwd, 'corpus')]);
+    return calls[0];
+  }
+
+  it('opts into the LLM concept layer with --extractor claude-cli when configured (0.12)', async () => {
+    const c = await argsFor({ research_tesserae_extractor: 'claude-cli' });
+    const i = c.indexOf('--extractor');
+    expect(i).toBeGreaterThan(-1);
+    expect(c[i + 1]).toBe('claude-cli');
+  });
+
+  it('passes selective-claude with --claude-include/--claude-limit', async () => {
+    const c = await argsFor({
+      research_tesserae_extractor: 'selective-claude',
+      research_tesserae_extract_include: 'corpus/**.md',
+      research_tesserae_extract_limit: 5,
+    });
+    expect(c).toContain('--extractor');
+    expect(c).toContain('selective-claude');
+    expect(c[c.indexOf('--claude-include') + 1]).toBe('corpus/**.md');
+    expect(c[c.indexOf('--claude-limit') + 1]).toBe('5');
+  });
+
+  it('ignores an unknown extractor value (stays deterministic, no flag)', async () => {
+    expect(await argsFor({ research_tesserae_extractor: 'gpt' })).not.toContain('--extractor');
   });
 
   it('compile returns compile_failed when the runner throws', async () => {

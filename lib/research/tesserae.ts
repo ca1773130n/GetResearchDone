@@ -46,6 +46,28 @@ function tesseraeDir(cwd: string): string { return path.join(cwd, '.tesserae'); 
 function graphJsonPath(cwd: string): string { return path.join(tesseraeDir(cwd), 'graph.json'); }
 function sqlitePath(cwd: string): string { return path.join(tesseraeDir(cwd), 'sqlite.db'); }
 
+// tesserae 0.12 `extract --extractor` (opt-in): builds the LLM concept/claim layer
+// the deterministic default leaves sparse. Default (unset/unknown) → null = no flag
+// = deterministic, so `gd ingest` keeps its current cost. selective-claude also reads
+// optional include/limit knobs.
+function readExtractorConfig(cwd: string): { extractor: string | null; include: string | null; limit: number | null } {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_tesserae_extractor?: unknown;
+      research_tesserae_extract_include?: unknown;
+      research_tesserae_extract_limit?: unknown;
+    };
+    const v = raw.research_tesserae_extractor;
+    const inc = raw.research_tesserae_extract_include;
+    const lim = raw.research_tesserae_extract_limit;
+    return {
+      extractor: v === 'claude-cli' || v === 'selective-claude' ? v : null,
+      include: typeof inc === 'string' && inc.length > 0 ? inc : null,
+      limit: typeof lim === 'number' && Number.isInteger(lim) && lim > 0 ? lim : null,
+    };
+  } catch { return { extractor: null, include: null, limit: null }; }
+}
+
 function binaryResolves(): boolean {
   try { execFileSync('tesserae', ['--help'], { encoding: 'utf8', timeout: 15000 }); return true; }
   catch { return false; }
@@ -68,6 +90,12 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       // unsupported by `extract`, so it is dropped here (distilled memory is populated
       // by `tesserae refresh`/`compile --distill` at the project level, not corpus extract).
       const args = ['extract', ...sources, '-o', graph, '--sqlite-output', sqlitePath(cwd), '--changed-only', '--canonicalize'];
+      const ex = readExtractorConfig(cwd);
+      if (ex.extractor) {
+        args.push('--extractor', ex.extractor);
+        if (ex.include) args.push('--claude-include', ex.include);
+        if (ex.limit !== null) args.push('--claude-limit', String(ex.limit));
+      }
       try {
         run('tesserae', args, cwd);
         return { status: 'compiled', detail: 'compiled', graphPath: graph };

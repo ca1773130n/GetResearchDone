@@ -3,6 +3,19 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Added
+- **Tesserae 0.12 `--extractor` opt-in** (`lib/research/tesserae.ts`): a new
+  `research_tesserae_extractor` config key (`deterministic` (default) | `claude-cli`
+  | `selective-claude`) makes `gd ingest` build the LLM concept/claim layer the
+  deterministic extractor leaves sparse. `selective-claude` also honours
+  `research_tesserae_extract_include` / `research_tesserae_extract_limit`. Default
+  stays deterministic, so there is no new LLM cost unless opted in. Requires
+  tesserae ≥ 0.12, which hardens the LLM extractor (per-doc timeout fallback +
+  retry on transient invalid generation). No breaking changes from Tesserae 0.12 —
+  GRD never used the removed `projects activate` / `activate_project`.
+
 ## [0.4.7] - 2026-06-28
 
 Autoresearch gap-fixes (see `docs/autoresearch-gap-analysis-2026-06.md`).
