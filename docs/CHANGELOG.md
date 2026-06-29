@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.8] - 2026-06-29
 
 ### Added
 - **Tesserae 0.12 `--extractor` opt-in** (`lib/research/tesserae.ts`): a new
