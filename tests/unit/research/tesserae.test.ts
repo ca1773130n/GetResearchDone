@@ -88,6 +88,43 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(await argsFor({ research_tesserae_extractor: 'gpt' })).not.toContain('--extractor');
   });
 
+  function withGraph(cwd: string, nodeTypes: string[]): void {
+    fs.mkdirSync(path.join(cwd, '.tesserae'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.tesserae/graph.json'),
+      JSON.stringify({ nodes: nodeTypes.map((t) => ({ node_type: t })) }));
+  }
+  const many = (t: string, n: number): string[] => Array.from({ length: n }, () => t);
+  async function detailFor(cwd: string): Promise<string> {
+    const res = await createCliTesseraeClient({ run: () => '', whichOk: true })
+      .compile(cwd, [path.join(cwd, 'corpus')]);
+    expect(res.status).toBe('compiled');
+    return res.detail;
+  }
+
+  it('hints toward the LLM extractor when a deterministic compile is concept-poor (0.12)', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    withGraph(cwd, many('SourceDocument', 25)); // >=20 nodes, zero concept-layer nodes
+    expect(await detailFor(cwd)).toMatch(/research_tesserae_extractor|claude-cli/);
+  });
+
+  it('no hint when the graph already has a concept layer', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    withGraph(cwd, [...many('SourceDocument', 25), 'PerformanceClaim']);
+    expect(await detailFor(cwd)).toBe('compiled');
+  });
+
+  it('no hint for a small graph (< 20 nodes)', async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
+    withGraph(cwd, many('SourceDocument', 5));
+    expect(await detailFor(cwd)).toBe('compiled');
+  });
+
+  it('no concept-poor hint when the LLM extractor was already requested', async () => {
+    const cwd = withConfig({ research_tesserae_extractor: 'claude-cli' });
+    withGraph(cwd, many('SourceDocument', 25));
+    expect(await detailFor(cwd)).toBe('compiled');
+  });
+
   it('compile returns compile_failed when the runner throws', async () => {
     const run = () => { throw Object.assign(new Error('boom'), { stderr: 'extract error' }); };
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));

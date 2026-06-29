@@ -68,6 +68,34 @@ function readExtractorConfig(cwd: string): { extractor: string | null; include: 
   } catch { return { extractor: null, include: null, limit: null }; }
 }
 
+// tesserae's concept/claim layer node types (cli.py _CONCEPT_LAYER_TYPES, 0.12).
+const _CONCEPT_LAYER_TYPES = new Set([
+  'Concept', 'TechnicalTerm', 'MethodologicalConcept', 'MathematicalConcept', 'Algorithm',
+  'ArchitecturePattern', 'TrainingParadigm', 'InferenceStrategy', 'ObjectiveFunction', 'Task',
+  'Capability', 'ResearchTopic', 'ProblemArea', 'ApproachFamily', 'Claim', 'ContributionClaim',
+  'PerformanceClaim', 'ComparisonClaim', 'LimitationClaim', 'CausalClaim', 'OpenQuestion',
+]);
+
+// tesserae 0.12 warns (to stderr, which GRD does not capture) when a deterministic
+// compile yields >=20 nodes but no concept/claim layer. Mirror that check on the
+// graph.json we already produce so `gd ingest` can nudge toward the LLM extractor.
+function conceptPoorHint(graphPath: string): string | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(graphPath, 'utf8')) as {
+      nodes?: Array<{ node_type?: string; type?: string }>;
+    };
+    const nodes = data.nodes || [];
+    if (nodes.length < 20) return null;
+    const conceptual = nodes.filter(
+      (n) => _CONCEPT_LAYER_TYPES.has(String(n.node_type || n.type || '')),
+    ).length;
+    if (conceptual > 0) return null;
+    return `compiled ${nodes.length} nodes but no concept/claim layer — the deterministic `
+      + 'extractor only mints concepts for known headings. For a richer typed graph set '
+      + '`research_tesserae_extractor: claude-cli` (tesserae 0.12).';
+  } catch { return null; }
+}
+
 function binaryResolves(): boolean {
   try { execFileSync('tesserae', ['--help'], { encoding: 'utf8', timeout: 15000 }); return true; }
   catch { return false; }
@@ -98,7 +126,9 @@ function createCliTesseraeClient(opts: CliOpts = {}): TesseraeClient {
       }
       try {
         run('tesserae', args, cwd);
-        return { status: 'compiled', detail: 'compiled', graphPath: graph };
+        // Only nudge when on the deterministic default; best-effort, never blocks.
+        const detail = ex.extractor ? 'compiled' : (conceptPoorHint(graph) || 'compiled');
+        return { status: 'compiled', detail, graphPath: graph };
       } catch (e: unknown) {
         const err = e as { stderr?: string; message?: string };
         return { status: 'compile_failed', detail: err.stderr || err.message || String(e), graphPath: null };

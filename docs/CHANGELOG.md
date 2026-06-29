@@ -15,6 +15,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   tesserae ≥ 0.12, which hardens the LLM extractor (per-doc timeout fallback +
   retry on transient invalid generation). No breaking changes from Tesserae 0.12 —
   GRD never used the removed `projects activate` / `activate_project`.
+- **Concept-poor ingest hint** (`lib/research/tesserae.ts`): after a deterministic
+  `gd ingest`, GRD mirrors Tesserae 0.12's concept-poor check on the produced
+  `graph.json` (≥20 nodes, zero concept/claim-layer nodes) and surfaces a hint to
+  set `research_tesserae_extractor: claude-cli`. Best-effort — never blocks ingest.
 
 ## [0.4.7] - 2026-06-28
 
