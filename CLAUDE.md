@@ -92,7 +92,8 @@ keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 `research_sandbox` (`docker`/`subprocess`/`auto` — `auto`, the unset default, uses
 docker when available else subprocess with a visible UNSANDBOXED warning;
 + `_image`/`_memory`/`_cpus`/`_network`),
-`research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`;
+`research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`,
+`research_tesserae_extractor` (+ `_extract_include`/`_extract_limit`);
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 `min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,
 `distillation_max_age_days` (drop runbook/gotcha evidence older than N days),

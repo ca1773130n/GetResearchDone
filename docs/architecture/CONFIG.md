@@ -94,6 +94,17 @@ generated experiment scripts during RUN. Implemented in `lib/research/docker-run
 | `research_sandbox_cpus` | `string` | `'1'` | Container CPU cap. |
 | `research_sandbox_network` | `'none' \| 'bridge'` | `'none'` | Container network mode; `'bridge'` allows network inside the container. |
 
+### Autoresearch Tesserae extraction
+
+Top-level keys controlling how `gd ingest` builds the research knowledge graph
+from the corpus. Implemented in `lib/research/tesserae.ts` (invokes `tesserae extract`).
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `research_tesserae_extractor` | `'deterministic' \| 'claude-cli' \| 'selective-claude'` | `'deterministic'` | Tesserae 0.12 concept-layer extractor. The deterministic default is fast/offline but leaves the concept/claim layer sparse. `'claude-cli'` builds the full LLM concept layer (concepts, claims, capabilities, evidence spans, typed edges) — richer grounding at the cost of LLM calls + latency on `gd ingest`; 0.12 hardens it (per-doc timeout falls back to deterministic, transient invalid generations retried). `'selective-claude'` runs the LLM extractor over a subset. Unset/unknown ⇒ deterministic (no flag). Requires tesserae ≥ 0.12. |
+| `research_tesserae_extract_include` | `string` (glob) | — | Only with `selective-claude`: glob of corpus files to send to the LLM extractor (`--claude-include`). |
+| `research_tesserae_extract_limit` | `integer` | — | Only with `selective-claude`: cap on files sent to the LLM extractor (`--claude-limit`). |
+
 ### Post-Phase Pipeline
 
 | Field | Type | Default | Description |
