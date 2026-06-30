@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Fixed
+- **ultracode now works via the Claude Code plugin's `/grd:*` slash commands**, not
+  just the `gd` CLI. ultracode detection + the env carrier were wired only into
+  `bin/gd.ts`; the slash commands route through `bin/grd-tools.ts`, which had no
+  ultracode handling, so `/grd:autopilot ultracode` was a no-op. Added a shared
+  `maybeApplyUltracode()` (`lib/ultracode.ts`) called in `grd-tools.ts` before
+  dispatch — lighting up `ultracode` / `--ultracode` for **every** `/grd:*` command
+  (autopilot, execute-phase, quick, research). The token is stripped so no command
+  parser mis-reads it. `/grd:autopilot` now lists `ultracode` in its argument-hint.
 - **Tesserae 0.13 compatibility** (`lib/research/tesserae.ts`): 0.13 flipped the
   `extract --extractor` default to `llm` (the configured provider), so a default
   `gd ingest` would silently switch to LLM extraction (cost + latency). GRD now
