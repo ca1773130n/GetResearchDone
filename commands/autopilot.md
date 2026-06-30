@@ -1,6 +1,6 @@
 ---
 description: Plan and execute multiple phases on autopilot with fresh context per step
-argument-hint: "[--phase-from N] [--phase-to N] [--milestone] [--dry-run] [--skip-post-pipeline] [--max-milestones N]"
+argument-hint: "[ultracode] [--phase-from N] [--phase-to N] [--milestone] [--dry-run] [--skip-post-pipeline] [--max-milestones N]"
 ---
 
 Run the autopilot command to plan and execute phases with dependency-aware parallel planning and execution:
@@ -21,6 +21,7 @@ Report the JSON results including wave grouping. If any phase failed, explain wh
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `ultracode` | Max-effort mode: forces best model + max reasoning effort on every spawn (bare keyword, or `--ultracode`). Works here because it is applied in `grd-tools.js` before dispatch. | off |
 | `--phase-from N` | Start from phase N | -- (all phases) |
 | `--phase-to N` | Stop at phase N | -- (all phases) |
 | `--milestone` | Explicit milestone mode (runs wireup after all phases) | true when no phase range |

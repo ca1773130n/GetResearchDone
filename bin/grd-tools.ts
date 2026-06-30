@@ -1445,6 +1445,19 @@ const { INIT_WORKFLOWS } = require('../lib/cli/index') as { INIT_WORKFLOWS: read
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  // ultracode max-effort mode: set the process-tree env carrier BEFORE dispatch so
+  // every downstream spawn (autopilot waves/pipeline, autoresearch loop) inherits
+  // best-model + max effort. This is what makes `ultracode` / `--ultracode` work via
+  // the Claude Code plugin's /grd:* slash commands (they route through grd-tools.js),
+  // not just the `gd` CLI. Strip the token so no command's parser mis-reads it.
+  const { maybeApplyUltracode } = require('../lib/ultracode') as {
+    maybeApplyUltracode: (tokens: string[]) => boolean;
+  };
+  if (maybeApplyUltracode(args)) {
+    for (let i = args.length - 1; i >= 0; i--) {
+      if (args[i] === 'ultracode' || args[i] === '--ultracode') args.splice(i, 1);
+    }
+  }
   const rawIndex = args.indexOf('--raw');
   const raw = rawIndex !== -1;
   if (rawIndex !== -1) args.splice(rawIndex, 1);

@@ -5,6 +5,7 @@ import {
   codexEffort,
   detectUltracode,
   applyUltracodeEnv,
+  maybeApplyUltracode,
   resolveEffort,
 } from '../../lib/ultracode';
 import { ADAPTERS } from '../../lib/scheduler';
@@ -54,6 +55,22 @@ describe('ultracode', () => {
     it('ignores a garbage GRD_EFFORT value', () => {
       process.env.GRD_EFFORT = 'bogus';
       expect(resolveEffort({})).toEqual({ effort: undefined, ultracode: false });
+    });
+  });
+
+  describe('maybeApplyUltracode', () => {
+    it('sets the env carrier and returns true when the ultracode token is present', () => {
+      expect(maybeApplyUltracode(['autopilot', 'ultracode'])).toBe(true);
+      expect(process.env.GRD_ULTRACODE).toBe('1');
+      expect(process.env.GRD_EFFORT).toBe('max');
+    });
+    it('also matches the --ultracode flag', () => {
+      expect(maybeApplyUltracode(['autopilot', '--ultracode'])).toBe(true);
+      expect(process.env.GRD_ULTRACODE).toBe('1');
+    });
+    it('is a no-op returning false when absent', () => {
+      expect(maybeApplyUltracode(['autopilot', '5'])).toBe(false);
+      expect(process.env.GRD_ULTRACODE).toBeUndefined();
     });
   });
 
