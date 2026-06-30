@@ -46,8 +46,9 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(call).toContain('--canonicalize');
     // --distill is a compile-only flag in 0.11.0; `extract` rejects it.
     expect(call).not.toContain('--distill');
-    // 0.12 `--extractor` is opt-in; the unconfigured default is deterministic.
-    expect(call).not.toContain('--extractor');
+    // tesserae 0.13 flipped the `--extractor` default to `llm`; GRD pins
+    // `deterministic` EXPLICITLY so ingest cost doesn't change under it.
+    expect(call[call.indexOf('--extractor') + 1]).toBe('deterministic');
     expect(call.join(' ')).toContain('.tesserae/graph.json');
   });
 
@@ -84,8 +85,26 @@ describe('TesseraeClient (CLI backend)', () => {
     expect(c[c.indexOf('--claude-limit') + 1]).toBe('5');
   });
 
-  it('ignores an unknown extractor value (stays deterministic, no flag)', async () => {
-    expect(await argsFor({ research_tesserae_extractor: 'gpt' })).not.toContain('--extractor');
+  it('passes --extractor llm (provider-agnostic) when configured (0.13)', async () => {
+    const c = await argsFor({ research_tesserae_extractor: 'llm' });
+    expect(c[c.indexOf('--extractor') + 1]).toBe('llm');
+    expect(c).not.toContain('--llm-include');
+  });
+
+  it('passes selective-llm with --llm-include/--llm-limit (0.13)', async () => {
+    const c = await argsFor({
+      research_tesserae_extractor: 'selective-llm',
+      research_tesserae_extract_include: 'corpus/**.md',
+      research_tesserae_extract_limit: 3,
+    });
+    expect(c[c.indexOf('--extractor') + 1]).toBe('selective-llm');
+    expect(c[c.indexOf('--llm-include') + 1]).toBe('corpus/**.md');
+    expect(c[c.indexOf('--llm-limit') + 1]).toBe('3');
+  });
+
+  it('falls back to --extractor deterministic for an unknown value', async () => {
+    const c = await argsFor({ research_tesserae_extractor: 'gpt' });
+    expect(c[c.indexOf('--extractor') + 1]).toBe('deterministic');
   });
 
   function withGraph(cwd: string, nodeTypes: string[]): void {
@@ -101,10 +120,10 @@ describe('TesseraeClient (CLI backend)', () => {
     return res.detail;
   }
 
-  it('hints toward the LLM extractor when a deterministic compile is concept-poor (0.12)', async () => {
+  it('hints toward the LLM extractor when a deterministic compile is concept-poor (0.13)', async () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-tess-'));
     withGraph(cwd, many('SourceDocument', 25)); // >=20 nodes, zero concept-layer nodes
-    expect(await detailFor(cwd)).toMatch(/research_tesserae_extractor|claude-cli/);
+    expect(await detailFor(cwd)).toMatch(/research_tesserae_extractor: llm/);
   });
 
   it('no hint when the graph already has a concept layer', async () => {

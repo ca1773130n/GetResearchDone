@@ -14,6 +14,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   dispatch — lighting up `ultracode` / `--ultracode` for **every** `/grd:*` command
   (autopilot, execute-phase, quick, research). The token is stripped so no command
   parser mis-reads it. `/grd:autopilot` now lists `ultracode` in its argument-hint.
+- **Tesserae 0.13 compatibility** (`lib/research/tesserae.ts`): 0.13 flipped the
+  `extract --extractor` default to `llm` (the configured provider), so a default
+  `gd ingest` would silently switch to LLM extraction (cost + latency). GRD now
+  pins `--extractor deterministic` **explicitly** when `research_tesserae_extractor`
+  is unset — ingest stays fast/offline/byte-stable unless opted in, regardless of
+  Tesserae's own default. (0.13.1's `sources add|list|remove` is `compile`-only — GRD
+  uses `extract` with explicit paths, so it's unaffected.)
+
+### Changed
+- **`research_tesserae_extractor`** gains the provider-agnostic 0.13 values `llm`
+  and `selective-llm` (codex/claude/anthropic per Tesserae's `llm_provider`);
+  `selective-llm` uses `--llm-include`/`--llm-limit`. Legacy `claude-cli` /
+  `selective-claude` (Claude-only, `--claude-*`) remain accepted. The concept-poor
+  `gd ingest` hint now nudges toward `research_tesserae_extractor: llm`.
 
 ## [0.4.8] - 2026-06-29
 
