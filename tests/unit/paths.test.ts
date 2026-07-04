@@ -73,6 +73,11 @@ describe('currentMilestone', () => {
     expect(currentMilestone(tmpDir)).toBe('v1.0.0');
   });
 
+  test('keeps a prerelease suffix in the version (v1.0.0-beta)', () => {
+    tmpDir = makeTmpDir('# State\n\n- **Milestone:** v1.0.0-beta — Prerelease Milestone\n');
+    expect(currentMilestone(tmpDir)).toBe('v1.0.0-beta');
+  });
+
   test('returns anonymous when STATE.md does not exist', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-paths-test-'));
     expect(currentMilestone(tmpDir)).toBe('anonymous');

@@ -52,8 +52,11 @@ function currentMilestone(cwd: string): string {
   const fieldValue: string = fieldMatch[1].trim();
   if (!fieldValue) return inferMilestoneFromDisk(cwd);
 
-  // Extract just the version string (vX.Y or vX.Y.Z etc.)
-  const versionMatch: RegExpMatchArray | null = fieldValue.match(/(v[\d.]+)/);
+  // Extract just the version string (vX.Y, vX.Y.Z, and prerelease suffixes like
+  // vX.Y-beta / vX.Y.Z-rc.1 — a bare v[\d.]+ truncates at the '-').
+  const versionMatch: RegExpMatchArray | null = fieldValue.match(
+    /(v\d+(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?)/
+  );
   if (!versionMatch) return inferMilestoneFromDisk(cwd);
 
   return versionMatch[1];
