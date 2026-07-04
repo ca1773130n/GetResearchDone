@@ -70,16 +70,16 @@ class TestVendoredFallback(unittest.TestCase):
 
 
 class TestStaleInstallFallsBackToVendored(unittest.TestCase):
-    """A too-old importable copy (< _REQUIRED_CORE) must be REJECTED in favour of
-    the vendored copy — the version-lock safety property (no crash on a stale pip
-    install, the failure mode that motivated vendoring)."""
+    """An incompatible importable copy — too old (< _REQUIRED_CORE) OR version-ok
+    but missing required symbols (a broken/partial install) — must be REJECTED in
+    favour of the vendored copy and never crash the round. The failure mode that
+    motivated vendoring."""
 
-    def test_stale_installed_copy_falls_back_to_vendored(self):
+    def _assert_falls_back_to_vendored(self, init_src: str) -> None:
         with tempfile.TemporaryDirectory() as d:
             pkg = Path(d) / "autoresearch_core"
             pkg.mkdir()
-            # A bare 0.4.6 package: enough for _ver_ok to read __version__ and reject it.
-            (pkg / "__init__.py").write_text('__version__ = "0.4.6"\n')
+            (pkg / "__init__.py").write_text(init_src)
             code = (
                 "import importlib.util;"
                 f"spec = importlib.util.spec_from_file_location('hd', r'{DRIVER}');"
@@ -88,8 +88,8 @@ class TestStaleInstallFallsBackToVendored(unittest.TestCase):
                 "import autoresearch_core;"
                 "print(autoresearch_core.__file__)"
             )
-            # Prepend the fake 0.4.6 so `import autoresearch_core` finds it FIRST;
-            # _ensure_core must reject it (_ver_ok False) and fall back to bin/vendor.
+            # Prepend the fake so `import autoresearch_core` finds it FIRST;
+            # _ensure_core must reject it and fall back to bin/vendor.
             env = {**os.environ, "PYTHONPATH": d}
             env.pop("GRD_HARNESS_CORE", None)
             proc = subprocess.run(
@@ -98,6 +98,15 @@ class TestStaleInstallFallsBackToVendored(unittest.TestCase):
             )
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertIn("bin/vendor", proc.stdout)
+
+    def test_stale_installed_copy_falls_back_to_vendored(self):
+        # Too old: _ver_ok rejects it.
+        self._assert_falls_back_to_vendored('__version__ = "0.4.6"\n')
+
+    def test_incomplete_installed_copy_falls_back_to_vendored(self):
+        # Version-ok but MISSING the required symbols (broken/partial install):
+        # _core_usable's completeness check rejects it before the driver's import.
+        self._assert_falls_back_to_vendored('__version__ = "0.4.7"\n')
 
 
 if __name__ == "__main__":

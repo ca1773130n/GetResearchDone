@@ -46,26 +46,50 @@ def _ver_ok(mod: object) -> bool:
     return parts >= _REQUIRED_CORE
 
 
-def _ensure_core() -> None:
-    """Make a version-compatible autoresearch_core importable.
+# The symbols harness_driver imports from the kernel. An installed copy must
+# expose ALL of them (not just a compatible __version__) before we prefer it —
+# otherwise a version-ok-but-broken/partial install would pass the version gate
+# and then crash the `from autoresearch_core import (...)` below instead of
+# falling back to the vendored copy.
+_CORE_NAMES = (
+    "EvalCheck", "EvalReport", "Finding", "PatchEntry", "RoundPatch", "RoundRecord",
+    "decide_round", "patch_hash", "resolve_autonomy", "select_evidence",
+    "validate_round_patch", "should_skip_patch",
+    "FindingsSource", "PatchProposer", "RoundEvaluator", "Applier", "RoundStore",
+    "classify_run_failure",
+)
 
-    Precedence: an installed/editable copy wins iff its __version__ is
-    >= _REQUIRED_CORE (preserves the dev/editable workflow and a power-user
-    override); otherwise the vendored copy under bin/vendor/ is used. Setting
-    GRD_HARNESS_CORE=vendored forces the vendored copy unconditionally."""
-    if os.environ.get("GRD_HARNESS_CORE") != "vendored":
-        try:
-            import autoresearch_core  # noqa: F401
-        except ImportError:
-            pass
-        else:
-            if _ver_ok(autoresearch_core):
-                return  # installed copy is compatible — use it
-    # Vendored branch: purge any stale/incompatible copy from sys.modules, then
-    # prepend bin/vendor so the next import resolves to the shipped kernel.
-    for key in [k for k in sys.modules
+
+def _purge_core() -> None:
+    for key in [k for k in list(sys.modules)
                 if k == "autoresearch_core" or k.startswith("autoresearch_core.")]:
         del sys.modules[key]
+
+
+def _core_usable() -> bool:
+    """True iff `import autoresearch_core` yields a version-compatible copy that
+    also exposes every symbol the driver needs."""
+    _purge_core()
+    try:
+        import autoresearch_core as ac  # noqa: F401
+    except ImportError:
+        return False
+    return _ver_ok(ac) and all(hasattr(ac, n) for n in _CORE_NAMES)
+
+
+def _ensure_core() -> None:
+    """Arrange sys.path so `autoresearch_core` resolves to a usable kernel.
+
+    Precedence: a version-compatible AND complete installed/editable copy wins
+    (dev/editable workflow + power-user override), else the vendored copy under
+    bin/vendor/. GRD_HARNESS_CORE=vendored forces vendored unconditionally. A
+    stale, too-old, or broken install is rejected in favour of vendored — it can
+    never crash the round."""
+    if os.environ.get("GRD_HARNESS_CORE") != "vendored" and _core_usable():
+        return  # installed copy is usable — keep the copy imported by the check
+    # Vendored branch: purge the rejected copy, then prepend bin/vendor so the
+    # `from autoresearch_core import (...)` below resolves to the shipped kernel.
+    _purge_core()
     vendor = str(_VENDOR_DIR)
     if vendor not in sys.path:
         sys.path.insert(0, vendor)
@@ -82,8 +106,8 @@ try:
         classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core kernel unavailable (vendored copy missing "
-                     "— reinstall GRD); Python 3.11+ required\n")
+    sys.stderr.write("autoresearch-core kernel unavailable (vendored copy missing or "
+                     "incomplete — reinstall GRD); Python 3.11+ required\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)
