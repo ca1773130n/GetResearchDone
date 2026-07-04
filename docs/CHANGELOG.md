@@ -3,6 +3,21 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.4.10] - 2026-07-05
+
+### Fixed
+- **Milestone-archival scoping** (`lib/phase.ts`): `milestone complete <version>` now
+  archives only the completing milestone's phases from the shared `anonymous/phases`
+  bucket. Scope is bound to the ROADMAP milestone version being completed; an
+  indeterminate or mismatched scope archives **nothing** (never the whole bucket,
+  which previously mis-filed/deleted unrelated milestones' live docs); and the scope is
+  limited to the first unshipped ROADMAP section, so a multi-milestone roadmap can't
+  leak a later milestone's phase dirs. (#57)
+- **Prerelease milestone versions** (`lib/paths.ts`, `lib/roadmap.ts`): `currentMilestone`
+  and the `computeSchedule` / `analyzeRoadmap` milestone regexes keep prerelease
+  suffixes (`v1.0.0-beta`, `v2.3-rc.1`) instead of truncating at the `-`, matching the
+  `phase.ts` fix — milestone identity is now consistent across every parser. (#58)
+
 ## [0.4.9] - 2026-07-04
 
 ### Fixed
