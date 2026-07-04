@@ -1272,8 +1272,10 @@ function _archiveMilestone(
       const phaseDirs: string[] = phaseEntries
         .filter((e: import('fs').Dirent) => e.isDirectory())
         .map((e: import('fs').Dirent) => e.name)
-        // Only archive phases scoped to this milestone; leave others in place.
-        .filter((name: string) => allow == null || allow.includes(name));
+        // Only archive phases scoped to this milestone; leave others in place. A
+        // null/absent allowlist archives NOTHING (never the whole bucket) — the
+        // scoped list is computed by the caller from the version being completed.
+        .filter((name: string) => allow != null && allow.includes(name));
       if (phaseDirs.length > 0) {
         fs.mkdirSync(phasesArchiveDir, { recursive: true });
         for (let _pi = 0; _pi < phaseDirs.length; _pi++) {
@@ -1426,6 +1428,23 @@ function _normalizePhaseNum(s: string): string {
  * phases out of a shared bucket that accumulated several milestones' phases
  * (the `anonymous/phases` pollution case), instead of sweeping all of them.
  */
+// The milestone version at the top of ROADMAP.md, e.g. `## M1 v1.0: Foundation`
+// -> "v1.0". The shared phase bucket holds the CURRENT roadmap's phases, so this
+// identifies which version those phases belong to — archival only proceeds when it
+// equals the version being completed.
+function _roadmapMilestoneVersion(cwd: string): string | null {
+  try {
+    const roadmap: string = fs.readFileSync(
+      path.join(cwd, '.planning', 'ROADMAP.md'),
+      'utf-8'
+    ) as string;
+    const m: RegExpMatchArray | null = roadmap.match(/^##\s+.*?(v[\d.]+)/m);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 function _currentMilestonePhaseNumbers(cwd: string): Set<string> | null {
   try {
     const analyzed: { phases?: Array<{ number?: string | null }> } = analyzeRoadmap(cwd);
@@ -1514,11 +1533,16 @@ function cmdMilestoneComplete(
   // completions were skipped between them; archiving it wholesale mis-files
   // unrelated phases and deletes live docs. When phases already live under
   // milestones/{version}/phases the bucket is already milestone-specific, so
-  // no scoping is needed. Otherwise use the current ROADMAP's phase set as an
-  // allowlist, falling back to "all phases" when it isn't determinable.
+  // no scoping is needed (null => archive all — they are the version's own).
+  // Otherwise the bucket belongs to the CURRENT milestone (per ROADMAP.md): only
+  // scope-and-archive from it when `version` IS the current milestone. Completing
+  // any other version — or an indeterminate/empty roadmap — yields an empty scope,
+  // which archives NOTHING (never the whole bucket), leaving unrelated phases put.
   const milestonePhaseNums: Set<string> | null = phasesAlreadyInPlace
     ? null
-    : _currentMilestonePhaseNumbers(cwd);
+    : _roadmapMilestoneVersion(cwd) === version
+      ? (_currentMilestonePhaseNumbers(cwd) ?? new Set<string>())
+      : new Set<string>();
   const leftBehindPhases: string[] = [];
   let phaseDirsToArchive: string[] | null = null;
 
@@ -1537,17 +1561,16 @@ function cmdMilestoneComplete(
       .map((e: import('fs').Dirent) => e.name)
       .sort();
 
-    // Apply the allowlist. If it matches nothing (e.g. dir names don't line up
-    // with ROADMAP numbers), keep all dirs so we never archive an empty set.
-    let dirs: string[] = allDirs;
-    if (milestonePhaseNums) {
-      const inScope: string[] = allDirs.filter((d: string) =>
-        milestonePhaseNums.has(_normalizePhaseNum(d))
-      );
-      if (inScope.length > 0) {
-        dirs = inScope;
-        for (const d of allDirs) if (!inScope.includes(d)) leftBehindPhases.push(d);
-      }
+    // Apply the allowlist. `null` = archive all (phases already scoped under
+    // milestones/{version}/phases). A Set scopes to exactly those phase numbers —
+    // a non-match or empty scope archives NOTHING (leaving the bucket in place),
+    // never the whole bucket, so unrelated milestones' phases are preserved.
+    let dirs: string[];
+    if (milestonePhaseNums === null) {
+      dirs = allDirs;
+    } else {
+      dirs = allDirs.filter((d: string) => milestonePhaseNums.has(_normalizePhaseNum(d)));
+      for (const d of allDirs) if (!dirs.includes(d)) leftBehindPhases.push(d);
     }
     phaseDirsToArchive = dirs;
 

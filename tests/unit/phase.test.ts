@@ -617,6 +617,21 @@ describe('cmdMilestoneComplete', () => {
     expect(result.phases).toBe(2);
   });
 
+  test('completing a version that is not the roadmap milestone archives nothing', () => {
+    // The fixture ROADMAP scopes the bucket to v1.0. Completing v2.0 (a different
+    // or late milestone) must NOT sweep v1.0's phases into v2.0-phases — the bucket
+    // belongs to v1.0, so v2.0 archives nothing and leaves every phase in place.
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v2.0', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v2.0-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(false);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(false);
+    expect(fs.existsSync(path.join(bucket, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(bucket, '02-build'))).toBe(true);
+    expect(result.phases).toBe(0);
+  });
+
   test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
     // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
     const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');
