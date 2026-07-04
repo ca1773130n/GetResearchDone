@@ -168,6 +168,39 @@ describe('getScheduleForMilestone', () => {
   });
 });
 
+// ─── prerelease milestone versions ───────────────────────────────────────────
+
+describe('prerelease milestone versions', () => {
+  function withRoadmap(header: string): string {
+    const tmpDir = createFixtureDir();
+    const roadmap = [
+      '# Project Roadmap',
+      header,
+      '**Start:** 2026-01-01',
+      '',
+      '### Phase 1: First',
+      '**Goal:** Do first thing',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'ROADMAP.md'), roadmap);
+    return tmpDir;
+  }
+
+  test('computeSchedule keeps a prerelease suffix in the milestone version', () => {
+    const tmpDir = withRoadmap('## Milestone v1.0.0-beta: Prerelease');
+    const schedule = computeSchedule(tmpDir);
+    expect(schedule.milestones[0].version).toBe('v1.0.0-beta');
+    cleanupFixtureDir(tmpDir);
+  });
+
+  test('analyzeRoadmap keeps a prerelease suffix in the milestone version', () => {
+    const tmpDir = withRoadmap('## Milestone v2.3-rc.1: Prerelease');
+    const { stdout } = captureOutput(() => cmdRoadmapAnalyze(tmpDir, false));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.milestones.map((m: { version: string }) => m.version)).toContain('v2.3-rc.1');
+    cleanupFixtureDir(tmpDir);
+  });
+});
+
 // ─── cmdRoadmapGetPhase ─────────────────────────────────────────────────────
 
 describe('cmdRoadmapGetPhase', () => {

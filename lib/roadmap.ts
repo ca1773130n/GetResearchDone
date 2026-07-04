@@ -181,7 +181,7 @@ function computeSchedule(cwd: string): ScheduleResult {
   }
 
   // Parse milestones with Start/Target dates
-  const milestoneRegex = /^##\s*(.*v(\d+\.\d+(?:\.\d+)?)[^(\n]*)/gim;
+  const milestoneRegex = /^##\s*(.*v(\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9.-]+)?)[^(\n]*)/gim;
   const milestones: ParsedMilestone[] = [];
   const milestonePositions: MilestonePosition[] = [];
   let mMatch: RegExpExecArray | null;
@@ -514,7 +514,7 @@ function analyzeRoadmap(cwd: string): AnalyzedRoadmap {
   }
 
   // Parse milestone positions with Start dates from activeContent (already in memory).
-  const milestoneRegexLocal = /^##\s*(.*v(\d+\.\d+(?:\.\d+)?)[^(\n]*)/gim;
+  const milestoneRegexLocal = /^##\s*(.*v(\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9.-]+)?)[^(\n]*)/gim;
   const milestonePositions: MilestonePosition[] = [];
   let mMatchLocal: RegExpExecArray | null;
   while ((mMatchLocal = milestoneRegexLocal.exec(activeContent)) !== null) {
