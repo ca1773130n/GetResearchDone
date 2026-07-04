@@ -72,7 +72,7 @@ def _core_usable() -> bool:
     _purge_core()
     try:
         import autoresearch_core as ac  # noqa: F401
-    except ImportError:
+    except Exception:  # noqa: BLE001 - ANY import failure (broken/partial install) -> prefer vendored
         return False
     return _ver_ok(ac) and all(hasattr(ac, n) for n in _CORE_NAMES)
 
@@ -87,12 +87,16 @@ def _ensure_core() -> None:
     never crash the round."""
     if os.environ.get("GRD_HARNESS_CORE") != "vendored" and _core_usable():
         return  # installed copy is usable — keep the copy imported by the check
-    # Vendored branch: purge the rejected copy, then prepend bin/vendor so the
-    # `from autoresearch_core import (...)` below resolves to the shipped kernel.
+    # Vendored branch: purge the rejected copy, then put bin/vendor FIRST on sys.path
+    # so the `from autoresearch_core import (...)` below resolves to the shipped
+    # kernel. Remove any stale occurrence first — a vendor dir already present at a
+    # LATER position (or an installed copy earlier on the path) would otherwise win,
+    # notably defeating GRD_HARNESS_CORE=vendored.
     _purge_core()
     vendor = str(_VENDOR_DIR)
-    if vendor not in sys.path:
-        sys.path.insert(0, vendor)
+    while vendor in sys.path:
+        sys.path.remove(vendor)
+    sys.path.insert(0, vendor)
 
 
 _ensure_core()
