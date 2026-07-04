@@ -187,6 +187,12 @@ interface ArchiveContext {
   totalTasks: number;
   accomplishments: string[];
   phasesAlreadyInPlace: boolean;
+  /**
+   * When set, only these phase directory names are archived from the phases
+   * bucket (old-style layout). Others are left in place — they belong to a
+   * different milestone. Null/undefined preserves the archive-all behavior.
+   */
+  phaseDirsToArchive?: string[] | null;
 }
 
 /** Archive result from _archiveMilestone. */
@@ -214,6 +220,8 @@ interface MilestoneCompleteResult {
   };
   milestones_updated: boolean;
   state_updated: boolean;
+  /** Phase dirs left in the bucket because they belong to other milestones. */
+  left_behind_phases?: string[];
   git_merge?: GitMergeResult;
 }
 
@@ -1254,9 +1262,14 @@ function _archiveMilestone(
       const phaseEntries: import('fs').Dirent[] = fs.readdirSync(phasesDir, {
         withFileTypes: true,
       });
+      const allow: string[] | null | undefined = ctx.phaseDirsToArchive;
       const phaseDirs: string[] = phaseEntries
         .filter((e: import('fs').Dirent) => e.isDirectory())
-        .map((e: import('fs').Dirent) => e.name);
+        .map((e: import('fs').Dirent) => e.name)
+        // Only archive phases scoped to this milestone; leave others in place. A
+        // null/absent allowlist archives NOTHING (never the whole bucket) — the
+        // scoped list is computed by the caller from the version being completed.
+        .filter((name: string) => allow != null && allow.includes(name));
       if (phaseDirs.length > 0) {
         fs.mkdirSync(phasesArchiveDir, { recursive: true });
         for (let _pi = 0; _pi < phaseDirs.length; _pi++) {
@@ -1388,6 +1401,68 @@ function _rewriteRoadmapAfterComplete(
  * @param raw - Output raw text instead of JSON
  * @returns void — writes JSON or raw text to stdout and exits on error
  */
+/**
+ * Normalize a phase number or `NN-slug` dir name to a comparable key:
+ * takes the leading numeric part and strips leading zeros while keeping any
+ * decimal (`01-test` -> `1`, `23-x` -> `23`, `01.1-insert` -> `1.1`).
+ */
+function _normalizePhaseNum(s: string): string {
+  const m: RegExpMatchArray | null = String(s).match(/^(\d+(?:\.\d+)?)/);
+  const num: string = m ? m[1] : String(s);
+  return num.replace(/^0+(\d)/, '$1');
+}
+
+/**
+ * Set of phase numbers that belong to the CURRENT (active, non-shipped)
+ * milestone per ROADMAP.md, normalized via {@link _normalizePhaseNum}.
+ *
+ * Returns null when it can't be determined (no ROADMAP, no phases, read
+ * error) so callers fall back to their prior "all phases" behavior. This is
+ * what lets `milestone complete <version>` archive only THIS milestone's
+ * phases out of a shared bucket that accumulated several milestones' phases
+ * (the `anonymous/phases` pollution case), instead of sweeping all of them.
+ */
+// The active (unshipped) ROADMAP.md content with shipped milestone sections removed
+// — the "current" milestone is the FIRST section here, and its phases are what the
+// shared bucket holds. Returns '' if the roadmap can't be read.
+function _activeRoadmap(cwd: string): string {
+  try {
+    return stripShippedSections(
+      fs.readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf-8') as string
+    );
+  } catch {
+    return '';
+  }
+}
+
+// Version of the first unshipped milestone, e.g. `## M1 v1.0: Foundation` -> "v1.0".
+// Archival only proceeds when this equals the version being completed. Prerelease
+// suffixes (v2.3-beta, v1.0-rc.1) are kept so the match is exact — a bare `v[\d.]+`
+// truncates at the '-' and false-mismatches.
+function _roadmapMilestoneVersion(cwd: string): string | null {
+  const m: RegExpMatchArray | null = _activeRoadmap(cwd)
+    .match(/^##\s+.*?(v\d+(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?)/m);
+  return m ? m[1] : null;
+}
+
+function _currentMilestonePhaseNumbers(cwd: string): Set<string> | null {
+  // Scope to the FIRST unshipped milestone section only (its `## …v…` header up to the
+  // next milestone header or EOF). The shared bucket can hold several milestones'
+  // phases after skipped completions; scoping over the whole ROADMAP would archive a
+  // later milestone's phase dirs into this one.
+  const active: string = _activeRoadmap(cwd);
+  const heads: RegExpMatchArray[] = [...active.matchAll(/^##\s+.*?v\d+(?:\.\d+)*/gm)];
+  if (heads.length === 0) return null;
+  const start: number = heads[0].index ?? 0;
+  const end: number = heads.length > 1 ? (heads[1].index ?? active.length) : active.length;
+  const section: string = active.slice(start, end);
+  const nums: Set<string> = new Set<string>();
+  const re = /#{2,}\s*Phase\s+(\d+(?:\.\d+)?)\s*:/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(section)) !== null) nums.add(_normalizePhaseNum(m[1]));
+  return nums.size > 0 ? nums : null;
+}
+
 function cmdMilestoneComplete(
   cwd: string,
   version: string,
@@ -1456,6 +1531,24 @@ function cmdMilestoneComplete(
   // Determine the source directory for stat gathering
   const statsSourceDir: string = phasesAlreadyInPlace ? milestonePhaseDir : phasesDir;
 
+  // Scope archival to THIS milestone's phases. A shared phases bucket (esp.
+  // 'anonymous/phases') can accumulate phases from several milestones when
+  // completions were skipped between them; archiving it wholesale mis-files
+  // unrelated phases and deletes live docs. When phases already live under
+  // milestones/{version}/phases the bucket is already milestone-specific, so
+  // no scoping is needed (null => archive all — they are the version's own).
+  // Otherwise the bucket belongs to the CURRENT milestone (per ROADMAP.md): only
+  // scope-and-archive from it when `version` IS the current milestone. Completing
+  // any other version — or an indeterminate/empty roadmap — yields an empty scope,
+  // which archives NOTHING (never the whole bucket), leaving unrelated phases put.
+  const milestonePhaseNums: Set<string> | null = phasesAlreadyInPlace
+    ? null
+    : _roadmapMilestoneVersion(cwd) === version
+      ? (_currentMilestonePhaseNumbers(cwd) ?? new Set<string>())
+      : new Set<string>();
+  const leftBehindPhases: string[] = [];
+  let phaseDirsToArchive: string[] | null = null;
+
   // Gather stats from phases
   let phaseCount = 0;
   let totalPlans = 0;
@@ -1466,10 +1559,23 @@ function cmdMilestoneComplete(
     const entries: import('fs').Dirent[] = fs.readdirSync(statsSourceDir, {
       withFileTypes: true,
     });
-    const dirs: string[] = entries
+    const allDirs: string[] = entries
       .filter((e: import('fs').Dirent) => e.isDirectory())
       .map((e: import('fs').Dirent) => e.name)
       .sort();
+
+    // Apply the allowlist. `null` = archive all (phases already scoped under
+    // milestones/{version}/phases). A Set scopes to exactly those phase numbers —
+    // a non-match or empty scope archives NOTHING (leaving the bucket in place),
+    // never the whole bucket, so unrelated milestones' phases are preserved.
+    let dirs: string[];
+    if (milestonePhaseNums === null) {
+      dirs = allDirs;
+    } else {
+      dirs = allDirs.filter((d: string) => milestonePhaseNums.has(_normalizePhaseNum(d)));
+      for (const d of allDirs) if (!dirs.includes(d)) leftBehindPhases.push(d);
+    }
+    phaseDirsToArchive = dirs;
 
     for (const dir of dirs) {
       phaseCount++;
@@ -1519,6 +1625,7 @@ function cmdMilestoneComplete(
     totalTasks,
     accomplishments,
     phasesAlreadyInPlace,
+    phaseDirsToArchive,
   };
   const { archivedPhaseCount }: ArchiveResult = _archiveMilestone(
     cwd,
@@ -1639,8 +1746,17 @@ function cmdMilestoneComplete(
     },
     milestones_updated: true,
     state_updated: fs.existsSync(statePath),
+    ...(leftBehindPhases.length > 0 ? { left_behind_phases: leftBehindPhases } : {}),
     ...(gitMerge ? { git_merge: gitMerge } : {}),
   };
+
+  if (leftBehindPhases.length > 0) {
+    process.stderr.write(
+      `⚠ Left ${leftBehindPhases.length} phase dir(s) in ${statsSourceDir} — not part of ` +
+        `milestone ${version} per ROADMAP.md: ${leftBehindPhases.join(', ')}. ` +
+        `They belong to other milestones; complete those separately.\n`
+    );
+  }
 
   output(
     result,

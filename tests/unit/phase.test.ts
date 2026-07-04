@@ -588,6 +588,93 @@ describe('cmdMilestoneComplete', () => {
     expect(result.archived.phase_count).toBeGreaterThanOrEqual(2);
   });
 
+  test('archives only the current milestone phases, leaving foreign phases in place', () => {
+    // The shared bucket accumulated a phase from a DIFFERENT milestone
+    // (17-foreign) next to v1.0's phases (01-test, 02-build). Completing v1.0
+    // must archive only 01/02 and leave 17-foreign behind — the fixture ROADMAP
+    // scopes v1.0 to phases 1-2, so 17 is not part of this milestone.
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const foreign: string = path.join(bucket, '17-foreign');
+    fs.mkdirSync(foreign, { recursive: true });
+    fs.writeFileSync(
+      path.join(foreign, '17-01-PLAN.md'),
+      '---\nphase: 17-foreign\nplan: 01\n---\n# Plan\n',
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    // v1.0 phases archived
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    // foreign phase NOT archived, still in the bucket
+    expect(fs.existsSync(path.join(archive, '17-foreign'))).toBe(false);
+    expect(fs.existsSync(foreign)).toBe(true);
+    // reported as left behind, and stats reflect the scoped set only
+    expect(result.left_behind_phases).toContain('17-foreign');
+    expect(result.phases).toBe(2);
+  });
+
+  test('completing a version that is not the roadmap milestone archives nothing', () => {
+    // The fixture ROADMAP scopes the bucket to v1.0. Completing v2.0 (a different
+    // or late milestone) must NOT sweep v1.0's phases into v2.0-phases — the bucket
+    // belongs to v1.0, so v2.0 archives nothing and leaves every phase in place.
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v2.0', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v2.0-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(false);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(false);
+    expect(fs.existsSync(path.join(bucket, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(bucket, '02-build'))).toBe(true);
+    expect(result.phases).toBe(0);
+  });
+
+  test('a multi-milestone roadmap archives only the completing milestone (no future-milestone leak)', () => {
+    // ROADMAP lists v1.0 (phases 1-2) AND an unshipped v2.0 (phase 3). The bucket
+    // accumulated v2.0's 03-future (the skipped-completion case). Completing v1.0 must
+    // archive only 01/02 and leave 03-future — phase 3 belongs to v2.0, not v1.0.
+    const roadmapPath: string = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.appendFileSync(
+      roadmapPath,
+      '\n## M2 v2.0: Next Milestone\n\n### Phase 3: Future Work -- later\n',
+      'utf-8'
+    );
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const future: string = path.join(bucket, '03-future');
+    fs.mkdirSync(future, { recursive: true });
+    fs.writeFileSync(path.join(future, '03-01-PLAN.md'), '---\nphase: 03-future\n---\n# Plan\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '03-future'))).toBe(false);
+    expect(fs.existsSync(future)).toBe(true);
+    expect(result.left_behind_phases).toContain('03-future');
+  });
+
+  test('archives a prerelease milestone version (roadmap header with a -beta suffix)', () => {
+    // The version extractor must KEEP the prerelease suffix so `v2.3-beta` matches
+    // the ROADMAP header `## M1 v2.3-beta` — a bare v[\d.]+ truncates to `v2.3`,
+    // false-mismatches, and would silently archive nothing.
+    const roadmapPath: string = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      fs.readFileSync(roadmapPath, 'utf-8').replace('v1.0', 'v2.3-beta'),
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v2.3-beta', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v2.3-beta-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    expect(result.phases).toBe(2);
+  });
+
   test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
     // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
     const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');
