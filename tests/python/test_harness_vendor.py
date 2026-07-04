@@ -140,6 +140,16 @@ class TestStaleInstallFallsBackToVendored(unittest.TestCase):
         # still fall back to vendored — _core_usable catches any import exception.
         self._assert_falls_back_to_vendored('raise RuntimeError("boom during import")\n')
 
+    def test_installed_copy_raising_on_attr_access_falls_back_to_vendored(self):
+        # Imports cleanly (version reads fine) but raises during required-symbol
+        # probing via a module __getattr__ — _core_usable probes inside its try, so
+        # this is caught and falls back to vendored rather than crashing the round.
+        self._assert_falls_back_to_vendored(
+            '__version__ = "0.4.7"\n'
+            'def __getattr__(name):\n'
+            '    raise RuntimeError("boom on attribute access")\n'
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

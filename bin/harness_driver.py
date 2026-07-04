@@ -72,9 +72,11 @@ def _core_usable() -> bool:
     _purge_core()
     try:
         import autoresearch_core as ac  # noqa: F401
-    except Exception:  # noqa: BLE001 - ANY import failure (broken/partial install) -> prefer vendored
+        # Probe version + required symbols INSIDE the try: a broken install can raise
+        # on attribute access too (e.g. a module-level __getattr__), not just on import.
+        return _ver_ok(ac) and all(hasattr(ac, n) for n in _CORE_NAMES)
+    except Exception:  # noqa: BLE001 - ANY failure (import or symbol probing) -> prefer vendored
         return False
-    return _ver_ok(ac) and all(hasattr(ac, n) for n in _CORE_NAMES)
 
 
 def _ensure_core() -> None:
