@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.9] - 2026-07-04
 
 ### Fixed
 - **ultracode now works via the Claude Code plugin's `/grd:*` slash commands**, not
