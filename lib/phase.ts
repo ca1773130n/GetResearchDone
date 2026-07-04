@@ -1438,7 +1438,9 @@ function _roadmapMilestoneVersion(cwd: string): string | null {
       path.join(cwd, '.planning', 'ROADMAP.md'),
       'utf-8'
     ) as string;
-    const m: RegExpMatchArray | null = roadmap.match(/^##\s+.*?(v[\d.]+)/m);
+    // Keep prerelease suffixes (v2.3-beta, v1.0-rc.1) so the version matches the
+    // `version` arg exactly — a bare `v[\d.]+` truncates at the '-' and false-mismatches.
+    const m: RegExpMatchArray | null = roadmap.match(/^##\s+.*?(v\d+(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?)/m);
     return m ? m[1] : null;
   } catch {
     return null;

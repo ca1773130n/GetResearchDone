@@ -632,6 +632,24 @@ describe('cmdMilestoneComplete', () => {
     expect(result.phases).toBe(0);
   });
 
+  test('archives a prerelease milestone version (roadmap header with a -beta suffix)', () => {
+    // The version extractor must KEEP the prerelease suffix so `v2.3-beta` matches
+    // the ROADMAP header `## M1 v2.3-beta` — a bare v[\d.]+ truncates to `v2.3`,
+    // false-mismatches, and would silently archive nothing.
+    const roadmapPath: string = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.writeFileSync(
+      roadmapPath,
+      fs.readFileSync(roadmapPath, 'utf-8').replace('v1.0', 'v2.3-beta'),
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v2.3-beta', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v2.3-beta-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    expect(result.phases).toBe(2);
+  });
+
   test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
     // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
     const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');
