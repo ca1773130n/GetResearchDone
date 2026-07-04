@@ -5,12 +5,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+- **ultracode now works via the Claude Code plugin's `/grd:*` slash commands**, not
+  just the `gd` CLI. ultracode detection + the env carrier were wired only into
+  `bin/gd.ts`; the slash commands route through `bin/grd-tools.ts`, which had no
+  ultracode handling, so `/grd:autopilot ultracode` was a no-op. Added a shared
+  `maybeApplyUltracode()` (`lib/ultracode.ts`) called in `grd-tools.ts` before
+  dispatch — lighting up `ultracode` / `--ultracode` for **every** `/grd:*` command
+  (autopilot, execute-phase, quick, research). The token is stripped so no command
+  parser mis-reads it. `/grd:autopilot` now lists `ultracode` in its argument-hint.
+- **Tesserae 0.13 compatibility** (`lib/research/tesserae.ts`): 0.13 flipped the
+  `extract --extractor` default to `llm` (the configured provider), so a default
+  `gd ingest` would silently switch to LLM extraction (cost + latency). GRD now
+  pins `--extractor deterministic` **explicitly** when `research_tesserae_extractor`
+  is unset — ingest stays fast/offline/byte-stable unless opted in, regardless of
+  Tesserae's own default. (0.13.1's `sources add|list|remove` is `compile`-only — GRD
+  uses `extract` with explicit paths, so it's unaffected.)
+
 ### Changed
 - **autoresearch-core kernel is now vendored into the GRD package**
   (`bin/vendor/`), so `gd harness round` works with no manual `pip install` —
   Python 3.11+ is the only prerequisite. `bin/harness_driver.py` prefers a
-  version-compatible installed copy and falls back to the vendored one;
-  `GRD_HARNESS_CORE=vendored` forces the vendored copy.
+  version-compatible **and complete** installed copy and falls back to the vendored
+  one (a stale/broken install can never crash the round); `GRD_HARNESS_CORE=vendored`
+  forces the vendored copy.
+- **`research_tesserae_extractor`** gains the provider-agnostic 0.13 values `llm`
+  and `selective-llm` (codex/claude/anthropic per Tesserae's `llm_provider`);
+  `selective-llm` uses `--llm-include`/`--llm-limit`. Legacy `claude-cli` /
+  `selective-claude` (Claude-only, `--claude-*`) remain accepted. The concept-poor
+  `gd ingest` hint now nudges toward `research_tesserae_extractor: llm`.
 
 ## [0.4.8] - 2026-06-29
 
