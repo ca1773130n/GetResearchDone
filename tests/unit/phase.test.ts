@@ -632,6 +632,31 @@ describe('cmdMilestoneComplete', () => {
     expect(result.phases).toBe(0);
   });
 
+  test('a multi-milestone roadmap archives only the completing milestone (no future-milestone leak)', () => {
+    // ROADMAP lists v1.0 (phases 1-2) AND an unshipped v2.0 (phase 3). The bucket
+    // accumulated v2.0's 03-future (the skipped-completion case). Completing v1.0 must
+    // archive only 01/02 and leave 03-future — phase 3 belongs to v2.0, not v1.0.
+    const roadmapPath: string = path.join(tmpDir, '.planning', 'ROADMAP.md');
+    fs.appendFileSync(
+      roadmapPath,
+      '\n## M2 v2.0: Next Milestone\n\n### Phase 3: Future Work -- later\n',
+      'utf-8'
+    );
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const future: string = path.join(bucket, '03-future');
+    fs.mkdirSync(future, { recursive: true });
+    fs.writeFileSync(path.join(future, '03-01-PLAN.md'), '---\nphase: 03-future\n---\n# Plan\n', 'utf-8');
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '03-future'))).toBe(false);
+    expect(fs.existsSync(future)).toBe(true);
+    expect(result.left_behind_phases).toContain('03-future');
+  });
+
   test('archives a prerelease milestone version (roadmap header with a -beta suffix)', () => {
     // The version extractor must KEEP the prerelease suffix so `v2.3-beta` matches
     // the ROADMAP header `## M1 v2.3-beta` — a bare v[\d.]+ truncates to `v2.3`,

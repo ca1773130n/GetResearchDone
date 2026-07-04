@@ -75,12 +75,6 @@ const {
   archivedPhasesDir: (cwd: string, version: string) => string;
 } = require('./paths');
 
-const {
-  analyzeRoadmap,
-}: {
-  analyzeRoadmap: (cwd: string) => { phases?: Array<{ number?: string | null }> };
-} = require('./roadmap');
-
 const { _phaseCompleteCore } = require('./phase-complete') as {
   _phaseCompleteCore: (
     cwd: string,
@@ -1428,38 +1422,45 @@ function _normalizePhaseNum(s: string): string {
  * phases out of a shared bucket that accumulated several milestones' phases
  * (the `anonymous/phases` pollution case), instead of sweeping all of them.
  */
-// The milestone version at the top of ROADMAP.md, e.g. `## M1 v1.0: Foundation`
-// -> "v1.0". The shared phase bucket holds the CURRENT roadmap's phases, so this
-// identifies which version those phases belong to — archival only proceeds when it
-// equals the version being completed.
-function _roadmapMilestoneVersion(cwd: string): string | null {
+// The active (unshipped) ROADMAP.md content with shipped milestone sections removed
+// — the "current" milestone is the FIRST section here, and its phases are what the
+// shared bucket holds. Returns '' if the roadmap can't be read.
+function _activeRoadmap(cwd: string): string {
   try {
-    const roadmap: string = fs.readFileSync(
-      path.join(cwd, '.planning', 'ROADMAP.md'),
-      'utf-8'
-    ) as string;
-    // Keep prerelease suffixes (v2.3-beta, v1.0-rc.1) so the version matches the
-    // `version` arg exactly — a bare `v[\d.]+` truncates at the '-' and false-mismatches.
-    const m: RegExpMatchArray | null = roadmap.match(/^##\s+.*?(v\d+(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?)/m);
-    return m ? m[1] : null;
+    return stripShippedSections(
+      fs.readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf-8') as string
+    );
   } catch {
-    return null;
+    return '';
   }
 }
 
+// Version of the first unshipped milestone, e.g. `## M1 v1.0: Foundation` -> "v1.0".
+// Archival only proceeds when this equals the version being completed. Prerelease
+// suffixes (v2.3-beta, v1.0-rc.1) are kept so the match is exact — a bare `v[\d.]+`
+// truncates at the '-' and false-mismatches.
+function _roadmapMilestoneVersion(cwd: string): string | null {
+  const m: RegExpMatchArray | null = _activeRoadmap(cwd)
+    .match(/^##\s+.*?(v\d+(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?)/m);
+  return m ? m[1] : null;
+}
+
 function _currentMilestonePhaseNumbers(cwd: string): Set<string> | null {
-  try {
-    const analyzed: { phases?: Array<{ number?: string | null }> } = analyzeRoadmap(cwd);
-    const phases: Array<{ number?: string | null }> | undefined = analyzed && analyzed.phases;
-    if (!Array.isArray(phases) || phases.length === 0) return null;
-    const nums: Set<string> = new Set<string>();
-    for (const p of phases) {
-      if (p && p.number != null) nums.add(_normalizePhaseNum(String(p.number)));
-    }
-    return nums.size > 0 ? nums : null;
-  } catch {
-    return null;
-  }
+  // Scope to the FIRST unshipped milestone section only (its `## …v…` header up to the
+  // next milestone header or EOF). The shared bucket can hold several milestones'
+  // phases after skipped completions; scoping over the whole ROADMAP would archive a
+  // later milestone's phase dirs into this one.
+  const active: string = _activeRoadmap(cwd);
+  const heads: RegExpMatchArray[] = [...active.matchAll(/^##\s+.*?v\d+(?:\.\d+)*/gm)];
+  if (heads.length === 0) return null;
+  const start: number = heads[0].index ?? 0;
+  const end: number = heads.length > 1 ? (heads[1].index ?? active.length) : active.length;
+  const section: string = active.slice(start, end);
+  const nums: Set<string> = new Set<string>();
+  const re = /#{2,}\s*Phase\s+(\d+(?:\.\d+)?)\s*:/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(section)) !== null) nums.add(_normalizePhaseNum(m[1]));
+  return nums.size > 0 ? nums : null;
 }
 
 function cmdMilestoneComplete(
