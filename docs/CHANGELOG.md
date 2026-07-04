@@ -7,15 +7,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 - **ultracode now reaches the plugin's plan/execute loop** (`commands/plan-phase.md`,
-  `commands/execute-phase.md`, `agents/grd-planner.md`). Previously ultracode only
-  applied to `gd`/scheduler-driven commands (autopilot, research); the interactive
-  `/grd:plan-phase` and `/grd:execute-phase` dispatch Claude Code subagents that never
-  saw it. Now: **planning always runs at `effort: xhigh`** (rising to `max` + an injected
-  `ultracode` keyword under an explicit `ultracode`); **execution auto-runs under
-  ultracode** (injected `ultracode` keyword + `effort: max` + opus on every executor)
-  when the phase spans **multiple waves** or `ultracode` is passed, letting Claude Code's
-  native dynamic workflow self-manage effort. Both commands accept the bare `ultracode`
-  keyword. (Multi-phase autopilot already applies ultracode via the scheduler.)
+  `commands/execute-phase.md`). Previously ultracode only applied to `gd`/scheduler-driven
+  commands (autopilot, research); the interactive `/grd:plan-phase` and
+  `/grd:execute-phase` dispatch Claude Code subagents that never saw it. Now: **planning
+  always dispatches the planner at `effort: xhigh`** (rising to `max` + an injected
+  `ultracode` keyword under an explicit `ultracode`) on every `Task()` call — including the
+  revision and clarification-resume dispatches; **execution auto-runs under ultracode**
+  (injected `ultracode` keyword + `effort: max` + opus on every executor) when the phase
+  spans **multiple waves** or `ultracode` is passed, letting Claude Code's native dynamic
+  workflow self-manage effort. Both commands accept the bare `ultracode` keyword.
+  (Multi-phase autopilot already applies ultracode via the scheduler.)
 
 ## [0.4.10] - 2026-07-05
 

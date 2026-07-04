@@ -3,7 +3,7 @@ name: grd-planner
 description: Creates executable phase plans with task breakdown, dependency analysis, goal-backward verification, and research-backed experiment design. Spawned by /grd:plan-phase orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 color: green
-effort: xhigh
+effort: high
 ---
 
 <role>

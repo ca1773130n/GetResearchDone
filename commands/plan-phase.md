@@ -491,9 +491,10 @@ checkpoint for them. Write PLAN.md honoring them, then return
 
 ```
 Task(
-  prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + resume_prompt,
+  prompt=(ultracode ? "ultracode\n\n" : "") + "First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + resume_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
+  effort=(ultracode ? "max" : "xhigh"),
   description="Resume Phase {phase} planning after clarification"
 )
 ```
