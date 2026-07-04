@@ -25,6 +25,84 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 
+# autoresearch-core ships vendored under bin/vendor/ so `gd harness round` works
+# with no manual pip install. _REQUIRED_CORE is the version GRD's driver is
+# locked to; the vendored copy always satisfies it.
+_REQUIRED_CORE = (0, 4, 7)
+_VENDOR_DIR = Path(__file__).resolve().parent / "vendor"
+
+
+def _ver_ok(mod: object) -> bool:
+    """True iff mod.__version__ ('X.Y.Z') parses to a 3-int tuple >= _REQUIRED_CORE.
+
+    A missing or unparseable __version__ counts as incompatible (False)."""
+    raw = getattr(mod, "__version__", None)
+    try:
+        parts = tuple(int(p) for p in str(raw).split("."))
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return False
+    if len(parts) != 3:
+        return False
+    return parts >= _REQUIRED_CORE
+
+
+# The symbols harness_driver imports from the kernel. An installed copy must
+# expose ALL of them (not just a compatible __version__) before we prefer it —
+# otherwise a version-ok-but-broken/partial install would pass the version gate
+# and then crash the `from autoresearch_core import (...)` below instead of
+# falling back to the vendored copy.
+_CORE_NAMES = (
+    "EvalCheck", "EvalReport", "Finding", "PatchEntry", "RoundPatch", "RoundRecord",
+    "decide_round", "patch_hash", "resolve_autonomy", "select_evidence",
+    "validate_round_patch", "should_skip_patch",
+    "FindingsSource", "PatchProposer", "RoundEvaluator", "Applier", "RoundStore",
+    "classify_run_failure",
+)
+
+
+def _purge_core() -> None:
+    for key in [k for k in list(sys.modules)
+                if k == "autoresearch_core" or k.startswith("autoresearch_core.")]:
+        del sys.modules[key]
+
+
+def _core_usable() -> bool:
+    """True iff `import autoresearch_core` yields a version-compatible copy that
+    also exposes every symbol the driver needs."""
+    _purge_core()
+    try:
+        import autoresearch_core as ac  # noqa: F401
+        # Probe version + required symbols INSIDE the try: a broken install can raise
+        # on attribute access too (e.g. a module-level __getattr__), not just on import.
+        return _ver_ok(ac) and all(hasattr(ac, n) for n in _CORE_NAMES)
+    except Exception:  # noqa: BLE001 - ANY failure (import or symbol probing) -> prefer vendored
+        return False
+
+
+def _ensure_core() -> None:
+    """Arrange sys.path so `autoresearch_core` resolves to a usable kernel.
+
+    Precedence: a version-compatible AND complete installed/editable copy wins
+    (dev/editable workflow + power-user override), else the vendored copy under
+    bin/vendor/. GRD_HARNESS_CORE=vendored forces vendored unconditionally. A
+    stale, too-old, or broken install is rejected in favour of vendored — it can
+    never crash the round."""
+    if os.environ.get("GRD_HARNESS_CORE") != "vendored" and _core_usable():
+        return  # installed copy is usable — keep the copy imported by the check
+    # Vendored branch: purge the rejected copy, then put bin/vendor FIRST on sys.path
+    # so the `from autoresearch_core import (...)` below resolves to the shipped
+    # kernel. Remove any stale occurrence first — a vendor dir already present at a
+    # LATER position (or an installed copy earlier on the path) would otherwise win,
+    # notably defeating GRD_HARNESS_CORE=vendored.
+    _purge_core()
+    vendor = str(_VENDOR_DIR)
+    while vendor in sys.path:
+        sys.path.remove(vendor)
+    sys.path.insert(0, vendor)
+
+
+_ensure_core()
+
 try:
     from autoresearch_core import (
         EvalCheck, EvalReport, Finding, PatchEntry, RoundPatch, RoundRecord,
@@ -34,15 +112,8 @@ try:
         classify_run_failure,
     )
 except ImportError:  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.7 is required: pip install 'autoresearch-core>=0.4.7'\n")
-    sys.exit(2)
-
-# RoundRecord.parent_sha landed in autoresearch-core 0.4.7. An older-but-importable
-# install passes the import above, then crashes with an unexpected-keyword
-# TypeError when this driver constructs RoundRecord(parent_sha=...). Fail fast.
-if "parent_sha" not in getattr(RoundRecord, "__dataclass_fields__", {}):  # pragma: no cover
-    sys.stderr.write("autoresearch-core>=0.4.7 is required (RoundRecord.parent_sha missing): "
-                     "pip install -U 'autoresearch-core>=0.4.7'\n")
+    sys.stderr.write("autoresearch-core kernel unavailable (vendored copy missing or "
+                     "incomplete — reinstall GRD); Python 3.11+ required\n")
     sys.exit(2)
 
 DENY_PATHS = ("bin/harness_driver.py",)

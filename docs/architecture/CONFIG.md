@@ -381,6 +381,7 @@ GRD uses these env vars to auto-detect which backend is running. They are not se
 |---|---|
 | `CLAUDE_PLUGIN_DATA` | Path to a persistent directory for plugin-scoped state (survives plugin updates). Used for cross-project scheduler/evolve config. Project artifacts go in `.planning/` instead. |
 | `GRD_DEBUG` | When set (any value), enables `debugLog()` verbose output on stderr. |
+| `GRD_HARNESS_CORE` | Selects which `autoresearch_core` kernel `bin/harness_driver.py` loads for `gd harness round`. The kernel ships vendored in `bin/vendor/` (no manual `pip install`; Python 3.11+ is the only prereq). Default: prefer a version-compatible installed/editable copy, else fall back to the vendored one. Set to `vendored` to force the vendored copy. |
 
 ### MCP Detection Variables
 

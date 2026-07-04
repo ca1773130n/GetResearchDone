@@ -23,6 +23,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   uses `extract` with explicit paths, so it's unaffected.)
 
 ### Changed
+- **autoresearch-core kernel is now vendored into the GRD package**
+  (`bin/vendor/`), so `gd harness round` works with no manual `pip install` —
+  Python 3.11+ is the only prerequisite. `bin/harness_driver.py` prefers a
+  version-compatible **and complete** installed copy and falls back to the vendored
+  one (a stale/broken install can never crash the round); `GRD_HARNESS_CORE=vendored`
+  forces the vendored copy.
 - **`research_tesserae_extractor`** gains the provider-agnostic 0.13 values `llm`
   and `selective-llm` (codex/claude/anthropic per Tesserae's `llm_provider`);
   `selective-llm` uses `--llm-include`/`--llm-limit`. Legacy `claude-cli` /

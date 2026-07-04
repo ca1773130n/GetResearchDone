@@ -83,7 +83,7 @@ function cmdHarnessRound(
     },
   });
   if (result.error?.code === 'ENOENT') {
-    error('python3 not found — the harness driver requires Python 3.11+ with autoresearch-core>=0.4.7');
+    error('python3 not found — the harness driver requires Python 3.11+ (the autoresearch-core kernel ships with GRD)');
   }
   if (result.status !== 0) {
     error(`harness driver failed (exit ${result.status}): ${result.stderr.slice(-500)}`);
@@ -140,7 +140,7 @@ function cmdHarnessUpstream(
   if (origin) args.push('--origin', origin);
   const result = spawn('python3', args, { encoding: 'utf-8', timeout: 60000, env: process.env });
   if (result.error?.code === 'ENOENT') {
-    error('python3 not found — the harness driver requires Python 3.11+ with autoresearch-core>=0.4.7');
+    error('python3 not found — the harness driver requires Python 3.11+ (the autoresearch-core kernel ships with GRD)');
   }
   if (result.status !== 0) error(`harness driver failed (exit ${result.status}): ${result.stderr.slice(-500)}`);
   process.stdout.write(result.stdout);
