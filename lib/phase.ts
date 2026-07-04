@@ -75,6 +75,12 @@ const {
   archivedPhasesDir: (cwd: string, version: string) => string;
 } = require('./paths');
 
+const {
+  analyzeRoadmap,
+}: {
+  analyzeRoadmap: (cwd: string) => { phases?: Array<{ number?: string | null }> };
+} = require('./roadmap');
+
 const { _phaseCompleteCore } = require('./phase-complete') as {
   _phaseCompleteCore: (
     cwd: string,
@@ -187,6 +193,12 @@ interface ArchiveContext {
   totalTasks: number;
   accomplishments: string[];
   phasesAlreadyInPlace: boolean;
+  /**
+   * When set, only these phase directory names are archived from the phases
+   * bucket (old-style layout). Others are left in place — they belong to a
+   * different milestone. Null/undefined preserves the archive-all behavior.
+   */
+  phaseDirsToArchive?: string[] | null;
 }
 
 /** Archive result from _archiveMilestone. */
@@ -214,6 +226,8 @@ interface MilestoneCompleteResult {
   };
   milestones_updated: boolean;
   state_updated: boolean;
+  /** Phase dirs left in the bucket because they belong to other milestones. */
+  left_behind_phases?: string[];
   git_merge?: GitMergeResult;
 }
 
@@ -1254,9 +1268,12 @@ function _archiveMilestone(
       const phaseEntries: import('fs').Dirent[] = fs.readdirSync(phasesDir, {
         withFileTypes: true,
       });
+      const allow: string[] | null | undefined = ctx.phaseDirsToArchive;
       const phaseDirs: string[] = phaseEntries
         .filter((e: import('fs').Dirent) => e.isDirectory())
-        .map((e: import('fs').Dirent) => e.name);
+        .map((e: import('fs').Dirent) => e.name)
+        // Only archive phases scoped to this milestone; leave others in place.
+        .filter((name: string) => allow == null || allow.includes(name));
       if (phaseDirs.length > 0) {
         fs.mkdirSync(phasesArchiveDir, { recursive: true });
         for (let _pi = 0; _pi < phaseDirs.length; _pi++) {
@@ -1388,6 +1405,42 @@ function _rewriteRoadmapAfterComplete(
  * @param raw - Output raw text instead of JSON
  * @returns void — writes JSON or raw text to stdout and exits on error
  */
+/**
+ * Normalize a phase number or `NN-slug` dir name to a comparable key:
+ * takes the leading numeric part and strips leading zeros while keeping any
+ * decimal (`01-test` -> `1`, `23-x` -> `23`, `01.1-insert` -> `1.1`).
+ */
+function _normalizePhaseNum(s: string): string {
+  const m: RegExpMatchArray | null = String(s).match(/^(\d+(?:\.\d+)?)/);
+  const num: string = m ? m[1] : String(s);
+  return num.replace(/^0+(\d)/, '$1');
+}
+
+/**
+ * Set of phase numbers that belong to the CURRENT (active, non-shipped)
+ * milestone per ROADMAP.md, normalized via {@link _normalizePhaseNum}.
+ *
+ * Returns null when it can't be determined (no ROADMAP, no phases, read
+ * error) so callers fall back to their prior "all phases" behavior. This is
+ * what lets `milestone complete <version>` archive only THIS milestone's
+ * phases out of a shared bucket that accumulated several milestones' phases
+ * (the `anonymous/phases` pollution case), instead of sweeping all of them.
+ */
+function _currentMilestonePhaseNumbers(cwd: string): Set<string> | null {
+  try {
+    const analyzed: { phases?: Array<{ number?: string | null }> } = analyzeRoadmap(cwd);
+    const phases: Array<{ number?: string | null }> | undefined = analyzed && analyzed.phases;
+    if (!Array.isArray(phases) || phases.length === 0) return null;
+    const nums: Set<string> = new Set<string>();
+    for (const p of phases) {
+      if (p && p.number != null) nums.add(_normalizePhaseNum(String(p.number)));
+    }
+    return nums.size > 0 ? nums : null;
+  } catch {
+    return null;
+  }
+}
+
 function cmdMilestoneComplete(
   cwd: string,
   version: string,
@@ -1456,6 +1509,19 @@ function cmdMilestoneComplete(
   // Determine the source directory for stat gathering
   const statsSourceDir: string = phasesAlreadyInPlace ? milestonePhaseDir : phasesDir;
 
+  // Scope archival to THIS milestone's phases. A shared phases bucket (esp.
+  // 'anonymous/phases') can accumulate phases from several milestones when
+  // completions were skipped between them; archiving it wholesale mis-files
+  // unrelated phases and deletes live docs. When phases already live under
+  // milestones/{version}/phases the bucket is already milestone-specific, so
+  // no scoping is needed. Otherwise use the current ROADMAP's phase set as an
+  // allowlist, falling back to "all phases" when it isn't determinable.
+  const milestonePhaseNums: Set<string> | null = phasesAlreadyInPlace
+    ? null
+    : _currentMilestonePhaseNumbers(cwd);
+  const leftBehindPhases: string[] = [];
+  let phaseDirsToArchive: string[] | null = null;
+
   // Gather stats from phases
   let phaseCount = 0;
   let totalPlans = 0;
@@ -1466,10 +1532,24 @@ function cmdMilestoneComplete(
     const entries: import('fs').Dirent[] = fs.readdirSync(statsSourceDir, {
       withFileTypes: true,
     });
-    const dirs: string[] = entries
+    const allDirs: string[] = entries
       .filter((e: import('fs').Dirent) => e.isDirectory())
       .map((e: import('fs').Dirent) => e.name)
       .sort();
+
+    // Apply the allowlist. If it matches nothing (e.g. dir names don't line up
+    // with ROADMAP numbers), keep all dirs so we never archive an empty set.
+    let dirs: string[] = allDirs;
+    if (milestonePhaseNums) {
+      const inScope: string[] = allDirs.filter((d: string) =>
+        milestonePhaseNums.has(_normalizePhaseNum(d))
+      );
+      if (inScope.length > 0) {
+        dirs = inScope;
+        for (const d of allDirs) if (!inScope.includes(d)) leftBehindPhases.push(d);
+      }
+    }
+    phaseDirsToArchive = dirs;
 
     for (const dir of dirs) {
       phaseCount++;
@@ -1519,6 +1599,7 @@ function cmdMilestoneComplete(
     totalTasks,
     accomplishments,
     phasesAlreadyInPlace,
+    phaseDirsToArchive,
   };
   const { archivedPhaseCount }: ArchiveResult = _archiveMilestone(
     cwd,
@@ -1639,8 +1720,17 @@ function cmdMilestoneComplete(
     },
     milestones_updated: true,
     state_updated: fs.existsSync(statePath),
+    ...(leftBehindPhases.length > 0 ? { left_behind_phases: leftBehindPhases } : {}),
     ...(gitMerge ? { git_merge: gitMerge } : {}),
   };
+
+  if (leftBehindPhases.length > 0) {
+    process.stderr.write(
+      `⚠ Left ${leftBehindPhases.length} phase dir(s) in ${statsSourceDir} — not part of ` +
+        `milestone ${version} per ROADMAP.md: ${leftBehindPhases.join(', ')}. ` +
+        `They belong to other milestones; complete those separately.\n`
+    );
+  }
 
   output(
     result,

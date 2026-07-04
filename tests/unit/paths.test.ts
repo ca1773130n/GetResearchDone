@@ -145,6 +145,16 @@ describe('currentMilestone', () => {
     expect(currentMilestone(tmpDir)).toBe('v1.0.0');
   });
 
+  test('honors **Active milestone:** field variant', () => {
+    tmpDir = makeTmpDir('# State\n\n**Active milestone:** v0.10.0 Competitive Hardening\n');
+    expect(currentMilestone(tmpDir)).toBe('v0.10.0');
+  });
+
+  test('honors **Current milestone:** field variant', () => {
+    tmpDir = makeTmpDir('# State\n\n**Current milestone:** v3.2.1 Next\n');
+    expect(currentMilestone(tmpDir)).toBe('v3.2.1');
+  });
+
   test('infers milestone from disk when STATE.md has no Milestone field', () => {
     tmpDir = makeTmpDir('# State\n\n- **Active phase:** Phase 1\n');
     const msDir = path.join(tmpDir, '.planning', 'milestones', 'v2.0');

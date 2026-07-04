@@ -588,6 +588,35 @@ describe('cmdMilestoneComplete', () => {
     expect(result.archived.phase_count).toBeGreaterThanOrEqual(2);
   });
 
+  test('archives only the current milestone phases, leaving foreign phases in place', () => {
+    // The shared bucket accumulated a phase from a DIFFERENT milestone
+    // (17-foreign) next to v1.0's phases (01-test, 02-build). Completing v1.0
+    // must archive only 01/02 and leave 17-foreign behind — the fixture ROADMAP
+    // scopes v1.0 to phases 1-2, so 17 is not part of this milestone.
+    const bucket: string = path.join(tmpDir, '.planning', 'milestones', 'anonymous', 'phases');
+    const foreign: string = path.join(bucket, '17-foreign');
+    fs.mkdirSync(foreign, { recursive: true });
+    fs.writeFileSync(
+      path.join(foreign, '17-01-PLAN.md'),
+      '---\nphase: 17-foreign\nplan: 01\n---\n# Plan\n',
+      'utf-8'
+    );
+
+    const { stdout } = captureOutput(() => cmdMilestoneComplete(tmpDir, 'v1.0', {}, false));
+    const result = JSON.parse(stdout);
+
+    const archive: string = path.join(tmpDir, '.planning', 'milestones', 'v1.0-phases');
+    // v1.0 phases archived
+    expect(fs.existsSync(path.join(archive, '01-test'))).toBe(true);
+    expect(fs.existsSync(path.join(archive, '02-build'))).toBe(true);
+    // foreign phase NOT archived, still in the bucket
+    expect(fs.existsSync(path.join(archive, '17-foreign'))).toBe(false);
+    expect(fs.existsSync(foreign)).toBe(true);
+    // reported as left behind, and stats reflect the scoped set only
+    expect(result.left_behind_phases).toContain('17-foreign');
+    expect(result.phases).toBe(2);
+  });
+
   test('skips phase archive copy when phases are already under milestones/{version}/phases/', () => {
     // Create a milestone-scoped layout where phases already live under milestones/v1.0/phases/
     const msDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '01-test');

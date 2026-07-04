@@ -23,10 +23,11 @@ const path = require('path');
 /**
  * Read the current milestone version from STATE.md.
  *
- * Reads the **Milestone:** field from .planning/STATE.md and extracts
- * the version string (e.g., 'v0.2.1'). Returns 'anonymous' when
- * STATE.md is missing, unreadable, has no Milestone field, or the
- * field value contains no version string.
+ * Reads the **Milestone:** field (also **Active milestone:** /
+ * **Current milestone:**) from .planning/STATE.md and extracts the version
+ * string (e.g., 'v0.2.1'). Returns 'anonymous' when STATE.md is missing,
+ * unreadable, has no Milestone field, or the field value contains no
+ * version string.
  * @param cwd - Absolute path to the working directory (project root)
  * @returns Current milestone version string (e.g., 'v0.2.1'), or 'anonymous' if not found
  */
@@ -40,8 +41,12 @@ function currentMilestone(cwd: string): string {
     return inferMilestoneFromDisk(cwd);
   }
 
-  // Extract the **Milestone:** field value
-  const fieldMatch: RegExpMatchArray | null = content.match(/\*\*Milestone:\*\*\s*(.+)/i);
+  // Extract the **Milestone:** field value. Also honor the common variants
+  // **Active milestone:** / **Current milestone:** so a project can pin the
+  // milestone explicitly in STATE.md and avoid the 'anonymous' disk fallback.
+  const fieldMatch: RegExpMatchArray | null = content.match(
+    /\*\*(?:Active |Current )?Milestone:\*\*\s*(.+)/i
+  );
   if (!fieldMatch) return inferMilestoneFromDisk(cwd);
 
   const fieldValue: string = fieldMatch[1].trim();
