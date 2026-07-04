@@ -1,6 +1,6 @@
 ---
 description: Create executable phase plans with research, verification, and eval planning. Use --research-only or --eval-only for focused modes.
-argument-hint: <phase number> [--research-only | --eval-only]
+argument-hint: <phase number> [ultracode] [--research-only | --eval-only]
 ---
 
 <purpose>
@@ -78,6 +78,8 @@ Store as `research_landscape_context` — this will be passed to the planner age
 ## 2. Parse and Normalize Arguments
 
 Extract from $ARGUMENTS: phase number (integer or decimal like `2.1`), flags (`--research`, `--skip-research`, `--gaps`, `--skip-verify`, `--research-only`, `--eval-only`, `--candidates N`).
+
+Also set `ultracode = true` if the bare keyword `ultracode` or `--ultracode` is present (strip it from the args). Planning is **always** dispatched at `effort="xhigh"`; under `ultracode` it rises to `effort="max"` and the planner prompt is prefixed with `ultracode\n\n` so Claude Code's native dynamic-workflow orchestration fires (it self-manages sub-effort from there). This is applied on every grd-planner `Task()` call below.
 
 **v0.4 multi-candidate mode (`--candidates N`, N > 1):** When the caller passes `--candidates N` with N > 1, the planner agent MUST emit N alternative plans for the phase. Each alternative goes between marker fences and is captured by `gd plan-candidates <phase> --candidates N`. See the `<multi_candidate>` block below — it activates ONLY when N > 1 and is otherwise silent (N === 1 is the v0.3.x default and keeps writing a single bare `PLAN.md` via the Write tool).
 
@@ -332,9 +334,10 @@ Output consumed by /grd:execute-phase. Plans need:
 
 ```
 Task(
-  prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + filled_prompt,
+  prompt=(ultracode ? "ultracode\n\n" : "") + "First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + filled_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
+  effort=(ultracode ? "max" : "xhigh"),
   description="Plan Phase {phase}"
 )
 ```
@@ -447,9 +450,10 @@ Return what changed.
 
 ```
 Task(
-  prompt="First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + revision_prompt,
+  prompt=(ultracode ? "ultracode\n\n" : "") + "First, read ${CLAUDE_PLUGIN_ROOT}/agents/grd-planner.md for your role and instructions.\n\n" + revision_prompt,
   subagent_type="general-purpose",
   model="{planner_model}",
+  effort=(ultracode ? "max" : "xhigh"),
   description="Revise Phase {phase} plans"
 )
 ```
