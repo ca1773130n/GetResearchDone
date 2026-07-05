@@ -1,6 +1,6 @@
 ---
 description: Execute all plans in a phase using wave-based parallel execution
-argument-hint: <phase number>
+argument-hint: <phase number> [ultracode]
 ---
 
 <!-- Variable reference guide:
@@ -21,6 +21,16 @@ Execute all plans in a phase using wave-based parallel execution. Orchestrator s
 <core_principle>
 Orchestrator coordinates, not executes. Each subagent loads the full execute-plan context. Orchestrator: discover plans -> analyze deps -> group waves -> spawn agents -> handle checkpoints -> collect results -> trigger eval.
 </core_principle>
+
+<ultracode_execution>
+**ultracode / multi-wave execution.** Parse the args first: set `ultracode = true` if the bare keyword `ultracode` or `--ultracode` is present, and strip it before building `${PHASE_ARG}` (so the init call gets a clean phase number). Execution runs **under ultracode** when `ultracode` was passed **OR** the phase spans more than one wave (`wave_count > 1`, i.e. the `waves` map has >1 key). Rationale: multi-wave/multi-phase execution is exactly where ultracode's dynamic workflow pays off.
+
+When execution is under ultracode, apply this to **every** `grd:grd-executor` `Task()` call in the wave steps below (all isolation/team variants):
+- prefix its `prompt` with `ultracode\n\n` — this fires Claude Code's native dynamic-workflow orchestration, which self-manages reasoning effort (do NOT hand-tune per-wave effort);
+- add `effort: "max"` and `model: "opus"` to the Task call.
+
+The executor already loads the phase's PLAN.md / spec docs via the `execute-plan.md` context block, so the plan documents are passed through as-is. A single-wave, non-`ultracode` phase dispatches executors normally (their `grd-executor` frontmatter effort).
+</ultracode_execution>
 
 <required_reading>
 Read STATE.md before any operation to load project context.
