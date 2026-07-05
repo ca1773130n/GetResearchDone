@@ -10,10 +10,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   parity fixtures to the remaining declared parities: `classifyRunFailure` (`failures.py` ⇄
   `runner.ts`), `parseMetricsLine` (`contract.py` ⇄ `runner.ts`), and the iteration-control
   decisions `decideBranch` / `shouldTerminate` / `detectPlateau` (`policy.py` ⇄
-  `verdict.ts`). The kernel-only functions with no TS twin (`should_promote_dead_end`,
-  `approach_hash` / `should_skip`, `validate_metric_spec`) are documented in
-  `docs/kernel-contract.md` as intentionally unpinned. Both language suites now cover 9
-  shared decisions.
+  `verdict.ts`). Functions with only an *analogous* (not directly-conformable) TS mechanism
+  — `should_promote_dead_end` (TS `buildDeadEndCalls` gates on `refuted` alone),
+  `approach_hash` / `should_skip` (TS de-dups by slug, a different algorithm), and
+  `validate_metric_spec` (TS validates `metricKey` piecemeal) — are documented in
+  `docs/kernel-contract.md` as intentionally unpinned, with the reason. Both language suites
+  now cover 9 shared decisions.
 
 ### Fixed
 - **Non-finite metric values in `parseMetricsLine`** (`lib/research/runner.ts`) — it kept

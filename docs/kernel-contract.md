@@ -88,6 +88,11 @@ side reads `iteration`/`maxIterations` off the thread object.)
   `checkGate` reads `thread.gates[gate]` (an absent gate is falsy → it *proceeds*). This is
   a deliberate difference (`gates.py` documents it) and is therefore excluded from the
   conformance cases rather than asserted equal.
+- **A metric key named `__proto__` (or other object-assignment traps).** In
+  `parseMetricsLine`, the kernel's dict keeps a `"__proto__"` metric, but TS assigns via
+  `out[k] = v` — for `k === "__proto__"` and a numeric `v` the `__proto__` setter ignores
+  the value, so the key is dropped. A metric literally named `__proto__` is pathological, so
+  it is documented here rather than special-cased (`Object.defineProperty`) on the hot path.
 
 ## Scope
 
@@ -96,12 +101,21 @@ side reads `iteration`/`maxIterations` off the thread object.)
 (runner); `decideBranch`, `shouldTerminate`, `detectPlateau` (iteration control). This is
 every kernel function that declares *"Parity with GRD …"* **and** has a TypeScript twin.
 
-**Kernel-only** (no TS counterpart — intentionally *not* pinnable, there is no second
-implementation to conform against):
-- `policy.should_promote_dead_end` (the promotion-authority rule) — the TS loop persists
-  dead-ends via `lib/dead-ends`, a different mechanism.
-- `promote.approach_hash` / `should_skip` (harness dead-end de-dup) — no TS equivalent
-  (`promote.py` never claimed GRD parity — it is "shape only").
-- `contract.validate_metric_spec` — no TS validator.
+**Not conformably pinned** — the TS side has an *analogous* mechanism, but not a
+directly-conformable twin (different shape, algorithm, or scope), so asserting equality
+would be misleading:
+- `policy.should_promote_dead_end` (`verdict == "refuted" and evidence_level ==
+  "deterministic"`). TS `buildDeadEndCalls` (`lib/research/promote.ts:53`) gates on
+  `verdict === 'refuted'` alone — it omits the explicit `deterministic` check (harmless in
+  the research loop, whose control-path verdicts are always deterministic) and has a
+  different shape (it filters a hypothesis ledger rather than testing a single
+  `VerdictRecord`).
+- `promote.approach_hash` / `should_skip` (dead-end de-dup by `sha256(normalized)[:16]`).
+  The TS loop de-dups dead-ends via a **slug** (`lib/dead-ends.ts`) — a different algorithm
+  for the same purpose, so the hashes are not interchangeable. (`promote.py` never claimed
+  GRD parity — it is "shape only".)
+- `contract.validate_metric_spec` (metric_key non-empty + comparator valid + target
+  finite). TS validates `metricKey` in pieces (`lib/research/agent-io.ts:47`,
+  `reconstructability.ts:36`) but has no single validator covering all three conditions.
 
-If a TS twin is ever added for any of these, fold it into `kernel-contract.json`.
+If any of these grows a directly-conformable TS twin, fold it into `kernel-contract.json`.
