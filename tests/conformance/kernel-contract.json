@@ -1,0 +1,46 @@
+{
+  "_doc": "Canonical golden fixtures pinning the autoresearch-core (Python kernel) <-> lib/research (TS loop) parity. tests/python/test_kernel_contract.py AND tests/unit/research/kernel-contract.test.ts both load this file and assert their own implementation produces these outcomes, so the two can never silently drift. Neutral field names; each harness maps them to its language's types. See docs/kernel-contract.md.",
+
+  "compare": [
+    { "value": 0.9,  "comparator": ">=", "target": 0.8, "expect": true },
+    { "value": 0.8,  "comparator": ">=", "target": 0.8, "expect": true },
+    { "value": 0.79, "comparator": ">=", "target": 0.8, "expect": false },
+    { "value": 0.81, "comparator": ">",  "target": 0.8, "expect": true },
+    { "value": 0.8,  "comparator": ">",  "target": 0.8, "expect": false },
+    { "value": 0.1,  "comparator": "<=", "target": 0.2, "expect": true },
+    { "value": 0.2,  "comparator": "<=", "target": 0.2, "expect": true },
+    { "value": 0.3,  "comparator": "<=", "target": 0.2, "expect": false },
+    { "value": 0.1,  "comparator": "<",  "target": 0.2, "expect": true },
+    { "value": 0.2,  "comparator": "<",  "target": 0.2, "expect": false },
+    { "value": 5,    "comparator": "==", "target": 5,   "expect": true },
+    { "value": 5.5,  "comparator": "==", "target": 5,   "expect": false },
+    { "value": 1,    "comparator": "!=", "target": 2,   "expect": false },
+    { "value": 1,    "comparator": "approx", "target": 1, "expect": false }
+  ],
+
+  "evaluateVerdict": [
+    { "name": "exit-fail -> inconclusive",        "exitCode": 1, "failureClass": "H2",   "metricKey": "accuracy", "metrics": {},                 "comparator": ">=", "target": 0.8, "expect": "inconclusive" },
+    { "name": "missing-metric -> inconclusive",   "exitCode": 0, "failureClass": "none", "metricKey": "accuracy", "metrics": { "loss": 0.1 },    "comparator": ">=", "target": 0.8, "expect": "inconclusive" },
+    { "name": "pass -> supported",                "exitCode": 0, "failureClass": "none", "metricKey": "accuracy", "metrics": { "accuracy": 0.9 },"comparator": ">=", "target": 0.8, "expect": "supported" },
+    { "name": "boundary pass -> supported",       "exitCode": 0, "failureClass": "none", "metricKey": "accuracy", "metrics": { "accuracy": 0.8 },"comparator": ">=", "target": 0.8, "expect": "supported" },
+    { "name": "fail -> refuted",                  "exitCode": 0, "failureClass": "none", "metricKey": "accuracy", "metrics": { "accuracy": 0.7 },"comparator": ">=", "target": 0.8, "expect": "refuted" },
+    { "name": "lower-is-better pass -> supported","exitCode": 0, "failureClass": "none", "metricKey": "loss",     "metrics": { "loss": 0.2 },    "comparator": "<=", "target": 0.3, "expect": "supported" },
+    { "name": "lower-is-better fail -> refuted",  "exitCode": 0, "failureClass": "none", "metricKey": "loss",     "metrics": { "loss": 0.5 },    "comparator": "<=", "target": 0.3, "expect": "refuted" }
+  ],
+
+  "resolveGates": [
+    { "name": "empty config -> both on",                  "config": {},                                                       "noGates": false, "expect": { "execute": true,  "kg_write": true  } },
+    { "name": "experiment_execution false -> execute off","config": { "research_gates": { "experiment_execution": false } },   "noGates": false, "expect": { "execute": false, "kg_write": true  } },
+    { "name": "kg_write false -> kg off",                 "config": { "research_gates": { "kg_write": false } },               "noGates": false, "expect": { "execute": true,  "kg_write": false } },
+    { "name": "explicit true stays on",                   "config": { "research_gates": { "experiment_execution": true, "kg_write": true } }, "noGates": false, "expect": { "execute": true, "kg_write": true } },
+    { "name": "noGates overrides -> both off",            "config": { "research_gates": { "experiment_execution": true } },    "noGates": true,  "expect": { "execute": false, "kg_write": false } }
+  ],
+
+  "checkGate": [
+    { "name": "execute on, not approved -> pause",   "gate": "execute",  "gateEnabled": true,  "approved": false, "expectProceed": false },
+    { "name": "execute on, approved -> proceed",     "gate": "execute",  "gateEnabled": true,  "approved": true,  "expectProceed": true  },
+    { "name": "execute off -> proceed",              "gate": "execute",  "gateEnabled": false, "approved": false, "expectProceed": true  },
+    { "name": "kg_write on, not approved -> pause",  "gate": "kg_write", "gateEnabled": true,  "approved": false, "expectProceed": false },
+    { "name": "kg_write off -> proceed",             "gate": "kg_write", "gateEnabled": false, "approved": false, "expectProceed": true  }
+  ]
+}
