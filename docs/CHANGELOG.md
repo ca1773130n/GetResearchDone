@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.11] - 2026-07-05
 
 ### Changed
 - **ultracode now reaches the plugin's plan/execute loop** (`commands/plan-phase.md`,
