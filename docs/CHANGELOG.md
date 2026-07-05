@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.12] - 2026-07-05
 
 ### Added
 - **Kernel contract conformance** (`tests/conformance/kernel-contract.json`,
