@@ -21,8 +21,10 @@ every case:
 
 - `tests/python/test_kernel_contract.py` runs the Python kernel against the fixtures.
 - `tests/unit/research/kernel-contract.test.ts` runs the TS loop against the *same* fixtures.
-- `tests/unit/kernel-contract-python.test.ts` runs the Python suite inside `npm test`
-  (skipped only when `python3 >= 3.11` is absent).
+- `tests/unit/kernel-contract-python.test.ts` runs the Python suite inside `npm test`.
+  Locally, a missing `python3 >= 3.11` skips with a loud warning; in CI (`CI=true`, or
+  `KERNEL_CONTRACT_REQUIRE_PYTHON=1`) it **fails** — a green CI run can never hide an
+  unrun Python side of the contract.
 
 If either implementation changes behaviour, its conformance test fails → drift is caught
 in CI, in whichever language drifted.
@@ -34,7 +36,12 @@ in CI, in whichever language drifted.
 
 ### `evaluateVerdict(plan, result) → verdict`  *(kernel: `DeterministicVerdict.evaluate`)*
 1. `exitCode != 0` → `inconclusive` (the run failed).
-2. `metricKey` not in `result.metrics` → `inconclusive` (metric not reported).
+2. `metricKey` not an **own key** of `result.metrics` → `inconclusive` (metric not
+   reported). The TS side uses `Object.prototype.hasOwnProperty.call`, **not** the `in`
+   operator — `in` walks the prototype chain, so `'toString' in {}` is `true` in JS but a
+   Python dict lookup returns `false`. Building this contract *caught that drift*:
+   `verdict.ts` used `in` and disagreed with the kernel on prototype-name metric keys
+   (`toString`, `constructor`, …); it was fixed to match, and the fixtures now pin it.
 3. otherwise `compare(metrics[metricKey], comparator, target)` → `supported` (true) / `refuted` (false).
 
 Only the **verdict outcome** is pinned. The human-readable `detail` string is explicitly
