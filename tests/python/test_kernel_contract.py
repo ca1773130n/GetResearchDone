@@ -19,6 +19,9 @@ FIXTURES = json.loads((REPO / "tests" / "conformance" / "kernel-contract.json").
 from autoresearch_core.verdict import DeterministicVerdict, compare  # noqa: E402
 from autoresearch_core.gates import check_gate, resolve_gates  # noqa: E402
 from autoresearch_core.types import ExperimentResult, GateState, MetricSpec  # noqa: E402
+from autoresearch_core.failures import classify_run_failure  # noqa: E402
+from autoresearch_core.contract import parse_metrics_line  # noqa: E402
+from autoresearch_core.policy import decide_branch, detect_plateau, should_terminate  # noqa: E402
 
 
 class TestKernelContract(unittest.TestCase):
@@ -53,6 +56,32 @@ class TestKernelContract(unittest.TestCase):
             gs = GateState(execute=state["execute"], kg_write=state["kg_write"])
             self.assertEqual(
                 check_gate(gs, c["gate"], c["approved"]).proceed, c["expectProceed"], c["name"]
+            )
+
+
+    def test_classify_run_failure(self):
+        for c in FIXTURES["classifyRunFailure"]:
+            self.assertEqual(
+                classify_run_failure(c["stderr"], c["timedOut"]), c["expect"], c["name"]
+            )
+
+    def test_parse_metrics_line(self):
+        for c in FIXTURES["parseMetricsLine"]:
+            self.assertEqual(parse_metrics_line(c["stdout"]), c["expect"], c["name"])
+
+    def test_decide_branch(self):
+        for c in FIXTURES["decideBranch"]:
+            self.assertEqual(decide_branch(c["verdict"]), c["expect"], c)
+
+    def test_should_terminate(self):
+        for c in FIXTURES["shouldTerminate"]:
+            done, status = should_terminate(c["iteration"], c["maxIterations"], c["lastVerdict"])
+            self.assertEqual({"done": done, "status": status}, c["expect"], c["name"])
+
+    def test_detect_plateau(self):
+        for c in FIXTURES["detectPlateau"]:
+            self.assertEqual(
+                detect_plateau(c["verdicts"], c["window"]), c["expect"], c["name"]
             )
 
 

@@ -3,6 +3,27 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Added
+- **Kernel-contract conformance v2** — extended the `autoresearch-core` ⇄ `lib/research`
+  parity fixtures to the remaining declared parities: `classifyRunFailure` (`failures.py` ⇄
+  `runner.ts`), `parseMetricsLine` (`contract.py` ⇄ `runner.ts`), and the iteration-control
+  decisions `decideBranch` / `shouldTerminate` / `detectPlateau` (`policy.py` ⇄
+  `verdict.ts`). Functions with only an *analogous* (not directly-conformable) TS mechanism
+  — `should_promote_dead_end` (TS `buildDeadEndCalls` gates on `refuted` alone),
+  `approach_hash` / `should_skip` (TS de-dups by slug, a different algorithm), and
+  `validate_metric_spec` (TS validates `metricKey` piecemeal) — are documented in
+  `docs/kernel-contract.md` as intentionally unpinned, with the reason. Both language suites
+  now cover 9 shared decisions.
+
+### Fixed
+- **Non-finite metric values in `parseMetricsLine`** (`lib/research/runner.ts`) — it kept
+  any `typeof v === 'number'`, so a metric that overflows to `Infinity` (`1e400` is valid
+  JSON that JS `JSON.parse` yields as `Infinity`) was retained, while the Python kernel's
+  `math.isfinite` drops it. Added a `Number.isFinite` guard to match. Caught by the extended
+  conformance suite (the second cross-language drift this contract has surfaced).
+
 ## [0.4.12] - 2026-07-05
 
 ### Added

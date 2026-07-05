@@ -46,5 +46,51 @@
     { "name": "execute off -> proceed",              "gate": "execute",  "gateEnabled": false, "approved": false, "expectProceed": true  },
     { "name": "kg_write on, not approved -> pause",  "gate": "kg_write", "gateEnabled": true,  "approved": false, "expectProceed": false },
     { "name": "kg_write off -> proceed",             "gate": "kg_write", "gateEnabled": false, "approved": false, "expectProceed": true  }
+  ],
+
+  "classifyRunFailure": [
+    { "name": "timeout -> H4",                 "stderr": "anything",                                  "timedOut": true,  "expect": "H4" },
+    { "name": "command not found -> H2",       "stderr": "bash: foo: command not found",              "timedOut": false, "expect": "H2" },
+    { "name": "ModuleNotFoundError -> H2",     "stderr": "ModuleNotFoundError: No module named 'x'",  "timedOut": false, "expect": "H2" },
+    { "name": "ImportError -> H2",             "stderr": "Traceback ...\nImportError: cannot import", "timedOut": false, "expect": "H2" },
+    { "name": "ENOENT -> H3",                  "stderr": "ENOENT: no such file",                      "timedOut": false, "expect": "H3" },
+    { "name": "permission denied -> H3",       "stderr": "bash: ./x: permission denied",              "timedOut": false, "expect": "H3" },
+    { "name": "empty stderr -> none",          "stderr": "",                                          "timedOut": false, "expect": "none" },
+    { "name": "other runtime error -> H4",     "stderr": "AssertionError: boom",                      "timedOut": false, "expect": "H4" },
+    { "name": "H2 precedence over H3",         "stderr": "command not found: No such file or directory", "timedOut": false, "expect": "H2" }
+  ],
+
+  "parseMetricsLine": [
+    { "name": "single metric",                 "stdout": "__RESULT__ {\"acc\": 0.9}",                         "expect": { "acc": 0.9 } },
+    { "name": "surrounded by noise",           "stdout": "log line\n__RESULT__ {\"acc\": 0.9, \"loss\": 0.1}\nmore", "expect": { "acc": 0.9, "loss": 0.1 } },
+    { "name": "no __RESULT__ -> empty",        "stdout": "nothing to see here",                              "expect": {} },
+    { "name": "drop non-numeric string",       "stdout": "__RESULT__ {\"acc\": 0.9, \"name\": \"x\"}",       "expect": { "acc": 0.9 } },
+    { "name": "drop boolean",                  "stdout": "__RESULT__ {\"acc\": 0.9, \"ok\": true}",          "expect": { "acc": 0.9 } },
+    { "name": "NaN literal rejected -> empty", "stdout": "__RESULT__ {\"x\": NaN}",                          "expect": {} },
+    { "name": "Infinity overflow dropped",     "stdout": "__RESULT__ {\"x\": 1e400}",                        "expect": {} },
+    { "name": "drop overflow, keep finite",    "stdout": "__RESULT__ {\"a\": 1, \"b\": 1e400, \"c\": 2}",   "expect": { "a": 1, "c": 2 } },
+    { "name": "invalid json -> empty",         "stdout": "__RESULT__ {not json}",                            "expect": {} },
+    { "name": "non-dict json -> empty",        "stdout": "__RESULT__ [1, 2, 3]",                             "expect": {} }
+  ],
+
+  "decideBranch": [
+    { "verdict": "supported",    "expect": "finalize" },
+    { "verdict": "refuted",      "expect": "revise" },
+    { "verdict": "inconclusive", "expect": "revise" }
+  ],
+
+  "shouldTerminate": [
+    { "name": "supported -> done/supported",  "iteration": 1, "maxIterations": 5, "lastVerdict": "supported",    "expect": { "done": true,  "status": "supported" } },
+    { "name": "budget hit -> done/exhausted", "iteration": 5, "maxIterations": 5, "lastVerdict": "refuted",      "expect": { "done": true,  "status": "exhausted" } },
+    { "name": "over budget -> done/exhausted","iteration": 6, "maxIterations": 5, "lastVerdict": "inconclusive", "expect": { "done": true,  "status": "exhausted" } },
+    { "name": "keep going -> active",         "iteration": 2, "maxIterations": 5, "lastVerdict": "refuted",      "expect": { "done": false, "status": "active" } }
+  ],
+
+  "detectPlateau": [
+    { "name": "3 non-supported -> plateau",       "verdicts": ["refuted", "refuted", "refuted"],                 "window": 3, "expect": true },
+    { "name": "a supported in window -> no",      "verdicts": ["refuted", "supported", "refuted"],               "window": 3, "expect": false },
+    { "name": "fewer than window -> no",          "verdicts": ["refuted", "refuted"],                            "window": 3, "expect": false },
+    { "name": "only last window counts",          "verdicts": ["supported", "refuted", "refuted", "refuted"],    "window": 3, "expect": true },
+    { "name": "mixed non-supported -> plateau",   "verdicts": ["inconclusive", "refuted", "inconclusive"],       "window": 3, "expect": true }
   ]
 }

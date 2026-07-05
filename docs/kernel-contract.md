@@ -29,7 +29,7 @@ every case:
 If either implementation changes behaviour, its conformance test fails → drift is caught
 in CI, in whichever language drifted.
 
-## The pinned contract (v1)
+## The pinned contract
 
 ### `compare(value, comparator, target) → bool`
 `>=`, `<=`, `>`, `<`, `==` do the obvious arithmetic; **any other comparator → `false`**.
@@ -57,16 +57,65 @@ Only the **verdict outcome** is pinned. The human-readable `detail` string is ex
 `proceed = (gate is off) OR approved`; when it does not proceed, the gate becomes the
 pending/paused gate. Pinned at the level of `(gateEnabled, approved) → proceed`.
 
+### `classifyRunFailure(stderr, timedOut) → FailureClass`  *(runner.ts ⇄ failures.py)*
+`timedOut` → `H4`; else, first match wins: missing dependency (`command not found` /
+`not found:` / `ModuleNotFoundError` / `ImportError`) → `H2`; missing file / permission
+(`No such file or directory` / `ENOENT` / `permission denied`) → `H3`; empty stderr →
+`none`; otherwise `H4`. **H2 is checked before H3.**
+
+### `parseMetricsLine(stdout) → { metric: number }`  *(runner.ts ⇄ contract.py `parse_metrics_line`)*
+Extract the first `__RESULT__ {json}` match and parse it, keeping only **own finite
+numbers**. Non-dict → `{}`; invalid JSON → `{}`; `NaN`/`Infinity`/`-Infinity` literals are
+rejected at parse time (→ `{}`); booleans, strings, and non-finite numbers (e.g. `1e400`,
+which JSON parses to `Infinity`) are dropped. Building this *caught a second drift*: TS kept
+every `typeof v === 'number'` — including `Infinity` — so `runner.ts` was fixed to add a
+`Number.isFinite` guard, parity with the kernel's `math.isfinite`.
+
+### `decideBranch(verdict) → 'finalize' | 'revise'`  *(verdict.ts ⇄ policy.py)*
+`supported` → `finalize`, else `revise`.
+
+### `shouldTerminate(iteration, maxIterations, lastVerdict) → { done, status }`  *(verdict.ts ⇄ policy.py)*
+`supported` → `{ done: true, status: "supported" }`; `iteration >= maxIterations` →
+`{ done: true, status: "exhausted" }`; else `{ done: false, status: "active" }`. (The TS
+side reads `iteration`/`maxIterations` off the thread object.)
+
+### `detectPlateau(verdicts, window=3) → bool`  *(verdict.ts ⇄ policy.py)*
+`true` iff there are at least `window` verdicts and the last `window` are all non-`supported`.
+
 ## Documented divergences (intentional — NOT pinned as identical)
 
 - **Unknown gate name.** The kernel's `check_gate` raises `ValueError` (fail-fast); the TS
   `checkGate` reads `thread.gates[gate]` (an absent gate is falsy → it *proceeds*). This is
   a deliberate difference (`gates.py` documents it) and is therefore excluded from the
   conformance cases rather than asserted equal.
+- **A metric key named `__proto__` (or other object-assignment traps).** In
+  `parseMetricsLine`, the kernel's dict keeps a `"__proto__"` metric, but TS assigns via
+  `out[k] = v` — for `k === "__proto__"` and a numeric `v` the `__proto__` setter ignores
+  the value, so the key is dropped. A metric literally named `__proto__` is pathological, so
+  it is documented here rather than special-cased (`Object.defineProperty`) on the hot path.
 
 ## Scope
 
-v1 pins the pure control-path decisions (`verdict`, `gates`). The kernel also declares
-parity for `contract.py` (result parsing: NaN/Infinity rejection, non-numeric drop ⇄
-`runner.ts`), `failures.py` (`classify_run_failure` ⇄ `runner.ts`), and part of
-`promote.py` (dead-end hashing) — natural follow-ups to fold into the same fixture file.
+**Pinned** (cross-language, both sides asserted): `compare`, `evaluateVerdict`,
+`resolveGates`, `checkGate` (verdict + gates); `classifyRunFailure`, `parseMetricsLine`
+(runner); `decideBranch`, `shouldTerminate`, `detectPlateau` (iteration control). This is
+every kernel function that declares *"Parity with GRD …"* **and** has a TypeScript twin.
+
+**Not conformably pinned** — the TS side has an *analogous* mechanism, but not a
+directly-conformable twin (different shape, algorithm, or scope), so asserting equality
+would be misleading:
+- `policy.should_promote_dead_end` (`verdict == "refuted" and evidence_level ==
+  "deterministic"`). TS `buildDeadEndCalls` (`lib/research/promote.ts:53`) gates on
+  `verdict === 'refuted'` alone — it omits the explicit `deterministic` check (harmless in
+  the research loop, whose control-path verdicts are always deterministic) and has a
+  different shape (it filters a hypothesis ledger rather than testing a single
+  `VerdictRecord`).
+- `promote.approach_hash` / `should_skip` (dead-end de-dup by `sha256(normalized)[:16]`).
+  The TS loop de-dups dead-ends via a **slug** (`lib/dead-ends.ts`) — a different algorithm
+  for the same purpose, so the hashes are not interchangeable. (`promote.py` never claimed
+  GRD parity — it is "shape only".)
+- `contract.validate_metric_spec` (metric_key non-empty + comparator valid + target
+  finite). TS validates `metricKey` in pieces (`lib/research/agent-io.ts:47`,
+  `reconstructability.ts:36`) but has no single validator covering all three conditions.
+
+If any of these grows a directly-conformable TS twin, fold it into `kernel-contract.json`.

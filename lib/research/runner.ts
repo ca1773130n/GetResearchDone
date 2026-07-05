@@ -15,7 +15,10 @@ function parseMetricsLine(stdout: string): Record<string, number> {
   try {
     const obj = JSON.parse(m[1]) as Record<string, unknown>;
     const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(obj)) if (typeof v === 'number') out[k] = v;
+    // Finite numbers only: `1e400` parses to Infinity in JS (valid JSON syntax) and
+    // `typeof Infinity === 'number'`, so guard with Number.isFinite — parity with the
+    // kernel's `math.isfinite` drop. See docs/kernel-contract.md.
+    for (const [k, v] of Object.entries(obj)) if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
     return out;
   } catch { return {}; }
 }
