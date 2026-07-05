@@ -19,7 +19,10 @@ function evaluateVerdict(plan: ExperimentPlan, result: ExperimentResult): Measur
   if (result.exitCode !== 0) {
     return { verdict: 'inconclusive', detail: `experiment run failed (${result.failureClass})` };
   }
-  if (!(plan.metricKey in result.metrics)) {
+  // Own-key check (NOT the `in` operator, which walks the prototype chain: `'toString'
+  // in {}` is true in JS but false for a Python dict). Parity with the kernel's
+  // `metric_key not in result.metrics` (dict key lookup). See docs/kernel-contract.md.
+  if (!Object.prototype.hasOwnProperty.call(result.metrics, plan.metricKey)) {
     return { verdict: 'inconclusive', detail: `metric "${plan.metricKey}" not reported` };
   }
   const value = result.metrics[plan.metricKey];

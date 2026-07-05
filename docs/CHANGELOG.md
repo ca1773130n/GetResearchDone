@@ -3,6 +3,28 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Added
+- **Kernel contract conformance** (`tests/conformance/kernel-contract.json`,
+  `docs/kernel-contract.md`). The `autoresearch-core` Python kernel (life-harness) and the
+  `lib/research` TS loop (autoresearch) share a decision philosophy — deterministic verdict,
+  execute/kg_write gates — but were implemented twice, with only **unenforced** "Parity with
+  GRD …" docstrings. A single golden-fixture file now pins `compare` / `evaluateVerdict` /
+  `resolveGates` / `checkGate`; both a Python suite (`tests/python/test_kernel_contract.py`)
+  and a TS suite (`tests/unit/research/kernel-contract.test.ts`) assert against it, and a
+  jest wrapper runs the Python side inside `npm test` (needs only python3≥3.11 via the
+  vendored kernel). Neither language can silently drift. Intentional divergences (e.g.
+  unknown-gate handling — kernel raises, TS proceeds) are documented, not asserted.
+
+### Fixed
+- **Prototype-key metric lookup in `evaluateVerdict`** (`lib/research/verdict.ts`) — it used
+  the JS `in` operator, which walks the prototype chain, so a metric key colliding with an
+  `Object.prototype` name (`toString`, `constructor`, …) was treated as *present* (→
+  `refuted`/error) while the Python kernel's dict lookup treats it as absent (→
+  `inconclusive`). Now uses `Object.prototype.hasOwnProperty.call` (own-key), matching the
+  kernel. This cross-language drift was caught by the new conformance suite above.
+
 ## [0.4.11] - 2026-07-05
 
 ### Changed
