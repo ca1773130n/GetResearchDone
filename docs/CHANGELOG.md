@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.13] - 2026-07-06
 
 ### Added
 - **Kernel-contract conformance v2** — extended the `autoresearch-core` ⇄ `lib/research`
