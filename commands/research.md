@@ -1,7 +1,15 @@
 ---
 description: Run the autoresearch loop — hypothesis -> experiment -> measure -> learn -> revise — on a research question
-argument-hint: "\"<question>\" [--max-iterations N] [--no-gates] | resume <id> | status [<id>]"
+argument-hint: "\"<question>\" [--max-iterations N] [--no-gates] [deep-research] [ultracode] | resume <id> | status [<id>]"
 ---
+
+**`deep-research` mode:** if `$ARGUMENTS` contains the bare keyword `deep-research` (or
+`--deep-research`), do NOT run the autoresearch loop below. Set `ULTRACODE` = whether `ultracode`
+/ `--ultracode` is also present; set `QUESTION` = the question with BOTH tokens removed. Run the
+shared procedure below with `QUESTION` + `ULTRACODE`, then STOP. (The autoresearch loop is the
+hypothesis→experiment→verdict cycle; deep-research is a parallel breadth pass — different modes.)
+
+@${CLAUDE_PLUGIN_ROOT}/references/deep-research-flow.md
 
 Run GRD's autoresearch loop on a research question:
 

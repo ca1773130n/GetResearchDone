@@ -3,6 +3,21 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Added
+- **`/grd:deep-research "<question>"`** — a parallel, KG-grounded, adversarially-verified
+  research pass (GRD's native take on Claude Code's built-in `deep-research`): decompose the
+  question into N complementary angles → fan out N parallel `grd-deep-researcher` subagents (a
+  new read-only research agent — Tesserae KG + web, no file writes/commits, so parallel dispatch
+  can't race — grounded on the KG + `LANDSCAPE.md` / `PAPERS.md`, not raw web) → 3-vote adversarial
+  verify per claim (deterministic majority quorum, capped at 24 verifiers — a distinct
+  `unverified` bucket keeps voter/rate-limit failures from masquerading as negative findings) →
+  synthesize a cited, confidence-rated report under the milestone-scoped `research_dir`. Also
+  exposed as a `deep-research` keyword on `/grd:survey` and `/grd:research`. Honors `ultracode`
+  (max effort + opus + native dynamic-workflow orchestration on every spawn). The shared procedure
+  lives in `references/deep-research-flow.md` — plugin markdown only, no scheduler/TS changes.
+
 ## [0.4.13] - 2026-07-06
 
 ### Added
