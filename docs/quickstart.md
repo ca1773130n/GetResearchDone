@@ -29,6 +29,11 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 10. /grd:iterate 1                # Loop if targets missed
 ```
 
+> **Deeper research on demand:** for a parallel, adversarially-verified breadth pass, run
+> `/grd:deep-research "<question>"` (or add `deep-research` to `/grd:survey`). To *test* a
+> hypothesis with an experiment loop instead, use `/grd:research "<question>"` — see the
+> [autoresearch tutorial](autoresearch-tutorial.md).
+
 ## Quick Task (skip research)
 
 ```

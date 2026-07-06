@@ -10,7 +10,12 @@ literature, let it run unattended, deepen it, and read the outputs.
   takeaways, and the final write-up.
 
 > New to GRD entirely? Read the [Quickstart](quickstart.md) first. This tutorial
-> focuses only on the autoresearch loop (`gd research` and friends).
+> focuses only on the **autoresearch loop** (`gd research` and friends) — the
+> hypothesis → experiment → verdict cycle. Two sibling engines are *not* covered
+> here: **`/grd:deep-research`** (a parallel, breadth-first survey → adversarial
+> verify → synthesize pass — no experiments; good for mapping a space) and
+> **`gd harness`** (closed-loop self-improvement rounds). Same deterministic-verdict
+> philosophy, different jobs.
 
 ---
 
@@ -193,6 +198,18 @@ Remote sources are normalized to a committed staging file under
 `.planning/fetched/fetch-manifest.json`), then compiled into the graph. Web
 fetches pass through an SSRF guard; arXiv stays dependency-free.
 
+> **Extraction depth (`research_tesserae_extractor`).** `gd ingest` builds the graph with
+> Tesserae's **deterministic** extractor by default — fast, key-free, byte-stable — which mints
+> concept/claim nodes only for known headings. For a richer typed concept/claim layer (which
+> makes GROUND and HYPOTHESIZE noticeably stronger), opt into LLM extraction: set
+> `research_tesserae_extractor` to **`llm`** (Tesserae 0.13's provider-agnostic extractor, via
+> your configured `llm_provider`) or **`selective-llm`** (scope it with
+> `research_tesserae_extract_include` / `research_tesserae_extract_limit`). The legacy
+> Claude-only values `claude-cli` / `selective-claude` still work. GRD pins `deterministic`
+> **explicitly** unless you opt in, so ingest cost/latency never changes under you when
+> Tesserae's own default shifts (0.13 flipped it to `llm`). After a deterministic ingest that
+> comes back concept-poor, GRD prints a one-line hint nudging you toward `llm`.
+
 ### 2.2 Synthesize — and let it propose hypotheses
 
 ```bash
@@ -223,14 +240,16 @@ This runs the same hybrid retriever the loop uses internally: lexical (BM25-lite
 + graph-structure + optional semantic, fused with Reciprocal Rank Fusion. It's a
 quick way to see what the loop "knows" before you run it.
 
-### 2.4 Tesserae 0.9.0 AgentRunbook memory
+### 2.4 Distilled memory — Runbooks & Gotchas
 
-Tesserae 0.9.0 distills cross-session `Runbook` (procedures) and `Gotcha`
+Tesserae (0.9.0+) distills cross-session `Runbook` (procedures) and `Gotcha`
 (failure modes) nodes from your session findings. The GRD harness consumes them
 as high-signal evidence (alongside raw session findings), and the hybrid
 retriever surfaces them automatically once they're in the graph. To populate
-them, set `distillation.enabled: true` in your Tesserae project config (or run
-`tesserae refresh` with distillation), then run a harness round. To keep stale
+them, set `distillation.enabled: true` in your Tesserae project config so
+`tesserae refresh` (or `compile`) populates them — as of Tesserae 0.11.0 distillation
+is a project **compile/refresh** concern, not an `extract`/ingest flag — then run a
+harness round. To keep stale
 playbooks out of a round, set `harness.distillation_max_age_days` (integer;
 default off) in `.planning/config.json` — distilled `Runbook`/`Gotcha` evidence
 older than N days is dropped before the round selects evidence. If a round skips
@@ -306,6 +325,20 @@ gd research portfolio id1 id2 --concurrency 3 --no-gates
 
 Output: `.planning/research/PORTFOLIO.md`, ranked by status. Interrupted or
 errored threads are skipped and reported (use `--force` to include them).
+
+### 3.5 Max-effort mode (`ultracode`)
+
+Add the bare keyword `ultracode` to any research command to run the whole loop at
+maximum effort — best model + max reasoning on **every** spawn (HYPOTHESIZE, DESIGN,
+LEARN, re-survey):
+
+```bash
+gd research "Does X beat the baseline on metric M?" ultracode
+```
+
+It sets a process-tree env carrier, so every agent the loop spawns inherits it. Via
+the plugin, `/grd:research "<q>" ultracode` does the same. Use it when a question is
+worth the extra cost/latency; leave it off for routine runs.
 
 ---
 
@@ -397,6 +430,8 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | `research_sandbox_network` | `"none"` | `"bridge"` to allow network inside the container. |
 | `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` and refuted hypotheses → `DEAD-ENDS.md`. |
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator (verdict untouched). |
+| `research_tesserae_extractor` | `"deterministic"` | Tesserae extractor for `gd ingest`: `deterministic` (default; fast, key-free) or `llm` / `selective-llm` for a richer concept/claim layer (legacy `claude-cli` / `selective-claude` accepted). `selective-*` reads `research_tesserae_extract_include` / `research_tesserae_extract_limit`. |
+| `research_spawn_retries` | `2` | Retries for a blank/unparseable HYPOTHESIZE or DESIGN spawn before the thread ends `status: error`. |
 
 > **Note — `research_gates` is a shared object.** The autoresearch loop reads only
 > the `experiment_execution` and `kg_write` sub-keys. If you open
