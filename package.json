@@ -18,6 +18,7 @@
     "dist/",
     "commands/",
     "agents/",
+    "references/",
     ".claude-plugin/plugin.json"
   ],
   "keywords": [
