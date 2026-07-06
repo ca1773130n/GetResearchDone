@@ -3,7 +3,7 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.4.14] - 2026-07-06
 
 ### Added
 - **`/grd:deep-research "<question>"`** — a parallel, KG-grounded, adversarially-verified
