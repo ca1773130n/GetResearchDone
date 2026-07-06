@@ -1,6 +1,6 @@
 ---
 description: SoTA survey — scan arXiv, GitHub, benchmarks for a research topic and update LANDSCAPE.md
-argument-hint: <research topic or question>
+argument-hint: <research topic or question> [deep-research] [ultracode]
 ---
 
 <purpose>
@@ -26,6 +26,15 @@ CLAUDE.md rules: @CLAUDE.md
 <process>
 
 ## Step 0: INITIALIZE — Validate Input and Environment
+
+**`deep-research` mode (check FIRST):** if `$ARGUMENTS` contains the bare keyword `deep-research`
+(or `--deep-research`), this is a parallel deep-research request, not a normal survey. Set
+`ULTRACODE` = whether `ultracode` / `--ultracode` is also present; set `QUESTION` = `$ARGUMENTS`
+with BOTH the `deep-research` and `ultracode` tokens removed. Run the shared procedure below with
+`QUESTION` + `ULTRACODE`, then STOP (skip the rest of this command). Otherwise continue the normal
+survey.
+
+@${CLAUDE_PLUGIN_ROOT}/references/deep-research-flow.md
 
 1. **Parse arguments**: Extract topic from `$ARGUMENTS`
    - If empty: use conversation context or ASK user for topic
@@ -76,7 +85,9 @@ CLAUDE.md rules: @CLAUDE.md
 
 ## Step 2: SPAWN SURVEYOR AGENT
 
-**Launch `grd-surveyor` agent via Task tool:**
+**Launch `grd-surveyor` agent via Task tool.** If the user passed `ultracode` / `--ultracode`,
+dispatch this Task at `effort: "max"` + `model: "opus"` and prefix its prompt with `ultracode\n\n`
+(max-effort survey).
 
 Use Task tool with `subagent_type="grd:grd-surveyor"`:
 

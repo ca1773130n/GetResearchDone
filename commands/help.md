@@ -45,6 +45,10 @@ RESEARCH — Survey, analyze, and compare state-of-the-art
 
   /grd:survey <topic>           Scan papers, repos, benchmarks for a
                                 research topic. Updates LANDSCAPE.md.
+                                Add `deep-research` for the parallel pass.
+
+  /grd:deep-research "<q>"      Parallel, KG-grounded, adversarially-
+                                verified research → cited report.
 
   /grd:deep-dive <paper>        Deep analysis of a specific paper —
                                 method, code, limitations, verdict.
