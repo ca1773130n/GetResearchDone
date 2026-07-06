@@ -3,6 +3,16 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Documentation
+- **Autoresearch tutorial refresh** (`docs/autoresearch-tutorial.md`): distinguishes the loop
+  from its sibling engines (`/grd:deep-research`, `gd harness`); documents the Tesserae 0.13
+  `research_tesserae_extractor` depth knob (deterministic default vs `llm`/`selective-llm`); adds
+  the `ultracode` max-effort mode; corrects the distillation model (compile/refresh, not an
+  extract flag); and adds the `research_tesserae_extractor` + `research_spawn_retries` config
+  keys. Plus a research-discoverability note in `docs/quickstart.md`.
+
 ## [0.4.15] - 2026-07-06
 
 ### Fixed
