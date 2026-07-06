@@ -3,6 +3,15 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.4.15] - 2026-07-06
+
+### Fixed
+- **`references/` was missing from the npm `files` allowlist** — `commands/*.md` load
+  `@${CLAUDE_PLUGIN_ROOT}/references/*.md` (e.g. `execute-phase` → `execute-plan.md`,
+  `deep-research` → `deep-research-flow.md`), but the directory was excluded from the published
+  npm tarball. Added `references/` so the npm package is complete. (Plugin installs are
+  git-based, so the marketplace already shipped it; this only affected `npm install`.)
+
 ## [0.4.14] - 2026-07-06
 
 ### Added
