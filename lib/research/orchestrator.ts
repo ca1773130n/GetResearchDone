@@ -246,6 +246,25 @@ function readSpawnRetries(cwd: string): number {
   }
 }
 
+/**
+ * Read research_max_debug_depth (AI-Scientist-v2's max_debug_depth analog):
+ * how many bounded fix-and-retry attempts the RUN stage gets when the experiment
+ * script FAILS TO EXECUTE (nonzero exit / thrown runner — never a metric miss).
+ * Default 0 = exactly prior behavior (no retries); clamp [0,5]; non-number → 0.
+ */
+function readDebugDepth(cwd: string): number {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/config.json'), 'utf8')) as {
+      research_max_debug_depth?: unknown;
+    };
+    const n = raw.research_max_debug_depth;
+    if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
+    return Math.min(5, Math.max(0, Math.trunc(n)));
+  } catch {
+    return 0;
+  }
+}
+
 function verdictToStatus(v: Verdict): HypothesisStatus {
   return v === 'supported' ? 'supported' : v === 'refuted' ? 'refuted' : 'inconclusive';
 }
@@ -253,6 +272,67 @@ function verdictToStatus(v: Verdict): HypothesisStatus {
 /** Coerce + bound any spawn output to a short, single-line excerpt for diagnostics. */
 function excerpt(s: unknown): string {
   return String(s ?? '').slice(0, 2000).replace(/\s+/g, ' ').trim().slice(0, 280) || '(empty)';
+}
+
+/**
+ * Invoke the runner, normalizing a THROWN runner (an infra exception — distinct
+ * from the nonzero-exit failures runners already RETURN as results) into a
+ * failing ExperimentResult so the bounded debug loop can retry it and MEASURE
+ * can judge it inconclusive. Only called when research_max_debug_depth > 0 —
+ * at depth 0 the runner is invoked directly and a throw propagates as before.
+ */
+function runCaught(runner: Runner, plan: ExperimentPlan, dir: string): ExperimentResult {
+  try {
+    return runner.run(plan, dir);
+  } catch (e) {
+    return {
+      metrics: {},
+      exitCode: 1,
+      // ponytail: the runner kind is unknowable when run() itself throws — reported
+      // as 'subprocess' (advisory metadata only); upgrade path: widen the union with
+      // 'unknown' if a consumer ever branches on it.
+      runner: 'subprocess',
+      durationMs: 0,
+      stdoutExcerpt: '',
+      stderrExcerpt: (e instanceof Error ? e.message : String(e)).slice(0, 2000),
+      failureClass: 'H4',
+    };
+  }
+}
+
+/**
+ * DEBUG-mode experiment prompt for the bounded fix-and-retry: re-invokes the
+ * experiment designer with the script-execution failure context (exit code,
+ * failure class, stderr/stdout excerpts) so it can fix the script in place.
+ * Same __PLAN__ output contract as buildExperimentPrompt.
+ */
+function buildDebugFixPrompt(
+  hyp: Hypothesis, plan: ExperimentPlan, result: ExperimentResult,
+  iterDir: string, attempt: number, maxDepth: number,
+): string {
+  return [
+    'You are grd-experiment-runner in DEBUG mode. The experiment script you designed FAILED TO',
+    'EXECUTE (a script/environment error — NOT a hypothesis verdict). Fix it and re-emit the plan.',
+    '',
+    `Hypothesis (${hyp.id}): ${hyp.statement}`,
+    `Failing script: ${plan.scriptPath} (language: ${plan.language})`,
+    `Metric contract: ${plan.metricKey} ${plan.comparator} ${plan.target}`,
+    '',
+    `Execution failure (debug attempt ${attempt} of ${maxDepth}):`,
+    `- exit code: ${result.exitCode}`,
+    `- failure class: ${result.failureClass}`,
+    `- stderr: ${String(result.stderrExcerpt ?? '').slice(0, 2000) || '(empty)'}`,
+    `- stdout: ${String(result.stdoutExcerpt ?? '').slice(0, 2000) || '(empty)'}`,
+    '',
+    `Fix the script under ${iterDir} so it executes cleanly, keeping the experiment minimal and`,
+    'reproducible. The script MUST print its result as a final line:',
+    '  __RESULT__ {"<metricKey>": <number>}',
+    'Do NOT run the script yourself — the orchestrator re-runs it.',
+    '',
+    'Emit exactly one final block (scriptPath = the absolute path of the fixed script):',
+    '__PLAN__',
+    `{"procedure":"...","metricKey":"${plan.metricKey}","comparator":"${plan.comparator}","target":${plan.target},"language":"${plan.language}","scriptPath":"${plan.scriptPath}"}`,
+  ].join('\n');
 }
 
 function errExit(cwd: string, thread: ResearchThread, reason: string): ResearchResult {
@@ -315,6 +395,7 @@ async function runLoop(
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
   const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
   const spawnRetries = readSpawnRetries(cwd);
+  const debugDepth = readDebugDepth(cwd);
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -405,10 +486,83 @@ async function runLoop(
       }
     }
 
-    // RUN
+    // RUN — with debug retries enabled a THROWN runner is normalized to a failing
+    // result (so it can be retried); at depth 0 the call is untouched and a throw
+    // propagates exactly as before.
     thread.currentStation = 'run'; thread.budgetUsed += 1; saveThread(cwd, thread);
-    const result = runner.run(plan, threadDir(cwd, thread.id));
+    let result = debugDepth > 0
+      ? runCaught(runner, plan, threadDir(cwd, thread.id))
+      : runner.run(plan, threadDir(cwd, thread.id));
     fs.writeFileSync(path.join(iterDir, 'result.json'), JSON.stringify(result, null, 2));
+
+    // DEBUG (bounded fix-and-retry; AI-Scientist-v2's max_debug_depth analog).
+    // Triggers ONLY on a script-execution failure (nonzero exit / thrown runner) —
+    // never on a metric-vs-target miss, which exits 0 and is judged at MEASURE.
+    // Each attempt feeds the failure output back to the experiment designer, re-runs
+    // the fixed plan, and is recorded as debug-attempt-<n>.json beside result.json;
+    // plan.json/result.json always end up holding what MEASURE ultimately consumed.
+    // The DESIGN-committed metric contract is pinned across attempts: a debug
+    // re-plan may only repair the procedure/script — never move the goalposts
+    // MEASURE judges against, nor switch the execution language.
+    const committed = {
+      metricKey: plan.metricKey, comparator: plan.comparator,
+      target: plan.target, language: plan.language,
+    };
+    for (let attempt = 1; attempt <= debugDepth && result.exitCode !== 0; attempt++) {
+      const record: Record<string, unknown> = {
+        attempt,
+        maxDepth: debugDepth,
+        trigger: {
+          exitCode: result.exitCode, failureClass: result.failureClass,
+          stderrExcerpt: result.stderrExcerpt ?? '', stdoutExcerpt: result.stdoutExcerpt,
+        },
+      };
+      // GATE 1 re-check — the execute approval covered the DESIGN-time script only;
+      // a debug attempt would execute an LLM-rewritten one. Same semantics as the
+      // original gate call (auto-proceeds when the gate is off — noGates/config);
+      // with the gate on there is no fresh approval, so it denies: abort the debug
+      // loop and degrade to the depth=0 outcome (MEASURE judges the failing result
+      // inconclusive) rather than pausing mid-RUN or executing unapproved code.
+      const dGate = checkGate(thread, 'execute', false);
+      if (!dGate.proceed) {
+        record.fixed = false;
+        record.gateDenied = 'execute';
+        fs.writeFileSync(path.join(iterDir, `debug-attempt-${attempt}.json`), JSON.stringify(record, null, 2));
+        break;
+      }
+      incrementCounter('research.debug_retries_total');
+      const dRes = await spawnAndParse(
+        spawn, buildDebugFixPrompt(hyp, plan, result, iterDir, attempt, debugDepth),
+        'grd-experiment-runner', parsePlanOutput, spawnRetries,
+      );
+      if (!dRes.value) {
+        // Degrade, never amplify: a hard-failed/unparseable fix spawn stops the debug
+        // loop and lets MEASURE mark the failing result inconclusive — the depth=0 outcome.
+        record.fixed = false;
+        if (dRes.error) record.spawnError = dRes.error;
+        else record.spawnOutput = excerpt(dRes.lastRaw);
+        fs.writeFileSync(path.join(iterDir, `debug-attempt-${attempt}.json`), JSON.stringify(record, null, 2));
+        break;
+      }
+      // Pin the committed contract: overwrite any drifted metricKey/comparator/
+      // target/language back to the DESIGN-committed values (noting the drift in
+      // the attempt record) before use and before persisting plan.json.
+      const proposed = dRes.value as ExperimentPlan;
+      const drift: Record<string, { proposed: unknown; pinned: unknown }> = {};
+      for (const key of ['metricKey', 'comparator', 'target', 'language'] as const) {
+        if (proposed[key] !== committed[key]) drift[key] = { proposed: proposed[key], pinned: committed[key] };
+      }
+      if (Object.keys(drift).length > 0) record.contractDrift = drift;
+      plan = { ...proposed, ...committed };
+      fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
+      thread.budgetUsed += 1; saveThread(cwd, thread);
+      result = runCaught(runner, plan, threadDir(cwd, thread.id));
+      record.fixed = true;
+      record.plan = plan;
+      record.result = result;
+      fs.writeFileSync(path.join(iterDir, `debug-attempt-${attempt}.json`), JSON.stringify(record, null, 2));
+      fs.writeFileSync(path.join(iterDir, 'result.json'), JSON.stringify(result, null, 2));
+    }
 
     // MEASURE
     thread.currentStation = 'measure'; saveThread(cwd, thread);
@@ -520,5 +674,5 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
 module.exports = {
   runResearch, resumeResearch, defaultSpawn, verdictToStatus,
   decodeSpawnStdout, decodeSpawnResult, spawnAndParse, readSpawnRetries,
-  readResearchGatesConfig, readResurveyConfig,
+  readDebugDepth, readResearchGatesConfig, readResurveyConfig,
 };

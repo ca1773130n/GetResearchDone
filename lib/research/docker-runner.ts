@@ -177,6 +177,7 @@ function createDockerRunner(opts: DockerRunnerOpts = {}): import('./runner').Run
           exitCode: typeof err.status === 'number' ? err.status : 1,
           runner: 'docker', durationMs: Date.now() - start,
           stdoutExcerpt: stdout.slice(0, 2000),
+          stderrExcerpt: String(err.stderr || '').slice(0, 2000),
           failureClass: classifyRunFailure(err.stderr || String(e), timedOut),
         };
       }

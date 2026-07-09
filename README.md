@@ -28,7 +28,7 @@ SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DEC
 ```
 
 - **Grounded, not hallucinated.** The hypothesizer grounds on a [Tesserae](docs/autoresearch-tutorial.md) knowledge graph you compile from real sources, plus a deterministic hybrid retriever (lexical + graph + optional semantic).
-- **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path.
+- **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path. The field's own numbers argue for this: only ~32% of [CodeScientist](https://aclanthology.org/2025.findings-acl.692/)'s auto-generated discoveries survived multi-faceted human evaluation, and [Sakana documents](https://github.com/sakanaai/ai-scientist-v2) that template-free exploration trades away experiment success rate.
 - **Honest.** A loop that never reaches support is written up as a negative/inconclusive result, not hidden.
 - **Safe by default.** Two checkpoint gates (before running experiment code, before writing to the shared KG); optional Docker isolation for experiment scripts.
 - **Compounding.** Confirmed learnings promote to a shared `KNOWHOW.md`; falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.

@@ -28,7 +28,7 @@ never clean up — `npm test` floods the root with thousands of gitignored
 
 `gd <command> [args] [--json|--raw]` — tool commands output JSON by default,
 `--raw` for human text. Core: `progress`, `plan-phase N`, `execute-phase N`,
-`autopilot`, `harness round|status|revert|upstream`, `quick "<desc>"`, `health`,
+`autopilot`, `harness round|status|revert|upstream|conversion`, `quick "<desc>"`, `health`,
 `settings`, `metrics`, `help` (`evolve` is deprecated → `gd harness round`).
 Research: `research "<q>"` (+ `resume <id>` / `status` / `report <id>` /
 `portfolio`), `ingest <md|arxiv|url|pdf|jsonl>`, `synthesize "<topic>"`,
@@ -93,6 +93,9 @@ keys: `research_gates`, `research_max_candidates`, `research_max_resurveys`,
 docker when available else subprocess with a visible UNSANDBOXED warning;
 + `_image`/`_memory`/`_cpus`/`_network`),
 `research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`,
+`research_max_debug_depth` (bounded fix-and-retry of script-execution failures in
+RUN, 0 = off; metric misses never retry; the execute gate is re-checked and the
+committed metric/comparator/target is pinned across debug re-plans),
 `research_tesserae_extractor` (+ `_extract_include`/`_extract_limit`);
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 `min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,

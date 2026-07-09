@@ -141,6 +141,32 @@ describe('serializeDeadEndsFile round-trip', () => {
     expect(serialized).toMatch(/# Dead Ends Registry/);
     expect(parseDeadEndsFile(serialized)).toEqual([]);
   });
+
+  test('date field round-trips; entries without one stay date-less', () => {
+    const dated = {
+      approach: 'Dated approach',
+      slug: 'dated-approach',
+      tried_in_phases: ['01'],
+      verdict: 'falsified',
+      evidence: [],
+      status: 'active' as const,
+      date: '2026-07-01',
+    };
+    const legacy = {
+      approach: 'Legacy approach',
+      slug: 'legacy-approach',
+      tried_in_phases: ['01'],
+      verdict: 'falsified',
+      evidence: [],
+      status: 'active' as const,
+    };
+    const serialized = serializeDeadEndsFile([dated, legacy]);
+    expect(serialized).toContain('date: 2026-07-01');
+    const reparsed = parseDeadEndsFile(serialized);
+    expect(reparsed[0]).toEqual(dated);
+    expect(reparsed[1]).toEqual(legacy);
+    expect(reparsed[1].date).toBeUndefined();
+  });
 });
 
 // ─── cmdDeadEndAdd ─────────────────────────────────────────────────────────
@@ -180,6 +206,9 @@ describe('cmdDeadEndAdd', () => {
     expect(body).toContain('approach: "Rotary embeddings on CPU"');
     expect(body).toContain('tried_in_phases: ["02-build"]');
     expect(body).toContain('status: active');
+    // New entries are stamped with an ISO recorded-at date (today, UTC)
+    expect(body).toMatch(/^date: \d{4}-\d{2}-\d{2}$/m);
+    expect(parseDeadEndsFile(body)[0].date).toBe(new Date().toISOString().slice(0, 10));
   });
 
   test('updates existing entry with same slug (append phase, flip status)', () => {
@@ -209,6 +238,46 @@ describe('cmdDeadEndAdd', () => {
     // Status must flip active → reopened
     expect(body).toContain('status: reopened');
     expect(body).not.toContain('status: active');
+  });
+
+  test('update preserves first-recorded date; legacy entries stay date-less', () => {
+    const seeded = [
+      '# Dead Ends Registry',
+      '',
+      '## dated-approach',
+      '',
+      '```yaml',
+      'approach: "Dated approach"',
+      'slug: dated-approach',
+      'date: 2020-01-01',
+      'tried_in_phases: ["01"]',
+      'verdict: falsified',
+      'evidence: []',
+      'status: active',
+      '```',
+      '',
+      '## legacy-approach',
+      '',
+      '```yaml',
+      'approach: "Legacy approach"',
+      'slug: legacy-approach',
+      'tried_in_phases: ["01"]',
+      'verdict: falsified',
+      'evidence: []',
+      'status: active',
+      '```',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), seeded, 'utf-8');
+
+    captureOutput(() => cmdDeadEndAdd(tmpDir, { approach: 'Dated approach', phase: '05' }, false));
+    captureOutput(() => cmdDeadEndAdd(tmpDir, { approach: 'Legacy approach', phase: '05' }, false));
+
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    const entries = parseDeadEndsFile(body);
+    expect(entries[0].date).toBe('2020-01-01'); // not re-stamped on update
+    expect(entries[1].date).toBeUndefined(); // pre-date entries not backfilled
+    expect((body.match(/^date: /gm) || []).length).toBe(1);
   });
 
   test('duplicate phase/evidence on update are not added twice', () => {

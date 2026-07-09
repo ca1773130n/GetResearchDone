@@ -40,6 +40,8 @@ export interface DeadEndEntry {
   verdict: string;
   evidence: string[];
   status: 'active' | 'reopened';
+  /** ISO yyyy-mm-dd the entry was first recorded. Absent on legacy entries. */
+  date?: string;
   notes?: string;
 }
 
@@ -199,6 +201,7 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
         key === 'approach' ||
         key === 'verdict' ||
         key === 'status' ||
+        key === 'date' ||
         key === 'notes'
       ) {
         (entry as Record<string, unknown>)[key] = _yamlUnquote(valRaw);
@@ -213,6 +216,7 @@ function parseDeadEndsFile(content: string): DeadEndEntry[] {
         verdict: entry.verdict ?? 'falsified',
         evidence: entry.evidence ?? [],
         status: entry.status === 'reopened' ? 'reopened' : 'active',
+        ...(entry.date ? { date: entry.date } : {}),
         ...(entry.notes ? { notes: entry.notes } : {}),
       });
     }
@@ -224,6 +228,9 @@ function _serializeEntry(entry: DeadEndEntry): string {
   const lines: string[] = [`## ${entry.slug}`, '', '```yaml'];
   lines.push(`approach: ${_yamlEscape(entry.approach)}`);
   lines.push(`slug: ${entry.slug}`);
+  // Recorded-at date (ISO yyyy-mm-dd). Optional: legacy entries have none,
+  // and every reader tolerates its absence (e.g. harness-conversion latency_days).
+  if (entry.date) lines.push(`date: ${entry.date}`);
   const phasesInline = entry.tried_in_phases.length
     ? `[${entry.tried_in_phases.map(_yamlEscape).join(', ')}]`
     : '[]';
@@ -351,6 +358,8 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
       verdict,
       evidence: evidenceList,
       status: 'active',
+      // First-recorded date; updates keep it so latency measures from first sighting.
+      date: new Date().toISOString().slice(0, 10),
       ...(opts.notes ? { notes: opts.notes } : {}),
     });
     return { entries: existing, action: 'created', slug };

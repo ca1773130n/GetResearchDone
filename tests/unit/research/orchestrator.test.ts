@@ -504,6 +504,305 @@ describe('spawn-retry robustness', () => {
     });
   });
 
+  describe('bounded debug retries (research_max_debug_depth)', () => {
+    const orch = require('../../../lib/research/orchestrator');
+
+    function writeCfg(cwd: string, obj: object) {
+      fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify(obj));
+    }
+
+    // Spawn that answers DESIGN and DEBUG-mode experiment prompts distinctly,
+    // capturing each so tests can assert the failure context was fed back.
+    // `debugPlanJson` overrides the DEBUG-mode __PLAN__ payload (drift tests).
+    function makeDebugSpawn(debugPlanJson?: string) {
+      const designPrompts: string[] = [];
+      const debugPrompts: string[] = [];
+      const spawn = async (prompt: string, agentType: string): Promise<string> => {
+        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+        if (agentType === 'grd-experiment-runner') {
+          if (/DEBUG mode/.test(prompt)) {
+            debugPrompts.push(prompt);
+            return `__PLAN__ ${debugPlanJson || '{"procedure":"fixed","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/fixed.sh"}'}`;
+          }
+          designPrompts.push(prompt);
+          return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+        }
+        if (agentType === 'grd-knowledge-miner') return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+        return '';
+      };
+      return { spawn, designPrompts, debugPrompts };
+    }
+
+    // Runner that fails with a script-execution error (nonzero exit) `failures`
+    // times, then succeeds with a passing metric.
+    function failThenPassRunner(failures: number) {
+      const state = { calls: 0 };
+      return {
+        state,
+        run() {
+          state.calls++;
+          if (state.calls <= failures) {
+            return {
+              metrics: {}, exitCode: 2, runner: 'subprocess', durationMs: 1,
+              stdoutExcerpt: 'partial stdout', stderrExcerpt: 'ModuleNotFoundError: numpy',
+              failureClass: 'H2',
+            };
+          }
+          return {
+            metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1,
+            stdoutExcerpt: '', failureClass: 'none',
+          };
+        },
+      };
+    }
+
+    function iterDirOf(cwd: string, threadId: string) {
+      return path.join(cwd, '.planning/research/threads', threadId, 'experiments', '1');
+    }
+
+    it('readDebugDepth: defaults 0; clamps; rejects non-number', () => {
+      const mk = (v?: unknown) => {
+        const d = tmp();
+        if (v !== undefined) writeCfg(d, { research_max_debug_depth: v });
+        return d;
+      };
+      expect(orch.readDebugDepth(mk())).toBe(0);
+      expect(orch.readDebugDepth(mk(3))).toBe(3);
+      expect(orch.readDebugDepth(mk(2.9))).toBe(2);
+      expect(orch.readDebugDepth(mk(-1))).toBe(0);
+      expect(orch.readDebugDepth(mk(99))).toBe(5);
+      expect(orch.readDebugDepth(mk('2'))).toBe(0);
+      expect(orch.readDebugDepth(mk(true))).toBe(0);
+    });
+
+    it('research_max_debug_depth is a recognized config key (no loadConfig warning)', () => {
+      const { captureError } = require('../../helpers/setup');
+      const { loadConfig } = require('../../../lib/utils');
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 2 });
+      const res = captureError(() => loadConfig(cwd));
+      expect(res.stderr).not.toMatch(/Unrecognized config key "research_max_debug_depth"/);
+    });
+
+    it('depth=0 (default): a script-execution failure is measured inconclusive with NO debug retry and no attempt artifacts', async () => {
+      const cwd = tmp(); // no config file → depth 0
+      const { spawn, designPrompts, debugPrompts } = makeDebugSpawn();
+      const runner = failThenPassRunner(Infinity);
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(res.status).toBe('exhausted');
+      expect(debugPrompts.length).toBe(0);
+      expect(designPrompts.length).toBe(1);
+      expect(runner.state.calls).toBe(1);
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('inconclusive');
+      expect(fs.existsSync(path.join(iterDirOf(cwd, res.threadId), 'debug-attempt-1.json'))).toBe(false);
+    });
+
+    it('depth=0: a THROWING runner still propagates (unchanged behavior)', async () => {
+      const cwd = tmp();
+      const { spawn } = makeDebugSpawn();
+      const runner = { run() { throw new Error('runner exploded'); } };
+      await expect(runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner }))
+        .rejects.toThrow(/runner exploded/);
+    });
+
+    it('depth=2: fails once → debug fix with error context fed back → re-run succeeds → supported', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 2 });
+      const { spawn, debugPrompts } = makeDebugSpawn();
+      const runner = failThenPassRunner(1);
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 2, noGates: true, spawn, runner });
+      expect(res.status).toBe('supported');
+      expect(res.iterations).toBe(1);
+      expect(debugPrompts.length).toBe(1);
+      expect(runner.state.calls).toBe(2);
+      // failure output (exit info + stderr/stdout) fed back into the fix prompt
+      expect(debugPrompts[0]).toContain('exit code: 2');
+      expect(debugPrompts[0]).toContain('failure class: H2');
+      expect(debugPrompts[0]).toContain('ModuleNotFoundError: numpy');
+      expect(debugPrompts[0]).toContain('partial stdout');
+      // attempt recorded beside the stage artifacts; final plan/result reflect the fix
+      const iterDir = iterDirOf(cwd, res.threadId);
+      const rec = JSON.parse(fs.readFileSync(path.join(iterDir, 'debug-attempt-1.json'), 'utf8'));
+      expect(rec.attempt).toBe(1);
+      expect(rec.maxDepth).toBe(2);
+      expect(rec.fixed).toBe(true);
+      expect(rec.contractDrift).toBeUndefined(); // same contract → no drift note
+      expect(rec.trigger.exitCode).toBe(2);
+      expect(rec.trigger.stderrExcerpt).toContain('ModuleNotFoundError');
+      expect(rec.result.exitCode).toBe(0);
+      expect(JSON.parse(fs.readFileSync(path.join(iterDir, 'plan.json'), 'utf8')).scriptPath).toBe('experiments/x/fixed.sh');
+      expect(JSON.parse(fs.readFileSync(path.join(iterDir, 'result.json'), 'utf8')).exitCode).toBe(0);
+      // ledger records the verdict through the normal MEASURE path
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('supported');
+    });
+
+    it('depth=2 exhausted: every attempt recorded, still fails (inconclusive), never crashes the loop', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 2 });
+      const { spawn, debugPrompts } = makeDebugSpawn();
+      const runner = failThenPassRunner(Infinity);
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(res.status).toBe('exhausted');
+      expect(debugPrompts.length).toBe(2);
+      expect(runner.state.calls).toBe(3); // initial + 2 debug re-runs
+      expect(debugPrompts[1]).toContain('debug attempt 2 of 2');
+      const iterDir = iterDirOf(cwd, res.threadId);
+      for (const n of [1, 2]) {
+        const rec = JSON.parse(fs.readFileSync(path.join(iterDir, `debug-attempt-${n}.json`), 'utf8'));
+        expect(rec.fixed).toBe(true);
+        expect(rec.result.exitCode).toBe(2); // re-run still failed
+      }
+      expect(JSON.parse(fs.readFileSync(path.join(iterDir, 'result.json'), 'utf8')).exitCode).toBe(2);
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('inconclusive');
+      // each re-run consumed budget like the initial run
+      const tj = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/research/threads', res.threadId, 'thread.json'), 'utf8'));
+      expect(tj.budgetUsed).toBe(3);
+    });
+
+    it('metric-vs-target miss (exit 0) NEVER triggers a debug retry', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 2 });
+      const { spawn, debugPrompts } = makeDebugSpawn();
+      let calls = 0;
+      const runner = { run() { calls++; return { metrics: { accuracy: 0.1 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }; } };
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(res.status).toBe('exhausted');
+      expect(debugPrompts.length).toBe(0);
+      expect(calls).toBe(1);
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('refuted');
+      expect(fs.existsSync(path.join(iterDirOf(cwd, res.threadId), 'debug-attempt-1.json'))).toBe(false);
+    });
+
+    it('depth>0: a THROWING runner is normalized, its message fed to debug, and can recover', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 1 });
+      const { spawn, debugPrompts } = makeDebugSpawn();
+      let calls = 0;
+      const runner = {
+        run() {
+          calls++;
+          if (calls === 1) throw new Error('spawn ENOENT: python3 missing');
+          return { metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' };
+        },
+      };
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(res.status).toBe('supported');
+      expect(debugPrompts.length).toBe(1);
+      expect(debugPrompts[0]).toContain('python3 missing');
+      const rec = JSON.parse(fs.readFileSync(path.join(iterDirOf(cwd, res.threadId), 'debug-attempt-1.json'), 'utf8'));
+      expect(rec.trigger.stderrExcerpt).toContain('python3 missing');
+      expect(rec.trigger.failureClass).toBe('H4');
+    });
+
+    it('a hard-failed debug fix spawn degrades to the depth=0 outcome (recorded, not fatal)', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 2, research_spawn_retries: 0 });
+      const spawn = async (prompt: string, agentType: string): Promise<string> => {
+        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+        if (agentType === 'grd-experiment-runner') {
+          if (/DEBUG mode/.test(prompt)) throw new Error('backend down');
+          return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+        }
+        return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      };
+      const runner = failThenPassRunner(Infinity);
+      const res = await runResearch(cwd, 'Q?', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(res.status).toBe('exhausted'); // measured inconclusive → exhausted at maxIterations, NOT thread error
+      expect(runner.state.calls).toBe(1); // no re-run after the failed fix spawn
+      const iterDir = iterDirOf(cwd, res.threadId);
+      const rec = JSON.parse(fs.readFileSync(path.join(iterDir, 'debug-attempt-1.json'), 'utf8'));
+      expect(rec.fixed).toBe(false);
+      expect(rec.spawnError).toMatch(/backend down/);
+      expect(fs.existsSync(path.join(iterDir, 'debug-attempt-2.json'))).toBe(false); // break, no second attempt
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('inconclusive');
+    });
+
+    it('gates ON: the execute gate is re-checked before any debug re-run — denial blocks the rewritten script', async () => {
+      const cwd = tmp();
+      // execute gate ON (its approval covers only the DESIGN-time script);
+      // kg_write off so the resume can reach a terminal status.
+      writeCfg(cwd, { research_max_debug_depth: 2, research_gates: { experiment_execution: true, kg_write: false } });
+      const { spawn, debugPrompts } = makeDebugSpawn();
+      const runner = failThenPassRunner(Infinity);
+      const first = await runResearch(cwd, 'Gated debug Q', { maxIterations: 1, noGates: false, spawn, runner });
+      expect(first.paused).toBe(true);
+      expect(first.pendingGate).toBe('execute');
+      expect(runner.state.calls).toBe(0); // gate pauses before any execution
+      const res = await resumeResearch(cwd, first.threadId, { spawn, runner, noGates: false });
+      expect(res.status).toBe('exhausted');
+      // The approved DESIGN-time script ran once; the debug re-run was gate-denied:
+      // no fix spawn was dispatched and no rewritten script was ever executed.
+      expect(runner.state.calls).toBe(1);
+      expect(debugPrompts.length).toBe(0);
+      const iterDir = iterDirOf(cwd, res.threadId);
+      const rec = JSON.parse(fs.readFileSync(path.join(iterDir, 'debug-attempt-1.json'), 'utf8'));
+      expect(rec.gateDenied).toBe('execute');
+      expect(rec.fixed).toBe(false);
+      expect(rec.trigger.exitCode).toBe(2);
+      expect(fs.existsSync(path.join(iterDir, 'debug-attempt-2.json'))).toBe(false); // denial aborts further attempts
+    });
+
+    it('gate denial mid-debug degrades to the depth=0 outcome: inconclusive, failing result stands, no pause', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 3, research_gates: { experiment_execution: true, kg_write: false } });
+      const { spawn } = makeDebugSpawn();
+      const runner = failThenPassRunner(Infinity);
+      const first = await runResearch(cwd, 'Gated degrade Q', { maxIterations: 1, noGates: false, spawn, runner });
+      const res = await resumeResearch(cwd, first.threadId, { spawn, runner, noGates: false });
+      // depth=0 outcome: the failing result is measured inconclusive as-is
+      expect(res.status).toBe('exhausted');
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('inconclusive');
+      const iterDir = iterDirOf(cwd, res.threadId);
+      expect(JSON.parse(fs.readFileSync(path.join(iterDir, 'result.json'), 'utf8')).exitCode).toBe(2);
+      expect(JSON.parse(fs.readFileSync(path.join(iterDir, 'debug-attempt-1.json'), 'utf8')).gateDenied).toBe('execute');
+      // the denial did NOT pause or re-gate the thread mid-RUN, and no re-run consumed budget
+      const tj = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/research/threads', res.threadId, 'thread.json'), 'utf8'));
+      expect(tj.status).toBe('exhausted');
+      expect(tj.pendingGate).toBe(null);
+      expect(tj.budgetUsed).toBe(1);
+    });
+
+    it('a debug re-plan that relaxes the target is pinned: verdict judged against the ORIGINAL contract', async () => {
+      const cwd = tmp();
+      writeCfg(cwd, { research_max_debug_depth: 1 });
+      // The debug fix tries to relax target 0.8 → 0.1 alongside the script fix.
+      const { spawn, debugPrompts } = makeDebugSpawn(
+        '{"procedure":"fixed","metricKey":"accuracy","comparator":">=","target":0.1,"language":"shell","scriptPath":"experiments/x/fixed.sh"}',
+      );
+      let calls = 0;
+      const runner = {
+        run() {
+          calls++;
+          if (calls === 1) {
+            return { metrics: {}, exitCode: 2, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', stderrExcerpt: 'boom', failureClass: 'H2' };
+          }
+          // 0.5 passes the relaxed target (0.1) but MISSES the committed one (0.8).
+          return { metrics: { accuracy: 0.5 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' };
+        },
+      };
+      const res = await runResearch(cwd, 'Drift Q', { maxIterations: 1, noGates: true, spawn, runner });
+      expect(debugPrompts.length).toBe(1);
+      expect(calls).toBe(2);
+      // Judged against the ORIGINAL target → refuted, NOT supported.
+      expect(res.status).toBe('exhausted');
+      expect(readLedger(cwd, res.threadId)[0].status).toBe('refuted');
+      const iterDir = iterDirOf(cwd, res.threadId);
+      // plan.json keeps the DESIGN-committed contract; only the script fields moved.
+      const planJson = JSON.parse(fs.readFileSync(path.join(iterDir, 'plan.json'), 'utf8'));
+      expect(planJson.target).toBe(0.8);
+      expect(planJson.metricKey).toBe('accuracy');
+      expect(planJson.comparator).toBe('>=');
+      expect(planJson.language).toBe('shell');
+      expect(planJson.procedure).toBe('fixed');
+      expect(planJson.scriptPath).toBe('experiments/x/fixed.sh');
+      // The drift is noted in the attempt record, and the recorded plan is the pinned one.
+      const rec = JSON.parse(fs.readFileSync(path.join(iterDir, 'debug-attempt-1.json'), 'utf8'));
+      expect(rec.contractDrift).toEqual({ target: { proposed: 0.1, pinned: 0.8 } });
+      expect(rec.plan.target).toBe(0.8);
+      expect(rec.fixed).toBe(true);
+    });
+  });
+
   describe('crash-iteration hypothesis reuse', () => {
     const { createThread, saveThread, loadThread } = require('../../../lib/research/thread');
     const { appendHypothesis, readLedger } = require('../../../lib/research/ledger');

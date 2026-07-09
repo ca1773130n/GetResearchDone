@@ -64,6 +64,8 @@ export interface ExperimentResult {
   runner: 'subprocess' | 'docker';
   durationMs: number;
   stdoutExcerpt: string;
+  /** stderr excerpt, captured on failure paths only — feeds the bounded debug fix-and-retry. */
+  stderrExcerpt?: string;
   failureClass: FailureClass;
 }
 

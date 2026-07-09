@@ -292,6 +292,7 @@ const KNOWN_CONFIG_KEYS: Set<string> = new Set([
   'research_persist_knowledge',
   'research_eval_report',
   'research_spawn_retries',
+  'research_max_debug_depth',
   'research_tesserae_extractor',
   'research_tesserae_extract_include',
   'research_tesserae_extract_limit',
