@@ -93,6 +93,22 @@ gd research report <id>            # once finished: write PAPER.md
 
 Full walkthrough — grounding on papers, going unattended, deepening the loop, and reading the outputs — in the **[autoresearch tutorial](docs/autoresearch-tutorial.md)**.
 
+### GRD-Bench
+
+GRD-Bench is a **closed-world** benchmark for the autoresearch loop: each task under
+`bench/tasks/` freezes a tiny corpus (evidence + confounder + noise) plus a manifest
+with a metric contract and an expected verdict. Runs happen in a throwaway workdir,
+network-off Docker-sandboxed when docker is available (enforce with
+`--require-docker`), and grading is **deterministic** — the loop's own
+metric/comparator/target verdict against the manifest, no LLM judge.
+
+```bash
+gd bench list    # the task set (id, question, expected verdict)
+gd bench run     # run all tasks; --tasks a,b --keep-workdir --require-docker
+```
+
+First published results table is a follow-up; v1 ships the harness and three seed tasks.
+
 ### Hands-on engineering tutorial
 
 New to GRD's R&D engineering side? The [TaskMark tutorial](examples/taskmark/) improves a real (deliberately imperfect) CLI tool — Quick Path (5 min) or Deep Path (30 min).

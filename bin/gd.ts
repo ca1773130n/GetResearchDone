@@ -169,6 +169,8 @@ Research:
   deep-dive <paper>    Paper deep analysis
   compare-methods      Compare research methods
   feasibility <topic>  Paper-to-production gap analysis
+  bench run|list       GRD-Bench: closed-world autoresearch benchmark
+                       (frozen corpus, deterministic grading — no LLM judge)
 
 Planning:
   product-plan         Product-level planning

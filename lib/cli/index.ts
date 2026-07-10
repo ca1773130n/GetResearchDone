@@ -116,6 +116,7 @@ const TOOL_COMMANDS = new Set([
   'synthesize',
   'retrieve',
   'accounts',
+  'bench',
 ]);
 
 /**

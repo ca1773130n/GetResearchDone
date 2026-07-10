@@ -1,0 +1,9 @@
+{
+  "id": "dedup-precision-gap",
+  "version": 1,
+  "question": "Does the shingle-based deduplicator reach the required precision on the labeled pair set described in the corpus? Decision metric: precision >= 0.85",
+  "metric": { "key": "precision", "comparator": ">=", "target": 0.85, "tolerance": 0.05 },
+  "expectedVerdict": "inconclusive",
+  "maxIterations": 2,
+  "timeoutMs": 300000
+}

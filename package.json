@@ -19,6 +19,7 @@
     "commands/",
     "agents/",
     "references/",
+    "bench/",
     ".claude-plugin/plugin.json"
   ],
   "keywords": [

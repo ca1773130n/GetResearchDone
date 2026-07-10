@@ -1,0 +1,9 @@
+{
+  "id": "cache-latency-slo",
+  "version": 1,
+  "question": "Does the write-through cache keep 95th-percentile read latency within the SLO under the replay workload documented in the corpus? Decision metric: latency_p95_ms <= 120",
+  "metric": { "key": "latency_p95_ms", "comparator": "<=", "target": 120, "tolerance": 15 },
+  "expectedVerdict": "refuted",
+  "maxIterations": 2,
+  "timeoutMs": 300000
+}
