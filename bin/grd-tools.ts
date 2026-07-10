@@ -2301,6 +2301,37 @@ async function routeCommand(
       await cmdResearchStart(cwd, question, opts, raw);
       return;
     }
+    case 'bench': {
+      const { cmdBenchList, cmdBenchRun } = require('../lib/research/cli-bench') as {
+        cmdBenchList: (cwd: string, raw: boolean) => never;
+        cmdBenchRun: (
+          cwd: string,
+          o: { tasks?: string[]; keepWorkdir?: boolean; requireDocker?: boolean },
+          raw: boolean
+        ) => Promise<never>;
+      };
+      const sub: string = args[1];
+      validateSubcommand(sub, ['run', 'list'], 'bench');
+      if (sub === 'list') {
+        cmdBenchList(cwd, raw);
+        return;
+      }
+      const tasksIdx: number = args.indexOf('--tasks');
+      const tasks: string[] | undefined =
+        tasksIdx !== -1 && args[tasksIdx + 1]
+          ? args[tasksIdx + 1].split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined;
+      await cmdBenchRun(
+        cwd,
+        {
+          tasks,
+          keepWorkdir: args.includes('--keep-workdir'),
+          requireDocker: args.includes('--require-docker'),
+        },
+        raw
+      );
+      return;
+    }
     case 'ingest': {
       const { cmdIngest } = require('../lib/research/cli-kb') as {
         cmdIngest: (cwd: string, p: string, raw: boolean, deps?: Record<string, unknown>, pdfBody?: boolean) => Promise<never>;
@@ -2575,6 +2606,7 @@ async function routeCommand(
         'research-gaps',
         'deps-risk',
         'import-knowhow',
+        'bench',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

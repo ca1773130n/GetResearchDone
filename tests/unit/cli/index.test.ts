@@ -81,6 +81,10 @@ describe('command classification', () => {
     expect(classifyCommand('dead-end')).toBe('tool');
   });
 
+  it('classifies bench as a tool command (GRD-Bench)', () => {
+    expect(classifyCommand('bench')).toBe('tool');
+  });
+
   it('classifies agent commands', () => {
     expect(classifyCommand('init')).toBe('agent');
     expect(classifyCommand('plan-phase')).toBe('agent');

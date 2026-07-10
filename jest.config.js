@@ -7,7 +7,10 @@ module.exports = {
   // (e.g. ./_helpers) that don't exist in-tree, so they must not be
   // collected as part of the project test suite. (Mirror of the tsconfig
   // exclude; jest has its own discovery.)
-  testPathIgnorePatterns: ['/node_modules/', '/tests/benchmark/tasks/'],
+  // .worktrees/ holds live git worktrees of other branches — without the
+  // ignore, npm test collects every suite once per worktree (4x runtime)
+  // and fails on stale copies.
+  testPathIgnorePatterns: ['/node_modules/', '/tests/benchmark/tasks/', '/\\.worktrees/'],
   collectCoverageFrom: ['lib/**/*.js', 'lib/**/*.ts', '!lib/**/*.d.ts'],
   coverageDirectory: 'coverage',
   // Only .ts files are transformed (via ts-jest). .js files have no transform
@@ -82,6 +85,7 @@ module.exports = {
     './lib/research/portfolio.ts': { lines: 90, functions: 90, branches: 60 },
     './lib/research/verify-citations.ts': { lines: 90, functions: 100, branches: 85 },
     './lib/research/bench-calibration.ts': { lines: 95, functions: 100, branches: 90 },
+    './lib/research/bench.ts': { lines: 95, functions: 100, branches: 85 },
     './lib/research/reconstructability.ts': { lines: 95, functions: 100, branches: 90 },
   },
   testTimeout: 15000,

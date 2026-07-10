@@ -1,6 +1,6 @@
 {
   "name": "@jokerized/getresearchdone",
-  "version": "0.4.15",
+  "version": "0.4.16",
   "description": "Get Research Done — R&D workflow automation for Claude Code",
   "author": "Cameleon X",
   "license": "UNLICENSED",
@@ -19,6 +19,7 @@
     "commands/",
     "agents/",
     "references/",
+    "bench/",
     ".claude-plugin/plugin.json"
   ],
   "keywords": [

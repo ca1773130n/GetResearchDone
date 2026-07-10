@@ -28,7 +28,7 @@ SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DEC
 ```
 
 - **Grounded, not hallucinated.** The hypothesizer grounds on a [Tesserae](docs/autoresearch-tutorial.md) knowledge graph you compile from real sources, plus a deterministic hybrid retriever (lexical + graph + optional semantic).
-- **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path.
+- **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path. The field's own numbers argue for this: only ~32% of [CodeScientist](https://aclanthology.org/2025.findings-acl.692/)'s auto-generated discoveries survived multi-faceted human evaluation, and [Sakana documents](https://github.com/sakanaai/ai-scientist-v2) that template-free exploration trades away experiment success rate.
 - **Honest.** A loop that never reaches support is written up as a negative/inconclusive result, not hidden.
 - **Safe by default.** Two checkpoint gates (before running experiment code, before writing to the shared KG); optional Docker isolation for experiment scripts.
 - **Compounding.** Confirmed learnings promote to a shared `KNOWHOW.md`; falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.
@@ -93,6 +93,22 @@ gd research report <id>            # once finished: write PAPER.md
 
 Full walkthrough — grounding on papers, going unattended, deepening the loop, and reading the outputs — in the **[autoresearch tutorial](docs/autoresearch-tutorial.md)**.
 
+### GRD-Bench
+
+GRD-Bench is a **closed-world** benchmark for the autoresearch loop: each task under
+`bench/tasks/` freezes a tiny corpus (evidence + confounder + noise) plus a manifest
+with a metric contract and an expected verdict. Runs happen in a throwaway workdir,
+network-off Docker-sandboxed when docker is available (enforce with
+`--require-docker`), and grading is **deterministic** — the loop's own
+metric/comparator/target verdict against the manifest, no LLM judge.
+
+```bash
+gd bench list    # the task set (id, question, expected verdict)
+gd bench run     # run all tasks; --tasks a,b --keep-workdir --require-docker
+```
+
+First published results table is a follow-up; v1 ships the harness and three seed tasks.
+
 ### Hands-on engineering tutorial
 
 New to GRD's R&D engineering side? The [TaskMark tutorial](examples/taskmark/) improves a real (deliberately imperfect) CLI tool — Quick Path (5 min) or Deep Path (30 min).
@@ -118,6 +134,8 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | Run autonomously | `/grd:autopilot` |
 | Ad-hoc task with GRD guarantees | `/grd:quick "<desc>"` |
 | Self-improvement round (life-harness) | `gd harness round` |
+| Did recorded lessons change behavior? | `gd harness conversion` |
+| Closed-world benchmark of the loop | `gd bench run` |
 
 ### Closed-loop self-monitoring
 
@@ -150,6 +168,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 | `research_sandbox_image` / `_memory` / `_cpus` / `_network` | slim / `512m` / `1` / `none` | Docker sandbox knobs |
 | `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` / `DEAD-ENDS.md` |
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator |
+| `research_max_debug_depth` | `0` | Bounded fix-and-retry of RUN-stage script failures (metric misses never retry; gate re-checked, metric contract pinned) |
 
 Semantic retrieval is opt-in and only embeds when `GRD_EMBED_API_KEY` (or `OPENAI_API_KEY`) is set — otherwise zero network egress. See the [tutorial](docs/autoresearch-tutorial.md#configuration-reference) for the complete reference, and `/grd:settings` for interactive configuration.
 

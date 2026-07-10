@@ -30,6 +30,9 @@ const {
   cmdWorktreeMerge,
   cmdWorktreeHookCreate,
   cmdWorktreeHookRemove,
+  cmdTeammateIdleHook,
+  cmdTaskCompletedHook,
+  cmdPostCompactHook,
 } = require('../../lib/worktree');
 
 // Resolve real tmpdir (handles macOS /var/folders -> /private/var/folders symlink)
@@ -2280,5 +2283,91 @@ describe('cmdWorktreeRemove — git error logging', () => {
     // After fix: stderr should have a message about the git failure
     expect(stderrLines.length).toBeGreaterThan(0);
     expect(stderrLines.join('')).toMatch(/worktree|remove|git|failed/i);
+  });
+});
+
+// ─── Agent lifecycle hook handlers ────────────────────────────────────────────
+
+describe('agent lifecycle hook handlers', () => {
+  let stdoutSpy: jest.SpyInstance;
+  let lines: string[];
+  const savedAgentId = process.env.AGENT_ID;
+  const savedAgentType = process.env.AGENT_TYPE;
+
+  beforeEach(() => {
+    lines = [];
+    stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      lines.push(String(chunk));
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    stdoutSpy.mockRestore();
+    if (savedAgentId === undefined) delete process.env.AGENT_ID;
+    else process.env.AGENT_ID = savedAgentId;
+    if (savedAgentType === undefined) delete process.env.AGENT_TYPE;
+    else process.env.AGENT_TYPE = savedAgentType;
+  });
+
+  test('cmdTeammateIdleHook emits continue action with env identity (json + raw)', () => {
+    process.env.AGENT_ID = 'agent-7';
+    process.env.AGENT_TYPE = 'teammate';
+    cmdTeammateIdleHook('/tmp', false);
+    const parsed = JSON.parse(lines.join(''));
+    expect(parsed).toEqual({
+      ok: true,
+      hook: 'TeammateIdle',
+      agent_id: 'agent-7',
+      agent_type: 'teammate',
+      action: 'continue',
+    });
+
+    lines = [];
+    cmdTeammateIdleHook('/tmp', true);
+    expect(lines.join('')).toBe('TeammateIdle: agent=agent-7 type=teammate action=continue\n');
+  });
+
+  test('cmdTeammateIdleHook falls back to unknown identity without env', () => {
+    delete process.env.AGENT_ID;
+    delete process.env.AGENT_TYPE;
+    cmdTeammateIdleHook('/tmp', true);
+    expect(lines.join('')).toBe('TeammateIdle: agent=unknown type=unknown action=continue\n');
+  });
+
+  test('cmdTaskCompletedHook acknowledges the task (json + raw)', () => {
+    process.env.AGENT_ID = 'task-3';
+    process.env.AGENT_TYPE = 'task';
+    cmdTaskCompletedHook('/tmp', false);
+    const parsed = JSON.parse(lines.join(''));
+    expect(parsed).toEqual({
+      ok: true,
+      hook: 'TaskCompleted',
+      agent_id: 'task-3',
+      agent_type: 'task',
+      action: 'acknowledged',
+    });
+
+    lines = [];
+    cmdTaskCompletedHook('/tmp', true);
+    expect(lines.join('')).toBe('TaskCompleted: agent=task-3 type=task\n');
+  });
+
+  test('cmdPostCompactHook acknowledges compaction (json + raw, env fallback)', () => {
+    delete process.env.AGENT_ID;
+    delete process.env.AGENT_TYPE;
+    cmdPostCompactHook('/tmp', false);
+    const parsed = JSON.parse(lines.join(''));
+    expect(parsed).toEqual({
+      ok: true,
+      hook: 'PostCompact',
+      agent_id: 'unknown',
+      agent_type: 'unknown',
+      acknowledged: true,
+    });
+
+    lines = [];
+    cmdPostCompactHook('/tmp', true);
+    expect(lines.join('')).toBe('PostCompact: agent=unknown type=unknown acknowledged=true\n');
   });
 });

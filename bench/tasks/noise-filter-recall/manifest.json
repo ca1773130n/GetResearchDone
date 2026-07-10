@@ -1,0 +1,9 @@
+{
+  "id": "noise-filter-recall",
+  "version": 1,
+  "question": "Does the frequency-threshold noise filter described in the corpus reach the required recall on the DR3 labeled sample? Decision metric: recall >= 0.9",
+  "metric": { "key": "recall", "comparator": ">=", "target": 0.9, "tolerance": 0.05 },
+  "expectedVerdict": "supported",
+  "maxIterations": 4,
+  "timeoutMs": 300000
+}

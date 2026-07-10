@@ -12,6 +12,9 @@ const { output, error } = require('../utils') as {
   output: (data: unknown, raw: boolean, rawText?: unknown) => never;
   error: (msg: string) => never;
 };
+const { cmdHarnessConversion } = require('./harness-conversion') as {
+  cmdHarnessConversion: (cwd: string, raw: boolean, deps?: Record<string, unknown>) => void;
+};
 
 interface SpawnResult {
   status: number | null;
@@ -146,4 +149,4 @@ function cmdHarnessUpstream(
   process.stdout.write(result.stdout);
 }
 
-module.exports = { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream, _buildSpawnArgv };
+module.exports = { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream, cmdHarnessConversion, _buildSpawnArgv };

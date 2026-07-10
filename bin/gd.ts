@@ -151,7 +151,7 @@ Hero verbs (the closed loop):
   execute-phase <N>    Run plans (wave-parallel + worktree-isolated)
   verify-phase <N>     Reflection-loop verifier with Evidence Standard
   autopilot            Run N phases end-to-end (the closed loop)
-  harness              Life-harness round: evidence-driven self-improvement (round|status|revert)
+  harness              Life-harness round: evidence-driven self-improvement (round|status|revert|upstream|conversion)
   health               Drift score + blockers + Ouroboros status
   think                One-shot project briefing aggregating all primitives
   singularity          % of recent LOC authored by gd evolve itself
@@ -169,6 +169,8 @@ Research:
   deep-dive <paper>    Paper deep analysis
   compare-methods      Compare research methods
   feasibility <topic>  Paper-to-production gap analysis
+  bench run|list       GRD-Bench: closed-world autoresearch benchmark
+                       (frozen corpus, deterministic grading — no LLM judge)
 
 Planning:
   product-plan         Product-level planning

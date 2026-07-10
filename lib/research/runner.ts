@@ -70,6 +70,7 @@ function createSubprocessRunner(opts: { timeoutMs?: number } = {}): Runner {
           runner: 'subprocess',
           durationMs: Date.now() - start,
           stdoutExcerpt: stdout.slice(0, 2000),
+          stderrExcerpt: String(err.stderr || '').slice(0, 2000),
           failureClass: classifyRunFailure(err.stderr || String(e), timedOut),
         };
       }

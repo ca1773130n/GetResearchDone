@@ -150,14 +150,15 @@ export function runToolCommand(
     return _runScanCommand([...extraArgs, ...passthrough], jsonFlag, cwd);
   }
 
-  // In-process dispatch for harness (round/status/revert)
+  // In-process dispatch for harness (round/status/revert/upstream/conversion)
   if (command === 'harness') {
-    const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream } =
+    const { cmdHarnessRound, cmdHarnessStatus, cmdHarnessRevert, cmdHarnessUpstream, cmdHarnessConversion } =
       require('../commands/harness') as {
         cmdHarnessRound: (cwd: string, opts: { auto: boolean; dryRun: boolean; fullEval: boolean }, raw: boolean) => void;
         cmdHarnessStatus: (cwd: string, raw: boolean) => void;
         cmdHarnessRevert: (cwd: string, roundId: string, raw: boolean) => void;
         cmdHarnessUpstream: (cwd: string, op: string, origin: string, raw: boolean) => void;
+        cmdHarnessConversion: (cwd: string, raw: boolean) => void;
       };
     const { error: cliError } = require('../utils') as { error: (msg: string) => never };
     // gd tool commands: JSON by default, --raw for human text (raw = !jsonFlag)
@@ -165,6 +166,8 @@ export function runToolCommand(
     const allArgs = [...extraArgs, ...passthrough];
     if (subcommand === 'status') {
       cmdHarnessStatus(cwd, raw);
+    } else if (subcommand === 'conversion') {
+      cmdHarnessConversion(cwd, raw);
     } else if (subcommand === 'revert') {
       cmdHarnessRevert(cwd, allArgs[0] ?? '', raw);
     } else if (subcommand === 'upstream') {
