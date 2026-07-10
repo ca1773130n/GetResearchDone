@@ -272,12 +272,18 @@ function _computeConversion(cwd: string, deps: ConversionDeps = {}): ConversionR
     const patch = _loadPatch(roundsDir, round.id);
     if (patch === null) continue;
     for (const e of patch.entries) for (const ref of e.evidenceRefs) referencedSources.add(ref);
-    if (round.status !== 'applied' || !round.appliedSha) continue; // evaluated/rejected/reverted patches never changed behavior
-    appliedPatches.push({
-      round,
-      patch,
-      inHead: _verifyInHead(execGit, cwd, round.appliedSha),
-    });
+    // 'applied' rounds count as-is. Review-mode rounds record status
+    // 'evaluated' with applied_sha on a harness/round-<id> branch — they count
+    // only when that commit provably reached HEAD (the branch was merged).
+    // rejected/reverted stay excluded: a reverted sha is still an ancestor of
+    // HEAD, but its behavior change was undone.
+    if (!round.appliedSha) continue;
+    if (round.status === 'applied') {
+      appliedPatches.push({ round, patch, inHead: _verifyInHead(execGit, cwd, round.appliedSha) });
+    } else if (round.status === 'evaluated') {
+      const inHead = _verifyInHead(execGit, cwd, round.appliedSha);
+      if (inHead === true) appliedPatches.push({ round, patch, inHead });
+    }
   }
 
   for (const { round, patch, inHead } of appliedPatches) {
@@ -331,7 +337,10 @@ function _computeConversion(cwd: string, deps: ConversionDeps = {}): ConversionR
   }
 
   // Dead-end registry lessons: converted when an applied round's patch text
-  // cites the slug (in a rationale / summary / evidence ref / path).
+  // cites the slug (in a rationale / summary / evidence ref / path) AND the
+  // patch changed at least one behavior (non-memory) path — a patch that only
+  // rewrites .planning/*.md (e.g. re-recording the slug in DEAD-ENDS.md)
+  // necessarily contains the slug but is "recorded, not behavior".
   const deadEndEvents: DeadEndEvent[] = [];
   const deadEndsPath = path.join(cwd, '.planning', 'DEAD-ENDS.md');
   const deadEnds = fs.existsSync(deadEndsPath)
@@ -339,6 +348,7 @@ function _computeConversion(cwd: string, deps: ConversionDeps = {}): ConversionR
     : [];
   for (const de of deadEnds) {
     for (const { round, patch, inHead } of appliedPatches) {
+      if (patch.entries.every((e) => _classifyPath(e.path) === 'memory')) continue;
       if (!patch.rawText.includes(de.slug)) continue;
       deadEndEvents.push({
         slug: de.slug,

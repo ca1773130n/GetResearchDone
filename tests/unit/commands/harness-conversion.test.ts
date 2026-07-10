@@ -254,6 +254,57 @@ describe('harness conversion command', () => {
     ]);
   });
 
+  test('an evaluated (review-mode) round counts only when its sha reached HEAD', () => {
+    buildScenario(fixtureDir);
+    const D = 'SessionTakeaway:session-ddd:4444';
+    writeRound(fixtureDir, '20260607-000000',
+      { status: 'evaluated', applied_sha: 'merged789', created_at: '2026-06-07T00:00:00Z' },
+      {
+        evidence: `# Session evidence\n\n- **takeaway** (${D}): merged via review branch\n`,
+        patch: {
+          round_id: '20260607-000000', summary: 'merged review round', confidence: 0.9,
+          entries: [
+            { path: 'lib/baz.ts', kind: 'code', op: 'modify', content: 'z',
+              rationale: 'fix', evidence_refs: [D] },
+          ],
+        },
+      });
+
+    // Branch merged: merge-base --is-ancestor exits 0 → the round counts.
+    let report = _computeConversion(fixtureDir, { execGit: gitOk() });
+    expect(report.events.some(
+      (e: { converted_round: string }) => e.converted_round === '20260607-000000'
+    )).toBe(true);
+
+    // Branch never merged: exits 1 → evaluated round is excluded entirely
+    // (unlike 'applied' rounds, which stay counted with in_head=false).
+    const notInHead = (_args: string[], _cwd: string): ExecResult =>
+      ({ status: 1, stdout: '', stderr: '' });
+    report = _computeConversion(fixtureDir, { execGit: notInHead });
+    expect(report.events.some(
+      (e: { converted_round: string }) => e.converted_round === '20260607-000000'
+    )).toBe(false);
+  });
+
+  test('a memory-only patch citing a dead-end slug does not convert it', () => {
+    buildScenario(fixtureDir);
+    writeRound(fixtureDir, '20260608-000000',
+      { status: 'applied', applied_sha: 'mem999', created_at: '2026-06-08T00:00:00Z' },
+      {
+        patch: {
+          round_id: '20260608-000000', summary: 'record never-cited in the registry', confidence: 0.9,
+          entries: [
+            { path: '.planning/DEAD-ENDS.md', kind: 'markdown', op: 'modify',
+              content: 'slug: never-cited', rationale: 'record the never-cited dead end',
+              evidence_refs: [] },
+          ],
+        },
+      });
+    const report = _computeConversion(fixtureDir, { execGit: gitOk() });
+    expect(report.dead_ends.converted).toBe(1); // still only bad-idea (cited by a behavior patch)
+    expect(report.dead_ends.events.map((e: { slug: string }) => e.slug)).not.toContain('never-cited');
+  });
+
   test('flags applied rounds whose sha is not in HEAD and tolerates git failure', () => {
     buildScenario(fixtureDir);
     const notInHead = (_args: string[], _cwd: string): ExecResult =>

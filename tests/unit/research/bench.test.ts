@@ -349,6 +349,9 @@ describe('bench', () => {
         expect(cfg.research_gates).toEqual({ experiment_execution: false, kg_write: false });
         expect(cfg.research_persist_knowledge).toBe(false);
         expect(cfg.research_eval_report).toBe(false);
+        // Plateau re-surveys would raise thread.maxIterations past the
+        // manifest's frozen budget — must be pinned off.
+        expect(cfg.research_max_resurveys).toBe(0);
         // Contained artifacts: the thread lives inside the workdir, and knowledge
         // promotion into the throwaway workdir is off.
         expect(fs.existsSync(path.join(workdir, '.planning', 'research', 'threads'))).toBe(true);
