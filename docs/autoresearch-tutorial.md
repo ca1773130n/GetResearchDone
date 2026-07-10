@@ -432,6 +432,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator (verdict untouched). |
 | `research_tesserae_extractor` | `"deterministic"` | Tesserae extractor for `gd ingest`: `deterministic` (default; fast, key-free) or `llm` / `selective-llm` for a richer concept/claim layer (legacy `claude-cli` / `selective-claude` accepted). `selective-*` reads `research_tesserae_extract_include` / `research_tesserae_extract_limit`. |
 | `research_spawn_retries` | `2` | Retries for a blank/unparseable HYPOTHESIZE or DESIGN spawn before the thread ends `status: error`. |
+| `research_max_debug_depth` | `0` | Bounded fix-and-retry of RUN-stage **script-execution** failures (AI-Scientist-v2's `max_debug_depth`): the failure output is fed back to the experiment designer, the script is fixed, and the run retries — up to N attempts, each recorded as `experiments/<iter>/debug-attempt-<n>.json`. A metric-vs-target miss never triggers a retry; the execute gate is re-checked before every re-run; the DESIGN-committed metric/comparator/target is pinned across re-plans (drift is recorded, not honored). `0` = off (exact prior behavior). |
 
 > **Note — `research_gates` is a shared object.** The autoresearch loop reads only
 > the `experiment_execution` and `kg_write` sub-keys. If you open

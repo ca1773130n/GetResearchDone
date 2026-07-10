@@ -134,6 +134,8 @@ Idea → Survey → Feasibility → Product Plan → Roadmap
 | Run autonomously | `/grd:autopilot` |
 | Ad-hoc task with GRD guarantees | `/grd:quick "<desc>"` |
 | Self-improvement round (life-harness) | `gd harness round` |
+| Did recorded lessons change behavior? | `gd harness conversion` |
+| Closed-world benchmark of the loop | `gd bench run` |
 
 ### Closed-loop self-monitoring
 
@@ -166,6 +168,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 | `research_sandbox_image` / `_memory` / `_cpus` / `_network` | slim / `512m` / `1` / `none` | Docker sandbox knobs |
 | `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` / `DEAD-ENDS.md` |
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator |
+| `research_max_debug_depth` | `0` | Bounded fix-and-retry of RUN-stage script failures (metric misses never retry; gate re-checked, metric contract pinned) |
 
 Semantic retrieval is opt-in and only embeds when `GRD_EMBED_API_KEY` (or `OPENAI_API_KEY`) is set — otherwise zero network egress. See the [tutorial](docs/autoresearch-tutorial.md#configuration-reference) for the complete reference, and `/grd:settings` for interactive configuration.
 

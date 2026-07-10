@@ -5,13 +5,62 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.16] - 2026-07-10
+
+Competitive-adoption release (PR #64), driven by a deep-research pass over the
+2026 autonomous-research field — 18 adversarially verified claims, 24 sources;
+report at `.planning/research/competitive-landscape-2026-07.md`.
+
+### Added
+- **`gd harness conversion`** — deterministic self-improvement audit adopted from
+  Sibyl-AutoResearch (arXiv 2605.22343): measures *trial-to-behavior conversion*
+  (did a recorded lesson change a concrete file/config in a later round, and with
+  what latency?) and *trial-to-harness-behavior conversion* (did recurring failures
+  change gates/prompts/scheduler policy?). Counts merged review-mode rounds via
+  `merge-base --is-ancestor`; patches that only touch `.planning/*.md` count as
+  "recorded, not behavior". DEAD-ENDS entries now carry a `date:` field so
+  conversion latency is measurable.
+- **`research_max_debug_depth`** — bounded fix-and-retry of RUN-stage script-execution
+  failures (AI-Scientist-v2's `max_debug_depth`; default `0` = off). Metric-vs-target
+  misses never retry; the execute gate is re-checked before every debug re-run; the
+  DESIGN-committed metric/comparator/target is pinned across re-plans (drift recorded,
+  not honored); every attempt lands as `experiments/<iter>/debug-attempt-<n>.json`.
+- **GRD-Bench v1 (`gd bench list|run`)** — closed-world benchmark for the autoresearch
+  loop (DR3-Eval static-corpus method; GRD's answer to ARC-Bench): each `bench/tasks/<slug>/`
+  freezes a manifest (question + metric contract + expected verdict) and a tiny
+  evidence/confounder/noise corpus. Runs in throwaway workdirs (network-off docker
+  config, `research_max_resurveys: 0` so the manifest's iteration budget is frozen);
+  grading is deterministic — ledger verdict + the plan's FULL metric contract vs the
+  manifest, no LLM judge; a crashed loop is an `error`, never a graded pass.
+  Flags: `--tasks a,b`, `--keep-workdir`, `--require-docker`. Three seed tasks ship;
+  first published results table is a follow-up.
+
+### Fixed
+- **v0.4 selector was unreachable on the autopilot execute path** —
+  `hasMultipleCandidates`/`isPhasePlanned` read `info.plans`, which only collects
+  `*-PLAN.md`/`PLAN.md` and never the `PLAN-1.md` candidate naming that
+  `select-candidate` uses; multi-candidate phases also looked unplanned (autopilot
+  would re-plan them, clobbering candidates). Both now scan the phase dir directly.
+- **`npm test` ran every suite 4×** — `.worktrees/` was not in jest's
+  `testPathIgnorePatterns`, so live worktree checkouts were collected (and their
+  haste-map collisions contributed phantom coverage to main-tree files). Excluded;
+  real tests added to keep `autopilot`/`autopilot-pipeline`/`knowledge`/`worktree`
+  above their per-file coverage thresholds.
+
 ### Documentation
+- **README**: deterministic-verdict positioning now cites third-party evidence —
+  CodeScientist's ~32% discovery-survival rate (ACL Findings 2025) and Sakana's own
+  template-vs-exploration tradeoff. GRD-Bench section + new config/command rows.
 - **Autoresearch tutorial refresh** (`docs/autoresearch-tutorial.md`): distinguishes the loop
   from its sibling engines (`/grd:deep-research`, `gd harness`); documents the Tesserae 0.13
   `research_tesserae_extractor` depth knob (deterministic default vs `llm`/`selective-llm`); adds
   the `ultracode` max-effort mode; corrects the distillation model (compile/refresh, not an
-  extract flag); and adds the `research_tesserae_extractor` + `research_spawn_retries` config
-  keys. Plus a research-discoverability note in `docs/quickstart.md`.
+  extract flag); and adds the `research_tesserae_extractor` + `research_spawn_retries` +
+  `research_max_debug_depth` config keys. Plus a research-discoverability note in
+  `docs/quickstart.md`.
+- Competitive adoption roadmap todos filed under `.planning/milestones/v0.4/todos/pending/`:
+  GEAR-style frontier search, DeepVerifier-style advisory rubric layer,
+  `hypothesis_review` gate, GRD-Bench results publication.
 
 ## [0.4.15] - 2026-07-06
 
