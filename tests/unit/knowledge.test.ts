@@ -944,4 +944,342 @@ describe('cmdKnowhowRank', () => {
     expect(parsed.total).toBe(2);
     expect(parsed.entries[0].pattern_name).toBe('Cache Pattern');
   });
+
+  it('scans milestone, research, and per-phase KNOWHOW locations', () => {
+    const msDir = path.join(tmpDir, '.planning', 'milestones', 'v2.0');
+    const phaseDir = path.join(msDir, 'phases', '07-cache-layer');
+    fs.mkdirSync(path.join(msDir, 'research'), { recursive: true });
+    fs.mkdirSync(phaseDir, { recursive: true });
+
+    const msEntry = makeEntry({ pattern_name: 'Milestone Cache Pattern', applicability: 'use caching for reads' });
+    const resEntry = makeEntry({ pattern_name: 'Research Cache Pattern', applicability: 'caching benchmarks summary' });
+    const phEntry = makeEntry({ pattern_name: 'Phase Cache Pattern', applicability: 'caching hot paths only' });
+    fs.writeFileSync(path.join(msDir, 'KNOWHOW.md'), '# KNOWHOW\n\n' + formatKnowhowEntry(msEntry), 'utf8');
+    fs.writeFileSync(path.join(msDir, 'research', 'KNOWHOW.md'), '# KNOWHOW\n\n' + formatKnowhowEntry(resEntry), 'utf8');
+    fs.writeFileSync(path.join(phaseDir, 'KNOWHOW.md'), '# KNOWHOW\n\n' + formatKnowhowEntry(phEntry), 'utf8');
+
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout, exitCode } = cap(() => cmdKnowhowRank(tmpDir, 'caching', 5, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as { total: number; entries: Array<{ pattern_name: string }> };
+    expect(parsed.total).toBe(3);
+    const names = parsed.entries.map((e) => e.pattern_name);
+    expect(names).toContain('Milestone Cache Pattern');
+    expect(names).toContain('Research Cache Pattern');
+    expect(names).toContain('Phase Cache Pattern');
+  });
+
+  it('raw output falls back to "No entries" when topN is 0', () => {
+    const content = '# KNOWHOW\n\n' + formatKnowhowEntry(makeEntry({ pattern_name: 'Solo Pattern' }));
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), content, 'utf8');
+
+    const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+    const { stdout, exitCode } = cap(() => cmdKnowhowRank(tmpDir, 'anything', 0, true));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('No entries');
+  });
+});
+
+// ─── coverage: parser + cache + append edge branches ─────────────────────────
+
+describe('parseKnowhowEntries edge branches', () => {
+  it('skips a block whose heading text is empty', () => {
+    const content = '### \n\n- **source:** lib/a.ts\n- **applicability:** x\n- **code_snippet:** y\n- **phase_number:** 1\n- **created_at:** 2026-01-01\n';
+    expect(parseKnowhowEntries(content)).toEqual([]);
+  });
+
+  it('skips an entry whose phase_number is not numeric', () => {
+    const content = [
+      '### Bad Phase',
+      '',
+      '- **source:** lib/a.ts',
+      '- **applicability:** x',
+      '- **code_snippet:** y',
+      '- **phase_number:** not-a-number',
+      '- **created_at:** 2026-01-01',
+    ].join('\n');
+    expect(parseKnowhowEntries(content)).toEqual([]);
+  });
+});
+
+describe('appendKnowhowEntries edge branches', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-append-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('is a no-op for an empty entries array (file is not created)', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    appendKnowhowEntries(knowhowPath, []);
+    expect(fs.existsSync(knowhowPath)).toBe(false);
+  });
+
+  it('logs merge progress to stderr when merging more than 50 entries', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    const entries = Array.from({ length: 51 }, (_v, i) =>
+      makeEntry({ pattern_name: `Pattern ${i}`, phase_number: i })
+    );
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      appendKnowhowEntries(knowhowPath, entries);
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('merging entry 1/51'));
+    } finally {
+      stderrSpy.mockRestore();
+    }
+    const written = parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8'));
+    expect(written).toHaveLength(51);
+  });
+});
+
+describe('knowhow parse cache (mtime-keyed)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-cache-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('serves a cache hit for an unchanged file and re-parses after modification', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    fs.writeFileSync(
+      knowhowPath,
+      '# KNOWHOW\n\n' + formatKnowhowEntry(makeEntry({ pattern_name: 'Cached Pattern' })),
+      'utf8'
+    );
+    // Backdate mtime so the rewrite below is guaranteed to change mtimeMs.
+    const past = new Date(Date.now() - 10_000);
+    fs.utimesSync(knowhowPath, past, past);
+
+    const first = buildKnowledgeInjectionBlock(tmpDir, '1');
+    const second = buildKnowledgeInjectionBlock(tmpDir, '1'); // cache hit — same mtime
+    expect(first).toContain('Cached Pattern');
+    expect(second).toBe(first);
+
+    fs.writeFileSync(
+      knowhowPath,
+      '# KNOWHOW\n\n' + formatKnowhowEntry(makeEntry({ pattern_name: 'Replaced Pattern' })),
+      'utf8'
+    );
+    const third = buildKnowledgeInjectionBlock(tmpDir, '1'); // mtime changed — re-parse
+    expect(third).toContain('Replaced Pattern');
+    expect(third).not.toContain('Cached Pattern');
+  });
+
+  it('treats a non-numeric phase number as no proximity scoring (still injects)', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    fs.writeFileSync(
+      knowhowPath,
+      '# KNOWHOW\n\n' + formatKnowhowEntry(makeEntry({ pattern_name: 'NaN Phase Pattern' })),
+      'utf8'
+    );
+    const block = buildKnowledgeInjectionBlock(tmpDir, 'not-a-phase');
+    expect(block).toContain('NaN Phase Pattern');
+    expect(block).toContain('<knowhow_context>');
+  });
+});
+
+describe('extractModuleHints edge branches', () => {
+  let phaseDir: string;
+
+  beforeEach(() => {
+    phaseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-hints-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(phaseDir, { recursive: true, force: true });
+  });
+
+  it('reads a bare PLAN.md and skips empty, frontmatter-less, and fieldless plans', () => {
+    // Bare PLAN.md with a files_modified list — must contribute hints.
+    fs.writeFileSync(
+      path.join(phaseDir, 'PLAN.md'),
+      '---\nfiles_modified: [lib/alpha.ts, lib/beta.ts]\n---\n# Plan\n',
+      'utf8'
+    );
+    // Empty file — safeReadFile returns falsy content → skipped.
+    fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '', 'utf8');
+    // No frontmatter → skipped.
+    fs.writeFileSync(path.join(phaseDir, '01-02-PLAN.md'), '# Plan without frontmatter\n', 'utf8');
+    // Frontmatter without files_modified → skipped.
+    fs.writeFileSync(path.join(phaseDir, '01-03-PLAN.md'), '---\nwave: 1\n---\n# Plan\n', 'utf8');
+
+    const hints = extractModuleHints(phaseDir);
+    expect(hints.sort()).toEqual(['alpha', 'beta']);
+  });
+
+  it('skips entries whose basename resolves to an empty string', () => {
+    fs.writeFileSync(
+      path.join(phaseDir, '02-01-PLAN.md'),
+      '---\nfiles_modified: [.hidden, lib/gamma.ts]\n---\n# Plan\n',
+      'utf8'
+    );
+    const hints = extractModuleHints(phaseDir);
+    expect(hints).toEqual(['gamma']);
+    expect(hints).not.toContain('');
+  });
+});
+
+// ─── coverage: audit/dedup multi-location scanning ────────────────────────────
+
+describe('cmdKnowhowAudit multi-location scanning', () => {
+  let tmpDir: string;
+  const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+
+  afterEach(() => {
+    if (tmpDir) rmTmpProject(tmpDir);
+  });
+
+  function entryBlock(name: string, source: string): string {
+    return [
+      `### ${name}`,
+      '',
+      `- **source:** ${source}`,
+      '- **applicability:** When doing things',
+      '- **code_snippet:** const x = 1;',
+      '- **phase_number:** 3',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+    ].join('\n');
+  }
+
+  it('scans research, per-phase, root-planning, and project-root KNOWHOW files', () => {
+    tmpDir = makeTmpProject();
+    const msBase = path.join(tmpDir, '.planning', 'milestones', 'v1.0');
+    const phaseDir = path.join(msBase, 'phases', '01-setup');
+    const emptyPhaseDir = path.join(msBase, 'phases', '02-no-knowhow');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.mkdirSync(emptyPhaseDir, { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'research'), { recursive: true });
+
+    fs.writeFileSync(path.join(msBase, 'research', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Research Entry', 'notes'), 'utf8');
+    fs.writeFileSync(path.join(phaseDir, 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Phase Entry', 'notes'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'research', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Root Research Entry', 'notes'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Root Planning Entry', 'notes'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Project Root Entry', 'notes'), 'utf8');
+
+    const { stdout, exitCode } = cap(() => cmdKnowhowAudit(tmpDir, false));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as { knowhow_files_scanned: number; total_entries: number };
+    expect(parsed.knowhow_files_scanned).toBe(5);
+    expect(parsed.total_entries).toBe(5);
+  });
+
+  it('flags a broken absolute source reference and skips empty KNOWHOW files', () => {
+    tmpDir = makeTmpProject();
+    const msBase = path.join(tmpDir, '.planning', 'milestones', 'v1.0');
+    const absMissing = path.join(tmpDir, 'does', 'not', 'exist.ts');
+    fs.writeFileSync(path.join(msBase, 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Abs Ref Entry', absMissing), 'utf8');
+    // Empty file in a scanned location — content is falsy → skipped without parsing.
+    fs.writeFileSync(path.join(msBase, 'research', 'KNOWHOW.md'), '', 'utf8');
+
+    const { stdout } = cap(() => cmdKnowhowAudit(tmpDir, false));
+    const parsed = JSON.parse(stdout) as {
+      stale_count: number;
+      flags: Array<{ issue: string; detail: string }>;
+      knowhow_files_scanned: number;
+    };
+    expect(parsed.knowhow_files_scanned).toBe(2);
+    expect(parsed.stale_count).toBe(1);
+    expect(parsed.flags[0].issue).toBe('broken_ref');
+    expect(parsed.flags[0].detail).toContain(absMissing);
+  });
+});
+
+describe('cmdKnowhowDedup multi-location scanning', () => {
+  let tmpDir: string;
+  const { captureOutput: cap } = require('../helpers/setup') as { captureOutput: (fn: () => void) => { stdout: string; exitCode: number } };
+
+  afterEach(() => {
+    if (tmpDir) rmTmpProject(tmpDir);
+  });
+
+  function entryBlock(name: string, applicability: string): string {
+    return [
+      `### ${name}`,
+      '',
+      '- **source:** lib/dedup.ts',
+      `- **applicability:** ${applicability}`,
+      '- **code_snippet:** const x = 1;',
+      '- **phase_number:** 2',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '',
+    ].join('\n');
+  }
+
+  it('collects entries from research, per-phase, root, and project-root files', () => {
+    tmpDir = makeTmpProject();
+    const msBase = path.join(tmpDir, '.planning', 'milestones', 'v1.0');
+    const phaseDir = path.join(msBase, 'phases', '01-setup');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.planning', 'research'), { recursive: true });
+
+    fs.writeFileSync(path.join(msBase, 'research', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Dup Cache Strategy For Reads', 'always cache read-heavy database queries in memory'), 'utf8');
+    fs.writeFileSync(path.join(phaseDir, 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Dup Cache Strategy For Reads V2', 'always cache read-heavy database queries in memory'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'research', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Rate Limiter Backoff', 'exponential backoff on 429 responses'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'KNOWHOW.md'), '# KNOWHOW\n\n' + entryBlock('Retry Queue Draining', 'drain retry queues before shutdown'), 'utf8');
+    fs.writeFileSync(path.join(tmpDir, 'KNOWHOW.md'), '', 'utf8'); // empty — skipped
+
+    const { stdout, exitCode } = cap(() => cmdKnowhowDedup(tmpDir, false, 0.7));
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as {
+      files_scanned: number;
+      entries_total: number;
+      pairs: Array<{ entry_a: string; entry_b: string }>;
+    };
+    expect(parsed.files_scanned).toBe(5);
+    expect(parsed.entries_total).toBe(4);
+    expect(parsed.pairs.length).toBeGreaterThanOrEqual(1);
+    const pairNames = parsed.pairs.flatMap((p) => [p.entry_a, p.entry_b]);
+    expect(pairNames).toContain('Dup Cache Strategy For Reads');
+  });
+
+  it('treats two empty-fingerprint entries as identical (Jaccard 1) and reports progress above 20 entries', () => {
+    tmpDir = makeTmpProject();
+    const msBase = path.join(tmpDir, '.planning', 'milestones', 'v1.0');
+    // Two entries whose fingerprints normalize to fewer than 3 chars → empty trigram sets.
+    let content = '# KNOWHOW\n\n' + entryBlock('x', '-') + '\n' + entryBlock('y', '-');
+    // Pad with 20 distinct entries to cross the >20 progress threshold.
+    for (let i = 0; i < 20; i++) {
+      content += '\n' + entryBlock(`Unique Long Pattern Number ${i} Alpha`, `completely distinct applicability text variant ${i} with extra words`);
+    }
+    fs.writeFileSync(path.join(msBase, 'KNOWHOW.md'), content, 'utf8');
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    let stdout = '';
+    try {
+      ({ stdout } = cap(() => cmdKnowhowDedup(tmpDir, false, 0.99)));
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[knowledge:dedup] scanning entry'));
+    } finally {
+      stderrSpy.mockRestore();
+    }
+    const parsed = JSON.parse(stdout) as { entries_total: number; pairs: Array<{ entry_a: string; entry_b: string; similarity: number }> };
+    expect(parsed.entries_total).toBe(22);
+    const emptyPair = parsed.pairs.find((p) => p.entry_a === 'x' && p.entry_b === 'y');
+    expect(emptyPair).toBeDefined();
+    expect(emptyPair!.similarity).toBe(1);
+  });
+});
+
+describe('rankKnowhowByPhaseGoal stopword-only goal', () => {
+  it('returns the first topN entries when the goal tokenizes to nothing', () => {
+    const entries = [
+      makeEntry({ pattern_name: 'First Pattern' }),
+      makeEntry({ pattern_name: 'Second Pattern' }),
+      makeEntry({ pattern_name: 'Third Pattern' }),
+    ];
+    // All goal words are stopwords or too short → queryTokens is empty.
+    const result = rankKnowhowByPhaseGoal('the and for it', entries, 2);
+    expect(result).toHaveLength(2);
+    expect(result[0].pattern_name).toBe('First Pattern');
+    expect(result[1].pattern_name).toBe('Second Pattern');
+  });
 });

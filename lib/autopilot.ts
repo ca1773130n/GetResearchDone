@@ -507,12 +507,38 @@ function resolvePhaseRange(
 }
 
 /**
+ * Count PLAN-N.md selector candidates in a phase directory.
+ *
+ * Reads the directory directly: findPhaseInternal's `plans` list only
+ * collects `*-PLAN.md` / `PLAN.md`, so the select-candidate naming
+ * convention (PLAN-1.md … PLAN-N.md) is invisible through it.
+ */
+function countPlanCandidates(
+  cwd: string,
+  info: PhaseInfo
+): { candidates: number; hasResolvedPlan: boolean } {
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(path.join(cwd, info.directory));
+  } catch {
+    return { candidates: 0, hasResolvedPlan: false };
+  }
+  const candidateRe = /^PLAN-\d+\.md$/;
+  return {
+    candidates: entries.filter((f: string) => candidateRe.test(f)).length,
+    hasResolvedPlan: entries.includes('PLAN.md'),
+  };
+}
+
+/**
  * Check if a phase has been planned (used for auto-resume skip logic).
+ * A phase holding multiple PLAN-N.md candidates awaiting selection counts
+ * as planned — re-planning it would clobber the candidates.
  */
 function isPhasePlanned(cwd: string, phaseNum: string): boolean {
   const info: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
   if (!info) return false;
-  return info.plans.length > 0;
+  return info.plans.length > 0 || countPlanCandidates(cwd, info).candidates >= 2;
 }
 
 /**
@@ -537,14 +563,8 @@ function hasMultipleCandidates(cwd: string, phaseNum: string): boolean {
   const info: PhaseInfo | null = findPhaseInternal(cwd, phaseNum);
   if (!info) return false;
   // Phase has PLAN-N.md candidates AND no resolved bare PLAN.md.
-  const candidateRe = /^PLAN-\d+\.md$/;
-  let candidateCount = 0;
-  let hasResolvedPlan = false;
-  for (const filename of info.plans) {
-    if (candidateRe.test(filename)) candidateCount++;
-    if (filename === 'PLAN.md') hasResolvedPlan = true;
-  }
-  return candidateCount >= 2 && !hasResolvedPlan;
+  const { candidates, hasResolvedPlan } = countPlanCandidates(cwd, info);
+  return candidates >= 2 && !hasResolvedPlan;
 }
 
 /**

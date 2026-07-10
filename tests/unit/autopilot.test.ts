@@ -5791,4 +5791,751 @@ describe('handleSpinEvent', () => {
     const result = handleSpinEvent('/nonexistent/path/that/does/not/exist', { repeated_pattern: 'err', consecutive_count: 3, max_similarity: 0.9 }, 'Phase');
     expect(result).toBeNull();
   });
+
+  it('adds npm-install recovery suggestion when pattern mentions a missing module', () => {
+    const spinEvent = {
+      repeated_pattern: 'Error: Cannot find module "left-pad"',
+      consecutive_count: 3,
+      max_similarity: 0.91,
+    };
+    handleSpinEvent(tmpDir, spinEvent, 'Phase 9');
+    const content = fs.readFileSync(path.join(tmpDir, 'SPIN-REPORT.md'), 'utf-8');
+    expect(content).toContain('npm install');
+  });
+});
+
+// ─── Pipeline module direct coverage (spawnStep / mining / finalize) ─────────
+
+const {
+  spawnStep: pipelineSpawnStep,
+  runKnowledgeMining: pipelineRunKnowledgeMining,
+  finalizePhaseAfterPipeline: pipelineFinalizePhase,
+} = require('../../lib/autopilot-pipeline') as {
+  spawnStep: (
+    prompt: string,
+    stepCwd: string,
+    workItemId: string,
+    scheduler: unknown,
+    opts: Record<string, unknown>,
+    reportCwd?: string
+  ) => Promise<{ exitCode: number; timedOut: boolean; stdout?: string; stderr?: string }>;
+  runKnowledgeMining: (
+    cwd: string,
+    phaseNum: string,
+    options: { scheduler?: unknown; log: (msg: string) => void }
+  ) => Promise<void>;
+  finalizePhaseAfterPipeline: (
+    cwd: string,
+    phaseNum: string,
+    scheduler: unknown,
+    log: (msg: string) => void
+  ) => Promise<{ completed_phase?: string } | null>;
+};
+
+/** Read a status marker JSON written by writeStatusMarker. */
+function readMarker(cwd: string, phaseNum: string, step: string): { status: string } | null {
+  const markerPath = path.join(cwd, '.planning', 'autopilot', `phase-${phaseNum}-${step}.json`);
+  if (!fs.existsSync(markerPath)) return null;
+  return JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
+}
+
+describe('spawnStep scheduler routing', () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('routes through the scheduler and writes SPIN-REPORT.md into the canonical phase dir on spin', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [{ dir: '48-first-feature', files: {} }],
+    });
+    const stepCwd = path.join(tmpDir, '.worktrees', 'phase-48');
+    fs.mkdirSync(stepCwd, { recursive: true });
+
+    const schedulerSpawn = jest.fn(async () => ({
+      exitCode: 0,
+      timedOut: false,
+      stdout: 'scheduler output',
+      stderr: '',
+      spinEvent: {
+        detected: true,
+        repeated_pattern: 'TypeError: x is not a function',
+        consecutive_count: 4,
+        max_similarity: 0.97,
+      },
+    }));
+    const scheduler = { spawn: schedulerSpawn };
+
+    const result = await pipelineSpawnStep(
+      'do the thing',
+      stepCwd,
+      'phase-48-execute',
+      scheduler,
+      { captureOutput: true, agentType: 'grd-executor' }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('scheduler output');
+    expect(schedulerSpawn).toHaveBeenCalledWith(
+      'do the thing',
+      expect.objectContaining({ cwd: stepCwd, workItemId: 'phase-48-execute' })
+    );
+    // Spin report must land in the canonical phase dir under the PROJECT root,
+    // not the worktree (worktree path is trimmed at '/.worktrees/').
+    const reportPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'v1.0',
+      'phases',
+      '48-first-feature',
+      'SPIN-REPORT.md'
+    );
+    expect(fs.existsSync(reportPath)).toBe(true);
+    expect(fs.readFileSync(reportPath, 'utf-8')).toContain('TypeError: x is not a function');
+  });
+
+  it('does not write a spin report when the scheduler result has no spin event', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [{ dir: '48-first-feature', files: {} }],
+    });
+    const scheduler = {
+      spawn: async () => ({ exitCode: 3, timedOut: false, stdout: '', stderr: 'boom' }),
+    };
+
+    const result = await pipelineSpawnStep('p', tmpDir, 'phase-48-plan', scheduler, {});
+
+    expect(result.exitCode).toBe(3);
+    const reportPath = path.join(
+      tmpDir,
+      '.planning',
+      'milestones',
+      'v1.0',
+      'phases',
+      '48-first-feature',
+      'SPIN-REPORT.md'
+    );
+    expect(fs.existsSync(reportPath)).toBe(false);
+  });
+});
+
+describe('runKnowledgeMining with injected scheduler', () => {
+  let tmpDir: string;
+  const logs: string[] = [];
+  const log = (msg: string): void => {
+    logs.push(msg);
+  };
+
+  beforeEach(() => {
+    logs.length = 0;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-mining-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'agents'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'agents', 'grd-knowledge-miner.md'), '# miner');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('marks the step completed when the miner subprocess succeeds', async () => {
+    const scheduler = {
+      spawn: jest.fn(async () => ({ exitCode: 0, timedOut: false, stdout: '', stderr: '' })),
+    };
+    await pipelineRunKnowledgeMining(tmpDir, '48', { scheduler, log });
+
+    expect(scheduler.spawn).toHaveBeenCalledTimes(1);
+    expect(readMarker(tmpDir, '48', 'knowledge-mining')).toEqual(
+      expect.objectContaining({ status: 'completed' })
+    );
+    expect(logs.some((m) => m.includes('knowledge mining completed'))).toBe(true);
+  });
+
+  it('marks the step failed (non-blocking) when the miner spawn rejects', async () => {
+    const scheduler = {
+      spawn: async () => {
+        throw new Error('scheduler exploded');
+      },
+    };
+    await expect(
+      pipelineRunKnowledgeMining(tmpDir, '48', { scheduler, log })
+    ).resolves.toBeUndefined();
+
+    expect(readMarker(tmpDir, '48', 'knowledge-mining')).toEqual(
+      expect.objectContaining({ status: 'failed' })
+    );
+    expect(logs.some((m) => m.includes('knowledge mining failed (non-blocking)'))).toBe(true);
+  });
+});
+
+describe('finalizePhaseAfterPipeline', () => {
+  let tmpDir: string;
+  let stderrSpy: any;
+  const logs: string[] = [];
+  const log = (msg: string): void => {
+    logs.push(msg);
+  };
+
+  beforeEach(() => {
+    logs.length = 0;
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('completes the phase and writes a completed marker on success', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [
+        {
+          dir: '48-first-feature',
+          files: { '48-01-PLAN.md': '# Plan', '48-01-SUMMARY.md': '# Summary' },
+        },
+      ],
+    });
+
+    const result = await pipelineFinalizePhase(tmpDir, '48', null, log);
+
+    expect(result).not.toBeNull();
+    expect(result!.completed_phase).toBe('48');
+    expect(readMarker(tmpDir, '48', 'phase-finalize')).toEqual(
+      expect.objectContaining({ status: 'completed' })
+    );
+    expect(logs.some((m) => m.includes('phase-finalize complete'))).toBe(true);
+  });
+
+  it('returns null and writes a failed marker when the phase does not exist', async () => {
+    tmpDir = createAutopilotFixture();
+
+    const result = await pipelineFinalizePhase(tmpDir, '99', null, log);
+
+    expect(result).toBeNull();
+    expect(readMarker(tmpDir, '99', 'phase-finalize')).toEqual(
+      expect.objectContaining({ status: 'failed' })
+    );
+    expect(logs.some((m) => m.includes('phase-finalize failed'))).toBe(true);
+  });
+});
+
+// ─── updateStateProgress: lock contention ────────────────────────────────────
+
+describe('updateStateProgress lock contention', () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('gives up after retries when a fresh lock is held, leaving STATE.md unchanged', () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-lock-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    const statePath = path.join(tmpDir, '.planning', 'STATE.md');
+    const original = '# State\n\n**Current Phase:** Phase 1\n';
+    fs.writeFileSync(statePath, original);
+    // A fresh (non-stale) lock file blocks every retry.
+    fs.writeFileSync(`${statePath}.lock`, '');
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      updateStateProgress(tmpDir, '48', 'planning');
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed to acquire lock')
+      );
+    } finally {
+      stderrSpy.mockRestore();
+    }
+    expect(fs.readFileSync(statePath, 'utf-8')).toBe(original);
+  });
+});
+
+// ─── buildConflictResolvePrompt with a real mid-rebase conflict ──────────────
+
+describe('buildConflictResolvePrompt with real rebase conflict', () => {
+  let repoDir: string;
+
+  afterEach(() => {
+    if (repoDir) {
+      try {
+        childProcess.execFileSync('git', ['rebase', '--abort'], { cwd: repoDir, stdio: 'pipe' });
+      } catch {
+        /* not mid-rebase */
+      }
+      fs.rmSync(repoDir, { recursive: true, force: true });
+      repoDir = '';
+    }
+  });
+
+  it('embeds conflicting file names and diffs, and falls back on a goal-less roadmap section', () => {
+    repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-conflict-'));
+    const git = (...args: string[]): void => {
+      childProcess.execFileSync('git', args, { cwd: repoDir, stdio: 'pipe' });
+    };
+    git('init', '-b', 'main');
+    git('config', 'user.email', 'test@test.com');
+    git('config', 'user.name', 'Test');
+
+    // ROADMAP with a Phase 48 section that has NO **Goal**: line before the
+    // next #### heading — exercises the section-terminating break.
+    fs.mkdirSync(path.join(repoDir, '.planning'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repoDir, '.planning', 'ROADMAP.md'),
+      '# Roadmap\n\n#### Phase 48: No Goal Here\n\nSome text without a goal.\n\n#### Phase 49: Next\n\n**Goal**: other\n'
+    );
+
+    fs.writeFileSync(path.join(repoDir, 'conflict.txt'), 'base\n');
+    git('add', '-A');
+    git('commit', '-m', 'base');
+    git('checkout', '-b', 'feature');
+    fs.writeFileSync(path.join(repoDir, 'conflict.txt'), 'feature change\n');
+    git('add', '-A');
+    git('commit', '-m', 'feature');
+    git('checkout', 'main');
+    fs.writeFileSync(path.join(repoDir, 'conflict.txt'), 'main change\n');
+    git('add', '-A');
+    git('commit', '-m', 'main');
+    git('checkout', 'feature');
+    // Rebase onto main → conflict, leaving the repo mid-rebase.
+    expect(() => git('rebase', 'main')).toThrow();
+
+    const prompt = buildConflictResolvePrompt('48', repoDir, repoDir);
+
+    expect(prompt).toContain('resolving merge conflicts from rebasing phase 48');
+    // Conflicting file list and per-file diff section are embedded.
+    expect(prompt).toContain('- conflict.txt');
+    expect(prompt).toContain('### conflict.txt');
+    // No goal found → generic fallback goal text is used.
+    expect(prompt).toContain('**Phase Goal:** Phase 48 implementation');
+  });
+});
+
+// ─── runRefinementLoop: critique failure + regression rollback ───────────────
+
+describe('runRefinementLoop critique outcomes', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+  let spawnSyncSpy: any;
+  const logs: string[] = [];
+  const log = (msg: string): void => {
+    logs.push(msg);
+  };
+
+  /** Jest coverage table row for a given line coverage percentage. */
+  function coverageRow(pct: string): string {
+    return `All files          |   ${pct} |   70.00 |   80.00 |   ${pct} |\n`;
+  }
+
+  beforeEach(() => {
+    logs.length = 0;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-refine-git-'));
+    childProcess.execFileSync('git', ['init', '-b', 'main'], { cwd: tmpDir, stdio: 'pipe' });
+    childProcess.execFileSync('git', ['config', 'user.email', 't@t.com'], { cwd: tmpDir, stdio: 'pipe' });
+    childProcess.execFileSync('git', ['config', 'user.name', 'T'], { cwd: tmpDir, stdio: 'pipe' });
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'agents'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ model_profile: 'balanced', refinement_loop: true })
+    );
+    fs.writeFileSync(path.join(tmpDir, 'agents', 'grd-critique-agent.md'), '# critique agent');
+    childProcess.execFileSync('git', ['add', '-A'], { cwd: tmpDir, stdio: 'pipe' });
+    childProcess.execFileSync('git', ['commit', '-m', 'init'], { cwd: tmpDir, stdio: 'pipe' });
+  });
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (spawnSyncSpy) {
+      spawnSyncSpy.mockRestore();
+      spawnSyncSpy = undefined;
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('skips the regression check when the critique agent exits non-zero (and logs metric-command failures)', async () => {
+    let measureCall = 0;
+    spawnSyncSpy = jest
+      .spyOn(childProcess, 'spawnSync')
+      .mockImplementation((): { stdout: string; stderr: string; status: number } => {
+        measureCall++;
+        if (measureCall === 1) return { stdout: coverageRow('70.00'), stderr: '', status: 0 };
+        if (measureCall === 2) throw new Error('tsc unavailable'); // runShell catch path
+        return { stdout: '', stderr: '', status: 0 };
+      });
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(1));
+
+    await runRefinementLoop(tmpDir, '42', { log, maxIterations: 1 });
+
+    expect(logs.some((m) => m.includes('metric command failed (non-blocking)'))).toBe(true);
+    expect(logs.some((m) => m.includes('critique exited 1; skipping regression check'))).toBe(true);
+    expect(logs.some((m) => m.includes('reached max iterations'))).toBe(true);
+    // Rollback must NOT have happened.
+    expect(logs.some((m) => m.includes('rolling back'))).toBe(false);
+  });
+
+  it('detects a metric regression after critique and rolls back to the pre-critique HEAD', async () => {
+    let measureCall = 0;
+    spawnSyncSpy = jest
+      .spyOn(childProcess, 'spawnSync')
+      .mockImplementation((): { stdout: string; stderr: string; status: number } => {
+        measureCall++;
+        // Calls 1-3: before-critique measurement (coverage 85%).
+        // Calls 4-6: after-critique measurement (coverage 60% → regression).
+        const pct = measureCall <= 3 ? '85.00' : '60.00';
+        const isJest = measureCall % 3 === 1;
+        return { stdout: isJest ? coverageRow(pct) : '', stderr: '', status: 0 };
+      });
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
+
+    await runRefinementLoop(tmpDir, '42', { log, maxIterations: 1 });
+
+    expect(
+      logs.some((m) => m.includes('critique regressed metrics') && m.includes('rolling back'))
+    ).toBe(true);
+    expect(logs.some((m) => m.includes('coverage 85.0% → 60.0%'))).toBe(true);
+    expect(logs.some((m) => m.includes('reached max iterations'))).toBe(true);
+  });
+});
+
+
+// ─── runAutopilot: post-pipeline + scheduler execute integration ─────────────
+
+describe('runAutopilot post-pipeline integration', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (tmpDir) {
+      try {
+        childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
+      } catch {
+        /* ignore */
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('records a failed post-pipeline step and cleans up the worktree when create-pr fails', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [{ dir: '48-first-feature', files: { '48-01-PLAN.md': '# Plan' } }],
+    });
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
+
+    const result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48' });
+
+    const postPipeline = result.results.find((r: any) => r.step === 'post-pipeline');
+    expect(postPipeline).toBeDefined();
+    expect(postPipeline!.status).toBe('failed');
+    expect(postPipeline!.reason).toContain('create-pr');
+    expect(result.stopped_at).toContain('post-pipeline failed at create-pr');
+    // Worktree is cleaned up after the pipeline fails.
+    const wtBase = path.join(tmpDir, '.worktrees');
+    const leftover = fs.existsSync(wtBase) ? fs.readdirSync(wtBase) : [];
+    expect(leftover).toHaveLength(0);
+  });
+
+});
+
+describe('runAutopilot scheduler execute path', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+  let spawnSyncSpy: any;
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (spawnSyncSpy) {
+      spawnSyncSpy.mockRestore();
+      spawnSyncSpy = undefined;
+    }
+    if (tmpDir) {
+      try {
+        childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
+      } catch {
+        /* ignore */
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('executes a planned phase through scheduler.spawn and completes it', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [{ dir: '48-first-feature', files: { '48-01-PLAN.md': '# Plan' } }],
+    });
+    const planning = path.join(tmpDir, '.planning');
+    fs.writeFileSync(
+      path.join(planning, 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        autonomous_mode: true,
+        scheduler: {
+          backend_priority: ['claude'],
+          free_fallback: { backend: 'codex' },
+          prediction: {
+            window_minutes: 60,
+            ewma_alpha: 0.3,
+            safety_margin_tasks: 2,
+            min_samples: 3,
+          },
+        },
+      })
+    );
+
+    // checkBinary inside createScheduler.
+    spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockReturnValue({
+      status: 0,
+      error: null,
+    });
+    // The scheduler's execute dispatch spawns the backend binary.
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
+
+    const result = await runAutopilot(tmpDir, {
+      phaseFrom: '48',
+      phaseTo: '48',
+      skipPostPipeline: true,
+    });
+
+    expect(result.stopped_at).toBeNull();
+    const execResult = result.results.find((r: any) => r.step === 'execute');
+    expect(execResult).toBeDefined();
+    expect(execResult!.status).toBe('completed');
+    expect(result.phases_completed).toBe(1);
+    // The spawn went through the scheduler (claude backend spawn was mocked).
+    expect(spawnSpy).toHaveBeenCalled();
+  });
+});
+
+describe('runAutopilot candidate selection at execute time', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (tmpDir) {
+      try {
+        childProcess.execFileSync('git', ['worktree', 'prune'], { cwd: tmpDir, stdio: 'pipe' });
+      } catch {
+        /* ignore */
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  const candidatePlan = (title: string): string =>
+    [
+      '---',
+      'wave: 1',
+      'files_modified: [lib/example.ts]',
+      'provides: []',
+      'requires: []',
+      'integration_points: []',
+      '---',
+      `# ${title}`,
+      '',
+      '<objective>Do the work</objective>',
+      '',
+      '## Tasks',
+      '',
+      '- implement the feature',
+      '',
+    ].join('\n');
+
+  it('dry-run logs the would-select message for multi-candidate phases', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [
+        {
+          dir: '48-first-feature',
+          files: { 'PLAN-1.md': candidatePlan('One'), 'PLAN-2.md': candidatePlan('Two') },
+        },
+      ],
+    });
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    let result: any;
+    try {
+      result = await runAutopilot(tmpDir, { phaseFrom: '48', phaseTo: '48', dryRun: true });
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining('would run deterministic selector')
+      );
+    } finally {
+      stderrSpy.mockRestore();
+    }
+    const execResult = result.results.find((r: any) => r.step === 'execute');
+    expect(execResult!.status).toBe('dry-run');
+    // No PLAN.md promotion happened in dry-run.
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature', 'PLAN.md')
+      )
+    ).toBe(false);
+  });
+
+  it('runs the deterministic selector and promotes the winner to PLAN.md before executing', async () => {
+    tmpDir = createAutopilotFixture({
+      phaseDirs: [
+        {
+          dir: '48-first-feature',
+          files: { 'PLAN-1.md': candidatePlan('One'), 'PLAN-2.md': candidatePlan('Two') },
+        },
+      ],
+    });
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(0));
+
+    const result = await runAutopilot(tmpDir, {
+      phaseFrom: '48',
+      phaseTo: '48',
+      skipPostPipeline: true,
+    });
+
+    expect(result.stopped_at).toBeNull();
+    const phaseDir = path.join(tmpDir, '.planning', 'milestones', 'v1.0', 'phases', '48-first-feature');
+    expect(fs.existsSync(path.join(phaseDir, 'PLAN.md'))).toBe(true);
+    expect(fs.existsSync(path.join(phaseDir, 'PLAN-SELECTION.json'))).toBe(true);
+    const execResult = result.results.find((r: any) => r.step === 'execute');
+    expect(execResult!.status).toBe('completed');
+  });
+});
+
+describe('runAutopilot milestone wireup failure', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('records a failed wireup step when the wireup subprocess exits non-zero', async () => {
+    // All phases already planned AND executed → wireup is the only spawn.
+    tmpDir = createAutopilotFixture({
+      phases: [{ num: '48', name: 'First Feature' }],
+      phaseDirs: [
+        {
+          dir: '48-first-feature',
+          files: { '48-01-PLAN.md': '# Plan', '48-01-SUMMARY.md': '# Summary' },
+        },
+      ],
+    });
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(1));
+
+    const result = await runAutopilot(tmpDir, { milestone: true });
+
+    const wireup = result.results.find((r: any) => r.step === 'wireup');
+    expect(wireup).toBeDefined();
+    expect(wireup!.status).toBe('failed');
+    expect(wireup!.reason).toContain('exit code 1');
+    // Wireup failure does not mark phases as failed.
+    expect(result.phases_completed).toBe(result.phases_attempted);
+  });
+});
+
+// ─── runMultiMilestoneAutopilot edge paths ───────────────────────────────────
+
+describe('runMultiMilestoneAutopilot edge paths', () => {
+  let tmpDir: string;
+  let spawnSpy: any;
+  let spawnSyncSpy: any;
+
+  afterEach(() => {
+    if (spawnSpy) {
+      spawnSpy.mockRestore();
+      spawnSpy = undefined;
+    }
+    if (spawnSyncSpy) {
+      spawnSyncSpy.mockRestore();
+      spawnSyncSpy = undefined;
+    }
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = '';
+    }
+  });
+
+  it('dry-run reports incomplete phases without running autopilot', async () => {
+    tmpDir = createMultiMilestoneFixture({ allComplete: false });
+
+    const result = await runMultiMilestoneAutopilot(tmpDir, { dryRun: true });
+
+    expect(result.milestone_results[0]).toEqual(
+      expect.objectContaining({
+        milestone: 'v1.0',
+        status: 'dry-run',
+        phases_attempted: 2,
+      })
+    );
+    expect(result.milestone_results[0].reason).toContain('incomplete phase(s)');
+    expect(result.stopped_at).toContain('not fully complete');
+  });
+
+  it('propagates an inner autopilot failure as a failed milestone result', async () => {
+    tmpDir = createMultiMilestoneFixture({ allComplete: false });
+    // Plan spawns fail → inner runAutopilot stops → milestone marked failed.
+    spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => createMockChild(1));
+
+    const result = await runMultiMilestoneAutopilot(tmpDir, {});
+
+    expect(result.milestone_results[0].status).toBe('failed');
+    expect(result.stopped_at).toContain('Autopilot failed for v1.0');
+  });
+
+  it('stops when the milestone-complete subprocess fails', async () => {
+    tmpDir = createMultiMilestoneFixture(); // all phases complete
+    spawnSyncSpy = jest
+      .spyOn(childProcess, 'spawnSync')
+      .mockReturnValue({ status: 1, stdout: '', stderr: '' });
+
+    const result = await runMultiMilestoneAutopilot(tmpDir, {});
+
+    expect(result.stopped_at).toContain('Failed to complete milestone v1.0');
+    expect(result.milestones_completed).toBe(0);
+  });
+
+  it('stops when new-milestone creation fails after completing the current milestone', async () => {
+    tmpDir = createMultiMilestoneFixture({
+      ltRoadmap:
+        '# Long-Term Roadmap\n\n' +
+        '## LT-1: Foundation\n\n**Status:** active\n**Goal:** Build foundation\n**Normal milestones:** v1.0 (shipped), v2.0\n\n',
+    });
+    let syncCall = 0;
+    spawnSyncSpy = jest.spyOn(childProcess, 'spawnSync').mockImplementation(() => {
+      syncCall++;
+      // Call 1: milestone-complete succeeds. Call 2: new-milestone creation fails.
+      return { status: syncCall === 1 ? 0 : 1, stdout: '', stderr: '' };
+    });
+
+    const result = await runMultiMilestoneAutopilot(tmpDir, {});
+
+    expect(result.milestones_completed).toBe(1);
+    expect(result.stopped_at).toContain('Failed to create new milestone');
+  });
 });
