@@ -39,7 +39,8 @@ function fakeReport(over: Partial<BenchTaskReport> = {}): BenchTaskReport {
   return {
     id: 'task-a', ingestStatus: 'skipped_no_tesserae', pass: true,
     expected: 'supported', actual: 'supported', metricKey: 'score', planMetricKey: 'score',
-    metricKeyMatch: true, metricDistance: 0.04, withinTolerance: true, sandboxed: true,
+    planComparator: '>=', planTarget: 0.8, metricContractMatch: true,
+    metricDistance: 0.04, withinTolerance: true, sandboxed: true,
     iterations: 1, status: 'supported', ...over,
   };
 }

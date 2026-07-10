@@ -59,7 +59,10 @@ export interface BenchGrade {
   actual: Verdict | null;
   metricKey: string;
   planMetricKey: string | null;
-  metricKeyMatch: boolean;
+  planComparator: string | null;
+  planTarget: number | null;
+  /** plan.{metricKey,comparator,target} ALL equal the manifest's frozen contract. */
+  metricContractMatch: boolean;
   /** |observed - target| for the manifest metric; advisory, null when unreported. */
   metricDistance: number | null;
   /** metricDistance <= tolerance; null when no tolerance or no observed metric. */
@@ -239,9 +242,12 @@ const GRADED_STATUSES: ReadonlySet<string> = new Set(['supported', 'exhausted'])
  * 'exhausted' — never 'error'/'paused', whose on-disk artifacts are stale),
  * (b) the final ledger hypothesis verdict equals expectedVerdict — the thread
  * status is 'exhausted', not 'refuted', on non-support, so the ledger is the
- * verdict authority here — and (c) the designed plan's metricKey is the
- * manifest's decision metric. metricDistance/withinTolerance are advisory;
- * sandboxed=false fails the task only under requireDocker.
+ * verdict authority here — and (c) the designed plan's FULL metric contract
+ * (metricKey, comparator, target) equals the manifest's frozen contract: a
+ * plan that keeps the key but relaxes `recall >= 0.9` to `recall >= 0.1`
+ * gets its verdict from the relaxed goalpost and must not grade as a pass.
+ * metricDistance/withinTolerance are advisory; sandboxed=false fails the
+ * task only under requireDocker.
  */
 function gradeTask(
   manifest: BenchManifest, result: ResearchResult, workdir: string,
@@ -256,7 +262,9 @@ function gradeTask(
       actual: null,
       metricKey: manifest.metric.key,
       planMetricKey: null,
-      metricKeyMatch: false,
+      planComparator: null,
+      planTarget: null,
+      metricContractMatch: false,
       metricDistance: null,
       withinTolerance: null,
       sandboxed: false,
@@ -276,7 +284,12 @@ function gradeTask(
     ? (readJsonOrNull(path.join(iterDir, 'result.json')) as ExperimentResult | null)
     : null;
   const planMetricKey = plan && typeof plan.metricKey === 'string' ? plan.metricKey : null;
-  const metricKeyMatch = planMetricKey !== null && planMetricKey === manifest.metric.key;
+  const planComparator = plan && typeof plan.comparator === 'string' ? plan.comparator : null;
+  const planTarget = plan && typeof plan.target === 'number' ? plan.target : null;
+  const metricContractMatch =
+    planMetricKey === manifest.metric.key &&
+    planComparator === manifest.metric.comparator &&
+    planTarget === manifest.metric.target;
   const observed = expResult && expResult.metrics
     && Object.prototype.hasOwnProperty.call(expResult.metrics, manifest.metric.key)
     ? expResult.metrics[manifest.metric.key]
@@ -288,7 +301,7 @@ function gradeTask(
     ? metricDistance <= manifest.metric.tolerance
     : null;
   const sandboxed = expResult !== null && expResult.runner === 'docker';
-  let pass = actual === manifest.expectedVerdict && metricKeyMatch;
+  let pass = actual === manifest.expectedVerdict && metricContractMatch;
   if (opts.requireDocker === true && !sandboxed) pass = false;
   return {
     pass,
@@ -296,7 +309,9 @@ function gradeTask(
     actual,
     metricKey: manifest.metric.key,
     planMetricKey,
-    metricKeyMatch,
+    planComparator,
+    planTarget,
+    metricContractMatch,
     metricDistance,
     withinTolerance,
     sandboxed,
@@ -353,7 +368,9 @@ async function runBenchTask(task: BenchTask, opts: BenchTaskOpts = {}): Promise<
         actual: null,
         metricKey: task.manifest.metric.key,
         planMetricKey: null,
-        metricKeyMatch: false,
+        planComparator: null,
+        planTarget: null,
+        metricContractMatch: false,
         metricDistance: null,
         withinTolerance: null,
         sandboxed: false,

@@ -252,7 +252,7 @@ describe('bench', () => {
       expect(report.actual).toBe('supported');
       expect(report.status).toBe('supported');
       expect(report.iterations).toBe(1);
-      expect(report.metricKeyMatch).toBe(true);
+      expect(report.metricContractMatch).toBe(true);
       expect(report.planMetricKey).toBe('score');
       expect(report.metricDistance).toBeCloseTo(0.04, 8);
       expect(report.withinTolerance).toBe(true);   // 0.04 <= tolerance 0.05
@@ -302,7 +302,20 @@ describe('bench', () => {
       });
       expect(report.actual).toBe('supported');     // verdict matches...
       expect(report.planMetricKey).toBe('other');
-      expect(report.metricKeyMatch).toBe(false);   // ...but on the wrong metric
+      expect(report.metricContractMatch).toBe(false);   // ...but on the wrong metric
+      expect(report.pass).toBe(false);
+    });
+
+    it('fails when the plan keeps the metricKey but relaxes the frozen comparator/target', async () => {
+      const task = loadSingle(baseManifest('task-a')); // frozen contract: score >= 0.8
+      const report = await runBenchTask(task, {
+        spawn: makeSpawn({ key: 'score', comparator: '>=', target: 0.1 }),
+        runner: makeRunner({ score: 0.5 }),
+        kgClient: fakeKg(),
+      });
+      expect(report.actual).toBe('supported');          // verdict from the relaxed goalpost...
+      expect(report.planTarget).toBe(0.1);
+      expect(report.metricContractMatch).toBe(false);   // ...not from the frozen contract
       expect(report.pass).toBe(false);
     });
 
@@ -459,7 +472,7 @@ describe('bench', () => {
       const grade = gradeTask(manifest, { threadId: 't1', status: 'supported', iterations: 2 }, workdir);
       expect(grade.actual).toBe('supported');      // last hypothesis, not h1
       expect(grade.planMetricKey).toBeNull();      // no plan.json on disk
-      expect(grade.metricKeyMatch).toBe(false);
+      expect(grade.metricContractMatch).toBe(false);
       expect(grade.pass).toBe(false);              // verdict alone is not enough
       expect(grade.metricDistance).toBeNull();
     });
@@ -472,7 +485,7 @@ describe('bench', () => {
       );
       expect(errored.pass).toBe(false);
       expect(errored.actual).toBeNull();
-      expect(errored.metricKeyMatch).toBe(false);
+      expect(errored.metricContractMatch).toBe(false);
       expect(errored.metricDistance).toBeNull();
       expect(errored.withinTolerance).toBeNull();
       expect(errored.sandboxed).toBe(false);
@@ -536,7 +549,8 @@ describe('bench', () => {
     it('aggregate separates full pass from verdict accuracy', () => {
       const t = (over: Partial<BenchTaskReport>): BenchTaskReport => ({
         id: 'x', ingestStatus: 'compiled', pass: false, expected: 'supported', actual: null,
-        metricKey: 'score', planMetricKey: null, metricKeyMatch: false, metricDistance: null,
+        metricKey: 'score', planMetricKey: null, planComparator: null, planTarget: null,
+        metricContractMatch: false, metricDistance: null,
         withinTolerance: null, sandboxed: false, iterations: 0, status: 'exhausted', ...over,
       });
       const res = aggregate([
