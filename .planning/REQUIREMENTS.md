@@ -1,108 +1,122 @@
-# Requirements: v0.3.23 NERFIFY-Inspired Research Phase Enhancements
+# Requirements: v0.5.0 Interactive Research Steering (Human-in-the-Loop)
 
-**Milestone:** v0.3.23
-**Created:** 2026-03-24
-**Source:** NERFIFY paper analysis + 4-backend discussion consensus
+**Milestone:** v0.5.0
+**Created:** 2026-07-12
+**Source:** 4-angle ultracode research fan-out + synthesis (.planning/milestones/v0.5.0/research/SUMMARY.md)
 
-## CFG Formalization (Foundation)
+Design anchor: **one checkpoint mechanism, two answerers** — the TS orchestrator pauses
+with a typed, versioned Checkpoint JSON; answers come from a human (skill-layer
+AskUserQuestion) or an AI panel (`resolveElicitation`), with recommended defaults as the
+universal no-deadlock fallback. All new gates default OFF; all new thread fields optional;
+the deterministic verdict path is untouchable.
 
-### REQ-179: Plan Artifact Schema
+## Checkpoint Core Plumbing (Foundation)
+
+### REQ-194: Checkpoint Schema & Thread Fields
 **Priority:** P1 — High
 **Category:** Core
-**Description:** Create `lib/invariants.ts` with typed interfaces for plan artifacts: objective, files_modified, provides, requires, integration_points. Three validation classes: structural (fields exist, types match), semantic (objectives reference valid modules), cross-phase (no duplicate provides, requires satisfied).
+**Description:** Add `Checkpoint` types to lib/types.ts: `checkpoint_version: 1`, id (`ck-<iter>-<point>-r<round>`), point (`seed|hypothesize|design|decide`), type (`clarification|selection|approval|branch`), iteration, round, questions (≤4, each with options `{label, description, recommended?}`, exactly one recommended, optional freeform), answers (`{questionId, label, text?, answeredBy: 'human'|'panel'|'default'}`). `ResearchThread` gains only optional fields: `pendingCheckpoint?` (full object), `refinedQuestion?`, `checkpointRounds?`. `pendingGate` union and `ThreadStatus` are NOT widened (portfolio.ts/paper.ts TERMINAL mirrors stay valid); reuse `status:'paused'`.
 
-### REQ-180: Pre-Flight Validation Gate
+### REQ-195: checkpoints.ts Module
 **Priority:** P1 — High
 **Category:** Core
-**Description:** Wire invariant validation into `grd-plan-checker` as a hard reject gate. Invalid plans don't proceed to execution. Validate research artifacts: LANDSCAPE.md must have comparison table, PAPERS.md must have structured entries, RESEARCH.md must have method/tradeoff sections.
+**Description:** New `lib/research/checkpoints.ts`: emit (validate at emit time — ≤4 questions, one recommended per question; malformed ⇒ log + proceed with defaults), resolve, one-shot `consumeAnswered(resumedCheckpoint, point, iteration)` (analog of `approved.execute`), append-only `checkpoints.jsonl` IO (mirrors ledger.jsonl), and an injected `checkpointHandler` dependency (matches spawn/runner DI pattern; default handler = pause). Own jest per-file coverage threshold from day one.
 
-### REQ-181: CFG Validation Tests
+### REQ-196: Interactive Config Surface
 **Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests for all three validation classes (structural, semantic, cross-phase). Test that malformed plans are rejected, valid plans pass, and edge cases (empty fields, missing sections) are handled. Coverage: 90%+ on lib/invariants.ts.
+**Category:** Config
+**Description:** Nested `research_gates.interactive` object (`enabled:false` default; per-point `seed/hypothesize/design/decide`; `max_rounds:2`, `max_questions:4`, `hypothesis_candidates:3` clamp [1,5], `every_iteration:false`, `fallback:"recommended"|"panel"`). Parsed by `readInteractiveConfig(cwd)` (raw-read sibling of `readResearchGatesConfig`). Auto-skip matrix: `--no-gates`, `autonomous_mode`, autopilot/`GRD_AUTOPILOT`, portfolio concurrency > 1, non-interactive spawns. `gd research --interactive` = one-shot enable. `gd settings` round-trips unknown `research_gates` keys.
 
-## Compositional Citation Recovery (Research Quality)
-
-### REQ-182: Deep-Diver Structured Output
+### REQ-197: Default-OFF Gate Safety
 **Priority:** P1 — High
-**Category:** Research
-**Description:** Extend `grd-deep-diver` agent prompt to emit structured `missing_components` and `borrowed_components` fields in PAPERS.md output. Each component includes: name, source paper, description, whether it's available as code.
+**Category:** Core
+**Description:** `resolveGates(noGates)` zeroes ALL gates from a single `defaultGates()` source (fixes the hardcoded `{execute, kg_write}` return); new interactive keys pinned off in `BENCH_WORKDIR_CONFIG` belt-and-braces. Caller-audit test enumerating all 5 runResearch/resumeResearch call sites (portfolio.ts, bench.ts, cli.ts, cli-kb.ts, index.ts) proving no unattended path can pause interactively.
 
-### REQ-183: Citation Graph Storage
+### REQ-198: Resume-with-Answers Plumbing
 **Priority:** P1 — High
-**Category:** Research
-**Description:** Store citation graphs as `.planning/research/citations/{paper-slug}.json` with nodes (papers) and edges (dependencies). Create `lib/citations.ts` with `buildCitationGraph()`, `resolveCitations()`, and `findUnresolved()` functions.
+**Category:** CLI
+**Description:** `gd research resume <id> [--answers <file|->]` (file or stdin ONLY — never answer text in argv). New branch in `resumeResearch` before pendingGate handling: record answers → append checkpoints.jsonl → clear `pendingCheckpoint` → `runLoop({resumedCheckpoint})`. Bare resume with pending checkpoint ⇒ every question resolves to its recommended option (`answeredBy:'default'`) — this IS the timeout behavior. Back-compat: a pre-0.5.0 thread.json fixture must resume bit-identically (explicit test).
 
-### REQ-184: Citation Recovery Pass
+## DESIGN Approval + Skill Loop
+
+### REQ-199: DESIGN Approval Checkpoint
 **Priority:** P1 — High
-**Category:** Research
-**Description:** Add citation-recovery pass in `grd-phase-researcher`: for each missing component from deep-diver output, fetch the referenced paper (arXiv API, Semantic Scholar API), extract the relevant technique, store in citation graph. Configurable gate to block planning if critical unresolved dependencies remain.
+**Category:** Loop
+**Description:** Combined pause at the existing GATE-1 (execute gate) site — one pause, never two. Approval checkpoint carries metric/comparator/target + script approach; "Approve & run" consumes the execute gate (`approved.execute = true`); contract edits apply strictly BEFORE the committed pin (debug-loop pinning must never overwrite user edits); "Revise" re-plans round-capped at 2; "Abort" → abandoned. Resume reuses the persisted approved plan — never re-derives. Fires iteration 1 only unless `every_iteration:true`.
 
-### REQ-185: Citation Recovery Tests
+### REQ-200: Skill-Layer Checkpoint Protocol
 **Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests for citation graph building, resolution, and unresolved detection. Mock API calls. Coverage: 85%+ on lib/citations.ts.
+**Category:** Skill
+**Description:** "Interactive steering" section in commands/research.md: parse `pendingCheckpoint` from CLI JSON (never re-read files), AskUserQuestion loop per plan-phase §9 protocol verbatim (max 4 per call, recommended-first "(Recommended)", 2 rounds, de-dupe by ask TEXT), write answers file via the Write tool (no shell), `gd research resume <id> --answers <file>`. Skill stays thin — no logic in markdown.
 
-## Graph-of-Thought Topological Synthesis (Planning Quality)
-
-### REQ-186: Artifact DAG Schema
-**Priority:** P1 — High
-**Category:** Planning
-**Description:** Extend plan schema (from REQ-179) with `provides: string[]`, `requires: string[]`, `integration_points: string[]` per plan. Update `buildPlanPrompt()` to instruct planner to declare these fields.
-
-### REQ-187: Artifact DAG Builder
-**Priority:** P1 — High
-**Category:** Planning
-**Description:** Add `buildArtifactDAG(plans)` function in `lib/deps.ts` that constructs a directed graph from provides/requires declarations. Validate for cycles and missing dependencies. Return topologically sorted execution order.
-
-### REQ-188: Wave Builder DAG Integration
-**Priority:** P1 — High
-**Category:** Scheduling
-**Description:** Extend `buildWaves()` in `lib/parallel.ts` to consume the artifact DAG alongside existing `depends_on`. Plans whose requires aren't yet provided get sequenced after their providers. Inject resolved dependency context into executor prompts.
-
-### REQ-189: GoT Synthesis Tests
-**Priority:** P1 — High
-**Category:** Testing
-**Description:** Unit tests for artifact DAG construction, cycle detection, topological sorting, and wave builder integration. Coverage: 85%+ on new code in lib/deps.ts and lib/parallel.ts.
-
-## Agentic Knowledge Enhancement (Compounding Returns)
-
-### REQ-190: Knowledge Miner Agent
+### REQ-201: Status Rendering of Pending Checkpoints
 **Priority:** P2 — Medium
-**Category:** Agents
-**Description:** Create `agents/grd-knowledge-miner.md` agent definition. Post-phase mining step that analyzes phase output against recovered citations and existing codebase. Produces structured entries: pattern name, source, applicability conditions, code snippet.
+**Category:** CLI
+**Description:** `gd research status [<id>]` renders pending checkpoint questions in `--raw` (skill-less usage path; also the R10 protocol-drift escape hatch). `renderThreadLog` gains a checkpoint line.
 
-### REQ-191: KNOWHOW.md Storage
-**Priority:** P2 — Medium
-**Category:** Infrastructure
-**Description:** Store knowledge entries in `.planning/milestones/{milestone}/KNOWHOW.md`. Feed into planner and researcher context for subsequent phases. Add KNOWHOW.md reading to `grd-planner` and `grd-phase-researcher` agent prompts.
+## SEED Interview + DECIDE Branch
 
-### REQ-192: Knowledge Mining Pipeline Integration
+### REQ-202: Socratic Pre-Loop Interview (Skill Layer)
 **Priority:** P2 — Medium
+**Category:** Skill
+**Description:** Superpowers-brainstorm-style interview in commands/research.md before `gd research` is invoked: context first, ONE question at a time, multiple-choice preferred, stop condition = the question yields a falsifiable metric target. Once per thread. Refined question passed to the CLI; original user question preserved verbatim.
+
+### REQ-203: SEED Clarification Checkpoint (Orchestrator)
+**Priority:** P2 — Medium
+**Category:** Loop
+**Description:** Thin orchestrator-side path so bare CLI users get clarification too: `buildClarifyPrompt` + `__CLARIFY__` block parse; zero ambiguous dimensions ⇒ no checkpoint (one spawn, zero pauses). Answers fold into `thread.refinedQuestion`; `thread.question` stays verbatim (seeds threadId). Skipped for seeded threads.
+
+### REQ-204: DECIDE Branch Checkpoint
+**Priority:** P2 — Medium
+**Category:** Loop
+**Description:** Fires ONLY when the loop would continue (never delays a terminal verdict); single round; options continue/pivot/stop/adjust-budget with evidence summary in context. Pivot → `pendingPivot`; stop → finalize path. Overrides continuation only — never the verdict (`evaluateVerdict`, contract pin, `shouldTerminate`/`decideBranch` untouched).
+
+## HYPOTHESIZE Candidate Selection
+
+### REQ-205: Multi-Candidate Hypothesis Generation
+**Priority:** P3 — Low
+**Category:** Loop
+**Description:** `__HYPOTHESES__` multi-candidate prompt (N = `hypothesis_candidates`) + `parseHypothesesOutput`; existing single-block parser untouched for the N=1/disabled path.
+
+### REQ-206: Hypothesis Selection Checkpoint
+**Priority:** P3 — Low
+**Category:** Loop
+**Description:** Selection checkpoint pauses BEFORE any ledger append; only the chosen candidate enters the ledger (zero ledger pollution); freeform answer → user-authored hypothesis statement. Skipped for seeded/resume/crash-recovery paths.
+
+## AI-Panel Fallback + Hardening
+
+### REQ-207: answerViaDiscussion Panel Fallback
+**Priority:** P3 — Low
 **Category:** Integration
-**Description:** Add knowledge mining step to autopilot pipeline (after verify, before post-pipeline). Spawn grd-knowledge-miner agent with phase execution output and citation recovery results. Cross-reference generated code against recovered SoTA implementations.
+**Description:** `answerViaDiscussion(cwd, checkpoint, cfg)` in checkpoints.ts wrapping `buildElicitationContext` + `resolveElicitation` (lib/discussion.ts unchanged), called inline — no pause. Participants exclude the loop's own spawn backend. One-shot, short explicit timeout, `detectFromStdout` per response (rate-limited panelist reads as unavailable, never as an answer), option matching exact → prefix → recommended default. Same Checkpoint record (`answeredBy:'panel'`, `discussionFile`).
 
-### REQ-193: Knowledge Enhancement Tests
-**Priority:** P2 — Medium
+### REQ-208: Panel Wiring, Telemetry & Docs
+**Priority:** P3 — Low
+**Category:** Integration
+**Description:** `fallback:"panel"` wiring incl. portfolio force-non-human; `research.checkpoint_pauses_total` + panel counters; docs: CLAUDE.md config keys, `gd settings` skill, autoresearch tutorial section.
+
+### REQ-209: Milestone Verification Suite
+**Priority:** P1 — High
 **Category:** Testing
-**Description:** Unit tests for knowledge mining output parsing and KNOWHOW.md generation. Integration test validating the mining step runs in the autopilot pipeline.
+**Description:** Proof obligations verified end-to-end: R1 (no unattended path pauses — bench/portfolio/harness/autopilot/cli-kb), R3 (pre-0.5.0 thread back-compat), R4 (DESIGN answers survive debug-loop contract pinning), R5 (no double-asking on debug re-plan/resume). Offline deterministic tests via injected checkpointHandler; per-file coverage thresholds not lowered.
 
 ## Traceability Matrix
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| REQ-179 | Phase 92 | COMPLETE |
-| REQ-180 | Phase 92 | COMPLETE |
-| REQ-181 | Phase 92 | COMPLETE |
-| REQ-182 | Phase 93 | PENDING |
-| REQ-183 | Phase 93 | PENDING |
-| REQ-184 | Phase 93 | PENDING |
-| REQ-185 | Phase 93 | PENDING |
-| REQ-186 | Phase 94 | PENDING |
-| REQ-187 | Phase 94 | PENDING |
-| REQ-188 | Phase 94 | PENDING |
-| REQ-189 | Phase 94 | PENDING |
-| REQ-190 | Phase 95 | PENDING |
-| REQ-191 | Phase 95 | PENDING |
-| REQ-192 | Phase 95 | PENDING |
-| REQ-193 | Phase 95 | PENDING |
+| REQ-194 | Phase 101 | PENDING |
+| REQ-195 | Phase 101 | PENDING |
+| REQ-196 | Phase 101 | PENDING |
+| REQ-197 | Phase 101 | PENDING |
+| REQ-198 | Phase 101 | PENDING |
+| REQ-199 | Phase 102 | PENDING |
+| REQ-200 | Phase 102 | PENDING |
+| REQ-201 | Phase 102 | PENDING |
+| REQ-202 | Phase 103 | PENDING |
+| REQ-203 | Phase 103 | PENDING |
+| REQ-204 | Phase 103 | PENDING |
+| REQ-205 | Phase 104 | PENDING |
+| REQ-206 | Phase 104 | PENDING |
+| REQ-207 | Phase 105 | PENDING |
+| REQ-208 | Phase 105 | PENDING |
+| REQ-209 | Phase 105 | PENDING |
