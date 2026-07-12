@@ -14,8 +14,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 - **Active phase:** None
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Not started (defining requirements)
-- **Next:** Research → requirements → roadmap
+- **Status:** Roadmap created — ready for `/grd:plan-phase 101`
+- **Next:** Plan Phase 101 (Checkpoint Core Plumbing + Config)
 
 ## Phase Summary
 
@@ -35,6 +35,11 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 98 | GoT Synthesis Execution Engine | Complete (2026-03-28) |
 | 99 | Knowledge Injection Loop | Complete (2026-03-25) |
 | 100 | Evaluation Benchmark Framework | Not started |
+| 101 | Checkpoint Core Plumbing + Config | Not started |
+| 102 | DESIGN Approval + Skill Checkpoint Loop | Not started |
+| 103 | SEED Interview + DECIDE Branch | Not started |
+| 104 | HYPOTHESIZE Candidate Selection | Not started |
+| 105 | AI-Panel Fallback + Hardening | Not started |
 
 ## v0.3.23 Roadmap
 
@@ -49,6 +54,16 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 98 — GoT Synthesis Execution Engine | DAG builder, topological sort, interface-freeze, file-agent orchestration | TBD | proxy |
 | 99 — Knowledge Injection Loop | Wire selectTopEntries into planner/researcher/executor prompts | TBD | proxy |
 | 100 — Evaluation Benchmark Framework | Benchmark corpus, semantic scoring, trainability metrics, category taxonomy | TBD | proxy |
+
+## v0.5.0 Roadmap
+
+| Phase | Goal | Requirements | Verification |
+|-------|------|--------------|--------------|
+| 101 — Checkpoint Core Plumbing + Config | Checkpoint schema/types, checkpoints.ts, interactive config, default-off gate safety, resume-with-answers plumbing | REQ-194–198 | sanity |
+| 102 — DESIGN Approval + Skill Checkpoint Loop | Combined GATE-1 approval checkpoint + skill-layer AskUserQuestion loop + status rendering | REQ-199–201 | proxy |
+| 103 — SEED Interview + DECIDE Branch | Socratic pre-loop interview + orchestrator clarify checkpoint + DECIDE continue/pivot/stop/adjust-budget | REQ-202–204 | proxy |
+| 104 — HYPOTHESIZE Candidate Selection | Multi-candidate hypothesis generation + pre-ledger selection checkpoint | REQ-205–206 | proxy |
+| 105 — AI-Panel Fallback + Hardening | answerViaDiscussion panel fallback + telemetry/docs + milestone verification suite (R1/R3/R4/R5) | REQ-207–209 | deferred→full (Integration) |
 
 ## Deferred Validations
 

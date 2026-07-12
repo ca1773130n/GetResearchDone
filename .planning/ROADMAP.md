@@ -32,7 +32,8 @@
 - v0.3.20 Multi-Agent Cross-Backend Discussion - Phases 82-85 (shipped 2026-03-23)
 - v0.3.21 Elicitation Replacement - Phase 86 (shipped 2026-03-24)
 - v0.3.22 Autopilot v2 — Parallel Execution with Serial Integration - Phases 87-91 (shipped 2026-03-29)
-- v0.3.23 NERFIFY-Inspired Research Phase Enhancements - Phases 92-95 (planned)
+- v0.3.23 NERFIFY-Inspired Research Phase Enhancements - Phases 92-100 (in progress)
+- v0.5.0 Interactive Research Steering (Human-in-the-Loop) - Phases 101-105 (planned)
 
 ## Phases
 
@@ -320,7 +321,7 @@ Plans:
 - [x] 91-02: Write-intent parsing edge cases and buildWaves file-conflict tests (completed 2026-03-28)
 - [x] 91-03: E2E integration test — two-phase parallel pipeline with serial merge (completed 2026-03-28)
 
-### v0.3.23 NERFIFY-Inspired Research Phase Enhancements (Planned)
+### v0.3.23 NERFIFY-Inspired Research Phase Enhancements (In progress)
 
 **Milestone Goal:** Adapt 4 key innovations from the NERFIFY paper into GRD's research and execution phases: CFG formalization for typed plan/artifact schema validation, compositional citation recovery for deep research completeness, Graph-of-Thought topological synthesis for dependency-aware planning, and agentic knowledge enhancement for compounding improvements across phases.
 **Start:** 2026-03-24
@@ -328,7 +329,12 @@ Plans:
 - [x] **Phase 92: CFG Formalization** - `lib/invariants.ts` with typed plan artifact schema, pre-flight validation gate in `grd-plan-checker`, and unit tests `implement` ✓ 2026-03-24
 - [x] **Phase 93: Compositional Citation Recovery** - Structured deep-diver output, citation graph storage in `lib/citations.ts`, citation recovery pass in `grd-phase-researcher`, and unit tests `implement` ✓ 2026-03-25
 - [x] **Phase 94: Graph-of-Thought Synthesis** - Artifact DAG schema extension, `buildArtifactDAG()` in `lib/deps.ts`, wave builder DAG integration in `lib/parallel.ts`, and unit tests `implement` ✓ 2026-03-25
-- [ ] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement`
+- [x] **Phase 95: Agentic Knowledge Enhancement** - `grd-knowledge-miner` agent, `KNOWHOW.md` storage, autopilot pipeline integration, and unit tests `implement` ✓ 2026-03-25
+- [x] **Phase 96: Closed-Loop Metric-Driven Refinement** - Critique agent, 3-branch refinement loop, convergence detection `implement` ✓ 2026-03-25
+- [x] **Phase 97: Transitive Citation Graph Traversal** - Recursive BFS citation traversal, auto-retrieval from external sources `implement` ✓ 2026-03-25
+- [x] **Phase 98: GoT Synthesis Execution Engine** - DAG builder, topological sort, interface-freeze, file-agent orchestration `implement` ✓ 2026-03-28
+- [x] **Phase 99: Knowledge Injection Loop** - Wire selectTopEntries into planner/researcher/executor prompts `implement` ✓ 2026-03-25
+- [x] **Phase 100: Evaluation Benchmark Framework** - Benchmark corpus, semantic scoring, trainability metrics, category taxonomy `implement` ✓ 2026-03-25
 
 #### Phase 92: CFG Formalization
 
@@ -383,7 +389,7 @@ Plans:
   3. `buildWaves(phases, options)` in `lib/parallel.ts` accepts an optional `artifactDAG` parameter; plans whose `requires` are not yet provided by an earlier wave are moved to a later wave, producing a topologically valid execution schedule that respects both `depends_on` and artifact dependencies.
   4. When a plan's `requires` is satisfied by a provider plan that has completed execution, the provider's SUMMARY.md content is injected into the executor's context prompt as a `<dependency_context>` block, making the resolved artifact available to the implementing agent.
   5. Unit tests achieve 85%+ line coverage on new code in `lib/deps.ts` and `lib/parallel.ts`; tests cover DAG construction, cycle detection (including multi-node cycles), topological sort correctness, wave builder integration, and dependency context injection.
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 Plans:
 - [x] 94-01: `buildArtifactDAG()` and `validateArtifactDAG()` in `lib/deps.ts`
@@ -403,17 +409,17 @@ Plans:
   3. `grd-planner` and `grd-phase-researcher` agent prompts include a conditional `<knowhow>` block that reads KNOWHOW.md if it exists and injects the top-5 most-applicable entries (by recency and module overlap) into the agent's context before plan generation.
   4. The autopilot pipeline in `lib/autopilot.ts` spawns the `grd-knowledge-miner` agent after `runVerification()` and before `runPostPhasePipeline()`; the step is skipped gracefully if the agent definition file does not exist (backward compatible); mining results are included in the phase SUMMARY.md.
   5. Unit tests for knowledge mining output parsing (KNOWHOW.md entry extraction and deduplication) and an integration test asserting the mining step appears in the autopilot pipeline execution sequence; `npm test`, `npm run lint`, and `npm run build:check` pass with zero errors.
-**Plans**: TBD
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 95-01: `agents/grd-knowledge-miner.md` and `KNOWHOW.md` storage format
-- [ ] 95-02: `grd-planner` and `grd-phase-researcher` KNOWHOW.md context injection
-- [ ] 95-03: Autopilot pipeline integration and unit + integration tests
+- [x] 95-01: `agents/grd-knowledge-miner.md` and `KNOWHOW.md` storage format
+- [x] 95-02: `grd-planner` and `grd-phase-researcher` KNOWHOW.md context injection
+- [x] 95-03: Autopilot pipeline integration and unit + integration tests
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 -> 95
+Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 -> 95 -> 96 -> 97 -> 98 -> 99 -> 100 -> 101 -> 102 -> 103/104/105
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -427,10 +433,20 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 89. Write-Intent Manifests and Wave Builder | v0.3.22 | 3/3 | Complete | 2026-03-28 |
 | 90. Autopilot Mode Changes and Parallel Execution | v0.3.22 | 3/3 | Complete | 2026-03-28 |
 | 91. Integration Testing and Validation | v0.3.22 | 3/3 | Complete | 2026-03-29 |
-| 92. CFG Formalization | v0.3.23 | 0/TBD | Not started | - |
-| 93. Compositional Citation Recovery | v0.3.23 | 0/TBD | Not started | - |
-| 94. Graph-of-Thought Synthesis | v0.3.23 | 0/TBD | Not started | - |
-| 95. Agentic Knowledge Enhancement | v0.3.23 | 0/TBD | Not started | - |
+| 92. CFG Formalization | v0.3.23 | 3/3 | Complete | 2026-03-24 |
+| 93. Compositional Citation Recovery | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 94. Graph-of-Thought Synthesis | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 95. Agentic Knowledge Enhancement | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 96. Closed-Loop Metric-Driven Refinement | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 97. Transitive Citation Graph Traversal | v0.3.23 | 0/0 | Complete | 2026-03-25 |
+| 98. GoT Synthesis Execution Engine | v0.3.23 | 3/3 | Complete | 2026-03-28 |
+| 99. Knowledge Injection Loop | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 100. Evaluation Benchmark Framework | v0.3.23 | 3/3 | Complete | 2026-03-25 |
+| 101. Checkpoint Core Plumbing + Config | v0.5.0 | 0/TBD | Not started | - |
+| 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/TBD | Not started | - |
+| 103. SEED Interview + DECIDE Branch | v0.5.0 | 0/TBD | Not started | - |
+| 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 0/TBD | Not started | - |
+| 105. AI-Panel Fallback + Hardening | v0.5.0 | 0/TBD | Not started | - |
 
 ## Deferred Validations
 
@@ -507,3 +523,112 @@ Plans:
 - [x] 100-01-PLAN.md — TDD: Benchmark types + corpus management + composite scoring
 - [x] 100-02-PLAN.md — TDD: Category classification + semantic scoring + trainability + evaluation pipeline
 - [x] 100-03-PLAN.md — Agent definitions (grd-eval-planner, grd-eval-reporter)
+
+## v0.5.0 Interactive Research Steering (Human-in-the-Loop) — Phases 101-105 (Planned)
+
+**Milestone Goal:** Give the autoresearch loop (`gd research`) optional socratic human steering — clarification/discussion before research planning and AskUserQuestion-based checkpoints at the loop's four decision points (SEED/HYPOTHESIZE/DESIGN/DECIDE) — with multi-backend AI discussion as the autonomous-mode fallback, so the same checkpoint mechanism works attended and unattended. Design anchor: **one checkpoint mechanism, two answerers**. All new gates default OFF; all new thread fields optional; the deterministic verdict path is untouchable.
+**Source:** `.planning/milestones/v0.5.0/research/SUMMARY.md` (§6 phase breakdown), `.planning/REQUIREMENTS.md` (REQ-194–REQ-209)
+**Start:** 2026-07-12
+
+- [ ] **Phase 101: Checkpoint Core Plumbing + Config** - Checkpoint schema/types, `lib/research/checkpoints.ts`, interactive config surface, default-off gate safety, resume-with-answers plumbing `implement`
+- [ ] **Phase 102: DESIGN Approval + Skill Checkpoint Loop** - Combined GATE-1 approval checkpoint, skill-layer AskUserQuestion loop, pending-checkpoint status rendering `implement`
+- [ ] **Phase 103: SEED Interview + DECIDE Branch** - Skill-layer socratic pre-loop interview, orchestrator clarify checkpoint, DECIDE continue/pivot/stop/adjust-budget branch `implement`
+- [ ] **Phase 104: HYPOTHESIZE Candidate Selection** - Multi-candidate hypothesis generation, pre-ledger selection checkpoint `implement`
+- [ ] **Phase 105: AI-Panel Fallback + Hardening** - `answerViaDiscussion` panel fallback, panel wiring/telemetry/docs, milestone verification suite (R1/R3/R4/R5) `integrate`
+
+#### Phase 101: Checkpoint Core Plumbing + Config
+
+**Goal**: The typed Checkpoint schema, `lib/research/checkpoints.ts` module, interactive config surface, and resume-with-answers plumbing all exist and are wired to the 5 unattended call sites with zero behavior change under default config — the foundation every later v0.5.0 phase builds on.
+**Type**: implement
+**Depends on**: None (foundation phase for this milestone)
+**Requirements**: REQ-194, REQ-195, REQ-196, REQ-197, REQ-198
+**Verification Level**: sanity
+**Success Criteria** (what must be TRUE):
+  1. `lib/types.ts` defines `Checkpoint` (`checkpoint_version: 1`, id `ck-<iter>-<point>-r<round>`, point `seed|hypothesize|design|decide`, type `clarification|selection|approval|branch`, iteration, round, questions ≤4 each with options `{label, description, recommended?}` and exactly one `recommended`, answers `{questionId, label, text?, answeredBy: 'human'|'panel'|'default'}`); `ResearchThread` gains only optional `pendingCheckpoint?`, `refinedQuestion?`, `checkpointRounds?` — `pendingGate` union and `ThreadStatus` are unchanged (`status:'paused'` reused).
+  2. `lib/research/checkpoints.ts` exports emit/resolve/`consumeAnswered(resumedCheckpoint, point, iteration)`/append-only `checkpoints.jsonl` IO with an injected `checkpointHandler` dependency (default = pause); emit validates ≤4 questions and exactly one `recommended:true` per question, logging + falling back to defaults on malformed input; the module has its own jest per-file coverage threshold from day one.
+  3. `readInteractiveConfig(cwd)` parses the nested `research_gates.interactive` object (`enabled:false` default, per-point overrides, `max_rounds:2`, `max_questions:4`, `hypothesis_candidates:3` clamped to [1,5], `every_iteration:false`, `fallback:"recommended"|"panel"`); `gd settings` round-trips unknown `research_gates` keys; `gd research --interactive` is a one-shot enable.
+  4. `resolveGates(noGates)` zeroes ALL gates (including the new interactive keys) from a single `defaultGates()` source; new interactive keys are pinned off in `BENCH_WORKDIR_CONFIG`; a caller-audit test enumerates all 5 `runResearch`/`resumeResearch` call sites (portfolio.ts, bench.ts, cli.ts, cli-kb.ts, index.ts) proving no unattended path can pause interactively.
+  5. `gd research resume <id> [--answers <file|->]` (file/stdin only, never argv text) records answers, appends `checkpoints.jsonl`, clears `pendingCheckpoint`, and calls `runLoop({resumedCheckpoint})`; bare resume with a pending checkpoint resolves every question to its recommended option (`answeredBy:'default'`) — this is the timeout behavior; a pre-0.5.0 `thread.json` fixture resumes bit-identically (explicit test).
+**Plans**: TBD
+
+Plans:
+- [ ] 101-01: TDD — Checkpoint/thread types in lib/types.ts + back-compat fixture test
+- [ ] 101-02: `lib/research/checkpoints.ts` — emit/resolve/consumeAnswered + checkpoints.jsonl IO + own coverage threshold
+- [ ] 101-03: `readInteractiveConfig`, `resolveGates` all-off fix + `defaultGates()`, `--interactive` flag, `gd settings` round-trip test
+- [ ] 101-04: `resume --answers <file|->` plumbing (cli.ts, grd-tools.ts) + caller-audit test across all 5 call sites
+
+#### Phase 102: DESIGN Approval + Skill Checkpoint Loop
+
+**Goal**: A human can review and approve (or revise/abort) the experiment design and metric contract before RUN, via exactly one combined pause at the existing GATE-1 site — end-to-end human-steered DESIGN approval works.
+**Type**: implement
+**Depends on**: Phase 101
+**Requirements**: REQ-199, REQ-200, REQ-201
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. The DESIGN approval checkpoint pauses exactly once at the existing GATE-1 (execute gate) site — never two pauses; the checkpoint carries the metric/comparator/target and script approach.
+  2. "Approve & run" consumes the execute gate (`approved.execute = true`); contract edits submitted via the checkpoint apply strictly BEFORE the committed pin — the debug-loop pinning never overwrites user edits (R4).
+  3. "Revise" re-plans round-capped at 2; "Abort" transitions the thread to `abandoned`; on resume, the persisted approved plan is reused — it is never re-derived.
+  4. The checkpoint fires on iteration 1 only unless `interactive.every_iteration:true`.
+  5. `commands/research.md` "Interactive steering" section parses `pendingCheckpoint` from CLI JSON (never re-reads files) and runs the AskUserQuestion loop per plan-phase §9 protocol verbatim (max 4 per call, recommended-first, 2 rounds, de-dupe by ask text), writing the answers file via the Write tool (no shell) before calling `gd research resume <id> --answers <file>`.
+  6. `gd research status [<id>] --raw` renders pending checkpoint questions (the skill-less/protocol-drift escape hatch); `renderThreadLog` gains a checkpoint line.
+**Plans**: TBD
+
+Plans:
+- [ ] 102-01: TDD — DESIGN approval checkpoint at GATE-1 site (approve/revise/abort, contract pre-pin edits, persisted-plan reuse)
+- [ ] 102-02: `commands/research.md` "Interactive steering" section (AskUserQuestion loop, answers file, resume)
+- [ ] 102-03: `gd research status --raw` pending-checkpoint rendering + `renderThreadLog` checkpoint line
+
+#### Phase 103: SEED Interview + DECIDE Branch
+
+**Goal**: Full pre-loop socratic steering (skill-layer interview + thin orchestrator clarify checkpoint) and iterate-vs-stop steering at DECIDE, both defaulting to zero pauses when the question/evidence is already unambiguous.
+**Type**: implement
+**Depends on**: Phase 101, Phase 102
+**Requirements**: REQ-202, REQ-203, REQ-204
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. The skill-layer socratic interview in `commands/research.md` asks one multiple-choice question at a time before invoking `gd research`, stopping once the question yields a falsifiable metric target; it runs once per thread; the refined question is passed to the CLI while the original user question is preserved verbatim.
+  2. The orchestrator's `buildClarifyPrompt` + `__CLARIFY__` block parse raises zero checkpoints when zero ambiguous dimensions are detected (one spawn, zero pauses); answers fold into `thread.refinedQuestion` without mutating `thread.question` (which seeds `threadId`); the checkpoint is skipped entirely for seeded threads.
+  3. The DECIDE branch checkpoint fires ONLY when the loop would otherwise continue (it never delays a terminal verdict); single round; options are continue/pivot/stop/adjust-budget with an evidence summary in context.
+  4. Pivot routes to `pendingPivot`; stop routes to the finalize path; `evaluateVerdict`, the committed contract pin, and `shouldTerminate`/`decideBranch` remain untouched — DECIDE overrides continuation only, never the verdict.
+**Plans**: TBD
+
+Plans:
+- [ ] 103-01: Skill-layer socratic pre-loop interview in commands/research.md (one-question-at-a-time, falsifiable-target stop condition)
+- [ ] 103-02: TDD — orchestrator `buildClarifyPrompt` + `__CLARIFY__` parse + `refinedQuestion` fold (seeded-thread skip)
+- [ ] 103-03: TDD — DECIDE branch checkpoint (would-continue-only gating, continue/pivot/stop/adjust-budget, verdict no-touch tests)
+
+#### Phase 104: HYPOTHESIZE Candidate Selection
+
+**Goal**: Users can choose among multiple generated hypothesis candidates before any ledger commitment, with zero ledger pollution from unchosen candidates.
+**Type**: implement
+**Depends on**: Phase 101, Phase 102
+**Requirements**: REQ-205, REQ-206
+**Verification Level**: proxy
+**Success Criteria** (what must be TRUE):
+  1. The `__HYPOTHESES__` multi-candidate prompt generates N candidates (N = `hypothesis_candidates`, clamped [1,5]) and `parseHypothesesOutput` parses them; the existing single-block parser is untouched and still used for the N=1/disabled path.
+  2. The selection checkpoint pauses strictly BEFORE any ledger append; only the chosen candidate is ever appended to the ledger — zero pollution from unchosen candidates.
+  3. A freeform answer produces a user-authored hypothesis statement that flows into the ledger identically to a selected candidate.
+  4. The checkpoint is skipped automatically for seeded, resume, and crash-recovery paths.
+**Plans**: TBD
+
+Plans:
+- [ ] 104-01: TDD — `__HYPOTHESES__` multi-candidate prompt + `parseHypothesesOutput` (N=1 path untouched)
+- [ ] 104-02: TDD — selection checkpoint pre-ledger gating, freeform statement path, seeded/resume/crash-recovery skip
+
+#### Phase 105: AI-Panel Fallback + Hardening
+
+**Goal**: Autonomous runs get panel-answered checkpoints inline (no pause), and the full v0.5.0 milestone is verified end-to-end against its proof obligations — this phase doubles as the milestone's Integration Phase.
+**Type**: integrate
+**Depends on**: Phase 101, Phase 102 (collects deferred/end-to-end verification from Phases 101-104)
+**Requirements**: REQ-207, REQ-208, REQ-209
+**Verification Level**: deferred→full (Integration Phase)
+**Success Criteria** (what must be TRUE):
+  1. `answerViaDiscussion(cwd, checkpoint, cfg)` in checkpoints.ts wraps `buildElicitationContext` + `resolveElicitation` (discussion.ts unchanged), called inline with no pause; participants exclude the loop's own spawn backend; one-shot with a short explicit timeout; `detectFromStdout` treats a rate-limited panelist as unavailable, never as an answer; option matching is exact → prefix → recommended default; the same Checkpoint record shape is used (`answeredBy:'panel'`, `discussionFile`).
+  2. `fallback:"panel"` wiring works end-to-end including portfolio's forced non-human mode; `research.checkpoint_pauses_total` and panel counters are recorded.
+  3. Docs are updated: CLAUDE.md config keys, `gd settings` skill, and the autoresearch tutorial gain an interactive-steering section.
+  4. The milestone verification suite passes end-to-end via offline deterministic tests with an injected `checkpointHandler`, proving: R1 (no unattended path pauses across bench/portfolio/harness/autopilot/cli-kb), R3 (pre-0.5.0 thread back-compat), R4 (DESIGN answers survive debug-loop contract pinning), R5 (no double-asking on debug re-plan/resume) — and no per-file jest coverage thresholds are lowered.
+**Plans**: TBD
+
+Plans:
+- [ ] 105-01: TDD — `answerViaDiscussion` panel fallback (backend exclusion, one-shot timeout, rate-limit guard, option matching)
+- [ ] 105-02: `fallback:"panel"` wiring (incl. portfolio force-non-human) + telemetry counters + docs
