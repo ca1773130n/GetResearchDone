@@ -278,10 +278,131 @@ function cmdConfigSet(
   }
 }
 
+// ─── Autonomous-Mode Gate Round-Trip (R7) ───────────────────────────────────
+
+/** A gate map — booleans plus (possibly) nested gate objects like `interactive`. */
+type GateMap = Record<string, unknown>;
+
+/**
+ * Return a copy of a gate map with every boolean flag (at any nesting depth)
+ * set to false, while preserving the object's keys and structure verbatim.
+ * R7: a future gate stored as a nested object (e.g. research_gates.interactive)
+ * must survive the YOLO round-trip — we never reconstruct from a typed subset.
+ * @param gates - Raw parsed gate map
+ * @returns New gate map with all booleans forced false, unknown keys preserved
+ */
+function disableBooleanFlags(gates: GateMap): GateMap {
+  const out: GateMap = {};
+  for (const [k, v] of Object.entries(gates)) {
+    if (typeof v === 'boolean') out[k] = false;
+    else if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      out[k] = disableBooleanFlags(v as GateMap);
+    } else out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Enable autonomous (YOLO) mode: snapshot research_gates/confirmation_gates into
+ * `_saved_*` verbatim (unknown nested keys included), then disable all gate
+ * booleans. Pure — returns a new config object.
+ * @param config - Raw parsed config
+ * @returns New config with gates snapshotted + disabled and autonomous_mode true
+ */
+function yoloEnable(config: Record<string, unknown>): Record<string, unknown> {
+  const rg = (config.research_gates as GateMap) || {};
+  const cg = (config.confirmation_gates as GateMap) || {};
+  return {
+    ...config,
+    autonomous_mode: true,
+    _saved_research_gates: { ...rg },
+    _saved_confirmation_gates: { ...cg },
+    research_gates: disableBooleanFlags(rg),
+    confirmation_gates: disableBooleanFlags(cg),
+  };
+}
+
+/**
+ * Disable autonomous (YOLO) mode: restore research_gates/confirmation_gates from
+ * `_saved_*` verbatim (unknown nested keys preserved), then drop the snapshots.
+ * Pure — returns a new config object.
+ * @param config - Raw parsed config (typically produced by yoloEnable)
+ * @returns New config with gates restored and autonomous_mode false
+ */
+function yoloDisable(config: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...config, autonomous_mode: false };
+  if (config._saved_research_gates !== undefined) {
+    out.research_gates = { ...(config._saved_research_gates as GateMap) };
+  }
+  if (config._saved_confirmation_gates !== undefined) {
+    out.confirmation_gates = { ...(config._saved_confirmation_gates as GateMap) };
+  }
+  delete out._saved_research_gates;
+  delete out._saved_confirmation_gates;
+  return out;
+}
+
+/**
+ * CLI command: toggle autonomous (YOLO) mode, preserving unknown nested
+ * research_gates keys across the save/restore round-trip (R7).
+ * @param cwd - Project working directory
+ * @param mode - 'on' to enable, 'off' to disable
+ * @param raw - Output raw status instead of JSON
+ * @param dryRun - If true, preview without writing
+ */
+function cmdConfigYolo(
+  cwd: string,
+  mode: string,
+  raw: boolean,
+  dryRun?: boolean
+): void {
+  if (mode !== 'on' && mode !== 'off') {
+    error("Usage: config-yolo <on|off>");
+    return;
+  }
+  const configPath: string = path.join(getPlanningDir(cwd), 'config.json');
+
+  let config: Record<string, unknown> = {};
+  try {
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    }
+  } catch (err: unknown) {
+    error('Failed to read config.json: ' + (err as Error).message);
+    return;
+  }
+
+  const next: Record<string, unknown> = mode === 'on' ? yoloEnable(config) : yoloDisable(config);
+
+  if (dryRun) {
+    output(
+      { dry_run: true, autonomous_mode: next.autonomous_mode },
+      raw,
+      `dry-run: would set autonomous_mode=${next.autonomous_mode}`
+    );
+    return;
+  }
+
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(next, null, 2), 'utf-8');
+    output(
+      { updated: true, autonomous_mode: next.autonomous_mode },
+      raw,
+      `autonomous_mode=${next.autonomous_mode}`
+    );
+  } catch (err: unknown) {
+    error('Failed to write config.json: ' + (err as Error).message);
+  }
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
   cmdConfigEnsureSection,
   cmdConfigSet,
   cmdVerifyPathExists,
+  cmdConfigYolo,
+  yoloEnable,
+  yoloDisable,
+  disableBooleanFlags,
 };
