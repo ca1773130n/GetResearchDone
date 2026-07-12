@@ -549,13 +549,13 @@ Plans:
   3. `readInteractiveConfig(cwd)` parses the nested `research_gates.interactive` object (`enabled:false` default, per-point overrides, `max_rounds:2`, `max_questions:4`, `hypothesis_candidates:3` clamped to [1,5], `every_iteration:false`, `fallback:"recommended"|"panel"`); `gd settings` round-trips unknown `research_gates` keys; `gd research --interactive` is a one-shot enable.
   4. `resolveGates(noGates)` zeroes ALL gates (including the new interactive keys) from a single `defaultGates()` source; new interactive keys are pinned off in `BENCH_WORKDIR_CONFIG`; a caller-audit test enumerates all 5 `runResearch`/`resumeResearch` call sites (portfolio.ts, bench.ts, cli.ts, cli-kb.ts, index.ts) proving no unattended path can pause interactively.
   5. `gd research resume <id> [--answers <file|->]` (file/stdin only, never argv text) records answers, appends `checkpoints.jsonl`, clears `pendingCheckpoint`, and calls `runLoop({resumedCheckpoint})`; bare resume with a pending checkpoint resolves every question to its recommended option (`answeredBy:'default'`) — this is the timeout behavior; a pre-0.5.0 `thread.json` fixture resumes bit-identically (explicit test).
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
 
 Plans:
-- [ ] 101-01: TDD — Checkpoint/thread types in lib/types.ts + back-compat fixture test
-- [ ] 101-02: `lib/research/checkpoints.ts` — emit/resolve/consumeAnswered + checkpoints.jsonl IO + own coverage threshold
-- [ ] 101-03: `readInteractiveConfig`, `resolveGates` all-off fix + `defaultGates()`, `--interactive` flag, `gd settings` round-trip test
-- [ ] 101-04: `resume --answers <file|->` plumbing (cli.ts, grd-tools.ts) + caller-audit test across all 5 call sites
+- [ ] 101-01-PLAN.md — Checkpoint/thread types + InteractiveConfig in lib/research/types.ts, guarded renderThreadLog line, frozen 0.4.16 back-compat fixtures (wave 1)
+- [ ] 101-02-PLAN.md — TDD `lib/research/checkpoints.ts`: emit/resolve/consumeAnswered + checkpoints.jsonl IO + readInteractiveConfig/resolveInteractive + checkpointHandler DI + own jest threshold (wave 2)
+- [ ] 101-03-PLAN.md — `resolveGates` all-off single-source (defaultGates), BENCH_WORKDIR_CONFIG interactive pin, settings round-trip of unknown research_gates keys (wave 1)
+- [ ] 101-04-PLAN.md — `resume --answers <file|->` + `--interactive`/`--no-interactive` plumbing (orchestrator/cli/grd-tools), 5-site caller-audit + 0.4.16 bit-identical resume tests (wave 3)
 
 #### Phase 102: DESIGN Approval + Skill Checkpoint Loop
 
