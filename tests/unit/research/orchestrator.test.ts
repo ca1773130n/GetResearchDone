@@ -824,3 +824,153 @@ describe('spawn-retry robustness', () => {
     });
   });
 });
+
+// ── v0.5.0 interactive steering: resume-with-answers + caller-audit + 0.4.16 back-compat ──
+describe('resume-with-answers plumbing (101-04)', () => {
+  const { createThread, saveThread, loadThread } = require('../../../lib/research/thread');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+
+  function ckLogPath(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id, 'checkpoints.jsonl');
+  }
+
+  function threadWithPendingCheckpoint(cwd: string): { id: string } {
+    const t = createThread(cwd, 'Approve the design?', {});
+    t.pendingCheckpoint = {
+      checkpoint_version: 1,
+      id: 'ck-1-design-r1',
+      point: 'design',
+      type: 'approval',
+      iteration: 1,
+      round: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      questions: [{
+        id: 'q1',
+        ask: 'Approve & run this experiment?',
+        options: [
+          { label: 'Approve & run', description: 'proceed', recommended: true },
+          { label: 'Revise design', description: 'go back' },
+        ],
+      }],
+    };
+    t.status = 'paused';
+    saveThread(cwd, t);
+    return t;
+  }
+
+  it('records human answers to checkpoints.jsonl and clears the pending checkpoint', async () => {
+    const cwd = tmp();
+    const t = threadWithPendingCheckpoint(cwd);
+    // NOT noGates: --no-gates would force recommended defaults; human answers require the gate on.
+    await resumeResearch(cwd, t.id, {
+      spawn: makeSpawn(), runner: makeRunner(),
+      checkpointAnswers: { q1: { label: 'Approve & run' } },
+    });
+    const log = readCheckpointLog(path.join(cwd, '.planning/research/threads', t.id));
+    expect(log.length).toBe(1);
+    expect(log[0].answers).toHaveLength(1);
+    expect(log[0].answers[0].label).toBe('Approve & run');
+    expect(log[0].answers[0].answeredBy).toBe('human');
+    // pendingCheckpoint cleared on the persisted thread.
+    const tj = loadThread(cwd, t.id);
+    expect(tj.pendingCheckpoint == null).toBe(true);
+  });
+
+  it('bare resume (no --answers) resolves to the recommended option answeredBy default (timeout behavior)', async () => {
+    const cwd = tmp();
+    const t = threadWithPendingCheckpoint(cwd);
+    // Bare resume: no --answers, gate ON → every question resolves to its recommended option.
+    await resumeResearch(cwd, t.id, { spawn: makeSpawn(), runner: makeRunner() });
+    const log = readCheckpointLog(path.join(cwd, '.planning/research/threads', t.id));
+    expect(log.length).toBe(1);
+    expect(log[0].answers[0].label).toBe('Approve & run'); // the recommended option
+    expect(log[0].answers[0].answeredBy).toBe('default');
+  });
+
+  it('--no-gates ignores supplied answers and resolves to recommended defaults', async () => {
+    const cwd = tmp();
+    const t = threadWithPendingCheckpoint(cwd);
+    await resumeResearch(cwd, t.id, {
+      noGates: true, spawn: makeSpawn(), runner: makeRunner(),
+      checkpointAnswers: { q1: { label: 'Revise design' } },
+    });
+    const log = readCheckpointLog(path.join(cwd, '.planning/research/threads', t.id));
+    expect(log[0].answers[0].answeredBy).toBe('default');
+    expect(log[0].answers[0].label).toBe('Approve & run');
+  });
+});
+
+describe('caller-audit: exactly 5 unattended runResearch/resumeResearch sites (101-04)', () => {
+  const { resolveInteractive, readInteractiveConfig } = require('../../../lib/research/checkpoints');
+
+  it('grep-style discovery finds exactly the 5 declared call sites (a 6th fails until it declares posture)', () => {
+    const dir = path.join(__dirname, '../../../lib/research');
+    const files: string[] = fs.readdirSync(dir).filter((f: string) => f.endsWith('.ts') && f !== 'orchestrator.ts');
+    const rx = /\b(?:runResearch|resumeResearch)\b/;
+    // Strip comment-only lines so a mere mention (e.g. paper.ts's "mirrors resumeResearch"
+    // note) is NOT counted as a caller — only real code references declare an interactive posture.
+    const codeOf = (f: string): string => fs.readFileSync(path.join(dir, f), 'utf8')
+      .split('\n').filter((l: string) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    const callers = files.filter((f: string) => rx.test(codeOf(f))).sort();
+    expect(callers).toEqual(['bench.ts', 'cli-kb.ts', 'cli.ts', 'index.ts', 'portfolio.ts']);
+  });
+
+  it('every unattended posture forces interactive steering inactive even with the gate config ON', () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'),
+      JSON.stringify({ research_gates: { interactive: { enabled: true } } }));
+    const cfg = readInteractiveConfig(cwd);
+    expect(cfg.enabled).toBe(true); // config says ON…
+    // …but no unattended path may pause interactively:
+    expect(resolveInteractive(cfg, { noGates: true }).active).toBe(false);       // cli --no-gates / bench
+    expect(resolveInteractive(cfg, { autonomousMode: true }).active).toBe(false); // autopilot config
+    expect(resolveInteractive(cfg, { autopilot: true }).active).toBe(false);      // GRD_AUTOPILOT
+    expect(resolveInteractive(cfg, { concurrency: 2 }).active).toBe(false);        // portfolio parallel
+    expect(resolveInteractive(cfg, { nonInteractive: true }).active).toBe(false);  // cli-kb seed resume
+    // …and only the attended, single-thread, gate-on path stays active:
+    expect(resolveInteractive(cfg, {}).active).toBe(true);
+  });
+});
+
+describe('0.4.16 back-compat: fixtures resume bit-identically (101-04, R3)', () => {
+  const { loadThread } = require('../../../lib/research/thread');
+  const FIXTURES = path.join(__dirname, '../../fixtures/research-threads');
+
+  function plantFixture(cwd: string, name: string): { id: string } {
+    const src = JSON.parse(fs.readFileSync(path.join(FIXTURES, name, 'thread.json'), 'utf8'));
+    const dir = path.join(cwd, '.planning/research/threads', src.id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(FIXTURES, name, 'thread.json'), path.join(dir, 'thread.json'));
+    return src;
+  }
+
+  it('terminal-supported-0416 short-circuits unchanged (no re-run, byte-identical thread.json, no checkpoints.jsonl)', async () => {
+    const cwd = tmp();
+    const src = plantFixture(cwd, 'terminal-supported-0416');
+    const dir = path.join(cwd, '.planning/research/threads', src.id);
+    const before = fs.readFileSync(path.join(dir, 'thread.json'), 'utf8');
+    const res = await resumeResearch(cwd, src.id, { spawn: makeSpawn(), runner: makeRunner() });
+    expect(res.status).toBe('supported');
+    expect(res.iterations).toBe(3);
+    // TERMINAL short-circuit never saves the thread → byte-identical on disk.
+    expect(fs.readFileSync(path.join(dir, 'thread.json'), 'utf8')).toBe(before);
+    expect(fs.existsSync(path.join(dir, 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('paused-execute-0416 flows through the pendingGate:execute path, NOT the checkpoint branch', async () => {
+    const cwd = tmp();
+    const src = plantFixture(cwd, 'paused-execute-0416');
+    const dir = path.join(cwd, '.planning/research/threads', src.id);
+    // gates.execute is off in the fixture (approved on resume); loop advances then re-pauses.
+    const res = await resumeResearch(cwd, src.id, { spawn: makeSpawn(), runner: makeRunner(), noGates: false });
+    // pendingCheckpoint was undefined → the new checkpoint branch is never entered:
+    expect(fs.existsSync(path.join(dir, 'checkpoints.jsonl'))).toBe(false);
+    const tj = loadThread(cwd, src.id);
+    expect(tj.pendingCheckpoint == null).toBe(true);
+    // it resumed via the existing pendingGate path (never the checkpoint branch) — the run advanced
+    // and re-paused at a downstream gate. The proof is a gate pause with NO checkpoint artifact.
+    expect(res.paused).toBe(true);
+    expect(['execute', 'kg_write']).toContain(res.pendingGate);
+    expect(res.pendingCheckpoint).toBeUndefined();
+  });
+});

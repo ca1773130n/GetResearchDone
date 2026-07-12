@@ -3,8 +3,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { captureOutput, captureError, captureOutputAsync, captureErrorAsync } = require('../../helpers/setup');
-const { cmdResearchStatus, cmdResearchReport } = require('../../../lib/research/cli');
+const { cmdResearchStatus, cmdResearchReport, cmdResearchResume } = require('../../../lib/research/cli');
 const { createThread, saveThread } = require('../../../lib/research/thread');
+const { readCheckpointLog } = require('../../../lib/research/checkpoints');
 
 function tmp() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-rcli-'));
@@ -27,6 +28,36 @@ describe('research cli', () => {
     const res = captureError(() => cmdResearchStatus(cwd, 'nope', false));
     expect(res.exitCode).toBe(1);
     expect(res.stderr).toContain('nope');
+  });
+
+  describe('cmdResearchResume checkpoint answers', () => {
+    it('forwards --answers checkpointAnswers through ResearchOptions to the resume-with-answers branch', async () => {
+      const cwd = tmp();
+      const t = createThread(cwd, 'Approve?', {});
+      t.pendingCheckpoint = {
+        checkpoint_version: 1, id: 'ck-1-design-r1', point: 'design', type: 'approval',
+        iteration: 1, round: 1, createdAt: '2026-07-12T00:00:00.000Z',
+        questions: [{ id: 'q1', ask: 'Approve & run?', options: [
+          { label: 'Approve & run', description: 'go', recommended: true },
+          { label: 'Revise', description: 'no' },
+        ] }],
+      };
+      t.status = 'paused'; saveThread(cwd, t);
+      const opts = {
+        checkpointAnswers: { q1: { label: 'Approve & run' } },
+        spawn: async (_p: string, a: string) => (
+          a === 'grd-hypothesizer' ? '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p"}'
+            : a === 'grd-experiment-runner' ? '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/1/run.sh"}'
+              : a === 'grd-knowledge-miner' ? '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}' : ''),
+        runner: { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) },
+      };
+      const res = await captureOutputAsync(() => cmdResearchResume(cwd, t.id, opts, true));
+      expect(res.exitCode).toBe(0);
+      const log = readCheckpointLog(path.join(cwd, '.planning/research/threads', t.id));
+      expect(log).toHaveLength(1);
+      expect(log[0].answers[0].answeredBy).toBe('human');
+      expect(log[0].answers[0].label).toBe('Approve & run');
+    });
   });
 
   describe('cmdResearchReport', () => {
