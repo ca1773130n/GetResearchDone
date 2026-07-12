@@ -1,23 +1,21 @@
 # State
 
-**Updated:** 2026-03-29
+**Updated:** 2026-07-12
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-24)
+See: .planning/PROJECT.md (updated 2026-07-12)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-**Previous:** v0.3.22 Autopilot v2 (in progress — Phases 88-91 pending)
+**Current focus:** v0.5.0 Interactive Research Steering (Human-in-the-Loop)
+**Previous:** v0.4.16 Competitive Adoption (shipped 2026-07-11)
 
 ## Current Position
 
-- **Active phase:** Phase 98 (GoT Synthesis Execution Engine) — plan 02 complete
-- **Current plan:** 02
-- **Milestone:** v0.3.23 NERFIFY-Inspired Research Phase Enhancements
-- **Status:** Phase 98 plan 02 complete — lib/got.ts (4 functions) + buildWavesFromPlans in autopilot.ts
-- **Progress:** [████████░░] 78%
-- **Next:** Phase 98 complete (no more plans)
+- **Active phase:** None
+- **Milestone:** v0.5.0 Interactive Research Steering
+- **Status:** Not started (defining requirements)
+- **Next:** Research → requirements → roadmap
 
 ## Phase Summary
 

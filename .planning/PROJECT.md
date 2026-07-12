@@ -3,17 +3,18 @@
 **Created:** 2026-02-12
 **Updated:** 2026-03-23
 
-## Current Milestone: v0.3.23 — NERFIFY-Inspired Research Phase Enhancements
+## Current Milestone: v0.5.0 — Interactive Research Steering (Human-in-the-Loop)
 
-**Goal:** Adapt 4 key innovations from the NERFIFY paper (multi-agent paper-to-code framework) into GRD's research and execution phases: CFG formalization for plan/artifact validation, compositional citation recovery for deep research, Graph-of-Thought topological synthesis for planning, and agentic knowledge enhancement for compounding improvements.
+**Goal:** Give the autoresearch loop (`gd research`) optional socratic human steering — clarification/discussion before research planning and AskUserQuestion-based checkpoints at the loop's decision points — with multi-backend AI discussion as the autonomous-mode fallback, so the same checkpoint mechanism works attended and unattended.
 
 **Target features:**
-- CFG formalization: typed schemas and structural validators for plan/research artifacts in lib/invariants.ts
-- Compositional citation recovery: traverse citation graphs to find missing components from referenced papers
-- Graph-of-Thought synthesis: plans declare artifact DAG (provides/requires) with topological ordering
-- Agentic knowledge enhancement: post-phase mining step producing structured KNOWHOW.md entries
+- Pre-loop socratic clarification: brainstorm/discuss-style interview to sharpen an underspecified research question before SEED (like discuss-phase, for research threads)
+- Interactive checkpoints at all four loop decision points — SEED (question clarification), HYPOTHESIZE (choose among candidate hypotheses), DESIGN (approve experiment design/metric contract), DECIDE (iterate vs stop) — each individually gate-able via `research_gates`
+- Structured checkpoint emission from the TS orchestrator (`lib/research/orchestrator.ts` cannot call AskUserQuestion): pause thread with a typed checkpoint block, surfaced by the `commands/research.md` skill layer, resumed with answers
+- Auto-skip under `autonomous_mode`, autopilot, and `--no-gates` — full-autopilot behavior unchanged
+- Multi-backend discussion fallback: in autonomous runs, the same checkpoints are answered by an AI discussion panel (`lib/discussion.ts`) instead of a human — one checkpoint mechanism, two answerers
 
-**Previous:** v0.3.22 Autopilot v2 (shipped 2026-03-24)
+**Previous:** v0.4.16 Competitive Adoption (shipped 2026-07-11)
 
 ## Vision
 
