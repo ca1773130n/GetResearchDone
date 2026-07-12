@@ -97,15 +97,36 @@ const VERDICT_COUNTER: Record<Verdict, string> = {
 };
 
 // The Claude scheduler runs with --output-format json, so stdout is an envelope
-// like {"result":"<agent text>", ...}. Other backends emit raw text. Decode the
-// result field when stdout is such an envelope; otherwise return it unchanged.
+// like {"result":"<agent text>", ...}. Codex `exec --json` emits a JSONL event
+// stream (one {"type":...} object per line — agent text lives in
+// item.completed/agent_message events). Other backends emit raw text. Decode
+// accordingly; otherwise return stdout unchanged.
 function decodeSpawnStdout(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed.startsWith('{')) {
     try {
       const env = JSON.parse(trimmed) as { result?: unknown };
       if (typeof env.result === 'string') return env.result;
-    } catch { /* not a JSON envelope — fall through */ }
+    } catch {
+      // Not a single JSON envelope — try codex exec JSONL: parse per line,
+      // return the LAST agent_message text (the agent's final answer).
+      const messages: string[] = [];
+      for (const line of trimmed.split('\n')) {
+        const l = line.trim();
+        if (!l.startsWith('{')) continue;
+        try {
+          const ev = JSON.parse(l) as {
+            type?: string;
+            item?: { type?: string; text?: string };
+          };
+          if (ev.type === 'item.completed' && ev.item?.type === 'agent_message'
+            && typeof ev.item.text === 'string') {
+            messages.push(ev.item.text);
+          }
+        } catch { /* mixed non-JSON line — keep scanning */ }
+      }
+      if (messages.length > 0) return messages[messages.length - 1];
+    }
   }
   // Claude Code `--verbose --output-format json` emits a JSON array of events
   // ([system, rate_limit_event?, assistant…, result]). Extract the result text,

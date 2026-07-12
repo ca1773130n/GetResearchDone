@@ -203,6 +203,21 @@ describe('orchestrator', () => {
     const arr = JSON.stringify([{ type: 'assistant', message: { content: [{ text: 'hello there' }] } }]);
     expect(decodeSpawnStdout(arr)).toBe('hello there');
   });
+  it('decodeSpawnStdout extracts the last agent_message from a codex exec JSONL stream', () => {
+    const jsonl = [
+      '{"type":"thread.started","thread_id":"019f5672-1b75-77d0-b32e-b938aaaac7f2"}',
+      '{"type":"turn.started"}',
+      '{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I will inspect the workspace."}}',
+      '{"type":"item.completed","item":{"id":"item_1","type":"command_execution","text":"ls"}}',
+      '{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"__PLAN__ {\\"metric\\":\\"recall\\"}"}}',
+      '{"type":"turn.completed","usage":{"total_tokens":1234}}',
+    ].join('\n');
+    expect(decodeSpawnStdout(jsonl)).toBe('__PLAN__ {"metric":"recall"}');
+  });
+  it('decodeSpawnStdout returns raw when JSONL has no agent_message', () => {
+    const jsonl = ['{"type":"thread.started"}', '{"type":"turn.completed"}'].join('\n');
+    expect(decodeSpawnStdout(jsonl)).toBe(jsonl);
+  });
   it('decodeSpawnStdout keeps the {result} object and plain-text paths', () => {
     expect(decodeSpawnStdout('{"result":"x"}')).toBe('x');
     expect(decodeSpawnStdout('plain hi')).toBe('plain hi');
