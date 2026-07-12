@@ -1,0 +1,18 @@
+{
+  "id": "can-8bit-kv-cache-hold-accuracy-d4e5f6",
+  "question": "Can 8-bit KV-cache hold accuracy within 1%?",
+  "status": "supported",
+  "iteration": 3,
+  "maxIterations": 5,
+  "baseMaxIterations": 5,
+  "gates": {
+    "execute": true,
+    "kg_write": true
+  },
+  "budgetUsed": 3,
+  "modelProfile": "balanced",
+  "tokenProfile": "balanced",
+  "currentStation": "finalize",
+  "pendingGate": null,
+  "createdAt": "2026-07-10T09:05:44.107Z"
+}

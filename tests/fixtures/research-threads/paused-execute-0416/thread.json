@@ -1,0 +1,18 @@
+{
+  "id": "does-rope-beat-alibi-on-long-ctx-a1b2c3",
+  "question": "Does RoPE beat ALiBi on long-context perplexity?",
+  "status": "paused",
+  "iteration": 2,
+  "maxIterations": 5,
+  "baseMaxIterations": 5,
+  "gates": {
+    "execute": false,
+    "kg_write": true
+  },
+  "budgetUsed": 1,
+  "modelProfile": "balanced",
+  "tokenProfile": "balanced",
+  "currentStation": "run",
+  "pendingGate": "execute",
+  "createdAt": "2026-07-11T14:22:03.481Z"
+}

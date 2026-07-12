@@ -77,4 +77,53 @@ describe('research thread', () => {
     md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
     expect(md).toMatch(/error reason:\*\*\s*hypothesizer output not parseable/i);
   });
+
+  it('renders a pending-checkpoint line in THREAD.md only when set', () => {
+    const cwd = tmp();
+    const t = createThread(cwd, 'CK Q?', {});
+    let md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
+    expect(md).not.toMatch(/pending checkpoint:/i);
+    t.status = 'paused';
+    t.pendingCheckpoint = {
+      checkpoint_version: 1,
+      id: 'ck-1-seed-r1',
+      point: 'seed',
+      type: 'clarification',
+      iteration: 1,
+      round: 1,
+      createdAt: '2026-07-12T00:00:00.000Z',
+      questions: [
+        { id: 'q1', ask: 'Narrow scope?', options: [{ label: 'yes', description: 'do it' }] },
+        { id: 'q2', ask: 'Add baseline?', options: [{ label: 'no', description: 'skip' }] },
+      ],
+    };
+    saveThread(cwd, t);
+    md = fs.readFileSync(path.join(cwd, '.planning/research/threads', t.id, 'THREAD.md'), 'utf8');
+    expect(md).toMatch(/pending checkpoint:\*\*\s*seed \(2 questions\)/i);
+  });
+});
+
+// ── 0.4.16 back-compat fixtures (R3 optional-field proof) ────────────────────
+// Frozen REAL-shape 0.4.16 thread.json files. Path used: hand-authored FALLBACK,
+// serialized via the exact saveThread call JSON.stringify(thread, null, 2) and
+// cross-checked field-for-field against `git show 3c179fe:lib/research/thread.ts`
+// (createThread) — the 0.4.16 ResearchThread shape is byte-identical to current.
+describe('0.4.16 thread fixtures back-compat round-trip', () => {
+  const FIXTURES = path.join(__dirname, '../../fixtures/research-threads');
+  const cases: Array<[string, string, string | null]> = [
+    ['paused-execute-0416', 'paused', 'execute'],
+    ['terminal-supported-0416', 'supported', null],
+  ];
+
+  it.each(cases)('%s loads with no checkpoint fields and re-serializes byte-identically', (dir, status, pendingGate) => {
+    const raw = fs.readFileSync(path.join(FIXTURES, dir, 'thread.json'), 'utf8');
+    const thread = JSON.parse(raw); // loadThread-equivalent read
+    expect(thread.status).toBe(status);
+    expect(thread.pendingGate).toBe(pendingGate);
+    expect(thread.pendingCheckpoint).toBeUndefined();
+    expect(thread.refinedQuestion).toBeUndefined();
+    expect(thread.checkpointRounds).toBeUndefined();
+    // R3: bit-identical round-trip — optional additions do not perturb old serialization.
+    expect(JSON.stringify(thread, null, 2)).toBe(raw);
+  });
 });
