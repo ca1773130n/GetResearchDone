@@ -2261,7 +2261,40 @@ async function routeCommand(
       const maxIdx: number = args.indexOf('--max-iterations');
       const maxRaw = maxIdx !== -1 ? Number(args[maxIdx + 1]) : undefined;
       const maxIterations = (maxRaw !== undefined && !Number.isNaN(maxRaw)) ? maxRaw : undefined;
-      const opts: ResearchOptions = { noGates, maxIterations };
+      // --answers <file|-> : read the JSON answers object from a FILE, or from stdin when the
+      // value is '-'. NEVER read answer text directly from argv (R8: zsh '!' + ARG_MAX). A
+      // malformed/missing source leaves checkpointAnswers undefined → bare-resume recommended
+      // defaults (the deterministic timeout behavior).
+      const ansIdx: number = args.indexOf('--answers');
+      let checkpointAnswers: Record<string, { label: string; text?: string }> | undefined;
+      if (ansIdx !== -1 && args[ansIdx + 1]) {
+        const src = args[ansIdx + 1];
+        try {
+          const rawTxt = src === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(src, 'utf8');
+          const parsed = JSON.parse(rawTxt) as unknown;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            checkpointAnswers = parsed as Record<string, { label: string; text?: string }>;
+          }
+        } catch { /* malformed/missing → undefined → bare-resume defaults */ }
+      }
+      // --interactive (bare = one-shot enable; --interactive=seed,design → per-point list) and
+      // --no-interactive (one-shot disable). --no-gates implies --no-interactive. DORMANT this
+      // phase (no emission consumes it) but must parse cleanly into ResearchOptions.
+      let interactive: { enabled?: boolean; points?: string[] } | undefined;
+      if (noGates || args.includes('--no-interactive')) {
+        interactive = { enabled: false };
+      } else {
+        const intIdx = args.findIndex((a) => a === '--interactive' || a.startsWith('--interactive='));
+        if (intIdx !== -1) {
+          const tok = args[intIdx];
+          const eq = tok.indexOf('=');
+          const points = eq !== -1
+            ? tok.slice(eq + 1).split(',').map((s) => s.trim()).filter(Boolean)
+            : undefined;
+          interactive = { enabled: true, ...(points && points.length ? { points } : {}) };
+        }
+      }
+      const opts: ResearchOptions = { noGates, maxIterations, checkpointAnswers, interactive };
       if (sub === 'status') {
         cmdResearchStatus(cwd, args[2], raw);
         return;
@@ -2295,7 +2328,9 @@ async function routeCommand(
       const question: string = args
         .filter(
           (a, i) =>
-            i >= 1 && !a.startsWith('--') && !(maxIdx !== -1 && i === maxIdx + 1)
+            i >= 1 && !a.startsWith('--')
+            && !(maxIdx !== -1 && i === maxIdx + 1)
+            && !(ansIdx !== -1 && i === ansIdx + 1)
         )
         .join(' ');
       await cmdResearchStart(cwd, question, opts, raw);

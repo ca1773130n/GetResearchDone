@@ -29,6 +29,8 @@ async function cmdResearchStart(cwd: string, question: string, opts: ResearchOpt
 async function cmdResearchResume(cwd: string, id: string, opts: ResearchOptions, raw: boolean): Promise<never> {
   if (!id) error('research resume: a thread id is required');
   try { loadThread(cwd, id); } catch { error(`research resume: thread "${id}" not found`); }
+  // opts (incl. checkpointAnswers from --answers <file|-> and the one-shot interactive override)
+  // is forwarded wholesale — resumeResearch consumes checkpointAnswers in its resume-with-answers branch.
   const res = await resumeResearch(cwd, id, opts);
   return output(res, raw, raw ? JSON.stringify(res) : undefined);
 }
