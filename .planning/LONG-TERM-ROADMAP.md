@@ -24,7 +24,7 @@ last_refined: 2026-02-17
 ## LT-4: Production Release
 **Status:** planned
 **Goal:** Comprehensive user acceptance testing, stable public API with backward-compatibility guarantees, full documentation, plugin marketplace publishing
-**Normal milestones:** v1.0.0 (planned)
+**Normal milestones:** v0.5.0 (planned), v1.0.0 (planned)
 
 ## Refinement History
 
