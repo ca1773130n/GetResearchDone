@@ -159,6 +159,10 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 101-03]: YOLO round-trip (yoloEnable/yoloDisable in config.ts) spreads raw research_gates into _saved_* verbatim so nested interactive key survives (R7)
 - [Phase 101-02]: checkpoints.ts standalone — ZERO orchestrator.ts import (R1 lock); DI seam (checkpointHandler/saveThread/incrementCounter) mirrors spawn/runner
 - [Phase 101-02]: resolveInteractive reads GRD_AUTOPILOT via opts.env ?? process.env; consumeAnswered one-shot via module-level WeakSet (no Checkpoint field pollution)
+- [Phase 101-04]: resumeResearch resume-with-answers branch runs BEFORE pendingGate handling — checkpoint resolution independent of the execute/kg_write gates; --no-gates forces recommended defaults, human answers require the gate ON
+- [Phase 101-04]: runLoop resumedCheckpoint param is underscore-prefixed + DORMANT (no emission this phase — locked); consumeAnswered wiring lands in Phase 102
+- [Phase 101-04]: --answers <file|-> reads JSON from a FILE or stdin only (never argv, R8); malformed/missing → bare-resume recommended defaults (deterministic timeout, no wall-clock timer)
+- [Phase 101-04]: caller-audit strips comment-only lines so paper.ts's mention is not miscounted; exactly 5 unattended call sites {bench,cli-kb,cli,index,portfolio}
 
 ## Known Bugs
 
@@ -171,7 +175,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 101-02-PLAN.md
+- **Stopped at:** Completed 101-04-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
