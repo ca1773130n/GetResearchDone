@@ -152,6 +152,9 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 98]: executeArtifactDAG defaults to dryRun:true — agent dispatch deferred to integration phase
 - [Phase 98]: buildWavesFromPlans falls back to buildWaves baseline on cycle detection — non-blocking warning to stderr
 - [Phase 98]: got.ts branch coverage: cycle path covered via synthetic cyclic DAG; non-dryRun path covered with dryRun:false test
+- [Phase 101]: Checkpoint types co-located in lib/research/types.ts (not lib/types.ts) — ResearchThread.pendingCheckpoint references Checkpoint
+- [Phase 101]: ResearchThread checkpoint fields are all OPTIONAL; pendingGate union + ThreadStatus untouched to preserve TERMINAL mirrors (portfolio.ts/paper.ts)
+- [Phase 101]: 0.4.16 back-compat fixtures hand-authored (fallback), cross-checked vs git 3c179fe; byte-identical JSON.stringify round-trip is the R3 proof
 
 ## Known Bugs
 
