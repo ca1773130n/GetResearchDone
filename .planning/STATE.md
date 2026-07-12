@@ -155,6 +155,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 101]: Checkpoint types co-located in lib/research/types.ts (not lib/types.ts) — ResearchThread.pendingCheckpoint references Checkpoint
 - [Phase 101]: ResearchThread checkpoint fields are all OPTIONAL; pendingGate union + ThreadStatus untouched to preserve TERMINAL mirrors (portfolio.ts/paper.ts)
 - [Phase 101]: 0.4.16 back-compat fixtures hand-authored (fallback), cross-checked vs git 3c179fe; byte-identical JSON.stringify round-trip is the R3 proof
+- [Phase 101-03]: resolveGates(noGates) derives all-false from Object.keys(defaultGates()) — R1: no future gate can silently default-on for unattended callers
+- [Phase 101-03]: YOLO round-trip (yoloEnable/yoloDisable in config.ts) spreads raw research_gates into _saved_* verbatim so nested interactive key survives (R7)
 
 ## Known Bugs
 
