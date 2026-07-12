@@ -107,36 +107,14 @@ If action is `status`: stop here, display only.
 
 ### Step Y2: Enable YOLO mode (if target = on)
 
-1. **Save pre-YOLO gate state** for restoration:
-   - Store current `research_gates` as `_saved_research_gates`
-   - Store current `confirmation_gates` as `_saved_confirmation_gates`
-
-2. **Set autonomous mode**:
-   ```json
-   {
-     "autonomous_mode": true,
-     "research_gates": {
-       "survey_approval": false,
-       "deep_dive_approval": false,
-       "comparison_approval": false,
-       "feasibility_approval": false,
-       "verification_design": false,
-       "product_plan_approval": false,
-       "phase_plan_approval": false,
-       "plan_clarification": false,
-       "execution_approval": false
-     },
-     "confirmation_gates": {
-       "commit_confirmation": false,
-       "file_deletion": false,
-       "phase_completion": false,
-       "target_adjustment": false,
-       "approach_change": false
-     }
-   }
+1. **Toggle via CLI** (saves pre-YOLO gate state as `_saved_*`, disables all boolean
+   gates, and preserves unknown nested `research_gates` keys such as `interactive` —
+   do NOT hand-edit the JSON):
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-yolo on
    ```
 
-3. **Initialize decision log**:
+2. **Initialize decision log**:
    - Create `.planning/yolo-decisions.log` if not exists
    - Append session start entry:
      ```
@@ -144,7 +122,7 @@ If action is `status`: stop here, display only.
      Previous gates saved. All gates disabled.
      ```
 
-4. **Display activation**:
+3. **Display activation**:
    ```
    ╔══════════════════════════════════════════════════════════════╗
    ║                                                             ║
@@ -174,21 +152,13 @@ If action is `status`: stop here, display only.
 
 ### Step Y3: Disable YOLO mode (if target = off)
 
-1. **Restore saved gate states**:
-   - Read `_saved_research_gates` from config
-   - Read `_saved_confirmation_gates` from config
-   - If no saved state: use defaults
-
-2. **Set interactive mode**:
-   ```json
-   {
-     "autonomous_mode": false,
-     "research_gates": { ...restored_or_defaults... },
-     "confirmation_gates": { ...restored_or_defaults... }
-   }
+1. **Toggle via CLI** (restores `_saved_research_gates`/`_saved_confirmation_gates`
+   or defaults, preserving unknown nested keys — do NOT hand-edit the JSON):
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js config-yolo off
    ```
 
-3. **Close decision log session**:
+2. **Close decision log session**:
    - Append to `.planning/yolo-decisions.log`:
      ```
      === YOLO SESSION END: {YYYY-MM-DD HH:MM:SS} ===
@@ -197,7 +167,7 @@ If action is `status`: stop here, display only.
      ===
      ```
 
-4. **Display deactivation**:
+3. **Display deactivation**:
    ```
    ╔══════════════════════════════════════════════════════════════╗
    ║  GRD >>> YOLO MODE DISABLED                                 ║

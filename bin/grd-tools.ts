@@ -414,6 +414,7 @@ const {
   cmdVerifyPathExists,
   cmdConfigEnsureSection,
   cmdConfigSet,
+  cmdConfigYolo,
   cmdHistoryDigest,
   cmdResolveModel,
   cmdFindPhase,
@@ -465,6 +466,7 @@ const {
   cmdVerifyPathExists: (cwd: string, targetPath: string, raw: boolean, dryRun?: boolean) => void;
   cmdConfigEnsureSection: (cwd: string, raw: boolean, dryRun?: boolean) => void;
   cmdConfigSet: (cwd: string, key: string, value: string, raw: boolean, dryRun?: boolean) => void;
+  cmdConfigYolo: (cwd: string, mode: string, raw: boolean, dryRun?: boolean) => void;
   cmdHistoryDigest: (cwd: string, raw: boolean) => void;
   cmdResolveModel: (cwd: string, agentType: string, raw: boolean) => void;
   cmdFindPhase: (cwd: string, phase: string, raw: boolean) => void;
@@ -814,6 +816,10 @@ const ROUTE_DESCRIPTORS: RouteDescriptor[] = [
     command: 'config-set',
     handler: (args, cwd, raw) =>
       cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run')),
+  },
+  {
+    command: 'config-yolo',
+    handler: (args, cwd, raw) => cmdConfigYolo(cwd, args[1], raw, args.includes('--dry-run')),
   },
   { command: 'history-digest', handler: (_args, cwd, raw) => cmdHistoryDigest(cwd, raw) },
   {
@@ -1640,6 +1646,9 @@ async function routeCommand(
       break;
     case 'config-set':
       cmdConfigSet(cwd, args[1], args[2], raw, args.includes('--dry-run'));
+      break;
+    case 'config-yolo':
+      cmdConfigYolo(cwd, args[1], raw, args.includes('--dry-run'));
       break;
     case 'history-digest':
       cmdHistoryDigest(cwd, raw);
@@ -2558,6 +2567,7 @@ async function routeCommand(
         'verify-path-exists',
         'config-ensure-section',
         'config-set',
+        'config-yolo',
         'history-digest',
         'phases',
         'roadmap',

@@ -19,6 +19,7 @@ const _todo: {
 const _config: {
   cmdConfigEnsureSection: (cwd: string, raw: boolean) => void;
   cmdConfigSet: (cwd: string, key: string, value: string, raw: boolean) => void;
+  cmdConfigYolo: (cwd: string, mode: string, raw: boolean, dryRun?: boolean) => void;
   cmdVerifyPathExists: (cwd: string, targetPath: string, raw: boolean) => void;
 } = require('./config');
 
@@ -173,6 +174,7 @@ module.exports = {
   // config
   cmdConfigEnsureSection: _config.cmdConfigEnsureSection,
   cmdConfigSet: _config.cmdConfigSet,
+  cmdConfigYolo: _config.cmdConfigYolo,
   cmdVerifyPathExists: _config.cmdVerifyPathExists,
 
   // phase-info
