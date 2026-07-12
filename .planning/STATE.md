@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 98 | GoT Synthesis Execution Engine | Complete (2026-03-28) |
 | 99 | Knowledge Injection Loop | Complete (2026-03-25) |
 | 100 | Evaluation Benchmark Framework | Not started |
-| 101 | Checkpoint Core Plumbing + Config | Not started |
+| 101 | Checkpoint Core Plumbing + Config | Complete (2026-07-12) |
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Not started |
 | 103 | SEED Interview + DECIDE Branch | Not started |
 | 104 | HYPOTHESIZE Candidate Selection | Not started |

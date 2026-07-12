@@ -530,7 +530,7 @@ Plans:
 **Source:** `.planning/milestones/v0.5.0/research/SUMMARY.md` (§6 phase breakdown), `.planning/REQUIREMENTS.md` (REQ-194–REQ-209)
 **Start:** 2026-07-12
 
-- [ ] **Phase 101: Checkpoint Core Plumbing + Config** - Checkpoint schema/types, `lib/research/checkpoints.ts`, interactive config surface, default-off gate safety, resume-with-answers plumbing `implement`
+- [x] **Phase 101: Checkpoint Core Plumbing + Config** (Complete 2026-07-12) - Checkpoint schema/types, `lib/research/checkpoints.ts`, interactive config surface, default-off gate safety, resume-with-answers plumbing `implement`
 - [ ] **Phase 102: DESIGN Approval + Skill Checkpoint Loop** - Combined GATE-1 approval checkpoint, skill-layer AskUserQuestion loop, pending-checkpoint status rendering `implement`
 - [ ] **Phase 103: SEED Interview + DECIDE Branch** - Skill-layer socratic pre-loop interview, orchestrator clarify checkpoint, DECIDE continue/pivot/stop/adjust-budget branch `implement`
 - [ ] **Phase 104: HYPOTHESIZE Candidate Selection** - Multi-candidate hypothesis generation, pre-ledger selection checkpoint `implement`
