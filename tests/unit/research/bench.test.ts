@@ -236,6 +236,16 @@ describe('bench', () => {
     });
   });
 
+  describe('BENCH_WORKDIR_CONFIG', () => {
+    it('pins research_gates.interactive.enabled false and stays frozen (R1)', () => {
+      const rg = BENCH_WORKDIR_CONFIG.research_gates as {
+        interactive: { enabled: boolean };
+      };
+      expect(rg.interactive.enabled).toBe(false);
+      expect(Object.isFrozen(BENCH_WORKDIR_CONFIG)).toBe(true);
+    });
+  });
+
   describe('runBenchTask grading', () => {
     function loadSingle(manifest: Record<string, unknown>): BenchTask {
       const root = tmp();
@@ -346,7 +356,12 @@ describe('bench', () => {
         expect(cfg).toEqual(BENCH_WORKDIR_CONFIG);
         expect(cfg.research_sandbox).toBe('docker');
         expect(cfg.research_sandbox_network).toBe('none');
-        expect(cfg.research_gates).toEqual({ experiment_execution: false, kg_write: false });
+        expect(cfg.research_gates).toEqual({
+          experiment_execution: false, kg_write: false, interactive: { enabled: false },
+        });
+        // R1: the interactive checkpoint gate is pinned off so a bench run can
+        // never pause for a human (belt-and-braces with noGates:true).
+        expect(cfg.research_gates.interactive.enabled).toBe(false);
         expect(cfg.research_persist_knowledge).toBe(false);
         expect(cfg.research_eval_report).toBe(false);
         // Plateau re-surveys would raise thread.maxIterations past the

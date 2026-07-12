@@ -112,14 +112,16 @@ export interface BenchAggregate {
 }
 
 // The EXACT research config every bench workdir runs under: docker sandbox with
-// network off (closed world), both gates off (belt-and-braces with noGates), no
+// network off (closed world), all gates off — experiment_execution/kg_write plus
+// the interactive checkpoint gate pinned off (belt-and-braces with the noGates:true
+// passed at the run site; R1: a bench run must never pause for a human) — no
 // knowledge promotion into the throwaway workdir, no eval report, and no
 // plateau re-surveys — resurvey expansion raises thread.maxIterations past the
 // manifest's frozen budget, making results non-deterministic vs the manifest.
 const BENCH_WORKDIR_CONFIG: Readonly<Record<string, unknown>> = Object.freeze({
   research_sandbox: 'docker',
   research_sandbox_network: 'none',
-  research_gates: { experiment_execution: false, kg_write: false },
+  research_gates: { experiment_execution: false, kg_write: false, interactive: { enabled: false } },
   research_persist_knowledge: false,
   research_eval_report: false,
   research_max_resurveys: 0,
