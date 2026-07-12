@@ -157,6 +157,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 101]: 0.4.16 back-compat fixtures hand-authored (fallback), cross-checked vs git 3c179fe; byte-identical JSON.stringify round-trip is the R3 proof
 - [Phase 101-03]: resolveGates(noGates) derives all-false from Object.keys(defaultGates()) — R1: no future gate can silently default-on for unattended callers
 - [Phase 101-03]: YOLO round-trip (yoloEnable/yoloDisable in config.ts) spreads raw research_gates into _saved_* verbatim so nested interactive key survives (R7)
+- [Phase 101-02]: checkpoints.ts standalone — ZERO orchestrator.ts import (R1 lock); DI seam (checkpointHandler/saveThread/incrementCounter) mirrors spawn/runner
+- [Phase 101-02]: resolveInteractive reads GRD_AUTOPILOT via opts.env ?? process.env; consumeAnswered one-shot via module-level WeakSet (no Checkpoint field pollution)
 
 ## Known Bugs
 
@@ -169,7 +171,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 98-03-PLAN.md
+- **Stopped at:** Completed 101-02-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
