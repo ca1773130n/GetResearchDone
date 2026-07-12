@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
-  ExperimentResult, MeasureOutcome,
+  ExperimentResult, MeasureOutcome, Checkpoint, CheckpointAnswer,
 } from './types';
 import type { Runner } from './runner';
 
@@ -67,6 +67,13 @@ export interface ResearchOptions {
   retrieve?: (cwd: string, query: string, opts?: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>>; modes: Record<string, boolean>; detail: string }>;
   resurveyFetch?: (cwd: string, thread: ResearchThread, deps: { spawn: SpawnFn }) => Promise<void>;
   kgClient?: import('./tesserae').TesseraeClient;
+  // v0.5.0 interactive steering — resume-with-answers plumbing. checkpointAnswers keys are
+  // question ids → the chosen option label (+ optional freeform text). Never carries answer
+  // text from argv (file/stdin only, R8). DORMANT emission-wise this phase.
+  checkpointAnswers?: Record<string, { label: string; text?: string }>;
+  // One-shot interactive override (enable/disable + optional per-point list). Parsed & plumbed
+  // this phase; no emission site consumes it until Phase 102.
+  interactive?: { enabled?: boolean; points?: string[] };
 }
 
 export interface ResearchResult {
@@ -77,6 +84,9 @@ export interface ResearchResult {
   findingPath?: string;
   paused?: boolean;
   pendingGate?: 'execute' | 'kg_write';
+  // Set when a run pauses at an interactive checkpoint (Phase 102 emission). Present here so the
+  // resume-with-answers plumbing has a stable return shape; unset on the pendingGate paths.
+  pendingCheckpoint?: Checkpoint;
   errorReason?: string;
 }
 
@@ -390,6 +400,10 @@ async function finishKgSync(
 async function runLoop(
   cwd: string, thread: ResearchThread, opts: ResearchOptions,
   config: Record<string, unknown>, approved: { execute: boolean; kg_write: boolean },
+  // DORMANT this phase: a resumed checkpoint's resolved answers are threaded in but NO emission
+  // point consumes them yet (zero emission call sites — locked hybrid-churn strategy). The
+  // consumeAnswered wiring at the seed/hypothesize/design/decide stations lands in Phase 102.
+  _resumedCheckpoint?: Checkpoint,
 ): Promise<ResearchResult> {
   const runner: Runner = opts.runner || selectRunner(cwd, { timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
@@ -657,6 +671,28 @@ async function resumeResearch(cwd: string, id: string, opts: ResearchOptions = {
   }
   if (opts.noGates) {
     thread.gates = { execute: false, kg_write: false };
+  }
+  // RESUME-WITH-ANSWERS — runs BEFORE the pendingGate handling so a paused interactive
+  // checkpoint (Phase 102 emission) resolves independently of the execute/kg_write gates.
+  // With opts.checkpointAnswers → record human answers; on a bare resume (no --answers) OR
+  // --no-gates → pass no answers so resolveCheckpoint fills each question with its recommended
+  // option (answeredBy:'default') — the deterministic timeout behavior (no wall-clock timer).
+  if (thread.pendingCheckpoint) {
+    const { resolveCheckpoint } = require('./checkpoints') as {
+      resolveCheckpoint: (
+        c: string, t: ResearchThread, ck: Checkpoint, answers: CheckpointAnswer[],
+      ) => Checkpoint;
+    };
+    const ck = thread.pendingCheckpoint;
+    const answers: CheckpointAnswer[] = (!opts.noGates && opts.checkpointAnswers)
+      ? Object.entries(opts.checkpointAnswers).map(([questionId, a]) => ({
+        questionId, label: a.label, text: a.text, answeredBy: 'human' as const,
+      }))
+      : [];
+    // resolveCheckpoint appends checkpoints.jsonl, clears thread.pendingCheckpoint, and saves.
+    const resolved = resolveCheckpoint(cwd, thread, ck, answers);
+    thread.status = 'active'; saveThread(cwd, thread);
+    return runLoop(cwd, thread, opts, config, { execute: false, kg_write: false }, resolved);
   }
   const pending = thread.pendingGate;
   thread.pendingGate = null; thread.status = 'active'; saveThread(cwd, thread);
