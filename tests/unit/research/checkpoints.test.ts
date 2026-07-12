@@ -14,6 +14,7 @@ const {
   readInteractiveConfig,
   resolveInteractive,
   validateCheckpoint,
+  makeCheckpointId,
 } = require('../../../lib/research/checkpoints') as typeof import('../../../lib/research/checkpoints');
 
 const { threadDir } = require('../../../lib/research/thread') as {
@@ -144,6 +145,14 @@ describe('checkpoints — emit-time validation', () => {
 
   test('valid checkpoint passes validation', () => {
     expect(validateCheckpoint(makeCk()).ok).toBe(true);
+  });
+
+  test('a checkpoint with zero questions is invalid', () => {
+    expect(validateCheckpoint(makeCk({ questions: [] })).ok).toBe(false);
+  });
+
+  test('makeCheckpointId builds the canonical ck-<iter>-<point>-r<round> id', () => {
+    expect(makeCheckpointId(2, 'hypothesize', 1)).toBe('ck-2-hypothesize-r1');
   });
 });
 
