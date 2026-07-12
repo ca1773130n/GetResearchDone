@@ -75,6 +75,9 @@ function renderThreadLog(t: ResearchThread): string {
     `- **iteration:** ${t.iteration} / ${t.maxIterations}`,
     `- **station:** ${t.currentStation}`,
     `- **pending gate:** ${t.pendingGate ?? 'none'}`,
+    ...(t.pendingCheckpoint
+      ? [`- **pending checkpoint:** ${t.pendingCheckpoint.point} (${t.pendingCheckpoint.questions.length} questions)`]
+      : []),
     ...(t.seededFrom
       ? [`- **seeded from:** synthesis "${t.seededFrom.synthesisTopicId}" (${t.seededFrom.sourceNodeIds.length} source nodes)`]
       : []),
