@@ -107,7 +107,22 @@ gd bench list    # the task set (id, question, expected verdict)
 gd bench run     # run all tasks; --tasks a,b --keep-workdir --require-docker
 ```
 
-First published results table is a follow-up; v1 ships the harness and three seed tasks.
+First published results (2026-07-17, `gd bench run --require-docker`, network-off
+Docker sandbox, backend: codex `gpt-5.5` via `codex exec` — the scheduler's free
+fallback while claude accounts were rate-limited):
+
+| Task | Expected | Actual | Verdict match | Iters | Sandboxed | Pass |
+|---|---|---|---|---|---|---|
+| `cache-latency-slo` | refuted | refuted | ✓ | 2 | ✓ | ✗ |
+| `dedup-precision-gap` | inconclusive | supported | ✗ | 1 | ✓ | ✗ |
+| `noise-filter-recall` | supported | refuted | ✗ | 4 | ✓ | ✗ |
+
+**0/3 passed · verdict accuracy 33.3% · mean 2.33 iterations.** A pass needs the
+verdict to match *and* the loop to have kept the manifest's frozen metric contract
+— `cache-latency-slo` matched its verdict but drifted off the contract mid-loop.
+Grading is deterministic (no LLM judge), so this is an honest baseline for the
+loop as shipped, not a tuned showcase; expect scores to move with backend and
+retrieval configuration.
 
 ### Hands-on engineering tutorial
 
