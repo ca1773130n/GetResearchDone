@@ -35,9 +35,9 @@ describe('tool command delegation', () => {
     expect(args).toEqual(['version']);
   });
 
-  it('appends --raw when --json flag is set', () => {
+  it('does not append --raw when --json flag is set (JSON is the downstream default)', () => {
     const args = buildToolArgs('state', 'load', [], true);
-    expect(args).toEqual(['state', 'load', '--raw']);
+    expect(args).toEqual(['state', 'load']);
   });
 
   it('passes through extra positional args', () => {

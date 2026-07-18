@@ -31,7 +31,9 @@ export function buildToolArgs(
   if (subcommand) args.push(subcommand);
   args.push(...extraArgs);
   args.push(...passthrough);
-  if (jsonFlag) args.push('--raw');
+  // grd-tools outputs JSON by default and takes --raw for human text, so
+  // --json needs no translation; pushing --raw here inverted the contract.
+  void jsonFlag;
   return args;
 }
 
@@ -217,19 +219,24 @@ export function runToolCommand(
   }
 
   try {
+    // stderr is inherited, not piped: piped stderr only flushes when the child
+    // exits, so long-running commands (bench run, research) look hung during
+    // scheduler waits and lose all diagnostics if the process is killed.
     const stdout = execFileSync('node', [grdTools, ...args], {
       cwd,
       encoding: 'utf-8',
       maxBuffer: 50 * 1024 * 1024,
       env: { ...process.env },
+      stdio: ['inherit', 'pipe', 'inherit'],
     });
     return { exitCode: 0, stdout, stderr: '' };
   } catch (err: unknown) {
-    const error = err as { status?: number; stdout?: string; stderr?: string };
+    // stderr already streamed to the terminal via inherit; only stdout is piped.
+    const error = err as { status?: number; stdout?: string };
     return {
       exitCode: error.status || 1,
       stdout: error.stdout || '',
-      stderr: error.stderr || '',
+      stderr: '',
     };
   }
 }
