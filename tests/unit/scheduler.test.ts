@@ -116,6 +116,11 @@ describe('backend adapters', () => {
     it('detects rate limit', () => {
       expect(ADAPTERS.codex.isRateLimited(1, 'rate_limit_exceeded')).toBe(true);
     });
+    it('ignores rate-limit noise in stderr when exit is 0 (transient 429 retries succeeded)', () => {
+      expect(ADAPTERS.codex.isRateLimited(0, 'stream error: 429 Too Many Requests; retrying')).toBe(false);
+      expect(ADAPTERS.codex.isRateLimited(0, '"rate_limits":{"limit_id":"codex"}')).toBe(false);
+      expect(ADAPTERS.codex.isRateLimited(1, 'stream error: 429 Too Many Requests')).toBe(true);
+    });
     it('builds codex exec args (0.14x interface)', () => {
       const args = ADAPTERS.codex.buildArgs('test prompt', {});
       expect(args[0]).toBe('exec');
@@ -130,6 +135,7 @@ describe('backend adapters', () => {
     });
     it('detects RESOURCE_EXHAUSTED', () => {
       expect(ADAPTERS.gemini.isRateLimited(1, 'RESOURCE_EXHAUSTED')).toBe(true);
+      expect(ADAPTERS.gemini.isRateLimited(0, 'RESOURCE_EXHAUSTED')).toBe(false);
     });
   });
   describe('opencode adapter', () => {
@@ -316,6 +322,16 @@ describe('createScheduler', () => {
     };
     const scheduler = createScheduler(config);
     expect(scheduler!.getState('gemini')!.token_budget).toBe(40000);
+  });
+
+  it('gives codex-as-priority the large default budget (one research spawn exceeds 40k)', () => {
+    const config: SchedulerConfig = {
+      backend_priority: ['codex' as const],
+      free_fallback: { backend: 'opencode' as const },
+      prediction: { window_minutes: 15, ewma_alpha: 0.3, safety_margin_tasks: 1.5, min_samples: 3 },
+    };
+    const scheduler = createScheduler(config);
+    expect(scheduler!.getState('codex')!.token_budget).toBe(1000000);
   });
 });
 

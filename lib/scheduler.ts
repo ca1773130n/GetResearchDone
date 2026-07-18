@@ -179,7 +179,12 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       const match = stderr.match(/"total_tokens":\s*(\d+)/);
       return match ? parseInt(match[1], 10) : null;
     },
-    isRateLimited(_exitCode: number, stderr: string): boolean {
+    isRateLimited(exitCode: number, stderr: string): boolean {
+      // exit 0 = the task succeeded; stderr may still carry transient 429
+      // retry noise (codex retries internally), which must not cooldown the
+      // account — that false positive throttled healthy accounts to one
+      // spawn per recovery window.
+      if (exitCode === 0) return false;
       return /rate.limit|429|rate_limit_exceeded/i.test(stderr);
     },
   },
@@ -199,7 +204,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       const match = stderr.match(/tokenCount["\s:]*(\d+)/);
       return match ? parseInt(match[1], 10) : null;
     },
-    isRateLimited(_exitCode: number, stderr: string): boolean {
+    isRateLimited(exitCode: number, stderr: string): boolean {
+      if (exitCode === 0) return false;
       return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr);
     },
   },
@@ -226,7 +232,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       const match = stderr.match(/(?:tokenCount|total_tokens)["\s:]*(\d+)/i);
       return match ? parseInt(match[1], 10) : null;
     },
-    isRateLimited(_exitCode: number, stderr: string): boolean {
+    isRateLimited(exitCode: number, stderr: string): boolean {
+      if (exitCode === 0) return false;
       return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr);
     },
   },
@@ -244,7 +251,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       const match = stderr.match(/(?:total_tokens|tokens?.used)[\s:"]*(\d+)/i);
       return match ? parseInt(match[1], 10) : null;
     },
-    isRateLimited(_exitCode: number, stderr: string): boolean {
+    isRateLimited(exitCode: number, stderr: string): boolean {
+      if (exitCode === 0) return false;
       return /rate.limit|429|too many requests|quota/i.test(stderr);
     },
   },
@@ -262,7 +270,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       const match = stderr.match(/tokens?:\s*(\d+)/i);
       return match ? parseInt(match[1], 10) : null;
     },
-    isRateLimited(_exitCode: number, stderr: string): boolean {
+    isRateLimited(exitCode: number, stderr: string): boolean {
+      if (exitCode === 0) return false;
       return /rate.limit|429|quota/i.test(stderr);
     },
   },
@@ -288,6 +297,20 @@ const DEFAULT_BUDGET_TPM = 40000;
 
 /** Token-per-minute budget for the free-fallback backend (effectively unlimited). */
 export const FREE_FALLBACK_BUDGET = 1000000;
+
+/**
+ * Per-backend default budgets. Codex subscriptions sustain far more than
+ * claude's conservative default — a single research spawn (~150k tokens)
+ * exceeded 40k, so codex-as-priority throttled to one spawn per window.
+ * `scheduler.backend_limits.<backend>.tpm` still overrides.
+ */
+const BACKEND_DEFAULT_BUDGETS: Partial<Record<AdapterBackendId, number>> = {
+  codex: FREE_FALLBACK_BUDGET,
+};
+
+function defaultBudgetFor(backend: string): number {
+  return BACKEND_DEFAULT_BUDGETS[backend as AdapterBackendId] ?? DEFAULT_BUDGET_TPM;
+}
 
 /**
  * Creates a fresh BackendUsageState with the given token budget.
@@ -874,7 +897,7 @@ function _initAccountStates(
 
     const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
     const isFallback = backend === schedulerConfig.free_fallback.backend;
-    const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
+    const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : defaultBudgetFor(backend));
 
     for (const account of backendAccounts) {
       const stateKey = `${backend}/${account.config_dir}`;
@@ -1005,7 +1028,7 @@ export function createScheduler(
       const defaultBackend = superpowersConfig.default_backend as AdapterBackendId;
       if (!states.has(defaultBackend)) {
         const limit = schedulerConfig.backend_limits?.[defaultBackend]?.tpm;
-        const budget = limit ?? DEFAULT_BUDGET_TPM;
+        const budget = limit ?? defaultBudgetFor(defaultBackend);
         states.set(defaultBackend, createBackendState(budget));
       }
     }
@@ -1018,7 +1041,7 @@ export function createScheduler(
     for (const backend of new Set(allBackends)) {
       const limit = schedulerConfig.backend_limits?.[backend]?.tpm;
       const isFallback = backend === schedulerConfig.free_fallback.backend;
-      const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : DEFAULT_BUDGET_TPM);
+      const budget = limit ?? (isFallback ? FREE_FALLBACK_BUDGET : defaultBudgetFor(backend));
       states.set(backend, createBackendState(budget));
     }
   }
@@ -1143,7 +1166,7 @@ export function createScheduler(
       // Register the new state in the shared map so markInFlight/markComplete
       // mutations are visible to subsequent dispatches (previously a throw-away
       // orphan object silently lost budget accounting — I1).
-      state = createBackendState(DEFAULT_BUDGET_TPM);
+      state = createBackendState(defaultBudgetFor(backend));
       states.set(stateKey, state);
     }
     const args = adapter.buildArgs(prompt, opts);
@@ -1363,6 +1386,9 @@ export function createScheduler(
       );
       if (decision.unhealthy) {
         state.cooldown_until = decision.cooldownUntil ?? undefined;
+        process.stderr.write(
+          `[scheduler] ${stateKey} marked rate-limited/unhealthy (exit=${result.exitCode}), cooldown until ${decision.cooldownUntil ? new Date(decision.cooldownUntil).toISOString() : 'n/a'}\n`
+        );
         if (decision.exhausted) {
           return decision.coercedResult as SchedulerSpawnResult;
         }
@@ -1396,7 +1422,7 @@ export function createScheduler(
     recordExternalSample(stateKey: string, sample: UsageSample): void {
       let state = states.get(stateKey);
       if (!state) {
-        state = createBackendState(DEFAULT_BUDGET_TPM);
+        state = createBackendState(defaultBudgetFor(stateKey.split('/')[0]));
         states.set(stateKey, state);
       }
       recordSample(state, sample, prediction.window_minutes, prediction.ewma_alpha);
