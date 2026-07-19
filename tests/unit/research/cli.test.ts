@@ -30,6 +30,66 @@ describe('research cli', () => {
     expect(res.stderr).toContain('nope');
   });
 
+  describe('status pending-checkpoint rendering', () => {
+    function threadWithCheckpoint(cwd: string) {
+      const t = createThread(cwd, 'Approve the design?', {});
+      t.pendingCheckpoint = {
+        checkpoint_version: 1, id: 'ck-1-design-r1', point: 'design', type: 'approval',
+        iteration: 1, round: 1, createdAt: '2026-07-12T00:00:00.000Z',
+        questions: [
+          {
+            id: 'q1', ask: 'Approve & run the experiment as designed?',
+            options: [
+              { label: 'Revise', description: 'send back for revision' },
+              { label: 'Approve & run', description: 'proceed', recommended: true },
+            ],
+          },
+          {
+            id: 'q2', ask: 'Any metric contract edits?',
+            options: [
+              { label: 'No changes', description: 'keep as-is', recommended: true },
+            ],
+            freeform: true,
+          },
+        ],
+      };
+      t.status = 'paused';
+      saveThread(cwd, t);
+      return t;
+    }
+
+    it('--json path still returns the full thread with pendingCheckpoint intact (contract unchanged)', () => {
+      const cwd = tmp();
+      const t = threadWithCheckpoint(cwd);
+      const res = captureOutput(() => cmdResearchStatus(cwd, t.id, true));
+      const parsed = JSON.parse(res.stdout);
+      expect(parsed.pendingCheckpoint).toBeTruthy();
+      expect(parsed.pendingCheckpoint.questions).toHaveLength(2);
+      expect(parsed.pendingCheckpoint.point).toBe('design');
+    });
+
+    it('human (default, non --json) path renders questions, recommended marker, and resume hint', () => {
+      const cwd = tmp();
+      const t = threadWithCheckpoint(cwd);
+      const res = captureOutput(() => cmdResearchStatus(cwd, t.id, false));
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).toContain('Approve & run the experiment as designed?');
+      expect(res.stdout).toContain('Any metric contract edits?');
+      expect(res.stdout).toContain('Approve & run (recommended)');
+      expect(res.stdout).toContain('freeform text also accepted');
+      expect(res.stdout).toContain(`gd research resume ${t.id} --answers <file>`);
+    });
+
+    it('a thread with no pendingCheckpoint prints no checkpoint block (human path)', () => {
+      const cwd = tmp();
+      const t = createThread(cwd, 'No checkpoint here', {});
+      const res = captureOutput(() => cmdResearchStatus(cwd, t.id, false));
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).not.toContain('Pending checkpoint');
+      expect(res.stdout).not.toContain('--answers');
+    });
+  });
+
   describe('cmdResearchResume checkpoint answers', () => {
     it('forwards --answers checkpointAnswers through ResearchOptions to the resume-with-answers branch', async () => {
       const cwd = tmp();

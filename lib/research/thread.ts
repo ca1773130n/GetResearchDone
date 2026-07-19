@@ -88,6 +88,33 @@ function renderThreadLog(t: ResearchThread): string {
   ].join('\n');
 }
 
+/**
+ * Human-readable render of a thread's pendingCheckpoint (if any). Returns ''
+ * when there is no pending checkpoint. Used by `gd research status <id>`'s
+ * human (non --json) path — the R10 skill-less escape hatch: a user can read
+ * the questions/options/resume-hint without invoking the skill's
+ * AskUserQuestion protocol.
+ */
+function renderCheckpointQuestions(t: ResearchThread): string {
+  const ck = t.pendingCheckpoint;
+  if (!ck) return '';
+  const lines: string[] = [];
+  lines.push(`## Pending checkpoint: ${ck.point} (${ck.type}, round ${ck.round})`);
+  lines.push('');
+  for (const q of ck.questions) {
+    lines.push(`- ${q.ask}`);
+    const ordered = [...q.options].sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+    for (const opt of ordered) {
+      const marker = opt.recommended ? ' (recommended)' : '';
+      lines.push(`  - ${opt.label}${marker}: ${opt.description}`);
+    }
+    if (q.freeform) lines.push('  - (freeform text also accepted for this question)');
+  }
+  lines.push('');
+  lines.push(`Answer: gd research resume ${t.id} --answers <file>  (see the research skill's Interactive steering section)`);
+  return lines.join('\n');
+}
+
 function saveThread(cwd: string, thread: ResearchThread): void {
   const dir = threadDir(cwd, thread.id);
   fs.mkdirSync(dir, { recursive: true });
@@ -106,4 +133,5 @@ function listThreads(cwd: string): ResearchThread[] {
 module.exports = {
   THREADS_REL, slugify, threadId, threadDir, allocateThreadId,
   createThread, loadThread, saveThread, listThreads, renderThreadLog,
+  renderCheckpointQuestions,
 };

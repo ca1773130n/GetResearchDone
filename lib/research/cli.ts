@@ -3,7 +3,12 @@ const { output, error } = require('./../utils') as {
   output: (r: unknown, raw: boolean, rawVal?: unknown) => never;
   error: (m: string) => never;
 };
-const { listThreads, loadThread } = require('./thread');
+const { listThreads, loadThread, renderThreadLog, renderCheckpointQuestions } = require('./thread') as {
+  listThreads: (cwd: string) => Array<{ id: string; question: string; status: string; iteration: number }>;
+  loadThread: (cwd: string, id: string) => import('./types').ResearchThread;
+  renderThreadLog: (t: import('./types').ResearchThread) => string;
+  renderCheckpointQuestions: (t: import('./types').ResearchThread) => string;
+};
 const { runResearch, resumeResearch } = require('./orchestrator');
 import type { ResearchOptions } from './orchestrator';
 const { loadConfig } = require('./../utils') as { loadConfig: (cwd: string) => Record<string, unknown> };
@@ -39,6 +44,15 @@ function cmdResearchStatus(cwd: string, id: string | undefined, raw: boolean): n
   if (id) {
     let t;
     try { t = loadThread(cwd, id); } catch { return error(`research status: thread "${id}" not found`); }
+    // The --json/machine path (raw=true, per the "gd --json maps to grd-tools
+    // --raw" convention — see cmdResearchStart) is UNCHANGED: it must still
+    // return the full thread object incl. pendingCheckpoint for the skill's
+    // parser and any existing callers. Only the human (raw=false, default)
+    // path gains a pending-checkpoint render (R10 skill-less escape hatch).
+    if (!raw && t.pendingCheckpoint) {
+      process.stdout.write(`${renderThreadLog(t)}\n${renderCheckpointQuestions(t)}\n`);
+      process.exit(0);
+    }
     return output(t, raw, raw ? JSON.stringify(t) : undefined);
   }
   const threads = listThreads(cwd).map((t: { id: string; question: string; status: string; iteration: number }) =>
