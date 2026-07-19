@@ -1002,7 +1002,10 @@ describe('DESIGN approval checkpoint (Phase 102)', () => {
       research_gates: {
         experiment_execution: false,
         kg_write: false,
-        interactive: { enabled: true, design: true, max_rounds: 2 },
+        // decide:false isolates these to the DESIGN station — the Phase 103 DECIDE checkpoint
+        // (default-on when interactive.enabled) would otherwise legitimately pause the
+        // would-continue branch after a refuted verdict.
+        interactive: { enabled: true, design: true, decide: false, max_rounds: 2 },
       },
       ...extra,
     }));
@@ -1298,5 +1301,194 @@ describe('SEED clarification checkpoint (Phase 103)', () => {
     const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
     expect(log.length).toBe(1); // only the original seed resolve — no re-ask
     expect(log[0].point).toBe('seed');
+  });
+});
+
+describe('DECIDE branch checkpoint (Phase 103)', () => {
+  const { loadThread } = require('../../../lib/research/thread');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+
+  function threadDirOf(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id);
+  }
+
+  // decide ON; seed/hypothesize/design OFF so ONLY the DECIDE station can pause.
+  // experiment_execution/kg_write off so the classic gates never pause the loop.
+  function writeDecideConfig(cwd: string): void {
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false,
+        kg_write: false,
+        interactive: { enabled: true, decide: true, seed: false, hypothesize: false, design: false },
+      },
+    }));
+  }
+
+  // Hypothesizer/experiment/miner spawn that counts hypothesizer calls and captures the last
+  // hypothesizer prompt (to prove the PIVOT path fires on a pivot resume). Seed off ⇒ no clarifier.
+  function makeDecideSpawn() {
+    const state = { hypoCalls: 0, lastHypoPrompt: '' };
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        state.hypoCalls++; state.lastHypoPrompt = prompt;
+        return `__HYPOTHESIS__ {"statement":"h${state.hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"needs work","confidence":0.5,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    return { spawn, state };
+  }
+
+  // Always-refuting runner (accuracy 0.5 < target 0.8) so the loop WOULD continue; counts runs.
+  function refutingRunner() {
+    const state = { runs: 0 };
+    const runner = { run: () => { state.runs++; return { metrics: { accuracy: 0.5 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }; } };
+    return { runner, state };
+  }
+
+  function supportedRunner() {
+    return { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+  }
+
+  it('WOULD-CONTINUE + decide on ⇒ pauses with pendingCheckpoint.point="decide" after MEASURE, before the iteration increments', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const { spawn, state } = makeDecideSpawn();
+    const res = await runResearch(cwd, 'Does batching help?', { maxIterations: 5, spawn, runner: refutingRunner().runner, noGates: false });
+    expect(res.status).toBe('paused');
+    expect(res.paused).toBe(true);
+    expect(res.pendingCheckpoint?.point).toBe('decide');
+    expect(res.pendingCheckpoint?.type).toBe('branch');
+    expect(res.pendingCheckpoint?.iteration).toBe(1); // paused BEFORE the increment
+    expect(res.pendingGate).toBeUndefined();
+    expect(state.hypoCalls).toBe(1); // exactly one iteration ran
+    // Single question, exactly one recommended, four continue/pivot/stop/adjust options.
+    expect(res.pendingCheckpoint?.questions.length).toBe(1);
+    const q1 = res.pendingCheckpoint!.questions[0];
+    expect(q1.options.map((o: any) => o.label)).toEqual(['Continue', 'Pivot', 'Stop', 'Adjust budget']);
+    expect(q1.options.filter((o: any) => o.recommended === true).length).toBe(1);
+    // Evidence summary in the context.
+    expect(res.pendingCheckpoint?.context).toContain('verdict: refuted');
+    expect(res.pendingCheckpoint?.context).toContain('measured 0.5');
+    expect(res.pendingCheckpoint?.context).toContain('iteration 1 of 5');
+  });
+
+  it('TERMINAL verdict is NOT delayed: a supported verdict finalizes with NO decide checkpoint', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const { spawn } = makeDecideSpawn();
+    const res = await runResearch(cwd, 'Precise question', { maxIterations: 5, spawn, runner: supportedRunner(), noGates: false });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('TERMINAL (budget exhausted) is NOT delayed: last-iteration refuted finalizes exhausted, no decide checkpoint', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const { spawn } = makeDecideSpawn();
+    const res = await runResearch(cwd, 'One shot', { maxIterations: 1, spawn, runner: refutingRunner().runner, noGates: false });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('exhausted');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('CONTINUE resume ⇒ iteration advances and the next hypothesis runs (pauses again at iter 2)', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const first = await runResearch(cwd, 'Continue me', { maxIterations: 5, spawn: makeDecideSpawn().spawn, runner: refutingRunner().runner, noGates: false });
+    expect(first.pendingCheckpoint?.iteration).toBe(1);
+    const resume = makeDecideSpawn();
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: refutingRunner().runner, noGates: false,
+      checkpointAnswers: { q1: { label: 'Continue' } },
+    });
+    expect(res.status).toBe('paused');
+    expect(res.pendingCheckpoint?.point).toBe('decide');
+    expect(res.pendingCheckpoint?.iteration).toBe(2); // advanced one iteration
+    expect(resume.state.hypoCalls).toBe(1); // next hypothesis ran (cold HYPOTHESIZE)
+  });
+
+  it('PIVOT resume ⇒ pendingPivot drives the next HYPOTHESIZE down the pivot path', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const first = await runResearch(cwd, 'Pivot me', { maxIterations: 5, spawn: makeDecideSpawn().spawn, runner: refutingRunner().runner, noGates: false });
+    const resume = makeDecideSpawn();
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: refutingRunner().runner, noGates: false,
+      checkpointAnswers: { q1: { label: 'Pivot' } },
+    });
+    expect(res.pendingCheckpoint?.iteration).toBe(2);
+    expect(resume.state.lastHypoPrompt).toContain('PIVOT HARD'); // pivot path fired
+  });
+
+  it('ADJUST-BUDGET resume ⇒ maxIterations increased by DECIDE_BUDGET_BUMP; loop continues', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const first = await runResearch(cwd, 'More budget', { maxIterations: 2, spawn: makeDecideSpawn().spawn, runner: refutingRunner().runner, noGates: false });
+    expect(first.pendingCheckpoint?.iteration).toBe(1);
+    const resume = makeDecideSpawn();
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: refutingRunner().runner, noGates: false,
+      checkpointAnswers: { q1: { label: 'Adjust budget' } },
+    });
+    expect(res.status).toBe('paused');
+    const t = loadThread(cwd, first.threadId);
+    expect(t.maxIterations).toBe(4); // 2 + DECIDE_BUDGET_BUMP(2)
+    expect(res.pendingCheckpoint?.iteration).toBe(2);
+  });
+
+  it('STOP resume ⇒ finalizes exhausted, writes FINDING from the persisted result, no re-run of the completed experiment', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const firstRunner = refutingRunner();
+    const first = await runResearch(cwd, 'Stop me', { maxIterations: 5, spawn: makeDecideSpawn().spawn, runner: firstRunner.runner, noGates: false });
+    expect(first.pendingCheckpoint?.point).toBe('decide');
+    const resume = makeDecideSpawn();
+    const resumeRunner = refutingRunner();
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: resumeRunner.runner, noGates: false,
+      checkpointAnswers: { q1: { label: 'Stop' } },
+    });
+    expect(res.status).toBe('exhausted');
+    expect(res.paused).toBeFalsy();
+    // No re-run: neither the runner nor the hypothesizer fire for the already-completed iteration.
+    expect(resume.state.hypoCalls).toBe(0);
+    expect(resumeRunner.state.runs).toBe(0);
+    const findingText = fs.readFileSync(path.join(threadDirOf(cwd, first.threadId), 'FINDING.md'), 'utf8');
+    expect(findingText).toContain('verdict:** exhausted');
+    expect(findingText).toContain('0.5'); // metric from the persisted result.json
+  });
+
+  it('BYTE-IDENTICAL DEFAULT: interactive off ⇒ no decide checkpoint; loop drives to exhausted', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: { experiment_execution: false, kg_write: false },
+    }));
+    const { spawn } = makeDecideSpawn();
+    const res = await runResearch(cwd, 'Baseline pre-103 loop', { maxIterations: 2, spawn, runner: refutingRunner().runner, noGates: false });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('exhausted');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('NO DOUBLE-ASK: a stop resume resolves the decide checkpoint exactly once', async () => {
+    const cwd = tmp();
+    writeDecideConfig(cwd);
+    const first = await runResearch(cwd, 'Ask once', { maxIterations: 5, spawn: makeDecideSpawn().spawn, runner: refutingRunner().runner, noGates: false });
+    const resume = makeDecideSpawn();
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: refutingRunner().runner, noGates: false,
+      checkpointAnswers: { q1: { label: 'Stop' } },
+    });
+    expect(res.paused).toBeFalsy();
+    const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
+    expect(log.length).toBe(1); // only the one decide resolve
+    expect(log[0].point).toBe('decide');
   });
 });
