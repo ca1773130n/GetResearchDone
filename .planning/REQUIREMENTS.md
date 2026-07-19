@@ -42,7 +42,7 @@ the deterministic verdict path is untouchable.
 ### REQ-199: DESIGN Approval Checkpoint
 **Priority:** P1 — High
 **Category:** Loop
-**Description:** Combined pause at the existing GATE-1 (execute gate) site — one pause, never two. Approval checkpoint carries metric/comparator/target + script approach; "Approve & run" consumes the execute gate (`approved.execute = true`); contract edits apply strictly BEFORE the committed pin (debug-loop pinning must never overwrite user edits); "Revise" re-plans round-capped at 2; "Abort" → abandoned. Resume reuses the persisted approved plan — never re-derives. Fires iteration 1 only unless `every_iteration:true`.
+**Description:** Combined pause at the existing GATE-1 (execute gate) site — one pause, never two. Approval checkpoint carries metric/comparator/target + script approach; "Approve & run" consumes the execute gate via the top-of-loop persisted-plan reuse fast-path (the approve answer is consumed one-shot before any HYPOTHESIZE/DESIGN spawn — it does not set `approved.execute`); contract edits apply strictly BEFORE the committed pin (debug-loop pinning must never overwrite user edits); "Revise" re-plans round-capped at 2; "Abort" → abandoned. Resume reuses the persisted approved plan — never re-derives. Fires iteration 1 only unless `every_iteration:true`.
 
 ### REQ-200: Skill-Layer Checkpoint Protocol
 **Priority:** P1 — High
