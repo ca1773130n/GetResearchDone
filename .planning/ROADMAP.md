@@ -589,7 +589,7 @@ Plans:
   2. The orchestrator's `buildClarifyPrompt` + `__CLARIFY__` block parse raises zero checkpoints when zero ambiguous dimensions are detected (one spawn, zero pauses); answers fold into `thread.refinedQuestion` without mutating `thread.question` (which seeds `threadId`); the checkpoint is skipped entirely for seeded threads.
   3. The DECIDE branch checkpoint fires ONLY when the loop would otherwise continue (it never delays a terminal verdict); single round; options are continue/pivot/stop/adjust-budget with an evidence summary in context.
   4. Pivot routes to `pendingPivot`; stop routes to the finalize path; `evaluateVerdict`, the committed contract pin, and `shouldTerminate`/`decideBranch` remain untouched — DECIDE overrides continuation only, never the verdict.
-**Plans**: TBD
+**Plans**: 3 plans (2 waves)
 
 Plans:
 - [ ] 103-01: Skill-layer socratic pre-loop interview in commands/research.md (one-question-at-a-time, falsifiable-target stop condition)
