@@ -7,7 +7,10 @@ import type {
   InteractiveConfig, Comparator,
 } from './types';
 import type { Runner } from './runner';
-import type { CheckpointHandler, ResolveInteractiveOpts } from './checkpoints';
+import type {
+  CheckpointHandler, ResolveInteractiveOpts,
+  AnswerViaDiscussionConfig, AnswerViaDiscussionDeps,
+} from './checkpoints';
 
 const { loadConfig } = require('./../utils') as { loadConfig: (cwd: string) => Record<string, unknown> };
 const { incrementCounter } = require('./../metrics') as { incrementCounter: (n: string, d?: number) => void };
@@ -29,6 +32,7 @@ const { scoreReconstructability } = require('./reconstructability') as {
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const {
   emitCheckpoint, consumeAnswered, makeCheckpointId, resolveInteractive, readInteractiveConfig,
+  resolveCheckpoint, answerViaDiscussion,
 } = require('./checkpoints') as {
   emitCheckpoint: (
     cwd: string, thread: ResearchThread, ck: Checkpoint,
@@ -40,6 +44,13 @@ const {
   makeCheckpointId: (iteration: number, point: CheckpointPoint, round: number) => string;
   resolveInteractive: (cfg: InteractiveConfig, opts?: ResolveInteractiveOpts) => { active: boolean };
   readInteractiveConfig: (cwd: string) => InteractiveConfig;
+  resolveCheckpoint: (
+    cwd: string, thread: ResearchThread, ck: Checkpoint, answers: CheckpointAnswer[],
+    deps?: { saveThread?: (c: string, t: ResearchThread) => void },
+  ) => Checkpoint;
+  answerViaDiscussion: (
+    cwd: string, ck: Checkpoint, cfg?: AnswerViaDiscussionConfig, deps?: AnswerViaDiscussionDeps,
+  ) => CheckpointAnswer[];
 };
 const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt } = require('./_prompts') as {
   buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
@@ -109,6 +120,17 @@ export interface ResearchOptions {
   // Injected checkpoint pause/answer handler (mirrors spawn/runner DI) — tests supply a
   // deterministic non-pausing handler; default (undefined) pauses via checkpoints.ts.
   checkpointHandler?: CheckpointHandler;
+  // AI-panel fallback DI (Phase 105-02). answerViaDiscussion is the unattended `fallback:'panel'`
+  // resolver (default = checkpoints.answerViaDiscussion); panelDeps are threaded into it so tests
+  // stub the panel/detector and never spawn. Both undefined in production.
+  answerViaDiscussion?: (
+    cwd: string, ck: Checkpoint, cfg?: AnswerViaDiscussionConfig, deps?: AnswerViaDiscussionDeps,
+  ) => CheckpointAnswer[];
+  panelDeps?: AnswerViaDiscussionDeps;
+  // Portfolio concurrency (Phase 105-02). Threaded from runPortfolio so a concurrent run (>1) forces
+  // resolveInteractive INACTIVE — a concurrent thread NEVER pauses for a human (R1) — while still
+  // routing through the AI-panel fallback inline when fallback:'panel'.
+  concurrency?: number;
 }
 
 export interface ResearchResult {
@@ -482,6 +504,58 @@ function applyContractEditsFromFreeform(plan: ExperimentPlan, text: string): voi
   }
 }
 
+/**
+ * Unattended AI-panel engagement (REQ-208): a checkpoint point wants to fire (cfg.enabled &&
+ * pointEnabled && its iteration gate), the run is UNATTENDED (`attended` = resolveInteractive.active
+ * is false — autonomous/autopilot/portfolio-concurrency/--no-gates), AND fallback is 'panel'. When
+ * interactive is disabled or fallback is 'recommended' this is false → today's byte-identical
+ * recommended-defaults path is preserved unchanged.
+ */
+function engagedPanel(
+  cfg: InteractiveConfig, attended: boolean, pointEnabled: boolean, iterGate: boolean,
+): boolean {
+  return Boolean(cfg.enabled) && pointEnabled && iterGate && !attended && cfg.fallback === 'panel';
+}
+
+/** The loop's own spawn backend — excluded from the AI panel so it never self-consults. */
+function deriveLoopBackend(config: Record<string, unknown>): string | undefined {
+  const backend = (config as { backend?: unknown }).backend;
+  if (typeof backend === 'string' && backend) return backend;
+  const sp = (config as { superpowers?: { default_backend?: unknown } }).superpowers;
+  const def = sp?.default_backend;
+  return typeof def === 'string' && def ? def : undefined;
+}
+
+/**
+ * Resolve a checkpoint INLINE (no human, no pause) on the unattended `fallback:'panel'` path
+ * (REQ-208). The panel answers via `answerViaDiscussion` (degrade-safe: every failure path yields
+ * recommended defaults); the resolved record is appended to checkpoints.jsonl and thread state is
+ * mutated IDENTICALLY to a human resume (resolveCheckpoint) — but status is NEVER set to 'paused'.
+ * The returned resolved Checkpoint is fed back through the loop's top-of-loop consume machinery
+ * (via `continue`), so the answer is applied by the exact same code path a human resume uses.
+ * Telemetry: `research.checkpoint_panel_answered_total` when the panel produced a real decision,
+ * else `research.checkpoint_panel_unavailable_total` (empty/rate-limited panel → recommended default).
+ */
+function resolveCheckpointInline(
+  cwd: string, thread: ResearchThread, ck: Checkpoint,
+  cfg: InteractiveConfig, opts: ResearchOptions, config: Record<string, unknown>,
+): Checkpoint {
+  let answers: CheckpointAnswer[];
+  if (cfg.fallback === 'panel') {
+    const panelFn = opts.answerViaDiscussion || answerViaDiscussion;
+    answers = panelFn(cwd, ck, { loopBackend: deriveLoopBackend(config) }, opts.panelDeps);
+    const anyPanel = answers.some((a) => a.answeredBy === 'panel');
+    incrementCounter(anyPanel
+      ? 'research.checkpoint_panel_answered_total'
+      : 'research.checkpoint_panel_unavailable_total');
+  } else {
+    // Defensive: only ever called on the panel path. Empty answers → resolveCheckpoint fills each
+    // question with its recommended default (byte-identical to the recommended fallback).
+    answers = [];
+  }
+  return resolveCheckpoint(cwd, thread, ck, answers);
+}
+
 /** Build the Q1(approve/revise/abort)+Q2(freeform contract edit) design-approval checkpoint. */
 function buildDesignCheckpoint(
   thread: ResearchThread, hyp: Hypothesis, plan: ExperimentPlan, round: number,
@@ -522,7 +596,7 @@ function buildDesignCheckpoint(
 /** Resolve whether the DESIGN checkpoint is active for this iteration (R1: default-off, no unattended pause). */
 function resolveDesignPosture(
   cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
-): { active: boolean; cfg: InteractiveConfig } {
+): { active: boolean; panel: boolean; cfg: InteractiveConfig } {
   const baseCfg = readInteractiveConfig(cwd);
   const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
     ? { ...baseCfg, enabled: opts.interactive.enabled }
@@ -530,13 +604,15 @@ function resolveDesignPosture(
   const posture = resolveInteractive(cfg, {
     noGates: opts.noGates,
     autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+    concurrency: opts.concurrency,
   });
   const designPointEnabled = opts.interactive?.points
     ? opts.interactive.points.includes('design')
     : cfg.design;
-  const active = posture.active && designPointEnabled
-    && (cfg.every_iteration || thread.iteration === 1);
-  return { active, cfg };
+  const iterGate = cfg.every_iteration || thread.iteration === 1;
+  const active = posture.active && designPointEnabled && iterGate;
+  const panel = engagedPanel(cfg, posture.active, designPointEnabled, iterGate);
+  return { active, panel, cfg };
 }
 
 /**
@@ -547,7 +623,7 @@ function resolveDesignPosture(
  */
 function resolveSeedPosture(
   cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
-): { active: boolean; cfg: InteractiveConfig } {
+): { active: boolean; panel: boolean; cfg: InteractiveConfig } {
   const baseCfg = readInteractiveConfig(cwd);
   const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
     ? { ...baseCfg, enabled: opts.interactive.enabled }
@@ -555,13 +631,16 @@ function resolveSeedPosture(
   const posture = resolveInteractive(cfg, {
     noGates: opts.noGates,
     autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+    concurrency: opts.concurrency,
   });
   const seedPointEnabled = opts.interactive?.points
     ? opts.interactive.points.includes('seed')
     : cfg.seed;
-  const active = posture.active && seedPointEnabled
-    && thread.iteration === 1 && !thread.seededFrom && thread.refinedQuestion === undefined;
-  return { active, cfg };
+  // SEED once-per-thread gate: iteration 1, never a seeded thread, refinedQuestion still undefined.
+  const seedGate = thread.iteration === 1 && !thread.seededFrom && thread.refinedQuestion === undefined;
+  const active = posture.active && seedPointEnabled && seedGate;
+  const panel = engagedPanel(cfg, posture.active, seedPointEnabled, seedGate);
+  return { active, panel, cfg };
 }
 
 /** Build the point='seed' type='clarification' checkpoint from normalized clarify dimensions. */
@@ -598,7 +677,7 @@ function buildSeedCheckpoint(
  */
 function resolveDecidePosture(
   cwd: string, opts: ResearchOptions, config: Record<string, unknown>, _thread: ResearchThread,
-): { active: boolean; cfg: InteractiveConfig } {
+): { active: boolean; panel: boolean; cfg: InteractiveConfig } {
   const baseCfg = readInteractiveConfig(cwd);
   const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
     ? { ...baseCfg, enabled: opts.interactive.enabled }
@@ -606,12 +685,15 @@ function resolveDecidePosture(
   const posture = resolveInteractive(cfg, {
     noGates: opts.noGates,
     autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+    concurrency: opts.concurrency,
   });
   const decidePointEnabled = opts.interactive?.points
     ? opts.interactive.points.includes('decide')
     : cfg.decide;
+  // DECIDE is continuation steering — NOT iteration-1-gated (every would-continue point may fire).
   const active = posture.active && decidePointEnabled;
-  return { active, cfg };
+  const panel = engagedPanel(cfg, posture.active, decidePointEnabled, true);
+  return { active, panel, cfg };
 }
 
 /**
@@ -663,7 +745,7 @@ function buildDecideCheckpoint(
  */
 function resolveSelectPosture(
   cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
-): { active: boolean; cfg: InteractiveConfig } {
+): { active: boolean; panel: boolean; cfg: InteractiveConfig } {
   const baseCfg = readInteractiveConfig(cwd);
   const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
     ? { ...baseCfg, enabled: opts.interactive.enabled }
@@ -671,13 +753,15 @@ function resolveSelectPosture(
   const posture = resolveInteractive(cfg, {
     noGates: opts.noGates,
     autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+    concurrency: opts.concurrency,
   });
   const hypothesizeEnabled = opts.interactive?.points
     ? opts.interactive.points.includes('hypothesize')
     : cfg.hypothesize;
-  const active = posture.active && hypothesizeEnabled
-    && (cfg.every_iteration || thread.iteration === 1);
-  return { active, cfg };
+  const iterGate = cfg.every_iteration || thread.iteration === 1;
+  const active = posture.active && hypothesizeEnabled && iterGate;
+  const panel = engagedPanel(cfg, posture.active, hypothesizeEnabled, iterGate);
+  return { active, panel, cfg };
 }
 
 /**
@@ -742,6 +826,10 @@ async function runLoop(
   const retrieveFn = opts.retrieve || ((c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) }));
   const spawnRetries = readSpawnRetries(cwd);
   const debugDepth = readDebugDepth(cwd);
+  // Mutable so the unattended AI-panel fallback (REQ-208) can inject a just-resolved checkpoint and
+  // `continue`, re-entering the SAME top-of-loop consume machinery a human resume uses (zero
+  // duplication of answer-application logic). One-shot per object via the consumeAnswered WeakSet.
+  let resumed = resumedCheckpoint;
 
   for (;;) {
     const priorHyps: Hypothesis[] = readLedger(cwd, thread.id);
@@ -755,7 +843,7 @@ async function runLoop(
     // must SHORT-CIRCUIT: advance the iteration (continue/pivot/adjust-budget) or finalize (stop)
     // — it never re-enters HYPOTHESIZE/DESIGN/RUN for the already-completed iteration. No-op when
     // there is no resumed decide answer (normal same-process flow reaches DECIDE at the bottom).
-    const decideAns = consumeAnswered(resumedCheckpoint ?? null, 'decide', thread.iteration);
+    const decideAns = consumeAnswered(resumed ?? null, 'decide', thread.iteration);
     if (decideAns) {
       const q1Label = decideAns.find((a) => a.questionId === 'q1')?.label;
       if (q1Label === 'Stop') {
@@ -800,7 +888,7 @@ async function runLoop(
     // fix for the re-derive blocker: on a checkpoint resume `approved.execute` is FALSE, so
     // without this hoist the old GATE-1 placement would re-spawn DESIGN (REQ-199).
     const designPosture = resolveDesignPosture(cwd, opts, config, thread);
-    const dAns = consumeAnswered(resumedCheckpoint ?? null, 'design', thread.iteration);
+    const dAns = consumeAnswered(resumed ?? null, 'design', thread.iteration);
     let designResolution: 'approve' | 'revise' | 'abort' | null = null;
     if (dAns && resumable && fs.existsSync(planFile)) {
       const q1Label = dAns.find((a) => a.questionId === 'q1')?.label;
@@ -833,7 +921,7 @@ async function runLoop(
     // Runs only when NOT resolving a design resume (designResolution === null), BEFORE any
     // HYPOTHESIZE spawn. Once per thread (resolveSeedPosture gates on refinedQuestion===undefined).
     if (designResolution === null) {
-      const sAns = consumeAnswered(resumedCheckpoint ?? null, 'seed', thread.iteration);
+      const sAns = consumeAnswered(resumed ?? null, 'seed', thread.iteration);
       if (sAns) {
         // FOLD: compose refinedQuestion from the chosen answers; thread.question stays VERBATIM
         // (it seeds threadId). Falls through to HYPOTHESIZE, which grounds on the refined text.
@@ -841,7 +929,7 @@ async function runLoop(
         saveThread(cwd, thread);
       } else {
         const seedPosture = resolveSeedPosture(cwd, opts, config, thread);
-        if (seedPosture.active) {
+        if (seedPosture.active || seedPosture.panel) {
           // Spawn the clarifier. parseClarifyOutput never returns null, so a null value here
           // means a hard spawn failure — degrade-safe: treat as zero ambiguous dimensions.
           const cRes = await spawnAndParse(
@@ -855,12 +943,19 @@ async function runLoop(
             saveThread(cwd, thread);
           } else {
             const ck = buildSeedCheckpoint(thread, dimensions, 1);
-            emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
-            if (thread.status === 'paused') {
-              return {
-                threadId: thread.id, status: 'paused', iterations: thread.iteration,
-                paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
-              };
+            if (seedPosture.active) {
+              emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+              if (thread.status === 'paused') {
+                return {
+                  threadId: thread.id, status: 'paused', iterations: thread.iteration,
+                  paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+                };
+              }
+            } else {
+              // Unattended fallback:'panel' — resolve inline (no pause) and re-enter the loop so the
+              // top-of-loop SEED consume folds the answer into refinedQuestion (same code as resume).
+              resumed = resolveCheckpointInline(cwd, thread, ck, seedPosture.cfg, opts, config);
+              continue;
             }
           }
         }
@@ -894,7 +989,7 @@ async function runLoop(
       // write), so `resumable` is undefined and the if/else above naturally lands here. Reconstruct
       // the chosen candidate from the checkpoint record and append ONLY it (unchosen never enter
       // the ledger). One-shot (consumeAnswered WeakSet) so it can never re-consume. No-op otherwise.
-      const selAns = consumeAnswered(resumedCheckpoint ?? null, 'hypothesize', thread.iteration);
+      const selAns = consumeAnswered(resumed ?? null, 'hypothesize', thread.iteration);
       const seededHyp = priorHyps.find(
         (h) => h.iteration === thread.iteration && h.origin === 'synthesis'
           && h.verdict === null && h.status === 'testing',
@@ -905,7 +1000,7 @@ async function runLoop(
         const text = a?.text;
         let candidates: HypothesisCandidate[] = [];
         try {
-          const parsedCtx = JSON.parse(resumedCheckpoint?.context ?? '[]');
+          const parsedCtx = JSON.parse(resumed?.context ?? '[]');
           if (Array.isArray(parsedCtx)) candidates = parsedCtx as HypothesisCandidate[];
         } catch { /* guarded — malformed context → [] */ }
         const matched = candidates.find((c) => c.statement === label);
@@ -970,7 +1065,7 @@ async function runLoop(
         // off, this whole block is skipped and the single-block path runs exactly as before.
         let coldHyp: Hypothesis | null = null;
         const selPosture = resolveSelectPosture(cwd, opts, config, thread);
-        if (selPosture.active) {
+        if (selPosture.active || selPosture.panel) {
           const n = selPosture.cfg.hypothesis_candidates;
           const mRes = await spawnAndParse(
             spawn,
@@ -994,16 +1089,24 @@ async function runLoop(
             thread.checkpointRounds = { ...thread.checkpointRounds, hypothesize: round };
             saveThread(cwd, thread);
             const ck = buildSelectCheckpoint(thread, candidates, round);
-            emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
-            if (thread.status === 'paused') {
-              // ZERO POLLUTION: pause BEFORE any appendHypothesis — the unchosen candidates live
-              // only in the checkpoint record (context), never the ledger.
-              return {
-                threadId: thread.id, status: 'paused', iterations: thread.iteration,
-                paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
-              };
+            if (selPosture.active) {
+              emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+              if (thread.status === 'paused') {
+                // ZERO POLLUTION: pause BEFORE any appendHypothesis — the unchosen candidates live
+                // only in the checkpoint record (context), never the ledger.
+                return {
+                  threadId: thread.id, status: 'paused', iterations: thread.iteration,
+                  paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+                };
+              }
+              // Non-pausing handler → fall through to the single-block degrade below (never wedge).
+            } else {
+              // Unattended fallback:'panel' — resolve inline (no pause), then re-enter the loop so the
+              // top-of-loop HYPOTHESIZE consume reconstructs the chosen candidate from ck.context and
+              // appends ONLY it (zero ledger pollution — same code path a human resume uses).
+              resumed = resolveCheckpointInline(cwd, thread, ck, selPosture.cfg, opts, config);
+              continue;
             }
-            // Non-pausing handler → fall through to the single-block degrade below (never wedge).
           } else if (candidates.length === 1) {
             const c = candidates[0];
             coldHyp = {
@@ -1068,6 +1171,14 @@ async function runLoop(
             paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
           };
         }
+      } else if (designPosture.panel) {
+        // Unattended fallback:'panel' — resolve GATE-1 inline (no pause), then re-enter the loop so
+        // the top-of-loop DESIGN consume applies approve/revise/abort (reusing the persisted plan on
+        // approve; never re-derives). The execute gate is auto-off in the unattended context.
+        const round = (thread.checkpointRounds?.design ?? 0) + 1;
+        const ck = buildDesignCheckpoint(thread, hyp, plan, round);
+        resumed = resolveCheckpointInline(cwd, thread, ck, designPosture.cfg, opts, config);
+        continue;
       } else {
         const g1 = checkGate(thread, 'execute', approved.execute);
         approved.execute = false;
@@ -1238,6 +1349,13 @@ async function runLoop(
           paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
         };
       }
+    } else if (decidePosture.panel) {
+      // Unattended fallback:'panel' — resolve the continuation branch inline (no pause), then
+      // re-enter the loop so the top-of-loop DECIDE consume applies continue/pivot/stop/adjust
+      // (Stop finalizes; the others advance the iteration — same code path a human resume uses).
+      const ck = buildDecideCheckpoint(thread, plan, result, outcome, readTakeaways(cwd, thread.id));
+      resumed = resolveCheckpointInline(cwd, thread, ck, decidePosture.cfg, opts, config);
+      continue;
     }
 
     thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);

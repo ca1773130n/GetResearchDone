@@ -1724,3 +1724,260 @@ describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
     expect(log.filter((c: any) => c.point === 'hypothesize').length).toBe(1);
   });
 });
+
+// ── AI-panel fallback: fallback:'panel' resolves checkpoints inline, no pause (Phase 105-02) ──
+describe('AI-panel fallback (fallback:"panel") — REQ-208', () => {
+  const { loadThread } = require('../../../lib/research/thread');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+  const { getCounters, resetCounters } = require('../../../lib/metrics');
+
+  function threadDirOf(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id);
+  }
+
+  // Unattended posture: autonomous_mode:true forces resolveInteractive INACTIVE (no human pause);
+  // fallback:'panel' routes the still-enabled checkpoint points through answerViaDiscussion inline.
+  // Classic execute/kg_write gates off so ONLY the interactive stations under test can act.
+  function writePanelConfig(cwd: string, interactiveExtra: Record<string, unknown> = {}): void {
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      autonomous_mode: true,
+      research_gates: {
+        experiment_execution: false,
+        kg_write: false,
+        interactive: {
+          enabled: true, fallback: 'panel',
+          seed: false, hypothesize: false, design: false, decide: false,
+          ...interactiveExtra,
+        },
+      },
+    }));
+  }
+
+  // A panel stub mirroring answerViaDiscussion's contract: one CheckpointAnswer per question.
+  // `pick(ck)` returns [{questionId,label,answeredBy}] — answeredBy:'panel' for a real decision.
+  function makePanel(pick: (ck: any) => any[]) {
+    const state = { calls: 0, points: [] as string[] };
+    const fn = (_cwd: string, ck: any) => { state.calls++; state.points.push(ck.point); return pick(ck); };
+    return { fn, state };
+  }
+
+  // Multi-station spawn: clarifier (seed), single/multi hypothesizer, experiment-runner, miner.
+  function makePanelSpawn(opts: { clarify?: string; multi?: string } = {}) {
+    const state = { clarifyCalls: 0, hypoCalls: 0, planCalls: 0 };
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        if (prompt.includes('__CLARIFY__')) {
+          state.clarifyCalls++;
+          return opts.clarify ?? '__CLARIFY__ {"dimensions":[{"ask":"What is measured?","options":['
+            + '{"label":"accuracy","description":"top-1","recommended":true},{"label":"f1","description":"macro"}]}]}';
+        }
+        if (prompt.includes('__HYPOTHESES__')) {
+          state.hypoCalls++;
+          return opts.multi ?? '__HYPOTHESES__ {"candidates":['
+            + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1"},'
+            + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2"}]}';
+        }
+        state.hypoCalls++;
+        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p"}';
+      }
+      if (agentType === 'grd-experiment-runner') {
+        state.planCalls++;
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"success_pattern","content":"c","confidence":0.8,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    return { spawn, state };
+  }
+
+  const supportedRunner = { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+  const refutingRunner = { run: () => ({ metrics: { accuracy: 0.5 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+
+  it('DESIGN + fallback:panel autonomous ⇒ resolves inline via the panel, NEVER pauses', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { design: true });
+    const panel = makePanel((ck) => [{ questionId: 'q1', label: 'Approve & run', answeredBy: 'panel' }].concat(
+      (ck.questions || []).filter((q: any) => q.id !== 'q1').map((q: any) => ({ questionId: q.id, label: q.options[0].label, answeredBy: 'panel' })),
+    ));
+    const { spawn } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Approve autonomously?', {
+      spawn, runner: supportedRunner, noGates: false,
+      answerViaDiscussion: panel.fn,
+    });
+    // No pause: the checkpoint resolved inline and the loop drove to a terminal verdict.
+    expect(res.status).not.toBe('paused');
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(res.pendingCheckpoint).toBeUndefined();
+    // The panel WAS consulted for the design checkpoint, and the resolve was logged (audit trail).
+    expect(panel.state.calls).toBe(1);
+    expect(panel.state.points).toEqual(['design']);
+    const log = readCheckpointLog(threadDirOf(cwd, res.threadId));
+    expect(log.filter((c: any) => c.point === 'design').length).toBe(1);
+    // Ledger holds the single hypothesis (approve reused the persisted plan — no re-derive/duplicate).
+    expect(readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1).length).toBe(1);
+  });
+
+  it('DESIGN + fallback:panel ABORT ⇒ thread abandoned inline, no pause', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { design: true });
+    const panel = makePanel((ck) => (ck.questions || []).map((q: any, i: number) => ({
+      questionId: q.id, label: i === 0 ? 'Abort this thread' : q.options[0].label, answeredBy: 'panel',
+    })));
+    const { spawn } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Abort autonomously?', {
+      spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('abandoned');
+    expect(loadThread(cwd, res.threadId).status).toBe('abandoned');
+  });
+
+  it('SEED + fallback:panel autonomous ⇒ folds the PANEL-chosen answer into refinedQuestion, no pause', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { seed: true });
+    // The panel picks 'f1' — the NON-recommended option — so a match proves the panel answer (not
+    // the recommended default 'accuracy') flowed into refinedQuestion.
+    const panel = makePanel(() => [{ questionId: 'q1', label: 'f1', answeredBy: 'panel' }]);
+    const { spawn, state } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Does batching help throughput?', {
+      spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(state.clarifyCalls).toBe(1); // exactly one clarifier spawn, then inline resolve
+    expect(panel.state.points).toEqual(['seed']);
+    const t = loadThread(cwd, res.threadId);
+    expect(t.question).toBe('Does batching help throughput?'); // verbatim, never mutated
+    expect(t.refinedQuestion).toContain('f1');
+  });
+
+  it('HYPOTHESIZE selection + fallback:panel autonomous ⇒ appends ONLY the panel-chosen candidate, no pause', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { hypothesize: true });
+    const panel = makePanel(() => [{ questionId: 'q1', label: 'C2', answeredBy: 'panel' }]);
+    const { spawn, state } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Which lever helps?', {
+      spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(state.hypoCalls).toBe(1); // one multi-candidate spawn, no extra single-block spawn
+    expect(panel.state.points).toEqual(['hypothesize']);
+    const led = readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('C2'); // the panel-chosen candidate only
+    expect(led.map((h: any) => h.statement)).not.toContain('C1');
+  });
+
+  it('DECIDE + fallback:panel STOP ⇒ finalizes inline (exhausted), no pause', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { decide: true });
+    const panel = makePanel(() => [{ questionId: 'q1', label: 'Stop', answeredBy: 'panel' }]);
+    const { spawn, state } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Continue or stop?', {
+      maxIterations: 5, spawn, runner: refutingRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('exhausted'); // Stop finalizes the would-continue point
+    expect(state.hypoCalls).toBe(1); // only the first iteration ran; Stop halted before iter 2
+    expect(panel.state.points).toEqual(['decide']);
+  });
+
+  it('TELEMETRY: a matched panel decision increments checkpoint_panel_answered_total', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { design: true });
+    const panel = makePanel(() => [{ questionId: 'q1', label: 'Approve & run', answeredBy: 'panel' }, { questionId: 'q2', label: 'Keep as designed', answeredBy: 'panel' }]);
+    resetCounters();
+    await runResearch(cwd, 'Counter answered', {
+      spawn: makePanelSpawn().spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    const c = getCounters();
+    expect(c['research.checkpoint_panel_answered_total']).toBeGreaterThanOrEqual(1);
+    expect(c['research.checkpoint_panel_unavailable_total'] ?? 0).toBe(0);
+    // The pause counter is NEVER touched on the panel path (no human pause happened).
+    expect(c['research.checkpoint_pauses_total'] ?? 0).toBe(0);
+  });
+
+  it('TELEMETRY: an unavailable/empty panel (all defaults) increments checkpoint_panel_unavailable_total', async () => {
+    const cwd = tmp();
+    writePanelConfig(cwd, { design: true });
+    // Simulate a rate-limited/empty panel: answerViaDiscussion returns recommended defaults only.
+    const panel = makePanel((ck) => (ck.questions || []).map((q: any) => ({
+      questionId: q.id, label: (q.options.find((o: any) => o.recommended) || q.options[0]).label, answeredBy: 'default',
+    })));
+    resetCounters();
+    const res = await runResearch(cwd, 'Counter unavailable', {
+      spawn: makePanelSpawn().spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel.fn,
+    });
+    const c = getCounters();
+    expect(c['research.checkpoint_panel_unavailable_total']).toBeGreaterThanOrEqual(1);
+    expect(c['research.checkpoint_panel_answered_total'] ?? 0).toBe(0);
+    // Degrade-safe: recommended default ('Approve & run') still drove the loop to a verdict.
+    expect(res.status).toBe('supported');
+  });
+
+  it('BYTE-IDENTICAL RECOMMENDED: fallback:recommended autonomous ⇒ answerViaDiscussion NEVER called, no checkpoints.jsonl', async () => {
+    const cwd = tmp();
+    // Same enabled points, but fallback:'recommended' (the default) — today's autonomous path.
+    writePanelConfig(cwd, { design: true, seed: true, hypothesize: true, decide: true, fallback: 'recommended' });
+    let panelCalls = 0;
+    const panel = (_cwd: string, _ck: any) => { panelCalls++; return []; };
+    const { spawn } = makePanelSpawn();
+    const res = await runResearch(cwd, 'Recommended baseline', {
+      spawn, runner: supportedRunner, noGates: false, answerViaDiscussion: panel,
+    });
+    expect(res.status).toBe('supported');
+    expect(res.paused).toBeFalsy();
+    expect(panelCalls).toBe(0); // recommended never consults the panel
+    // No checkpoint resolves were logged — behavior is byte-identical to the pre-105 autonomous loop.
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+    // A single hypothesis via the byte-identical single-block path (no selection checkpoint).
+    expect(readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1)[0].statement).toBe('SINGLE');
+  });
+
+  it('PORTFOLIO/CONCURRENCY (R1): concurrency>1 forces non-human — recommended never pauses even with the checkpoint enabled', async () => {
+    const cwd = tmp();
+    // NOT autonomous — the ONLY thing keeping this non-human is concurrency>1 (portfolio parallel).
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false, kg_write: false,
+        interactive: { enabled: true, design: true, seed: false, hypothesize: false, decide: false },
+      },
+    }));
+    // concurrency:1 (default) WOULD pause at the design checkpoint...
+    const paused = await runResearch(cwd, 'Would pause solo', {
+      spawn: makePanelSpawn().spawn, runner: supportedRunner, noGates: false,
+    });
+    expect(paused.paused).toBe(true);
+    expect(paused.pendingCheckpoint?.point).toBe('design');
+    // ...but concurrency:2 (a portfolio parallel run) NEVER pauses a concurrent thread.
+    const cwd2 = tmp();
+    fs.writeFileSync(path.join(cwd2, '.planning/config.json'), fs.readFileSync(path.join(cwd, '.planning/config.json')));
+    const concurrent = await runResearch(cwd2, 'Concurrent no pause', {
+      spawn: makePanelSpawn().spawn, runner: supportedRunner, noGates: false, concurrency: 2,
+    });
+    expect(concurrent.paused).toBeFalsy();
+    expect(concurrent.status).toBe('supported');
+  });
+
+  it('PORTFOLIO/CONCURRENCY + fallback:panel ⇒ concurrent thread routes through the panel inline (still no pause)', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false, kg_write: false,
+        interactive: { enabled: true, fallback: 'panel', design: true, seed: false, hypothesize: false, decide: false },
+      },
+    }));
+    const panel = makePanel(() => [{ questionId: 'q1', label: 'Approve & run', answeredBy: 'panel' }]);
+    const res = await runResearch(cwd, 'Concurrent panel', {
+      spawn: makePanelSpawn().spawn, runner: supportedRunner, noGates: false,
+      concurrency: 2, answerViaDiscussion: panel.fn,
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(panel.state.points).toEqual(['design']); // panel consulted despite concurrency
+  });
+});
