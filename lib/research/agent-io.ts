@@ -68,4 +68,53 @@ function parseTakeawayOutput(stdout: string):
   };
 }
 
-module.exports = { extractTaggedJson, parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput };
+/** A single normalized clarification dimension (maps 1:1 to a checkpoint question). */
+export interface ClarifyDimension {
+  ask: string;
+  options: Array<{ label: string; description?: string; recommended?: boolean }>;
+  freeform?: boolean;
+}
+
+/**
+ * Parse a __CLARIFY__ block into normalized dimensions (Phase 103 SEED). Zero ambiguous
+ * dimensions is the well-formed-question path — a missing/empty/malformed block, a missing
+ * `dimensions` array, or any dimension with no usable options yields fewer/zero dimensions;
+ * this parser NEVER surfaces junk. Caps at 4 dimensions; each surviving dimension is
+ * guaranteed to have >=1 option with EXACTLY one recommended (checkpoint validation contract).
+ */
+function parseClarifyOutput(stdout: string): { dimensions: ClarifyDimension[] } {
+  const o = extractTaggedJson<Record<string, unknown>>(stdout, 'CLARIFY');
+  if (!o || !Array.isArray(o.dimensions)) return { dimensions: [] };
+  const dimensions: ClarifyDimension[] = [];
+  for (const rawDim of o.dimensions as unknown[]) {
+    if (dimensions.length >= 4) break; // cap
+    if (!rawDim || typeof rawDim !== 'object') continue;
+    const d = rawDim as Record<string, unknown>;
+    const ask = typeof d.ask === 'string' ? d.ask.trim() : '';
+    if (!ask) continue;
+    const rawOpts = Array.isArray(d.options) ? (d.options as unknown[]) : [];
+    const options: ClarifyDimension['options'] = [];
+    for (const rawOpt of rawOpts) {
+      if (!rawOpt || typeof rawOpt !== 'object') continue;
+      const op = rawOpt as Record<string, unknown>;
+      const label = typeof op.label === 'string' ? op.label.trim() : '';
+      if (!label) continue;
+      const opt: ClarifyDimension['options'][number] = { label };
+      if (typeof op.description === 'string') opt.description = op.description;
+      if (op.recommended === true) opt.recommended = true;
+      options.push(opt);
+    }
+    if (options.length === 0) continue; // a dimension needs >=1 option
+    // Exactly one recommended: if none marked, mark the first (checkpoint validation requires it).
+    if (options.filter((op) => op.recommended === true).length !== 1) {
+      for (const op of options) delete op.recommended;
+      options[0].recommended = true;
+    }
+    const dim: ClarifyDimension = { ask, options };
+    if (typeof d.freeform === 'boolean') dim.freeform = d.freeform;
+    dimensions.push(dim);
+  }
+  return { dimensions };
+}
+
+module.exports = { extractTaggedJson, parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput };

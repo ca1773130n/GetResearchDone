@@ -85,4 +85,33 @@ function buildLearnPrompt(
   ].join('\n');
 }
 
-module.exports = { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt };
+/**
+ * SEED clarification prompt (Phase 103). Asks the hypothesizer to surface ONLY genuinely
+ * ambiguous, high-impact dimensions that block a falsifiable metric target (what is measured,
+ * baseline/target, conditions). An already-unambiguous question MUST yield an empty dimensions
+ * array (zero-pause path). Output is a single __CLARIFY__ block parsed by parseClarifyOutput.
+ */
+function buildClarifyPrompt(thread: { id: string; question: string }): string {
+  return [
+    'You are grd-hypothesizer in SEED-clarify mode. Before any hypothesis is formed, decide',
+    'whether this research question is precise enough to become a FALSIFIABLE experiment with a',
+    'concrete metric target — or whether it is genuinely ambiguous in a way that would change the',
+    'experiment design.',
+    '',
+    `Research question: ${thread.question}`,
+    '',
+    'Identify ONLY genuinely ambiguous, high-impact dimensions that block a falsifiable metric',
+    'target: what exactly is measured, the baseline and target threshold, and the conditions/',
+    'dataset. Prefer multiple-choice options with exactly ONE marked recommended. Do NOT invent',
+    'ambiguity: if the question is already precise enough to design an experiment, emit an EMPTY',
+    'dimensions array — that is the expected, common case.',
+    '',
+    'Cap: at most 4 dimensions. Each dimension needs at least one option.',
+    '',
+    'Emit exactly one final block (no prose after it):',
+    '__CLARIFY__',
+    '{"dimensions":[{"ask":"...","options":[{"label":"...","description":"...","recommended":true}],"freeform":false}]}',
+  ].join('\n');
+}
+
+module.exports = { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt };
