@@ -14,8 +14,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 - **Active phase:** 104 HYPOTHESIZE Candidate Selection
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Plan 104-01 complete (prompt+parser layer) — ready for 104-02 (orchestrator wiring + selection checkpoint)
-- **Next:** Execute Phase 104 Plan 02
+- **Status:** Plans 104-01 + 104-02 complete — selection checkpoint wired end-to-end (emit + consume, 622 research tests green)
+- **Next:** Phase 104 verification, then Phase 105 (AI-Panel Fallback + Hardening)
 
 ## Phase Summary
 
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 101 | Checkpoint Core Plumbing + Config | Complete (2026-07-12) |
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Complete (2026-07-15) |
 | 103 | SEED Interview + DECIDE Branch | Complete (2026-07-15) |
-| 104 | HYPOTHESIZE Candidate Selection | In progress (plan 01 done) |
+| 104 | HYPOTHESIZE Candidate Selection | In progress (plans 01-02 done) |
 | 105 | AI-Panel Fallback + Hardening | Not started |
 
 ## v0.3.23 Roadmap
@@ -172,6 +172,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 103-01]: Pre-loop SEED interview is cross-referenced with but kept DISTINCT from the in-loop Interactive steering checkpoint protocol; skip matrix = resume/status/deep-research/--no-gates/non-interactive
 - [Phase 103-03]: DECIDE checkpoint fires only in the would-continue else branch; terminal verdicts never delayed; loop-top consume short-circuits (continue/pivot/adjust-budget advance, stop finalizes exhausted from persisted result.json); DECIDE_BUDGET_BUMP=2; verdict math untouched
 - [Phase 104]: [Phase 104-01]: parseHypothesesOutput degrade-safe (empty array on junk, never null/throws), cap default 5; single-block buildHypothesizePrompt/parseHypothesisOutput left byte-identical (PIN tests) as the N=1 path; buildHypothesesPrompt inline-duplicates the grounding preamble
+- [Phase 104-02]: selection checkpoint persists the full candidate set in the checkpoint `context` (JSON), never the ledger — only the chosen candidate is appended on resume (zero pollution, REQ-206/SC2)
+- [Phase 104-02]: emit lives in the cold-HYPOTHESIZE else-branch, consume at the TOP of that same branch (not loop-top like DECIDE) — a selection resume never appended a hypothesis so `resumable` is undefined and the if/else lands in the cold else; 0 candidates degrade to the byte-identical single-block path, 1 appends directly (no 1-option pause)
 
 ## Known Bugs
 
@@ -183,9 +185,9 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 104-01-PLAN.md
-- **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
+- **Last action:** Phase 104 Plan 02 complete — HYPOTHESIZE selection checkpoint wired (emit + consume), 622 research tests green
+- **Stopped at:** Completed 104-02-PLAN.md
+- **Next action:** Phase 104 verification, then Phase 105 (AI-Panel Fallback + Hardening)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---
