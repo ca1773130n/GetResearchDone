@@ -164,6 +164,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 101-04]: --answers <file|-> reads JSON from a FILE or stdin only (never argv, R8); malformed/missing → bare-resume recommended defaults (deterministic timeout, no wall-clock timer)
 - [Phase 101-04]: caller-audit strips comment-only lines so paper.ts's mention is not miscounted; exactly 5 unattended call sites {bench,cli-kb,cli,index,portfolio}
 - [Phase 102]: 102-02: skill Interactive steering protocol thin (parse JSON, AskUserQuestion, Write answers file, resume --answers); status human path renders pendingCheckpoint via renderCheckpointQuestions while --json contract stays unchanged
+- [Phase 102-design-approval-skill-checkpoint-loop]: [Phase 102-01]: DESIGN checkpoint consume hoisted to loop-top (parallel to execute reuse fast-path), never at GATE-1 — fixes the re-derive blocker since approved.execute is false on checkpoint resume (REQ-199)
+- [Phase 102-design-approval-skill-checkpoint-loop]: [Phase 102-01]: Contract edits from the design checkpoint apply to plan.json BEFORE the debug-loop committed snapshot, so the debug pin freezes the user-edited contract, not the model's original (R4)
 
 ## Known Bugs
 
@@ -176,7 +178,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 102-02-PLAN.md
+- **Stopped at:** Completed 102-01-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
