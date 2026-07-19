@@ -446,7 +446,7 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/2 | Planned | - |
 | 103. SEED Interview + DECIDE Branch | v0.5.0 | 0/TBD | Not started | - |
 | 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 2/2 | Complete | 2026-07-19 |
-| 105. AI-Panel Fallback + Hardening | v0.5.0 | 0/TBD | Not started | - |
+| 105. AI-Panel Fallback + Hardening | v0.5.0 | 4/4 | Complete | 2026-07-19 |
 
 ## Deferred Validations
 
@@ -534,7 +534,7 @@ Plans:
 - [x] **Phase 102: DESIGN Approval + Skill Checkpoint Loop** (Complete 2026-07-15) - Combined GATE-1 approval checkpoint, skill-layer AskUserQuestion loop, pending-checkpoint status rendering `implement`
 - [x] **Phase 103: SEED Interview + DECIDE Branch** (Complete 2026-07-15) - Skill-layer socratic pre-loop interview, orchestrator clarify checkpoint, DECIDE continue/pivot/stop/adjust-budget branch `implement`
 - [x] **Phase 104: HYPOTHESIZE Candidate Selection** - Multi-candidate hypothesis generation, pre-ledger selection checkpoint `implement` (completed 2026-07-19)
-- [ ] **Phase 105: AI-Panel Fallback + Hardening** - `answerViaDiscussion` panel fallback, panel wiring/telemetry/docs, milestone verification suite (R1/R3/R4/R5) `integrate`
+- [x] **Phase 105: AI-Panel Fallback + Hardening** - `answerViaDiscussion` panel fallback, panel wiring/telemetry/docs, milestone verification suite (R1/R3/R4/R5) `integrate` (completed 2026-07-19)
 
 #### Phase 101: Checkpoint Core Plumbing + Config
 
@@ -629,7 +629,7 @@ Plans:
 **Plans**: 4 plans (4 waves)
 
 Plans:
-- [ ] 105-01-PLAN.md — TDD `answerViaDiscussion` panel fallback: backend exclusion, one-shot, rate-limit guard, exact→prefix→recommended matching (wave 1)
-- [ ] 105-02-PLAN.md — `fallback:"panel"` wiring at the 4 emit sites (incl. portfolio force-non-human) + telemetry counters + docs (CLAUDE.md/settings/tutorial) (wave 2)
-- [ ] 105-03-PLAN.md — Milestone verification suite: offline deterministic R1/R3/R4/R5 with injected checkpointHandler, no coverage thresholds lowered (wave 3)
-- [ ] 105-04-PLAN.md — Live sandbox deferred-validation collection (DEFER-104-01/02, DEFER-102-01, DEFER-101-02/03); human-verify checkpoint (wave 4)
+- [x] 105-01-PLAN.md — TDD `answerViaDiscussion` panel fallback: backend exclusion, one-shot, rate-limit guard, exact→prefix→recommended matching (wave 1)
+- [x] 105-02-PLAN.md — `fallback:"panel"` wiring at the 4 emit sites (incl. portfolio force-non-human) + telemetry counters + docs (CLAUDE.md/settings/tutorial) (wave 2)
+- [x] 105-03-PLAN.md — Milestone verification suite: offline deterministic R1/R3/R4/R5 with injected checkpointHandler, no coverage thresholds lowered (wave 3)
+- [x] 105-04-PLAN.md — Live sandbox deferred-validation collection (DEFER-104-01/02, DEFER-102-01, DEFER-101-02/03); human-verify checkpoint (wave 4)
