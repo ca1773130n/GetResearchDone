@@ -177,6 +177,154 @@ export function consumeAnswered(
   return resumedCheckpoint.answers;
 }
 
+// ── answerViaDiscussion: degrade-safe AI-panel fallback (REQ-207) ────────────
+
+/** A synthesized panel answer: a plain string (default resolveElicitation) or a richer record. */
+type PanelSynthesis = string | { text: string; discussionFile?: string };
+
+/** Signature of the injected panel resolver (default: lib/discussion.resolveElicitation). */
+type PanelResolver = (
+  question: string,
+  context: string,
+  opts: { participants: string[]; synthesizer: string; cwd: string },
+) => PanelSynthesis;
+
+/** Rate-limit/health detector over a panelist's raw output (default: scheduler claude adapter). */
+type PanelDetector = (stdout: string) => { rateLimited: boolean; unhealthy: boolean };
+
+/** Config carried from the interactive loop (which backend the loop spawns on, panel roster). */
+export interface AnswerViaDiscussionConfig {
+  /** The loop's own spawn backend — excluded from panel participants (no self-consultation). */
+  loopBackend?: string;
+  participants?: string[];
+  synthesizer?: string;
+}
+
+export interface AnswerViaDiscussionDeps {
+  resolveElicitation?: PanelResolver;
+  detectFromStdout?: PanelDetector;
+  participants?: string[];
+  synthesizer?: string;
+}
+
+/** Panel roster used when neither cfg nor deps override it. */
+const DEFAULT_PANEL_PARTICIPANTS = ['claude', 'codex', 'gemini', 'opencode'];
+
+/** Default detector: the scheduler's claude adapter (rate-limit / logged-out from stdout). */
+function defaultPanelDetector(stdout: string): { rateLimited: boolean; unhealthy: boolean } {
+  try {
+    const { ADAPTERS } = require('../scheduler') as {
+      ADAPTERS: Record<string, { detectFromStdout?: (s: string) => { rateLimited: boolean; unhealthy: boolean } }>;
+    };
+    const det = ADAPTERS.claude?.detectFromStdout;
+    if (det) return det(stdout);
+  } catch {
+    /* scheduler unavailable — treat as healthy (empty-synthesis guard still applies) */
+  }
+  return { rateLimited: false, unhealthy: false };
+}
+
+/** Build the single one-shot panel prompt (question + option labels) + context string. */
+function buildPanelPrompt(ck: Checkpoint): { question: string; context: string } {
+  const lines: string[] = [
+    'An autonomous research loop reached a decision checkpoint with no human present.',
+    'For EACH question below, choose exactly ONE option and reply with its exact label verbatim (one per line).',
+  ];
+  (ck.questions || []).forEach((q, i) => {
+    lines.push('', `Question ${i + 1}: ${q.ask}`);
+    for (const o of q.options || []) {
+      lines.push(`- ${o.label}: ${o.description}`);
+    }
+  });
+  return { question: lines.join('\n'), context: ck.context || '' };
+}
+
+/**
+ * Match one question against the synthesized panel text.
+ * Order: exact (case-insensitive trim) → prefix (either direction) → recommended default.
+ * A matched option is answeredBy:'panel'; the recommended-default fallback is answeredBy:'default'.
+ */
+function matchQuestionToPanel(q: CheckpointQuestion, panelText: string): CheckpointAnswer {
+  const opts = q.options || [];
+  const panelLines = panelText
+    .split('\n')
+    .map((l) => l.trim().toLowerCase())
+    .filter((l) => l.length > 0);
+
+  // Tier 1: exact — a panel line equals an option label
+  for (const o of opts) {
+    const label = o.label.trim().toLowerCase();
+    if (label && panelLines.some((ln) => ln === label)) {
+      return { questionId: q.id, label: o.label, answeredBy: 'panel' };
+    }
+  }
+  // Tier 2: prefix — a panel line startsWith the label or vice-versa
+  for (const o of opts) {
+    const label = o.label.trim().toLowerCase();
+    if (!label) continue;
+    for (const ln of panelLines) {
+      if (ln.startsWith(label) || label.startsWith(ln)) {
+        return { questionId: q.id, label: o.label, answeredBy: 'panel' };
+      }
+    }
+  }
+  // Tier 3: no match → recommended default (NOT a panel decision)
+  return { questionId: q.id, label: recommendedOption(q).label, answeredBy: 'default' };
+}
+
+/**
+ * Answer a Checkpoint via the AI panel instead of pausing for a human (REQ-207).
+ *
+ * Degrade-safe by construction: returns exactly one CheckpointAnswer per question, NEVER throws,
+ * NEVER pauses. Every degenerate path — throwing/empty resolver, rate-limited/logged-out panelist,
+ * unparseable answer — falls back to the recommended default (answeredBy:'default'), the SAME
+ * guarantee resolveToDefaults gives. The loop's own spawn backend is excluded from participants.
+ * On a real panel answer the source discussion file (when the resolver exposes one) is recorded
+ * on ck.discussionFile.
+ */
+export function answerViaDiscussion(
+  cwd: string,
+  ck: Checkpoint,
+  cfg: AnswerViaDiscussionConfig = {},
+  deps: AnswerViaDiscussionDeps = {},
+): CheckpointAnswer[] {
+  try {
+    const resolve: PanelResolver =
+      deps.resolveElicitation || (require('../discussion') as { resolveElicitation: PanelResolver }).resolveElicitation;
+    const detect: PanelDetector = deps.detectFromStdout || defaultPanelDetector;
+
+    const roster = deps.participants || cfg.participants || DEFAULT_PANEL_PARTICIPANTS;
+    const participants = roster.filter((p) => p !== cfg.loopBackend);
+    const synthesizer = deps.synthesizer || cfg.synthesizer || 'claude';
+
+    const { question, context } = buildPanelPrompt(ck);
+    const raw = resolve(question, context, { participants, synthesizer, cwd });
+    const text = typeof raw === 'string' ? raw : raw && typeof raw.text === 'string' ? raw.text : '';
+    const discussionFile = typeof raw === 'string' ? undefined : raw?.discussionFile;
+
+    // Empty synthesis (spawn failure / all panelists unavailable) → recommended defaults.
+    if (!text || !text.trim()) return answersFromRecommended(ck);
+
+    // Rate-limited / logged-out panelist is UNAVAILABLE — never read as an answer.
+    let det: { rateLimited: boolean; unhealthy: boolean } | null = null;
+    try {
+      det = detect(text);
+    } catch {
+      det = null;
+    }
+    if (det && (det.rateLimited || det.unhealthy)) return answersFromRecommended(ck);
+
+    const answers = (ck.questions || []).map((q) => matchQuestionToPanel(q, text));
+    if (discussionFile && answers.some((a) => a.answeredBy === 'panel')) {
+      ck.discussionFile = discussionFile;
+    }
+    return answers;
+  } catch {
+    // Absolute backstop: any unforeseen error resolves to recommended defaults.
+    return answersFromRecommended(ck);
+  }
+}
+
 // ── append-only checkpoints.jsonl IO (mirrors ledger.jsonl) ──────────────────
 
 function checkpointLogPath(dir: string): string {
@@ -335,6 +483,7 @@ module.exports = {
   emitCheckpoint,
   resolveCheckpoint,
   consumeAnswered,
+  answerViaDiscussion,
   appendCheckpointRecord,
   readCheckpointLog,
   readInteractiveConfig,

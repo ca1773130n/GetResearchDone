@@ -15,6 +15,7 @@ const {
   resolveInteractive,
   validateCheckpoint,
   makeCheckpointId,
+  answerViaDiscussion,
 } = require('../../../lib/research/checkpoints') as typeof import('../../../lib/research/checkpoints');
 
 const { threadDir } = require('../../../lib/research/thread') as {
@@ -369,5 +370,159 @@ describe('resolveInteractive — auto-skip matrix', () => {
 
   test('disabled under nonInteractive spawn', () => {
     expect(resolveInteractive(enabled, { nonInteractive: true, env: {} })).toEqual({ active: false });
+  });
+});
+
+// ── answerViaDiscussion — degrade-safe AI-panel fallback (REQ-207) ───────────
+
+/** A checkpoint with a single decision question whose options carry distinct labels. */
+function makePanelCk(overrides: Partial<Checkpoint> = {}): Checkpoint {
+  return makeCk({
+    point: 'decide',
+    type: 'branch',
+    context: 'The last iteration was inconclusive; the metric plateaued.',
+    questions: [
+      {
+        id: 'q1',
+        ask: 'How should the loop proceed?',
+        options: [
+          { label: 'Continue — revise hypothesis', description: 'keep going with a new angle', recommended: true },
+          { label: 'Stop — finalize', description: 'end the thread' },
+        ],
+      },
+    ],
+    ...overrides,
+  });
+}
+
+describe('answerViaDiscussion — Task 1: panel answer → CheckpointAnswer[]', () => {
+  test('happy path: a matched panel label produces answeredBy:panel, one answer per question', () => {
+    const ck = makePanelCk();
+    const resolveElicitation = jest.fn(() => 'Continue — revise hypothesis');
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, { resolveElicitation });
+
+    expect(answers).toHaveLength(1);
+    expect(answers[0].questionId).toBe('q1');
+    expect(answers[0].label).toBe('Continue — revise hypothesis');
+    expect(answers[0].answeredBy).toBe('panel');
+    expect(resolveElicitation).toHaveBeenCalledTimes(1);
+  });
+
+  test('loop spawn backend is excluded from panel participants', () => {
+    const ck = makePanelCk();
+    let seenParticipants: string[] = [];
+    const resolveElicitation = jest.fn((_q: string, _c: string, opts: { participants: string[] }) => {
+      seenParticipants = opts.participants;
+      return 'Continue — revise hypothesis';
+    });
+    answerViaDiscussion('/tmp/x', ck, { loopBackend: 'claude', participants: ['claude', 'codex', 'gemini'] }, { resolveElicitation });
+
+    expect(seenParticipants).not.toContain('claude');
+    expect(seenParticipants).toEqual(['codex', 'gemini']);
+  });
+
+  test('one CheckpointAnswer per question for a multi-question checkpoint', () => {
+    const ck = makePanelCk({
+      questions: [
+        {
+          id: 'q1', ask: 'Proceed?',
+          options: [{ label: 'Yes', description: 'y', recommended: true }, { label: 'No', description: 'n' }],
+        },
+        {
+          id: 'q2', ask: 'Bump budget?',
+          options: [{ label: 'Keep', description: 'k', recommended: true }, { label: 'Raise', description: 'r' }],
+        },
+      ],
+    });
+    const resolveElicitation = jest.fn(() => 'Yes\nRaise');
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, { resolveElicitation });
+    expect(answers.map((a) => a.questionId)).toEqual(['q1', 'q2']);
+    expect(answers[0]).toMatchObject({ label: 'Yes', answeredBy: 'panel' });
+    expect(answers[1]).toMatchObject({ label: 'Raise', answeredBy: 'panel' });
+  });
+
+  test('never throws: a throwing resolver degrades to recommended defaults', () => {
+    const ck = makePanelCk();
+    const resolveElicitation = jest.fn(() => { throw new Error('spawn exploded'); });
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, { resolveElicitation });
+    expect(answers).toHaveLength(1);
+    expect(answers[0].label).toBe('Continue — revise hypothesis');
+    expect(answers[0].answeredBy).toBe('default');
+  });
+});
+
+describe('answerViaDiscussion — Task 2: matching + rate-limit guard + defaults', () => {
+  test('exact match sets answeredBy:panel', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => 'Stop — finalize',
+    });
+    expect(answers[0]).toMatchObject({ label: 'Stop — finalize', answeredBy: 'panel' });
+  });
+
+  test('prefix match sets answeredBy:panel', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => 'Continue',
+    });
+    expect(answers[0]).toMatchObject({ label: 'Continue — revise hypothesis', answeredBy: 'panel' });
+  });
+
+  test('no option match falls back to recommended default (answeredBy:default, NOT panel)', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => 'I have no idea what to do here honestly',
+    });
+    expect(answers[0]).toMatchObject({ label: 'Continue — revise hypothesis', answeredBy: 'default' });
+  });
+
+  test('empty synthesis resolves every question to recommended defaults', () => {
+    const ck = makePanelCk({
+      questions: [
+        { id: 'q1', ask: 'a', options: [{ label: 'A', description: 'a', recommended: true }, { label: 'B', description: 'b' }] },
+        { id: 'q2', ask: 'b', options: [{ label: 'C', description: 'c' }, { label: 'D', description: 'd', recommended: true }] },
+      ],
+    });
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, { resolveElicitation: () => '' });
+    expect(answers).toEqual([
+      { questionId: 'q1', label: 'A', answeredBy: 'default' },
+      { questionId: 'q2', label: 'D', answeredBy: 'default' },
+    ]);
+  });
+
+  test('a rate-limited panelist is NEVER read as an answer → recommended default', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      // synthesis text happens to contain an option label, but the detector flags it
+      resolveElicitation: () => 'Continue — revise hypothesis',
+      detectFromStdout: () => ({ rateLimited: true, unhealthy: true }),
+    });
+    expect(answers[0]).toMatchObject({ label: 'Continue — revise hypothesis', answeredBy: 'default' });
+  });
+
+  test('an unhealthy (logged-out) panelist → recommended default', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => 'Stop — finalize',
+      detectFromStdout: () => ({ rateLimited: false, unhealthy: true }),
+    });
+    expect(answers[0].answeredBy).toBe('default');
+  });
+
+  test('discussionFile is recorded on the checkpoint when the panel produced a real answer', () => {
+    const ck = makePanelCk();
+    const answers = answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => ({ text: 'Continue — revise hypothesis', discussionFile: '/d/elicitation-123.md' }),
+    });
+    expect(answers[0].answeredBy).toBe('panel');
+    expect(ck.discussionFile).toBe('/d/elicitation-123.md');
+  });
+
+  test('discussionFile is NOT recorded when the panel answer degraded to a default', () => {
+    const ck = makePanelCk();
+    answerViaDiscussion('/tmp/x', ck, {}, {
+      resolveElicitation: () => ({ text: '', discussionFile: '/d/empty.md' }),
+    });
+    expect(ck.discussionFile).toBeUndefined();
   });
 });
