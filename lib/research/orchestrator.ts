@@ -41,19 +41,23 @@ const {
   resolveInteractive: (cfg: InteractiveConfig, opts?: ResolveInteractiveOpts) => { active: boolean };
   readInteractiveConfig: (cwd: string) => InteractiveConfig;
 };
-const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt } = require('./_prompts') as {
+const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt } = require('./_prompts') as {
   buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
+  buildHypothesesPrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways: unknown[], pack: string, pivot: boolean, n: number) => string;
   buildExperimentPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
   buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict) => string;
   buildClarifyPrompt: (thread: { id: string; question: string }) => string;
 };
+/** A parsed hypothesis candidate (Phase 104 multi-candidate selection). */
+type HypothesisCandidate = { statement: string; rationale: string; predictedOutcome: string };
 type ClarifyDimension = {
   ask: string;
   options: Array<{ label: string; description?: string; recommended?: boolean }>;
   freeform?: boolean;
 };
-const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
+const { parseHypothesisOutput, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
   parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string } | null;
+  parseHypothesesOutput: (stdout: string, n?: number) => { candidates: HypothesisCandidate[] };
   parsePlanOutput: (stdout: string) => { procedure: string; metricKey: string; comparator: string; target: number; language: string; scriptPath: string } | null;
   parseTakeawayOutput: (stdout: string) => Record<string, unknown> | null;
   parseClarifyOutput: (stdout: string) => { dimensions: ClarifyDimension[] };
@@ -652,6 +656,64 @@ function buildDecideCheckpoint(
   };
 }
 
+/**
+ * Resolve whether the HYPOTHESIZE candidate-selection checkpoint is active (Phase 104). Mirrors
+ * resolveDesignPosture (R1: default-off, no unattended pause). Gated by cfg.hypothesize (or the
+ * opts.interactive.points override) and, like DESIGN, honors every_iteration (else iteration 1 only).
+ */
+function resolveSelectPosture(
+  cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
+): { active: boolean; cfg: InteractiveConfig } {
+  const baseCfg = readInteractiveConfig(cwd);
+  const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
+    ? { ...baseCfg, enabled: opts.interactive.enabled }
+    : baseCfg;
+  const posture = resolveInteractive(cfg, {
+    noGates: opts.noGates,
+    autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+  });
+  const hypothesizeEnabled = opts.interactive?.points
+    ? opts.interactive.points.includes('hypothesize')
+    : cfg.hypothesize;
+  const active = posture.active && hypothesizeEnabled
+    && (cfg.every_iteration || thread.iteration === 1);
+  return { active, cfg };
+}
+
+/**
+ * Build the point='hypothesize' type='selection' checkpoint from ranked candidates. The FULL
+ * candidate objects live in `context` (JSON) as a lossless resume store — renderCheckpointQuestions
+ * renders questions only, never context, so unchosen candidates never leak into the ledger. One
+ * question; one option per candidate (rank-1 recommended); freeform 'Other' => user-authored.
+ */
+function buildSelectCheckpoint(
+  thread: ResearchThread, candidates: HypothesisCandidate[], round: number,
+): Checkpoint {
+  return {
+    checkpoint_version: 1,
+    id: makeCheckpointId(thread.iteration, 'hypothesize', round),
+    point: 'hypothesize',
+    type: 'selection',
+    iteration: thread.iteration,
+    round,
+    createdAt: new Date().toISOString(),
+    // Lossless store of the full {statement,rationale,predictedOutcome} set — NEVER the ledger.
+    context: JSON.stringify(candidates),
+    questions: [
+      {
+        id: 'q1',
+        ask: `Which hypothesis should iteration ${thread.iteration} test?`,
+        freeform: true,
+        options: candidates.map((c, i) => ({
+          label: c.statement,
+          description: c.rationale,
+          ...(i === 0 ? { recommended: true } : {}),
+        })),
+      },
+    ],
+  };
+}
+
 /** Compose a refined question from the verbatim question + the chosen SEED clarification answers. */
 function foldSeedAnswers(question: string, answers: CheckpointAnswer[]): string {
   const clauses = answers
@@ -827,11 +889,45 @@ async function runLoop(
       plan = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
       approved.execute = false;
     } else {
+      // HYPOTHESIZE selection consume (Phase 104) — TOP of the cold else-branch. On a selection
+      // resume the iteration's hypothesis was never appended (the pause happened BEFORE any ledger
+      // write), so `resumable` is undefined and the if/else above naturally lands here. Reconstruct
+      // the chosen candidate from the checkpoint record and append ONLY it (unchosen never enter
+      // the ledger). One-shot (consumeAnswered WeakSet) so it can never re-consume. No-op otherwise.
+      const selAns = consumeAnswered(resumedCheckpoint ?? null, 'hypothesize', thread.iteration);
       const seededHyp = priorHyps.find(
         (h) => h.iteration === thread.iteration && h.origin === 'synthesis'
           && h.verdict === null && h.status === 'testing',
       );
-      if (seededHyp && thread.currentStation === 'seed' && thread.pendingGate === null) {
+      if (selAns) {
+        const a = selAns.find((x) => x.questionId === 'q1');
+        const label = a?.label ?? '';
+        const text = a?.text;
+        let candidates: HypothesisCandidate[] = [];
+        try {
+          const parsedCtx = JSON.parse(resumedCheckpoint?.context ?? '[]');
+          if (Array.isArray(parsedCtx)) candidates = parsedCtx as HypothesisCandidate[];
+        } catch { /* guarded — malformed context → [] */ }
+        const matched = candidates.find((c) => c.statement === label);
+        let statement: string; let rationale: string; let predictedOutcome: string;
+        if (matched) {
+          // MATCHED option → the full {statement,rationale,predictedOutcome} candidate.
+          statement = matched.statement; rationale = matched.rationale; predictedOutcome = matched.predictedOutcome;
+        } else if (text) {
+          // FREEFORM ('Other') → user-authored statement.
+          statement = text; rationale = 'user-provided at checkpoint'; predictedOutcome = '';
+        } else {
+          // Label present, no match, no text (never wedge) → adopt the label verbatim.
+          statement = label; rationale = ''; predictedOutcome = '';
+        }
+        const lastHyp = priorHyps[priorHyps.length - 1] || null;
+        hyp = {
+          id: nextHypothesisId(priorHyps), iteration: thread.iteration,
+          statement, rationale, predictedOutcome,
+          status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
+        };
+        appendHypothesis(cwd, thread.id, hyp); // the ONLY hypothesis appended
+      } else if (seededHyp && thread.currentStation === 'seed' && thread.pendingGate === null) {
         // SEEDED: adopt the pre-seeded synthesis hypothesis; skip the cold grd-hypothesizer
         // spawn. It is already in the ledger — do NOT append it again.
         hyp = seededHyp;
@@ -865,22 +961,77 @@ async function runLoop(
           const r = await retrieveFn(cwd, groundQuery, pivot ? { k: 16 } : undefined);
           pack = buildGroundingPack(r.results, effectiveQuestion);
         } catch { /* degrade */ }
-        const hRes = await spawnAndParse(
-          spawn, buildHypothesizePrompt(
-            { id: thread.id, question: effectiveQuestion }, priorHyps, priorVerdict, priorTakeaways, pack, pivot,
-          ),
-          'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
-        );
-        const parsed = hRes.value;
-        if (!parsed) return errExit(cwd, thread, hRes.error
-          ? `hypothesizer spawn failed: ${hRes.error}`
-          : `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
-        hyp = {
-          id: nextHypothesisId(priorHyps), iteration: thread.iteration,
-          statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
-          status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
-        };
-        appendHypothesis(cwd, thread.id, hyp);
+
+        // Phase 104 — multi-candidate selection. When interactive.hypothesize is active, spawn the
+        // multi-candidate hypothesizer and, with >=2 parsed candidates, emit a `selection`
+        // checkpoint and pause STRICTLY BEFORE any appendHypothesis (zero ledger pollution). A
+        // single candidate is appended directly (no pointless 1-option pause); zero candidates
+        // DEGRADE to the byte-identical single-block path below (never wedge). When the gate is
+        // off, this whole block is skipped and the single-block path runs exactly as before.
+        let coldHyp: Hypothesis | null = null;
+        const selPosture = resolveSelectPosture(cwd, opts, config, thread);
+        if (selPosture.active) {
+          const n = selPosture.cfg.hypothesis_candidates;
+          const mRes = await spawnAndParse(
+            spawn,
+            buildHypothesesPrompt(
+              { id: thread.id, question: effectiveQuestion }, priorHyps, priorVerdict, priorTakeaways, pack, pivot, n,
+            ),
+            'grd-hypothesizer',
+            (out: string) => {
+              const r = parseHypothesesOutput(out, n);
+              // parseHypothesesOutput never returns null; treat an empty candidate set as a
+              // parse-miss so spawnAndParse retries, then falls through to the single-block degrade.
+              return r.candidates.length > 0 ? r : null;
+            },
+            spawnRetries,
+          );
+          const candidates = mRes.value?.candidates ?? [];
+          if (candidates.length >= 2) {
+            const round = (thread.checkpointRounds?.hypothesize ?? 0) + 1;
+            const ck = buildSelectCheckpoint(thread, candidates, round);
+            emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+            if (thread.status === 'paused') {
+              // ZERO POLLUTION: pause BEFORE any appendHypothesis — the unchosen candidates live
+              // only in the checkpoint record (context), never the ledger.
+              return {
+                threadId: thread.id, status: 'paused', iterations: thread.iteration,
+                paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+              };
+            }
+            // Non-pausing handler → fall through to the single-block degrade below (never wedge).
+          } else if (candidates.length === 1) {
+            const c = candidates[0];
+            coldHyp = {
+              id: nextHypothesisId(priorHyps), iteration: thread.iteration,
+              statement: c.statement, rationale: c.rationale, predictedOutcome: c.predictedOutcome,
+              status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
+            };
+            appendHypothesis(cwd, thread.id, coldHyp);
+          }
+        }
+
+        if (coldHyp) {
+          hyp = coldHyp;
+        } else {
+          // Single-block (default / N=1 / degrade) path — byte-identical to pre-Phase-104.
+          const hRes = await spawnAndParse(
+            spawn, buildHypothesizePrompt(
+              { id: thread.id, question: effectiveQuestion }, priorHyps, priorVerdict, priorTakeaways, pack, pivot,
+            ),
+            'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
+          );
+          const parsed = hRes.value;
+          if (!parsed) return errExit(cwd, thread, hRes.error
+            ? `hypothesizer spawn failed: ${hRes.error}`
+            : `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
+          hyp = {
+            id: nextHypothesisId(priorHyps), iteration: thread.iteration,
+            statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
+            status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
+          };
+          appendHypothesis(cwd, thread.id, hyp);
+        }
       }
 
       // DESIGN
