@@ -69,13 +69,16 @@ thread under `.planning/research/threads/<id>/`:
 8. PERSIST — write FINDING.md and (behind a gate) sync to the shared Tesserae KG
 
 ## Subcommands
-- `gd research "<question>"` — start a new thread
+- `gd research "<question>"` — start a new thread (may be preceded by the SEED interview
+  above for fresh threads only; resume/status/deep-research/`--no-gates` skip it)
 - `gd research resume <id>` — resume a gate-paused thread
 - `gd research status [<id>]` — list threads or show one thread
 
 ## Flags
 - `--max-iterations N` — cap loop iterations (default 5)
-- `--no-gates` — run fully unattended (skip the execute + kg_write gates)
+- `--no-gates` — run fully unattended (skip the execute + kg_write gates); also suppresses
+  the pre-loop SEED interview (a skill step, NOT a gate — distinct from the in-loop
+  "Interactive steering" checkpoint protocol below)
 - `resume <id> --answers <file>` — resume a checkpoint-paused thread with answers written to
   `<file>` (see "Interactive steering" below); `gd research status <id>` shows pending
   questions for manual (skill-less) answering.
