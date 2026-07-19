@@ -5,6 +5,48 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-20
+
+Interactive Research Steering (Human-in-the-Loop) — Phases 101-105, REQ-194–209.
+The autoresearch loop gains optional socratic human steering with an AI-panel
+fallback, so one checkpoint mechanism works attended and unattended.
+
+### Added
+- **Checkpoint core plumbing** (`lib/research/checkpoints.ts`) — typed checkpoint
+  emission/consume/resolve with one-shot answer semantics, a
+  `research_gates.interactive` config surface (per-point gating, `fallback`,
+  `timeout`), and resume-with-answers plumbing: the TS orchestrator pauses the
+  thread with a typed checkpoint block, the skill layer asks via AskUserQuestion,
+  and `gd research resume <id> --answers` continues with no double-ask.
+- **Interactive checkpoints at all four loop decision points** — SEED (question
+  clarification), HYPOTHESIZE (choose among N candidate hypotheses), DESIGN
+  (combined GATE-1 approval: approve/revise/abort the experiment plan and edit its
+  metric contract, with the edit surviving debug-loop contract pinning), DECIDE
+  (continue/pivot/stop/adjust-budget).
+- **Skill-layer steering** — AskUserQuestion-driven "Interactive steering"
+  protocol in the research skill, a socratic pre-loop interview for
+  underspecified questions, and human-readable pending-checkpoint rendering in
+  `gd research status`.
+- **AI-panel fallback** (`answerViaDiscussion`) — with
+  `interactive.fallback: "panel"`, unattended runs (autonomous mode, portfolio,
+  bench, harness, autopilot) resolve checkpoints inline via a multi-backend AI
+  discussion panel instead of pausing; degrade-safe to recommended defaults on
+  rate limits or empty synthesis; the loop's own backend is excluded from the
+  panel; `answeredBy`/`discussionFile` telemetry recorded per answer.
+- **Milestone verification suite**
+  (`tests/unit/research/milestone-verification.test.ts`) — offline deterministic
+  proofs that no unattended path pauses (R1), pre-0.5.0 threads stay bit-identical
+  (R3), DESIGN contract edits are the committed debug pin (R4), and answers are
+  never double-asked on resume (R5). Live sandbox validation resolved all
+  deferred checkpoint validations, including a literal `answeredBy:'panel'`
+  observed with a real second backend.
+
+### Changed
+- Portfolio runs force non-human checkpoint resolution (concurrency threaded
+  through `ResearchOptions`) so parallel threads never block on a human.
+- Docs: `CLAUDE.md`, `commands/settings.md`, and the autoresearch tutorial
+  document `research_gates.interactive` and the panel fallback.
+
 ## [0.4.16] - 2026-07-10
 
 Competitive-adoption release (PR #64), driven by a deep-research pass over the

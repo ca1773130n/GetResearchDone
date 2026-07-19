@@ -31,6 +31,7 @@ SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DEC
 - **Falsifiable by contract.** Every iteration commits to a metric/comparator/target. The verdict is **deterministic** — no LLM-judged scoring on the control path. The field's own numbers argue for this: only ~32% of [CodeScientist](https://aclanthology.org/2025.findings-acl.692/)'s auto-generated discoveries survived multi-faceted human evaluation, and [Sakana documents](https://github.com/sakanaai/ai-scientist-v2) that template-free exploration trades away experiment success rate.
 - **Honest.** A loop that never reaches support is written up as a negative/inconclusive result, not hidden.
 - **Safe by default.** Two checkpoint gates (before running experiment code, before writing to the shared KG); optional Docker isolation for experiment scripts.
+- **Steerable, attended or not.** (v0.5.0) Optional interactive checkpoints at SEED / HYPOTHESIZE / DESIGN / DECIDE let a human clarify the question, pick among candidate hypotheses, approve the experiment design (and edit its metric contract), and decide iterate-vs-stop. Unattended runs answer the same checkpoints via a multi-backend AI discussion panel (`interactive.fallback: "panel"`) — or fall back to recommended defaults — so no autonomous path ever blocks.
 - **Compounding.** Confirmed learnings promote to a shared `KNOWHOW.md`; falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.
 
 ```bash
@@ -174,6 +175,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 | Key | Default | Effect |
 |---|---|---|
 | `research_gates` | `{execute:true, kg_write:true, plan_clarification:true}` | Per-gate checkpoints (override with `--no-gates`); `plan_clarification` (v0.4.5+) has `plan-phase` ask the user to resolve ambiguous design decisions before writing a plan |
+| `research_gates.interactive` | off | (v0.5.0) Human-in-the-loop checkpoints at SEED/HYPOTHESIZE/DESIGN/DECIDE, each individually gate-able; `fallback: "panel"` answers them via an AI discussion panel in unattended runs; resume with `gd research resume <id> --answers` |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey |
 | `research_max_resurveys` | `2` | Cap on plateau re-surveys per thread |
