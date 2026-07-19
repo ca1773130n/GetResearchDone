@@ -445,7 +445,7 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 101. Checkpoint Core Plumbing + Config | v0.5.0 | 0/TBD | Not started | - |
 | 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/2 | Planned | - |
 | 103. SEED Interview + DECIDE Branch | v0.5.0 | 0/TBD | Not started | - |
-| 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 0/TBD | Not started | - |
+| 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 2/2 | Complete | 2026-07-19 |
 | 105. AI-Panel Fallback + Hardening | v0.5.0 | 0/TBD | Not started | - |
 
 ## Deferred Validations
@@ -533,7 +533,7 @@ Plans:
 - [x] **Phase 101: Checkpoint Core Plumbing + Config** (Complete 2026-07-12) - Checkpoint schema/types, `lib/research/checkpoints.ts`, interactive config surface, default-off gate safety, resume-with-answers plumbing `implement`
 - [x] **Phase 102: DESIGN Approval + Skill Checkpoint Loop** (Complete 2026-07-15) - Combined GATE-1 approval checkpoint, skill-layer AskUserQuestion loop, pending-checkpoint status rendering `implement`
 - [x] **Phase 103: SEED Interview + DECIDE Branch** (Complete 2026-07-15) - Skill-layer socratic pre-loop interview, orchestrator clarify checkpoint, DECIDE continue/pivot/stop/adjust-budget branch `implement`
-- [ ] **Phase 104: HYPOTHESIZE Candidate Selection** - Multi-candidate hypothesis generation, pre-ledger selection checkpoint `implement`
+- [x] **Phase 104: HYPOTHESIZE Candidate Selection** - Multi-candidate hypothesis generation, pre-ledger selection checkpoint `implement` (completed 2026-07-19)
 - [ ] **Phase 105: AI-Panel Fallback + Hardening** - `answerViaDiscussion` panel fallback, panel wiring/telemetry/docs, milestone verification suite (R1/R3/R4/R5) `integrate`
 
 #### Phase 101: Checkpoint Core Plumbing + Config
@@ -611,8 +611,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 104-01-PLAN.md — TDD: `__HYPOTHESES__` multi-candidate prompt (`buildHypothesesPrompt`) + `parseHypothesesOutput`; single-block N=1/disabled path untouched
-- [ ] 104-02-PLAN.md — TDD: selection checkpoint (`resolveSelectPosture`/`buildSelectCheckpoint`) pre-ledger gating + zero pollution, freeform statement path, seeded/execute-resume/crash-recovery skip
+- [x] 104-01-PLAN.md — TDD: `__HYPOTHESES__` multi-candidate prompt (`buildHypothesesPrompt`) + `parseHypothesesOutput`; single-block N=1/disabled path untouched
+- [x] 104-02-PLAN.md — TDD: selection checkpoint (`resolveSelectPosture`/`buildSelectCheckpoint`) pre-ledger gating + zero pollution, freeform statement path, seeded/execute-resume/crash-recovery skip
 
 #### Phase 105: AI-Panel Fallback + Hardening
 
