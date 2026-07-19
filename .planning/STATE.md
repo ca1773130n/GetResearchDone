@@ -14,8 +14,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 - **Active phase:** 105 AI-Panel Fallback + Hardening
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Plan 105-02 complete — fallback:'panel' wired at all 4 checkpoint emit sites (inline resolve, no pause; REQ-208), panel telemetry counters, portfolio concurrency R1 threading, docs; 644 research tests green (10 new panel-fallback cases)
-- **Next:** Plan 105-03 (milestone verification suite)
+- **Status:** Plan 105-03 complete — v0.5.0 milestone verification suite authored (tests/unit/research/milestone-verification.test.ts, REQ-209): R1 (5 unattended sites non-pausing incl. panel), R3 (pre-0.5.0 back-compat bit-identical), R4 (DESIGN contract edit is committed debug pin), R5 (consumeAnswered one-shot, no double-ask), plus coverage guard; 652 research tests green (8 new), no jest threshold lowered
+- **Next:** Plan 105-04 (live steered run sandbox / phase completion)
 
 ## Phase Summary
 
@@ -176,6 +176,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 104-02]: emit lives in the cold-HYPOTHESIZE else-branch, consume at the TOP of that same branch (not loop-top like DECIDE) — a selection resume never appended a hypothesis so `resumable` is undefined and the if/else lands in the cold else; 0 candidates degrade to the byte-identical single-block path, 1 appends directly (no 1-option pause)
 - [Phase 105]: [Phase 105-01]: answerViaDiscussion is pure/standalone (no orchestrator import); panel resolver seam accepts string OR {text,discussionFile} so production default omits discussionFile while tests inject it — discussion.ts unchanged; rate-limit guard via detectFromStdout + empty-synthesis are the two unavailability signals resolving to recommended defaults
 - [Phase 105]: [Phase 105-02]: fallback:'panel' emit sites resolve inline then `continue` with an injected resolved checkpoint — the existing top-of-loop consume machinery applies the answer (panel/human/recommended share one path); engagedPanel gates on unattended AND fallback==='panel'; portfolio threads concurrency so concurrency>1 is non-human (R1) yet still panel-routable
+- [Phase 105]: [Phase 105-03]: R1/R3/R4/R5 milestone suite proves the SEAMS offline via injected checkpointHandler/spawn/runner — R1 asserts the 5-site posture lock (resolveInteractive → active:false, incl. fallback:'panel' inline), R3 asserts loadThread bit-identical round-trip + terminal resume no-checkpoints, R4/R5 reuse the Phase 102 DESIGN end-to-end drive; coverage guard is an in-suite baseline snapshot (checkpoints/portfolio/discussion) asserted >= with git diff as evidence — no jest threshold lowered
+- [Phase 105]: R1/R3/R4/R5 milestone suite proves seams offline via injected checkpointHandler/spawn; coverage guard snapshots checkpoints/portfolio/discussion thresholds >= baseline (no jest threshold lowered)
 
 ## Known Bugs
 
@@ -187,9 +189,9 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 104 Plan 02 complete — HYPOTHESIZE selection checkpoint wired (emit + consume), 622 research tests green
-- **Stopped at:** Completed 105-02-PLAN.md
-- **Next action:** Phase 104 verification, then Phase 105 (AI-Panel Fallback + Hardening)
+- **Last action:** Phase 105 Plan 03 complete — v0.5.0 milestone verification suite (R1/R3/R4/R5, REQ-209), 652 research tests green (8 new), no jest threshold lowered
+- **Stopped at:** Completed 105-03-PLAN.md
+- **Next action:** Phase 105 Plan 04 (live steered run sandbox), then Phase 105 verification/completion
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
 ---

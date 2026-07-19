@@ -1,0 +1,22 @@
+experiment:
+  phase: 105-ai-panel-fallback-hardening
+  plan: 03
+  started: 2026-07-19
+  status: complete
+  hypothesis: "The v0.5.0 checkpoint milestone satisfies R1/R3/R4/R5 and can be proven offline with an injected checkpointHandler without lowering any per-file jest coverage threshold."
+  parameters:
+    suite_file: tests/unit/research/milestone-verification.test.ts
+    obligations: [R1, R3, R4, R5]
+    debug_depth_R4: 1
+    contract_edit_R4: "target 0.8 -> 0.9"
+    interactive_config: "design=true, decide=false, max_rounds=2"
+  results:
+    milestone_suite_tests: 8
+    milestone_suite_pass: 8
+    full_research_suite_tests: 652
+    full_research_suite_pass: 652
+    new_tests_added: 8
+    jest_threshold_reductions: 0
+  baseline: "Phases 101-104 individual VERIFICATION.md all PASS; 644 research tests"
+  target: "all four R-obligations asserted green in one offline suite"
+  verdict: PASS
