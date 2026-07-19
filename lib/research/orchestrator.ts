@@ -127,6 +127,11 @@ const VERDICT_COUNTER: Record<Verdict, string> = {
   inconclusive: 'research.hypotheses_inconclusive',
 };
 
+// DECIDE "adjust budget" bump (Phase 103): deterministic max-iteration extension applied when a
+// human steers the would-continue DECIDE checkpoint toward "Adjust budget". A fixed const (not a
+// wall-clock/random value) keeps the branch reproducible in offline tests.
+const DECIDE_BUDGET_BUMP = 2;
+
 // The Claude scheduler runs with --output-format json, so stdout is an envelope
 // like {"result":"<agent text>", ...}. Codex `exec --json` emits a JSONL event
 // stream (one {"type":...} object per line — agent text lives in
@@ -582,6 +587,71 @@ function buildSeedCheckpoint(
   };
 }
 
+/**
+ * Resolve whether the DECIDE branch checkpoint is active (Phase 103). Mirrors resolveSeedPosture
+ * (R1: default-off, no unattended pause) EXCEPT it is NOT gated to iteration 1: DECIDE is
+ * continuation steering, so every would-continue point may pause; `every_iteration` does not apply.
+ */
+function resolveDecidePosture(
+  cwd: string, opts: ResearchOptions, config: Record<string, unknown>, _thread: ResearchThread,
+): { active: boolean; cfg: InteractiveConfig } {
+  const baseCfg = readInteractiveConfig(cwd);
+  const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
+    ? { ...baseCfg, enabled: opts.interactive.enabled }
+    : baseCfg;
+  const posture = resolveInteractive(cfg, {
+    noGates: opts.noGates,
+    autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+  });
+  const decidePointEnabled = opts.interactive?.points
+    ? opts.interactive.points.includes('decide')
+    : cfg.decide;
+  const active = posture.active && decidePointEnabled;
+  return { active, cfg };
+}
+
+/**
+ * Build the point='decide' type='branch' checkpoint (single round). The context is an evidence
+ * summary — verdict, metric contract vs the measured value, iteration budget, and the latest
+ * takeaway — so the human steers CONTINUATION only (the verdict math is already settled).
+ */
+function buildDecideCheckpoint(
+  thread: ResearchThread, plan: ExperimentPlan, result: ExperimentResult,
+  outcome: MeasureOutcome, takeaways: Takeaway[],
+): Checkpoint {
+  const measured = result.metrics[plan.metricKey];
+  const latest = takeaways.length > 0 ? takeaways[takeaways.length - 1].content : '(none)';
+  const context = [
+    `verdict: ${outcome.verdict}`,
+    `metric: ${plan.metricKey} ${plan.comparator} ${plan.target} `
+      + `(measured ${measured === undefined ? 'n/a' : measured})`,
+    `iteration ${thread.iteration} of ${thread.maxIterations}`,
+    `latest takeaway: ${latest}`,
+  ].join(' — ');
+  return {
+    checkpoint_version: 1,
+    id: makeCheckpointId(thread.iteration, 'decide', 1),
+    point: 'decide',
+    type: 'branch',
+    iteration: thread.iteration,
+    round: 1,
+    createdAt: new Date().toISOString(),
+    context,
+    questions: [
+      {
+        id: 'q1',
+        ask: 'The loop would continue — how should it proceed?',
+        options: [
+          { label: 'Continue', description: 'run another iteration', recommended: true },
+          { label: 'Pivot', description: 'force a substantially different hypothesis next' },
+          { label: 'Stop', description: 'finalize now with the current evidence' },
+          { label: 'Adjust budget', description: 'extend max iterations and continue' },
+        ],
+      },
+    ],
+  };
+}
+
 /** Compose a refined question from the verbatim question + the chosen SEED clarification answers. */
 function foldSeedAnswers(question: string, answers: CheckpointAnswer[]): string {
   const clauses = answers
@@ -617,6 +687,51 @@ async function runLoop(
     const iterDir = path.join(threadDir(cwd, thread.id), iterRel);
     const planFile = path.join(iterDir, 'plan.json');
     const resumable = priorHyps.find((h) => h.iteration === thread.iteration && h.status === 'testing');
+
+    // DECIDE branch checkpoint consume (Phase 103) — TOP of the loop, checked BEFORE DESIGN. The
+    // just-measured hypothesis is no longer 'testing' after MEASURE, so a resumed decide answer
+    // must SHORT-CIRCUIT: advance the iteration (continue/pivot/adjust-budget) or finalize (stop)
+    // — it never re-enters HYPOTHESIZE/DESIGN/RUN for the already-completed iteration. No-op when
+    // there is no resumed decide answer (normal same-process flow reaches DECIDE at the bottom).
+    const decideAns = consumeAnswered(resumedCheckpoint ?? null, 'decide', thread.iteration);
+    if (decideAns) {
+      const q1Label = decideAns.find((a) => a.questionId === 'q1')?.label;
+      if (q1Label === 'Stop') {
+        // FINALIZE the completed iteration without re-running it. A would-continue point is never
+        // a supported verdict, so the terminal status is 'exhausted'. Read the persisted result
+        // (buildFinding accepts null); append the reconstructability section only when a result
+        // AND its plan are on disk (skip it for a stop before RUN persisted anything).
+        thread.currentStation = 'finalize';
+        thread.status = 'exhausted';
+        const rp = path.join(iterDir, 'result.json');
+        const lastResult: ExperimentResult | null = fs.existsSync(rp)
+          ? JSON.parse(fs.readFileSync(rp, 'utf8')) as ExperimentResult
+          : null;
+        let body = buildFinding(thread, readLedger(cwd, thread.id), readTakeaways(cwd, thread.id), lastResult);
+        if (lastResult && fs.existsSync(planFile)) {
+          const planForRecon = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
+          body += reconstructabilitySection(cwd, thread, planForRecon, lastResult);
+        }
+        writeFinding(cwd, thread.id, body);
+        // GATE 2 — kg_write (identical to the finalize block; approved.kg_write is false on resume).
+        const g2 = checkGate(thread, 'kg_write', approved.kg_write);
+        if (!g2.proceed) {
+          Object.assign(thread, g2.thread); thread.currentStation = 'persist'; saveThread(cwd, thread);
+          incrementCounter('research.gate_pauses_total');
+          return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'kg_write' };
+        }
+        return await finishKgSync(cwd, thread, undefined, 'exhausted', opts.kgClient);
+      }
+      // CONTINUE / PIVOT / ADJUST BUDGET (and any unknown/absent label ⇒ CONTINUE — never wedge):
+      // advance the iteration and re-enter the loop for the next cold HYPOTHESIZE.
+      if (q1Label === 'Pivot') {
+        thread.pendingPivot = true;
+      } else if (q1Label === 'Adjust budget') {
+        thread.maxIterations += DECIDE_BUDGET_BUMP;
+      }
+      thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);
+      continue;
+    }
 
     // DESIGN checkpoint consume — TOP of the loop, parallel to (and checked BEFORE) the
     // execute reuse fast-path below, and BEFORE any HYPOTHESIZE/DESIGN spawn. This is the
@@ -950,6 +1065,24 @@ async function runLoop(
         return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'kg_write' };
       }
       return await finishKgSync(cwd, thread, outcome.verdict, term.status, opts.kgClient);
+    }
+
+    // DECIDE branch checkpoint (Phase 103) — WOULD-CONTINUE ONLY. This is the else of the
+    // finalize block above, so !term.done && branch !== 'finalize' holds: a terminal verdict has
+    // already returned and is NEVER delayed by this emit. Strictly additive continuation override
+    // — evaluateVerdict / the committed contract pin / shouldTerminate / decideBranch are untouched.
+    // When interactive is off (posture inactive) this falls straight through to the byte-identical
+    // `thread.iteration += 1` below.
+    const decidePosture = resolveDecidePosture(cwd, opts, config, thread);
+    if (decidePosture.active) {
+      const ck = buildDecideCheckpoint(thread, plan, result, outcome, readTakeaways(cwd, thread.id));
+      emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+      if (thread.status === 'paused') {
+        return {
+          threadId: thread.id, status: 'paused', iterations: thread.iteration,
+          paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+        };
+      }
     }
 
     thread.iteration += 1; thread.status = 'active'; saveThread(cwd, thread);
