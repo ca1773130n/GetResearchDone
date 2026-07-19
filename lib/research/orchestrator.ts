@@ -3,9 +3,11 @@ const fs = require('fs');
 const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
-  ExperimentResult, MeasureOutcome, Checkpoint, CheckpointAnswer,
+  ExperimentResult, MeasureOutcome, Checkpoint, CheckpointAnswer, CheckpointPoint,
+  InteractiveConfig, Comparator,
 } from './types';
 import type { Runner } from './runner';
+import type { CheckpointHandler, ResolveInteractiveOpts } from './checkpoints';
 
 const { loadConfig } = require('./../utils') as { loadConfig: (cwd: string) => Record<string, unknown> };
 const { incrementCounter } = require('./../metrics') as { incrementCounter: (n: string, d?: number) => void };
@@ -25,6 +27,20 @@ const { scoreReconstructability } = require('./reconstructability') as {
   }) => { score: number; checks: Record<string, boolean> };
 };
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
+const {
+  emitCheckpoint, consumeAnswered, makeCheckpointId, resolveInteractive, readInteractiveConfig,
+} = require('./checkpoints') as {
+  emitCheckpoint: (
+    cwd: string, thread: ResearchThread, ck: Checkpoint,
+    deps?: { checkpointHandler?: CheckpointHandler; saveThread?: (c: string, t: ResearchThread) => void; incrementCounter?: (n: string, d?: number) => void },
+  ) => Checkpoint;
+  consumeAnswered: (
+    resumedCheckpoint: Checkpoint | null | undefined, point: CheckpointPoint, iteration: number,
+  ) => CheckpointAnswer[] | null;
+  makeCheckpointId: (iteration: number, point: CheckpointPoint, round: number) => string;
+  resolveInteractive: (cfg: InteractiveConfig, opts?: ResolveInteractiveOpts) => { active: boolean };
+  readInteractiveConfig: (cwd: string) => InteractiveConfig;
+};
 const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
 const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io') as {
   parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string } | null;
@@ -71,9 +87,13 @@ export interface ResearchOptions {
   // question ids → the chosen option label (+ optional freeform text). Never carries answer
   // text from argv (file/stdin only, R8). DORMANT emission-wise this phase.
   checkpointAnswers?: Record<string, { label: string; text?: string }>;
-  // One-shot interactive override (enable/disable + optional per-point list). Parsed & plumbed
-  // this phase; no emission site consumes it until Phase 102.
+  // One-shot interactive override (enable/disable + optional per-point list). Consumed by the
+  // DESIGN checkpoint site (Phase 102) — a per-point `points` list restricts which stations may
+  // pause even when the underlying research_gates.interactive.<point> config flag is true.
   interactive?: { enabled?: boolean; points?: string[] };
+  // Injected checkpoint pause/answer handler (mirrors spawn/runner DI) — tests supply a
+  // deterministic non-pausing handler; default (undefined) pauses via checkpoints.ts.
+  checkpointHandler?: CheckpointHandler;
 }
 
 export interface ResearchResult {
@@ -418,13 +438,95 @@ async function finishKgSync(
   };
 }
 
+/**
+ * R4: apply whitelisted metric-contract edits carried in the design-approval checkpoint's
+ * freeform Q2 answer text (one `key: value` pair per line; unknown keys ignored). Mutates
+ * `plan` in place so the caller can persist it BEFORE the debug-loop `committed` pin is taken.
+ */
+function applyContractEditsFromFreeform(plan: ExperimentPlan, text: string): void {
+  for (const rawLine of text.split('\n')) {
+    const m = /^\s*(metricKey|comparator|target|language)\s*:\s*(.+?)\s*$/.exec(rawLine);
+    if (!m) continue;
+    const key = m[1] as 'metricKey' | 'comparator' | 'target' | 'language';
+    const value = m[2];
+    if (key === 'target') {
+      const n = Number(value);
+      if (Number.isFinite(n)) plan.target = n;
+    } else if (key === 'comparator') {
+      plan.comparator = value as Comparator;
+    } else if (key === 'language') {
+      plan.language = value as 'shell' | 'python';
+    } else {
+      plan.metricKey = value;
+    }
+  }
+}
+
+/** Build the Q1(approve/revise/abort)+Q2(freeform contract edit) design-approval checkpoint. */
+function buildDesignCheckpoint(
+  thread: ResearchThread, hyp: Hypothesis, plan: ExperimentPlan, round: number,
+): Checkpoint {
+  return {
+    checkpoint_version: 1,
+    id: makeCheckpointId(thread.iteration, 'design', round),
+    point: 'design',
+    type: 'approval',
+    iteration: thread.iteration,
+    round,
+    createdAt: new Date().toISOString(),
+    context: `${hyp.statement} — metric: ${plan.metricKey} ${plan.comparator} ${plan.target} `
+      + `(${plan.language}); script: ${plan.scriptPath}`,
+    questions: [
+      {
+        id: 'q1',
+        ask: 'Approve this experiment plan and run it?',
+        options: [
+          { label: 'Approve & run', description: 'Proceed to RUN with this plan', recommended: true },
+          { label: 'Revise the plan', description: 'Re-run DESIGN for a new plan' },
+          { label: 'Abort this thread', description: 'Abandon this research thread' },
+        ],
+      },
+      {
+        id: 'q2',
+        ask: 'Edit the metric contract? (metricKey/comparator/target/language — leave as-is to '
+          + 'keep the shown values)',
+        freeform: true,
+        options: [
+          { label: 'Keep as designed', description: 'No contract edits', recommended: true },
+        ],
+      },
+    ],
+  };
+}
+
+/** Resolve whether the DESIGN checkpoint is active for this iteration (R1: default-off, no unattended pause). */
+function resolveDesignPosture(
+  cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
+): { active: boolean; cfg: InteractiveConfig } {
+  const baseCfg = readInteractiveConfig(cwd);
+  const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
+    ? { ...baseCfg, enabled: opts.interactive.enabled }
+    : baseCfg;
+  const posture = resolveInteractive(cfg, {
+    noGates: opts.noGates,
+    autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+  });
+  const designPointEnabled = opts.interactive?.points
+    ? opts.interactive.points.includes('design')
+    : cfg.design;
+  const active = posture.active && designPointEnabled
+    && (cfg.every_iteration || thread.iteration === 1);
+  return { active, cfg };
+}
+
 async function runLoop(
   cwd: string, thread: ResearchThread, opts: ResearchOptions,
   config: Record<string, unknown>, approved: { execute: boolean; kg_write: boolean },
-  // DORMANT this phase: a resumed checkpoint's resolved answers are threaded in but NO emission
-  // point consumes them yet (zero emission call sites — locked hybrid-churn strategy). The
-  // consumeAnswered wiring at the seed/hypothesize/design/decide stations lands in Phase 102.
-  _resumedCheckpoint?: Checkpoint,
+  // A resumed checkpoint's resolved answers, threaded in from resumeResearch's
+  // resume-with-answers branch. Consumed one-shot (consumeAnswered) at the DESIGN station
+  // (Phase 102) — approve/revise/abort resolution happens at the TOP of the loop body,
+  // BEFORE any HYPOTHESIZE/DESIGN spawn (REQ-199: never re-derives on checkpoint resume).
+  resumedCheckpoint?: Checkpoint,
 ): Promise<ResearchResult> {
   const runner: Runner = opts.runner || selectRunner(cwd, { timeoutMs: opts.timeout });
   const spawn: SpawnFn = opts.spawn || defaultSpawn(cwd, config, opts.model);
@@ -439,10 +541,57 @@ async function runLoop(
     const planFile = path.join(iterDir, 'plan.json');
     const resumable = priorHyps.find((h) => h.iteration === thread.iteration && h.status === 'testing');
 
+    // DESIGN checkpoint consume — TOP of the loop, parallel to (and checked BEFORE) the
+    // execute reuse fast-path below, and BEFORE any HYPOTHESIZE/DESIGN spawn. This is the
+    // fix for the re-derive blocker: on a checkpoint resume `approved.execute` is FALSE, so
+    // without this hoist the old GATE-1 placement would re-spawn DESIGN (REQ-199).
+    const designPosture = resolveDesignPosture(cwd, opts, config, thread);
+    const dAns = consumeAnswered(resumedCheckpoint ?? null, 'design', thread.iteration);
+    let designResolution: 'approve' | 'revise' | 'abort' | null = null;
+    if (dAns && resumable && fs.existsSync(planFile)) {
+      const q1Label = dAns.find((a) => a.questionId === 'q1')?.label;
+      if (q1Label === 'Abort this thread') {
+        designResolution = 'abort';
+      } else if (q1Label === 'Revise the plan') {
+        const nextRound = (thread.checkpointRounds?.design ?? 0) + 1;
+        if (nextRound > designPosture.cfg.max_rounds) {
+          // Revise cap exceeded (R fallback): never loop forever — route to the approve
+          // reuse path instead (reuse the persisted plan, proceed to RUN).
+          designResolution = 'approve';
+        } else {
+          thread.checkpointRounds = { ...thread.checkpointRounds, design: nextRound };
+          saveThread(cwd, thread);
+          designResolution = 'revise';
+        }
+      } else {
+        // Unknown/absent Q1 label (incl. explicit "Approve & run") ⇒ approve default — never wedge.
+        designResolution = 'approve';
+      }
+    }
+
+    if (designResolution === 'abort') {
+      thread.status = 'abandoned';
+      saveThread(cwd, thread);
+      return { threadId: thread.id, status: 'abandoned', iterations: thread.iteration };
+    }
+
     let hyp: Hypothesis;
     let plan: ExperimentPlan;
 
-    if (approved.execute && resumable && fs.existsSync(planFile)) {
+    if (designResolution === 'approve') {
+      // APPROVE reuse fast-path: reuse the persisted plan directly — never re-derives (REQ-199).
+      hyp = resumable as Hypothesis;
+      plan = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
+      // R4: apply whitelisted contract edits from the checkpoint's freeform Q2 answer BEFORE
+      // persisting/using `plan` — this runs upstream of the `committed` debug-loop pin
+      // (~L542 today), so the debug loop freezes the user-edited contract, not the model's.
+      const q2Text = dAns?.find((a) => a.questionId === 'q2')?.text;
+      if (q2Text) {
+        applyContractEditsFromFreeform(plan, q2Text);
+        fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
+      }
+      approved.execute = false;
+    } else if (approved.execute && resumable && fs.existsSync(planFile)) {
       // RESUME after execute-gate approval: reuse the reviewed hypothesis + plan.
       hyp = resumable;
       plan = JSON.parse(fs.readFileSync(planFile, 'utf8')) as ExperimentPlan;
@@ -462,6 +611,10 @@ async function runLoop(
         // instead of orphaning it with a fresh one. The `!planFile` guard confines
         // this to the no-plan case, so it can never re-design a started experiment.
         hyp = resumable;
+      } else if (designResolution === 'revise') {
+        // REVISE: reuse the same hypothesis (not a fresh HYPOTHESIZE) and re-run DESIGN
+        // below; GATE-1 will emit a NEW checkpoint with the incremented round.
+        hyp = resumable as Hypothesis;
       } else {
         // HYPOTHESIZE (cold)
         const lastHyp = priorHyps[priorHyps.length - 1] || null;
@@ -511,13 +664,27 @@ async function runLoop(
       plan = parsedPlan as ExperimentPlan;
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
-      // GATE 1 — execute
-      const g1 = checkGate(thread, 'execute', approved.execute);
-      approved.execute = false;
-      if (!g1.proceed) {
-        Object.assign(thread, g1.thread); thread.currentStation = 'run'; saveThread(cwd, thread);
-        incrementCounter('research.gate_pauses_total');
-        return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'execute' };
+      // GATE 1 — execute / DESIGN-approval checkpoint. When interactive.design is active this
+      // site handles ONLY the fresh-emit and revise-re-emit cases — the approve/abort/cap-
+      // exceeded consume path is hoisted to the TOP of the loop above (never re-derives).
+      if (designPosture.active) {
+        const round = (thread.checkpointRounds?.design ?? 0) + 1;
+        const ck = buildDesignCheckpoint(thread, hyp, plan, round);
+        emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+        if (thread.status === 'paused') {
+          return {
+            threadId: thread.id, status: 'paused', iterations: thread.iteration,
+            paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+          };
+        }
+      } else {
+        const g1 = checkGate(thread, 'execute', approved.execute);
+        approved.execute = false;
+        if (!g1.proceed) {
+          Object.assign(thread, g1.thread); thread.currentStation = 'run'; saveThread(cwd, thread);
+          incrementCounter('research.gate_pauses_total');
+          return { threadId: thread.id, status: 'paused', iterations: thread.iteration, paused: true, pendingGate: 'execute' };
+        }
       }
     }
 
