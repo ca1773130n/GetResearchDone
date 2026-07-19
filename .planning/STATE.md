@@ -37,7 +37,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 100 | Evaluation Benchmark Framework | Not started |
 | 101 | Checkpoint Core Plumbing + Config | Complete (2026-07-12) |
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Complete (2026-07-15) |
-| 103 | SEED Interview + DECIDE Branch | Not started |
+| 103 | SEED Interview + DECIDE Branch | Complete (2026-07-15) |
 | 104 | HYPOTHESIZE Candidate Selection | Not started |
 | 105 | AI-Panel Fallback + Hardening | Not started |
 
