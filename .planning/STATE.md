@@ -12,10 +12,10 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 ## Current Position
 
-- **Active phase:** None
+- **Active phase:** 104 HYPOTHESIZE Candidate Selection
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Roadmap created — ready for `/grd:plan-phase 101`
-- **Next:** Plan Phase 101 (Checkpoint Core Plumbing + Config)
+- **Status:** Plan 104-01 complete (prompt+parser layer) — ready for 104-02 (orchestrator wiring + selection checkpoint)
+- **Next:** Execute Phase 104 Plan 02
 
 ## Phase Summary
 
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 101 | Checkpoint Core Plumbing + Config | Complete (2026-07-12) |
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Complete (2026-07-15) |
 | 103 | SEED Interview + DECIDE Branch | Complete (2026-07-15) |
-| 104 | HYPOTHESIZE Candidate Selection | Not started |
+| 104 | HYPOTHESIZE Candidate Selection | In progress (plan 01 done) |
 | 105 | AI-Panel Fallback + Hardening | Not started |
 
 ## v0.3.23 Roadmap
@@ -171,6 +171,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 103-01]: SEED interview is skill-layer-only markdown in commands/research.md — NO CLI flag, NO orchestrator/TS change; original question preserved by echoing (Original->Refined), not a new arg (REQ-202)
 - [Phase 103-01]: Pre-loop SEED interview is cross-referenced with but kept DISTINCT from the in-loop Interactive steering checkpoint protocol; skip matrix = resume/status/deep-research/--no-gates/non-interactive
 - [Phase 103-03]: DECIDE checkpoint fires only in the would-continue else branch; terminal verdicts never delayed; loop-top consume short-circuits (continue/pivot/adjust-budget advance, stop finalizes exhausted from persisted result.json); DECIDE_BUDGET_BUMP=2; verdict math untouched
+- [Phase 104]: [Phase 104-01]: parseHypothesesOutput degrade-safe (empty array on junk, never null/throws), cap default 5; single-block buildHypothesizePrompt/parseHypothesisOutput left byte-identical (PIN tests) as the N=1 path; buildHypothesesPrompt inline-duplicates the grounding preamble
 
 ## Known Bugs
 
@@ -183,7 +184,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 103-03-PLAN.md
+- **Stopped at:** Completed 104-01-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
