@@ -1175,7 +1175,10 @@ describe('SEED clarification checkpoint (Phase 103)', () => {
       research_gates: {
         experiment_execution: false,
         kg_write: false,
-        interactive: { enabled: true, seed: true, design: false },
+        // hypothesize:false isolates these to the SEED station — the Phase 104 selection
+        // checkpoint (default-on when interactive.enabled) would otherwise legitimately spawn the
+        // multi-candidate hypothesizer at iteration 1 and inflate the cold-HYPOTHESIZE spawn count.
+        interactive: { enabled: true, seed: true, design: false, hypothesize: false },
       },
       ...extra,
     }));
@@ -1490,5 +1493,231 @@ describe('DECIDE branch checkpoint (Phase 103)', () => {
     const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
     expect(log.length).toBe(1); // only the one decide resolve
     expect(log[0].point).toBe('decide');
+  });
+});
+
+describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
+  const { createThread, saveThread, loadThread } = require('../../../lib/research/thread');
+  const { appendHypothesis, readLedger, writeLedger } = require('../../../lib/research/ledger');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+
+  const THREE = '__HYPOTHESES__ {"candidates":['
+    + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1"},'
+    + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2"},'
+    + '{"statement":"C3","rationale":"r3","predictedOutcome":"p3"}]}';
+  const EMPTY = '__HYPOTHESES__ {"candidates":[]}';
+  const ONE = '__HYPOTHESES__ {"candidates":[{"statement":"SOLO","rationale":"rs","predictedOutcome":"ps"}]}';
+
+  function threadDirOf(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id);
+  }
+
+  // hypothesize on; seed/design/decide OFF and the classic gates OFF so ONLY the selection
+  // station under test can pause.
+  function writeSelConfig(cwd: string, interactiveExtra: Record<string, unknown> = {}): void {
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false,
+        kg_write: false,
+        interactive: {
+          enabled: true, seed: false, hypothesize: true, design: false, decide: false,
+          ...interactiveExtra,
+        },
+      },
+    }));
+  }
+
+  // Spawn: __HYPOTHESES__ (multi) when the multi prompt is detected, __HYPOTHESIS__ (single)
+  // otherwise; a passing plan + takeaway for DESIGN/LEARN.
+  function makeSelSpawn(multiBlock: string) {
+    const state = { multiCalls: 0, singleCalls: 0, planCalls: 0 };
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        if (prompt.includes('__HYPOTHESES__')) { state.multiCalls++; return multiBlock; }
+        state.singleCalls++;
+        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p"}';
+      }
+      if (agentType === 'grd-experiment-runner') {
+        state.planCalls++;
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"success_pattern","content":"c","confidence":0.8,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    return { spawn, state };
+  }
+
+  function supportedRunner() {
+    return { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+  }
+
+  it('PRE-LEDGER PAUSE + ZERO POLLUTION: >=2 candidates ⇒ selection pause with an EMPTY ledger', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const { spawn, state } = makeSelSpawn(THREE);
+    const res = await runResearch(cwd, 'Which lever helps throughput?', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('paused');
+    expect(res.pendingCheckpoint?.point).toBe('hypothesize');
+    expect(res.pendingCheckpoint?.type).toBe('selection');
+    expect(res.pendingGate).toBeUndefined();
+    // one multi spawn, NO single-block spawn, NO DESIGN spawn before the pause.
+    expect(state.multiCalls).toBe(1);
+    expect(state.singleCalls).toBe(0);
+    expect(state.planCalls).toBe(0);
+    // ZERO POLLUTION: no hypothesis in the ledger for this iteration.
+    expect(readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1).length).toBe(0);
+    // one option per candidate, rank-1 recommended, freeform true; context holds the full set.
+    const q = res.pendingCheckpoint?.questions[0];
+    expect(q?.options.length).toBe(3);
+    expect(q?.options.filter((o: any) => o.recommended === true).length).toBe(1);
+    expect(q?.options[0].recommended).toBe(true);
+    expect((q as any).freeform).toBe(true);
+    expect(JSON.parse(res.pendingCheckpoint?.context as string).length).toBe(3);
+  });
+
+  it('MATCHED RESUME: choosing candidate 2 appends ONLY it and proceeds to DESIGN', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const first = await runResearch(cwd, 'Pick one', { spawn: makeSelSpawn(THREE).spawn, runner: supportedRunner(), noGates: false });
+    const resume = makeSelSpawn(THREE);
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resume.spawn, runner: supportedRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'C2' } },
+    });
+    expect(res.status).toBe('supported');
+    const led = readLedger(cwd, first.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('C2');
+    expect(led[0].rationale).toBe('r2');
+    expect(led[0].predictedOutcome).toBe('p2');
+    // the unchosen candidates never entered the ledger.
+    const all = readLedger(cwd, first.threadId).map((h: any) => h.statement);
+    expect(all).not.toContain('C1');
+    expect(all).not.toContain('C3');
+    // proceeded to DESIGN — the experiment-runner fired.
+    expect(resume.state.planCalls).toBeGreaterThanOrEqual(1);
+  });
+
+  it('FREEFORM RESUME: "Other" + text ⇒ user-authored statement + fixed rationale', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const first = await runResearch(cwd, 'Author your own', { spawn: makeSelSpawn(THREE).spawn, runner: supportedRunner(), noGates: false });
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: makeSelSpawn(THREE).spawn, runner: supportedRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Other', text: 'my own hypothesis' } },
+    });
+    expect(res.status).toBe('supported');
+    const led = readLedger(cwd, first.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('my own hypothesis');
+    expect(led[0].rationale).toBe('user-provided at checkpoint');
+  });
+
+  it('BYTE-IDENTICAL DEFAULT: interactive off ⇒ single-block spawn, one hyp, NO selection checkpoint', async () => {
+    const cwd = tmp();
+    // interactive disabled → the selection station is off; classic execute gate off so the loop runs.
+    writeSelConfig(cwd, { enabled: false });
+    const { spawn, state } = makeSelSpawn(THREE);
+    const res = await runResearch(cwd, 'Plain question', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('supported');
+    expect(res.pendingCheckpoint).toBeUndefined();
+    expect(state.multiCalls).toBe(0);
+    expect(state.singleCalls).toBe(1);
+    const led = readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('SINGLE');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('ZERO-CANDIDATE DEGRADE: gate on but parser yields 0 candidates ⇒ single-block, no pause', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const { spawn, state } = makeSelSpawn(EMPTY);
+    const res = await runResearch(cwd, 'Degrade me', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('supported');
+    expect(res.pendingCheckpoint).toBeUndefined();
+    expect(state.multiCalls).toBeGreaterThanOrEqual(1); // multi tried (+retries)
+    expect(state.singleCalls).toBe(1); // then degraded to single-block
+    const led = readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('SINGLE');
+  });
+
+  it('SINGLE-CANDIDATE DIRECT-APPEND: exactly 1 candidate ⇒ appended, no pointless pause', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd, { hypothesis_candidates: 1 });
+    const { spawn, state } = makeSelSpawn(ONE);
+    const res = await runResearch(cwd, 'Only one', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('supported');
+    expect(res.pendingCheckpoint).toBeUndefined();
+    expect(state.multiCalls).toBe(1);
+    expect(state.singleCalls).toBe(0); // the 1 candidate is used directly
+    const led = readLedger(cwd, res.threadId).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('SOLO');
+  });
+
+  it('SKIP PATH (SC4a): seeded synthesis hypothesis ⇒ adopted, NO selection checkpoint', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const t = createThread(cwd, 'Seeded Q', {});
+    appendHypothesis(cwd, t.id, { id: 'h1', iteration: t.iteration, statement: 'SEEDED', rationale: 'r', predictedOutcome: 'p', status: 'testing', parentId: null, verdict: null, origin: 'synthesis' });
+    t.currentStation = 'seed'; t.status = 'active'; t.pendingGate = null; saveThread(cwd, t);
+    const { spawn, state } = makeSelSpawn(THREE);
+    const res = await resumeResearch(cwd, t.id, { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.pendingCheckpoint?.point).not.toBe('hypothesize');
+    expect(state.multiCalls).toBe(0); // no cold multi spawn
+    const led = readLedger(cwd, t.id).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('SEEDED');
+  });
+
+  it('SKIP PATH (SC4b): execute-gate resume (plan on disk) ⇒ reuse, NO selection checkpoint', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const t = createThread(cwd, 'Execute resume Q', {});
+    appendHypothesis(cwd, t.id, { id: 'h1', iteration: t.iteration, statement: 'REVIEWED', rationale: 'r', predictedOutcome: 'p', status: 'testing', parentId: null, verdict: null });
+    const iterDir = path.join(threadDirOf(cwd, t.id), 'experiments', '1');
+    fs.mkdirSync(iterDir, { recursive: true });
+    fs.writeFileSync(path.join(iterDir, 'plan.json'), JSON.stringify({ procedure: 'p', metricKey: 'accuracy', comparator: '>=', target: 0.8, language: 'shell', scriptPath: 'experiments/1/run.sh' }));
+    t.currentStation = 'run'; t.status = 'paused'; t.pendingGate = 'execute'; saveThread(cwd, t);
+    const { spawn, state } = makeSelSpawn(THREE);
+    const res = await resumeResearch(cwd, t.id, { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.pendingCheckpoint?.point).not.toBe('hypothesize');
+    expect(state.multiCalls).toBe(0);
+    const led = readLedger(cwd, t.id).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('REVIEWED');
+  });
+
+  it('SKIP PATH (SC4c): crash-recovery (testing hyp, no plan) ⇒ reuse, NO selection checkpoint', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const t = createThread(cwd, 'Crash Q', {});
+    appendHypothesis(cwd, t.id, { id: 'h1', iteration: t.iteration, statement: 'CRASHED', rationale: 'r', predictedOutcome: 'p', status: 'testing', parentId: null, verdict: null });
+    t.currentStation = 'design'; t.status = 'active'; saveThread(cwd, t);
+    const { spawn, state } = makeSelSpawn(THREE);
+    const res = await resumeResearch(cwd, t.id, { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.pendingCheckpoint?.point).not.toBe('hypothesize');
+    expect(state.multiCalls).toBe(0);
+    const led = readLedger(cwd, t.id).filter((h: any) => h.iteration === 1);
+    expect(led.length).toBe(1);
+    expect(led[0].statement).toBe('CRASHED');
+  });
+
+  it('NO DOUBLE-ASK: a matched resume advances once and does not re-pause on the same checkpoint', async () => {
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const first = await runResearch(cwd, 'Once only', { spawn: makeSelSpawn(THREE).spawn, runner: supportedRunner(), noGates: false });
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: makeSelSpawn(THREE).spawn, runner: supportedRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'C1' } },
+    });
+    expect(res.paused).toBeFalsy();
+    const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
+    // exactly one selection resolve — the resume did not re-emit/re-consume.
+    expect(log.filter((c: any) => c.point === 'hypothesize').length).toBe(1);
   });
 });
