@@ -1,20 +1,22 @@
 # Project: GRD
 
 **Created:** 2026-02-12
-**Updated:** 2026-03-23
+**Updated:** 2026-07-20
 
-## Current Milestone: v0.5.0 — Interactive Research Steering (Human-in-the-Loop)
+## Current Milestone: (next milestone not yet started)
 
-**Goal:** Give the autoresearch loop (`gd research`) optional socratic human steering — clarification/discussion before research planning and AskUserQuestion-based checkpoints at the loop's decision points — with multi-backend AI discussion as the autonomous-mode fallback, so the same checkpoint mechanism works attended and unattended.
+**Previous:** v0.5.0 Interactive Research Steering (Human-in-the-Loop) — shipped 2026-07-20
 
-**Target features:**
-- Pre-loop socratic clarification: brainstorm/discuss-style interview to sharpen an underspecified research question before SEED (like discuss-phase, for research threads)
-- Interactive checkpoints at all four loop decision points — SEED (question clarification), HYPOTHESIZE (choose among candidate hypotheses), DESIGN (approve experiment design/metric contract), DECIDE (iterate vs stop) — each individually gate-able via `research_gates`
-- Structured checkpoint emission from the TS orchestrator (`lib/research/orchestrator.ts` cannot call AskUserQuestion): pause thread with a typed checkpoint block, surfaced by the `commands/research.md` skill layer, resumed with answers
-- Auto-skip under `autonomous_mode`, autopilot, and `--no-gates` — full-autopilot behavior unchanged
-- Multi-backend discussion fallback: in autonomous runs, the same checkpoints are answered by an AI discussion panel (`lib/discussion.ts`) instead of a human — one checkpoint mechanism, two answerers
+## Previous State (v0.5.0)
 
-**Previous:** v0.4.16 Competitive Adoption (shipped 2026-07-11)
+**Shipped:** 2026-07-20
+
+v0.5.0 gave the autoresearch loop optional socratic human steering with an AI-panel fallback, so the same checkpoint mechanism works attended and unattended (Phases 101-105, 15 plans, 16 requirements REQ-194–209, all PASS):
+- Checkpoint core plumbing (`lib/research/checkpoints.ts`): typed checkpoint emission/consume/resolve, `research_gates.interactive` config surface, resume-with-answers plumbing
+- Interactive checkpoints at all four loop decision points — SEED (clarify), HYPOTHESIZE (N-candidate selection), DESIGN (GATE-1 approval + metric-contract edit surviving debug-loop pinning), DECIDE (continue/pivot/stop/adjust-budget)
+- Skill-layer AskUserQuestion loop + pre-loop socratic interview + `gd research status` pending-checkpoint rendering
+- `answerViaDiscussion` AI-panel fallback (`fallback:'panel'`): unattended runs resolve checkpoints inline via multi-backend discussion — never pause; degrade-safe to recommended defaults
+- Milestone verification suite (`tests/unit/research/milestone-verification.test.ts`): offline deterministic R1/R3/R4/R5 proofs; live sandbox validation observed a literal `answeredBy:'panel'` with a real second backend
 
 ## Vision
 
@@ -64,6 +66,7 @@ A Claude Code plugin providing:
 - Wireup command (`/grd:wireup`): end-to-end integration wiring — discovers unwired features, generates HTTP/CLI/browser scenarios, executes against localhost, detects missing connections, auto-fixes high-confidence issues with sonnet-tier agents, produces WIREUP-REPORT.md with iteration history
 - Wireup state persistence (`WIREUP-STATE.json`): cross-iteration tracking with discovery counts, scenario pass/fail, fix history
 - 5 wireup MCP tools: discover, run, state, scenarios, report
+- Interactive research steering: gate-able human checkpoints at SEED/HYPOTHESIZE/DESIGN/DECIDE with resume-with-answers, plus an AI-discussion-panel fallback for unattended runs
 
 ## Core Value
 
@@ -554,3 +557,5 @@ v0.1.0 adds setup functionality and usability on top of v0.0.5's engineering fou
 *v0.3.3 shipped: 2026-03-03*
 *v0.3.4 shipped: 2026-03-03*
 *v0.3.5 shipped: 2026-03-09*
+*v0.4.16 milestone shipped: 2026-07-11*
+*v0.5.0 milestone shipped: 2026-07-20*

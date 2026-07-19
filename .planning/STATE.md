@@ -1,21 +1,21 @@
 # State
 
-**Updated:** 2026-07-12
+**Updated:** 2026-07-20
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-12)
 
 **Core value:** Transforms ad-hoc AI-assisted development into structured, repeatable, research-driven engineering with paper-backed decisions and quantitative evaluation.
-**Current focus:** v0.5.0 Interactive Research Steering (Human-in-the-Loop)
-**Previous:** v0.4.16 Competitive Adoption (shipped 2026-07-11)
+**Current focus:** (next milestone not yet started)
+**Previous:** v0.5.0 Interactive Research Steering (shipped 2026-07-20)
 
 ## Current Position
 
 - **Active phase:** 105 AI-Panel Fallback + Hardening
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Plan 105-04 complete — live sandbox validation (105-04-VALIDATION.md) exercised the full checkpoint machinery against a real Claude backend in throwaway mktemp -d sandboxes (repo never polluted). All 5 v0.5.0 deferred live validations RESOLVED: DEFER-104-01/02 (3 distinct falsifiable candidates + coherent selection UX), DEFER-102-01 (live SEED clarify answered+resumed), DEFER-101-02 FULLY RESOLVED (degrade-safe non-pausing defaults AND literal answeredBy:'panel' via real opencode+codex panel through production answerViaDiscussion), DEFER-101-03 (offline R1-R5 from 105-03). Two non-blocking lib/discussion.ts hardening follow-ups logged.
-- **Next:** Phase 105 verification/completion → v0.5.0 milestone wrap
+- **Status:** v0.5.0 milestone complete
+- **Next:** /grd:new-milestone
 
 ## Phase Summary
 

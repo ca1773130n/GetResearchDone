@@ -536,3 +536,24 @@
 
 ---
 
+
+## v0.5.0 Interactive Research Steering (Human-in-the-Loop) (Shipped: 2026-07-20)
+
+**Phases completed:** 5 phases (101-105), 15 plans
+**Timeline:** 2026-07-12 to 2026-07-20
+**Requirements:** REQ-194–209 (16/16 PASS)
+
+**Key accomplishments:**
+- Checkpoint core plumbing in `lib/research/checkpoints.ts`: typed emit/consume/resolve, `research_gates.interactive` config, resume-with-answers — orchestrator pauses, skill layer asks, thread resumes with no double-ask
+- Interactive checkpoints at all four loop decision points: SEED clarify, HYPOTHESIZE N-candidate selection, DESIGN GATE-1 approval with metric-contract edit surviving debug-loop pinning, DECIDE continue/pivot/stop/adjust-budget
+- Skill-layer AskUserQuestion steering loop, pre-loop socratic interview, and `gd research status` pending-checkpoint rendering
+- `answerViaDiscussion` AI-panel fallback (`fallback:'panel'`): unattended runs resolve checkpoints inline via multi-backend discussion, never pause, degrade-safe to recommended defaults
+- Milestone verification suite (offline deterministic R1/R3/R4/R5); live sandbox validation resolved all 7 deferred validations including a literal `answeredBy:'panel'` observed with a real second backend (codex)
+
+**Key decisions:**
+- One checkpoint mechanism, two answerers (human via AskUserQuestion, AI panel via lib/discussion.ts) — attended and unattended share the resolve/consume path
+- Panel resolution is inline and non-pausing; loop backend excluded from panel participants; empty/rate-limited synthesis degrades to recommended defaults
+- Known follow-up tracked in todos: `resolveElicitation` should forward the built panel question; codex/gemini empty inside `runDiscussion`
+
+---
+
