@@ -170,6 +170,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 103-02]: parseClarifyOutput never returns null (always {dimensions:[]}) so a null spawnAndParse value = hard spawn failure → degrade to zero dimensions; thread.question NEVER mutated (seeds threadId), HYPOTHESIZE grounds on effectiveQuestion = refinedQuestion ?? question
 - [Phase 103-01]: SEED interview is skill-layer-only markdown in commands/research.md — NO CLI flag, NO orchestrator/TS change; original question preserved by echoing (Original->Refined), not a new arg (REQ-202)
 - [Phase 103-01]: Pre-loop SEED interview is cross-referenced with but kept DISTINCT from the in-loop Interactive steering checkpoint protocol; skip matrix = resume/status/deep-research/--no-gates/non-interactive
+- [Phase 103-03]: DECIDE checkpoint fires only in the would-continue else branch; terminal verdicts never delayed; loop-top consume short-circuits (continue/pivot/adjust-budget advance, stop finalizes exhausted from persisted result.json); DECIDE_BUDGET_BUMP=2; verdict math untouched
 
 ## Known Bugs
 
@@ -182,7 +183,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 99 complete — knowledge injection loop closed
-- **Stopped at:** Completed 102-01-PLAN.md
+- **Stopped at:** Completed 103-03-PLAN.md
 - **Next action:** Plan Phase 100 (Evaluation Benchmark Framework)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
