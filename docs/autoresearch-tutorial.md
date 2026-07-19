@@ -340,6 +340,59 @@ It sets a process-tree env carrier, so every agent the loop spawns inherits it. 
 the plugin, `/grd:research "<q>" ultracode` does the same. Use it when a question is
 worth the extra cost/latency; leave it off for routine runs.
 
+### 3.6 Interactive steering (human-in-the-loop)
+
+Beyond the two execute/kg_write gates, the loop can pause at up to four *steering*
+checkpoints so you shape the research as it runs. Enable it in `.planning/config.json`
+under `research_gates.interactive` (or one-shot with `--interactive`):
+
+```jsonc
+"research_gates": {
+  "interactive": {
+    "enabled": true,               // master switch (default: false)
+    "seed": true,                  // SEED — refine an ambiguous question before HYPOTHESIZE
+    "hypothesize": true,           // HYPOTHESIZE — pick among ranked candidate hypotheses
+    "design": true,                // DESIGN — approve / revise / abort the experiment plan
+    "decide": true,                // DECIDE — continue / pivot / stop / adjust-budget
+    "fallback": "recommended"      // answerer when NO human is present (see below)
+  }
+}
+```
+
+**The four steering points:**
+
+| Point | When | You choose |
+|---|---|---|
+| **SEED** | before the first hypothesis | clarify a vague question (folded into a refined question; the original is preserved verbatim) |
+| **HYPOTHESIZE** | after candidates are ranked | which candidate to test (or author your own) — unchosen candidates never enter the ledger |
+| **DESIGN** | after the experiment plan is drafted | approve & run, revise the plan, edit the metric contract, or abort |
+| **DECIDE** | after a would-continue verdict | continue, pivot hard, stop and finalize, or extend the iteration budget |
+
+**Resume with answers.** When the loop pauses it returns a `pendingCheckpoint`; answer
+it and continue with:
+
+```bash
+gd research resume <id> --answers answers.json   # {"q1": {"label": "Approve & run"}}
+gd research resume <id>                           # bare resume → recommended defaults
+```
+
+**The panel fallback (`fallback:"panel"`).** Interactive steering only *pauses* when a
+human is actually present. Whenever the run is **unattended** — `--no-gates`,
+`autonomous_mode`, autopilot, or a parallel `portfolio` thread — the loop must resolve
+each checkpoint *without* a human. Two answerers are available:
+
+- `"recommended"` (default) — take each question's recommended option. Byte-identical to
+  the pre-steering autonomous loop.
+- `"panel"` — consult the **AI discussion panel** (`answerViaDiscussion`): the other
+  configured backends debate the checkpoint and their synthesized choice is applied
+  inline. It is **degrade-safe** — an empty or rate-limited panel falls straight back to
+  the recommended default, so the loop **never pauses and never wedges** unattended.
+
+Either way an unattended run resolves every checkpoint inline; the resolution is written
+to the thread's `checkpoints.jsonl` audit trail exactly as a human answer would be, and
+telemetry counts panel outcomes (`research.checkpoint_panel_answered_total` /
+`research.checkpoint_panel_unavailable_total`).
+
 ---
 
 ## 4. Read and publish the outputs
@@ -419,6 +472,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | Key | Type / default | Effect |
 |---|---|---|
 | `research_gates` | `{experiment_execution:true, kg_write:true}` | Per-gate checkpoints. `experiment_execution:false` skips the execute gate; `kg_write:false` skips the KG-write gate. (The *config* sub-key is `experiment_execution`; the runtime gate it controls is named `execute`.) |
+| `research_gates.interactive` | `{enabled:false}` | Human-in-the-loop steering (§3.6): `enabled` + per-point `seed`/`hypothesize`/`design`/`decide` (default `true` when enabled). `fallback` (`"recommended"` \| `"panel"`) is the unattended answerer — `panel` uses the AI discussion panel, degrade-safe → recommended. An unattended run never pauses either way. |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads. |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey. |
 | `research_max_resurveys` | `2` | Max re-surveys per thread (`0` disables). |

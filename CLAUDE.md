@@ -105,6 +105,15 @@ harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 via AskUserQuestion to resolve ambiguous, unlocked design/implementation
 decisions mid-planning (planner raises a `TYPE: clarification` checkpoint);
 auto-skipped under `autonomous_mode`, autopilot, and `--candidates N>1`.
+`research_gates.interactive` (default `enabled:false`) is human-in-the-loop
+steering of the research loop — per-point flags `seed`/`hypothesize`/`design`/
+`decide` pause for a human at the SEED/HYPOTHESIZE/DESIGN/DECIDE stations
+(+`max_rounds`, `max_questions`, `hypothesis_candidates`, `every_iteration`).
+`interactive.fallback` (`"recommended"` default | `"panel"`) is the answerer when
+NO human is present (autonomous/autopilot/portfolio-concurrency): `recommended`
+uses each question's recommended default; `panel` answers via the AI discussion
+panel (`answerViaDiscussion`, degrade-safe → recommended defaults on empty/
+rate-limited panel) — the loop NEVER pauses unattended either way (REQ-208).
 Account rotation: `superpowers.{account_rotation, accounts, default_backend}` —
 each account's `config_dir` is injected as `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, so
 use **absolute** paths (`~` is not expanded). `gd accounts sync` populates this
