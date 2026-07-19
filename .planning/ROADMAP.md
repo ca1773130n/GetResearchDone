@@ -443,7 +443,7 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 99. Knowledge Injection Loop | v0.3.23 | 3/3 | Complete | 2026-03-25 |
 | 100. Evaluation Benchmark Framework | v0.3.23 | 3/3 | Complete | 2026-03-25 |
 | 101. Checkpoint Core Plumbing + Config | v0.5.0 | 0/TBD | Not started | - |
-| 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/TBD | Not started | - |
+| 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/2 | Planned | - |
 | 103. SEED Interview + DECIDE Branch | v0.5.0 | 0/TBD | Not started | - |
 | 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 0/TBD | Not started | - |
 | 105. AI-Panel Fallback + Hardening | v0.5.0 | 0/TBD | Not started | - |
@@ -571,12 +571,11 @@ Plans:
   4. The checkpoint fires on iteration 1 only unless `interactive.every_iteration:true`.
   5. `commands/research.md` "Interactive steering" section parses `pendingCheckpoint` from CLI JSON (never re-reads files) and runs the AskUserQuestion loop per plan-phase §9 protocol verbatim (max 4 per call, recommended-first, 2 rounds, de-dupe by ask text), writing the answers file via the Write tool (no shell) before calling `gd research resume <id> --answers <file>`.
   6. `gd research status [<id>] --raw` renders pending checkpoint questions (the skill-less/protocol-drift escape hatch); `renderThreadLog` gains a checkpoint line.
-**Plans**: TBD
+**Plans**: 2 plans (1 wave)
 
 Plans:
-- [ ] 102-01: TDD — DESIGN approval checkpoint at GATE-1 site (approve/revise/abort, contract pre-pin edits, persisted-plan reuse)
-- [ ] 102-02: `commands/research.md` "Interactive steering" section (AskUserQuestion loop, answers file, resume)
-- [ ] 102-03: `gd research status --raw` pending-checkpoint rendering + `renderThreadLog` checkpoint line
+- [ ] 102-01-PLAN.md — DESIGN approval checkpoint at the GATE-1 site: emit/consume, approve consumes execute gate, contract edits pre-pin (R4), revise-cap-2, abort→abandoned, byte-identical default (R5)
+- [ ] 102-02-PLAN.md — `commands/research.md` "Interactive steering" skill protocol (AskUserQuestion → answers file → resume) + `gd research status` pending-checkpoint human rendering
 
 #### Phase 103: SEED Interview + DECIDE Branch
 
