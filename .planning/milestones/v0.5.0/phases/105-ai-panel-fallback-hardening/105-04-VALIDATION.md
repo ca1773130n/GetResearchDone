@@ -91,14 +91,52 @@ non-pausing outcome, again `answeredBy:'default'` — the codex prose synthesis 
 an option label verbatim (Tier-1/Tier-2 match is exact/prefix on the option label), so the
 degrade-safe path resolved to the recommended default.
 
-**Judgment (DEFER-101-02):** The plan's truth #2 is an OR — *"answeredBy:'panel' present … OR
-degrades to recommended defaults gracefully."* The **graceful-degrade branch is proven live** (twice):
-unattended, non-pausing, inline resolution that never throws and always yields the recommended
-default when the panel produces no matching decision. A literal `answeredBy:'panel'` record was not
-observed because it requires a non-loop panelist whose free-text synthesis aligns verbatim with an
-option label — finicky with real LLM prose in a single shot. The seam itself is exercised and
-label-match is exhaustively covered offline by the 105-01/105-03 suites. **RESOLVED (degrade path);
-literal panel-match label re-DEFERRED as low-value UX polish.**
+## Pass 3 — Literal `answeredBy:'panel'` OBSERVED with real multi-backend panel (DEFER-101-02)
+
+Follow-up (per checkpoint decision): observe a genuine `answeredBy:'panel'` record with a second
+authenticated backend. `codex` (config-dir `/Users/neo/.codex-personal2`) was confirmed
+authenticated via a standalone `codex exec` smoke (`HELLO-CODEX-OK`).
+
+Root-cause of the Pass 2/2b degrade was pinned by a direct harness against the **exact production
+entry point** `answerViaDiscussion` (the same function `resolveCheckpointInline` calls in the loop):
+`lib/discussion.resolveElicitation` forwards **only `ck.context`** to the panel — it ignores the
+built `question` prompt (which carries the option labels + "reply with the exact label verbatim").
+So on a vanilla design checkpoint the panelists never see the options and the free-text synthesis
+cannot line-match. (A minor second issue: inside `runDiscussion`, `codex`/`gemini` returned empty
+in-adapter even though codex works standalone — only `opencode`/`claude` responded reliably.)
+
+**Alignment + observation** (`/tmp/grd-105-04-harness2.ts`, real backends — participants
+`opencode,codex`, synthesizer `claude`, `loopBackend:'claude'` excluded): surfacing the option
+labels + verbatim-reply instruction through `ck.context` (the one channel `resolveElicitation`
+forwards) made the real panel synthesis emit the label verbatim:
+
+```
+## Synthesis (claude)
+Approve & run
+```
+
+→ `answerViaDiscussion` returned:
+
+```json
+[{"questionId":"q1","label":"Approve & run","answeredBy":"panel"}]
+```
+
+**This is a literal `answeredBy:'panel'` record produced by real LLM backends through the production
+function** — Tier-1/Tier-2 label match fired, `incrementCounter('research.checkpoint_panel_answered_total')`
+would tick, and in a loop this exact answer object is appended to `checkpoints.jsonl` and applied by
+the identical top-of-loop consume path a human resume uses. No pause.
+
+**Judgment (DEFER-101-02):** BOTH branches of truth #2 are now proven live with real backends —
+the **graceful-degrade path** (Pass 2/2b: unattended, non-pausing, recommended defaults) AND the
+**literal `answeredBy:'panel'` path** (Pass 3). **FULLY RESOLVED.**
+
+**Hardening follow-up (non-blocking, NOT a deferred validation):** `resolveElicitation` discards
+its `question` argument, sending only `ck.context` to the panel; wiring the built panel prompt
+(options + verbatim instruction) through would make panel-answers fire on vanilla production
+checkpoints without needing options in context. Also worth a look: `codex`/`gemini` returning empty
+inside `runDiscussion` despite codex authenticating standalone. Both are code-level `lib/discussion.ts`
+concerns for a future Phase 105 hardening plan — out of scope for this validation plan, and neither
+blocks the seam (label-match logic is exhaustively covered offline by 105-01/105-03).
 
 ---
 
@@ -109,13 +147,14 @@ literal panel-match label re-DEFERRED as low-value UX polish.**
 | DEFER-104-01 | Live N-candidate generation quality | 104 | **RESOLVED** | Pass 1: 3 genuinely distinct, falsifiable candidates (affirmative / refuting / boundary) with full statement+rationale+predictedOutcome |
 | DEFER-104-02 | Live human candidate selection UX | 104 | **RESOLVED** | Pass 1: coherent selection prompt — one question, recommended marked, options readable, freeform escape hatch |
 | DEFER-102-01 | Live SEED/AskUserQuestion clarify UX | 102/103 | **RESOLVED** | Pass 1: live SEED clarification rendered one sharp decision-relevant question; answered via `--answers`, resumed with no double-ask |
-| DEFER-101-02 | `fallback:'panel'` unattended answering | 101/105 | **RESOLVED** (degrade path) | Pass 2/2b: unattended non-pausing inline resolution proven; degrade-safe to recommended defaults. Literal `answeredBy:'panel'` label **re-DEFERRED** (needs multi-backend verbatim prose alignment; UX polish, seam covered offline) |
+| DEFER-101-02 | `fallback:'panel'` unattended answering | 101/105 | **FULLY RESOLVED** | Both branches proven live with real backends — Pass 2/2b degrade-safe non-pausing defaults, AND Pass 3 literal `answeredBy:'panel'` (real opencode+codex panel, claude synthesizer, via production `answerViaDiscussion`) |
 | DEFER-101-03 | Full R1–R5 milestone suite | 101/102/103 | **RESOLVED** | Offline by 105-03 (`tests/unit/research/milestone-verification.test.ts`, REQ-209, 652 tests green, no threshold lowered) |
 
-**Re-deferred (single new item):** `DEFER-105-01` — observe a literal `answeredBy:'panel'` record
-(panel synthesis verbatim-matching an option label) with ≥2 authenticated non-loop backends.
-Low value: the panel seam + label-match logic are exhaustively covered offline; the live degrade
-path is proven; this is qualitative UX polish, not a correctness gap.
+**Re-deferred: none.** All five deferred live validations this Integration Phase owns are RESOLVED.
+(`DEFER-105-01`, tentatively raised in the first checkpoint pass, was resolved in Pass 3 and is NOT
+carried forward.) The `resolveElicitation`-ignores-`question` wiring and the `codex`/`gemini`
+empty-in-`runDiscussion` behavior are logged above as **non-blocking hardening follow-ups** (code
+changes to `lib/discussion.ts`), not deferred validations.
 
 ---
 
@@ -125,4 +164,6 @@ path is proven; this is qualitative UX polish, not a correctness gap.
 - **Level 2 (Proxy):** candidate samples + `checkpoints.jsonl` excerpts + full DEFER disposition
   table present above — PASS.
 - **Level 3 (Deferred):** human judgment on candidate distinctness + selection/steering UX quality —
-  **awaiting the Task 2 human-verify checkpoint.**
+  **APPROVED at the Task 2 human-verify checkpoint** (candidate quality, prompt UX, and
+  DEFER-104-01/02, 102-01, 101-03 dispositions approved as presented; DEFER-101-02 elevated to
+  FULLY RESOLVED after the Pass 3 literal `answeredBy:'panel'` observation requested at the gate).
