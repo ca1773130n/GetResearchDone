@@ -1152,3 +1152,151 @@ describe('DESIGN approval checkpoint (Phase 102)', () => {
     expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
   });
 });
+
+describe('SEED clarification checkpoint (Phase 103)', () => {
+  const { loadThread, createThread, saveThread } = require('../../../lib/research/thread');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+
+  const AMBIGUOUS = '__CLARIFY__ {"dimensions":[{"ask":"What is measured?","options":['
+    + '{"label":"accuracy","description":"top-1","recommended":true},{"label":"f1","description":"macro"}]}]}';
+  const UNAMBIGUOUS = '__CLARIFY__ {"dimensions":[]}';
+
+  function threadDirOf(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id);
+  }
+
+  // seed on; design/hypothesize/decide OFF so only the SEED station under test can pause.
+  // experiment_execution/kg_write off so the classic gates never pause the loop either.
+  function writeSeedConfig(cwd: string, extra: Record<string, unknown> = {}): void {
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false,
+        kg_write: false,
+        interactive: { enabled: true, seed: true, design: false },
+      },
+      ...extra,
+    }));
+  }
+
+  function makeSeedSpawn(clarifyBlock: string) {
+    const state = { clarifyCalls: 0, hypoCalls: 0, lastHypoPrompt: '' };
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        if (prompt.includes('__CLARIFY__')) { state.clarifyCalls++; return clarifyBlock; }
+        state.hypoCalls++; state.lastHypoPrompt = prompt;
+        return '__HYPOTHESIS__ {"statement":"h","rationale":"r","predictedOutcome":"p"}';
+      }
+      if (agentType === 'grd-experiment-runner') {
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"success_pattern","content":"c","confidence":0.8,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    return { spawn, state };
+  }
+
+  function supportedRunner() {
+    return { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) };
+  }
+
+  it('AMBIGUOUS + interactive.seed on ⇒ pauses with pendingCheckpoint.point="seed" BEFORE any HYPOTHESIZE spawn', async () => {
+    const cwd = tmp();
+    writeSeedConfig(cwd);
+    const { spawn, state } = makeSeedSpawn(AMBIGUOUS);
+    const res = await runResearch(cwd, 'Does batching help throughput?', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('paused');
+    expect(res.paused).toBe(true);
+    expect(res.pendingCheckpoint?.point).toBe('seed');
+    expect(res.pendingCheckpoint?.type).toBe('clarification');
+    expect(res.pendingGate).toBeUndefined();
+    expect(state.clarifyCalls).toBe(1);
+    expect(state.hypoCalls).toBe(0); // NO hypothesizer spawn before the seed pause
+    // The verbatim question is the checkpoint context, and each question has exactly one recommended.
+    expect(res.pendingCheckpoint?.context).toBe('Does batching help throughput?');
+    for (const q of res.pendingCheckpoint?.questions || []) {
+      expect(q.options.filter((o: any) => o.recommended === true).length).toBe(1);
+    }
+  });
+
+  it('RESUME folds the chosen answers into thread.refinedQuestion (question stays verbatim) and HYPOTHESIZE grounds on it', async () => {
+    const cwd = tmp();
+    writeSeedConfig(cwd);
+    const first = await runResearch(cwd, 'How to measure it?', { spawn: makeSeedSpawn(AMBIGUOUS).spawn, runner: supportedRunner(), noGates: false });
+    expect(first.pendingCheckpoint?.point).toBe('seed');
+
+    const resumeSpawn = makeSeedSpawn(AMBIGUOUS);
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resumeSpawn.spawn, runner: supportedRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'f1' } },
+    });
+    expect(res.status).toBe('supported');
+    const t = loadThread(cwd, first.threadId);
+    expect(t.question).toBe('How to measure it?'); // verbatim, never mutated (seeds threadId)
+    expect(t.refinedQuestion).toContain('f1');
+    expect(t.refinedQuestion).toContain('How to measure it?');
+    // HYPOTHESIZE grounded on the refined question, not the bare one.
+    expect(resumeSpawn.state.hypoCalls).toBe(1);
+    expect(resumeSpawn.state.lastHypoPrompt).toContain('f1');
+  });
+
+  it('UNAMBIGUOUS (empty dimensions) ⇒ exactly ONE clarifier spawn, NO pause, refinedQuestion === verbatim question', async () => {
+    const cwd = tmp();
+    writeSeedConfig(cwd);
+    const { spawn, state } = makeSeedSpawn(UNAMBIGUOUS);
+    const res = await runResearch(cwd, 'Precise falsifiable question', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(state.clarifyCalls).toBe(1);
+    expect(state.hypoCalls).toBeGreaterThanOrEqual(1);
+    const t = loadThread(cwd, res.threadId);
+    expect(t.refinedQuestion).toBe('Precise falsifiable question');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+
+  it('SEEDED thread (seededFrom set) ⇒ SEED skipped, no clarifier spawn, refinedQuestion never written', async () => {
+    const cwd = tmp();
+    writeSeedConfig(cwd);
+    const seeded = createThread(cwd, 'Seeded synthesis question', {
+      seededFrom: { synthesisTopicId: 'topic-1', sourceNodeIds: ['n1', 'n2'], seedKey: 'k' },
+    });
+    saveThread(cwd, seeded);
+    const { spawn, state } = makeSeedSpawn(AMBIGUOUS);
+    const res = await resumeResearch(cwd, seeded.id, { spawn, runner: supportedRunner(), noGates: false });
+    expect(state.clarifyCalls).toBe(0);
+    const t = loadThread(cwd, seeded.id);
+    expect(t.refinedQuestion).toBeUndefined();
+  });
+
+  it('BYTE-IDENTICAL DEFAULT: interactive off ⇒ no clarifier spawn, grounds on thread.question, no refinedQuestion written', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: { experiment_execution: false, kg_write: false },
+    }));
+    const { spawn, state } = makeSeedSpawn(AMBIGUOUS);
+    const res = await runResearch(cwd, 'Baseline pre-103 question', { spawn, runner: supportedRunner(), noGates: false });
+    expect(res.status).toBe('supported');
+    expect(state.clarifyCalls).toBe(0);
+    expect(state.lastHypoPrompt).toContain('Baseline pre-103 question');
+    const t = loadThread(cwd, res.threadId);
+    expect(t.refinedQuestion).toBeUndefined();
+  });
+
+  it('NO DOUBLE-ASK: after a seed resume, the loop does not re-emit a seed checkpoint (one seed resolve logged)', async () => {
+    const cwd = tmp();
+    writeSeedConfig(cwd);
+    const first = await runResearch(cwd, 'Ask me once', { spawn: makeSeedSpawn(AMBIGUOUS).spawn, runner: supportedRunner(), noGates: false });
+    const resumeSpawn = makeSeedSpawn(AMBIGUOUS);
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: resumeSpawn.spawn, runner: supportedRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'accuracy' } },
+    });
+    expect(res.paused).toBeFalsy();
+    expect(res.status).toBe('supported');
+    expect(resumeSpawn.state.clarifyCalls).toBe(0); // never re-spawns the clarifier on resume
+    const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
+    expect(log.length).toBe(1); // only the original seed resolve — no re-ask
+    expect(log[0].point).toBe('seed');
+  });
+});
