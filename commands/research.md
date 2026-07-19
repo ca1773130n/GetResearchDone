@@ -11,6 +11,45 @@ hypothesis→experiment→verdict cycle; deep-research is a parallel breadth pas
 
 @${CLAUDE_PLUGIN_ROOT}/references/deep-research-flow.md
 
+## Interactive SEED interview (pre-loop clarification)
+
+Before starting a NEW `gd research "<question>"` thread, run a short socratic interview to
+turn a vague question into one carrying a **falsifiable metric target**. This is a THIN
+pre-CLI skill step (ask → refine → invoke) — no state machine, no answers file, no resume
+plumbing. It mirrors `superpowers:brainstorming` and `plan-phase.md` §9 clarification in
+spirit, and is DISTINCT from the in-loop "Interactive steering" checkpoint protocol below
+(that one runs mid-loop against CLI JSON; this one runs before the thread exists).
+
+**1. Trigger scope (fresh threads only).** Run this ONLY for a brand-new
+`gd research "<question>"` start. SKIP it entirely — and invoke `gd research` with the
+ORIGINAL question unchanged — when any of these apply:
+   - `gd research resume <id>` or `gd research status [<id>]` (not a new thread)
+   - the `deep-research` / `--deep-research` mode branch (different mode)
+   - `--no-gates`, autopilot, or any non-interactive / unattended context (no human to ask)
+
+**2. Context first.** Before asking anything, restate the user's question back to them and
+identify the ambiguous dimension(s) that block a falsifiable experiment: *what exactly is
+measured*, *against what baseline/target*, and *under what conditions*. Only ask about a
+dimension that is genuinely unresolved — if the question already carries a testable metric,
+skip straight to the handoff.
+
+**3. ONE question at a time.** Call **AskUserQuestion** with a SINGLE multiple-choice
+question per call (options preferred over free text). Offer a recommended-first option and an
+"other / let me specify" escape. Ask any follow-ups ONE-BY-ONE — never batch several
+questions into one interview turn.
+
+**4. Stop condition (hard).** STOP asking the moment the refined question yields a
+FALSIFIABLE METRIC TARGET — i.e. a single numeric **metric**, a **comparator**
+(`>=`, `<=`, `>`, `<`, `==`), and a concrete **target threshold** the autoresearch loop can
+test. Do not over-interview past that point.
+
+**5. Once per thread.** The interview happens exactly ONCE, before the thread exists. It is
+never re-run for the same thread (mid-loop clarification is the checkpoint protocol's job).
+
+**6. Handoff (original preserved verbatim).** Invoke `gd research "<refined question>"`
+passing the REFINED question as the argument. Preserve the ORIGINAL user question verbatim by
+echoing it to the user, e.g. `Original: … → Refined: …`, so it is never silently discarded.
+
 Run GRD's autoresearch loop on a research question:
 
 ```bash
