@@ -1,5 +1,5 @@
 'use strict';
-const { extractTaggedJson, parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } =
+const { extractTaggedJson, parseHypothesisOutput, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } =
   require('../../../lib/research/agent-io');
 
 describe('agent-io', () => {
@@ -65,6 +65,73 @@ describe('agent-io', () => {
     expect(t.kind).toBe('domain_fact');
     expect(t.confidence).toBe(0.5);
     expect(t.failureClass).toBe('none');
+  });
+});
+
+describe('parseHypothesesOutput (Phase 104)', () => {
+  const mk = (statement: string, rationale?: string, predictedOutcome?: string) => {
+    const parts = [`"statement":${JSON.stringify(statement)}`];
+    if (rationale !== undefined) parts.push(`"rationale":${JSON.stringify(rationale)}`);
+    if (predictedOutcome !== undefined) parts.push(`"predictedOutcome":${JSON.stringify(predictedOutcome)}`);
+    return `{${parts.join(',')}}`;
+  };
+
+  it('parses a well-formed 3-candidate block in rank order (n=3)', () => {
+    const out = '__HYPOTHESES__ {"candidates":['
+      + mk('S1', 'R1', 'P1') + ',' + mk('S2', 'R2', 'P2') + ',' + mk('S3', 'R3', 'P3')
+      + ']}';
+    const r = parseHypothesesOutput(out, 3);
+    expect(r.candidates.length).toBe(3);
+    expect(r.candidates.map((c: any) => c.statement)).toEqual(['S1', 'S2', 'S3']);
+    expect(r.candidates[0]).toEqual({ statement: 'S1', rationale: 'R1', predictedOutcome: 'P1' });
+  });
+
+  it('caps 4 candidates to n=3, preserving emit order', () => {
+    const out = '__HYPOTHESES__ {"candidates":['
+      + mk('S1') + ',' + mk('S2') + ',' + mk('S3') + ',' + mk('S4') + ']}';
+    const r = parseHypothesesOutput(out, 3);
+    expect(r.candidates.map((c: any) => c.statement)).toEqual(['S1', 'S2', 'S3']);
+  });
+
+  it('drops a candidate missing statement, keeps siblings', () => {
+    const out = '__HYPOTHESES__ {"candidates":['
+      + mk('S1', 'R1') + ',{"rationale":"orphan"},' + mk('S3', 'R3') + ']}';
+    const r = parseHypothesesOutput(out, 5);
+    expect(r.candidates.map((c: any) => c.statement)).toEqual(['S1', 'S3']);
+  });
+
+  it('defaults missing rationale/predictedOutcome to empty string (not dropped)', () => {
+    const out = '__HYPOTHESES__ {"candidates":[' + mk('S1') + ']}';
+    const r = parseHypothesesOutput(out, 5);
+    expect(r.candidates[0]).toEqual({ statement: 'S1', rationale: '', predictedOutcome: '' });
+  });
+
+  it('returns { candidates: [] } on missing block / absent / non-array / invalid JSON', () => {
+    expect(parseHypothesesOutput('just prose, no tag')).toEqual({ candidates: [] });
+    expect(parseHypothesesOutput('__HYPOTHESES__ {not json')).toEqual({ candidates: [] });
+    expect(parseHypothesesOutput('__HYPOTHESES__ {"nope":1}')).toEqual({ candidates: [] });
+    expect(parseHypothesesOutput('__HYPOTHESES__ {"candidates":"notarray"}')).toEqual({ candidates: [] });
+    expect(parseHypothesesOutput('__HYPOTHESES__ {"candidates":[]}')).toEqual({ candidates: [] });
+  });
+
+  it('parses despite extra prose after the block (brace-balanced extractor stops at close)', () => {
+    const out = '__HYPOTHESES__ {"candidates":[' + mk('S1', 'R1', 'P1') + ']} trailing chatter here';
+    const r = parseHypothesesOutput(out, 5);
+    expect(r.candidates.length).toBe(1);
+    expect(r.candidates[0].statement).toBe('S1');
+  });
+
+  it('defaults cap to 5 when n omitted', () => {
+    const cands = Array.from({ length: 8 }, (_, i) => mk(`S${i}`)).join(',');
+    const r = parseHypothesesOutput(`__HYPOTHESES__ {"candidates":[${cands}]}`);
+    expect(r.candidates.length).toBe(5);
+  });
+
+  it('PIN: parseHypothesisOutput single-block unchanged', () => {
+    expect(parseHypothesisOutput('__HYPOTHESIS__ {"statement":"S","rationale":"R","predictedOutcome":"P"}'))
+      .toEqual({ statement: 'S', rationale: 'R', predictedOutcome: 'P' });
+    expect(parseHypothesisOutput('__HYPOTHESIS__ {"rationale":"R"}')).toBeNull();
+    expect(parseHypothesisOutput('no block here')).toBeNull();
   });
 });
 

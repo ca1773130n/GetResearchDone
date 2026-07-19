@@ -40,6 +40,35 @@ function parseHypothesisOutput(stdout: string):
   };
 }
 
+/**
+ * Parse a __HYPOTHESES__ block (Phase 104 multi-candidate) into a ranked, capped candidates
+ * array. Mirrors parseClarifyOutput's degrade contract: a missing/empty/malformed block, an
+ * absent/non-array `candidates`, or invalid JSON yields { candidates: [] } — NEVER null, NEVER
+ * throws (the caller degrades to the single-block cold path). Candidates are kept in emit (rank)
+ * order; entries with no statement are dropped; rationale/predictedOutcome default to '' but do
+ * not drop the entry. The array is capped to `n` (default 5 = config clamp max), order preserved.
+ */
+function parseHypothesesOutput(stdout: string, n?: number):
+  { candidates: Array<{ statement: string; rationale: string; predictedOutcome: string }> } {
+  const cap = typeof n === 'number' && n > 0 ? n : 5;
+  const o = extractTaggedJson<Record<string, unknown>>(stdout, 'HYPOTHESES');
+  if (!o || !Array.isArray(o.candidates)) return { candidates: [] };
+  const candidates: Array<{ statement: string; rationale: string; predictedOutcome: string }> = [];
+  for (const rawCand of o.candidates as unknown[]) {
+    if (candidates.length >= cap) break;
+    if (!rawCand || typeof rawCand !== 'object') continue;
+    const c = rawCand as Record<string, unknown>;
+    const statement = String(c.statement || '').trim();
+    if (!statement) continue;
+    candidates.push({
+      statement,
+      rationale: String(c.rationale || ''),
+      predictedOutcome: String(c.predictedOutcome || ''),
+    });
+  }
+  return { candidates };
+}
+
 function parsePlanOutput(stdout: string):
   { procedure: string; metricKey: string; comparator: string; target: number;
     language: string; scriptPath: string } | null {
@@ -117,4 +146,4 @@ function parseClarifyOutput(stdout: string): { dimensions: ClarifyDimension[] } 
   return { dimensions };
 }
 
-module.exports = { extractTaggedJson, parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput };
+module.exports = { extractTaggedJson, parseHypothesisOutput, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput };
