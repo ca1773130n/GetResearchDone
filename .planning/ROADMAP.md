@@ -626,8 +626,10 @@ Plans:
   2. `fallback:"panel"` wiring works end-to-end including portfolio's forced non-human mode; `research.checkpoint_pauses_total` and panel counters are recorded.
   3. Docs are updated: CLAUDE.md config keys, `gd settings` skill, and the autoresearch tutorial gain an interactive-steering section.
   4. The milestone verification suite passes end-to-end via offline deterministic tests with an injected `checkpointHandler`, proving: R1 (no unattended path pauses across bench/portfolio/harness/autopilot/cli-kb), R3 (pre-0.5.0 thread back-compat), R4 (DESIGN answers survive debug-loop contract pinning), R5 (no double-asking on debug re-plan/resume) — and no per-file jest coverage thresholds are lowered.
-**Plans**: TBD
+**Plans**: 4 plans (4 waves)
 
 Plans:
-- [ ] 105-01: TDD — `answerViaDiscussion` panel fallback (backend exclusion, one-shot timeout, rate-limit guard, option matching)
-- [ ] 105-02: `fallback:"panel"` wiring (incl. portfolio force-non-human) + telemetry counters + docs
+- [ ] 105-01-PLAN.md — TDD `answerViaDiscussion` panel fallback: backend exclusion, one-shot, rate-limit guard, exact→prefix→recommended matching (wave 1)
+- [ ] 105-02-PLAN.md — `fallback:"panel"` wiring at the 4 emit sites (incl. portfolio force-non-human) + telemetry counters + docs (CLAUDE.md/settings/tutorial) (wave 2)
+- [ ] 105-03-PLAN.md — Milestone verification suite: offline deterministic R1/R3/R4/R5 with injected checkpointHandler, no coverage thresholds lowered (wave 3)
+- [ ] 105-04-PLAN.md — Live sandbox deferred-validation collection (DEFER-104-01/02, DEFER-102-01, DEFER-101-02/03); human-verify checkpoint (wave 4)
