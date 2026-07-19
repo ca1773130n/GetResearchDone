@@ -197,7 +197,12 @@ async function runPortfolio(cwd: string, opts: PortfolioOpts = {}): Promise<Port
   const kgClient = opts.client || wrapClientWithCompileLock(createCliTesseraeClient(), lock);
   const spawn = defaultSpawn(cwd, loadConfig(cwd));
   const retrieveFn = (c: string, q: string, o?: Record<string, unknown>) => retrieve(c, q, { embedder: defaultEmbedder(), ...(o || {}) });
-  const deps = { spawn, retrieve: retrieveFn, kgClient, noGates };
+  // `concurrency` is threaded into each thread's ResearchOptions so a concurrent portfolio run (>1)
+  // forces resolveInteractive INACTIVE — a concurrent thread NEVER pauses for a human (R1) — while
+  // still routing checkpoints through the AI-panel fallback inline when research_gates.interactive
+  // .fallback is 'panel'. With the default 'recommended' fallback, concurrent threads resolve to
+  // recommended defaults exactly as before.
+  const deps = { spawn, retrieve: retrieveFn, kgClient, noGates, concurrency };
 
   // 4. Run runnables with bounded concurrency; each in a failure-isolating envelope.
   //    Gap 5: early-stop — once any thread returns 'supported', skip queued-but-unstarted seeds.
