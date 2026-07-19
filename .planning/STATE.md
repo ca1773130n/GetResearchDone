@@ -166,6 +166,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 102]: 102-02: skill Interactive steering protocol thin (parse JSON, AskUserQuestion, Write answers file, resume --answers); status human path renders pendingCheckpoint via renderCheckpointQuestions while --json contract stays unchanged
 - [Phase 102-design-approval-skill-checkpoint-loop]: [Phase 102-01]: DESIGN checkpoint consume hoisted to loop-top (parallel to execute reuse fast-path), never at GATE-1 — fixes the re-derive blocker since approved.execute is false on checkpoint resume (REQ-199)
 - [Phase 102-design-approval-skill-checkpoint-loop]: [Phase 102-01]: Contract edits from the design checkpoint apply to plan.json BEFORE the debug-loop committed snapshot, so the debug pin freezes the user-edited contract, not the model's original (R4)
+- [Phase 103-01]: SEED interview is skill-layer-only markdown in commands/research.md — NO CLI flag, NO orchestrator/TS change; original question preserved by echoing (Original->Refined), not a new arg (REQ-202)
+- [Phase 103-01]: Pre-loop SEED interview is cross-referenced with but kept DISTINCT from the in-loop Interactive steering checkpoint protocol; skip matrix = resume/status/deep-research/--no-gates/non-interactive
 
 ## Known Bugs
 
