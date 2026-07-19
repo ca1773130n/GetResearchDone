@@ -989,3 +989,166 @@ describe('0.4.16 back-compat: fixtures resume bit-identically (101-04, R3)', () 
     expect(res.pendingCheckpoint).toBeUndefined();
   });
 });
+
+describe('DESIGN approval checkpoint (Phase 102)', () => {
+  const { loadThread } = require('../../../lib/research/thread');
+  const { readCheckpointLog } = require('../../../lib/research/checkpoints');
+
+  // experiment_execution:false decouples the classic execute gate from the DESIGN checkpoint
+  // system under test — the debug-loop's internal re-check (orchestrator.ts ~L561) is a
+  // separate, untouched no-touch-list mechanism (§4 decision 5) and must always proceed here.
+  function writeInteractiveConfig(cwd: string, extra: Record<string, unknown> = {}): void {
+    fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({
+      research_gates: {
+        experiment_execution: false,
+        kg_write: false,
+        interactive: { enabled: true, design: true, max_rounds: 2 },
+      },
+      ...extra,
+    }));
+  }
+
+  function threadDirOf(cwd: string, id: string): string {
+    return path.join(cwd, '.planning/research/threads', id);
+  }
+
+  it('EMIT/ONE-PAUSE: interactive.design on, iteration 1 ⇒ exactly ONE pause carrying a valid design-approval checkpoint (not the execute gate)', async () => {
+    const cwd = tmp();
+    writeInteractiveConfig(cwd);
+    const res = await runResearch(cwd, 'Approve my design?', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    expect(res.status).toBe('paused');
+    expect(res.paused).toBe(true);
+    expect(res.pendingGate).toBeUndefined();
+    expect(res.pendingCheckpoint?.point).toBe('design');
+    expect(res.pendingCheckpoint?.type).toBe('approval');
+    expect(res.pendingCheckpoint?.round).toBe(1);
+    expect(res.pendingCheckpoint?.questions.length).toBeLessThanOrEqual(4);
+    for (const q of res.pendingCheckpoint?.questions || []) {
+      expect(q.options.filter((o: any) => o.recommended === true).length).toBe(1);
+    }
+  });
+
+  it('R4: contract edit from the checkpoint freeform answer survives the debug-loop pin', async () => {
+    const cwd = tmp();
+    writeInteractiveConfig(cwd, { research_max_debug_depth: 1 });
+    const first = await runResearch(cwd, 'Edit the contract?', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    expect(first.pendingCheckpoint?.point).toBe('design');
+
+    // Force a debug retry: the runner fails once (script-execution failure), then succeeds
+    // reporting the EDITED target back as the metric — proving MEASURE judges the edit.
+    let calls = 0;
+    const flakyRunner = {
+      run(plan: any) {
+        calls++;
+        if (calls === 1) {
+          return {
+            metrics: {}, exitCode: 1, runner: 'subprocess', durationMs: 1,
+            stdoutExcerpt: '', stderrExcerpt: 'boom', failureClass: 'H4',
+          };
+        }
+        return {
+          metrics: { accuracy: plan.target }, exitCode: 0, runner: 'subprocess',
+          durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+        };
+      },
+    };
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: makeSpawn(), runner: flakyRunner, noGates: false,
+      checkpointAnswers: {
+        q1: { label: 'Approve & run' },
+        q2: { label: 'Keep as designed', text: 'target: 0.9' },
+      },
+    });
+    expect(res.status).toBe('supported');
+    const dir = threadDirOf(cwd, first.threadId);
+    const plan = JSON.parse(fs.readFileSync(path.join(dir, 'experiments/1/plan.json'), 'utf8'));
+    expect(plan.target).toBe(0.9);
+    const attempt = JSON.parse(fs.readFileSync(path.join(dir, 'experiments/1/debug-attempt-1.json'), 'utf8'));
+    // The debug fix-spawn's mock plan reports target 0.8 (the model's original) — the pin
+    // overwrites it back to the user-edited 0.9, recording the drift (not reverting it).
+    expect(attempt.contractDrift?.target?.pinned).toBe(0.9);
+    expect(attempt.contractDrift?.target?.proposed).toBe(0.8);
+  });
+
+  it('R5: consumeAnswered one-shot — approve resume RUNs without emitting a second design checkpoint this iteration', async () => {
+    const cwd = tmp();
+    writeInteractiveConfig(cwd);
+    const first = await runResearch(cwd, 'No double ask?', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    const res = await resumeResearch(cwd, first.threadId, {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Approve & run' } },
+    });
+    expect(res.pendingCheckpoint).toBeUndefined();
+    const log = readCheckpointLog(threadDirOf(cwd, first.threadId));
+    expect(log.length).toBe(1); // only the original round-1 resolve — no re-ask
+  });
+
+  it('REVISE is capped at max_rounds — the (max_rounds+1)th resolves to APPROVE default and RUNs', async () => {
+    const cwd = tmp();
+    writeInteractiveConfig(cwd);
+    const pause1 = await runResearch(cwd, 'Revise cap?', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    expect(pause1.pendingCheckpoint?.round).toBe(1);
+
+    const pause2 = await resumeResearch(cwd, pause1.threadId, {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Revise the plan' } },
+    });
+    expect(pause2.paused).toBe(true);
+    expect(pause2.pendingCheckpoint?.round).toBe(2);
+
+    const pause3 = await resumeResearch(cwd, pause1.threadId, {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Revise the plan' } },
+    });
+    expect(pause3.paused).toBe(true);
+    expect(pause3.pendingCheckpoint?.round).toBe(3);
+
+    const final = await resumeResearch(cwd, pause1.threadId, {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Revise the plan' } },
+    });
+    // Cap exceeded (round 3 > max_rounds:2) -> routed to the APPROVE reuse path -> RUNs;
+    // no 4th design checkpoint is ever emitted.
+    expect(final.pendingCheckpoint).toBeUndefined();
+
+    const t = loadThread(cwd, pause1.threadId);
+    expect(t.checkpointRounds?.design).toBe(2);
+    const log = readCheckpointLog(threadDirOf(cwd, pause1.threadId));
+    expect(log.length).toBe(3); // r1, r2, r3 resolved; no r4 ever emitted
+  });
+
+  it('ABORT sets thread.status=abandoned and returns a terminal result (no RUN)', async () => {
+    const cwd = tmp();
+    writeInteractiveConfig(cwd);
+    const pause1 = await runResearch(cwd, 'Abort me?', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    const res = await resumeResearch(cwd, pause1.threadId, {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+      checkpointAnswers: { q1: { label: 'Abort this thread' } },
+    });
+    expect(res.status).toBe('abandoned');
+    const t = loadThread(cwd, pause1.threadId);
+    expect(t.status).toBe('abandoned');
+    expect(fs.existsSync(path.join(threadDirOf(cwd, pause1.threadId), 'experiments/1/result.json'))).toBe(false);
+  });
+
+  it('BYTE-IDENTICAL DEFAULT: interactive absent/disabled ⇒ execute-gate pauses; no checkpoints.jsonl written', async () => {
+    const cwd = tmp();
+    const res = await runResearch(cwd, 'Plain gated question', {
+      spawn: makeSpawn(), runner: makeRunner(), noGates: false,
+    });
+    expect(res.paused).toBe(true);
+    expect(res.pendingGate).toBe('execute');
+    expect(res.pendingCheckpoint).toBeUndefined();
+    expect(fs.existsSync(path.join(threadDirOf(cwd, res.threadId), 'checkpoints.jsonl'))).toBe(false);
+  });
+});
