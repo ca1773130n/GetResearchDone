@@ -442,9 +442,9 @@ Phases execute in numeric order: 87 -> 88 -> 89 -> 90 -> 91 -> 92 -> 93 -> 94 ->
 | 98. GoT Synthesis Execution Engine | v0.3.23 | 3/3 | Complete | 2026-03-28 |
 | 99. Knowledge Injection Loop | v0.3.23 | 3/3 | Complete | 2026-03-25 |
 | 100. Evaluation Benchmark Framework | v0.3.23 | 3/3 | Complete | 2026-03-25 |
-| 101. Checkpoint Core Plumbing + Config | v0.5.0 | 0/TBD | Not started | - |
-| 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 0/2 | Planned | - |
-| 103. SEED Interview + DECIDE Branch | v0.5.0 | 0/TBD | Not started | - |
+| 101. Checkpoint Core Plumbing + Config | v0.5.0 | 4/4 | Complete | 2026-07-12 |
+| 102. DESIGN Approval + Skill Checkpoint Loop | v0.5.0 | 2/2 | Complete | 2026-07-15 |
+| 103. SEED Interview + DECIDE Branch | v0.5.0 | 3/3 | Complete | 2026-07-15 |
 | 104. HYPOTHESIZE Candidate Selection | v0.5.0 | 2/2 | Complete | 2026-07-19 |
 | 105. AI-Panel Fallback + Hardening | v0.5.0 | 4/4 | Complete | 2026-07-19 |
 
