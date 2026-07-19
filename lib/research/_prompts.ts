@@ -39,6 +39,53 @@ function buildHypothesizePrompt(
   ].join('\n');
 }
 
+/**
+ * Multi-candidate HYPOTHESIZE prompt (Phase 104). Reuses the same grounding preamble as
+ * buildHypothesizePrompt (research question, GROUND-first Tesserae/KG instruction, DEAD-ENDS
+ * read, optional pack, prior hypotheses, takeaways, revise/pivot lines) but asks for up to N
+ * ranked candidates and emits exactly one final __HYPOTHESES__ block ranked best-first. The
+ * single-block buildHypothesizePrompt above is left untouched — this is the N>1 path only.
+ */
+function buildHypothesesPrompt(
+  thread: { id: string; question: string },
+  priorHyps: Pick<Hypothesis, 'id' | 'statement' | 'verdict'>[],
+  priorVerdict: Verdict | null,
+  priorTakeaways: Pick<Takeaway, 'iteration' | 'kind' | 'content' | 'failureClass'>[] = [],
+  pack = '',
+  pivot = false,
+  n: number,
+): string {
+  const history = priorHyps.length
+    ? priorHyps.map((h) => `- ${h.id} [${h.verdict ?? 'open'}]: ${h.statement}`).join('\n')
+    : '(none yet)';
+  const learned = priorTakeaways.length
+    ? priorTakeaways.map((t) => `- (iter ${t.iteration}, ${t.kind}, ${t.failureClass}): ${t.content}`).join('\n')
+    : '(none yet)';
+  return [
+    `You are grd-hypothesizer. Generate up to ${n} ranked, testable hypothesis candidates for this research question.`,
+    '',
+    `Research question: ${thread.question}`,
+    '',
+    'GROUND first: query the Tesserae knowledge graph (your primary knowledge base) for prior',
+    'related findings, related work, and methods using the tesserae MCP tools (search_nodes,',
+    'ask, node_context). Read .planning/DEAD-ENDS.md to avoid re-proposing falsified approaches.',
+    ...(pack ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack] : []),
+    '',
+    'Prior hypotheses in this thread:',
+    history,
+    '',
+    'Takeaways learned so far (use these to steer the next hypotheses):',
+    learned,
+    priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose DIFFERENT, more promising hypotheses informed by the takeaways above.` : '',
+    pivot ? '\nPLATEAU: your last several hypotheses all failed to be supported. PIVOT HARD — propose substantially different approaches or angles, not variations of prior attempts.' : '',
+    '',
+    `Rank the candidates best-first (rank 1 = most promising). Emit at most ${n} candidates.`,
+    'Emit exactly one final block (no prose after it):',
+    '__HYPOTHESES__',
+    '{"candidates":[{"statement": "...", "rationale": "...", "predictedOutcome": "..."}]}',
+  ].join('\n');
+}
+
 function buildExperimentPrompt(
   thread: { id: string; question: string },
   hypothesis: Pick<Hypothesis, 'id' | 'statement'>,
@@ -114,4 +161,4 @@ function buildClarifyPrompt(thread: { id: string; question: string }): string {
   ].join('\n');
 }
 
-module.exports = { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt };
+module.exports = { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt };
