@@ -12,10 +12,10 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 ## Current Position
 
-- **Active phase:** 104 HYPOTHESIZE Candidate Selection
+- **Active phase:** 105 AI-Panel Fallback + Hardening
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Plans 104-01 + 104-02 complete — selection checkpoint wired end-to-end (emit + consume, 622 research tests green)
-- **Next:** Phase 104 verification, then Phase 105 (AI-Panel Fallback + Hardening)
+- **Status:** Plan 105-01 complete — answerViaDiscussion degrade-safe panel fallback landed (REQ-207), 44 checkpoints tests green, coverage threshold held
+- **Next:** Plan 105-02 (orchestrator wiring of the panel fallback)
 
 ## Phase Summary
 
@@ -39,7 +39,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Complete (2026-07-15) |
 | 103 | SEED Interview + DECIDE Branch | Complete (2026-07-15) |
 | 104 | HYPOTHESIZE Candidate Selection | In progress (plans 01-02 done) |
-| 105 | AI-Panel Fallback + Hardening | Not started |
+| 105 | AI-Panel Fallback + Hardening | In progress (plan 01 done) |
 
 ## v0.3.23 Roadmap
 
@@ -174,6 +174,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 104]: [Phase 104-01]: parseHypothesesOutput degrade-safe (empty array on junk, never null/throws), cap default 5; single-block buildHypothesizePrompt/parseHypothesisOutput left byte-identical (PIN tests) as the N=1 path; buildHypothesesPrompt inline-duplicates the grounding preamble
 - [Phase 104-02]: selection checkpoint persists the full candidate set in the checkpoint `context` (JSON), never the ledger — only the chosen candidate is appended on resume (zero pollution, REQ-206/SC2)
 - [Phase 104-02]: emit lives in the cold-HYPOTHESIZE else-branch, consume at the TOP of that same branch (not loop-top like DECIDE) — a selection resume never appended a hypothesis so `resumable` is undefined and the if/else lands in the cold else; 0 candidates degrade to the byte-identical single-block path, 1 appends directly (no 1-option pause)
+- [Phase 105]: [Phase 105-01]: answerViaDiscussion is pure/standalone (no orchestrator import); panel resolver seam accepts string OR {text,discussionFile} so production default omits discussionFile while tests inject it — discussion.ts unchanged; rate-limit guard via detectFromStdout + empty-synthesis are the two unavailability signals resolving to recommended defaults
 
 ## Known Bugs
 
@@ -186,7 +187,7 @@ None.
 ## Session Continuity
 
 - **Last action:** Phase 104 Plan 02 complete — HYPOTHESIZE selection checkpoint wired (emit + consume), 622 research tests green
-- **Stopped at:** Completed 104-02-PLAN.md
+- **Stopped at:** Completed 105-01-PLAN.md
 - **Next action:** Phase 104 verification, then Phase 105 (AI-Panel Fallback + Hardening)
 - **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
 
