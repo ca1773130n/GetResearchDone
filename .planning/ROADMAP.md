@@ -608,11 +608,11 @@ Plans:
   2. The selection checkpoint pauses strictly BEFORE any ledger append; only the chosen candidate is ever appended to the ledger — zero pollution from unchosen candidates.
   3. A freeform answer produces a user-authored hypothesis statement that flows into the ledger identically to a selected candidate.
   4. The checkpoint is skipped automatically for seeded, resume, and crash-recovery paths.
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 104-01: TDD — `__HYPOTHESES__` multi-candidate prompt + `parseHypothesesOutput` (N=1 path untouched)
-- [ ] 104-02: TDD — selection checkpoint pre-ledger gating, freeform statement path, seeded/resume/crash-recovery skip
+- [ ] 104-01-PLAN.md — TDD: `__HYPOTHESES__` multi-candidate prompt (`buildHypothesesPrompt`) + `parseHypothesesOutput`; single-block N=1/disabled path untouched
+- [ ] 104-02-PLAN.md — TDD: selection checkpoint (`resolveSelectPosture`/`buildSelectCheckpoint`) pre-ledger gating + zero pollution, freeform statement path, seeded/execute-resume/crash-recovery skip
 
 #### Phase 105: AI-Panel Fallback + Hardening
 
