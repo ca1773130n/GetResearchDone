@@ -41,11 +41,22 @@ const {
   resolveInteractive: (cfg: InteractiveConfig, opts?: ResolveInteractiveOpts) => { active: boolean };
   readInteractiveConfig: (cwd: string) => InteractiveConfig;
 };
-const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt } = require('./_prompts');
-const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput } = require('./agent-io') as {
+const { buildHypothesizePrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt } = require('./_prompts') as {
+  buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
+  buildExperimentPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
+  buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict) => string;
+  buildClarifyPrompt: (thread: { id: string; question: string }) => string;
+};
+type ClarifyDimension = {
+  ask: string;
+  options: Array<{ label: string; description?: string; recommended?: boolean }>;
+  freeform?: boolean;
+};
+const { parseHypothesisOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
   parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string } | null;
   parsePlanOutput: (stdout: string) => { procedure: string; metricKey: string; comparator: string; target: number; language: string; scriptPath: string } | null;
   parseTakeawayOutput: (stdout: string) => Record<string, unknown> | null;
+  parseClarifyOutput: (stdout: string) => { dimensions: ClarifyDimension[] };
 };
 const { selectRunner } = require('./docker-runner') as {
   selectRunner: (cwd: string, opts?: { timeoutMs?: number }) => Runner;
@@ -519,6 +530,72 @@ function resolveDesignPosture(
   return { active, cfg };
 }
 
+/**
+ * Resolve whether the SEED clarification checkpoint is active (Phase 103). Mirrors
+ * resolveDesignPosture (R1: default-off, no unattended pause). SEED is once-per-thread: only
+ * iteration 1, never a seeded thread, and only while refinedQuestion is still undefined (the
+ * not-yet-done marker — set verbatim on the zero-dimension path or folded on resume).
+ */
+function resolveSeedPosture(
+  cwd: string, opts: ResearchOptions, config: Record<string, unknown>, thread: ResearchThread,
+): { active: boolean; cfg: InteractiveConfig } {
+  const baseCfg = readInteractiveConfig(cwd);
+  const cfg: InteractiveConfig = opts.interactive?.enabled !== undefined
+    ? { ...baseCfg, enabled: opts.interactive.enabled }
+    : baseCfg;
+  const posture = resolveInteractive(cfg, {
+    noGates: opts.noGates,
+    autonomousMode: Boolean((config as { autonomous_mode?: boolean }).autonomous_mode),
+  });
+  const seedPointEnabled = opts.interactive?.points
+    ? opts.interactive.points.includes('seed')
+    : cfg.seed;
+  const active = posture.active && seedPointEnabled
+    && thread.iteration === 1 && !thread.seededFrom && thread.refinedQuestion === undefined;
+  return { active, cfg };
+}
+
+/** Build the point='seed' type='clarification' checkpoint from normalized clarify dimensions. */
+function buildSeedCheckpoint(
+  thread: ResearchThread, dimensions: ClarifyDimension[], round: number,
+): Checkpoint {
+  return {
+    checkpoint_version: 1,
+    id: makeCheckpointId(thread.iteration, 'seed', round),
+    point: 'seed',
+    type: 'clarification',
+    iteration: thread.iteration,
+    round,
+    createdAt: new Date().toISOString(),
+    // The VERBATIM question is the context (it seeds threadId and is never mutated).
+    context: thread.question,
+    questions: dimensions.map((d, i) => ({
+      id: `q${i + 1}`,
+      ask: d.ask,
+      options: d.options.map((o) => ({
+        label: o.label,
+        description: o.description ?? '',
+        ...(o.recommended === true ? { recommended: true } : {}),
+      })),
+      ...(d.freeform === true ? { freeform: true } : {}),
+    })),
+  };
+}
+
+/** Compose a refined question from the verbatim question + the chosen SEED clarification answers. */
+function foldSeedAnswers(question: string, answers: CheckpointAnswer[]): string {
+  const clauses = answers
+    .map((a) => {
+      const parts: string[] = [];
+      if (a.label) parts.push(a.label);
+      if (a.text) parts.push(a.text);
+      return parts.join(' — ');
+    })
+    .filter((c) => c.length > 0);
+  if (clauses.length === 0) return question;
+  return `${question} (clarified: ${clauses.join('; ')})`;
+}
+
 async function runLoop(
   cwd: string, thread: ResearchThread, opts: ResearchOptions,
   config: Record<string, unknown>, approved: { execute: boolean; kg_write: boolean },
@@ -575,6 +652,44 @@ async function runLoop(
       return { threadId: thread.id, status: 'abandoned', iterations: thread.iteration };
     }
 
+    // SEED clarification checkpoint (Phase 103) — COPIES the DESIGN emit/consume pattern.
+    // Runs only when NOT resolving a design resume (designResolution === null), BEFORE any
+    // HYPOTHESIZE spawn. Once per thread (resolveSeedPosture gates on refinedQuestion===undefined).
+    if (designResolution === null) {
+      const sAns = consumeAnswered(resumedCheckpoint ?? null, 'seed', thread.iteration);
+      if (sAns) {
+        // FOLD: compose refinedQuestion from the chosen answers; thread.question stays VERBATIM
+        // (it seeds threadId). Falls through to HYPOTHESIZE, which grounds on the refined text.
+        thread.refinedQuestion = foldSeedAnswers(thread.question, sAns);
+        saveThread(cwd, thread);
+      } else {
+        const seedPosture = resolveSeedPosture(cwd, opts, config, thread);
+        if (seedPosture.active) {
+          // Spawn the clarifier. parseClarifyOutput never returns null, so a null value here
+          // means a hard spawn failure — degrade-safe: treat as zero ambiguous dimensions.
+          const cRes = await spawnAndParse(
+            spawn, buildClarifyPrompt({ id: thread.id, question: thread.question }),
+            'grd-hypothesizer', parseClarifyOutput, spawnRetries,
+          );
+          const dimensions = cRes.value?.dimensions ?? [];
+          if (dimensions.length === 0) {
+            // Zero ambiguous dimensions => mark SEED done VERBATIM; NO pause (one spawn, zero pauses).
+            thread.refinedQuestion = thread.question;
+            saveThread(cwd, thread);
+          } else {
+            const ck = buildSeedCheckpoint(thread, dimensions, 1);
+            emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
+            if (thread.status === 'paused') {
+              return {
+                threadId: thread.id, status: 'paused', iterations: thread.iteration,
+                paused: true, pendingCheckpoint: thread.pendingCheckpoint ?? undefined,
+              };
+            }
+          }
+        }
+      }
+    }
+
     let hyp: Hypothesis;
     let plan: ExperimentPlan;
 
@@ -623,16 +738,22 @@ async function runLoop(
         const priorTakeaways = readTakeaways(cwd, thread.id);
         const pivot = thread.pendingPivot === true;
         if (pivot) { thread.pendingPivot = false; saveThread(cwd, thread); }
+        // Ground on the SEED-refined question when present (Phase 103) WITHOUT mutating
+        // thread.question (it seeds threadId). refinedQuestion === thread.question on the
+        // zero-dimension / interactive-off paths, so this is byte-identical by default.
+        const effectiveQuestion = thread.refinedQuestion ?? thread.question;
         const groundQuery = pivot
-          ? [thread.question, ...priorTakeaways.map((t: Takeaway) => t.content)].join(' ')
-          : thread.question;
+          ? [effectiveQuestion, ...priorTakeaways.map((t: Takeaway) => t.content)].join(' ')
+          : effectiveQuestion;
         let pack = '';
         try {
           const r = await retrieveFn(cwd, groundQuery, pivot ? { k: 16 } : undefined);
-          pack = buildGroundingPack(r.results, thread.question);
+          pack = buildGroundingPack(r.results, effectiveQuestion);
         } catch { /* degrade */ }
         const hRes = await spawnAndParse(
-          spawn, buildHypothesizePrompt(thread, priorHyps, priorVerdict, priorTakeaways, pack, pivot),
+          spawn, buildHypothesizePrompt(
+            { id: thread.id, question: effectiveQuestion }, priorHyps, priorVerdict, priorTakeaways, pack, pivot,
+          ),
           'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
         );
         const parsed = hRes.value;
