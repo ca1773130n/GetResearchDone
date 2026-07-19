@@ -1,0 +1,23 @@
+experiment:
+  phase: 105
+  plan: 04
+  status: complete
+  hypothesis: "Offline-proven checkpoint machinery behaves correctly against a real LLM backend in a throwaway sandbox"
+  parameters:
+    backend: claude
+    panel_participants: [opencode, codex]
+    panel_synthesizer: claude
+    research_max_candidates: 3
+    fallback: panel
+  results:
+    seed_clarify_live: coherent
+    hypothesize_candidates_distinct: 3
+    panel_unattended_non_pausing: true
+    panel_degrade_safe: true
+    answeredBy_panel_observed: true
+  disposition:
+    DEFER-104-01: RESOLVED
+    DEFER-104-02: RESOLVED
+    DEFER-102-01: RESOLVED
+    DEFER-101-02: FULLY_RESOLVED
+    DEFER-101-03: RESOLVED

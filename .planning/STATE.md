@@ -14,8 +14,8 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 
 - **Active phase:** 105 AI-Panel Fallback + Hardening
 - **Milestone:** v0.5.0 Interactive Research Steering
-- **Status:** Plan 105-03 complete — v0.5.0 milestone verification suite authored (tests/unit/research/milestone-verification.test.ts, REQ-209): R1 (5 unattended sites non-pausing incl. panel), R3 (pre-0.5.0 back-compat bit-identical), R4 (DESIGN contract edit is committed debug pin), R5 (consumeAnswered one-shot, no double-ask), plus coverage guard; 652 research tests green (8 new), no jest threshold lowered
-- **Next:** Plan 105-04 (live steered run sandbox / phase completion)
+- **Status:** Plan 105-04 complete — live sandbox validation (105-04-VALIDATION.md) exercised the full checkpoint machinery against a real Claude backend in throwaway mktemp -d sandboxes (repo never polluted). All 5 v0.5.0 deferred live validations RESOLVED: DEFER-104-01/02 (3 distinct falsifiable candidates + coherent selection UX), DEFER-102-01 (live SEED clarify answered+resumed), DEFER-101-02 FULLY RESOLVED (degrade-safe non-pausing defaults AND literal answeredBy:'panel' via real opencode+codex panel through production answerViaDiscussion), DEFER-101-03 (offline R1-R5 from 105-03). Two non-blocking lib/discussion.ts hardening follow-ups logged.
+- **Next:** Phase 105 verification/completion → v0.5.0 milestone wrap
 
 ## Phase Summary
 
@@ -39,7 +39,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | 102 | DESIGN Approval + Skill Checkpoint Loop | Complete (2026-07-15) |
 | 103 | SEED Interview + DECIDE Branch | Complete (2026-07-15) |
 | 104 | HYPOTHESIZE Candidate Selection | In progress (plans 01-02 done) |
-| 105 | AI-Panel Fallback + Hardening | In progress (plans 01-02 done) |
+| 105 | AI-Panel Fallback + Hardening | In progress (plans 01-04 done) |
 
 ## v0.3.23 Roadmap
 
@@ -88,6 +88,11 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 | DEFER-96-01 | End-to-end refinement loop effectiveness on real project | Phase 96 | First live autopilot run | PENDING |
 | DEFER-96-02 | collectMetrics parse robustness on real tool output | Phase 96 | First live autopilot run | PENDING |
 | DEFER-96-03 | Critique agent patch quality for all three branches | Phase 96 | Manual review | PENDING |
+| DEFER-102-01 | Live SEED/AskUserQuestion clarify UX | Phase 102/103 | Phase 105, plan 105-04 | RESOLVED (105-04: live SEED clarify, answered via --answers, resumed no double-ask) |
+| DEFER-104-01 | Live N-candidate generation quality | Phase 104 | Phase 105, plan 105-04 | RESOLVED (105-04: 3 distinct falsifiable candidates) |
+| DEFER-104-02 | Live human candidate selection UX | Phase 104 | Phase 105, plan 105-04 | RESOLVED (105-04: coherent selection prompt) |
+| DEFER-101-02 | fallback:'panel' unattended answering | Phase 101/105 | Phase 105, plan 105-04 | FULLY RESOLVED (105-04: degrade-safe non-pausing defaults AND literal answeredBy:'panel' via real opencode+codex panel) |
+| DEFER-101-03 | Full R1–R5 milestone suite | Phase 101/102/103 | Phase 105, plan 105-03 | RESOLVED (offline suite, REQ-209, 652 tests green) |
 
 ## Performance Metrics
 
@@ -178,6 +183,7 @@ See: .planning/PROJECT.md (updated 2026-07-12)
 - [Phase 105]: [Phase 105-02]: fallback:'panel' emit sites resolve inline then `continue` with an injected resolved checkpoint — the existing top-of-loop consume machinery applies the answer (panel/human/recommended share one path); engagedPanel gates on unattended AND fallback==='panel'; portfolio threads concurrency so concurrency>1 is non-human (R1) yet still panel-routable
 - [Phase 105]: [Phase 105-03]: R1/R3/R4/R5 milestone suite proves the SEAMS offline via injected checkpointHandler/spawn/runner — R1 asserts the 5-site posture lock (resolveInteractive → active:false, incl. fallback:'panel' inline), R3 asserts loadThread bit-identical round-trip + terminal resume no-checkpoints, R4/R5 reuse the Phase 102 DESIGN end-to-end drive; coverage guard is an in-suite baseline snapshot (checkpoints/portfolio/discussion) asserted >= with git diff as evidence — no jest threshold lowered
 - [Phase 105]: R1/R3/R4/R5 milestone suite proves seams offline via injected checkpointHandler/spawn; coverage guard snapshots checkpoints/portfolio/discussion thresholds >= baseline (no jest threshold lowered)
+- [Phase 105]: 105-04: live sandbox validation resolved all 5 v0.5.0 deferred live validations (DEFER-104-01/02, 102-01, 101-02, 101-03); observed literal answeredBy:'panel' via real opencode+codex panel through production answerViaDiscussion
 
 ## Known Bugs
 
@@ -189,10 +195,11 @@ None.
 
 ## Session Continuity
 
-- **Last action:** Phase 105 Plan 03 complete — v0.5.0 milestone verification suite (R1/R3/R4/R5, REQ-209), 652 research tests green (8 new), no jest threshold lowered
-- **Stopped at:** Completed 105-03-PLAN.md
-- **Next action:** Phase 105 Plan 04 (live steered run sandbox), then Phase 105 verification/completion
-- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md
+- **Last action:** Phase 105 Plan 04 complete — live sandbox validation (105-04-VALIDATION.md + SUMMARY.md); all 5 v0.5.0 deferred live validations RESOLVED (incl. literal answeredBy:'panel' observed via real multi-backend panel); repo confirmed clean after sandbox runs
+- **Stopped at:** Completed 105-04-PLAN.md (Task 2 human-verify checkpoint approved)
+- **Next action:** Phase 105 verification/completion → v0.5.0 milestone wrap
+- **Context needed:** .planning/STATE.md, .planning/ROADMAP.md, 105-04-VALIDATION.md
+- **Hardening backlog (non-blocking, lib/discussion.ts):** (1) resolveElicitation ignores its `question` arg (forwards only ck.context) so vanilla panel checkpoints don't surface options → panel-answers don't fire naturally; (2) codex/gemini return empty inside runDiscussion despite codex authenticating standalone
 
 ---
 
