@@ -1575,6 +1575,9 @@ describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
     expect(q?.options[0].recommended).toBe(true);
     expect((q as any).freeform).toBe(true);
     expect(JSON.parse(res.pendingCheckpoint?.context as string).length).toBe(3);
+    // the round is 1 AND persisted to the thread (symmetry with DESIGN) so a re-emit increments.
+    expect(res.pendingCheckpoint?.round).toBe(1);
+    expect(loadThread(cwd, res.threadId).checkpointRounds?.hypothesize).toBe(1);
   });
 
   it('MATCHED RESUME: choosing candidate 2 appends ONLY it and proceeds to DESIGN', async () => {

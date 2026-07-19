@@ -989,6 +989,10 @@ async function runLoop(
           const candidates = mRes.value?.candidates ?? [];
           if (candidates.length >= 2) {
             const round = (thread.checkpointRounds?.hypothesize ?? 0) + 1;
+            // Persist the round (symmetry with the DESIGN revise path ~L810-819) so a re-emit for
+            // the same iteration increments rather than duplicating the round number.
+            thread.checkpointRounds = { ...thread.checkpointRounds, hypothesize: round };
+            saveThread(cwd, thread);
             const ck = buildSelectCheckpoint(thread, candidates, round);
             emitCheckpoint(cwd, thread, ck, { checkpointHandler: opts.checkpointHandler });
             if (thread.status === 'paused') {
