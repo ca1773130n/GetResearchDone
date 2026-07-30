@@ -471,6 +471,62 @@ describe('cmdVerifySummary', () => {
     expect(parsed.passed).toBe(false);
     expect(parsed.checks.summary_exists).toBe(false);
   });
+
+  test('a summary that cites NOTHING is unverified, not passed', () => {
+    // Every check degrades to "nothing to object to" on an empty summary: no
+    // files means nothing missing, no hashes short-circuits the commit clause,
+    // and self_check is 'not_found', which is not 'failed'. This returned
+    // passed:true with errors:[] and let the phase gate advance on it.
+    fs.writeFileSync(
+      path.join(fixtureDir, 'EMPTY-SUMMARY.md'),
+      '# Phase 1 Summary\n\nWe did the thing.\n',
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => {
+      cmdVerifySummary(fixtureDir, 'EMPTY-SUMMARY.md', 0, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.passed).toBe(false);
+    expect(parsed.verified).toBe(false);
+    expect(parsed.unverified_reasons.length).toBeGreaterThan(0);
+    expect(parsed.unverified_reasons[0]).toMatch(/no files and no commit hashes/);
+  });
+
+  test('a summary citing real files stays verified — the gate must not over-fire', () => {
+    // The failure mode to avoid is the mirror of the one above: rejecting a
+    // summary that DID record its work. None of the shipped templates carry a
+    // Self-Check heading, so self_check:'not_found' must not flip the verdict.
+    fs.writeFileSync(
+      path.join(fixtureDir, 'CITED-SUMMARY.md'),
+      '# Phase 1 Summary\n\n## Files Created/Modified\n- `lib/verify.ts` - the verifier\n',
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => {
+      cmdVerifySummary(fixtureDir, 'CITED-SUMMARY.md', 0, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.verified).toBe(true);
+    expect(parsed.unverified_reasons).toEqual([]);
+    expect(parsed.checks.self_check).toBe('not_found');
+  });
+
+  test('a root-level file cited without a path still counts as evidence', () => {
+    // Existence spot-checking requires a '/' to avoid tripping over prose, but
+    // that is the wrong bar for "did this summary record anything?". A phase
+    // that only bumped package.json cites it bare, and calling that unverified
+    // is the mirror-image failure of the one this gate exists to stop.
+    fs.writeFileSync(
+      path.join(fixtureDir, 'ROOT-SUMMARY.md'),
+      '# Phase 1 Summary\n\n## Files Created/Modified\n- `package.json` - bumped deps\n',
+      'utf-8'
+    );
+    const { stdout } = captureOutput(() => {
+      cmdVerifySummary(fixtureDir, 'ROOT-SUMMARY.md', 0, false);
+    });
+    const parsed = JSON.parse(stdout);
+    expect(parsed.verified).toBe(true);
+    expect(parsed.unverified_reasons).toEqual([]);
+  });
 });
 
 // ─── cmdVerifySummary commit-hash scanning ──────────────────────────────────
@@ -561,7 +617,11 @@ describe('cmdVerifySummary commit-hash scanning', () => {
     );
     // Not commit-flavored — no hashes harvested, so the check is vacuous.
     expect(parsed.checks.commits_exist).toBe(false);
-    expect(parsed.passed).toBe(true);
+    // ...and a vacuous check is exactly what must NOT read as a pass. This
+    // fixture cites no files and no commits, so there was nothing to verify.
+    // The assertion here used to be passed:true.
+    expect(parsed.passed).toBe(false);
+    expect(parsed.verified).toBe(false);
   });
 
   test('harvests a backticked hash after a colonless label (codex r39)', () => {
@@ -628,7 +688,13 @@ describe('cmdVerifySummary commit-hash scanning', () => {
       `# Summary\n\n## Self-Check\n\nAll pass ✓\n`
     );
     expect(parsed.checks.self_check).toBe('passed');
-    expect(parsed.passed).toBe(true);
+    // Parsing the section is what this test is about. But a summary whose only
+    // content is "All pass ✓" — no files, no commits — is self-attestation with
+    // nothing behind it, so it is unverified rather than passed. The assertion
+    // here used to be passed:true, which let a phase clear its gate by claiming
+    // to have checked itself.
+    expect(parsed.passed).toBe(false);
+    expect(parsed.verified).toBe(false);
   });
 });
 

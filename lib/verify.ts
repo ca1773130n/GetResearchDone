@@ -86,11 +86,19 @@ interface SummaryVerifyChecks {
 
 /**
  * Result of summary verification.
+ *
+ * `verified` is distinct from `passed` on purpose. Every check here degrades to
+ * "nothing to object to" when the SUMMARY cites no evidence, so a summary reading
+ * only "We did the thing." used to return passed:true with errors:[] — a phase
+ * gate that advances the whole loop on an assertion nobody checked. `passed` now
+ * requires evidence to have existed; `unverified_reasons` says what was missing.
  */
 interface SummaryVerifyResult {
   passed: boolean;
+  verified: boolean;
   checks: SummaryVerifyChecks;
   errors: string[];
+  unverified_reasons: string[];
 }
 
 /**
@@ -239,6 +247,7 @@ function cmdVerifySummary(
   } catch {
     const result: SummaryVerifyResult = {
       passed: false,
+      verified: false,
       checks: {
         summary_exists: false,
         files_created: { checked: 0, found: 0, missing: [] },
@@ -246,6 +255,7 @@ function cmdVerifySummary(
         self_check: 'not_found',
       },
       errors: ['SUMMARY.md not found'],
+      unverified_reasons: [],
     };
     output(result, raw, 'failed');
     return;
@@ -502,9 +512,46 @@ function cmdVerifySummary(
     self_check: selfCheck,
   };
 
-  const passed: boolean = missing.length === 0 && selfCheck !== 'failed' && (commitsExist || hashes.length === 0);
-  const result: SummaryVerifyResult = { passed, checks, errors };
-  output(result, raw, passed ? 'passed' : 'failed');
+  // Every clause below is satisfied by an ABSENCE: no files mentioned means
+  // nothing missing, no hashes means the commit clause short-circuits, and
+  // selfCheck is 'not_found' until a section says otherwise, which is not
+  // 'failed'. A SUMMARY.md reading only "We did the thing." therefore returned
+  // passed:true with errors:[] — the phase gate advancing on an assertion no
+  // check ever touched. This function has been hardened repeatedly against false
+  // FAILURES (r15, r27, r28, r30, r32); this is the false PASS.
+  // `mentionedFiles` requires a '/' so that spot-checking existence does not
+  // trip over prose, but that is too strict to answer the different question
+  // "did this summary record anything at all?" — a phase that only touched
+  // `package.json` or `README.md` cites them bare and would otherwise be called
+  // unverified for having done root-level work. Evidence is the weaker signal:
+  // any backticked token carrying a file extension.
+  const citesAnyFile: boolean =
+    mentionedFiles.size > 0 || /`[^`\s]+\.[a-zA-Z0-9]+`/.test(content);
+
+  const unverifiedReasons: string[] = [];
+  if (!citesAnyFile && hashes.length === 0) {
+    unverifiedReasons.push(
+      'SUMMARY cites no files and no commit hashes, so every check below passed by having nothing to examine. ' +
+        'Absence of evidence is not verification. Every summary template ships "## Files Created/Modified" and ' +
+        '"## Task Commits" — a summary with neither did not record what it did.'
+    );
+  }
+  // NOT a reason on its own: none of the shipped summary templates contain a
+  // Self-Check/Verification heading, so 'not_found' is the normal state and
+  // failing on it would reject every conforming summary. It stays reported in
+  // `checks` so a caller can tighten if its own template adds one.
+
+  const noErrors: boolean = missing.length === 0 && selfCheck !== 'failed' && (commitsExist || hashes.length === 0);
+  const verified: boolean = unverifiedReasons.length === 0;
+  const passed: boolean = noErrors && verified;
+  const result: SummaryVerifyResult = {
+    passed,
+    verified,
+    checks,
+    errors,
+    unverified_reasons: unverifiedReasons,
+  };
+  output(result, raw, passed ? 'passed' : verified ? 'failed' : 'unverified');
 }
 
 /**
