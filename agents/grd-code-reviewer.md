@@ -54,48 +54,78 @@ cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
 ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
 ```
 
-**Resolve the review range.** `${CHANGED}`, `${FILES_MODIFIED}`, `${FIRST_COMMIT}` and
-`${LAST_COMMIT}` are used by the checks below and are NOT passed to you — derive them here,
-substituting `${PHASE_NUMBER}` with the phase number from your prompt.
-
-`CHANGED` is every path the range touched, deletions included — that is the deviation story.
-`FILES_MODIFIED` is the subset that still exists on disk, which is what the greps can open.
+**Resolve the review scope.** No file list is passed to you — derive it here. Substitute
+`${PHASE_NUMBER}` with the phase number from your prompt and `${PLAN_IDS}` with the plan ids
+in scope: for `per_wave` that is the wave's plans only, for `per_phase` all of them. Both
+arrive in your prompt.
 
 ```bash
-# Executor commits are scoped "{type}({phase}-{plan}): ..." (agents/grd-executor.md),
-# so the phase's own commits define the range.
-PHASE_SHAS=$(git log --reverse --format=%H --grep="(${PHASE_NUMBER}-")
-FIRST_COMMIT=$(printf '%s\n' "$PHASE_SHAS" | head -1)
-LAST_COMMIT=$(printf '%s\n' "$PHASE_SHAS" | tail -1)
+# Executor commits are scoped "{type}({phase}-{plan}): ..." (agents/grd-executor.md).
+# --all is required: under worktree isolation the wave's commits sit on an unmerged
+# branch, and a per-wave review runs BEFORE the merge step.
+# Select by exact plan id and union the commits' paths — a first..last RANGE would
+# swallow earlier waves and any unrelated commit interleaved between them.
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${PHASE_NUMBER}"
+mkdir -p "$SCOPE_DIR"
 
-if [ -n "$FIRST_COMMIT" ]; then
-  # ${FIRST_COMMIT}^ does not exist on a root commit; fall back to the empty tree.
-  BASE=$(git rev-parse --verify -q "${FIRST_COMMIT}^" || git hash-object -t tree /dev/null)
-  CHANGED=$(git diff --name-only "$BASE" "$LAST_COMMIT")
+# One id per line, then loop. Do NOT write `for P in ${PLAN_IDS}`: zsh does not
+# word-split an unquoted parameter, so that iterates once over the whole string and
+# silently matches no commits. `tr` also accepts a comma-separated list.
+printf '%s\n' "$PLAN_IDS" | tr ' ,' '\n\n' | while IFS= read -r P; do
+  [ -n "$P" ] && git log --all --format=%H --grep="(${PHASE_NUMBER}-${P})"
+done | sort -u > "$SCOPE_DIR/shas"
+
+if [ -s "$SCOPE_DIR/shas" ]; then
+  while IFS= read -r c; do git show --name-only -z --format= "$c"; done < "$SCOPE_DIR/shas"
 else
-  # No commits carry this phase's scope: uncommitted work, or an unmerged worktree.
-  # Do NOT parse `git status --porcelain` by column: a rename prints "old -> new"
-  # and a path containing a space is split. These two plumbing commands emit one
-  # clean path per line.
-  CHANGED=$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u )
-fi
+  # No commit carries this scope: uncommitted work, or a worktree with nothing committed.
+  # Never parse `git status --porcelain` by column — a rename prints "old -> new" and a
+  # path containing a space is split. These two plumbing commands emit clean NUL-separated
+  # paths instead.
+  git diff --name-only -z HEAD
+  git ls-files --others --exclude-standard -z
+fi | sort -zu > "$SCOPE_DIR/changed"
 
-# Drop paths the range deleted — every grep below would print "No such file" for them.
-FILES_MODIFIED=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
+# Paths that still exist. A deleted path belongs in the deviation story but cannot be
+# grepped, and passing it to grep prints "No such file" once per file.
+: > "$SCOPE_DIR/files"
+while IFS= read -r -d "" f; do
+  [ -f "$f" ] && printf '%s\0' "$f" >> "$SCOPE_DIR/files"
+done < "$SCOPE_DIR/changed"
 
-printf 'review range: %s..%s\n' "${FIRST_COMMIT:-<none>}" "${LAST_COMMIT:-<none>}"
-printf 'changed (%s):\n%s\n' "$(printf '%s\n' "$CHANGED" | grep -c .)" "$CHANGED"
+printf 'scope dir: %s\n' "$SCOPE_DIR"
+printf 'commits: %s  changed: %s  greppable: %s\n' \
+  "$(grep -c . "$SCOPE_DIR/shas")" \
+  "$(tr -cd "\0" < "$SCOPE_DIR/changed" | wc -c | tr -d " ")" \
+  "$(tr -cd "\0" < "$SCOPE_DIR/files" | wc -c | tr -d " ")"
+tr "\0" "\n" < "$SCOPE_DIR/changed"
 ```
 
-**If `CHANGED` is empty, stop and report it.** Write `Review scope: EMPTY — no files
-resolved for phase ${PHASE_NUMBER}` into the report and run no file checks, rather than
-reporting findings from files this phase never touched.
+**The scope lives in files, not in shell variables.** Each check below runs as a separate
+Bash invocation and shell state does not survive between them — a `${FILES_MODIFIED}` set
+here would expand to nothing there, leaving `grep -r` with no path operand so it recursively
+scans the whole repository and the output reads as a completed check over this phase. So
+every check re-derives `SCOPE_DIR` from `${PHASE_NUMBER}` and reads the file. The canonical
+form, used verbatim by every `grep` check below:
 
-**Never run a `grep -rn ... ${FILES_MODIFIED}` while `FILES_MODIFIED` is empty.** An empty
-variable leaves `grep -r` with no path operand, so it recursively scans the whole repository
-and the output reads as a completed check over this phase. If `CHANGED` is non-empty but
-`FILES_MODIFIED` is empty, the range deleted every file it touched: say so and skip the
-content checks, but still run the deviation check in 2.4 against `CHANGED`.
+```bash
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${PHASE_NUMBER}"
+[ -s "$SCOPE_DIR/files" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
+xargs -0 grep -n "<pattern>" -- < "$SCOPE_DIR/files"
+```
+
+`xargs -0` and the `--` terminator are not decoration: without them a path containing a
+space splits into two operands, a path containing `*` or `?` is glob-expanded against the
+working directory, and a path beginning with `-` is read as a grep option.
+
+**If `$SCOPE_DIR/changed` is empty, stop.** Write `Review scope: EMPTY — no files resolved
+for phase ${PHASE_NUMBER}` into the report and run no file checks, rather than reporting
+findings from files this phase never touched.
+
+**If `changed` is non-empty but `files` is empty,** this scope deleted every file it
+touched. Say so, skip the content checks, and still run the deviation check in 2.4.
+
+**Delete `$SCOPE_DIR` when the review is written.**
 </step>
 
 <step name="artifact_exclusions" priority="high">
@@ -124,8 +154,8 @@ For each plan in scope:
 - Check: deviations documented in SUMMARY.md match actual git diff
 
 ```bash
-# Get commits for this plan
-git log --oneline --all --grep="${PHASE}-${PLAN}"
+# Commits for one plan. ${PHASE_NUMBER} and the plan id come from your prompt.
+git log --oneline --all --grep="(${PHASE_NUMBER}-${PLAN_ID})"
 ```
 
 **BLOCKER:** Plan task not executed and not documented as deviation.
@@ -140,8 +170,9 @@ If LANDSCAPE.md or PAPERS.md reference specific methods used by the plan:
 - Check that referenced paper's approach is faithfully reproduced (not just superficially named)
 
 ```bash
-# Search for paper references in code
-grep -rn "paper\|arxiv\|reference\|based on\|inspired by" ${FILES_MODIFIED}
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${PHASE_NUMBER}"
+[ -s "$SCOPE_DIR/files" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
+xargs -0 grep -n "paper\|arxiv\|reference\|based on\|inspired by" -- < "$SCOPE_DIR/files"
 ```
 
 **BLOCKER:** Implementation contradicts referenced paper's core method.
@@ -208,8 +239,9 @@ For experimental/research code:
 - Checkpoint saving implemented (for long-running experiments)
 
 ```bash
-# Check for seed setting
-grep -rn "seed\|random_state\|manual_seed\|set_seed" ${FILES_MODIFIED}
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${PHASE_NUMBER}"
+[ -s "$SCOPE_DIR/files" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
+xargs -0 grep -n "seed\|random_state\|manual_seed\|set_seed" -- < "$SCOPE_DIR/files"
 
 # Check for config files
 ls configs/ *.yaml *.json 2>/dev/null | head -20
@@ -236,10 +268,11 @@ For non-obvious code that implements research techniques:
 - Commit messages consistent with SUMMARY claims
 
 ```bash
-# Compare SUMMARY claims with reality — CHANGED was resolved in load_context and
-# includes deletions, which are exactly what an undocumented deviation looks like.
-printf '%s\n' "${CHANGED}"
-git log --oneline "${FIRST_COMMIT}^..${LAST_COMMIT}" 2>/dev/null || git log --oneline "${LAST_COMMIT}" -1
+# Compare SUMMARY claims with reality. Use `changed`, not `files`: a deletion is
+# exactly what an undocumented deviation looks like.
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${PHASE_NUMBER}"
+tr "\0" "\n" < "$SCOPE_DIR/changed"
+xargs -n1 git show --oneline -s < "$SCOPE_DIR/shas"   # xargs -a is GNU-only
 ```
 
 **WARNING:** Files modified but not listed in SUMMARY.md key-files.

@@ -350,6 +350,9 @@ export interface PromoteFromPhaseResult {
   dry_run?: boolean;
   /** The entry that would be written, serialized. Dry-run only. */
   preview?: string;
+  /** Set when config.json existed but could not be read or parsed — the gate is off
+   *  for a reason the user did not choose, and the CLI surfaces it. */
+  config_error?: string;
   phase?: string;
   total_entries?: number;
   path?: string;
@@ -362,13 +365,25 @@ export interface PromoteFromPhaseResult {
  * `research_gates`, and widening the shared config type for one boolean is a
  * larger blast radius than a local read.
  */
-function _autoPromoteEnabled(cwd: string): boolean {
+function _autoPromoteEnabled(cwd: string): { enabled: boolean; configError?: string } {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(path.join(cwd, '.planning', 'config.json'), 'utf-8');
+    raw = fs.readFileSync(path.join(cwd, '.planning', 'config.json'), 'utf-8');
+  } catch (err) {
+    // No config at all is a legitimate "gate off". Anything else — unreadable file,
+    // bad permissions — must not masquerade as a deliberate `false`.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { enabled: false };
+    return { enabled: false, configError: `Cannot read .planning/config.json (${code})` };
+  }
+  try {
     const parsed = JSON.parse(raw) as { research_gates?: Record<string, unknown> };
-    return parsed.research_gates?.auto_promote_falsified === true;
-  } catch {
-    return false;
+    return { enabled: parsed.research_gates?.auto_promote_falsified === true };
+  } catch (err) {
+    return {
+      enabled: false,
+      configError: `.planning/config.json is not valid JSON (${(err as Error).message}) — the gate reads as off, which may not be what you set`,
+    };
   }
 }
 
@@ -398,9 +413,14 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
     return { entries: existing, action: 'created', slug };
   }
   const e = existing[idx];
-  if (!e.tried_in_phases.includes(opts.phase)) e.tried_in_phases.push(opts.phase);
+  const isNewPhase = !e.tried_in_phases.includes(opts.phase);
+  if (isNewPhase) e.tried_in_phases.push(opts.phase);
   for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
-  if (e.status === 'active') e.status = 'reopened';
+  // `reopened` means the approach was tried AGAIN, in a later phase. Re-recording the
+  // same phase is not a re-encounter — and it is now routine, because execute-phase and
+  // verify-phase both promote from the same VERIFICATION.md. Flipping on a repeat call
+  // would make the entry mutate on every invocation, which is not idempotent.
+  if (isNewPhase && e.status === 'active') e.status = 'reopened';
   if (opts.notes) e.notes = opts.notes;
   return { entries: existing, action: 'updated', slug };
 }
@@ -529,14 +549,15 @@ function promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhase
 
   // The consequence of a DEAD-ENDS row is `-Infinity` in select-candidate, which is
   // permanent and has no warning tier. Writing without the key set previews instead.
-  const dryRun = !_autoPromoteEnabled(cwd);
+  const gate = _autoPromoteEnabled(cwd);
   const entry = existing.find((e) => e.slug === slug);
-  if (dryRun) {
+  if (!gate.enabled) {
     return {
       skipped: false, dry_run: true, action, slug, ...at,
       total_entries: existing.length,
       path: path.relative(cwd, filePath),
       preview: entry ? _serializeEntry(entry) : undefined,
+      ...(gate.configError ? { config_error: gate.configError } : {}),
     };
   }
 
@@ -556,7 +577,7 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
   const r = promoteFalsifiedFromPhase(cwd, phase);
   const rawValue = r.skipped
     ? `skipped: ${r.reason}`
-    : `${r.dry_run ? 'would-' : ''}${r.action}: ${r.slug}`;
+    : `${r.dry_run ? 'would-' : ''}${r.action}: ${r.slug}${r.config_error ? ` (${r.config_error})` : ''}`;
   output(r, raw, rawValue);
 }
 

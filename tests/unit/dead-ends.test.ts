@@ -602,10 +602,31 @@ describe('cmdDeadEndPromoteFromPhase', () => {
     writeReflection('01-test', 'falsified', 'Approach Z');
 
     captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+    const filePath = path.join(tmpDir, '.planning', 'DEAD-ENDS.md');
+    const afterFirst = fs.readFileSync(filePath, 'utf-8');
+
     const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
     const result = JSON.parse(stdout);
     expect(result.action).toBe('updated');
     expect(result.total_entries).toBe(1);
+    // Idempotent means byte-identical, not merely "no duplicate row". Both call sites
+    // (execute-phase and verify-phase) promote the same VERIFICATION.md, so a re-run
+    // that flipped status active -> reopened would corrupt the entry on every phase.
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(afterFirst);
+  });
+
+  test('a genuinely later phase still flips status to reopened (W1)', () => {
+    enableAutoPromote();
+    writeReflection('01-test', 'falsified', 'Approach Z');
+    captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+
+    const { addDeadEnd } = require('../../lib/dead-ends');
+    addDeadEnd(tmpDir, { approach: 'Approach Z', phase: '07', evidence: ['later.ts:3'] });
+
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    expect(body).toContain('status: reopened');
+    expect(body).toContain('"01"');
+    expect(body).toContain('"07"');
   });
 
   test('dry-runs by default: previews the entry and writes nothing (W1)', () => {

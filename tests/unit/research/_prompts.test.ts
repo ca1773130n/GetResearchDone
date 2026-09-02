@@ -45,8 +45,8 @@ describe('buildClarifyPrompt structural terminator (W5)', () => {
   });
 
   it('routes facts to lookup and only decisions to the human', () => {
-    expect(p).toMatch(/Look it up, do not ask it/);
-    expect(p).toMatch(/DECISION/);
+    expect(p).toMatch(/Raise a dimension only for a DECISION/);
+    expect(p).toMatch(/Do not raise a\s+dimension whose answer you could have read/);
   });
 
   it('keeps the 4-dimension cap and the __CLARIFY__ sentinel', () => {
