@@ -53,6 +53,35 @@ cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
 # Phase eval plan (if exists)
 ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
 ```
+
+**Resolve the review range.** `${FILES_MODIFIED}`, `${FIRST_COMMIT}` and `${LAST_COMMIT}`
+are used by the checks below and are NOT passed to you — derive them here, substituting
+`${PHASE_NUMBER}` with the phase number from your prompt:
+
+```bash
+# Executor commits are scoped "{type}({phase}-{plan}): ..." (agents/grd-executor.md),
+# so the phase's own commits define the range.
+PHASE_SHAS=$(git log --reverse --format=%H --grep="(${PHASE_NUMBER}-")
+FIRST_COMMIT=$(printf '%s\n' "$PHASE_SHAS" | head -1)
+LAST_COMMIT=$(printf '%s\n' "$PHASE_SHAS" | tail -1)
+
+if [ -n "$FIRST_COMMIT" ]; then
+  # ${FIRST_COMMIT}^ does not exist on a root commit; fall back to the empty tree.
+  BASE=$(git rev-parse --verify -q "${FIRST_COMMIT}^" || git hash-object -t tree /dev/null)
+  FILES_MODIFIED=$(git diff --name-only "$BASE" "$LAST_COMMIT")
+else
+  # No commits carry this phase's scope: uncommitted work, or an unmerged worktree.
+  FILES_MODIFIED=$(git status --porcelain | awk '{print $NF}')
+fi
+
+printf 'review range: %s..%s\n%s\n' "${FIRST_COMMIT:-<none>}" "${LAST_COMMIT:-<none>}" "$FILES_MODIFIED"
+```
+
+**If `FILES_MODIFIED` is empty, stop and report it.** Every `grep -rn ... ${FILES_MODIFIED}`
+below silently degrades to a recursive scan of the whole repository when the variable is
+empty, which reads as a completed check. Write `Review scope: EMPTY — no files resolved for
+phase ${PHASE_NUMBER}` into the report and run no file checks, rather than reporting findings
+from files this phase never touched.
 </step>
 
 <step name="artifact_exclusions" priority="high">
@@ -148,10 +177,9 @@ If EVAL.md exists for this phase:
 - Verify no duplicate implementations of existing utilities
 - Check that new modules integrate with existing architecture
 
-```bash
-# Check for pattern consistency
-# (Adapt patterns based on project language/framework)
-```
+Read the modified files against their neighbours in the same directory; the patterns worth
+comparing are language-specific, so there is no fixed command here. Cite the neighbouring file
+you compared against, or the finding is not checkable.
 
 **BLOCKER:** New code introduces conflicting architectural pattern.
 **WARNING:** Style inconsistency with existing codebase.
@@ -194,8 +222,9 @@ For non-obvious code that implements research techniques:
 - Commit messages consistent with SUMMARY claims
 
 ```bash
-# Compare SUMMARY claims with reality
-git diff --name-only ${FIRST_COMMIT}^..${LAST_COMMIT}
+# Compare SUMMARY claims with reality — FILES_MODIFIED was resolved in load_context
+printf '%s\n' "${FILES_MODIFIED}"
+git log --oneline "${FIRST_COMMIT}^..${LAST_COMMIT}" 2>/dev/null || git log --oneline "${LAST_COMMIT}" -1
 ```
 
 **WARNING:** Files modified but not listed in SUMMARY.md key-files.
