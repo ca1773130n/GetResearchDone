@@ -615,6 +615,32 @@ describe('cmdDeadEndPromoteFromPhase', () => {
     expect(fs.readFileSync(filePath, 'utf-8')).toBe(afterFirst);
   });
 
+  test('a mistyped gate value is a config_error, not a silent false (W1)', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ research_gates: { auto_promote_falsified: 'true' } }),
+      'utf-8'
+    );
+    writeReflection('01-test', 'falsified', 'Approach M');
+
+    const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result.dry_run).toBe(true);
+    expect(result.config_error).toMatch(/not a boolean/);
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'))).toBe(false);
+  });
+
+  test('addDeadEnd keeps its public same-phase reopen contract (W1)', () => {
+    const { addDeadEnd } = require('../../lib/dead-ends');
+    addDeadEnd(tmpDir, { approach: 'Approach N', phase: '03', evidence: ['a.ts:1'] });
+    addDeadEnd(tmpDir, { approach: 'Approach N', phase: '03', evidence: ['b.ts:2'] });
+
+    // Manual re-add signals a re-encounter; only promote-from-phase opts out.
+    const body = fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    expect(body).toContain('status: reopened');
+    expect(body).toContain('tried_in_phases: ["03"]');
+  });
+
   test('a genuinely later phase still flips status to reopened (W1)', () => {
     enableAutoPromote();
     writeReflection('01-test', 'falsified', 'Approach Z');

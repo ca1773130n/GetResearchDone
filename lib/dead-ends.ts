@@ -7,8 +7,8 @@
  * dead_ends_md) shipped in PR #35; this module adds the writer so
  * falsified approaches can be recorded canonically. Slug is the dedup
  * key — repeated registrations of the same approach append phase /
- * evidence rather than creating duplicate entries, and flip status from
- * active -> reopened when the phase is one not already recorded.
+ * evidence and flip status from active -> reopened rather than creating
+ * duplicate entries.
  *
  * Schema is documented in agents/grd-planner.md <dead_ends>.
  */
@@ -378,7 +378,16 @@ function _autoPromoteEnabled(cwd: string): { enabled: boolean; configError?: str
   }
   try {
     const parsed = JSON.parse(raw) as { research_gates?: Record<string, unknown> };
-    return { enabled: parsed.research_gates?.auto_promote_falsified === true };
+    const v = parsed.research_gates?.auto_promote_falsified;
+    // A present-but-not-boolean value is a typo, not a decision. `"true"` reading as
+    // off is the silent-misconfiguration case this whole gate exists to avoid.
+    if (v !== undefined && typeof v !== 'boolean') {
+      return {
+        enabled: false,
+        configError: `research_gates.auto_promote_falsified is ${JSON.stringify(v)} (${typeof v}), not a boolean — the gate reads as off`,
+      };
+    }
+    return { enabled: v === true };
   } catch (err) {
     return {
       enabled: false,
@@ -394,7 +403,19 @@ function _autoPromoteEnabled(cwd: string): { enabled: boolean; configError?: str
  * share the same logic without going through the process-exiting
  * `output` helper.
  */
-function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: string): UpsertResult {
+function _upsertEntry(
+  existing: DeadEndEntry[],
+  opts: DeadEndAddOpts,
+  slug: string,
+  /**
+   * When true, re-recording a phase the entry already lists leaves the entry
+   * byte-identical. Only `promoteFalsifiedFromPhase` passes this: execute-phase and
+   * verify-phase both promote the same VERIFICATION.md, so a same-phase repeat is
+   * routine there and must not mutate the row. `addDeadEnd`'s public contract is
+   * unchanged — a manual re-add still flips `active` -> `reopened`.
+   */
+  idempotentSamePhase = false,
+): UpsertResult {
   const verdict = opts.verdict ?? 'falsified';
   const evidenceList = opts.evidence ?? [];
   const idx = existing.findIndex((e) => e.slug === slug);
@@ -416,11 +437,7 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
   const isNewPhase = !e.tried_in_phases.includes(opts.phase);
   if (isNewPhase) e.tried_in_phases.push(opts.phase);
   for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
-  // `reopened` means the approach was tried AGAIN, in a later phase. Re-recording the
-  // same phase is not a re-encounter — and it is now routine, because execute-phase and
-  // verify-phase both promote from the same VERIFICATION.md. Flipping on a repeat call
-  // would make the entry mutate on every invocation, which is not idempotent.
-  if (isNewPhase && e.status === 'active') e.status = 'reopened';
+  if ((isNewPhase || !idempotentSamePhase) && e.status === 'active') e.status = 'reopened';
   if (opts.notes) e.notes = opts.notes;
   return { entries: existing, action: 'updated', slug };
 }
@@ -433,12 +450,11 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
  * appended to `tried_in_phases` (if not already present), evidence is
  * appended (if not already present), and notes overwrite when provided.
  *
- * Status flips from `active` to `reopened` only when `opts.phase` is one the
- * entry has not recorded before. `reopened` means the approach was tried again
- * in a LATER phase; re-registering the same phase is not a re-encounter, and
- * treating it as one made the entry mutate on every call. That matters because
- * execute-phase and verify-phase both promote from the same VERIFICATION.md,
- * so a same-phase repeat is now the normal case rather than an oddity.
+ * Status flips from `active` to `reopened` on any re-registration, including the
+ * same phase — a human re-running `dead-end add` for an approach already recorded
+ * is signalling a re-encounter. `promoteFalsifiedFromPhase` opts out of that via
+ * `_upsertEntry`'s `idempotentSamePhase`, because its two call sites promote the
+ * same VERIFICATION.md by design and must not mutate the row on the second pass.
  */
 /**
  * Programmatic add/update of a `.planning/DEAD-ENDS.md` entry. Throws on invalid
@@ -550,7 +566,8 @@ function promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhase
       evidence: reflection.evidence,
       notes: reflection.actual_outcome || undefined,
     },
-    slug
+    slug,
+    true
   );
 
   // The consequence of a DEAD-ENDS row is `-Infinity` in select-candidate, which is
