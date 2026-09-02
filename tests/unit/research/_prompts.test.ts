@@ -44,9 +44,12 @@ describe('buildClarifyPrompt structural terminator (W5)', () => {
     expect(p).not.toMatch(/Do NOT invent ambiguity/);
   });
 
-  it('routes facts to lookup and only decisions to the human', () => {
-    expect(p).toMatch(/Raise a dimension only for a DECISION/);
-    expect(p).toMatch(/Do not raise a\s+dimension whose answer you could have read/);
+  it('carries a looked-up fact through a dimension rather than dropping it', () => {
+    // __CLARIFY__ has no field for a resolved fact, so the only path from a lookup into
+    // refinedQuestion is a dimension whose recommended option holds the value.
+    expect(p).toMatch(/Drop a dimension ONLY when the question already names that element/);
+    expect(p).toMatch(/single recommended option/);
+    expect(p).toMatch(/Dropping it silently leaves the question incomplete/);
   });
 
   it('keeps the 4-dimension cap and the __CLARIFY__ sentinel', () => {

@@ -7,8 +7,8 @@
  * dead_ends_md) shipped in PR #35; this module adds the writer so
  * falsified approaches can be recorded canonically. Slug is the dedup
  * key — repeated registrations of the same approach append phase /
- * evidence and flip status from active -> reopened rather than
- * creating duplicate entries.
+ * evidence rather than creating duplicate entries, and flip status from
+ * active -> reopened when the phase is one not already recorded.
  *
  * Schema is documented in agents/grd-planner.md <dead_ends>.
  */
@@ -431,8 +431,14 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
  * Dedup: slug is generated from the approach via generateSlugInternal.
  * Same slug as an existing entry means the same dead end — phase is
  * appended to `tried_in_phases` (if not already present), evidence is
- * appended (if not already present), status flips from `active` to
- * `reopened`, and notes overwrite when provided.
+ * appended (if not already present), and notes overwrite when provided.
+ *
+ * Status flips from `active` to `reopened` only when `opts.phase` is one the
+ * entry has not recorded before. `reopened` means the approach was tried again
+ * in a LATER phase; re-registering the same phase is not a re-encounter, and
+ * treating it as one made the entry mutate on every call. That matters because
+ * execute-phase and verify-phase both promote from the same VERIFICATION.md,
+ * so a same-phase repeat is now the normal case rather than an oddity.
  */
 /**
  * Programmatic add/update of a `.planning/DEAD-ENDS.md` entry. Throws on invalid
