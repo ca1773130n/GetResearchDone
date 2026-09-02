@@ -294,7 +294,7 @@ See ${CLAUDE_PLUGIN_ROOT}/templates/verification-report.md for complete template
 **Register a falsified phase hypothesis as a dead end (non-blocking):**
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dead-end promote-from-phase --phase {phase}
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dead-end promote-from-phase --phase "${phase_number}"
 ```
 
 Report the result and continue regardless of outcome:

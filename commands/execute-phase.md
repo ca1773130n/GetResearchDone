@@ -975,7 +975,7 @@ Gap closure cycle: `/grd:plan-phase {X} --gaps` reads VERIFICATION.md -> creates
 **Register a falsified phase hypothesis as a dead end (non-blocking):**
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dead-end promote-from-phase --phase {phase}
+node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js dead-end promote-from-phase --phase "${PHASE_NUMBER}"
 ```
 
 Report the result and continue regardless of outcome:

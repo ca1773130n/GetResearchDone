@@ -54,9 +54,12 @@ cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
 ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
 ```
 
-**Resolve the review range.** `${FILES_MODIFIED}`, `${FIRST_COMMIT}` and `${LAST_COMMIT}`
-are used by the checks below and are NOT passed to you — derive them here, substituting
-`${PHASE_NUMBER}` with the phase number from your prompt:
+**Resolve the review range.** `${CHANGED}`, `${FILES_MODIFIED}`, `${FIRST_COMMIT}` and
+`${LAST_COMMIT}` are used by the checks below and are NOT passed to you — derive them here,
+substituting `${PHASE_NUMBER}` with the phase number from your prompt.
+
+`CHANGED` is every path the range touched, deletions included — that is the deviation story.
+`FILES_MODIFIED` is the subset that still exists on disk, which is what the greps can open.
 
 ```bash
 # Executor commits are scoped "{type}({phase}-{plan}): ..." (agents/grd-executor.md),
@@ -68,20 +71,31 @@ LAST_COMMIT=$(printf '%s\n' "$PHASE_SHAS" | tail -1)
 if [ -n "$FIRST_COMMIT" ]; then
   # ${FIRST_COMMIT}^ does not exist on a root commit; fall back to the empty tree.
   BASE=$(git rev-parse --verify -q "${FIRST_COMMIT}^" || git hash-object -t tree /dev/null)
-  FILES_MODIFIED=$(git diff --name-only "$BASE" "$LAST_COMMIT")
+  CHANGED=$(git diff --name-only "$BASE" "$LAST_COMMIT")
 else
   # No commits carry this phase's scope: uncommitted work, or an unmerged worktree.
-  FILES_MODIFIED=$(git status --porcelain | awk '{print $NF}')
+  # Do NOT parse `git status --porcelain` by column: a rename prints "old -> new"
+  # and a path containing a space is split. These two plumbing commands emit one
+  # clean path per line.
+  CHANGED=$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u )
 fi
 
-printf 'review range: %s..%s\n%s\n' "${FIRST_COMMIT:-<none>}" "${LAST_COMMIT:-<none>}" "$FILES_MODIFIED"
+# Drop paths the range deleted — every grep below would print "No such file" for them.
+FILES_MODIFIED=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)
+
+printf 'review range: %s..%s\n' "${FIRST_COMMIT:-<none>}" "${LAST_COMMIT:-<none>}"
+printf 'changed (%s):\n%s\n' "$(printf '%s\n' "$CHANGED" | grep -c .)" "$CHANGED"
 ```
 
-**If `FILES_MODIFIED` is empty, stop and report it.** Every `grep -rn ... ${FILES_MODIFIED}`
-below silently degrades to a recursive scan of the whole repository when the variable is
-empty, which reads as a completed check. Write `Review scope: EMPTY — no files resolved for
-phase ${PHASE_NUMBER}` into the report and run no file checks, rather than reporting findings
-from files this phase never touched.
+**If `CHANGED` is empty, stop and report it.** Write `Review scope: EMPTY — no files
+resolved for phase ${PHASE_NUMBER}` into the report and run no file checks, rather than
+reporting findings from files this phase never touched.
+
+**Never run a `grep -rn ... ${FILES_MODIFIED}` while `FILES_MODIFIED` is empty.** An empty
+variable leaves `grep -r` with no path operand, so it recursively scans the whole repository
+and the output reads as a completed check over this phase. If `CHANGED` is non-empty but
+`FILES_MODIFIED` is empty, the range deleted every file it touched: say so and skip the
+content checks, but still run the deviation check in 2.4 against `CHANGED`.
 </step>
 
 <step name="artifact_exclusions" priority="high">
@@ -222,8 +236,9 @@ For non-obvious code that implements research techniques:
 - Commit messages consistent with SUMMARY claims
 
 ```bash
-# Compare SUMMARY claims with reality — FILES_MODIFIED was resolved in load_context
-printf '%s\n' "${FILES_MODIFIED}"
+# Compare SUMMARY claims with reality — CHANGED was resolved in load_context and
+# includes deletions, which are exactly what an undocumented deviation looks like.
+printf '%s\n' "${CHANGED}"
 git log --oneline "${FIRST_COMMIT}^..${LAST_COMMIT}" 2>/dev/null || git log --oneline "${LAST_COMMIT}" -1
 ```
 
