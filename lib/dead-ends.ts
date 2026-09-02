@@ -339,6 +339,39 @@ interface UpsertResult {
   slug: string;
 }
 
+export interface PromoteFromPhaseResult {
+  /** True when nothing was promotable; `reason` says why. */
+  skipped: boolean;
+  reason?: string;
+  /** Set unless skipped: `created` on a new slug, `updated` on the idempotent re-run. */
+  action?: 'created' | 'updated';
+  slug?: string;
+  /** True when the entry was previewed only — `.planning/DEAD-ENDS.md` is untouched. */
+  dry_run?: boolean;
+  /** The entry that would be written, serialized. Dry-run only. */
+  preview?: string;
+  phase?: string;
+  total_entries?: number;
+  path?: string;
+}
+
+/**
+ * `.planning/config.json` → `research_gates.auto_promote_falsified`, default false.
+ *
+ * Read directly rather than through `loadConfig`: `GrdConfig` does not declare
+ * `research_gates`, and widening the shared config type for one boolean is a
+ * larger blast radius than a local read.
+ */
+function _autoPromoteEnabled(cwd: string): boolean {
+  try {
+    const raw = fs.readFileSync(path.join(cwd, '.planning', 'config.json'), 'utf-8');
+    const parsed = JSON.parse(raw) as { research_gates?: Record<string, unknown> };
+    return parsed.research_gates?.auto_promote_falsified === true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Pure helper: given an existing entry list and add opts, produce the
  * new list and metadata. Same dedup contract as cmdDeadEndAdd; lifted
@@ -433,16 +466,19 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
  * thanks to the slug dedup contract — calling this repeatedly on the same
  * phase converges to the same registry state.
  *
- * Non-falsified verdicts (confirmed, partial, unknown) emit
+ * Non-falsified verdicts (confirmed, partial, unknown) return
  * `{ skipped: true, reason }` so the caller can surface why.
+ *
+ * Writes only when `research_gates.auto_promote_falsified` is true. Unset or
+ * false it returns `dry_run: true` with the entry it would have written in
+ * `preview`, and leaves `.planning/DEAD-ENDS.md` byte-identical.
+ *
+ * Pure with respect to process control flow: it never calls `output`/`error`,
+ * so the phase-boundary callers can invoke it without exiting the process.
  */
-function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): void {
-  if (!phase) error('phase required');
+function promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhaseResult {
   const phaseInfo = findPhaseInternal(cwd, phase);
-  if (!phaseInfo || !phaseInfo.found) {
-    output({ skipped: true, reason: 'Phase not found', phase }, raw);
-    return;
-  }
+  if (!phaseInfo || !phaseInfo.found) return { skipped: true, reason: 'Phase not found', phase };
 
   // Find {phase}-VERIFICATION.md in the phase directory
   const phaseDir = path.join(cwd, phaseInfo.directory);
@@ -450,47 +486,27 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
   try {
     files = fs.readdirSync(phaseDir);
   } catch {
-    output({ skipped: true, reason: 'Cannot read phase directory', phase }, raw);
-    return;
+    return { skipped: true, reason: 'Cannot read phase directory', phase };
   }
   const verFile = files.find((f) => /-VERIFICATION\.md$/i.test(f) || f === 'VERIFICATION.md');
-  if (!verFile) {
-    output(
-      { skipped: true, reason: 'No VERIFICATION.md in phase directory', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
-  }
+  const at = { phase: phaseInfo.phase_number };
+  if (!verFile) return { skipped: true, reason: 'No VERIFICATION.md in phase directory', ...at };
 
   const verContent = fs.readFileSync(path.join(phaseDir, verFile), 'utf-8');
   const reflection = parseReflectionSection(verContent);
   if (!reflection) {
-    output(
-      { skipped: true, reason: 'No ## Reflection section parseable in VERIFICATION.md', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
+    return { skipped: true, reason: 'No ## Reflection section parseable in VERIFICATION.md', ...at };
   }
   if (reflection.verdict !== 'falsified') {
-    output(
-      {
-        skipped: true,
-        reason: `verdict is "${reflection.verdict}" — only falsified is auto-promoted`,
-        phase: phaseInfo.phase_number,
-      },
-      raw
-    );
-    return;
+    return {
+      skipped: true,
+      reason: `verdict is "${reflection.verdict}" — only falsified is auto-promoted`,
+      ...at,
+    };
   }
 
   const slug: string | null = generateSlugInternal(reflection.hypothesis);
-  if (!slug) {
-    output(
-      { skipped: true, reason: 'Could not derive slug from hypothesis', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
-  }
+  if (!slug) return { skipped: true, reason: 'Could not derive slug from hypothesis', ...at };
 
   const planningDir = path.join(cwd, '.planning');
   const filePath = path.join(planningDir, 'DEAD-ENDS.md');
@@ -511,20 +527,37 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
     slug
   );
 
+  // The consequence of a DEAD-ENDS row is `-Infinity` in select-candidate, which is
+  // permanent and has no warning tier. Writing without the key set previews instead.
+  const dryRun = !_autoPromoteEnabled(cwd);
+  const entry = existing.find((e) => e.slug === slug);
+  if (dryRun) {
+    return {
+      skipped: false, dry_run: true, action, slug, ...at,
+      total_entries: existing.length,
+      path: path.relative(cwd, filePath),
+      preview: entry ? _serializeEntry(entry) : undefined,
+    };
+  }
+
   fs.mkdirSync(planningDir, { recursive: true });
   atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
 
-  output(
-    {
-      action,
-      slug,
-      total_entries: existing.length,
-      phase: phaseInfo.phase_number,
-      path: path.relative(cwd, filePath),
-    },
-    raw,
-    `${action}: ${slug}`
-  );
+  return {
+    skipped: false, dry_run: false, action, slug, ...at,
+    total_entries: existing.length,
+    path: path.relative(cwd, filePath),
+  };
+}
+
+/** Thin CLI formatter over `promoteFalsifiedFromPhase`. */
+function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) error('phase required');
+  const r = promoteFalsifiedFromPhase(cwd, phase);
+  const rawValue = r.skipped
+    ? `skipped: ${r.reason}`
+    : `${r.dry_run ? 'would-' : ''}${r.action}: ${r.slug}`;
+  output(r, raw, rawValue);
 }
 
 module.exports = {
@@ -533,5 +566,6 @@ module.exports = {
   parseReflectionSection,
   addDeadEnd,
   cmdDeadEndAdd,
+  promoteFalsifiedFromPhase,
   cmdDeadEndPromoteFromPhase,
 };

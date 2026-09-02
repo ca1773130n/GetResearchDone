@@ -105,6 +105,11 @@ harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 via AskUserQuestion to resolve ambiguous, unlocked design/implementation
 decisions mid-planning (planner raises a `TYPE: clarification` checkpoint);
 auto-skipped under `autonomous_mode`, autopilot, and `--candidates N>1`.
+`research_gates.auto_promote_falsified` (default **false**) lets the phase boundary
+write a `verdict: falsified` reflection straight into `.planning/DEAD-ENDS.md`
+(`promoteFalsifiedFromPhase`). Off, the step dry-runs and prints the entry it would
+write. Off by default because a DEAD-ENDS slug scores any future candidate plan citing
+it at `-Infinity` in `select-candidate`, permanently and with no warning tier.
 `research_gates.interactive` (default `enabled:false`) is human-in-the-loop
 steering of the research loop — per-point flags `seed`/`hypothesize`/`design`/
 `decide` pause for a human at the SEED/HYPOTHESIZE/DESIGN/DECIDE stations

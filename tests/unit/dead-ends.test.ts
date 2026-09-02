@@ -505,6 +505,14 @@ describe('cmdDeadEndPromoteFromPhase', () => {
     cleanupFixtureDir(tmpDir);
   });
 
+  /** W1: the write path is gated; unset the key and promotion previews instead. */
+  function enableAutoPromote(): void {
+    const cfg = path.join(tmpDir, '.planning', 'config.json');
+    const existing = fs.existsSync(cfg) ? JSON.parse(fs.readFileSync(cfg, 'utf-8')) : {};
+    existing.research_gates = { ...(existing.research_gates || {}), auto_promote_falsified: true };
+    fs.writeFileSync(cfg, JSON.stringify(existing, null, 2), 'utf-8');
+  }
+
   function writeReflection(phaseDirName: string, verdict: string, hypothesis = 'Sample hypothesis'): void {
     const phaseDir = path.join(
       tmpDir,
@@ -532,6 +540,7 @@ describe('cmdDeadEndPromoteFromPhase', () => {
   }
 
   test('promotes a falsified phase into DEAD-ENDS.md', () => {
+    enableAutoPromote();
     writeReflection('01-test', 'falsified', 'RoPE on CPU is fast enough');
 
     const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
@@ -589,6 +598,7 @@ describe('cmdDeadEndPromoteFromPhase', () => {
   });
 
   test('is idempotent: re-running on same falsified phase updates without duplicating', () => {
+    enableAutoPromote();
     writeReflection('01-test', 'falsified', 'Approach Z');
 
     captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
@@ -596,6 +606,54 @@ describe('cmdDeadEndPromoteFromPhase', () => {
     const result = JSON.parse(stdout);
     expect(result.action).toBe('updated');
     expect(result.total_entries).toBe(1);
+  });
+
+  test('dry-runs by default: previews the entry and writes nothing (W1)', () => {
+    writeReflection('01-test', 'falsified', 'Approach Q');
+
+    const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result.skipped).toBe(false);
+    expect(result.dry_run).toBe(true);
+    expect(result.action).toBe('created');
+    expect(result.slug).toBe('approach-q');
+    expect(result.preview).toContain('## approach-q');
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'))).toBe(false);
+  });
+
+  test('dry-run leaves an existing DEAD-ENDS.md byte-identical (W1)', () => {
+    enableAutoPromote();
+    writeReflection('01-test', 'falsified', 'Approach R');
+    captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+    const filePath = path.join(tmpDir, '.planning', 'DEAD-ENDS.md');
+    const before = fs.readFileSync(filePath, 'utf-8');
+
+    // Flip the gate back off, then re-run against a NEW falsified hypothesis.
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'config.json'), '{}', 'utf-8');
+    writeReflection('01-test', 'falsified', 'Approach S');
+    const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+
+    expect(JSON.parse(stdout).dry_run).toBe(true);
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe(before);
+  });
+
+  test('confirmed verdict writes nothing and states why, gate on or off (W1)', () => {
+    enableAutoPromote();
+    writeReflection('01-test', 'confirmed', 'Approach T');
+
+    const { stdout } = captureOutput(() => cmdDeadEndPromoteFromPhase(tmpDir, '1', false));
+    const result = JSON.parse(stdout);
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/only falsified is auto-promoted/);
+    expect(fs.existsSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'))).toBe(false);
+  });
+
+  test('promoteFalsifiedFromPhase never exits the process (W1)', () => {
+    const { promoteFalsifiedFromPhase } = require('../../lib/dead-ends');
+    // A missing phase is the path that used to route through output()/error().
+    const r = promoteFalsifiedFromPhase(tmpDir, '999');
+    expect(r.skipped).toBe(true);
+    expect(r.reason).toMatch(/Phase not found/);
   });
 });
 
