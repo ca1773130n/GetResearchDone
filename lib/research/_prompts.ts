@@ -1,5 +1,9 @@
 'use strict';
-import type { Hypothesis, ExperimentResult, Verdict, Takeaway } from './types';
+import type { Hypothesis, ExperimentResult, Verdict, Takeaway, BaselineMargin } from './types';
+
+const { formatSignedDelta } = require('./types') as {
+  formatSignedDelta: (delta: number) => string;
+};
 
 /**
  * The W2 falsifiability admission test, stated to the agent in the same words both hypothesis
@@ -139,9 +143,18 @@ function buildExperimentPrompt(
     'Do NOT run the script yourself — the orchestrator runs it behind an execution gate.',
     'Pick a single numeric metricKey, a comparator (>=, <=, >, <, ==), and a target threshold.',
     '',
-    'Emit exactly one final block (scriptPath = the absolute path where you wrote the script):',
+    'Declare a `baseline` — the number this metric is claimed to improve on — when, and only',
+    'when, one exists OUTSIDE the script you just wrote: a metric a prior iteration of this',
+    'thread already recorded, a published number you can name, or a control arm the script runs',
+    'alongside the treatment. A baseline the script itself computes from the treatment run is the',
+    'run grading its own homework and tells the loop nothing; omit the field instead. It is',
+    'reported beside the result, never compared against — the verdict stays metricKey/comparator/',
+    'target arithmetic either way.',
+    '',
+    'Emit exactly one final block (scriptPath = the absolute path where you wrote the script;',
+    'omit "baseline" entirely when no independent one exists):',
     '__PLAN__',
-    `{"procedure":"...","metricKey":"...","comparator":">=","target":0.0,"language":"shell","scriptPath":"${iterDir}/run.sh"}`,
+    `{"procedure":"...","metricKey":"...","comparator":">=","target":0.0,"baseline":0.0,"language":"shell","scriptPath":"${iterDir}/run.sh"}`,
   ].join('\n');
 }
 
@@ -151,6 +164,7 @@ function buildLearnPrompt(
   result: Pick<ExperimentResult, 'metrics' | 'failureClass'>,
   verdict: Verdict,
   cause?: 'run_failed' | 'metric_absent',
+  margin?: BaselineMargin,
 ): string {
   return [
     'You are grd-knowledge-miner in research-takeaway mode. Extract ONE reusable takeaway',
@@ -160,6 +174,13 @@ function buildLearnPrompt(
     `Verdict: ${verdict}`,
     `Metrics: ${JSON.stringify(result.metrics)}`,
     `Run failure class: ${result.failureClass}`,
+    ...(margin ? [
+      `Declared baseline (independent of this run): ${margin.baseline}`,
+      `Margin vs baseline: ${formatSignedDelta(margin.delta)} (measured ${margin.measured})`,
+      'NAME THAT MARGIN in the takeaway. A verdict says which side of the target the run landed',
+      'on; only the margin says whether it cleared by a hair or by a mile, and those are',
+      'different findings for the next hypothesis.',
+    ] : []),
     ...(cause === 'metric_absent' ? [
       '',
       'This iteration was INCONCLUSIVE because the script never emitted the metric the plan',

@@ -4,7 +4,7 @@ const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
   ExperimentResult, MeasureOutcome, MeasureCause, Checkpoint, CheckpointAnswer, CheckpointPoint,
-  InteractiveConfig, Comparator,
+  InteractiveConfig, Comparator, BaselineMargin,
 } from './types';
 import type { Runner } from './runner';
 import type {
@@ -29,6 +29,7 @@ const { scoreReconstructability } = require('./reconstructability') as {
     target?: number | null; language?: string | null; runner?: string | null;
   }) => { score: number; checks: Record<string, boolean> };
 };
+const { formatSignedDelta } = require('./types') as { formatSignedDelta: (delta: number) => string };
 const { syncFindingToKg, writeKgProvenance } = require('./kg');
 const {
   emitCheckpoint, consumeAnswered, makeCheckpointId, resolveInteractive, readInteractiveConfig,
@@ -56,7 +57,7 @@ const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, bu
   buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
   buildHypothesesPrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways: unknown[], pack: string, pivot: boolean, n: number) => string;
   buildExperimentPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
-  buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict, cause?: MeasureCause) => string;
+  buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict, cause?: MeasureCause, margin?: BaselineMargin) => string;
   buildClarifyPrompt: (thread: { id: string; question: string }) => string;
 };
 /**
@@ -74,11 +75,15 @@ type ClarifyDimension = {
   options: Array<{ label: string; description?: string; recommended?: boolean }>;
   freeform?: boolean;
 };
-const { parseHypothesisOutput, describeHypothesisRejection, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
+const { parseHypothesisOutput, describeHypothesisRejection, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput, extractTaggedJson } = require('./agent-io') as {
   parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string; refutationCondition: string; refutationOverlap: number } | null;
   describeHypothesisRejection: (stdout: string) => string | null;
   parseHypothesesOutput: (stdout: string, n?: number) => { candidates: HypothesisCandidate[]; droppedForRefutation: number };
+  // NOT widened for W8's `baseline`, on purpose: parsePlanOutput builds its return value from a
+  // six-field whitelist and genuinely does not return one. Widening this annotation would be the
+  // lie that makes tsc validate a shape the callee never produces — see parseDeclaredBaseline.
   parsePlanOutput: (stdout: string) => { procedure: string; metricKey: string; comparator: string; target: number; language: string; scriptPath: string } | null;
+  extractTaggedJson: <T>(stdout: string, tag: string) => T | null;
   parseTakeawayOutput: (stdout: string) => Record<string, unknown> | null;
   parseClarifyOutput: (stdout: string) => { dimensions: ClarifyDimension[] };
 };
@@ -442,6 +447,39 @@ function errExit(cwd: string, thread: ResearchThread, reason: string): ResearchR
   return { threadId: thread.id, status: 'error', iterations: thread.iteration, errorReason: reason };
 }
 
+/**
+ * W8 producer. `parsePlanOutput` (lib/research/agent-io.ts) builds its return value from an
+ * explicit six-field whitelist, so an optional `baseline` the designing agent declares in the
+ * same __PLAN__ block is dropped before the orchestrator ever sees it — and because `baseline?`
+ * is optional on ExperimentPlan, the `as ExperimentPlan` cast at DESIGN would compile silently
+ * with the field forever undefined. Reading it here, through agent-io's own exported
+ * `extractTaggedJson` (the way synthesize.ts reads __CANDIDATES__), keeps the field live without
+ * a second JSON parser. Fold it into parsePlanOutput's whitelist the next time agent-io.ts is
+ * open and delete this helper.
+ *
+ * Non-finite and non-numeric declarations are dropped rather than coerced: a baseline that
+ * cannot be subtracted is worse than none, because it would render as `NaN` beside a real result.
+ */
+function parseDeclaredBaseline(stdout: string): number | undefined {
+  const o = extractTaggedJson<Record<string, unknown>>(stdout, 'PLAN');
+  if (!o || typeof o.baseline !== 'number' || !Number.isFinite(o.baseline)) return undefined;
+  return o.baseline;
+}
+
+/**
+ * W8 — the measured-vs-baseline margin, or undefined when either half is missing (no declared
+ * baseline, or a run whose script never emitted the metric it was judged on). Pure derivation
+ * over already-recorded values; nothing here can influence `evaluateVerdict`, which reads
+ * metricKey/comparator/target only.
+ */
+function baselineMargin(plan: ExperimentPlan, result: ExperimentResult): BaselineMargin | undefined {
+  const { baseline } = plan;
+  if (typeof baseline !== 'number' || !Number.isFinite(baseline)) return undefined;
+  const measured = result.metrics?.[plan.metricKey];
+  if (typeof measured !== 'number' || !Number.isFinite(measured)) return undefined;
+  return { baseline, measured, delta: measured - baseline };
+}
+
 // Cheap, deterministic structural reconstructability score appended to FINDING.md
 // at FINALIZE. Advisory telemetry — never gates or changes the verdict. Reads the
 // recorded script the same way the runner resolves it; degrades to absent on any
@@ -459,10 +497,20 @@ function reconstructabilitySection(
     script, metricKey: plan.metricKey, comparator: plan.comparator,
     target: plan.target, language: plan.language, runner: result.runner,
   });
+  // W8 — the measured-vs-baseline margin, rendered beside the score line (the doc says "beside
+  // the verdict line"; this section has no verdict line, and its own correction table places the
+  // delta here rather than in finding.ts, whose `- **verdict:**` line is ~30 lines above). Emitted
+  // ONLY when the plan declared an independent baseline AND the run produced the metric, so a
+  // thread without one renders byte-identically to before W8. Advisory, exactly like the score.
+  const margin = baselineMargin(plan, result);
   return [
     '## Reconstructability (advisory)',
     '',
     `- **score:** ${recon.score.toFixed(2)} _(structural completeness; does not affect the verdict)_`,
+    ...(margin ? [
+      `- **measured vs baseline:** ${margin.measured} vs ${margin.baseline}`
+      + ` — margin ${formatSignedDelta(margin.delta)} _(declared baseline; does not affect the verdict)_`,
+    ] : []),
     ...Object.entries(recon.checks).map(([k, v]) => `- [${v ? 'x' : ' '}] ${k}`),
     '',
   ].join('\n');
@@ -1195,6 +1243,9 @@ async function runLoop(
         ? `experiment-runner spawn failed: ${pRes.error}`
         : `experiment-runner output not parseable — expected a __PLAN__ block. Got: ${excerpt(pRes.lastRaw)}`);
       plan = parsedPlan as ExperimentPlan;
+      // W8 — recover the optional independent baseline parsePlanOutput's whitelist drops.
+      const declaredBaseline = parseDeclaredBaseline(pRes.lastRaw);
+      if (declaredBaseline !== undefined) plan.baseline = declaredBaseline;
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
       // GATE 1 — execute / DESIGN-approval checkpoint. When interactive.design is active this
@@ -1247,9 +1298,13 @@ async function runLoop(
     // The DESIGN-committed metric contract is pinned across attempts: a debug
     // re-plan may only repair the procedure/script — never move the goalposts
     // MEASURE judges against, nor switch the execution language.
+    // W8's `baseline` is pinned with them, for the same reason and one more: a re-plan runs
+    // AFTER the first failing attempt, so an unpinned baseline could be re-declared with the
+    // outcome already in view. It is also not carried by the re-plan at all (parsePlanOutput
+    // drops it), so without this pin a debug retry would silently erase the DESIGN baseline.
     const committed = {
       metricKey: plan.metricKey, comparator: plan.comparator,
-      target: plan.target, language: plan.language,
+      target: plan.target, language: plan.language, baseline: plan.baseline,
     };
     for (let attempt = 1; attempt <= debugDepth && result.exitCode !== 0; attempt++) {
       const record: Record<string, unknown> = {
@@ -1290,6 +1345,9 @@ async function runLoop(
       // Pin the committed contract: overwrite any drifted metricKey/comparator/
       // target/language back to the DESIGN-committed values (noting the drift in
       // the attempt record) before use and before persisting plan.json.
+      // `baseline` is restored by the same spread but deliberately NOT drift-checked: the re-plan
+      // is parsed by parsePlanOutput, which never carries a baseline, so every attempt would log
+      // a drift the agent did not commit.
       const proposed = dRes.value as ExperimentPlan;
       const drift: Record<string, { proposed: unknown; pinned: unknown }> = {};
       for (const key of ['metricKey', 'comparator', 'target', 'language'] as const) {
@@ -1315,7 +1373,11 @@ async function runLoop(
 
     // LEARN
     thread.currentStation = 'learn'; saveThread(cwd, thread);
-    const tOut = await spawn(buildLearnPrompt(thread, hyp, result, outcome.verdict, outcome.cause), 'grd-knowledge-miner');
+    // W8 — the same margin FINDING.md reports, handed to the miner so the takeaway can name it.
+    const tOut = await spawn(
+      buildLearnPrompt(thread, hyp, result, outcome.verdict, outcome.cause, baselineMargin(plan, result)),
+      'grd-knowledge-miner',
+    );
     const tk = parseTakeawayOutput(tOut);
     const takeaway: Takeaway = {
       kind: (tk?.kind as Takeaway['kind']) || 'domain_fact',

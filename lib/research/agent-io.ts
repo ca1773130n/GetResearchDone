@@ -184,9 +184,16 @@ function parseHypothesesOutput(stdout: string, n?: number):
 
 function parsePlanOutput(stdout: string):
   { procedure: string; metricKey: string; comparator: string; target: number;
-    language: string; scriptPath: string } | null {
+    language: string; scriptPath: string; baseline?: number } | null {
   const o = extractTaggedJson<Record<string, unknown>>(stdout, 'PLAN');
   if (!o || !o.metricKey || !o.scriptPath) return null;
+  // This object literal is a WHITELIST: a field the agent emits and this literal omits is
+  // dropped here, silently and invisibly to tsc, because the orchestrator casts the result
+  // `as ExperimentPlan` and the new field is optional. W2 shipped completely inert this way
+  // and W8's `baseline` did too. Adding a field to ExperimentPlan means adding it HERE.
+  const baseline = typeof o.baseline === 'number' && Number.isFinite(o.baseline)
+    ? o.baseline
+    : undefined;
   return {
     procedure: String(o.procedure || ''),
     metricKey: String(o.metricKey),
@@ -194,6 +201,9 @@ function parsePlanOutput(stdout: string):
     target: Number(o.target ?? 0),
     language: String(o.language || 'shell'),
     scriptPath: String(o.scriptPath),
+    // Omit the key entirely when absent, so a plan.json without a baseline is byte-identical
+    // to one written before W8 — the "unset means the current path exactly" claim rests on it.
+    ...(baseline === undefined ? {} : { baseline }),
   };
 }
 

@@ -342,3 +342,37 @@ describe('parseClarifyOutput (Phase 103 SEED)', () => {
     expect(r.dimensions[0].options[0].recommended).toBe(true);
   });
 });
+
+describe('W8: baseline survives the plan whitelist', () => {
+  const { parsePlanOutput } = require('../../../lib/research/agent-io');
+  const base = '"procedure":"p","metricKey":"acc","comparator":">=","target":0.8,"language":"shell","scriptPath":"/x/run.sh"';
+
+  it('carries a declared numeric baseline through', () => {
+    // parsePlanOutput's return literal is a whitelist. A field omitted there is dropped
+    // silently, and tsc cannot see it because the orchestrator casts `as ExperimentPlan`
+    // and `baseline?` is optional. W8 shipped inert exactly this way before this test.
+    const p = parsePlanOutput(`__PLAN__ {${base},"baseline":0.72}`);
+    expect(p.baseline).toBe(0.72);
+  });
+
+  it('omits the key entirely when no baseline is declared', () => {
+    // Not `baseline: undefined` — the key must be absent so plan.json is byte-identical
+    // to one written before W8. "Unset means the current path exactly" rests on this.
+    const p = parsePlanOutput(`__PLAN__ {${base}}`);
+    expect(Object.prototype.hasOwnProperty.call(p, 'baseline')).toBe(false);
+    expect(JSON.parse(JSON.stringify(p))).not.toHaveProperty('baseline');
+  });
+
+  it('drops a non-numeric or non-finite baseline rather than coercing it', () => {
+    // String() coercion is how "[object Object]" reached an audit trail in W2.
+    for (const bad of ['"0.7"', '"high"', 'null', 'true', '{"a":1}', '1e999']) {
+      const p = parsePlanOutput(`__PLAN__ {${base},"baseline":${bad}}`);
+      expect(Object.prototype.hasOwnProperty.call(p, 'baseline')).toBe(false);
+    }
+  });
+
+  it('accepts a negative and a zero baseline, which are legitimate', () => {
+    expect(parsePlanOutput(`__PLAN__ {${base},"baseline":0}`).baseline).toBe(0);
+    expect(parsePlanOutput(`__PLAN__ {${base},"baseline":-1.5}`).baseline).toBe(-1.5);
+  });
+});

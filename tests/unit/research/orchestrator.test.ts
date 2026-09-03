@@ -2189,3 +2189,186 @@ describe('W3: an unmeasurable design re-enters DESIGN instead of burning a hypot
     fs.rmSync(cwd, { recursive: true, force: true });
   });
 });
+
+// W8 — a declared, independent baseline and the two places its margin is reported.
+// The field would ship inert without a producer: parsePlanOutput (agent-io.ts) builds its
+// return value from a six-field whitelist, so these tests drive the loop end to end from a
+// real __PLAN__ block rather than asserting on a hand-built plan object.
+describe('orchestrator — W8 baseline margin', () => {
+  function baselineHarness(planExtra: string) {
+    const prompts: Record<string, string[]> = { 'grd-experiment-runner': [], 'grd-knowledge-miner': [] };
+    let hypoCalls = 0;
+    const spawn = async (prompt: string, agentType: string): Promise<string> => {
+      if (prompts[agentType]) prompts[agentType].push(prompt);
+      if (agentType === 'grd-hypothesizer') {
+        hypoCalls++;
+        return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8'
+          + `${planExtra},"language":"shell","scriptPath":"experiments/x/run.sh"}`;
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"success_pattern","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+    return { spawn, prompts };
+  }
+
+  // Metric 0.9 against target 0.8 — supported on the first iteration, so FINDING.md and the
+  // single LEARN prompt both describe the same plan/result pair.
+  function supportedRunner() {
+    return {
+      run() {
+        return {
+          metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess',
+          durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+        };
+      },
+    };
+  }
+
+  it('renders the margin beside the advisory score and names it in the LEARN prompt', async () => {
+    const cwd = tmp();
+    const { spawn, prompts } = baselineHarness(',"baseline":0.6');
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 2, noGates: true, spawn, runner: supportedRunner(),
+    });
+
+    // The verdict arithmetic is untouched: 0.9 >= 0.8 regardless of any baseline.
+    expect(res.status).toBe('supported');
+
+    const finding = fs.readFileSync(res.findingPath, 'utf8');
+    // 0.9 - 0.6 is 0.30000000000000004 in binary floating point; the margin must not say so.
+    expect(finding).toContain('- **measured vs baseline:** 0.9 vs 0.6 — margin +0.3');
+    expect(finding).toContain('does not affect the verdict');
+    // Rendered beside the score line, above the structural checks.
+    const lines = finding.split('\n');
+    const scoreLine = lines.findIndex((l: string) => l.startsWith('- **score:**'));
+    expect(lines[scoreLine + 1]).toContain('measured vs baseline');
+    // The advisory structural score is unchanged by the presence of a baseline.
+    expect(finding).toContain('- **score:** 0.75');
+
+    const learn = prompts['grd-knowledge-miner'].join('\n');
+    expect(learn).toContain('Declared baseline (independent of this run): 0.6');
+    expect(learn).toContain('Margin vs baseline: +0.3 (measured 0.9)');
+    expect(learn).toContain('NAME THAT MARGIN');
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('persists the declared baseline to plan.json (parsePlanOutput drops it)', async () => {
+    const cwd = tmp();
+    const { spawn } = baselineHarness(',"baseline":0.6');
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 2, noGates: true, spawn, runner: supportedRunner(),
+    });
+    const planPath = path.join(cwd, '.planning/research/threads', res.threadId, 'experiments/1/plan.json');
+    const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+    expect(plan.baseline).toBe(0.6);
+    // The metric contract is untouched beside it.
+    expect(plan.metricKey).toBe('accuracy');
+    expect(plan.target).toBe(0.8);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('reports a negative margin when the run comes in under its own baseline', async () => {
+    const cwd = tmp();
+    const { spawn, prompts } = baselineHarness(',"baseline":0.95');
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 2, noGates: true, spawn, runner: supportedRunner(),
+    });
+    // Supported AND under baseline: exactly the pair a verdict alone cannot tell apart.
+    expect(res.status).toBe('supported');
+    expect(fs.readFileSync(res.findingPath, 'utf8'))
+      .toContain('- **measured vs baseline:** 0.9 vs 0.95 — margin -0.05');
+    expect(prompts['grd-knowledge-miner'].join('\n')).toContain('Margin vs baseline: -0.05');
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('omits the margin entirely when no baseline is declared', async () => {
+    const cwd = tmp();
+    const { spawn, prompts } = baselineHarness('');
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 2, noGates: true, spawn, runner: supportedRunner(),
+    });
+    const finding = fs.readFileSync(res.findingPath, 'utf8');
+    expect(finding).not.toContain('measured vs baseline');
+    // The pre-W8 section renders unchanged: score line immediately followed by the checks.
+    const lines = finding.split('\n');
+    const scoreLine = lines.findIndex((l: string) => l.startsWith('- **score:**'));
+    expect(lines[scoreLine + 1]).toBe('- [ ] script_present');
+    const planPath = path.join(cwd, '.planning/research/threads', res.threadId, 'experiments/1/plan.json');
+    expect(JSON.parse(fs.readFileSync(planPath, 'utf8')).baseline).toBeUndefined();
+    const learn = prompts['grd-knowledge-miner'].join('\n');
+    expect(learn).not.toContain('Declared baseline');
+    expect(learn).not.toContain('Margin vs baseline');
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('drops a non-numeric or non-finite declared baseline instead of rendering NaN', async () => {
+    for (const decl of [',"baseline":"0.6"', ',"baseline":null', ',"baseline":true']) {
+      const cwd = tmp();
+      const { spawn } = baselineHarness(decl);
+      const res = await runResearch(cwd, 'Does X help?', {
+        maxIterations: 2, noGates: true, spawn, runner: supportedRunner(),
+      });
+      const finding = fs.readFileSync(res.findingPath, 'utf8');
+      expect(finding).not.toContain('measured vs baseline');
+      expect(finding).not.toContain('NaN');
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('survives a debug re-plan: the DESIGN baseline is pinned, not erased', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning', 'config.json'), JSON.stringify({ research_max_debug_depth: 1 }), 'utf-8');
+    const { spawn } = baselineHarness(',"baseline":0.6');
+    // First run fails to execute; the bounded debug loop re-plans and re-runs. The re-plan
+    // reaches the orchestrator through parsePlanOutput, which carries no baseline at all —
+    // so without the `committed` pin the DESIGN baseline would silently vanish here.
+    let runs = 0;
+    const flakyRunner = {
+      run() {
+        runs++;
+        return runs === 1
+          ? { metrics: {}, exitCode: 1, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', stderrExcerpt: 'boom', failureClass: 'H3' }
+          : { metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' };
+      },
+    };
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 1, noGates: true, spawn, runner: flakyRunner,
+    });
+    expect(runs).toBeGreaterThan(1); // the debug re-plan actually happened
+    const planPath = path.join(cwd, '.planning/research/threads', res.threadId, 'experiments/1/plan.json');
+    expect(JSON.parse(fs.readFileSync(planPath, 'utf8')).baseline).toBe(0.6);
+    expect(fs.readFileSync(res.findingPath, 'utf8'))
+      .toContain('- **measured vs baseline:** 0.9 vs 0.6 — margin +0.3');
+    // The pin is silent: a baseline the re-plan never carried is not logged as agent drift.
+    const attempt = JSON.parse(fs.readFileSync(
+      path.join(cwd, '.planning/research/threads', res.threadId, 'experiments/1/debug-attempt-1.json'), 'utf8'));
+    expect(attempt.contractDrift).toBeUndefined();
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('omits the margin when the script never emitted the metric it was judged on', async () => {
+    const cwd = tmp();
+    const { spawn, prompts } = baselineHarness(',"baseline":0.6');
+    const wrongMetric = {
+      run() {
+        return {
+          metrics: { latency: 0.9 }, exitCode: 0, runner: 'subprocess',
+          durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+        };
+      },
+    };
+    const res = await runResearch(cwd, 'Does X help?', {
+      maxIterations: 1, noGates: true, spawn, runner: wrongMetric,
+    });
+    const finding = fs.readFileSync(res.findingPath, 'utf8');
+    expect(finding).not.toContain('measured vs baseline');
+    expect(finding).not.toContain('NaN');
+    expect(prompts['grd-knowledge-miner'].join('\n')).not.toContain('Margin vs baseline');
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+});
