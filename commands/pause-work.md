@@ -69,7 +69,7 @@ Current state:
 - Status: [in_progress/blocked]
 - Committed as WIP
 
-To resume: /grd:resume-work
+To resume: /grd:resume-project
 ```
 </step>
 

@@ -100,13 +100,13 @@ auto-promotable to `DEAD-ENDS.md`.
 
 - Run `/grd:progress` anytime to see where you are and what to do next
 - Use `/grd:discuss-phase N` before `plan-phase` to clarify gray areas
-- `/grd:pause-work` saves full context; `/grd:resume-work` restores it across sessions
+- `/grd:pause-work` saves full context; `/grd:resume-project` restores it across sessions
 - `/grd:help <command>` gives detailed help for any specific command
 
 ## Resume After Break
 
 ```
-/grd:resume-work
+/grd:resume-project
 ```
 
 ## Check Where You Are
