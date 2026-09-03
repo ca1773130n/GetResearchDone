@@ -97,6 +97,20 @@ export interface ResearchThread {
   seededFrom?: { synthesisTopicId: string; sourceNodeIds: string[]; seedKey: string };
   resurveyCount?: number;
   pendingPivot?: boolean;
+  /**
+   * How many times DESIGN has been re-run for the CURRENT iteration because the
+   * script never emitted its committed metric (W3). Shares the bound with
+   * `research_max_debug_depth` rather than adding a config key — a re-plan that
+   * keeps producing an unmeasurable design must not burn iterations without limit.
+   * Reset to 0 whenever an iteration completes for any other reason.
+   */
+  redesignCount?: number;
+  /**
+   * Consecutive iterations whose verdict was `inconclusive` with cause `metric_absent`,
+   * counted here rather than inferred from the ledger — the ledger stores `inconclusive`
+   * without its cause, so inference would conflate a broken run with an unmeasurable design.
+   */
+  metricAbsentStreak?: number;
   baseMaxIterations?: number;
   errorReason?: string;
   // v0.5.0 checkpoint plumbing — all OPTIONAL (back-compat: absent on pre-0.5.0 threads).
@@ -160,7 +174,21 @@ export interface Takeaway {
   iteration: number;
 }
 
-export interface MeasureOutcome { verdict: Verdict; detail: string; }
+/**
+ * Why the verdict is what it is, when it is `inconclusive`.
+ *
+ * `inconclusive` covers two unrelated failures that want opposite responses:
+ * `run_failed` is an engineering fault the debug loop can repair, while
+ * `metric_absent` is a DESIGN fault — the plan committed to be judged on a
+ * number its own script never emits — and belongs back at DESIGN.
+ *
+ * Additive metadata beside the arithmetic. The `Verdict` union and every
+ * returned verdict string are unchanged, so the vendored autoresearch-core
+ * parity vectors (which assert only `.verdict`) are unaffected.
+ */
+export type MeasureCause = 'run_failed' | 'metric_absent';
+
+export interface MeasureOutcome { verdict: Verdict; detail: string; cause?: MeasureCause; }
 
 export function defaultGates(): ThreadGates {
   return { execute: true, kg_write: true };

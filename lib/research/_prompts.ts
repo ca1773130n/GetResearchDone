@@ -150,6 +150,7 @@ function buildLearnPrompt(
   hypothesis: Pick<Hypothesis, 'id' | 'statement'>,
   result: Pick<ExperimentResult, 'metrics' | 'failureClass'>,
   verdict: Verdict,
+  cause?: 'run_failed' | 'metric_absent',
 ): string {
   return [
     'You are grd-knowledge-miner in research-takeaway mode. Extract ONE reusable takeaway',
@@ -159,6 +160,18 @@ function buildLearnPrompt(
     `Verdict: ${verdict}`,
     `Metrics: ${JSON.stringify(result.metrics)}`,
     `Run failure class: ${result.failureClass}`,
+    ...(cause === 'metric_absent' ? [
+      '',
+      'This iteration was INCONCLUSIVE because the script never emitted the metric the plan',
+      'committed to be judged on. That is a DESIGN fault, not an environment fault: the',
+      'experiment could not have disconfirmed the hypothesis whatever it printed. Your takeaway',
+      'must name what made the design unmeasurable, not speculate about the hypothesis.',
+    ] : []),
+    ...(cause === 'run_failed' ? [
+      '',
+      'This iteration was INCONCLUSIVE because the script exited nonzero — an ENGINEERING fault.',
+      'The design may be sound; say what broke.',
+    ] : []),
     '',
     'kind in {success_pattern, failure_root_cause, constraint, domain_fact, tool_pattern}.',
     'failureClass in {H2 (interface), H3 (environment), H4 (trajectory), none}.',
