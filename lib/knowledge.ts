@@ -40,7 +40,12 @@ function _cachedParseKnowhow(knowhowPath: string): KnowhowEntry[] {
   }
 }
 
-/** Serialize a KnowhowEntry to a markdown level-3 heading block. */
+/**
+ * Serialize a KnowhowEntry to a markdown level-3 heading block.
+ *
+ * `superseded_by` is emitted only when set, so an entry without it formats byte-for-byte
+ * as it did before W6 and every existing KNOWHOW.md round-trips unchanged.
+ */
 function formatKnowhowEntry(entry: KnowhowEntry): string {
   return (
     `### ${entry.pattern_name}\n\n` +
@@ -48,7 +53,8 @@ function formatKnowhowEntry(entry: KnowhowEntry): string {
     `- **applicability:** ${entry.applicability}\n` +
     `- **code_snippet:** ${entry.code_snippet}\n` +
     `- **phase_number:** ${entry.phase_number}\n` +
-    `- **created_at:** ${entry.created_at}\n`
+    `- **created_at:** ${entry.created_at}\n` +
+    (entry.superseded_by ? `- **superseded_by:** ${entry.superseded_by}\n` : '')
   );
 }
 
@@ -60,7 +66,9 @@ function formatKnowhowEntry(entry: KnowhowEntry): string {
  * Returns empty array for empty/missing content.
  *
  * Roundtrip guarantee: parseKnowhowEntries(formatKnowhowEntry(entry)) produces
- * an equivalent entry (lossless).
+ * an equivalent entry (lossless) — including `superseded_by`, which is optional on
+ * both sides: absent in the text means absent on the entry, so a pre-W6 KNOWHOW.md
+ * loads exactly as it always did.
  */
 function parseKnowhowEntries(content: string): KnowhowEntry[] {
   if (!content || !content.trim()) {
@@ -101,14 +109,19 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
       if (Number.isNaN(phase_number)) {
         continue;
       }
-      entries.push({
+      const entry: KnowhowEntry = {
         pattern_name,
         source: fields['source'],
         applicability: fields['applicability'],
         code_snippet: fields['code_snippet'],
         phase_number,
         created_at: fields['created_at'],
-      });
+      };
+      // Optional and deliberately not in REQUIRED_FIELDS: an entry written before W6
+      // has no such line and must still load. The key is left off entirely when the
+      // line is absent or blank, so a live entry deep-equals its pre-W6 self.
+      if (fields['superseded_by']) entry.superseded_by = fields['superseded_by'];
+      entries.push(entry);
     }
   }
 
@@ -116,25 +129,57 @@ function parseKnowhowEntries(content: string): KnowhowEntry[] {
 }
 
 /**
- * Read existing KNOWHOW.md at knowhowPath, merge new entries (deduplicating by
- * pattern_name, keeping higher phase_number), and write back.
+ * True when two entries under the same pattern_name carry the same knowledge.
+ *
+ * `created_at` is excluded on purpose: it is stamped per write (the research loop uses
+ * `new Date().toISOString()` at PERSIST), so comparing it would make every re-promotion
+ * of an unchanged takeaway look like a correction and grow the file without bound.
+ * `superseded_by` is bookkeeping about an entry, not part of it, and is excluded too.
+ */
+function _sameKnowledge(a: KnowhowEntry, b: KnowhowEntry): boolean {
+  return (
+    a.source === b.source &&
+    a.applicability === b.applicability &&
+    a.code_snippet === b.code_snippet &&
+    a.phase_number === b.phase_number
+  );
+}
+
+/**
+ * Single-line reference to the entry that supersedes another.
+ *
+ * Collapsed to one line because a newline here would split the block on the next parse
+ * and silently drop both halves; never empty, because an empty value formats to a line
+ * that parses back as absent, which would read as "still live" and let the same
+ * correction supersede it again on every write.
+ */
+function _supersedeRef(e: KnowhowEntry): string {
+  return e.source.replace(/\s+/g, ' ').trim() || 'unknown';
+}
+
+/**
+ * Read existing KNOWHOW.md at knowhowPath, merge new entries, and write back.
  *
  * - If the file does not exist, starts with an empty entry list.
- * - Deduplication: when a new entry shares a pattern_name with an existing one,
- *   the entry with the higher phase_number is kept.
+ * - Collision on pattern_name (W6a): the incoming entry does NOT overwrite the existing
+ *   one. The existing entry is marked `superseded_by` and stays on disk; the new entry
+ *   is appended beside it. Both survive; only the newer is injectable. This is
+ *   `addDeadEnd`'s upsert-with-reopen shape — find by key, mutate the row in place to
+ *   record that it was revisited, keep the history — rather than a second dedup idiom.
+ * - Two collisions are NOT corrections and change nothing: an entry arriving from an
+ *   earlier phase (stale news, dropped as before W6), and one whose knowledge is
+ *   unchanged (`_sameKnowledge`), which keeps re-promotion idempotent.
  * - File always starts with `# KNOWHOW\n\n` header.
  * - Parent directories are created if needed.
  */
 function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): void {
   if (entries.length === 0) return;
 
-  const existing = _cachedParseKnowhow(knowhowPath);
-
-  const byName = new Map<string, KnowhowEntry>();
-
-  for (const e of existing) {
-    byName.set(e.pattern_name, e);
-  }
+  // An ordered list, not a Map keyed by pattern_name: supersession is a chain, and both
+  // links share a key. Copies, because `_cachedParseKnowhow` hands back cached objects
+  // and a throw before the write would otherwise leave the cache holding a supersession
+  // that never reached disk.
+  const merged: KnowhowEntry[] = _cachedParseKnowhow(knowhowPath).map((e) => ({ ...e }));
 
   const total = entries.length;
   for (let i = 0; i < total; i++) {
@@ -142,14 +187,19 @@ function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): voi
     if (total > 50) {
       process.stderr.write(`[knowledge] merging entry ${i + 1}/${total}: ${e.pattern_name}\n`);
     }
-    const current = byName.get(e.pattern_name);
-    if (!current || e.phase_number >= current.phase_number) {
-      byName.set(e.pattern_name, e);
+    const current = merged.find((m) => m.pattern_name === e.pattern_name && !m.superseded_by);
+    if (!current) {
+      merged.push({ ...e });
+      continue;
     }
+    if (e.phase_number < current.phase_number) continue;
+    if (_sameKnowledge(current, e)) continue;
+    current.superseded_by = _supersedeRef(e);
+    merged.push({ ...e });
   }
 
-  const merged = Array.from(byName.values());
-
+  // Stable within a phase_number, so a superseded entry stays directly above the entry
+  // that replaced it and the correction reads as a chronology.
   merged.sort((a, b) => b.phase_number - a.phase_number);
 
   const body = merged.map(formatKnowhowEntry).join('\n');
@@ -165,6 +215,10 @@ function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): voi
 /**
  * Return top-N entries from the input array sorted by recency.
  *
+ * - Superseded entries are dropped first (W6a): they stay in KNOWHOW.md so the
+ *   correction is auditable, but injecting one would put both versions of a corrected
+ *   belief in front of the planner. This is the single funnel — `buildKnowledgeInjectionBlock`
+ *   selects through here, so the filter belongs here and nowhere else.
  * - Primary sort: phase_number descending (most recent first).
  * - If moduleHints provided: entries whose source or applicability mentions any
  *   hint string are sorted first within each phase_number bucket.
@@ -179,14 +233,15 @@ function selectTopEntries(
   moduleHints?: string[],
   currentPhase?: number,
 ): KnowhowEntry[] {
-  if (entries.length === 0 || n <= 0) {
+  const live = entries.filter((e) => !e.superseded_by);
+  if (live.length === 0 || n <= 0) {
     return [];
   }
 
   const lowerHints = moduleHints?.map((h) => h.toLowerCase()) ?? [];
   const hintMatches = new Set<KnowhowEntry>();
   if (lowerHints.length > 0) {
-    for (const entry of entries) {
+    for (const entry of live) {
       const combined = `${entry.source} ${entry.applicability}`.toLowerCase();
       if (lowerHints.some((hint) => combined.includes(hint))) {
         hintMatches.add(entry);
@@ -198,7 +253,7 @@ function selectTopEntries(
     e.phase_number * 1000 +
     (hintMatches.has(e) ? 100 : 0) -
     (currentPhase !== undefined ? Math.abs(currentPhase - e.phase_number) : 0);
-  const sorted = [...entries].sort((a, b) => scoreEntry(b) - scoreEntry(a));
+  const sorted = [...live].sort((a, b) => scoreEntry(b) - scoreEntry(a));
 
   return sorted.slice(0, n);
 }

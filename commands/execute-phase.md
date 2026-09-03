@@ -227,7 +227,8 @@ Execute each wave in sequence using Agent Teams coordination.
        <experiment_tracking>
        When committing tasks that involve experiment parameters (hyperparameters, model configs, dataset splits, etc.):
        - Include key parameters in commit message body
-       - Format: param: value on separate lines
+       - Format: `param: value` on separate lines
+       - Example: `feat(03-02): train baseline model\n\nlr: 0.001\nbatch_size: 32\nepochs: 50`
        </experiment_tracking>
 
        <success_criteria>
@@ -298,7 +299,8 @@ Execute each wave in sequence using Agent Teams coordination.
        <experiment_tracking>
        When committing tasks that involve experiment parameters (hyperparameters, model configs, dataset splits, etc.):
        - Include key parameters in commit message body
-       - Format: param: value on separate lines
+       - Format: `param: value` on separate lines
+       - Example: `feat(03-02): train baseline model\n\nlr: 0.001\nbatch_size: 32\nepochs: 50`
        </experiment_tracking>
 
        <success_criteria>

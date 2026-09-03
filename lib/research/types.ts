@@ -152,6 +152,33 @@ export interface ExperimentPlan {
   predictedOutcome: string;
   scriptPath: string;
   language: 'shell' | 'python';
+  /**
+   * W8 — the value `metricKey` is CLAIMED TO IMPROVE ON, declared at DESIGN. Optional: unset
+   * renders and behaves exactly as before it existed.
+   *
+   * It must come from outside the script under test (a recorded prior iteration, a published
+   * number, a control arm), because a number the script both computes and is judged on cannot
+   * disconfirm it. `buildExperimentPrompt` states that rule to the designing agent.
+   *
+   * REPORTED ONLY. `evaluateVerdict` reads metricKey/comparator/target and nothing else, so a
+   * baseline can never move the verdict; it is pinned across debug re-plans for the same reason
+   * the metric contract is — so a retry cannot pick a flattering one after seeing the result.
+   */
+  baseline?: number;
+}
+
+/**
+ * W8 — the measured-vs-baseline margin, derived at FINALIZE/LEARN from a plan that declared a
+ * baseline and a result that produced the metric. Reported in two places (the advisory block in
+ * FINDING.md, and the LEARN prompt so the takeaway can name the margin) and read by no gate:
+ * "cleared the target by 0.001" and "cleared it by 0.3" are different findings, and until this
+ * existed nothing in GRD said which had happened.
+ */
+export interface BaselineMargin {
+  baseline: number;
+  measured: number;
+  /** `measured - baseline`. Signed: negative means the run came in under its own baseline. */
+  delta: number;
 }
 
 export interface ExperimentResult {
@@ -194,4 +221,16 @@ export function defaultGates(): ThreadGates {
   return { execute: true, kg_write: true };
 }
 
-module.exports = { defaultGates };
+/**
+ * The one canonical rendering of a `BaselineMargin.delta`. Lives beside the type because the
+ * margin is reported from two unrelated places — the advisory block in FINDING.md and the LEARN
+ * prompt — and a margin that reads `+0.3` in one and `0.30000000000000004` in the other is the
+ * same defect as a metric contract that drifts. Trims float noise without lying about magnitude
+ * (6 decimals, trailing zeros dropped) and always carries an explicit sign.
+ */
+export function formatSignedDelta(delta: number): string {
+  const trimmed = Number(delta.toFixed(6));
+  return `${trimmed > 0 ? '+' : ''}${String(trimmed)}`;
+}
+
+module.exports = { defaultGates, formatSignedDelta };
