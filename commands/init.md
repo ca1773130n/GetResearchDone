@@ -9,6 +9,8 @@ Initialize a new R&D project through unified flow: questioning, research (option
 
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
+
+@${CLAUDE_PLUGIN_ROOT}/references/questioning.md
 </required_reading>
 
 <auto_mode>
@@ -134,7 +136,8 @@ Keep following threads. Each answer opens new threads to explore. Ask about:
 - What research or papers informed this
 - What baselines or benchmarks matter
 
-Consult `questioning.md` for techniques:
+Draw the phrasing from the `<question_types>` block of the `<questioning_guide>` loaded in
+`<required_reading>` above — it carries the concrete question forms for each technique:
 - Challenge vagueness
 - Make abstract concrete
 - Surface assumptions
@@ -143,7 +146,9 @@ Consult `questioning.md` for techniques:
 
 **Check context (background, not out loud):**
 
-As you go, mentally check the context checklist from `questioning.md`. If gaps remain, weave questions naturally. Don't suddenly switch to checklist mode.
+As you go, mentally check the four items in the `<context_checklist>` block of the
+`<questioning_guide>` loaded in `<required_reading>` above. If gaps remain, weave questions
+naturally. Don't suddenly switch to checklist mode.
 
 **Decision gate:**
 
