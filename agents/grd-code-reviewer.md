@@ -376,28 +376,33 @@ verdict: {pass | blocker_found | warnings_only}
 {findings or "N/A — no KNOWHOW.md or no relevant pitfalls."}
 
 ### Eval Coverage
-{findings or "N/A — no EVAL.md for this phase."}
+{findings, or "N/A — no EVAL.md for this phase." only if you confirmed none exists, or "UNVERIFIED — eval coverage not inspected: <why>"}
 
 ## Stage 2: Code Quality
 
 ### Architecture
-{findings or "Consistent with existing patterns."}
+{findings, or "UNVERIFIED — no neighbouring file compared: <why>". Assert consistency only if you name the file you compared against.}
 
 ### Reproducibility
-{findings or "N/A — no experimental code."}
+{findings, or "N/A — no experimental code." only if you confirmed none exists, or "UNVERIFIED — reproducibility check produced no output: <why>"}
 
 ### Documentation
-{findings or "Adequate."}
+{findings, or "UNVERIFIED — documentation not inspected: <why>". Never "Adequate." — that asserts a conclusion no check produced.}
 
 ### Deviation Documentation
-{findings or "SUMMARY.md matches git history."}
+{findings, or "UNVERIFIED — deviation check did not run: <why>". Assert a match only if you quote the compared lists.}
 
 ## Findings Summary
 
-| # | Severity | Stage | Area | Description |
-|---|----------|-------|------|-------------|
+| # | Severity | Stage | Area | Description | Evidence |
+|---|----------|-------|------|-------------|----------|
 | 1 | BLOCKER | 1 | Plan Alignment | Task 3 not executed |
 | 2 | WARNING | 2 | Reproducibility | No seed in train.py |
+
+Every row carries one of the four evidence kinds from `<evidence_standard>` above — a
+file:line, a verbatim command-output line, a metric value, or a deferred marker. One kind
+per row. An UNVERIFIED row's Evidence cell names what you could not run and why; it is the
+only row type whose Evidence is a statement about the absence of evidence.
 
 ## Recommendations
 
@@ -406,6 +411,51 @@ verdict: {pass | blocker_found | warnings_only}
 </step>
 
 </review_flow>
+
+<!-- Duplicated VERBATIM from references/verification-patterns.md, which is canonical.
+     `@` includes do not resolve across Task() boundaries, so an include here would reach
+     the subagent as literal text. tests/unit/evidence-standard.test.ts asserts this copy is
+     byte-identical to the canonical one — edit that file first, then propagate. -->
+<evidence_standard>
+
+## Evidence Standard (required for every claim)
+
+Every value in an "Evidence" cell, every quantitative result, every gap
+entry, and the Reflection section's `evidence` row MUST trace to one of
+four concrete kinds. Vague summaries are not evidence.
+
+| Kind | Format | Example |
+|------|--------|---------|
+| **file:line** | `path/to/file.ext:LINE` (single file, single line; range OK as `:LINE-LINE`) | `src/models/encoder.py:142` |
+| **command output** | a verbatim copy-pasted line from a command you ran in this session | `Output shape: torch.Size([1, 10, 512])` |
+| **metric value** | a number with units and a comparison to a target or baseline | `accuracy=86.3% (target >85%, baseline 82%)` |
+| **deferred** | `Level 3 — tracked in STATE.md: <reason>` (only when verification_level=deferred) | `Level 3 — tracked in STATE.md: needs full test set` |
+
+**Banned phrasings.** If you are about to write any of these in an
+Evidence cell, the evidence is not strong enough — either run a real
+check or downgrade the claim's status:
+
+- "looks good" / "looks correct" / "appears to work" / "seems fine"
+- "should work" / "expected to pass" / "would normally"
+- paraphrased command output (e.g. "the output was about 86% accuracy")
+- file references without line numbers (e.g. "in encoder.py")
+- "I verified this" / "I checked" / "I ran tests" with no artifact
+
+**Verbatim rule.** Command-output evidence must be a copy-paste of the
+actual line, not a summary or interpretation. If the output is long,
+quote the single diagnostic line (the error message, the metric line,
+the assertion). Do not invent output. If a check did not produce a line
+you can quote, the check did not run.
+
+**One-kind-per-cell.** If a claim needs two kinds of evidence (e.g.
+file exists AND has correct shape), use two separate table rows. Do
+not pack mixed kinds into one cell.
+
+**Status follows evidence, not the other way around.** Decide each
+claim's status from what the evidence shows. Do not pick a status and
+then look for evidence to support it.
+
+</evidence_standard>
 
 <severity_definitions>
 **BLOCKER** — Must be fixed before proceeding. Examples:
@@ -424,6 +474,17 @@ verdict: {pass | blocker_found | warnings_only}
 - Minor documentation improvement possible
 - Alternative approach suggestion
 - Positive observation ("good use of paper's recommended hyperparameters")
+
+**UNVERIFIED** — The check did not run, or produced no line you can quote. Examples:
+- The repository has no runnable test command, so the test-coverage check produced nothing
+- A grep returned no output and you cannot tell whether that means "clean" or "did not run"
+- The scope resolved empty, so a content check had nothing to inspect
+
+UNVERIFIED is not a soft INFO. It is the honest answer when you have no evidence, and it
+exists so that an unrun check stops rendering as a pass. A review whose rows are mostly
+UNVERIFIED is the skill telling you it could not inspect this change — which is useful,
+and which "Adequate." actively conceals. Never downgrade an UNVERIFIED row to INFO to make
+a review look cleaner, and never promote one to WARNING to make it look thorough.
 </severity_definitions>
 
 <success_criteria>

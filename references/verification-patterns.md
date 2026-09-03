@@ -431,3 +431,54 @@ Key principles:
 - Error handling: fix broken environment before checkpoint, never present checkpoint with failed setup
 
 </checkpoint_automation_reference>
+
+<!-- CANONICAL EVIDENCE STANDARD — do not edit a copy.
+     This block is duplicated verbatim into agents/grd-verifier.md and
+     agents/grd-code-reviewer.md, because `@` includes do NOT resolve across
+     Task() boundaries (commands/plan-phase.md documents this), so a subagent
+     spawned with one of those definitions would receive the literal include
+     line rather than this text. tests/unit/evidence-standard.test.ts asserts
+     all three copies are byte-identical, which is what makes the duplication
+     safe: it cannot drift without failing the build.
+     Change this copy first, then propagate. -->
+
+<evidence_standard>
+
+## Evidence Standard (required for every claim)
+
+Every value in an "Evidence" cell, every quantitative result, every gap
+entry, and the Reflection section's `evidence` row MUST trace to one of
+four concrete kinds. Vague summaries are not evidence.
+
+| Kind | Format | Example |
+|------|--------|---------|
+| **file:line** | `path/to/file.ext:LINE` (single file, single line; range OK as `:LINE-LINE`) | `src/models/encoder.py:142` |
+| **command output** | a verbatim copy-pasted line from a command you ran in this session | `Output shape: torch.Size([1, 10, 512])` |
+| **metric value** | a number with units and a comparison to a target or baseline | `accuracy=86.3% (target >85%, baseline 82%)` |
+| **deferred** | `Level 3 — tracked in STATE.md: <reason>` (only when verification_level=deferred) | `Level 3 — tracked in STATE.md: needs full test set` |
+
+**Banned phrasings.** If you are about to write any of these in an
+Evidence cell, the evidence is not strong enough — either run a real
+check or downgrade the claim's status:
+
+- "looks good" / "looks correct" / "appears to work" / "seems fine"
+- "should work" / "expected to pass" / "would normally"
+- paraphrased command output (e.g. "the output was about 86% accuracy")
+- file references without line numbers (e.g. "in encoder.py")
+- "I verified this" / "I checked" / "I ran tests" with no artifact
+
+**Verbatim rule.** Command-output evidence must be a copy-paste of the
+actual line, not a summary or interpretation. If the output is long,
+quote the single diagnostic line (the error message, the metric line,
+the assertion). Do not invent output. If a check did not produce a line
+you can quote, the check did not run.
+
+**One-kind-per-cell.** If a claim needs two kinds of evidence (e.g.
+file exists AND has correct shape), use two separate table rows. Do
+not pack mixed kinds into one cell.
+
+**Status follows evidence, not the other way around.** Decide each
+claim's status from what the evidence shows. Do not pick a status and
+then look for evidence to support it.
+
+</evidence_standard>
