@@ -14,6 +14,25 @@ const tk = (over = {}) => ({
   evidence: 'iter 2 metric', failureClass: 'none', iteration: 2, ...over,
 });
 
+const hyp = (over = {}) => ({
+  id: 'h1', iteration: 2, statement: 's', rationale: 'r', predictedOutcome: 'p',
+  status: 'supported', parentId: null, verdict: 'supported', ...over,
+});
+
+/**
+ * Write the `experiments/<n>/result.json` the orchestrator writes at MEASURE — the
+ * artifact W6b's gate reads. Shape copied from a real loop run.
+ */
+function recordIteration(
+  cwd: string, threadId: string, iteration: number, metrics: Record<string, number> = { accuracy: 0.9 },
+) {
+  const d = path.join(cwd, '.planning/research/threads', threadId, 'experiments', String(iteration));
+  fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(d, 'result.json'), JSON.stringify({
+    metrics, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+  }));
+}
+
 describe('shouldPersistKnowledge', () => {
   it('defaults true with no config', () => {
     expect(promote.shouldPersistKnowledge(tmp())).toBe(true);
@@ -45,15 +64,99 @@ describe('takeawayToKnowhow', () => {
   });
 });
 
+// W6b — the gate is a conjunction over artifacts on disk, not the agent's own
+// confidence float. Every test here sets up (or deliberately withholds) the artifact.
 describe('selectKnowhowTakeaways', () => {
-  it('keeps positive kinds >= 0.5, drops failures and low-confidence fallback', () => {
-    const out = promote.selectKnowhowTakeaways([
-      tk({ kind: 'success_pattern', confidence: 0.8 }),
-      tk({ kind: 'constraint', confidence: 0.5 }),
-      tk({ kind: 'failure_root_cause', confidence: 0.9 }),
-      tk({ kind: 'domain_fact', confidence: 0.4 }),
-    ]);
-    expect(out.map((t: { kind: string }) => t.kind)).toEqual(['success_pattern', 'constraint']);
+  const kinds = (out: { kind: string }[]) => out.map((t) => t.kind);
+
+  it('keeps positive kinds backed by a settled verdict and a recorded measurement', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    const out = promote.selectKnowhowTakeaways(cwd, 't1', [
+      tk({ kind: 'success_pattern' }),
+      tk({ kind: 'constraint' }),
+      tk({ kind: 'domain_fact' }),
+      tk({ kind: 'tool_pattern' }),
+    ], [hyp()]);
+    expect(kinds(out)).toEqual(['success_pattern', 'constraint', 'domain_fact', 'tool_pattern']);
+  });
+
+  it('still routes failure_root_cause away from KNOWHOW (it belongs in DEAD-ENDS)', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    const out = promote.selectKnowhowTakeaways(
+      cwd, 't1', [tk({ kind: 'failure_root_cause' })], [hyp({ verdict: 'refuted' })],
+    );
+    expect(out).toEqual([]);
+  });
+
+  it('drops an inconclusive iteration however confident the miner was', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2, { unrelated: 1 });
+    const out = promote.selectKnowhowTakeaways(
+      cwd, 't1', [tk({ confidence: 1 })], [hyp({ verdict: 'inconclusive', status: 'inconclusive' })],
+    );
+    expect(out).toEqual([]);
+  });
+
+  it('keeps a REFUTED iteration — refuted is settled, and knowing what fails is knowledge', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    const out = promote.selectKnowhowTakeaways(
+      cwd, 't1', [tk()], [hyp({ verdict: 'refuted', status: 'refuted' })],
+    );
+    expect(out).toHaveLength(1);
+  });
+
+  it('drops a takeaway whose iteration has no ledger entry at all', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk({ iteration: 9 })], [hyp()])).toEqual([]);
+  });
+
+  it('drops a takeaway with no verdict on its hypothesis (still in flight)', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    expect(promote.selectKnowhowTakeaways(
+      cwd, 't1', [tk()], [hyp({ verdict: null, status: 'testing' })],
+    )).toEqual([]);
+  });
+
+  it('drops a takeaway that cites no evidence', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk({ evidence: '' })], [hyp()])).toEqual([]);
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk({ evidence: '   ' })], [hyp()])).toEqual([]);
+  });
+
+  it('drops a takeaway whose iteration recorded nothing on disk', () => {
+    const cwd = tmp(); // no experiments/2/result.json at all
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk()], [hyp()])).toEqual([]);
+  });
+
+  it('drops a takeaway whose iteration ran but measured no metric', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2, {});
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk()], [hyp()])).toEqual([]);
+  });
+
+  it('drops a takeaway whose result.json is unreadable', () => {
+    const cwd = tmp();
+    const d = path.join(cwd, '.planning/research/threads/t1/experiments/2');
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'result.json'), 'not json');
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk()], [hyp()])).toEqual([]);
+  });
+
+  it('IGNORES confidence in both directions — it is metadata now, not the gate', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 2);
+    // Would have been dropped pre-W6 (0.1 < 0.5); the artifacts say it is real.
+    expect(promote.selectKnowhowTakeaways(cwd, 't1', [tk({ confidence: 0.1 })], [hyp()]))
+      .toHaveLength(1);
+    // Would have been written pre-W6 (0.99 >= 0.5); nothing on disk backs it.
+    expect(promote.selectKnowhowTakeaways(tmp(), 't1', [tk({ confidence: 0.99 })], [hyp()]))
+      .toEqual([]);
   });
 });
 
@@ -121,10 +224,20 @@ describe('promoteThreadKnowledge', () => {
     { kind: 'success_pattern', content: 'Batching helps', confidence: 0.8, evidence: 'e', failureClass: 'none', iteration: 1 },
     { kind: 'failure_root_cause', content: 'OOM at 512', confidence: 0.7, evidence: 'e', failureClass: 'H4', iteration: 2 },
   ];
-  const ledger = [{ id: 'h2', iteration: 2, statement: 'Bigger batch is better', rationale: 'r', predictedOutcome: 'up', status: 'refuted', parentId: null, verdict: 'refuted' }];
+  const ledger = [
+    { id: 'h1', iteration: 1, statement: 'Batching is better', rationale: 'r', predictedOutcome: 'up', status: 'supported', parentId: null, verdict: 'supported' },
+    { id: 'h2', iteration: 2, statement: 'Bigger batch is better', rationale: 'r', predictedOutcome: 'up', status: 'refuted', parentId: null, verdict: 'refuted' },
+  ];
+  /** A cwd with both iterations' measurements on disk — the W6b gate reads these. */
+  function measuredCwd() {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 1);
+    recordIteration(cwd, 't1', 2);
+    return cwd;
+  }
 
   it('skips when the gate is disabled', () => {
-    const cwd = tmp();
+    const cwd = measuredCwd();
     fs.writeFileSync(path.join(cwd, '.planning/config.json'), JSON.stringify({ research_persist_knowledge: false }));
     const res = promote.promoteThreadKnowledge(cwd, thread, takeaways, ledger, { iso: 'iso' });
     expect(res.skipped).toBe(true);
@@ -133,15 +246,51 @@ describe('promoteThreadKnowledge', () => {
   });
 
   it('writes both files with accurate counts, idempotent on re-run', () => {
-    const cwd = tmp();
+    const cwd = measuredCwd();
     const r1 = promote.promoteThreadKnowledge(cwd, thread, takeaways, ledger, { iso: 'iso' });
     expect(r1).toEqual({ knowhowAdded: 1, deadEndsAdded: 1, skipped: false });
     expect(parseKnowhowEntries(fs.readFileSync(path.join(cwd, 'KNOWHOW.md'), 'utf8')).length).toBe(1);
     expect(parseDeadEndsFile(fs.readFileSync(path.join(cwd, '.planning/DEAD-ENDS.md'), 'utf8')).length).toBe(1);
-    const r2 = promote.promoteThreadKnowledge(cwd, thread, takeaways, ledger, { iso: 'iso' });
+    // Re-running is not a correction: same knowledge, later timestamp, nothing appended.
+    const r2 = promote.promoteThreadKnowledge(cwd, thread, takeaways, ledger, { iso: 'LATER' });
     expect(r2.knowhowAdded).toBe(0);
     expect(r2.deadEndsAdded).toBe(0);
     expect(parseKnowhowEntries(fs.readFileSync(path.join(cwd, 'KNOWHOW.md'), 'utf8')).length).toBe(1);
+  });
+
+  // W6b's own acceptance test, from the spec: a thread whose only iteration ended
+  // inconclusive writes zero KNOWHOW entries and says so in the returned count.
+  it('writes ZERO entries for a thread whose only iteration was inconclusive', () => {
+    const cwd = tmp();
+    recordIteration(cwd, 't1', 1, { unrelated: 1 });
+    const res = promote.promoteThreadKnowledge(
+      cwd, thread,
+      [{ kind: 'success_pattern', content: 'Sharding cuts p50', confidence: 0.95, evidence: 'looked fast', failureClass: 'none', iteration: 1 }],
+      [{ id: 'h1', iteration: 1, statement: 's', rationale: 'r', predictedOutcome: 'p', status: 'inconclusive', parentId: null, verdict: 'inconclusive' }],
+      { iso: 'iso' },
+    );
+    expect(res.knowhowAdded).toBe(0);
+    expect(fs.existsSync(path.join(cwd, 'KNOWHOW.md'))).toBe(false);
+  });
+
+  // W6a through the real write path: the same content mined twice, from a refuted and
+  // then a supported iteration. Pre-W6 the refuted one silently destroyed the other.
+  it('supersedes instead of overwriting when two iterations mine the same content', () => {
+    const cwd = measuredCwd();
+    const sameContent = 'Batching helps';
+    const res = promote.promoteThreadKnowledge(cwd, thread, [
+      { kind: 'success_pattern', content: sameContent, confidence: 0.8, evidence: 'iter1 acc 0.95', failureClass: 'none', iteration: 1 },
+      { kind: 'success_pattern', content: sameContent, confidence: 0.8, evidence: 'iter2 acc 0.10', failureClass: 'none', iteration: 2 },
+    ], ledger, { iso: 'iso' });
+
+    expect(res.knowhowAdded).toBe(2);
+    const entries = parseKnowhowEntries(fs.readFileSync(path.join(cwd, 'KNOWHOW.md'), 'utf8'));
+    expect(entries.map((e: { source: string }) => e.source))
+      .toEqual(expect.arrayContaining(['research:t1#iter1', 'research:t1#iter2']));
+    expect(entries.find((e: { source: string }) => e.source === 'research:t1#iter1').superseded_by)
+      .toBe('research:t1#iter2');
+    expect(entries.find((e: { source: string }) => e.source === 'research:t1#iter2').superseded_by)
+      .toBeUndefined();
   });
 
   it('swallows a thrown dependency and returns zeros (never breaks the loop)', () => {

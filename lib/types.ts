@@ -1471,6 +1471,15 @@ export interface KnowhowEntry {
   phase_number: number;
   /** ISO timestamp when entry was created. */
   created_at: string;
+  /**
+   * Set when a later entry corrected this one, to the superseding entry's `source`.
+   *
+   * Optional, and absent on every entry written before W6 — an existing KNOWHOW.md
+   * parses unchanged. A superseded entry stays on disk, because the correction is the
+   * thing worth keeping, but it is never injected: `selectTopEntries` drops it, and
+   * that is the single funnel `buildKnowledgeInjectionBlock` reads through.
+   */
+  superseded_by?: string;
 }
 
 // ─── Refinement Types (from refinement.ts) ───────────────────────────────────

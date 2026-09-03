@@ -79,6 +79,18 @@ describe('formatKnowhowEntry', () => {
     const result = formatKnowhowEntry(entry);
     expect(result).toContain('### Try/Catch Error Handling');
   });
+
+  // W6a — the new field is emitted only when set, so every entry written before W6
+  // formats to the same bytes it always did.
+  it('omits superseded_by when the entry is live', () => {
+    expect(formatKnowhowEntry(makeEntry())).not.toContain('superseded_by');
+  });
+
+  it('emits superseded_by as the last field when set', () => {
+    const result = formatKnowhowEntry(makeEntry({ superseded_by: 'research:t2#iter5' }));
+    expect(result).toContain('- **superseded_by:** research:t2#iter5');
+    expect(result.trimEnd().endsWith('- **superseded_by:** research:t2#iter5')).toBe(true);
+  });
 });
 
 // ─── parseKnowhowEntries ──────────────────────────────────────────────────────
@@ -183,6 +195,57 @@ Some preamble text.
     expect(entries).toHaveLength(1);
     expect(entries[0].pattern_name).toBe('Valid Entry');
   });
+
+  // W6a back-compat: a KNOWHOW.md written before W6 has no superseded_by line, and
+  // must parse to exactly the object it parsed to before — key absent, not undefined.
+  it('BACK-COMPAT: a pre-W6 block parses with no superseded_by key at all', () => {
+    const content = `### Legacy Entry
+
+- **source:** lib/legacy.ts
+- **applicability:** Always
+- **code_snippet:** legacy()
+- **phase_number:** 7
+- **created_at:** 2026-01-01T00:00:00Z
+`;
+    const entries = parseKnowhowEntries(content);
+    expect(entries).toEqual([{
+      pattern_name: 'Legacy Entry',
+      source: 'lib/legacy.ts',
+      applicability: 'Always',
+      code_snippet: 'legacy()',
+      phase_number: 7,
+      created_at: '2026-01-01T00:00:00Z',
+    }]);
+    expect('superseded_by' in entries[0]).toBe(false);
+  });
+
+  it('parses a superseded_by line when present', () => {
+    const content = `### Corrected Entry
+
+- **source:** research:t1#iter1
+- **applicability:** Only under load
+- **code_snippet:** batch(4)
+- **phase_number:** 0
+- **created_at:** 2026-01-01T00:00:00Z
+- **superseded_by:** research:t1#iter2
+`;
+    expect(parseKnowhowEntries(content)[0].superseded_by).toBe('research:t1#iter2');
+  });
+
+  it('treats a blank superseded_by value as absent (it must never read as live-but-marked)', () => {
+    // Built by concatenation so the significant trailing space survives any formatter:
+    // the field line matches but carries no value.
+    const content = [
+      '### Blank Marker', '',
+      '- **source:** lib/x.ts',
+      '- **applicability:** Always',
+      '- **code_snippet:** x()',
+      '- **phase_number:** 1',
+      '- **created_at:** 2026-01-01T00:00:00Z',
+      '- **superseded_by:** ',
+    ].join('\n');
+    expect('superseded_by' in parseKnowhowEntries(content)[0]).toBe(false);
+  });
 });
 
 // ─── parse-format roundtrip ───────────────────────────────────────────────────
@@ -227,6 +290,16 @@ describe('parse-format roundtrip', () => {
     expect(names).toContain('Beta');
     expect(names).toContain('Gamma');
   });
+
+  // W6a — the documented lossless guarantee has to hold for the new field too, or a
+  // superseded entry reads as live again on the next read and gets superseded twice.
+  it('roundtrips superseded_by (deep-equal, not merely present)', () => {
+    const original = makeEntry({
+      pattern_name: 'Superseded Pattern',
+      superseded_by: 'research:t1#iter2',
+    });
+    expect(parseKnowhowEntries(formatKnowhowEntry(original))).toEqual([original]);
+  });
 });
 
 // ─── appendKnowhowEntries ─────────────────────────────────────────────────────
@@ -253,7 +326,10 @@ describe('appendKnowhowEntries', () => {
     expect(content).toContain('### New Entry');
   });
 
-  it('deduplicates by pattern_name keeping higher phase_number', () => {
+  // W6a — this replaces the pre-W6 "deduplicates by pattern_name" test, which asserted
+  // that a colliding entry silently DESTROYED its predecessor. That is the defect: a
+  // corrected belief left no record of what it corrected.
+  it('supersedes rather than overwrites on a pattern_name collision', () => {
     const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
     const old = makeEntry({ pattern_name: 'Shared Name', phase_number: 5 });
     const newer = makeEntry({ pattern_name: 'Shared Name', phase_number: 10, source: 'lib/newer.ts' });
@@ -262,11 +338,75 @@ describe('appendKnowhowEntries', () => {
     appendKnowhowEntries(knowhowPath, [newer]);
 
     const content = fs.readFileSync(knowhowPath, 'utf8');
-    // Only one entry with the shared name
-    const occurrences = (content.match(/### Shared Name/g) || []).length;
-    expect(occurrences).toBe(1);
-    // Higher phase_number entry should be kept
-    expect(content).toContain('lib/newer.ts');
+    expect((content.match(/### Shared Name/g) || []).length).toBe(2);
+
+    const entries = parseKnowhowEntries(content);
+    const superseded = entries.find((e) => e.source === 'lib/example.ts');
+    const live = entries.find((e) => e.source === 'lib/newer.ts');
+    expect(superseded?.superseded_by).toBe('lib/newer.ts');
+    expect(live?.superseded_by).toBeUndefined();
+    // Only the correction is injectable.
+    expect(selectTopEntries(entries, 5).map((e) => e.source)).toEqual(['lib/newer.ts']);
+  });
+
+  it('supersedes entries that collide within a single call, in array order', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    appendKnowhowEntries(knowhowPath, [
+      makeEntry({ pattern_name: 'Same', phase_number: 0, source: 'research:t#iter1' }),
+      makeEntry({ pattern_name: 'Same', phase_number: 0, source: 'research:t#iter2' }),
+    ]);
+
+    const entries = parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8'));
+    expect(entries).toHaveLength(2);
+    expect(entries.find((e) => e.source === 'research:t#iter1')?.superseded_by)
+      .toBe('research:t#iter2');
+    expect(selectTopEntries(entries, 5).map((e) => e.source)).toEqual(['research:t#iter2']);
+  });
+
+  it('chains: a third entry supersedes the live one, never the already-superseded one', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    for (const n of [1, 2, 3]) {
+      appendKnowhowEntries(knowhowPath, [
+        makeEntry({ pattern_name: 'Chained', phase_number: 0, source: `research:t#iter${n}` }),
+      ]);
+    }
+    const entries = parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8'));
+    expect(entries).toHaveLength(3);
+    expect(entries.find((e) => e.source === 'research:t#iter1')?.superseded_by)
+      .toBe('research:t#iter2');
+    expect(entries.find((e) => e.source === 'research:t#iter2')?.superseded_by)
+      .toBe('research:t#iter3');
+    expect(entries.find((e) => e.source === 'research:t#iter3')?.superseded_by).toBeUndefined();
+  });
+
+  it('re-writing unchanged knowledge is a no-op, even with a fresh created_at', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    const first = makeEntry({ pattern_name: 'Stable', created_at: '2026-01-01T00:00:00Z' });
+    // Same knowledge, later write. created_at is stamped per promotion, so comparing it
+    // would turn every re-promotion into a supersession and grow the file forever.
+    const again = makeEntry({ pattern_name: 'Stable', created_at: '2026-06-01T00:00:00Z' });
+
+    appendKnowhowEntries(knowhowPath, [first]);
+    appendKnowhowEntries(knowhowPath, [again]);
+
+    const entries = parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8'));
+    expect(entries).toHaveLength(1);
+    expect(entries[0].superseded_by).toBeUndefined();
+    expect(entries[0].created_at).toBe('2026-01-01T00:00:00Z');
+  });
+
+  it('falls back to a non-empty superseded_by marker when the new entry has no source', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    appendKnowhowEntries(knowhowPath, [makeEntry({ pattern_name: 'Sourceless' })]);
+    appendKnowhowEntries(knowhowPath, [
+      makeEntry({ pattern_name: 'Sourceless', source: '', applicability: 'Revised advice' }),
+    ]);
+
+    const entries = parseKnowhowEntries(fs.readFileSync(knowhowPath, 'utf8'));
+    expect(entries).toHaveLength(2);
+    // Never '' — an empty marker formats to a line that parses back as absent, which
+    // would read as "still live" and let the same correction supersede it again.
+    expect(entries.find((e) => e.source === 'lib/example.ts')?.superseded_by).toBe('unknown');
   });
 
   it('does NOT replace when existing entry has higher phase_number', () => {
@@ -339,6 +479,25 @@ describe('selectTopEntries', () => {
 
   it('returns empty array for empty input', () => {
     expect(selectTopEntries([], 5)).toEqual([]);
+  });
+
+  // W6a — the single funnel. Everything that injects KNOWHOW selects through here, so a
+  // superseded entry has to be dropped here or the planner sees both versions of a
+  // corrected belief.
+  it('drops superseded entries', () => {
+    const withSuperseded = [
+      ...entries,
+      makeEntry({ pattern_name: 'Corrected', phase_number: 99, source: 'lib/old-belief.ts', superseded_by: 'lib/new-belief.ts' }),
+    ];
+    const top = selectTopEntries(withSuperseded, 5);
+    // phase 99 would otherwise outrank every live entry.
+    expect(top.map((e) => e.pattern_name)).not.toContain('Corrected');
+    expect(top).toHaveLength(entries.length);
+  });
+
+  it('returns empty when every entry is superseded', () => {
+    const allDead = entries.map((e) => ({ ...e, superseded_by: 'lib/newer.ts' }));
+    expect(selectTopEntries(allDead, 5)).toEqual([]);
   });
 
   it('respects moduleHints boost — hint-matching entries sorted first within same phase', () => {
@@ -433,6 +592,38 @@ describe('buildKnowledgeInjectionBlock', () => {
 
     // Must NOT contain the oldest entry (phase 90 — excluded as 6th+)
     expect(result).not.toContain('Pattern 90');
+  });
+
+  // W6a end-to-end, the spec's own acceptance test: two writes of the same pattern_name
+  // leave both entries on disk, the older marked, and only the newer injectable.
+  it('injects only the surviving side of a supersession', () => {
+    const knowhowPath = path.join(tmpDir, 'KNOWHOW.md');
+    appendKnowhowEntries(knowhowPath, [makeEntry({
+      pattern_name: 'Batching helps', phase_number: 0,
+      source: 'research:t1#iter1', applicability: 'success_pattern — accuracy 0.5 vs target 0.8',
+    })]);
+    appendKnowhowEntries(knowhowPath, [makeEntry({
+      pattern_name: 'Batching helps', phase_number: 0,
+      source: 'research:t1#iter2', applicability: 'success_pattern — accuracy 0.9 vs target 0.8',
+    })]);
+
+    const onDisk = fs.readFileSync(knowhowPath, 'utf8');
+    expect(onDisk).toContain('research:t1#iter1');
+    expect(onDisk).toContain('research:t1#iter2');
+
+    const block = buildKnowledgeInjectionBlock(tmpDir, '0');
+    expect(block).toContain('research:t1#iter2');
+    expect(block).not.toContain('research:t1#iter1');
+    expect((block.match(/^### /gm) || [])).toHaveLength(1);
+  });
+
+  it('returns empty string when every entry on disk is superseded', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'KNOWHOW.md'),
+      '# KNOWHOW\n\n' + formatKnowhowEntry(makeEntry({ superseded_by: 'lib/newer.ts' })),
+      'utf8',
+    );
+    expect(buildKnowledgeInjectionBlock(tmpDir, '99')).toBe('');
   });
 
   it('passes moduleHints to selectTopEntries', () => {
@@ -1281,5 +1472,57 @@ describe('rankKnowhowByPhaseGoal stopword-only goal', () => {
     expect(result).toHaveLength(2);
     expect(result[0].pattern_name).toBe('First Pattern');
     expect(result[1].pattern_name).toBe('Second Pattern');
+  });
+});
+
+describe('W6a: supersession survives the file, not just the process', () => {
+  function entry(name: string, phase: number, over: Record<string, unknown> = {}) {
+    return {
+      pattern_name: name, source: 's', applicability: 'a', code_snippet: 'c',
+      phase_number: phase, created_at: '2026-09-04', ...over,
+    } as import('../../lib/types').KnowhowEntry;
+  }
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-knowhow-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('writes superseded_by to disk and reads it back', () => {
+    // The in-memory upsert can be correct while the serializer drops the field, in which
+    // case supersession evaporates on the next process and the corrected belief and its
+    // predecessor both come back live. Removing the emit from formatKnowhowEntry passed
+    // the whole suite before this test existed.
+    const file = path.join(dir, 'KNOWHOW.md');
+    appendKnowhowEntries(file, [entry('same pattern', 0, { source: 'first' })]);
+    appendKnowhowEntries(file, [entry('same pattern', 0, { source: 'second' })]);
+
+    const onDisk = fs.readFileSync(file, 'utf-8');
+    expect(onDisk).toContain('superseded_by');
+
+    const reparsed = parseKnowhowEntries(onDisk);
+    const superseded = reparsed.filter((e) => e.superseded_by);
+    expect(superseded).toHaveLength(1);
+    expect(superseded[0].source).toBe('first');
+    expect(reparsed.filter((e) => !e.superseded_by)).toHaveLength(1);
+  });
+
+  it('a superseded entry re-read from disk is still un-injectable', () => {
+    // buildKnowledgeInjectionBlock reads KNOWHOW.md from cwd itself, so this exercises
+    // the real path: write, supersede, then inject from what is actually on disk.
+    fs.mkdirSync(path.join(dir, '.planning'), { recursive: true });
+    const file = path.join(dir, 'KNOWHOW.md');
+    appendKnowhowEntries(file, [entry('same pattern', 0, { source: 'first' })]);
+    appendKnowhowEntries(file, [entry('same pattern', 0, { source: 'second' })]);
+
+    const block = buildKnowledgeInjectionBlock(dir, '1');
+    expect(block).toContain('second');
+    expect(block).not.toContain('first');
+  });
+
+  it('an entry with no superseded_by formats byte-for-byte as it did before W6', () => {
+    // The compatibility claim the whole change rests on.
+    expect(formatKnowhowEntry(entry('p', 3))).toBe(
+      '### p\n\n- **source:** s\n- **applicability:** a\n- **code_snippet:** c\n'
+      + '- **phase_number:** 3\n- **created_at:** 2026-09-04\n'
+    );
   });
 });
