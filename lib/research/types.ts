@@ -116,6 +116,18 @@ export interface Hypothesis {
   verdict: Verdict | null;
   origin?: 'loop' | 'synthesis';
   sourceNodeIds?: string[];
+  // W2 falsifiability admission test — OPTIONAL in the type even though the prompt requires it
+  // and the parser enforces it, matching the back-compat pattern above: a pre-0.5.0 ledger entry
+  // has neither field and must still load.
+  /** The observation that would show this hypothesis false. Enforced structurally by the parser. */
+  refutationCondition?: string;
+  /**
+   * ADVISORY token overlap between `refutationCondition` and `statement`, in [0,1]. Recorded for
+   * the audit trail so a threshold can one day be tuned against data; NOTHING branches on it. The
+   * mandated both-branches template reuses the statement's tokens by construction, so a high
+   * overlap is a property of a well-formed answer, not a defect.
+   */
+  refutationOverlap?: number;
 }
 
 export interface ExperimentPlan {

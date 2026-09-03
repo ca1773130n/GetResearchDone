@@ -43,6 +43,10 @@ iteration loops, and autonomous operation modes.
 RESEARCH — Survey, analyze, and compare state-of-the-art
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+  /grd:research "<q>"           Run the autoresearch loop — hypothesize,
+                                experiment, measure, learn, revise.
+                                Also: research resume <id> | status.
+
   /grd:survey <topic>           Scan papers, repos, benchmarks for a
                                 research topic. Updates LANDSCAPE.md.
                                 Add `deep-research` for the parallel pass.
@@ -77,6 +81,18 @@ PLANNING — Strategic and tactical planning
   /grd:discuss-phase <N>        Gather phase context through adaptive
                                 questioning before planning.
 
+  /grd:principles               Create or edit PRINCIPLES.md — the
+                                constitution that shapes agent behavior.
+
+  /grd:requirement <query>      Look up requirements by ID, list with
+                                filters, or query the traceability matrix.
+
+  /grd:long-term-roadmap [op]   Create or display the long-term roadmap.
+                                Ops: list | add | refine | link | display.
+
+  /grd:autoplan                 Generate milestones automatically from
+                                harness discoveries or codebase analysis.
+
 
 EXECUTION — Build and implement
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -86,6 +102,9 @@ EXECUTION — Build and implement
 
   /grd:quick <task>             Quick task with GRD guarantees but
                                 skip optional agents. Fast execution.
+
+  /grd:autopilot                Plan and execute many phases unattended,
+                                with fresh context per step.
 
 
 EVALUATION — Measure, verify, and iterate
@@ -154,8 +173,8 @@ LIFECYCLE — Session and milestone management
   /grd:pause-work               Create context handoff when pausing
                                 work mid-phase. Saves full state.
 
-  /grd:resume-work              Resume work from previous session with
-                                full context restoration.
+  /grd:resume-project           Restore full project context to resume
+                                work from a previous session.
 
   /grd:complete-milestone       Audit, archive, and tag a completed
                                 milestone. Runs integration checks first.
@@ -189,15 +208,38 @@ TOOLS — Analysis and debugging utilities
   /grd:plan-milestone-gaps      Create phases to close all gaps
                                 identified by milestone audit.
 
+  /grd:discover [area]          Extract coding standards from existing
+                                codebase patterns.
 
-UPDATE — Self-update and patch management
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /grd:discuss <topic>          Run an ad-hoc multi-backend discussion
+                                on a topic.
+
+  /grd:wireup                   Find unwired features and test their
+                                integration wiring end-to-end.
+
+
+SELF-IMPROVEMENT — Improve GRD from its own run evidence
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /grd:harness                  Run a life-harness round: improve GRD
+                                primitives from session evidence.
+                                Eval-gated and git-reversible.
+
+  /grd:evolve                   DEPRECATED — superseded by /grd:harness.
+                                Static-scan discovery saturated.
+
+
+UPDATE — Self-update, migration, and patch management
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   /grd:update                   Check for updates, display changelog,
                                 back up modifications, pull latest.
 
   /grd:reapply-patches          Restore local modifications after a
                                 GRD update with conflict resolution.
+
+  /grd:migrate                  Migrate a legacy flat .planning/ layout
+                                to the milestone-scoped hierarchy.
 
 
 TOOLING — grd-tools.js CLI reference
@@ -314,7 +356,7 @@ QUICK START
     /grd:eval-report 1
 
   Resume after break:
-    /grd:resume-work
+    /grd:resume-project
 
   Check where you are:
     /grd:progress
@@ -363,8 +405,8 @@ If `$ARGUMENTS` matches a command name, display detailed help:
 /grd:{command}
 ━━━━━━━━━━━━━━
 
-  Description: {from plugin.json}
-  Arguments:   {argument-hint}
+  Description: {description: frontmatter of commands/{command}.md}
+  Arguments:   {argument-hint: frontmatter, or "none" if absent}
 
   What it does:
     {detailed explanation}

@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   extractFrontmatter,
@@ -8,14 +9,103 @@ const {
   extractFrontmatter: (content: string) => Record<string, unknown>;
 } = require('../../lib/frontmatter');
 
+// ─── Agent frontmatter schema (W10 item 3) ──────────────────────────────────
+//
+// This replaces a pinned `expect(agentFiles.length).toBe(28)`, which made
+// every agent addition a test edit while asserting nothing about the agent
+// added. The schema checks shape rather than population: required keys
+// present and non-empty, optional keys well-typed, and — the part a count
+// could never give — a CLOSED key set, because the frontmatter parser keeps
+// unknown keys and the agent loader ignores them, so a typo'd `efort:` or
+// `maxturns:` silently disables the setting it was meant to apply.
+//
+// TODO(W10-follow-up / W4): once W4 ("One evidence standard, shared by both
+// claim-making agents") lands, extend `auditAgentFile` to require that every
+// agent emitting severity-graded findings carries the shared evidence
+// standard. Today that is exactly two files: `agents/grd-verifier.md`, which
+// holds the only copy as an inline `<evidence_standard>` block, and
+// `agents/grd-code-reviewer.md`, which emits BLOCKER/WARNING/INFO findings
+// and carries none of it. (`agents/grd-feasibility-analyst.md` uses the word
+// BLOCKER as a rating, not as a graded findings table — do not include it.)
+// The assertion is deliberately NOT written yet because the mechanism is
+// undecided: W4 step 1 is gated on proving an `@${CLAUDE_PLUGIN_ROOT}`
+// include resolves inside a subagent spawn, and if it does not, W4 ships two
+// inline copies instead of one include. Asserting an include that W4 may
+// never ship would be the dead pointer this slice exists to remove. The pin
+// that exists today is `verifier still carries the inline evidence standard`
+// below, which stops W4 deleting the inline copy without updating this file.
+const REQUIRED_AGENT_FIELDS: readonly string[] = ['name', 'description', 'tools', 'color', 'effort'];
+const OPTIONAL_AGENT_FIELDS: readonly string[] = ['maxTurns', 'disallowedTools'];
+const EFFORT_LEVELS: readonly string[] = ['low', 'medium', 'high'];
+
+/** Collect schema violations for one agent file. Empty array = conforms. */
+function auditAgentFile(file: string, fm: Record<string, unknown>): string[] {
+  const v: string[] = [];
+  const keys = Object.keys(fm);
+  if (keys.length === 0) return [`${file}: no parseable YAML frontmatter`];
+
+  for (const key of REQUIRED_AGENT_FIELDS) {
+    const val = fm[key];
+    if (val === undefined) {
+      v.push(`${file}: missing required field '${key}'`);
+    } else if (typeof val !== 'string' || val.trim() === '') {
+      v.push(`${file}: '${key}' must be a non-empty string, got ${JSON.stringify(val)}`);
+    }
+  }
+
+  const allowed = new Set<string>([...REQUIRED_AGENT_FIELDS, ...OPTIONAL_AGENT_FIELDS]);
+  for (const key of keys) {
+    if (!allowed.has(key)) v.push(`${file}: unknown frontmatter field '${key}'`);
+  }
+
+  if (typeof fm.name === 'string' && !/^grd-[a-z0-9-]+$/.test(fm.name)) {
+    v.push(`${file}: 'name' must match /^grd-[a-z0-9-]+$/, got ${JSON.stringify(fm.name)}`);
+  }
+  if (typeof fm.effort === 'string' && !EFFORT_LEVELS.includes(fm.effort)) {
+    v.push(`${file}: 'effort' must be one of ${EFFORT_LEVELS.join('|')}, got ${JSON.stringify(fm.effort)}`);
+  }
+  // The frontmatter parser yields scalars as strings, so maxTurns arrives as
+  // e.g. "15". Assert the string is a positive integer rather than its type.
+  if (fm.maxTurns !== undefined && !/^[1-9][0-9]*$/.test(String(fm.maxTurns))) {
+    v.push(`${file}: 'maxTurns' must be a positive integer, got ${JSON.stringify(fm.maxTurns)}`);
+  }
+  const dis = fm.disallowedTools;
+  if (dis !== undefined) {
+    const listOk =
+      (typeof dis === 'string' && dis.trim() !== '') ||
+      (Array.isArray(dis) && dis.length > 0 && dis.every((t) => typeof t === 'string' && t.trim() !== ''));
+    if (!listOk) {
+      v.push(`${file}: 'disallowedTools' must be a non-empty tool name or list, got ${JSON.stringify(dis)}`);
+    }
+  }
+  return v;
+}
+
+/** List agent definition files in a directory, in stable order. */
+function listAgentFiles(dir: string): string[] {
+  return fs
+    .readdirSync(dir)
+    .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'))
+    .sort();
+}
+
+/** Audit every agent file in a directory. Empty array = every file conforms. */
+function auditAgentDir(dir: string): string[] {
+  const out: string[] = [];
+  for (const file of listAgentFiles(dir)) {
+    out.push(...auditAgentFile(file, extractFrontmatter(fs.readFileSync(path.join(dir, file), 'utf-8'))));
+  }
+  return out;
+}
+
 describe('Agent frontmatter audit', () => {
   const agentDir = path.join(__dirname, '../../agents');
-  const agentFiles = fs
-    .readdirSync(agentDir)
-    .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'));
+  const agentFiles = listAgentFiles(agentDir);
 
-  test('agent count is 28', () => {
-    expect(agentFiles.length).toBe(28);
+  test('agents/ is populated and every agent conforms to the frontmatter schema', () => {
+    // Lower bound only: this must not need editing when an agent is added.
+    expect(agentFiles.length).toBeGreaterThan(0);
+    expect(auditAgentDir(agentDir)).toEqual([]);
   });
 
   test('all agents have unique grd- prefixed names', () => {
@@ -62,12 +152,123 @@ describe('Agent frontmatter audit', () => {
     }
   });
 
-  test('all agents have a color field', () => {
-    for (const file of agentFiles) {
-      const content = fs.readFileSync(path.join(agentDir, file), 'utf-8');
-      const colorMatch = content.match(/^color:\s*(.+)$/m);
-      expect(colorMatch).toBeTruthy();
+  // `color` presence was its own test; it is now one of REQUIRED_AGENT_FIELDS,
+  // so re-asserting it here would be the duplication this slice removes.
+
+  // The pin W4 has to update rather than step over: grd-verifier.md holds the
+  // repo's only evidence standard, inline. W4 moves it; if W4 deletes it
+  // without landing a replacement both claim-making agents can actually read,
+  // this fails.
+  test('grd-verifier still carries the inline evidence standard (W4 moves this)', () => {
+    const verifier = fs.readFileSync(path.join(agentDir, 'grd-verifier.md'), 'utf-8');
+    expect(verifier).toContain('<evidence_standard>');
+    expect(verifier).toContain('</evidence_standard>');
+  });
+});
+
+// ─── Schema check behaviour, proven against a fixture directory ─────────────
+//
+// The point of W10 item 3 is that adding an agent must not require editing
+// this file, while a malformed agent must still fail. Both halves are proven
+// here on a real directory: every shipped agent is copied to a temp dir and a
+// 29th is added to it. Nothing is ever written into agents/.
+
+describe('agent frontmatter schema — fixture proof', () => {
+  const realAgentDir = path.join(__dirname, '../../agents');
+  let fixtureDir = '';
+
+  const WELL_FORMED_29TH = [
+    '---',
+    'name: grd-fixture-newcomer',
+    'description: A legitimately added 29th agent used to prove the schema check does not pin a count.',
+    'tools: Read, Write, Grep',
+    'color: cyan',
+    'effort: medium',
+    'maxTurns: 12',
+    'disallowedTools:',
+    '  - Edit',
+    '---',
+    '',
+    'Body.',
+    '',
+  ].join('\n');
+
+  /** Write a 29th agent into the fixture dir and audit the whole directory. */
+  function auditWith(content: string): string[] {
+    const file = path.join(fixtureDir, 'grd-fixture-newcomer.md');
+    fs.writeFileSync(file, content);
+    try {
+      return auditAgentDir(fixtureDir);
+    } finally {
+      fs.rmSync(file, { force: true });
     }
+  }
+
+  beforeAll(() => {
+    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-agent-audit-'));
+    fs.cpSync(realAgentDir, fixtureDir, { recursive: true });
+  });
+
+  afterAll(() => {
+    if (fixtureDir && fixtureDir.startsWith(os.tmpdir())) {
+      fs.rmSync(fixtureDir, { recursive: true, force: true });
+    }
+  });
+
+  test('the fixture is a faithful copy of agents/ and passes as-is', () => {
+    expect(listAgentFiles(fixtureDir)).toEqual(listAgentFiles(realAgentDir));
+    expect(auditAgentDir(fixtureDir)).toEqual([]);
+  });
+
+  test('a legitimately added agent does not break the audit', () => {
+    const before = listAgentFiles(fixtureDir).length;
+    const file = path.join(fixtureDir, 'grd-fixture-newcomer.md');
+    fs.writeFileSync(file, WELL_FORMED_29TH);
+    try {
+      expect(listAgentFiles(fixtureDir).length).toBe(before + 1);
+      expect(auditAgentDir(fixtureDir)).toEqual([]);
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
+  });
+
+  test('a missing required field is caught', () => {
+    const noTools = WELL_FORMED_29TH.replace('tools: Read, Write, Grep\n', '');
+    expect(auditWith(noTools)).toEqual([
+      "grd-fixture-newcomer.md: missing required field 'tools'",
+    ]);
+  });
+
+  test('a typo’d field name is caught (the case a count test cannot see)', () => {
+    const typo = WELL_FORMED_29TH.replace('effort: medium', 'efort: medium');
+    expect(auditWith(typo)).toEqual([
+      "grd-fixture-newcomer.md: missing required field 'effort'",
+      "grd-fixture-newcomer.md: unknown frontmatter field 'efort'",
+    ]);
+  });
+
+  test('an out-of-range effort level is caught', () => {
+    const bad = WELL_FORMED_29TH.replace('effort: medium', 'effort: extreme');
+    expect(auditWith(bad)).toEqual([
+      "grd-fixture-newcomer.md: 'effort' must be one of low|medium|high, got \"extreme\"",
+    ]);
+  });
+
+  test('a non-integer maxTurns is caught', () => {
+    const bad = WELL_FORMED_29TH.replace('maxTurns: 12', 'maxTurns: many');
+    expect(auditWith(bad)).toEqual([
+      "grd-fixture-newcomer.md: 'maxTurns' must be a positive integer, got \"many\"",
+    ]);
+  });
+
+  test('a non-grd- name and absent frontmatter are caught', () => {
+    const badName = WELL_FORMED_29TH.replace('name: grd-fixture-newcomer', 'name: Fixture_Newcomer');
+    expect(auditWith(badName)).toEqual([
+      'grd-fixture-newcomer.md: \'name\' must match /^grd-[a-z0-9-]+$/, got "Fixture_Newcomer"',
+    ]);
+    expect(auditWith('No frontmatter at all.\n')).toEqual([
+      'grd-fixture-newcomer.md: no parseable YAML frontmatter',
+    ]);
   });
 });
 
@@ -220,19 +421,11 @@ describe('plugin.json hook registration', () => {
 
 describe('Agent frontmatter — effort, maxTurns, disallowedTools', () => {
   const agentDir = path.join(__dirname, '../../agents');
-  const agentFiles = fs
-    .readdirSync(agentDir)
-    .filter((f: string) => f.startsWith('grd-') && f.endsWith('.md'));
+  const agentFiles = listAgentFiles(agentDir);
 
-  test('all agents have effort field in frontmatter', () => {
-    const validLevels = ['low', 'medium', 'high'];
-    for (const file of agentFiles) {
-      const content = fs.readFileSync(path.join(agentDir, file), 'utf-8');
-      const fm = extractFrontmatter(content);
-      expect(fm.effort).toBeDefined();
-      expect(validLevels).toContain(fm.effort);
-    }
-  });
+  // `effort` presence and its low|medium|high value set are now part of the
+  // schema check above; the two population-level counts below are not, because
+  // they are about how many agents opt in, not about any one agent's shape.
 
   test('at least 6 bounded agents have maxTurns field in frontmatter', () => {
     let countWithMaxTurns = 0;

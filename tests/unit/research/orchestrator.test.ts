@@ -16,7 +16,7 @@ function makeSpawn() {
   return async (_prompt: string, agentType: string): Promise<string> => {
     if (agentType === 'grd-hypothesizer') {
       hypoCalls++;
-      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
     }
     if (agentType === 'grd-experiment-runner') {
       return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
@@ -46,7 +46,7 @@ function makeSpawnSuccess() {
   return async (_prompt: string, agentType: string): Promise<string> => {
     if (agentType === 'grd-hypothesizer') {
       hypoCalls++;
-      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
     }
     if (agentType === 'grd-experiment-runner') {
       return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
@@ -228,15 +228,19 @@ describe('orchestrator', () => {
     const spawn = async (_p: string, a: string) => (a === 'grd-hypothesizer' ? 'garbage no block' : '');
     const res = await runResearch(cwd, 'Q?', { maxIterations: 2, noGates: true, spawn, runner: makeRunner() });
     expect(res.status).toBe('error');
-    expect(res.errorReason).toMatch(/hypothesizer output not parseable/i);
+    // 'rejected', not 'not parseable': the parser has two rejection rules and only one of them
+    // is a parse failure, so the message names which one fired (see the W2 suite at the foot of
+    // this file for the case where the block IS valid JSON).
+    expect(res.errorReason).toMatch(/hypothesizer output rejected/i);
+    expect(res.errorReason).toMatch(/no __HYPOTHESIS__ block, or the block is not valid JSON/);
     const tj = JSON.parse(fs.readFileSync(path.join(cwd, '.planning/research/threads', res.threadId, 'thread.json'), 'utf8'));
-    expect(tj.errorReason).toMatch(/hypothesizer output not parseable/i);
+    expect(tj.errorReason).toMatch(/hypothesizer output rejected/i);
   });
 
   it('records errorReason when the plan output is unparseable', async () => {
     const cwd = tmp();
     const spawn = async (_p: string, a: string) => {
-      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p"}';
+      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       if (a === 'grd-experiment-runner') return 'nope';
       return '';
     };
@@ -277,7 +281,7 @@ describe('orchestrator', () => {
     const spawn = async (prompt: string, agentType: string) => {
       if (agentType === 'grd-hypothesizer') {
         hypo++;
-        return `__HYPOTHESIS__ {"statement":"H${hypo}","rationale":"r","predictedOutcome":"p"}`;
+        return `__HYPOTHESIS__ {"statement":"H${hypo}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
       }
       if (agentType === 'grd-experiment-runner') {
         // The prompt names the absolute dir to write into. Extract it and write a real script there.
@@ -360,7 +364,7 @@ describe('orchestrator', () => {
     const prompts: string[] = [];
     const retrieveCalls: Array<{ q: string; k: unknown }> = [];
     const spawn = async (prompt: string, agentType: string) => {
-      if (agentType === 'grd-hypothesizer') { prompts.push(prompt); return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}'; }
+      if (agentType === 'grd-hypothesizer') { prompts.push(prompt); return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}'; }
       if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.9,"language":"shell","scriptPath":"run.sh"}';
       return '__TAKEAWAY__ {"content":"t"}';
     };
@@ -384,7 +388,7 @@ describe('orchestrator', () => {
       return cwd;
     };
     const spawn = async (_p: string, agentType: string) => {
-      if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+      if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.9,"language":"shell","scriptPath":"run.sh"}';
       return '__TAKEAWAY__ {"content":"t"}';
     };
@@ -402,7 +406,7 @@ describe('orchestrator', () => {
     const cwd = tmp();
     let hypoPrompt = '';
     const spawn = async (prompt: string, agentType: string) => {
-      if (agentType === 'grd-hypothesizer') { hypoPrompt = prompt; return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}'; }
+      if (agentType === 'grd-hypothesizer') { hypoPrompt = prompt; return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}'; }
       if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"x","metricKey":"acc","comparator":">=","target":0.5,"language":"shell","scriptPath":"run.sh"}';
       return '__TAKEAWAY__ {"content":"t"}';
     };
@@ -533,7 +537,7 @@ describe('spawn-retry robustness', () => {
       const designPrompts: string[] = [];
       const debugPrompts: string[] = [];
       const spawn = async (prompt: string, agentType: string): Promise<string> => {
-        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
         if (agentType === 'grd-experiment-runner') {
           if (/DEBUG mode/.test(prompt)) {
             debugPrompts.push(prompt);
@@ -713,7 +717,7 @@ describe('spawn-retry robustness', () => {
       const cwd = tmp();
       writeCfg(cwd, { research_max_debug_depth: 2, research_spawn_retries: 0 });
       const spawn = async (prompt: string, agentType: string): Promise<string> => {
-        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p"}';
+        if (agentType === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"S","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
         if (agentType === 'grd-experiment-runner') {
           if (/DEBUG mode/.test(prompt)) throw new Error('backend down');
           return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
@@ -823,7 +827,7 @@ describe('spawn-retry robustness', () => {
     const { appendHypothesis, readLedger } = require('../../../lib/research/ledger');
     const spawnReaching = async (_p: string, a: string): Promise<string> => {
       if (a === 'grd-experiment-runner') return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.4,"language":"shell","scriptPath":"experiments/1/run.sh"}';
-      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"NEW","rationale":"r","predictedOutcome":"p"}';
+      if (a === 'grd-hypothesizer') return '__HYPOTHESIS__ {"statement":"NEW","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       return '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
     };
     it('reuses an existing iter testing hypothesis (no plan) instead of cold-generating a new one', async () => {
@@ -1190,7 +1194,7 @@ describe('SEED clarification checkpoint (Phase 103)', () => {
       if (agentType === 'grd-hypothesizer') {
         if (prompt.includes('__CLARIFY__')) { state.clarifyCalls++; return clarifyBlock; }
         state.hypoCalls++; state.lastHypoPrompt = prompt;
-        return '__HYPOTHESIS__ {"statement":"h","rationale":"r","predictedOutcome":"p"}';
+        return '__HYPOTHESIS__ {"statement":"h","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       }
       if (agentType === 'grd-experiment-runner') {
         return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
@@ -1334,7 +1338,7 @@ describe('DECIDE branch checkpoint (Phase 103)', () => {
     const spawn = async (prompt: string, agentType: string): Promise<string> => {
       if (agentType === 'grd-hypothesizer') {
         state.hypoCalls++; state.lastHypoPrompt = prompt;
-        return `__HYPOTHESIS__ {"statement":"h${state.hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+        return `__HYPOTHESIS__ {"statement":"h${state.hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
       }
       if (agentType === 'grd-experiment-runner') {
         return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
@@ -1502,11 +1506,11 @@ describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
   const { readCheckpointLog } = require('../../../lib/research/checkpoints');
 
   const THREE = '__HYPOTHESES__ {"candidates":['
-    + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1"},'
-    + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2"},'
-    + '{"statement":"C3","rationale":"r3","predictedOutcome":"p3"}]}';
+    + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"},'
+    + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"},'
+    + '{"statement":"C3","rationale":"r3","predictedOutcome":"p3","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}]}';
   const EMPTY = '__HYPOTHESES__ {"candidates":[]}';
-  const ONE = '__HYPOTHESES__ {"candidates":[{"statement":"SOLO","rationale":"rs","predictedOutcome":"ps"}]}';
+  const ONE = '__HYPOTHESES__ {"candidates":[{"statement":"SOLO","rationale":"rs","predictedOutcome":"ps","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}]}';
 
   function threadDirOf(cwd: string, id: string): string {
     return path.join(cwd, '.planning/research/threads', id);
@@ -1535,7 +1539,7 @@ describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
       if (agentType === 'grd-hypothesizer') {
         if (prompt.includes('__HYPOTHESES__')) { state.multiCalls++; return multiBlock; }
         state.singleCalls++;
-        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p"}';
+        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       }
       if (agentType === 'grd-experiment-runner') {
         state.planCalls++;
@@ -1723,6 +1727,45 @@ describe('HYPOTHESIZE candidate selection (Phase 104)', () => {
     // exactly one selection resolve — the resume did not re-emit/re-consume.
     expect(log.filter((c: any) => c.point === 'hypothesize').length).toBe(1);
   });
+
+  it('SAYS SO when the W2 admission test drops the selection below the >=2 threshold', async () => {
+    // A configured human-in-the-loop selection collapsing into an unattended auto-pick is a
+    // legitimate outcome; doing it silently is not. Three ranked candidates, only one admissible
+    // ⇒ no checkpoint is built, so the discarded two are not even in a checkpoint context. The
+    // stderr line is the operator's ONLY evidence their gate was short-circuited.
+    const cwd = tmp();
+    writeSelConfig(cwd);
+    const RC = 'if the cache is the cause, clearing it restores p99 / warming it worsens p99';
+    const MIXED = '__HYPOTHESES__ {"candidates":['
+      + '{"statement":"C1 rank one","rationale":"r1","predictedOutcome":"p1"},'
+      + `{"statement":"C2 rank two","rationale":"r2","predictedOutcome":"p2","refutationCondition":${JSON.stringify(RC)}},`
+      + '{"statement":"C3 rank three","rationale":"r3","predictedOutcome":"p3"}]}';
+    const warnings: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    (process.stderr as any).write = (chunk: any, ...rest: any[]) => {
+      warnings.push(String(chunk));
+      return origWrite(chunk, ...rest);
+    };
+    let res: any;
+    try {
+      res = await runResearch(cwd, 'Which lever helps throughput?', {
+        spawn: makeSelSpawn(MIXED).spawn, runner: supportedRunner(), noGates: false,
+      });
+    } finally {
+      (process.stderr as any).write = origWrite;
+    }
+    expect(res.paused).toBeFalsy(); // auto-picked — the checkpoint could not be offered
+    expect(readCheckpointLog(threadDirOf(cwd, res.threadId))
+      .filter((c: any) => c.point === 'hypothesize').length).toBe(0);
+    const warned = warnings.filter((w) => w.includes('refutationCondition')).join('');
+    expect(warned).toContain('2 hypothesis candidate(s) dropped');
+    expect(warned).toContain('1 of 3 admitted');
+    expect(warned).toContain('too few to offer a selection checkpoint');
+    // The one admissible candidate is what ran, and it kept its refutation condition.
+    const led = readLedger(cwd, res.threadId);
+    expect(led[0].statement).toBe('C2 rank two');
+    expect(led[0].refutationCondition).toBe(RC);
+  });
 });
 
 // ── AI-panel fallback: fallback:'panel' resolves checkpoints inline, no pause (Phase 105-02) ──
@@ -1774,11 +1817,11 @@ describe('AI-panel fallback (fallback:"panel") — REQ-208', () => {
         if (prompt.includes('__HYPOTHESES__')) {
           state.hypoCalls++;
           return opts.multi ?? '__HYPOTHESES__ {"candidates":['
-            + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1"},'
-            + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2"}]}';
+            + '{"statement":"C1","rationale":"r1","predictedOutcome":"p1","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"},'
+            + '{"statement":"C2","rationale":"r2","predictedOutcome":"p2","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}]}';
         }
         state.hypoCalls++;
-        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p"}';
+        return '__HYPOTHESIS__ {"statement":"SINGLE","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
       }
       if (agentType === 'grd-experiment-runner') {
         state.planCalls++;
@@ -1979,5 +2022,102 @@ describe('AI-panel fallback (fallback:"panel") — REQ-208', () => {
     expect(res.paused).toBeFalsy();
     expect(res.status).toBe('supported');
     expect(panel.state.points).toEqual(['design']); // panel consulted despite concurrency
+  });
+});
+
+
+// ── W2: the refutation condition has to reach DISK, not just memory (falsifiability audit) ──
+describe('W2 refutation condition — end to end', () => {
+  const RC = 'if batching is the cause, disabling batching restores p95 / doubling it worsens p95';
+
+  function w2Spawn() {
+    let hypoCalls = 0;
+    return async (_prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        hypoCalls++;
+        return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":${JSON.stringify(RC)}}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"cache thrash","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+  }
+
+  it('survives the ledger round-trip and reaches the DEAD-ENDS evidence line', async () => {
+    // The field was dropped TWICE before this pin: the orchestrator never copied it onto the
+    // Hypothesis, and formatHypothesis never serialized it — so appendHypothesis, which
+    // round-trips HYPOTHESES.md on every append, would have destroyed it even if it had. The
+    // pre-existing promote.test.ts case passed only because it hands buildDeadEndCalls a
+    // hand-built in-memory object that production can never produce.
+    const cwd = tmp();
+    const res = await runResearch(cwd, 'Does batching help?', {
+      maxIterations: 5, noGates: true, spawn: w2Spawn(), runner: makeRunner(),
+    });
+    expect(res.status).toBe('supported');
+    const led = readLedger(cwd, res.threadId);
+    expect(led.length).toBe(2);
+    expect(led.map((h: any) => h.refutationCondition)).toEqual([RC, RC]);
+    expect(led[0].refutationOverlap).toBe(0); // advisory, recorded, gates nothing
+    const deadEnds = fs.readFileSync(path.join(cwd, '.planning/DEAD-ENDS.md'), 'utf8');
+    expect(deadEnds).toContain(`refuted when: ${RC}`);
+  });
+
+  it('a pre-0.5.0 ledger entry (no refutation fields) still loads and yields the old evidence', async () => {
+    const { writeLedger } = require('../../../lib/research/ledger');
+    const cwd = tmp();
+    writeLedger(cwd, 't-old', [{
+      id: 'h1', iteration: 1, statement: 's', rationale: 'r', predictedOutcome: 'p',
+      status: 'refuted', parentId: null, verdict: 'refuted',
+    }]);
+    const back = readLedger(cwd, 't-old');
+    expect(back[0].refutationCondition).toBeUndefined();
+    expect(back[0].refutationOverlap).toBeUndefined();
+  });
+
+  it('names the missing refutationCondition instead of claiming the block is absent', async () => {
+    // The old message reported "expected a __HYPOTHESIS__ block" while printing that very block
+    // as its excerpt — the operator was pointed at the wrong problem after every retry burned.
+    const cwd = tmp();
+    let hypoSpawns = 0;
+    const spawn = async (_p: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        hypoSpawns++;
+        return '__HYPOTHESIS__ {"statement":"batching lowers p99","rationale":"r","predictedOutcome":"p"}';
+      }
+      return '';
+    };
+    const res = await runResearch(cwd, 'Does batching help?', {
+      maxIterations: 1, noGates: true, spawn, runner: makeRunner(),
+    });
+    expect(res.status).toBe('error');
+    expect(res.errorReason).toContain('refutationCondition');
+    expect(res.errorReason).toContain('attempt(s)');
+    expect(res.errorReason).not.toContain('expected a __HYPOTHESIS__ block');
+    expect(hypoSpawns).toBeGreaterThan(1); // the retry budget was spent, not bypassed
+  });
+
+  it('a NON-STRING statement is a parse miss, not an uncaught throw that skips the retries', async () => {
+    // Regression: the parser threw TypeError out of spawnAndParse (whose parse call sits outside
+    // its try), so ONE spawn happened instead of the full budget and the run died with a stack
+    // trace rather than a clean errExit.
+    const cwd = tmp();
+    let hypoSpawns = 0;
+    const spawn = async (_p: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        hypoSpawns++;
+        return '__HYPOTHESIS__ {"statement":["x"],"refutationCondition":"r"}';
+      }
+      return '';
+    };
+    const res = await runResearch(cwd, 'Does batching help?', {
+      maxIterations: 1, noGates: true, spawn, runner: makeRunner(),
+    });
+    expect(res.status).toBe('error');
+    expect(hypoSpawns).toBe(3); // default research_spawn_retries 2 ⇒ 3 attempts
+    expect(res.errorReason).toContain('`statement`');
   });
 });

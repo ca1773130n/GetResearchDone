@@ -78,6 +78,39 @@ describe('buildDeadEndCalls', () => {
     const calls = promote.buildDeadEndCalls({ id: 't1' }, [hyp({ iteration: 3 })], []);
     expect(calls[0].evidence).toEqual(['predicted: throughput up 2x', 'verdict: refuted']);
   });
+
+  // W2 — the evidence line names the OBSERVATION that refuted the hypothesis, not only the
+  // prediction. Both tests above are the pre-0.5.0 shape and stay green unchanged: that IS the
+  // back-compat guarantee, since neither fixture carries a refutationCondition.
+  it('records the refutation condition between the prediction and the root cause', () => {
+    const calls = promote.buildDeadEndCalls(
+      { id: 't1' },
+      [hyp({ iteration: 1, refutationCondition: 'if GPU batching is the cause, CPU-only restores throughput / batch 1024 halves it' })],
+      [{ kind: 'failure_root_cause', content: 'OOM at batch 512', confidence: 0.7, evidence: 'e', failureClass: 'H4', iteration: 1 }],
+    );
+    expect(calls[0].evidence).toEqual([
+      'predicted: throughput up 2x',
+      'refuted when: if GPU batching is the cause, CPU-only restores throughput / batch 1024 halves it',
+      'OOM at batch 512',
+    ]);
+  });
+
+  it('a whitespace-only refutationCondition is treated as absent (no empty evidence line)', () => {
+    const calls = promote.buildDeadEndCalls({ id: 't1' }, [hyp({ iteration: 3, refutationCondition: '   ' })], []);
+    expect(calls[0].evidence).toEqual(['predicted: throughput up 2x', 'verdict: refuted']);
+  });
+
+  it('BACK-COMPAT: a pre-0.5.0 ledger loads and yields the original two-element line', () => {
+    // Exactly the shape written by v0.4.x — no refutationCondition, no refutationOverlap.
+    const preV5 = JSON.parse(JSON.stringify({
+      id: 'h1', iteration: 4, statement: 'Old approach', rationale: 'r',
+      predictedOutcome: 'p95 down 30%', status: 'refuted', parentId: null, verdict: 'refuted',
+    }));
+    expect('refutationCondition' in preV5).toBe(false);
+    const calls = promote.buildDeadEndCalls({ id: 't1' }, [preV5], []);
+    expect(calls.length).toBe(1);
+    expect(calls[0].evidence).toEqual(['predicted: p95 down 30%', 'verdict: refuted']);
+  });
 });
 
 describe('promoteThreadKnowledge', () => {

@@ -46,6 +46,13 @@ function selectKnowhowTakeaways(takeaways: Takeaway[]): Takeaway[] {
   return takeaways.filter((t) => KNOWHOW_KINDS.has(t.kind) && t.confidence >= 0.5);
 }
 
+/**
+ * One DEAD-ENDS entry per refuted hypothesis. The evidence line records, in order: what the
+ * hypothesis PREDICTED, the observation that would REFUTE it (W2 — present only on hypotheses
+ * minted from v0.5.0 onward; a pre-0.5.0 ledger entry has no `refutationCondition` and yields
+ * the original two-element line unchanged), and the root cause takeaway for the same iteration,
+ * falling back to a bare verdict when no such takeaway exists.
+ */
 function buildDeadEndCalls(
   thread: { id: string }, ledger: Hypothesis[], takeaways: Takeaway[],
 ): DeadEndAddOpts[] {
@@ -55,11 +62,16 @@ function buildDeadEndCalls(
       const why = takeaways.find(
         (t) => t.iteration === h.iteration && t.kind === 'failure_root_cause',
       );
+      const refutation = (h.refutationCondition || '').trim();
       return {
         approach: h.statement,
         phase: `research:${thread.id}#iter${h.iteration}`,
         verdict: 'falsified',
-        evidence: [`predicted: ${h.predictedOutcome}`, why ? why.content : 'verdict: refuted'],
+        evidence: [
+          `predicted: ${h.predictedOutcome}`,
+          ...(refutation ? [`refuted when: ${refutation}`] : []),
+          why ? why.content : 'verdict: refuted',
+        ],
       };
     });
 }

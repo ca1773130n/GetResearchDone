@@ -35,7 +35,10 @@ describe('prompts', () => {
     const p = buildHypothesesPrompt(thread, [], null, [], 'PACKED_GROUNDING_XYZ', false, 3);
     expect(p).toContain('PACKED_GROUNDING_XYZ');
   });
-  it('PIN: buildHypothesizePrompt is unchanged — single __HYPOTHESIS__ contract, no __HYPOTHESES__', () => {
+  // NOT a no-change pin: buildHypothesizePrompt HAS changed (W2 added the refutation
+  // requirement). What is pinned is narrower and is what the assertions below actually check —
+  // that this builder still emits the SINGLE-block contract and never the plural one.
+  it('PIN: buildHypothesizePrompt emits the single __HYPOTHESIS__ contract only, never __HYPOTHESES__', () => {
     const p = buildHypothesizePrompt(thread, [], null);
     expect(p).toContain('__HYPOTHESIS__');
     expect(p).not.toContain('__HYPOTHESES__');

@@ -106,7 +106,7 @@ describe('research cli', () => {
       const opts = {
         checkpointAnswers: { q1: { label: 'Approve & run' } },
         spawn: async (_p: string, a: string) => (
-          a === 'grd-hypothesizer' ? '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p"}'
+          a === 'grd-hypothesizer' ? '__HYPOTHESIS__ {"statement":"s","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}'
             : a === 'grd-experiment-runner' ? '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/1/run.sh"}'
               : a === 'grd-knowledge-miner' ? '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}' : ''),
         runner: { run: () => ({ metrics: { accuracy: 0.9 }, exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none' }) },

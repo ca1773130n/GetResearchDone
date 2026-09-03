@@ -1,6 +1,35 @@
 'use strict';
 import type { Hypothesis, ExperimentResult, Verdict, Takeaway } from './types';
 
+/**
+ * The W2 falsifiability admission test, stated to the agent in the same words both hypothesis
+ * prompts use. Kept as one constant so the two builders cannot drift apart — the parser applies
+ * ONE rule and the agent must be told ONE rule. The template names BOTH directions on purpose: a
+ * prediction that only points one way is half a refutation condition.
+ */
+const REFUTATION_REQUIREMENT: readonly string[] = [
+  'FALSIFIABILITY IS AN ADMISSION TEST, not advice. Every hypothesis MUST carry a',
+  '`refutationCondition`: the observation that would show it FALSE. Name BOTH directions —',
+  '  "If <X> is the cause, then <changing Y> will make the effect disappear /',
+  '   <changing Z> will make it worse."',
+  'A condition that points only one way is half the template. A hypothesis whose',
+  'refutationCondition is missing or empty is DROPPED by the parser before it is ever ranked,',
+  'and the spawn is retried — so an omission costs the loop an attempt, not you a warning.',
+];
+
+/**
+ * Honesty clause for the grounding pack (surviving half of E3's provenance rule). An empty pack
+ * is the ONLY signal available at this layer: orchestrator.ts collapses "retrieval threw" and
+ * "retrieval returned zero nodes" into the same empty string before the prompt is built, so the
+ * clause names both causes rather than asserting a node count it cannot know.
+ */
+const NO_GROUNDING_NOTICE: readonly string[] = [
+  '',
+  'GROUNDING: the hybrid retriever returned NOTHING for this question — either zero matching',
+  'knowledge-graph nodes, or a retrieval that failed. Say so in `rationale`, in as many words.',
+  'Do NOT invent related work, prior findings, or citations you did not read.',
+];
+
 function buildHypothesizePrompt(
   thread: { id: string; question: string },
   priorHyps: Pick<Hypothesis, 'id' | 'statement' | 'verdict'>[],
@@ -23,7 +52,9 @@ function buildHypothesizePrompt(
     'GROUND first: query the Tesserae knowledge graph (your primary knowledge base) for prior',
     'related findings, related work, and methods using the tesserae MCP tools (search_nodes,',
     'ask, node_context). Read .planning/DEAD-ENDS.md to avoid re-proposing falsified approaches.',
-    ...(pack ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack] : []),
+    ...(pack
+      ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack]
+      : [...NO_GROUNDING_NOTICE]),
     '',
     'Prior hypotheses in this thread:',
     history,
@@ -33,9 +64,11 @@ function buildHypothesizePrompt(
     priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose a DIFFERENT, more promising hypothesis informed by the takeaways above.` : '',
     pivot ? '\nPLATEAU: your last several hypotheses all failed to be supported. PIVOT HARD — propose a substantially different approach or angle, not a variation of prior attempts.' : '',
     '',
+    ...REFUTATION_REQUIREMENT,
+    '',
     'Emit exactly one final block (no prose after it):',
     '__HYPOTHESIS__',
-    '{"statement": "...", "rationale": "...", "predictedOutcome": "..."}',
+    '{"statement": "...", "rationale": "...", "predictedOutcome": "...", "refutationCondition": "..."}',
   ].join('\n');
 }
 
@@ -69,7 +102,9 @@ function buildHypothesesPrompt(
     'GROUND first: query the Tesserae knowledge graph (your primary knowledge base) for prior',
     'related findings, related work, and methods using the tesserae MCP tools (search_nodes,',
     'ask, node_context). Read .planning/DEAD-ENDS.md to avoid re-proposing falsified approaches.',
-    ...(pack ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack] : []),
+    ...(pack
+      ? ['', 'A hybrid retriever pre-fetched this grounding from the KG — use it as a starting point:', pack]
+      : [...NO_GROUNDING_NOTICE]),
     '',
     'Prior hypotheses in this thread:',
     history,
@@ -79,10 +114,12 @@ function buildHypothesesPrompt(
     priorVerdict ? `\nThe last hypothesis was ${priorVerdict}. Revise — propose DIFFERENT, more promising hypotheses informed by the takeaways above.` : '',
     pivot ? '\nPLATEAU: your last several hypotheses all failed to be supported. PIVOT HARD — propose substantially different approaches or angles, not variations of prior attempts.' : '',
     '',
+    ...REFUTATION_REQUIREMENT,
+    '',
     `Rank the candidates best-first (rank 1 = most promising). Emit at most ${n} candidates.`,
     'Emit exactly one final block (no prose after it):',
     '__HYPOTHESES__',
-    '{"candidates":[{"statement": "...", "rationale": "...", "predictedOutcome": "..."}]}',
+    '{"candidates":[{"statement": "...", "rationale": "...", "predictedOutcome": "...", "refutationCondition": "..."}]}',
   ].join('\n');
 }
 

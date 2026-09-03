@@ -262,23 +262,17 @@ GetResearchDone/                   # npm package root (v0.2.8)
 │   │   └── concerns.md
 │   └── research-project/
 │       └── PRODUCT-QUALITY.md
-├── references/                    # Protocol documentation (17 files)
+├── references/                    # Protocol documentation (11 files)
 │   ├── mcp-tracker-protocol.md    # MCP Atlassian prepare/execute/record pattern
 │   ├── tracker-integration.md     # GitHub Issues integration
 │   ├── verification-patterns.md   # Tiered verification methodology
-│   ├── research-methodology.md    # Research workflow patterns
 │   ├── tdd.md                     # Test-driven development protocol
 │   ├── checkpoints.md             # Checkpoint pause/resume protocol
 │   ├── questioning.md             # Deep questioning methodology
 │   ├── continuation-format.md     # Checkpoint continuation format
 │   ├── execute-plan.md            # Plan execution protocol
 │   ├── git-integration.md         # Git workflow patterns
-│   ├── git-planning-commit.md     # Planning doc commit protocol
-│   ├── model-profiles.md          # Agent model selection profiles
-│   ├── model-profile-resolution.md # Model resolution algorithm
-│   ├── phase-argument-parsing.md  # Phase number parsing
-│   ├── decimal-phase-calculation.md # Decimal phase insertion logic
-│   ├── planning-config.md         # Configuration schema
+│   ├── deep-research-flow.md      # Deep-research fan-out/verify/synthesize flow
 │   └── ui-brand.md                # UI conventions
 ├── docs/                          # User documentation
 │   ├── quickstart.md

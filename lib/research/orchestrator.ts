@@ -59,16 +59,25 @@ const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, bu
   buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict) => string;
   buildClarifyPrompt: (thread: { id: string; question: string }) => string;
 };
-/** A parsed hypothesis candidate (Phase 104 multi-candidate selection). */
-type HypothesisCandidate = { statement: string; rationale: string; predictedOutcome: string };
+/**
+ * A parsed hypothesis candidate (Phase 104 multi-candidate selection). The W2 refutation fields
+ * are OPTIONAL here and nowhere else: every candidate the parser mints carries both, but this
+ * type is also the lens through which a RESUMED checkpoint's stored context is read, and a
+ * checkpoint written before v0.5.0 has neither.
+ */
+type HypothesisCandidate = {
+  statement: string; rationale: string; predictedOutcome: string;
+  refutationCondition?: string; refutationOverlap?: number;
+};
 type ClarifyDimension = {
   ask: string;
   options: Array<{ label: string; description?: string; recommended?: boolean }>;
   freeform?: boolean;
 };
-const { parseHypothesisOutput, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
-  parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string } | null;
-  parseHypothesesOutput: (stdout: string, n?: number) => { candidates: HypothesisCandidate[] };
+const { parseHypothesisOutput, describeHypothesisRejection, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput } = require('./agent-io') as {
+  parseHypothesisOutput: (stdout: string) => { statement: string; rationale: string; predictedOutcome: string; refutationCondition: string; refutationOverlap: number } | null;
+  describeHypothesisRejection: (stdout: string) => string | null;
+  parseHypothesesOutput: (stdout: string, n?: number) => { candidates: HypothesisCandidate[]; droppedForRefutation: number };
   parsePlanOutput: (stdout: string) => { procedure: string; metricKey: string; comparator: string; target: number; language: string; scriptPath: string } | null;
   parseTakeawayOutput: (stdout: string) => Record<string, unknown> | null;
   parseClarifyOutput: (stdout: string) => { dimensions: ClarifyDimension[] };
@@ -1005,9 +1014,15 @@ async function runLoop(
         } catch { /* guarded — malformed context → [] */ }
         const matched = candidates.find((c) => c.statement === label);
         let statement: string; let rationale: string; let predictedOutcome: string;
+        // W2 fields survive only on the MATCHED branch. A human who types their own hypothesis
+        // at the checkpoint has not been through the parser's admission test, so they carry
+        // none — recorded as absent rather than invented, which is exactly the pre-0.5.0 shape
+        // promote.ts already degrades for.
+        let refutationCondition: string | undefined; let refutationOverlap: number | undefined;
         if (matched) {
-          // MATCHED option → the full {statement,rationale,predictedOutcome} candidate.
+          // MATCHED option → the full candidate, refutation fields included.
           statement = matched.statement; rationale = matched.rationale; predictedOutcome = matched.predictedOutcome;
+          refutationCondition = matched.refutationCondition; refutationOverlap = matched.refutationOverlap;
         } else if (text) {
           // FREEFORM ('Other') → user-authored statement.
           statement = text; rationale = 'user-provided at checkpoint'; predictedOutcome = '';
@@ -1018,7 +1033,7 @@ async function runLoop(
         const lastHyp = priorHyps[priorHyps.length - 1] || null;
         hyp = {
           id: nextHypothesisId(priorHyps), iteration: thread.iteration,
-          statement, rationale, predictedOutcome,
+          statement, rationale, predictedOutcome, refutationCondition, refutationOverlap,
           status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
         };
         appendHypothesis(cwd, thread.id, hyp); // the ONLY hypothesis appended
@@ -1067,6 +1082,7 @@ async function runLoop(
         const selPosture = resolveSelectPosture(cwd, opts, config, thread);
         if (selPosture.active || selPosture.panel) {
           const n = selPosture.cfg.hypothesis_candidates;
+          let droppedForRefutation = 0;
           const mRes = await spawnAndParse(
             spawn,
             buildHypothesesPrompt(
@@ -1075,6 +1091,7 @@ async function runLoop(
             'grd-hypothesizer',
             (out: string) => {
               const r = parseHypothesesOutput(out, n);
+              droppedForRefutation = r.droppedForRefutation;
               // parseHypothesesOutput never returns null; treat an empty candidate set as a
               // parse-miss so spawnAndParse retries, then falls through to the single-block degrade.
               return r.candidates.length > 0 ? r : null;
@@ -1082,6 +1099,18 @@ async function runLoop(
             spawnRetries,
           );
           const candidates = mRes.value?.candidates ?? [];
+          if (droppedForRefutation > 0) {
+            // SAY SO. Dropping below the >=2 threshold below turns a selection the operator
+            // configured into an unattended auto-pick: no checkpoint is built, so the discarded
+            // candidates are not even in the checkpoint context. Silence here would leave the
+            // operator believing their gate ran.
+            process.stderr.write(
+              `Warning: ${droppedForRefutation} hypothesis candidate(s) dropped — no `
+              + `refutationCondition (W2 admission test); ${candidates.length} of `
+              + `${candidates.length + droppedForRefutation} admitted`
+              + (candidates.length < 2 ? ' — too few to offer a selection checkpoint' : '') + '\n',
+            );
+          }
           if (candidates.length >= 2) {
             const round = (thread.checkpointRounds?.hypothesize ?? 0) + 1;
             // Persist the round (symmetry with the DESIGN revise path ~L810-819) so a re-emit for
@@ -1112,6 +1141,7 @@ async function runLoop(
             coldHyp = {
               id: nextHypothesisId(priorHyps), iteration: thread.iteration,
               statement: c.statement, rationale: c.rationale, predictedOutcome: c.predictedOutcome,
+              refutationCondition: c.refutationCondition, refutationOverlap: c.refutationOverlap,
               status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
             };
             appendHypothesis(cwd, thread.id, coldHyp);
@@ -1129,12 +1159,21 @@ async function runLoop(
             'grd-hypothesizer', parseHypothesisOutput, spawnRetries,
           );
           const parsed = hRes.value;
-          if (!parsed) return errExit(cwd, thread, hRes.error
-            ? `hypothesizer spawn failed: ${hRes.error}`
-            : `hypothesizer output not parseable — expected a __HYPOTHESIS__ block. Got: ${excerpt(hRes.lastRaw)}`);
+          if (!parsed) {
+            if (hRes.error) return errExit(cwd, thread, `hypothesizer spawn failed: ${hRes.error}`);
+            // Name WHICH rule rejected the output. A block that is present and valid JSON but
+            // missing its refutationCondition is the commonest W2 rejection, and the old blanket
+            // "expected a __HYPOTHESIS__ block" pointed the operator at the wrong problem while
+            // printing, as its own excerpt, the block it said was absent.
+            const why = describeHypothesisRejection(hRes.lastRaw) ?? 'output not parseable';
+            return errExit(cwd, thread,
+              `hypothesizer output rejected after ${spawnRetries + 1} attempt(s) — ${why}. `
+              + `Got: ${excerpt(hRes.lastRaw)}`);
+          }
           hyp = {
             id: nextHypothesisId(priorHyps), iteration: thread.iteration,
             statement: parsed.statement, rationale: parsed.rationale, predictedOutcome: parsed.predictedOutcome,
+            refutationCondition: parsed.refutationCondition, refutationOverlap: parsed.refutationOverlap,
             status: 'testing', parentId: lastHyp ? lastHyp.id : null, verdict: null,
           };
           appendHypothesis(cwd, thread.id, hyp);

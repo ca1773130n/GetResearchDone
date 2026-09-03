@@ -45,7 +45,7 @@ Extract: Project Reference, Current Position, Progress, Recent Decisions, Pendin
 
 <step name="check_incomplete_work">
 ```bash
-ls ${phases_dir}/*/.continue-here*.md 2>/dev/null
+ls ${phases_dir}/*/.CONTINUE-HERE.md 2>/dev/null || echo "No handoff file found"
 
 for plan in ${phases_dir}/*/*-PLAN.md; do
   summary="${plan/PLAN/SUMMARY}"
@@ -64,7 +64,7 @@ Present complete project status with progress bar, phase/plan position, last act
 Based on project state, determine the most logical next action:
 
 - Interrupted agent -> Resume or start fresh
-- .continue-here file -> Resume from checkpoint
+- .CONTINUE-HERE.md file -> Resume from checkpoint
 - Incomplete plan -> Complete the plan
 - Phase complete, all plans done -> Transition to next
 - Phase ready to plan -> Check for CONTEXT.md, suggest discuss-phase or plan-phase

@@ -14,7 +14,7 @@ function tmp() {
 function makeSpawn() {
   let hypo = 0;
   return async (_p: string, agentType: string) => {
-    if (agentType === 'grd-hypothesizer') { hypo++; return `__HYPOTHESIS__ {"statement":"H${hypo}","rationale":"r","predictedOutcome":"p"}`; }
+    if (agentType === 'grd-hypothesizer') { hypo++; return `__HYPOTHESIS__ {"statement":"H${hypo}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`; }
     if (agentType === 'grd-experiment-runner') return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
     if (agentType === 'grd-knowledge-miner') return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
     return '';

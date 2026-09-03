@@ -18,6 +18,12 @@ function formatHypothesis(h: Hypothesis): string {
     `- **verdict:** ${h.verdict ?? 'none'}`,
     `- **origin:** ${h.origin ?? 'loop'}`,
     `- **source_node_ids:** ${h.sourceNodeIds && h.sourceNodeIds.length ? h.sourceNodeIds.join(', ') : 'none'}`,
+    // W2 — HYPOTHESES.md is the ONLY persistence for a hypothesis, and appendHypothesis
+    // round-trips the whole file on every append, so a field absent here is destroyed on the
+    // next write even when the orchestrator sets it. Both fields use the 'none' sentinel
+    // parent/source_node_ids already use, so a pre-0.5.0 ledger still loads.
+    `- **refutation_condition:** ${h.refutationCondition && h.refutationCondition.trim() ? h.refutationCondition : 'none'}`,
+    `- **refutation_overlap:** ${typeof h.refutationOverlap === 'number' ? h.refutationOverlap : 'none'}`,
     '',
   ].join('\n');
 }
@@ -49,6 +55,15 @@ function parseHypotheses(content: string): Hypothesis[] {
       sourceNodeIds: (() => {
         const s = field(b, 'source_node_ids');
         return s && s !== 'none' ? s.split(',').map((x) => x.trim()).filter(Boolean) : [];
+      })(),
+      refutationCondition: (() => {
+        const s = field(b, 'refutation_condition');
+        return s && s !== 'none' ? s : undefined;
+      })(),
+      refutationOverlap: (() => {
+        const s = field(b, 'refutation_overlap');
+        const n = s && s !== 'none' ? Number(s) : NaN;
+        return Number.isFinite(n) ? n : undefined;
       })(),
     });
   }

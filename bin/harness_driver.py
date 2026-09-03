@@ -207,7 +207,7 @@ class TesseraeFindings(FindingsSource):
 # ── PatchProposer ─────────────────────────────────────────────────────────────
 PROPOSAL_INSTRUCTIONS = """You are improving the GRD harness from session evidence.
 Read evidence.md. Propose ONE focused patch to this repository's primitives
-(commands/*.md, agents/*.md, skill markdown, .planning/config.json, lib/**.ts).
+(commands/*.md, agents/*.md, references/*.md, .planning/config.json, lib/**.ts).
 Write patch.json (and nothing else) in the current directory:
 {"summary": "<one line>", "confidence": <0..1>,
  "entries": [{"path": "<repo-relative>", "kind": "markdown|config|code",
