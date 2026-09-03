@@ -133,26 +133,37 @@ function buildLearnPrompt(
 }
 
 /**
- * SEED clarification prompt (Phase 103). Asks the hypothesizer to surface ONLY genuinely
- * ambiguous, high-impact dimensions that block a falsifiable metric target (what is measured,
- * baseline/target, conditions). An already-unambiguous question MUST yield an empty dimensions
- * array (zero-pause path). Output is a single __CLARIFY__ block parsed by parseClarifyOutput.
+ * SEED clarification prompt (Phase 103). Asks the hypothesizer to emit the dimensions still
+ * missing from the falsifiable-metric-target triple (metric, comparator, target threshold) —
+ * the same structural stop condition commands/research.md states for the human interview.
+ * A question that already names all three yields an empty dimensions array. Most
+ * naturally-phrased questions name none of them, so a non-empty frontier is the
+ * normal result — it only pauses anyone when `research_gates.interactive.enabled`
+ * is true; unattended, `interactive.fallback` answers it and the loop never stops.
+ * Output is a single __CLARIFY__ block parsed by parseClarifyOutput.
  */
 function buildClarifyPrompt(thread: { id: string; question: string }): string {
   return [
-    'You are grd-hypothesizer in SEED-clarify mode. Before any hypothesis is formed, decide',
-    'whether this research question is precise enough to become a FALSIFIABLE experiment with a',
-    'concrete metric target — or whether it is genuinely ambiguous in a way that would change the',
-    'experiment design.',
+    'You are grd-hypothesizer in SEED-clarify mode. Before any hypothesis is formed, report which',
+    'parts of the FALSIFIABLE METRIC TARGET this research question is still missing.',
     '',
     `Research question: ${thread.question}`,
     '',
-    'Identify ONLY genuinely ambiguous, high-impact dimensions that block a falsifiable metric',
-    'target: what exactly is measured, the baseline and target threshold, and the conditions/',
-    'dataset. Prefer multiple-choice options with exactly ONE marked recommended. Do NOT invent',
-    'ambiguity: if the question is already precise enough to design an experiment, emit an EMPTY',
-    'dimensions array — that is the expected, common case.',
+    'The frontier is empty when, and only when, the question already names all three:',
+    '  1. a single numeric METRIC (what exactly is measured, on what dataset/conditions)',
+    '  2. a COMPARATOR from the enum: >=, <=, >, <, ==',
+    '  3. a concrete numeric TARGET THRESHOLD, against a named baseline where one is needed',
     '',
+    'Emit one dimension per element of that triple the question does not yet name. When all three',
+    'are named, the dimensions array is empty and the loop proceeds.',
+    '',
+    'Drop a dimension ONLY when the question already names that element. If the question is',
+    'missing it but .planning/ or the codebase settles it, look it up and still emit the',
+    'dimension, with the value you found as the single recommended option — that is how the',
+    'fact reaches the refined question, and it costs an attended human one confirmation',
+    'instead of an interrogation. Dropping it silently leaves the question incomplete.',
+    '',
+    'Prefer multiple-choice options with exactly ONE marked recommended.',
     'Cap: at most 4 dimensions. Each dimension needs at least one option.',
     '',
     'Emit exactly one final block (no prose after it):',

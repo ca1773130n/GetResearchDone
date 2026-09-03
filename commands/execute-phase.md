@@ -971,6 +971,31 @@ Also: `/grd:verify-work {X}` — manual testing first
 Gap closure cycle: `/grd:plan-phase {X} --gaps` reads VERIFICATION.md -> creates gap plans with `gap_closure: true` -> user runs `/grd:execute-phase {X} --gaps-only` -> verifier re-runs.
 </step>
 
+<step name="promote_falsified_dead_end">
+**Register a falsified phase hypothesis as a dead end (non-blocking):**
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js" dead-end promote-from-phase --phase "${PHASE_NUMBER}"
+```
+
+Report the result and continue regardless of outcome:
+
+- `skipped: true` — nothing to promote; state the returned `reason` (a `confirmed`,
+  `partial` or `unknown` verdict is the common case and is not an error).
+- `config_error` present — read this FIRST, whatever else the result says. The gate is
+  off because `.planning/config.json` could not be read or parsed, not because anyone
+  chose false. Surface the message verbatim; do not report it as a normal dry run.
+- `dry_run: true` with no `config_error` — `research_gates.auto_promote_falsified` is
+  unset or false, so **nothing was written**. Show the returned `preview` and tell the
+  user that setting that key in `.planning/config.json` makes the promotion real.
+- `dry_run: false` — the entry was written; report `action` (`created` / `updated`)
+  and `slug`.
+
+A DEAD-ENDS entry is permanent and scores any future candidate plan citing its slug at
+`-Infinity` (`lib/commands/select-candidate.ts`). That is why the write is off by default.
+Safe to run twice: the slug upsert is idempotent.
+</step>
+
 <step name="update_roadmap">
 Mark phase complete in ROADMAP.md (date, status).
 

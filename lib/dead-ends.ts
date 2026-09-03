@@ -7,8 +7,8 @@
  * dead_ends_md) shipped in PR #35; this module adds the writer so
  * falsified approaches can be recorded canonically. Slug is the dedup
  * key — repeated registrations of the same approach append phase /
- * evidence and flip status from active -> reopened rather than
- * creating duplicate entries.
+ * evidence and flip status from active -> reopened rather than creating
+ * duplicate entries.
  *
  * Schema is documented in agents/grd-planner.md <dead_ends>.
  */
@@ -339,6 +339,63 @@ interface UpsertResult {
   slug: string;
 }
 
+export interface PromoteFromPhaseResult {
+  /** True when nothing was promotable; `reason` says why. */
+  skipped: boolean;
+  reason?: string;
+  /** Set unless skipped: `created` on a new slug, `updated` on the idempotent re-run. */
+  action?: 'created' | 'updated';
+  slug?: string;
+  /** True when the entry was previewed only — `.planning/DEAD-ENDS.md` is untouched. */
+  dry_run?: boolean;
+  /** The entry that would be written, serialized. Dry-run only. */
+  preview?: string;
+  /** Set when config.json existed but could not be read or parsed — the gate is off
+   *  for a reason the user did not choose, and the CLI surfaces it. */
+  config_error?: string;
+  phase?: string;
+  total_entries?: number;
+  path?: string;
+}
+
+/**
+ * `.planning/config.json` → `research_gates.auto_promote_falsified`, default false.
+ *
+ * Read directly rather than through `loadConfig`: `GrdConfig` does not declare
+ * `research_gates`, and widening the shared config type for one boolean is a
+ * larger blast radius than a local read.
+ */
+function _autoPromoteEnabled(cwd: string): { enabled: boolean; configError?: string } {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(path.join(cwd, '.planning', 'config.json'), 'utf-8');
+  } catch (err) {
+    // No config at all is a legitimate "gate off". Anything else — unreadable file,
+    // bad permissions — must not masquerade as a deliberate `false`.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { enabled: false };
+    return { enabled: false, configError: `Cannot read .planning/config.json (${code})` };
+  }
+  try {
+    const parsed = JSON.parse(raw) as { research_gates?: Record<string, unknown> };
+    const v = parsed.research_gates?.auto_promote_falsified;
+    // A present-but-not-boolean value is a typo, not a decision. `"true"` reading as
+    // off is the silent-misconfiguration case this whole gate exists to avoid.
+    if (v !== undefined && typeof v !== 'boolean') {
+      return {
+        enabled: false,
+        configError: `research_gates.auto_promote_falsified is ${JSON.stringify(v)} (${typeof v}), not a boolean — the gate reads as off`,
+      };
+    }
+    return { enabled: v === true };
+  } catch (err) {
+    return {
+      enabled: false,
+      configError: `.planning/config.json is not valid JSON (${(err as Error).message}) — the gate reads as off, which may not be what you set`,
+    };
+  }
+}
+
 /**
  * Pure helper: given an existing entry list and add opts, produce the
  * new list and metadata. Same dedup contract as cmdDeadEndAdd; lifted
@@ -346,7 +403,22 @@ interface UpsertResult {
  * share the same logic without going through the process-exiting
  * `output` helper.
  */
-function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: string): UpsertResult {
+function _upsertEntry(
+  existing: DeadEndEntry[],
+  opts: DeadEndAddOpts,
+  slug: string,
+  /**
+   * When true, re-recording a phase the entry already lists does not flip
+   * `active` -> `reopened`. Other fields still merge as usual, so a
+   * VERIFICATION.md regenerated with new evidence does change the file — this
+   * suppresses the status churn, not every write. Only `promoteFalsifiedFromPhase`
+   * passes it: execute-phase and
+   * verify-phase both promote the same VERIFICATION.md, so a same-phase repeat is
+   * routine there and must not mutate the row. `addDeadEnd`'s public contract is
+   * unchanged — a manual re-add still flips `active` -> `reopened`.
+   */
+  idempotentSamePhase = false,
+): UpsertResult {
   const verdict = opts.verdict ?? 'falsified';
   const evidenceList = opts.evidence ?? [];
   const idx = existing.findIndex((e) => e.slug === slug);
@@ -365,9 +437,10 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
     return { entries: existing, action: 'created', slug };
   }
   const e = existing[idx];
-  if (!e.tried_in_phases.includes(opts.phase)) e.tried_in_phases.push(opts.phase);
+  const isNewPhase = !e.tried_in_phases.includes(opts.phase);
+  if (isNewPhase) e.tried_in_phases.push(opts.phase);
   for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
-  if (e.status === 'active') e.status = 'reopened';
+  if ((isNewPhase || !idempotentSamePhase) && e.status === 'active') e.status = 'reopened';
   if (opts.notes) e.notes = opts.notes;
   return { entries: existing, action: 'updated', slug };
 }
@@ -378,8 +451,13 @@ function _upsertEntry(existing: DeadEndEntry[], opts: DeadEndAddOpts, slug: stri
  * Dedup: slug is generated from the approach via generateSlugInternal.
  * Same slug as an existing entry means the same dead end — phase is
  * appended to `tried_in_phases` (if not already present), evidence is
- * appended (if not already present), status flips from `active` to
- * `reopened`, and notes overwrite when provided.
+ * appended (if not already present), and notes overwrite when provided.
+ *
+ * Status flips from `active` to `reopened` on any re-registration, including the
+ * same phase — a human re-running `dead-end add` for an approach already recorded
+ * is signalling a re-encounter. `promoteFalsifiedFromPhase` opts out of that via
+ * `_upsertEntry`'s `idempotentSamePhase`, because its two call sites promote the
+ * same VERIFICATION.md by design and must not mutate the row on the second pass.
  */
 /**
  * Programmatic add/update of a `.planning/DEAD-ENDS.md` entry. Throws on invalid
@@ -433,16 +511,19 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
  * thanks to the slug dedup contract — calling this repeatedly on the same
  * phase converges to the same registry state.
  *
- * Non-falsified verdicts (confirmed, partial, unknown) emit
+ * Non-falsified verdicts (confirmed, partial, unknown) return
  * `{ skipped: true, reason }` so the caller can surface why.
+ *
+ * Writes only when `research_gates.auto_promote_falsified` is true. Unset or
+ * false it returns `dry_run: true` with the entry it would have written in
+ * `preview`, and leaves `.planning/DEAD-ENDS.md` byte-identical.
+ *
+ * Pure with respect to process control flow: it never calls `output`/`error`,
+ * so the phase-boundary callers can invoke it without exiting the process.
  */
-function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): void {
-  if (!phase) error('phase required');
+function promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhaseResult {
   const phaseInfo = findPhaseInternal(cwd, phase);
-  if (!phaseInfo || !phaseInfo.found) {
-    output({ skipped: true, reason: 'Phase not found', phase }, raw);
-    return;
-  }
+  if (!phaseInfo || !phaseInfo.found) return { skipped: true, reason: 'Phase not found', phase };
 
   // Find {phase}-VERIFICATION.md in the phase directory
   const phaseDir = path.join(cwd, phaseInfo.directory);
@@ -450,47 +531,27 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
   try {
     files = fs.readdirSync(phaseDir);
   } catch {
-    output({ skipped: true, reason: 'Cannot read phase directory', phase }, raw);
-    return;
+    return { skipped: true, reason: 'Cannot read phase directory', phase };
   }
   const verFile = files.find((f) => /-VERIFICATION\.md$/i.test(f) || f === 'VERIFICATION.md');
-  if (!verFile) {
-    output(
-      { skipped: true, reason: 'No VERIFICATION.md in phase directory', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
-  }
+  const at = { phase: phaseInfo.phase_number };
+  if (!verFile) return { skipped: true, reason: 'No VERIFICATION.md in phase directory', ...at };
 
   const verContent = fs.readFileSync(path.join(phaseDir, verFile), 'utf-8');
   const reflection = parseReflectionSection(verContent);
   if (!reflection) {
-    output(
-      { skipped: true, reason: 'No ## Reflection section parseable in VERIFICATION.md', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
+    return { skipped: true, reason: 'No ## Reflection section parseable in VERIFICATION.md', ...at };
   }
   if (reflection.verdict !== 'falsified') {
-    output(
-      {
-        skipped: true,
-        reason: `verdict is "${reflection.verdict}" — only falsified is auto-promoted`,
-        phase: phaseInfo.phase_number,
-      },
-      raw
-    );
-    return;
+    return {
+      skipped: true,
+      reason: `verdict is "${reflection.verdict}" — only falsified is auto-promoted`,
+      ...at,
+    };
   }
 
   const slug: string | null = generateSlugInternal(reflection.hypothesis);
-  if (!slug) {
-    output(
-      { skipped: true, reason: 'Could not derive slug from hypothesis', phase: phaseInfo.phase_number },
-      raw
-    );
-    return;
-  }
+  if (!slug) return { skipped: true, reason: 'Could not derive slug from hypothesis', ...at };
 
   const planningDir = path.join(cwd, '.planning');
   const filePath = path.join(planningDir, 'DEAD-ENDS.md');
@@ -508,23 +569,42 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
       evidence: reflection.evidence,
       notes: reflection.actual_outcome || undefined,
     },
-    slug
+    slug,
+    true
   );
+
+  // The consequence of a DEAD-ENDS row is `-Infinity` in select-candidate, which is
+  // permanent and has no warning tier. Writing without the key set previews instead.
+  const gate = _autoPromoteEnabled(cwd);
+  const entry = existing.find((e) => e.slug === slug);
+  if (!gate.enabled) {
+    return {
+      skipped: false, dry_run: true, action, slug, ...at,
+      total_entries: existing.length,
+      path: path.relative(cwd, filePath),
+      preview: entry ? _serializeEntry(entry) : undefined,
+      ...(gate.configError ? { config_error: gate.configError } : {}),
+    };
+  }
 
   fs.mkdirSync(planningDir, { recursive: true });
   atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
 
-  output(
-    {
-      action,
-      slug,
-      total_entries: existing.length,
-      phase: phaseInfo.phase_number,
-      path: path.relative(cwd, filePath),
-    },
-    raw,
-    `${action}: ${slug}`
-  );
+  return {
+    skipped: false, dry_run: false, action, slug, ...at,
+    total_entries: existing.length,
+    path: path.relative(cwd, filePath),
+  };
+}
+
+/** Thin CLI formatter over `promoteFalsifiedFromPhase`. */
+function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): void {
+  if (!phase) error('phase required');
+  const r = promoteFalsifiedFromPhase(cwd, phase);
+  const rawValue = r.skipped
+    ? `skipped: ${r.reason}`
+    : `${r.dry_run ? 'would-' : ''}${r.action}: ${r.slug}${r.config_error ? ` (${r.config_error})` : ''}`;
+  output(r, raw, rawValue);
 }
 
 module.exports = {
@@ -533,5 +613,6 @@ module.exports = {
   parseReflectionSection,
   addDeadEnd,
   cmdDeadEndAdd,
+  promoteFalsifiedFromPhase,
   cmdDeadEndPromoteFromPhase,
 };

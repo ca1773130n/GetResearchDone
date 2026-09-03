@@ -2646,7 +2646,10 @@ describe('dead-end promote-from-phase arg parsing', () => {
     // Pre-fix the dispatcher passed "--phase" as the phase arg, so
     // findPhaseInternal returned null and the command emitted
     // { skipped: true, reason: 'Phase not found' }.
-    expect(result.skipped).toBeUndefined();
+    expect(result.skipped).toBe(false);
+    // No config.json in the fixture, so research_gates.auto_promote_falsified
+    // is unset and the promotion previews rather than writing (W1).
+    expect(result.dry_run).toBe(true);
     expect(result.action).toBe('created');
     expect(result.slug).toMatch(/approach-for-codex-regression/);
   });

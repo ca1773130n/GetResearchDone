@@ -111,7 +111,11 @@ failed, why, with pointers to the phase / commit / verification artifact:
 
 Two write paths: `gd-tools dead-end add` (manual) and
 `gd-tools dead-end promote-from-phase N` (auto-promote every falsified
-reflection in phase N's VERIFICATION.md). The planner, before composing a
+reflection in phase N's VERIFICATION.md). The second runs automatically at
+the phase boundary — `execute-phase` and `verify-phase` both invoke it — but
+writes only when `research_gates.auto_promote_falsified` is true. Unset, it
+prints the entry it would write and leaves DEAD-ENDS.md untouched, because a
+dead-end slug scores a matching candidate plan at `-Infinity` permanently. The planner, before composing a
 new plan, reads DEAD-ENDS.md and is instructed to refuse to re-propose any
 matching approach, citing the dead-end slug in its plan rationale.
 
@@ -206,7 +210,7 @@ The four primitives are wired into the per-phase autopilot loop:
 │      e. Repeat until convergence or max iterations            │
 │                                                               │
 │   7. Auto-promote falsified reflections to DEAD-ENDS.md       │
-│      (manual via `gd dead-end promote-from-phase N`)          │
+│      (gated: research_gates.auto_promote_falsified)           │
 │                                                               │
 │   8. Append snapshot to GENOME.md if evolve.auto_genome_      │
 │      snapshot=true (lib/evolve/orchestrator.ts).              │
