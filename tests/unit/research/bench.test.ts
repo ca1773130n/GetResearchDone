@@ -94,7 +94,7 @@ function makeSpawn(metric: { key: string; comparator: string; target: number }):
   return async (_prompt: string, agentType: string): Promise<string> => {
     if (agentType === 'grd-hypothesizer') {
       n++;
-      return `__HYPOTHESIS__ {"statement":"hypothesis ${n}","rationale":"r","predictedOutcome":"p"}`;
+      return `__HYPOTHESIS__ {"statement":"hypothesis ${n}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
     }
     if (agentType === 'grd-experiment-runner') {
       return `__PLAN__ {"procedure":"p","metricKey":"${metric.key}","comparator":"${metric.comparator}",`

@@ -65,7 +65,7 @@ function makeSpawn() {
   return async (_prompt: string, agentType: string): Promise<string> => {
     if (agentType === 'grd-hypothesizer') {
       hypoCalls++;
-      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p"}`;
+      return `__HYPOTHESIS__ {"statement":"hypothesis ${hypoCalls}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}`;
     }
     if (agentType === 'grd-experiment-runner') {
       return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';

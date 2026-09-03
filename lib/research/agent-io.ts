@@ -29,15 +29,110 @@ function extractTaggedJson<T>(stdout: string, tag: string): T | null {
   return null;
 }
 
+/**
+ * Stopwords dropped before measuring the advisory refutation overlap. Deliberately a local
+ * copy: the sibling list at lib/commands/select-candidate.ts is module-private and carries
+ * plan-vocabulary terms ('phase', 'roadmap', 'summary') that mean nothing to a hypothesis.
+ */
+const OVERLAP_STOP: ReadonlySet<string> = new Set([
+  'the', 'and', 'for', 'with', 'from', 'into', 'over', 'this', 'that', 'then', 'than',
+  'are', 'was', 'were', 'has', 'have', 'had', 'will', 'would', 'should', 'not', 'but',
+]);
+
+/** Content tokens (>=3 chars, stopwords dropped) — the unit the advisory overlap is measured in. */
+function _overlapTokens(text: string): Set<string> {
+  const set = new Set<string>();
+  const matches = text.toLowerCase().match(/[a-z0-9][a-z0-9_-]{2,}/g);
+  if (!matches) return set;
+  for (const t of matches) if (!OVERLAP_STOP.has(t)) set.add(t);
+  return set;
+}
+
+/**
+ * ADVISORY token-Jaccard overlap between a hypothesis statement and its refutationCondition.
+ * Computed for the audit trail and returned beside the candidate; NOTHING branches on it, by
+ * design. The mandated template ("If X is the cause, then changing Y makes the effect
+ * disappear / changing Z makes it worse") reuses most of the statement's tokens by
+ * construction, so a near-restatement gate would fire hardest on the BEST-formed answers.
+ * Branch on this only once a threshold has been tuned against data.
+ */
+function _refutationOverlap(statement: string, refutationCondition: string): number {
+  const a = _overlapTokens(statement);
+  const b = _overlapTokens(refutationCondition);
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection++;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * A REQUIRED free-text field, or '' when it is absent, blank, or not a string. Type-guarding
+ * before trimming is load-bearing twice over. `String(o.statement)` on a non-string THREW out of
+ * the parser (`text.toLowerCase is not a function`, raised inside _refutationOverlap); the throw
+ * escaped spawnAndParse — whose parse call sits outside its try — so the retry budget was
+ * bypassed and the whole run died with an uncaught stack trace instead of a clean errExit. And
+ * `String(o.refutationCondition)` quietly minted plausible audit text: an object became the
+ * literal '[object Object]', `["z"]` became 'z', `true` became 'true' — each then admitted as a
+ * valid falsifiability condition and written into the record W2 exists to make trustworthy.
+ * A non-string is a malformed block, so it is rejected, never coerced.
+ */
+function _requiredText(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+/** An OPTIONAL free-text field, verbatim; a non-string degrades to '' rather than coercing. */
+function _optionalText(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+/**
+ * Parse a __HYPOTHESIS__ block. Admission test (W2), applied in addition to the pre-existing
+ * statement requirement: a candidate whose `refutationCondition` is absent or empty is REJECTED
+ * — the block parses to null, which spawnAndParse treats as a parse miss and retries within its
+ * existing budget. The test is STRUCTURAL ONLY: the field is present and non-empty, or it is
+ * not. No similarity threshold, no LLM judge — nothing that puts a model back on the admission
+ * path. `refutationOverlap` rides along as advisory metadata and gates nothing.
+ *
+ * Returning null loses WHICH rule failed; `describeHypothesisRejection` recovers it for the
+ * terminal error message, and is the only thing that should ever re-derive it.
+ */
 function parseHypothesisOutput(stdout: string):
-  { statement: string; rationale: string; predictedOutcome: string } | null {
-  const o = extractTaggedJson<Record<string, string>>(stdout, 'HYPOTHESIS');
-  if (!o || !o.statement) return null;
+  { statement: string; rationale: string; predictedOutcome: string;
+    refutationCondition: string; refutationOverlap: number } | null {
+  const o = extractTaggedJson<Record<string, unknown>>(stdout, 'HYPOTHESIS');
+  if (!o) return null;
+  const statement = _requiredText(o.statement);
+  if (!statement) return null;
+  const refutationCondition = _requiredText(o.refutationCondition);
+  if (!refutationCondition) return null;
   return {
-    statement: o.statement,
-    rationale: o.rationale || '',
-    predictedOutcome: o.predictedOutcome || '',
+    statement,
+    rationale: _optionalText(o.rationale),
+    predictedOutcome: _optionalText(o.predictedOutcome),
+    refutationCondition,
+    refutationOverlap: _refutationOverlap(statement, refutationCondition),
   };
+}
+
+/**
+ * Why `parseHypothesisOutput` rejected this stdout, as one operator-facing clause — or null if
+ * it would in fact parse. Called ONLY on the terminal failure path. It exists because the two
+ * rejections are indistinguishable from a null return, and the generic "expected a
+ * __HYPOTHESIS__ block" wording actively misleads on the commoner of the two: it prints, as its
+ * own excerpt, the well-formed block it claims is absent. Kept in lockstep with the rules above.
+ */
+function describeHypothesisRejection(stdout: string): string | null {
+  const o = extractTaggedJson<Record<string, unknown>>(stdout, 'HYPOTHESIS');
+  if (!o) return 'no __HYPOTHESIS__ block, or the block is not valid JSON';
+  if (!_requiredText(o.statement)) {
+    return 'the __HYPOTHESIS__ block has no non-empty string `statement`';
+  }
+  if (!_requiredText(o.refutationCondition)) {
+    return 'the __HYPOTHESIS__ block is missing a non-empty string `refutationCondition` '
+      + '(the W2 falsifiability admission test — state the observation that would show the '
+      + 'hypothesis false)';
+  }
+  return null;
 }
 
 /**
@@ -47,26 +142,44 @@ function parseHypothesisOutput(stdout: string):
  * throws (the caller degrades to the single-block cold path). Candidates are kept in emit (rank)
  * order; entries with no statement are dropped; rationale/predictedOutcome default to '' but do
  * not drop the entry. The array is capped to `n` (default 5 = config clamp max), order preserved.
+ *
+ * W2 admission test: an entry whose `refutationCondition` is absent or empty is ALSO dropped —
+ * structurally, on presence alone. When that empties the array the caller degrades exactly as it
+ * already does for a missing block. `sourceNodeIds` is deliberately NOT read here: grounding
+ * retrieval degrades silently upstream, so a provenance requirement would reject candidates on
+ * precisely the path where provenance is unavailable.
+ *
+ * `droppedForRefutation` counts the entries the admission test removed, and is REPORTED, not
+ * merely returned: dropping below the caller's >=2 threshold silently converts a configured
+ * human-in-the-loop selection into an unattended auto-pick — no checkpoint, no record of the
+ * candidates the operator never saw. The count is what lets the orchestrator say so.
  */
 function parseHypothesesOutput(stdout: string, n?: number):
-  { candidates: Array<{ statement: string; rationale: string; predictedOutcome: string }> } {
+  { candidates: Array<{ statement: string; rationale: string; predictedOutcome: string;
+    refutationCondition: string; refutationOverlap: number }>; droppedForRefutation: number } {
   const cap = typeof n === 'number' && n > 0 ? n : 5;
   const o = extractTaggedJson<Record<string, unknown>>(stdout, 'HYPOTHESES');
-  if (!o || !Array.isArray(o.candidates)) return { candidates: [] };
-  const candidates: Array<{ statement: string; rationale: string; predictedOutcome: string }> = [];
+  if (!o || !Array.isArray(o.candidates)) return { candidates: [], droppedForRefutation: 0 };
+  const candidates: Array<{ statement: string; rationale: string; predictedOutcome: string;
+    refutationCondition: string; refutationOverlap: number }> = [];
+  let droppedForRefutation = 0;
   for (const rawCand of o.candidates as unknown[]) {
     if (candidates.length >= cap) break;
     if (!rawCand || typeof rawCand !== 'object') continue;
     const c = rawCand as Record<string, unknown>;
-    const statement = String(c.statement || '').trim();
+    const statement = _requiredText(c.statement);
     if (!statement) continue;
+    const refutationCondition = _requiredText(c.refutationCondition);
+    if (!refutationCondition) { droppedForRefutation++; continue; } // W2 admission — presence only
     candidates.push({
       statement,
-      rationale: String(c.rationale || ''),
-      predictedOutcome: String(c.predictedOutcome || ''),
+      rationale: _optionalText(c.rationale),
+      predictedOutcome: _optionalText(c.predictedOutcome),
+      refutationCondition,
+      refutationOverlap: _refutationOverlap(statement, refutationCondition),
     });
   }
-  return { candidates };
+  return { candidates, droppedForRefutation };
 }
 
 function parsePlanOutput(stdout: string):
@@ -146,4 +259,7 @@ function parseClarifyOutput(stdout: string): { dimensions: ClarifyDimension[] } 
   return { dimensions };
 }
 
-module.exports = { extractTaggedJson, parseHypothesisOutput, parseHypothesesOutput, parsePlanOutput, parseTakeawayOutput, parseClarifyOutput };
+module.exports = {
+  extractTaggedJson, parseHypothesisOutput, describeHypothesisRejection, parseHypothesesOutput,
+  parsePlanOutput, parseTakeawayOutput, parseClarifyOutput,
+};
