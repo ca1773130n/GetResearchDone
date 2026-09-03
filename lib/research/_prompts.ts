@@ -136,7 +136,10 @@ function buildLearnPrompt(
  * SEED clarification prompt (Phase 103). Asks the hypothesizer to emit the dimensions still
  * missing from the falsifiable-metric-target triple (metric, comparator, target threshold) —
  * the same structural stop condition commands/research.md states for the human interview.
- * A question that already names the triple yields an empty dimensions array (zero-pause path).
+ * A question that already names all three yields an empty dimensions array. Most
+ * naturally-phrased questions name none of them, so a non-empty frontier is the
+ * normal result — it only pauses anyone when `research_gates.interactive.enabled`
+ * is true; unattended, `interactive.fallback` answers it and the loop never stops.
  * Output is a single __CLARIFY__ block parsed by parseClarifyOutput.
  */
 function buildClarifyPrompt(thread: { id: string; question: string }): string {

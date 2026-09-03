@@ -37,7 +37,9 @@ Read review context from your prompt:
 - **Plan file(s):** The PLAN.md(s) being reviewed
 - **Summary file(s):** The SUMMARY.md(s) produced by execution
 - **Phase directory:** Location of phase artifacts
-- **Review scope:** `per_wave` (specific wave) or `per_phase` (all plans)
+- **Plan ids:** your prompt lists them as `Plans reviewed:` (one wave) or `Plans:` (a whole
+  phase). Either line is the review scope — there is no separate scope flag to read, and a
+  wave number is not something the shell below can see.
 
 Load supporting context:
 
@@ -47,75 +49,78 @@ cat ${research_dir}/LANDSCAPE.md 2>/dev/null
 cat ${research_dir}/PAPERS.md 2>/dev/null
 cat ${research_dir}/KNOWHOW.md 2>/dev/null
 
-# Phase context (user decisions)
-cat ${PHASE_DIR}/*-CONTEXT.md 2>/dev/null
-
-# Phase eval plan (if exists)
-ls ${PHASE_DIR}/*-EVAL.md 2>/dev/null
+# Phase context + eval plan. `find`, not a glob: zsh aborts a command whose glob matches
+# nothing and prints its own error first, which `2>/dev/null` cannot suppress.
+find "${PHASE_DIR:-.}" -maxdepth 1 -name '*-CONTEXT.md' -exec cat {} + 2>/dev/null
+find "${PHASE_DIR:-.}" -maxdepth 1 -name '*-EVAL.md' 2>/dev/null
 ```
 
 **Resolve the review scope.** No file list is passed to you — derive it here. Substitute
-`${PHASE_NUMBER}` with the phase number and `${PLAN_IDS}` with the plan ids in scope, both
-from your prompt: for `per_wave` that is `PLAN_IDS_IN_WAVE`, for `per_phase` `ALL_PLAN_IDS`.
+`${PHASE_NUMBER}` with the phase number and `${PLAN_IDS}` with the plan ids from your
+prompt (the `Plans reviewed:` / `Plans:` line) before running the block.
 
 **Plan ids already carry the phase prefix** — `phase-plan-index` emits `103-01`, not `01`.
-Do not build `"(${PHASE_NUMBER}-${P})"`; that yields `(103-103-01)`, matches nothing, and
-drops you into the uncommitted-work fallback while looking like a clean run.
+Do not build `"(${PHASE_NUMBER}-${P})"`; that yields `(103-103-01)` and matches nothing.
+
+There is no working-tree fallback. A scope that resolves to no commit is an executor or a
+spawn bug, and the block below stops there — greping whatever is dirty in the checkout
+instead produces findings from unrelated work under this phase's name.
 
 ```bash
+# Fail closed. An unresolvable scope is a spawn bug; reviewing whatever happens to be
+# lying around instead is how a review reports a clean pass over work it never read.
+COMMON=$(git rev-parse --path-format=absolute --git-common-dir) \
+  || { echo "FATAL: not a git repository — cannot resolve a review scope"; exit 1; }
+printf '%s' "$PLAN_IDS" | tr -d ' \t\n,' | grep -q . \
+  || { echo "FATAL: PLAN_IDS is empty — the spawn prompt did not substitute it"; exit 1; }
+
+# Key the scope dir by REPOSITORY and by the PLAN IDS. --git-common-dir is identical in
+# every worktree of a repo (--show-toplevel is not), and the ids distinguish a per-wave
+# review from a per-phase one — a `${WAVE}` key cannot, because ${WAVE} is interpolated
+# into the spawn PROSE and never becomes a shell variable, so both reviews would land on
+# one directory that this block rm -rf's. cksum, not shasum: POSIX, always present.
+KEY=$(printf '%s|%s' "$COMMON" "$PLAN_IDS" | cksum | cut -d' ' -f1)
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-$KEY"
+BUILD="$SCOPE_DIR.build.$$"; rm -rf "$BUILD"; mkdir -p "$BUILD"
+
 # Executor commits are scoped "{type}({phase}-{plan}): ..." (agents/grd-executor.md).
-# --all: under worktree isolation the wave's commits sit on an unmerged branch, and a
-# per-wave review runs BEFORE the merge step.
-# Select by exact plan id and union the commits' paths — a first..last RANGE would swallow
-# earlier waves and any unrelated commit interleaved between them.
+# --all: under worktree isolation the wave's commits sit on an unmerged branch and a
+# per-wave review runs BEFORE the merge step. Match "($P):" WITH the colon, so a commit
+# that only mentions the id in its body is not pulled in. -F: the parens would otherwise
+# be read as a BRE group. Select by exact id and union the commits — a first..last RANGE
+# would swallow earlier waves and anything interleaved between them.
+# `tr`, not `for P in ${PLAN_IDS}`: zsh does not word-split an unquoted parameter, so
+# that iterates once over the whole string and matches nothing.
+printf '%s\n' "$PLAN_IDS" | tr ' \t,' '\n\n\n' | while IFS= read -r P; do
+  [ -n "$P" ] || continue
+  case "$P" in "${PHASE_NUMBER}-"[0-9]*) ;;
+    *) echo "WARNING: plan id '$P' is not ${PHASE_NUMBER}-NN" >&2 ;; esac
+  git log --all --format="%H $P %s" -F --grep="($P):"
+done | sort -u > "$BUILD/commits"
+cut -d' ' -f1 "$BUILD/commits" | sort -u > "$BUILD/shas"
 
-# Key the scope dir by repository too: two projects reviewing the same phase number share
-# one $TMPDIR, and this directory gets deleted at the end of a review.
-REPO_KEY=$(git rev-parse --show-toplevel | shasum | cut -c1-8)
-SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${REPO_KEY}-${PHASE_NUMBER}-${WAVE:-all}"
-rm -rf "$SCOPE_DIR"; mkdir -p "$SCOPE_DIR"
+# -m --first-parent: a plan integrated by a merge commit has NO paths under git's default
+# combined diff, so that plan's whole diff would silently vanish. --root: a phase's first
+# commit may be the repo's root commit.
+while IFS= read -r C; do
+  git diff-tree -r -m --first-parent --root --no-commit-id --name-only -z "$C"
+done < "$BUILD/shas" | sort -zu > "$BUILD/changed"
 
-# One id per line, then loop. Do NOT write `for P in ${PLAN_IDS}`: zsh does not word-split
-# an unquoted parameter, so that iterates once over the whole string and matches nothing.
-# `tr` also accepts a comma-separated list. -F: the ids contain no regex metacharacters,
-# but the surrounding parens would be read as a BRE group without it.
-printf '%s\n' "$PLAN_IDS" | tr ' ,' '\n\n' | while IFS= read -r P; do
-  case "$P" in
-    "") continue ;;
-    "${PHASE_NUMBER}-"*) ;;
-    *) echo "WARNING: plan id '$P' is not prefixed with phase ${PHASE_NUMBER}" >&2 ;;
-  esac
-  git log --all --format=%H -F --grep="($P)"
-done | sort -u > "$SCOPE_DIR/shas"
+# Publish atomically: a half-built scope dir passes an existence check and reads as empty.
+rm -rf "$SCOPE_DIR"; mv "$BUILD" "$SCOPE_DIR"
 
-if [ -s "$SCOPE_DIR/shas" ]; then
-  # Newest commit in scope. Content checks read blobs from THIS tree, not the working
-  # directory: under worktree isolation the reviewer's checkout does not contain the
-  # wave's files at all, so a working-tree grep silently finds nothing.
-  git rev-list --topo-order --no-walk $(tr '\n' ' ' < "$SCOPE_DIR/shas") | head -1 \
-    > "$SCOPE_DIR/tip"
-  while IFS= read -r c; do git show --name-only -z --format= "$c"; done < "$SCOPE_DIR/shas" \
-    | sort -zu > "$SCOPE_DIR/changed"
-else
-  # No commit carries this scope: uncommitted work, or a worktree with nothing committed.
-  # Never parse `git status --porcelain` by column — a rename prints "old -> new" and a
-  # path containing a space splits. These two plumbing commands emit clean NUL-separated
-  # paths instead.
-  : > "$SCOPE_DIR/tip"
-  { git diff --name-only -z HEAD; git ls-files --others --exclude-standard -z; } \
-    | sort -zu > "$SCOPE_DIR/changed"
-  # Working-tree mode only: drop paths that no longer exist, or grep prints "No such file"
-  # once per deleted path. In commit mode the tree has no deleted paths to begin with.
-  : > "$SCOPE_DIR/files"
-  while IFS= read -r -d "" f; do
-    [ -f "$f" ] && printf '%s\0' "$f" >> "$SCOPE_DIR/files"
-  done < "$SCOPE_DIR/changed"
+if [ ! -s "$SCOPE_DIR/shas" ]; then
+  echo "FATAL: no commit matches (${PLAN_IDS}) — the executor never committed, or the"
+  echo "ids are wrong. Record that as a BLOCKER and run no content checks."
+  exit 1
 fi
-
-printf 'scope: %s\ncommits: %s  tip: %s  changed: %s\n' "$SCOPE_DIR" \
-  "$(grep -c . "$SCOPE_DIR/shas")" "$(cat "$SCOPE_DIR/tip" 2>/dev/null || echo '<worktree>')" \
-  "$(LC_ALL=C tr -cd "\0" < "$SCOPE_DIR/changed" | wc -c | tr -d " ")"
-LC_ALL=C tr "\0" "\n" < "$SCOPE_DIR/changed"
+printf 'scope: %s\ncommits: %s  files: %s\n' "$SCOPE_DIR" \
+  "$(wc -l < "$SCOPE_DIR/shas" | tr -d ' ')" \
+  "$(LC_ALL=C tr -cd '\0' < "$SCOPE_DIR/changed" | wc -c | tr -d ' ')"
+cat "$SCOPE_DIR/commits"
+LC_ALL=C tr '\0' '\n' < "$SCOPE_DIR/changed"
+[ -s "$SCOPE_DIR/changed" ] \
+  || echo "NOTE: these commits touched no files — say so in the report, run no content checks."
 ```
 
 **The scope lives in files, not in shell variables.** Each check below runs as a separate
@@ -126,41 +131,49 @@ every check re-derives `SCOPE_DIR` and reads the files. The canonical form, used
 every content check below with only `<pattern>` swapped:
 
 ```bash
-REPO_KEY=$(git rev-parse --show-toplevel | shasum | cut -c1-8)
-SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${REPO_KEY}-${PHASE_NUMBER}-${WAVE:-all}"
-[ -d "$SCOPE_DIR" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
-
-if [ -s "$SCOPE_DIR/tip" ]; then
-  xargs -0 git grep -n "<pattern>" "$(cat "$SCOPE_DIR/tip")" -- < "$SCOPE_DIR/changed"
-else
-  [ -s "$SCOPE_DIR/files" ] && xargs -0 grep -n "<pattern>" -- < "$SCOPE_DIR/files"
-fi
+KEY=$(printf '%s|%s' "$(git rev-parse --path-format=absolute --git-common-dir)" \
+  "$PLAN_IDS" | cksum | cut -d' ' -f1)
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-$KEY"
+[ -s "$SCOPE_DIR/changed" ] || { echo "REVIEW SCOPE MISSING OR EMPTY — re-run load_context"; exit 1; }
+while IFS= read -r C; do
+  xargs -0 git -c core.quotePath=false --literal-pathspecs grep -n "<pattern>" "$C" -- \
+    < "$SCOPE_DIR/changed"
+done < "$SCOPE_DIR/shas" | cut -c42- | sort -u
 ```
 
-`git grep <tip>` reads blobs from the commit, so the check works whether or not the wave has
-been merged into the reviewer's checkout — and a path the commit deleted simply matches
-nothing, no error, so commit mode needs no existence filter. `git grep` has **no**
-`--pathspec-from-file`; the paths go in argv after `--`, which is what `xargs -0` is doing.
-The `-0` and the `--` are not decoration: without them a path containing a space splits into
-two operands, a path containing `*` or `?` is glob-expanded against the working directory,
-and a path beginning with `-` is read as an option. The `[ -s ]` guard matters too — `xargs`
-with empty input still runs the command once under GNU userland.
+Each piece is load-bearing:
+
+- **One `git grep` per commit in scope, never one "newest" commit.** Under worktree
+  isolation each plan commits on its own branch, so no single tree holds the whole scope:
+  paths from the other branches are absent there and match nothing, silently. Nor can a
+  safe tip be picked — `git rev-list --no-walk` sorts by commit *date* and breaks ties by
+  argument order, so with parallel executors committing in the same second the "newest"
+  commit is whichever has the smallest SHA.
+- **`git grep <sha>` reads blobs from the commit**, so a check works before the wave is
+  merged into the reviewer's checkout, and still covers a file the scope added and later
+  deleted. A path absent from a given commit matches nothing, no error.
+- **`--literal-pathspecs`.** git applies wildmatch to pathspecs, so a committed path
+  containing `*`, `?` or `[` glob-matches sibling files *inside the tree* and reports them
+  as this phase's findings. `xargs -0` and `--` do not stop that; they only stop the shell
+  splitting a path with a space and grep reading a leading `-` as an option.
+- **`-c core.quotePath=false`** prints a non-ASCII path as itself, not octal escapes no one
+  can paste back. (A path containing a newline stays C-quoted — unavoidable here.)
+- **`cut -c42- | sort -u`** drops the SHA `git grep` prefixes and reports a path touched by
+  several commits in scope once; where a later commit in scope replaced a line, both show.
+- **`xargs -0` reading `changed`**: `git grep` has no `--pathspec-from-file`.
 
 Never redirect these checks' stderr to `/dev/null`. A malformed invocation fails loudly on
-stderr and produces no hits; silenced, it is indistinguishable from a clean pass.
+stderr and produces no hits; silenced, it is indistinguishable from a clean pass. A check
+that prints nothing and exits 0 is a clean pass — the only non-zero exit is the guard.
 
-`xargs -0` and the `--` terminator are not decoration: without them a path containing a
-space splits into two operands, a path containing `*` or `?` is glob-expanded against the
-working directory, and a path beginning with `-` is read as a grep option.
+When the review is written, delete the scope directory (its own Bash call, so it has to
+re-derive the path — `rm -rf "$SCOPE_DIR"` alone would expand to `rm -rf ""`):
 
-**If `$SCOPE_DIR/changed` is empty, stop.** Write `Review scope: EMPTY — no files resolved
-for phase ${PHASE_NUMBER}` into the report and run no file checks, rather than reporting
-findings from files this phase never touched.
-
-**If `changed` is non-empty but `files` is empty,** this scope deleted every file it
-touched. Say so, skip the content checks, and still run the deviation check in 2.4.
-
-**Delete `$SCOPE_DIR` when the review is written** (`rm -rf "$SCOPE_DIR"`).
+```bash
+KEY=$(printf '%s|%s' "$(git rev-parse --path-format=absolute --git-common-dir)" \
+  "$PLAN_IDS" | cksum | cut -d' ' -f1)
+rm -rf "${TMPDIR:-/tmp}/grd-review-$KEY"
+```
 </step>
 
 <step name="artifact_exclusions" priority="high">
@@ -188,11 +201,10 @@ For each plan in scope:
 - **Exclude post-review artifacts:** Do NOT flag VERIFICATION.md, EVAL-RESULTS.md, or REVIEW.md files as missing. These are created by workflow steps that run after code review.
 - Check: deviations documented in SUMMARY.md match actual git diff
 
-```bash
-# Commits for one plan. ${PLAN_ID} from your prompt already includes the phase prefix
-# (e.g. 103-01), so do not prepend ${PHASE_NUMBER} again. -F: treat it as a literal.
-git log --oneline --all -F --grep="(${PLAN_ID})"
-```
+The per-plan commit list is already resolved: `load_context` printed `$SCOPE_DIR/commits`,
+one `<sha> <plan-id> <subject>` line per commit. Use it rather than re-querying git — a
+second `--grep` here that leaves `${PLAN_ID}` unsubstituted matches nothing, exits 0, and
+reads as "this plan has no commits", i.e. a fabricated BLOCKER.
 
 **BLOCKER:** Plan task not executed and not documented as deviation.
 **WARNING:** Task executed but significantly different from plan description.
@@ -206,14 +218,14 @@ If LANDSCAPE.md or PAPERS.md reference specific methods used by the plan:
 - Check that referenced paper's approach is faithfully reproduced (not just superficially named)
 
 ```bash
-REPO_KEY=$(git rev-parse --show-toplevel | shasum | cut -c1-8)
-SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${REPO_KEY}-${PHASE_NUMBER}-${WAVE:-all}"
-[ -d "$SCOPE_DIR" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
-if [ -s "$SCOPE_DIR/tip" ]; then
-  xargs -0 git grep -n "paper\|arxiv\|reference\|based on\|inspired by" "$(cat "$SCOPE_DIR/tip")" -- < "$SCOPE_DIR/changed"
-else
-  [ -s "$SCOPE_DIR/files" ] && xargs -0 grep -n "paper\|arxiv\|reference\|based on\|inspired by" -- < "$SCOPE_DIR/files"
-fi
+KEY=$(printf '%s|%s' "$(git rev-parse --path-format=absolute --git-common-dir)" \
+  "$PLAN_IDS" | cksum | cut -d' ' -f1)
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-$KEY"
+[ -s "$SCOPE_DIR/changed" ] || { echo "REVIEW SCOPE MISSING OR EMPTY — re-run load_context"; exit 1; }
+while IFS= read -r C; do
+  xargs -0 git -c core.quotePath=false --literal-pathspecs \
+    grep -n "paper\|arxiv\|reference\|based on\|inspired by" "$C" -- < "$SCOPE_DIR/changed"
+done < "$SCOPE_DIR/shas" | cut -c42- | sort -u
 ```
 
 **BLOCKER:** Implementation contradicts referenced paper's core method.
@@ -280,18 +292,19 @@ For experimental/research code:
 - Checkpoint saving implemented (for long-running experiments)
 
 ```bash
-REPO_KEY=$(git rev-parse --show-toplevel | shasum | cut -c1-8)
-SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${REPO_KEY}-${PHASE_NUMBER}-${WAVE:-all}"
-[ -d "$SCOPE_DIR" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
-if [ -s "$SCOPE_DIR/tip" ]; then
-  xargs -0 git grep -n "seed\|random_state\|manual_seed\|set_seed" "$(cat "$SCOPE_DIR/tip")" -- < "$SCOPE_DIR/changed"
-else
-  [ -s "$SCOPE_DIR/files" ] && xargs -0 grep -n "seed\|random_state\|manual_seed\|set_seed" -- < "$SCOPE_DIR/files"
-fi
-
-# Check for config files
-ls configs/ *.yaml *.json 2>/dev/null | head -20
+KEY=$(printf '%s|%s' "$(git rev-parse --path-format=absolute --git-common-dir)" \
+  "$PLAN_IDS" | cksum | cut -d' ' -f1)
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-$KEY"
+[ -s "$SCOPE_DIR/changed" ] || { echo "REVIEW SCOPE MISSING OR EMPTY — re-run load_context"; exit 1; }
+while IFS= read -r C; do
+  xargs -0 git -c core.quotePath=false --literal-pathspecs \
+    grep -n "seed\|random_state\|manual_seed\|set_seed" "$C" -- < "$SCOPE_DIR/changed"
+done < "$SCOPE_DIR/shas" | cut -c42- | sort -u
 ```
+
+Whether config is externalized is a judgement about the scoped files themselves — Read the
+ones that hold hyperparameters. A repo-wide `ls configs/ *.yaml` answers nothing about this
+phase, and an unmatched glob aborts the command under zsh.
 
 **BLOCKER:** No seed setting in experimental code (results not reproducible).
 **WARNING:** Config hardcoded instead of externalized.
@@ -314,14 +327,14 @@ For non-obvious code that implements research techniques:
 - Commit messages consistent with SUMMARY claims
 
 ```bash
-# Compare SUMMARY claims with reality. Use `changed`, not `files`: a deletion is
-# exactly what an undocumented deviation looks like.
-REPO_KEY=$(git rev-parse --show-toplevel | shasum | cut -c1-8)
-SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-${REPO_KEY}-${PHASE_NUMBER}-${WAVE:-all}"
-LC_ALL=C tr "\0" "\n" < "$SCOPE_DIR/changed"
-# Guard the empty case: `xargs` with no input still runs the command once under GNU
-# userland, which would print HEAD and read as a commit in scope.
-[ -s "$SCOPE_DIR/shas" ] && xargs -n1 git show --oneline -s < "$SCOPE_DIR/shas"
+# Compare SUMMARY claims with reality. `changed` includes paths the scope DELETED —
+# a deletion is exactly what an undocumented deviation looks like.
+KEY=$(printf '%s|%s' "$(git rev-parse --path-format=absolute --git-common-dir)" \
+  "$PLAN_IDS" | cksum | cut -d' ' -f1)
+SCOPE_DIR="${TMPDIR:-/tmp}/grd-review-$KEY"
+[ -s "$SCOPE_DIR/commits" ] || { echo "REVIEW SCOPE MISSING — re-run load_context"; exit 1; }
+cat "$SCOPE_DIR/commits"
+LC_ALL=C tr '\0' '\n' < "$SCOPE_DIR/changed"
 ```
 
 **WARNING:** Files modified but not listed in SUMMARY.md key-files.

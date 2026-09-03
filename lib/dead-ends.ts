@@ -408,8 +408,11 @@ function _upsertEntry(
   opts: DeadEndAddOpts,
   slug: string,
   /**
-   * When true, re-recording a phase the entry already lists leaves the entry
-   * byte-identical. Only `promoteFalsifiedFromPhase` passes this: execute-phase and
+   * When true, re-recording a phase the entry already lists does not flip
+   * `active` -> `reopened`. Other fields still merge as usual, so a
+   * VERIFICATION.md regenerated with new evidence does change the file — this
+   * suppresses the status churn, not every write. Only `promoteFalsifiedFromPhase`
+   * passes it: execute-phase and
    * verify-phase both promote the same VERIFICATION.md, so a same-phase repeat is
    * routine there and must not mutate the row. `addDeadEnd`'s public contract is
    * unchanged — a manual re-add still flips `active` -> `reopened`.
