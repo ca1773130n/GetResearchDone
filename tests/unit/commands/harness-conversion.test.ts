@@ -117,12 +117,74 @@ describe('harness conversion command', () => {
       expect(_classifyPath('.planning/DEAD-ENDS.md')).toBe('memory');
       expect(_classifyPath('commands/plan-phase.md')).toBe('prompt');
       expect(_classifyPath('agents/grd-planner.md')).toBe('prompt');
-      expect(_classifyPath('skills/foo/SKILL.md')).toBe('prompt');
       expect(_classifyPath('hooks/pre.sh')).toBe('prompt');
       expect(_classifyPath('lib/scheduler.ts')).toBe('scheduler');
       expect(_classifyPath('lib/scheduler-wait.ts')).toBe('scheduler');
       expect(_classifyPath('lib/utils.ts')).toBe('code');
       expect(_classifyPath('bin/gd.ts')).toBe('code');
+    });
+
+    // W10 item 2(b): bin/harness_driver.py's PROPOSAL_INSTRUCTIONS offers the
+    // round proposer `references/*.md` as a target. `_classifyPath` feeds the
+    // conversion accounting, so a patch touching that surface has to land in
+    // the 'prompt' bucket, not 'code'. These two lines are the pin.
+    test('references/*.md is a prompt surface, lib/*.ts is code', () => {
+      expect(_classifyPath('references/x.md')).toBe('prompt');
+      expect(_classifyPath('lib/x.ts')).toBe('code');
+    });
+
+    test('references/ classifies as prompt in the shapes patch.json emits', () => {
+      expect(_classifyPath('references/questioning.md')).toBe('prompt');
+      expect(_classifyPath('./references/tdd.md')).toBe('prompt');
+      expect(_classifyPath('references\\execute-plan.md')).toBe('prompt');
+      // Not a prefix match on the segment: a nested or similarly-named dir is code.
+      expect(_classifyPath('docs/references/x.md')).toBe('code');
+      expect(_classifyPath('references-old/x.md')).toBe('code');
+    });
+
+    // `skills` was dropped from the alternation in the same edit: no skills/
+    // tree exists in this repo, so keeping it was a second dead pointer one
+    // line below the one W10 removes. Pinned so a silent re-add is visible.
+    test('skills/ is not a recognised surface (no such tree)', () => {
+      expect(_classifyPath('skills/foo/SKILL.md')).toBe('code');
+    });
+
+    // W10 item 2 is two files, and (a) without (b) is incoherent: retargeting
+    // the round proposer at a surface `_classifyPath` calls 'code' books the
+    // resulting patch against the wrong conversion bucket. This reads the
+    // proposer's own offered-target list and classifies it, so the two files
+    // cannot drift apart silently.
+    test('every markdown surface offered to the round proposer classifies as prompt', () => {
+      const driver: string = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'bin', 'harness_driver.py'),
+        'utf-8'
+      );
+      const block = /PROPOSAL_INSTRUCTIONS = """([\s\S]*?)"""/.exec(driver);
+      expect(block).toBeTruthy();
+      const targets = /\(([^)]*\.planning\/config\.json[^)]*)\)/.exec(block![1]);
+      expect(targets).toBeTruthy();
+
+      const globs = targets![1]
+        .split(',')
+        .map((s: string) => s.trim().replace(/\s+/g, ''))
+        .filter((s: string) => s.length > 0);
+      expect(globs).toContain('references/*.md');
+      // A directory the proposer cannot target is not a target: the phrase
+      // "skill markdown" named no tree and is gone.
+      expect(block![1]).not.toContain('skill markdown');
+
+      // Turn each glob into a representative path and classify it.
+      const seen: Record<string, string> = {};
+      for (const g of globs) {
+        seen[g] = _classifyPath(g.replace(/\*\*/g, 'x').replace(/\*/g, 'x'));
+      }
+      expect(seen).toEqual({
+        'commands/*.md': 'prompt',
+        'agents/*.md': 'prompt',
+        'references/*.md': 'prompt',
+        '.planning/config.json': 'config',
+        'lib/**.ts': 'code',
+      });
     });
   });
 

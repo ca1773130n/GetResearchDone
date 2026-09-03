@@ -120,7 +120,11 @@ function _classifyPath(p: string): PathClass {
   // GENOME.md / DEAD-ENDS.md / STATE.md and other planning markdown are project
   // memory: a patch that only touches them "recorded" a lesson, it didn't change behavior.
   if (n.startsWith('.planning/') && n.endsWith('.md')) return 'memory';
-  if (/^(commands|agents|skills|hooks)\//.test(n)) return 'prompt';
+  // Shared-prompt surfaces. `references/` is here because harness_driver.py's
+  // PROPOSAL_INSTRUCTIONS offers it to the round proposer; without it a patch
+  // touching the offered surface would be counted as 'code'. `skills/` is
+  // deliberately absent — no such tree exists in this repo (W10).
+  if (/^(commands|agents|references|hooks)\//.test(n)) return 'prompt';
   if (/^lib\/scheduler[^/]*\.(ts|js)$/.test(n)) return 'scheduler';
   return 'code';
 }
