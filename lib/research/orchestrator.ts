@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
-  ExperimentResult, MeasureOutcome, Checkpoint, CheckpointAnswer, CheckpointPoint,
+  ExperimentResult, MeasureOutcome, MeasureCause, Checkpoint, CheckpointAnswer, CheckpointPoint,
   InteractiveConfig, Comparator,
 } from './types';
 import type { Runner } from './runner';
@@ -21,7 +21,7 @@ const { createThread, loadThread, saveThread, threadDir } = require('./thread');
 const { resolveGates, checkGate } = require('./gates');
 const { readLedger, appendHypothesis, updateHypothesisStatus, nextHypothesisId } = require('./ledger');
 const { appendTakeaway, readTakeaways } = require('./takeaways');
-const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau } = require('./verdict');
+const { evaluateVerdict, decideBranch, shouldTerminate, detectPlateau, detectDesignPlateau } = require('./verdict');
 const { buildFinding, writeFinding, findingPath } = require('./finding');
 const { scoreReconstructability } = require('./reconstructability') as {
   scoreReconstructability: (input: {
@@ -56,7 +56,7 @@ const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, bu
   buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
   buildHypothesesPrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways: unknown[], pack: string, pivot: boolean, n: number) => string;
   buildExperimentPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
-  buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict) => string;
+  buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict, cause?: MeasureCause) => string;
   buildClarifyPrompt: (thread: { id: string; question: string }) => string;
 };
 /**
@@ -1315,7 +1315,7 @@ async function runLoop(
 
     // LEARN
     thread.currentStation = 'learn'; saveThread(cwd, thread);
-    const tOut = await spawn(buildLearnPrompt(thread, hyp, result, outcome.verdict), 'grd-knowledge-miner');
+    const tOut = await spawn(buildLearnPrompt(thread, hyp, result, outcome.verdict, outcome.cause), 'grd-knowledge-miner');
     const tk = parseTakeawayOutput(tOut);
     const takeaway: Takeaway = {
       kind: (tk?.kind as Takeaway['kind']) || 'domain_fact',
@@ -1326,6 +1326,50 @@ async function runLoop(
       iteration: thread.iteration,
     };
     appendTakeaway(cwd, thread.id, takeaway);
+
+    // REDESIGN on an unmeasurable design (W3). A script that never emitted its committed
+    // metric is a DESIGN fault: the experiment could not have disconfirmed the hypothesis
+    // whatever it printed, so the debug loop (which only retries a nonzero exit) is the wrong
+    // repair and burning a fresh hypothesis on it is the wrong accounting.
+    //
+    // Rather than adding a branch, this re-enters the crash-recovery path that already exists
+    // at the top of the loop: put the hypothesis back to `testing` so `resumable` finds it,
+    // remove plan.json so the `!fs.existsSync(planFile)` guard fires, and do NOT advance the
+    // iteration. DESIGN re-runs for the same hypothesis at the same iteration.
+    //
+    // Bounded by research_max_debug_depth, SHARED with the debug loop rather than additive.
+    if (outcome.cause === 'metric_absent' && (thread.redesignCount ?? 0) < debugDepth) {
+      thread.redesignCount = (thread.redesignCount ?? 0) + 1;
+      updateHypothesisStatus(cwd, thread.id, hyp.id, 'testing', null);
+      try { fs.unlinkSync(planFile); } catch { /* already gone — the redesign still proceeds */ }
+      incrementCounter('research.redesigns_total');
+      saveThread(cwd, thread);
+      process.stderr.write(
+        `[research] metric "${plan.metricKey}" was never emitted — the design is unmeasurable, ` +
+        `not broken. Re-running DESIGN for ${hyp.id} (attempt ${thread.redesignCount}/${debugDepth}).\n`
+      );
+      continue;
+    }
+    // Any other outcome ends both streaks for this thread.
+    if (outcome.cause !== 'metric_absent') { thread.redesignCount = 0; thread.metricAbsentStreak = 0; }
+    else thread.metricAbsentStreak = (thread.metricAbsentStreak ?? 0) + 1;
+
+    // DESIGN PLATEAU: consecutive iterations that exhausted their redesign budget without ever
+    // producing a measurable experiment. A different diagnosis from "the hypotheses keep getting
+    // refuted", so it terminates with its own reason rather than counting toward the ordinary
+    // plateau window. The streak is counted on the thread, not inferred from the ledger — the
+    // ledger records `inconclusive` without its cause, so inferring would conflate a broken run
+    // with an unmeasurable design, which is the exact distinction this change exists to draw.
+    const designWindow = readResurveyConfig(cwd).window;
+    if (outcome.cause === 'metric_absent'
+        && detectDesignPlateau(Array(thread.metricAbsentStreak ?? 0).fill('metric_absent'), designWindow)) {
+      process.stderr.write(
+        '[research] DESIGN PLATEAU: consecutive iterations produced no measurable experiment. ' +
+        'The harness cannot design a falsifiable test for this question as phrased.\n'
+      );
+      thread.status = 'exhausted'; saveThread(cwd, thread);
+      return { threadId: thread.id, status: 'exhausted', iterations: thread.iteration };
+    }
 
     // RE-SURVEY on plateau: broaden + pivot the next hypothesis instead of drifting to exhausted.
     const { cap, window, fetch: resurveyFetchOn } = readResurveyConfig(cwd);

@@ -57,3 +57,44 @@ describe('verdict', () => {
     expect(detectPlateau(['refuted'], 3)).toBe(false);
   });
 });
+
+describe('W3: cause discriminates a broken run from an unmeasurable design', () => {
+  const { evaluateVerdict, detectDesignPlateau } = require('../../../lib/research/verdict');
+  const plan = { procedure: 'p', metricKey: 'acc', comparator: '>=' as const, target: 0.9, language: 'shell' as const, scriptPath: '/x' };
+
+  it('tags a nonzero exit as run_failed', () => {
+    const o = evaluateVerdict(plan, { exitCode: 1, metrics: {}, failureClass: 'H3' });
+    expect(o.cause).toBe('run_failed');
+  });
+
+  it('tags a missing committed metric as metric_absent', () => {
+    const o = evaluateVerdict(plan, { exitCode: 0, metrics: { other: 1 }, failureClass: 'none' });
+    expect(o.cause).toBe('metric_absent');
+  });
+
+  it('leaves the verdict string byte-identical for both causes', () => {
+    // The vendored autoresearch-core parity vectors assert only `.verdict`; a new
+    // Verdict value would break kernel parity, so `cause` is an additive sibling.
+    expect(evaluateVerdict(plan, { exitCode: 1, metrics: {}, failureClass: 'H3' }).verdict).toBe('inconclusive');
+    expect(evaluateVerdict(plan, { exitCode: 0, metrics: { other: 1 }, failureClass: 'none' }).verdict).toBe('inconclusive');
+  });
+
+  it('sets no cause on a decided verdict', () => {
+    expect(evaluateVerdict(plan, { exitCode: 0, metrics: { acc: 0.95 }, failureClass: 'none' }).cause).toBeUndefined();
+    expect(evaluateVerdict(plan, { exitCode: 0, metrics: { acc: 0.1 }, failureClass: 'none' }).cause).toBeUndefined();
+  });
+
+  it('detectDesignPlateau fires only on an unbroken metric_absent run', () => {
+    expect(detectDesignPlateau(['metric_absent', 'metric_absent', 'metric_absent'], 3)).toBe(true);
+    expect(detectDesignPlateau(['metric_absent', 'run_failed', 'metric_absent'], 3)).toBe(false);
+    expect(detectDesignPlateau(['metric_absent', 'metric_absent'], 3)).toBe(false);
+    expect(detectDesignPlateau([undefined, 'metric_absent', 'metric_absent'], 3)).toBe(false);
+  });
+
+  it('is distinct from the ordinary plateau, which a refuted streak also triggers', () => {
+    const { detectPlateau } = require('../../../lib/research/verdict');
+    expect(detectPlateau(['refuted', 'refuted', 'refuted'], 3)).toBe(true);
+    // Same streak, different diagnosis: no design fault here.
+    expect(detectDesignPlateau([undefined, undefined, undefined], 3)).toBe(false);
+  });
+});

@@ -2121,3 +2121,71 @@ describe('W2 refutation condition — end to end', () => {
     expect(res.errorReason).toContain('`statement`');
   });
 });
+
+describe('W3: an unmeasurable design re-enters DESIGN instead of burning a hypothesis', () => {
+  /** Emits a metric the plan never committed to, so evaluateVerdict returns cause metric_absent. */
+  function wrongMetricRunner(failFor: number) {
+    let n = 0;
+    return {
+      run() {
+        n++;
+        return {
+          // Plan commits to "accuracy"; the script prints "loss" for the first `failFor` runs.
+          metrics: n <= failFor ? { loss: 0.2 } : { accuracy: 0.95 },
+          exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+        };
+      },
+    };
+  }
+
+  function countingSpawn(counts: { hypo: number; design: number }) {
+    return async (_prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        counts.hypo++;
+        return `__HYPOTHESIS__ {"statement":"h${counts.hypo}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes it worse"}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        counts.design++;
+        return '__PLAN__ {"procedure":"p","metricKey":"accuracy","comparator":">=","target":0.8,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+  }
+
+  it('re-runs DESIGN for the SAME hypothesis rather than consuming a fresh one', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(
+      path.join(cwd, '.planning', 'config.json'),
+      JSON.stringify({ research_max_debug_depth: 2 }), 'utf-8'
+    );
+    const counts = { hypo: 0, design: 0 };
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 3, noGates: true, spawn: countingSpawn(counts), runner: wrongMetricRunner(1),
+    });
+
+    // One redesign happened: DESIGN ran more often than HYPOTHESIZE.
+    expect(counts.design).toBeGreaterThan(counts.hypo);
+    // And the extra DESIGN did not cost a hypothesis — the ledger holds one per hypothesize call.
+    expect(readLedger(cwd, fs.readdirSync(path.join(cwd, '.planning', 'research', 'threads'))[0]).length)
+      .toBe(counts.hypo);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('does not redesign when the depth budget is 0', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(
+      path.join(cwd, '.planning', 'config.json'),
+      JSON.stringify({ research_max_debug_depth: 0 }), 'utf-8'
+    );
+    const counts = { hypo: 0, design: 0 };
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 2, noGates: true, spawn: countingSpawn(counts), runner: wrongMetricRunner(9),
+    });
+    // Budget 0: every iteration designs exactly once, so the counts stay in lockstep.
+    expect(counts.design).toBe(counts.hypo);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+});

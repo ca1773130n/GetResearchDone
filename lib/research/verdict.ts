@@ -1,6 +1,6 @@
 'use strict';
 import type {
-  ExperimentPlan, ExperimentResult, MeasureOutcome, ResearchThread,
+  ExperimentPlan, ExperimentResult, MeasureCause, MeasureOutcome, ResearchThread,
   ThreadStatus, Verdict, Comparator,
 } from './types';
 
@@ -17,13 +17,13 @@ function compare(value: number, comparator: Comparator, target: number): boolean
 
 function evaluateVerdict(plan: ExperimentPlan, result: ExperimentResult): MeasureOutcome {
   if (result.exitCode !== 0) {
-    return { verdict: 'inconclusive', detail: `experiment run failed (${result.failureClass})` };
+    return { verdict: 'inconclusive', detail: `experiment run failed (${result.failureClass})`, cause: 'run_failed' };
   }
   // Own-key check (NOT the `in` operator, which walks the prototype chain: `'toString'
   // in {}` is true in JS but false for a Python dict). Parity with the kernel's
   // `metric_key not in result.metrics` (dict key lookup). See docs/kernel-contract.md.
   if (!Object.prototype.hasOwnProperty.call(result.metrics, plan.metricKey)) {
-    return { verdict: 'inconclusive', detail: `metric "${plan.metricKey}" not reported` };
+    return { verdict: 'inconclusive', detail: `metric "${plan.metricKey}" not reported`, cause: 'metric_absent' };
   }
   const value = result.metrics[plan.metricKey];
   const pass = compare(value, plan.comparator, plan.target);
@@ -50,4 +50,21 @@ function detectPlateau(verdicts: Verdict[], window = 3): boolean {
   return verdicts.slice(-window).every((v) => v !== 'supported');
 }
 
-module.exports = { compare, evaluateVerdict, decideBranch, shouldTerminate, detectPlateau };
+/**
+ * A run of iterations that never produced a measurable experiment.
+ *
+ * Kept separate from `detectPlateau` on purpose. An ordinary plateau reads as
+ * "the hypotheses keep getting refuted"; this reads as "the harness cannot
+ * design a measurable experiment for this question", which is a different
+ * diagnosis and deserves its own terminal reason. A discriminator that only
+ * made the two streaks distinguishable without changing what happens next
+ * would be a field written for a reader who does not exist.
+ */
+function detectDesignPlateau(causes: (MeasureCause | undefined)[], window = 3): boolean {
+  if (causes.length < window) return false;
+  return causes.slice(-window).every((c) => c === 'metric_absent');
+}
+
+module.exports = {
+  compare, evaluateVerdict, decideBranch, shouldTerminate, detectPlateau, detectDesignPlateau,
+};
