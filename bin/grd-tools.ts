@@ -540,6 +540,8 @@ const {
 
 const {
   cmdDeadEndAdd,
+  cmdDeadEndRetire,
+  cmdDeadEndReopen,
   cmdDeadEndPromoteFromPhase,
 }: {
   cmdDeadEndAdd: (
@@ -553,6 +555,8 @@ const {
     },
     raw: boolean
   ) => void;
+  cmdDeadEndRetire: (cwd: string, slug: string, reason: string, raw: boolean) => void;
+  cmdDeadEndReopen: (cwd: string, slug: string, raw: boolean) => void;
   cmdDeadEndPromoteFromPhase: (cwd: string, phase: string, raw: boolean) => void;
 } = require('../lib/dead-ends');
 
@@ -1672,6 +1676,12 @@ async function routeCommand(
           },
           raw
         );
+      } else if (sub === 'retire') {
+        // The only supported way to stop a dead end hard-failing a plan.
+        // Human-only: no automatic path writes `status: retired`.
+        cmdDeadEndRetire(cwd, args[2] ?? '', flag(args, '--reason') ?? '', raw);
+      } else if (sub === 'reopen') {
+        cmdDeadEndReopen(cwd, args[2] ?? '', raw);
       } else if (sub === 'promote-from-phase') {
         // Prefer the explicit --phase flag when present. Fall back to
         // positional args[2], but only if it is NOT itself a flag —
@@ -1682,7 +1692,9 @@ async function routeCommand(
         const phaseArg = flagPhase ?? positional ?? '';
         cmdDeadEndPromoteFromPhase(cwd, phaseArg, raw);
       } else {
-        error(`Unknown dead-end subcommand: ${sub}. Valid: add, promote-from-phase`);
+        error(
+          `Unknown dead-end subcommand: ${sub}. Valid: add, retire, reopen, promote-from-phase`
+        );
       }
       break;
     }

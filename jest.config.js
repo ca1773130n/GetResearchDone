@@ -63,6 +63,12 @@ module.exports = {
     './lib/commands/plan-lint.ts': { lines: 85, functions: 90, branches: 75 },
     './lib/commands/plan-phase.ts': { lines: 88, functions: 60, branches: 80 },
     './lib/commands/select-candidate.ts': { lines: 90, functions: 90, branches: 75 },
+    // The file at the centre of #67/#68 had no floor at all (and there is no
+    // `global:` key), so the writer that emptied the production registry was
+    // unthresholded. Set at/below measured (92.5 / 100 / 85.38) — functions
+    // deliberately under 100 so one uncovered error branch in a future splice
+    // helper does not hold CI hostage.
+    './lib/dead-ends.ts': { lines: 89, functions: 95, branches: 80 },
     './lib/commands/patterns.ts': { lines: 90, functions: 90, branches: 70 },
     './lib/commands/install.ts': { lines: 95, functions: 100, branches: 85 },
     './lib/research/ledger.ts': { lines: 85, functions: 90, branches: 70 },

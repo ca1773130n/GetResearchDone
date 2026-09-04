@@ -10,6 +10,17 @@
  * evidence and flip status from active -> reopened rather than creating
  * duplicate entries.
  *
+ * THE WRITER EDITS BYTES, IT DOES NOT REGENERATE THE FILE (#67). A file has
+ * more in it than any model of it: prose sections, keys this module does not
+ * name (`hypothesis`, `forbidden_terms` — the two inputs the hard-fail gate in
+ * lib/commands/select-candidate.ts actually runs on — `predicted_outcome`,
+ * `owner`, ...), the project's own header, `evidence` items written as maps.
+ * Regenerating from `DeadEndEntry` erased all of it: one `dead-end add` took
+ * this repo's own 7,933-byte registry to 425 bytes and reported success. So the
+ * unit of work here is a line edit inside a preserved span:
+ * `parseDeadEndsDoc` -> mutate a few lines -> `serializeDeadEndsDoc`, where
+ * every byte a write did not touch is literally the same byte.
+ *
  * Schema is documented in agents/grd-planner.md <dead_ends>.
  */
 
@@ -33,16 +44,49 @@ const {
 const { atomicWriteFileSync }: { atomicWriteFileSync: (filePath: string, data: string) => void } =
   require('./autopilot-waves');
 
+/**
+ * The one status value that exempts an entry from the select-candidate
+ * hard-fail gate. Anything else — `active`, `reopened`, a typo, an absent
+ * `status:` key — gates. "Not exactly `retired` implies live" is one line and a
+ * typo cannot invert it; a longer vocabulary is a second way to get the
+ * exemption wrong. Written only by `retireDeadEnd` (a human running
+ * `gd dead-end retire`), never by any automatic path.
+ */
+const RETIRED = 'retired';
+
 export interface DeadEndEntry {
-  approach: string;
+  /**
+   * The falsified approach. OPTIONAL: hand-authored entries (every entry in
+   * this repo's own registry) carry `hypothesis:` and no `approach:` key, and
+   * requiring it here is what made `parseDeadEndsFile` return zero entries for
+   * the real file. A block's slug is what makes it an entry.
+   */
+  approach?: string;
   slug: string;
   tried_in_phases: string[];
   verdict: string;
   evidence: string[];
-  status: 'active' | 'reopened';
+  /**
+   * Lifecycle: `active` (the default, and what an absent `status:` key means),
+   * `reopened` (re-encountered), `retired` (deliberately un-dead-ended by a
+   * human). Any other value found on disk is preserved verbatim and treated as
+   * LIVE by every consumer — only the exact string `retired` exempts an entry.
+   * Typed as `string` deliberately: the parser no longer coerces, because
+   * coercing `resolved` to `active` turned a human's retirement marker into the
+   * strongest live marker (#67).
+   */
+  status: string;
   /** ISO yyyy-mm-dd the entry was first recorded. Absent on legacy entries. */
   date?: string;
   notes?: string;
+}
+
+/** Result of a human-driven status change (`retire` / `reopen`). */
+export interface DeadEndStatusChange {
+  slug: string;
+  previous_status: string;
+  status: string;
+  path: string;
 }
 
 export interface DeadEndAddOpts {
@@ -154,79 +198,274 @@ function _parseBlockArrayItem(line: string): string | null {
   return trimmed.trim();
 }
 
+// ─── Document model: ordered spans over the raw file ────────────────────────
+
 /**
- * Parse DEAD-ENDS.md body into a list of entries. Tolerant of extra
- * preamble and trailing content; unparseable blocks are skipped.
+ * How an entry heading is recognised, as a source string so it can be asserted
+ * IDENTICAL to the hard-fail gate's regex in lib/commands/select-candidate.ts
+ * (`parseDeadEnds`). The writer and the gate must agree about what an entry is:
+ * if the writer sees a block the gate does not, a write edits an entry nobody
+ * enforces; if the gate sees one the writer does not, a write appends a second
+ * block for a slug that visually already exists. The previous writer regex
+ * (`^## (\S+)\s*\n+```yaml\n`) disagreed with the gate on both axes — it
+ * admitted non-lowercase headings, and it required the fence to sit immediately
+ * under the heading. tests/integration/dead-ends-registry.test.ts pins the
+ * agreement over the repo's own registry.
  */
-function parseDeadEndsFile(content: string): DeadEndEntry[] {
-  const entries: DeadEndEntry[] = [];
-  const blockRe = /^## (\S+)\s*\n+```yaml\n([\s\S]+?)\n```/gm;
-  let m: RegExpExecArray | null;
-  while ((m = blockRe.exec(content)) !== null) {
-    const slug = m[1].trim();
-    const yamlBody = m[2];
-    const entry: Partial<DeadEndEntry> = {
-      slug,
-      tried_in_phases: [],
-      evidence: [],
-    };
+const ENTRY_HEADING_RE_SOURCE = '^## ([a-z0-9][a-z0-9-]*)\\s*$';
+/** Same forward-scan-to-the-first-fence rule the gate uses. */
+const ENTRY_FENCE_RE = /```yaml\s*\n([\s\S]*?)\n```/;
+const CLOSING_FENCE = '\n```';
 
-    const lines = yamlBody.split('\n');
-    let inArrayKey: 'tried_in_phases' | 'evidence' | null = null;
-    for (const rawLine of lines) {
-      const line = rawLine.replace(/\r$/, '');
-      if (inArrayKey && /^\s+-\s+/.test(line)) {
-        const item = _parseBlockArrayItem(line);
-        if (item !== null) entry[inArrayKey]!.push(item);
-        continue;
-      }
-      inArrayKey = null;
+/** A `## slug` + ```yaml block, with its source text kept verbatim. */
+export interface DeadEndEntrySpan {
+  kind: 'entry';
+  slug: string;
+  /** `## slug` heading through the opening ```yaml fence line, verbatim. */
+  head: string;
+  /** The YAML body, verbatim, one string per line. Writes edit THESE lines. */
+  bodyLines: string[];
+  /** The closing fence, verbatim. */
+  tail: string;
+  /**
+   * Typed projection of `bodyLines`. Read it to decide what to change; never
+   * re-emit a block from it — it does not carry what it does not name.
+   */
+  entry: DeadEndEntry;
+}
 
-      const kv = line.match(/^(\w+):\s*(.*)$/);
-      if (!kv) continue;
-      const key = kv[1];
-      const valRaw = kv[2].trim();
+/**
+ * One region of DEAD-ENDS.md: either an entry, or any other bytes (the header,
+ * prose between entries, trailing notes) echoed back untouched.
+ */
+export type DeadEndSpan = { kind: 'raw'; text: string } | DeadEndEntrySpan;
 
-      if (key === 'tried_in_phases' || key === 'evidence') {
-        if (valRaw.startsWith('[') && valRaw.endsWith(']')) {
-          const inner = valRaw.slice(1, -1);
-          (entry as Record<string, unknown>)[key] = _splitInlineArray(inner);
-        } else if (valRaw === '[]') {
-          (entry as Record<string, unknown>)[key] = [];
-        } else if (valRaw === '') {
-          (entry as Record<string, unknown>)[key] = [];
-          inArrayKey = key;
-        }
-      } else if (
-        key === 'approach' ||
-        key === 'verdict' ||
-        key === 'status' ||
-        key === 'date' ||
-        key === 'notes'
-      ) {
-        (entry as Record<string, unknown>)[key] = _yamlUnquote(valRaw);
-      }
+function _isEntrySpan(span: DeadEndSpan): span is DeadEndEntrySpan {
+  return span.kind === 'entry';
+}
+
+/** Project a block's verbatim YAML body lines onto the typed model. */
+function _projectEntry(slug: string, bodyLines: string[]): DeadEndEntry {
+  const entry: Partial<DeadEndEntry> = { slug, tried_in_phases: [], evidence: [] };
+  let inArrayKey: 'tried_in_phases' | 'evidence' | null = null;
+  for (const rawLine of bodyLines) {
+    const line = rawLine.replace(/\r$/, '');
+    if (inArrayKey && /^\s+-\s+/.test(line)) {
+      const item = _parseBlockArrayItem(line);
+      if (item !== null) entry[inArrayKey]!.push(item);
+      continue;
     }
+    inArrayKey = null;
 
-    if (entry.approach && entry.slug) {
-      entries.push({
-        approach: entry.approach,
-        slug: entry.slug,
-        tried_in_phases: entry.tried_in_phases ?? [],
-        verdict: entry.verdict ?? 'falsified',
-        evidence: entry.evidence ?? [],
-        status: entry.status === 'reopened' ? 'reopened' : 'active',
-        ...(entry.date ? { date: entry.date } : {}),
-        ...(entry.notes ? { notes: entry.notes } : {}),
-      });
+    const kv = line.match(/^(\w+):\s*(.*)$/);
+    if (!kv) continue;
+    const key = kv[1];
+    const valRaw = kv[2].trim();
+
+    if (key === 'tried_in_phases' || key === 'evidence') {
+      if (valRaw.startsWith('[') && valRaw.endsWith(']')) {
+        const inner = valRaw.slice(1, -1);
+        (entry as Record<string, unknown>)[key] = _splitInlineArray(inner);
+      } else if (valRaw === '[]') {
+        (entry as Record<string, unknown>)[key] = [];
+      } else if (valRaw === '') {
+        (entry as Record<string, unknown>)[key] = [];
+        inArrayKey = key;
+      }
+    } else if (
+      key === 'approach' ||
+      key === 'verdict' ||
+      key === 'status' ||
+      key === 'date' ||
+      key === 'notes'
+    ) {
+      (entry as Record<string, unknown>)[key] = _yamlUnquote(valRaw);
     }
   }
-  return entries;
+  return {
+    ...(entry.approach ? { approach: entry.approach } : {}),
+    slug,
+    tried_in_phases: entry.tried_in_phases ?? [],
+    verdict: entry.verdict ?? 'falsified',
+    evidence: entry.evidence ?? [],
+    // Verbatim, uncoerced: an absent key means active, and every other value
+    // (including one this module has never heard of) survives a write.
+    status: entry.status ?? 'active',
+    ...(entry.date ? { date: entry.date } : {}),
+    ...(entry.notes ? { notes: entry.notes } : {}),
+  };
+}
+
+/**
+ * Parse DEAD-ENDS.md into ordered spans. Lossless by construction:
+ * `serializeDeadEndsDoc(parseDeadEndsDoc(bytes)) === bytes` for any input.
+ * A heading with no terminated ```yaml fence stays a `raw` span, exactly as
+ * the gate skips it.
+ */
+function parseDeadEndsDoc(content: string): DeadEndSpan[] {
+  const spans: DeadEndSpan[] = [];
+  const pushRaw = (text: string): void => {
+    if (text.length > 0) spans.push({ kind: 'raw', text });
+  };
+
+  const headingRe = new RegExp(ENTRY_HEADING_RE_SOURCE, 'gm');
+  const heads: Array<{ slug: string; start: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = headingRe.exec(content)) !== null) heads.push({ slug: m[1], start: m.index });
+
+  pushRaw(content.slice(0, heads.length > 0 ? heads[0].start : content.length));
+  for (let i = 0; i < heads.length; i++) {
+    const end = i + 1 < heads.length ? heads[i + 1].start : content.length;
+    const section = content.slice(heads[i].start, end);
+    const fence = section.match(ENTRY_FENCE_RE);
+    if (!fence || fence.index === undefined) {
+      pushRaw(section);
+      continue;
+    }
+    const body = fence[1];
+    // fence[0] === <opening fence> + body + CLOSING_FENCE, so the opening run
+    // (which `\s*\n` may have stretched over blank lines) is what is left.
+    const openLen = fence[0].length - body.length - CLOSING_FENCE.length;
+    const bodyLines = body.split('\n');
+    spans.push({
+      kind: 'entry',
+      slug: heads[i].slug,
+      head: section.slice(0, fence.index + openLen),
+      bodyLines,
+      tail: CLOSING_FENCE,
+      entry: _projectEntry(heads[i].slug, bodyLines),
+    });
+    pushRaw(section.slice(fence.index + fence[0].length));
+  }
+  return spans;
+}
+
+/** Render spans back to text. Untouched spans are byte-identical. */
+function serializeDeadEndsDoc(spans: DeadEndSpan[]): string {
+  return spans
+    .map((s) => (s.kind === 'raw' ? s.text : s.head + s.bodyLines.join('\n') + s.tail))
+    .join('');
+}
+
+/**
+ * Parse DEAD-ENDS.md body into a list of entries. Tolerant of extra
+ * preamble and trailing content; blocks with no terminated fence are skipped.
+ *
+ * Lossy BY DEFINITION (a `DeadEndEntry` names eight keys and a file holds
+ * whatever it holds) — read it to decide, never to rewrite. The write path
+ * goes through `parseDeadEndsDoc` / `serializeDeadEndsDoc`.
+ */
+function parseDeadEndsFile(content: string): DeadEndEntry[] {
+  return parseDeadEndsDoc(content)
+    .filter(_isEntrySpan)
+    .map((s) => s.entry);
+}
+
+// ─── Line edits inside a block body ─────────────────────────────────────────
+
+/**
+ * Line range of `key` inside a YAML body: the `key:` line, plus its `  - `
+ * continuation lines when the key is a block array. null when absent.
+ */
+function _keyRange(bodyLines: string[], key: string): { start: number; end: number } | null {
+  for (let i = 0; i < bodyLines.length; i++) {
+    if (!bodyLines[i].startsWith(`${key}:`)) continue;
+    let end = i;
+    if (bodyLines[i].slice(key.length + 1).trim() === '') {
+      while (end + 1 < bodyLines.length && /^\s+-\s/.test(bodyLines[end + 1])) end++;
+    }
+    return { start: i, end };
+  }
+  return null;
+}
+
+/** Where a new top-level key goes: after the last non-blank line of the body. */
+function _appendIndex(bodyLines: string[]): number {
+  let i = bodyLines.length;
+  while (i > 0 && bodyLines[i - 1].trim() === '') i--;
+  return i;
+}
+
+/** Replace (or append) a scalar `key: <value>` line. `value` is emitted verbatim. */
+function _setScalar(bodyLines: string[], key: string, value: string): void {
+  const range = _keyRange(bodyLines, key);
+  const line = `${key}: ${value}`;
+  if (!range) {
+    bodyLines.splice(_appendIndex(bodyLines), 0, line);
+    return;
+  }
+  bodyLines.splice(range.start, range.end - range.start + 1, line);
+}
+
+/**
+ * Merge items into a list key, keeping whichever form the file already uses: a
+ * block list gains `  - "item"` lines and no existing line moves; an inline
+ * list is rewritten inline; an absent key is appended inline. Normalising the
+ * form would mean rewriting lines the caller did not ask to change.
+ */
+function _appendToList(bodyLines: string[], key: string, items: string[]): void {
+  if (items.length === 0) return;
+  const range = _keyRange(bodyLines, key);
+  if (!range) {
+    bodyLines.splice(
+      _appendIndex(bodyLines),
+      0,
+      `${key}: [${items.map(_yamlEscape).join(', ')}]`
+    );
+    return;
+  }
+  const valRaw = bodyLines[range.start].slice(key.length + 1).trim();
+  if (valRaw.startsWith('[') && valRaw.endsWith(']')) {
+    const merged = _splitInlineArray(valRaw.slice(1, -1)).concat(items);
+    bodyLines[range.start] = `${key}: [${merged.map(_yamlEscape).join(', ')}]`;
+    return;
+  }
+  if (valRaw !== '') {
+    throw new Error(
+      `DEAD-ENDS.md: cannot merge into "${key}" — expected a list, found "${valRaw}"`
+    );
+  }
+  const indent = range.end > range.start ? (bodyLines[range.end].match(/^\s*/)?.[0] ?? '  ') : '  ';
+  bodyLines.splice(range.end + 1, 0, ...items.map((it) => `${indent}- ${_yamlEscape(it)}`));
+}
+
+/**
+ * Find the one block a write may touch. THROWS rather than guessing: appending
+ * a second block for a slug a human already recorded, or editing one of two
+ * blocks that share a slug, is silent corruption — worse than the erasure this
+ * writer exists to stop.
+ */
+function _locateForWrite(doc: DeadEndSpan[], slug: string): DeadEndEntrySpan | null {
+  const hits = doc.filter(_isEntrySpan).filter((s) => s.slug === slug);
+  if (hits.length > 1) {
+    throw new Error(
+      `.planning/DEAD-ENDS.md has ${hits.length} blocks for slug "${slug}" — refusing to ` +
+        `write. De-duplicate them by hand.`
+    );
+  }
+  if (hits.length === 1) return hits[0];
+  // No canonical block. Before appending one, make sure the slug is not sitting
+  // in a block this parser cannot read (a non-lowercase heading, or a fence
+  // that is never closed) — the gate cannot read it either, but a human can.
+  for (const span of doc) {
+    if (span.kind !== 'raw') continue;
+    const headingRe = /^## (\S+)[ \t]*$/gm;
+    let m: RegExpExecArray | null;
+    while ((m = headingRe.exec(span.text)) !== null) {
+      if (m[1].toLowerCase() !== slug) continue;
+      throw new Error(
+        `.planning/DEAD-ENDS.md has a "## ${m[1]}" block for slug "${slug}" that cannot be ` +
+          `read (the heading must be lowercase [a-z0-9-] and the block must contain a ` +
+          `terminated \`\`\`yaml fence) — refusing to write. Fix that block by hand.`
+      );
+    }
+  }
+  return null;
 }
 
 function _serializeEntry(entry: DeadEndEntry): string {
   const lines: string[] = [`## ${entry.slug}`, '', '```yaml'];
-  lines.push(`approach: ${_yamlEscape(entry.approach)}`);
+  if (entry.approach) lines.push(`approach: ${_yamlEscape(entry.approach)}`);
   lines.push(`slug: ${entry.slug}`);
   // Recorded-at date (ISO yyyy-mm-dd). Optional: legacy entries have none,
   // and every reader tolerates its absence (e.g. harness-conversion latency_days).
@@ -258,6 +497,15 @@ const _HEADER = [
   '',
 ].join('\n');
 
+/**
+ * Render a FRESH registry file from a model.
+ *
+ * NOT a writer for an existing file. `serializeDeadEndsFile(parseDeadEndsFile(x))`
+ * is the composition that caused #67 — it can only emit the eight keys
+ * `DeadEndEntry` names, so everything else in `x` disappears. Nothing on the
+ * write path calls it any more; the write path splices bytes
+ * (`parseDeadEndsDoc` / `serializeDeadEndsDoc`).
+ */
 function serializeDeadEndsFile(entries: DeadEndEntry[]): string {
   if (entries.length === 0) return _HEADER;
   return _HEADER + entries.map(_serializeEntry).join('\n');
@@ -334,9 +582,9 @@ function parseReflectionSection(verificationContent: string): ReflectionData | n
 // ─── Internal upsert (pure, no side effects) ────────────────────────────────
 
 interface UpsertResult {
-  entries: DeadEndEntry[];
   action: 'created' | 'updated';
-  slug: string;
+  /** True when the entry a human retired was re-encountered. Status is left alone. */
+  retired: boolean;
 }
 
 export interface PromoteFromPhaseResult {
@@ -397,14 +645,20 @@ function _autoPromoteEnabled(cwd: string): { enabled: boolean; configError?: str
 }
 
 /**
- * Pure helper: given an existing entry list and add opts, produce the
- * new list and metadata. Same dedup contract as cmdDeadEndAdd; lifted
- * so both the public CLI handler and the promote-from-phase handler
- * share the same logic without going through the process-exiting
- * `output` helper.
+ * Apply an add/update to a parsed document IN PLACE. Same dedup contract as
+ * cmdDeadEndAdd; lifted so both the public CLI handler and the
+ * promote-from-phase handler share the same logic without going through the
+ * process-exiting `output` helper.
+ *
+ * A new slug appends one rendered block to the end of the document — every
+ * existing byte stays put, so the file before the write is an exact prefix of
+ * the file after it. An existing slug is edited line by line: a phase is added
+ * to `tried_in_phases`, new evidence items are appended to `evidence` in
+ * whatever form that key already uses, and `status` / `notes` are replaced.
+ * Nothing else in the block is touched, whether or not this module can model it.
  */
-function _upsertEntry(
-  existing: DeadEndEntry[],
+function _upsertIntoDoc(
+  doc: DeadEndSpan[],
   opts: DeadEndAddOpts,
   slug: string,
   /**
@@ -419,30 +673,65 @@ function _upsertEntry(
    */
   idempotentSamePhase = false,
 ): UpsertResult {
-  const verdict = opts.verdict ?? 'falsified';
-  const evidenceList = opts.evidence ?? [];
-  const idx = existing.findIndex((e) => e.slug === slug);
-  if (idx === -1) {
-    existing.push({
+  const span = _locateForWrite(doc, slug);
+  if (!span) {
+    const rendered = _serializeEntry({
       approach: opts.approach,
       slug,
       tried_in_phases: [opts.phase],
-      verdict,
-      evidence: evidenceList,
+      verdict: opts.verdict ?? 'falsified',
+      evidence: opts.evidence ?? [],
       status: 'active',
       // First-recorded date; updates keep it so latency measures from first sighting.
       date: new Date().toISOString().slice(0, 10),
       ...(opts.notes ? { notes: opts.notes } : {}),
     });
-    return { entries: existing, action: 'created', slug };
+    const before = serializeDeadEndsDoc(doc);
+    const sep = before.length === 0 || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+    doc.push(...parseDeadEndsDoc(sep + rendered));
+    return { action: 'created', retired: false };
   }
-  const e = existing[idx];
-  const isNewPhase = !e.tried_in_phases.includes(opts.phase);
-  if (isNewPhase) e.tried_in_phases.push(opts.phase);
-  for (const ev of evidenceList) if (!e.evidence.includes(ev)) e.evidence.push(ev);
-  if ((isNewPhase || !idempotentSamePhase) && e.status === 'active') e.status = 'reopened';
-  if (opts.notes) e.notes = opts.notes;
-  return { entries: existing, action: 'updated', slug };
+
+  const entry = span.entry;
+  const retired = entry.status === RETIRED;
+  const isNewPhase = !entry.tried_in_phases.includes(opts.phase);
+  if (isNewPhase) _appendToList(span.bodyLines, 'tried_in_phases', [opts.phase]);
+  _appendToList(
+    span.bodyLines,
+    'evidence',
+    (opts.evidence ?? []).filter((ev) => !entry.evidence.includes(ev))
+  );
+  // A human's retirement is never undone by an automatic re-record: phase and
+  // evidence still merge, the status stays exactly as typed, and the caller is
+  // handed `retired` so it can say so. Re-arming is `gd dead-end reopen`.
+  if (!retired && entry.status === 'active' && (isNewPhase || !idempotentSamePhase)) {
+    _setScalar(span.bodyLines, 'status', 'reopened');
+  }
+  if (opts.notes) _setScalar(span.bodyLines, 'notes', _yamlEscape(opts.notes));
+  // Keep the projection derived from the bytes, never the other way round.
+  span.entry = _projectEntry(slug, span.bodyLines);
+  return { action: 'updated', retired };
+}
+
+/** Text of one entry span, exactly as it sits (or would sit) on disk. */
+function _spanText(span: DeadEndEntrySpan): string {
+  return span.head + span.bodyLines.join('\n') + span.tail;
+}
+
+/**
+ * Read the registry as a document. An absent or blank file starts from the
+ * canonical header, so bootstrapping is byte-identical to what the old
+ * whole-file serializer produced.
+ */
+function _readDoc(filePath: string): DeadEndSpan[] {
+  let content = '';
+  if (fs.existsSync(filePath)) content = fs.readFileSync(filePath, 'utf-8');
+  if (content.trim() === '') content = _HEADER;
+  return parseDeadEndsDoc(content);
+}
+
+function _countEntries(doc: DeadEndSpan[]): number {
+  return doc.filter(_isEntrySpan).length;
 }
 
 /**
@@ -466,7 +755,7 @@ function _upsertEntry(
  */
 function addDeadEnd(
   cwd: string, opts: DeadEndAddOpts,
-): { action: 'created' | 'updated'; slug: string; total: number } {
+): { action: 'created' | 'updated'; slug: string; total: number; retired: boolean } {
   if (!opts.approach) throw new Error('--approach required');
   if (!opts.phase) throw new Error('--phase required');
   const slug: string | null = generateSlugInternal(opts.approach);
@@ -474,21 +763,18 @@ function addDeadEnd(
 
   const planningDir = path.join(cwd, '.planning');
   const filePath = path.join(planningDir, 'DEAD-ENDS.md');
-  let existing: DeadEndEntry[] = [];
-  if (fs.existsSync(filePath)) {
-    existing = parseDeadEndsFile(fs.readFileSync(filePath, 'utf-8'));
-  }
+  const doc = _readDoc(filePath);
 
-  const { action } = _upsertEntry(existing, opts, slug);
+  const { action, retired } = _upsertIntoDoc(doc, opts, slug);
 
   fs.mkdirSync(planningDir, { recursive: true });
-  atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
+  atomicWriteFileSync(filePath, serializeDeadEndsDoc(doc));
 
-  return { action, slug, total: existing.length };
+  return { action, slug, total: _countEntries(doc), retired };
 }
 
 function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
-  let res: { action: 'created' | 'updated'; slug: string; total: number };
+  let res: { action: 'created' | 'updated'; slug: string; total: number; retired: boolean };
   try {
     res = addDeadEnd(cwd, opts);
   } catch (e: unknown) {
@@ -497,12 +783,99 @@ function cmdDeadEndAdd(cwd: string, opts: DeadEndAddOpts, raw: boolean): void {
   }
   output(
     {
-      action: res.action, slug: res.slug, total_entries: res.total,
+      action: res.action, slug: res.slug, total_entries: res.total, retired: res.retired,
       path: path.relative(cwd, path.join(cwd, '.planning', 'DEAD-ENDS.md')),
     },
     raw,
-    `${res.action}: ${res.slug}`
+    `${res.action}: ${res.slug}` +
+      (res.retired
+        ? ` (entry is retired — phase/evidence merged, status left alone; ` +
+          `run \`gd dead-end reopen ${res.slug}\` to re-arm the gate)`
+        : '')
   );
+}
+
+// ─── Human-only lifecycle verbs ─────────────────────────────────────────────
+
+/**
+ * Edit one entry's `status:` line (plus any extra scalars) in place. Every byte
+ * outside those lines is preserved.
+ */
+function _setStatusOnDisk(
+  cwd: string,
+  slug: string,
+  status: string,
+  extra: Array<[string, string]>
+): DeadEndStatusChange {
+  if (!slug) throw new Error('slug required');
+  const filePath = path.join(cwd, '.planning', 'DEAD-ENDS.md');
+  if (!fs.existsSync(filePath)) throw new Error(`${path.relative(cwd, filePath)} does not exist`);
+  const doc = parseDeadEndsDoc(fs.readFileSync(filePath, 'utf-8'));
+  const span = _locateForWrite(doc, slug);
+  if (!span) {
+    throw new Error(`No dead-end entry with slug "${slug}" in ${path.relative(cwd, filePath)}`);
+  }
+  const previous = span.entry.status;
+  _setScalar(span.bodyLines, 'status', status);
+  for (const [key, value] of extra) _setScalar(span.bodyLines, key, value);
+  span.entry = _projectEntry(slug, span.bodyLines);
+  atomicWriteFileSync(filePath, serializeDeadEndsDoc(doc));
+  return { slug, previous_status: previous, status, path: path.relative(cwd, filePath) };
+}
+
+/**
+ * Retire an entry: the only supported way to stop a dead end hard-failing a
+ * candidate plan, and the only writer of `status: retired` anywhere in GRD.
+ *
+ * Human-only by design. A DEAD-ENDS row scores a matching plan at -Infinity in
+ * select-candidate — permanently, with no warning tier — so automation may arm
+ * that gate (addDeadEnd, promote) but may never disarm it. `--reason` is
+ * required for the same reason: the row that turns the guard off has to say why.
+ */
+function retireDeadEnd(cwd: string, slug: string, reason: string): DeadEndStatusChange {
+  if (!reason) {
+    throw new Error(
+      '--reason required: retiring an entry is the only supported way to disarm the ' +
+        'DEAD-ENDS hard-fail gate, and the registry must record why'
+    );
+  }
+  return _setStatusOnDisk(cwd, slug, RETIRED, [
+    ['retired_reason', _yamlEscape(reason)],
+    ['retired_at', new Date().toISOString().slice(0, 10)],
+  ]);
+}
+
+/** Re-arm a retired entry. The mirror of `retireDeadEnd`; also human-only. */
+function reopenDeadEnd(cwd: string, slug: string): DeadEndStatusChange {
+  return _setStatusOnDisk(cwd, slug, 'reopened', []);
+}
+
+function cmdDeadEndRetire(cwd: string, slug: string, reason: string, raw: boolean): void {
+  let res: DeadEndStatusChange;
+  try {
+    res = retireDeadEnd(cwd, slug, reason);
+  } catch (e: unknown) {
+    error(e instanceof Error ? e.message : String(e));
+    return;
+  }
+  output(
+    res,
+    raw,
+    `retired: ${res.slug} (was ${res.previous_status}) — candidate plans citing it no longer ` +
+      `hard-fail. Re-recording this approach will merge phase/evidence but will NOT re-arm ` +
+      `the gate; run \`gd dead-end reopen ${res.slug}\` for that.`
+  );
+}
+
+function cmdDeadEndReopen(cwd: string, slug: string, raw: boolean): void {
+  let res: DeadEndStatusChange;
+  try {
+    res = reopenDeadEnd(cwd, slug);
+  } catch (e: unknown) {
+    error(e instanceof Error ? e.message : String(e));
+    return;
+  }
+  output(res, raw, `reopened: ${res.slug} (was ${res.previous_status}) — the gate is armed again`);
 }
 
 /**
@@ -555,44 +928,48 @@ function promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhase
 
   const planningDir = path.join(cwd, '.planning');
   const filePath = path.join(planningDir, 'DEAD-ENDS.md');
-  let existing: DeadEndEntry[] = [];
-  if (fs.existsSync(filePath)) {
-    existing = parseDeadEndsFile(fs.readFileSync(filePath, 'utf-8'));
-  }
+  const doc = _readDoc(filePath);
 
-  const { action } = _upsertEntry(
-    existing,
-    {
-      approach: reflection.hypothesis,
-      phase: phaseInfo.phase_number,
-      verdict: 'falsified',
-      evidence: reflection.evidence,
-      notes: reflection.actual_outcome || undefined,
-    },
-    slug,
-    true
-  );
+  let action: 'created' | 'updated';
+  try {
+    ({ action } = _upsertIntoDoc(
+      doc,
+      {
+        approach: reflection.hypothesis,
+        phase: phaseInfo.phase_number,
+        verdict: 'falsified',
+        evidence: reflection.evidence,
+        notes: reflection.actual_outcome || undefined,
+      },
+      slug,
+      true
+    ));
+  } catch (e: unknown) {
+    // An ambiguous block is a refusal, not a crash: this runs at a phase
+    // boundary where the caller must not be exited.
+    return { skipped: true, reason: e instanceof Error ? e.message : String(e), ...at };
+  }
 
   // The consequence of a DEAD-ENDS row is `-Infinity` in select-candidate, which is
   // permanent and has no warning tier. Writing without the key set previews instead.
   const gate = _autoPromoteEnabled(cwd);
-  const entry = existing.find((e) => e.slug === slug);
+  const span = doc.filter(_isEntrySpan).find((s) => s.slug === slug);
   if (!gate.enabled) {
     return {
       skipped: false, dry_run: true, action, slug, ...at,
-      total_entries: existing.length,
+      total_entries: _countEntries(doc),
       path: path.relative(cwd, filePath),
-      preview: entry ? _serializeEntry(entry) : undefined,
+      preview: span ? _spanText(span) : undefined,
       ...(gate.configError ? { config_error: gate.configError } : {}),
     };
   }
 
   fs.mkdirSync(planningDir, { recursive: true });
-  atomicWriteFileSync(filePath, serializeDeadEndsFile(existing));
+  atomicWriteFileSync(filePath, serializeDeadEndsDoc(doc));
 
   return {
     skipped: false, dry_run: false, action, slug, ...at,
-    total_entries: existing.length,
+    total_entries: _countEntries(doc),
     path: path.relative(cwd, filePath),
   };
 }
@@ -608,11 +985,19 @@ function cmdDeadEndPromoteFromPhase(cwd: string, phase: string, raw: boolean): v
 }
 
 module.exports = {
+  parseDeadEndsDoc,
+  serializeDeadEndsDoc,
   parseDeadEndsFile,
   serializeDeadEndsFile,
   parseReflectionSection,
   addDeadEnd,
   cmdDeadEndAdd,
+  retireDeadEnd,
+  reopenDeadEnd,
+  cmdDeadEndRetire,
+  cmdDeadEndReopen,
   promoteFalsifiedFromPhase,
   cmdDeadEndPromoteFromPhase,
+  ENTRY_HEADING_RE_SOURCE,
+  RETIRED,
 };

@@ -10,7 +10,11 @@ const { appendKnowhowEntries, parseKnowhowEntries } = require('../knowledge') as
   parseKnowhowEntries: (content: string) => KnowhowEntry[];
 };
 const { addDeadEnd } = require('../dead-ends') as {
-  addDeadEnd: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number };
+  // `retired` is optional here only so an injected test double need not supply
+  // it; the real writer always returns it. It says the slug was retired by a
+  // human and the write left its status alone — the research loop may arm the
+  // DEAD-ENDS gate, never disarm or silently re-arm it.
+  addDeadEnd: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number; retired?: boolean };
 };
 
 const KNOWHOW_KINDS = new Set(['success_pattern', 'constraint', 'domain_fact', 'tool_pattern']);
@@ -24,7 +28,7 @@ const SETTLED_VERDICTS = new Set(['supported', 'refuted']);
 
 interface PromoteDeps {
   appendKnowhowEntries?: (knowhowPath: string, entries: KnowhowEntry[]) => void;
-  addDeadEnd?: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number };
+  addDeadEnd?: (cwd: string, opts: DeadEndAddOpts) => { action: 'created' | 'updated'; slug: string; total: number; retired?: boolean };
 }
 
 function shouldPersistKnowledge(cwd: string): boolean {
