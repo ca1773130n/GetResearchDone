@@ -160,7 +160,7 @@ Each agent dispatch is a step in a learning loop, via four deterministic, projec
 | Primitive | What it does |
 |---|---|
 | **Falsifiable reflections** | Every plan commits to `hypothesis` + `predicted_outcome`; the verifier resolves it to a verdict with evidence |
-| **DEAD-ENDS registry** | Falsified hypotheses auto-promote; the planner reads it and refuses to re-propose them |
+| **DEAD-ENDS registry** | Falsified hypotheses auto-promote (each with the condition that refuted it); the planner reads it and refuses to re-propose them; `gd dead-end retire` / `reopen` are the only human override (v0.6.0) |
 | **Drift score** | Weighted goal/constraint/ontology distance from the objective — from on-disk artifacts, not LLM judgment |
 | **Strategy GENOME** | Project-scoped append-only registry of heuristics + dated snapshots, read before composing each plan |
 
@@ -176,6 +176,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 |---|---|---|
 | `research_gates` | `{execute:true, kg_write:true, plan_clarification:true}` | Per-gate checkpoints (override with `--no-gates`); `plan_clarification` (v0.4.5+) has `plan-phase` ask the user to resolve ambiguous design decisions before writing a plan |
 | `research_gates.interactive` | off | (v0.5.0) Human-in-the-loop checkpoints at SEED/HYPOTHESIZE/DESIGN/DECIDE, each individually gate-able; `fallback: "panel"` answers them via an AI discussion panel in unattended runs; resume with `gd research resume <id> --answers` |
+| `research_gates.auto_promote_falsified` | `false` | (v0.6.0) Let the phase boundary write a `verdict: falsified` reflection straight into `DEAD-ENDS.md`; off, the step dry-runs and prints the entry it would write. Off by default because a DEAD-ENDS slug hard-fails any future candidate plan citing it — `gd dead-end retire <slug>` is the only way back |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey |
 | `research_max_resurveys` | `2` | Cap on plateau re-surveys per thread |

@@ -3,9 +3,101 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [Unreleased]
+## [0.6.0] - 2026-09-04
+
+Artifact-shaped gates. Ten workstreams (W1–W10) from
+`.planning/research/2026-09-02-agentic-skill-philosophy.md`, which imports the
+discipline behind [mattpocock/skills](https://github.com/mattpocock/skills): a
+written instruction is a probability, not a guarantee, and the fix is never a
+stronger adjective but a named artifact a parser or a human can check. Nine new
+executable gates; 78 files, +7,290 / −1,730 lines since 0.5.0. Along the way,
+four pre-existing defects that made the knowledge loop's output unreachable
+(#67, #68, #72, #73) — each a value crossing a boundary that silently dropped
+it, with green tests on both sides.
+
+### Added
+- **Phase-level falsification loop closed** (W1, #66) —
+  `promoteFalsifiedFromPhase` runs as a non-blocking step at both sites that
+  produce VERIFICATION.md (`execute-phase`, `verify-phase`), gated on
+  `research_gates.auto_promote_falsified` (default **false**: unset, it prints
+  the DEAD-ENDS entry it would write and leaves the registry byte-identical).
+  Off by default because a DEAD-ENDS slug scores any future candidate plan citing
+  it at `-Infinity` in `select-candidate`, permanently and with no warning tier.
+- **Refutation condition on every hypothesis** (W2, #69) — a candidate is
+  admitted only if `refutationCondition` is present and non-empty. The check is
+  structural, in the parser; no LLM judge on the admission path. A full
+  `runResearch` now writes `refuted when: …` into DEAD-ENDS. Dropped candidates
+  are counted and reported, with a warning when the count falls below what the
+  selection checkpoint needs.
+- **`cause` on inconclusive verdicts** (W3, #70) — `run_failed` (engineering;
+  debug-retried as before) vs `metric_absent` (design: the committed metric was
+  never emitted). `metric_absent` re-enters DESIGN for the *same* hypothesis
+  instead of burning a fresh one, bounded by `research_max_debug_depth` shared
+  with the debug loop. Verdict strings are byte-identical, so the vendored
+  `autoresearch-core` parity vectors are unaffected.
+- **One evidence standard** (W4, #70) — `references/verification-patterns.md`
+  is canonical, with verbatim copies in both verifier agents and a test asserting
+  all three are byte-identical (`@`-includes do not resolve across `Task()`
+  boundaries, so hoisting was not an option). The code reviewer gains an
+  **UNVERIFIED** severity — "the check did not run, or produced no line you can
+  quote" — and an Evidence column on the findings table, and loses five
+  `{findings or "Adequate."}`-style defaults that read as a pass when nothing ran.
+- **Baseline margins** (W8, #71) — `ExperimentPlan.baseline` now survives
+  `parsePlanOutput` and FINDING.md reports `measured vs baseline … margin`
+  (declared; never affects the verdict). `seed` and the graded label were cut as
+  write-only artifacts.
+- **Help catalog invalidated, not generated** (W7, #69) — `commands/help.md`
+  stays hand-authored; a test asserts both directions of the command ↔ help
+  mapping so drift is a red build instead of a router that lies. The commands
+  missing from it are added.
+- **`init.md` loads `references/questioning.md`** (W9, #71) — plus a test that
+  every bare-filename citation of a `references/` file in `commands/` is matched
+  by an `@`-include of it.
+- **`gd dead-end retire <slug> --reason "..."`** and **`gd dead-end reopen
+  <slug>`** — the only supported way to un-dead-end an approach, and the only
+  writer of `status: retired` anywhere in GRD. Human-only by design: automation
+  may arm the -Infinity gate but never disarm it, so re-recording a retired
+  approach merges the phase and evidence and leaves the status alone (the CLI
+  says so and names `reopen`).
+- `PLAN-SELECTION.json` records `dead_ends_gating`, `dead_ends_retired` and
+  `dead_ends_unknown_status` beside `dead_ends_loaded`, so a registry that
+  shrinks or goes inert is visible in the artifact a human opens after a
+  surprising hard-fail.
+
+### Changed
+- **KNOWHOW supersedes instead of overwriting** (W6, #71) — a corrected
+  takeaway keeps its predecessor as a superseded record instead of destroying it
+  (the dedup key collided across *threads*, not just iterations). The write gate
+  is a conjunction over artifacts already on disk — KNOWHOW kind, non-empty
+  evidence, a settled supported/refuted verdict, recorded metrics — instead of
+  the writer's self-reported `confidence`. The write rate drops; that is the
+  change working.
+- **SEED clarify prompt steers by structure, not prohibition** (W5, #66) — the
+  frontier is empty when, and only when, the question names a metric, a
+  comparator and a target; one dimension per missing element. A question
+  `.planning/` or the codebase can answer is a fact and gets looked up; only
+  decisions reach the human.
+- **Code reviewer checks are executable** (W4a, #66) — `${FILES_MODIFIED}`,
+  `${FIRST_COMMIT}` and `${LAST_COMMIT}` were never defined, so
+  `grep -rn … ""` scanned the whole repository and read as a completed check.
+  `load_context` now derives the range from the phase's own commits and stops
+  with `Review scope: EMPTY` rather than reviewing the wrong files.
+- **Mined KNOWHOW can rank** (#73, #74) — `selectTopEntries` reserves slots for
+  `research:`-sourced entries, which carry `phase_number: 0` and previously
+  scored 0 against any phase-numbered entry, so they were structurally unable
+  to place.
+
+### Removed
+- **1,240 lines of orphaned `references/`** (W10, #69) — the harness proposer
+  retargeted from a `skills/` tree that does not exist to `references/`, which
+  does; the pinned agent count replaced by a schema check; the last
+  `/grd:resume-work` mentions scrubbed from `docs/`.
 
 ### Fixed
+- **`knowhow_block` reaches the planner and executor** (#72, #74) —
+  `cmdInitPlanPhase` / `cmdInitExecutePhase` emitted it and nothing read it
+  back. It is now interpolated into `plan-phase.md` beside the dead-ends block
+  and into all six executor prompt blocks as `<mined_knowhow>`.
 - **DEAD-ENDS.md writes no longer regenerate the file** (#67) — `gd dead-end add`
   and the phase-boundary promote path now edit the registry in place: a new slug
   is appended, an existing one has only its `tried_in_phases` / `evidence` /
@@ -27,18 +119,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   disagree about what an entry is; an ambiguous locate (duplicate slug,
   unterminated fence, a heading the canonical regex cannot read) throws instead
   of appending a second block.
-
-### Added
-- **`gd dead-end retire <slug> --reason "..."`** and **`gd dead-end reopen
-  <slug>`** — the only supported way to un-dead-end an approach, and the only
-  writer of `status: retired` anywhere in GRD. Human-only by design: automation
-  may arm the -Infinity gate but never disarm it, so re-recording a retired
-  approach merges the phase and evidence and leaves the status alone (the CLI
-  says so and names `reopen`).
-- `PLAN-SELECTION.json` records `dead_ends_gating`, `dead_ends_retired` and
-  `dead_ends_unknown_status` beside `dead_ends_loaded`, so a registry that
-  shrinks or goes inert is visible in the artifact a human opens after a
-  surprising hard-fail.
+- **W2 and W8 shipped inert on first landing** (#69, #71) — typed `require`
+  signatures and the `parsePlanOutput` whitelist hid the new fields from `tsc`.
+  Both fixed within this release; the whitelist now carries a comment naming the
+  failure mode.
+- **Hypothesis parser** (#69) — returns null instead of throwing on a non-string
+  `statement` (so the retry fires), and the rejection message no longer claims
+  the `__HYPOTHESIS__` block is absent while printing it.
+- `verify-summary` no longer passes on a summary that cites nothing (#65).
+- `.CONTINUE-HERE.md` is found by the resume glob (#69) — the shell globs
+  case-sensitively even on a case-insensitive filesystem.
 
 ## [0.5.0] - 2026-07-20
 
