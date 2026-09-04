@@ -45,7 +45,7 @@ Load all context in one call:
 INIT=$(node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js init execute-phase "${PHASE_ARG}" --include context)
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`, `isolation_mode`, `main_repo_path`, `native_worktree_available`, `context_content`.
+Parse JSON for: `executor_model`, `verifier_model`, `reviewer_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `base_branch`, `worktree_dir`, `branch_template`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `autonomous_mode`, `use_teams`, `code_review_enabled`, `code_review_timing`, `code_review_severity_gate`, `team_timeout_minutes`, `max_concurrent_teammates`, `phases_dir`, `research_dir`, `codebase_dir`, `webmcp_available`, `webmcp_skip_reason`, `isolation_mode`, `main_repo_path`, `native_worktree_available`, `context_content`, `knowhow_block`.
 
 **If `phase_found` is false:** Error — phase directory not found.
 **If `plan_count` is 0:** Error — no plans found in phase.
@@ -203,6 +203,12 @@ Execute each wave in sequence using Agent Teams coordination.
        ${context_content or "No CONTEXT.md found for this phase."}
        </phase_context>
 
+       <mined_knowhow>
+       ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+       Patterns already validated by completed phases and autoresearch threads. Prefer one
+       of these over an untried approach, and name the pattern in your commit body when you do.
+       </mined_knowhow>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -274,6 +280,12 @@ Execute each wave in sequence using Agent Teams coordination.
        <phase_context>
        ${context_content or "No CONTEXT.md found for this phase."}
        </phase_context>
+
+       <mined_knowhow>
+       ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+       Patterns already validated by completed phases and autoresearch threads. Prefer one
+       of these over an untried approach, and name the pattern in your commit body when you do.
+       </mined_knowhow>
 
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
@@ -360,6 +372,12 @@ Execute each wave in sequence using Agent Teams coordination.
        ${context_content or "No CONTEXT.md found for this phase."}
        </phase_context>
 
+       <mined_knowhow>
+       ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+       Patterns already validated by completed phases and autoresearch threads. Prefer one
+       of these over an untried approach, and name the pattern in your commit body when you do.
+       </mined_knowhow>
+
        Read each plan's PLAN.md and SUMMARY.md.
        Produce ${PHASE_NUMBER}-${WAVE}-REVIEW.md in ${PHASE_DIR}.
      "
@@ -430,6 +448,12 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        ${context_content or "No CONTEXT.md found for this phase."}
        </phase_context>
 
+       <mined_knowhow>
+       ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+       Patterns already validated by completed phases and autoresearch threads. Prefer one
+       of these over an untried approach, and name the pattern in your commit body when you do.
+       </mined_knowhow>
+
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
        @${CLAUDE_PLUGIN_ROOT}/templates/summary.md
@@ -492,6 +516,12 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
        <phase_context>
        ${context_content or "No CONTEXT.md found for this phase."}
        </phase_context>
+
+       <mined_knowhow>
+       ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+       Patterns already validated by completed phases and autoresearch threads. Prefer one
+       of these over an untried approach, and name the pattern in your commit body when you do.
+       </mined_knowhow>
 
        <execution_context>
        @${CLAUDE_PLUGIN_ROOT}/references/execute-plan.md
@@ -840,6 +870,12 @@ Task(
     <phase_context>
     ${context_content or "No CONTEXT.md found for this phase."}
     </phase_context>
+
+    <mined_knowhow>
+    ${knowhow_block or "No KNOWHOW.md entries for this phase."}
+    Patterns already validated by completed phases and autoresearch threads. Prefer one
+    of these over an untried approach, and name the pattern in your commit body when you do.
+    </mined_knowhow>
 
     Read each plan's PLAN.md and SUMMARY.md.
     Produce ${PHASE_NUMBER}-REVIEW.md in ${PHASE_DIR}.
