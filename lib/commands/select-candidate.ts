@@ -90,6 +90,30 @@ export interface DeadEndEntry {
   slug: string;
   hypothesis: string;
   forbidden_terms: string[];
+  /**
+   * `approach:` — the key lib/dead-ends.ts writes the falsified claim into.
+   * Auto-registered entries have no `hypothesis:` (lib/research/promote.ts
+   * passes the hypothesis statement as `approach`), so the advisory Jaccard
+   * reads whichever of the two the entry carries.
+   */
+  approach: string;
+  /**
+   * `status:` lower-cased, or '' when the key is absent (which means active).
+   * Only the exact value `retired` exempts an entry from the hard-fail gate.
+   */
+  status: string;
+}
+
+/**
+ * The one status value that exempts an entry. Mirrors `RETIRED` in
+ * lib/dead-ends.ts; tests/integration/dead-ends-registry.test.ts pins the two
+ * modules to the same string by driving the real writer into the real gate.
+ */
+const RETIRED = 'retired';
+
+/** Everything that is not exactly `retired` is live — including a typo. */
+function isRetired(entry: DeadEndEntry): boolean {
+  return entry.status === RETIRED;
 }
 
 export interface ExtendedAxes {
@@ -142,6 +166,8 @@ export interface SelectionResult {
   winner: ExtendedCandidateResult | null;
   promoted_to: string | null;
   audit_trail_path: string;
+  /** What the registry contributed: loaded / gating / retired / unknown_status. */
+  dead_ends: DeadEndsSummary;
 }
 
 export interface SelectCandidateOptions {
@@ -167,8 +193,12 @@ export interface SelectCandidateOptions {
 
 /**
  * Parse DEAD-ENDS.md into structured entries. Format: per-entry
- * `## <slug>` header followed by a fenced YAML block. We only need
- * slug, hypothesis, and forbidden_terms for selector input.
+ * `## <slug>` header followed by a fenced YAML block. The selector needs
+ * slug, hypothesis/approach, forbidden_terms and status.
+ *
+ * The heading + fence rules here are the canonical ones: lib/dead-ends.ts's
+ * writer locates blocks with the identical regex so the two can never disagree
+ * about what an entry is.
  */
 export function parseDeadEnds(content: string): DeadEndEntry[] {
   const entries: DeadEndEntry[] = [];
@@ -187,29 +217,103 @@ export function parseDeadEnds(content: string): DeadEndEntry[] {
     const yaml = yamlMatch[1];
     const slug = matches[i].slug;
     const hypothesis = extractScalar(yaml, 'hypothesis') ?? '';
+    const approach = extractScalar(yaml, 'approach') ?? '';
     const forbidden_terms = extractStringList(yaml, 'forbidden_terms');
-    entries.push({ slug, hypothesis, forbidden_terms });
+    const status = (extractScalar(yaml, 'status') ?? '').toLowerCase();
+    entries.push({ slug, hypothesis, forbidden_terms, approach, status });
   }
   return entries;
 }
 
+/**
+ * Read a top-level scalar out of a YAML block body.
+ *
+ * Accepts a quoted OR a bare value, because the registry contains both and a
+ * quoted-only reader is how a fix ships inert: lib/dead-ends.ts writes
+ * `status: retired` with no quotes, so a reader that requires them returns null
+ * for every entry the writer produced, defaults it to active, and keeps
+ * hard-failing — green tests on both sides. There is deliberately only ONE
+ * scalar extractor in this file; a second one with different quoting rules is a
+ * coin flip the next contributor loses silently.
+ *
+ * Anchored to a line start, so `notes: "status: retired"` cannot forge a
+ * retirement.
+ */
 function extractScalar(yaml: string, key: string): string | null {
-  const re = new RegExp(`^${key}:\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*$`, 'm');
-  const m = yaml.match(re);
-  if (!m) return null;
-  return m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  const quoted = new RegExp(`^${key}:\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"\\s*$`, 'm');
+  const q = yaml.match(quoted);
+  if (q) return q[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+
+  const bare = yaml.match(new RegExp(`^${key}:[ \\t]*(.*)$`, 'm'));
+  if (!bare) return null;
+  // YAML: a `#` preceded by whitespace (or at the value's start) opens a comment.
+  const withoutComment = bare[1].replace(/(^|\s)#.*$/, '$1').trim();
+  if (withoutComment.length === 0) return null;
+  if (withoutComment.length >= 2 && withoutComment.startsWith("'") && withoutComment.endsWith("'")) {
+    return withoutComment.slice(1, -1).replace(/''/g, "'");
+  }
+  return withoutComment;
 }
 
+/**
+ * Read a YAML list value in every shape `lib/dead-ends.ts` can WRITE or PARSE.
+ *
+ * This is a hard-fail input, so a shape this function does not recognise does not
+ * error — it returns `[]` and the gate silently stops enforcing those terms. The
+ * previous version accepted exactly one shape: a block list, two-space indented,
+ * every item double-quoted. `lib/dead-ends.ts` accepts four more (inline arrays,
+ * single-quoted items, bare items, other indentation) and its own serializer emits
+ * the INLINE form for `tried_in_phases` and `evidence`. So a registry either parser
+ * would call well-formed could have its forbidden_terms dropped here, with nothing
+ * said. `tests/unit/select-candidate.test.ts` pins the two parsers against one
+ * fixture; that test is what keeps this in step, not this comment.
+ */
 function extractStringList(yaml: string, key: string): string[] {
-  const re = new RegExp(`^${key}:\\s*\\n((?: {2}- .*\\n?)+)`, 'm');
-  const m = yaml.match(re);
-  if (!m) return [];
+  // Inline: `key: ["a", 'b', c]` — split on top-level commas only.
+  const inline = yaml.match(new RegExp(`^${key}:[ \\t]*\\[(.*)\\][ \\t]*$`, 'm'));
+  if (inline) return splitInlineList(inline[1]);
+
+  // Block: `key:` then indented `- item` lines, quoted or bare, any indent.
+  const block = yaml.match(new RegExp(`^${key}:[ \\t]*\\n((?:[ \\t]+- .*\\n?)+)`, 'm'));
+  if (!block) return [];
   const out: string[] = [];
-  for (const line of m[1].split('\n')) {
-    const item = line.match(/^ {2}- "([^"\\]*(?:\\.[^"\\]*)*)"\s*$/);
-    if (item) out.push(item[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+  for (const line of block[1].split('\n')) {
+    const item = line.match(/^[ \t]+- (.*)$/);
+    if (item) {
+      const v = unquoteScalar(item[1]);
+      if (v.length > 0) out.push(v);
+    }
   }
   return out;
+}
+
+/** Strip one layer of YAML quoting; returns the scalar unchanged when bare. */
+function unquoteScalar(raw: string): string {
+  const t = raw.trim();
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    return t.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+  if (t.length >= 2 && t.startsWith("'") && t.endsWith("'")) {
+    return t.slice(1, -1).replace(/''/g, "'");
+  }
+  return t;
+}
+
+/** Split an inline-array body on commas that are not inside quotes. */
+function splitInlineList(body: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let q: '"' | "'" | null = null;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (q === '"' && ch === '\\' && i + 1 < body.length) { cur += ch + body[i + 1]; i++; continue; }
+    if (q && ch === q) { q = null; cur += ch; continue; }
+    if (!q && (ch === '"' || ch === "'")) { q = ch as '"' | "'"; cur += ch; continue; }
+    if (!q && ch === ',') { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur.length > 0) out.push(cur);
+  return out.map(unquoteScalar).filter((v) => v.length > 0);
 }
 
 // ─── DEAD-ENDS hard-fail check ────────────────────────────────────────────
@@ -218,6 +322,13 @@ function extractStringList(yaml: string, key: string): string[] {
  * Scan a candidate's text content for DEAD-ENDS violations. Returns the
  * first hard-fail reason found (slug citation OR forbidden_term exact
  * match) and any advisory Jaccard warnings.
+ *
+ * A `status: retired` entry is skipped entirely — no hard-fail, no advisory.
+ * That is the only exemption, and it lives here rather than at the call site so
+ * every caller of the gate gets it. Anything else, including `resolved`,
+ * `superseded` or a typo, still gates: the cost of wrongly gating is a visible
+ * hard-fail naming a slug, the cost of wrongly exempting is a falsified
+ * approach silently readmitted.
  */
 export function checkDeadEnds(
   candidateText: string,
@@ -228,6 +339,7 @@ export function checkDeadEnds(
   let hardFail: HardFailReason | null = null;
 
   for (const entry of deadEnds) {
+    if (isRetired(entry)) continue;
     if (!hardFail) {
       // Codex review P2: match the slug case-insensitively and on word
       // boundaries so `Elo-Rated-Plan-Tournament` still confesses while an
@@ -246,12 +358,43 @@ export function checkDeadEnds(
     }
     // Advisory Jaccard always computed for the audit trail (regardless of
     // hard-fail). Threshold 0.6 is a v0.4 guess; Phase 5 may tune from data.
-    const j = jaccard(tokens(candidateText), tokens(entry.hypothesis));
+    // `approach` is the fallback because every entry the research loop registers
+    // carries the hypothesis statement under that key, so reading `hypothesis`
+    // alone scored all of them 0.
+    const j = jaccard(tokens(candidateText), tokens(entry.hypothesis || entry.approach));
     if (j >= 0.6) {
       advisory.push({ dead_end_slug: entry.slug, jaccard: j });
     }
   }
   return { hardFail, advisory };
+}
+
+/** What the registry contributed to this selection, for the audit trail. */
+export interface DeadEndsSummary {
+  /** Entries parsed out of DEAD-ENDS.md. */
+  loaded: number;
+  /** Entries that can actually hard-fail a candidate (loaded minus retired). */
+  gating: number;
+  /** Slugs exempted because a human retired them. */
+  retired: string[];
+  /**
+   * Entries whose `status:` is neither empty, `active`, `reopened` nor
+   * `retired`. They still gate; this is how a typo'd retirement becomes
+   * visible instead of silently doing nothing.
+   */
+  unknown_status: Array<{ slug: string; status: string }>;
+}
+
+export function summarizeDeadEnds(deadEnds: DeadEndEntry[]): DeadEndsSummary {
+  const known = new Set(['', 'active', 'reopened', RETIRED]);
+  return {
+    loaded: deadEnds.length,
+    gating: deadEnds.filter((e) => !isRetired(e)).length,
+    retired: deadEnds.filter(isRetired).map((e) => e.slug),
+    unknown_status: deadEnds
+      .filter((e) => !known.has(e.status))
+      .map((e) => ({ slug: e.slug, status: e.status })),
+  };
 }
 
 const STOP: Set<string> = new Set([
@@ -509,6 +652,7 @@ export function selectCandidate(
     path.join(cwd, '.planning', 'DEAD-ENDS.md')
   );
   const deadEnds: DeadEndEntry[] = deadEndsText ? parseDeadEnds(deadEndsText) : [];
+  const deadEndsSummary: DeadEndsSummary = summarizeDeadEnds(deadEnds);
 
   const requirementsText: string | null = safeReadMarkdown(
     path.join(phaseDir, 'REQUIREMENTS.md')
@@ -614,6 +758,12 @@ export function selectCandidate(
     winner: winner ? winner.relPath : null,
     promoted_to: promotedTo ? path.relative(cwd, promotedTo) : null,
     dead_ends_loaded: deadEnds.length,
+    // Paired with `loaded` on purpose: a registry that shrinks, or goes inert
+    // because entries were retired, is visible in the artifact a human opens
+    // after a surprising hard-fail (or a surprising lack of one).
+    dead_ends_gating: deadEndsSummary.gating,
+    dead_ends_retired: deadEndsSummary.retired,
+    dead_ends_unknown_status: deadEndsSummary.unknown_status,
     requirements_loaded: requirementsText !== null,
     proximity_threshold: PROXIMITY_THRESHOLD,
     hard_failed: scored.filter((s) => s.hard_fail !== null).map((s) => s.relPath),
@@ -630,6 +780,7 @@ export function selectCandidate(
     winner,
     promoted_to: promotedTo,
     audit_trail_path: auditPath,
+    dead_ends: deadEndsSummary,
   };
 }
 
@@ -663,21 +814,34 @@ export function cmdSelectCandidate(
     force: opts.force,
     runVerificationCommands: opts.runVerificationCommands,
   });
+  // An unrecognised status still gates, which is the safe direction but a silent
+  // one — say which entry and which value, so the human who typed `resolved`
+  // learns the verb that actually retires it.
+  const unknown = result.dead_ends.unknown_status
+    .map(
+      (u) =>
+        `warning: DEAD-ENDS entry "${u.slug}" has status "${u.status}", which is not a ` +
+        `recognised value — it still hard-fails. Only \`status: retired\` exempts an entry; ` +
+        `run \`gd dead-end retire ${u.slug} --reason "..."\`.`
+    )
+    .join('\n');
   output(
     result,
     raw,
-    result.winner
-      ? `winner: ${result.winner.relPath} (score ${result.winner.total_score.toFixed(3)})` +
-          (result.promoted_to
-            ? ` → promoted to ${path.relative(cwd, result.promoted_to)}`
-            : ' (dry-run, no promotion)')
-      : 'no viable winner (all candidates hard-failed)'
+    (unknown ? `${unknown}\n` : '') +
+      (result.winner
+        ? `winner: ${result.winner.relPath} (score ${result.winner.total_score.toFixed(3)})` +
+            (result.promoted_to
+              ? ` → promoted to ${path.relative(cwd, result.promoted_to)}`
+              : ' (dry-run, no promotion)')
+        : 'no viable winner (all candidates hard-failed)')
   );
 }
 
 module.exports = {
   parseDeadEnds,
   checkDeadEnds,
+  summarizeDeadEnds,
   scoreMustHavesCoverage,
   scoreVerificationCommands,
   estimateTokens,

@@ -205,16 +205,34 @@ correctly when this prompt is rendered.)
 
 ```yaml
 approach: "Rotary positional embeddings for the CPU encoder"
+hypothesis: "Rotary positional embeddings for the CPU encoder"
 slug: rope-embeddings-on-cpu
 tried_in_phases: ["02-build", "07-retry"]
 verdict: falsified
 evidence:
   - "tests/unit/encoder.test.ts:142 — RoPE matmul throws on CPU backend"
   - "EVAL.md phase 07 — 38% accuracy vs 82% baseline"
-status: active   # active | reopened
+forbidden_terms:
+  - "rope on cpu"
+status: active   # active | reopened | retired
 notes: "Hardware bug; revisit when CPU backend gains FP16 support."
 ```
 ````
+
+**The two keys the deterministic gate runs on.** `gd select-candidate`
+scores a candidate plan at `-Infinity` — permanently, with no warning
+tier — when the plan cites an entry's `slug` or contains one of its
+`forbidden_terms` (a case-insensitive substring match). `hypothesis`
+(or `approach`, whichever the entry carries) feeds an advisory
+similarity warning only. Entries hold whichever of `approach` /
+`hypothesis` their author wrote; both are read.
+
+**Status.** `active` (also what an absent `status:` key means) and
+`reopened` both gate. Only the exact value `retired` exempts an entry,
+and only a human writes it, via `gd dead-end retire <slug> --reason
+"..."`; `gd dead-end reopen <slug>` re-arms it. Any other value —
+`resolved`, `superseded`, a typo — still gates, and is reported as
+`unknown_status` in PLAN-SELECTION.json.
 
 **How to use it.**
 
@@ -228,8 +246,9 @@ notes: "Hardware bug; revisit when CPU backend gains FP16 support."
    - Declare an explicit re-test in `<context>` with a hypothesis
      that the *underlying condition* has changed (cite the change),
      and mark the entry as needing `status: reopened` in your
-     SUMMARY.md output (the orchestrator handles the file edit in a
-     future PR; for now, just declare intent).
+     SUMMARY.md output (the orchestrator records it with
+     `gd dead-end add` / `gd dead-end reopen`; just declare the intent
+     here).
 3. **If `dead_ends_md` is null**, the registry does not yet exist
    for this project — proceed normally. This is the common case
    for new projects.
@@ -239,11 +258,11 @@ the same slug = the same dead end. Two entries with different slugs
 but overlapping `approach` strings = the planner's responsibility
 to notice and reconcile.
 
-**Do not write to DEAD-ENDS.md from inside this plan.** This PR
-delivers the read path only; writes will be a follow-up. If you
-think a falsified prior reflection deserves promotion to the
-registry, surface that observation in `<context>` so a human can
-add the entry.
+**Do not write to DEAD-ENDS.md from inside this plan.** Writes go
+through `gd dead-end add` (and, for retirement, `gd dead-end retire`),
+which edit the file in place rather than rewriting it. If you think a
+falsified prior reflection deserves promotion to the registry, surface
+that observation in `<context>` so a human can add the entry.
 
 </dead_ends>
 

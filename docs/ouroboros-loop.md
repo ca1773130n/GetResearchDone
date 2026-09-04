@@ -119,6 +119,16 @@ dead-end slug scores a matching candidate plan at `-Infinity` permanently. The p
 new plan, reads DEAD-ENDS.md and is instructed to refuse to re-propose any
 matching approach, citing the dead-end slug in its plan rationale.
 
+Both write paths edit the file in place — a new slug is appended, an existing
+one has its `tried_in_phases` / `evidence` / `status` lines spliced — so prose,
+unmodelled keys and hand-authored fields survive a write. There is a third,
+human-only path: `gd dead-end retire <slug> --reason "..."` sets
+`status: retired`, the one value that exempts an entry from the hard-fail gate,
+and `gd dead-end reopen <slug>` re-arms it. Automation may arm the gate and may
+never disarm it: `dead-end add` on a retired slug merges the new phase and
+evidence and leaves the status alone. Any other status value (`resolved`, a
+typo) still gates, and is reported as `unknown_status` in PLAN-SELECTION.json.
+
 ### 2.3 Project drift score
 
 `gd health` computes a weighted scalar `drift_weighted ∈ [0,1]` over three

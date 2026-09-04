@@ -5,6 +5,41 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+- **DEAD-ENDS.md writes no longer regenerate the file** (#67) — `gd dead-end add`
+  and the phase-boundary promote path now edit the registry in place: a new slug
+  is appended, an existing one has only its `tried_in_phases` / `evidence` /
+  `status` / `notes` lines spliced. Previously the writer rebuilt the whole file
+  from an 8-key model, so anything it did not model was erased — prose sections,
+  the project's own header, `evidence` items written as maps, and `hypothesis` /
+  `forbidden_terms`, the two keys the `select-candidate` hard-fail gate runs on.
+  Because the model also *required* `approach:`, which no hand-authored entry
+  carries, one `dead-end add` took this repo's own 7,933-byte / 6-entry registry
+  to 425 bytes and reported `"action": "created"`. A `status:` value other than
+  `reopened` was additionally coerced to `active`, turning a human's retirement
+  marker into the strongest live marker.
+- **The gate reads `status`** (#68) — `checkDeadEnds` skips entries whose status
+  is exactly `retired`; every other value (including `resolved`, `superseded` or
+  a typo) still hard-fails and is reported as `unknown_status`. The advisory
+  Jaccard now falls back to `approach:` when an entry has no `hypothesis:`, which
+  is every entry the research loop registers.
+- The writer and the gate now locate entries with the same regex, so they cannot
+  disagree about what an entry is; an ambiguous locate (duplicate slug,
+  unterminated fence, a heading the canonical regex cannot read) throws instead
+  of appending a second block.
+
+### Added
+- **`gd dead-end retire <slug> --reason "..."`** and **`gd dead-end reopen
+  <slug>`** — the only supported way to un-dead-end an approach, and the only
+  writer of `status: retired` anywhere in GRD. Human-only by design: automation
+  may arm the -Infinity gate but never disarm it, so re-recording a retired
+  approach merges the phase and evidence and leaves the status alone (the CLI
+  says so and names `reopen`).
+- `PLAN-SELECTION.json` records `dead_ends_gating`, `dead_ends_retired` and
+  `dead_ends_unknown_status` beside `dead_ends_loaded`, so a registry that
+  shrinks or goes inert is visible in the artifact a human opens after a
+  surprising hard-fail.
+
 ## [0.5.0] - 2026-07-20
 
 Interactive Research Steering (Human-in-the-Loop) — Phases 101-105, REQ-194–209.

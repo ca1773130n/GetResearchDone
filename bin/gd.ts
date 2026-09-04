@@ -204,7 +204,7 @@ Tools (deterministic, fast):
   phases               List all phases
 
 Ouroboros primitives (see docs/ouroboros-loop.md):
-  dead-end <sub>       DEAD-ENDS.md registry CRUD + promote-from-phase
+  dead-end <sub>       DEAD-ENDS.md registry: add / retire / reopen / promote-from-phase
   genome <sub>         GENOME.md init / show / snapshot
   plan-tournament      Score candidate PLAN.md files
   scan                 Prompt-injection scanner

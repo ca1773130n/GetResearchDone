@@ -735,3 +735,167 @@ describe('addDeadEnd (programmatic core)', () => {
     expect(() => addDeadEnd(tmpA(), { approach: '', phase: 'p' })).toThrow();
   });
 });
+
+// ─── #67: the writer edits bytes ───────────────────────────────────────────
+
+describe('span document (lossless write path)', () => {
+  const {
+    parseDeadEndsDoc,
+    serializeDeadEndsDoc,
+    addDeadEnd,
+  } = require('../../lib/dead-ends');
+
+  const HAND_AUTHORED = [
+    '# Falsified approaches — do not re-propose',
+    '',
+    'Prose the planner agent reads. Not decoration.',
+    '',
+    '## Operating notes for humans',
+    '',
+    'Retire an entry rather than deleting it.',
+    '',
+    '## hand-authored-entry',
+    '',
+    '```yaml',
+    'slug: hand-authored-entry',
+    'hypothesis: "A hypothesis the writer never modelled"',
+    'predicted_outcome: "Something"',
+    'forbidden_terms: ["hand authored term"]',
+    'evidence:',
+    '  - codex_review: "task b2lc9ahqn"',
+    'owner: neo',
+    'status: resolved',
+    'date: 2026-05-24',
+    '```',
+    '',
+    'Trailing prose.',
+    '',
+  ].join('\n');
+
+  function tmpProject(content: string): string {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-de-doc-'));
+    fs.mkdirSync(path.join(d, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(d, '.planning', 'DEAD-ENDS.md'), content, 'utf-8');
+    return d;
+  }
+
+  test('parse → serialize is byte-identical for arbitrary content', () => {
+    for (const sample of [HAND_AUTHORED, '', 'no entries at all\n', '## a\n\n```yaml\nslug: a\n```']) {
+      expect(serializeDeadEndsDoc(parseDeadEndsDoc(sample))).toBe(sample);
+    }
+  });
+
+  test('a heading with no terminated fence stays raw, exactly as the gate skips it', () => {
+    const spans = parseDeadEndsDoc('## broken\n\n```yaml\nslug: broken\n');
+    expect(spans.every((s: { kind: string }) => s.kind === 'raw')).toBe(true);
+  });
+
+  test('an unrelated add preserves prose, unmodelled keys and a hand-typed status', () => {
+    const cwd = tmpProject(HAND_AUTHORED);
+    addDeadEnd(cwd, { approach: 'Some unrelated approach', phase: '09' });
+    const after = fs.readFileSync(path.join(cwd, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    expect(after.startsWith(HAND_AUTHORED)).toBe(true);
+    expect(after).toContain('## Operating notes for humans');
+    expect(after).toContain('hypothesis: "A hypothesis the writer never modelled"');
+    expect(after).toContain('forbidden_terms: ["hand authored term"]');
+    expect(after).toContain('owner: neo');
+    expect(after).toContain('  - codex_review: "task b2lc9ahqn"');
+    // #67's inverted half: an unrecognised status is no longer coerced to active.
+    expect(after).toContain('status: resolved');
+  });
+
+  test('an unrecognised status survives a write TO THAT ENTRY', () => {
+    const cwd = tmpProject(HAND_AUTHORED);
+    addDeadEnd(cwd, { approach: 'Hand authored entry', phase: '09' });
+    const after = fs.readFileSync(path.join(cwd, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    expect(after).toContain('status: resolved');
+    expect(after).toContain('tried_in_phases: ["09"]');
+    expect(after).toContain('hypothesis: "A hypothesis the writer never modelled"');
+  });
+
+  test('refuses to merge into a key that is not a list', () => {
+    const cwd = tmpProject(
+      ['## scalar-evidence', '', '```yaml', 'slug: scalar-evidence', 'evidence: "one thing"', '```', ''].join('\n')
+    );
+    expect(() =>
+      addDeadEnd(cwd, { approach: 'Scalar evidence', phase: '09', evidence: ['another'] })
+    ).toThrow(/expected a list/);
+  });
+});
+
+// ─── #68: human-only retirement ────────────────────────────────────────────
+
+describe('cmdDeadEndRetire / cmdDeadEndReopen', () => {
+  const { cmdDeadEndRetire, cmdDeadEndReopen, parseDeadEndsFile } = require('../../lib/dead-ends');
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-de-retire-'));
+    fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+    captureOutput(() => cmdDeadEndAdd(tmpDir, { approach: 'Retirable approach', phase: '01' }, false));
+  });
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  const body = (): string =>
+    fs.readFileSync(path.join(tmpDir, '.planning', 'DEAD-ENDS.md'), 'utf-8');
+
+  test('retire records the reason and the date, and says how to re-arm', () => {
+    const { stdout } = captureOutput(() =>
+      cmdDeadEndRetire(tmpDir, 'retirable-approach', 'fixed in phase 09', false)
+    );
+    const res = JSON.parse(stdout);
+    expect(res.previous_status).toBe('active');
+    expect(res.status).toBe('retired');
+    expect(body()).toContain('status: retired');
+    expect(body()).toContain('retired_reason: "fixed in phase 09"');
+    expect(body()).toMatch(/^retired_at: \d{4}-\d{2}-\d{2}$/m);
+    expect(parseDeadEndsFile(body())[0].status).toBe('retired');
+
+    const { stdout: rawOut } = captureOutput(() =>
+      cmdDeadEndReopen(tmpDir, 'retirable-approach', true)
+    );
+    expect(rawOut).toContain('the gate is armed again');
+    expect(parseDeadEndsFile(body())[0].status).toBe('reopened');
+  });
+
+  test('raw output states that a re-record will NOT re-arm the gate', () => {
+    const { stdout } = captureOutput(() =>
+      cmdDeadEndRetire(tmpDir, 'retirable-approach', 'fixed', true)
+    );
+    expect(stdout).toMatch(/will NOT re-arm/);
+    expect(stdout).toContain('gd dead-end reopen retirable-approach');
+  });
+
+  test('retire without --reason exits 1 and explains why', () => {
+    const { stderr, exitCode } = captureError(() =>
+      cmdDeadEndRetire(tmpDir, 'retirable-approach', '', false)
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/--reason required/);
+    expect(body()).toContain('status: active');
+  });
+
+  test('reopen on an unknown slug exits 1', () => {
+    const { stderr, exitCode } = captureError(() => cmdDeadEndReopen(tmpDir, 'nope', false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/No dead-end entry/);
+  });
+
+  test('retire refuses when the registry does not exist', () => {
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'grd-de-empty-'));
+    const { stderr, exitCode } = captureError(() => cmdDeadEndRetire(empty, 'x', 'y', false));
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/does not exist/);
+    fs.rmSync(empty, { recursive: true, force: true });
+  });
+
+  test('a retired entry is left alone by an automatic re-record', () => {
+    captureOutput(() => cmdDeadEndRetire(tmpDir, 'retirable-approach', 'fixed', false));
+    const { stdout } = captureOutput(() =>
+      cmdDeadEndAdd(tmpDir, { approach: 'Retirable approach', phase: '02' }, false)
+    );
+    expect(JSON.parse(stdout).retired).toBe(true);
+    expect(parseDeadEndsFile(body())[0].status).toBe('retired');
+    expect(body()).toContain('"02"');
+  });
+});

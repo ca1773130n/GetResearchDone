@@ -31,7 +31,7 @@ Auxiliary commands useful for power users. Stay in the binary but stop
 appearing in `gd --help` top-level listing. Surface only via
 `gd-tools <cmd>`.
 
-- `dead-end add` / `dead-end promote-from-phase`
+- `dead-end add` / `dead-end retire` / `dead-end reopen` / `dead-end promote-from-phase`
 - `genome init` / `genome show` / `genome snapshot`
 - `plan-tournament score`
 - `knowhow rank` / `knowhow audit` / `knowhow dedup` / `knowhow aggregate`

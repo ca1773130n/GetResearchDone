@@ -19,25 +19,41 @@ const { captureError } = require('../helpers/setup') as {
   captureError: (fn: () => void) => { stderr: string; exitCode: number };
 };
 
+// Hand-declared shapes: these annotations are the ONLY description of the
+// module's contract this file has, so widening the real signature without
+// widening them here leaves the suite asserting the old, narrow contract while
+// the code moves — the failure mode this repo keeps shipping. `status` and
+// `approach` were added to DeadEndEntry in the #67/#68 fix.
+interface DeadEndEntryShape {
+  slug: string;
+  hypothesis: string;
+  forbidden_terms: string[];
+  approach: string;
+  status: string;
+}
+
 const {
   parseDeadEnds,
   checkDeadEnds,
+  summarizeDeadEnds,
   scoreMustHavesCoverage,
   scoreVerificationCommands,
   estimateTokens,
   selectCandidate,
 }: {
-  parseDeadEnds: (content: string) => Array<{
-    slug: string;
-    hypothesis: string;
-    forbidden_terms: string[];
-  }>;
+  parseDeadEnds: (content: string) => DeadEndEntryShape[];
   checkDeadEnds: (
     text: string,
-    deadEnds: Array<{ slug: string; hypothesis: string; forbidden_terms: string[] }>
+    deadEnds: DeadEndEntryShape[]
   ) => {
     hardFail: { kind: string; dead_end_slug: string; matched: string } | null;
     advisory: Array<{ dead_end_slug: string; jaccard: number }>;
+  };
+  summarizeDeadEnds: (deadEnds: DeadEndEntryShape[]) => {
+    loaded: number;
+    gating: number;
+    retired: string[];
+    unknown_status: Array<{ slug: string; status: string }>;
   };
   scoreMustHavesCoverage: (
     text: string,
@@ -68,6 +84,12 @@ const {
       cluster?: { cluster_id: number; is_representative: boolean; merged_into: string | null };
     }>;
     promoted_to: string | null;
+    dead_ends: {
+      loaded: number;
+      gating: number;
+      retired: string[];
+      unknown_status: Array<{ slug: string; status: string }>;
+    };
   };
 } = require('../../lib/commands/select-candidate');
 
@@ -592,5 +614,164 @@ describe('selectCandidate — proximity dedup', () => {
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
+  });
+});
+
+// ─── #68: status is read, and only `retired` exempts ───────────────────────
+
+describe('DEAD-ENDS status lifecycle', () => {
+  const withStatus = (statusLine: string | null): string =>
+    DEAD_ENDS_FIXTURE.replace(
+      'dead_end_added_via: manual\n```\n\n## meta-review-agent-with-write-access',
+      `dead_end_added_via: manual\n${statusLine ? `${statusLine}\n` : ''}\`\`\`\n\n## meta-review-agent-with-write-access`
+    );
+
+  test('parses status, lower-cased; an absent key reads as empty (= active)', () => {
+    expect(parseDeadEnds(DEAD_ENDS_FIXTURE)[0].status).toBe('');
+    expect(parseDeadEnds(withStatus('status: retired'))[0].status).toBe('retired');
+    expect(parseDeadEnds(withStatus('status: "retired"'))[0].status).toBe('retired');
+    expect(parseDeadEnds(withStatus('status: Retired'))[0].status).toBe('retired');
+    expect(parseDeadEnds(withStatus('status: resolved'))[0].status).toBe('resolved');
+  });
+
+  test('a bare (unquoted) scalar is read — the writer never quotes status', () => {
+    // The quoted-only reader this replaced returned null here, which is how the
+    // exemption would have shipped completely inert.
+    const entries = parseDeadEnds(withStatus('status: retired'));
+    expect(entries[0].status).toBe('retired');
+  });
+
+  test('retired entries are skipped by the gate; every other value still fails', () => {
+    const citing = 'This plan revisits elo-rated-plan-tournament deliberately.';
+    const describing = 'We will run an elo tournament over candidate plans.';
+    expect(checkDeadEnds(citing, parseDeadEnds(withStatus('status: retired'))).hardFail).toBeNull();
+    expect(
+      checkDeadEnds(describing, parseDeadEnds(withStatus('status: retired'))).hardFail
+    ).toBeNull();
+    for (const line of [null, 'status: active', 'status: reopened', 'status: resolved', 'status: superseded']) {
+      const entries = parseDeadEnds(withStatus(line));
+      expect(checkDeadEnds(citing, entries).hardFail).not.toBeNull();
+      expect(checkDeadEnds(describing, entries).hardFail).not.toBeNull();
+    }
+  });
+
+  test('summarizeDeadEnds pairs loaded with gating and names unknown values', () => {
+    expect(summarizeDeadEnds(parseDeadEnds(withStatus('status: retired')))).toEqual({
+      loaded: 2,
+      gating: 1,
+      retired: ['elo-rated-plan-tournament'],
+      unknown_status: [],
+    });
+    expect(summarizeDeadEnds(parseDeadEnds(withStatus('status: resolved')))).toEqual({
+      loaded: 2,
+      gating: 2,
+      retired: [],
+      unknown_status: [{ slug: 'elo-rated-plan-tournament', status: 'resolved' }],
+    });
+  });
+
+  test('the advisory Jaccard falls back to approach when hypothesis is absent', () => {
+    const autoRegistered = [
+      '## auto-registered-entry',
+      '',
+      '```yaml',
+      'approach: "Rank plan candidates with a widget scoring ladder"',
+      'slug: auto-registered-entry',
+      'status: active',
+      '```',
+      '',
+    ].join('\n');
+    const entries = parseDeadEnds(autoRegistered);
+    expect(entries[0].hypothesis).toBe('');
+    expect(entries[0].approach).toMatch(/widget scoring ladder/);
+    const { advisory } = checkDeadEnds(
+      'Rank plan candidates with a widget scoring ladder.',
+      entries
+    );
+    expect(advisory.length).toBe(1);
+    expect(advisory[0].dead_end_slug).toBe('auto-registered-entry');
+  });
+
+  test('the audit trail records gating alongside loaded', () => {
+    const { cwd, phaseDir } = makePhaseFixture();
+    try {
+      fs.writeFileSync(
+        path.join(cwd, '.planning', 'DEAD-ENDS.md'),
+        withStatus('status: retired')
+      );
+      fs.writeFileSync(
+        path.join(phaseDir, 'PLAN-1.md'),
+        makePlan({ body: '# Plan\n\nRevisit the elo-rated-plan-tournament now that scoring is fixed.' })
+      );
+      const result = selectCandidate(cwd, '1');
+      expect(result.winner).not.toBeNull();
+      expect(result.dead_ends).toEqual({
+        loaded: 2,
+        gating: 1,
+        retired: ['elo-rated-plan-tournament'],
+        unknown_status: [],
+      });
+      const audit = JSON.parse(
+        fs.readFileSync(path.join(phaseDir, 'PLAN-SELECTION.json'), 'utf-8')
+      );
+      expect(audit.dead_ends_loaded).toBe(2);
+      expect(audit.dead_ends_gating).toBe(1);
+      expect(audit.dead_ends_retired).toEqual(['elo-rated-plan-tournament']);
+      expect(audit.dead_ends_unknown_status).toEqual([]);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the two parsers over DEAD-ENDS.md agree (#67 root cause)', () => {
+  const sc = require('../../lib/commands/select-candidate');
+  const de = require('../../lib/dead-ends');
+
+  /** Every list shape lib/dead-ends.ts can write or read. */
+  const SHAPES: Array<[string, string, string[]]> = [
+    ['block, double-quoted', '  - "alpha"\n  - "beta"', ['alpha', 'beta']],
+    ['block, single-quoted', "  - 'alpha'\n  - 'beta'", ['alpha', 'beta']],
+    ['block, bare', '  - alpha\n  - beta', ['alpha', 'beta']],
+    ['block, four-space indent', '    - "alpha"\n    - "beta"', ['alpha', 'beta']],
+    ['inline, double-quoted', null as unknown as string, ['alpha', 'beta']],
+  ];
+
+  function registry(termsBlock: string | null, inline: boolean): string {
+    const terms = inline ? 'forbidden_terms: ["alpha", "beta"]' : `forbidden_terms:\n${termsBlock}`;
+    return `# Dead Ends\n\n## some-slug\n\n\`\`\`yaml\nslug: some-slug\nhypothesis: "h"\n${terms}\n\`\`\`\n`;
+  }
+
+  for (const [name, block, expected] of SHAPES) {
+    it(`selector reads forbidden_terms from a ${name} list`, () => {
+      // A shape this parser does not recognise returns [] rather than erroring, so
+      // the hard-fail gate silently stops enforcing those terms. That is why every
+      // shape the WRITER can produce must be readable here.
+      const md = registry(block, block === null);
+      expect(sc.parseDeadEnds(md)[0].forbidden_terms).toEqual(expected);
+    });
+
+    it(`both parsers see the same entry in a ${name} registry`, () => {
+      const md = registry(block, block === null);
+      const fromSelector = sc.parseDeadEnds(md);
+      const fromWriter = de.parseDeadEndsFile(md);
+      // The writer and the gate must agree on what an entry IS. If the writer sees a
+      // block the gate does not, a write edits an entry nobody enforces; if the gate
+      // sees one the writer does not, a write appends a duplicate for a live slug.
+      expect(fromWriter.map((e: { slug: string }) => e.slug))
+        .toEqual(fromSelector.map((e: { slug: string }) => e.slug));
+    });
+  }
+
+  it('agrees with the writer on the real production registry', () => {
+    // The fixture that matters: the registry this repo actually carries. Both suites
+    // passed for months because their fixtures were disjoint — dead-ends.test.ts always
+    // had `approach` and never `forbidden_terms`, select-candidate.test.ts the reverse —
+    // so nothing ever fed a real-shaped entry through both.
+    const real = fs.readFileSync(path.join(__dirname, '..', '..', '.planning', 'DEAD-ENDS.md'), 'utf-8');
+    const w = de.parseDeadEndsFile(real).map((e: { slug: string }) => e.slug).sort();
+    const s = sc.parseDeadEnds(real).map((e: { slug: string }) => e.slug).sort();
+    expect(w.length).toBeGreaterThan(0);
+    expect(w).toEqual(s);
   });
 });
