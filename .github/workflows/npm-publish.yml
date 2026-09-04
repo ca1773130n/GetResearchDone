@@ -1,0 +1,81 @@
+# Publish @jokerized/getresearchdone to npm when a GitHub release is published
+# (release.yml creates it as a draft; a human publishes it), or on demand.
+#
+# Authentication is OIDC trusted publishing — there is no NPM_TOKEN here and
+# there must not be one. npm mints a short-lived credential from the
+# `id-token: write` claim; the trusted-publisher entry on npmjs.com pins THIS
+# filename (npm-publish.yml). Renaming the file breaks publishing with
+# ENEEDAUTH / `E404 PUT` and nothing else hints at why. Provenance attestations
+# are generated automatically (public repo + public package + OIDC), so
+# `--provenance` is deliberately absent.
+name: npm publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag the selected ref's package.json must match (e.g. v0.6.0)"
+        required: true
+
+permissions:
+  id-token: write # OIDC — publishing fails without it
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest # npm OIDC does not support self-hosted runners
+    steps:
+      # Default ref: the release tag for `release` events, the chosen ref for dispatch.
+      - uses: actions/checkout@v4
+
+      # No `registry-url:` on purpose: it makes setup-node write an .npmrc with
+      # `_authToken=${NODE_AUTH_TOKEN}` and a placeholder value, so npm
+      # authenticates with garbage instead of OIDC and the registry answers
+      # `E404 PUT`, which reads like a missing package rather than an auth failure.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24" # ships npm >= 11.5.1, the OIDC floor
+          package-manager-cache: false # never cache in a release build
+
+      - name: Preflight
+        run: |
+          npm --version   # must be >= 11.5.1 or OIDC is unavailable
+          # Names only, never values — this is the OIDC handshake.
+          [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] \
+            && echo "OIDC: request URL present" \
+            || { echo "OIDC: MISSING — id-token: write was not granted" >&2; exit 1; }
+
+      # The tag is the source of truth. A mismatch means the release bumped some
+      # version files but not package.json and would publish the wrong version.
+      - name: Verify package version matches the tag
+        run: |
+          tag="${{ github.event.inputs.tag || github.event.release.tag_name }}"
+          pkg=$(node -p "require('./package.json').version")
+          [ "$tag" = "v$pkg" ] || { echo "tag $tag != package.json $pkg" >&2; exit 1; }
+
+      - name: Install dependencies
+        run: npm ci # prepublishOnly runs `npm run build`, which needs devDependencies
+
+      # npm refuses to republish a version and cannot be made to. A re-published
+      # release or a re-run must therefore be a loud no-op, not a red run that
+      # says nothing about the package. This cannot hide a forgotten bump: the
+      # version check above runs first.
+      - name: Skip if this version is already published
+        id: existing
+        run: |
+          name=$(node -p "require('./package.json').name")
+          ver=$(node -p "require('./package.json').version")
+          if npm view "$name@$ver" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$name@$ver is already on the registry — skipping publish."
+            printf '### npm publish skipped\n\n`%s@%s` is already published; this run is a no-op.\n' "$name" "$ver" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$ver is not on the registry — publishing."
+          fi
+
+      - name: Publish
+        if: steps.existing.outputs.already != 'true'
+        run: npm publish --access public
