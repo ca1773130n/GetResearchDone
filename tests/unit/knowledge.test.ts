@@ -1526,3 +1526,60 @@ describe('W6a: supersession survives the file, not just the process', () => {
     );
   });
 });
+
+describe('#73: research knowledge can actually reach the planner', () => {
+  function ent(name: string, phase: number, source: string, created = '2026-09-01') {
+    return {
+      pattern_name: name, source, applicability: 'a', code_snippet: 'c',
+      phase_number: phase, created_at: created,
+    } as import('../../lib/types').KnowhowEntry;
+  }
+  const phased = (n: number) =>
+    Array.from({ length: n }, (_, i) => ent(`phase-${i}`, 100 + i, `phase:${i}`));
+
+  it('a research entry places despite scoring phase_number 0', () => {
+    // Before the reserved slot: score is phase_number * 1000, research entries are phase 0,
+    // so any phase-numbered entry outranked them and the top-5 was always research-free.
+    const picked = selectTopEntries(
+      [...phased(10), ent('res', 0, 'research:t1#iter1')], 5,
+    );
+    expect(picked.map((e) => e.pattern_name)).toContain('res');
+  });
+
+  it('reserves by recency when several research entries compete', () => {
+    // n=4 reserves floor(4/3)=1 slot, so only the most recent research entry places.
+    const picked = selectTopEntries([
+      ...phased(10),
+      ent('old', 0, 'research:t1#iter1', '2026-01-01'),
+      ent('new', 0, 'research:t2#iter1', '2026-08-01'),
+    ], 4);
+    const names = picked.map((e) => e.pattern_name);
+    expect(names).toContain('new');
+    expect(names).not.toContain('old');
+  });
+
+  it('never lets the reservation crowd out phase knowledge entirely', () => {
+    const picked = selectTopEntries([
+      ...phased(10),
+      ...Array.from({ length: 9 }, (_, i) => ent(`r${i}`, 0, `research:t${i}#iter1`)),
+    ], 6);
+    expect(picked).toHaveLength(6);
+    expect(picked.filter((e) => e.source.startsWith('research:')).length).toBeLessThanOrEqual(2);
+    expect(picked.filter((e) => !e.source.startsWith('research:')).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('phase-0 entries that are NOT research take no reserved slot', () => {
+    // The discriminator is `source`, not phase_number — a phase-0 entry from another
+    // writer is not research and must not displace phase knowledge.
+    const picked = selectTopEntries([...phased(10), ent('legacy', 0, 'manual')], 5);
+    expect(picked.map((e) => e.pattern_name)).not.toContain('legacy');
+  });
+
+  it('is unchanged when there is no research at all', () => {
+    // Entries are ranked by phase_number descending, so the top 5 of phases 100..109
+    // are the five highest — the reserved-slot branch must not perturb that at all.
+    const all = phased(10);
+    expect(selectTopEntries(all, 5).map((e) => e.pattern_name))
+      .toEqual(['phase-9', 'phase-8', 'phase-7', 'phase-6', 'phase-5']);
+  });
+});

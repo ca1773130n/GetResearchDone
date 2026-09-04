@@ -239,6 +239,7 @@ CONTEXT_CONTENT=$(echo "$INIT" | jq -r '.context_content // empty')
 # orchestrator must extract them from INIT and inject them into the
 # planner prompt — otherwise the planner never sees them.
 DEAD_ENDS_MD=$(echo "$INIT" | jq -r '.dead_ends_md // empty')
+KNOWHOW_BLOCK=$(echo "$INIT" | jq -r '.knowhow_block // empty')
 GENOME_MD=$(echo "$INIT" | jq -r '.genome_md // empty')
 PRIOR_REFLECTIONS=$(echo "$INIT" | jq -r '.prior_reflections // empty')
 ```
@@ -306,6 +307,11 @@ NOTE: If verdict is "falsified" for any pattern in your considered approach, ref
 **Dead Ends Registry (.planning/DEAD-ENDS.md):**
 {dead_ends_md}
 NOTE: Each entry is an approach that has been tried and failed. Treat as hard "do-not-propose" list.
+
+**Mined Know-How (KNOWHOW.md):**
+{knowhow_block}
+NOTE: Patterns extracted from completed phases and from autoresearch threads. Prefer an approach
+this block already validates over an untried one, and cite the pattern name when you do.
 
 **Strategy Genome (.planning/GENOME.md):**
 {genome_md}

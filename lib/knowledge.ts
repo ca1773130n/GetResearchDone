@@ -227,6 +227,17 @@ function appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): voi
  * - Returns at most n entries.
  * - If entries.length <= n, returns all entries sorted.
  */
+/**
+ * True for an entry promoted by the autoresearch loop.
+ *
+ * `lib/research/promote.ts` stamps `source` as `research:<threadId>#iter<n>`. That prefix is
+ * the discriminator rather than `phase_number === 0`, because a phase-0 entry written by
+ * anything else is not research and should not take a reserved slot.
+ */
+function isResearchEntry(e: KnowhowEntry): boolean {
+  return typeof e.source === 'string' && e.source.startsWith('research:');
+}
+
 function selectTopEntries(
   entries: KnowhowEntry[],
   n: number,
@@ -255,7 +266,25 @@ function selectTopEntries(
     (currentPhase !== undefined ? Math.abs(currentPhase - e.phase_number) : 0);
   const sorted = [...live].sort((a, b) => scoreEntry(b) - scoreEntry(a));
 
-  return sorted.slice(0, n);
+  // Research-promoted entries carry `phase_number: 0` by convention
+  // (lib/research/promote.ts), and the score is dominated by `phase_number * 1000`, so with
+  // any phase-numbered entry present a research entry scores 0 and can NEVER place. The
+  // autoresearch loop mined takeaways, promoted them, and they were structurally unable to
+  // reach the planner — the loop looked closed and was not.
+  //
+  // Reserve a share of the slots rather than re-weighting the score: re-weighting would
+  // silently change ranking for every existing caller, while a reserved slot changes only
+  // what was previously guaranteed to be absent. `source` is the discriminator, not
+  // `phase_number === 0`, because a phase-0 entry from any other writer is not research.
+  const research = sorted.filter(isResearchEntry);
+  const phased = sorted.filter((e) => !isResearchEntry(e));
+  if (research.length === 0 || phased.length === 0) return sorted.slice(0, n);
+
+  // Within research, phase_number is constant so the score cannot order them: use recency.
+  const byRecency = [...research].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const reserved = Math.min(byRecency.length, Math.max(1, Math.floor(n / 3)));
+  return [...phased.slice(0, Math.max(0, n - reserved)), ...byRecency.slice(0, reserved)]
+    .slice(0, n);
 }
 
 // ─── Knowledge Stats Tracking ─────────────────────────────────────────────────
