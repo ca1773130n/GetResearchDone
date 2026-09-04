@@ -3,6 +3,16 @@
 All notable changes to GRD are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [Unreleased]
+
+### Added
+- **npm publishing via GitHub Actions OIDC trusted publishing**
+  (`.github/workflows/npm-publish.yml`) — fires when a GitHub release is
+  published (or on `workflow_dispatch`), verifies `package.json` matches the
+  release tag, no-ops loudly on an already-published version, and needs no
+  `NPM_TOKEN` anywhere. `package.json` `repository.url` corrected to this
+  repository so provenance attestations verify.
+
 ## [0.6.0] - 2026-09-04
 
 Artifact-shaped gates. Ten workstreams (W1–W10) from
