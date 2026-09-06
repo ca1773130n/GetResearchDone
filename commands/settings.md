@@ -531,6 +531,32 @@ Parse current values:
 - `confirmation_gates.phase_completion` — confirm before marking phase complete (default: `false`)
 - `confirmation_gates.target_adjustment` — confirm before adjusting eval targets (default: `false`)
 - `confirmation_gates.approach_change` — confirm before changing approach (default: `false`)
+
+<!-- UNWIRED-GATES:START -->
+### Gates that are configurable but not yet wired
+
+These nine keys can be set, are snapshotted and restored by YOLO mode, and are
+displayed above — and **no code reads them**. Setting one changes nothing. They
+are listed here rather than hidden so the settings display stops implying a
+control it does not have.
+
+- `research_gates.phase_plan_approval`
+- `research_gates.execution_approval`
+- `research_gates.method_selection`
+- `research_gates.baseline_review`
+- `confirmation_gates.commit_confirmation`
+- `confirmation_gates.file_deletion`
+- `confirmation_gates.phase_completion`
+- `confirmation_gates.target_adjustment`
+- `confirmation_gates.approach_change`
+
+`tests/unit/settings-gate-catalog.test.ts` asserts this list both ways: a gate
+named in this file must either have a consumer or appear here, and a gate listed
+here must have no consumer. Wiring one up therefore fails the test until it is
+removed from this list, and adding a gate to the UI without a consumer fails it
+until it is added. Do not edit the markers around this section — the test reads
+between them.
+<!-- UNWIRED-GATES:END -->
 - `research_gates.verification_design` — pause for EVAL.md review (default: `false`)
 - `research_gates.method_selection` — pause for method choice review (default: `false`)
 - `research_gates.baseline_review` — pause for baseline review (default: `false`)
