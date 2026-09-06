@@ -117,7 +117,7 @@ function _verifyRoadmapTicked(cwd: string, phaseNum: string): boolean {
   try {
     const content = fs.readFileSync(roadmapPath, 'utf-8');
     const pattern = new RegExp(
-      `-\\s*\\[x\\]\\s*Phase\\s+${phaseNum.replace('.', '\\.')}[\\s:]`,
+      `-\\s*\\[x\\]\\s*Phase\\s+${phaseNum.replace(/\./g, '\\.')}[\\s:]`,
       'i'
     );
     return pattern.test(content);
@@ -151,7 +151,7 @@ function _verifyStateAdvanced(cwd: string, phaseNum: string): boolean {
 
   // Normalize: check if currentPhase starts with or equals phaseNum
   // (handles "3", "03", "3:", "Phase 3", etc.)
-  const phasePattern = new RegExp(`^(phase\\s+)?0*${phaseNum.replace('.', '\\.')}(\\b|:|$)`, 'i');
+  const phasePattern = new RegExp(`^(phase\\s+)?0*${phaseNum.replace(/\./g, '\\.')}(\\b|:|$)`, 'i');
   return !phasePattern.test(currentPhase);
 }
 
@@ -168,11 +168,11 @@ function _verifyProgressTableRow(cwd: string, phaseNum: string): boolean {
   // If no table is detected for this phase, skip the check (return true).
   // If found, verify the Status column shows "Complete".
   const rowPattern = new RegExp(
-    `\\|\\s*0*${phaseNum.replace('.', '\\.')}\\s*\\|([^|]*\\|){1,4}\\s*Complete\\s*\\|`,
+    `\\|\\s*0*${phaseNum.replace(/\./g, '\\.')}\\s*\\|([^|]*\\|){1,4}\\s*Complete\\s*\\|`,
     'i'
   );
   const rowPatternIncomplete = new RegExp(
-    `\\|\\s*0*${phaseNum.replace('.', '\\.')}\\s*\\|[^\\n]*`,
+    `\\|\\s*0*${phaseNum.replace(/\./g, '\\.')}\\s*\\|[^\\n]*`,
     'i'
   );
 

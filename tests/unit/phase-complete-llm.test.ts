@@ -519,4 +519,67 @@ describe('_verifyFallbackOutput', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // I5 regression (the sibling file the 2026-04 audit never covered).
+  //
+  // `phaseNum.replace('.', '\\.')` escapes only the FIRST dot, because
+  // String.replace with a string pattern replaces one occurrence. For a
+  // three-part phase number like "1.1.2" that yields `1\.1.2`, whose second
+  // dot is an unescaped regex wildcard matching any character. The fix in
+  // lib/phase-complete.ts used the global form; this file kept the broken one
+  // in four places, so the same false match survived here.
+  //
+  // Each case below feeds a decoy row that differs from the real phase number
+  // only where that wildcard sits. Reintroduce the single-replacement form and
+  // all three assertions flip to true.
+  describe('I5: multi-level phase numbers escape every dot', () => {
+    it('does not treat the second dot as a wildcard when matching the roadmap', () => {
+      const dir = makeProjectWithStates(
+        '- [x] Phase 1.1X2: a different phase entirely\n',
+        '**Current Phase:** 1.1.2\n'
+      );
+      try {
+        const result = _verifyFallbackOutput(dir, '1.1.2');
+        const roadmap = result.checks.find((c) => c.name === 'roadmap-ticked');
+        expect(roadmap?.passed).toBe(false);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('does not treat the second dot as a wildcard when matching STATE', () => {
+      // state-advanced passes when the current phase is NOT still phaseNum.
+      // "1.1X2" is a different phase, so the check must report advanced.
+      const dir = makeProjectWithStates(
+        '- [x] Phase 1.1.2: done\n',
+        '**Current Phase:** 1.1X2\n'
+      );
+      try {
+        const result = _verifyFallbackOutput(dir, '1.1.2');
+        const state = result.checks.find((c) => c.name === 'state-advanced');
+        expect(state?.passed).toBe(true);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('does not treat the second dot as a wildcard when matching the progress table', () => {
+      // The only row belongs to a DIFFERENT phase (1.1X2) and is not Complete.
+      // Correct behaviour: no row matches 1.1.2, so the check is skipped (true).
+      // With the single-replacement bug the decoy row matches
+      // rowPatternIncomplete but not rowPattern, so the check reports false —
+      // a phase marked incomplete on the strength of another phase's row.
+      const dir = makeProjectWithStates(
+        '- [x] Phase 1.1.2: done\n\n| 1.1X2 | Other | In Progress |\n',
+        '**Current Phase:** 2\n'
+      );
+      try {
+        const result = _verifyFallbackOutput(dir, '1.1.2');
+        const row = result.checks.find((c) => c.name === 'progress-row');
+        expect(row?.passed).toBe(true);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
 });

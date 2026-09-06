@@ -1,0 +1,154 @@
+# Push / pull-request CI.
+#
+# This file was deleted in 3bb573a ("remove ci.yml during autoresearch
+# development phase") on 2026-05-25 and restored at 0.6.0. For the three
+# releases in between, nothing verified a branch: the only workflows were
+# release-time. Several defects shipped in that window whose common shape was a
+# value crossing a boundary with green tests on both sides.
+#
+# Differences from the deleted version, each deliberate:
+#
+#   * One Node version for the suite (22, matching release.yml) instead of a
+#     3-version matrix running every test twice. Node 18 is the floor declared
+#     in package.json `engines`, so the packaging job smoke-tests the built CLI
+#     there — enough to catch a too-new runtime API without a second full run.
+#   * No `format:check` step. Prettier has no configuration anywhere in the
+#     repo, so it falls back to its own defaults and reports 167 of 168 files as
+#     unformatted on a clean tree. The old job hid that behind
+#     `continue-on-error: true`, which is a check that cannot fail — exactly the
+#     kind this repo exists to refuse. Restore the step in the same commit that
+#     adds a Prettier config, not before.
+#   * The packaging job uses the scoped package name. The old job looked for
+#     `grd-tools-*.tgz` and `node_modules/grd-tools/`; the package has been
+#     `@jokerized/getresearchdone` since 0.4.1, so that job could not have
+#     passed as written.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch supersedes the run in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run build:check
+
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # `CI=true` is set by Actions, and the kernel-contract suite treats that
+      # as "a missing python3 must FAIL, not skip" — its own comment says a
+      # green CI must not mean "we skipped it". Assert the interpreter is here
+      # so that suite runs for real rather than quietly passing.
+      - name: Python available for the kernel-contract suite
+        run: python3 --version
+
+      # Per-file coverage thresholds are NOT enforced here, and this is not an
+      # oversight to tidy up later. Suites that need binaries absent from the
+      # runner (claude, codex) skip, which drives their files' coverage below
+      # thresholds even with zero failures, so `jest --coverage` would exit
+      # non-zero for a reason unrelated to the change under test.
+      #
+      # Note for anyone restoring the old comment in release.yml: the deleted
+      # ci.yml ALSO cleared thresholds, so "coverage is gated on push-CI" was
+      # never true. Per-file thresholds are enforced by a local `npm test`.
+      # Making them a real gate means giving the runner the missing binaries or
+      # switching to a global floor — either is a change, not a comment.
+      - name: Full test suite
+        run: npx jest --coverage --coverageThreshold='{}'
+
+  package:
+    name: Pack and install
+    runs-on: ubuntu-latest
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor declared in package.json `engines`; 22 is what the
+        # release builds on. The suite runs on 22 only — this job is the cheap
+        # check that the built CLI actually starts on the oldest supported Node.
+        node-version: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install the packed tarball and run the shipped CLIs
+        run: |
+          set -euo pipefail
+          npm pack
+          # Scoped package: npm writes `<scope>-<name>-<version>.tgz` with the
+          # leading @ stripped, and installs under node_modules/@scope/name.
+          TARBALL=$(ls jokerized-getresearchdone-*.tgz)
+          PKG_DIR=node_modules/@jokerized/getresearchdone
+          INSTALL_DIR=$(mktemp -d)
+          cp "$TARBALL" "$INSTALL_DIR/"
+          cd "$INSTALL_DIR"
+          npm init -y --silent
+          # --ignore-scripts: the package's postinstall is not under test here.
+          npm install --ignore-scripts "./$TARBALL"
+
+          node "$PKG_DIR/dist/bin/grd-tools.js" current-timestamp --raw
+          echo "grd-tools dist CLI: OK"
+
+          MCP_REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0.0"}}}'
+          echo "$MCP_REQ" | timeout 30 node "$PKG_DIR/dist/bin/grd-mcp-server.js" | grep -q '"protocolVersion"'
+          echo "grd-mcp-server dist: OK"
+
+          test -f "$PKG_DIR/.claude-plugin/plugin.json"
+          echo "plugin.json shipped: OK"
+
+  scan:
+    name: Prompt injection scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Invoked through `node` rather than the `gd` bin: npm ci does not always
+      # set the executable bit on bin/gd.js, which fails as "Permission denied".
+      - name: Scan changed markdown for injection patterns
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: node bin/gd.js scan --diff "origin/$BASE_REF"

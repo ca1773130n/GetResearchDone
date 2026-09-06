@@ -12,6 +12,44 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   release tag, no-ops loudly on an already-published version, and needs no
   `NPM_TOKEN` anywhere. `package.json` `repository.url` corrected to this
   repository so provenance attestations verify.
+- **Push and pull-request CI is back** (`.github/workflows/ci.yml`). It was
+  deleted in `3bb573a` on 2026-05-25 "during autoresearch development phase"
+  and never restored, so for three releases nothing verified a branch — lint,
+  types, tests and the packaging smoke test ran only where someone remembered
+  to run them. Restored with three deliberate changes: one Node version for the
+  suite instead of a 3-way matrix; no `format:check` step, because Prettier has
+  no config anywhere and reports 167 of 168 files as unformatted, which the old
+  job hid behind `continue-on-error` (a check that cannot fail); and the
+  packaging job fixed for the scoped package name — it still looked for
+  `grd-tools-*.tgz` and `node_modules/grd-tools/`, so it could not have passed
+  since 0.4.1.
+- **The settings gate catalog is asserted in both directions**
+  (`tests/unit/settings-gate-catalog.test.ts`). `gd settings` offers fourteen
+  gate toggles and **nine are read by nothing**: the research gates
+  `phase_plan_approval`, `execution_approval`, `method_selection` and
+  `baseline_review`, plus all five `confirmation_gates`. Setting
+  `confirmation_gates.file_deletion: true` does not make anything confirm
+  before deleting a file. YOLO mode snapshots and restores them correctly, so
+  the plumbing works and only the consumer is missing. `commands/settings.md`
+  now names them in a marked block, and the test holds that list honest both
+  ways — a gate in the UI must have a consumer or be listed, and a listed gate
+  must have none — so wiring one up fails the build until it leaves the list.
+
+### Fixed
+- **Multi-level phase numbers now escape every dot** — `lib/phase-complete-llm.ts`
+  carried four occurrences of `phaseNum.replace('.', '\\.')`, which escapes only
+  the first dot because `String.replace` with a string pattern replaces a single
+  occurrence. For a phase number like `1.1.2` that yields `1\.1.2`, whose second
+  dot is an unescaped wildcard, so a roadmap row for `1.1X2` satisfied the check
+  for `1.1.2`. The identical defect was fixed in `lib/phase-complete.ts` in April
+  (RISKS I5); this sibling file was never in that audit's scope. All three
+  affected checks — roadmap tick, STATE advance, progress-table row — now carry
+  mutation-proven regression tests.
+- `release.yml` no longer claims coverage is "gated on push-CI (ci.yml)". That
+  workflow had been deleted, and the deleted version cleared the thresholds
+  anyway, so the claim was never true. The comment now records what actually
+  enforces per-file thresholds: a local `npm test`, and nothing else. The
+  restored `ci.yml` does not enforce them either, and says so.
 
 ## [0.6.0] - 2026-09-04
 
