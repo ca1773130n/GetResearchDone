@@ -1,5 +1,8 @@
 # Competitive Landscape — Autonomous Research Systems (as of 2026-07-09)
 
+> **Partly superseded (2026-09-06).** The autonomous-scientist category moved substantially in the two months after this pass, and the coding-harness and agent-memory categories it ran out of budget on are now covered. See [2026-09-06-competitive-differentiation.md](2026-09-06-competitive-differentiation.md). This document stays the reference for the systems it covered in depth.
+
+
 **Method:** deep-research workflow (5 search angles → source fetch → per-claim 3-vote
 adversarial verification). 18 claims confirmed (17 at 3-0, one at 2-1), 7 claims
 unverified (verification panels hit a session limit — plausible, not refuted), 0 refuted,
