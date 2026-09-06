@@ -1,6 +1,6 @@
 # GRD Architecture Overview
 
-GRD (Get Research Done) is an R&D project orchestrator CLI that drives AI coding backends (Claude Code, Codex, Gemini, OpenCode) through agent-based workflows. It manages multi-phase project lifecycles — from planning and execution to verification and evaluation — using a deterministic Node.js orchestration layer that spawns LLM subprocesses. Version 0.3.28, licensed privately.
+GRD (Get Research Done) is an R&D project orchestrator CLI that drives AI coding backends (Claude Code, Codex, Gemini, OpenCode) through agent-based workflows. It manages multi-phase project lifecycles — from planning and execution to verification and evaluation — using a deterministic Node.js orchestration layer that spawns LLM subprocesses. Version 0.6.0, licensed privately.
 
 ---
 
@@ -8,12 +8,12 @@ GRD (Get Research Done) is an R&D project orchestrator CLI that drives AI coding
 
 | Directory | Contents | Purpose |
 |---|---|---|
-| `bin/` | 10 files (5 `.js` + 5 `.ts` pairs) | Entry points: `gd.js/ts` (main CLI), `grd-tools.js/ts` (tool dispatch), `grd-mcp-server.js/ts` (MCP server), `grd-manifest.js/ts`, `postinstall.js/ts` |
-| `lib/` | 38 `.ts` root files + 6 subdirectories | All runtime logic — see Module Categories below |
-| `commands/` | 43 `.md` skill definitions | One markdown file per user-facing command; defines agent prompt, usage, frontmatter |
-| `agents/` | 22 `.md` subagent definitions | One file per named subagent (grd-planner, grd-executor, etc.) with frontmatter for `effort`, `maxTurns`, `disallowedTools` |
-| `tests/unit/` | ~55 test files | Mirror of `lib/` — one test file per module |
-| `tests/integration/` | ~19 test files | CLI integration, E2E workflow, and scheduler tests |
+| `bin/` | 5 `.js`/`.ts` pairs + `harness_driver.py` + `vendor/` | Entry points: `gd.js/ts` (main CLI), `grd-tools.js/ts` (tool dispatch), `grd-mcp-server.js/ts` (MCP server), `grd-manifest.js/ts`, `postinstall.js/ts`; plus the life-harness Python driver and the vendored `autoresearch-core` kernel |
+| `lib/` | 49 `.ts` root files + 7 subdirectories | All runtime logic — see Module Categories below |
+| `commands/` | 48 `.md` skill definitions | One markdown file per user-facing command; defines agent prompt, usage, frontmatter |
+| `agents/` | 28 `.md` subagent definitions | One file per named subagent (grd-planner, grd-executor, etc.) with frontmatter for `effort`, `maxTurns`, `disallowedTools` |
+| `tests/unit/` | ~139 test files | Mirror of `lib/` — one test file per module |
+| `tests/integration/` | ~27 test files | CLI integration, E2E workflow, and scheduler tests |
 | `docs/` | Architecture docs, CHANGELOG, specs, plans | Human-facing documentation; `docs/superpowers/specs/` holds milestone design specs |
 | `.planning/` | `ROADMAP.md`, `STATE.md`, `config.json`, `milestones/`, `REQUIREMENTS.md`, `EVOLVE-STATE.json`, etc. | All project-scoped runtime state — committed to the repo, read/written by GRD at execution time |
 
@@ -66,9 +66,9 @@ Key files: `lib/commands/harness.ts`, `bin/harness_driver.py`
 
 As of v0.4.5 the harness also consumes Tesserae 0.9.0 AgentRunbook distilled memory — `Runbook` procedures and `Gotcha` failure-modes — as evidence alongside raw session findings, so proven know-how and recurring pitfalls feed proposals directly. An empty round now hints at `tesserae config status` (Tesserae 0.9.0's loud diagnostic for silently rate-limited extraction).
 
-### Evolve Loop (Deprecated v0.4.3)
+### Evolve Loop (Deprecated 2026-06-06)
 
-**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept in-tree for `gd singularity` history. `gd evolve` now prints a pointer to `gd harness round` and exits 1; its read-only introspection subcommands still work as tool commands.
+**Deprecated 2026-06-06 — the verb no longer runs.** Superseded by the life-harness (`gd harness round`), which runs on Tesserae session evidence and is eval-gated and git-reversible, where evolve was a static scan whose discovery saturated. `lib/evolve/` stays in-tree because `gd singularity` reads its history. Bare `gd evolve` prints the redirect and exits 1; the `EVOLVE_TOOL_SUBS` subcommands still classify as tool commands. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 Key files: `lib/evolve/` (7 files, ~3000 lines total)
 
@@ -89,10 +89,21 @@ Key files: `lib/commands/` (13 files)
 
 Decomposed dashboard, health, progress, and quality analysis commands. `lib/commands/analysis.ts` (1497 lines) is the largest, covering codebase quality analysis. `lib/commands/dashboard.ts` (680 lines) powers `gd dashboard`.
 
-### Research and Knowledge
-Key files: `lib/autoresearch.ts` (789 lines), `lib/citations.ts` (760 lines), `lib/knowledge.ts`, `lib/benchmark.ts`, `lib/discussion.ts` (1270 lines)
+### Autoresearch Loop (`lib/research/`)
+Key files: `lib/research/orchestrator.ts`, `verdict.ts`, `agent-io.ts`, `checkpoints.ts`, `promote.ts`, `runner.ts` / `docker-runner.ts`, `ingest.ts`, `synthesize.ts`, `retrieve.ts`, `portfolio.ts`, `paper.ts`
 
-`autoresearch.ts` implements a Karpathy-style hypothesis→implement→evaluate loop. `citations.ts` builds typed citation graphs from `PAPERS.md` files. `knowledge.ts` manages `KNOWHOW.md` entries. `discussion.ts` dispatches to multiple backends for multi-model synthesis. `benchmark.ts` manages evaluation corpora.
+`gd research "<question>"` runs the station loop SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → FINALIZE → PERSIST (the `Station` union in `lib/research/types.ts`) behind two default-on gates read from `research_gates`: `experiment_execution` and `kg_write` (`lib/research/gates.ts`). The verdict is deterministic — `evaluateVerdict()` in `lib/research/verdict.ts` compares the committed metric against the plan's comparator and target; no LLM judges the control path. Full flow in [FLOWS.md](FLOWS.md) (Flow 7a).
+
+Three control-flow properties are worth knowing up front:
+
+- **Admission at parse time.** `parseHypothesisOutput` and `parseHypothesesOutput` in `lib/research/agent-io.ts` drop any candidate whose `refutationCondition` is missing or empty, before ranking (the multi-candidate parser returns a `droppedForRefutation` count). A hypothesis that names no observation that would falsify it never enters the ledger.
+- **Two kinds of inconclusive.** `MeasureOutcome.cause` is `'run_failed'` (nonzero exit — an engineering fault the RUN-stage debug loop can retry) or `'metric_absent'` (the script ran but never emitted the metric it committed to be judged on — a DESIGN fault). `metric_absent` re-enters DESIGN for the **same** hypothesis at the same iteration rather than burning a fresh one, bounded by `research_max_debug_depth` *shared with* the debug loop, not additive (`orchestrator.ts`, the `redesignCount` branch). Consecutive unmeasurable iterations trip `detectDesignPlateau()` and terminate the thread as `exhausted` with that separate diagnosis.
+- **The knowledge loop closes.** `lib/research/promote.ts` promotes settled-verdict takeaways into `KNOWHOW.md` with `source: research:<thread>#iter<n>`, gated on on-disk artifacts (recognised kind, non-empty evidence, a `supported`/`refuted` verdict, and a non-empty `metrics` object in that iteration's `result.json`) rather than the mining agent's self-reported confidence. Those entries are then *read back*: `selectTopEntries()` (`lib/knowledge.ts`) reserves roughly a third of the injection slots for `research:`-sourced entries — they carry `phase_number: 0` and would otherwise score below every phase-numbered entry — and the resulting `knowhow_block` is injected into both the planner (`commands/plan-phase.md`) and executor (`commands/execute-phase.md`) prompts.
+
+### Research and Knowledge
+Key files: `lib/autoresearch.ts` (789 lines), `lib/citations.ts` (760 lines), `lib/knowledge.ts`, `lib/dead-ends.ts`, `lib/benchmark.ts`, `lib/discussion.ts` (1270 lines)
+
+`autoresearch.ts` implements the older Karpathy-style hypothesis→implement→evaluate loop behind `gd autoresearch` — metric-driven git experiments on a branch, distinct from the `lib/research/` station loop above. `citations.ts` builds typed citation graphs from `PAPERS.md` files. `knowledge.ts` manages `KNOWHOW.md` entries (writes supersede rather than overwrite; `selectTopEntries()` is the ranking used for prompt injection). `dead-ends.ts` owns `.planning/DEAD-ENDS.md` — `gd dead-end add | retire | reopen | promote-from-phase`, where `retire` is the only writer of `status: retired` and the only way to un-gate an entry. `discussion.ts` dispatches to multiple backends for multi-model synthesis. `benchmark.ts` manages evaluation corpora.
 
 ### Prompt Injection Scan
 Key files: `lib/scan/` (7 files)
@@ -116,7 +127,9 @@ Key files: `lib/types.ts` (1566 lines), `lib/utils.ts` (1308 lines), `lib/cleanu
 
 **Status Markers:** Phase plans use YAML frontmatter fields (`status: pending | running | complete`) written by the post-pipeline step. `disk_status` is derived by reading these markers from disk. `completePhaseAfterPostPipeline()` (`lib/phase-complete.ts`) ticks the ROADMAP.md checkbox and advances STATE.md's `Current Phase`.
 
-**Gates (`lib/gates.ts`):** A registry maps command names to arrays of gate-check function names. `runPreflightGates()` runs all registered checks before a command executes and returns `PreflightResult` with violations. As of v0.4.5, phase planning adds a planning-time clarification gate (`research_gates.plan_clarification`, default on): the planner uses AskUserQuestion to resolve ambiguous unlocked decisions with the user before writing the plan (skipped under autonomous/autopilot).
+**Gates (`lib/gates.ts`):** A registry maps command names to arrays of gate-check function names. `runPreflightGates()` runs all registered checks before a command executes and returns `PreflightResult` with violations. As of v0.4.5, phase planning adds a planning-time clarification gate (`research_gates.plan_clarification`, default on): the planner uses AskUserQuestion to resolve ambiguous unlocked decisions with the user before writing the plan (skipped under autonomous/autopilot). As of v0.6.0 the phase boundary can also promote a `verdict: falsified` reflection into `.planning/DEAD-ENDS.md` — `promoteFalsifiedFromPhase()` (`lib/dead-ends.ts`), invoked as `gd dead-end promote-from-phase --phase N` from `commands/execute-phase.md` and `commands/verify-phase.md`. It is gated on `research_gates.auto_promote_falsified`, **default false**: with the gate off the step dry-runs and prints the entry it *would* write. Off by default because a DEAD-ENDS slug scores any future candidate plan citing it at `-Infinity` in `lib/commands/select-candidate.ts`, permanently and with no warning tier.
+
+**Interactive Research Checkpoints (`lib/research/checkpoints.ts`, v0.5.0+):** Human-in-the-loop steering of the autoresearch loop at four points — `seed`, `hypothesize`, `design`, `decide` (the `CheckpointPoint` union). Configured under `research_gates.interactive`: `enabled` defaults to **false**, each per-point flag defaults to true, plus `max_rounds` (2), `max_questions` (4), `hypothesis_candidates` (3), `every_iteration` (false), and `fallback` (`'recommended'`). `resolveInteractive()` forces the posture inactive whenever no human can answer — `--no-gates`, `autonomous_mode`, autopilot (including the `GRD_AUTOPILOT` env carrier), portfolio concurrency > 1. When a checkpoint fires attended, the thread saves as `status: 'paused'` with a pending checkpoint and is resumed by `gd research resume <id> --answers <file|->`. When it would fire *unattended*, the run never pauses: with `fallback: 'panel'` the AI discussion panel answers via `answerViaDiscussion()` (degrade-safe — an empty or rate-limited panel resolves to the recommended defaults), and with the default `fallback: 'recommended'` each question resolves straight to its recommended option.
 
 **Config Profiles:** `model_profile` (`quality` / `balanced` / `budget`) controls global model tier selection per agent. `token_profile` (`frugal` / `balanced` / `quality`) is an orthogonal preference controlling how aggressively to downgrade under budget pressure. Both live in `.planning/config.json` and are loaded by `loadConfig()` (`lib/utils.ts`).
 

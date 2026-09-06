@@ -2,63 +2,80 @@
 
 This document is a comprehensive reference for every module in `lib/`. Use it to answer "which file does X?" — each entry tells you the purpose, public API, and dependency relationships for fast navigation.
 
-**Quick links:** [lib/*.ts modules](#top-level-libtss) | [lib/cli/](#subdirectory-libcli) | [lib/commands/](#subdirectory-libcommands) | [lib/context/](#subdirectory-libcontext) | [lib/evolve/](#subdirectory-libevolve) | [lib/scan/](#subdirectory-libscan) | [lib/wireup/](#subdirectory-libwireup) | [bin/](#bin-entry-points) | [tests/helpers/](#testshelpers)
+**Quick links:** [lib/*.ts modules](#top-level-libtss) | [lib/cli/](#subdirectory-libcli) | [lib/commands/](#subdirectory-libcommands) | [lib/context/](#subdirectory-libcontext) | [lib/evolve/](#subdirectory-libevolve) | [lib/research/](#subdirectory-libresearch) | [lib/scan/](#subdirectory-libscan) | [lib/wireup/](#subdirectory-libwireup) | [bin/](#bin-entry-points) | [tests/helpers/](#testshelpers)
 
 ---
 
 ## Top-Level lib/*.ts
 
-There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total: ~30,900 lines.
+There are 49 direct TypeScript files in `lib/` (excluding subdirectories). Total: ~37,900 lines.
 
 ### Size overview
 
 | Module | Lines | Notes |
 |--------|-------|-------|
 | `lib/mcp-server.ts` | 3,292 | Largest file |
-| `lib/autopilot.ts` | 2,706 | Over 2,000 lines |
-| `lib/phase.ts` | 1,981 | Over 1,000 lines |
+| `lib/phase.ts` | 2,097 | Over 2,000 lines |
+| `lib/autopilot.ts` | 1,898 | |
+| `lib/types.ts` | 1,710 | 116 exported type symbols |
 | `lib/tracker.ts` | 1,591 | |
 | `lib/cleanup.ts` | 1,588 | |
-| `lib/types.ts` | 1,566 | 113 exported type symbols |
+| `lib/scheduler.ts` | 1,586 | |
+| `lib/utils.ts` | 1,496 | |
+| `lib/verify.ts` | 1,481 | |
 | `lib/worktree.ts` | 1,309 | |
-| `lib/utils.ts` | 1,308 | |
-| `lib/discussion.ts` | 1,270 | |
-| `lib/backend.ts` | 1,186 | |
-| `lib/scheduler.ts` | 1,173 | |
-| `lib/state.ts` | 1,009 | |
+| `lib/backend.ts` | 1,292 | |
+| `lib/discussion.ts` | 1,275 | |
+| `lib/autopilot-pipeline.ts` | 1,210 | |
+| `lib/dead-ends.ts` | 1,003 | |
+| `lib/state.ts` | 1,000 | |
+| `lib/autoresearch.ts` | 886 | |
+| `lib/knowledge.ts` | 852 | |
 | `lib/long-term-roadmap.ts` | 806 | |
-| `lib/autoresearch.ts` | 789 | |
 | `lib/roadmap.ts` | 775 | |
-| `lib/verify.ts` | 763 | |
+| `lib/deps.ts` | 773 | |
 | `lib/citations.ts` | 760 | |
-| `lib/gates.ts` | 662 | |
-| `lib/scan.ts` | ~580 | |
+| `lib/gates.ts` | 695 | |
+| `lib/frontmatter.ts` | 615 | |
+| `lib/parallel.ts` | 570 | |
+| `lib/drift.ts` | 519 | |
 | `lib/scaffold.ts` | 480 | |
 | `lib/requirements.ts` | 469 | |
-| `lib/invariants.ts` | 367 | |
+| `lib/plan-tournament.ts` | 426 | |
+| `lib/genome.ts` | 402 | |
+| `lib/phase-complete.ts` | 394 | |
+| `lib/invariants.ts` | 378 | |
+| `lib/phase-complete-llm.ts` | 376 | |
+| `lib/think.ts` | 365 | |
 | `lib/got.ts` | 361 | |
-| `lib/phase-complete-llm.ts` | 357 | |
+| `lib/autopilot-waves.ts` | 361 | |
+| `lib/refinement.ts` | 349 | |
 | `lib/benchmark.ts` | 341 | |
-| `lib/phase-complete.ts` | 332 | |
-| `lib/refinement.ts` | 330 | |
-| `lib/paths.ts` | 293 | |
+| `lib/paths.ts` | 301 | |
+| `lib/research-bundle.ts` | 300 | |
 | `lib/autoplan.ts` | 280 | |
 | `lib/markdown-split.ts` | 273 | |
-| `lib/knowledge.ts` | 273 | |
-| `lib/overstory.ts` | 265 | |
-| `lib/complexity.ts` | 119 | |
-| `lib/phase-io.ts` | 73 | |
-| `lib/metrics.ts` | 49 | |
+| `lib/overstory.ts` | 270 | |
+| `lib/account-discovery.ts` | 158 | |
+| `lib/autopilot-milestone.ts` | 136 | |
+| `lib/complexity.ts` | 117 | |
+| `lib/phase-io.ts` | 101 | |
+| `lib/ultracode.ts` | 91 | Added v0.4.6 |
 | `lib/scheduler-wait.ts` | 58 | |
+| `lib/metrics.ts` | 49 | |
+
+Entries below cover a subset of these. `lib/autopilot-pipeline.ts`, `lib/autopilot-waves.ts`,
+`lib/autopilot-milestone.ts`, `lib/drift.ts`, `lib/genome.ts`, `lib/plan-tournament.ts`,
+`lib/think.ts`, `lib/research-bundle.ts` and `lib/account-discovery.ts` have no entry yet.
 
 ---
 
 ## Module: lib/types.ts
 
 - **Path:** `lib/types.ts`
-- **Size:** ~1,566 lines
+- **Size:** ~1,710 lines
 - **Purpose:** Central type registry — all shared TypeScript interfaces, type aliases, and enums used across the codebase.
-- **Key exports (selected):** `BackendId`, `AdapterBackendId`, `MetaBackendId`, `DirectBackendId`, `GrdConfig`, `EvolveConfig`, `SpawnOpts`, `SchedulerConfig`, `SchedulerSpawnResult`, `BackendUsageState`, `UsageSample`, `BackendAdapter`, `PhaseInfo`, `MilestoneInfo`, `DiscussionRoundEntry`, `ElicitationDetection`, `DiscussionResult`, `RunDiscussionOptions`, `Concern`, `PlanReviewResult`, `ReviewIssue`, `CodeReviewResult`, `PRReviewResult`, `PRReviewComment`, `TraversalOptions`, `TraversalResult`, `PhaseCompleteResult`, `Requirement`, `TraceabilityEntry`, `FrontmatterObject`, `GateViolation`, `PreflightResult`, `RunCache`, `CleanupConfig`, `QualityAnalysisSummary`, `MultiMilestoneOptions`, `MultiMilestoneResult`, `MilestoneStepResult`, `CritiqueBranch`, `RefinementMetrics`, `MetricSnapshot`, `MinimaRegion`, `ConvergenceConfig`, `PlanArtifact`, `ArtifactDAG`, `ArtifactDAGValidation`, `AutoplanOptions`, `AutoplanResult`, `ModelProfileName`, `BudgetPressureLevel`, `BudgetPressureThresholds`, `AccountResolution`, `SuperpowersConfig`, `ComplexityLevel` (113 total exports)
+- **Key exports (selected):** `BackendId`, `AdapterBackendId`, `MetaBackendId`, `DirectBackendId`, `GrdConfig`, `EvolveConfig`, `SpawnOpts`, `SchedulerConfig`, `SchedulerSpawnResult`, `BackendUsageState`, `UsageSample`, `BackendAdapter`, `PhaseInfo`, `MilestoneInfo`, `DiscussionRoundEntry`, `ElicitationDetection`, `DiscussionResult`, `RunDiscussionOptions`, `Concern`, `PlanReviewResult`, `ReviewIssue`, `CodeReviewResult`, `PRReviewResult`, `PRReviewComment`, `TraversalOptions`, `TraversalResult`, `PhaseCompleteResult`, `Requirement`, `TraceabilityEntry`, `FrontmatterObject`, `GateViolation`, `PreflightResult`, `RunCache`, `CleanupConfig`, `QualityAnalysisSummary`, `MultiMilestoneOptions`, `MultiMilestoneResult`, `MilestoneStepResult`, `CritiqueBranch`, `RefinementMetrics`, `MetricSnapshot`, `MinimaRegion`, `ConvergenceConfig`, `PlanArtifact`, `ArtifactDAG`, `ArtifactDAGValidation`, `AutoplanOptions`, `AutoplanResult`, `ModelProfileName`, `BudgetPressureLevel`, `BudgetPressureThresholds`, `AccountResolution`, `SuperpowersConfig`, `ComplexityLevel` (116 total exports)
 - **Direct dependencies:** None (pure type definitions)
 - **Used by:** Nearly every module in `lib/` imports types from here via `import type`
 
@@ -67,7 +84,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/utils.ts
 
 - **Path:** `lib/utils.ts`
-- **Size:** ~1,308 lines
+- **Size:** ~1,496 lines
 - **Purpose:** Shared utility functions — filesystem helpers, config loading, output/error formatting, text normalization, process execution, and milestone resolution.
 - **Key exports:** `safeReadFile`, `safeReadMarkdown`, `safeReadJSON`, `output`, `error`, `loadConfig`, `getMilestoneInfo`, `normalizePhaseName`, `stripShippedSections`, `createRunCache`, `walkJsFiles`, `execGit`, `findPhaseInternal`
 - **Direct dependencies:** `lib/backend.ts`
@@ -78,9 +95,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/autopilot.ts
 
 - **Path:** `lib/autopilot.ts`
-- **Size:** ~2,706 lines
+- **Size:** ~1,898 lines
 - **Purpose:** Deterministic multi-phase orchestration — spawns isolated `claude -p` subprocesses per phase with no shared context, drives the full plan-execute-verify-complete lifecycle including convergence detection and artifact DAG validation.
-- **Key exports:** (all internal, accessed via `module.exports`) `cmdAutopilot`, `cmdAutopilotMultiMilestone`, `runMilestoneStep`, `runPhaseStep`
+- **Key exports:** (all internal, accessed via `cmdAutopilot`, `cmdInitAutopilot`, `cmdInitMultiMilestoneAutopilot`, `cmdMultiMilestoneAutopilot`
 - **Direct dependencies:** `utils`, `backend`, `roadmap`, `deps`, `long-term-roadmap`, `scheduler`, `overstory`, `worktree`, `refinement`, `knowledge`, `phase-complete`, `parallel`, `phase`, `gates`
 - **Used by:** `mcp-server.ts`
 
@@ -100,9 +117,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/autoresearch.ts
 
 - **Path:** `lib/autoresearch.ts`
-- **Size:** ~789 lines
+- **Size:** ~886 lines
 - **Purpose:** Autonomous research loop — dispatches research agents across backends, aggregates results, manages the research knowledge base, and integrates citations.
-- **Key exports:** `cmdAutoresearch`, `runAutoresearch`
+- **Key exports:** `cmdAutoResearch`, `cmdInitAutoResearch`, `_spawnClaude`
 - **Direct dependencies:** `utils`, `backend`, `paths`, `knowledge`, `citations`
 - **Used by:** `mcp-server.ts`
 
@@ -111,9 +128,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/backend.ts
 
 - **Path:** `lib/backend.ts`
-- **Size:** ~1,186 lines
+- **Size:** ~1,292 lines
 - **Purpose:** Backend capability registry and spawn infrastructure — defines `BACKEND_CAPABILITIES`, `EFFORT_PROFILES`, `MODEL_PROFILES`, and provides account resolution, binary detection, and backend state management.
-- **Key exports:** `ADAPTERS`, `ENV_VAR_MAP`, `FREE_FALLBACK_BUDGET`, `createBackendState`, `updateEWMA`, `evictExpiredSamples`, `recordSample`, `pickBackend`, `computeSoonestRecovery`, `isBudgetPressured`, `logPressureTransition`, `computeBudgetPressureLevel`, `resolveAccount`, `markInFlight`, `markComplete`, `checkBinary`, `Scheduler` (interface), `createScheduler`
+- **Key exports:** `buildBackendEnv`, `computeEffectiveModelTier`, `detectAvailableBackends`, `detectBackend`, `detectModels`, `detectPlaywright`, `detectWebMcp`, `parseOpenCodeModels`, `readConfig`, `resolveBackendModel`, `resolveEffortLevel`, `clearAvailabilityCache`, `clearConfigDirCache`, `clearModelCache`, `discoverBackendConfigDirs`, `getBackendCapabilities`, `getCachedModels`, `getEffectiveTierForDispatch`
 - **Direct dependencies:** `scheduler`, `scheduler-wait`, `metrics`
 - **Used by:** `parallel`, `mcp-server`, `discussion`, `utils`, `autoresearch`, `autopilot`
 
@@ -135,7 +152,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/citations.ts`
 - **Size:** ~760 lines
 - **Purpose:** Research citation management — parses, validates, deduplicates, and formats academic citations for research outputs; manages a CITATIONS.md file in the milestone research directory.
-- **Key exports:** `cmdCitations`, `parseCitations`, `formatCitations`, `mergeCitations`, `validateCitation`
+- **Key exports:** `buildCitationGraph`, `parseBorrowedComponents`, `parseMissingComponents`, `resolveCitations`, `resolveTransitiveDeps`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `autoresearch`, `mcp-server`
 
@@ -146,7 +163,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/cleanup.ts`
 - **Size:** ~1,588 lines
 - **Purpose:** Phase cleanup and code quality analysis — provides config reading for the `phase_cleanup` section, ESLint complexity analysis, dead export detection, file size checks, doc drift detection (changelog staleness, broken README links, JSDoc mismatches), test coverage gap detection, and config schema drift.
-- **Key exports:** `cmdCleanup`, `runCleanup`, `analyzeQuality`, `getCleanupConfig`
+- **Key exports:** `getCleanupConfig`, `cmdMatch`, `computeTrends`, `loadQualityHistory`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `mcp-server`, `phase-complete`
 
@@ -155,7 +172,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/complexity.ts
 
 - **Path:** `lib/complexity.ts`
-- **Size:** ~119 lines
+- **Size:** ~117 lines
 - **Purpose:** Task complexity estimator for adaptive model-tier routing — pure function mapping agent type + optional signals to a `ComplexityLevel` (`low` | `medium` | `high`); used in Spec 4 adaptive routing.
 - **Key exports:** `AGENT_BASELINE_COMPLEXITY`, `ComplexityHeuristics` (interface), `estimateComplexity`
 - **Direct dependencies:** None
@@ -163,12 +180,24 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 
 ---
 
+## Module: lib/dead-ends.ts
+
+- **Path:** `lib/dead-ends.ts`
+- **Size:** ~1,003 lines
+- **Purpose:** Write path for the `.planning/DEAD-ENDS.md` registry of falsified approaches — the read path is `cmdInitPlanPhase`'s `dead_ends_md`. Slug is the dedup key. As of v0.6.0 the writer **edits bytes in place** (`parseDeadEndsDoc` → mutate `bodyLines` → `serializeDeadEndsDoc`) instead of regenerating the file from the typed model, which had erased every key, prose section and header the model did not name. `ENTRY_HEADING_RE_SOURCE` is exported as a source string so the writer's notion of "an entry" can be asserted identical to the hard-fail gate's regex in `lib/commands/select-candidate.ts`.
+- **Key exports:** `parseDeadEndsDoc`, `serializeDeadEndsDoc`, `parseDeadEndsFile`, `serializeDeadEndsFile`, `parseReflectionSection`, `addDeadEnd`, `retireDeadEnd`, `reopenDeadEnd`, `promoteFalsifiedFromPhase`, `cmdDeadEndAdd`, `cmdDeadEndRetire`, `cmdDeadEndReopen`, `cmdDeadEndPromoteFromPhase`, `ENTRY_HEADING_RE_SOURCE`, `RETIRED`
+- **Direct dependencies:** `utils`, `autopilot-waves` (for `atomicWriteFileSync`)
+- **Used by:** `bin/grd-tools.ts` (`gd dead-end add|retire|reopen|promote-from-phase`), `research/promote`
+- **Notes:** `retireDeadEnd` is the only writer of `status: retired` anywhere in GRD and the only supported way to disarm the gate; automation may arm it, never disarm it. `promoteFalsifiedFromPhase` writes only when `research_gates.auto_promote_falsified` is true (default false) and otherwise returns a dry-run preview.
+
+---
+
 ## Module: lib/deps.ts
 
 - **Path:** `lib/deps.ts`
-- **Size:** ~536 lines
+- **Size:** ~773 lines
 - **Purpose:** Phase dependency graph analysis — builds a directed dependency graph from phase frontmatter `depends_on` fields, computes parallel execution groups, detects cycles, and validates plans against the artifact DAG.
-- **Key exports:** `buildDependencyGraph`, `computeParallelGroups`, `detectCycles`, `validatePhases`, `validateCrossPhase`, `extractPlanArtifact`
+- **Key exports:** `buildDependencyGraph`, `computeParallelGroups`, `cmdExecutePhaseDryRun`, `cmdPhaseAnalyzeDeps`, `cmdPhaseDepsVisualize`, `buildArtifactDAG`
 - **Direct dependencies:** `utils`, `paths`, `frontmatter`
 - **Used by:** `parallel`, `autopilot`, `mcp-server`
 
@@ -177,9 +206,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/discussion.ts
 
 - **Path:** `lib/discussion.ts`
-- **Size:** ~1,270 lines
+- **Size:** ~1,275 lines
 - **Purpose:** Cross-backend dispatch primitive and discussion orchestration — provides `dispatchToBackend()` for single-backend prompt dispatch and `runDiscussion()` for full multi-backend round orchestration with synthesis and markdown history output.
-- **Key exports:** `dispatchToBackend`, `runDiscussion`, `cmdDiscussion`
+- **Key exports:** `dispatchToBackend`, `runDiscussion`, `buildElicitationContext`, `detectElicitation`
 - **Direct dependencies:** `utils`, `backend`
 - **Used by:** `mcp-server`
 
@@ -188,9 +217,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/frontmatter.ts
 
 - **Path:** `lib/frontmatter.ts`
-- **Size:** ~572 lines
+- **Size:** ~615 lines
 - **Purpose:** YAML frontmatter parse, reconstruct, splice, and validate operations for plan and phase markdown files.
-- **Key exports:** `extractFrontmatter`, `reconstructFrontmatter`, `spliceFrontmatter`, `parseMustHavesBlock`, `validateFrontmatter`
+- **Key exports:** `extractFrontmatter`, `reconstructFrontmatter`, `spliceFrontmatter`, `parseMustHavesBlock`, `cmdFrontmatterGet`
 - **Direct dependencies:** `utils`
 - **Used by:** `state`, `roadmap`, `phase`, `deps`, `gates`, `long-term-roadmap`
 
@@ -199,9 +228,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/gates.ts
 
 - **Path:** `lib/gates.ts`
-- **Size:** ~662 lines
+- **Size:** ~695 lines
 - **Purpose:** Validation gate system — pre-flight checks for workflow commands; detects phase directory collisions, orphaned phases, stale artifacts, and milestone state inconsistencies before execution begins.
-- **Key exports:** `runPreflight`, `checkGates`, `formatGateViolations`
+- **Key exports:** `checkCitationGate`, `checkInvariantValidation`, `checkMilestoneStateCoherence`, `checkNoStaleArtifacts`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `autopilot`, `phase`, `mcp-server`
 
@@ -212,7 +241,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/got.ts`
 - **Size:** ~361 lines
 - **Purpose:** Graph-of-Thought synthesis execution engine — runs artifact DAG execution with frozen interface contracts; validates plan artifacts before spawning agent subprocesses.
-- **Key exports:** `executeGot`, `validateArtifactDAG`, `validateCrossPhase`, `extractPlanArtifact`, `GotExecuteOptions` (interface), `GotExecutionResult` (interface)
+- **Key exports:** `buildNodePrompt`, `runSmokeTest`, `executeArtifactDAG`, `freezeInterfaces`
 - **Direct dependencies:** `utils`, `invariants`
 - **Used by:** `autopilot`
 
@@ -221,9 +250,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/invariants.ts
 
 - **Path:** `lib/invariants.ts`
-- **Size:** ~367 lines
+- **Size:** ~378 lines
 - **Purpose:** Runtime invariant checking — asserts structural contracts on plan files, phase directories, and state before operations proceed; throws descriptive errors on violation.
-- **Key exports:** `assertPlanFile`, `assertPhaseDir`, `assertStateFile`, `assertConfig`, `assertMilestoneDir`
+- **Key exports:** `extractPlanArtifact`, `validateCrossPhase`, `validateResearchArtifacts`, `validateSemantic`, `validateStructural`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `got`, `phase`, `autopilot`
 
@@ -232,11 +261,12 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/knowledge.ts
 
 - **Path:** `lib/knowledge.ts`
-- **Size:** ~273 lines
-- **Purpose:** Research knowledge base management — reads, writes, and merges structured knowledge entries (findings, summaries, context) for the active milestone's research directory.
-- **Key exports:** `loadKnowledge`, `saveKnowledge`, `mergeKnowledge`, `formatKnowledge`
-- **Direct dependencies:** `utils`, `paths`
-- **Used by:** `autoresearch`, `autopilot`
+- **Size:** ~852 lines
+- **Purpose:** KNOWHOW.md entry formatting, parsing, supersession, selection, and prompt injection. As of v0.6.0 a colliding entry **supersedes** rather than overwrites (the older entry gets `superseded_by` and stays on disk for the audit trail; only the newer is injectable), and `selectTopEntries` reserves `max(1, floor(n/3))` slots for `research:`-sourced entries, which carry `phase_number: 0` and could otherwise never place.
+- **Key exports:** `formatKnowhowEntry`, `parseKnowhowEntries`, `appendKnowhowEntries`, `selectTopEntries`, `buildKnowledgeInjectionBlock`, `extractModuleHints`, `rankKnowhowByPhaseGoal`, `cmdKnowhowAudit`, `cmdKnowhowDedup`, `cmdKnowhowRank`
+- **Direct dependencies:** `utils`
+- **Used by:** `autoresearch`, `context/execute` (`cmdInitExecutePhase`, `cmdInitPlanPhase`), `context/agents` (`cmdInitExecutor`), `commands/analysis`, `research/promote`
+- **Notes:** the `knowhow_block` field those three `cmdInit*` functions emit is the single injection point; before v0.6.0 it was computed and dropped before reaching the prompt.
 
 ---
 
@@ -245,7 +275,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/long-term-roadmap.ts`
 - **Size:** ~806 lines
 - **Purpose:** Long-term roadmap operations — parses, validates, generates, and formats `LONG-TERM-ROADMAP.md`; implements the flat LT-N milestone format mapping long-term milestones to short-term execution milestones.
-- **Key exports:** `cmdLongTermRoadmap`, `parseLongTermRoadmap`, `generateLongTermRoadmap`, `formatLongTermRoadmap`
+- **Key exports:** `parseLongTermRoadmap`, `generateLongTermRoadmap`, `formatLongTermRoadmap`, `parseLtMilestone`
 - **Direct dependencies:** `frontmatter`
 - **Used by:** `autopilot`, `mcp-server`
 
@@ -256,7 +286,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/markdown-split.ts`
 - **Size:** ~273 lines
 - **Purpose:** Large markdown file splitting at heading boundaries — provides token estimation, boundary detection, splitting, index file detection, reassembly, and transparent read-through for split files (implements REQ-60/REQ-61).
-- **Key exports:** `splitMarkdown`, `estimateTokens`, `detectSplitIndex`, `reassembleMarkdown`, `readThroughSplit`
+- **Key exports:** `splitMarkdown`, `estimateTokens`, `readMarkdownWithPartials`, `findSplitBoundaries`, `isIndexFile`
 - **Direct dependencies:** `utils`
 - **Used by:** `utils`, `state`, `roadmap`
 
@@ -267,7 +297,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/mcp-server.ts`
 - **Size:** ~3,292 lines — the largest file in the codebase
 - **Purpose:** Model Context Protocol server — exposes all GRD CLI commands as MCP tools over JSON-RPC 2.0 stdio transport; all tool definitions auto-generated from a declarative `COMMAND_DESCRIPTORS` table; zero external runtime dependencies.
-- **Key exports:** `McpServer` (class), `createMcpServer`, `COMMAND_DESCRIPTORS`
+- **Key exports:** `McpServer`, `COMMAND_DESCRIPTORS`, `buildToolDefinitions`, `captureExecution`
 - **Direct dependencies:** `backend`, `commands`, `context`, `deps`, `discussion`, `evolve`, `frontmatter`, `markdown-split`, `parallel`, `phase`, `roadmap`, `scaffold`, `state`, `tracker`, `verify`, `wireup`, `worktree`
 - **Used by:** `bin/grd-mcp-server.ts` (entry point only)
 
@@ -287,9 +317,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/overstory.ts
 
 - **Path:** `lib/overstory.ts`
-- **Size:** ~265 lines
+- **Size:** ~270 lines
 - **Purpose:** Overstory backend adapter — detection, plan dispatch, status polling, and merge lifecycle management for the Overstory AI coding assistant backend.
-- **Key exports:** `detectOverstory`, `dispatchPlan`, `pollStatus`, `mergeOverstory`
+- **Key exports:** `detectOverstory`, `loadOverstoryConfig`, `compareSemver`, `generateOverlay`
 - **Direct dependencies:** `utils`
 - **Used by:** `autopilot`, `mcp-server`
 
@@ -300,7 +330,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/parallel.ts`
 - **Size:** ~570 lines
 - **Purpose:** Parallel execution support — validates that requested phases can run in parallel (no dependency edges), builds per-phase execution context with worktree paths, and selects parallel vs sequential mode based on backend capabilities.
-- **Key exports:** `validateParallel`, `buildParallelContext`, `selectExecutionMode`, `runParallelPhases`
+- **Key exports:** `buildParallelContext`, `cmdInitExecuteParallel`, `cmdParallelProgress`, `buildWaves`
 - **Direct dependencies:** `deps`, `utils`, `backend`, `roadmap`, `worktree`
 - **Used by:** `autopilot`, `mcp-server`
 
@@ -309,9 +339,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/paths.ts
 
 - **Path:** `lib/paths.ts`
-- **Size:** ~293 lines
+- **Size:** ~301 lines
 - **Purpose:** Centralized path resolution — single source of truth for all `.planning/` subdirectory paths; all milestone-scoped directory construction goes here so no other module hardcodes `path.join(cwd, '.planning', ...)`.
-- **Key exports:** `phasesDir`, `milestonesDir`, `planningDir`, `researchDir`, `todosDir`, `roadmapFile`, `stateFile`, `configFile`
+- **Key exports:** `phasesDir`, `milestonesDir`, `planningDir`, `researchDir`, `todosDir`, `archivedPhasesDir`, `codebaseDir`, `currentMilestone`
 - **Direct dependencies:** None (Node built-ins only)
 - **Used by:** `state`, `roadmap`, `phase`, `scaffold`, `tracker`, `requirements`, `gates`, `cleanup`, `autoresearch`, `citations`, `knowledge`, `invariants`
 
@@ -320,9 +350,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/phase.ts
 
 - **Path:** `lib/phase.ts`
-- **Size:** ~1,981 lines
+- **Size:** ~2,097 lines
 - **Purpose:** Phase execution orchestration — the core `gd execute-phase` implementation; manages agent spawning, plan loading, context injection, turn limits, post-pipeline (cleanup, verify, complete), and all phase lifecycle events.
-- **Key exports:** `cmdExecutePhase`, `runPhase`, `loadPhasePlans`, `buildPhaseContext`
+- **Key exports:** `cmdMilestoneComplete`, `cmdPhaseAdd`, `cmdPhaseBatchComplete`, `cmdPhaseComplete`
 - **Direct dependencies:** `utils`, `paths`, `roadmap`, `scheduler`, `state`, `gates`, `phase-complete`, `phase-io`, `frontmatter`
 - **Used by:** `autopilot`, `mcp-server`
 
@@ -331,9 +361,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/phase-complete.ts
 
 - **Path:** `lib/phase-complete.ts`
-- **Size:** ~332 lines
+- **Size:** ~394 lines
 - **Purpose:** Phase completion pipeline — runs post-execution steps (cleanup, verify, state patch, tracker sync) and marks phases done; delegates to `phase-complete-llm` for LLM-assisted fallback verification.
-- **Key exports:** `completePhaseAfterPostPipeline`, `runPhaseCompletePipeline`
+- **Key exports:** `completePhaseAfterPostPipeline`, `_phaseCompleteCore`, `_resolvePhaseSuccession`
 - **Direct dependencies:** `utils`, `state`, `verify`, `cleanup`, `tracker`, `phase-complete-llm`
 - **Used by:** `phase`, `autopilot`
 
@@ -342,7 +372,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/phase-complete-llm.ts
 
 - **Path:** `lib/phase-complete-llm.ts`
-- **Size:** ~357 lines
+- **Size:** ~376 lines
 - **Purpose:** LLM-assisted fallback phase completion — when deterministic verification cannot confirm success, attempts an LLM-powered re-verification pass; also provides `_verifyFallbackOutput` for direct test injection.
 - **Key exports:** `_verifyFallbackOutput`, `attemptLlmFallbackCompletion`
 - **Direct dependencies:** `utils`, `paths`
@@ -353,9 +383,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/phase-io.ts
 
 - **Path:** `lib/phase-io.ts`
-- **Size:** ~73 lines
+- **Size:** ~101 lines
 - **Purpose:** Thin I/O helpers for phase file reads and writes — isolated from the main `phase.ts` to keep file I/O concerns separate from orchestration logic.
-- **Key exports:** `readPlanFile`, `writePlanFile`
+- **Key exports:** `readRoadmapFile`, `readStateFile`, `writeRoadmapFile`, `writeStateFile`
 - **Direct dependencies:** `utils`
 - **Used by:** `phase`
 
@@ -364,9 +394,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/refinement.ts
 
 - **Path:** `lib/refinement.ts`
-- **Size:** ~330 lines
+- **Size:** ~349 lines
 - **Purpose:** Iterative plan refinement and convergence detection — implements critique-refine loops, tracks metric snapshots, detects local minima regions, and manages convergence configuration.
-- **Key exports:** `runRefinementLoop`, `detectConvergence`, `computeMetricSnapshot`, `isMinimaRegion`, `buildRefinementConfig`
+- **Key exports:** `buildCritiquePrompt`, `checkConvergence`, `detectMinima`, `classifyBranch`, `collectMetrics`
 - **Direct dependencies:** `utils`
 - **Used by:** `autopilot`
 
@@ -377,7 +407,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/requirements.ts`
 - **Size:** ~469 lines
 - **Purpose:** Requirement management — parses `REQUIREMENTS.md`, lists requirements with filters, checks traceability against phases, and updates requirement status.
-- **Key exports:** `cmdRequirements`, `parseRequirements`, `listRequirements`, `checkTraceability`, `updateRequirementStatus`
+- **Key exports:** `parseRequirements`, `cmdRequirementGet`, `cmdRequirementList`, `cmdRequirementTraceability`, `cmdRequirementUpdateStatus`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `mcp-server`
 
@@ -388,20 +418,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/roadmap.ts`
 - **Size:** ~775 lines
 - **Purpose:** Roadmap operations — parses `ROADMAP.md`, answers phase queries (status, order, dependencies), and computes schedules for tracker integration.
-- **Key exports:** `cmdRoadmap`, `parseRoadmap`, `getPhaseStatus`, `computeSchedule`, `getScheduleForPhase`, `getScheduleForMilestone`
+- **Key exports:** `computeSchedule`, `getScheduleForPhase`, `getScheduleForMilestone`, `cmdPhaseNextDecimal`, `cmdRoadmapAnalyze`, `cmdRoadmapGetPhase`
 - **Direct dependencies:** `utils`, `paths`, `frontmatter`
 - **Used by:** `tracker`, `autopilot`, `parallel`, `phase`, `mcp-server`
-
----
-
-## Module: lib/scan.ts
-
-- **Path:** `lib/scan.ts`
-- **Size:** ~580 lines
-- **Purpose:** Top-level prompt injection scanner command — composes `lib/scan/injection` and `lib/scan/base64`, loads the ignorefile, and drives the `gd scan` command output.
-- **Key exports:** `cmdScan`, `runScan`
-- **Direct dependencies:** `scan/injection`, `scan/base64`, `scan/ignorefile`, `utils`, `paths`
-- **Used by:** `mcp-server`, `commands/scan`
 
 ---
 
@@ -410,7 +429,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/scaffold.ts`
 - **Size:** ~480 lines
 - **Purpose:** Project and milestone scaffolding — creates `.planning/` directory structure, initializes config, state, roadmap, and requirements files for new projects and milestones.
-- **Key exports:** `cmdScaffold`, `scaffoldMilestone`, `scaffoldProject`, `writeDefaultConfig`
+- **Key exports:** `cmdScaffold`, `cmdTemplateFill`, `cmdTemplateSelect`
 - **Direct dependencies:** `utils`, `paths`
 - **Used by:** `mcp-server`
 
@@ -419,7 +438,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/scheduler.ts
 
 - **Path:** `lib/scheduler.ts`
-- **Size:** ~1,173 lines
+- **Size:** ~1,586 lines
 - **Purpose:** Cross-backend rate-limit scheduler — manages per-backend token budgets, EWMA usage tracking, idle watchdog timers, budget pressure levels, and spawns agent processes with retry logic; the `createScheduler` factory is the primary entry point.
 - **Key exports:** `ADAPTERS`, `ENV_VAR_MAP`, `FREE_FALLBACK_BUDGET`, `createBackendState`, `updateEWMA`, `evictExpiredSamples`, `recordSample`, `pickBackend`, `computeSoonestRecovery`, `isBudgetPressured`, `logPressureTransition`, `computeBudgetPressureLevel`, `resolveAccount`, `markInFlight`, `markComplete`, `checkBinary`, `Scheduler` (interface), `createScheduler`
 - **Direct dependencies:** `scheduler-wait`, `metrics`
@@ -441,9 +460,9 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 ## Module: lib/state.ts
 
 - **Path:** `lib/state.ts`
-- **Size:** ~1,009 lines
+- **Size:** ~1,000 lines
 - **Purpose:** Project state operations — reads, writes, patches, and progresses `STATE.md`; implements `cmdStateLoad` returning the full `StateLoadResult` including config, current milestone, phase status, and existence flags.
-- **Key exports:** `cmdStateLoad`, `cmdStatePatch`, `cmdStateProgress`, `patchState`, `readState`, `writeState`
+- **Key exports:** `cmdStateLoad`, `cmdStatePatch`, `cmdStateAddBlocker`, `cmdStateAddDecision`, `cmdStateAdvancePlan`, `cmdStateGet`
 - **Direct dependencies:** `utils`, `paths`, `frontmatter`
 - **Used by:** `mcp-server`, `evolve/_product-ideation`, `evolve/orchestrator`, `evolve/cli`, `evolve/_dimensions`, `evolve/scoring`, `evolve/discovery`, `evolve/index`, `evolve/_dimensions-features`, `wireup/autofix`, `wireup/orchestrator`, `wireup/cli`, `wireup/index`
 
@@ -454,20 +473,32 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/tracker.ts`
 - **Size:** ~1,591 lines
 - **Purpose:** Issue tracker integration — handles GitHub and Jira sync, tracker config, phase-to-issue mapping, schedule computation, and `cmdTracker` dispatch for the `gd sync` command.
-- **Key exports:** `cmdTracker`, `syncTracker`, `mapPhaseToIssue`, `getTrackerConfig`
+- **Key exports:** `cmdTracker`, `loadTrackerConfig`, `loadTrackerMapping`, `createGitHubTracker`
 - **Direct dependencies:** `utils`, `roadmap`, `paths`
 - **Used by:** `mcp-server`, `phase-complete`
+
+---
+
+## Module: lib/ultracode.ts
+
+- **Path:** `lib/ultracode.ts`
+- **Size:** ~91 lines
+- **Purpose:** `ultracode` max-effort mode (v0.4.6+) — detects the `--ultracode` flag or a bare `ultracode` keyword in a command's tokens, sets the `GRD_ULTRACODE` / `GRD_EFFORT=max` env carrier so it propagates through the whole process tree, and maps the mode onto per-backend model and reasoning-effort settings.
+- **Key exports:** `ULTRACODE_MODELS`, `codexEffort`, `detectUltracode`, `applyUltracodeEnv`, `maybeApplyUltracode`, `resolveEffort`
+- **Direct dependencies:** None (types only)
+- **Used by:** `scheduler` (adapter arg building), `cli/index`, `bin/gd.ts`, `bin/grd-tools.ts`
 
 ---
 
 ## Module: lib/verify.ts
 
 - **Path:** `lib/verify.ts`
-- **Size:** ~763 lines
-- **Purpose:** Phase verification — deterministic checks that a phase's plan `must_haves` artifacts exist and meet their contracts (file presence, line count, exports, content assertions); used as part of the post-execution pipeline.
-- **Key exports:** `cmdVerify`, `runVerify`, `checkMustHaves`, `formatVerifyResult`
-- **Direct dependencies:** `utils`, `paths`, `frontmatter`
+- **Size:** ~1,481 lines
+- **Purpose:** Deterministic verification commands for summaries, plan structure, references, commits, `must_haves` artifacts, and `key_links`, plus a whole-phase mechanical pass and a diagnostic. Used as part of the post-execution pipeline.
+- **Key exports:** `cmdVerifySummary`, `cmdVerifyPlanStructure`, `cmdVerifyPhaseCompleteness`, `cmdVerifyReferences`, `cmdVerifyCommits`, `cmdVerifyArtifacts`, `cmdVerifyKeyLinks`, `cmdVerifyMechanical`, `cmdDiagnosePhase`, `clearVerifyCache`
+- **Direct dependencies:** `utils`, `frontmatter`
 - **Used by:** `phase-complete`, `mcp-server`
+- **Notes:** as of v0.6.0 `cmdVerifySummary` distinguishes *not checked* from *passed*. Every check it runs is satisfied by an absence, so a SUMMARY.md citing no files and no commit hashes used to return `passed: true` with no errors. The result now carries `verified` and `unverified_reasons`, `passed` requires `verified`, and raw output is `passed` / `failed` / `unverified`.
 
 ---
 
@@ -476,7 +507,7 @@ There are 35 direct TypeScript files in `lib/` (excluding subdirectories). Total
 - **Path:** `lib/worktree.ts`
 - **Size:** ~1,309 lines
 - **Purpose:** Git worktree lifecycle management for phase isolation — creates, removes, lists, and cleans stale worktrees; each phase executes in its own worktree at `.worktrees/grd-worktree-{milestone}-{phase}`.
-- **Key exports:** `cmdWorktree`, `createWorktree`, `removeWorktree`, `listWorktrees`, `cleanStaleWorktrees`
+- **Key exports:** `cmdInstructionsLoadedHook`, `cmdPostCompactHook`, `cmdStopFailureHook`, `cmdTaskCompletedHook`, `cmdTeammateIdleHook`
 - **Direct dependencies:** `utils`
 - **Used by:** `parallel`, `mcp-server`, `autopilot`
 
@@ -499,34 +530,55 @@ Six files providing the `gd` CLI dispatch layer.
 
 ## Subdirectory: lib/commands/
 
-Fourteen files providing CLI command handler implementations.
+Thirty-five files providing CLI command handler implementations.
 
-| File | Lines (approx) | Purpose |
-|------|----------------|---------|
-| `lib/commands/_dashboard-parsers.ts` | ~150 | Internal parse helpers for dashboard metric extraction |
-| `lib/commands/analysis.ts` | ~300 | Eval regression, time budget, config diff, readiness, health score, decision timeline, knowledge import, todo duplicate analysis |
-| `lib/commands/config.ts` | ~100 | `gd settings` command — read/write config.json interactively |
-| `lib/commands/dashboard.ts` | ~250 | `gd dashboard` — composites progress, health, and roadmap into a single view |
-| `lib/commands/health.ts` | ~200 | `gd health` — surface blockers, velocity metrics, and risk indicators |
-| `lib/commands/index.ts` | ~180 | Barrel re-export of all command handlers; primary entry point for `mcp-server` and `grd-tools` |
-| `lib/commands/long-term-roadmap.ts` | ~100 | `gd long-term-roadmap` command wiring |
-| `lib/commands/phase-info.ts` | ~150 | `gd phase-info` — detailed per-phase status and plan summary |
-| `lib/commands/progress.ts` | ~200 | `gd progress` — project status and next action recommendation |
-| `lib/commands/quality.ts` | ~180 | `gd quality` — code quality metrics rollup |
-| `lib/commands/scan.ts` | ~120 | `gd scan` orchestrator — composes `lib/scan/injection` and `lib/scan/base64` |
-| `lib/commands/search.ts` | ~100 | `gd search` — full-text search across planning documents |
-| `lib/commands/slug-timestamp.ts` | ~60 | CLI slug/timestamp generation utilities |
-| `lib/commands/todo.ts` | ~180 | `gd todo` — list, view, and manage pending todo items |
+| File | Lines | Purpose |
+|------|-------|---------|
+| `lib/commands/_dashboard-parsers.ts` | 275 | Internal parse helpers for dashboard metric extraction |
+| `lib/commands/accounts.ts` | 102 | `gd accounts discover\|sync` — populate `superpowers.accounts` from a local ai-accounts store |
+| `lib/commands/analysis.ts` | 1,851 | Phase risk, citation backlinks, eval regression, time budget, config diff, readiness, milestone health, decision timeline, knowledge import, todo duplicates |
+| `lib/commands/assumptions.ts` | 232 | `gd list-phase-assumptions` — parse and freshness-check a phase's declared assumptions |
+| `lib/commands/blame.ts` | 174 | `gd blame` — map the files a completed phase modified back to the plan tasks that claimed them |
+| `lib/commands/budget.ts` | 148 | `gd budget` — estimate a phase's token budget before execution |
+| `lib/commands/check-plans.ts` | 233 | `gd check-plans` — validate plan files for stale (non-existent) file path references |
+| `lib/commands/config.ts` | 408 | `gd settings` / `config-ensure-section` — read and write config.json, including the `yolo` flag bundle |
+| `lib/commands/dashboard.ts` | 680 | `gd dashboard` / `gd phase-detail` — composites progress, health, and roadmap into a single view |
+| `lib/commands/estimate.ts` | 204 | `gd estimate` — preview token cost and the agent dispatch plan for a phase before execution |
+| `lib/commands/eval-diff.ts` | 252 | `gd eval-diff` — compare EVAL.md metrics between two phases side by side |
+| `lib/commands/freshness.ts` | 213 | `gd freshness` — staleness of research and planning artifacts |
+| `lib/commands/harness-conversion.ts` | 455 | `gd harness conversion` (added v0.4.16) — conversion metrics over harness rounds; classifies changed paths, mines evidence lessons and DEAD-ENDS entries |
+| `lib/commands/harness.ts` | 152 | `gd harness round\|status\|revert\|upstream\|conversion` — TS surface over `bin/harness_driver.py` |
+| `lib/commands/health.ts` | 607 | `gd health` / `health-check` — blockers, velocity metrics, risk indicators, research staleness |
+| `lib/commands/index.ts` | 268 | Barrel re-export of all command handlers; primary entry point for `mcp-server` and `grd-tools` |
+| `lib/commands/install.ts` | 307 | `gd install` — install the GRD MCP server into a supported harness (JSON or TOML config merge) |
+| `lib/commands/knowhow-aggregator.ts` | 345 | Aggregate KNOWHOW.md entries across all milestones and phases; import entries from another project directory |
+| `lib/commands/knowledge-search.ts` | 153 | `gd knowhow search` — query KNOWHOW entries |
+| `lib/commands/long-term-roadmap.ts` | 390 | `gd long-term-roadmap` command wiring |
+| `lib/commands/patterns.ts` | 465 | `gd patterns` — scans VERIFICATION.md `<reflection>` blocks for per-token verdict statistics, with a binomial test and Benjamini–Hochberg correction; suggests only |
+| `lib/commands/phase-info.ts` | 698 | `gd find-phase`, `resolve-model`, `detect-backend`, `commit`, `history-digest` — per-phase status and plan summary |
+| `lib/commands/plan-lint.ts` | 546 | `gd plan-lint` — deterministic linter for milestone PLAN.md specs; detects four categories of drift (phase ranges, exclusion assertions, declared knobs, …) |
+| `lib/commands/plan-phase.ts` | 375 | `gd plan-phase` — parses and writes the candidate plans a phase's planners produce |
+| `lib/commands/progress.ts` | 319 | `gd progress` — project status, next action, and research gaps |
+| `lib/commands/quality.ts` | 138 | `gd quality-analysis` / `setup` — code quality metrics rollup |
+| `lib/commands/rollback.ts` | 195 | `gd rollback` — generate a safe undo plan for a completed phase (emits `git revert` commands; does not run them) |
+| `lib/commands/scan.ts` | 72 | `gd scan` orchestrator — composes `lib/scan/injection` and `lib/scan/base64` |
+| `lib/commands/search.ts` | 300 | `gd search`, `migrate-dirs`, `coverage-report` |
+| `lib/commands/select-candidate.ts` | 851 | Scores candidate plans and picks one. Owns the **DEAD-ENDS hard-fail gate** (`parseDeadEnds`, `checkDeadEnds`): a slug citation or `forbidden_terms` match scores the plan at `-Infinity`, and only `status: retired` exempts an entry |
+| `lib/commands/singularity.ts` | 222 | `gd singularity` — what share of the codebase came from `gd evolve`, measured over several windows |
+| `lib/commands/slug-timestamp.ts` | 74 | CLI slug/timestamp generation utilities |
+| `lib/commands/tail.ts` | 129 | `gd tail` — follow `autopilot.log` in real time with GRD-aware formatting |
+| `lib/commands/todo.ts` | 273 | `gd todo` — list, complete, and rank pending todo items |
+| `lib/commands/watch.ts` | 80 | `gd watch` — live parallel-execution monitor |
 
 ---
 
 ## Subdirectory: lib/context/
 
-Seven files providing context initialization for all 48 agent `cmdInit*` functions.
+Seven files providing context initialization for the 45 agent `cmdInit*` functions.
 
 | File | Purpose |
 |------|---------|
-| `lib/context/index.ts` | Barrel re-export — single entry point for all 48 `cmdInit*` functions |
+| `lib/context/index.ts` | Barrel re-export — single entry point for all 45 `cmdInit*` functions |
 | `lib/context/base.ts` | Shared utilities: `inferCeremonyLevel`, `buildInitContext` — used by all other context modules |
 | `lib/context/agents.ts` | Init context builders for agent aliases and operation workflows (debug, integration-check, migrate, plan-check, etc.) |
 | `lib/context/execute.ts` | Init context builders for execution and planning workflows (`cmdInitExecutePhase`, `cmdInitPlanPhase`, `cmdInitVerifyWork`) |
@@ -571,6 +623,55 @@ Eleven files implementing the former self-evolution loop.
 
 ---
 
+## Subdirectory: lib/research/
+
+Thirty-seven files implementing the autoresearch loop (`gd research`, `gd ingest`, `gd synthesize`,
+`gd retrieve`, `gd research portfolio`). The loop runs SEED → GROUND → HYPOTHESIZE → DESIGN → RUN →
+MEASURE → LEARN → DECIDE → FINALIZE → PERSIST; the verdict is deterministic
+(metric / comparator / target), with no LLM-judged scoring on the control path.
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `lib/research/orchestrator.ts` | 1,574 | The station loop itself — `runResearch` / `resumeResearch`, spawn-and-parse with a retry budget, the bounded debug re-run, the `metric_absent` re-design branch, plateau and re-survey handling, and the `read*Config` readers for `research_spawn_retries`, `research_max_debug_depth`, `research_gates` and the re-survey window |
+| `lib/research/types.ts` | 236 | Domain types for the loop: `ResearchThread`, `Hypothesis` (incl. `refutationCondition`), `ExperimentPlan` (incl. `baseline`), `ExperimentResult`, `Takeaway`, `BaselineMargin`, `MeasureCause`/`MeasureOutcome`, `Checkpoint*`, `InteractiveConfig`; plus `defaultGates` and `formatSignedDelta` |
+| `lib/research/verdict.ts` | 70 | Deterministic verdict: `compare`, `evaluateVerdict` (sets `cause: 'run_failed' \| 'metric_absent'` on inconclusive), `decideBranch`, `shouldTerminate`, `detectPlateau`, `detectDesignPlateau` |
+| `lib/research/agent-io.ts` | 275 | Parsers for the agent's tagged JSON blocks. `parseHypothesisOutput` enforces the refutation-condition admission test; `parsePlanOutput` is a whitelist that carries `baseline` through; `describeHypothesisRejection` recovers which rule failed |
+| `lib/research/_prompts.ts` | 246 | Prompt builders for HYPOTHESIZE (single and multi-candidate), DESIGN, LEARN, and CLARIFY, including the shared falsifiability template |
+| `lib/research/promote.ts` | 186 | PERSIST — the artifact-derived KNOWHOW write gate (`selectKnowhowTakeaways`), one DEAD-ENDS entry per refuted hypothesis (`buildDeadEndCalls`), and `promoteThreadKnowledge` |
+| `lib/research/checkpoints.ts` | 491 | Human-in-the-loop steering (`research_gates.interactive`): checkpoint id/validation/emit/resolve, the answered-checkpoint queue, `answerViaDiscussion` (AI-panel fallback), and the interactive-config reader |
+| `lib/research/bench.ts` | 444 | `loadBenchTasks`, `runBenchTask`, `gradeTask`, `runBench`, `aggregate` — the harness's own benchmark corpus |
+| `lib/research/bench-calibration.ts` | 47 | `runBenchCalibration` over a fixed `CALIBRATION_TASK`, scored through the same `evaluateVerdict` the loop uses |
+| `lib/research/cli-bench.ts` | 106 | `gd bench list` / `run` command surface |
+| `lib/research/cli.ts` | 95 | `gd research start\|resume\|status\|report\|portfolio` command surface |
+| `lib/research/cli-kb.ts` | 166 | `gd ingest` / `synthesize` / `retrieve` command surface |
+| `lib/research/thread.ts` | 137 | Thread identity and persistence — `threadId`, `createThread`, `loadThread`, `saveThread`, `listThreads`, `renderThreadLog` |
+| `lib/research/ledger.ts` | 106 | The hypothesis ledger: read/write, append, and status updates over `ledger.md` |
+| `lib/research/takeaways.ts` | 59 | Takeaway file I/O — format, parse, read, append |
+| `lib/research/seed.ts` | 78 | SEED — turns synthesis candidates into threads, with a manifest keyed for idempotence |
+| `lib/research/synthesize.ts` | 215 | `gd synthesize` — builds the domain compendium, parses candidates out of the agent's document |
+| `lib/research/retrieve.ts` | 235 | Hybrid retrieval — `retrieve`, `buildGroundingPack`, `classifyQuery` |
+| `lib/research/embedder.ts` | 47 | Optional embeddings via an OpenAI-compatible endpoint; resolves `null` (degrading to lexical + structure, no network egress) whenever a key is absent or a response is bad |
+| `lib/research/tesserae.ts` | 167 | Tesserae knowledge-graph clients — a CLI-backed one and a fake for tests |
+| `lib/research/kg.ts` | 33 | Knowledge-graph write path — provenance and finding sync, behind the `kg_write` gate |
+| `lib/research/finding.ts` | 54 | Finding record construction and write |
+| `lib/research/ingest.ts` | 101 | `gd ingest` — corpus directory management and the ingest manifest |
+| `lib/research/fetch.ts` | 289 | Source fetching — source detection, HTTP GET, arXiv Atom → markdown |
+| `lib/research/pdf.ts` | 32 | `pdfToMarkdown` |
+| `lib/research/session.ts` | 45 | `sessionJsonlToMarkdown` |
+| `lib/research/url-guard.ts` | 89 | `assertFetchableUrl` / `isBlockedHost` — SSRF guard on every fetch |
+| `lib/research/runner.ts` | 81 | Subprocess experiment runner. `execFileSync` only (never `exec`): no shell, args passed as an array, so a generated script path cannot inject shell commands |
+| `lib/research/docker-runner.ts` | 229 | Docker sandbox runner plus `selectRunner` — honours `research_sandbox` (`docker`/`subprocess`/`auto`) and validates image, memory, and CPU settings |
+| `lib/research/gates.ts` | 35 | `resolveGates` / `checkGate` — the `execute` and `kg_write` gates |
+| `lib/research/eval.ts` | 109 | EVAL report generation for a thread, behind `research_eval_report` |
+| `lib/research/paper.ts` | 132 | FINALIZE — assembles the paper bundle and drives the paper-writing agent |
+| `lib/research/verify-citations.ts` | 80 | Off-control-path deterministic citation verifier: no LLM, no network — resolves a paper's bracketed citations against the assembled bundle |
+| `lib/research/reconstructability.ts` | 55 | `scoreReconstructability` — a cheap deterministic structural completeness score over recorded experiment artifacts. Advisory only; it must never gate or change the verdict |
+| `lib/research/portfolio.ts` | 248 | Concurrent multi-thread runs — mutex, bounded concurrency, compile lock, thread classification, ranking, and the portfolio report |
+| `lib/research/manifest.ts` | 20 | Generic read/upsert over the loop's manifest files |
+| `lib/research/index.ts` | 25 | Barrel re-export of the thread and orchestrator entry points |
+
+---
+
 ## Subdirectory: lib/scan/
 
 Seven files implementing the prompt injection scanner.
@@ -609,7 +710,7 @@ Eleven files implementing the "wireup" feature-connection discovery and auto-fix
 
 ## bin/ Entry Points
 
-Ten files in `bin/` — `.js` files are thin wrappers that register `tsx` and load the matching `.ts` file.
+Ten TypeScript/JavaScript files in `bin/` — `.js` files are thin wrappers that register `tsx` and load the matching `.ts` file. Alongside them sit `bin/harness_driver.py` (the life-harness Python I/O driver) and `bin/vendor/autoresearch_core/` (the vendored decision kernel — ships with GRD, no pip install, `python3` >= 3.11).
 
 | File | Purpose |
 |------|---------|
@@ -660,9 +761,9 @@ The table below summarizes which top-level modules are consumed by the most othe
 Two modules exceed 2,000 lines and deserve special attention when navigating or modifying:
 
 - **`lib/mcp-server.ts` (3,292 lines):** Monolithic but structurally uniform — the `COMMAND_DESCRIPTORS` table dominates. Each tool entry follows the same pattern. When adding a new command, follow the declarative table pattern rather than adding procedural code.
-- **`lib/autopilot.ts` (2,706 lines):** Complex orchestration logic with many interleaved concerns (convergence, artifact DAG, multi-milestone, critique-refine). Helper extraction is partially done (see `lib/refinement.ts`) but the core loop remains large.
+- **`lib/phase.ts` (2,097 lines):** Contains the most critical runtime path.
 
-`lib/phase.ts` (1,981 lines) is close to the threshold and contains the most critical runtime path.
+`lib/autopilot.ts` is down to 1,898 lines: the post-phase pipeline, wave grouping, and multi-milestone loop have been extracted into `lib/autopilot-pipeline.ts` (1,210), `lib/autopilot-waves.ts` (361), and `lib/autopilot-milestone.ts` (136), which together still make autopilot the largest single concern in the tree.
 
 ---
 

@@ -6,10 +6,13 @@ How to run, read, and add tests in GRD.
 
 ```
 tests/
-  unit/           # 68 files — one per lib/ module (mostly)
-    cli/          #   5 files — CLI adapter/output/agent/tools tests
+  unit/           # 139 files — one per lib/ module (mostly)
+    research/     #  43 files — autoresearch loop (lib/research/)
     scan/         #   7 files — scan subsystem unit tests
-  integration/    # 20 files — multi-module and CLI end-to-end tests
+    cli/          #   5 files — CLI adapter/output/agent/tools tests
+    commands/     #   4 files — lib/commands/ subsystem
+    agents/       #   1 file  — agent-definition shell assertions
+  integration/    # 27 files — multi-module and CLI end-to-end tests
     cli/          #   1 file  — gd CLI integration
   helpers/        #  2 files — shared utilities
     setup.ts      # captureOutput/captureError capture helpers
@@ -17,24 +20,45 @@ tests/
   fixtures/
     planning/     # Static fixture .planning/ tree (STATE.md, ROADMAP.md, config.json, etc.)
     scan/         # Static fixture files for scan tests
+    research-threads/  # Fixture threads for autoresearch tests
+  conformance/    # kernel-contract.json — the autoresearch-core kernel contract
+  python/         # unittest suites for bin/harness_driver.py + the vendored kernel (NOT run by jest)
+  golden/         # capture.sh + recorded CLI output for golden comparisons
+  benchmark/      # Standalone before/after task fixtures — excluded via testPathIgnorePatterns
 ```
 
-The convention is strict: `lib/state.ts` gets `tests/unit/state.test.ts`. Modules with their own subdirectory (e.g., `lib/wireup/`) get a cluster of related unit tests (`wireup.test.ts`, `wireup-state.test.ts`, `wireup-discovery.test.ts`, `wireup-scenarios.test.ts`). The `tests/unit/scan/` subtree mirrors the `lib/scan/` subdirectory.
+The convention is strict: `lib/state.ts` gets `tests/unit/state.test.ts`. Modules with their own subdirectory (e.g., `lib/wireup/`) get a cluster of related unit tests (`wireup.test.ts`, `wireup-state.test.ts`, `wireup-discovery.test.ts`, `wireup-scenarios.test.ts`). The `tests/unit/scan/`, `tests/unit/cli/`, `tests/unit/commands/` and `tests/unit/research/` subtrees mirror the matching `lib/` subdirectories.
 
-**Approximate test counts:**
+**Test counts:**
 
 | Suite | Files | Notes |
 |-------|-------|-------|
-| Unit | 68 | Includes `cli/` and `scan/` subdirs |
-| Integration | 20 | Includes `cli/` subdir |
+| Unit | 139 | Includes the `research/`, `scan/`, `cli/`, `commands/` and `agents/` subdirs |
+| Integration | 27 | Includes `cli/` subdir |
 | Helpers | 2 | Shared utilities, not test files themselves |
 
-Total is approximately 2,800+ individual test cases (the test suite reports ~2,839 tests as of recent runs).
+That is 166 jest suites carrying roughly 5,700 test cases (a clean run on 2026-09-06
+reported `166 passed, 166 total` suites and `3 skipped, 5728 passed, 5731 total` tests).
+Rather than trusting that figure once it ages, get the current one with
+`npx jest --listTests | wc -l` for suites and the `Tests:` line at the end of `npm test`.
+
+Note that `tests/python/` is a **`unittest`** suite covering `bin/harness_driver.py` and
+the vendored `autoresearch-core` kernel. Jest's `testMatch` only picks up `*.test.ts` /
+`*.test.js`, so `npm test` never runs it. Invoke it separately when touching the harness
+driver or the vendored kernel:
+
+```bash
+python3 -m unittest discover -s tests/python -t tests/python
+```
+
+`tests/unit/research/kernel-contract.test.ts` and `tests/python/test_kernel_contract.py`
+assert the *same* fixtures in `tests/conformance/kernel-contract.json` from both
+languages, so a kernel change that only satisfies one side is a real failure — run both.
 
 ## Running Tests
 
 ```bash
-# Full suite with coverage (matches CI)
+# Full suite with coverage — the same command release.yml runs
 npm test
 
 # Unit tests only with coverage
@@ -56,7 +80,7 @@ npx jest -t "should parse frontmatter"
 npx jest --coverage --collectCoverageFrom='lib/scheduler.ts'
 ```
 
-**Typical run times:** The full `npm test` suite takes 30–60 seconds on a modern laptop. Integration tests that spin up real subprocesses (worktree, autopilot, backend, scheduler) are the slowest and are segregated in CI — see the CI section below. The per-test timeout is **15 seconds** (set in `jest.config.js`).
+**Typical run times:** The full suite takes roughly **five and a half minutes** on a modern laptop (327 s without coverage on 2026-09-06); expect longer with `--coverage`. `tests/unit/autopilot.test.ts` is effectively the critical path — it alone took 327 s of that 327 s, so the other 165 suites finish inside its shadow. `tests/unit/worktree.test.ts` (~105 s) is next. Both spin up real subprocesses and git worktrees. The per-test timeout is **15 seconds** (set in `jest.config.js`).
 
 ## Coverage Thresholds
 
@@ -136,6 +160,27 @@ function makeTempProject(opts = {}): string {
 
 A corresponding cleanup call (`fs.rmSync(dir, { recursive: true, force: true })`) is placed in `afterEach`.
 
+### Temp-directory hygiene — the suite leaks, and it leaks into `$TMPDIR`
+
+Every `mkdtempSync` call in the tree resolves through `os.tmpdir()`, so temp dirs land in
+the OS temp directory and **not** in the repo — the `grd-*/` entries in `.gitignore` are
+leftovers from an older arrangement, not a live hazard. (Verified: a full run leaves the
+repository root clean.)
+
+What *is* live is that many suites never clean up. A single full `npm test` on 2026-09-06
+left **396 `grd-*` directories totalling 69 MB** in `$TMPDIR`, across some three dozen
+prefixes (`grd-orch-`, `grd-docker-`, `grd-promote-`, `grd-tess-`, …). Nothing removes
+them, so they accumulate run over run until the OS or the user clears the temp directory.
+
+Two practical consequences:
+
+- If you are iterating on the suite, point `TMPDIR` somewhere disposable
+  (`TMPDIR=/tmp/grd-testrun npm test`) so one `rm -rf` cleans up after you.
+- If you are adding a test that calls `mkdtempSync`, register the cleanup —
+  `afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))` — rather than adding
+  to the pile. The shared `cleanupFixtureDir()` already does this; the inline
+  `makeTempProject()` pattern only does it if you write it.
+
 ## Test Patterns
 
 **TDD-first:** The project follows test-driven development. The expected workflow is: write a failing test, verify it fails, implement, verify it passes. New specs (like Spec 3B) add failing tests in the first commit before touching `lib/`.
@@ -176,27 +221,40 @@ Note: `tests/unit/scheduler-wait.test.ts` explicitly does NOT use fake timers be
 
 ## Coverage Gaps and Known Limitations
 
-- **Real subprocess integration tests** (worktree isolation, autopilot runs, backend spawning) require wall-clock seconds per test. They live in `tests/integration/` and run in a separate CI job with `--coverageThreshold='{}'` so they do not gate on per-file thresholds.
+- **Real subprocess integration tests** (worktree isolation, autopilot runs, backend spawning) require wall-clock seconds per test and dominate the suite's runtime — `tests/unit/worktree.test.ts` alone takes over 100 seconds. They are not segregated into a separate job any more (there is no CI to segregate them into); `npm run test:integration` runs `tests/integration/` without coverage enforcement if you need to skip them locally.
 - **No end-to-end with real `claude -p`:** The full GRD autopilot loop requires a live Claude CLI session. These tests are non-deterministic and too slow for CI. The scheduler's subprocess-spawning path is tested only up to the point where the real binary would be exec'd.
 - **MCP server transport layer:** `lib/mcp-server.ts`'s low branch threshold (55) reflects that stdin/stdout transport paths are not easily driven from Jest without a real MCP client.
 - **`lib/scan/` injection patterns:** Prompt injection detection heuristics are tested with real fixture files in `tests/fixtures/scan/` and `tests/unit/scan/`. Coverage is high for the detection logic but intentionally excludes some adversarial edge cases that are documented separately in the scan subsystem.
 
 ## CI Considerations
 
-CI is defined in `.github/workflows/ci.yml` and runs on Node 18, 20, and 22 in a matrix. The pipeline has four jobs:
+**There is no push or pull-request CI.** `.github/workflows/ci.yml` was deleted in
+`3bb573a` ("remove ci.yml during autoresearch development phase") and has not been
+restored. The only workflows in the repository are:
 
-| Job | What it runs |
-|-----|-------------|
-| `lint` | ESLint, tsc type-check, Prettier format check |
-| `test-unit` | `npm run test:unit` — fast unit tests with coverage thresholds enforced |
-| `test-integration` | Slow tests (worktree, autopilot, backend, integration) — coverage collected but thresholds not enforced (`--coverageThreshold='{}'`) |
-| `validate` | `npm pack` install smoke test + MCP server probe + `npm audit` |
+| Workflow | Trigger | What it runs |
+|---|---|---|
+| `release.yml` | `workflow_dispatch` only | Version-consistency gate, then `npm test -- --coverageThreshold='{}'`, then a **draft** GitHub release |
+| `npm-publish.yml` | `release: published`, or `workflow_dispatch` | `npm ci` + `npm publish` over OIDC trusted publishing |
 
-There is also a `docs-check` job that runs `npx gd scan --diff origin/main` on every PR to check staged markdown files for prompt injection patterns. This is the same check the optional local pre-commit hook performs.
+Two consequences worth internalising:
 
-**If a new `lib/` file lowers an existing threshold,** `test-unit` will fail. Fix by either raising test coverage or (only for genuinely hard-to-cover paths) adding a new threshold entry at an appropriate level rather than lowering the existing one.
+- **Nothing checks your branch but you.** Run `npm test`, `npm run lint` and
+  `npm run build:check` locally before merging. A red suite will otherwise not surface
+  until someone cuts a release, at which point it blocks the release rather than the
+  change that broke it. (`npm run format:check` is *not* on that list — Prettier is
+  unconfigured and it fails on nearly every file; see `MAINTENANCE.md` Procedure 9.)
+- **The release run clears per-file thresholds** (`--coverageThreshold='{}'`), so
+  coverage regressions are invisible to it by design — some suites need binaries absent
+  on the runner (`claude`, `codex`, `git`) and skip, which would fail thresholds with
+  zero test failures. Thresholds are enforced only when *you* run `npm test` or
+  `npm run test:unit` locally.
 
-**Pre-commit hook (optional):** `npm run hooks:install` installs a git pre-commit hook that runs `gd scan` on staged markdown files. It is not installed by default and is separate from the Jest test suite.
+**If a new `lib/` file lowers an existing threshold,** your local `npm test` fails. Fix by either raising test coverage or (only for genuinely hard-to-cover paths) adding a new threshold entry at an appropriate level rather than lowering the existing one.
+
+**Pre-commit hook (optional):** `npm run hooks:install` installs a git pre-commit hook that runs `gd scan` on staged markdown files for prompt-injection patterns. It is not installed by default, it is separate from the Jest test suite, and — with `ci.yml` gone — it is the only place that check runs at all. Suppress known false positives in `.prompt-injection-scanignore`.
+
+See `MAINTENANCE.md` Procedure 8 for the full release and npm-publish procedure.
 
 ---
 

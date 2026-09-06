@@ -8,10 +8,10 @@ Nine reference documents plus this index:
 
 | Document | Audience | Purpose | Size |
 |---|---|---|---|
-| [OVERVIEW.md](OVERVIEW.md) | Every new contributor | High-level mental model — 5-10 minute read | ~1,800 words |
+| [OVERVIEW.md](OVERVIEW.md) | Every new contributor | High-level mental model — 5-10 minute read | ~2,600 words |
 | [MODULES.md](MODULES.md) | Engineers searching "which file does X?" | Per-file reference for every `lib/` module with purpose, exports, dependencies | ~4,100 words |
-| [FLOWS.md](FLOWS.md) | Engineers tracing user commands | Call sequences for 10 key flows (`init`, `plan-phase` — incl. the v0.4.5 planning-time clarification gate, `autopilot`, `harness round`, the v0.4.4 life-harness collective layer / `harness upstream`, etc.); `gd evolve` flow retained as deprecated historical reference | ~2,600 words |
-| [USE_CASES.md](USE_CASES.md) | Product / onboarding | Personas, scenarios, decision matrix | ~2,400 words |
+| [FLOWS.md](FLOWS.md) | Engineers tracing user commands | Call sequences for the key flows (`init`, `plan-phase` — incl. the v0.4.5 planning-time clarification gate, `execute-phase` — incl. the v0.6.0 falsified→DEAD-ENDS promotion step, `autopilot`, `harness round`, the v0.4.4 life-harness collective layer / `harness upstream`, and Flow 7a — the `gd research` station loop with its v0.6.0 `metric_absent` redesign branch and v0.5.0 interactive checkpoints); `gd evolve` flow retained as deprecated historical reference | ~4,800 words |
+| [USE_CASES.md](USE_CASES.md) | Product / onboarding | Personas, scenarios, decision matrix | ~3,600 words |
 | [RISKS.md](RISKS.md) | Maintainers doing triage | 14 findings (0 critical, 9 important, 3 minor, 4 observations) with file:line refs | ~3,100 words |
 | [MAINTENANCE.md](MAINTENANCE.md) | Engineers adding features | 12 step-by-step procedures (add command, agent, backend, gate, config, etc.) | ~2,100 words |
 | [API.md](API.md) | API consumers | Exported symbols across 38 `lib/` modules (~270 entries) | ~9,200 words |
@@ -19,7 +19,7 @@ Nine reference documents plus this index:
 | [TESTING.md](TESTING.md) | Engineers writing tests | Test layout, helpers, coverage thresholds, CI considerations | ~1,600 words |
 | [BACKENDS.md](BACKENDS.md) | Backend integration | Adapter interface, capability flags, adding a new backend | ~2,600 words |
 
-**Total:** ~33,200 words across 10 files, covering a ~38-file `lib/` directory, 75+ test files, and 4 major milestone specs.
+**Total:** 10 files covering a `lib/` directory of 49 root modules plus 7 subdirectories (`cli/`, `commands/`, `context/`, `evolve/`, `research/`, `scan/`, `wireup/`), 139 unit and 27 integration test files, and the milestone specs under `docs/superpowers/specs/`.
 
 ## How to read this
 
@@ -53,7 +53,7 @@ From the parallel-agent exploration:
 - **`lib/autopilot.ts` is 2,706 lines and still growing** — every recent spec landed code here. Candidate for extraction into `lib/autopilot-pipeline.ts`, `lib/autopilot-milestone.ts`, `lib/autopilot-waves.ts`.
 - **Two parallel dispatch paths from a single CLI** — `classifyCommand()` in `lib/cli/index.ts` routes commands to either tool-path (deterministic) or agent-path (LLM-driven). The split is controlled by two static Sets.
 - **`.planning/` is runtime state, not just documentation** — autopilot reads and writes `ROADMAP.md` and `STATE.md` as its primary coordination mechanism.
-- **~85 config fields** across `GrdConfig`, `SchedulerConfig`, `SuperpowersConfig`, `CleanupConfig`, `DiscussionConfig`, `CeremonyConfig`, `HarnessConfig` (v0.4.4+; includes the Phase E `upstream_emit` / `upstream_root` / `upstream_ttl_days` collective-layer keys), `EvolveConfig` (deprecated v0.4.3), and agent frontmatter. The `research_gates` map gained `plan_clarification` (v0.4.5+, default on) — the planning-time clarification gate that resolves ambiguous design decisions via AskUserQuestion before `plan-phase` writes a plan.
+- **~85 config fields** across `GrdConfig`, `SchedulerConfig`, `SuperpowersConfig`, `CleanupConfig`, `DiscussionConfig`, `CeremonyConfig`, `HarnessConfig` (v0.4.4+; includes the Phase E `upstream_emit` / `upstream_root` / `upstream_ttl_days` collective-layer keys), `EvolveConfig` (deprecated v0.4.3), and agent frontmatter. The `research_gates` map gained `plan_clarification` (v0.4.5+, default on) — the planning-time clarification gate that resolves ambiguous design decisions via AskUserQuestion before `plan-phase` writes a plan — plus `interactive` (v0.5.0+, `enabled` default **off**: human checkpoints at SEED / HYPOTHESIZE / DESIGN / DECIDE with a `fallback` of `recommended` or `panel` so unattended runs never pause) and `auto_promote_falsified` (v0.6.0+, default **false**: phase-boundary promotion of falsified reflections into `.planning/DEAD-ENDS.md`).
 - **No global coverage threshold in `jest.config.js`** — every `lib/` file has an explicit per-file threshold (35 entries). New files must register a threshold.
 - **CI has 4 jobs** — lint, test-unit (with thresholds), test-integration (with relaxed thresholds), validate (`npm pack` smoke test). A separate `docs-check` job runs `gd scan --diff` on PRs.
 - **7 backends exist in code** (claude, codex, gemini, opencode, overstory, superpowers, grd) but CLAUDE.md's capability table only lists the first 4 — a documentation gap noted in [BACKENDS.md](BACKENDS.md).
@@ -86,4 +86,9 @@ Regeneration is cheap: dispatch the 10 parallel agents again from the current `m
 
 ---
 
-Generated 2026-04-12 as part of the post-`gsd-2-selective-adoption` maintenance pass. 10 agents worked in parallel over ~10 minutes of wall-clock time to produce the ~33,000 words above.
+Generated 2026-04-12 as part of the post-`gsd-2-selective-adoption` maintenance pass. 10 agents worked in parallel over ~10 minutes of wall-clock time to produce the words above.
+
+Behaviour docs (`OVERVIEW.md`, `FLOWS.md`, `USE_CASES.md`, this index) refreshed 2026-09-06 against
+GRD 0.6.0, covering the 0.5.0 interactive research checkpoints and the 0.6.0 artifact-shaped gates.
+The "Top issues" and "Key observations" sections above were not re-derived in that pass and still
+carry their 2026-04-12 line numbers — treat them as pointers, not as current `file:line` refs.

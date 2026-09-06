@@ -74,6 +74,7 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
   claude: _claudeAdapter,
   codex: { ... },
   gemini: { ... },
+  antigravity: { ... },
   opencode: { ... },
   overstory: { ... },
 };
@@ -88,6 +89,7 @@ Each backend's `buildArgs` shape:
 | `claude` | `-p <prompt> --verbose --dangerously-skip-permissions [--max-turns N] [--model M] --output-format json` |
 | `codex` | `--prompt <prompt> --approval-mode full-auto [--model M]` |
 | `gemini` | `-p <prompt> --sandbox off [--model M]` |
+| `antigravity` | `-p <prompt> --dangerously-skip-permissions [--model M]` |
 | `opencode` | `--non-interactive --prompt <prompt> [--model M]` |
 | `overstory` | `run --prompt <prompt> [--model M]` |
 
@@ -363,6 +365,12 @@ Follow these steps to integrate a new AI CLI backend:
 - 5-minute chunk timeout (increased from 2 minutes in earlier versions).
 - Multi-account workspace authentication and non-OpenAI Azure completions endpoint support.
 - `OPENCODE_PID` is NOT used for detection — it is a process management variable, not a presence indicator.
+
+### Antigravity CLI (agy 1.0.10+)
+- Successor to the Gemini CLI, sharing the Antigravity 2.0 agent harness. Binary is **`agy`**, not `antigravity` — that is what the Homebrew cask (`brew install antigravity-cli`) links.
+- Needs an interactive Google sign-in once (run `agy` with no arguments) before non-interactive `-p` runs work at all.
+- The CLI exposes **no reasoning-effort flag and no JSON output flag**. Under `ultracode` there is therefore no effort knob to turn up, and `ULTRACODE_MODELS` pins no antigravity model, so an ultracode run gets the account default unless `--model` is passed explicitly.
+- Token usage is scraped from stderr (`tokenCount` / `total_tokens`); rate limits are detected from `RESOURCE_EXHAUSTED` / `429` / `quota` on a nonzero exit.
 
 ### Overstory
 - Binary is `ov` (not `overstory`).

@@ -1,6 +1,6 @@
 # GRD MCP Server
 
-The GRD MCP Server exposes 155 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
+The GRD MCP Server exposes 166 GRD CLI commands as [Model Context Protocol](https://modelcontextprotocol.io/) tools over JSON-RPC 2.0 stdio transport. This lets any MCP-compatible client (Claude Code, Claude Desktop, Cursor, Windsurf, etc.) call GRD operations as structured tool calls instead of shelling out to the CLI.
 
 > **Not yet exposed via MCP:** the Ouroboros self-monitoring tools
 > (`gd-tools drift`, `dead-end`, `plan-tournament`, `think`, `genome`,
@@ -84,7 +84,7 @@ The server reads newline-delimited JSON-RPC 2.0 messages from stdin and writes r
 | Method | Purpose |
 |--------|---------|
 | `initialize` | Handshake — returns server info and capabilities |
-| `tools/list` | Returns all 155 tool definitions with JSON Schema |
+| `tools/list` | Returns all 166 tool definitions with JSON Schema |
 | `tools/call` | Executes a tool and returns structured results |
 
 All tool outputs are JSON by default. The server runs in the current working directory, so GRD operations target the project where the server was started.

@@ -1,6 +1,6 @@
 # GRD Command Flows
 
-This document traces the 10 key user-observable commands from CLI invocation to
+This document traces the key user-observable commands from CLI invocation to
 side-effect completion. Each flow answers: "what actually happens when I type `gd X`?"
 
 ---
@@ -10,12 +10,14 @@ side-effect completion. Each flow answers: "what actually happens when I type `g
 Every `gd` invocation follows this common prefix before reaching a flow-specific handler:
 
 1. `bin/gd.js` — 3-line shim: registers `tsx/cjs` for direct `.ts` resolution, delegates to `bin/gd.ts`
-2. `bin/gd.ts:55` — calls `parseFlags(process.argv.slice(2))` → `lib/cli/index.ts:175`
-3. `bin/gd.ts:88` — calls `classifyCommand(command, subcommand)` → `lib/cli/index.ts:217`
-   - Returns `'tool'` if command is in `TOOL_COMMANDS` set, or matches evolve/settings/init-workflow special cases
+2. `bin/gd.ts:56` — calls `parseFlags(process.argv.slice(2))` → `lib/cli/index.ts:220`
+3. `bin/gd.ts:98` — calls `classifyCommand(command, subcommand)` → `lib/cli/index.ts:266`
+   - Returns `'tool'` if command is in `TOOL_COMMANDS` set, or matches the evolve/settings/research/init-workflow subcommand special cases
+   - Returns `'deprecated'` for `gd evolve` outside `EVOLVE_TOOL_SUBS` (`run`, `discover`, `state`, `advance`, `reset`)
    - Returns `'agent'` if command is in `AGENT_COMMANDS` set
-4. **Tool path** (`bin/gd.ts:91`): `runToolCommand()` → `lib/cli/tools.ts:140` → `execFileSync('node', ['bin/grd-tools.js', ...args])` (in-process for `scan` only)
-5. **Agent path** (`bin/gd.ts:95`): `runAgentCommand()` → `lib/cli/agent.ts:27` → `buildPromptForCommand()` → `/grd:<command> <args>` → `spawnSync(adapter.binary, cliArgs)`
+4. **Deprecated path** (`bin/gd.ts:113`): writes the `gd harness round` pointer to stderr and `process.exit(1)` — no dispatch
+5. **Tool path** (`bin/gd.ts:124`): `runToolCommand()` → `lib/cli/tools.ts:142` → `execFileSync('node', ['bin/grd-tools.js', ...args])` (in-process for `scan` only)
+6. **Agent path** (`bin/gd.ts:131`): `runAgentCommand()` → `lib/cli/agent.ts:27` → `buildPromptForCommand()` → `/grd:<command> <args>` → `spawnSync(adapter.binary, cliArgs)`
 
 ---
 
@@ -60,7 +62,7 @@ Creating a phase plan via agent dispatch.
 3. That skill calls `gd init plan-phase 3` (tool, returns JSON context) at startup
 4. `bin/grd-tools.ts:1080` → `cmdInitPlanPhase(cwd, '3', includes, raw)` → `lib/context/execute.ts:539`
 5. `lib/context/execute.ts:547` — `runPreflightGates(cwd, 'plan-phase', { phase })` → `lib/gates.ts`
-6. On pass: assembles result object with `backend`, `phase_found`, `planner_model`, `researcher_model`, `plan_checker_enabled`, etc.
+6. On pass: assembles result object with `backend`, `phase_found`, `planner_model`, `researcher_model`, `plan_checker_enabled`, and `knowhow_block` (`lib/context/execute.ts:726`) — the same `KNOWHOW.md` selection the executor gets, interpolated into the planner prompt by `commands/plan-phase.md`. As of v0.6.0 `selectTopEntries()` reserves slots for `research:`-sourced entries, so takeaways mined by `gd research` can actually reach the planner (see Flow 7a)
 7. Agent receives context JSON, runs `grd-phase-researcher` and `grd-planner` sub-agents
 8. **Clarification checkpoint (v0.4.5):** before writing PLAN.md, the `grd-planner` may pause to ask the user about ambiguous design decisions (see sub-section below)
 9. Each plan is written to `.planning/milestones/<ver>/phases/phase-<N>/PLAN-<slug>.md`
@@ -94,10 +96,11 @@ Running all plans in a phase (wave-based parallel execution).
 1. Agent receives `/grd:execute-phase 3`, skill calls `gd init execute-phase 3` (tool) for context
 2. `bin/grd-tools.ts:1068` → `cmdInitExecutePhase(cwd, '3', includes, raw)` → `lib/context/execute.ts:197`
 3. `lib/context/execute.ts:211` — preflight gates check (planning required, no active execution)
-4. Context output includes `executor_model`, `parallelization`, `branching_strategy`, `code_review_enabled`, available plans list
+4. Context output includes `executor_model`, `parallelization`, `branching_strategy`, `code_review_enabled`, available plans list, and `knowhow_block` — the `<knowhow_context>` selection from `KNOWHOW.md` (`lib/context/execute.ts:423`), which `commands/execute-phase.md` interpolates into every executor prompt
 5. Agent reads PLAN.md files, groups them into dependency waves via `buildWavesFromPlans` semantics (reads `provides`/`requires` frontmatter)
 6. For each wave: dispatches plans in parallel as sub-agents (one per plan), each writing its summary to `SUMMARY-<slug>.md`
 7. After all plans in wave complete: plan summaries aggregated, agent commits with `gd commit`
+8. **Falsified-reflection promotion (v0.6.0):** at the phase boundary the skill runs `gd dead-end promote-from-phase --phase N` → `promoteFalsifiedFromPhase()` (`lib/dead-ends.ts:897`). A phase reflection with `verdict: falsified` becomes a `.planning/DEAD-ENDS.md` entry — but only when `research_gates.auto_promote_falsified` is **true**. Default false: the step returns `dry_run: true` with a `preview` and writes nothing. It is off by default because a DEAD-ENDS slug scores any future candidate plan citing it at `-Infinity` in `lib/commands/select-candidate.ts`, permanently and with no warning tier. A `config_error` in the result means the gate read as off because `config.json` could not be parsed, not because anyone chose false. The slug upsert is idempotent; `gd dead-end retire <slug> --reason "..."` is the only writer of `status: retired` and the only way to un-gate an entry. The same step runs from `commands/verify-phase.md`.
 
 **Data transformations:** Phase directory → PLAN.md frontmatter parse → artifact dependency DAG → wave groupings → per-plan agent executions → SUMMARY-*.md files written back to phase directory.
 
@@ -230,11 +233,11 @@ Cross-project self-improvement: rounds running in *downstream* projects feed GRD
 
 ## Flow 6b: `gd evolve` (Deprecated v0.4.3)
 
-**Deprecated (v0.4.3):** superseded by the life-harness (`gd harness round`); kept for `gd singularity` history. Running `gd evolve` now prints a pointer to `gd harness round` and exits 1. The read-only introspection subcommands (`gd evolve state`, `gd evolve advance`, `gd evolve reset`) still route as tool commands for history inspection.
+**Deprecated 2026-06-06 — the verb no longer runs.** Use **`gd harness round`**: evidence from Tesserae session findings, eval-gated, git-reversible, where evolve was a static scan whose discovery saturated. `lib/evolve/` stays in-tree because `gd singularity` reads its history. Bare `gd evolve` (and any subcommand outside `EVOLVE_TOOL_SUBS`) prints the redirect and exits 1; the `EVOLVE_TOOL_SUBS` subcommands — `run`, `discover`, `state`, `advance`, `reset` — still classify as tool commands. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 **Former self-improvement loop** (for historical reference):
 
-**Entry point:** `classifyCommand('evolve')` → `'agent'`; but `gd evolve run` → `'tool'` (evolve tool subcommands: `lib/cli/index.ts:221`).
+**Entry point:** `classifyCommand('evolve')` → `'deprecated'` (`lib/cli/index.ts:270–277`), handled at `bin/gd.ts:113` with a stderr pointer and `exit(1)`; only the `EVOLVE_TOOL_SUBS` subcommands (e.g. `gd evolve run`) still classify as `'tool'`.
 
 **Agent path** invoked `commands/evolve.md` skill, which internally called `gd evolve run` as a tool to execute the actual loop. The agent handled progress reporting and user interaction.
 
@@ -259,7 +262,8 @@ Cross-project self-improvement: rounds running in *downstream* projects feed GRD
 
 ## Flow 7: `gd autoresearch <topic>`
 
-Karpathy autonomous experiment loop (post-Spec-2A async version).
+Karpathy autonomous experiment loop (post-Spec-2A async version). This is the older of GRD's two
+research loops — for the current station loop behind `gd research`, see Flow 7a.
 
 **Entry point:** `classifyCommand('autoresearch')` → `'agent'`; or `gd autoresearch` tool-path via `cmdAutoResearch` at `lib/autoresearch.ts:691`.
 
@@ -282,11 +286,109 @@ Karpathy autonomous experiment loop (post-Spec-2A async version).
 
 **Data transformations:** topic string → experiment branch → per-iteration prompt (includes baseline, best-so-far, last N experiment summaries as context) → subprocess code changes → metric evaluation → TSV row appended.
 
-**Side effects:** Git branch `autoresearch/YYYYMMDD` created, code modifications committed (or reverted), AUTORESEARCH.tsv rows appended. Knowledge mining step (when enabled) extracts successful experiment patterns into KNOWHOW.md.
+**Side effects:** Git branch `autoresearch/YYYYMMDD` created, code modifications committed (or reverted), AUTORESEARCH.tsv rows appended. This loop only *reads* KNOWHOW.md — `_buildExperimentPrompt` calls `buildKnowledgeInjectionBlock()` (`lib/knowledge.ts`) to fold prior patterns into each iteration's prompt. It writes no KNOWHOW entries; the writer is the `gd research` loop's PERSIST station (Flow 7a).
 
 **Post-Spec-2A async:** `_spawnClaude` (`lib/autoresearch.ts:163`) checks `opts.scheduler` first. If present, delegates to `scheduler.spawn()` — enabling account rotation, idle watchdog, and rate-limit retries (Flows 4 and 10 semantics). Falls back to `_spawnClaudeSync` (blocking `spawnSync('claude', ...)`) when no scheduler is configured.
 
 **Error paths:** No topic arg → `error()` exits. Experiment subprocess crash (non-zero exit) → `git reset --hard` + TSV crash row + continue. Timeout (ETIMEDOUT) → same revert path + crash row. SIGINT propagated up from `waitUntilOrAbort` → loop aborts with partial results.
+
+---
+
+## Flow 7a: `gd research "<question>"` — Autoresearch Station Loop (v0.5.0 / v0.6.0)
+
+The current hypothesis→experiment→measure→learn loop. Distinct from Flow 7: this one lives in
+`lib/research/`, keeps its state under `.planning/research/threads/<id>/`, and never touches the
+working tree the way `gd autoresearch` does.
+
+**Entry point:** `research` is in `TOOL_COMMANDS` (`lib/cli/index.ts:114`), so `gd research "<q>"`
+→ `'tool'` → `bin/grd-tools.ts:2255` (`case 'research'`) → `cmdResearchStart` → `runResearch()` →
+`runLoop()` in `lib/research/orchestrator.ts`. The subcommands `resume`, `status`, `report`,
+`portfolio` (`RESEARCH_TOOL_SUBS`) also route as tools; `/grd:research` is the skill wrapper.
+
+**Stations** (`Station` in `lib/research/types.ts`, drawn in run order):
+
+```
+SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → FINALIZE → PERSIST
+ ck                 ck          ck    gate1              ck                         gate2
+```
+
+`gate1` = `execute`, `gate2` = `kg_write` — both default-on, resolved by `resolveGates()`
+(`lib/research/gates.ts`) from `research_gates.experiment_execution` / `research_gates.kg_write`,
+and both bypassed by `--no-gates`. A blocked gate saves the thread as `status: 'paused'` with a
+`pendingGate` and returns; `gd research resume <id>` picks it back up. `ck` marks the four
+interactive checkpoint points (below); the DECIDE one fires on the *would-continue* branch only, so
+a terminal verdict is never delayed by it.
+
+(The `Station` union lists `persist` before `finalize`. At run time the terminal `FINDING.md` is
+written first, and the `kg_write` gate then guards the KG sync plus knowledge promotion.)
+
+**Key call sequence:**
+
+1. **HYPOTHESIZE** — the `grd-hypothesizer` agent returns one or more candidates; `parseHypothesisOutput` / `parseHypothesesOutput` (`lib/research/agent-io.ts`) **drop any candidate whose `refutationCondition` is missing or empty**, at parse time and before ranking. The multi-candidate parser reports how many it dropped as `droppedForRefutation`; the single-hypothesis parser returns `null` and `describeHypothesisRejection` explains why. Nothing without a stated falsifier reaches the ledger. `refutationOverlap` (token-Jaccard against the statement) rides along as advisory metadata and gates nothing.
+2. **DESIGN** — the `grd-experiment-runner` agent writes `plan.json` (an `ExperimentPlan`: script, `metricKey`, `comparator`, `target`, optional `baseline`). It does not execute it.
+3. **RUN** (behind the `execute` gate) — `runner.ts` or `docker-runner.ts` executes the script per `research_sandbox` (`docker` / `subprocess` / `auto`). When `research_max_debug_depth > 0` (default 0, clamped to [0,5] by `readDebugDepth()`), a **nonzero exit** is retried up to that many times with a fix-and-retry re-plan, each attempt journalled to `debug-attempt-<n>.json`. Two invariants hold across those retries: the `execute` gate is **re-checked** before each one (the original approval covered the DESIGN-time script, not an LLM-rewritten one — a denial aborts the debug loop and degrades to the depth-0 outcome rather than pausing mid-RUN), and the DESIGN-committed `metricKey` / `comparator` / `target` / `language` / `baseline` are pinned back over any drift in the re-plan. A metric miss is never retried here.
+4. **MEASURE** — `evaluateVerdict(plan, result)` (`lib/research/verdict.ts`) is fully deterministic:
+   - `exitCode !== 0` → `inconclusive`, `cause: 'run_failed'`
+   - the plan's `metricKey` absent from `result.metrics` (own-key check) → `inconclusive`, `cause: 'metric_absent'`
+   - otherwise `compare(value, comparator, target)` → `supported` or `refuted`
+5. **REDESIGN on `metric_absent`** — an experiment that ran but never emitted the metric it committed to be judged on is a *design* fault, not an engineering one, so neither the debug loop nor a fresh hypothesis is the right repair. The orchestrator instead re-enters the existing crash-recovery path: it puts the hypothesis back to `testing`, deletes `plan.json`, does **not** advance `thread.iteration`, and `continue`s — DESIGN re-runs for the **same** hypothesis at the same iteration. Bounded by `thread.redesignCount < research_max_debug_depth`, a budget **shared with** the debug loop rather than additive. Any other outcome resets `redesignCount` and `metricAbsentStreak` to 0.
+6. **DESIGN PLATEAU** — consecutive iterations that exhaust their redesign budget without ever producing a measurable experiment trip `detectDesignPlateau()` (window = the resurvey window) and terminate the thread as `exhausted` with its own diagnosis, separate from the ordinary refutation plateau that triggers a re-survey.
+7. **LEARN** — `grd-knowledge-miner` turns the outcome (verdict, `cause`, and the declared baseline margin) into a `Takeaway` appended to the thread.
+8. **DECIDE / FINALIZE** — `shouldTerminate()` + `decideBranch()`. On terminate, `buildFinding()` writes `FINDING.md` (including the margin vs `plan.baseline` — declared, never verdict-affecting) *before* the `kg_write` gate.
+9. **PERSIST** — `finishKgSync()` syncs the finding to the Tesserae KG, then calls `promoteThreadKnowledge()` (`lib/research/promote.ts`) at the single PERSIST chokepoint.
+
+### The knowledge loop closes (v0.6.0)
+
+`promoteThreadKnowledge` writes takeaways into `KNOWHOW.md` (`source: research:<threadId>#iter<n>`,
+`phase_number: 0`) and falsified hypotheses into `.planning/DEAD-ENDS.md`. The write gate is a
+**conjunction over on-disk artifacts** — a recognised `kind`, non-empty evidence, a settled verdict
+(`supported`/`refuted`; `inconclusive` is deliberately excluded), and a non-empty `metrics` object
+read back from `experiments/<n>/result.json` — not the mining agent's self-reported `confidence`.
+Gated by `research_persist_knowledge` (default on). Entries **supersede** rather than overwrite: the
+prior entry gains `superseded_by` and stays on disk.
+
+Those entries are then read back on the phase-workflow side, which is what previously did not
+happen:
+
+- `selectTopEntries()` (`lib/knowledge.ts`) scores entries as `phase_number * 1000 + …`, so a
+  research entry at `phase_number: 0` could never place against any phase-numbered entry. It now
+  **reserves** `max(1, floor(n/3))` of the `n` slots for `research:`-sourced entries (discriminated
+  on `source`, not on `phase_number === 0`), ranked among themselves by recency.
+- `buildKnowledgeInjectionBlock()` wraps the selection in `<knowhow_context>` tags, and
+  `knowhow_block` is injected into **both** the planner (`lib/context/execute.ts` →
+  `commands/plan-phase.md`) and the executor (`commands/execute-phase.md`) prompts. It was
+  previously computed and dropped.
+
+### Interactive checkpoints (v0.5.0)
+
+Four points can pause for a human: `seed`, `hypothesize`, `design`, `decide` (`CheckpointPoint`).
+Configured under `research_gates.interactive` — `enabled` defaults to **false**; per-point flags
+default true; `max_rounds` 2, `max_questions` 4, `hypothesis_candidates` 3, `every_iteration` false,
+`fallback` `'recommended'` (`defaultInteractive()` in `lib/research/checkpoints.ts`). One-shot
+overrides: `--interactive` / `--interactive=seed,design` / `--no-interactive`; `--no-gates` implies
+non-interactive.
+
+`resolveInteractive()` forces the posture inactive whenever nobody can answer — `--no-gates`,
+`autonomous_mode`, autopilot (including the `GRD_AUTOPILOT` env carrier), or portfolio concurrency
+> 1. What happens then is the point of the design: **the loop never pauses unattended.**
+
+- Attended + point enabled → `emitCheckpoint()` sets `status: 'paused'` and records a
+  `pendingCheckpoint`; the run returns. Resume with
+  `gd research resume <id> --answers <file|->` (a file or stdin — never argv).
+- Unattended + `fallback: 'panel'` → `resolveCheckpointInline()` calls `answerViaDiscussion()`,
+  which puts the question to the AI discussion panel (the loop's own backend excluded, so it never
+  self-consults) and matches panel lines back to option labels exact → prefix → recommended default.
+  Every degenerate path (throwing resolver, empty synthesis, rate-limited or logged-out panelist,
+  unparseable answer) falls back to the recommended default. Status is never set to `'paused'`; the
+  resolved checkpoint is fed back through the same consume path a human resume uses.
+- Unattended + `fallback: 'recommended'` (the default) → each question resolves to its recommended
+  option, byte-identical to the pre-0.5.0 path.
+
+Checkpoint records append to `checkpoints.jsonl` in the thread directory either way.
+
+**Side effects:** `.planning/research/threads/<id>/` — thread state, the hypothesis ledger `HYPOTHESES.md`, `experiments/<n>/plan.json` and `result.json`, `checkpoints.jsonl`, `FINDING.md`, optional `EVAL.md` (`research_eval_report`, default off); `KNOWHOW.md` and `.planning/DEAD-ENDS.md` appends at PERSIST; Tesserae KG writes behind the `kg_write` gate.
+
+**Error paths:** Gate blocked → `status: 'paused'` + `pendingGate`, resume required. Script execution failure → debug retries up to `research_max_debug_depth`, then `inconclusive`/`run_failed`. Metric never emitted → redesign up to the same budget, then `inconclusive`/`metric_absent` and, on a streak, DESIGN PLATEAU → `exhausted`. Refutation plateau → re-survey (bounded by `research_max_resurveys`) before `exhausted`. Resuming a thread already in a terminal status (`supported` / `exhausted` / `abandoned`) returns it unchanged rather than re-running.
 
 ---
 

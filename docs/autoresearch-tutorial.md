@@ -65,19 +65,19 @@ which GRD doesn't need.)
 verdict, persisting everything under `.planning/research/threads/<id>/`:
 
 ```
-SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → PERSIST → FINALIZE
+SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → FINALIZE → PERSIST
 ```
 
 | Station | What happens |
 |---|---|
 | **SEED** | Create the thread + initial state from your question |
 | **GROUND** | Read prior findings from the knowledge graph (+ a hybrid-retrieval pack) |
-| **HYPOTHESIZE** | Generate **one** ranked, testable hypothesis with a predicted outcome |
-| **DESIGN** | Write an experiment plan (`metric`, `comparator`, `target`) + a runnable script |
+| **HYPOTHESIZE** | Generate **one** ranked, testable hypothesis with a predicted outcome and a `refutationCondition` — a candidate missing it is dropped by the parser before it is ever ranked |
+| **DESIGN** | Write an experiment plan (`metric`, `comparator`, `target`, optional `baseline`) + a runnable script |
 | **RUN** | Execute the script (subprocess or Docker) — **behind the execute gate** |
-| **MEASURE** | Compare the measured metric to the target → **deterministic** verdict |
+| **MEASURE** | Compare the measured metric to the target → **deterministic** verdict. An `inconclusive` verdict carries a `cause`: `run_failed` (the script broke) or `metric_absent` (the script ran but never emitted the committed metric) |
 | **LEARN** | Extract a typed takeaway (with H2/H3/H4 failure classification) |
-| **DECIDE** | `supported` → finalize; `refuted`/`inconclusive` → revise the hypothesis and loop |
+| **DECIDE** | `supported` → finalize; `refuted` / `run_failed` → revise the hypothesis and loop; `metric_absent` → re-run DESIGN for the **same** hypothesis (the design is unmeasurable, not broken) |
 | **PERSIST** | Write `FINDING.md`; sync to the shared KG — **behind the kg_write gate** |
 | **FINALIZE** | Set the terminal verdict; promote learnings to `KNOWHOW.md` / `DEAD-ENDS.md` |
 
@@ -134,7 +134,7 @@ Look at what it's about to run:
 ├── THREAD.md                       # machine state (station, iteration, gates)
 ├── HYPOTHESES.md                   # the hypothesis ledger (with lineage)
 └── experiments/0/
-    ├── plan.json                   # metric, comparator, target, predicted outcome
+    ├── plan.json                   # metric, comparator, target, predicted outcome, baseline?
     └── run.sh                       # the script the loop wants to execute
 ```
 
@@ -165,7 +165,9 @@ cat .planning/research/threads/gd-research-a1b2c3/FINDING.md
 
 `FINDING.md` is the honest summary: the question, the supported (or exhausted)
 hypothesis, the evidence, and the takeaways. A thread that never reached support
-is written up as a **negative result**, not hidden.
+is written up as a **negative result**, not hidden. When the plan declared a
+`baseline` and the run produced the metric, the advisory block also reports the
+measured-vs-baseline margin — declared up front, and it never touches the verdict.
 
 > **Tip:** the experiment script's only contract is to print one line:
 > `__RESULT__ {"<metricKey>": <number>}` to stdout. The loop parses that line to
@@ -419,12 +421,24 @@ result. Re-running regenerates it.
 
 At FINALIZE, with `research_persist_knowledge: true` (the default):
 
-- positive takeaways promote to the project's `KNOWHOW.md`, and
+- takeaways promote to the project's `KNOWHOW.md`, and
 - refuted hypotheses promote to `.planning/DEAD-ENDS.md`.
+
+The KNOWHOW write gate reads on-disk artifacts, not the agent's self-reported
+confidence: a knowledge-kind takeaway, non-empty evidence, a settled iteration
+(`supported`/`refuted`, never `inconclusive`), and recorded metrics — all four.
+A correction **supersedes** the earlier entry rather than overwriting it. Fewer
+entries land than before; that is the gate working.
 
 The next thread's hypothesizer reads `DEAD-ENDS.md`, so the loop **won't
 re-propose an approach you already falsified**. This is how research compounds
 across threads. Disable with `research_persist_knowledge: false`.
+
+**Un-gating a dead end is human-only.** A registered dead end gates every later
+candidate plan citing it, with no warning tier; only the exact status `retired`
+exempts one, and `gd dead-end retire <slug> --reason "..."` is its only writer
+anywhere in GRD. `gd dead-end reopen <slug>` re-arms it; `add` and
+`promote-from-phase` register new ones.
 
 ### 4.4 Richer per-iteration evals (opt-in)
 
@@ -451,13 +465,14 @@ It is purely additive: it **cannot** re-run the experiment or change the verdict
 │   ├── FINDING.md                # the honest final summary (at PERSIST)
 │   ├── PAPER.md                  # publication-style write-up (via `gd research report`)
 │   └── experiments/<iter>/
-│       ├── plan.json             # metric, comparator, target, predicted outcome
+│       ├── plan.json             # metric, comparator, target, predicted outcome, baseline?
 │       ├── run.sh | run.py       # the experiment script
 │       ├── result.json           # parsed metrics, exit code, runner, failure class
 │       └── EVAL.md               # opt-in eval narrative (research_eval_report)
-├── fetched/<slug>.md             # normalized ingested sources (committed)
 ├── PORTFOLIO.md                  # ranked multi-thread report
 └── seed-manifest.json            # synthesis → seeded-thread bookkeeping
+
+.planning/fetched/<slug>.md       # normalized ingested sources (committed)
 ```
 
 Everything is plain text and committed with your project — fully auditable.
@@ -473,6 +488,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 |---|---|---|
 | `research_gates` | `{experiment_execution:true, kg_write:true}` | Per-gate checkpoints. `experiment_execution:false` skips the execute gate; `kg_write:false` skips the KG-write gate. (The *config* sub-key is `experiment_execution`; the runtime gate it controls is named `execute`.) |
 | `research_gates.interactive` | `{enabled:false}` | Human-in-the-loop steering (§3.6): `enabled` + per-point `seed`/`hypothesize`/`design`/`decide` (default `true` when enabled). `fallback` (`"recommended"` \| `"panel"`) is the unattended answerer — `panel` uses the AI discussion panel, degrade-safe → recommended. An unattended run never pauses either way. |
+| `research_gates.auto_promote_falsified` | `false` | Let the phase boundary write a `verdict: falsified` reflection straight into `.planning/DEAD-ENDS.md`. Off, the step dry-runs and prints the entry it would write. Off by default because a registered dead end gates every later candidate plan citing it, and only `gd dead-end retire` can un-gate it (§4.3). |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads. |
 | `research_plateau_window` | `3` | Consecutive non-supported verdicts that trigger a re-survey. |
 | `research_max_resurveys` | `2` | Max re-surveys per thread (`0` disables). |
@@ -486,7 +502,7 @@ All keys live at the top level of `.planning/config.json`. Set them with
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator (verdict untouched). |
 | `research_tesserae_extractor` | `"deterministic"` | Tesserae extractor for `gd ingest`: `deterministic` (default; fast, key-free) or `llm` / `selective-llm` for a richer concept/claim layer (legacy `claude-cli` / `selective-claude` accepted). `selective-*` reads `research_tesserae_extract_include` / `research_tesserae_extract_limit`. |
 | `research_spawn_retries` | `2` | Retries for a blank/unparseable HYPOTHESIZE or DESIGN spawn before the thread ends `status: error`. |
-| `research_max_debug_depth` | `0` | Bounded fix-and-retry of RUN-stage **script-execution** failures (AI-Scientist-v2's `max_debug_depth`): the failure output is fed back to the experiment designer, the script is fixed, and the run retries — up to N attempts, each recorded as `experiments/<iter>/debug-attempt-<n>.json`. A metric-vs-target miss never triggers a retry; the execute gate is re-checked before every re-run; the DESIGN-committed metric/comparator/target is pinned across re-plans (drift is recorded, not honored). `0` = off (exact prior behavior). |
+| `research_max_debug_depth` | `0` | Bounded fix-and-retry of RUN-stage **script-execution** failures (AI-Scientist-v2's `max_debug_depth`): the failure output is fed back to the experiment designer, the script is fixed, and the run retries — up to N attempts, each recorded as `experiments/<iter>/debug-attempt-<n>.json`. A metric-vs-target miss never triggers a retry; the execute gate is re-checked before every re-run; the DESIGN-committed metric/comparator/target is pinned across re-plans (drift is recorded, not honored). The **same** budget (not an additional one) bounds the `metric_absent` re-DESIGN described in §0. `0` = off (exact prior behavior). |
 
 > **Note — `research_gates` is a shared object.** The autoresearch loop reads only
 > the `experiment_execution` and `kg_write` sub-keys. If you open
@@ -518,9 +534,14 @@ GRD's autoresearch loop is built to keep going:
 - **Re-survey fetch fails?** It's best-effort; the loop continues.
 - **Knowledge promotion / eval report fails?** Both are degrade-safe — they log
   and return, never breaking the loop or touching the verdict.
-- **An experiment fails to run?** That's data: the verdict is `inconclusive` with
-  a failure class (H2 missing dep, H3 missing file/permission, H4 runtime/timeout),
-  and the loop revises.
+- **An experiment fails to run?** That's data: the verdict is `inconclusive`,
+  `cause: run_failed`, with a failure class (H2 missing dep, H3 missing
+  file/permission, H4 runtime/timeout), and the loop revises the hypothesis.
+- **The script ran but never emitted the metric?** A different fault, recorded
+  separately: `inconclusive`, `cause: metric_absent`. The hypothesis is untouched
+  and DESIGN re-runs for it (bounded by `research_max_debug_depth`). Consecutive
+  unmeasurable iterations end the thread `exhausted` with a DESIGN PLATEAU — a
+  separate diagnosis from hypotheses that keep getting refuted.
 - **An agent returns empty/unparseable output?** The HYPOTHESIZE and DESIGN
   spawns are retried up to `research_spawn_retries` times (default 2) before
   giving up — a transient blank agent response won't kill a multi-iteration
