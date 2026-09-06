@@ -1,6 +1,6 @@
 # GRD API Reference
 
-Exported symbols from all `lib/*.ts` modules. Use this document to look up the signature, purpose, and behavior of any public function, constant, or type.
+Exported symbols from all `lib/*.ts` modules, plus selected subdirectory modules (`lib/commands/harness.ts`, the falsification-loop surface of `lib/research/`). Use this document to look up the signature, purpose, and behavior of any public function, constant, or type. The full module inventory, including every subdirectory, is in **MODULES.md**.
 
 All modules use CommonJS (`module.exports = { ... }`) unless they mix in ES-module `export` statements (which TypeScript compiles identically). Both forms are documented here.
 
@@ -996,7 +996,7 @@ CLI command: scaffolds a complete artifact set (plan + summary stubs) for a new 
 
 ## lib/knowledge.ts
 
-KnowHow entry formatting, parsing, and knowledge injection.
+KnowHow entry formatting, parsing, supersession, and knowledge injection.
 
 ### Functions
 
@@ -1006,18 +1006,125 @@ Serializes a `KnowhowEntry` object to markdown text.
 #### `parseKnowhowEntries(content: string): KnowhowEntry[]`
 Parses a markdown section containing KnowHow entries into structured objects.
 
-#### `appendKnowhowEntries(filePath: string, entries: KnowhowEntry[]): void`
-Appends new KnowHow entries to the knowledge base file.
-- **Side effects** — writes file to disk.
+#### `appendKnowhowEntries(knowhowPath: string, entries: KnowhowEntry[]): void`
+Reads KNOWHOW.md at `knowhowPath`, merges `entries` in, and rewrites the file (header `# KNOWHOW`, entries sorted by `phase_number` descending, stable within a bucket).
 
-#### `selectTopEntries(entries: KnowhowEntry[], limit: number): KnowhowEntry[]`
-Selects the top `limit` entries ranked by relevance score.
+**Supersede, do not overwrite (v0.6.0).** On a `pattern_name` collision with a live entry the incoming entry does *not* replace it: the existing entry gets `superseded_by` set to the new entry's `source` (whitespace-collapsed to one line) and stays on disk; the new entry is appended beside it. Both survive; only the newer is injectable, because `selectTopEntries` drops superseded entries. Two collisions change nothing at all — an entry from an *earlier* `phase_number` (stale news), and one whose knowledge is unchanged (same `source`, `applicability`, `code_snippet`, `phase_number`), which keeps re-promotion idempotent.
+- **Side effects** — creates parent directories; writes the file; invalidates the in-module parse cache.
 
-#### `buildKnowledgeInjectionBlock(entries: KnowhowEntry[]): string`
-Builds a formatted markdown block for injecting knowledge into an agent prompt.
+#### `selectTopEntries(entries: KnowhowEntry[], n: number, moduleHints?: string[], currentPhase?: number): KnowhowEntry[]`
+Returns at most `n` entries, most recent first. Entries carrying `superseded_by` are dropped first — this is the single funnel every injection reads through, so the filter lives here and nowhere else. Score is `phase_number * 1000`, plus `100` when `source`/`applicability` mentions any `moduleHints` string, minus the distance to `currentPhase` when given.
 
-#### `extractModuleHints(cwd: string, phase: string): string`
-Extracts module-level hints from codebase analysis artifacts to inject into planning prompts.
+**Reserved slots for research entries (v0.6.0).** Entries promoted by the autoresearch loop carry `phase_number: 0` (`lib/research/promote.ts`), and since the score is dominated by `phase_number * 1000` they could never place against any phase-numbered entry. When both kinds are present, `max(1, floor(n / 3))` slots (capped at how many exist) are reserved for research entries, ordered by `created_at` descending. The discriminator is a `research:` prefix on `source` (`isResearchEntry`), not `phase_number === 0`.
+
+#### `buildKnowledgeInjectionBlock(cwd: string, _phaseNum: string, moduleHints?: string[]): string`
+Reads `<cwd>/KNOWHOW.md`, selects the top 5 entries via `selectTopEntries` (passing `_phaseNum` parsed as `currentPhase` when numeric), and wraps them in `<knowhow_context>` tags. Returns `''` when there are no entries or none survive selection.
+- **Side effects** — increments `hit_count` / sets `last_used` per injected entry in `.planning/knowledge-stats.json`.
+
+#### `extractModuleHints(phaseDir: string): string[]`
+Reads every `*-PLAN.md` (and `PLAN.md`) in `phaseDir`, extracts `files_modified` from YAML frontmatter, and returns the unique extension-stripped basenames. Returns `[]` when the directory is missing or unreadable.
+
+#### `rankKnowhowByPhaseGoal(goal: string, entries: KnowhowEntry[], topN?: number): KnowhowEntry[]`
+TF-IDF ranking of entries against a phase-goal string. `topN` defaults to `5`.
+
+### Consumers — the `knowhow_block` injection point
+
+The block these functions build is emitted as `knowhow_block` on the init-context payload of three commands, and is `null` when nothing qualifies:
+
+| Producer | Path |
+|---|---|
+| `cmdInitExecutePhase` | `lib/context/execute.ts` — `extractModuleHints(phaseDir)` → `buildKnowledgeInjectionBlock` |
+| `cmdInitPlanPhase` | `lib/context/execute.ts` — same pair |
+| `cmdInitExecutor` | `lib/context/agents.ts` — merges KNOWHOW.md from the project root, `.planning/`, each milestone, each milestone's `research/`, and each phase directory, then ranks with `rankKnowhowByPhaseGoal` |
+
+Until v0.6.0 the block was computed and then dropped before reaching the prompt, which is why research-promoted knowledge never reached the planner.
+
+---
+
+## lib/dead-ends.ts
+
+Write path for the `.planning/DEAD-ENDS.md` registry (the read path is `cmdInitPlanPhase`'s `dead_ends_md`). Slug is the dedup key. Backs the `gd dead-end` subcommands.
+
+**The writer edits bytes; it does not regenerate the file (v0.6.0).** A registry holds more than `DeadEndEntry` names — prose sections, a project header, keys this module never reads (`hypothesis`, `forbidden_terms`, `predicted_outcome`, `owner`), `evidence` items written as maps. Rebuilding from the typed model erased all of it: one `dead-end add` took this repo's own 7,933-byte registry to 425 bytes and reported success. The unit of work is now a line edit inside a preserved span — `parseDeadEndsDoc` → mutate a few `bodyLines` → `serializeDeadEndsDoc`, where every byte a write did not touch is literally the same byte.
+
+### Constants
+
+#### `RETIRED: string`
+The literal `'retired'` — the one `status` value that exempts an entry from the hard-fail gate. Written only by `retireDeadEnd`; no automatic path ever produces it.
+
+#### `ENTRY_HEADING_RE_SOURCE: string`
+`'^## ([a-z0-9][a-z0-9-]*)\\s*$'` — how an entry heading is recognized, exported as a *source string* so it can be asserted identical to the hard-fail gate's own regex in `lib/commands/select-candidate.ts`. The writer and the gate must agree on what an entry is: if the writer sees a block the gate does not, a write edits an entry nobody enforces; if the gate sees one the writer does not, a write appends a second block for a slug that visually already exists. `tests/integration/dead-ends-registry.test.ts` pins the agreement over this repo's own registry.
+
+### Types
+
+#### `DeadEndEntry`
+`{ approach?, slug, tried_in_phases, verdict, evidence, status, date?, notes? }`. `approach` is optional — hand-authored entries carry `hypothesis:` instead, and a block's slug is what makes it an entry. `status` is typed `string`, not a union: any value found on disk is preserved verbatim and treated as **live**, because coercing an unknown value to `active` once turned a human's retirement marker into the strongest live marker.
+
+#### `DeadEndSpan` / `DeadEndEntrySpan`
+`{ kind: 'raw'; text } | DeadEndEntrySpan`. An entry span keeps `head` (the `## slug` heading through the opening fence line), `bodyLines` (the YAML body verbatim, one string per line — writes edit these), `tail` (the closing fence), and `entry` (a typed projection, for deciding what to change, never for re-emitting).
+
+#### `ReflectionData`
+`{ hypothesis, predicted_outcome, actual_outcome, verdict, evidence[] }` — structured form of the `## Reflection` table in VERIFICATION.md.
+
+#### `PromoteFromPhaseResult`
+`{ skipped, reason?, action?, slug?, dry_run?, preview?, config_error?, phase?, total_entries?, path? }`.
+
+### Functions
+
+#### `parseDeadEndsDoc(content: string): DeadEndSpan[]`
+Parses DEAD-ENDS.md into ordered spans. Lossless by construction: `serializeDeadEndsDoc(parseDeadEndsDoc(bytes)) === bytes` for any input. A heading with no terminated YAML fence stays a `raw` span, exactly as the gate skips it.
+
+#### `serializeDeadEndsDoc(spans: DeadEndSpan[]): string`
+Renders spans back to text. Untouched spans are byte-identical.
+
+#### `parseDeadEndsFile(content: string): DeadEndEntry[]`
+The typed projection of the document — `parseDeadEndsDoc` filtered to entry spans. **Lossy by definition** (a `DeadEndEntry` names eight keys and a file holds whatever it holds): read it to decide, never to rewrite.
+
+#### `serializeDeadEndsFile(entries: DeadEndEntry[]): string`
+Renders a **fresh** registry from a model. Not a writer for an existing file — `serializeDeadEndsFile(parseDeadEndsFile(x))` is the composition that caused the data loss above. Nothing on the write path calls it.
+
+#### `parseReflectionSection(verificationContent: string): ReflectionData | null`
+Parses the `## Reflection` markdown table out of a VERIFICATION.md body. Returns `null` when the section is missing or unparseable. Evidence cells split on `;` (not `,`, which is too common inside `file:line — description` refs).
+
+#### `addDeadEnd(cwd: string, opts: DeadEndAddOpts): { action: 'created' | 'updated'; slug: string; total: number; retired: boolean }`
+Programmatic upsert. Slug is generated from `opts.approach`; a matching slug appends the phase and evidence and overwrites notes rather than duplicating the entry, and flips `active` → `reopened` on any re-registration. When the entry is already `retired`, phase and evidence still merge but the status is left alone and `retired: true` comes back — automation may *arm* the gate, never disarm or silently re-arm it.
+- **Throws** — on missing `approach`/`phase` or an unsluggable approach (CLI callers translate to `error()`).
+- **Side effects** — atomically writes `.planning/DEAD-ENDS.md`.
+
+#### `retireDeadEnd(cwd: string, slug: string, reason: string): DeadEndStatusChange`
+The only supported way to stop a dead end hard-failing a candidate plan, and the **only writer of `status: retired` anywhere in GRD**. Human-only by design: a DEAD-ENDS row scores a matching plan at `-Infinity` in `select-candidate`, permanently and with no warning tier. Also sets `retired_reason` and `retired_at` (yyyy-mm-dd).
+- **Throws** — when `reason` is empty, or the slug is absent from the registry.
+- **Side effects** — edits the entry's `status:` line in place and atomically rewrites the file; every byte outside those lines is preserved.
+
+#### `reopenDeadEnd(cwd: string, slug: string): DeadEndStatusChange`
+Mirror of `retireDeadEnd` — sets `status: reopened`, re-arming the gate. Also human-only.
+
+#### `promoteFalsifiedFromPhase(cwd: string, phase: string): PromoteFromPhaseResult`
+Reads a phase's VERIFICATION.md and, when its `## Reflection` table reports `verdict: falsified`, registers the hypothesis as a dead end. Idempotent — repeated calls on the same phase converge to the same registry state (it opts out of the `active` → `reopened` flip, because its two call sites promote the same VERIFICATION.md by design). Non-falsified verdicts return `{ skipped: true, reason }`.
+
+Writes **only** when `.planning/config.json` → `research_gates.auto_promote_falsified` is `true` (default **false**, read directly rather than through `loadConfig`). Off, it returns `dry_run: true` with the entry it would have written in `preview` and leaves the file byte-identical; a config.json that exists but cannot be parsed surfaces as `config_error`.
+
+Never calls `output()`/`error()`, so phase-boundary callers can invoke it without exiting the process.
+
+#### `cmdDeadEndAdd`, `cmdDeadEndRetire`, `cmdDeadEndReopen`, `cmdDeadEndPromoteFromPhase`
+Thin CLI formatters over the four functions above; each ends in `output()`/`error()`.
+
+### Commands
+
+Dispatched from `bin/grd-tools.ts` (`case 'dead-end'`), routed as a tool command by `lib/cli/index.ts`:
+
+| Command | Notes |
+|---|---|
+| `gd dead-end add --approach <s> --phase <s> [--verdict <s>] [--evidence <s> …] [--notes <s>]` | `--evidence` is repeatable |
+| `gd dead-end retire <slug> --reason "…"` | `--reason` is required — the row that turns the guard off has to say why |
+| `gd dead-end reopen <slug>` | Re-arms the gate |
+| `gd dead-end promote-from-phase [--phase N \| N]` | Positional form is ignored when it starts with `--` |
+
+Any other subcommand is an error naming the four valid ones.
+
+### The gate this registry feeds
+
+`checkDeadEnds(candidateText, deadEnds)` in `lib/commands/select-candidate.ts` scans a candidate plan for the first hard-fail — a slug citation (case-insensitive, word-boundary matched) or an exact `forbidden_terms` match — plus advisory Jaccard warnings. **An entry is skipped entirely if and only if its `status` is exactly `retired`.** Anything else gates, including `resolved`, `superseded`, an absent `status:` key, or a typo: the cost of wrongly gating is a visible hard-fail naming a slug, the cost of wrongly exempting is a falsified approach silently readmitted. The exemption lives inside the gate rather than at its call sites so every caller inherits it.
 
 ---
 
@@ -1062,26 +1169,37 @@ Verification command suite for plans, summaries, references, commits, and artifa
 
 ### Functions
 
-#### `cmdVerifySummary(cwd: string, phase: string, plan: string, raw: boolean): void`
-CLI command: verifies a plan's summary file exists and has valid structure.
+#### `cmdVerifySummary(cwd: string, summaryPath: string, checkFileCount: number, raw: boolean): void`
+CLI command: verifies one SUMMARY.md at `summaryPath` (relative to `cwd`). Spot-checks `checkFileCount` (default `2`) of the files it mentions for existence, resolves any commit hashes it cites, and reads its self-check section.
 
-#### `cmdVerifyPlanStructure(cwd: string, phase: string, raw: boolean): void`
-CLI command: validates all plan files in a phase have correct frontmatter and structure.
+**"Not checked" is now distinct from "passed" (v0.6.0).** Every check here is satisfied by an *absence*: no files mentioned means nothing missing, no hashes means the commit clause short-circuits, and `self_check` is `not_found` until a section says otherwise. A SUMMARY.md reading only "We did the thing." therefore returned `passed: true` with `errors: []` — a phase gate advancing on an assertion nothing had examined. The result now carries `verified` and `unverified_reasons` alongside `passed` and `checks`, where `verified` is false when the summary cites neither any file (a `mentionedFiles` hit, or any backticked token with a file extension) nor any commit hash, and `passed = noErrors && verified`. Raw output is `passed` / `failed` / `unverified`. A missing self-check section is deliberately *not* an unverified reason — none of the shipped summary templates contain one.
+
+#### `cmdVerifyPlanStructure(cwd: string, filePath: string, raw: boolean): void`
+CLI command: validates one PLAN.md's frontmatter fields and task-element completeness. Raw output is `valid`/`invalid`.
 
 #### `cmdVerifyPhaseCompleteness(cwd: string, phase: string, raw: boolean): void`
 CLI command: verifies all plans in a phase have corresponding summaries.
 
-#### `cmdVerifyReferences(cwd: string, phase: string, raw: boolean): void`
-CLI command: checks that file references in plan `must_haves` resolve to actual files.
+#### `cmdVerifyReferences(cwd: string, filePath: string, raw: boolean): void`
+CLI command: checks that file references in one plan's `must_haves` resolve to actual files.
 
-#### `cmdVerifyCommits(cwd: string, phase: string, raw: boolean): void`
-CLI command: verifies that phase-related commits exist in git history.
+#### `cmdVerifyCommits(cwd: string, hashes: string[], raw: boolean): void`
+CLI command: verifies that the given commit hashes exist in git history.
 
-#### `cmdVerifyArtifacts(cwd: string, phase: string, raw: boolean): void`
-CLI command: validates that plan `must_haves` artifacts exist and meet minimum requirements.
+#### `cmdVerifyArtifacts(cwd: string, planFilePath: string, raw: boolean): void`
+CLI command: validates that one plan's `must_haves` artifacts exist and meet minimum requirements.
 
-#### `cmdVerifyKeyLinks(cwd: string, phase: string, raw: boolean): void`
-CLI command: verifies that `key_links` references in plans are valid import/export relationships.
+#### `cmdVerifyKeyLinks(cwd: string, planFilePath: string, raw: boolean): void`
+CLI command: verifies that `key_links` references in one plan are valid import/export relationships.
+
+#### `cmdVerifyMechanical(cwd: string, phase: string, raw: boolean): void`
+CLI command: runs the deterministic checks for a whole phase in one pass.
+
+#### `cmdDiagnosePhase(cwd: string, phase: string, raw: boolean): void`
+CLI command: reports why a phase is not verifying, with a suggestion per failed check.
+
+#### `clearVerifyCache(): void`
+Clears the module's file-read cache. Used in tests.
 
 ---
 
@@ -1249,6 +1367,79 @@ Classifies the recent trend in metric snapshots.
 
 #### `buildCritiquePrompt(cwd: string, phase: string, plan: string, snapshot: MetricSnapshot): string`
 Builds a critique prompt for an agent given current metrics and plan content.
+
+---
+
+## lib/research/ — falsification loop surface
+
+`lib/research/` is the autoresearch loop (`gd research`); its full module list is in **MODULES.md**. This section covers only the falsification / verdict / promotion surface, which changed materially in v0.5.0 and v0.6.0 and is referenced from `lib/dead-ends.ts` and `lib/knowledge.ts` above.
+
+### lib/research/types.ts
+
+Pure declarations plus two helpers. Every field below is **optional in the type even where the parser requires it**, so a ledger written by an earlier version still loads.
+
+#### `Hypothesis.refutationCondition?: string`
+The observation that would show the hypothesis false. Enforced structurally at parse time, not in the type.
+
+#### `Hypothesis.refutationOverlap?: number`
+Advisory token overlap between `refutationCondition` and `statement`, in `[0, 1]`. Recorded for the audit trail; **nothing branches on it**.
+
+#### `ExperimentPlan.baseline?: number`
+The value `metricKey` is *claimed to improve on*, declared at DESIGN. Must come from outside the script under test (a recorded prior iteration, a published number, a control arm), because a number the script both computes and is judged on cannot disconfirm it. **Reported only** — `evaluateVerdict` reads `metricKey`/`comparator`/`target` and nothing else, and the baseline is pinned across debug re-plans so a retry cannot pick a flattering one after seeing the result. Unset renders and behaves exactly as before it existed.
+
+#### `BaselineMargin`
+`{ baseline: number; measured: number; delta: number }` — derived at FINALIZE/LEARN when a plan declared a baseline and the run produced the metric. `delta` is `measured - baseline`, signed. Surfaces in the advisory block of FINDING.md and in the LEARN prompt; read by no gate.
+
+#### `MeasureCause` / `MeasureOutcome`
+```ts
+type MeasureCause = 'run_failed' | 'metric_absent'
+interface MeasureOutcome { verdict: Verdict; detail: string; cause?: MeasureCause }
+```
+`cause` is set only on `inconclusive`, and separates a **broken run** from an **unmeasurable design**.
+
+#### `formatSignedDelta(delta: number): string`
+The one canonical rendering of a `BaselineMargin.delta` — 6 decimals, trailing zeros dropped, explicit sign. Lives beside the type because the margin is reported from two unrelated places and must read identically in both.
+
+#### `defaultGates(): ThreadGates`
+`{ execute: true, kg_write: true }`.
+
+### lib/research/verdict.ts
+
+#### `evaluateVerdict(plan: ExperimentPlan, result: ExperimentResult): MeasureOutcome`
+Deterministic. Returns `inconclusive` with `cause: 'run_failed'` on a non-zero exit code; `inconclusive` with `cause: 'metric_absent'` when `plan.metricKey` is not an own property of `result.metrics` (own-key check, not `in`, for parity with the Python kernel's dict lookup); otherwise `supported`/`refuted` from `compare(value, plan.comparator, plan.target)`. `baseline` is never consulted.
+
+#### `detectDesignPlateau(causes: (MeasureCause | undefined)[], window?: number): boolean`
+True when the last `window` (default `3`) causes are all `metric_absent`. Kept separate from `detectPlateau` because "the hypotheses keep getting refuted" and "the harness cannot design a measurable experiment for this question" are different diagnoses and deserve different terminal reasons.
+
+### lib/research/agent-io.ts
+
+#### `parseHypothesisOutput(stdout: string): { statement, rationale, predictedOutcome, refutationCondition, refutationOverlap } | null`
+Parses a `__HYPOTHESIS__` block. **Admission test (v0.5.0):** a candidate whose `refutationCondition` is absent, empty, or not a string is *rejected* — the block parses to `null`, which `spawnAndParse` treats as a parse miss and retries within its existing budget. The test is structural only: present and non-empty, or not. No similarity threshold, no LLM judge. Non-string fields are rejected rather than coerced (`String(o.refutationCondition)` once minted `'[object Object]'` as a valid falsifiability condition).
+
+#### `describeHypothesisRejection(stdout: string): string | null`
+Recovers *which* rule `parseHypothesisOutput` failed on, as one operator-facing clause, or `null` if it would in fact parse. Called only on the terminal failure path — a `null` return is otherwise indistinguishable between the two rejections.
+
+#### `parseHypothesesOutput(stdout: string): { candidates: [...]; droppedForRefutation: number }`
+Multi-candidate form. Applies the same refutation-condition admission test per candidate and reports how many were dropped for it.
+
+#### `parsePlanOutput(stdout: string): { procedure, metricKey, comparator, target, language, scriptPath, baseline? } | null`
+Parses a `__PLAN__` block. `baseline` survives only when it is a finite number, and the key is **omitted entirely** when absent so a `plan.json` without a baseline is byte-identical to one written before the field existed. The returned object literal is a **whitelist**: a field the agent emits and the literal omits is dropped silently, because the orchestrator casts the result `as ExperimentPlan` and new fields are optional — adding a field to `ExperimentPlan` means adding it here too.
+
+### lib/research/promote.ts
+
+#### `selectKnowhowTakeaways(cwd, threadId, takeaways, ledger): Takeaway[]`
+The KNOWHOW write gate (v0.6.0). A conjunction over **on-disk artifacts**, no longer the agent's self-reported `confidence`: the takeaway's `kind` is one of `success_pattern` / `constraint` / `domain_fact` / `tool_pattern`; its `evidence` is non-empty; its iteration reached a *settled* verdict in the ledger (`supported` or `refuted` — `inconclusive` is deliberately excluded, since it means nothing was measured); and that iteration's `experiments/<n>/result.json` records a non-empty `metrics` object. `confidence` stays on `Takeaway` as reported metadata and gates nothing. The kind filter stays because it is routing, not self-report — `failure_root_cause` goes to DEAD-ENDS instead.
+
+#### `buildDeadEndCalls(thread, ledger, takeaways): DeadEndAddOpts[]`
+One entry per `refuted` hypothesis. The evidence lines record, in order: what the hypothesis predicted, the observation that would refute it (present only on hypotheses minted from v0.5.0 onward — an older ledger entry yields the original two-line form unchanged), and the `failure_root_cause` takeaway for the same iteration, falling back to a bare `verdict: refuted`.
+
+#### `promoteThreadKnowledge(cwd, thread, takeaways, ledger, opts): { knowhowAdded, deadEndsAdded, skipped }`
+Writes the selected takeaways to `<cwd>/KNOWHOW.md` via `appendKnowhowEntries` (so supersession applies) and the refuted hypotheses via `addDeadEnd`. Skips entirely when `research_persist_knowledge` is `false` (default on). Prints `[research] KNOWHOW gate: <eligible>/<candidates> …` to stderr whenever the artifact gate rejected takeaways the old confidence gate would have written — the drop is the gate working, not a regression. Degrades on any thrown error rather than failing the run.
+- **Side effects** — writes KNOWHOW.md and `.planning/DEAD-ENDS.md`; writes to stderr.
+
+### lib/research/orchestrator.ts — the `metric_absent` branch
+
+When MEASURE returns `cause: 'metric_absent'` and the thread's `redesignCount` is below `research_max_debug_depth`, the orchestrator re-enters **DESIGN for the same hypothesis at the same iteration** (hypothesis back to `testing`, `plan.json` unlinked, iteration not advanced) rather than burning a fresh hypothesis on an unmeasurable design. The budget is *shared* with the debug loop, not additive. Consecutive iterations that exhaust it without ever producing a measurable experiment terminate the thread as `exhausted` with a DESIGN PLATEAU message, counted on the thread rather than inferred from the ledger — the ledger records `inconclusive` without its cause, so inferring would conflate a broken run with an unmeasurable design.
 
 ---
 
@@ -1567,10 +1758,6 @@ Writes a status marker file (e.g., `.planning/…/EXECUTING`) for a plan.
 
 #### `updateStateProgress(cwd: string): void`
 Recalculates and updates the STATE.md progress bar after wave execution.
-
-#### `startHeartbeat(logPath: string): { stop: () => void }`
-Starts a periodic heartbeat writer to `logPath` at `HEARTBEAT_INTERVAL_MS` intervals.
-- **Side effects** — sets up periodic write interval.
 
 #### `createMergeQueue(): MergeQueue`
 Creates a thread-safe merge queue for serializing worktree merges across concurrent wave workers.

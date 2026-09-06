@@ -11,18 +11,24 @@ reflections, a `DEAD-ENDS` registry, a drift score, a strategy GENOME).
 
 | Command | Description |
 |---|---|
-| `npm test` | Full suite (ts-jest, ~5000 tests, with coverage) |
+| `npm test` | Full suite (ts-jest, ~5,700 tests / 166 suites, with coverage) |
 | `npm run test:unit` | Unit tests only |
 | `npm run lint` | ESLint on `bin/` and `lib/` |
 | `npm run build:check` | `tsc --noEmit` |
 
 Single test: `npx jest tests/unit/<file>.test.ts` · by name: `npx jest -t "<substr>"`.
 
-**Test hygiene (important):** some test helpers call `fs.mkdtempSync('grd-…')`
-with a *relative* prefix, so they create temp dirs in the CWD (repo root) and
-never clean up — `npm test` floods the root with thousands of gitignored
-`grd-*`/`tsx-*` dirs. Run tests with `TMPDIR` set outside the repo, or clean after:
-`find . -maxdepth 1 -type d -name 'grd-*' -exec rm -rf {} +`.
+**Test hygiene (important):** temp dirs no longer land in the repo root — all
+`mkdtempSync` calls now resolve through `os.tmpdir()`, and a full run leaves the
+root clean (the `grd-*` `.gitignore` entries are fossils). The leak moved rather
+than closed: one `npm test` leaves ~400 `grd-*` dirs (~70 MB) in `$TMPDIR`,
+never cleaned. Point `TMPDIR` somewhere disposable and empty it periodically.
+
+**There is no CI.** `.github/workflows/ci.yml` was deleted in `3bb573a`; only
+`release.yml` and `npm-publish.yml` remain, and both are release-time. Nothing
+runs tests or coverage on a push or PR — verify locally before merging.
+`npm run format:check` is also unusable: Prettier has no config anywhere, so it
+fails on 167 files on a clean tree and `npm run format` would rewrite them all.
 
 ### gd CLI
 
@@ -30,6 +36,9 @@ never clean up — `npm test` floods the root with thousands of gitignored
 `--raw` for human text. Core: `progress`, `plan-phase N`, `execute-phase N`,
 `autopilot`, `harness round|status|revert|upstream|conversion`, `quick "<desc>"`, `health`,
 `settings`, `metrics`, `help` (`evolve` is deprecated → `gd harness round`).
+`dead-end add|retire|reopen|promote-from-phase` — `retire <slug> --reason "..."`
+is the only way to un-gate a dead end, and the only writer of `status: retired`;
+automation may arm the gate but never disarms it.
 Research: `research "<q>"` (+ `resume <id>` / `status` / `report <id>` /
 `portfolio`), `ingest <md|arxiv|url|pdf|jsonl>`, `synthesize "<topic>"`,
 `retrieve "<q>"`, `accounts discover|sync`.
@@ -73,8 +82,8 @@ for offline, deterministic tests. Timeout 15s.
 ## Autoresearch loop (`lib/research/`)
 
 `gd research "<q>"` runs SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE →
-LEARN → DECIDE → PERSIST → FINALIZE under two default-on gates (`execute`,
-`kg_write`). The verdict is **deterministic** (metric/comparator/target) — no
+LEARN → DECIDE → FINALIZE → PERSIST under two default-on gates
+(`experiment_execution`, `kg_write`). The verdict is **deterministic** (metric/comparator/target) — no
 LLM-judged scoring on the control path. Grounds on a Tesserae knowledge graph
 (built via `gd ingest` + `gd synthesize`) plus hybrid retrieval. As of Tesserae
 0.9.0 the harness also consumes AgentRunbook distilled memory — `Runbook`
@@ -138,6 +147,20 @@ antigravity-cli`). agy has no reasoning-effort or JSON flag, so ultracode only
 sets the account-default model — the spawn is `agy -p <prompt>
 --dangerously-skip-permissions [--model …]`. agy needs interactive Google
 sign-in (`agy` with no args) before non-interactive `-p` runs work.
+
+## Releasing
+
+Bump `VERSION`, `package.json`, `.claude-plugin/plugin.json` **and**
+`package-lock.json` together (`tests/unit/postinstall.test.ts` and `release.yml`
+both gate on the match), add a `## [x.y.z]` section to `docs/CHANGELOG.md`
+(the workflow extracts release notes from it and fails if it is missing), then
+`gh workflow run release.yml`. That runs the full suite and opens the GitHub
+release as a **draft**; a human publishes it. Publishing fires
+`.github/workflows/npm-publish.yml`, which publishes to npm via GitHub Actions
+**OIDC trusted publishing** — there is no `NPM_TOKEN` and there must not be one.
+npmjs.com pins that workflow's *filename*, so renaming it breaks publishing with
+an auth error that explains nothing, and never add `registry-url:` to its
+setup-node step (it injects a placeholder token and OIDC silently loses).
 
 ## Gotchas
 

@@ -2,6 +2,8 @@
 
 How-to guide for engineers extending or modifying the GRD codebase. Each section is a self-contained procedure with ordered steps and concrete file references.
 
+**On the line numbers below:** file paths and symbol names are current, but the `(line N)` citations have drifted since they were written — several by 50–150 lines. Search for the named symbol; treat the number as a hint about where in the file to look, not as an address.
+
 ---
 
 ## Procedure 1: Adding a New CLI Command
@@ -12,9 +14,9 @@ Use `gd settings` as the reference implementation: it handles both agent-dispatc
 
 2. **Implement the handler.** Create `lib/commands/foo.ts` (or `lib/foo.ts` for larger commands). Export a `cmdFoo(cwd: string, args: string[], raw: boolean): void` function. Use `output(result, raw)` for success and `error(message)` for failures — both are in `lib/utils.ts` and call `process.exit`.
 
-3. **Register in `lib/cli/index.ts`.** Add the command name to `TOOL_COMMANDS` (line 15) for tool-routed commands or to `AGENT_COMMANDS` (line 126) for agent-dispatched commands. For hybrid commands with both tool and agent subcommands, add a case to `classifyCommand()` (line 217), following the `settings` pattern at lines 172–173.
+3. **Register in `lib/cli/index.ts`.** Add the command name to `TOOL_COMMANDS` for tool-routed commands or to `AGENT_COMMANDS` for agent-dispatched commands. For hybrid commands with both tool and agent subcommands, add a case to `classifyCommand()`, following the `settings` pattern (`SETTINGS_TOOL_SUBS` plus the `command === 'settings' && ...` branch inside `classifyCommand`).
 
-4. **Wire into `bin/grd-tools.ts`.** Import your handler with a typed `require` block (follow the existing import pattern, e.g., lines 17–37), then add a `case 'foo':` block in the main switch statement (search for `case 'settings':` around line 1366 as a template). Parse `args[0]`, `args[1]` etc. for subcommands; call `error()` on invalid input.
+4. **Wire into `bin/grd-tools.ts`.** Import your handler with a typed `require` block (follow the existing import pattern near the top of the file), then add a `case 'foo':` block in the main switch statement (search for `case 'settings':` as a template). Parse `args[0]`, `args[1]` etc. for subcommands; call `error()` on invalid input.
 
 5. **Add tests.** Create `tests/unit/foo.test.ts`. Use `captureOutput` / `captureError` from `tests/helpers/setup.ts` to intercept `process.exit`. Mirror the structure of `tests/unit/health.test.ts`.
 
@@ -99,8 +101,8 @@ Use `token_profile` (Spec 4) as the reference end-to-end implementation.
 3. **Set the default in `loadConfig()`** in `lib/utils.ts` (line 313). Either set it explicitly in the defaults object or handle `undefined` at call sites.
 
 4. **If user-settable via `gd settings`:**
-   - Add the subcommand name to `SETTINGS_TOOL_SUBS` in `lib/cli/index.ts` (line 173).
-   - Add a `case` block in `bin/grd-tools.ts` under `case 'settings':` (around line 1368) that validates the value and calls `cmdConfigSet(cwd, 'field_name', value, raw)`.
+   - Add the subcommand name to `SETTINGS_TOOL_SUBS` in `lib/cli/index.ts`.
+   - Add a `case` block in `bin/grd-tools.ts` under `case 'settings':` that validates the value and calls `cmdConfigSet(cwd, 'field_name', value, raw)`.
 
 5. **Document in `CLAUDE.md`** under the relevant section. Mention valid values, the default, and which `gd settings` subcommand to use.
 
@@ -110,15 +112,15 @@ Use `token_profile` (Spec 4) as the reference end-to-end implementation.
 
 ## Procedure 6: Adding a Phase Lifecycle Hook
 
-Autopilot's per-phase pipeline runs in `runPostPhasePipeline()` (`lib/autopilot.ts`, line 859). Steps execute in sequence: simplify → create PR → code review → rebase & merge. Status markers are written at each step.
+Autopilot's per-phase pipeline runs in `runPostPhasePipeline()`, which lives in **`lib/autopilot-pipeline.ts`** and is re-exported through `lib/autopilot.ts` — edit the pipeline module, not the re-export. Steps execute in sequence: simplify → create PR → code review → rebase & merge. Status markers are written at each step.
 
-1. **Add a new step to `runPostPhasePipeline()`** in `lib/autopilot.ts`. Insert a `spawnStep(...)` call (line 825 for the helper signature) at the appropriate position. Use `buildMyStepPrompt(phaseNum)` for the prompt builder function.
+1. **Add a new step to `runPostPhasePipeline()`** in `lib/autopilot-pipeline.ts`. Insert a `spawnStep(...)` call (the helper is defined in the same file) at the appropriate position. Use `buildMyStepPrompt(phaseNum)` for the prompt builder function.
 
 2. **Write status markers.** Call `writeStatusMarker(cwd, phaseNum, 'my-step', 'started')` before the step and `writeStatusMarker(cwd, phaseNum, 'my-step', 'completed' | 'failed')` after. Markers land in `.planning/autopilot/phase-<N>-my-step.json`.
 
-3. **Return on failure.** If your step is blocking, return `{ status: 'failed', failedStep: 'my-step', reason: '...' }` on non-zero exit codes. Non-blocking steps (like `runKnowledgeMining`, line 611) catch errors and log without returning early.
+3. **Return on failure.** If your step is blocking, return `{ status: 'failed', failedStep: 'my-step', reason: '...' }` on non-zero exit codes. Non-blocking steps (like `runKnowledgeMining`) catch errors and log without returning early.
 
-4. **Gate with a config flag** if the hook is optional. Check `config.my_hook_enabled` before running, following the pattern in `runRefinementLoop()` (line 687) which checks `config.refinement_loop`.
+4. **Gate with a config flag** if the hook is optional. Check `config.my_hook_enabled` before running, following the pattern in `runRefinementLoop()`, which checks `config.refinement_loop`.
 
 5. **Add tests** in `tests/unit/autopilot.test.ts` covering the new step's success and failure paths.
 
@@ -127,11 +129,13 @@ Autopilot's per-phase pipeline runs in `runPostPhasePipeline()` (`lib/autopilot.
 ## Procedure 7: Running the Test Suite
 
 ```bash
-npm test                           # Full suite with coverage (2,800+ tests)
+npm test                           # Full suite with coverage
 npm run test:unit                  # Unit tests only
 npx jest tests/unit/state.test.ts  # Single file
 npx jest -t "should parse frontmatter"  # By test name
 ```
+
+There is currently **no push/PR CI** — `.github/workflows/ci.yml` was removed during the autoresearch development phase, and the only workflows left are `release.yml` and `npm-publish.yml`, both manually triggered. The full suite runs unattended exactly once per release, inside `release.yml`. Until CI comes back, `npm test`, `npm run lint` and `npm run build:check` are your responsibility to run locally before merging. See `TESTING.md` for suite layout and current counts.
 
 **Coverage thresholds** are enforced per file in `jest.config.js`. Do not lower them. Adding a new module requires a corresponding test file with matching thresholds.
 
@@ -148,14 +152,98 @@ Both mock `process.exit` with a sentinel throw so tests can assert on `exitCode`
 
 ---
 
-## Procedure 8: Bumping the Version
+## Procedure 8: Cutting a Release
 
-GRD enforces that `package.json#version` and the `VERSION` file match. `tests/unit/postinstall.test.ts` (line 36) asserts this on every test run.
+Releasing GRD is two workflows and one human decision in the middle: `release.yml`
+builds a **draft** GitHub release, a maintainer publishes it, and publishing it fires
+`npm-publish.yml`, which pushes the package to npm.
 
-1. Run `npm version patch` (or `minor` / `major`). This updates `package.json` automatically.
-2. Update the `VERSION` file to match: it must contain only the version string, no trailing newline except what `npm version` leaves.
-3. Verify: `node -e "const p=require('./package.json'); const v=require('fs').readFileSync('./VERSION','utf8').trim(); console.log(p.version===v?'ok':'MISMATCH')"`.
-4. Commit both `package.json` and `VERSION` together.
+### Step 1 — Bump four files together
+
+`VERSION`, `package.json`, `.claude-plugin/plugin.json` and `package-lock.json` all
+carry the version and must agree.
+
+| File | Field | Enforced by |
+|---|---|---|
+| `VERSION` | whole file | — (it is the source of truth) |
+| `package.json` | `version` | `tests/unit/postinstall.test.ts` (`version matches VERSION file`), plus `npm-publish.yml`'s tag-vs-`package.json` check |
+| `.claude-plugin/plugin.json` | `version` | `tests/unit/postinstall.test.ts` **and** the `release.yml` version gate |
+| `package-lock.json` | `.version` and `.packages[""].version` | nothing — see the warning below |
+
+`npm version patch` (or `minor` / `major`) updates `package.json` and
+`package-lock.json` together, but it does **not** know about `VERSION` or
+`plugin.json` — there is no `version` lifecycle script — and by default it also
+creates a commit and a `v<x.y.z>` git tag. Pass `--no-git-tag-version` and let
+`release.yml` create the tag, or hand-edit all four files.
+
+**`package-lock.json` is the one nothing catches.** No test asserts it and `npm ci`
+does not fail on a version-only mismatch (verified: it installs happily), so a
+hand-edited `package.json` leaves the lockfile behind silently. Run `npm install`
+after the edit and commit the lockfile with the rest.
+
+Verify locally before pushing:
+
+```bash
+node -e 'const fs=require("fs"),v=fs.readFileSync("VERSION","utf8").trim();
+for (const f of ["package.json",".claude-plugin/plugin.json","package-lock.json"])
+  console.log(f, require("./"+f).version === v ? "ok" : "MISMATCH");'
+```
+
+### Step 2 — Add the CHANGELOG section
+
+`docs/CHANGELOG.md` must contain a `## [x.y.z]` heading for the new version.
+`release.yml` greps for `[$VERSION]` and **fails the release** if there is no match,
+then extracts everything under that heading as the release notes.
+
+The extractor is a flag-based `awk`, not a range — deliberately. The version heading
+matches both the start pattern and the end pattern `^## \[`, so a naive
+`/start/,/end/` range closes on the line it opens and yields a one-line release note.
+If you change the CHANGELOG heading format, that `awk` has to change with it. An
+empty extraction also fails the run (`test -s release-notes.md`).
+
+### Step 3 — Run the release workflow
+
+```bash
+gh workflow run release.yml          # workflow_dispatch only; runs on main by default
+```
+
+It checks out the ref, installs, runs the version gate, runs the **full suite**
+(`npm test -- --coverageThreshold='{}'` — per-file coverage is deliberately not
+re-enforced here; see the comment in the workflow), extracts the notes, and creates
+the GitHub release for tag `v<x.y.z>` **as a draft**.
+
+### Step 4 — A human publishes the draft
+
+Review the draft release on GitHub and publish it. Nothing is on npm until you do.
+
+### Step 5 — npm publish happens automatically, over OIDC
+
+Publishing the release emits a `release: published` event that triggers
+`.github/workflows/npm-publish.yml`. It verifies the tag matches `package.json`,
+runs `npm ci` (so `prepublishOnly` → `npm run build` has its devDependencies), skips
+with a loud notice if the version is already on the registry, and runs
+`npm publish --access public`.
+
+**Authentication is GitHub Actions OIDC trusted publishing.** Three things about it
+that will cost you an afternoon if you don't know them:
+
+- **There is no `NPM_TOKEN`, and there must not be one.** npm mints a short-lived
+  credential from the `id-token: write` permission. Adding a token secret is a
+  regression, not a fallback.
+- **The trusted-publisher entry on npmjs.com pins the workflow FILENAME.** Renaming
+  or moving `npm-publish.yml` breaks publishing with `ENEEDAUTH` / `E404 PUT` — an
+  auth failure that reads like a missing package and explains nothing. If the file
+  must be renamed, update the trusted publisher on npmjs.com in the same change.
+- **Never add `registry-url:` to its `setup-node` step.** It makes setup-node write
+  an `.npmrc` containing `_authToken=${NODE_AUTH_TOKEN}` with a placeholder value, so
+  npm authenticates with garbage instead of OIDC and loses silently.
+
+The job pins `node-version: "24"` because OIDC needs npm >= 11.5.1, and must run on
+`ubuntu-latest` — npm OIDC does not support self-hosted runners. Provenance
+attestations are generated automatically, which is why `--provenance` is absent.
+
+For a re-run or a release published before the workflow existed, dispatch it manually
+with the `tag` input (e.g. `v0.6.0`); the tag-vs-`package.json` check still applies.
 
 ---
 
@@ -166,16 +254,37 @@ GRD enforces that `package.json#version` and the `VERSION` file match. `tests/un
 | `npm run lint` | ESLint on `bin/` and `lib/` | Before every commit |
 | `npm run lint:fix` | Auto-fix ESLint violations | After bulk refactors |
 | `npm run build:check` | `tsc --noEmit` on the whole codebase | Before every commit |
-| `npm run format:check` | Prettier dry-run | CI gate |
-| `npm run format` | Prettier write on `bin/ lib/ tests/` | Scoped use only — see warning |
+| `npm run format:check` | Prettier dry-run | **Currently fails wholesale — see below** |
+| `npm run format` | Prettier write on `bin/ lib/ tests/ jest.config.js` | **Do not run unscoped — see below** |
 
-**Warning on `npm run format`:** Running it without a scope rewrites every file in `bin/`, `lib/`, and `tests/`, introducing drive-by whitespace noise in diffs. Always scope to specific files when fixing formatting in a PR:
+**The Prettier scripts are not currently usable as gates.** There is no Prettier
+configuration file in the repository — no `.prettierrc` in any form, no `prettier` key in
+`package.json`. `.editorconfig` exists but only sets indentation and line endings, not
+quote style or print width. So Prettier falls back to its own defaults (double quotes,
+`printWidth: 80`), which disagree with the codebase's actual style (single quotes, wider
+lines). The measured result: `npx prettier --check bin/**/*.ts lib/**/*.ts` flags **160 of
+168 files**, and `npm run format:check` exits 1 on a clean tree.
+
+Two consequences:
+
+- **Never run `npm run format` unscoped.** It would not merely add whitespace noise — it
+  would rewrite the entire codebase from single to double quotes and reflow every line
+  over 80 characters, in one unreviewable diff.
+- **Treat `npm run format:check` as broken, not as a signal.** A failure from it says
+  nothing about your change.
+
+Until someone adds a Prettier config that matches the existing style (single quotes, a
+realistic `printWidth`) and reformats once deliberately, format only what you touched, by
+hand or with an explicit scope, and eyeball the diff:
 
 ```bash
-npx prettier --write lib/mymodule.ts tests/unit/mymodule.test.ts
+npx prettier --write lib/mymodule.ts tests/unit/mymodule.test.ts   # then review the diff
 ```
 
-The ESLint config enforces `no-unused-vars` with `_` prefix for intentionally unused args. TypeScript `strict: true` is enforced; zero `any` is the project standard — use `Record<string, unknown>` or specific interfaces.
+Style is in practice enforced by ESLint and `tsc`, not Prettier. The ESLint config
+(`eslint.config.js`) enforces `no-unused-vars` with an `^_` `argsIgnorePattern` for
+intentionally unused args. TypeScript `strict: true` is enforced; zero `any` is the
+project standard — use `Record<string, unknown>` or specific interfaces.
 
 ---
 
@@ -185,9 +294,9 @@ This milestone uses **git worktrees** for parallel branch isolation. Each spec g
 
 **Commit style**: Conventional Commits — `type(scope): message`. Common types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Examples from recent history: `fix(scan): unify ignorefile matching semantics`, `refactor(scan): dedupe types and helpers`.
 
-**Branch naming**: `<milestone-version>/<spec-slug>` (e.g., `gsd2/spec-2a-autopilot-hardening`).
+**Branch naming**: `<type>/<slug>`, using the same type vocabulary as the commit prefix — `feat/artifact-shaped-gates`, `fix/dead-ends-fidelity`, `docs/autoresearch-tutorial-refresh`, `release/0.6.0`. (Older branches use a `<milestone-version>/<spec-slug>` scheme; that convention is no longer followed.)
 
-**Merge strategy**: No-fast-forward merges (`git merge --no-ff`) to preserve branch topology. Do not squash-merge spec branches.
+**Merge strategy**: No-fast-forward merges (`git merge --no-ff`) to preserve branch topology. Note that recent PRs have in practice landed on `main` as squash merges (`fix: … (#75)`), so the history is currently mixed — confirm the intended strategy before merging rather than assuming either.
 
 **Pre-commit hook** (optional, installed via `npm run hooks:install`): runs `gd scan` on staged markdown to block prompt injection patterns. Only this hook is installed by default. Run `npm run hooks:install` once per clone if you want it.
 
@@ -213,7 +322,7 @@ When `gd autopilot` stalls or appears hung:
 
 4. **Run `gd health`.** This surfaces blockers, velocity issues, and configuration problems that may be causing a stall.
 
-5. **Check for stale STATE.md locks.** A `STATE.md.lock` file older than 30 seconds will block concurrent phase writes. Remove it manually if orphaned (`lib/autopilot.ts` line 1489).
+5. **Check for stale STATE.md locks.** `updateStateProgress()` in `lib/autopilot-pipeline.ts` guards `.planning/STATE.md` with an `O_EXCL` lock file at `.planning/STATE.md.lock`, retrying up to 50 times. A lock older than 30 seconds is treated as stale and deleted automatically, so a persistent `STATE.md.lock` means something is actively re-taking it — not that you need to delete it by hand.
 
 ---
 
@@ -223,7 +332,7 @@ When a spawned backend process fails silently:
 
 1. **Retrieve `SchedulerSpawnResult.stderr`.** The scheduler collects the subprocess stderr buffer in `SchedulerSpawnResult.stderr` (defined in `lib/types.ts` line 582). Callers that pass `captureOutput: true` in `SpawnOpts` get both `stdout` and `stderr` populated in the result.
 
-2. **Log stderr from the call site.** In `lib/autopilot.ts`, the `spawnStep` wrapper (line 825) returns the full `SchedulerSpawnResult`. Add a temporary `log(result.stderr ?? '')` call after the step to surface the subprocess output.
+2. **Log stderr from the call site.** The `spawnStep` wrapper lives in `lib/autopilot-pipeline.ts` (re-exported through `lib/autopilot.ts`) and returns the full `SchedulerSpawnResult`. Add a temporary `log(result.stderr ?? '')` call after the step to surface the subprocess output.
 
 3. **Check `adapter.parseTokenUsage`** in `lib/scheduler.ts`. If the backend changed its stderr format, token parsing will silently return `null` (treated as 0 tokens). Verify the regex in the relevant adapter against actual subprocess output.
 

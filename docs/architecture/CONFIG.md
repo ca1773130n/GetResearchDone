@@ -80,6 +80,89 @@ Many fields accept a **legacy nested form** (e.g. `{ "code_review": { "enabled":
 | `citation_gate` | `boolean` | `false` | When `true`, the plan-phase gate blocks on unresolved critical citation nodes in PAPERS.md. |
 | `transitive_citation_gate` | `boolean` | `false` | When `true`, run transitive citation gate during plan-phase (warning severity only — non-blocking). |
 | `research_gates.plan_clarification` | `boolean` | `true` | **(v0.4.5+)** Interactive planning clarification gate, alongside `research_gates.phase_plan_approval`. When on, the `grd-planner` agent may return a `## CHECKPOINT REACHED` / `TYPE: clarification` block for ambiguous, *unlocked* design/implementation decisions; the `plan-phase` orchestrator surfaces these via `AskUserQuestion` (recommended default option first), then resumes the planner with the answers framed as `## Decisions`. Bounded to 2 rounds and de-duped by question text. Auto-skipped under `autonomous_mode`, autopilot, and `--candidates N` with N>1. |
+| `research_gates.experiment_execution` | `boolean` | `true` | Autoresearch RUN gate. Note the naming: the **config** key is `experiment_execution`, the **runtime** gate it sets is called `execute` (`thread.gates.execute`, `pendingGate: 'execute'`) — there is no `research_gates.execute`. Resolved by `resolveGates()` in `lib/research/gates.ts` (mirrored in `bin/vendor/autoresearch_core/gates.py`), which reads the key raw from `.planning/config.json`: **only the literal `false` turns the gate off**; absence or any other value leaves it on. When on, the loop pauses before executing a generated experiment script (`status: 'paused'`, `pendingGate: 'execute'`); a bare `gd research resume <id>` approves that one crossing. `--no-gates` and every unattended caller (bench, portfolio, harness, autopilot) force all gates off. |
+| `research_gates.kg_write` | `boolean` | `true` | Autoresearch PERSIST gate — pauses before writing findings back into the knowledge graph. Same resolution rules as `experiment_execution`: only the literal `false` disables it. |
+| `research_gates.auto_promote_falsified` | `boolean` | `false` | **(v0.6.0+)** Lets the phase boundary write a `verdict: falsified` reflection from a phase's `VERIFICATION.md` straight into `.planning/DEAD-ENDS.md` (`promoteFalsifiedFromPhase`, `lib/dead-ends.ts`). Off — unset, `false`, or a non-boolean — the step dry-runs: it returns `dry_run: true` with the entry it *would* have written under `preview` and leaves `DEAD-ENDS.md` byte-identical. A present-but-non-boolean value (e.g. the string `"true"`) reads as off **and reports a `config_error`**, as do an unreadable file and invalid JSON; only a missing config file is a silent off. See the note below before turning this on. |
+
+#### Two gate toggles in `gd settings` are inert
+
+`gd settings` draws a gate box (`commands/settings.md`) offering
+`phase_plan_approval` and `execution_approval` alongside the gates that work.
+**Nothing reads either one.** Grepping `lib/`, `bin/`, `commands/` and `agents/`
+for both names returns only `commands/settings.md` itself — the toggle that sets
+them. Every other gate in that box has a consumer: `survey_approval` →
+`commands/survey.md`, `deep_dive_approval` → `commands/deep-dive.md`,
+`feasibility_approval` → `commands/feasibility.md`, `product_plan_approval` →
+`commands/product-plan.md`, `plan_clarification` → `commands/plan-phase.md`.
+
+Turning these two on or off therefore changes nothing, silently. They are
+documented here so the next person to trust that box knows, rather than
+concluding a gate failed to fire. Verified 2026-09-06 at 0.6.0.
+
+#### Why `auto_promote_falsified` defaults to off
+
+A DEAD-ENDS entry is not advice, it is a hard fail. `checkDeadEnds()` in
+`lib/commands/select-candidate.ts` scans every candidate plan for a citation of the entry's
+slug (case-insensitive, on word boundaries) or an exact match on one of its `forbidden_terms`;
+a hit short-circuits that candidate's `total_score` to `-Infinity`, which sorts it to the
+bottom of the audit and takes it out of selection entirely.
+
+There is **no warning tier** on that path. The advisory Jaccard-similarity list is computed
+alongside for the audit trail but never changes a score, and every other axis is deliberately
+kept finite (`scoreMustHavesCoverage` charges -10 per missing artifact and says so in a comment)
+so that DEAD-ENDS remains the only hard-fail. Status handling is fail-closed too: `checkDeadEnds`
+exempts exactly `status: retired` — `resolved`, `superseded`, a typo, or no status at all
+still gate.
+
+So an auto-promoted entry permanently bans an approach on the strength of a single phase's
+reflection, and the only way back is a human running `gd dead-end retire <slug> --reason "..."`.
+`retireDeadEnd()` is the sole writer of `status: retired` anywhere in GRD, and no automatic path
+undoes it — re-recording the same slug merges the phase and evidence but leaves the retirement
+alone. Leave the gate off unless you want that trade.
+
+### Autoresearch Interactive Steering
+
+Nested under `research_gates.interactive` (v0.5.0+). Human-in-the-loop checkpoints at the
+SEED / HYPOTHESIZE / DESIGN / DECIDE stations of `gd research`. Read by `readInteractiveConfig()`
+in `lib/research/checkpoints.ts`, raw from `.planning/config.json` (`loadConfig()` recognises
+`research_gates` but does not normalise its contents). Every field is validated: a wrong-typed
+or out-of-range value prints `[interactive-config] <key>: …` on stderr and falls back to the
+default rather than failing the run.
+
+The loop **never pauses unattended.** `resolveInteractive()` forces steering inactive under
+`--no-gates`, `autonomous_mode`, autopilot (`GRD_AUTOPILOT`), portfolio concurrency > 1, and a
+non-interactive stdio; `fallback` then decides who answers.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `research_gates.interactive.enabled` | `boolean` | `false` | Master switch for interactive steering. Off, the loop runs exactly as before. |
+| `research_gates.interactive.seed` | `boolean` | `true` | Pause at SEED (question clarification). Only consulted when `enabled`. |
+| `research_gates.interactive.hypothesize` | `boolean` | `true` | Pause at HYPOTHESIZE (candidate selection). Only consulted when `enabled`. |
+| `research_gates.interactive.design` | `boolean` | `true` | Pause at DESIGN (experiment-plan approve / revise / abort). Only consulted when `enabled`. |
+| `research_gates.interactive.decide` | `boolean` | `true` | Pause at DECIDE (continuation steering). Only consulted when `enabled`. |
+| `research_gates.interactive.every_iteration` | `boolean` | `false` | When `false`, the SEED / HYPOTHESIZE / DESIGN checkpoints fire on iteration 1 only. When `true`, they fire every iteration. Does not apply to DECIDE, which is continuation steering and may fire at every would-continue point regardless. |
+| `research_gates.interactive.max_rounds` | `number` (≥ 1) | `2` | Cap on DESIGN "revise the plan" rounds per thread. Exceeding it routes to the approve path (reuse the persisted plan, proceed to RUN) instead of looping. Non-number or `< 1` → default. |
+| `research_gates.interactive.max_questions` | `number` (≥ 1) | `4` | Parsed, validated and clamped, but **not currently consumed by any checkpoint code path** — setting it changes nothing today. |
+| `research_gates.interactive.hypothesis_candidates` | `number` | `3` | How many hypotheses `grd-hypothesizer` is asked for at the HYPOTHESIZE checkpoint. Clamped to `[1, 5]`. |
+| `research_gates.interactive.fallback` | `'recommended' \| 'panel'` | `'recommended'` | Who answers a checkpoint when **no human is present**. `'recommended'` takes each question's recommended default. `'panel'` routes it to the AI discussion panel (`answerViaDiscussion`), which is degrade-safe — an empty or rate-limited panel falls back to the recommended defaults. Unknown values warn and fall back to `'recommended'`. |
+
+### Autoresearch Loop
+
+Top-level keys tuning the `gd research` loop itself. `loadConfig()` recognises these key
+*names* (so they do not trigger the unknown-key warning) but does not normalise their values —
+each is read raw from `.planning/config.json` at its point of use, with its own validation.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `research_max_candidates` | `integer > 0` | `3` | How many synthesized candidate hypotheses `gd synthesize` seeds as research threads (`readMaxCandidates`, `lib/research/cli-kb.ts`). The rank-1 thread is auto-resumed. Non-integer or `≤ 0` → default. |
+| `research_max_resurveys` | `integer ≥ 0` | `2` | Cap on plateau-triggered re-surveys per thread (`readResurveyConfig`, `lib/research/orchestrator.ts`). `0` disables re-survey. A present value is clamped to `≥ 0`; absent or non-numeric → `2`. |
+| `research_plateau_window` | `integer ≥ 1` | `3` | Window of completed iterations `detectPlateau()` inspects to decide a thread has plateaued (and so should re-survey). The same value is reused as the window for `detectDesignPlateau()` — consecutive iterations that exhausted their redesign budget without ever producing a measurable experiment, which terminates the thread as `exhausted`. A present-but-invalid value (`0`, negative, non-numeric) → `3`. |
+| `research_resurvey_fetch` | `boolean` | `false` | When plateau re-survey fires, also spawn `grd-surveyor` for up to 3 new sources and ingest them. **Only the literal `true` enables it.** Fully tolerant — a missing surveyor or a bad source degrades silently. |
+| `research_portfolio_concurrency` | `integer ≥ 1` | `2` | Threads `gd research portfolio` runs in parallel (`readPortfolioConcurrency`, `lib/research/portfolio.ts`). An explicit `--concurrency` beats it. Non-integer or `< 1` → default. Any value > 1 also disables interactive steering. |
+| `research_persist_knowledge` | `boolean` | `true` | Promote a finished thread's takeaways into `KNOWHOW.md` and its refutations into `.planning/DEAD-ENDS.md` (`shouldPersistKnowledge`, `lib/research/promote.ts`). **Only the literal `false` turns it off**; an unreadable config leaves it on. |
+| `research_eval_report` | `boolean` | `false` | Opt in to an extra `grd-research-evaluator` spawn per iteration that writes a narrative `EVAL.md` into `.planning/research/threads/<id>/experiments/<iteration>/` (`readEvalReportConfig`, `lib/research/eval.ts`). **Only the literal `true` enables it.** Read-only and off the control path — the verdict stays deterministic — and a failure degrades with a stderr note. |
+| `research_spawn_retries` | `integer` | `2` | Retries for a failed agent spawn inside the loop (`readSpawnRetries`, `lib/research/orchestrator.ts`). Clamped to `[0, 5]`; a non-number → default. |
+| `research_max_debug_depth` | `integer` | `0` | Bounded fix-and-retry attempts when the experiment script **fails to execute** (nonzero exit or a thrown runner) — never for a metric miss (`readDebugDepth`, `lib/research/orchestrator.ts`). `0` (the default) = no retries. Clamped to `[0, 5]`; a non-number → `0`. The same budget is shared with, not added to, the `metric_absent` re-plan into DESIGN. Across a debug re-plan the execute gate is re-checked and the committed metric/comparator/target is pinned. |
 
 ### Autoresearch Sandbox
 
@@ -502,6 +585,31 @@ Written by the scheduler to persist learned budget/EWMA information across GRD s
 | `max_concurrent_teammates` | `4` |
 | `citation_gate` | `false` |
 | `transitive_citation_gate` | `false` |
+| `research_gates.plan_clarification` | `true` |
+| `research_gates.experiment_execution` | `true` |
+| `research_gates.kg_write` | `true` |
+| `research_gates.auto_promote_falsified` | `false` |
+| `research_gates.interactive.enabled` | `false` |
+| `research_gates.interactive.{seed,hypothesize,design,decide}` | `true` |
+| `research_gates.interactive.every_iteration` | `false` |
+| `research_gates.interactive.max_rounds` | `2` |
+| `research_gates.interactive.max_questions` | `4` |
+| `research_gates.interactive.hypothesis_candidates` | `3` |
+| `research_gates.interactive.fallback` | `'recommended'` |
+| `research_max_candidates` | `3` |
+| `research_max_resurveys` | `2` |
+| `research_plateau_window` | `3` |
+| `research_resurvey_fetch` | `false` |
+| `research_portfolio_concurrency` | `2` |
+| `research_persist_knowledge` | `true` |
+| `research_eval_report` | `false` |
+| `research_spawn_retries` | `2` |
+| `research_max_debug_depth` | `0` |
+| `research_sandbox` | `'auto'` |
+| `research_sandbox_memory` | `'512m'` |
+| `research_sandbox_cpus` | `'1'` |
+| `research_sandbox_network` | `'none'` |
+| `research_tesserae_extractor` | `'deterministic'` |
 | `refinement_loop` | `false` |
 | `phase_complete_llm_fallback` | `false` |
 | `phase_complete_llm_fallback_retries` | `0` |

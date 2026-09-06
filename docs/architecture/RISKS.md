@@ -4,6 +4,14 @@
 
 Audit of the GRD codebase focusing on Spec 2A/2B/3/3B/4 additions: `lib/scheduler.ts`, `lib/scheduler-wait.ts`, `lib/phase-complete-llm.ts`, `lib/complexity.ts`, `lib/metrics.ts`, `lib/phase-io.ts`, `lib/phase-complete.ts`, and the autopilot/autoresearch inner loops. No `as any` casts found (CLAUDE.md requirement met). No silent `catch {}` blocks found. **Fourteen substantive findings: 0 Critical, 9 Important, 3 Minor, 4 Observations.**
 
+> **Audited 2026-04-17. Every finding below already carries a `Status: Fixed`
+> line, so this is a closed record, not a backlog.** Spot-checked 2026-09-06 at
+> 0.6.0: I3, I8, O1, O2 and O4 were re-verified against the tree and no longer
+> reproduce. I5's fix held in the file it names, but the identical defect lives
+> on in a sibling the audit never covered — see the note under I5. Findings not
+> re-checked here stand as their Status line records them; verify one before
+> acting on it.
+
 ---
 
 ## Critical
@@ -44,6 +52,7 @@ None found.
 
 ### I3: `startHeartbeat` is exported but never called in production — dead code with timer-leak risk
 
+
 **Status:** Fixed in commit `1a024c1` (Phase 4 of audit fix plan — removed dead export).
 
 **Location:** `lib/autopilot.ts:2556–2560`
@@ -72,6 +81,7 @@ None found.
 
 ### I5: `phaseNum.replace('.', '\\.')` escapes only the first dot — regex wildcard in multi-level phase numbers
 
+
 **Status:** Fixed in commit `ae43855` (Phase 1 of audit fix plan).
 
 **Location:** `lib/phase-complete.ts:134`, `lib/phase-complete.ts:140`
@@ -81,6 +91,13 @@ None found.
 **Impact:** Phase-complete regex operations on ROADMAP.md could match a wrong phase entry when using three-part phase numbering (e.g., phase `"1.1.2"` checkbox pattern matches `"1.1X2"` in any format). The wrong phase row in the progress table or checkbox could be updated.
 
 **Suggested fix:** Replace both occurrences of `phaseNum.replace('.', '\\.')` with `phaseNum.replace(/\./g, '\\.')`.
+
+**Re-check 2026-09-06 — fixed here, still open next door.** `lib/phase-complete.ts`
+now uses the global form at both sites. `lib/phase-complete-llm.ts` still has
+**four** occurrences of the single-replacement `phaseNum.replace('.', '\\.')`, so on
+that path a three-part phase number such as `1.1.2` still produces a pattern whose
+second dot is an unescaped wildcard. Same defect, a file the original audit did not
+cover.
 
 ---
 
@@ -113,6 +130,7 @@ None found.
 ---
 
 ### I8: `checkBinary` uses `which` — always returns false on Windows
+
 
 **Status:** Fixed in commit `3c7145c` (Phase 1 of audit fix plan).
 
@@ -188,6 +206,9 @@ None found.
 
 ### O1: `lib/autopilot.ts` is ~2,700 lines and continues growing
 
+**Re-check 2026-09-06:** now **1,898 lines**. It shrank by roughly 800 rather than continuing to grow, so the trend this observation warned about reversed. Still the largest module in `lib/`.
+
+
 **Status:** Fixed in commits `ebcf4e7` + `2d99972` + `27e175a` (refactor/autopilot-decomposition branch). Decomposed into `lib/autopilot-pipeline.ts` (990 lines), `lib/autopilot-waves.ts` (361 lines), `lib/autopilot-milestone.ts` (136 lines). Orchestrator `lib/autopilot.ts` reduced to 1,564 lines (42% reduction). All 4,240 tests pass; external consumers continue importing from `./autopilot` via re-exports. Spec: `docs/superpowers/specs/2026-04-12-autopilot-decomposition-design.md`.
 
 **Location:** `lib/autopilot.ts`
@@ -199,6 +220,7 @@ None found.
 ---
 
 ### O2: Duplicate `_stateFileCache` in `lib/phase-io.ts` and `lib/state.ts` — can diverge
+
 
 **Status:** Fixed in commit `f57b5bb` (Phase 3 of audit fix plan).
 
@@ -223,6 +245,7 @@ None found.
 ---
 
 ### O4: `lib/scheduler-wait.ts` uses ESM `export` alongside CJS `module.exports` — mixed syntax
+
 
 **Status:** Fixed in commit `8077d3d` (Phase 1 of audit fix plan).
 

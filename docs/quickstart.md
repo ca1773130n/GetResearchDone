@@ -17,7 +17,7 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 ## New R&D Project (full flow)
 
 ```
- 1. /grd:new-project              # Define what you're building/researching
+ 1. /grd:init                     # Define what you're building/researching
  2. /grd:survey "your topic"      # Scan papers, repos, benchmarks → LANDSCAPE.md
  3. /grd:deep-dive "paper title"  # Deep analysis of promising papers
  4. /grd:feasibility "method"     # Can this work in production?
@@ -43,7 +43,7 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 ## Autonomous Batch Run
 
 ```
-/grd:yolo on
+/grd:settings yolo on
 /grd:execute-phase 1
 /grd:eval-report 1
 ```
@@ -53,12 +53,12 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 | Category | Commands |
 |----------|----------|
 | **Research** | `survey`, `deep-dive`, `compare-methods`, `feasibility` |
-| **Planning** | `new-project`, `product-plan`, `long-term-roadmap`, `discuss-phase`, `plan-phase` |
+| **Planning** | `init`, `product-plan`, `long-term-roadmap`, `discuss-phase`, `plan-phase` |
 | **Execution** | `execute-phase`, `quick` |
-| **Evaluation** | `eval-plan`, `eval-report`, `assess-baseline`, `iterate` |
-| **Verification** | `verify-phase`, `verify-work`, `gd-tools verify mechanical` (PLAN.md mechanical bundle) |
-| **Navigation** | `progress`, `help`, `settings`, `set-profile`, `yolo`, `gd-tools think` (project briefing) |
-| **Self-monitoring** | `gd health` (drift score), `gd-tools dead-end add / retire / reopen / promote-from-phase`, `gd-tools genome init / show / snapshot`, `gd-tools plan-tournament score` |
+| **Evaluation** | `plan-phase --eval-only`, `eval-report`, `assess-baseline`, `iterate` |
+| **Verification** | `verify-phase`, `verify-work`, `gd verify mechanical` (PLAN.md mechanical bundle) |
+| **Navigation** | `progress`, `help`, `settings` (also `settings yolo` / `settings profile`), `gd think` (project briefing) |
+| **Self-monitoring** | `gd health` (drift score), `gd dead-end add / retire / reopen / promote-from-phase`, `gd genome init / show / snapshot`, `gd plan-tournament --phase N --candidate <path>` (repeatable, or `--candidates "a.md,b.md"`) |
 | **Forensics** | `gd diagnose <N>`, `gd impact <N>`, `gd blame <N>`, `gd budget <N>`, `gd estimate <N>`, `gd estimate-phase <N>`, `gd check-plans`, `gd check-assumptions`, `gd freshness`, `gd rollback <N>`, `gd forecast-phase <N>`, `gd deps`, `gd deps-risk` |
 | **Knowledge** | `gd knowhow rank \| audit \| dedup \| aggregate`, `gd knowledge search`, `gd import-knowhow`, `gd import-knowledge`, `gd export-research`, `gd import-research` |
 | **Eval + monitoring** | `gd eval diff <A> <B>` (or `<A> latest`), `gd research-gaps`, `gd tail [-f]`, `gd watch` |
@@ -86,13 +86,16 @@ Idea → Survey → Deep-Dive → Feasibility → Baseline → Product Plan → 
 
 Each `VERIFICATION.md` contains a `<reflection>` block: `hypothesis`,
 `predicted_outcome`, `actual_outcome`, and a `verdict` of
-`confirmed` / `partial` / `falsified`. Falsified reflections are
-auto-promotable to `DEAD-ENDS.md`.
+`confirmed` / `partial` / `falsified`. Falsified reflections promote to
+`DEAD-ENDS.md` at the phase boundary when `research_gates.auto_promote_falsified`
+is on — it is **off** by default, and the step then dry-runs and prints the entry
+it would write. A registered dead end hard-fails any later plan citing it;
+`gd dead-end retire <slug> --reason "..."` is the only way back.
 
 ## Configuration Highlights
 
-- **Model profiles:** `/grd:set-profile quality|balanced|budget` — control cost vs quality
-- **Autonomous mode:** `/grd:yolo on` — agent makes all decisions, no checkpoints
+- **Model profiles:** `/grd:settings profile quality|balanced|budget` — control cost vs quality
+- **Autonomous mode:** `/grd:settings yolo on` — agent makes all decisions, no checkpoints
 - **Code review:** Enabled by default (`per_wave`), produces REVIEW.md with BLOCKER/WARNING/INFO
 - **Agent Teams:** Opt-in via `execution.use_teams: true` in config.json for parallel teammate coordination
 

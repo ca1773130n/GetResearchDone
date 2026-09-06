@@ -19,7 +19,7 @@ It is two things in one tool:
 ```
             ┌─────────────────────── re-survey on plateau ──────────────────────┐
             ▼                                                                    │
-SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → PERSIST → FINALIZE
+SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → FINALIZE → PERSIST
                     │           │       │       │         │       │         │
               one testable   plan +  sandboxed  metric  typed   supported  FINDING.md
               hypothesis     script  experiment vs       takeaway →finalize +PAPER.md
@@ -32,7 +32,7 @@ SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DEC
 - **Honest.** A loop that never reaches support is written up as a negative/inconclusive result, not hidden.
 - **Safe by default.** Two checkpoint gates (before running experiment code, before writing to the shared KG); optional Docker isolation for experiment scripts.
 - **Steerable, attended or not.** (v0.5.0) Optional interactive checkpoints at SEED / HYPOTHESIZE / DESIGN / DECIDE let a human clarify the question, pick among candidate hypotheses, approve the experiment design (and edit its metric contract), and decide iterate-vs-stop. Unattended runs answer the same checkpoints via a multi-backend AI discussion panel (`interactive.fallback: "panel"`) — or fall back to recommended defaults — so no autonomous path ever blocks.
-- **Compounding.** Confirmed learnings promote to a shared `KNOWHOW.md`; falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.
+- **Compounding.** Learnings from settled iterations promote to a shared `KNOWHOW.md`, which `plan-phase` and `execute-phase` inject into their prompts (v0.6.0 — before that it was mined and dropped); falsified hypotheses promote to `DEAD-ENDS.md` so future threads don't repeat them.
 
 ```bash
 gd research "Does retrieval-augmented prompting beat few-shot on our eval?"
@@ -174,7 +174,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 
 | Key | Default | Effect |
 |---|---|---|
-| `research_gates` | `{execute:true, kg_write:true, plan_clarification:true}` | Per-gate checkpoints (override with `--no-gates`); `plan_clarification` (v0.4.5+) has `plan-phase` ask the user to resolve ambiguous design decisions before writing a plan |
+| `research_gates` | `{experiment_execution:true, kg_write:true, plan_clarification:true}` | Per-gate checkpoints (override with `--no-gates`); `experiment_execution` controls the runtime gate named `execute`; `plan_clarification` (v0.4.5+) has `plan-phase` ask the user to resolve ambiguous design decisions before writing a plan |
 | `research_gates.interactive` | off | (v0.5.0) Human-in-the-loop checkpoints at SEED/HYPOTHESIZE/DESIGN/DECIDE, each individually gate-able; `fallback: "panel"` answers them via an AI discussion panel in unattended runs; resume with `gd research resume <id> --answers` |
 | `research_gates.auto_promote_falsified` | `false` | (v0.6.0) Let the phase boundary write a `verdict: falsified` reflection straight into `DEAD-ENDS.md`; off, the step dry-runs and prints the entry it would write. Off by default because a DEAD-ENDS slug hard-fails any future candidate plan citing it — `gd dead-end retire <slug>` is the only way back |
 | `research_max_candidates` | `3` | Cap on synthesis-seeded candidate threads |
@@ -182,7 +182,7 @@ Behind those: multi-backend scheduling (Claude / Codex / Gemini / OpenCode / Ove
 | `research_max_resurveys` | `2` | Cap on plateau re-surveys per thread |
 | `research_resurvey_fetch` | `false` | On re-survey, fetch + ingest new sources first |
 | `research_portfolio_concurrency` | `2` | Bounded concurrency for `gd research portfolio` |
-| `research_sandbox` | `"subprocess"` | `"docker"` to isolate experiment scripts |
+| `research_sandbox` | `"auto"` | `"auto"` (the unset default) uses Docker when available, else subprocess with a visible `UNSANDBOXED` warning; `"docker"` forces the container, `"subprocess"` always runs on the host |
 | `research_sandbox_image` / `_memory` / `_cpus` / `_network` | slim / `512m` / `1` / `none` | Docker sandbox knobs |
 | `research_persist_knowledge` | `true` | Promote takeaways → `KNOWHOW.md` / `DEAD-ENDS.md` |
 | `research_eval_report` | `false` | Opt-in per-iteration `EVAL.md` from a read-only evaluator |
@@ -200,7 +200,7 @@ GRD uses a thin orchestrator pattern: markdown skill files handle orchestration 
 bin/
 ├── grd-tools.ts        # Deterministic CLI (state, verify, scaffold, research)
 ├── gd.ts               # Unified CLI (agent + tool routing)
-├── harness_driver.py   # Life-harness round driver (logic: autoresearch-core, PyPI)
+├── harness_driver.py   # Life-harness round driver (logic: autoresearch-core, vendored in bin/vendor/)
 └── grd-mcp-server.ts   # MCP server exposing all tools
 lib/
 ├── research/           # Autoresearch loop (orchestrator, ingest, synthesize,

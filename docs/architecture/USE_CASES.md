@@ -17,7 +17,7 @@ Who uses GRD, what they accomplish with it, and narrative walkthroughs of real s
 - Knowing what to do next when an experiment stalls or fails
 - Spending hours on boilerplate (phase planning, commit hygiene, report generation) that crowds out thinking time
 
-**Commands used most:** `/grd:init`, `/grd:survey`, `/grd:deep-dive`, `/grd:plan-phase`, `/grd:execute-phase`, `/grd:assess-baseline`, `/grd:eval-report`, `/grd:iterate`
+**Commands used most:** `/grd:init`, `/grd:survey`, `/grd:deep-dive`, `gd research "<question>"`, `/grd:plan-phase`, `/grd:execute-phase`, `/grd:assess-baseline`, `/grd:eval-report`, `/grd:iterate`
 
 ---
 
@@ -62,7 +62,7 @@ Who uses GRD, what they accomplish with it, and narrative walkthroughs of real s
 - No clear structure for capturing "we tried X and it failed because Y"
 - Long training runs that fail at hour 6 with no automatic recovery
 
-**Commands used most:** `/grd:deep-dive`, `/grd:assess-baseline`, `/grd:plan-phase`, `/grd:execute-phase`, `/grd:eval-report`, `/grd:iterate`, `gd autoresearch`
+**Commands used most:** `/grd:deep-dive`, `/grd:assess-baseline`, `/grd:plan-phase`, `/grd:execute-phase`, `/grd:eval-report`, `/grd:iterate`, `gd research`, `gd autoresearch`
 
 ---
 
@@ -98,6 +98,22 @@ After 14 iterations overnight, the loop finds a combination of label smoothing a
 
 ---
 
+### Scenario 3a: Answering a Research Question with the Station Loop
+
+**Context (v0.5.0 / v0.6.0):** The same PhD student has a question rather than a metric to climb: *does retrieval-augmented prompting beat fine-tuning on our low-resource split?* They run `gd research "does RAG beat fine-tuning on the low-resource split?"`.
+
+The loop runs SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DECIDE → FINALIZE → PERSIST (Flow 7a in [FLOWS.md](FLOWS.md)). Three things shape what they see, and all three exist to stop the loop from flattering itself:
+
+**Every hypothesis has to name its own falsifier.** The hypothesizer is asked for a `refutationCondition` — the observation that would show the hypothesis FALSE — and any candidate that omits it is dropped by the parser before ranking. A hypothesis with no stated way to be wrong never enters the ledger, so the student never spends an experiment on one.
+
+**A verdict is deterministic, and "inconclusive" says why.** The plan commits to a metric, a comparator and a target up front; `evaluateVerdict` compares the number and nothing else judges it. When it cannot reach a verdict it reports the *cause*. `run_failed` means the script exited nonzero — an engineering fault, which the RUN stage retries up to `research_max_debug_depth` (default 0, so off unless the student turns it on). `metric_absent` means the script ran fine but never emitted the metric it had committed to be judged on. That is a *design* fault: the experiment could not have disconfirmed the hypothesis whatever it printed. So the loop re-enters DESIGN for the **same** hypothesis at the same iteration rather than burning a fresh one — bounded by the same `research_max_debug_depth` budget, shared with the debug loop rather than added to it. If several iterations in a row exhaust that budget without ever producing a measurable experiment, the run stops with DESIGN PLATEAU: the harness is telling the student it cannot design a falsifiable test for the question *as phrased*, which is a different problem from the hypotheses being wrong.
+
+**What is learned comes back.** On a settled verdict the loop promotes takeaways into `KNOWHOW.md` and falsified hypotheses into `.planning/DEAD-ENDS.md`. The write gate is a conjunction over what is actually on disk — a recognised takeaway kind, non-empty evidence, a `supported`/`refuted` verdict, and real metrics in that iteration's `result.json` — not the mining agent's own confidence score. Later, when the student runs `/grd:plan-phase`, those entries are injected into the planner's prompt (and the executor's), because the KNOWHOW ranking now reserves slots for `research:`-sourced entries that would otherwise be out-scored by every phase-numbered one. Before v0.6.0 the loop mined knowledge that structurally could not be read back.
+
+**Steering it, or not.** By default the loop never stops to ask anything (`research_gates.interactive.enabled` is false). Turning it on gives the student checkpoints at SEED, HYPOTHESIZE, DESIGN and DECIDE: the thread pauses, and they answer with `gd research resume <id> --answers <file>`. Crucially, an unattended run — autopilot, `autonomous_mode`, `--no-gates`, or a portfolio running several threads concurrently — **never** pauses. Each question resolves to its recommended default, or, with `fallback: "panel"`, is put to the AI discussion panel (`answerViaDiscussion`), which degrades back to those same defaults if the panel is empty or rate-limited. A checkpoint that nobody can answer resolves; it does not block.
+
+---
+
 ### Scenario 4: Self-Improving via Life-Harness
 
 **Context (v0.4.4+):** A builder has been running GRD-managed sessions for several months. Tesserae has accumulated session findings — takeaways, decisions, and insights from real usage. They want GRD to self-improve based on what it actually learned.
@@ -110,7 +126,7 @@ For teams that want autonomous merging, `harness.autonomy: "auto"` in `.planning
 
 **Collective layer (Phase E, v0.4.4+):** Because `gd` is installed globally, many of this builder's projects use GRD — but a round in a downstream project can only patch that project's own files, not GRD's primitives (they live in the npm/plugin cache, not a git repo, and the path guards forbid it). So evidence *about GRD's own behavior* that accrues downstream — "this executor prompt failed me", "this gate fires too eagerly" — used to be stranded. Now, with `harness.upstream_emit: true` (default), each downstream round emits its GRD-about findings (matched by a conservative heuristic on `gd `/`/grd:` commands, `grd-<agent>` names, and harness vocabulary) as distilled upstream candidates into `$CLAUDE_PLUGIN_DATA/harness/upstream/` — finding text only, never transcripts or patches. When the builder later runs a round in the GRD repo itself — the **upstream root**, marked `harness.upstream_root: true` — those candidates are bound alongside local Tesserae findings into a composite evidence source, deduped across origins with an occurrence count (the same complaint from five projects is stronger signal). The builder can inspect what's pending with `gd harness upstream list` and prune with `gd harness upstream clear`. The candidates are evidence, not patches — the same kernel guards (path validation, deny-list, eval gate, review-mode default) contain them.
 
-**Note:** `gd evolve` is deprecated as of v0.4.3 — it prints a pointer to `gd harness round` and exits 1. Its read-only introspection subcommands (`gd evolve state`, `gd evolve advance`, `gd evolve reset`) still work. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+**Note:** `gd evolve` was deprecated 2026-06-06 and the verb no longer runs — it prints a redirect and exits. Use `gd harness round`: evidence from Tesserae session findings, eval-gated, git-reversible, where evolve was a static scan whose discovery saturated. `lib/evolve/` stays in-tree because `gd singularity` reads its history. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 ---
 
@@ -161,17 +177,20 @@ After a phase pipeline completes, `completePhaseAfterPostPipeline` runs but `_ph
 | Want full control over each step's outcome | Manual |
 | Comfortable leaving the run unattended | `gd autopilot` |
 
-### `gd harness round` vs `gd autoresearch`
+### `gd harness round` vs `gd research` vs `gd autoresearch`
 
 | Situation | Use |
 |---|---|
 | Improving GRD itself based on real session learnings | `gd harness round` |
-| Iterating toward a quantitative metric (accuracy, throughput) | `gd autoresearch` |
 | One evidence-driven patch to GRD primitives | `gd harness round` |
-| Have a measurable target and want autonomous iteration toward it | `gd autoresearch` |
 | Want a branch/PR with a single improvement to review | `gd harness round` (default `autonomy: "review"`) |
+| Have an open **question** and want falsifiable hypotheses tested against it | `gd research "<question>"` |
+| Want the result written up as a finding, with takeaways fed back into planning | `gd research` |
+| Want the experiment run in a sandbox rather than against your working tree | `gd research` (`research_sandbox`) |
+| Have a measurable target and want autonomous iteration toward it in-repo | `gd autoresearch` |
+| Iterating toward a quantitative metric (accuracy, throughput) by editing the repo | `gd autoresearch` |
 
-> **Note:** `gd evolve` is deprecated (v0.4.3) — use `gd harness round` instead. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
+> **Note:** `gd evolve` was deprecated 2026-06-06 and no longer runs — use `gd harness round`. See [docs/DEPRECATIONS.md](../DEPRECATIONS.md).
 
 ### `token_profile: frugal` vs `balanced` vs `quality`
 
@@ -191,6 +210,8 @@ After a phase pipeline completes, `completePhaseAfterPostPipeline` runs but `_ph
 
 **Using `gd harness round` as a substitute for design decisions.** The harness proposes one evidence-driven patch per round. It does not make architectural decisions. If your codebase has a fundamental design problem, the harness will improve surface details without addressing the root. Use `gd deep-dive` or `gd discuss` for architectural reasoning instead. (Note: `gd evolve` is deprecated — use `gd harness round`.)
 
+**Turning on `research_gates.auto_promote_falsified` to "capture more learning".** It is false by default for a reason. With it on, a phase reflection carrying `verdict: falsified` is written straight into `.planning/DEAD-ENDS.md` — and a DEAD-ENDS slug scores any future candidate plan that cites it at `-Infinity` in `select-candidate`, permanently and with no warning tier. Leave it off and read the `preview` the dry run prints; promote deliberately with `gd dead-end add` when you mean it. The only way back out is `gd dead-end retire <slug> --reason "..."`, which is the sole writer of `status: retired` and the only status that exempts an entry — every other value gates, fail-closed.
+
 **Expecting `gd quick` to update ROADMAP.md or advance milestones.** Quick tasks are intentionally kept out of the roadmap system. If a quick task turns out to be significant enough to track, convert it into a proper phase with `gd add-phase` or `gd insert-phase`.
 
 **Setting `token_profile: frugal` for phases that require deep reasoning.** Frugal mode aggressively routes to cheaper models even under low budget pressure. A `grd-planner` running on haiku may produce a plan that misses edge cases a sonnet-tier planner would catch. Use `balanced` or `quality` for planning-heavy phases and reserve `frugal` for execution-heavy or low-complexity work.
@@ -200,6 +221,6 @@ After a phase pipeline completes, `completePhaseAfterPostPipeline` runs but `_ph
 ## See Also
 
 - `OVERVIEW.md` — System overview, component map, and key concepts
-- `FLOWS.md` — Detailed flow diagrams for autopilot, evolve, and phase execution
+- `FLOWS.md` — Detailed flow diagrams for autopilot, phase execution, the life-harness round, and the `gd research` station loop (`gd evolve` is retained there as deprecated historical reference)
 - `CONFIG.md` — All config fields in `.planning/config.json`, including `token_profile`, `phase_complete_llm_fallback`, and scheduler settings
 - `MAINTENANCE.md` — Operational guidance: logs, metrics, recovery procedures, upgrade notes

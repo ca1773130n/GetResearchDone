@@ -47,9 +47,14 @@ jobs:
         # coverage thresholds. Some suites need binaries/env absent on the CI
         # runner (claude/codex/git) and are skipped, which lowers per-file
         # coverage below thresholds even with zero test failures — `jest
-        # --coverage` would then exit non-zero. Coverage is gated on push-CI
-        # (ci.yml), not here. `--coverageThreshold={}` clears enforcement while
-        # still running every collectable suite.
+        # --coverage` would then exit non-zero. `--coverageThreshold={}` clears
+        # enforcement while still running every collectable suite.
+        #
+        # NOTE: this used to say "coverage is gated on push-CI (ci.yml)". That
+        # workflow was deleted in 3bb573a, so nothing enforces the per-file
+        # thresholds automatically any more — only a local `npm test` does.
+        # Restoring a push-CI job is the fix; until then, do not read this step
+        # as "coverage is checked elsewhere".
         run: npm test -- --coverageThreshold='{}'
 
       - name: Extract release notes

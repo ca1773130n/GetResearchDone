@@ -1,102 +1,70 @@
-# Command surface trim plan (DRAFT for v0.4.x)
+# Deprecated and demoted commands
 
-The reality-check audit (vs Aider / OpenHands / SWE-agent / Sakana /
-STORM / GPT-Researcher) found that GRD's 60+ public CLI commands are
-working against discoverability and onboarding. Peer agents expose 5–8
-hero verbs. This document proposes the trim list for v0.4.x.
+What is deprecated, what actually happened to it, and what to use instead.
 
-**Principle:** keep what supports the hero output. Move the rest behind
-`gd-tools` (internal tool router) or deprecate entirely.
+This file was a *draft trim plan* for v0.4.x. The plan was executed only in
+part, so it now records the surface as it really is at 0.6.0, verified against
+`gd --help` and the CLI's own responses rather than against the plan.
 
-## Hero verbs (KEEP, promote to top-level surface)
+## Removed: `gd evolve`
 
-These 9 verbs span the whole closed loop end-to-end. Everything else
-exists in service of these:
+Deprecated 2026-06-06. **It no longer runs** — invoking it prints a redirect and
+exits:
 
-| Verb | What it does |
+```
+gd evolve is deprecated and no longer runs.
+Self-improvement moved to the life-harness:  gd harness round
+```
+
+Use **`gd harness round`**: evidence from Tesserae session findings, eval-gated,
+git-reversible, where evolve was a static scan whose discovery saturated.
+`lib/evolve/` stays in-tree because `gd singularity` reads its history; removal
+is tracked separately. Any document that still presents `gd evolve` as a live
+verb is wrong.
+
+## Deprecated but still routed
+
+These print a warning on stderr and then do their old job. They are hidden from
+`gd --help` but have **not** been removed.
+
+| Command | Use instead |
 |---|---|
-| `gd init` | Bootstrap `.planning/` from a starter template |
-| `gd plan-phase <N>` | Compose PLAN.md (planner reads Ouroboros context) |
-| `gd execute-phase <N>` | Execute plans (wave-parallel + worktree-isolated) |
-| `gd verify-phase <N>` | Reflection-loop verifier with Evidence Standard |
-| `gd autopilot` | Run N phases end-to-end (the closed loop) |
-| `gd evolve` | Autonomous self-improvement against this codebase |
-| `gd health` | Drift score + blockers + Ouroboros status |
-| `gd think` | One-shot project briefing aggregating everything |
-| `gd singularity` | What % of recent LOC came from `gd evolve` |
+| `gd dashboard` | `gd health` + `gd think` |
+| `gd health-check` | `gd health` (this is a subset of it) |
+| `gd coverage-report` | `npx jest --coverage` |
+| `gd phase-time-budget` | `gd estimate-phase` |
+| `gd todo-duplicates` | — one-off helper, no successor |
+| `gd markdown-split` | — internal infrastructure, exposed by accident |
+| `gd setup` | `gd init` |
 
-## DEMOTE (move to `gd-tools` namespace; keep available)
+**Their warning text is stale.** Each says "will be removed in v0.4.0", a
+release that shipped long ago; 0.5.0 and 0.6.0 came and went with the commands
+still in place. Removing them needs a decision about a real target version, so
+the strings are left alone rather than made to name another date nobody is
+committed to.
 
-Auxiliary commands useful for power users. Stay in the binary but stop
-appearing in `gd --help` top-level listing. Surface only via
-`gd-tools <cmd>`.
+## The v0.4 trim plan, and what became of it
 
-- `dead-end add` / `dead-end retire` / `dead-end reopen` / `dead-end promote-from-phase`
-- `genome init` / `genome show` / `genome snapshot`
-- `plan-tournament score`
-- `knowhow rank` / `knowhow audit` / `knowhow dedup` / `knowhow aggregate`
-- `knowledge search`
-- `eval diff`
-- `import-knowhow` / `import-knowledge` / `export-research` / `import-research`
-- `forecast-phase` / `freshness` / `rollback` / `estimate-phase` /
-  `budget` / `blame` / `impact` / `check-plans` / `check-assumptions` /
-  `deps` / `deps-risk` / `diagnose`
-- `tail` / `watch` / `research-gaps`
-- `metrics` / `scan` / `verify mechanical`
+The plan came from a reality-check audit against Aider, OpenHands, SWE-agent,
+Sakana, STORM and GPT-Researcher: peer agents expose 5–8 hero verbs, GRD exposed
+60+. Its principle still stands — keep what supports the hero output, move the
+rest behind the `gd-tools` router.
 
-That's roughly **30 commands demoted** to `gd-tools` (still accessible
-to those who know to look, hidden from new-user help).
+What actually happened:
 
-## DEPRECATE (remove in v0.4.0, warn in v0.3.x)
+- **Deprecation warnings**: done. The seven commands above warn and are hidden
+  from top-level help.
+- **The demotions**: partial. `dead-end`, `genome`, `plan-tournament` and `scan`
+  are still top-level verbs in `gd --help`, not `gd-tools`-only.
+- **`gd-tools` → `gd internal`**: never happened. `gd-tools` remains the router
+  and `gd internal` does not exist.
 
-Commands that have no clear successor in the hero-verb world AND
-near-zero usage in test fixtures or example projects:
+So the surface is smaller than it was and larger than the plan wanted. Anyone
+resuming this work should re-derive the demote list from `gd --help` rather than
+from the original plan, which is now three releases old.
 
-- `dashboard` (info also in `gd health` + `gd think`)
-- `health-check` (subset of `gd health`)
-- `coverage-report` (use `npx jest --coverage` directly)
-- `phase-time-budget` (subsumed by `gd estimate-phase`)
-- `todo-duplicates` (one-off helper; rarely used)
-- `markdown-split` (internal infrastructure exposed by accident)
-- `setup` (legacy bootstrap; `gd init` does this)
+## Cross-references
 
-## DOC ONLY (keep, but document better — no action item, listed for
-visibility)
-
-These are correctly part of the surface but their docs are stale:
-
-- `gd-tools state load` / `state get` / `state patch` / etc. — used
-  heavily by skills; document the contract
-- `gd-tools verify-summary` / `verify-references` / `verify-artifacts`
-  — building blocks for skills
-
-## Process
-
-1. **v0.3.28** (next release): add deprecation warnings on stderr for
-   the DEPRECATE bucket; demoted commands keep working but stop
-   appearing in `gd --help`
-2. **v0.4.0** (when the 9 hero verbs feel polished): delete the
-   DEPRECATE list; rename `gd-tools` → `gd internal` for clarity
-3. **v0.4.1**: hide `gd internal` from `gd --help`; only surfaces via
-   `gd internal --help`
-
-## evolve (deprecated 2026-06-06)
-
-`gd evolve` (static-scan self-improvement) is replaced by the life-harness:
-`gd harness round` — evidence from Tesserae session findings, eval-gated,
-git-reversible. `lib/evolve/` stays in-tree for `gd singularity` history;
-removal tracked separately.
-
-## Why this isn't done yet
-
-Cutting 30+ commands needs:
-
-1. Confirmation each command is unreferenced in any shipped agent /
-   skill file (grep across `agents/` and `commands/`)
-2. Migration notes for any internal tool that did rely on the demoted
-   command
-3. A `gd internal` namespace that doesn't collide with existing route
-   classifications in `lib/cli/index.ts`
-
-All three are mechanical; the work is a focused day, not a research
-project. Open issue: assigned to v0.4.x scope.
+- [architecture/CONFIG.md](architecture/CONFIG.md) — the `evolve` config block
+  and its `harness` successor
+- [CHANGELOG.md](CHANGELOG.md) — when each deprecation landed
