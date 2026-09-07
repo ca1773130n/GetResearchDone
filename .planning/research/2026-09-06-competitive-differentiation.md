@@ -20,6 +20,13 @@ project has claimed has been independently reinvented, published, and — unlike
 The uncomfortable finding is not that GRD is wrong. It is that GRD is right in a way the
 field has now caught up to, while GRD is the only participant with no numbers.
 
+Two measurements from the SOTA pass sharpen that. AiScientist ablated away its durable
+artifact workspace and lost **31.82 points** of MLE-Bench Lite Any Medal — an independent
+team proving the architecture GRD is built on, and beating a frontier Codex harness with it.
+And EXP-Bench puts end-to-end autonomous research success at **0.5%**, which is both the
+justification for GRD's refusal to accept unmeasured claims and the reason no one should
+believe any demo in this category, ours included.
+
 ## How much to trust this document
 
 Five research angles ran in parallel. **All five lost their web-fetch tooling and worked
@@ -156,11 +163,101 @@ The package is also `UNLICENSED` while published public, and single-maintainer.
 
 ## What the competitors actually are
 
-**Autonomous scientists** — Sakana, CodeScientist, Kosmos, FirstResearch, EviBound,
-AutoScientists. Closest to GRD's research half. Several now have the same mechanisms and
-published results. Kosmos runs ~42,000 lines of code and 1,500 papers per run; GRD gates
-every claim and hard-blocks dead ends, which by construction lowers throughput. On any
-benchmark scoring *discovery yield*, GRD loses by design.
+**Autonomous research systems — the actual SOTA.** This is GRD's category, so it gets the
+detail. Queried from the paper corpus by state of the art rather than by search snippets.
+
+*The frontier system is [DeepScientist (2509.26603)](https://arxiv.org/abs/2509.26603)*,
+ICLR 2026, **3,316 GitHub stars**. It formalises discovery as Bayesian optimisation over a
+cumulative Findings Memory, balancing exploitation of promising avenues against exploration
+of new hypotheses. The scale is the point:
+
+| | |
+|---|---|
+| Compute | over 20,000 GPU hours |
+| Ideas generated / experimentally validated | ~5,000 / ~1,100 |
+| Margin over human 2025 SOTA on three frontier tasks | +183.7%, +1.9%, +7.9% |
+
+It claims two weeks of autonomous progress on AI text detection comparable to three years of
+cumulative human work, achieved by redesigning methodologies rather than recombining them.
+Its head-to-head table is the more useful number for us: on generated papers DeepScientist
+reports a 60% accept rate, while **AI Scientist, AI Scientist-v2, Zochi, CycleResearcher and
+HKUSD AI Researcher all report 0%.** The previous generation of AI-scientist systems — the
+ones our July landscape treated as the competition — score zero on this axis.
+
+*The system closest to GRD's actual problem statement is
+[AiScientist (2604.13018)](https://arxiv.org/abs/2604.13018)*, and it matters more to us
+than DeepScientist does. It defines **long-horizon ML research engineering**: "converting a
+research specification into a runnable ML system through repeated implementation,
+experimentation, and refinement," where the challenge is "to sustain cumulative project
+progress across heterogeneous stages under delayed, confounded feedback." That is GRD's job
+description written by someone else.
+
+Its architecture is **thin control over thick state**: a lightweight hierarchical agent team
+coordinating through a *File-as-Bus* workspace that preserves decision-relevant artifacts
+across roles and invocations. Results:
+
+| Benchmark | Result |
+|---|---|
+| PaperBench, over strongest matched baselines | +9.92 (Gemini-3-Flash), +11.15 (GLM-5) |
+| MLE-Bench Lite, Any Medal% | 81.82 under both backbones |
+| MLE-Bench Lite vs a Codex/GPT-5.5 xhigh frontier harness | **+13.64 Any Medal points** |
+| **Ablation: remove File-as-Bus** | **−6.41 PaperBench, −31.82 Any Medal%** |
+
+Read that ablation carefully, because it is the single most important number in this
+document for GRD. Stripping the durable, inspectable artifact workspace costs **31.82
+points**. Their conclusion: "long-horizon AI research is not only a problem of stronger local
+reasoning, but a systems problem of maintaining cumulative, inspectable project progress."
+
+**GRD is that thesis, built.** `.planning/` with its ledger, KNOWHOW, DEAD-ENDS, plan
+artifacts and reflections *is* a File-as-Bus. An independent team has now measured what that
+architecture is worth and beaten a frontier Codex harness with it. This is the strongest
+external validation GRD's design has ever received, and GRD had no part in it and no number
+of its own.
+
+*The honest ceiling is [EXP-Bench (2505.24785)](https://arxiv.org/abs/2505.24785)*, ICLR
+2026: 461 research tasks from 51 top-tier papers, where an agent must form a hypothesis,
+design and implement the procedure, execute it and analyse the result. Leading agents score
+20–35% on individual aspects such as design or implementation correctness. On **complete,
+executable experiments the success rate is 0.5%**.
+
+That is the state of end-to-end autonomous research: essentially zero. Which is the argument
+for GRD's whole posture — a loop that refuses to call something supported without a
+pre-committed measurement is the right shape for a field whose end-to-end success rate is one
+in two hundred. It is also the reason nobody should believe a demo.
+
+*The benchmark shelf GRD could be scored on*, all ICLR/ICML 2026 and all newer than our July
+pass: EXP-Bench (end-to-end experiments),
+[HeurekaBench (2601.01678)](https://arxiv.org/abs/2601.01678) for co-scientist scenarios,
+[InnovatorBench (2510.27598)](https://arxiv.org/abs/2510.27598) for innovative AI research,
+[From Reproduction to Replication (2506.19724)](https://arxiv.org/abs/2506.19724) which uses
+progressive code masking, [FIRE-Bench (2602.02905)](https://arxiv.org/abs/2602.02905) on
+rediscovering known insights precisely because novel findings are too costly to validate,
+and [InnoGym (2512.01822)](https://arxiv.org/abs/2512.01822), which argues existing
+benchmarks "primarily measure correctness, overlooking the diversity of methods behind
+solutions."
+
+*Also in the category:* Microsoft's **R&D-Agent** line
+([R&D-Agent-Quant](https://github.com/microsoft/RD-Agent), NeurIPS 2025, and FT-Dojo at ICML
+2026) is the closest thing to a corporate-backed product in GRD's exact niche;
+[SR-Scientist (2510.11661)](https://arxiv.org/abs/2510.11661) does agentic equation
+discovery; [AI co-mathematician (2605.06651)](https://arxiv.org/abs/2605.06651) is the
+interactive workbench framing. And the sceptical literature is arriving alongside: two 2026
+studies testing frontier agentic systems on real scientific problems report "persistent gaps
+between those claims and demonstrated capability."
+
+*What this changes for GRD.* Three things, in order of how much they should hurt:
+
+1. **Scale.** DeepScientist spends 20,000 GPU hours to redesign methodologies. GRD runs a
+   single-threaded loop with a Docker sandbox. We are not competing on discovery yield and
+   should stop implying we are.
+2. **Validation we did not earn.** AiScientist proved the durable-artifact thesis GRD is
+   built on, with an ablation. We should cite it, adopt File-as-Bus framing, and stop
+   describing `.planning/` as a bookkeeping detail — it is the mechanism.
+3. **The gap is still only measurement.** GRD's pre-committed metric contract remains
+   orthogonal to everything above: DeepScientist optimises over a findings memory,
+   AiScientist preserves artifacts, neither fixes the bar before the run. That differentiator
+   survives this pass, and it is still worth exactly nothing until it appears on one of the
+   six benchmarks listed above.
 
 **Deep-research products** — Gemini Deep Research (now executing code by default in a 30s
 Python sandbox), OpenAI, Perplexity, Elicit, Consensus, PaperQA2, STORM. They survey and
@@ -299,6 +396,9 @@ under a discontinued mechanism.
    exists. (MLE-bench remains the right second target, for the research half.)
 2. **Reposition on preregistration**, not on determinism. Determinism is now crowded;
    pre-commitment before the run is not, and 2606.11217 gives it a name and a template.
+   Pair it with AiScientist's *File-as-Bus* framing for `.planning/`: they measured that
+   architecture at 31.82 points, and GRD has been describing its own version as
+   bookkeeping.
 3. **Add a warning tier to DEAD-ENDS**, or gather evidence that `-Infinity` beats the
    field's advisory design. Right now we have neither.
 4. **Move the harness acceptance set outside the repository it patches.** Rollback is not
@@ -316,7 +416,20 @@ under a discontinued mechanism.
 Verified to exist, titles matched, 2026-09-06. Numeric results within them are
 second-hand and unconfirmed.
 
-Autonomous scientists: [2609.02246](https://arxiv.org/abs/2609.02246) ·
+Autonomous research SOTA (queried from the paper corpus, 2026-09-07):
+[DeepScientist 2509.26603](https://arxiv.org/abs/2509.26603) ·
+[AiScientist 2604.13018](https://arxiv.org/abs/2604.13018) ·
+[EXP-Bench 2505.24785](https://arxiv.org/abs/2505.24785) ·
+[HeurekaBench 2601.01678](https://arxiv.org/abs/2601.01678) ·
+[InnovatorBench 2510.27598](https://arxiv.org/abs/2510.27598) ·
+[Reproduction to Replication 2506.19724](https://arxiv.org/abs/2506.19724) ·
+[FIRE-Bench 2602.02905](https://arxiv.org/abs/2602.02905) ·
+[InnoGym 2512.01822](https://arxiv.org/abs/2512.01822) ·
+[SR-Scientist 2510.11661](https://arxiv.org/abs/2510.11661) ·
+[AI co-mathematician 2605.06651](https://arxiv.org/abs/2605.06651) ·
+[R&D-Agent](https://github.com/microsoft/RD-Agent)
+
+Autonomous scientists (earlier pass): [2609.02246](https://arxiv.org/abs/2609.02246) ·
 [2606.22737](https://arxiv.org/abs/2606.22737) · [2511.05524](https://arxiv.org/abs/2511.05524) ·
 [2607.05682](https://arxiv.org/abs/2607.05682) · [2607.09195](https://arxiv.org/abs/2607.09195) ·
 [2606.21024](https://arxiv.org/abs/2606.21024) · [2605.28655](https://arxiv.org/abs/2605.28655) ·
