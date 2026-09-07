@@ -41,6 +41,12 @@ What I verified myself, directly:
   incrementally novel" — 6/19 = 31.6%. See the caveat under *Weak citations* below.
 - **Adoption numbers**, from the GitHub and npm APIs.
 
+**Corrected 2026-09-07.** The first version of this document named GitHub Spec Kit as
+the closest structural analogue to GRD. That was a bad call: Spec Kit is a
+document-consistency layer, and the real competition is the frontier CLI harnesses and the
+research line around them. The harness section was rewritten against the paper corpus
+rather than web snippets. Where that changed a conclusion, it is marked.
+
 Numeric results quoted from papers are **not** independently checked. Treat any specific
 percentage below as needing one confirming read before it goes in front of anyone.
 
@@ -167,23 +173,95 @@ Their integrity mechanism is citation, and it is failing: ["Cited but Not Verifi
 factual accuracy of 39–77%, *degrading* as tool calls scale from 2 to 150. More retrieval
 is not more truth. That is a real argument for our approach.
 
-**Coding harnesses** — Claude Code, Codex, Cursor, Devin, Aider, OpenHands, Goose, Cline.
-Claude Code now ships natively what GRD's engineering half wraps: plan mode, planning and
-exploration subagents, and per-agent git worktree isolation. I can confirm the last two
-from this session's own runtime rather than documentation. **GRD's mechanical advantages
-here are gone.** What remains is the discipline, not the plumbing.
+**Coding harnesses — the actual competition.** An earlier draft of this document treated
+GitHub Spec Kit as the closest analogue. That was wrong, and wrong in a way worth naming:
+Spec Kit is a document-consistency layer, and anchoring on it flattered us. The real
+competition is the frontier CLI harnesses and the research line forming around them.
 
-**Spec-driven layers** — GitHub Spec Kit is the closest structural analogue, and reading
-its reference makes the distinction crisp. Its pipeline runs
-`constitution → specify → clarify → plan → checklist → tasks → analyze → implement → converge`.
-`/speckit.analyze` is "a read-only cross-artifact consistency and quality analysis across
-spec.md, plan.md, and tasks.md". `/speckit.converge` "assesses the codebase against the
-feature's spec, plan, and tasks".
+*The harness is now a measured variable, and that is the strongest evidence GRD has ever
+had for its own premise.* [WildClawBench (2605.10912)](https://arxiv.org/abs/2605.10912),
+516 GitHub stars, runs 60 long-horizon bilingual tasks inside Docker against **real CLI
+harnesses — OpenClaw, Claude Code, Codex and Hermes Agent** — with real tools rather than
+mocks. Two results matter to us:
 
-Both ask whether the documents and the code agree with each other. Neither runs anything or
-measures an outcome. **Spec Kit converges on internal consistency; GRD converges on an
-external measurement.** That one line is the clearest statement of the difference, against
-the most credible comparable.
+| Finding | Number |
+|---|---|
+| Best model overall (Claude Opus 4.7, under OpenClaw) | 62.2% |
+| Every other model | below 60% |
+| **Score shift from changing harness alone, same model** | **up to 18 points** |
+
+Eighteen points from swapping the harness, on a benchmark where the spread between
+frontier models is smaller than that. GRD's whole thesis is that the discipline around
+the loop is what matters. Somebody just measured it and the thesis holds. GRD is a CLI
+harness on top of Claude Code, so **it can be added as a fifth harness and scored.** That
+is a far better first number than the Kaggle-style suite an earlier draft recommended,
+because it measures the thing GRD actually is.
+
+*Claude Code's architecture is now documented in the literature.*
+["Dive into Claude Code" (2604.14228)](https://arxiv.org/abs/2604.14228) reverse-engineers
+it: a simple while-loop calling model and tools, wrapped in a seven-mode permission system
+with an ML classifier, a five-layer compaction pipeline, four extensibility mechanisms
+(MCP, plugins, skills, hooks), subagent delegation and orchestration, and append-oriented
+session storage. It compares Claude Code against **OpenClaw** and **Hermes Agent** as
+independent systems answering the same design questions differently. Those two, not Spec
+Kit, are GRD's structural peers. GRD is built *on* the fourth mechanism in that list, which
+is both its distribution advantage and its dependency risk.
+
+*Dynamic workflow orchestration has a benchmark, and it already refuses LLM judges.*
+[ClawArena-Team (2606.31174)](https://arxiv.org/abs/2606.31174) scores a single model's
+ability to manage subagents through dynamic workflows across 41 scenarios and 258 rounds.
+Its Subagent-Management Score is **execution-based with no LLM judge** — so "no judge on
+the control path" is now table stakes in benchmark design, not a GRD differentiator. Three
+of its findings bear directly on us: the bottleneck is privilege granting rather than
+perception, with no model exceeding 50% workspace-permission precision; cost and management
+quality are decoupled, with API cost spanning over 100x while scores span under 4x; and
+**leaderboard scores cluster within 9.9 points while orchestration behaviours diverge by
+more than an order of magnitude.** That last one is the case for caring about harness design
+at all, and also a warning that a single headline number will not show it.
+
+*Someone has built the outer harness GRD lacks.* [VeRO (ICML 2026)](https://github.com/scaleapi/vero),
+from Scale AI, targets "agent harness optimization: the iterative improvement of a target
+agent by editing and evaluating its code" — a one-line description of `gd harness round`.
+VeRO is an **outer** harness providing versioned snapshots, budget-controlled evaluation and
+structured execution traces of the *target* harness, plus VeRO-Bench. The separation of
+optimizer from target is exactly the sealed exogenous acceptance this document flags as
+missing from GRD, where the eval gate lives inside the repository it patches. They have the
+architecture and a benchmark; we have git revert.
+
+*Environments beat trajectories.* [Terminal-Universe (2609.04148)](https://arxiv.org/abs/2609.04148),
+four days old, makes a point that lands hard here: an environment "can be re-queried into
+many verifiable tasks and provides execution feedback, whereas a trajectory is a single
+frozen demonstration." It reconstructs runnable environments by replaying the file
+operations in agent trajectories, produces 37.3k of them, and fine-tunes on the result for
++11.9 points on Terminal-Bench 2.1. GRD accumulates trajectories — sessions compiled into a
+knowledge graph — and mines them for prose takeaways. It never turns them back into
+re-runnable verifiable environments. That is a gap and a good idea to take.
+
+*Also now measured, all against GRD's surface area:* [SWE-CI (2603.03823)](https://arxiv.org/abs/2603.03823)
+evaluates agents maintaining codebases through continuous integration;
+[FormulaCode (2603.16011)](https://arxiv.org/abs/2603.16011) scores optimization on large
+codebases and criticises "binary correctness signals";
+[CentaurEval (2512.04111)](https://arxiv.org/abs/2512.04111) benchmarks the value of
+human-in-the-loop in agentic coding, which is precisely what GRD's interactive checkpoints
+claim to provide; [SkillMOO (2604.09297)](https://arxiv.org/abs/2604.09297) argues that
+evolving agent skills on pass rate alone is insufficient; and two independent studies
+([2602.11988](https://arxiv.org/abs/2602.11988),
+[2601.20404](https://arxiv.org/abs/2601.20404)) ask empirically whether repository context
+files such as `AGENTS.md` help at all — a live question for a project whose interface is a
+large `CLAUDE.md`.
+
+*The framing document.* ["Code as Agent Harness" (2605.18747)](https://arxiv.org/abs/2605.18747)
+surveys this whole shift and lists its open challenges: evaluation beyond final task
+success, verification under incomplete feedback, **regression-free harness improvement**,
+consistent shared state across agents, and human oversight for safety-critical actions.
+GRD has a position on every one of those. None of them is measured.
+
+*On Tencent specifically:* I could not verify a recent Tencent coding harness in the paper
+corpus. Tencent's agent-adjacent output there is
+[Youtu-GraphRAG (2508.19855)](https://arxiv.org/abs/2508.19855), ICLR 2026 from Tencent
+Youtu Lab, which unifies graph construction and retrieval — relevant to GRD's knowledge-graph
+grounding rather than to its harness. If you have a specific Tencent release in mind, name it
+and I will go at it directly rather than guessing.
 
 **Agent memory** — Zep/Graphiti, Mem0, Letta, Cognee, GraphRAG. Supersession is standard
 in the graph tier and better implemented than ours. Mem0's `DELETE`-on-contradiction is
@@ -212,19 +290,26 @@ under a discontinued mechanism.
 
 ## What I would do about it
 
-1. **Run MLE-bench.** It is 75 Kaggle tasks with deterministic programmatic scoring —
-   the same shape as GRD's metric/comparator/target, so the harness fits as built. It
-   produces the first head-to-head number GRD has ever had. Everything else in this
-   document is rhetoric until that exists.
+1. **Get on WildClawBench as a fifth harness.** It already runs OpenClaw, Claude Code,
+   Codex and Hermes Agent in Docker against real tools, and it has *measured* that
+   swapping the harness moves a single model by up to 18 points. That is GRD's entire
+   thesis stated as a number, on a rig built to accept exactly what GRD is. It is a
+   better first target than a Kaggle-style suite, which would measure the research loop
+   rather than the harness. Everything else in this document is rhetoric until a number
+   exists. (MLE-bench remains the right second target, for the research half.)
 2. **Reposition on preregistration**, not on determinism. Determinism is now crowded;
    pre-commitment before the run is not, and 2606.11217 gives it a name and a template.
 3. **Add a warning tier to DEAD-ENDS**, or gather evidence that `-Infinity` beats the
    field's advisory design. Right now we have neither.
 4. **Move the harness acceptance set outside the repository it patches.** Rollback is not
-   tamper-evidence.
-5. **Decide whether the engineering half still earns its keep.** Claude Code ships the
-   mechanics natively now. The phase workflow's remaining value is the evidence
-   discipline; if that is the product, it should be a much smaller surface.
+   tamper-evidence. Do not design this from scratch — VeRO is the outer-harness pattern
+   already built and benchmarked, and it is open source. Read it before writing anything.
+5. **Keep the engineering half, but cut it to the discipline.** Claude Code ships the
+   mechanics natively now — plan mode, exploration and planning subagents, per-agent
+   worktree isolation — so wrapping them adds nothing. What WildClawBench shows is that
+   the surrounding discipline is worth up to 18 points, which is the argument for the
+   half that remains. Everything in the phase workflow that is not evidence enforcement
+   is now dead weight competing with a native feature.
 
 ## Sources
 
@@ -253,4 +338,18 @@ Memory: [2501.13956](https://arxiv.org/abs/2501.13956) ·
 [2509.26354](https://arxiv.org/abs/2509.26354) · [2607.27080](https://arxiv.org/abs/2607.27080) ·
 [2607.02579](https://arxiv.org/abs/2607.02579) · [2508.19828](https://arxiv.org/abs/2508.19828)
 
-Harnesses: [Spec Kit reference](https://github.github.com/spec-kit/reference/agentic-sdd.html)
+Harnesses and orchestration: [WildClawBench 2605.10912](https://arxiv.org/abs/2605.10912) ·
+[Dive into Claude Code 2604.14228](https://arxiv.org/abs/2604.14228) ·
+[ClawArena-Team 2606.31174](https://arxiv.org/abs/2606.31174) ·
+[VeRO (ICML 2026)](https://github.com/scaleapi/vero) ·
+[Terminal-Universe 2609.04148](https://arxiv.org/abs/2609.04148) ·
+[Code as Agent Harness 2605.18747](https://arxiv.org/abs/2605.18747) ·
+[SWE-CI 2603.03823](https://arxiv.org/abs/2603.03823) ·
+[FormulaCode 2603.16011](https://arxiv.org/abs/2603.16011) ·
+[CentaurEval 2512.04111](https://arxiv.org/abs/2512.04111) ·
+[SkillMOO 2604.09297](https://arxiv.org/abs/2604.09297) ·
+[AGENTS.md studies 2602.11988](https://arxiv.org/abs/2602.11988),
+[2601.20404](https://arxiv.org/abs/2601.20404) ·
+[Youtu-GraphRAG 2508.19855](https://arxiv.org/abs/2508.19855) ·
+[Spec Kit reference](https://github.github.com/spec-kit/reference/agentic-sdd.html) (a
+document-consistency layer, not a peer harness — kept for the contrast only)
