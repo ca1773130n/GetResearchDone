@@ -23,6 +23,7 @@ import {
   markComplete,
   createScheduler,
   ENV_VAR_MAP,
+  QUOTA_EXHAUSTED_RE,
 } from '../../lib/scheduler';
 
 import * as fs from 'fs';
@@ -100,6 +101,14 @@ describe('backend adapters', () => {
       expect(ADAPTERS.claude.isRateLimited(1, 'overloaded_error')).toBe(true);
       expect(ADAPTERS.claude.isRateLimited(0, 'completed successfully')).toBe(false);
     });
+    // Real capture 2026-09-10: an exhausted weekly quota exits 1 with text that
+    // contains no "rate limit"/429 token, so the regex above returned false and
+    // the scheduler never cooled the account down.
+    it('detects weekly-quota exhaustion, which carries no rate-limit token', () => {
+      const real = "You've hit your weekly limit \u00b7 resets 6am (Asia/Seoul)";
+      expect(ADAPTERS.claude.isRateLimited(1, real)).toBe(true);
+      expect(ADAPTERS.claude.isRateLimited(0, real)).toBe(false);
+    });
     it('builds correct args', () => {
       const args = ADAPTERS.claude.buildArgs('test prompt', { model: 'opus' });
       expect(args).toContain('-p');
@@ -109,12 +118,37 @@ describe('backend adapters', () => {
       expect(args).toContain('--dangerously-skip-permissions');
     });
   });
+  describe('QUOTA_EXHAUSTED_RE', () => {
+    it('matches the exhaustion text providers actually print', () => {
+      for (const s of [
+        "You've hit your usage limit for GPT-5.3-Codex-Spark.",
+        "You've hit your weekly limit \u00b7 resets 6am (Asia/Seoul)",
+        'reached your monthly limit',
+        'quota exceeded',
+      ]) expect(QUOTA_EXHAUSTED_RE.test(s)).toBe(true);
+    });
+    it('does not match ordinary prose about limits', () => {
+      for (const s of [
+        'set the retry limit in your config',
+        'TypeError: x is not a function',
+        'warning: Skill descriptions were shortened to fit the skills context budget.',
+        'ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed',
+      ]) expect(QUOTA_EXHAUSTED_RE.test(s)).toBe(false);
+    });
+  });
   describe('codex adapter', () => {
     it('parses total_tokens from JSON in stderr', () => {
       expect(ADAPTERS.codex.parseTokenUsage('"total_tokens": 9500')).toBe(9500);
     });
     it('detects rate limit', () => {
       expect(ADAPTERS.codex.isRateLimited(1, 'rate_limit_exceeded')).toBe(true);
+    });
+    // Real capture 2026-09-10 from `codex exec`.
+    it('detects "usage limit" exhaustion', () => {
+      const real = "ERROR: You've hit your usage limit for GPT-5.3-Codex-Spark."
+        + ' Switch to another model now, or try again at Sep 15th, 2026 10:27 AM.';
+      expect(ADAPTERS.codex.isRateLimited(1, real)).toBe(true);
+      expect(ADAPTERS.codex.isRateLimited(0, real)).toBe(false);
     });
     it('ignores rate-limit noise in stderr when exit is 0 (transient 429 retries succeeded)', () => {
       expect(ADAPTERS.codex.isRateLimited(0, 'stream error: 429 Too Many Requests; retrying')).toBe(false);
@@ -1039,6 +1073,15 @@ describe('parseClaudeResult + claude detectFromStdout (rate-limit rotation)', ()
 
   it('healthy → text extracted, not rate-limited', () => {
     expect(parseClaudeResult(healthy)).toEqual({ text: 'PROBE_OK', isError: false, rateLimited: false, loggedOut: false, resetsAtMs: null });
+  });
+  it('quota exhaustion carried only in the is_error result string → rateLimited', () => {
+    const out = JSON.stringify({
+      type: 'result', is_error: true,
+      result: "You've hit your weekly limit \u00b7 resets 6am (Asia/Seoul)",
+    });
+    const r = parseClaudeResult(out);
+    expect(r.isError).toBe(true);
+    expect(r.rateLimited).toBe(true);
   });
   it('rate-limited → rateLimited + resetsAtMs (secs*1000), text null', () => {
     const r = parseClaudeResult(limited);

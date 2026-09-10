@@ -58,6 +58,19 @@ interface ClaudeResult {
 }
 
 /**
+ * Provider text for an EXHAUSTED QUOTA, in the shapes the CLIs actually print:
+ *   claude: "You've hit your weekly limit · resets 6am (Asia/Seoul)"
+ *   codex:  "You've hit your usage limit for GPT-5.3-Codex-Spark. ... try again at Sep 15th, 2026 10:27 AM."
+ * Neither contains "rate limit"/429, so the per-backend rate-limit regexes
+ * classified both as HEALTHY and the scheduler kept spawning into a dead
+ * account instead of rotating away from it.
+ * ponytail: matches the message, not the reset time — an unparsed reset falls
+ * back to the cooldown floor, so a long outage is retried once per window.
+ */
+export const QUOTA_EXHAUSTED_RE =
+  /(?:hit|reached|exceeded)\s+your\s[^.\n]{0,40}?limit|usage limit|weekly limit|quota exceeded/i;
+
+/**
  * Parse Claude Code's `--output-format json` stdout (a single `{...}` result
  * object, the `[...]` event array, or plain text) into a structured result.
  * Total + never throws. Claude reports rate limits / logged-out as exit-0 JSON,
@@ -89,6 +102,10 @@ export function parseClaudeResult(stdout: string): ClaudeResult {
   }
   const rawResult = resultEv && typeof resultEv.result === 'string' ? (resultEv.result as string) : null;
   const loggedOut = isError && !!rawResult && /not logged in|\/login/i.test(rawResult);
+  // Exit-1 quota exhaustion arrives as an is_error result string carrying no
+  // rate_limit_event ("You've hit your weekly limit · resets 6am"), so the
+  // event scan above misses it entirely.
+  if (!rateLimited && isError && rawResult && QUOTA_EXHAUSTED_RE.test(rawResult)) rateLimited = true;
   let text: string | null;
   if (!isError && rawResult) {
     text = rawResult;
@@ -146,7 +163,8 @@ const _claudeAdapter: BackendAdapter = {
   },
   isRateLimited(exitCode: number, stderr: string): boolean {
     if (exitCode === 0) return false;
-    return /rate.limit|429|overloaded_error|too many requests/i.test(stderr);
+    return /rate.limit|429|overloaded_error|too many requests/i.test(stderr)
+      || QUOTA_EXHAUSTED_RE.test(stderr);
   },
   detectFromStdout(stdout: string): { rateLimited: boolean; resetsAtMs: number | null; unhealthy: boolean } {
     const r = parseClaudeResult(stdout);
@@ -185,7 +203,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
       // account — that false positive throttled healthy accounts to one
       // spawn per recovery window.
       if (exitCode === 0) return false;
-      return /rate.limit|429|rate_limit_exceeded/i.test(stderr);
+      return /rate.limit|429|rate_limit_exceeded/i.test(stderr)
+        || QUOTA_EXHAUSTED_RE.test(stderr);
     },
   },
 
@@ -206,7 +225,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
     },
     isRateLimited(exitCode: number, stderr: string): boolean {
       if (exitCode === 0) return false;
-      return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr);
+      return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr)
+        || QUOTA_EXHAUSTED_RE.test(stderr);
     },
   },
 
@@ -234,7 +254,8 @@ export const ADAPTERS: Record<AdapterBackendId, BackendAdapter> = {
     },
     isRateLimited(exitCode: number, stderr: string): boolean {
       if (exitCode === 0) return false;
-      return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr);
+      return /rate.limit|429|RESOURCE_EXHAUSTED|quota/i.test(stderr)
+        || QUOTA_EXHAUSTED_RE.test(stderr);
     },
   },
 
@@ -1583,4 +1604,5 @@ module.exports = {
   computeBudgetPressureLevel,
   logPressureTransition,
   detectSpin,
+  QUOTA_EXHAUSTED_RE,
 };

@@ -298,7 +298,7 @@ function defaultSpawn(cwd: string, config: Record<string, unknown>, model?: stri
  */
 function decodeSpawnResult(r: { exitCode?: number; stdout?: string; stderr?: string }, agentType: string): string {
   if (typeof r.exitCode === 'number' && r.exitCode !== 0) {
-    const err = excerpt(r.stderr || '');
+    const err = stderrExcerpt(r.stderr || '');
     throw new Error(
       `${agentType} backend spawn failed (exit ${r.exitCode})${err !== '(empty)' ? ` — ${err}` : ''}`,
     );
@@ -377,6 +377,20 @@ function verdictToStatus(v: Verdict): HypothesisStatus {
 }
 
 /** Coerce + bound any spawn output to a short, single-line excerpt for diagnostics. */
+/**
+ * Excerpt a FAILED spawn's stderr. Backends print MCP/plugin boot noise before
+ * the real failure, so the HEAD of stderr names the wrong subsystem — a codex
+ * usage-limit failure surfaced as a Cloudflare OAuth transport error while
+ * `ERROR: You've hit your usage limit ...` sat below the cut. Prefer the last
+ * ERROR-prefixed line, else the tail.
+ */
+function stderrExcerpt(stderr: unknown): string {
+  const lines = String(stderr ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return '(empty)';
+  const errs = lines.filter((l) => /^(?:error|fatal)\b[:\s]/i.test(l));
+  return excerpt(errs.length > 0 ? errs[errs.length - 1] : lines.slice(-3).join(' '));
+}
+
 function excerpt(s: unknown): string {
   return String(s ?? '').slice(0, 2000).replace(/\s+/g, ' ').trim().slice(0, 280) || '(empty)';
 }
