@@ -521,6 +521,33 @@ describe('spawn-retry robustness', () => {
       }
       expect(orch.decodeSpawnResult({ exitCode: 0, stdout: 'hello' }, 'a')).toBe('hello');
     });
+    // Real capture 2026-09-10: codex prints MCP/plugin boot noise BEFORE the
+    // line that actually killed the spawn, so reporting the head of stderr
+    // named the wrong subsystem (a Cloudflare OAuth error) for what was really
+    // an exhausted quota.
+    it('reports the real error, not the MCP boot noise preceding it', () => {
+      const stderr = [
+        '2026-09-10T11:33:17Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed',
+        'warning: Skill descriptions were shortened to fit the skills context budget.',
+        "ERROR: You've hit your usage limit for GPT-5.3-Codex-Spark. Try again at Sep 15th.",
+      ].join('\n');
+      try {
+        orch.decodeSpawnResult({ exitCode: 1, stdout: '', stderr }, 'grd-experiment-runner');
+        throw new Error('should have thrown');
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        expect(msg).toMatch(/usage limit/);
+        expect(msg).not.toMatch(/rmcp/);
+      }
+    });
+    it('falls back to the stderr tail when no ERROR-prefixed line exists', () => {
+      try {
+        orch.decodeSpawnResult({ exitCode: 1, stdout: '', stderr: 'noise\nmore noise\nthe real tail' }, 'a');
+        throw new Error('should have thrown');
+      } catch (e: unknown) {
+        expect((e as Error).message).toMatch(/the real tail/);
+      }
+    });
   });
 
   describe('bounded debug retries (research_max_debug_depth)', () => {
