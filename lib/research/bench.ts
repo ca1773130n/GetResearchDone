@@ -20,6 +20,12 @@ const { readLedger } = require('./ledger') as {
 const { threadDir } = require('./thread') as {
   threadDir: (cwd: string, id: string) => string;
 };
+// The loop's own comparison, reused rather than reimplemented: a grader that compared
+// numbers by its own rules could disagree with MEASURE on an edge case and score a
+// correct run wrong. Same function, same semantics, by construction.
+const { compare } = require('./verdict') as {
+  compare: (value: number, comparator: Comparator, target: number) => boolean;
+};
 
 // GRD-Bench: closed-world autoresearch benchmark. Each task freezes a tiny
 // corpus (evidence + confounder + noise, DR3-Eval style) plus a manifest with a
@@ -28,6 +34,18 @@ const { threadDir } = require('./thread') as {
 
 const COMPARATORS: ReadonlySet<string> = new Set(['>=', '<=', '>', '<', '==']);
 const VERDICTS: ReadonlySet<string> = new Set(['supported', 'refuted', 'inconclusive']);
+
+/**
+ * The comparator that states the SAME decision rule from the other side: over finite
+ * numbers `NOT (v >= t)` is exactly `v < t`, and `NOT (v <= t)` is exactly `v > t`. A plan
+ * that phrases the manifest's rule as its complement has not moved the goalpost — it split
+ * the same space at the same threshold and called the other half. `==` is deliberately
+ * absent: its complement (`!=`) is not in the `Comparator` union, so an `==` contract must
+ * match exactly.
+ */
+const COMPLEMENT: Readonly<Partial<Record<Comparator, Comparator>>> = {
+  '>=': '<', '<': '>=', '<=': '>', '>': '<=',
+};
 
 export interface BenchMetricSpec {
   key: string;
@@ -56,13 +74,27 @@ export interface BenchTask {
 export interface BenchGrade {
   pass: boolean;
   expected: Verdict;
+  /**
+   * The QUESTION-relative verdict, which is what `expectedVerdict` is written against:
+   * the manifest's frozen rule applied to the measured value. Falls back to
+   * `ledgerVerdict` when the manifest's metric was never measured (the `inconclusive` case).
+   */
   actual: Verdict | null;
+  /**
+   * What the LOOP said, verbatim — the final ledger hypothesis's verdict. HYPOTHESIS-relative,
+   * so it inverts when the hypothesis is phrased as the negation of the question. Reported for
+   * transparency; never graded against `expectedVerdict`, because the two answer different
+   * propositions.
+   */
+  ledgerVerdict: Verdict | null;
   metricKey: string;
   planMetricKey: string | null;
   planComparator: string | null;
   planTarget: number | null;
-  /** plan.{metricKey,comparator,target} ALL equal the manifest's frozen contract. */
+  /** plan.{metricKey,comparator,target} equal the manifest's frozen contract, up to polarity. */
   metricContractMatch: boolean;
+  /** The contract matched as the manifest's exact complement rather than verbatim. */
+  contractComplement: boolean;
   /** |observed - target| for the manifest metric; advisory, null when unreported. */
   metricDistance: number | null;
   /** metricDistance <= tolerance; null when no tolerance or no observed metric. */
@@ -245,12 +277,22 @@ const GRADED_STATUSES: ReadonlySet<string> = new Set(['supported', 'exhausted'])
  * Deterministic grade for one finished bench run (zero LLM judging).
  * Pass iff (a) the run reached a graded terminal status ('supported' or
  * 'exhausted' — never 'error'/'paused', whose on-disk artifacts are stale),
- * (b) the final ledger hypothesis verdict equals expectedVerdict — the thread
- * status is 'exhausted', not 'refuted', on non-support, so the ledger is the
- * verdict authority here — and (c) the designed plan's FULL metric contract
- * (metricKey, comparator, target) equals the manifest's frozen contract: a
- * plan that keeps the key but relaxes `recall >= 0.9` to `recall >= 0.1`
- * gets its verdict from the relaxed goalpost and must not grade as a pass.
+ * (b) the QUESTION-relative verdict equals expectedVerdict, and (c) the
+ * designed plan kept the manifest's frozen metric contract.
+ *
+ * (b) is not the loop's own verdict. The loop judges its HYPOTHESIS; the
+ * manifest's expectation is written against the QUESTION, and the hypothesizer
+ * may state the hypothesis as the question's negation, which inverts
+ * supported/refuted. So the frozen rule is applied to the measured value
+ * instead, and the loop's raw answer is reported beside it as `ledgerVerdict`.
+ * With no measurement of the manifest's metric there is nothing to apply the
+ * rule to and the loop's verdict stands — the `inconclusive` case.
+ *
+ * (c) is exact on metricKey and target and polarity-tolerant on the
+ * comparator: `latency_p95_ms > 120` is the manifest's `<= 120` called from
+ * the other side, not a moved goalpost, while relaxing `recall >= 0.9` to
+ * `recall >= 0.1` — or swapping the key entirely — still fails.
+ *
  * metricDistance/withinTolerance are advisory; sandboxed=false fails the
  * task only under requireDocker.
  */
@@ -265,11 +307,13 @@ function gradeTask(
       pass: false,
       expected: manifest.expectedVerdict,
       actual: null,
+      ledgerVerdict: null,
       metricKey: manifest.metric.key,
       planMetricKey: null,
       planComparator: null,
       planTarget: null,
       metricContractMatch: false,
+      contractComplement: false,
       metricDistance: null,
       withinTolerance: null,
       sandboxed: false,
@@ -280,7 +324,7 @@ function gradeTask(
   }
   const ledger = readLedger(workdir, result.threadId);
   const last = ledger.length > 0 ? ledger[ledger.length - 1] : null;
-  const actual: Verdict | null = last ? last.verdict : null;
+  const ledgerVerdict: Verdict | null = last ? last.verdict : null;
   const iterDir = last
     ? path.join(threadDir(workdir, result.threadId), 'experiments', String(last.iteration))
     : null;
@@ -291,14 +335,29 @@ function gradeTask(
   const planMetricKey = plan && typeof plan.metricKey === 'string' ? plan.metricKey : null;
   const planComparator = plan && typeof plan.comparator === 'string' ? plan.comparator : null;
   const planTarget = plan && typeof plan.target === 'number' ? plan.target : null;
+  // Contract match UP TO POLARITY. Key and target must be exact — a relaxed target
+  // (`recall >= 0.9` → `recall >= 0.1`) or a swapped key is goalpost-moving and still fails.
+  // Only the comparator may be stated from the complementary side, because that is the same
+  // rule, not a different one.
+  const sameRule = planMetricKey === manifest.metric.key && planTarget === manifest.metric.target;
+  const contractComplement = sameRule
+    && planComparator !== null && planComparator === COMPLEMENT[manifest.metric.comparator];
   const metricContractMatch =
-    planMetricKey === manifest.metric.key &&
-    planComparator === manifest.metric.comparator &&
-    planTarget === manifest.metric.target;
+    (sameRule && planComparator === manifest.metric.comparator) || contractComplement;
   const observed = expResult && expResult.metrics
     && Object.prototype.hasOwnProperty.call(expResult.metrics, manifest.metric.key)
     ? expResult.metrics[manifest.metric.key]
     : null;
+  // QUESTION-relative verdict. `expectedVerdict` is written against the question; the loop's
+  // ledger verdict is written against its hypothesis, and the hypothesizer is free to state
+  // that hypothesis as the question's negation — which inverts supported/refuted and scored
+  // correct science as failure (GRD-Bench `cache-latency-slo`, 2026-09-11). The manifest holds
+  // the question's own decision rule as structured data, so the sound reading is to apply that
+  // rule to what was measured. When the manifest's metric was never measured there is nothing
+  // to apply it to, and the loop's own verdict stands — that is the `inconclusive` case.
+  const actual: Verdict | null = typeof observed === 'number' && Number.isFinite(observed)
+    ? (compare(observed, manifest.metric.comparator, manifest.metric.target) ? 'supported' : 'refuted')
+    : ledgerVerdict;
   const metricDistance = typeof observed === 'number' && Number.isFinite(observed)
     ? Math.abs(observed - manifest.metric.target)
     : null;
@@ -312,11 +371,13 @@ function gradeTask(
     pass,
     expected: manifest.expectedVerdict,
     actual,
+    ledgerVerdict,
     metricKey: manifest.metric.key,
     planMetricKey,
     planComparator,
     planTarget,
     metricContractMatch,
+    contractComplement,
     metricDistance,
     withinTolerance,
     sandboxed,
@@ -371,11 +432,13 @@ async function runBenchTask(task: BenchTask, opts: BenchTaskOpts = {}): Promise<
         pass: false,
         expected: task.manifest.expectedVerdict,
         actual: null,
+        ledgerVerdict: null,
         metricKey: task.manifest.metric.key,
         planMetricKey: null,
         planComparator: null,
         planTarget: null,
         metricContractMatch: false,
+        contractComplement: false,
         metricDistance: null,
         withinTolerance: null,
         sandboxed: false,

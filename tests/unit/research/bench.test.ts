@@ -323,9 +323,11 @@ describe('bench', () => {
         runner: makeRunner({ score: 0.5 }),
         kgClient: fakeKg(),
       });
-      expect(report.actual).toBe('supported');          // verdict from the relaxed goalpost...
+      expect(report.ledgerVerdict).toBe('supported');   // the loop's answer, off the relaxed goalpost
+      expect(report.actual).toBe('refuted');            // the frozen contract's answer: 0.5 < 0.8
       expect(report.planTarget).toBe(0.1);
-      expect(report.metricContractMatch).toBe(false);   // ...not from the frozen contract
+      expect(report.metricContractMatch).toBe(false);
+      expect(report.contractComplement).toBe(false);    // a relaxed target is not a polarity flip
       expect(report.pass).toBe(false);
     });
 
@@ -567,8 +569,8 @@ describe('bench', () => {
     it('aggregate separates full pass from verdict accuracy', () => {
       const t = (over: Partial<BenchTaskReport>): BenchTaskReport => ({
         id: 'x', ingestStatus: 'compiled', pass: false, expected: 'supported', actual: null,
-        metricKey: 'score', planMetricKey: null, planComparator: null, planTarget: null,
-        metricContractMatch: false, metricDistance: null,
+        ledgerVerdict: null, metricKey: 'score', planMetricKey: null, planComparator: null,
+        planTarget: null, metricContractMatch: false, contractComplement: false, metricDistance: null,
         withinTolerance: null, sandboxed: false, iterations: 0, status: 'exhausted', ...over,
       });
       const res = aggregate([
@@ -620,5 +622,67 @@ describe('bench', () => {
       expect(res.tasks.every((t) => t.sandboxed)).toBe(true);
       expect(res.meanIterations).toBeCloseTo(1.6667, 3);
     });
+  });
+});
+
+describe('verdict polarity (GRD-Bench cache-latency-slo, 2026-09-11)', () => {
+  function loadOne(manifest: Record<string, unknown>): BenchTask {
+    const root = tmp();
+    writeTask(root, String(manifest.id), manifest);
+    return loadBenchTasks(root)[0];
+  }
+  const slo = (over: Record<string, unknown> = {}) => baseManifest('task-a', {
+    question: 'Does the cache keep p95 within the SLO? Decision metric: latency_p95_ms <= 120',
+    metric: { key: 'latency_p95_ms', comparator: '<=', target: 120, tolerance: 15 },
+    expectedVerdict: 'refuted',
+    ...over,
+  });
+
+  it('grades a hypothesis phrased as the question\'s negation against the question', async () => {
+    // The loop asked "does it MISS the SLO?" (`> 120`), measured 187, and answered `supported`.
+    // Correct science: the SLO is missed. Read against the question, that is `refuted`.
+    const task = loadOne(slo());
+    const report = await runBenchTask(task, {
+      spawn: makeSpawn({ key: 'latency_p95_ms', comparator: '>', target: 120 }),
+      runner: makeRunner({ latency_p95_ms: 187 }),
+      kgClient: fakeKg(),
+    });
+    expect(report.ledgerVerdict).toBe('supported');      // what the loop said, about its hypothesis
+    expect(report.actual).toBe('refuted');               // what the measurement says about the question
+    expect(report.contractComplement).toBe(true);        // same rule, called from the other side
+    expect(report.metricContractMatch).toBe(true);
+    expect(report.pass).toBe(true);
+    expect(aggregate([report]).verdictAccuracy).toBe(1);
+  });
+
+  it('does not let a complementary comparator smuggle in a different target', async () => {
+    const task = loadOne(slo());
+    const report = await runBenchTask(task, {
+      spawn: makeSpawn({ key: 'latency_p95_ms', comparator: '>', target: 200 }),  // not 120
+      runner: makeRunner({ latency_p95_ms: 187 }),
+      kgClient: fakeKg(),
+    });
+    expect(report.ledgerVerdict).toBe('refuted');        // 187 > 200 is false, on the moved goalpost
+    expect(report.actual).toBe('refuted');               // 187 <= 120 is false, on the frozen one
+    expect(report.contractComplement).toBe(false);
+    expect(report.metricContractMatch).toBe(false);
+    expect(report.pass).toBe(false);                     // verdict matches; the contract does not
+  });
+
+  it('gives `==` no complement, so an equality contract must be matched verbatim', async () => {
+    const task = loadOne(baseManifest('task-a', {
+      question: 'Is the drift zero? Decision metric: drift == 0',
+      metric: { key: 'drift', comparator: '==', target: 0 },
+      expectedVerdict: 'supported',
+    }));
+    const report = await runBenchTask(task, {
+      spawn: makeSpawn({ key: 'drift', comparator: '<=', target: 0 }),
+      runner: makeRunner({ drift: 0 }),
+      kgClient: fakeKg(),
+    });
+    expect(report.actual).toBe('supported');             // 0 == 0 against the frozen rule
+    expect(report.contractComplement).toBe(false);
+    expect(report.metricContractMatch).toBe(false);
+    expect(report.pass).toBe(false);
   });
 });

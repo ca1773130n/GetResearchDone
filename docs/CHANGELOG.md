@@ -36,6 +36,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   must have none — so wiring one up fails the build until it leaves the list.
 
 ### Fixed
+- **GRD-Bench grades the verdict against the question, not against the loop's
+  hypothesis.** `expectedVerdict` is written relative to the task's question;
+  the loop's ledger verdict is relative to whatever hypothesis it chose, and
+  nothing constrains that hypothesis's polarity. On `cache-latency-slo`
+  (2026-09-11) the loop asked "does p95 MISS the SLO?", measured 187 ms against
+  a 120 ms SLO, and correctly answered `supported` — scored as a miss against
+  the manifest's `refuted`. Every `supported`/`refuted` task carried that
+  degree of freedom, so the headline verdict-accuracy number partly measured
+  hypothesis phrasing. The grader now applies the manifest's frozen decision
+  rule to the measured value (`compare`, reused from the loop so the two can
+  never disagree) and reports the loop's raw answer beside it as
+  `ledgerVerdict`. The contract check is now exact on metric key and target but
+  tolerant of an exactly complementary comparator (`latency_p95_ms > 120` is
+  the manifest's `<= 120` from the other side, new field `contractComplement`);
+  a relaxed target, a swapped key, and any non-complementary comparator still
+  fail, and `==` has no complement. Published README results are flagged as
+  predating this change rather than restated.
 - **Multi-level phase numbers now escape every dot** — `lib/phase-complete-llm.ts`
   carried four occurrences of `phaseNum.replace('.', '\\.')`, which escapes only
   the first dot because `String.replace` with a string pattern replaces a single

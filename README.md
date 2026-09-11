@@ -100,8 +100,13 @@ GRD-Bench is a **closed-world** benchmark for the autoresearch loop: each task u
 `bench/tasks/` freezes a tiny corpus (evidence + confounder + noise) plus a manifest
 with a metric contract and an expected verdict. Runs happen in a throwaway workdir,
 network-off Docker-sandboxed when docker is available (enforce with
-`--require-docker`), and grading is **deterministic** — the loop's own
-metric/comparator/target verdict against the manifest, no LLM judge.
+`--require-docker`), and grading is **deterministic** — no LLM judge. A task passes
+when the manifest's frozen decision rule, applied to what the run measured, gives the
+expected verdict *and* the loop kept that contract. The rule is applied to the
+measurement rather than read off the loop's own verdict because the two answer
+different propositions: the loop judges its hypothesis, and a hypothesis may be
+phrased as the question's negation, which flips supported and refuted. The loop's raw
+answer is reported beside the graded one as `ledgerVerdict`.
 
 ```bash
 gd bench list    # the task set (id, question, expected verdict)
@@ -124,6 +129,15 @@ verdict to match *and* the loop to have kept the manifest's frozen metric contra
 Grading is deterministic (no LLM judge), so this is an honest baseline for the
 loop as shipped, not a tuned showcase; expect scores to move with backend and
 retrieval configuration.
+
+> **These numbers predate two corrections and have not been re-measured.** The
+> grader they were produced by compared the loop's hypothesis-relative verdict
+> directly against the manifest's question-relative expectation, so a run that
+> reached the right conclusion by testing the question's negation scored as a miss;
+> grading is now question-relative (above). Separately, the loop could replace its
+> pre-committed decision metric on a later iteration, which the contract check
+> caught as a failure. Both are fixed; the table will be replaced by a rerun rather
+> than by an adjusted number.
 
 ### Hands-on engineering tutorial
 
