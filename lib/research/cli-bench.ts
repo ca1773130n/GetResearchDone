@@ -90,6 +90,9 @@ async function cmdBenchRun(
   }
   const lines = res.tasks.map((t: BenchTaskReport) =>
     `${t.pass ? 'PASS' : 'FAIL'}  ${t.id}  expected=${t.expected} actual=${t.actual ?? 'none'}`
+    // Surfaced only when the loop's own answer differs from the question-relative one — i.e.
+    // when it tested the question's negation. Silent in the ordinary case, where it is noise.
+    + (t.ledgerVerdict !== null && t.ledgerVerdict !== t.actual ? ` loop=${t.ledgerVerdict}` : '')
     + ` iters=${t.iterations}`
     + (t.metricDistance !== null ? ` dist=${t.metricDistance}` : '')
     + (t.sandboxed ? '' : ' UNSANDBOXED')

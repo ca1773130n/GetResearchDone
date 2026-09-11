@@ -38,8 +38,9 @@ function fakeTask(id: string, expectedVerdict: 'supported' | 'refuted' | 'inconc
 function fakeReport(over: Partial<BenchTaskReport> = {}): BenchTaskReport {
   return {
     id: 'task-a', ingestStatus: 'skipped_no_tesserae', pass: true,
-    expected: 'supported', actual: 'supported', metricKey: 'score', planMetricKey: 'score',
-    planComparator: '>=', planTarget: 0.8, metricContractMatch: true,
+    expected: 'supported', actual: 'supported', ledgerVerdict: null,
+    metricKey: 'score', planMetricKey: 'score',
+    planComparator: '>=', planTarget: 0.8, metricContractMatch: true, contractComplement: false,
     metricDistance: 0.04, withinTolerance: true, sandboxed: true,
     iterations: 1, status: 'supported', ...over,
   };
@@ -172,5 +173,22 @@ describe('cli-bench', () => {
       }));
       expect(readHostSpawnConfig(cwd)).toEqual({ scheduler: { s: 1 } });
     });
+  });
+});
+
+describe('cli-bench: the loop\'s own answer in --raw output', () => {
+  it('shows loop= only when the loop answered its hypothesis the other way round', async () => {
+    const cwd = tmp();
+    const deps: BenchRunDeps = {
+      runBench: async () => fakeAggregate([
+        // Reached the right conclusion by testing the question's negation.
+        fakeReport({ id: 'flipped', expected: 'refuted', actual: 'refuted', ledgerVerdict: 'supported' }),
+        fakeReport({ id: 'aligned', ledgerVerdict: 'supported' }),
+      ]),
+    };
+    const res = await captureOutputAsync(() => cmdBenchRun(cwd, {}, true, deps));
+    expect(res.stdout).toContain('flipped  expected=refuted actual=refuted loop=supported iters=1');
+    expect(res.stdout).toContain('aligned  expected=supported actual=supported iters=1');
+    expect(res.stdout).not.toContain('aligned  expected=supported actual=supported loop=');
   });
 });
