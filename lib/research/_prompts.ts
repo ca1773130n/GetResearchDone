@@ -1,5 +1,5 @@
 'use strict';
-import type { Hypothesis, ExperimentResult, Verdict, Takeaway, BaselineMargin } from './types';
+import type { Hypothesis, ExperimentResult, Verdict, Takeaway, BaselineMargin, MetricContract } from './types';
 
 const { formatSignedDelta } = require('./types') as {
   formatSignedDelta: (delta: number) => string;
@@ -128,15 +128,26 @@ function buildHypothesesPrompt(
 }
 
 function buildExperimentPrompt(
-  thread: { id: string; question: string },
+  thread: { id: string; question: string; contract?: MetricContract },
   hypothesis: Pick<Hypothesis, 'id' | 'statement'>,
   iterDir: string,
 ): string {
+  const c = thread.contract;
   return [
     'You are grd-experiment-runner. Design ONE minimal, reproducible experiment that tests the hypothesis.',
     '',
     `Hypothesis (${hypothesis.id}): ${hypothesis.statement}`,
     '',
+    // Thread-level contract pin: the designer is told what it will be judged on, and the
+    // orchestrator overwrites any drift back to it before the run (pinThreadContract).
+    ...(c ? [
+      `This thread's decision metric was committed at its first DESIGN and is PINNED: metricKey "${c.metricKey}", comparator ${c.comparator}, target ${c.target}.`,
+      'Design an experiment that MEASURES that metric for this hypothesis. Any other metricKey/comparator/',
+      'target in your plan is overwritten back to the pinned contract before the run and the drift is',
+      'recorded. A hypothesis that cannot be judged on the committed metric is inconclusive — that is',
+      'the finding, not a reason to change what is measured.',
+      '',
+    ] : []),
     `Write the experiment plan to ${iterDir}/PLAN.md and a runnable script to ${iterDir}/run.sh`,
     '(bash) or the same dir as run.py (python). The script MUST print its result as a final line:',
     '  __RESULT__ {"<metricKey>": <number>}',

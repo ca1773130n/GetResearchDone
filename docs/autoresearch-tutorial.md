@@ -73,7 +73,7 @@ SEED → GROUND → HYPOTHESIZE → DESIGN → RUN → MEASURE → LEARN → DEC
 | **SEED** | Create the thread + initial state from your question |
 | **GROUND** | Read prior findings from the knowledge graph (+ a hybrid-retrieval pack) |
 | **HYPOTHESIZE** | Generate **one** ranked, testable hypothesis with a predicted outcome and a `refutationCondition` — a candidate missing it is dropped by the parser before it is ever ranked |
-| **DESIGN** | Write an experiment plan (`metric`, `comparator`, `target`, optional `baseline`) + a runnable script |
+| **DESIGN** | Write an experiment plan (`metric`, `comparator`, `target`, optional `baseline`) + a runnable script. The first DESIGN's `metric`/`comparator`/`target` is the thread's **pinned contract**: every later DESIGN is overwritten back to it (drift recorded in `experiments/<n>/contract-drift.json`), so a revised hypothesis can change the experiment but never the goalposts. Only a human edit at the DESIGN checkpoint re-commits it |
 | **RUN** | Execute the script (subprocess or Docker) — **behind the execute gate** |
 | **MEASURE** | Compare the measured metric to the target → **deterministic** verdict. An `inconclusive` verdict carries a `cause`: `run_failed` (the script broke) or `metric_absent` (the script ran but never emitted the committed metric) |
 | **LEARN** | Extract a typed takeaway (with H2/H3/H4 failure classification) |
