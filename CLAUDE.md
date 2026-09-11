@@ -24,11 +24,15 @@ root clean (the `grd-*` `.gitignore` entries are fossils). The leak moved rather
 than closed: one `npm test` leaves ~400 `grd-*` dirs (~70 MB) in `$TMPDIR`,
 never cleaned. Point `TMPDIR` somewhere disposable and empty it periodically.
 
-**There is no CI.** `.github/workflows/ci.yml` was deleted in `3bb573a`; only
-`release.yml` and `npm-publish.yml` remain, and both are release-time. Nothing
-runs tests or coverage on a push or PR — verify locally before merging.
-`npm run format:check` is also unusable: Prettier has no config anywhere, so it
-fails on 167 files on a clean tree and `npm run format` would rewrite them all.
+**CI runs on push and PR** (`.github/workflows/ci.yml`, restored at 0.6.0 in
+`994133e` after three releases with none): lint + `build:check`, then the full
+suite on Node 22, pack-and-install smoke tests on Node 18 and 22, and the
+prompt-injection scan. **Per-file coverage thresholds are NOT enforced there** —
+suites needing binaries the runner lacks (claude, codex) skip, which would fail
+the gate for a reason unrelated to the change — so a local `npm test` remains
+the only thing that enforces them. `npm run format:check` is still unusable:
+Prettier has no config anywhere, so it fails on 167 files on a clean tree and
+`npm run format` would rewrite them all.
 
 ### gd CLI
 
