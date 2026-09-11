@@ -2399,3 +2399,70 @@ describe('orchestrator — W8 baseline margin', () => {
     fs.rmSync(cwd, { recursive: true, force: true });
   });
 });
+
+describe('thread-level metric contract pin (GRD-Bench dedup-precision-gap, 2026-09-11)', () => {
+  /**
+   * Iteration 1 commits `precision >= 0.85`. The corpus cannot define precision, so the script
+   * emits none of it — the correct verdict is inconclusive. Iteration 2's designer then swaps in
+   * a metric the same script trivially satisfies. Unpinned, that scored `supported`.
+   */
+  function swappingSpawn(prompts: string[]) {
+    let hypo = 0; let design = 0;
+    return async (prompt: string, agentType: string): Promise<string> => {
+      if (agentType === 'grd-hypothesizer') {
+        hypo++;
+        return `__HYPOTHESIS__ {"statement":"h${hypo}","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes it worse"}`;
+      }
+      if (agentType === 'grd-experiment-runner') {
+        design++; prompts.push(prompt);
+        return design === 1
+          ? '__PLAN__ {"procedure":"p","metricKey":"precision","comparator":">=","target":0.85,"language":"shell","scriptPath":"experiments/x/run.sh"}'
+          : '__PLAN__ {"procedure":"p","metricKey":"precision_defining_evidence","comparator":"==","target":0,"language":"shell","scriptPath":"experiments/x/run.sh"}';
+      }
+      if (agentType === 'grd-knowledge-miner') {
+        return '__TAKEAWAY__ {"kind":"failure_root_cause","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+      }
+      return '';
+    };
+  }
+  const noPrecisionRunner = {
+    run() {
+      return {
+        metrics: { precision_defining_evidence: 0 },
+        exitCode: 0, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '', failureClass: 'none',
+      };
+    },
+  };
+
+  it('pins a swapped metric back to the committed contract, so the thread ends inconclusive, not supported', async () => {
+    const cwd = tmp();
+    const prompts: string[] = [];
+    const res = await runResearch(cwd, 'Does dedup reach precision >= 0.85?', {
+      maxIterations: 2, noGates: true, spawn: swappingSpawn(prompts), runner: noPrecisionRunner,
+    });
+    expect(res.status).toBe('exhausted');
+    const tDir = path.join(cwd, '.planning', 'research', 'threads', res.threadId);
+    expect(readLedger(cwd, res.threadId).map((h: { verdict: string | null }) => h.verdict))
+      .toEqual(['inconclusive', 'inconclusive']);
+
+    // The thread carries the first DESIGN's contract.
+    const thread = JSON.parse(fs.readFileSync(path.join(tDir, 'thread.json'), 'utf8'));
+    expect(thread.contract).toEqual({ metricKey: 'precision', comparator: '>=', target: 0.85 });
+
+    // Iteration 2's persisted plan is the pinned contract, and the drift is on disk.
+    const iter2 = path.join(tDir, 'experiments', '2');
+    const plan = JSON.parse(fs.readFileSync(path.join(iter2, 'plan.json'), 'utf8'));
+    expect([plan.metricKey, plan.comparator, plan.target]).toEqual(['precision', '>=', 0.85]);
+    expect(JSON.parse(fs.readFileSync(path.join(iter2, 'contract-drift.json'), 'utf8'))).toEqual({
+      metricKey: { proposed: 'precision_defining_evidence', pinned: 'precision' },
+      comparator: { proposed: '==', pinned: '>=' },
+      target: { proposed: 0, pinned: 0.85 },
+    });
+    expect(fs.existsSync(path.join(tDir, 'experiments', '1', 'contract-drift.json'))).toBe(false);
+
+    // The designer is told the pin on iteration 2 only.
+    expect(prompts[0]).not.toContain('PINNED');
+    expect(prompts[1]).toContain('PINNED: metricKey "precision", comparator >=, target 0.85');
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+});

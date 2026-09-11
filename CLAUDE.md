@@ -104,7 +104,10 @@ docker when available else subprocess with a visible UNSANDBOXED warning;
 `research_persist_knowledge`, `research_eval_report`, `research_spawn_retries`,
 `research_max_debug_depth` (bounded fix-and-retry of script-execution failures in
 RUN, 0 = off; metric misses never retry; the execute gate is re-checked and the
-committed metric/comparator/target is pinned across debug re-plans),
+committed metric/comparator/target is pinned across debug re-plans; the FIRST
+DESIGN's metric/comparator/target is also pinned for the whole thread — later
+iterations may change the experiment, never the decision metric; drift lands in
+`experiments/<n>/contract-drift.json`),
 `research_tesserae_extractor` (+ `_extract_include`/`_extract_limit`);
 harness (life-harness rounds: `autonomy`, `kill_switch`, `min_confidence`,
 `min_interval_hours`, `allowed_targets`, `backend`, `min/max_evidence`,

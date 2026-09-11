@@ -81,6 +81,16 @@ export interface InteractiveConfig {
   fallback: 'recommended' | 'panel';
 }
 
+/**
+ * The decision this thread answers its question with: {metricKey, comparator, target}.
+ * Committed by the FIRST DESIGN and pinned for every later one — a revised hypothesis may change
+ * the experiment, never the goalposts. Without the pin, iteration 2 of an unanswerable question
+ * replaced `precision >= 0.85` with `precision_defining_evidence == 0`, marked it `supported`,
+ * and reported a confident finding to a question nobody asked (GRD-Bench `dedup-precision-gap`,
+ * 2026-09-11).
+ */
+export interface MetricContract { metricKey: string; comparator: Comparator; target: number; }
+
 export interface ResearchThread {
   id: string;
   question: string;
@@ -111,6 +121,11 @@ export interface ResearchThread {
    * without its cause, so inference would conflate a broken run with an unmeasurable design.
    */
   metricAbsentStreak?: number;
+  /**
+   * Thread-level metric contract (see `MetricContract`). Optional for back-compat: a thread
+   * created before it existed adopts the contract of its next DESIGN.
+   */
+  contract?: MetricContract;
   baseMaxIterations?: number;
   errorReason?: string;
   // v0.5.0 checkpoint plumbing — all OPTIONAL (back-compat: absent on pre-0.5.0 threads).

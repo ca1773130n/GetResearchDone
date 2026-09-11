@@ -4,7 +4,7 @@ const path = require('path');
 import type {
   ResearchThread, Hypothesis, Verdict, HypothesisStatus, Takeaway, ExperimentPlan, ThreadStatus,
   ExperimentResult, MeasureOutcome, MeasureCause, Checkpoint, CheckpointAnswer, CheckpointPoint,
-  InteractiveConfig, Comparator, BaselineMargin,
+  InteractiveConfig, Comparator, BaselineMargin, MetricContract,
 } from './types';
 import type { Runner } from './runner';
 import type {
@@ -56,7 +56,7 @@ const {
 const { buildHypothesizePrompt, buildHypothesesPrompt, buildExperimentPrompt, buildLearnPrompt, buildClarifyPrompt } = require('./_prompts') as {
   buildHypothesizePrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways?: unknown[], pack?: string, pivot?: boolean) => string;
   buildHypothesesPrompt: (thread: { id: string; question: string }, priorHyps: unknown[], priorVerdict: Verdict | null, priorTakeaways: unknown[], pack: string, pivot: boolean, n: number) => string;
-  buildExperimentPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
+  buildExperimentPrompt: (thread: { id: string; question: string; contract?: MetricContract }, hyp: Pick<Hypothesis, 'id' | 'statement'>, iterDir: string) => string;
   buildLearnPrompt: (thread: { id: string; question: string }, hyp: Pick<Hypothesis, 'id' | 'statement'>, result: ExperimentResult, verdict: Verdict, cause?: MeasureCause, margin?: BaselineMargin) => string;
   buildClarifyPrompt: (thread: { id: string; question: string }) => string;
 };
@@ -556,6 +556,40 @@ async function finishKgSync(
  * freeform Q2 answer text (one `key: value` pair per line; unknown keys ignored). Mutates
  * `plan` in place so the caller can persist it BEFORE the debug-loop `committed` pin is taken.
  */
+/**
+ * Thread-level metric-contract pin — the debug-loop pin, hoisted one level. The FIRST DESIGN of
+ * a thread commits {metricKey, comparator, target}; every later DESIGN (a new iteration, a W3
+ * redesign) is overwritten back to it, with the drift recorded in <iterDir>/contract-drift.json
+ * and named on stderr. Only the model's proposals are pinned: a human contract edit at the
+ * design checkpoint (R4) re-commits the thread instead — see the approve path.
+ *
+ * Why: the pre-committed metric is only pre-committed if nothing downstream of the first result
+ * can move it. Left unpinned across iterations, the loop answered an unanswerable question by
+ * manufacturing an answerable adjacent one (`precision_defining_evidence == 0`) and reporting
+ * `supported` (GRD-Bench `dedup-precision-gap`, 2026-09-11).
+ */
+function pinThreadContract(cwd: string, thread: ResearchThread, plan: ExperimentPlan, iterDir: string): void {
+  if (!thread.contract) {
+    thread.contract = { metricKey: plan.metricKey, comparator: plan.comparator, target: plan.target };
+    saveThread(cwd, thread);
+    return;
+  }
+  const drift: Record<string, { proposed: unknown; pinned: unknown }> = {};
+  for (const key of ['metricKey', 'comparator', 'target'] as const) {
+    if (plan[key] !== thread.contract[key]) drift[key] = { proposed: plan[key], pinned: thread.contract[key] };
+  }
+  if (Object.keys(drift).length === 0) return;
+  Object.assign(plan, thread.contract);
+  fs.writeFileSync(path.join(iterDir, 'contract-drift.json'), JSON.stringify(drift, null, 2));
+  incrementCounter('research.contract_pins_total');
+  process.stderr.write(
+    `[research] DESIGN proposed a different decision metric than this thread committed to ` +
+    `(${Object.keys(drift).join(', ')}); pinned back to ` +
+    `${thread.contract.metricKey} ${thread.contract.comparator} ${thread.contract.target}. ` +
+    'A hypothesis that cannot be judged on the committed metric is inconclusive, not a new metric.\n'
+  );
+}
+
 function applyContractEditsFromFreeform(plan: ExperimentPlan, text: string): void {
   for (const rawLine of text.split('\n')) {
     const m = /^\s*(metricKey|comparator|target|language)\s*:\s*(.+?)\s*$/.exec(rawLine);
@@ -1047,6 +1081,9 @@ async function runLoop(
       if (q2Text) {
         applyContractEditsFromFreeform(plan, q2Text);
         fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
+        // A human edit is a deliberate re-commitment: it becomes the thread's pinned contract.
+        thread.contract = { metricKey: plan.metricKey, comparator: plan.comparator, target: plan.target };
+        saveThread(cwd, thread);
       }
       approved.execute = false;
     } else if (approved.execute && resumable && fs.existsSync(planFile)) {
@@ -1260,6 +1297,7 @@ async function runLoop(
       // W8 — recover the optional independent baseline parsePlanOutput's whitelist drops.
       const declaredBaseline = parseDeclaredBaseline(pRes.lastRaw);
       if (declaredBaseline !== undefined) plan.baseline = declaredBaseline;
+      pinThreadContract(cwd, thread, plan, iterDir);
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2));
 
       // GATE 1 — execute / DESIGN-approval checkpoint. When interactive.design is active this

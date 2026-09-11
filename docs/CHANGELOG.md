@@ -36,6 +36,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   must have none — so wiring one up fails the build until it leaves the list.
 
 ### Fixed
+- **The pre-committed metric contract is now pinned for the whole research
+  thread, not just across debug re-plans.** GRD-Bench `dedup-precision-gap`
+  (2026-09-11) showed iteration 1 correctly returning `inconclusive` — the
+  corpus has no precision figure for the system under test — and iteration 2
+  then swapping the committed `precision >= 0.85` for an invented
+  `precision_defining_evidence == 0`, marking it `supported`, and reporting a
+  confident finding to a question nobody asked. The first DESIGN's
+  `metricKey`/`comparator`/`target` is now stored on the thread
+  (`thread.contract`), told to the experiment designer on every later DESIGN,
+  and overwritten back onto any drifting plan before the run (drift recorded in
+  `experiments/<n>/contract-drift.json`, counter
+  `research.contract_pins_total`). A human contract edit at the DESIGN
+  checkpoint re-commits the thread; the model cannot. Pre-existing threads
+  adopt their next DESIGN's contract.
 - **GRD-Bench grades the verdict against the question, not against the loop's
   hypothesis.** `expectedVerdict` is written relative to the task's question;
   the loop's ledger verdict is relative to whatever hypothesis it chose, and
