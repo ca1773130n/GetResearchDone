@@ -51,6 +51,10 @@ function why(e: unknown): string {
   return String(err.stderr || err.message || e).trim().slice(0, 500);
 }
 
+function shq(v: string): string {
+  return `'${v.replace(/'/g, `'\\''`)}'`;
+}
+
 function shipCandidate(
   exec: Exec, e: Evidence, worktree: string, orderDir: string,
 ): { branch: string; prUrl: string | null; error: string | null; manual: string | null } {
@@ -59,16 +63,21 @@ function shipCandidate(
   commitCandidate(exec, worktree, branch, e.changed, `${title}\n\n${e.strategy}`);
   const bodyFile = path.join(orderDir, `pr-body-${e.candidate}.md`);
   fs.writeFileSync(bodyFile, evidenceBody(e));
-  const prCommand = `gh pr create --base ${e.order.base} --head ${branch} --title ${JSON.stringify(title)} --body-file ${bodyFile}`;
+  // The worktree is removed after shipping, so recovery commands run from the repo and quote every value for the user's shell.
+  const prCommand = `cd ${shq(e.order.repo)} && gh pr create --base ${shq(e.order.base)} --head ${shq(branch)} --title ${shq(title)} --body-file ${shq(bodyFile)}`;
   try {
     exec('git', ['-C', worktree, 'push', e.order.remote, `HEAD:refs/heads/${branch}`], { timeout: 120000 });
   } catch (err) {
-    return { branch, prUrl: null, error: `push failed: ${why(err)}`, manual: `git -C ${e.order.repo} push ${e.order.remote} ${branch} && ${prCommand}` };
+    return { branch, prUrl: null, error: `push failed: ${why(err)}`, manual: `cd ${shq(e.order.repo)} && git push ${shq(e.order.remote)} ${shq(branch)} && ${prCommand}` };
   }
   try {
     const out = exec('gh', ['pr', 'create', '--base', e.order.base, '--head', branch, '--title', title, '--body-file', bodyFile],
       { cwd: worktree, timeout: 120000 });
-    return { branch, prUrl: out.trim().split('\n').pop() || null, error: null, manual: null };
+    const url = out.trim().split('\n').pop() ?? '';
+    if (!/^https?:\/\//.test(url)) {
+      return { branch, prUrl: null, error: `PR creation failed: gh printed no pull request URL: ${out.trim().slice(0, 200) || '(empty)'}`, manual: prCommand };
+    }
+    return { branch, prUrl: url, error: null, manual: null };
   } catch (err) {
     return { branch, prUrl: null, error: `PR creation failed: ${why(err)}`, manual: prCommand };
   }

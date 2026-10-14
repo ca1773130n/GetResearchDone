@@ -53,7 +53,7 @@ describe('shipCandidate', () => {
     const r = ship.shipCandidate(exec, evidence(repo), wt, fx.tmpDir('grd-factory-od-'));
     expect(r.prUrl).toBeNull();
     expect(r.error).toMatch(/PR creation failed: no permission/);
-    expect(r.manual).toMatch(/^gh pr create --base main --head factory\/search-p95\/c1 /);
+    expect(r.manual).toMatch(new RegExp(`^cd '${repo}' && gh pr create --base 'main' --head 'factory/search-p95/c1' `));
   });
 
   it('ships only the given paths even when a stray file is staged', () => {
@@ -74,7 +74,42 @@ describe('shipCandidate', () => {
     const exec: Exec = (b, a, o) => { if (a.includes('push')) throw fx.execFailure(1, 'rejected'); return base(b, a, o); };
     const r = ship.shipCandidate(exec, evidence(repo), wt, fx.tmpDir('grd-factory-od-'));
     expect(r.error).toMatch(/push failed: rejected/);
-    expect(r.manual).toMatch(/^git -C .* push origin factory\/search-p95\/c1 && gh pr create /);
+    expect(r.manual).toMatch(new RegExp(`^cd '${repo}' && git push 'origin' 'factory/search-p95/c1' && cd '${repo}' && gh pr create `));
+  });
+
+  function failingPr(objective: string, ghOut?: string): { r: ReturnType<typeof ship.shipCandidate>; repo: string } {
+    const repo = fx.makeRepo({ 'src/search.js': 'slow' });
+    const wt = addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'c1'), 'main');
+    fs.writeFileSync(path.join(wt, 'src/search.js'), 'FAST');
+    const base = fx.fakeExec(() => '');
+    const exec: Exec = (b, a, o) => {
+      if (b === 'gh' && ghOut !== undefined) return ghOut;
+      if (b === 'gh') throw fx.execFailure(1, 'no permission');
+      return base(b, a, o);
+    };
+    const ev = evidence(repo);
+    ev.order = fx.sampleOrder(repo, { objective });
+    return { r: ship.shipCandidate(exec, ev, wt, fx.tmpDir('grd-factory-od-')), repo };
+  }
+
+  it('quotes the objective so the shell cannot expand it', () => {
+    const { r, repo } = failingPr("x $(whoami) it's `id`");
+    expect(r.manual).toContain(`cd '${repo}' && gh pr create`);
+    expect(r.manual).toContain("--title 'factory: x $(whoami) it'\\''s `id`'");
+  });
+
+  it('treats a gh stdout whose last line is not a URL as a failed PR', () => {
+    const { r } = failingPr('Cut p95.', 'https://github.com/acme/app/pull/7\nA new release of gh is available\n');
+    expect(r.prUrl).toBeNull();
+    expect(r.error).toMatch(/PR creation failed: gh printed no pull request URL/);
+    expect(r.manual).toMatch(/^cd '.*' && gh pr create /);
+  });
+
+  it('treats empty gh stdout as a failed PR with a way to recover', () => {
+    const { r } = failingPr('Cut p95.', '');
+    expect(r.prUrl).toBeNull();
+    expect(r.error).toMatch(/PR creation failed: gh printed no pull request URL: \(empty\)/);
+    expect(r.manual).not.toBeNull();
   });
 });
 
