@@ -54,6 +54,35 @@ describe('scope and tamper', () => {
     expect(g.scopeCheck(['src/a.js'], ['src/**'], [])).toEqual({ ok: true, violations: [] });
   });
 
+  it('reports both ends of a rename so a protected file cannot be moved into scope', () => {
+    const repo = fx.makeRepo({ 'bench/run.js': 'module.exports = 1;\n'.repeat(20), 'bench/keep.js': 'k' });
+    fs.mkdirSync(path.join(repo, 'src/moved'), { recursive: true });
+    fx.realExec('git', ['-C', repo, 'mv', 'bench/run.js', 'src/moved/run.js']);
+    const changed = g.changedPaths(fx.realExec, repo, 'main');
+    expect(changed).toEqual(['bench/run.js', 'src/moved/run.js']);
+    expect(g.scopeCheck(changed, ['src/**'], ['bench/run.js']))
+      .toEqual({ ok: false, violations: ['bench/run.js'] });
+  });
+
+  it('catches the marker on an added line whose text begins with "++ " and keeps attribution', () => {
+    const repo = fx.makeRepo({ 'src/a.js': 'a\n', 'src/b.js': 'b\n' });
+    fs.writeFileSync(path.join(repo, 'src/a.js'), 'a\n++ __RESULT__ {}\n');
+    fs.writeFileSync(path.join(repo, 'src/b.js'), 'b\n__RESULT__\n');
+    expect(g.tamperScan(fx.realExec, repo, 'main')).toEqual(['src/a.js', 'src/b.js']);
+  });
+
+  (process.getuid && process.getuid() === 0 ? it.skip : it)('treats an unreadable untracked file as tampering', () => {
+    const repo = fx.makeRepo({ 'src/a.js': 'a\n' });
+    const f = path.join(repo, 'src/locked.js');
+    fs.writeFileSync(f, 'clean\n');
+    fs.chmodSync(f, 0o000);
+    try {
+      expect(g.tamperScan(fx.realExec, repo, 'main')).toEqual(['src/locked.js']);
+    } finally {
+      fs.chmodSync(f, 0o644);
+    }
+  });
+
   it('finds the result marker in added lines and in untracked files, not in removed lines', () => {
     const repo = fx.makeRepo({ 'src/a.js': 'console.log("__RESULT__ old")\n', 'src/b.js': 'b\n' });
     fs.writeFileSync(path.join(repo, 'src/a.js'), 'clean\n');
@@ -71,9 +100,15 @@ describe('hiddenGate', () => {
     const od = fx.installOrder(home, order);
     const cmds: string[] = [];
     const calls: string[][] = [];
-    const exec: Exec = (_b, a) => { calls.push(a); cmds.push(fx.containerCommand(a)); return stdout(); };
+    const seen: string[][] = [];
+    const exec: Exec = (_b, a) => {
+      // The container is about to run: the write-ahead row must already be on disk.
+      seen.push(g.readQueries(od).map((q) => q.status));
+      calls.push(a); cmds.push(fx.containerCommand(a));
+      return stdout();
+    };
     const ctx: SandboxCtx = { exec, ledgerDir: od, orderId: order.id, user: null, timeoutMs: 1000 };
-    return { order, od, ctx, cmds, calls };
+    return { order, od, ctx, cmds, calls, seen };
   }
 
   it('writes the query record before running, then the outcome', () => {
@@ -81,6 +116,7 @@ describe('hiddenGate', () => {
     const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', '/wt');
     expect(r).toEqual({ outcome: 'pass', median: 100, detail: '' });
     expect(g.readQueries(s.od).map((q) => q.status)).toEqual(['started', 'pass']);
+    expect(s.seen).toEqual([['started']]);
     expect(s.cmds[0]).toMatch(/^sh \/grader-[0-9a-f]{8}\/eval\.sh$/);
     const dst = /^sh (\/grader-[0-9a-f]{8})\//.exec(s.cmds[0])![1];
     expect(s.calls[0]).toContain(`type=bind,src=${path.join(s.od, 'vault', 'hidden')},dst=${dst},readonly`);
@@ -90,6 +126,7 @@ describe('hiddenGate', () => {
     const s = setup(() => { throw fx.execFailure(1, 'segfault'); });
     const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', '/wt');
     expect(r.outcome).toBe('broken');
+    expect(s.seen).toEqual([['started']]);
     expect(g.queriesUsed(s.od)).toBe(1);
   });
 

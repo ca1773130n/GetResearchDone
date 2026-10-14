@@ -43,7 +43,7 @@ function matchesAny(p: string, globs: string[]): boolean {
 
 /** Every path a candidate changed: tracked edits against base, plus untracked paths. */
 function changedPaths(exec: Exec, dir: string, base: string): string[] {
-  const tracked = exec('git', ['-C', dir, 'diff', '--name-only', base]).split('\n').filter(Boolean);
+  const tracked = exec('git', ['-C', dir, 'diff', '--name-only', '--no-renames', base]).split('\n').filter(Boolean);
   return [...new Set([...tracked, ...untrackedPaths(exec, dir)])].sort();
 }
 
@@ -63,15 +63,19 @@ function filesUnder(root: string, rel: string): string[] {
 function tamperScan(exec: Exec, dir: string, base: string): string[] {
   const hits = new Set<string>();
   let file = '';
-  for (const line of exec('git', ['-C', dir, 'diff', '-U0', '--no-color', base]).split('\n')) {
-    if (line.startsWith('+++ ')) { file = line.replace(/^\+\+\+ (b\/)?/, ''); continue; }
-    if (line.startsWith('+') && line.includes(RESULT_MARKER)) hits.add(file);
+  let inHunk = false;
+  for (const line of exec('git', ['-C', dir, 'diff', '-U0', '--no-color', '--no-renames', base]).split('\n')) {
+    // A `+++ ` line is a file header only before the first hunk; inside a hunk it is an added line.
+    if (line.startsWith('diff --git ')) { inHunk = false; file = ''; continue; }
+    if (line.startsWith('@@')) { inHunk = true; continue; }
+    if (!inHunk && line.startsWith('+++ ')) { file = line.replace(/^\+\+\+ (b\/)?/, ''); continue; }
+    if (inHunk && line.startsWith('+') && line.includes(RESULT_MARKER)) hits.add(file);
   }
   for (const entry of untrackedPaths(exec, dir)) {
     for (const f of filesUnder(dir, entry.replace(/\/$/, ''))) {
       try {
         if (String(fs.readFileSync(path.join(dir, f), 'utf8')).includes(RESULT_MARKER)) hits.add(f);
-      } catch { /* unreadable: the scope check still applies to it */ }
+      } catch { hits.add(f); /* unreadable: fail closed, treat as tampering */ }
     }
   }
   return [...hits].sort();
