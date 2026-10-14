@@ -78,6 +78,33 @@ describe('factory home, drafts and saved orders', () => {
     expect(() => order.saveOrder(home, o.id)).toThrow(/changed after validate/);
   });
 
+  it('refuses to save a draft edited in draft.json after validate', () => {
+    const home = tmpDir('grd-factory-home-');
+    const o = draft(home);
+    order.markValidated(home, o.id);
+    order.writeDraft(home, { ...o, objective: 'A different objective.' });
+    expect(() => order.saveOrder(home, o.id)).toThrow(/changed after validate/);
+  });
+
+  it('refuses to save a validated draft that has no baseline', () => {
+    const home = tmpDir('grd-factory-home-');
+    const o = sampleOrder('/abs/repo');
+    delete o.baseline;
+    order.writeDraft(home, o);
+    order.markValidated(home, o.id);
+    expect(() => order.saveOrder(home, o.id)).toThrow(/no baseline/);
+  });
+
+  it('rejects a symlink in the draft, since its target could change unnoticed', () => {
+    const home = tmpDir('grd-factory-home-');
+    const o = draft(home);
+    const outside = path.join(tmpDir('grd-factory-outside-'), 'real.sh');
+    fs.writeFileSync(outside, 'echo outside\n');
+    const link = path.join(order.draftDir(home, o.id), 'hidden', 'link.sh');
+    fs.symlinkSync(outside, link);
+    expect(() => order.markValidated(home, o.id)).toThrow(/symlink at .*link\.sh/);
+  });
+
   it('moves a validated draft into the vault and loads it back', () => {
     const home = tmpDir('grd-factory-home-');
     const o = draft(home);

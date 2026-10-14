@@ -124,9 +124,10 @@ function writeDraft(home: string, o: WorkOrder): void {
 
 function listFiles(root: string, rel = ''): string[] {
   const out: string[] = [];
-  const entries = fs.readdirSync(path.join(root, rel), { withFileTypes: true }) as Array<{ name: string; isDirectory(): boolean }>;
+  const entries = fs.readdirSync(path.join(root, rel), { withFileTypes: true }) as Array<{ name: string; isDirectory(): boolean; isSymbolicLink(): boolean }>;
   for (const e of entries) {
     const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isSymbolicLink()) throw new Error(`draft contains a symlink at ${path.join(root, r)}; its target could change after validate, so it cannot be hashed`);
     if (e.isDirectory()) out.push(...listFiles(root, r)); else out.push(r);
   }
   return out.sort();
