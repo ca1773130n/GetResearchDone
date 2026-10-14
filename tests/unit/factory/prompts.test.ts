@@ -3,6 +3,8 @@ import type { CandidateEvent, WorkOrder } from '../../../lib/factory/types';
 const pr = require('../../../lib/factory/prompts') as {
   composeQuestion: (o: WorkOrder, base: string, h: CandidateEvent[]) => string;
   buildPrompt: (o: WorkOrder, hyp: { id: string; statement: string }, wt: string, iterDir: string) => string;
+  fixPrompt: (o: WorkOrder, hyp: { id: string; statement: string }, r: { exitCode: number; stderrExcerpt?: string },
+    wt: string, iterDir: string, attempt: number, maxDepth: number) => string;
   replicationPrompt: (o: WorkOrder, strategy: string, wt: string, iterDir: string) => string;
   strategyNote: (p: string) => string;
 };
@@ -46,5 +48,40 @@ describe('factory prompts', () => {
   it('caps the strategy note at about 128 tokens', () => {
     expect(pr.strategyNote('  a   b  ')).toBe('a b');
     expect(pr.strategyNote('x'.repeat(600))).toHaveLength(512);
+  });
+
+  it('fix prompt carries the attempt counter, the rules and a stderr excerpt cut at 2000 characters', () => {
+    const p = pr.fixPrompt(o, { id: 'h1', statement: 'Cache.' }, { exitCode: 2, stderrExcerpt: 'e'.repeat(2500) }, '/wt/c1', '/it', 2, 3);
+    expect(p).toContain('FIX mode (attempt 2 of 3)');
+    expect(p).toContain('- exit code: 2');
+    expect(p).toContain(`- detail: ${'e'.repeat(2000)}\n`);
+    expect(p).not.toContain('e'.repeat(2001));
+    expect(p).toContain('Work only inside the git worktree at /wt/c1.');
+    expect(p).toContain('Never write the text __RESULT__');
+    expect(p).toContain('Edit files only under these paths: src/**');
+    expect(pr.fixPrompt(o, { id: 'h1', statement: 'Cache.' }, { exitCode: 1 }, '/wt', '/it', 1, 3)).toContain('- detail: (none)');
+  });
+
+  it('no prompt carries the hidden baseline, script path or grader mount', () => {
+    const h = sampleOrder('/abs/repo', {
+      baseline: { dev: 187, hidden: 733.4417, devSpread: 0 },
+      hidden_eval: { script: 'hidden/zq-secret-eval.sh', repeats: 1 },
+    });
+    const outs = [
+      pr.composeQuestion(h, '/home/f/orders/x/worktrees/base', [
+        { id: 'c1', at, hypothesis: 'Cache.', outcome: 'rejected_at_gate' },
+        { id: 'c2', at, hypothesis: 'Batch.', outcome: 'dev_miss', devMedian: 150 },
+      ]),
+      pr.buildPrompt(h, { id: 'h1', statement: 'Cache.' }, '/wt/c1', '/it'),
+      pr.fixPrompt(h, { id: 'h1', statement: 'Cache.' }, { exitCode: 1, stderrExcerpt: 'boom' }, '/wt/c1', '/it', 1, 3),
+      pr.replicationPrompt(h, 'Cache the index.', '/wt/c1r', '/it'),
+    ];
+    for (const out of outs) {
+      expect(out).not.toContain('733.4417');
+      expect(out).not.toContain('733');
+      expect(out).not.toContain('zq-secret-eval');
+      expect(out).not.toContain('hidden/');
+      expect(out).not.toContain('/grader-');
+    }
   });
 });

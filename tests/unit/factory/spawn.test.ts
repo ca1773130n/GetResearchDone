@@ -27,19 +27,21 @@ describe('tokensFrom', () => {
 
 describe('createMeteredSpawn', () => {
   function meter(budget: number, result: () => SchedulerSpawnResult, seen: SpawnOpts[] = [], warnings: string[] = []) {
+    const calls = { n: 0 };
     const orderDir = tmpDir('grd-factory-od-');
     const m = sp.createMeteredSpawn({
-      scheduler: { spawn: async (_p, o) => { seen.push(o); return result(); } },
+      scheduler: { spawn: async (_p, o) => { calls.n++; seen.push(o); return result(); } },
       orderDir, budgetTokens: budget, warn: (w) => { warnings.push(w); },
     });
-    return { m, orderDir, fn: m.spawnFn((a) => (a === 'grd-factory-builder' ? '/wt/c1' : '/line'), () => 'c1') };
+    return { m, orderDir, calls, fn: m.spawnFn((a) => (a === 'grd-factory-builder' ? '/wt/c1' : '/line'), () => 'c1') };
   }
 
   it('logs every spawn and refuses the next one once the budget is spent', async () => {
-    const { m, orderDir, fn } = meter(1500, () => res());
+    const { m, orderDir, calls, fn } = meter(1500, () => res());
     await fn('p', 'grd-hypothesizer');
     await fn('p', 'grd-factory-builder');
     await expect(fn('p', 'grd-knowledge-miner')).rejects.toThrow(/token budget spent \(2000 of 1500\)/);
+    expect(calls.n).toBe(2); // the refused spawn never reached the scheduler
     expect(m.spent()).toBe(2000);
     const rows = String(fs.readFileSync(path.join(orderDir, 'spend.jsonl'), 'utf8')).trim().split('\n');
     expect(rows.map((r: string) => JSON.parse(r).agent)).toEqual(['grd-hypothesizer', 'grd-factory-builder']);
