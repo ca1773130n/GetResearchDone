@@ -145,6 +145,29 @@ export interface ResearchOptions {
   // resolveInteractive INACTIVE — a concurrent thread NEVER pauses for a human (R1) — while still
   // routing through the AI-panel fallback inline when fallback:'panel'.
   concurrency?: number;
+  /**
+   * Seeds the thread's pinned metric contract at creation, so the FIRST design is already
+   * bound to it and pinThreadContract overwrites any drift. The research factory passes the
+   * decision rule from a human-approved work order.
+   */
+  contract?: MetricContract;
+  /** See DesignOverride. Absent = the grd-experiment-runner path, byte-identical. */
+  design?: DesignOverride;
+}
+
+/**
+ * Replaces the design station's agent and prompts — the initial design, the metric-absent
+ * redesign, and the debug fix. Everything after the station (parse, contract pin, run,
+ * verdict, learn) is unchanged. Used by the research factory, whose "experiment" is a code
+ * change in a worktree rather than a script.
+ */
+export interface DesignOverride {
+  agent: string;
+  prompt: (thread: ResearchThread, hyp: Hypothesis, iterDir: string) => string;
+  fixPrompt: (
+    hyp: Hypothesis, plan: ExperimentPlan, result: ExperimentResult,
+    iterDir: string, attempt: number, maxDepth: number,
+  ) => string;
 }
 
 export interface ResearchResult {
@@ -1283,7 +1306,9 @@ async function runLoop(
       thread.currentStation = 'design'; saveThread(cwd, thread);
       fs.mkdirSync(iterDir, { recursive: true });
       const pRes = await spawnAndParse(
-        spawn, buildExperimentPrompt(thread, hyp, iterDir), 'grd-experiment-runner',
+        spawn,
+        opts.design ? opts.design.prompt(thread, hyp, iterDir) : buildExperimentPrompt(thread, hyp, iterDir),
+        opts.design ? opts.design.agent : 'grd-experiment-runner',
         parsePlanOutput, spawnRetries,
         // Clear stale generated artifacts before each attempt so a failed attempt
         // can't leave a runnable script behind (the runner executes scriptPath).
@@ -1382,8 +1407,11 @@ async function runLoop(
       }
       incrementCounter('research.debug_retries_total');
       const dRes = await spawnAndParse(
-        spawn, buildDebugFixPrompt(hyp, plan, result, iterDir, attempt, debugDepth),
-        'grd-experiment-runner', parsePlanOutput, spawnRetries,
+        spawn,
+        opts.design
+          ? opts.design.fixPrompt(hyp, plan, result, iterDir, attempt, debugDepth)
+          : buildDebugFixPrompt(hyp, plan, result, iterDir, attempt, debugDepth),
+        opts.design ? opts.design.agent : 'grd-experiment-runner', parsePlanOutput, spawnRetries,
       );
       if (!dRes.value) {
         // Degrade, never amplify: a hard-failed/unparseable fix spawn stops the debug
@@ -1567,6 +1595,10 @@ async function runResearch(cwd: string, question: string, opts: ResearchOptions 
     modelProfile: String((config as { model_profile?: string }).model_profile || 'balanced'),
     tokenProfile: String((config as { token_profile?: string }).token_profile || 'balanced'),
   });
+  if (opts.contract) {
+    thread.contract = { ...opts.contract };
+    saveThread(cwd, thread);
+  }
   return runLoop(cwd, thread, opts, config, { execute: false, kg_write: false });
 }
 
