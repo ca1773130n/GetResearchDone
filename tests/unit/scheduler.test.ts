@@ -117,6 +117,18 @@ describe('backend adapters', () => {
       expect(args).toContain('opus');
       expect(args).toContain('--dangerously-skip-permissions');
     });
+    it('passes disallowedTools through as --disallowedTools', () => {
+      const args = ADAPTERS.claude.buildArgs('p', { disallowedTools: ['Bash', 'WebFetch'] });
+      const i = args.indexOf('--disallowedTools');
+      expect(i).toBeGreaterThan(-1);
+      expect(args.slice(i + 1, i + 3)).toEqual(['Bash', 'WebFetch']);
+      expect(args.slice(-2)).toEqual(['--output-format', 'json']);
+    });
+
+    it('omits --disallowedTools when none are given', () => {
+      expect(ADAPTERS.claude.buildArgs('p', {})).not.toContain('--disallowedTools');
+      expect(ADAPTERS.claude.buildArgs('p', { disallowedTools: [] })).not.toContain('--disallowedTools');
+    });
   });
   describe('QUOTA_EXHAUSTED_RE', () => {
     it('matches the exhaustion text providers actually print', () => {

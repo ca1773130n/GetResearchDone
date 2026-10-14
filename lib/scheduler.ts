@@ -138,6 +138,9 @@ const _claudeAdapter: BackendAdapter = {
       // can starve the idle watchdog (→ exit 143). See SpawnOpts.strictMcp.
       args.push('--strict-mcp-config');
     }
+    if (opts.disallowedTools && opts.disallowedTools.length > 0) {
+      args.push('--disallowedTools', ...opts.disallowedTools);
+    }
     if (opts.maxTurns) {
       args.push('--max-turns', String(opts.maxTurns));
     }
