@@ -57,8 +57,17 @@ describe('measure', () => {
   it('takes the median over repeats', () => {
     const outs = ['__RESULT__ {"lat": 30}', '__RESULT__ {"lat": 10}', '__RESULT__ {"lat": 20}'];
     let i = 0;
-    const m = sb.measure(ctxWith(() => outs[i++]), SANDBOX, '/wt', 'b', 3, 'lat', 'dev');
+    const runs: string[][] = [];
+    const m = sb.measure(ctxWith((_b, a) => { runs.push(a); return outs[i++]; }), SANDBOX, '/wt', 'b', 3, 'lat', 'dev');
     expect(m).toEqual(expect.objectContaining({ ok: true, values: [30, 10, 20], median: 20 }));
+    expect(runs).toHaveLength(3);
+    for (const a of runs) expect(a[a.indexOf('--network') + 1]).toBe('none');
+  });
+  it('passes the hidden mount through, readonly', () => {
+    const runs: string[][] = [];
+    sb.measure(ctxWith((_b, a) => { runs.push(a); return '__RESULT__ {"lat": 1}'; }), SANDBOX, '/wt', 'b', 1, 'lat', 'dev',
+      { src: '/vault/hidden', dst: '/grader-ab' });
+    expect(runs[0]).toContain('type=bind,src=/vault/hidden,dst=/grader-ab,readonly');
   });
   it('fails on a nonzero exit without further runs', () => {
     let runs = 0;
@@ -84,6 +93,37 @@ describe('container ledger', () => {
     sb.removeRecordedContainers(exec, ctx.ledgerDir);
     expect(calls).toEqual(names.map((n) => ['docker', 'rm', '-f', n]));
     expect(fs.existsSync(path.join(ctx.ledgerDir, 'containers.jsonl'))).toBe(false);
+  });
+});
+
+describe('container ledger write-ahead', () => {
+  const recorded = (dir: string): string[] =>
+    String(fs.readFileSync(path.join(dir, 'containers.jsonl'), 'utf8')).split('\n').filter(Boolean)
+      .map((l: string) => (JSON.parse(l) as { name: string }).name);
+  it('records the name before docker run starts', () => {
+    let ctx: SandboxCtx | null = null;
+    const seen: boolean[] = [];
+    ctx = ctxWith((_b, a) => {
+      const name = a[a.indexOf('--name') + 1];
+      seen.push(recorded((ctx as SandboxCtx).ledgerDir).includes(name));
+      return '__RESULT__ {"lat": 1}';
+    });
+    sb.measure(ctx, SANDBOX, '/wt', 'b', 2, 'lat', 'dev');
+    expect(seen).toEqual([true, true]);
+  });
+  it('keeps the name recorded when the run throws', () => {
+    let name = '';
+    const ctx = ctxWith((_b, a) => { name = a[a.indexOf('--name') + 1]; throw execFailure(1, 'boom'); });
+    sb.measure(ctx, SANDBOX, '/wt', 'b', 1, 'lat', 'dev');
+    expect(recorded(ctx.ledgerDir)).toEqual([name]);
+  });
+  it('skips a truncated last line, still removes valid names, and deletes the file', () => {
+    const dir = tmpDir('grd-factory-ledger-');
+    fs.writeFileSync(path.join(dir, 'containers.jsonl'), '{"name":"a"}\n{"name":"b"}\n{"name":"c', 'utf8');
+    const calls: string[][] = [];
+    sb.removeRecordedContainers((b, a) => { calls.push([b, ...a]); return ''; }, dir);
+    expect(calls).toEqual([['docker', 'rm', '-f', 'a'], ['docker', 'rm', '-f', 'b']]);
+    expect(fs.existsSync(path.join(dir, 'containers.jsonl'))).toBe(false);
   });
 });
 

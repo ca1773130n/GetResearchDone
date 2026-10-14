@@ -89,7 +89,8 @@ function removeRecordedContainers(exec: Exec, dir: string): void {
   const file = ledgerFile(dir);
   if (!fs.existsSync(file)) return;
   for (const line of String(fs.readFileSync(file, 'utf8')).split('\n').filter(Boolean)) {
-    const { name } = JSON.parse(line) as { name: string };
+    let name: string;
+    try { name = (JSON.parse(line) as { name: string }).name; } catch { continue; } // truncated by a crash mid-append
     try { exec('docker', ['rm', '-f', name], { timeout: 15000 }); } catch { /* --rm already removed it */ }
   }
   fs.rmSync(file, { force: true });
