@@ -44,13 +44,25 @@ interface DockerArgParams {
   user: string | null;
 }
 
-function buildDockerArgs(p: DockerArgParams): string[] {
+/**
+ * The hardening every GRD container gets, shared by the experiment runner and the research
+ * factory so a flag added here protects both: no network unless asked, capped memory, CPU
+ * and PIDs, no capabilities, no privilege escalation, no shared IPC, a read-only root with a
+ * scratch /tmp.
+ */
+function hardenedRunFlags(p: { network: string; memory: string; cpus: string }): string[] {
   return [
-    'run', '--rm', '--name', p.containerName,
     '--network', p.network,
     '--memory', p.memory, '--cpus', p.cpus, '--pids-limit', '256',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--ipc', 'none',
     '--read-only', '--tmpfs', '/tmp',
+  ];
+}
+
+function buildDockerArgs(p: DockerArgParams): string[] {
+  return [
+    'run', '--rm', '--name', p.containerName,
+    ...hardenedRunFlags(p),
     '--mount', `type=bind,src=${p.iterDir},dst=/work`, '-w', '/work',
     ...(p.user ? ['--user', p.user] : []),
     '--entrypoint', p.bin,
@@ -224,6 +236,7 @@ function selectRunner(cwd: string, opts: SelectOpts = {}): import('./runner').Ru
 }
 
 module.exports = {
-  validateImage, validateMemory, validateCpus, buildDockerArgs, readSandboxConfig,
+  validateImage, validateMemory, validateCpus, buildDockerArgs, hardenedRunFlags, MEMORY_RE,
+  readSandboxConfig,
   dockerAvailable, createDockerRunner, selectRunner,
 };
