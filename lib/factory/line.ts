@@ -70,6 +70,18 @@ const { createScheduler } = require('../scheduler') as {
 
 const MAX_BUILD_FAILURES = 3;
 
+/** The detail a restart stamps on a candidate whose run never finished. */
+const INTERRUPTED = 'interrupted by a crash or abort';
+
+/**
+ * Where agents work. Deliberately NOT under the order directory: builders run on the host with
+ * their worktree as cwd, and the hypothesizer with the research-loop dir as cwd, so anything under
+ * the order directory — the vault, and queries.jsonl with every measured hidden value — would be
+ * one `../` away from an agent that wanders or that follows an instruction planted in the repo it
+ * is editing. The no-mount rule covers containers; this covers the host.
+ */
+function workDir(home: string, id: string): string { return path.join(home, 'work', id); }
+
 /** The line's research state dir config, following BENCH_WORKDIR_CONFIG: unattended, nothing persisted. */
 const LINE_CONFIG: Readonly<Record<string, unknown>> = Object.freeze({
   research_gates: { experiment_execution: false, kg_write: false, interactive: { enabled: false } },
@@ -122,8 +134,12 @@ interface Current {
 
 interface Line {
   order: WorkOrder;
+  /** The order's private state: vault, queries, candidates, spend, containers, report. */
   od: string;
+  /** The agent-visible research-loop state dir, outside `od`. */
   lineDir: string;
+  /** The agent-visible worktree root, outside `od`. */
+  wtRoot: string;
   baseWt: string;
   exec: Exec;
   ctx: SandboxCtx;
@@ -156,6 +172,16 @@ function record(l: Line, e: Omit<CandidateEvent, 'at'>): void {
 }
 
 function history(l: Line): CandidateEvent[] { return l.ids.map((id) => l.byId.get(id) as CandidateEvent); }
+
+/**
+ * Gives every candidate whose run never finished an outcome. Run on entry, so a restart accounts
+ * for what the last run started, and again before the report, so no row in it is outcome-less.
+ */
+function reconcile(l: Line): void {
+  for (const e of history(l)) {
+    if (!e.outcome) record(l, { id: e.id, outcome: 'build_failed', detail: INTERRUPTED });
+  }
+}
 
 function better(a: number, b: number, cmp: Comparator, target: number): boolean {
   if (cmp === '<=' || cmp === '<') return a < b;
@@ -197,7 +223,7 @@ function allocate(l: Line, thread: ResearchThread): Current {
   }
   if (cur) finalize(l, cur);
   const id = `c${l.ids.length + 1}`;
-  const dir = path.join(l.od, 'worktrees', id);
+  const dir = path.join(l.wtRoot, id);
   // Recorded before anything can fail, so the candidate counts against the budget either way.
   record(l, { id, attempt: l.attempt, threadId: thread.id, iteration: thread.iteration });
   wt.addWorktree(l.exec, l.order.repo, dir, l.order.base);
@@ -269,7 +295,7 @@ async function trustGates(l: Line, cur: Current, spawnFn: FactorySpawnFn, metere
   const strategy = prompts.strategyNote(plan.procedure);
   record(l, { id: cur.id, strategy, devMedian: cur.devMedian });
 
-  const rdir = path.join(l.od, 'worktrees', `${cur.id}r`);
+  const rdir = path.join(l.wtRoot, `${cur.id}r`);
   let replica: number | null = null;
   try {
     wt.addWorktree(l.exec, o.repo, rdir, o.base);
@@ -346,8 +372,11 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   const order = loadOrder(home, id);
   if (!order.baseline) throw new Error(`order "${id}" has no baseline; save it through validate`);
   const baseline: Baseline = order.baseline;
+  // orderDir validates the id, so the work paths derived from it are safe to join.
   const od = orderDir(home, id);
-  const lineDir = path.join(od, 'line');
+  const work = workDir(home, id);
+  const lineDir = path.join(work, 'line');
+  const wtRoot = path.join(work, 'worktrees');
   fs.mkdirSync(path.join(lineDir, '.planning'), { recursive: true });
   fs.writeFileSync(path.join(lineDir, '.planning', 'config.json'), JSON.stringify(LINE_CONFIG, null, 2) + '\n');
   const host = deps.hostConfig || {};
@@ -356,23 +385,21 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
 
   // Crash recovery touches only what this order recorded: its own worktrees and containers.
   sb.removeRecordedContainers(exec, od);
-  wt.removeAllOwn(exec, order.repo, path.join(od, 'worktrees'));
+  wt.removeAllOwn(exec, order.repo, wtRoot);
   const { byId, ids } = readEvents(od);
   const l: Line = {
-    order, od, lineDir, baseWt: '', exec,
+    order, od, lineDir, wtRoot, baseWt: '', exec,
     ctx: { exec, ledgerDir: od, orderId: id, user: sb.hostUser(), timeoutMs: deps.timeoutMs ?? sb.DEFAULT_TIMEOUT_MS },
     byId, ids, current: null, builderCwd: lineDir, attempt: 0, now,
   };
-  for (const e of history(l)) {
-    if (!e.outcome) record(l, { id: e.id, outcome: 'build_failed', detail: 'interrupted by a crash or abort' });
-  }
+  reconcile(l);
   const begun = startedAt(od, now);
   const metered = createMeteredSpawn({ scheduler, orderDir: od, budgetTokens: order.budget.tokens, warn });
   const spawnFn = metered.spawnFn((agent) => (agent === BUILDER ? l.builderCwd : lineDir), () => (l.current ? l.current.id : null));
   const window = readResurveyConfig(lineDir).window;
   const rr = deps.runResearch || runResearch;
   const cleanup = (): void => {
-    wt.removeAllOwn(exec, order.repo, path.join(od, 'worktrees'));
+    wt.removeAllOwn(exec, order.repo, wtRoot);
     sb.removeRecordedContainers(exec, od);
   };
   const unregister = (deps.onAbort || defaultOnAbort)(cleanup);
@@ -389,16 +416,20 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
     if (now() - begun >= order.budget.wall_minutes * 60000) return 'budget_spent';
     if (gates.queriesUsed(od) >= order.budget.hidden_queries) return 'holdout_spent';
     if (buildFailures >= MAX_BUILD_FAILURES) return 'build_failures';
-    const done = history(l).filter((e) => e.outcome !== undefined);
+    // An interrupted candidate is a miss with no measurement, so three aborts would otherwise read
+    // as a plateau and wedge the order shut with its candidate budget unspent. It is not evidence
+    // about the question; only candidates this order actually judged are.
+    const done = history(l).filter((e) => e.outcome !== undefined && e.detail !== INTERRUPTED);
     return isPlateau(done, order.contract.comparator, order.contract.target, window, baseline.dev) ? 'plateau' : null;
   };
   try {
     if (!stop) {
-      l.baseWt = wt.addWorktree(exec, order.repo, path.join(od, 'worktrees', 'base'), order.base);
+      l.baseWt = wt.addWorktree(exec, order.repo, path.join(wtRoot, 'base'), order.base);
       for (;;) {
         stop = stopReason();
         if (stop) break;
         l.attempt += 1;
+        const allocatedBefore = l.ids.length;
         let result: ResearchResult | null = null;
         let error: string | null = null;
         const contract: MetricContract = { metricKey: order.contract.metric, comparator: order.contract.comparator, target: order.contract.target };
@@ -423,15 +454,25 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
           ?? (result && result.status !== 'exhausted' ? result.errorReason ?? `the research loop returned status ${result.status}` : undefined);
         if (cur) finalize(l, cur, reason);
         const budgetOut = metered.tokenCapEnforced() && metered.spent() >= order.budget.tokens;
-        const failed = cur ? l.byId.get(cur.id)?.outcome === 'build_failed' : reason !== undefined;
+        // An attempt that allocated no candidate made no progress, whatever it reported. Counting
+        // it stops a loop that would otherwise run to the wall clock recording nothing, rather than
+        // trusting an orchestrator invariant this module does not own.
+        const stalled = l.ids.length === allocatedBefore;
+        const failed = stalled || (cur ? l.byId.get(cur.id)?.outcome === 'build_failed' : reason !== undefined);
         buildFailures = failed && !budgetOut ? buildFailures + 1 : 0;
-        if (reason && !budgetOut) warnings.push(`attempt ${l.attempt}: ${reason}`);
+        const why = reason ?? (stalled
+          ? `the research loop returned status ${result ? result.status : 'none'} without starting a candidate`
+          : undefined);
+        if (why && !budgetOut) warn(`attempt ${l.attempt}: ${why}\n`);
       }
     }
   } finally {
     unregister();
     cleanup();
   }
+  // Docker vanishing after replication, or addWorktree throwing before l.current was set, both
+  // leave a row with no outcome. Close them here so the report is complete for its own run.
+  reconcile(l);
   const final = stop as StopReason;
   const reportPath = writeReport(od, {
     order, stop: final, prUrl: gate.prUrl, shipError: gate.shipError, manual: gate.manual,

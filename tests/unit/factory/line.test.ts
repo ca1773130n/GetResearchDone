@@ -15,6 +15,7 @@ const fx = require('./fixtures') as {
   tmpDir: (p: string) => string; git: (c: string, ...a: string[]) => string;
   makeRepo: (f: Record<string, string>) => string; fakeExec: (r: (a: string[]) => string, c?: string[][]) => Exec;
   mountedWorktree: (a: string[]) => string | null; containerCommand: (a: string[]) => string;
+  execFailure: (status: number, stderr: string, stdout?: string) => Error;
   sampleOrder: (r: string, o?: Partial<WorkOrder>) => WorkOrder;
   installOrder: (h: string, o: WorkOrder, s?: string) => string; worktreeCount: (r: string) => number;
 };
@@ -24,11 +25,12 @@ const PLAN = '__PLAN__ {"procedure":"Cache the search index in memory.","metricK
 const TAKE = '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
 
 type Builder = (prompt: string, cwd: string) => void;
-function scheduler(builder: Builder, prompts: string[], tokens = 1000) {
+function scheduler(builder: Builder, prompts: string[], tokens = 1000, cwds: string[] = []) {
   let n = 0;
   return {
     spawn: async (prompt: string, opts: SpawnOpts): Promise<SchedulerSpawnResult> => {
       prompts.push(prompt);
+      cwds.push(String(opts.cwd));
       let text = TAKE;
       if (opts.agentType === 'grd-hypothesizer') text = HYP(++n);
       if (opts.agentType === 'grd-factory-builder') { builder(prompt, String(opts.cwd)); text = PLAN; }
@@ -61,12 +63,18 @@ function world(over: Partial<WorkOrder> = {}) {
 async function run(w: ReturnType<typeof world>, builder: Builder, hidden: (fast: boolean) => number,
   extra: Partial<RunOrderDeps> = {}, tokens = 1000) {
   const prompts: string[] = [];
+  const cwds: string[] = [];
   const calls: string[][] = [];
   const r = await line.runOrder(w.home, w.order.id, {
-    exec: fx.fakeExec(docker(hidden), calls), scheduler: scheduler(builder, prompts, tokens),
+    exec: fx.fakeExec(docker(hidden), calls), scheduler: scheduler(builder, prompts, tokens, cwds),
     warn: () => undefined, onAbort: () => () => undefined, ...extra,
   });
-  return { r, prompts, calls, events: line.readEvents(w.od) };
+  return { r, prompts, cwds, calls, events: line.readEvents(w.od) };
+}
+
+/** Where agents are allowed to work: never the order directory, and never under it. */
+function workRoot(w: ReturnType<typeof world>): string {
+  return path.join(w.home, 'work', w.order.id);
 }
 
 describe('runOrder', () => {
@@ -150,6 +158,81 @@ describe('runOrder', () => {
     expect(r.stop).toBe('holdout_spent');
     expect(prompts).toEqual([]);
     expect(events.byId.get('c1')).toEqual(expect.objectContaining({ outcome: 'build_failed', detail: 'interrupted by a crash or abort' }));
+  });
+
+  it('keeps every agent working directory out of the order directory', async () => {
+    const w = world();
+    const { cwds } = await run(w, writeFast, () => 104.25);
+    const root = workRoot(w);
+    expect(cwds.length).toBeGreaterThan(3);
+    // The loop's own dir and a candidate's worktree, both under the work root.
+    expect(cwds).toContain(path.join(root, 'line'));
+    expect(cwds).toContain(path.join(root, 'worktrees', 'c1'));
+    for (const c of cwds) {
+      expect(c.startsWith(`${root}${path.sep}`)).toBe(true);
+      expect(c).not.toBe(w.od);
+      expect(c.startsWith(`${w.od}${path.sep}`)).toBe(false);
+    }
+    // The holdout and the per-query log stay where no agent cwd can reach them by walking up.
+    expect(fs.existsSync(path.join(w.od, 'vault', 'hidden', 'eval.sh'))).toBe(true);
+    expect(fs.existsSync(path.join(w.od, 'queries.jsonl'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'vault'))).toBe(false);
+  });
+
+  it('resumes after three interrupted candidates instead of calling it a plateau', async () => {
+    const w = world({ budget: { tokens: 1e9, candidates: 6, hidden_queries: 2, wall_minutes: 60 } });
+    fs.writeFileSync(path.join(w.od, 'candidates.jsonl'),
+      ['c1', 'c2', 'c3'].map((id, i) => JSON.stringify({ id, at: 't', attempt: i + 1 })).join('\n') + '\n');
+    const { r, prompts, events } = await run(w, writeFast, () => 104.25);
+    expect(r.stop).toBe('shipped');
+    expect(events.ids).toEqual(['c1', 'c2', 'c3', 'c4']);
+    expect(events.byId.get('c4')?.outcome).toBe('shipped');
+    for (const id of ['c1', 'c2', 'c3']) {
+      expect(events.byId.get(id)).toEqual(expect.objectContaining({ outcome: 'build_failed', detail: 'interrupted by a crash or abort' }));
+    }
+    // Closed on entry, so the resumed run knows what the aborted one already tried.
+    const question = prompts.find((p) => p.includes('Earlier candidates'));
+    for (const id of ['- c1:', '- c2:', '- c3:']) expect(question).toContain(id);
+  });
+
+  it('records a candidate before creating its worktree, so a failed start still counts', async () => {
+    const w = world({ budget: { tokens: 1e9, candidates: 1, hidden_queries: 2, wall_minutes: 60 } });
+    const inner = fx.fakeExec(docker(() => 104.25));
+    const exec: Exec = (bin, args, opts) => {
+      if (bin === 'git' && args[2] === 'worktree' && args[3] === 'add' && /[/\\]worktrees[/\\]c1$/.test(String(args[5]))) {
+        throw fx.execFailure(128, 'fatal: could not create work tree dir');
+      }
+      return inner(bin, args, opts);
+    };
+    const { r, events } = await run(w, writeFast, () => 104.25, { exec });
+    expect(events.ids).toEqual(['c1']);
+    expect(events.byId.get('c1')).toEqual(expect.objectContaining({ attempt: 1, iteration: 1, threadId: expect.any(String) }));
+    expect(r.candidates).toBe(1);
+    expect(r.stop).toBe('budget_spent');
+    // The row is closed before the report is written, so the report has no unfinished candidate.
+    expect(events.byId.get('c1')?.outcome).toBe('build_failed');
+    expect(String(fs.readFileSync(r.reportPath, 'utf8'))).not.toContain('unfinished');
+  });
+
+  it('stops after three attempts that start no candidate', async () => {
+    const w = world({ budget: { tokens: 1e9, candidates: 6, hidden_queries: 1, wall_minutes: 1 } });
+    const warns: string[] = [];
+    let attempts = 0;
+    // A monotonic clock: one tick per reading, so a run that fails to count stalled attempts
+    // reaches the one-minute wall cap in ~60 readings instead of spinning.
+    let clock = 0;
+    const { r, events } = await run(w, writeFast, () => 104.25, {
+      runResearch: async () => { attempts += 1; return { threadId: 't1', status: 'exhausted' as const, iterations: 0 }; },
+      warn: (m: string) => { warns.push(m); },
+      now: () => { clock += 1000; return clock; },
+    });
+    expect(attempts).toBe(3);
+    expect(r.stop).toBe('build_failures');
+    expect(r.candidates).toBe(0);
+    expect(events.ids).toEqual([]);
+    // Routed through warn, so an unattended run says on stderr why it is failing, and the report agrees.
+    expect(warns.filter((m) => m.includes('without starting a candidate'))).toHaveLength(3);
+    expect(String(fs.readFileSync(r.reportPath, 'utf8'))).toContain('attempt 1: the research loop returned status exhausted without starting a candidate');
   });
 
   it('removes every worktree when aborted mid-run', async () => {
