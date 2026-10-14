@@ -43,8 +43,9 @@ function removeAllOwn(exec: Exec, repo: string, root: string): void {
 /** Commits exactly `paths` on a new branch, so nothing outside the allowlist ever ships. */
 function commitCandidate(exec: Exec, dir: string, branch: string, paths: string[], message: string): void {
   exec('git', ['-C', dir, 'checkout', '-q', '-b', branch]);
-  exec('git', ['-C', dir, 'add', '--', ...paths]);
-  exec('git', ['-C', dir, 'commit', '-q', '-m', message]);
+  exec('git', ['-C', dir, '--literal-pathspecs', 'add', '--', ...paths]);
+  // Pass the paths to commit too: a bare commit ships everything in the index, including anything staged.
+  exec('git', ['-C', dir, '--literal-pathspecs', 'commit', '-q', '-m', message, '--', ...paths]);
 }
 
 module.exports = { addWorktree, untrackedPaths, restoreToSetupState, removeWorktree, removeAllOwn, commitCandidate };

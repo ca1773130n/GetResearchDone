@@ -69,4 +69,34 @@ describe('candidate worktrees', () => {
     w.commitCandidate(fx.realExec, dir, 'factory/o/c1', ['src/a.js'], 'factory: speed');
     expect(fx.git(repo, 'diff', '--name-only', 'main', 'factory/o/c1').trim()).toBe('src/a.js');
   });
+
+  it('commits only the given paths even when something else is staged', () => {
+    const repo = fx.makeRepo({ 'src/a.js': 'a', 'README.md': 'r' });
+    const dir = w.addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'c1'), 'main');
+    fs.writeFileSync(path.join(dir, 'src/a.js'), 'fast');
+    fs.writeFileSync(path.join(dir, 'stray.log'), 'noise');
+    fx.git(dir, 'add', 'stray.log');
+    w.commitCandidate(fx.realExec, dir, 'factory/o/c2', ['src/a.js'], 'factory: speed');
+    expect(fx.git(repo, 'diff', '--name-only', 'main', 'factory/o/c2').trim()).toBe('src/a.js');
+  });
+
+  it('matches an allowlisted path literally, not as a glob', () => {
+    const repo = fx.makeRepo({ 'lit*.txt': 'a', 'litX.txt': 'b' });
+    const dir = w.addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'c1'), 'main');
+    fs.writeFileSync(path.join(dir, 'lit*.txt'), 'changed');
+    fs.writeFileSync(path.join(dir, 'litX.txt'), 'changed');
+    w.commitCandidate(fx.realExec, dir, 'factory/o/c3', ['lit*.txt'], 'factory: literal');
+    expect(fx.git(repo, 'diff', '--name-only', 'main', 'factory/o/c3').trim()).toBe('lit*.txt');
+  });
+
+  it('removes only worktrees under root, never one created outside it', () => {
+    const repo = fx.makeRepo({ 'src/a.js': 'a' });
+    const root = fx.tmpDir('grd-factory-wt-');
+    w.addWorktree(fx.realExec, repo, path.join(root, 'c1'), 'main');
+    const outside = w.addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'other'), 'main');
+    w.removeAllOwn(fx.realExec, repo, root);
+    expect(fs.existsSync(outside)).toBe(true);
+    expect(fx.worktreeCount(repo)).toBe(2);
+  });
 });
+
