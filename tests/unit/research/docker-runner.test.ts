@@ -294,3 +294,28 @@ describe('selectRunner', () => {
     expect(warnings.join('')).toBe('');
   });
 });
+
+describe('hardenedRunFlags', () => {
+  const { hardenedRunFlags, buildDockerArgs, MEMORY_RE } = require('../../../lib/research/docker-runner') as {
+    hardenedRunFlags: (p: { network: string; memory: string; cpus: string }) => string[];
+    buildDockerArgs: (p: Record<string, unknown>) => string[];
+    MEMORY_RE: RegExp;
+  };
+  it('is exactly the hardening block buildDockerArgs uses', () => {
+    const flags = hardenedRunFlags({ network: 'none', memory: '512m', cpus: '1' });
+    expect(flags).toEqual([
+      '--network', 'none', '--memory', '512m', '--cpus', '1', '--pids-limit', '256',
+      '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--ipc', 'none',
+      '--read-only', '--tmpfs', '/tmp',
+    ]);
+    const args = buildDockerArgs({
+      containerName: 'c', iterDir: '/it', scriptBasename: 'run.sh', bin: 'bash',
+      image: 'bash:5', memory: '512m', cpus: '1', network: 'none', user: null,
+    });
+    expect(args.slice(4, 4 + flags.length)).toEqual(flags);
+  });
+  it('exports the memory pattern', () => {
+    expect(MEMORY_RE.test('2g')).toBe(true);
+    expect(MEMORY_RE.test('lots')).toBe(false);
+  });
+});

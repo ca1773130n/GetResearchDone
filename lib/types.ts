@@ -567,6 +567,14 @@ export interface SpawnOpts {
    */
   strictMcp?: boolean;
   /**
+   * Tools removed from the spawned agent's context. The claude adapter passes them as
+   * `--disallowedTools`, which removes a tool outright, so it holds under
+   * --dangerously-skip-permissions (that flag only skips prompts for tools that exist).
+   * Other adapters have no equivalent and ignore it; callers that depend on the
+   * restriction check SchedulerSpawnResult.backend and warn.
+   */
+  disallowedTools?: string[];
+  /**
    * Reasoning effort for this spawn. Threaded to the backend CLI
    * (claude `--effort`, codex `model_reasoning_effort`). Falls back to the
    * GRD_EFFORT env carrier when unset. See lib/ultracode.ts.

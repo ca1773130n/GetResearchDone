@@ -2466,3 +2466,76 @@ describe('thread-level metric contract pin (GRD-Bench dedup-precision-gap, 2026-
     fs.rmSync(cwd, { recursive: true, force: true });
   });
 });
+
+describe('factory seams: the contract and design options', () => {
+  const HYP = '__HYPOTHESIS__ {"statement":"h","rationale":"r","predictedOutcome":"p","refutationCondition":"if the mechanism is absent the effect disappears / amplifying it makes the effect worse"}';
+  const TAKE = '__TAKEAWAY__ {"kind":"domain_fact","content":"c","confidence":0.6,"evidence":"e","failureClass":"none"}';
+  const plan = (key: string, cmp: string, target: number) =>
+    `__PLAN__ {"procedure":"p","metricKey":"${key}","comparator":"${cmp}","target":${target},"language":"shell","scriptPath":"experiments/x/run.sh"}`;
+  function recorder(calls: Array<{ prompt: string; agent: string }>, designReply: string) {
+    return async (prompt: string, agent: string): Promise<string> => {
+      calls.push({ prompt, agent });
+      if (agent === 'grd-hypothesizer') return HYP;
+      if (agent === 'grd-knowledge-miner') return TAKE;
+      return designReply;
+    };
+  }
+  const result = (metrics: Record<string, number>, exitCode = 0) => ({
+    metrics, exitCode, runner: 'subprocess', durationMs: 1, stdoutExcerpt: '',
+    stderrExcerpt: exitCode === 0 ? undefined : 'boom', failureClass: exitCode === 0 ? 'none' : 'H4',
+  });
+
+  it('seeds the pinned contract, so the first design is judged on it', async () => {
+    const cwd = tmp();
+    const calls: Array<{ prompt: string; agent: string }> = [];
+    const res = await runResearch(cwd, 'Is p95 under 120?', {
+      maxIterations: 1, noGates: true,
+      contract: { metricKey: 'latency_p95_ms', comparator: '<=', target: 120 },
+      spawn: recorder(calls, plan('accuracy', '>=', 0.8)),
+      runner: { run: () => result({ latency_p95_ms: 100, accuracy: 0.1 }) },
+    });
+    // Unseeded, the design's own `accuracy >= 0.8` would refute on 0.1.
+    expect(res.status).toBe('supported');
+    const p = JSON.parse(fs.readFileSync(
+      path.join(cwd, '.planning', 'research', 'threads', res.threadId, 'experiments', '1', 'plan.json'), 'utf8'));
+    expect([p.metricKey, p.comparator, p.target]).toEqual(['latency_p95_ms', '<=', 120]);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('routes the design station through design.agent and design.prompt', async () => {
+    const cwd = tmp();
+    const calls: Array<{ prompt: string; agent: string }> = [];
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 1, noGates: true,
+      design: {
+        agent: 'grd-factory-builder',
+        prompt: (_t: unknown, hyp: { id: string }) => `BUILD:${hyp.id}`,
+        fixPrompt: () => 'FIX',
+      },
+      spawn: recorder(calls, plan('accuracy', '>=', 0.8)),
+      runner: { run: () => result({ accuracy: 0.9 }) },
+    });
+    expect(calls).toContainEqual({ prompt: 'BUILD:h1', agent: 'grd-factory-builder' });
+    expect(calls.some((c) => c.agent === 'grd-experiment-runner')).toBe(false);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('routes the debug fix through design.fixPrompt', async () => {
+    const cwd = tmp();
+    fs.writeFileSync(path.join(cwd, '.planning', 'config.json'), JSON.stringify({ research_max_debug_depth: 1 }));
+    const calls: Array<{ prompt: string; agent: string }> = [];
+    let runs = 0;
+    await runResearch(cwd, 'Does X help?', {
+      maxIterations: 1, noGates: true,
+      design: {
+        agent: 'grd-factory-builder',
+        prompt: () => 'BUILD',
+        fixPrompt: (_h: unknown, _p: unknown, r: { stderrExcerpt?: string }, _d: unknown, attempt: number) => `FIX:${attempt}:${r.stderrExcerpt}`,
+      },
+      spawn: recorder(calls, plan('accuracy', '>=', 0.8)),
+      runner: { run: () => (++runs === 1 ? result({}, 1) : result({ accuracy: 0.9 })) },
+    });
+    expect(calls).toContainEqual({ prompt: 'FIX:1:boom', agent: 'grd-factory-builder' });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+});

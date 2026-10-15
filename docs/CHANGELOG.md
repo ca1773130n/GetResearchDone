@@ -6,6 +6,30 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Added
+- **Research factory** (`lib/factory/`, `gd factory scan|validate|save|run|status`,
+  `/grd:factory`, `agents/grd-factory-builder.md`). An interview writes a work order
+  (objective, metric contract, editable globs, dev and hidden evaluations, budget);
+  `gd factory run` then builds one patch per hypothesis in its own git worktree, runs
+  every command that executes candidate code in a hardened Docker container, and
+  ships the first patch that meets the contract, replicates in a fresh blind build
+  and clears the hidden evaluation, as a PR with its evidence. The hidden evaluation
+  never enters a prompt and its queries are capped and logged write-ahead. Stops:
+  shipped, budget spent, holdout spent, plateau, plus hidden-evaluation, builder and
+  Docker failures. Agent-facing state lives in `$GRD_FACTORY_HOME/work/<id>`,
+  order-private state in `$GRD_FACTORY_HOME/orders/<id>` (default home `~/.grd/factory`).
+  Known limit: takeaways are shared across candidates, so an evaluator bypass found by
+  one can reach later ones. See `docs/superpowers/specs/2026-09-18-research-factory-design.md`.
+- **`SpawnOpts.disallowedTools`** (`lib/scheduler.ts`). Loop agents are spawned with
+  `--dangerously-skip-permissions` and every tool, and the `tools:` line in
+  `agents/*.md` is never applied to them, so an agent definition could not remove a tool.
+  This option passes `--disallowedTools` on the claude backend, and the factory builder
+  uses it to lose every tool that would hand back a shell (`Bash`, `BashOutput`,
+  `KillShell` and `Task`, which spawns a subagent that has one) or reach the network
+  (`WebFetch`, `WebSearch`), plus `NotebookEdit`. Other backends ignore it. That the flag
+  removes the tool in practice has not been observed live.
+- **`contract` and `design` options on the research loop** (`lib/research/orchestrator.ts`):
+  a caller can seed a thread's pinned metric contract and replace the design station.
+  Both default to absent, which leaves the loop unchanged.
 - **npm publishing via GitHub Actions OIDC trusted publishing**
   (`.github/workflows/npm-publish.yml`) — fires when a GitHub release is
   published (or on `workflow_dispatch`), verifies `package.json` matches the

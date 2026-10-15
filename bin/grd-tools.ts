@@ -2388,6 +2388,26 @@ async function routeCommand(
       );
       return;
     }
+    case 'factory': {
+      const f = require('../lib/factory/cli') as {
+        cmdFactoryScan: (c: string, r: string, raw: boolean) => never;
+        cmdFactoryValidate: (c: string, id: string, raw: boolean) => never;
+        cmdFactorySave: (c: string, id: string, raw: boolean) => never;
+        cmdFactoryRun: (c: string, id: string, raw: boolean) => Promise<never>;
+        cmdFactoryStatus: (c: string, id: string | undefined, raw: boolean) => never;
+      };
+      const sub: string = args[1];
+      validateSubcommand(sub, ['scan', 'validate', 'save', 'run', 'status'], 'factory');
+      const target: string | undefined = args[2];
+      if (sub === 'status') { f.cmdFactoryStatus(cwd, target, raw); return; }
+      if (!target) error(`factory ${sub}: ${sub === 'scan' ? '<repo>' : '<order-id>'} is required`);
+      const t = target as string;
+      if (sub === 'scan') { f.cmdFactoryScan(cwd, t, raw); return; }
+      if (sub === 'validate') { f.cmdFactoryValidate(cwd, t, raw); return; }
+      if (sub === 'save') { f.cmdFactorySave(cwd, t, raw); return; }
+      await f.cmdFactoryRun(cwd, t, raw);
+      return;
+    }
     case 'ingest': {
       const { cmdIngest } = require('../lib/research/cli-kb') as {
         cmdIngest: (cwd: string, p: string, raw: boolean, deps?: Record<string, unknown>, pdfBody?: boolean) => Promise<never>;
@@ -2664,6 +2684,7 @@ async function routeCommand(
         'deps-risk',
         'import-knowhow',
         'bench',
+        'factory',
       ];
       const suggestion: string | null = findClosestCommand(command, TOP_LEVEL_COMMANDS as string[]);
       const hint: string = suggestion ? ` Did you mean "${suggestion}"?` : '';

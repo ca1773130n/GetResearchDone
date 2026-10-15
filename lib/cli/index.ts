@@ -117,6 +117,7 @@ const TOOL_COMMANDS = new Set([
   'retrieve',
   'accounts',
   'bench',
+  'factory',
 ]);
 
 /**

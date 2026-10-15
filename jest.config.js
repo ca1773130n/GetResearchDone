@@ -94,6 +94,21 @@ module.exports = {
     './lib/research/bench-calibration.ts': { lines: 95, functions: 100, branches: 90 },
     './lib/research/bench.ts': { lines: 95, functions: 100, branches: 85 },
     './lib/research/reconstructability.ts': { lines: 95, functions: 100, branches: 90 },
+
+    // === Research factory (2026-09-18) ===
+    // Measured on tests/unit/factory, each value rounded down to the nearest 5.
+    './lib/factory/cli.ts': { lines: 95, functions: 100, branches: 60 },
+    './lib/factory/exec.ts': { lines: 100, functions: 100, branches: 100 },
+    './lib/factory/gates.ts': { lines: 100, functions: 100, branches: 90 },
+    './lib/factory/intake.ts': { lines: 95, functions: 100, branches: 70 },
+    './lib/factory/jsonl.ts': { lines: 100, functions: 100, branches: 100 },
+    './lib/factory/line.ts': { lines: 90, functions: 85, branches: 70 },
+    './lib/factory/order.ts': { lines: 100, functions: 100, branches: 85 },
+    './lib/factory/prompts.ts': { lines: 90, functions: 100, branches: 75 },
+    './lib/factory/sandbox.ts': { lines: 95, functions: 100, branches: 75 },
+    './lib/factory/ship.ts': { lines: 100, functions: 100, branches: 70 },
+    './lib/factory/spawn.ts': { lines: 100, functions: 100, branches: 90 },
+    './lib/factory/worktrees.ts': { lines: 100, functions: 100, branches: 100 },
   },
   testTimeout: 15000,
 };
