@@ -202,8 +202,16 @@ setup-node step (it injects a placeholder token and OIDC silently loses).
   tool, and only on the claude backend (the factory builder runs without `Bash`,
   `BashOutput`, `KillShell`, `Task`, `WebFetch`, `WebSearch` or `NotebookEdit` —
   a denylist, so revisit `BUILDER_DENIED` in `lib/factory/spawn.ts` when Claude
-  Code's tool set changes). That `--disallowedTools` takes effect in practice has
-  not been observed.
+  Code's tool set changes).
+- **`disallowedTools` does nothing under `--dangerously-skip-permissions`.** Measured
+  against claude 2.1.300 on 2026-10-16: with that flag, `--disallowedTools Bash` still
+  ran a shell command and `--allowedTools Read Write` did not stop one either; without
+  it, the denylist was honoured. The skip flag permits every tool and overrides any
+  filter. So a spawn that needs a restriction sets `SpawnOpts.permissionMode`, which
+  makes the adapter pass `--permission-mode` *instead of* the skip flag — the builder
+  uses `acceptEdits`, the one mode where file edits still apply unprompted while a
+  denied tool is genuinely absent. Dropping the skip flag without a mode blocks `Write`
+  as well, so the builder cannot simply go without.
 - **Never create test/scratch artifacts in the repo.** Run live `gd research` /
   smoke tests in a throwaway `mktemp -d` (with its own `.planning/`); they
   otherwise drop `.planning/research/threads/`, a root `KNOWHOW.md`, and mutate

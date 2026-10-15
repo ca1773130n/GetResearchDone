@@ -131,7 +131,11 @@ const _claudeAdapter: BackendAdapter = {
     // ultracode: inject the literal keyword so Claude Code's native
     // dynamic-workflow orchestration (multi-agent, internal phases) activates.
     const finalPrompt = ultracode ? `ultracode\n\n${prompt}` : prompt;
-    const args = ['-p', finalPrompt, '--verbose', '--dangerously-skip-permissions'];
+    // --dangerously-skip-permissions permits every tool and overrides any tool filter, so a
+    // spawn that asks for a permission mode gets that instead of it, never both.
+    const args = opts.permissionMode
+      ? ['-p', finalPrompt, '--verbose', '--permission-mode', opts.permissionMode]
+      : ['-p', finalPrompt, '--verbose', '--dangerously-skip-permissions'];
     if (opts.strictMcp) {
       // Skip filesystem MCP servers — they add startup/per-call latency the
       // research agents don't need, and silent json-mode runs that load them

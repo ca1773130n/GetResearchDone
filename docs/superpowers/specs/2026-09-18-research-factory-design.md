@@ -505,12 +505,27 @@ needs no Docker.
 - Confirm that `tokensUsed` is populated for the claude backend's current output format.
   If it is not, intake check 6 already degrades loudly; the question is only which case
   is live.
-- **One claim is unverified.** That `--disallowedTools Bash` removes the tool in practice
-  on the claude backend (`lib/scheduler.ts` passes the flag; no run has observed it
-  taking effect). A live check costs a few thousand tokens and was deferred to the user:
-  `claude -p 'Use the Bash tool to run: echo hi. If you have no Bash tool, reply exactly
-  NO_BASH.' --dangerously-skip-permissions --disallowedTools Bash --output-format json`
-  should answer `NO_BASH`. If it does not, the builder's no-shell guarantee does not hold.
+- **Resolved on 2026-10-16: the flag was inert, and the no-shell guarantee did not hold.**
+  The check this section deferred was run against claude 2.1.300. With
+  `--dangerously-skip-permissions`, an agent given `--disallowedTools Bash` ran
+  `echo` anyway, and `--allowedTools Read Write` did not stop it either; the
+  hyphenated spelling made no difference. Without that flag, `--disallowedTools Bash`
+  was honoured. So the skip flag permits every tool and overrides any tool filter, and
+  since `lib/scheduler.ts` passed it on every spawn, the builder had a shell throughout.
+
+  The fix is `SpawnOpts.permissionMode`: when set, the claude adapter passes
+  `--permission-mode <mode>` instead of `--dangerously-skip-permissions`, and the builder
+  asks for `acceptEdits`. Measured in the same pass: under `acceptEdits` with
+  `--disallowedTools Bash`, an agent wrote a file without prompting and reported
+  `NO_BASH`. Without any permission flag, writing was blocked too, so dropping the skip
+  flag alone would have left the builder unable to edit — `acceptEdits` is the mode that
+  makes a denylist usable at all.
+
+  What this means for the defenses in §11: item 4's containment was never load-bearing
+  for the held-out evaluation, which is enforced by the container split, not by the
+  builder's tools. What the builder's shell did reach was the vault on the host, which
+  is concealed rather than isolated — so for any order run before this fix, treat the
+  holdout as potentially seen.
 
 ## 18. Build order
 

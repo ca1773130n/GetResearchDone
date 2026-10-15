@@ -20,7 +20,11 @@ const BUILDER = 'grd-factory-builder';
  * It is a denylist, which means a tool Claude Code gains later is permitted by default:
  * REVISIT THIS LIST whenever Claude Code's tool set changes. An allowlist would be the better
  * shape, but it needs an `--allowedTools` option in the scheduler that every spawn path in the
- * product shares, and its effect would be exactly as unobserved as this flag's already is.
+ * product shares.
+ *
+ * The list only bites because the builder is spawned with `permissionMode: 'acceptEdits'`.
+ * Under the scheduler's default `--dangerously-skip-permissions` it was inert — measured, not
+ * assumed: see SpawnOpts.disallowedTools. Never spawn the builder without that mode.
  */
 const BUILDER_DENIED: string[] = ['Bash', 'Task', 'WebFetch', 'WebSearch', 'NotebookEdit', 'KillShell', 'BashOutput'];
 
@@ -90,7 +94,9 @@ function createMeteredSpawn(o: {
         const isBuilder = agentType === BUILDER;
         const r = await o.scheduler.spawn(prompt, {
           agentType, model: o.model, captureOutput: true, strictMcp: true, cwd: cwdFor(agentType),
-          ...(isBuilder ? { disallowedTools: BUILDER_DENIED } : {}),
+          // acceptEdits, not the default skip-permissions: that flag would permit every tool
+          // and the denylist below would do nothing at all. See SpawnOpts.permissionMode.
+          ...(isBuilder ? { disallowedTools: BUILDER_DENIED, permissionMode: 'acceptEdits' as const } : {}),
         });
         const tokens = tokensFrom(r);
         const row: SpendRecord = { agent: agentType, candidate: candidateFor(), tokens, backend: String(r.backend), at: new Date().toISOString() };
