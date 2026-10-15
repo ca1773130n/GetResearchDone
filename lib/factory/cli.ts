@@ -83,7 +83,10 @@ function cmdFactoryStatus(_cwd: string, id: string | undefined, raw: boolean, d:
   try { o = loadOrder(home, id); } catch (e) { return error(`factory status: ${(e as Error).message}`); }
   const od = orderDir(home, id);
   const statusFile = path.join(od, 'status.json');
-  const last = fs.existsSync(statusFile) ? JSON.parse(String(fs.readFileSync(statusFile, 'utf8'))) as { stop: string; prUrl: string | null } : null;
+  let last: { stop: string; prUrl: string | null } | null = null;
+  try {
+    if (fs.existsSync(statusFile)) last = JSON.parse(String(fs.readFileSync(statusFile, 'utf8'))) as { stop: string; prUrl: string | null };
+  } catch (e) { return error(`factory status: cannot read ${statusFile}: ${(e as Error).message}`); }
   const { byId, ids } = readEvents(od);
   const payload = {
     id, stop: last?.stop ?? null, prUrl: last?.prUrl ?? null,
