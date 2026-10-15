@@ -32,7 +32,7 @@ export interface ContainerSpec {
   network: 'none' | 'bridge';
   command: string;
   user: string | null;
-  hiddenMount?: { src: string; dst: string };
+  roMounts?: ReadonlyArray<{ src: string; dst: string }>;
 }
 
 function buildContainerArgs(s: ContainerSpec): string[] {
@@ -42,7 +42,7 @@ function buildContainerArgs(s: ContainerSpec): string[] {
     // The root filesystem is read-only; package managers need a writable home for caches.
     '--env', 'HOME=/tmp',
     '--mount', `type=bind,src=${s.worktree},dst=/work`, '-w', '/work',
-    ...(s.hiddenMount ? ['--mount', `type=bind,src=${s.hiddenMount.src},dst=${s.hiddenMount.dst},readonly`] : []),
+    ...(s.roMounts || []).flatMap((m) => ['--mount', `type=bind,src=${m.src},dst=${m.dst},readonly`]),
     ...(s.user ? ['--user', s.user] : []),
     '--entrypoint', 'sh',
     s.sandbox.image,
@@ -117,12 +117,12 @@ function spread(xs: number[]): number {
 /** Runs `command` `repeats` times with network off and takes the median of `metric`. */
 function measure(
   ctx: SandboxCtx, sandbox: SandboxSpec, worktree: string, command: string, repeats: number,
-  metric: string, label: string, hiddenMount?: { src: string; dst: string },
+  metric: string, label: string,
 ): MeasureResult {
   const values: number[] = [];
   let lastStdout = '';
   for (let i = 1; i <= repeats; i++) {
-    const r = runContainer(ctx, { worktree, sandbox, network: 'none', command, hiddenMount }, `${label}-${i}`);
+    const r = runContainer(ctx, { worktree, sandbox, network: 'none', command }, `${label}-${i}`);
     lastStdout = r.stdout;
     if (r.exitCode !== 0) {
       return {
@@ -142,7 +142,115 @@ function measure(
   return { ok: true, values, median: median(values), exitCode: 0, stdoutExcerpt: lastStdout.slice(0, 2000), stderrExcerpt: '' };
 }
 
+/** Where the scoring container sees the vault, and where the run container sees the inputs. */
+const GRADER_DIR = '/grader';
+const INPUTS_DIR = '/inputs';
+
+export interface OracleSpec {
+  /** The candidate's tree. The run step gets it read-write at /work; the score step never sees it. */
+  worktree: string;
+  /** The order's `hidden/` directory. Mounted read-only at /grader for the score step only. */
+  vault: string;
+  /** Order-private directory the output file is staged in for scoring. */
+  stageRoot: string;
+  /** Shell command for the run step, executed in the candidate's container. */
+  run: string;
+  /** Path of the scoring script, relative to `vault`. */
+  score: string;
+  /** Path the run step must write, relative to `worktree`. */
+  output: string;
+  /** Optional directory relative to `vault`, mounted read-only at /inputs for the run step. */
+  inputs?: string;
+}
+
+/** Which half of the split evaluation failed: the candidate's run, or the human's scoring script. */
+export interface OracleResult extends MeasureResult { failedPhase: 'run' | 'score' | null; }
+
+/**
+ * One held-out measurement, in two containers, so the candidate's code and the scoring script
+ * never share a filesystem.
+ *
+ * The run step executes the candidate in its own worktree with no part of the vault mounted
+ * except `inputs`, and must write `output`. The score step then runs in a container whose /work
+ * holds a copy of that one file and nothing else: no candidate code runs there, so reading
+ * /grader is not something a candidate can do. Only the metric crosses back.
+ *
+ * A run step that exits nonzero, or that exits zero without writing its output, is the
+ * candidate failing the held-out evaluation — not a broken evaluation — and `failedPhase`
+ * says which, so the caller can keep that distinction out of the one bit it reports.
+ */
+function measureOracle(
+  ctx: SandboxCtx, sandbox: SandboxSpec, spec: OracleSpec, repeats: number, metric: string, label: string,
+): OracleResult {
+  const values: number[] = [];
+  let lastStdout = '';
+  for (let i = 1; i <= repeats; i++) {
+    const run = runContainer(ctx, {
+      worktree: spec.worktree, sandbox, network: 'none', command: spec.run,
+      roMounts: spec.inputs === undefined ? [] : [{ src: path.join(spec.vault, spec.inputs), dst: INPUTS_DIR }],
+    }, `${label}-run-${i}`);
+    if (run.exitCode !== 0) {
+      return {
+        ok: false, values, median: null, exitCode: run.exitCode, failedPhase: 'run',
+        stdoutExcerpt: run.stdout.slice(0, 2000), stderrExcerpt: run.stderr.slice(0, 2000),
+      };
+    }
+    const produced = path.join(spec.worktree, spec.output);
+    let isFile: boolean;
+    try { isFile = (fs.statSync(produced) as { isFile: () => boolean }).isFile(); } catch { isFile = false; }
+    if (!isFile) {
+      return {
+        ok: false, values, median: null, exitCode: 0, failedPhase: 'run',
+        stdoutExcerpt: run.stdout.slice(0, 2000),
+        stderrExcerpt: `the run step exited 0 without writing a file at ${spec.output}`,
+      };
+    }
+    const stage = path.join(spec.stageRoot, `${label}-${i}`);
+    fs.rmSync(stage, { recursive: true, force: true });
+    fs.mkdirSync(stage, { recursive: true });
+    try {
+      // The output is whatever the candidate chose to write, so a copy that fails is the
+      // candidate failing the evaluation — never an exception that takes the order down.
+      try {
+        fs.copyFileSync(produced, path.join(stage, path.basename(spec.output)));
+      } catch (e) {
+        return {
+          ok: false, values, median: null, exitCode: 0, failedPhase: 'run',
+          stdoutExcerpt: run.stdout.slice(0, 2000),
+          stderrExcerpt: `${spec.output} could not be read back: ${(e as Error).message}`,
+        };
+      }
+      const score = runContainer(ctx, {
+        worktree: stage, sandbox, network: 'none', command: `sh ${GRADER_DIR}/${spec.score}`,
+        roMounts: [{ src: spec.vault, dst: GRADER_DIR }],
+      }, `${label}-score-${i}`);
+      lastStdout = score.stdout;
+      if (score.exitCode !== 0) {
+        return {
+          ok: false, values, median: null, exitCode: score.exitCode, failedPhase: 'score',
+          stdoutExcerpt: score.stdout.slice(0, 2000), stderrExcerpt: score.stderr.slice(0, 2000),
+        };
+      }
+      const v = parseMetricsLine(score.stdout)[metric];
+      if (typeof v !== 'number') {
+        return {
+          ok: false, values, median: null, exitCode: 0, failedPhase: 'score',
+          stdoutExcerpt: score.stdout.slice(0, 2000),
+          stderrExcerpt: `metric "${metric}" not printed as __RESULT__`,
+        };
+      }
+      values.push(v);
+    } finally {
+      fs.rmSync(stage, { recursive: true, force: true });
+    }
+  }
+  return {
+    ok: true, values, median: median(values), exitCode: 0, failedPhase: null,
+    stdoutExcerpt: lastStdout.slice(0, 2000), stderrExcerpt: '',
+  };
+}
+
 module.exports = {
-  DEFAULT_TIMEOUT_MS, buildContainerArgs, hostUser, dockerReady, runSetup, measure,
-  removeRecordedContainers, median, spread,
+  DEFAULT_TIMEOUT_MS, GRADER_DIR, INPUTS_DIR, buildContainerArgs, hostUser, dockerReady, runSetup,
+  measure, measureOracle, removeRecordedContainers, median, spread,
 };

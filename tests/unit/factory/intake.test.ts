@@ -13,6 +13,10 @@ const order = require('../../../lib/factory/order') as {
   readDraft: (h: string, id: string) => WorkOrder; saveOrder: (h: string, id: string) => string;
 };
 const fx = require('./fixtures') as {
+  HIDDEN_RUN: string; HIDDEN_OUTPUT: string;
+  isScoreStep: (a: string[]) => boolean; isHiddenRunStep: (a: string[]) => boolean;
+  writeOracleOutput: (a: string[], c?: string) => string;
+  mountedWorktree: (a: string[]) => string | null;
   tmpDir: (p: string) => string; makeRepo: (f: Record<string, string>) => string;
   sampleOrder: (repo: string, over?: Partial<WorkOrder>) => WorkOrder;
   fakeExec: (onRun: (a: string[]) => string, calls?: string[][]) => Exec;
@@ -57,13 +61,15 @@ describe('validateDraft', () => {
     const o = fx.sampleOrder(repo, { baseline: undefined, ...over });
     order.writeDraft(home, o);
     fs.mkdirSync(path.join(order.draftDir(home, o.id), 'hidden'));
-    fs.writeFileSync(path.join(order.draftDir(home, o.id), 'hidden', 'eval.sh'), 'echo hidden\n');
+    fs.writeFileSync(path.join(order.draftDir(home, o.id), 'hidden', 'score.sh'), 'echo hidden\n');
     return { repo, home, o };
   }
   const FILES = { 'src/search.js': 'slow', 'bench/run.js': '', 'package.json': '{}' };
+  /** The held-out run step writes its output and prints nothing; the scoring step prints the metric. */
   const answer = (dev: number, hidden: number) => (args: string[]) =>
-    fx.containerCommand(args).startsWith('sh /grader-')
-      ? `__RESULT__ {"latency_p95_ms": ${hidden}}` : `__RESULT__ {"latency_p95_ms": ${dev}}`;
+    fx.isHiddenRunStep(args) ? fx.writeOracleOutput(args)
+      : fx.isScoreStep(args) ? `__RESULT__ {"latency_p95_ms": ${hidden}}`
+        : `__RESULT__ {"latency_p95_ms": ${dev}}`;
 
   it('passes a draft whose base misses the target, records the baseline, and cleans up', () => {
     const d = draft(FILES);
@@ -120,8 +126,9 @@ describe('validateDraft', () => {
     const vals = [100, 190, 125];
     let i = 0;
     const r = intake.validateDraft(d.home, d.o.id, {
-      exec: fx.fakeExec((a) => (fx.containerCommand(a).startsWith('sh /grader-')
-        ? '__RESULT__ {"latency_p95_ms": 191}' : `__RESULT__ {"latency_p95_ms": ${vals[i++ % 3]}}`)),
+      exec: fx.fakeExec((a) => (fx.isHiddenRunStep(a) ? fx.writeOracleOutput(a)
+        : fx.isScoreStep(a) ? '__RESULT__ {"latency_p95_ms": 191}'
+          : `__RESULT__ {"latency_p95_ms": ${vals[i++ % 3]}}`)),
     });
     expect(r.noisy).toBe(true);
     expect(r.checks.find((c) => c.id === 'dev_eval')?.detail).toMatch(/too noisy to decide/);

@@ -105,7 +105,7 @@ module.exports = {
     './lib/factory/line.ts': { lines: 90, functions: 85, branches: 70 },
     './lib/factory/order.ts': { lines: 100, functions: 100, branches: 85 },
     './lib/factory/prompts.ts': { lines: 90, functions: 100, branches: 75 },
-    './lib/factory/sandbox.ts': { lines: 95, functions: 100, branches: 75 },
+    './lib/factory/sandbox.ts': { lines: 95, functions: 100, branches: 80 },
     './lib/factory/ship.ts': { lines: 100, functions: 100, branches: 70 },
     './lib/factory/spawn.ts': { lines: 100, functions: 100, branches: 90 },
     './lib/factory/worktrees.ts': { lines: 100, functions: 100, branches: 100 },

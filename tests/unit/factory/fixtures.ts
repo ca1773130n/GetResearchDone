@@ -5,6 +5,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 import type { Exec } from '../../../lib/factory/exec';
 import type { WorkOrder } from '../../../lib/factory/types';
+const { GRADER_DIR } = require('../../../lib/factory/sandbox') as { GRADER_DIR: string };
 
 function tmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix)) as string;
@@ -49,6 +50,27 @@ function containerCommand(args: string[]): string {
   return i >= 0 ? args[i + 1] : '';
 }
 
+/** The fixture order's held-out run step, and the file it must write, so tests can route both. */
+const HIDDEN_RUN = 'node bench/run.js --holdout';
+const HIDDEN_OUTPUT = '.holdout-out.json';
+
+/** True when these `docker run` args are the oracle's scoring step: no candidate code runs there. */
+function isScoreStep(args: string[]): boolean {
+  return containerCommand(args).startsWith(`sh ${GRADER_DIR}/`);
+}
+
+/** True when they are its run step: the candidate, executed against the held-out inputs. */
+function isHiddenRunStep(args: string[]): boolean {
+  return containerCommand(args) === HIDDEN_RUN;
+}
+
+/** What a real run step leaves behind — the output file — inside whatever it mounted at /work. */
+function writeOracleOutput(args: string[], content = 'candidate output\n'): string {
+  const wt = mountedWorktree(args);
+  if (wt !== null) fs.writeFileSync(path.join(wt, HIDDEN_OUTPUT), content);
+  return '';
+}
+
 /** A failing exec error, shaped like execFileSync's. */
 function execFailure(status: number, stderr: string, stdout = ''): Error {
   return Object.assign(new Error(stderr), { status, stderr, stdout });
@@ -82,7 +104,9 @@ function sampleOrder(repo: string, over: Partial<WorkOrder> = {}): WorkOrder {
     editable: ['src/**'],
     sandbox: { image: 'node:22-bookworm', setup: '', memory: '1g', cpus: 1 },
     dev_eval: { command: 'node bench/run.js', repeats: 1, files: ['bench/run.js', 'package.json'] },
-    hidden_eval: { script: 'hidden/eval.sh', repeats: 1 },
+    hidden_eval: {
+      run: HIDDEN_RUN, score: 'hidden/score.sh', output: HIDDEN_OUTPUT, repeats: 1,
+    },
     budget: { tokens: 1000000, candidates: 3, hidden_queries: 2, wall_minutes: 60 },
     baseline: { dev: 187, hidden: 191.37, devSpread: 0 },
     ...over,
@@ -90,11 +114,11 @@ function sampleOrder(repo: string, over: Partial<WorkOrder> = {}): WorkOrder {
 }
 
 /** Writes a saved order straight into `<home>/orders/<id>/vault`, as `save` would leave it. */
-function installOrder(home: string, order: WorkOrder, hiddenScript = 'echo HIDDEN_EVAL_MARKER\n'): string {
+function installOrder(home: string, order: WorkOrder, scoreScript = 'echo HIDDEN_EVAL_MARKER\n'): string {
   const od = path.join(home, 'orders', order.id);
   fs.mkdirSync(path.join(od, 'vault', 'hidden'), { recursive: true });
   fs.writeFileSync(path.join(od, 'vault', 'order.json'), JSON.stringify(order, null, 2));
-  fs.writeFileSync(path.join(od, 'vault', order.hidden_eval.script), hiddenScript);
+  fs.writeFileSync(path.join(od, 'vault', order.hidden_eval.score), scoreScript);
   return od;
 }
 
@@ -106,4 +130,5 @@ function worktreeCount(repo: string): number {
 module.exports = {
   tmpDir, git, makeRepo, realExec, mountedWorktree, containerCommand, execFailure,
   fakeExec, sampleOrder, installOrder, worktreeCount,
+  HIDDEN_RUN, HIDDEN_OUTPUT, isScoreStep, isHiddenRunStep, writeOracleOutput,
 };

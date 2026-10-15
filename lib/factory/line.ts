@@ -338,8 +338,9 @@ async function trustGates(l: Line, cur: Current, spawnFn: FactorySpawnFn, metere
   }
 
   // Commit before the hidden query, so the shipped tree is the one every earlier gate saw. The
-  // hidden evaluation runs this patch against a read-write /work; a candidate it then rejects is
-  // discarded with its worktree, and its branch with it.
+  // gate's run step executes this patch against a read-write /work and writes its output file
+  // there; a candidate the gate then rejects is discarded with its worktree, and its branch
+  // with it, so that output never reaches a commit or a later candidate.
   const changed = gates.changedPaths(l.exec, cur.worktree, o.base).filter((p) => !cur.artifacts.has(p));
   commitForShipping(l.exec, o, cur.id, strategy, changed, cur.worktree);
 

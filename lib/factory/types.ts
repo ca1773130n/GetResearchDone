@@ -6,8 +6,22 @@ export interface FactoryContract { metric: string; comparator: Comparator; targe
 export interface SandboxSpec { image: string; setup: string; memory: string; cpus: number; }
 /** `files`: repo-relative paths the dev evaluation itself reads or runs. Never editable. */
 export interface DevEvalSpec { command: string; repeats: number; files: string[]; }
-/** `script`: a path under `hidden/`, relative to the order's vault. */
-export interface HiddenEvalSpec { script: string; repeats: number; }
+/**
+ * The held-out evaluation, split in two so the candidate's code and the scoring script never
+ * share a filesystem.
+ *
+ * `run` executes in the candidate's own container and must write `output`. `score` — a path
+ * under `hidden/`, relative to the order's vault — then runs in a second container holding a
+ * copy of that one file, where no candidate code executes. `inputs`, when set, is a directory
+ * under `hidden/` and is the only part of the vault a candidate is ever given.
+ */
+export interface HiddenEvalSpec {
+  run: string;
+  score: string;
+  output: string;
+  inputs?: string;
+  repeats: number;
+}
 export interface Budget { tokens: number; candidates: number; hidden_queries: number; wall_minutes: number; }
 export interface Baseline { dev: number; hidden: number; devSpread: number; }
 

@@ -77,6 +77,12 @@ Prefer `ctx_*` MCP tools over Bash/Read for large output (`ctx_batch_execute`,
     `report.md`, `status.json`, `started.json`). The split is deliberate: the build
     prompt names the worktree, so the vault must not be an ancestor of it. The hidden
     evaluation never enters a prompt, and candidate code only runs in Docker.
+    The hidden gate is two containers (`measureOracle`): `hidden_eval.run` executes the
+    candidate in its worktree, then `hidden_eval.score` scores the one output file it
+    wrote in a container holding no candidate code, with the vault read-only at
+    `/grader`. So the scoring script and labels are never mounted where candidate code
+    runs; only `hidden_eval.inputs`, at `/inputs`, is. A run step that fails is the
+    candidate failing the gate; only a failing score step is `broken` and stops the order.
 - `commands/` — skill markdown. `agents/` — subagent definitions.
 - `tests/unit/` mirrors `lib/` (`lib/x.ts` → `tests/unit/x.test.ts`).
 - `.planning/` — project state (plans, roadmap, config, research threads).

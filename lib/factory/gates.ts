@@ -1,14 +1,13 @@
 'use strict';
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 import type { Exec } from './exec';
 import type { QueryRecord, WorkOrder } from './types';
 import type { SandboxCtx } from './sandbox';
 import type { Comparator } from '../research/types';
-const { measure } = require('./sandbox') as {
-  measure: (c: SandboxCtx, s: WorkOrder['sandbox'], wt: string, cmd: string, n: number, metric: string,
-    label: string, hidden?: { src: string; dst: string }) => import('./types').MeasureResult;
+const { measureOracle } = require('./sandbox') as {
+  measureOracle: (c: SandboxCtx, s: WorkOrder['sandbox'], spec: import('./sandbox').OracleSpec,
+    n: number, metric: string, label: string) => import('./sandbox').OracleResult;
 };
 const { untrackedPaths } = require('./worktrees') as { untrackedPaths: (e: Exec, dir: string) => string[] };
 const { compare } = require('../research/verdict') as {
@@ -98,8 +97,30 @@ function appendQuery(orderDir: string, rec: QueryRecord): void {
 }
 
 /**
+ * The `hidden_eval` paths an oracle run needs, with the `hidden/` prefix stripped.
+ * `vaultParent` is the directory holding `hidden/` — the order's vault when running a
+ * candidate, the draft directory when `validate` measures the baseline.
+ */
+function oracleSpec(order: WorkOrder, vaultParent: string, worktree: string): import('./sandbox').OracleSpec {
+  const h = order.hidden_eval;
+  return {
+    worktree,
+    vault: path.join(vaultParent, 'hidden'),
+    stageRoot: path.join(vaultParent, 'stage'),
+    run: h.run,
+    score: h.score.slice('hidden/'.length),
+    output: h.output,
+    ...(h.inputs === undefined ? {} : { inputs: h.inputs.slice('hidden/'.length) }),
+  };
+}
+
+/**
  * One hidden-evaluation query. The `started` row is written before anything runs. The result
  * is returned to the factory only and never shown to an agent.
+ *
+ * A candidate that crashes under the held-out evaluation, or that never writes its output, has
+ * failed it — the same one bit a metric miss earns. Only the human's scoring script failing
+ * counts as `broken`, because only that is a reason to stop the order.
  */
 function hiddenGate(
   ctx: SandboxCtx, order: WorkOrder, orderDir: string, candidate: string, worktree: string,
@@ -108,14 +129,15 @@ function hiddenGate(
     throw new Error('hidden gate: query budget already spent');
   }
   appendQuery(orderDir, { candidate, status: 'started', at: new Date().toISOString() });
-  const dst = `/grader-${crypto.randomBytes(4).toString('hex') as string}`;
-  const script = order.hidden_eval.script.slice('hidden/'.length);
-  const m = measure(
-    ctx, order.sandbox, worktree, `sh ${dst}/${script}`, order.hidden_eval.repeats,
-    order.contract.metric, `${candidate}-hidden`, { src: path.join(orderDir, 'vault', 'hidden'), dst },
+  const m = measureOracle(
+    ctx, order.sandbox, oracleSpec(order, path.join(orderDir, 'vault'), worktree),
+    order.hidden_eval.repeats, order.contract.metric, `${candidate}-hidden`,
   );
   const res = !m.ok || m.median === null
-    ? { outcome: 'broken' as const, median: null, detail: m.stderrExcerpt || `exit ${m.exitCode}` }
+    ? {
+      outcome: m.failedPhase === 'run' ? 'fail' as const : 'broken' as const,
+      median: null, detail: m.stderrExcerpt || `exit ${m.exitCode}`,
+    }
     : {
       outcome: compare(m.median, order.contract.comparator, order.contract.target) ? 'pass' as const : 'fail' as const,
       median: m.median, detail: '',
@@ -132,5 +154,5 @@ function hiddenGate(
 
 module.exports = {
   RESULT_MARKER, globToRegExp, matchesAny, changedPaths, scopeCheck, tamperScan,
-  readQueries, queriesUsed, hiddenGate,
+  readQueries, queriesUsed, oracleSpec, hiddenGate,
 };
