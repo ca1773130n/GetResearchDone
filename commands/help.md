@@ -47,6 +47,11 @@ RESEARCH — Survey, analyze, and compare state-of-the-art
                                 experiment, measure, learn, revise.
                                 Also: research resume <id> | status.
 
+  /grd:factory                  Research factory: an interview turns what you
+                                want improved into a work order; GRD then runs
+                                experiments until a patch passes a hidden
+                                evaluation, and opens a PR for you to merge.
+
   /grd:survey <topic>           Scan papers, repos, benchmarks for a
                                 research topic. Updates LANDSCAPE.md.
                                 Add `deep-research` for the parallel pass.
