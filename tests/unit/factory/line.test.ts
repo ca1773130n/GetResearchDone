@@ -164,6 +164,20 @@ describe('runOrder', () => {
     expect(String(fs.readFileSync(path.join(w.od, 'spend.jsonl'), 'utf8')).trim().split('\n')).toHaveLength(3);
   });
 
+  it('stops inside an attempt when the wall clock runs out, and says by how much in the report', async () => {
+    // One attempt may build several candidates, and the line only checks its stop conditions
+    // between attempts. A clock that jumps past the cap during the first build must still stop
+    // the next spawn, rather than letting the rest of the attempt run.
+    const w = world({ budget: { tokens: 1e9, candidates: 6, hidden_queries: 2, wall_minutes: 1 } });
+    let clock = 0;
+    const overrun: Builder = (p, cwd) => { clock = 10 * 60000; writeSlow(p, cwd); };
+    const { r } = await run(w, overrun, () => 104.25, { now: () => clock });
+    expect(r.stop).toBe('budget_spent');
+    expect(r.candidates).toBe(1);
+    expect(String(fs.readFileSync(r.reportPath, 'utf8'))).toContain(
+      'Wall clock: 10 of 1 minutes (checked before each agent spawn');
+  });
+
   it('sends an out-of-scope change back to the builder once, with the offending path', async () => {
     const w = world({ budget: { tokens: 1e9, candidates: 1, hidden_queries: 2, wall_minutes: 60 } });
     const { r, prompts } = await run(w, (p, cwd) => {

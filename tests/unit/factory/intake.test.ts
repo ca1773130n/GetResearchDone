@@ -46,6 +46,21 @@ describe('scanRepo', () => {
     expect(r.ecosystem).toBe('python');
     expect(r.proposedSetup).toBe('uv sync --frozen');
     expect(r.proposedMemory).toBe('768m');
+    expect(r.memoryWarning).toBeNull();
+  });
+
+  it('never proposes more than half of free memory, and warns when that is too little to work', () => {
+    // A 512 MB floor used to apply here, proposing 512m with only 400 MB free — more than the
+    // host had. The limit stays at half, and the shortfall is said rather than papered over.
+    const r = intake.scanRepo(fx.makeRepo({ 'package.json': '{}' }), 400 * 1024 * 1024);
+    expect(r.proposedMemory).toBe('200m');
+    expect(r.memoryWarning).toBe('only 400 MB is free, so the proposed limit is 200 MB — under the '
+      + '512 MB most setups need. Free memory and scan again, or raise the limit knowing a runaway '
+      + 'candidate could then exhaust the host.');
+  });
+
+  it('keeps a proposal Docker will accept even with almost nothing free', () => {
+    expect(intake.scanRepo(fx.makeRepo({ 'package.json': '{}' }), 4 * 1024 * 1024).proposedMemory).toBe('6m');
   });
 
   it('leaves image and setup to the interview for other ecosystems', () => {

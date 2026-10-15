@@ -51,7 +51,8 @@ const { BUILDER, BudgetSpentError, createMeteredSpawn } = require('./spawn') as 
   BUILDER: string;
   BudgetSpentError: new (m: string) => Error;
   createMeteredSpawn: (o: { scheduler: { spawn: (p: string, o: SpawnOpts) => Promise<SchedulerSpawnResult> };
-    orderDir: string; budgetTokens: number; warn: (m: string) => void }) => MeteredSpawn;
+    orderDir: string; budgetTokens: number; deadline?: number; now?: () => number;
+    warn: (m: string) => void }) => MeteredSpawn;
 };
 const { readJsonl } = require('./jsonl') as { readJsonl: <T>(f: string, warn?: (m: string) => void) => T[] };
 const { commitForShipping, discardBranch, shipCandidate, writeReport } = require('./ship') as {
@@ -314,7 +315,7 @@ async function trustGates(l: Line, cur: Current, spawnFn: FactorySpawnFn, metere
     }
   } catch (e) {
     if (e instanceof BudgetSpentError) {
-      finalize(l, cur, 'stopped: the token budget ran out during replication');
+      finalize(l, cur, `stopped: ${(e as Error).message} during replication`);
       return { ...CONTINUE, stop: 'budget_spent' };
     }
     record(l, { id: cur.id, detail: `replication failed: ${(e as Error).message}` });
@@ -421,7 +422,10 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   };
   reconcile(l);
   const begun = startedAt(od, now);
-  const metered = createMeteredSpawn({ scheduler, orderDir: od, budgetTokens: order.budget.tokens, warn });
+  const deadline = begun + order.budget.wall_minutes * 60000;
+  const metered = createMeteredSpawn({
+    scheduler, orderDir: od, budgetTokens: order.budget.tokens, deadline, now, warn,
+  });
   const spawnFn = metered.spawnFn((agent) => (agent === BUILDER ? l.builderCwd : lineDir), () => (l.current ? l.current.id : null));
   const window = readResurveyConfig(lineDir).window;
   const rr = deps.runResearch || runResearch;
@@ -440,7 +444,7 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
     if (!sb.dockerReady(exec)) return 'docker_unavailable';
     if (l.ids.length >= order.budget.candidates) return 'budget_spent';
     if (metered.spent() >= order.budget.tokens) return 'budget_spent';
-    if (now() - begun >= order.budget.wall_minutes * 60000) return 'budget_spent';
+    if (now() >= deadline) return 'budget_spent';
     if (gates.queriesUsed(od) >= order.budget.hidden_queries) return 'holdout_spent';
     if (buildFailures >= MAX_BUILD_FAILURES) return 'build_failures';
     // An interrupted candidate is a miss with no measurement, so three aborts would otherwise read
@@ -480,7 +484,8 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
         const reason = error
           ?? (result && result.status !== 'exhausted' ? result.errorReason ?? `the research loop returned status ${result.status}` : undefined);
         if (cur) finalize(l, cur, reason);
-        const budgetOut = metered.spent() >= order.budget.tokens;
+        // Either cap running out mid-attempt is the budget ending, not the builder failing.
+        const budgetOut = metered.spent() >= order.budget.tokens || now() >= deadline;
         // An attempt that allocated no candidate made no progress, whatever it reported. Counting
         // it stops a loop that would otherwise run to the wall clock recording nothing, rather than
         // trusting an orchestrator invariant this module does not own.
@@ -504,7 +509,9 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   const reportPath = writeReport(od, {
     order, stop: final, prUrl: gate.prUrl, shipError: gate.shipError, manual: gate.manual,
     events: history(l), tokens: metered.spent(), unmeteredSpawns: metered.unmeteredSpawns(),
-    hiddenQueries: gates.queriesUsed(od), warnings,
+    hiddenQueries: gates.queriesUsed(od),
+    // One decimal, so a run that overshot by seconds does not round back under the cap.
+    elapsedMinutes: Math.round((now() - begun) / 6000) / 10, warnings,
   });
   return { stop: final, reportPath, prUrl: gate.prUrl, candidates: l.ids.length, tokens: metered.spent(), hiddenQueries: gates.queriesUsed(od) };
 }

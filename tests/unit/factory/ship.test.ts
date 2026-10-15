@@ -133,22 +133,43 @@ describe('writeReport', () => {
     const p = ship.writeReport(od, {
       order: fx.sampleOrder('/abs/repo'), stop: 'plateau', prUrl: null, shipError: null, manual: null,
       events: [{ id: 'c1', at: 't', outcome: 'dev_miss', devMedian: 150 }],
-      tokens: 1234, unmeteredSpawns: 0, hiddenQueries: 0, warnings: ['a warning'],
+      tokens: 1234, unmeteredSpawns: 0, hiddenQueries: 0, elapsedMinutes: 12.5, warnings: ['a warning'],
     });
     const text = String(fs.readFileSync(p, 'utf8'));
     expect(text).toContain('**Stopped: plateau.**');
     expect(text).toContain('| c1 | dev_miss | 150 |');
     expect(text).toContain('a warning');
     expect(text).toContain('Tokens: 1234 of 1000000.');
+    expect(text).toContain('Wall clock: 12.5 of 60 minutes.');
     expect(JSON.parse(String(fs.readFileSync(path.join(od, 'status.json'), 'utf8'))).stop).toBe('plateau');
+  });
+
+  it('leaves no temporary file behind once the status is written', () => {
+    // The write is a rename from a sibling file; a leftover would mean it was not atomic.
+    const od = fx.tmpDir('grd-factory-od-');
+    ship.writeReport(od, {
+      order: fx.sampleOrder('/abs/repo'), stop: 'plateau', prUrl: null, shipError: null, manual: null,
+      events: [], tokens: 0, unmeteredSpawns: 0, hiddenQueries: 0, elapsedMinutes: 1, warnings: [],
+    });
+    expect((fs.readdirSync(od) as string[]).sort()).toEqual(['report.md', 'status.json']);
   });
 
   it('discloses that the counted spend is a floor when a backend reported nothing', () => {
     const od = fx.tmpDir('grd-factory-od-');
     const p = ship.writeReport(od, {
       order: fx.sampleOrder('/abs/repo'), stop: 'budget_spent', prUrl: null, shipError: null, manual: null,
-      events: [], tokens: 50, unmeteredSpawns: 2, hiddenQueries: 0, warnings: [],
+      events: [], tokens: 50, unmeteredSpawns: 2, hiddenQueries: 0, elapsedMinutes: 1, warnings: [],
     });
     expect(String(fs.readFileSync(p, 'utf8'))).toContain('2 spawn(s) reported no token count, so the real spend is higher');
+  });
+
+  it('says why the wall clock reads past its cap, instead of printing the number bare', () => {
+    const od = fx.tmpDir('grd-factory-od-');
+    const p = ship.writeReport(od, {
+      order: fx.sampleOrder('/abs/repo'), stop: 'budget_spent', prUrl: null, shipError: null, manual: null,
+      events: [], tokens: 0, unmeteredSpawns: 0, hiddenQueries: 0, elapsedMinutes: 63.2, warnings: [],
+    });
+    expect(String(fs.readFileSync(p, 'utf8'))).toContain(
+      'Wall clock: 63.2 of 60 minutes (checked before each agent spawn, so the last spawn and the evaluations after it ran past the cap).');
   });
 });

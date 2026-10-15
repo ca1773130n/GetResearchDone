@@ -37,7 +37,10 @@ from `factory status`. Write it after every step. The human never edits it.
    running every command, and stop only at step 8.
 2. **Environment.** Run `factory scan <repo>`. Offer `proposedImage` and `proposedSetup`.
    If the scan returned no image (ecosystem `unknown`), ask for the image and setup
-   command. Offer `proposedMemory`; if `freeMemoryMb` is under 2048, say so.
+   command. Offer `proposedMemory`; if `freeMemoryMb` is under 2048, say so. If
+   `memoryWarning` is set, show it verbatim before offering the limit, and do not raise the
+   limit above `proposedMemory` unless the human chooses to after reading it: that limit is
+   half of what is free, and more risks running the host out of memory.
 3. **Metric and dev evaluation.** Offer the scan's `measurements` that fit the goal. The
    command must print `__RESULT__ {"<metric>": <number>}`. If none fits, offer to write a
    dev evaluation script into the repo outside any path you will make editable, and
@@ -67,7 +70,7 @@ from `factory status`. Write it after every step. The human never edits it.
      code executes: `/work` holds a copy of the output file and nothing else, and `hidden/`
      is mounted read-only at `/grader`. It must print `__RESULT__ {"<metric>": <number>}`.
      Because `/work` has no repo, the script cannot use the project's installed
-     dependencies — only what the container image itself provides. It also parses bytes the
+     dependencies, only what the container image itself provides. It also parses bytes the
      candidate chose, so have it parse defensively and never execute what it reads.
    - `hidden_eval.inputs` — optional, a directory under `hidden/`, mounted read-only at
      `/inputs` for the run step. It is the one part of the vault a candidate is given, so put
