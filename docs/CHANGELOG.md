@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
 ### Added
 - **Research factory** (`lib/factory/`, `gd factory scan|validate|save|run|status`,
   `/grd:factory`, `agents/grd-factory-builder.md`). An interview writes a work order
