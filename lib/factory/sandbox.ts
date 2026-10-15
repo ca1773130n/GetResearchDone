@@ -167,6 +167,42 @@ export interface OracleSpec {
 export interface OracleResult extends MeasureResult { failedPhase: 'run' | 'score' | null; }
 
 /**
+ * The real path of the candidate's output file, or why it cannot be read back.
+ *
+ * The candidate chose what sits at this path, and the copy that follows runs on the host, not
+ * in the container — so a symlink here is resolved against the host's filesystem, not the
+ * container's. `lstat` refuses a symlinked output outright, and comparing real paths catches
+ * the same trick played on a parent directory. Both are needed: `lstat` on
+ * `<worktree>/out/result.json` follows a symlinked `out/` before it ever examines
+ * `result.json`.
+ *
+ * There is no check-then-copy race to close here: the run container has already exited, so
+ * nothing is left to swap the file afterwards.
+ */
+function outputToRead(worktree: string, output: string): { path: string } | { why: string } {
+  const produced = path.join(worktree, output);
+  const notWritten = `the run step exited 0 without writing a regular file at ${output}`;
+  let entry: { isFile: () => boolean };
+  try {
+    entry = fs.lstatSync(produced) as { isFile: () => boolean };
+  } catch (e) {
+    // Nothing there at all is the ordinary case: the candidate simply did not write it.
+    return { why: (e as { code?: string }).code === 'ENOENT' ? notWritten
+      : `${output} could not be examined: ${(e as Error).message}` };
+  }
+  if (!entry.isFile()) return { why: notWritten };
+  try {
+    const real = fs.realpathSync(produced) as string;
+    const root = fs.realpathSync(worktree) as string;
+    return real === root || real.startsWith(`${root}${path.sep}`)
+      ? { path: real }
+      : { why: `${output} resolves outside the worktree, so it was not read back` };
+  } catch (e) {
+    return { why: `${output} could not be examined: ${(e as Error).message}` };
+  }
+}
+
+/**
  * One held-out measurement, in two containers, so the candidate's code and the scoring script
  * never share a filesystem.
  *
@@ -195,14 +231,11 @@ function measureOracle(
         stdoutExcerpt: run.stdout.slice(0, 2000), stderrExcerpt: run.stderr.slice(0, 2000),
       };
     }
-    const produced = path.join(spec.worktree, spec.output);
-    let isFile: boolean;
-    try { isFile = (fs.statSync(produced) as { isFile: () => boolean }).isFile(); } catch { isFile = false; }
-    if (!isFile) {
+    const produced = outputToRead(spec.worktree, spec.output);
+    if ('why' in produced) {
       return {
         ok: false, values, median: null, exitCode: 0, failedPhase: 'run',
-        stdoutExcerpt: run.stdout.slice(0, 2000),
-        stderrExcerpt: `the run step exited 0 without writing a file at ${spec.output}`,
+        stdoutExcerpt: run.stdout.slice(0, 2000), stderrExcerpt: produced.why,
       };
     }
     const stage = path.join(spec.stageRoot, `${label}-${i}`);
@@ -212,7 +245,7 @@ function measureOracle(
       // The output is whatever the candidate chose to write, so a copy that fails is the
       // candidate failing the evaluation — never an exception that takes the order down.
       try {
-        fs.copyFileSync(produced, path.join(stage, path.basename(spec.output)));
+        fs.copyFileSync(produced.path, path.join(stage, path.basename(spec.output)));
       } catch (e) {
         return {
           ok: false, values, median: null, exitCode: 0, failedPhase: 'run',

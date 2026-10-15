@@ -17,7 +17,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   two containers: `hidden_eval.run` executes the candidate and writes one output file,
   then `hidden_eval.score` scores that file where no candidate code runs, so the scoring
   script and the labels are never mounted into a container a candidate executes in —
-  only `hidden_eval.inputs` is. Stops:
+  only `hidden_eval.inputs` is. That output file is read back on the host, so its path is
+  checked first: a symlinked output, or one reached through a symlinked parent directory,
+  resolves outside the worktree and is refused rather than followed. Stops:
   shipped, budget spent, holdout spent, plateau, plus hidden-evaluation, builder and
   Docker failures. Agent-facing state lives in `$GRD_FACTORY_HOME/work/<id>`,
   order-private state in `$GRD_FACTORY_HOME/orders/<id>` (default home `~/.grd/factory`).

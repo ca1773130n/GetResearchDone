@@ -319,6 +319,12 @@ Every command that runs candidate code runs in a container built from the order'
    read-only at `/inputs` for the run step — because an evaluation that feeds a
    candidate inputs cannot withhold them. `validate` rejects a scoring script placed
    inside that directory.
+
+   Reading the output file back is the one place the factory itself touches something a
+   candidate wrote, and it does so on the host rather than in a container — so the path is
+   checked before it is read. A symlinked output is refused, and so is one whose real path
+   leaves the worktree, which is what catches the same trick played on a parent directory.
+   A symlink that stays inside the worktree is fine: containment is the rule, not a ban.
 5. **Limit.** The run step still executes candidate code, so a patch can still shape
    what it writes: it can special-case the inputs it is handed, or forge a plausible
    output file. What it can no longer do is read the expected answers or the metric
@@ -437,6 +443,9 @@ needs no Docker.
 - **No shared filesystem.** In a full line run, the container that executes the run step
   carries no mount of the vault beyond `inputs`, and the container that executes the score
   step mounts no worktree.
+- **Contained output.** An output file that is a symlink out of the worktree, or that is
+  reached through a symlinked parent directory, is refused and nothing is staged; one
+  reached through a symlink that stays inside the worktree is still measured.
 - **Write-ahead.** A crash injected after the query record but before the result leaves
   the query counted, and a rerun cannot exceed `hidden_queries`.
 - **Blind replicator.** The replicator's prompt contains no diff, transcript or hypothesis

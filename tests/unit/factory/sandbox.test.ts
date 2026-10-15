@@ -237,7 +237,7 @@ describe('measureOracle', () => {
     const w = world(() => '__RESULT__ {"lat": 1}', { run: () => '' });
     const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
     expect(m.failedPhase).toBe('run');
-    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a file at out/result.json');
+    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a regular file at out/result.json');
     expect(phases(w.runs)).toEqual(['run-candidate']);
   });
 
@@ -264,7 +264,65 @@ describe('measureOracle output shape', () => {
     const ctx = ctxWith((_b, a) => { runs.push(a); return ''; });
     const m = sb.measureOracle(ctx, SANDBOX, spec, 1, 'lat', 'c1-hidden');
     expect(m.failedPhase).toBe('run');
-    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a file at out/result.json');
+    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a regular file at out/result.json');
     expect(runs).toHaveLength(1);
+  });
+});
+
+describe('measureOracle output containment', () => {
+  /** A worktree, a vault with a secret in it, and a staging root — all real paths on disk. */
+  function ground() {
+    const root = tmpDir('grd-factory-symlink-');
+    const wt = path.join(root, 'wt');
+    const vault = path.join(root, 'hidden');
+    fs.mkdirSync(path.join(wt, 'out'), { recursive: true });
+    fs.mkdirSync(vault, { recursive: true });
+    fs.writeFileSync(path.join(vault, 'score.sh'), 'echo scoring\n');
+    fs.writeFileSync(path.join(vault, 'answers.txt'), 'THE ANSWERS\n');
+    const spec: OracleSpec = {
+      worktree: wt, vault, stageRoot: path.join(root, 'stage'),
+      run: 'run-candidate', score: 'score.sh', output: 'out/result.json',
+    };
+    const runs: string[][] = [];
+    const ctx = ctxWith((_b, a) => { runs.push(a); return '__RESULT__ {"lat": 1}'; });
+    return { root, wt, vault, spec, runs, ctx };
+  }
+
+  it('refuses an output that is a symlink out of the worktree, and never follows it', () => {
+    // The copy runs on the host, so an unchecked symlink would pull a vault file into the
+    // staging directory the scoring container mounts.
+    const g = ground();
+    fs.symlinkSync(path.join(g.vault, 'answers.txt'), path.join(g.wt, 'out', 'result.json'));
+    const m = sb.measureOracle(g.ctx, SANDBOX, g.spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('run');
+    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a regular file at out/result.json');
+    // Only the run step ran, and nothing of the vault was staged.
+    expect(g.runs).toHaveLength(1);
+    expect(fs.existsSync(path.join(g.root, 'stage'))).toBe(false);
+  });
+
+  it('refuses an output reached through a symlinked parent directory', () => {
+    // lstat on the file alone cannot see this: it follows `out/` before it ever looks at the
+    // final component.
+    const g = ground();
+    fs.rmSync(path.join(g.wt, 'out'), { recursive: true });
+    fs.symlinkSync(g.vault, path.join(g.wt, 'out'));
+    fs.writeFileSync(path.join(g.vault, 'result.json'), 'borrowed\n');
+    const m = sb.measureOracle(g.ctx, SANDBOX, g.spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('run');
+    expect(m.stderrExcerpt).toBe('out/result.json resolves outside the worktree, so it was not read back');
+    expect(g.runs).toHaveLength(1);
+  });
+
+  it('still accepts a real file reached through a symlink that stays inside the worktree', () => {
+    // Containment is the rule, not a ban on symlinks: a build that writes through one is fine.
+    const g = ground();
+    fs.mkdirSync(path.join(g.wt, 'real'), { recursive: true });
+    fs.writeFileSync(path.join(g.wt, 'real', 'result.json'), '{"n":1}');
+    fs.rmSync(path.join(g.wt, 'out'), { recursive: true });
+    fs.symlinkSync(path.join(g.wt, 'real'), path.join(g.wt, 'out'));
+    const m = sb.measureOracle(g.ctx, SANDBOX, g.spec, 1, 'lat', 'c1-hidden');
+    expect(m).toEqual(expect.objectContaining({ ok: true, median: 1, failedPhase: null }));
+    expect(g.runs).toHaveLength(2);
   });
 });
