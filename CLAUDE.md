@@ -83,6 +83,8 @@ Prefer `ctx_*` MCP tools over Bash/Read for large output (`ctx_batch_execute`,
     `/grader`. So the scoring script and labels are never mounted where candidate code
     runs; only `hidden_eval.inputs`, at `/inputs`, is. A run step that fails is the
     candidate failing the gate; only a failing score step is `broken` and stops the order.
+    `outputToRead` guards the one host-side read of candidate-written bytes: the output is
+    refused unless `lstat` says regular file AND its real path is inside the worktree.
 - `commands/` — skill markdown. `agents/` — subagent definitions.
 - `tests/unit/` mirrors `lib/` (`lib/x.ts` → `tests/unit/x.test.ts`).
 - `.planning/` — project state (plans, roadmap, config, research threads).

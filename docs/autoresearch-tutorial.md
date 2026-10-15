@@ -685,6 +685,9 @@ the counted total is then a floor and the real spend can exceed the cap.
   special-case those inputs, or forge the output file it writes. Prefer held-out
   evaluations that measure from outside the process under test, and write the scoring
   script to parse the output defensively — those bytes are a candidate's choice.
+- The output file is read back on the host, so its path is checked first: a symlink leading
+  out of the worktree, or a symlinked parent directory, is refused and the candidate is
+  recorded as failing. A symlink that stays inside the worktree still works.
 - Candidates share the learn station's takeaways and the composed question. An evaluator
   bypass one candidate finds can reach later ones that way.
 - Agents are spawned with all permissions. The builder is the exception, and only on the
