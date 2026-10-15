@@ -171,6 +171,9 @@ Research:
   feasibility <topic>  Paper-to-production gap analysis
   bench run|list       GRD-Bench: closed-world autoresearch benchmark
                        (frozen corpus, deterministic grading — no LLM judge)
+  factory scan|validate|save|run|status
+                       Research factory: an order runs until a patch passes
+                       a hidden evaluation, then opens a PR for you to merge
 
 Planning:
   product-plan         Product-level planning
