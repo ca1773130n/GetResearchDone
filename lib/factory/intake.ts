@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 import type { Exec, ExecError } from './exec';
 import type { Baseline, MeasureResult, SandboxSpec, WorkOrder } from './types';
-import type { SandboxCtx } from './sandbox';
+import type { OracleResult, OracleSpec, SandboxCtx } from './sandbox';
 import type { Comparator } from '../research/types';
 const { defaultExec } = require('./exec') as { defaultExec: Exec };
 const { readDraft, writeDraft, markValidated, draftDir } = require('./order') as {
@@ -19,12 +19,17 @@ const sb = require('./sandbox') as {
   hostUser: () => string | null;
   dockerReady: (e: Exec) => boolean;
   runSetup: (c: SandboxCtx, s: SandboxSpec, wt: string, label: string) => { ok: boolean; detail: string };
-  measure: (c: SandboxCtx, s: SandboxSpec, wt: string, cmd: string, n: number, metric: string, label: string,
-    hidden?: { src: string; dst: string }) => MeasureResult;
+  measure: (c: SandboxCtx, s: SandboxSpec, wt: string, cmd: string, n: number, metric: string,
+    label: string) => MeasureResult;
+  measureOracle: (c: SandboxCtx, s: SandboxSpec, spec: OracleSpec, n: number, metric: string,
+    label: string) => OracleResult;
   spread: (xs: number[]) => number;
   removeRecordedContainers: (e: Exec, dir: string) => void;
 };
-const { matchesAny } = require('./gates') as { matchesAny: (p: string, g: string[]) => boolean };
+const { matchesAny, oracleSpec } = require('./gates') as {
+  matchesAny: (p: string, g: string[]) => boolean;
+  oracleSpec: (o: WorkOrder, vaultParent: string, wt: string) => OracleSpec;
+};
 const { addWorktree, removeWorktree } = require('./worktrees') as {
   addWorktree: (e: Exec, repo: string, dir: string, base: string) => string;
   removeWorktree: (e: Exec, repo: string, dir: string) => void;
@@ -180,16 +185,19 @@ function validateDraft(home: string, id: string, deps: { exec?: Exec; timeoutMs?
         : `failed: ${dev.stderrExcerpt || `exit ${dev.exitCode}`}`,
     });
 
-    const hiddenFile = path.join(draftDir(home, id), o.hidden_eval.script);
-    const dst = `/grader-${crypto.randomBytes(4).toString('hex') as string}`;
-    const hidden = fs.existsSync(hiddenFile)
-      ? sb.measure(ctx, o.sandbox, wt, `sh ${dst}/${o.hidden_eval.script.slice('hidden/'.length)}`,
-        o.hidden_eval.repeats, o.contract.metric, 'validate-hidden', { src: path.join(draftDir(home, id), 'hidden'), dst })
+    // Measured through the same two-container split the gate uses, so what validate proves is
+    // what the gate will run: a missing piece of the vault fails here rather than mid-order.
+    const missing = [o.hidden_eval.score, ...(o.hidden_eval.inputs === undefined ? [] : [o.hidden_eval.inputs])]
+      .filter((p) => !fs.existsSync(path.join(draftDir(home, id), p)));
+    const hidden = missing.length === 0
+      ? sb.measureOracle(ctx, o.sandbox, oracleSpec(o, draftDir(home, id), wt),
+        o.hidden_eval.repeats, o.contract.metric, 'validate-hidden')
       : null;
     add({
       id: 'hidden_eval', ok: hidden !== null && hidden.ok,
-      detail: hidden === null ? `${o.hidden_eval.script} does not exist in the draft`
-        : hidden.ok ? `runs and prints ${o.contract.metric}` : `failed: ${hidden.stderrExcerpt || `exit ${hidden.exitCode}`}`,
+      detail: hidden === null ? `${missing.join(' and ')} does not exist in the draft`
+        : hidden.ok ? `runs and prints ${o.contract.metric}`
+          : `the ${hidden.failedPhase as string} step failed: ${hidden.stderrExcerpt || `exit ${hidden.exitCode}`}`,
     });
 
     const meets = (v: number | null): boolean => v !== null && compare(v, o.contract.comparator, o.contract.target);

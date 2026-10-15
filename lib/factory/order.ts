@@ -12,7 +12,7 @@ const { validateImage, MEMORY_RE } = require('../research/docker-runner') as {
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /**
- * The hidden script's path is interpolated into the shell command a container runs, so it may
+ * The scoring script's path is interpolated into the shell command a container runs, so it may
  * hold only characters no shell treats specially. Interview-authored and container-confined, so
  * this is belt-and-braces next to the `hidden/` prefix and `..` checks below.
  */
@@ -47,6 +47,21 @@ function strList(v: unknown, where: string, allowEmpty: boolean): string[] {
 function assertId(id: string): string {
   return ID_RE.test(id) ? id : fail(`id "${id}" must be lowercase letters, digits and dashes, at most 63 characters`);
 }
+/**
+ * A path inside the order's vault: under `hidden/`, no escape, nothing a shell would read.
+ *
+ * Every segment must be non-empty, which is what stops `hidden/` itself — a path that would
+ * resolve to the whole vault, and so would mount the scoring script wherever it is used.
+ */
+function vaultPath(p: string, where: string): string {
+  const parts = p.split('/');
+  if (parts.length < 2 || parts[0] !== 'hidden' || parts.some((s) => s === '' || s === '..')
+    || !SCRIPT_RE.test(p)) {
+    fail(`${where} must be a path to something inside hidden/, with no empty or ".." segment, `
+      + 'made only of letters, digits, dot, dash, underscore and slash');
+  }
+  return p;
+}
 
 /** Structural check of a work order. Throws with the offending field named. */
 function parseWorkOrder(raw: unknown): WorkOrder {
@@ -66,10 +81,26 @@ function parseWorkOrder(raw: unknown): WorkOrder {
   if (typeof sandbox.cpus !== 'number' || !(sandbox.cpus > 0)) fail('sandbox.cpus must be a positive number');
   const dev = obj(raw, 'dev_eval', 'order');
   const hidden = obj(raw, 'hidden_eval', 'order');
-  const script = str(hidden, 'script', 'hidden_eval');
-  if (!script.startsWith('hidden/') || script.split('/').includes('..') || !SCRIPT_RE.test(script)) {
-    fail('hidden_eval.script must be a path under hidden/ with no ".." segment, '
+  if (hidden.script !== undefined) {
+    fail('hidden_eval.script is no longer accepted: it mounted the scoring script into the '
+      + 'container that runs candidate code, where the candidate could read it. Split it into '
+      + 'hidden_eval.run (a command run in the candidate\'s container, which writes the output '
+      + 'file), hidden_eval.score (a path under hidden/ that reads /work/<output> and prints the '
+      + 'metric) and hidden_eval.output (the path run writes, relative to the repo)');
+  }
+  const run = str(hidden, 'run', 'hidden_eval');
+  const score = vaultPath(str(hidden, 'score', 'hidden_eval'), 'hidden_eval.score');
+  const output = str(hidden, 'output', 'hidden_eval');
+  if (output.split('/').some((s) => s === '' || s === '..') || !SCRIPT_RE.test(output)) {
+    fail('hidden_eval.output must be a relative path with no empty or ".." segment, '
       + 'made only of letters, digits, dot, dash, underscore and slash');
+  }
+  const inputs = hidden.inputs === undefined
+    ? undefined : vaultPath(str(hidden, 'inputs', 'hidden_eval'), 'hidden_eval.inputs');
+  // `inputs` is mounted into the candidate's own container, so anything under it is disclosed.
+  if (inputs !== undefined && (score === inputs || score.startsWith(`${inputs}/`))) {
+    fail('hidden_eval.score must not sit inside hidden_eval.inputs: inputs are mounted into the '
+      + 'container that runs candidate code, so a script under them would be readable');
   }
   const budget = obj(raw, 'budget', 'order');
   const parsed: WorkOrder = {
@@ -91,7 +122,10 @@ function parseWorkOrder(raw: unknown): WorkOrder {
       repeats: posInt(dev, 'repeats', 'dev_eval'),
       files: dev.files === undefined ? [] : strList(dev.files, 'dev_eval.files', true),
     },
-    hidden_eval: { script, repeats: posInt(hidden, 'repeats', 'hidden_eval') },
+    hidden_eval: {
+      run, score, output, ...(inputs === undefined ? {} : { inputs }),
+      repeats: posInt(hidden, 'repeats', 'hidden_eval'),
+    },
     budget: {
       tokens: posInt(budget, 'tokens', 'budget'),
       candidates: posInt(budget, 'candidates', 'budget'),

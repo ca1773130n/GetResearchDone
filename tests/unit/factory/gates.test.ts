@@ -15,6 +15,10 @@ const g = require('../../../lib/factory/gates') as {
     { outcome: 'pass' | 'fail' | 'broken'; median: number | null; detail: string };
 };
 const fx = require('./fixtures') as {
+  HIDDEN_RUN: string; HIDDEN_OUTPUT: string;
+  isScoreStep: (a: string[]) => boolean; isHiddenRunStep: (a: string[]) => boolean;
+  writeOracleOutput: (a: string[], c?: string) => string;
+  mountedWorktree: (a: string[]) => string | null;
   tmpDir: (p: string) => string; makeRepo: (f: Record<string, string>) => string; realExec: Exec;
   sampleOrder: (repo: string, over?: Partial<WorkOrder>) => WorkOrder;
   installOrder: (home: string, o: WorkOrder, script?: string) => string;
@@ -94,10 +98,17 @@ describe('scope and tamper', () => {
 });
 
 describe('hiddenGate', () => {
-  function setup(stdout: () => string, over: Partial<WorkOrder> = {}) {
+  /**
+   * `score` answers the scoring step; `run` answers the candidate's run step and defaults to
+   * writing the output file, as a working candidate would.
+   */
+  function setup(
+    score: () => string, over: Partial<WorkOrder> = {}, run?: (args: string[]) => string,
+  ) {
     const home = fx.tmpDir('grd-factory-home-');
     const order = fx.sampleOrder('/abs/repo', over);
     const od = fx.installOrder(home, order);
+    const wt = fx.tmpDir('grd-factory-wt-');
     const cmds: string[] = [];
     const calls: string[][] = [];
     const seen: string[][] = [];
@@ -105,34 +116,69 @@ describe('hiddenGate', () => {
       // The container is about to run: the write-ahead row must already be on disk.
       seen.push(g.readQueries(od).map((q) => q.status));
       calls.push(a); cmds.push(fx.containerCommand(a));
-      return stdout();
+      return fx.isHiddenRunStep(a) ? (run ? run(a) : fx.writeOracleOutput(a)) : score();
     };
     const ctx: SandboxCtx = { exec, ledgerDir: od, orderId: order.id, user: null, timeoutMs: 1000 };
-    return { order, od, ctx, cmds, calls, seen };
+    return { order, od, ctx, wt, cmds, calls, seen };
   }
+
+  const vaultMount = (calls: string[][], i: number, od: string): string | undefined =>
+    calls[i].find((a) => a.includes(`src=${path.join(od, 'vault', 'hidden')}`));
 
   it('writes the query record before running, then the outcome', () => {
     const s = setup(() => '__RESULT__ {"latency_p95_ms": 100}');
-    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', '/wt');
+    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt);
     expect(r).toEqual({ outcome: 'pass', median: 100, detail: '' });
     expect(g.readQueries(s.od).map((q) => q.status)).toEqual(['started', 'pass']);
-    expect(s.seen).toEqual([['started']]);
-    expect(s.cmds[0]).toMatch(/^sh \/grader-[0-9a-f]{8}\/eval\.sh$/);
-    const dst = /^sh (\/grader-[0-9a-f]{8})\//.exec(s.cmds[0])![1];
-    expect(s.calls[0]).toContain(`type=bind,src=${path.join(s.od, 'vault', 'hidden')},dst=${dst},readonly`);
+    expect(s.seen).toEqual([['started'], ['started']]);
+    expect(s.cmds).toEqual([fx.HIDDEN_RUN, 'sh /grader/score.sh']);
   });
 
-  it('counts a query even when the evaluation crashes', () => {
+  it('never mounts the vault into the container that runs candidate code', () => {
+    const s = setup(() => '__RESULT__ {"latency_p95_ms": 100}');
+    g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt);
+    // The run step: the candidate's own tree at /work, and nothing of the vault anywhere.
+    expect(fx.mountedWorktree(s.calls[0])).toBe(s.wt);
+    expect(vaultMount(s.calls, 0, s.od)).toBeUndefined();
+    expect(s.calls[0].join(' ')).not.toContain('/grader');
+    // The scoring step: the vault read-only, and a /work that is NOT the candidate's tree.
+    expect(vaultMount(s.calls, 1, s.od))
+      .toBe(`type=bind,src=${path.join(s.od, 'vault', 'hidden')},dst=/grader,readonly`);
+    expect(fx.mountedWorktree(s.calls[1])).not.toBe(s.wt);
+  });
+
+  // The mount layout, the staging copy and its cleanup are measureOracle's own, and are
+  // covered in sandbox.test.ts; what matters here is what the gate makes of the result.
+
+  it('counts a query even when the scoring script crashes, and calls that broken', () => {
     const s = setup(() => { throw fx.execFailure(1, 'segfault'); });
-    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', '/wt');
+    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt);
     expect(r.outcome).toBe('broken');
-    expect(s.seen).toEqual([['started']]);
+    expect(r.detail).toContain('segfault');
     expect(g.queriesUsed(s.od)).toBe(1);
+  });
+
+  it('calls a candidate that crashes under the evaluation a failure, not a broken evaluation', () => {
+    const s = setup(() => '__RESULT__ {"latency_p95_ms": 100}', {},
+      () => { throw fx.execFailure(1, 'candidate segfault'); });
+    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt);
+    expect(r.outcome).toBe('fail');
+    // Only the run step ran: a candidate that cannot run is never scored.
+    expect(s.cmds).toEqual([fx.HIDDEN_RUN]);
+    expect(g.readQueries(s.od).map((q) => q.status)).toEqual(['started', 'fail']);
+  });
+
+  it('calls a run step that writes no output a failure', () => {
+    const s = setup(() => '__RESULT__ {"latency_p95_ms": 100}', {}, () => '');
+    const r = g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt);
+    expect(r.outcome).toBe('fail');
+    expect(r.detail).toContain(fx.HIDDEN_OUTPUT);
+    expect(s.cmds).toEqual([fx.HIDDEN_RUN]);
   });
 
   it('refuses to run once the query budget is spent', () => {
     const s = setup(() => '__RESULT__ {"latency_p95_ms": 150}', { budget: { tokens: 1, candidates: 1, hidden_queries: 1, wall_minutes: 1 } });
-    expect(g.hiddenGate(s.ctx, s.order, s.od, 'c1', '/wt').outcome).toBe('fail');
-    expect(() => g.hiddenGate(s.ctx, s.order, s.od, 'c2', '/wt')).toThrow(/query budget already spent/);
+    expect(g.hiddenGate(s.ctx, s.order, s.od, 'c1', s.wt).outcome).toBe('fail');
+    expect(() => g.hiddenGate(s.ctx, s.order, s.od, 'c2', s.wt)).toThrow(/query budget already spent/);
   });
 });

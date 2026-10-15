@@ -580,9 +580,13 @@ something it measured. You choose from options; you never edit JSON.
    vary too much to decide on is flagged as noisy.
 5. **Editable paths.** The globs a patch may change. Evaluation files can never be
    among them.
-6. **Hidden evaluation.** A held-out variant of the dev evaluation (different workload,
+6. **Held-out evaluation.** A held-out variant of the dev evaluation (different workload,
    seed or data split), written outside the repo, ideally measuring from outside the
-   process under test.
+   process under test. It comes in two halves, and the split is what keeps a candidate
+   from reading its own grader: a run command that executes your code and writes one
+   output file, and a scoring script that reads that file in a container where none of
+   your candidate code runs. Held-out inputs can be handed to the run half; the answers
+   stay with the scoring half.
 7. **Budget.** Small, Medium or Large: candidates, hidden queries and minutes, with
    a token estimate.
 8. **Review.** `validate` runs again and every check is shown. On your confirmation
@@ -609,10 +613,12 @@ A patch that meets the rule on dev goes through three trust gates, in order:
    `factory/<order>/<candidate>` — before the hidden evaluation runs, so what ships is the
    tree the earlier gates saw and not whatever the hidden run leaves in the worktree. A
    candidate rejected next loses its worktree and its branch.
-3. **Hidden gate.** The hidden evaluation runs on the original candidate. The query is
-   logged before it starts, so a crash cannot refund it. The measured value — and, if the
-   evaluation breaks, its error — go to `queries.jsonl` and nowhere else; later hypotheses
-   are told only that the candidate was rejected at the final gate.
+3. **Hidden gate.** The hidden evaluation runs on the original candidate, in two
+   containers: your run command in the candidate's own worktree, then your scoring script
+   on the one file it wrote, somewhere no candidate code executes. The query is logged
+   before the first of them starts, so a crash cannot refund it. The measured value — and,
+   if either half fails, its error — go to `queries.jsonl` and nowhere else; later
+   hypotheses are told only that the candidate was rejected at the final gate.
 4. **Ship.** `factory/<order>/<candidate>` is pushed to the order's remote and a PR is
    opened against `base`. The order then stops.
 
@@ -624,7 +630,7 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 | `budget_spent` | Tokens, candidates or wall-clock ran out; the report shows the best dev result, unshipped |
 | `holdout_spent` | Every hidden query is used. A new hidden evaluation resets this |
 | `plateau` | The last `research_plateau_window` candidates (default 3) all missed the rule and none beat the best dev median before them |
-| `hidden_broken` | The hidden evaluation printed no metric. The query still counts |
+| `hidden_broken` | Your scoring script failed or printed no metric. A candidate that crashes under the evaluation is not this — that is the candidate failing the gate, and the line goes on. The query still counts |
 | `build_failures` | The builder produced no usable change three times in a row |
 | `docker_unavailable` | Docker went away. The factory never falls back to the host |
 
@@ -642,7 +648,8 @@ $GRD_FACTORY_HOME/
     worktrees/<candidate>/         one per candidate, plus base/; removed at the end
   orders/<id>/                     private to the factory
     vault/order.json               the saved order
-    vault/hidden/                  the hidden evaluation
+    vault/hidden/                  the scoring script and the held-out inputs
+    vault/stage/<query>/           one query's copy of the candidate output; deleted after
     queries.jsonl                  hidden-query log (write-ahead); the only file holding a
                                    measured hidden value, or why one broke
     candidates.jsonl               one row per candidate, at every stage
@@ -669,11 +676,15 @@ the counted total is then a floor and the real spend can exceed the cap.
 
 ### 8.6 Limits
 
-- The hidden evaluation is concealed, not isolated. An agent with filesystem tools could
-  still find it; the vault is outside every repo and never named in a prompt.
-- The code under test runs in the same container as the grader, so a determined patch
-  could forge a result line. Prefer hidden evaluations that measure from outside the
-  process under test.
+- The scoring script and the labels are isolated, not merely concealed: they are mounted
+  only into the scoring container, where no candidate code runs. The vault is still
+  outside every repo and never named in a prompt, which is what keeps an agent with
+  filesystem tools from reading it on the host.
+- What a candidate is given is `hidden_eval.inputs`, read-only at `/inputs`, because an
+  evaluation that feeds a candidate inputs cannot withhold them. A candidate can
+  special-case those inputs, or forge the output file it writes. Prefer held-out
+  evaluations that measure from outside the process under test, and write the scoring
+  script to parse the output defensively — those bytes are a candidate's choice.
 - Candidates share the learn station's takeaways and the composed question. An evaluator
   bypass one candidate finds can reach later ones that way.
 - Agents are spawned with all permissions. The builder is the exception, and only on the

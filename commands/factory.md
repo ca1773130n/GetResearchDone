@@ -54,13 +54,27 @@ from `factory status`. Write it after every step. The human never edits it.
 5. **Editable paths.** Propose `editable` globs (path patterns such as `dir/**`, meaning every
    file under `dir`) covering where the measured code path lives, found by reading the code. Evaluation files
    can never be included. Offer them as a multi-select so the human can trim.
-6. **Hidden evaluation.** Recommended: write `<home>/drafts/<id>/hidden/eval.sh`, a
-   held-out variant of the dev evaluation that differs in workload trace, seed or data
-   split, and that measures from outside the process under test where possible. It runs
-   in the same container image with the worktree at `/work` and must print
-   `__RESULT__ {"<metric>": <number>}`. Never put it in the repo and never mention its
-   path or contents outside this interview. Alternatively the human points at an existing
-   script, which you copy there. Set `hidden_eval.script` to `hidden/eval.sh`.
+6. **Held-out evaluation.** It runs in two containers, so the candidate's code never shares a
+   filesystem with the script that scores it. Recommended: a held-out variant of the dev
+   evaluation differing in workload trace, seed or data split, measuring from outside the
+   process under test where possible. Settle three things:
+   - `hidden_eval.run` — a command run in the candidate's own container, worktree at `/work`,
+     which must write `hidden_eval.output` (a path inside the repo, which the factory copies
+     out and discards). This is the only half a candidate can read, so it holds no expected
+     answers: it produces, it does not judge.
+   - `hidden_eval.score` — set it to `hidden/score.sh` and write that script to
+     `<home>/drafts/<id>/hidden/score.sh`. It runs in a second container where no candidate
+     code executes: `/work` holds a copy of the output file and nothing else, and `hidden/`
+     is mounted read-only at `/grader`. It must print `__RESULT__ {"<metric>": <number>}`.
+     Because `/work` has no repo, the script cannot use the project's installed
+     dependencies — only what the container image itself provides. It also parses bytes the
+     candidate chose, so have it parse defensively and never execute what it reads.
+   - `hidden_eval.inputs` — optional, a directory under `hidden/`, mounted read-only at
+     `/inputs` for the run step. It is the one part of the vault a candidate is given, so put
+     only inputs there: never the labels, never the scoring script.
+
+   Never put any of it in the repo, and never mention these paths or their contents outside
+   this interview.
 7. **Budget.** Offer Small (3 candidates, hidden_queries 2, 120 minutes, recommended),
    Medium (8, 3, 360) and Large (20, 4, 720). Gloss: candidates is how many patches are
    tried, hidden_queries is how many times a patch may be checked against the held-out

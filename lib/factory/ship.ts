@@ -112,7 +112,7 @@ const STOP_TEXT: Record<StopReason, string> = {
   budget_spent: 'The budget ran out before any patch cleared every gate.',
   holdout_spent: 'The hidden-evaluation queries are used up. More would start overfitting it; a new hidden evaluation resets this.',
   plateau: 'Several candidates in a row missed the rule without beating the best dev result.',
-  hidden_broken: 'The hidden evaluation failed to print its metric on a candidate; its own error is the last `broken` row of queries.jsonl. Fix it before trusting this order again; the query still counts.',
+  hidden_broken: 'The scoring half of the hidden evaluation failed on a candidate; its own error is the last `broken` row of queries.jsonl. A candidate that crashes under the evaluation is recorded as failing the gate instead, so this means your own script. Fix it before trusting this order again; the query still counts.',
   build_failures: 'The builder failed to produce a usable change three times in a row.',
   docker_unavailable: 'Docker is not available. The factory never runs candidate code on the host.',
 };

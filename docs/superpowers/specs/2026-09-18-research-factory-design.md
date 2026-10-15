@@ -96,7 +96,11 @@ The interview produces this file. A human never edits it.
   "editable": ["src/search/**", "src/cache/**"],
   "sandbox": { "image": "node:22-bookworm", "setup": "npm ci", "memory": "2g", "cpus": 2 },
   "dev_eval": { "command": "npm run bench:search", "repeats": 3 },
-  "hidden_eval": { "script": "hidden/eval.sh", "repeats": 5 },
+  "hidden_eval": {
+    "run": "npm run bench:holdout -- --out .holdout-out.json",
+    "score": "hidden/score.sh", "output": ".holdout-out.json",
+    "inputs": "hidden/traces", "repeats": 5
+  },
   "budget": { "tokens": 1800000, "candidates": 3, "hidden_queries": 3, "wall_minutes": 120 },
   "baseline": { "dev": 187, "hidden": 191 }
 }
@@ -110,7 +114,7 @@ The interview produces this file. A human never edits it.
 | `editable` | Git pathspec globs. The only paths a patch may change |
 | `sandbox` | Container image, a setup command run once per worktree with network on, and resource caps for every container |
 | `dev_eval` | Visible to agents. Runs inside the container with network off. The verdict uses the median of `repeats` runs |
-| `hidden_eval` | A script path **relative to the order's vault**, so no absolute path exists to leak. Median of `repeats` runs |
+| `hidden_eval` | Split in two. `run` executes the candidate and must write `output`; `score`, a path **relative to the order's vault** so no absolute path exists to leak, scores that one file in a container where no candidate code runs. `inputs`, also relative to the vault, is the only part of it a candidate is given. Median of `repeats` runs |
 | `budget` | Hard caps; whichever is hit first stops the line. `candidates` counts original builds; replication spends tokens but not candidates |
 | `baseline` | Written by `validate` from runs on the unmodified base. Never supplied by a human |
 
@@ -143,11 +147,13 @@ running every check, and stops only at step 8 for confirmation.
    more repeats.
 5. **Editable paths.** The skill proposes an allowlist from where the measured code path
    lives. The human trims it. Evaluation files can never be included.
-6. **Hidden evaluation.** Recommended: the skill writes a held-out variant of the dev
+6. **Held-out evaluation.** Recommended: the skill writes a held-out variant of the dev
    evaluation, differing in workload trace, seed or data split, and preferring to
-   measure from outside the process under test (§11). It is written into the draft's
-   `hidden/` directory, never into the repo. Alternatively the human points at an existing one.
-   `validate` then runs it on the base.
+   measure from outside the process under test (§11). The interview settles the run
+   command, the output file it writes, the scoring script, and optionally the inputs
+   directory; the script and inputs go into the draft's `hidden/` directory, never into
+   the repo. Alternatively the human points at an existing script. `validate` then runs
+   the whole split on the base, so a missing half fails here rather than mid-order.
 7. **Budget.** Three presets, Small (3 candidates), Medium (8) and Large (20), each with
    a token estimate and wall-clock cap. The estimate multiplies the expected spawns per
    candidate by the scheduler's recorded tokens per spawn, or by its documented default of
@@ -284,8 +290,12 @@ Every command that runs candidate code runs in a container built from the order'
 - **Setup** runs once per worktree with network `bridge`, the worktree mounted
   read-write at `/work`, and the memory and CPU caps applied.
 - **Evaluations** run with network `none` and the same mount and caps.
-- **The hidden evaluation** also mounts the vault's `hidden/` directory read-only, at a
-  path randomized per query, only for that run.
+- **The hidden evaluation** is two containers. The run step gets the candidate's worktree
+  at `/work` and, if the order declares `inputs`, that one directory of the vault read-only
+  at `/inputs` — nothing else of the vault. The score step gets a staging directory holding
+  a copy of the run step's output file at `/work`, and the whole `hidden/` directory
+  read-only at `/grader`. No candidate code runs in the score step. The staging directory
+  lives beside the vault, under the order's private tree, and is deleted after each query.
 - Containers are named `grd-factory-<order>-<candidate>-<phase>` and run with `--rm`. On
   abort the factory stops only containers whose exact names it recorded, never by pattern.
 
@@ -297,13 +307,26 @@ Every command that runs candidate code runs in a container built from the order'
 2. **Evaluation files are never editable.** `validate` rejects any overlap.
 3. **Tamper scan.** A patch whose added lines contain the literal `__RESULT__` is
    rejected as tampering.
-4. **A hidden evaluation agents are not shown.** Agents are not shown the hidden
-   evaluation's inputs or script, so a hack tuned to the dev evaluation does not
-   carry over.
-5. **Limit.** The code under test runs in the same container as the grader, so a
-   determined patch could forge a result line in a way no generic check catches. The
-   interview therefore prefers hidden evaluations that measure from outside the process
-   under test, for example driving a server from a separate process and timing it there.
+4. **A held-out evaluation the candidate cannot read.** The evaluation runs in two
+   containers. The run step executes the candidate in its own worktree and writes one
+   output file; the score step then runs in a container whose `/work` holds a copy of
+   that file and nothing else, with the vault read-only at `/grader`. No candidate code
+   executes in the score step, so the scoring script and the labels are not reachable
+   from anywhere a candidate runs. A hack tuned to the dev evaluation does not carry
+   over, and neither does one tuned to a script the candidate has read.
+
+   The one part of the vault a candidate is given is `hidden_eval.inputs`, mounted
+   read-only at `/inputs` for the run step — because an evaluation that feeds a
+   candidate inputs cannot withhold them. `validate` rejects a scoring script placed
+   inside that directory.
+5. **Limit.** The run step still executes candidate code, so a patch can still shape
+   what it writes: it can special-case the inputs it is handed, or forge a plausible
+   output file. What it can no longer do is read the expected answers or the metric
+   computation. The interview therefore still prefers held-out evaluations that measure
+   from outside the process under test, for example driving a server from a separate
+   process and timing it there. A scoring script that parses the output file is itself
+   attack surface — it reads bytes a candidate chose — so it should parse defensively
+   and never execute what it reads.
 6. **Known limit: a bypass can propagate between candidates.** Work on multi-agent
    coding systems (arXiv 2610.12822, found in the late re-query, §17)
    reports that an evaluator bypass discovered by one agent spreads to the others through
@@ -358,7 +381,8 @@ $GRD_FACTORY_HOME            default ~/.grd/factory
     worktrees/<candidate>/   removed when the candidate is scrapped or pushed
   orders/<id>/               private to the factory; no agent works under it
     vault/order.json         the saved order; never given to any agent
-    vault/hidden/            the hidden evaluation
+    vault/hidden/            the scoring script and the held-out inputs
+    vault/stage/<q>/         one query's copy of the candidate's output file; deleted after
     candidates.jsonl         one row per candidate, appended at every stage
     queries.jsonl            hidden-query log; the only file that holds a measured hidden
                              value, or the reason a hidden evaluation broke
@@ -407,8 +431,12 @@ Crash safety:
 Every test injects spawn, runner, Docker, git and `gh`, so the suite spends no tokens and
 needs no Docker.
 
-- **No leak.** Across every prompt captured in a full line run, the hidden script's path,
-  contents and result never appear.
+- **No leak.** Across every prompt captured in a full line run, the held-out evaluation's
+  paths — scoring script, inputs, output file and both mount points — its contents and its
+  result never appear.
+- **No shared filesystem.** In a full line run, the container that executes the run step
+  carries no mount of the vault beyond `inputs`, and the container that executes the score
+  step mounts no worktree.
 - **Write-ahead.** A crash injected after the query record but before the result leaves
   the query counted, and a rerun cannot exceed `hidden_queries`.
 - **Blind replicator.** The replicator's prompt contains no diff, transcript or hypothesis

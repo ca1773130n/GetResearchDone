@@ -3,12 +3,14 @@ const fs = require('fs');
 const path = require('path');
 import type { Exec } from '../../../lib/factory/exec';
 import type { MeasureResult, SandboxSpec } from '../../../lib/factory/types';
-import type { SandboxCtx } from '../../../lib/factory/sandbox';
+import type { OracleResult, OracleSpec, SandboxCtx } from '../../../lib/factory/sandbox';
 const sb = require('../../../lib/factory/sandbox') as {
   buildContainerArgs: (s: Record<string, unknown>) => string[];
   runSetup: (c: SandboxCtx, s: SandboxSpec, wt: string, label: string) => { ok: boolean; detail: string };
-  measure: (c: SandboxCtx, s: SandboxSpec, wt: string, cmd: string, n: number, metric: string, label: string,
-    hidden?: { src: string; dst: string }) => MeasureResult;
+  measure: (c: SandboxCtx, s: SandboxSpec, wt: string, cmd: string, n: number, metric: string,
+    label: string) => MeasureResult;
+  measureOracle: (c: SandboxCtx, s: SandboxSpec, spec: OracleSpec, n: number, metric: string,
+    label: string) => OracleResult;
   removeRecordedContainers: (exec: Exec, dir: string) => void;
   median: (xs: number[]) => number;
   spread: (xs: number[]) => number;
@@ -23,18 +25,26 @@ function ctxWith(exec: Exec): SandboxCtx {
 }
 
 describe('buildContainerArgs', () => {
-  it('hardens, mounts the worktree, and never mounts the hidden directory writable', () => {
+  it('hardens, mounts the worktree, and never mounts an extra directory writable', () => {
     const args = sb.buildContainerArgs({
       name: 'n', worktree: '/wt', sandbox: SANDBOX, network: 'none', command: 'npm run bench',
-      user: '501:20', hiddenMount: { src: '/vault/hidden', dst: '/grader-ab' },
+      user: '501:20', roMounts: [{ src: '/vault/hidden', dst: '/grader' }, { src: '/vault/hidden/data', dst: '/inputs' }],
     });
     expect(args.slice(0, 4)).toEqual(['run', '--rm', '--name', 'n']);
     expect(args).toEqual(expect.arrayContaining(['--network', 'none', '--memory', '1g', '--cpus', '2', '--read-only']));
     expect(args).toContain('type=bind,src=/wt,dst=/work');
-    expect(args).toContain('type=bind,src=/vault/hidden,dst=/grader-ab,readonly');
+    expect(args).toContain('type=bind,src=/vault/hidden,dst=/grader,readonly');
+    expect(args).toContain('type=bind,src=/vault/hidden/data,dst=/inputs,readonly');
     expect(args.slice(-4)).toEqual(['sh', 'node:22-bookworm', '-c', 'npm run bench']);
     expect(args[args.indexOf('--user') + 1]).toBe('501:20');
     expect(args[args.indexOf('--env') + 1]).toBe('HOME=/tmp');
+  });
+
+  it('mounts nothing but the worktree when no read-only mount is asked for', () => {
+    const args = sb.buildContainerArgs({
+      name: 'n', worktree: '/wt', sandbox: SANDBOX, network: 'none', command: 'bench', user: null,
+    });
+    expect(args.filter((a) => a.startsWith('type=bind,'))).toEqual(['type=bind,src=/wt,dst=/work']);
   });
 });
 
@@ -63,11 +73,10 @@ describe('measure', () => {
     expect(runs).toHaveLength(3);
     for (const a of runs) expect(a[a.indexOf('--network') + 1]).toBe('none');
   });
-  it('passes the hidden mount through, readonly', () => {
+  it('takes no extra mount: the dev evaluation never sees held-out material', () => {
     const runs: string[][] = [];
-    sb.measure(ctxWith((_b, a) => { runs.push(a); return '__RESULT__ {"lat": 1}'; }), SANDBOX, '/wt', 'b', 1, 'lat', 'dev',
-      { src: '/vault/hidden', dst: '/grader-ab' });
-    expect(runs[0]).toContain('type=bind,src=/vault/hidden,dst=/grader-ab,readonly');
+    sb.measure(ctxWith((_b, a) => { runs.push(a); return '__RESULT__ {"lat": 1}'; }), SANDBOX, '/wt', 'b', 1, 'lat', 'dev');
+    expect(runs[0].filter((a) => a.startsWith('type=bind,'))).toEqual(['type=bind,src=/wt,dst=/work']);
   });
   it('fails on a nonzero exit without further runs', () => {
     let runs = 0;
@@ -133,5 +142,129 @@ describe('median and spread', () => {
     expect(sb.median([4, 1, 3, 2])).toBe(2.5);
     expect(sb.spread([5, 9, 7])).toBe(4);
     expect(sb.spread([])).toBe(0);
+  });
+});
+
+describe('measureOracle', () => {
+  /**
+   * A real worktree, vault and staging root on disk. `score` answers the scoring step; `run`
+   * answers the candidate's run step and by default writes the output file, as a working
+   * candidate would.
+   */
+  function world(score: () => string, opts: { inputs?: boolean; run?: (wt: string) => string } = {}) {
+    const root = tmpDir('grd-factory-oracle-');
+    const wt = path.join(root, 'wt');
+    const vault = path.join(root, 'hidden');
+    fs.mkdirSync(wt, { recursive: true });
+    fs.mkdirSync(path.join(vault, 'data'), { recursive: true });
+    const spec: OracleSpec = {
+      worktree: wt, vault, stageRoot: path.join(root, 'stage'),
+      run: 'run-candidate', score: 'score.sh', output: 'out/result.json',
+      ...(opts.inputs === true ? { inputs: 'data' } : {}),
+    };
+    const runs: string[][] = [];
+    const staged: string[][] = [];
+    const exec: Exec = (_b, a) => {
+      runs.push(a);
+      if (a[a.lastIndexOf('-c') + 1] === spec.run) {
+        if (opts.run !== undefined) return opts.run(wt);
+        fs.mkdirSync(path.join(wt, 'out'), { recursive: true });
+        fs.writeFileSync(path.join(wt, spec.output), '{"n":1}');
+        return '';
+      }
+      const mounted = /^type=bind,src=(.+),dst=\/work$/.exec(a.find((x) => x.endsWith('dst=/work')) as string);
+      staged.push(fs.readdirSync(mounted![1]) as string[]);
+      return score();
+    };
+    return { spec, runs, staged, root, wt, vault, ctx: ctxWith(exec) };
+  }
+
+  const phases = (runs: string[][]): string[] => runs.map((a) => a[a.lastIndexOf('-c') + 1]);
+  const binds = (a: string[]): string[] => a.filter((x) => x.startsWith('type=bind,'));
+
+  it('runs the candidate and the scorer in separate containers, and medians over repeats', () => {
+    const vals = ['__RESULT__ {"lat": 30}', '__RESULT__ {"lat": 10}'];
+    let i = 0;
+    const w = world(() => vals[i++]);
+    const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 2, 'lat', 'c1-hidden');
+    expect(m).toEqual(expect.objectContaining({ ok: true, values: [30, 10], median: 20, failedPhase: null }));
+    expect(phases(w.runs)).toEqual(['run-candidate', 'sh /grader/score.sh', 'run-candidate', 'sh /grader/score.sh']);
+    for (const a of w.runs) expect(a[a.indexOf('--network') + 1]).toBe('none');
+  });
+
+  it('keeps the vault out of the run step and the repo out of the score step', () => {
+    const w = world(() => '__RESULT__ {"lat": 1}');
+    sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(binds(w.runs[0])).toEqual([`type=bind,src=${w.wt},dst=/work`]);
+    expect(binds(w.runs[1])).toEqual([
+      `type=bind,src=${path.join(w.root, 'stage', 'c1-hidden-1')},dst=/work`,
+      `type=bind,src=${w.vault},dst=/grader,readonly`,
+    ]);
+    // The scorer saw the candidate's output file, by name, and nothing else.
+    expect(w.staged).toEqual([['result.json']]);
+  });
+
+  it('gives the run step the declared inputs, read-only, and the scorer still gets the vault', () => {
+    const w = world(() => '__RESULT__ {"lat": 1}', { inputs: true });
+    sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(binds(w.runs[0])).toEqual([
+      `type=bind,src=${w.wt},dst=/work`,
+      `type=bind,src=${path.join(w.vault, 'data')},dst=/inputs,readonly`,
+    ]);
+  });
+
+  it('removes the staging directory on the way out', () => {
+    const w = world(() => '__RESULT__ {"lat": 1}');
+    sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(fs.existsSync(path.join(w.root, 'stage', 'c1-hidden-1'))).toBe(false);
+  });
+
+  it('removes the staging directory even when the scorer throws', () => {
+    const w = world(() => { throw execFailure(2, 'scorer crash'); });
+    const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('score');
+    expect(fs.existsSync(path.join(w.root, 'stage', 'c1-hidden-1'))).toBe(false);
+  });
+
+  it('blames the run step when the candidate crashes, and never scores it', () => {
+    const w = world(() => '__RESULT__ {"lat": 1}', { run: () => { throw execFailure(1, 'candidate crash'); } });
+    const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(m).toEqual(expect.objectContaining({ ok: false, failedPhase: 'run', exitCode: 1, stderrExcerpt: 'candidate crash' }));
+    expect(phases(w.runs)).toEqual(['run-candidate']);
+  });
+
+  it('blames the run step when it exits clean without writing its output', () => {
+    const w = world(() => '__RESULT__ {"lat": 1}', { run: () => '' });
+    const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('run');
+    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a file at out/result.json');
+    expect(phases(w.runs)).toEqual(['run-candidate']);
+  });
+
+  it('blames the score step when the metric is not printed', () => {
+    const w = world(() => '__RESULT__ {"other": 1}');
+    const m = sb.measureOracle(w.ctx, SANDBOX, w.spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('score');
+    expect(m.stderrExcerpt).toMatch(/metric "lat" not printed/);
+  });
+});
+
+describe('measureOracle output shape', () => {
+  it('blames the run step when the output path is a directory rather than a file', () => {
+    // Otherwise reading it back throws EISDIR, and a candidate could take the order down.
+    const root = tmpDir('grd-factory-oracle-');
+    const wt = path.join(root, 'wt');
+    fs.mkdirSync(path.join(root, 'hidden'), { recursive: true });
+    fs.mkdirSync(path.join(wt, 'out', 'result.json'), { recursive: true });
+    const spec: OracleSpec = {
+      worktree: wt, vault: path.join(root, 'hidden'), stageRoot: path.join(root, 'stage'),
+      run: 'run-candidate', score: 'score.sh', output: 'out/result.json',
+    };
+    const runs: string[][] = [];
+    const ctx = ctxWith((_b, a) => { runs.push(a); return ''; });
+    const m = sb.measureOracle(ctx, SANDBOX, spec, 1, 'lat', 'c1-hidden');
+    expect(m.failedPhase).toBe('run');
+    expect(m.stderrExcerpt).toBe('the run step exited 0 without writing a file at out/result.json');
+    expect(runs).toHaveLength(1);
   });
 });

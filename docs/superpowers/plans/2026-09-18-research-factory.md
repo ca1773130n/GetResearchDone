@@ -1,5 +1,13 @@
 # Research Factory Implementation Plan
 
+> **Historical record; one part is out of date.** This plan specifies the held-out
+> evaluation as a single `hidden_eval.script` mounted into the container that runs
+> candidate code. It was built that way and then changed on 2026-10-15: the evaluation is
+> now split into `hidden_eval.run` and `hidden_eval.score`, so no candidate code ever runs
+> where the scoring script is mounted. Read
+> [the spec](../specs/2026-09-18-research-factory-design.md) §10 and §11 for the current
+> design; everything else here still describes what was implemented.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A human describes what should improve in a codebase through an AI-assisted interview; GRD then runs hypotheses and experiments unattended until a patch clears a blind replication and a hidden evaluation, and opens a PR that the human merges.

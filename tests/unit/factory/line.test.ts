@@ -14,6 +14,9 @@ const line = require('../../../lib/factory/line') as {
 };
 const { readQueries } = require('../../../lib/factory/gates') as { readQueries: (od: string) => QueryRecord[] };
 const fx = require('./fixtures') as {
+  HIDDEN_RUN: string; HIDDEN_OUTPUT: string;
+  isScoreStep: (a: string[]) => boolean; isHiddenRunStep: (a: string[]) => boolean;
+  writeOracleOutput: (a: string[], c?: string) => string;
   tmpDir: (p: string) => string; git: (c: string, ...a: string[]) => string;
   makeRepo: (f: Record<string, string>) => string; fakeExec: (r: (a: string[]) => string, c?: string[][]) => Exec;
   mountedWorktree: (a: string[]) => string | null; containerCommand: (a: string[]) => string;
@@ -44,18 +47,28 @@ const writeFast: Builder = (_p, cwd) => { fs.writeFileSync(path.join(cwd, 'src/s
 const writeSlow: Builder = (_p, cwd) => { fs.writeFileSync(path.join(cwd, 'src/search.js'), 'slow but changed'); };
 const isReplication = (p: string) => p.includes('Implement the strategy below');
 
-const isHiddenRun = (args: string[]): boolean => fx.containerCommand(args).startsWith('sh /grader-');
-
 /**
- * dev: 100 when the worktree is FAST, else 187. hidden: `hidden(fast)`. `onHidden` runs in the
- * mounted worktree first, the way a real hidden evaluation can write into a read-write /work.
+ * dev: 100 when the worktree is FAST, else 187. hidden: `hidden(fast)`, printed by the scoring
+ * step. `onHidden` runs in the candidate's worktree during the run step, the way a real held-out
+ * run can write into a read-write /work.
+ *
+ * The scoring step mounts the staging directory, which holds the output file and no repo, so it
+ * cannot read `src/search.js`: what the run step saw is carried forward instead, which is exactly
+ * what the split buys — the scorer sees the candidate's output and nothing else.
  */
 function docker(hidden: (fast: boolean) => number, onHidden?: (wt: string) => void) {
+  let fastAtRun = false;
   return (args: string[]): string => {
     const wt = fx.mountedWorktree(args);
-    const fast = wt !== null && String(fs.readFileSync(path.join(wt, 'src/search.js'), 'utf8')).includes('FAST');
-    if (isHiddenRun(args) && onHidden && wt !== null) onHidden(wt);
-    const value = isHiddenRun(args) ? hidden(fast) : (fast ? 100 : 187);
+    const src = wt === null ? null : path.join(wt, 'src/search.js');
+    const fast = src !== null && fs.existsSync(src)
+      && String(fs.readFileSync(src, 'utf8')).includes('FAST');
+    if (fx.isHiddenRunStep(args)) {
+      if (onHidden && wt !== null) onHidden(wt);
+      fastAtRun = fast;
+      return fx.writeOracleOutput(args);
+    }
+    const value = fx.isScoreStep(args) ? hidden(fastAtRun) : (fast ? 100 : 187);
     return `__RESULT__ {"latency_p95_ms": ${value}}\n`;
   };
 }
@@ -78,6 +91,11 @@ async function run(w: ReturnType<typeof world>, builder: Builder, hidden: (fast:
     warn: () => undefined, onAbort: () => () => undefined, ...extra,
   });
   return { r, prompts, cwds, calls, events: line.readEvents(w.od) };
+}
+
+/** Every `docker run` a line made, as its argument list. */
+function dockerRuns(calls: string[][]): string[][] {
+  return calls.filter((c) => c[0] === 'docker' && c[1] === 'run');
 }
 
 /** Where agents are allowed to work: never the order directory, and never under it. */
@@ -182,9 +200,31 @@ describe('runOrder', () => {
       expect(c.startsWith(`${w.od}${path.sep}`)).toBe(false);
     }
     // The holdout and the per-query log stay where no agent cwd can reach them by walking up.
-    expect(fs.existsSync(path.join(w.od, 'vault', 'hidden', 'eval.sh'))).toBe(true);
+    expect(fs.existsSync(path.join(w.od, 'vault', 'hidden', 'score.sh'))).toBe(true);
     expect(fs.existsSync(path.join(w.od, 'queries.jsonl'))).toBe(true);
     expect(fs.existsSync(path.join(root, 'vault'))).toBe(false);
+  });
+
+  it('never mounts the vault into a container that runs candidate code', async () => {
+    const w = world();
+    const { calls } = await run(w, writeFast, () => 104.25);
+    const runs = dockerRuns(calls);
+    expect(runs.length).toBeGreaterThan(3);
+    let scoring = 0;
+    for (const c of runs) {
+      const binds = c.filter((a) => a.startsWith('type=bind,'));
+      const work = binds.find((b) => b.endsWith('dst=/work')) as string;
+      if (binds.some((b) => b.includes('dst=/grader'))) {
+        scoring++;
+        // The scoring container: the vault read-only, and a /work that is no worktree of any
+        // candidate — so the script and the labels are nowhere candidate code can execute.
+        expect(binds).toContain(`type=bind,src=${path.join(w.od, 'vault', 'hidden')},dst=/grader,readonly`);
+        expect(work.startsWith(`type=bind,src=${path.join(w.od, 'vault', 'stage')}`)).toBe(true);
+      } else {
+        for (const b of binds) expect(b).not.toContain(path.join(w.od, 'vault'));
+      }
+    }
+    expect(scoring).toBe(1);
   });
 
   it('resumes after three interrupted candidates instead of calling it a plateau', async () => {
@@ -266,7 +306,7 @@ describe('runOrder', () => {
     const w = world({ budget: { tokens: 1e9, candidates: 2, hidden_queries: 2, wall_minutes: 60 } });
     const base = docker(() => 0);
     const exec = fx.fakeExec((args) => {
-      if (isHiddenRun(args)) throw fx.execFailure(127, holdout);
+      if (fx.isScoreStep(args)) throw fx.execFailure(127, holdout);
       return base(args);
     });
     const { r, prompts, events } = await run(w, writeFast, () => 0, { exec });

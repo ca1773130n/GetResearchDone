@@ -85,10 +85,13 @@ describe('factory prompts', () => {
     expect(pr.fixPrompt(o, { id: 'h1', statement: 'Cache.' }, { exitCode: 1 }, '/wt', '/it', 1, 3)).toContain('- detail: (none)');
   });
 
-  it('no prompt carries the hidden baseline, script path or grader mount', () => {
+  it('no prompt carries the hidden baseline, any vault path, or either oracle mount', () => {
     const h = sampleOrder('/abs/repo', {
       baseline: { dev: 187, hidden: 733.4417, devSpread: 0 },
-      hidden_eval: { script: 'hidden/zq-secret-eval.sh', repeats: 1 },
+      hidden_eval: {
+        run: 'node /inputs/zq-replay.js > holdout-zq.txt', score: 'hidden/zq-secret-eval.sh',
+        output: 'holdout-zq.txt', inputs: 'hidden/zq-inputs', repeats: 1,
+      },
     });
     const outs = [
       pr.composeQuestion(h, '/home/f/orders/x/worktrees/base', [
@@ -103,8 +106,13 @@ describe('factory prompts', () => {
       expect(out).not.toContain('733.4417');
       expect(out).not.toContain('733');
       expect(out).not.toContain('zq-secret-eval');
+      expect(out).not.toContain('zq-inputs');
+      expect(out).not.toContain('zq-replay');
+      // The output path would tell a builder which file the held-out run reads back.
+      expect(out).not.toContain('holdout-zq');
       expect(out).not.toContain('hidden/');
-      expect(out).not.toContain('/grader-');
+      expect(out).not.toContain('/grader');
+      expect(out).not.toContain('/inputs');
     }
   });
 });
