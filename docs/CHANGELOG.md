@@ -23,8 +23,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   `--dangerously-skip-permissions` and every tool, and the `tools:` line in
   `agents/*.md` is never applied to them, so an agent definition could not remove a tool.
   This option passes `--disallowedTools` on the claude backend, and the factory builder
-  uses it to lose `Bash`. Other backends ignore it. That the flag removes the tool in
-  practice has not been observed live.
+  uses it to lose every tool that would hand back a shell (`Bash`, `BashOutput`,
+  `KillShell` and `Task`, which spawns a subagent that has one) or reach the network
+  (`WebFetch`, `WebSearch`), plus `NotebookEdit`. Other backends ignore it. That the flag
+  removes the tool in practice has not been observed live.
 - **`contract` and `design` options on the research loop** (`lib/research/orchestrator.ts`):
   a caller can seed a thread's pinned metric contract and replace the design station.
   Both default to absent, which leaves the loop unchanged.

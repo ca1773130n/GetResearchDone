@@ -169,15 +169,21 @@ Each outputs JSON by default and human text with `--raw`, like every GRD tool co
 
 ### 6.2 Intake checks, run by `validate`
 
-1. The repo is a git repo, clean at `base`, and `gh` is authenticated for `remote`.
+1. The repo is a git repo whose `base` resolves to a commit, and `gh` is authenticated for
+   `remote`. The working copy's cleanliness is deliberately NOT checked: every candidate builds
+   in a detached worktree created from `base`, so uncommitted work in the user's own checkout
+   can neither reach a candidate nor be disturbed by one. (Earlier drafts of this spec promised
+   a clean check; it would have refused orders for no reason.)
 2. Docker is available and the image and setup command work.
 3. Every `editable` glob matches at least one file, and no glob covers a file either
    evaluation reads or runs.
 4. Both evaluations run on the base and print the contract's metric.
 5. **The base fails the target on both evaluations.** A base that already passes means
    there is nothing to improve, and the target is a trivially satisfied bound.
-6. The backend reports token counts. If it does not, the check is reported as degraded:
-   the token cap cannot be enforced and only the other caps apply.
+6. The backend reports token counts. If a spawn does not, that spawn counts as nothing
+   against the cap, which stays enforced against every spawn that does report; the warning
+   is loud and the report says how many spawns were uncounted, so the printed total is a
+   floor and the real spend can exceed the cap.
 
 ## 7. The line
 
@@ -214,11 +220,18 @@ Ordered so the scarce, leaking resource is spent last.
    objective, contract, editable paths and the strategy note: no diff, no transcript, no
    hypothesis text. Its patch must pass scope, tamper and the dev contract. This uses only
    the dev evaluation, so its result may be reported back in full.
-2. **Hidden gate.** Appends a query record (§13), then runs the hidden evaluation
+2. **Commit.** Commit exactly the allowlisted changed paths onto
+   `factory/<order>/<candidate>`, so stray files never ship. This happens **before** the
+   hidden gate runs, so the tree that ships is exactly the tree that passed scope, tamper,
+   the dev contract and replication: the hidden evaluation executes the patch against a
+   read-write `/work`, and a cache or build artifact it leaves behind must not ride along
+   into the PR. A candidate the hidden gate then rejects is discarded with its worktree,
+   and its branch is deleted with it.
+3. **Hidden gate.** Appends a query record (§13), then runs the hidden evaluation
    `repeats` times on the **original** candidate's worktree and compares the median to
-   the contract. The value is never shown to any agent.
-3. **Ship.** Commit exactly the allowlisted changed paths, so stray files never ship.
-   Push `factory/<order>/<candidate>` to `remote` and open a PR against `base`
+   the contract. The value is never shown to any agent; the value, and the reason a broken
+   evaluation broke, are written only to `queries.jsonl`.
+4. **Ship.** Push `factory/<order>/<candidate>` to `remote` and open a PR against `base`
    with the evidence bundle: objective, contract, hypothesis, strategy note, baseline
    against dev result, replication result, hidden result, scope-check output, and tokens
    spent. The order then stops.
@@ -347,9 +360,13 @@ $GRD_FACTORY_HOME            default ~/.grd/factory
     vault/order.json         the saved order; never given to any agent
     vault/hidden/            the hidden evaluation
     candidates.jsonl         one row per candidate, appended at every stage
-    queries.jsonl            hidden-query log
+    queries.jsonl            hidden-query log; the only file that holds a measured hidden
+                             value, or the reason a hidden evaluation broke
     spend.jsonl              one row per spawn: agent, candidate, tokensUsed
     containers.jsonl         names of the containers the factory started
+    pr-body-<candidate>.md   the evidence bundle of a shipped candidate; `gh pr create
+                             --body-file` points at it, including in the printed recovery
+                             command, so it outlives the run
     report.md                rewritten at every stop
     status.json              the last stop reason and PR URL
     started.json             when the order first ran, for the wall-clock budget
@@ -381,7 +398,7 @@ Crash safety:
 | Hidden evaluation crashes or prints no metric | Stop the order and report. The query still counts. It is never treated as a rejected patch |
 | Dev evaluation crashes | The loop's bounded debug retry, then the learn station |
 | Builder spawn fails hard | The candidate is scrapped as `build_failed`. Three in a row stop the order |
-| Docker unavailable mid-run | Stop the order and report. Never fall back to running on the host |
+| Docker unavailable mid-run | Stop the order and report. Never fall back to running on the host. A candidate that had already passed the dev contract and replication is recorded `not_judged`, never as a build failure |
 | Push or PR creation fails | The branch stays pushed if the push succeeded; the report prints the exact command to finish |
 | Token budget overshoot | Reported with the amount |
 

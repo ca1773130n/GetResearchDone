@@ -605,12 +605,16 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 1. **Replicate.** A fresh builder gets only the objective, the rule, the editable paths
    and the first builder's strategy note: no diff, no transcript, no hypothesis. Its
    patch must pass the same checks and the same dev rule.
-2. **Hidden gate.** The hidden evaluation runs on the original candidate. The query is
-   logged before it starts, so a crash cannot refund it. The measured value goes to
-   `queries.jsonl` and nowhere else; later hypotheses are told only that the candidate
-   was rejected at the final gate.
-3. **Ship.** Exactly the allowlisted paths are committed, `factory/<order>/<candidate>`
-   is pushed to the order's remote, and a PR is opened against `base`. The order then stops.
+2. **Commit.** Exactly the allowlisted paths are committed onto
+   `factory/<order>/<candidate>` — before the hidden evaluation runs, so what ships is the
+   tree the earlier gates saw and not whatever the hidden run leaves in the worktree. A
+   candidate rejected next loses its worktree and its branch.
+3. **Hidden gate.** The hidden evaluation runs on the original candidate. The query is
+   logged before it starts, so a crash cannot refund it. The measured value — and, if the
+   evaluation breaks, its error — go to `queries.jsonl` and nowhere else; later hypotheses
+   are told only that the candidate was rejected at the final gate.
+4. **Ship.** `factory/<order>/<candidate>` is pushed to the order's remote and a PR is
+   opened against `base`. The order then stops.
 
 ### 8.3 Stop conditions
 
@@ -639,10 +643,12 @@ $GRD_FACTORY_HOME/
   orders/<id>/                     private to the factory
     vault/order.json               the saved order
     vault/hidden/                  the hidden evaluation
-    queries.jsonl                  hidden-query log (write-ahead)
+    queries.jsonl                  hidden-query log (write-ahead); the only file holding a
+                                   measured hidden value, or why one broke
     candidates.jsonl               one row per candidate, at every stage
     spend.jsonl                    tokens per spawn
     containers.jsonl               names of containers the factory started
+    pr-body-<candidate>.md         the shipped PR's evidence; what --body-file points at
     report.md  status.json         rewritten at every stop
     started.json
 ```
@@ -657,8 +663,9 @@ The first line says why the run stopped, in one sentence. If it shipped, the PR 
 follows; if shipping failed after the gates passed, the exact commands to finish it are
 there. Then the objective, your rule, and the baseline on unmodified code, a table with
 one row per candidate (outcome, dev median, detail), and the totals: tokens of budget,
-candidates of budget, hidden queries of budget. If the backend reported no token counts
-the report says so on the Tokens line: the cap was not enforced, and spend may exceed it.
+candidates of budget, hidden queries of budget. The cap is enforced against the spawns that
+reported a token count; if any spawn reported none, the Tokens line says how many, because
+the counted total is then a floor and the real spend can exceed the cap.
 
 ### 8.6 Limits
 
@@ -669,8 +676,11 @@ the report says so on the Tokens line: the cap was not enforced, and spend may e
   process under test.
 - Candidates share the learn station's takeaways and the composed question. An evaluator
   bypass one candidate finds can reach later ones that way.
-- Agents are spawned with all permissions; only the builder has `Bash` removed, and only
-  on the claude backend.
+- Agents are spawned with all permissions. The builder is the exception, and only on the
+  claude backend: it loses `Bash`, `BashOutput`, `KillShell`, `Task` (which would spawn a
+  subagent that has a shell), `WebFetch`, `WebSearch` and `NotebookEdit`. That is a denylist,
+  so a tool Claude Code gains later is permitted until the list is updated. On any other
+  backend the builder keeps a shell and the run says so in a warning.
 
 ---
 

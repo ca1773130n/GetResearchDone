@@ -186,8 +186,11 @@ setup-node step (it injects a placeholder token and OIDC silently loses).
 - **Loop agents are not tool-restricted by their `tools:` line.** The scheduler
   spawns them with `--dangerously-skip-permissions` and every tool, so the `tools:`
   line in `agents/*.md` is not applied. Only `SpawnOpts.disallowedTools` removes a
-  tool, and only on the claude backend (the factory builder runs with `Bash`
-  removed). That `--disallowedTools` takes effect in practice has not been observed.
+  tool, and only on the claude backend (the factory builder runs without `Bash`,
+  `BashOutput`, `KillShell`, `Task`, `WebFetch`, `WebSearch` or `NotebookEdit` —
+  a denylist, so revisit `BUILDER_DENIED` in `lib/factory/spawn.ts` when Claude
+  Code's tool set changes). That `--disallowedTools` takes effect in practice has
+  not been observed.
 - **Never create test/scratch artifacts in the repo.** Run live `gd research` /
   smoke tests in a throwaway `mktemp -d` (with its own `.planning/`); they
   otherwise drop `.planning/research/threads/`, a root `KNOWHOW.md`, and mutate
