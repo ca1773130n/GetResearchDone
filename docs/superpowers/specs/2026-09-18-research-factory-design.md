@@ -284,9 +284,10 @@ Every command that runs candidate code runs in a container built from the order'
 2. **Evaluation files are never editable.** `validate` rejects any overlap.
 3. **Tamper scan.** A patch whose added lines contain the literal `__RESULT__` is
    rejected as tampering.
-4. **An unknown hidden channel.** Agents never see the hidden evaluation's inputs or
-   script, so a hack tuned to the dev evaluation does not carry over.
-5. **Honest limit.** The code under test runs in the same container as the grader, so a
+4. **A hidden evaluation agents are not shown.** Agents are not shown the hidden
+   evaluation's inputs or script, so a hack tuned to the dev evaluation does not
+   carry over.
+5. **Limit.** The code under test runs in the same container as the grader, so a
    determined patch could forge a result line in a way no generic check catches. The
    interview therefore prefers hidden evaluations that measure from outside the process
    under test, for example driving a server from a separate process and timing it there.
@@ -297,8 +298,7 @@ Every command that runs candidate code runs in a container built from the order'
    composed question, with every earlier candidate's summary and outcome, across
    candidates. That is such a channel. The defenses above are deterministic checks on each
    patch, so none of them stops a bypass that is passed on as an idea. v1 accepts this and
-   does not try to filter the shared text; the unseen hidden evaluation (item 4) is the
-   backstop, since a hack tuned to the dev evaluation does not carry over.
+   does not try to filter the shared text; item 4 is the backstop.
 
 ## 12. Code layout
 
@@ -434,14 +434,14 @@ needs no Docker.
   replication found no contradiction of R1 to R3, so there was no stop.
   - *Reusable holdout.* The search returned the spec's own primary source, Dwork et al.
     (2015), and no newer work that revises it. R1 is unchanged.
-  - *Reward hacking.* Four 2026 papers restate R3, and a fifth adds a new limit. "Do Coding Agents Deceive
-    Us?" (NeurIPS 2026) reaches capped evaluation with randomized tests as its defense,
+  - *Reward hacking.* Four 2026 papers restate R3. "Do Coding Agents Deceive Us?"
+    (NeurIPS 2026) reaches capped evaluation with randomized tests as its defense,
     which is what the hidden-query budget is. "Hack-Verifiable Environments" (NeurIPS
     2026) restates R3: agents look successful under the evaluation signal while
     violating the intended objective. "Benchmarking Reward Hack Detection in Code
     Environments via Contrastive Analysis" (ICML 2026) studies LLMs as hack detectors;
     the factory keeps LLM judgment off the control path, so it is orthogonal, and its
-    premise that detection is unreliable supports that choice. One paper adds a risk,
+    premise that detection is unreliable supports that choice. One paper adds a limit,
     recorded as §11 item 6: "Reward Hacking as a Transmissible Strategy in Multi-Agent
     Coding Systems" (arXiv 2610.12822).
   - *Replication.* REPRO-Bench (ACL 2025) and ReplicatorBench (KDD 2026) benchmark agents

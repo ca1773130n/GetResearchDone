@@ -557,7 +557,7 @@ GRD's autoresearch loop is built to keep going:
 
 The loop above answers a question. The research factory points the same loop at a
 codebase and keeps going until a patch both meets a rule you set and survives an
-evaluation the agents cannot see, then opens a PR. Use it when you can state the
+evaluation the agents are not shown, then opens a PR. Use it when you can state the
 improvement as a number: "p95 latency of `/search` at or under 120 ms".
 
 ### 8.1 The interview
