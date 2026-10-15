@@ -6,6 +6,8 @@ import type { WorkOrder } from '../../../lib/factory/types';
 import type { Evidence, ReportInput } from '../../../lib/factory/ship';
 const ship = require('../../../lib/factory/ship') as {
   evidenceBody: (e: Evidence) => string;
+  commitForShipping: (x: Exec, o: WorkOrder, cand: string, strategy: string, changed: string[], wt: string) => string;
+  discardBranch: (x: Exec, o: WorkOrder, cand: string) => void;
   shipCandidate: (x: Exec, e: Evidence, wt: string, od: string) => { branch: string; prUrl: string | null; error: string | null; manual: string | null };
   writeReport: (od: string, r: ReportInput) => string;
 };
@@ -27,13 +29,35 @@ function evidence(repo: string): Evidence {
   };
 }
 
+describe('commitForShipping', () => {
+  it('commits exactly the given paths on the candidate branch, and discardBranch removes it', () => {
+    const repo = fx.makeRepo({ 'src/search.js': 'slow' });
+    const wtRoot = fx.tmpDir('grd-factory-wt-');
+    const wt = addWorktree(fx.realExec, repo, path.join(wtRoot, 'c1'), 'main');
+    fs.writeFileSync(path.join(wt, 'src/search.js'), 'FAST');
+    fs.writeFileSync(path.join(wt, 'stray.txt'), 'oops');
+    fx.git(wt, 'add', 'stray.txt');
+    const order = fx.sampleOrder(repo);
+    const branch = ship.commitForShipping(fx.realExec, order, 'c1', 'Cache it.', ['src/search.js'], wt);
+    expect(branch).toBe('factory/search-p95/c1');
+    expect(fx.git(repo, 'diff', '--name-only', 'main', branch).trim()).toBe('src/search.js');
+    // A candidate the hidden gate rejects leaves no branch behind in the user's repo.
+    fx.realExec('git', ['-C', repo, 'worktree', 'remove', '--force', wt]);
+    ship.discardBranch(fx.realExec, order, 'c1');
+    expect(fx.git(repo, 'branch', '--list', branch).trim()).toBe('');
+    // Asking twice is not an error: the branch may never have been created.
+    expect(() => ship.discardBranch(fx.realExec, order, 'c1')).not.toThrow();
+  });
+});
+
 describe('shipCandidate', () => {
-  it('commits the change on a factory branch, pushes it and opens a PR with the evidence', () => {
+  it('pushes the candidate commit and opens a PR with the evidence', () => {
     const repo = fx.makeRepo({ 'src/search.js': 'slow' });
     const wt = addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'c1'), 'main');
     fs.writeFileSync(path.join(wt, 'src/search.js'), 'FAST');
     const calls: string[][] = [];
     const od = fx.tmpDir('grd-factory-od-');
+    ship.commitForShipping(fx.realExec, fx.sampleOrder(repo), 'c1', 'Cache it.', ['src/search.js'], wt);
     const r = ship.shipCandidate(fx.fakeExec(() => '', calls), evidence(repo), wt, od);
     expect(r).toEqual({ branch: 'factory/search-p95/c1', prUrl: 'https://github.com/acme/app/pull/7', error: null, manual: null });
     expect(calls).toContainEqual(expect.arrayContaining(['git', 'push', 'origin', 'HEAD:refs/heads/factory/search-p95/c1']));
@@ -54,16 +78,6 @@ describe('shipCandidate', () => {
     expect(r.prUrl).toBeNull();
     expect(r.error).toMatch(/PR creation failed: no permission/);
     expect(r.manual).toMatch(new RegExp(`^cd '${repo}' && gh pr create --base 'main' --head 'factory/search-p95/c1' `));
-  });
-
-  it('ships only the given paths even when a stray file is staged', () => {
-    const repo = fx.makeRepo({ 'src/search.js': 'slow' });
-    const wt = addWorktree(fx.realExec, repo, path.join(fx.tmpDir('grd-factory-wt-'), 'c1'), 'main');
-    fs.writeFileSync(path.join(wt, 'src/search.js'), 'FAST');
-    fs.writeFileSync(path.join(wt, 'stray.txt'), 'oops');
-    fx.git(wt, 'add', 'stray.txt');
-    ship.shipCandidate(fx.fakeExec(() => ''), evidence(repo), wt, fx.tmpDir('grd-factory-od-'));
-    expect(fx.git(repo, 'diff', '--name-only', 'main', 'factory/search-p95/c1').trim()).toBe('src/search.js');
   });
 
   it('returns a manual push command when the push fails', () => {
@@ -119,12 +133,22 @@ describe('writeReport', () => {
     const p = ship.writeReport(od, {
       order: fx.sampleOrder('/abs/repo'), stop: 'plateau', prUrl: null, shipError: null, manual: null,
       events: [{ id: 'c1', at: 't', outcome: 'dev_miss', devMedian: 150 }],
-      tokens: 1234, tokenCapEnforced: true, hiddenQueries: 0, warnings: ['a warning'],
+      tokens: 1234, unmeteredSpawns: 0, hiddenQueries: 0, warnings: ['a warning'],
     });
     const text = String(fs.readFileSync(p, 'utf8'));
     expect(text).toContain('**Stopped: plateau.**');
     expect(text).toContain('| c1 | dev_miss | 150 |');
     expect(text).toContain('a warning');
+    expect(text).toContain('Tokens: 1234 of 1000000.');
     expect(JSON.parse(String(fs.readFileSync(path.join(od, 'status.json'), 'utf8'))).stop).toBe('plateau');
+  });
+
+  it('discloses that the counted spend is a floor when a backend reported nothing', () => {
+    const od = fx.tmpDir('grd-factory-od-');
+    const p = ship.writeReport(od, {
+      order: fx.sampleOrder('/abs/repo'), stop: 'budget_spent', prUrl: null, shipError: null, manual: null,
+      events: [], tokens: 50, unmeteredSpawns: 2, hiddenQueries: 0, warnings: [],
+    });
+    expect(String(fs.readFileSync(p, 'utf8'))).toContain('2 spawn(s) reported no token count, so the real spend is higher');
   });
 });

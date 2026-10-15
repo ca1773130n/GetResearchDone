@@ -11,6 +11,12 @@ const { validateImage, MEMORY_RE } = require('../research/docker-runner') as {
 };
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
+/**
+ * The hidden script's path is interpolated into the shell command a container runs, so it may
+ * hold only characters no shell treats specially. Interview-authored and container-confined, so
+ * this is belt-and-braces next to the `hidden/` prefix and `..` checks below.
+ */
+const SCRIPT_RE = /^[A-Za-z0-9._/-]+$/;
 const COMPARATORS: ReadonlySet<string> = new Set(['>=', '<=', '>', '<', '==']);
 
 function fail(msg: string): never { throw new Error(`work order: ${msg}`); }
@@ -61,8 +67,9 @@ function parseWorkOrder(raw: unknown): WorkOrder {
   const dev = obj(raw, 'dev_eval', 'order');
   const hidden = obj(raw, 'hidden_eval', 'order');
   const script = str(hidden, 'script', 'hidden_eval');
-  if (!script.startsWith('hidden/') || script.split('/').includes('..')) {
-    fail('hidden_eval.script must be a path under hidden/ with no ".." segment');
+  if (!script.startsWith('hidden/') || script.split('/').includes('..') || !SCRIPT_RE.test(script)) {
+    fail('hidden_eval.script must be a path under hidden/ with no ".." segment, '
+      + 'made only of letters, digits, dot, dash, underscore and slash');
   }
   const budget = obj(raw, 'budget', 'order');
   const parsed: WorkOrder = {

@@ -5,10 +5,12 @@ import type { Exec } from '../../../lib/factory/exec';
 import type { CandidateEvent, QueryRecord, WorkOrder } from '../../../lib/factory/types';
 import type { RunOrderDeps, RunOrderResult } from '../../../lib/factory/line';
 import type { SchedulerSpawnResult, SpawnOpts } from '../../../lib/types';
+import type { SignalTarget } from '../../../lib/factory/line';
 const line = require('../../../lib/factory/line') as {
   runOrder: (home: string, id: string, deps?: RunOrderDeps) => Promise<RunOrderResult>;
   readEvents: (od: string) => { byId: Map<string, CandidateEvent>; ids: string[] };
   isPlateau: (done: CandidateEvent[], cmp: string, target: number, window: number, base: number) => boolean;
+  defaultOnAbort: (handler: () => void, target?: SignalTarget) => () => void;
 };
 const { readQueries } = require('../../../lib/factory/gates') as { readQueries: (od: string) => QueryRecord[] };
 const fx = require('./fixtures') as {
@@ -42,12 +44,18 @@ const writeFast: Builder = (_p, cwd) => { fs.writeFileSync(path.join(cwd, 'src/s
 const writeSlow: Builder = (_p, cwd) => { fs.writeFileSync(path.join(cwd, 'src/search.js'), 'slow but changed'); };
 const isReplication = (p: string) => p.includes('Implement the strategy below');
 
-/** dev: 100 when the worktree is FAST, else 187. hidden: `hidden(fast)`. */
-function docker(hidden: (fast: boolean) => number) {
+const isHiddenRun = (args: string[]): boolean => fx.containerCommand(args).startsWith('sh /grader-');
+
+/**
+ * dev: 100 when the worktree is FAST, else 187. hidden: `hidden(fast)`. `onHidden` runs in the
+ * mounted worktree first, the way a real hidden evaluation can write into a read-write /work.
+ */
+function docker(hidden: (fast: boolean) => number, onHidden?: (wt: string) => void) {
   return (args: string[]): string => {
     const wt = fx.mountedWorktree(args);
     const fast = wt !== null && String(fs.readFileSync(path.join(wt, 'src/search.js'), 'utf8')).includes('FAST');
-    const value = fx.containerCommand(args).startsWith('sh /grader-') ? hidden(fast) : (fast ? 100 : 187);
+    if (isHiddenRun(args) && onHidden && wt !== null) onHidden(wt);
+    const value = isHiddenRun(args) ? hidden(fast) : (fast ? 100 : 187);
     return `__RESULT__ {"latency_p95_ms": ${value}}\n`;
   };
 }
@@ -235,6 +243,83 @@ describe('runOrder', () => {
     expect(String(fs.readFileSync(r.reportPath, 'utf8'))).toContain('attempt 1: the research loop returned status exhausted without starting a candidate');
   });
 
+  it('ships the tree the gates saw, not what the hidden evaluation left behind', async () => {
+    const w = world();
+    const litter = path.join('src', 'cache', 'warm.json');
+    let littered = false;
+    const exec = fx.fakeExec(docker(() => 104.25, (wtDir) => {
+      // A latency patch's holdout run populating a cache is ordinary, not adversarial: it lands
+      // inside the allowlist, so neither the scope check nor the tamper scan would ever see it.
+      fs.mkdirSync(path.join(wtDir, 'src', 'cache'), { recursive: true });
+      fs.writeFileSync(path.join(wtDir, litter), '{"warm":true}');
+      littered = true;
+    }));
+    const { r } = await run(w, writeFast, () => 104.25, { exec });
+    expect(r.stop).toBe('shipped');
+    expect(littered).toBe(true);
+    expect(fx.git(w.repo, 'diff', '--name-only', 'main', 'factory/search-p95/c1').trim()).toBe('src/search.js');
+    expect(fx.git(w.repo, 'show', '--name-only', '--format=', 'factory/search-p95/c1')).not.toContain('warm.json');
+  });
+
+  it('keeps a broken hidden evaluation\'s reason in queries.jsonl and out of everything else', async () => {
+    const holdout = 'holdout/eval.sh: line 12: dataset p95-holdout-2026: not found';
+    const w = world({ budget: { tokens: 1e9, candidates: 2, hidden_queries: 2, wall_minutes: 60 } });
+    const base = docker(() => 0);
+    const exec = fx.fakeExec((args) => {
+      if (isHiddenRun(args)) throw fx.execFailure(127, holdout);
+      return base(args);
+    });
+    const { r, prompts, events } = await run(w, writeFast, () => 0, { exec });
+    expect(r.stop).toBe('hidden_broken');
+    // The human's own script broke: the reason is on disk, in the one file no agent can reach.
+    const queries = readQueries(w.od);
+    expect(queries.map((q) => q.status)).toEqual(['started', 'broken']);
+    expect(queries[1].detail).toContain(holdout);
+    expect(queries[1].median).toBeNull();
+    // And nowhere else: not on the candidate row, not in a prompt, not in the report.
+    expect(events.byId.get('c1')).toEqual(expect.objectContaining({
+      outcome: 'rejected_at_gate', detail: 'the hidden evaluation broke on this candidate',
+    }));
+    const report = String(fs.readFileSync(r.reportPath, 'utf8'));
+    expect(report).toContain('Stopped: hidden_broken');
+    expect(report).toContain('queries.jsonl');
+    for (const text of [report, ...prompts, String(fs.readFileSync(path.join(w.od, 'candidates.jsonl'), 'utf8'))]) {
+      expect(text).not.toContain(holdout);
+      expect(text).not.toContain('p95-holdout-2026');
+    }
+    // The candidate was committed before the query; a rejected one leaves no branch behind.
+    expect(fx.git(w.repo, 'branch', '--list', 'factory/search-p95/c1').trim()).toBe('');
+  });
+
+  it('does not blame the builder when docker vanishes between replication and the hidden gate', async () => {
+    const w = world({ budget: { tokens: 1e9, candidates: 2, hidden_queries: 2, wall_minutes: 60 } });
+    const base = docker(() => 104.25);
+    let replicated = false;
+    const inner = fx.fakeExec((args) => {
+      const wtDir = fx.mountedWorktree(args);
+      if (wtDir !== null && /c1r$/.test(wtDir)) replicated = true;
+      return base(args);
+    });
+    const exec: Exec = (bin, args, opts) => {
+      if (bin === 'docker' && args[0] === 'version' && replicated) {
+        throw fx.execFailure(1, 'Cannot connect to the Docker daemon');
+      }
+      return inner(bin, args, opts);
+    };
+    const { r, events } = await run(w, writeFast, () => 104.25, { exec });
+    expect(r.stop).toBe('docker_unavailable');
+    expect(readQueries(w.od)).toEqual([]);
+    // It passed the dev rule and blind replication; only the sandbox went away.
+    expect(events.byId.get('c1')).toEqual(expect.objectContaining({
+      outcome: 'not_judged', detail: 'docker went away before the final gate could run',
+      devMedian: 100, replicaDevMedian: 100,
+    }));
+    const report = String(fs.readFileSync(r.reportPath, 'utf8'));
+    expect(report).toContain('| c1 | not_judged |');
+    expect(report).not.toContain('build_failed');
+    expect(report).not.toContain('interrupted by a crash or abort');
+  });
+
   it('removes every worktree when aborted mid-run', async () => {
     const w = world({ budget: { tokens: 1e9, candidates: 1, hidden_queries: 1, wall_minutes: 60 } });
     let abort: () => void = () => undefined;
@@ -243,6 +328,43 @@ describe('runOrder', () => {
       { onAbort: (h) => { abort = h; return () => undefined; } });
     expect(during).toBe(1);
     expect(fx.worktreeCount(w.repo)).toBe(1);
+  });
+});
+
+describe('defaultOnAbort', () => {
+  function target(): { t: SignalTarget; on: string[]; off: string[]; exits: number[]; fire: (s: string) => void } {
+    const handlers = new Map<string, () => void>();
+    const on: string[] = [];
+    const off: string[] = [];
+    const exits: number[] = [];
+    return {
+      on, off, exits,
+      fire: (s) => { (handlers.get(s) as () => void)(); },
+      t: {
+        once: (s, fn) => { on.push(s); handlers.set(s, fn); return undefined; },
+        removeListener: (s) => { off.push(s); return undefined; },
+        exit: (code) => { exits.push(code); },
+      },
+    };
+  }
+
+  it('cleans up and exits 130 on the signal, and unregisters both signals', () => {
+    const g = target();
+    let cleaned = 0;
+    const unregister = line.defaultOnAbort(() => { cleaned += 1; }, g.t);
+    expect(g.on).toEqual(['SIGINT', 'SIGTERM']);
+    g.fire('SIGINT');
+    expect([cleaned, g.exits]).toEqual([1, [130]]);
+    unregister();
+    expect(g.off).toEqual(['SIGINT', 'SIGTERM']);
+  });
+
+  it('still exits when the cleanup itself throws, rather than wedging a half-aborted run', () => {
+    const g = target();
+    const unregister = line.defaultOnAbort(() => { throw new Error('worktree is busy'); }, g.t);
+    expect(() => g.fire('SIGTERM')).toThrow(/worktree is busy/);
+    expect(g.exits).toEqual([130]);
+    unregister();
   });
 });
 

@@ -38,6 +38,9 @@ describe('parseWorkOrder', () => {
     ['an unknown comparator', (r) => { (r.contract as Record<string, unknown>).comparator = '=>'; }, /comparator must be one of/],
     ['a hidden script outside hidden/', (r) => { (r.hidden_eval as Record<string, unknown>).script = 'eval.sh'; }, /under hidden\//],
     ['a hidden script escaping with ..', (r) => { (r.hidden_eval as Record<string, unknown>).script = 'hidden/../x.sh'; }, /under hidden\//],
+    // The path is interpolated into the shell command a container runs.
+    ['a hidden script holding a shell metacharacter', (r) => { (r.hidden_eval as Record<string, unknown>).script = 'hidden/e;rm -rf /.sh'; }, /letters, digits, dot, dash/],
+    ['a hidden script holding a substitution', (r) => { (r.hidden_eval as Record<string, unknown>).script = 'hidden/$(id).sh'; }, /letters, digits, dot, dash/],
     ['a bad memory size', (r) => { (r.sandbox as Record<string, unknown>).memory = 'lots'; }, /512m or 2g/],
     ['an invalid image', (r) => { (r.sandbox as Record<string, unknown>).image = '-evil'; }, /not a valid image/],
     ['zero repeats', (r) => { (r.dev_eval as Record<string, unknown>).repeats = 0; }, /positive integer/],

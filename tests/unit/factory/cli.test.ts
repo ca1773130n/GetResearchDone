@@ -116,6 +116,38 @@ describe('factory CLI', () => {
       expect(r.exitCode).not.toBe(0);
     });
 
+    it('resumes past a ledger whose last line a crash tore', () => {
+      const { home, od } = orderHome();
+      fs.writeFileSync(path.join(od, 'candidates.jsonl'),
+        `${JSON.stringify({ id: 'c1', at: 't', outcome: 'dev_miss' })}\n{"id":"c2","a`);
+      fs.writeFileSync(path.join(od, 'spend.jsonl'), '{"tokens":40}\n{"tok');
+      fs.writeFileSync(path.join(od, 'queries.jsonl'), '{"status":"started"}\n{"stat');
+      let warned = '';
+      const warnSpy = jest.spyOn(process.stderr, 'write').mockImplementation((d: string | Uint8Array): boolean => {
+        warned += String(d);
+        return true;
+      });
+      let json: { tokens: number; hiddenQueries: number; candidates: Array<{ id: string }> };
+      try {
+        json = JSON.parse(captureOutput(() => cli.cmdFactoryStatus('/x', 'search-p95', false, { home })).stdout);
+      } finally {
+        warnSpy.mockRestore();
+      }
+      expect(json).toMatchObject({ tokens: 40, hiddenQueries: 1 });
+      expect(json.candidates.map((c) => c.id)).toEqual(['c1']);
+      for (const name of ['candidates.jsonl', 'spend.jsonl', 'queries.jsonl']) expect(warned).toContain(name);
+    });
+
+    it.each(['candidates.jsonl', 'spend.jsonl', 'queries.jsonl'])(
+      'fails in the factory status shape on a damaged %s, naming the file', (name) => {
+        const { home, od } = orderHome();
+        fs.writeFileSync(path.join(od, name), '{"id":"c1"\n{"id":"c2"}\n');
+        const r = captureError(() => cli.cmdFactoryStatus('/x', 'search-p95', false, { home }));
+        expect(r.stderr).toMatch(new RegExp(`factory status: cannot read .*${name}: line 1 is not valid JSON`));
+        expect(r.exitCode).not.toBe(0);
+      },
+    );
+
     it('fails in the factory status shape on a truncated status.json', () => {
       const { home, od } = orderHome();
       fs.writeFileSync(path.join(od, 'status.json'), '{"stop": "shi');

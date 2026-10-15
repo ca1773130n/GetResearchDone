@@ -55,12 +55,36 @@ function shq(v: string): string {
   return `'${v.replace(/'/g, `'\\''`)}'`;
 }
 
+function candidateBranch(o: WorkOrder, candidate: string): string { return `factory/${o.id}/${candidate}`; }
+function prTitle(o: WorkOrder): string { return `factory: ${o.objective}`.slice(0, 72); }
+
+/**
+ * Commits exactly `changed` on the candidate's branch, and nothing else.
+ *
+ * Called BEFORE the hidden evaluation runs, so the tree that ships is exactly the tree that
+ * passed the scope check, the tamper scan, the dev rule and blind replication. The hidden
+ * evaluation executes the patched code against a read-write `/work`, so anything it leaves in
+ * the worktree — a warmed cache, a build artifact — would otherwise ride into the PR unchecked.
+ */
+function commitForShipping(exec: Exec, o: WorkOrder, candidate: string, strategy: string, changed: string[], worktree: string): string {
+  const branch = candidateBranch(o, candidate);
+  commitCandidate(exec, worktree, branch, changed, `${prTitle(o)}\n\n${strategy}`);
+  return branch;
+}
+
+/** Deletes a branch `commitForShipping` created for a candidate that then did not ship. */
+function discardBranch(exec: Exec, o: WorkOrder, candidate: string): void {
+  try {
+    exec('git', ['-C', o.repo, 'branch', '-D', candidateBranch(o, candidate)]);
+  } catch { /* never created, or already gone with its worktree */ }
+}
+
+/** Pushes the commit `commitForShipping` made and opens the PR. The commit must already exist. */
 function shipCandidate(
   exec: Exec, e: Evidence, worktree: string, orderDir: string,
 ): { branch: string; prUrl: string | null; error: string | null; manual: string | null } {
-  const branch = `factory/${e.order.id}/${e.candidate}`;
-  const title = `factory: ${e.order.objective}`.slice(0, 72);
-  commitCandidate(exec, worktree, branch, e.changed, `${title}\n\n${e.strategy}`);
+  const branch = candidateBranch(e.order, e.candidate);
+  const title = prTitle(e.order);
   const bodyFile = path.join(orderDir, `pr-body-${e.candidate}.md`);
   fs.writeFileSync(bodyFile, evidenceBody(e));
   // The worktree is removed after shipping, so recovery commands run from the repo and quote every value for the user's shell.
@@ -88,7 +112,7 @@ const STOP_TEXT: Record<StopReason, string> = {
   budget_spent: 'The budget ran out before any patch cleared every gate.',
   holdout_spent: 'The hidden-evaluation queries are used up. More would start overfitting it; a new hidden evaluation resets this.',
   plateau: 'Several candidates in a row missed the rule without beating the best dev result.',
-  hidden_broken: 'The hidden evaluation failed to print its metric on a candidate. Fix it before trusting this order again; the query still counts.',
+  hidden_broken: 'The hidden evaluation failed to print its metric on a candidate; its own error is the last `broken` row of queries.jsonl. Fix it before trusting this order again; the query still counts.',
   build_failures: 'The builder failed to produce a usable change three times in a row.',
   docker_unavailable: 'Docker is not available. The factory never runs candidate code on the host.',
 };
@@ -101,7 +125,8 @@ export interface ReportInput {
   manual: string | null;
   events: CandidateEvent[];
   tokens: number;
-  tokenCapEnforced: boolean;
+  /** Spawns whose backend reported no token count, so `tokens` under-states the real spend. */
+  unmeteredSpawns: number;
   hiddenQueries: number;
   warnings: string[];
 }
@@ -122,7 +147,7 @@ function writeReport(orderDir: string, r: ReportInput): string {
     '|---|---|---|---|',
     ...r.events.map((e) => `| ${e.id} | ${e.outcome ?? 'unfinished'} | ${e.devMedian ?? ''} | ${(e.detail ?? '').replace(/\|/g, '/')} |`),
     '',
-    `Tokens: ${r.tokens} of ${o.budget.tokens}${r.tokenCapEnforced ? '' : ' (the backend reported no counts, so the cap was not enforced)'}.`,
+    `Tokens: ${r.tokens} of ${o.budget.tokens}${r.unmeteredSpawns > 0 ? ` (${r.unmeteredSpawns} spawn(s) reported no token count, so the real spend is higher than this and can exceed the cap)` : ''}.`,
     `Candidates: ${r.events.length} of ${o.budget.candidates}. Hidden queries: ${r.hiddenQueries} of ${o.budget.hidden_queries}.`,
     ...(r.warnings.length ? ['', 'Warnings:', ...r.warnings.map((w) => `- ${w}`)] : []),
   ];
@@ -132,4 +157,4 @@ function writeReport(orderDir: string, r: ReportInput): string {
   return file;
 }
 
-module.exports = { evidenceBody, shipCandidate, writeReport, STOP_TEXT };
+module.exports = { evidenceBody, commitForShipping, discardBranch, shipCandidate, writeReport, STOP_TEXT };

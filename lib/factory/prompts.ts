@@ -1,11 +1,14 @@
 'use strict';
-import type { CandidateEvent, WorkOrder } from './types';
+import type { CandidateEvent, CandidateOutcome, WorkOrder } from './types';
 import type { ExperimentResult, Hypothesis } from '../research/types';
+
+/** A candidate whose run finished: the only kind `describeOutcome` can speak about. */
+type FinishedCandidate = CandidateEvent & { outcome: CandidateOutcome };
 
 function rule(o: WorkOrder): string { return `${o.contract.metric} ${o.contract.comparator} ${o.contract.target}`; }
 
 /** What later hypotheses learn about a candidate. A hidden-gate rejection is one bit, nothing more. */
-function describeOutcome(e: CandidateEvent): string {
+function describeOutcome(e: FinishedCandidate): string {
   switch (e.outcome) {
     case 'dev_miss': return `missed the rule on the dev evaluation (dev median ${e.devMedian ?? 'not measured'})`;
     case 'out_of_scope': return `changed paths outside the allowlist (${e.detail ?? ''})`;
@@ -13,7 +16,14 @@ function describeOutcome(e: CandidateEvent): string {
     case 'build_failed': return 'the builder did not produce a usable change';
     case 'did_not_replicate': return `a fresh builder could not reproduce it from its strategy note (replica dev median ${e.replicaDevMedian ?? 'not measured'})`;
     case 'rejected_at_gate': return 'rejected at the final gate';
-    default: return 'shipped';
+    case 'not_judged': return 'never judged: the sandbox went away before the final gate could run';
+    case 'shipped': return 'shipped';
+    default: {
+      // Exhaustive at compile time, so a new outcome cannot silently read as one of these;
+      // at run time an unknown one says so rather than claiming the candidate shipped.
+      const exhaustive: never = e.outcome;
+      return `an outcome this version does not recognise (${String(exhaustive)})`;
+    }
   }
 }
 
@@ -25,7 +35,7 @@ function composeQuestion(o: WorkOrder, baseWorktree: string, history: CandidateE
     `A reference copy of the code at ${o.base} is at ${baseWorktree}. Read it there; do not modify it.`,
     `A change may touch only these paths: ${o.editable.join(', ')}.`,
   ];
-  const finished = history.filter((e) => e.outcome !== undefined);
+  const finished = history.filter((e): e is FinishedCandidate => e.outcome !== undefined);
   if (finished.length > 0) {
     lines.push('', 'Earlier candidates. Do not resubmit these ideas:');
     for (const e of finished) lines.push(`- ${e.id}: ${e.hypothesis ?? '(hypothesis not recorded)'} Outcome: ${describeOutcome(e)}.`);
@@ -38,7 +48,7 @@ function rules(o: WorkOrder, worktree: string): string[] {
     `Work only inside the git worktree at ${worktree}.`,
     `Edit files only under these paths: ${o.editable.join(', ')}. A change anywhere else is rejected.`,
     'Never write the text __RESULT__ anywhere. A change containing it is rejected as tampering.',
-    'Do not try to run, build or measure anything. You have no shell; the factory measures your change in a sandbox.',
+    'Do not try to run, build or measure anything. The factory measures your change in a sandbox.',
   ];
 }
 

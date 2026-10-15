@@ -53,7 +53,10 @@ const { BUILDER, BudgetSpentError, createMeteredSpawn } = require('./spawn') as 
   createMeteredSpawn: (o: { scheduler: { spawn: (p: string, o: SpawnOpts) => Promise<SchedulerSpawnResult> };
     orderDir: string; budgetTokens: number; warn: (m: string) => void }) => MeteredSpawn;
 };
-const { shipCandidate, writeReport } = require('./ship') as {
+const { readJsonl } = require('./jsonl') as { readJsonl: <T>(f: string, warn?: (m: string) => void) => T[] };
+const { commitForShipping, discardBranch, shipCandidate, writeReport } = require('./ship') as {
+  commitForShipping: (e: Exec, o: WorkOrder, cand: string, strategy: string, changed: string[], wt: string) => string;
+  discardBranch: (e: Exec, o: WorkOrder, cand: string) => void;
   shipCandidate: (e: Exec, ev: Evidence, wt: string, od: string) => { branch: string; prUrl: string | null; error: string | null; manual: string | null };
   writeReport: (od: string, r: ReportInput) => string;
 };
@@ -151,13 +154,10 @@ interface Line {
   now: () => number;
 }
 
-function readEvents(od: string): { byId: Map<string, CandidateEvent>; ids: string[] } {
+function readEvents(od: string, warn?: (m: string) => void): { byId: Map<string, CandidateEvent>; ids: string[] } {
   const byId = new Map<string, CandidateEvent>();
   const ids: string[] = [];
-  const f = path.join(od, 'candidates.jsonl');
-  if (!fs.existsSync(f)) return { byId, ids };
-  for (const l of String(fs.readFileSync(f, 'utf8')).split('\n').filter(Boolean)) {
-    const e = JSON.parse(l) as CandidateEvent;
+  for (const e of readJsonl<CandidateEvent>(path.join(od, 'candidates.jsonl'), warn)) {
     if (!byId.has(e.id)) ids.push(e.id);
     byId.set(e.id, { ...byId.get(e.id), ...e });
   }
@@ -329,16 +329,31 @@ async function trustGates(l: Line, cur: Current, spawnFn: FactorySpawnFn, metere
   }
   record(l, { id: cur.id, replicaDevMedian: replica });
 
-  if (!sb.dockerReady(l.exec)) return { ...CONTINUE, stop: 'docker_unavailable' };
+  if (!sb.dockerReady(l.exec)) {
+    // This candidate passed the dev rule AND blind replication; only the sandbox is gone. Say so,
+    // or `reconcile` would close the row as a build failure and the report would blame the builder.
+    record(l, { id: cur.id, outcome: 'not_judged', detail: 'docker went away before the final gate could run' });
+    wt.removeWorktree(l.exec, o.repo, cur.worktree); l.current = null;
+    return { ...CONTINUE, stop: 'docker_unavailable' };
+  }
+
+  // Commit before the hidden query, so the shipped tree is the one every earlier gate saw. The
+  // hidden evaluation runs this patch against a read-write /work; a candidate it then rejects is
+  // discarded with its worktree, and its branch with it.
+  const changed = gates.changedPaths(l.exec, cur.worktree, o.base).filter((p) => !cur.artifacts.has(p));
+  commitForShipping(l.exec, o, cur.id, strategy, changed, cur.worktree);
+
   const g = gates.hiddenGate(l.ctx, o, l.od, cur.id, cur.worktree);
   if (g.outcome !== 'pass') {
-    // One bit for later hypotheses. The value itself lives only in queries.jsonl.
+    // One bit for later hypotheses. The value, and why a broken evaluation broke, live only in
+    // queries.jsonl, which no agent can reach.
     record(l, { id: cur.id, outcome: 'rejected_at_gate', detail: g.outcome === 'broken' ? 'the hidden evaluation broke on this candidate' : '' });
-    wt.removeWorktree(l.exec, o.repo, cur.worktree); l.current = null;
+    wt.removeWorktree(l.exec, o.repo, cur.worktree);
+    discardBranch(l.exec, o, cur.id);
+    l.current = null;
     return g.outcome === 'broken' ? { ...CONTINUE, stop: 'hidden_broken' } : CONTINUE;
   }
 
-  const changed = gates.changedPaths(l.exec, cur.worktree, o.base).filter((p) => !cur.artifacts.has(p));
   const res = shipCandidate(l.exec, {
     order: o, candidate: cur.id, hypothesis: ev.hypothesis ?? '', strategy,
     devMedian: cur.devMedian as number, replicaDevMedian: replica, hiddenMedian: g.median as number,
@@ -349,11 +364,22 @@ async function trustGates(l: Line, cur: Current, spawnFn: FactorySpawnFn, metere
   return { stop: 'shipped', prUrl: res.prUrl, shipError: res.error, manual: res.manual };
 }
 
-function defaultOnAbort(handler: () => void): () => void {
-  const onSignal = (): void => { try { handler(); } finally { process.exit(130); } };
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
-  return () => { process.removeListener('SIGINT', onSignal); process.removeListener('SIGTERM', onSignal); };
+/** The part of `process` an abort handler needs; injectable so the Ctrl-C path is testable. */
+export interface SignalTarget {
+  once(signal: string, fn: () => void): unknown;
+  removeListener(signal: string, fn: () => void): unknown;
+  exit(code: number): void;
+}
+
+/**
+ * Cleanup on Ctrl-C and on SIGTERM. `handler` runs in a `finally`, so a cleanup that throws
+ * still exits rather than leaving the process wedged in a half-aborted run.
+ */
+function defaultOnAbort(handler: () => void, target: SignalTarget = process): () => void {
+  const onSignal = (): void => { try { handler(); } finally { target.exit(130); } };
+  target.once('SIGINT', onSignal);
+  target.once('SIGTERM', onSignal);
+  return () => { target.removeListener('SIGINT', onSignal); target.removeListener('SIGTERM', onSignal); };
 }
 
 function startedAt(od: string, now: () => number): number {
@@ -386,7 +412,7 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   // Crash recovery touches only what this order recorded: its own worktrees and containers.
   sb.removeRecordedContainers(exec, od);
   wt.removeAllOwn(exec, order.repo, wtRoot);
-  const { byId, ids } = readEvents(od);
+  const { byId, ids } = readEvents(od, warn);
   const l: Line = {
     order, od, lineDir, wtRoot, baseWt: '', exec,
     ctx: { exec, ledgerDir: od, orderId: id, user: sb.hostUser(), timeoutMs: deps.timeoutMs ?? sb.DEFAULT_TIMEOUT_MS },
@@ -412,7 +438,7 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   const stopReason = (): StopReason | null => {
     if (!sb.dockerReady(exec)) return 'docker_unavailable';
     if (l.ids.length >= order.budget.candidates) return 'budget_spent';
-    if (metered.tokenCapEnforced() && metered.spent() >= order.budget.tokens) return 'budget_spent';
+    if (metered.spent() >= order.budget.tokens) return 'budget_spent';
     if (now() - begun >= order.budget.wall_minutes * 60000) return 'budget_spent';
     if (gates.queriesUsed(od) >= order.budget.hidden_queries) return 'holdout_spent';
     if (buildFailures >= MAX_BUILD_FAILURES) return 'build_failures';
@@ -453,7 +479,7 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
         const reason = error
           ?? (result && result.status !== 'exhausted' ? result.errorReason ?? `the research loop returned status ${result.status}` : undefined);
         if (cur) finalize(l, cur, reason);
-        const budgetOut = metered.tokenCapEnforced() && metered.spent() >= order.budget.tokens;
+        const budgetOut = metered.spent() >= order.budget.tokens;
         // An attempt that allocated no candidate made no progress, whatever it reported. Counting
         // it stops a loop that would otherwise run to the wall clock recording nothing, rather than
         // trusting an orchestrator invariant this module does not own.
@@ -476,10 +502,10 @@ async function runOrder(home: string, id: string, deps: RunOrderDeps = {}): Prom
   const final = stop as StopReason;
   const reportPath = writeReport(od, {
     order, stop: final, prUrl: gate.prUrl, shipError: gate.shipError, manual: gate.manual,
-    events: history(l), tokens: metered.spent(), tokenCapEnforced: metered.tokenCapEnforced(),
+    events: history(l), tokens: metered.spent(), unmeteredSpawns: metered.unmeteredSpawns(),
     hiddenQueries: gates.queriesUsed(od), warnings,
   });
   return { stop: final, reportPath, prUrl: gate.prUrl, candidates: l.ids.length, tokens: metered.spent(), hiddenQueries: gates.queriesUsed(od) };
 }
 
-module.exports = { runOrder, readEvents, isPlateau, LINE_CONFIG };
+module.exports = { runOrder, readEvents, isPlateau, defaultOnAbort, LINE_CONFIG };

@@ -87,10 +87,20 @@ function cmdFactoryStatus(_cwd: string, id: string | undefined, raw: boolean, d:
   try {
     if (fs.existsSync(statusFile)) last = JSON.parse(String(fs.readFileSync(statusFile, 'utf8'))) as { stop: string; prUrl: string | null };
   } catch (e) { return error(`factory status: cannot read ${statusFile}: ${(e as Error).message}`); }
-  const { byId, ids } = readEvents(od);
+  // The other three ledgers are read under the same guard: a damaged line in any of them is a
+  // `factory status: …` message naming the file, never a raw SyntaxError.
+  let byId: Map<string, CandidateEvent>;
+  let ids: string[];
+  let tokens: number;
+  let hiddenQueries: number;
+  try {
+    ({ byId, ids } = readEvents(od));
+    tokens = readSpent(od);
+    hiddenQueries = queriesUsed(od);
+  } catch (e) { return error(`factory status: ${(e as Error).message}`); }
   const payload = {
     id, stop: last?.stop ?? null, prUrl: last?.prUrl ?? null,
-    candidates: ids.map((c) => byId.get(c)), tokens: readSpent(od), hiddenQueries: queriesUsed(od), budget: o.budget,
+    candidates: ids.map((c) => byId.get(c)), tokens, hiddenQueries, budget: o.budget,
   };
   const text = [
     `${id}: ${payload.stop ?? 'not finished'}${payload.prUrl ? `  ${payload.prUrl}` : ''}`,

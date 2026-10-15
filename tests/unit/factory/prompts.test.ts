@@ -31,6 +31,25 @@ describe('factory prompts', () => {
     expect(q).not.toContain('191.37');
   });
 
+  it('describes every finished outcome, and never calls one of them shipped by default', () => {
+    const q = pr.composeQuestion(o, '/base', [
+      { id: 'c1', at, hypothesis: 'Add a marker.', outcome: 'tampering', detail: 'src/search.js' },
+      { id: 'c2', at, hypothesis: 'Touch the readme.', outcome: 'out_of_scope', detail: 'README.md' },
+      { id: 'c3', at, hypothesis: 'Nothing usable.', outcome: 'build_failed' },
+      { id: 'c4', at, hypothesis: 'Could not be redone.', outcome: 'did_not_replicate', replicaDevMedian: 187 },
+      { id: 'c5', at, hypothesis: 'Docker went away.', outcome: 'not_judged' },
+      { id: 'c6', at, hypothesis: 'Cache the index.', outcome: 'shipped' },
+    ]);
+    expect(q).toContain("- c1: Add a marker. Outcome: added the evaluation's result marker (src/search.js).");
+    expect(q).toContain('- c2: Touch the readme. Outcome: changed paths outside the allowlist (README.md).');
+    expect(q).toContain('- c3: Nothing usable. Outcome: the builder did not produce a usable change.');
+    expect(q).toContain('- c4: Could not be redone. Outcome: a fresh builder could not reproduce it from its strategy note (replica dev median 187).');
+    expect(q).toContain('- c5: Docker went away. Outcome: never judged: the sandbox went away before the final gate could run.');
+    expect(q).toContain('- c6: Cache the index. Outcome: shipped.');
+    // Only the one candidate that shipped is described as shipped.
+    expect(q.match(/shipped/g)).toHaveLength(1);
+  });
+
   it('gives the replicator the strategy but never the hypothesis', () => {
     const p = pr.replicationPrompt(o, 'Cache the search index in memory.', '/wt/c1r', '/it');
     expect(p).toContain('Strategy: Cache the search index in memory.');
@@ -43,6 +62,10 @@ describe('factory prompts', () => {
     expect(p).toContain('Work only inside the git worktree at /wt/c1.');
     expect(p).toContain('Never write the text __RESULT__');
     expect(p).toContain('"scriptPath":"/it/run.sh"');
+    // The imperative carries the intent; only the claude backend can actually take the shell
+    // away, so the prompt must not promise the builder it has none.
+    expect(p).toContain('Do not try to run, build or measure anything.');
+    expect(p).not.toMatch(/no shell/);
   });
 
   it('caps the strategy note at about 128 tokens', () => {

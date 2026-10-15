@@ -135,17 +135,29 @@ function validateDraft(home: string, id: string, deps: { exec?: Exec; timeoutMs?
   const docker = sb.dockerReady(exec);
   add({ id: 'docker', ok: docker, detail: docker ? 'docker is available' : 'docker is not available; the factory never runs candidate code on the host' });
 
-  const tracked = repoIssues.length === 0
+  // Without a readable repo there is no file list, so the two checks that need one are skipped
+  // rather than reported as "matching no file": that would be noise about a failure the user
+  // cannot act on until the `repo` check above passes.
+  const haveFileList = repoIssues.length === 0;
+  const tracked = haveFileList
     ? exec('git', ['-C', o.repo, 'ls-tree', '-r', '--name-only', o.base]).split('\n').filter(Boolean) : [];
-  const unmatched = o.editable.filter((g) => !tracked.some((f) => matchesAny(f, [g])));
+  const unmatched = haveFileList ? o.editable.filter((g) => !tracked.some((f) => matchesAny(f, [g]))) : [];
   const overlap = o.dev_eval.files.filter((f) => matchesAny(f, o.editable));
-  const missing = o.dev_eval.files.filter((f) => !tracked.includes(f));
+  const missing = haveFileList ? o.dev_eval.files.filter((f) => !tracked.includes(f)) : [];
   const editIssues = [
     unmatched.length ? `globs matching no file at ${o.base}: ${unmatched.join(', ')}` : '',
     overlap.length ? `evaluation files inside the editable paths: ${overlap.join(', ')}` : '',
     missing.length ? `evaluation files not tracked at ${o.base}: ${missing.join(', ')}` : '',
   ].filter(Boolean).join('; ');
-  add({ id: 'editable', ok: editIssues === '', detail: editIssues || `${o.editable.length} editable glob(s) match; no overlap with evaluation files` });
+  // Only the declared `dev_eval.files` can be checked: a file an evaluation reads without
+  // declaring it, and anything the hidden evaluation reads, are invisible here. The detail says
+  // exactly that, rather than claiming "no overlap with evaluation files".
+  add({
+    id: 'editable', ok: editIssues === '',
+    detail: editIssues || (haveFileList
+      ? `${o.editable.length} editable glob(s) match at ${o.base}; none covers a path listed in dev_eval.files`
+      : `${o.editable.length} editable glob(s) declared; none covers a path listed in dev_eval.files. Not checked against ${o.base}: the repo check failed`),
+  });
 
   if (!checks.every((c) => c.ok)) return done();
 
@@ -191,7 +203,7 @@ function validateDraft(home: string, id: string, deps: { exec?: Exec; timeoutMs?
     });
     add({
       id: 'tokens', ok: true,
-      detail: 'checked at the first spawn of `gd factory run`, so validate spends no tokens; a backend that reports no token count disables the token cap, loudly',
+      detail: 'checked at the first spawn of `gd factory run`, so validate spends no tokens; a spawn whose backend reports no token count counts as nothing against the cap, loudly, and the report says how many did',
     });
 
     if (!checks.every((c) => c.ok)) return done(noisy);

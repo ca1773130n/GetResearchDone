@@ -14,6 +14,7 @@ const { untrackedPaths } = require('./worktrees') as { untrackedPaths: (e: Exec,
 const { compare } = require('../research/verdict') as {
   compare: (v: number, c: Comparator, t: number) => boolean;
 };
+const { readJsonl } = require('./jsonl') as { readJsonl: <T>(f: string, warn?: (m: string) => void) => T[] };
 
 /** The literal an evaluation prints its result with. A patch that adds it is tampering. */
 const RESULT_MARKER = '__RESULT__';
@@ -83,15 +84,13 @@ function tamperScan(exec: Exec, dir: string, base: string): string[] {
 
 function queriesFile(orderDir: string): string { return path.join(orderDir, 'queries.jsonl'); }
 
-function readQueries(orderDir: string): QueryRecord[] {
-  const f = queriesFile(orderDir);
-  if (!fs.existsSync(f)) return [];
-  return String(fs.readFileSync(f, 'utf8')).split('\n').filter(Boolean).map((l) => JSON.parse(l) as QueryRecord);
+function readQueries(orderDir: string, warn?: (m: string) => void): QueryRecord[] {
+  return readJsonl<QueryRecord>(queriesFile(orderDir), warn);
 }
 
 /** Queries spent, counted from write-ahead `started` rows, so a crash never refunds one. */
-function queriesUsed(orderDir: string): number {
-  return readQueries(orderDir).filter((q) => q.status === 'started').length;
+function queriesUsed(orderDir: string, warn?: (m: string) => void): number {
+  return readQueries(orderDir, warn).filter((q) => q.status === 'started').length;
 }
 
 function appendQuery(orderDir: string, rec: QueryRecord): void {
@@ -121,7 +120,13 @@ function hiddenGate(
       outcome: compare(m.median, order.contract.comparator, order.contract.target) ? 'pass' as const : 'fail' as const,
       median: m.median, detail: '',
     };
-  appendQuery(orderDir, { candidate, status: res.outcome, median: res.median, at: new Date().toISOString() });
+  // The detail says why the human's own holdout script broke, so it must be written down
+  // somewhere — and queries.jsonl is the one surface no agent can reach. It goes nowhere else:
+  // not onto the candidate row, not into a prompt, not into the report.
+  appendQuery(orderDir, {
+    candidate, status: res.outcome, median: res.median, at: new Date().toISOString(),
+    ...(res.detail ? { detail: res.detail } : {}),
+  });
   return res;
 }
 

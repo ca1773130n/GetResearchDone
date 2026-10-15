@@ -6,8 +6,23 @@ import type { SpendRecord } from './types';
 const { decodeSpawnResult } = require('../research/orchestrator') as {
   decodeSpawnResult: (r: { exitCode?: number; stdout?: string; stderr?: string }, agentType: string) => string;
 };
+const { readJsonl } = require('./jsonl') as { readJsonl: <T>(f: string, warn?: (m: string) => void) => T[] };
 
 const BUILDER = 'grd-factory-builder';
+
+/**
+ * Tools the builder is spawned without. It needs Read, Write, Edit, Grep and Glob; everything
+ * here either hands a shell straight back (`Bash`, `BashOutput`, `KillShell`, and `Task`, which
+ * spawns a subagent that has one) or reaches a network the sandbox denies (`WebFetch`,
+ * `WebSearch`). The `tools:` line in `agents/*.md` is not applied by any spawn path, so this
+ * list is the whole restriction.
+ *
+ * It is a denylist, which means a tool Claude Code gains later is permitted by default:
+ * REVISIT THIS LIST whenever Claude Code's tool set changes. An allowlist would be the better
+ * shape, but it needs an `--allowedTools` option in the scheduler that every spawn path in the
+ * product shares, and its effect would be exactly as unobserved as this flag's already is.
+ */
+const BUILDER_DENIED: string[] = ['Bash', 'Task', 'WebFetch', 'WebSearch', 'NotebookEdit', 'KillShell', 'BashOutput'];
 
 class BudgetSpentError extends Error {
   constructor(message: string) {
@@ -24,7 +39,8 @@ export interface MeteredSpawn {
   /** A spawn function for the research loop. `cwdFor` picks each spawn's working directory. */
   spawnFn(cwdFor: (agentType: string) => string, candidateFor: () => string | null): FactorySpawnFn;
   spent(): number;
-  tokenCapEnforced(): boolean;
+  /** Spawns that reported no token count, so `spent()` under-states what the run really cost. */
+  unmeteredSpawns(): number;
 }
 
 /**
@@ -50,11 +66,8 @@ function tokensFrom(r: SchedulerSpawnResult): number {
 
 function spendFile(orderDir: string): string { return path.join(orderDir, 'spend.jsonl'); }
 
-function readSpent(orderDir: string): number {
-  const f = spendFile(orderDir);
-  if (!fs.existsSync(f)) return 0;
-  return String(fs.readFileSync(f, 'utf8')).split('\n').filter(Boolean)
-    .reduce((s: number, l: string) => s + (JSON.parse(l) as SpendRecord).tokens, 0);
+function readSpent(orderDir: string, warn?: (m: string) => void): number {
+  return readJsonl<SpendRecord>(spendFile(orderDir), warn).reduce((s: number, r: SpendRecord) => s + r.tokens, 0);
 }
 
 function createMeteredSpawn(o: {
@@ -64,28 +77,33 @@ function createMeteredSpawn(o: {
   model?: string;
   warn: (m: string) => void;
 }): MeteredSpawn {
-  let spent = readSpent(o.orderDir);
-  let enforced = true;
+  let spent = readSpent(o.orderDir, o.warn);
+  let unmetered = 0;
   return {
     spent: () => spent,
-    tokenCapEnforced: () => enforced,
+    unmeteredSpawns: () => unmetered,
     spawnFn(cwdFor, candidateFor) {
       return async (prompt: string, agentType: string): Promise<string> => {
-        if (enforced && spent >= o.budgetTokens) {
+        if (spent >= o.budgetTokens) {
           throw new BudgetSpentError(`token budget spent (${spent} of ${o.budgetTokens})`);
         }
         const isBuilder = agentType === BUILDER;
         const r = await o.scheduler.spawn(prompt, {
           agentType, model: o.model, captureOutput: true, strictMcp: true, cwd: cwdFor(agentType),
-          ...(isBuilder ? { disallowedTools: ['Bash'] } : {}),
+          ...(isBuilder ? { disallowedTools: BUILDER_DENIED } : {}),
         });
         const tokens = tokensFrom(r);
         const row: SpendRecord = { agent: agentType, candidate: candidateFor(), tokens, backend: String(r.backend), at: new Date().toISOString() };
         fs.appendFileSync(spendFile(o.orderDir), JSON.stringify(row) + '\n');
         spent += tokens;
-        if (r.exitCode === 0 && tokens === 0 && enforced) {
-          enforced = false;
-          o.warn(`[factory] the ${r.backend} backend reported no token count; the token cap cannot be enforced for this run. The candidate and wall-clock caps still apply.\n`);
+        // A spawn that reports nothing contributes nothing to the total, but it never disables
+        // the cap: every spawn that does report still counts, so one unparsed usage block cannot
+        // uncap the money for the rest of the run. Said once, and disclosed in the report.
+        if (r.exitCode === 0 && tokens === 0) {
+          unmetered += 1;
+          if (unmetered === 1) {
+            o.warn(`[factory] the ${r.backend} backend reported no token count for a spawn; the cap is still enforced against the spawns that did report, so the real spend can exceed it.\n`);
+          }
         }
         if (isBuilder && r.backend !== 'claude') {
           o.warn(`[factory] a builder ran on ${r.backend}, which cannot remove the shell; that builder had shell access.\n`);
@@ -96,4 +114,4 @@ function createMeteredSpawn(o: {
   };
 }
 
-module.exports = { BUILDER, BudgetSpentError, tokensFrom, readSpent, createMeteredSpawn };
+module.exports = { BUILDER, BUILDER_DENIED, BudgetSpentError, tokensFrom, readSpent, createMeteredSpawn };

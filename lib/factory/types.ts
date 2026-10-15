@@ -29,7 +29,7 @@ export interface WorkOrder {
 
 export type CandidateOutcome =
   | 'dev_miss' | 'out_of_scope' | 'tampering' | 'build_failed'
-  | 'did_not_replicate' | 'rejected_at_gate' | 'shipped';
+  | 'did_not_replicate' | 'rejected_at_gate' | 'not_judged' | 'shipped';
 
 /**
  * One append-only row of candidates.jsonl; rows with the same `id` fold left to right.
@@ -53,11 +53,16 @@ export type StopReason =
   | 'shipped' | 'budget_spent' | 'holdout_spent' | 'plateau'
   | 'hidden_broken' | 'build_failures' | 'docker_unavailable';
 
-/** One row of queries.jsonl. The `started` row is written before the hidden evaluation runs. */
+/**
+ * One row of queries.jsonl. The `started` row is written before the hidden evaluation runs.
+ * `detail` says why a `broken` evaluation could not be judged. This file is factory-private:
+ * it is the only place a measured hidden value or a hidden-evaluation error message is written.
+ */
 export interface QueryRecord {
   candidate: string;
   status: 'started' | 'pass' | 'fail' | 'broken';
   median?: number | null;
+  detail?: string;
   at: string;
 }
 

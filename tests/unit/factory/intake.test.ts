@@ -91,6 +91,30 @@ describe('validateDraft', () => {
     expect(calls.some((c) => c[0] === 'docker' && c[1] === 'run')).toBe(false);
   });
 
+  it('says nothing about globs it could not check when the repo check fails', () => {
+    const calls: string[][] = [];
+    const d = draft(FILES, { base: 'no-such-ref' });
+    const r = intake.validateDraft(d.home, d.o.id, { exec: fx.fakeExec(answer(187, 191), calls) });
+    expect(r.ok).toBe(false);
+    expect(r.checks.find((c) => c.id === 'repo')?.ok).toBe(false);
+    // Without a file list every glob would look unmatched: noise about a failure the user
+    // cannot act on until the repo check passes.
+    const editable = r.checks.find((c) => c.id === 'editable');
+    expect(editable?.ok).toBe(true);
+    expect(editable?.detail).not.toMatch(/matching no file/);
+    expect(editable?.detail).toMatch(/Not checked against no-such-ref/);
+    expect(calls.some((c) => c[0] === 'docker' && c[1] === 'run')).toBe(false);
+  });
+
+  it('claims only what the editable check can know', () => {
+    const d = draft(FILES);
+    const r = intake.validateDraft(d.home, d.o.id, { exec: fx.fakeExec(answer(187, 191)) });
+    // Only declared dev_eval.files can be compared; what either evaluation reads without
+    // declaring it is invisible here, so the PASS text must not claim "no evaluation files".
+    expect(r.checks.find((c) => c.id === 'editable')?.detail)
+      .toBe('1 editable glob(s) match at main; none covers a path listed in dev_eval.files');
+  });
+
   it('flags a metric whose spread exceeds the gap to the target', () => {
     const d = draft(FILES, { dev_eval: { command: 'node bench/run.js', repeats: 3, files: ['bench/run.js', 'package.json'] } });
     const vals = [100, 190, 125];
