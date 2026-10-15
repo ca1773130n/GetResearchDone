@@ -553,14 +553,14 @@ GRD's autoresearch loop is built to keep going:
 
 ---
 
-## 9. Research factory
+## 8. Research factory
 
 The loop above answers a question. The research factory points the same loop at a
 codebase and keeps going until a patch both meets a rule you set and survives an
 evaluation the agents cannot see, then opens a PR. Use it when you can state the
 improvement as a number: "p95 latency of `/search` at or under 120 ms".
 
-### 9.1 The interview
+### 8.1 The interview
 
 ```bash
 /grd:factory "cut p95 latency of /search in ~/code/shop"
@@ -592,7 +592,7 @@ something it measured. You choose from options; you never edit JSON.
 Running the order is a separate, explicit step: `gd factory run <id>` (or accept the
 offer at the end of the interview). It spends the budget.
 
-### 9.2 What happens on a run
+### 8.2 What happens on a run
 
 For each candidate the loop's hypothesize station proposes an idea, the
 `grd-factory-builder` agent turns it into a patch in a fresh worktree, and the factory
@@ -612,7 +612,7 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 3. **Ship.** Exactly the allowlisted paths are committed, `factory/<order>/<candidate>`
    is pushed to the order's remote, and a PR is opened against `base`. The order then stops.
 
-### 9.3 Stop conditions
+### 8.3 Stop conditions
 
 | Stop | Meaning |
 |---|---|
@@ -624,7 +624,7 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 | `build_failures` | The builder produced no usable change three times in a row |
 | `docker_unavailable` | Docker went away. The factory never falls back to the host |
 
-### 9.4 Where state lives
+### 8.4 Where state lives
 
 Everything is under `$GRD_FACTORY_HOME` (default `~/.grd/factory`). It is split on
 purpose: the build prompt has to name the worktree, so the hidden evaluation must not
@@ -651,7 +651,7 @@ Re-running an order resumes from `spend.jsonl`, `candidates.jsonl` and `queries.
 instead of resetting them. `gd factory status <id>` prints the stop reason, spend and each
 candidate's outcome.
 
-### 9.5 Reading `report.md`
+### 8.5 Reading `report.md`
 
 The first line says why the run stopped, in one sentence. If it shipped, the PR link
 follows; if shipping failed after the gates passed, the exact commands to finish it are
@@ -660,7 +660,7 @@ one row per candidate (outcome, dev median, detail), and the totals: tokens of b
 candidates of budget, hidden queries of budget. If the backend reported no token counts
 the report says so on the Tokens line: the cap was not enforced, and spend may exceed it.
 
-### 9.6 Limits
+### 8.6 Limits
 
 - The hidden evaluation is concealed, not isolated. An agent with filesystem tools could
   still find it; the vault is outside every repo and never named in a prompt.
@@ -674,7 +674,7 @@ the report says so on the Tokens line: the cap was not enforced, and spend may e
 
 ---
 
-## 8. Cheat sheet
+## 9. Cheat sheet
 
 ```bash
 # Ground

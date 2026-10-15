@@ -20,8 +20,8 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/grd-tools.js factory run <id>
 ```
 
 If `$ARGUMENTS` starts with `status` or `run`, run that tool command with the remaining
-arguments, print the result, and stop. Typing `run <id>` yourself is the human's explicit confirmation to spend that
-order's budget, so no further question is asked for it.
+arguments, print the result, and stop. Typing `run <id>` yourself is the human's explicit
+confirmation to spend that order's budget, so no further question is asked for it.
 
 ## The interview
 
@@ -52,8 +52,8 @@ from `factory status`. Write it after every step. The human never edits it.
    metric is too noisy to decide and propose raising `dev_eval.repeats` (how many times
    the measurement is run, so the median is steadier).
 5. **Editable paths.** Propose `editable` globs (path patterns such as `dir/**`, meaning every
-   file under `dir`) covering where the measured code path lives, found by reading the code. Evaluation files can never be included. Offer
-   them as a multi-select so the human can trim.
+   file under `dir`) covering where the measured code path lives, found by reading the code. Evaluation files
+   can never be included. Offer them as a multi-select so the human can trim.
 6. **Hidden evaluation.** Recommended: write `<home>/drafts/<id>/hidden/eval.sh`, a
    held-out variant of the dev evaluation that differs in workload trace, seed or data
    split, and that measures from outside the process under test where possible. It runs

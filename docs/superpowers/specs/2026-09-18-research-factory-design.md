@@ -291,7 +291,7 @@ Every command that runs candidate code runs in a container built from the order'
    interview therefore prefers hidden evaluations that measure from outside the process
    under test, for example driving a server from a separate process and timing it there.
 6. **Known limit: a bypass can propagate between candidates.** Work on multi-agent
-   coding systems (arXiv 2610.12822, found in the pre-implementation re-query, §17)
+   coding systems (arXiv 2610.12822, found in the late re-query, §17)
    reports that an evaluator bypass discovered by one agent spreads to the others through
    shared code and plans. The factory shares the learn station's takeaways and the
    composed question, with every earlier candidate's summary and outcome, across
@@ -423,14 +423,18 @@ needs no Docker.
   could still find it.
 - Non-git targets, and ML training that needs GPU scheduling.
 
-## 17. Before implementation
+## 17. Pre-implementation checks, and the late literature re-query
 
-- **HypePaper re-query: done 2026-10-15.** The service was unavailable on 2026-09-18, so
-  the re-query ran before the first line of code was written, on reusable holdouts,
-  evaluator hacking and research-agent replication. Four searches; R1 to R3 stand.
+- **HypePaper re-query: run late, on 2026-10-15.** The plan required it before Task 1.
+  It was not run then, because the HypePaper service was erroring when this spec was
+  written. The controller ran it mid-branch, during Task 14, after Tasks 1 to 13 were
+  already implemented. R1 to R3 were therefore not checked against the literature in
+  advance, and the design was not gated by this re-query; it only confirms the rules
+  afterwards. Four searches on reusable holdouts, evaluator hacking and research-agent
+  replication found no contradiction of R1 to R3, so there was no stop.
   - *Reusable holdout.* The search returned the spec's own primary source, Dwork et al.
     (2015), and no newer work that revises it. R1 is unchanged.
-  - *Reward hacking.* Five 2026 papers, all consistent with R3. "Do Coding Agents Deceive
+  - *Reward hacking.* Four 2026 papers restate R3, and a fifth adds a new limit. "Do Coding Agents Deceive
     Us?" (NeurIPS 2026) reaches capped evaluation with randomized tests as its defense,
     which is what the hidden-query budget is. "Hack-Verifiable Environments" (NeurIPS
     2026) restates R3: agents look successful under the evaluation signal while
