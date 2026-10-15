@@ -290,6 +290,15 @@ Every command that runs candidate code runs in a container built from the order'
    determined patch could forge a result line in a way no generic check catches. The
    interview therefore prefers hidden evaluations that measure from outside the process
    under test, for example driving a server from a separate process and timing it there.
+6. **Known limit: a bypass can propagate between candidates.** Work on multi-agent
+   coding systems (arXiv 2610.12822, found in the pre-implementation re-query, §17)
+   reports that an evaluator bypass discovered by one agent spreads to the others through
+   shared code and plans. The factory shares the learn station's takeaways and the
+   composed question, with every earlier candidate's summary and outcome, across
+   candidates. That is such a channel. The defenses above are deterministic checks on each
+   patch, so none of them stops a bypass that is passed on as an idea. v1 accepts this and
+   does not try to filter the shared text; the unseen hidden evaluation (item 4) is the
+   backstop, since a hack tuned to the dev evaluation does not carry over.
 
 ## 12. Code layout
 
@@ -330,19 +339,28 @@ Every command that runs candidate code runs in a container built from the order'
 ```
 $GRD_FACTORY_HOME            default ~/.grd/factory
   drafts/<id>/               interview draft: draft.json and hidden/; deleted on save
-  orders/<id>/
+  work/<id>/                 everything an agent can reach
+    line/                    loop state: pinned .planning/config.json and threads
+    worktrees/base/          reference copy for the hypothesizer; removed at order end
+    worktrees/<candidate>/   removed when the candidate is scrapped or pushed
+  orders/<id>/               private to the factory; no agent works under it
     vault/order.json         the saved order; never given to any agent
     vault/hidden/            the hidden evaluation
-    line/                    loop state: pinned .planning/config.json and threads
     candidates.jsonl         one row per candidate, appended at every stage
     queries.jsonl            hidden-query log
     spend.jsonl              one row per spawn: agent, candidate, tokensUsed
+    containers.jsonl         names of the containers the factory started
     report.md                rewritten at every stop
-    worktrees/base/          reference copy for the hypothesizer; removed at order end
-    worktrees/<candidate>/   removed when the candidate is scrapped or pushed
+    status.json              the last stop reason and PR URL
+    started.json             when the order first ran, for the wall-clock budget
 ```
 
-The `line/` directory's pinned config, following `BENCH_WORKDIR_CONFIG`: execution and
+The directories are split because the build prompt has to name the candidate's
+worktree, and the hidden evaluation's vault must not be an ancestor of any path an agent
+works in or is told about. `work/<id>` holds only what agents may see; `orders/<id>`
+holds the vault and every record that contains a measured hidden value.
+
+The `work/<id>/line/` directory's pinned config, following `BENCH_WORKDIR_CONFIG`: execution and
 knowledge-write gates off, interactive steering disabled, knowledge persistence off,
 re-surveys off, the eval report off, and `research_max_debug_depth` 1.
 
@@ -353,7 +371,7 @@ Crash safety:
 - **Spend survives restarts.** Tokens live in `spend.jsonl` and candidate counts in
   `candidates.jsonl`, and re-running an order resumes from both rather than resetting.
 - **Cleanup on every exit.** Worktrees are removed in a `finally`, including on Ctrl-C.
-  On restart, the factory removes leftover worktrees under its own `worktrees/` directory
+  On restart, the factory removes leftover worktrees under its own `work/<id>/worktrees/` directory
   and containers by their recorded names. It never touches anything else.
 
 ## 14. Failure handling
@@ -400,18 +418,41 @@ needs no Docker.
 - Thresholdout's noise mechanism. v1 uses a hard query cap, which bounds leakage to
   `hidden_queries` bits. Thresholdout is the upgrade if the cap proves too tight.
 - True isolation of the hidden evaluation, such as a separate host or OS user. v1 relies
-  on concealment: the vault is outside every repo and never named in a prompt, but an
-  agent with filesystem tools could still find it.
+  on concealment: the vault is outside every repo, is not an ancestor of any agent's
+  working directory and is never named in a prompt, but an agent with filesystem tools
+  could still find it.
 - Non-git targets, and ML training that needs GPU scheduling.
 
 ## 17. Before implementation
 
-- Re-query HypePaper, which was unavailable on 2026-09-18, for reusable-holdout,
-  evaluator-hacking and research-agent replication work newer than the sources below.
-  Adjust R1 to R3 if newer evidence changes them.
+- **HypePaper re-query: done 2026-10-15.** The service was unavailable on 2026-09-18, so
+  the re-query ran before the first line of code was written, on reusable holdouts,
+  evaluator hacking and research-agent replication. Four searches; R1 to R3 stand.
+  - *Reusable holdout.* The search returned the spec's own primary source, Dwork et al.
+    (2015), and no newer work that revises it. R1 is unchanged.
+  - *Reward hacking.* Five 2026 papers, all consistent with R3. "Do Coding Agents Deceive
+    Us?" (NeurIPS 2026) reaches capped evaluation with randomized tests as its defense,
+    which is what the hidden-query budget is. "Hack-Verifiable Environments" (NeurIPS
+    2026) restates R3: agents look successful under the evaluation signal while
+    violating the intended objective. "Benchmarking Reward Hack Detection in Code
+    Environments via Contrastive Analysis" (ICML 2026) studies LLMs as hack detectors;
+    the factory keeps LLM judgment off the control path, so it is orthogonal, and its
+    premise that detection is unreliable supports that choice. One paper adds a risk,
+    recorded as §11 item 6: "Reward Hacking as a Transmissible Strategy in Multi-Agent
+    Coding Systems" (arXiv 2610.12822).
+  - *Replication.* REPRO-Bench (ACL 2025) and ReplicatorBench (KDD 2026) benchmark agents
+    assessing replicability. Neither contradicts R2's source (arXiv 2606.11045) or the
+    replicate-before-querying rule.
+  - Not engineered against on this branch: the transmission channel in §11 item 6.
 - Confirm that `tokensUsed` is populated for the claude backend's current output format.
   If it is not, intake check 6 already degrades loudly; the question is only which case
   is live.
+- **One claim is unverified.** That `--disallowedTools Bash` removes the tool in practice
+  on the claude backend (`lib/scheduler.ts` passes the flag; no run has observed it
+  taking effect). A live check costs a few thousand tokens and was deferred to the user:
+  `claude -p 'Use the Bash tool to run: echo hi. If you have no Bash tool, reply exactly
+  NO_BASH.' --dangerously-skip-permissions --disallowedTools Bash --output-format json`
+  should answer `NO_BASH`. If it does not, the builder's no-shell guarantee does not hold.
 
 ## 18. Build order
 
@@ -434,4 +475,5 @@ Each step lands with its tests and keeps the full suite green.
 - [What Fits (Into Few Tokens) Doesn't Overfit](https://arxiv.org/html/2606.11045v1), arXiv 2606.11045
 - [Correcting the Winner's Curse in Adaptive Benchmarking](https://arxiv.org/pdf/2605.05973), arXiv 2605.05973
 - [AlphaEvolve: evaluator harnesses and the boundaries of autonomous discovery](https://dev.to/gdg/alphaevolve-evaluator-harnesses-jax-and-the-boundaries-of-autonomous-algorithm-discovery-11b8)
+- "Reward Hacking as a Transmissible Strategy in Multi-Agent Coding Systems", arXiv 2610.12822
 - [Let the Barbarians In: AI for systems performance research](https://arxiv.org/pdf/2512.14806), arXiv 2512.14806

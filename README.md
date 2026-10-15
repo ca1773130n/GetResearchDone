@@ -55,6 +55,12 @@ That single command runs the loop to a verdict and leaves a complete, inspectabl
 
 Flags: `--max-iterations N` (default 5), `--no-gates` (run unattended), `--json`.
 
+### Research factory
+
+`/grd:factory` turns one sentence about what should get better in a repo into a saved work order, then `gd factory run <id>` works it. Each candidate is one hypothesis built as one patch in its own git worktree; a patch that meets your rule on the visible dev evaluation is rebuilt from scratch by a blind second builder, then checked once against a hidden evaluation no agent ever sees. The first patch that clears all of that is pushed and opened as a PR with its evidence. Candidate code only runs in Docker, never on the host.
+
+A run stops in one of four ways: **shipped** (a PR opened), **budget spent** (tokens, candidates or wall-clock ran out), **holdout spent** (every hidden query is used, since more would start overfitting it) or **plateau** (the last few candidates all missed the rule without beating the best dev result). Three failures also stop it and say so in `report.md`: the hidden evaluation printing no metric, three builder failures in a row, and Docker being unavailable. See the [tutorial](docs/autoresearch-tutorial.md#9-research-factory) for the interview, the trust gates and how to read the report.
+
 ---
 
 ## Quick Start

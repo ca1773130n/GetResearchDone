@@ -9,10 +9,11 @@ const cli = require('../../../lib/factory/cli') as {
   cmdFactoryRun: (c: string, id: string, raw: boolean, d?: FactoryCliDeps) => Promise<never>;
   cmdFactoryStatus: (c: string, id: string | undefined, raw: boolean, d?: FactoryCliDeps) => never;
 };
-const { captureOutput, captureError, captureOutputAsync } = require('../../helpers/setup') as {
+const { captureOutput, captureError, captureOutputAsync, captureErrorAsync } = require('../../helpers/setup') as {
   captureOutput: (fn: () => void) => { stdout: string; exitCode: number };
   captureError: (fn: () => void) => { stderr: string; exitCode: number };
   captureOutputAsync: (fn: () => Promise<void>) => Promise<{ stdout: string; exitCode: number }>;
+  captureErrorAsync: (fn: () => Promise<void>) => Promise<{ stderr: string; exitCode: number }>;
 };
 const { tmpDir, sampleOrder, installOrder } = require('./fixtures') as {
   tmpDir: (p: string) => string;
@@ -68,15 +69,10 @@ describe('factory CLI', () => {
   });
 
   it('reports a run failure on stderr with a nonzero exit', async () => {
-    let stderr = '';
-    const spy = jest.spyOn(process.stderr, 'write').mockImplementation((d: string | Uint8Array): boolean => { stderr += d; return true; });
-    let r: { exitCode: number };
-    try {
-      r = await captureOutputAsync(() => cli.cmdFactoryRun('/nonexistent', 'o1', false, {
-        home: '/h', runOrder: async () => { throw new Error('docker is not running'); },
-      }));
-    } finally { spy.mockRestore(); }
-    expect(stderr).toMatch(/factory run: docker is not running/);
+    const r = await captureErrorAsync(() => cli.cmdFactoryRun('/nonexistent', 'o1', false, {
+      home: '/h', runOrder: async () => { throw new Error('docker is not running'); },
+    }));
+    expect(r.stderr).toMatch(/factory run: docker is not running/);
     expect(r.exitCode).not.toBe(0);
   });
 

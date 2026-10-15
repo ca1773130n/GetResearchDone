@@ -46,6 +46,8 @@ automation may arm the gate but never disarms it.
 Research: `research "<q>"` (+ `resume <id>` / `status` / `report <id>` /
 `portfolio`), `ingest <md|arxiv|url|pdf|jsonl>`, `synthesize "<topic>"`,
 `retrieve "<q>"`, `accounts discover|sync`.
+Factory: `factory scan <repo>|validate <id>|save <id>|run <id>|status [<id>]` (the
+`/grd:factory` skill drives the interview; `run` spends the order's budget).
 
 ### Context-mode MCP
 
@@ -65,6 +67,16 @@ Prefer `ctx_*` MCP tools over Bash/Read for large output (`ctx_batch_execute`,
   - `lib/commands/`, `lib/context/`, `lib/evolve/` (deprecated — life-harness
     replaced it; rounds: `lib/commands/harness.ts` + `bin/harness_driver.py`,
     logic in the `autoresearch-core` kernel — vendored into `bin/vendor/` (ships with GRD, no pip install; `python3` >=3.11 only), version-locked to GRD).
+  - `lib/factory/` — the research factory: a saved work order (objective, metric
+    contract, editable globs, dev + hidden evaluation, budget) is run until a patch
+    clears replication and the hidden gate, then a PR opens. State lives under
+    `$GRD_FACTORY_HOME` (default `~/.grd/factory`) in two places: agent-facing
+    `work/<id>/line` and `work/<id>/worktrees/<candidate>`, and order-private
+    `orders/<id>/` (`vault/` with the order and the hidden evaluation, plus
+    `queries.jsonl`, `candidates.jsonl`, `spend.jsonl`, `containers.jsonl`,
+    `report.md`, `status.json`, `started.json`). The split is deliberate: the build
+    prompt names the worktree, so the vault must not be an ancestor of it. The hidden
+    evaluation never enters a prompt, and candidate code only runs in Docker.
 - `commands/` — skill markdown. `agents/` — subagent definitions.
 - `tests/unit/` mirrors `lib/` (`lib/x.ts` → `tests/unit/x.test.ts`).
 - `.planning/` — project state (plans, roadmap, config, research threads).
@@ -171,6 +183,11 @@ setup-node step (it injects a placeholder token and OIDC silently loses).
 
 ## Gotchas
 
+- **Loop agents are not tool-restricted by their `tools:` line.** The scheduler
+  spawns them with `--dangerously-skip-permissions` and every tool, so the `tools:`
+  line in `agents/*.md` is not applied. Only `SpawnOpts.disallowedTools` removes a
+  tool, and only on the claude backend (the factory builder runs with `Bash`
+  removed). That `--disallowedTools` takes effect in practice has not been observed.
 - **Never create test/scratch artifacts in the repo.** Run live `gd research` /
   smoke tests in a throwaway `mktemp -d` (with its own `.planning/`); they
   otherwise drop `.planning/research/threads/`, a root `KNOWHOW.md`, and mutate

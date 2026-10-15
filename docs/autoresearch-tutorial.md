@@ -553,6 +553,127 @@ GRD's autoresearch loop is built to keep going:
 
 ---
 
+## 9. Research factory
+
+The loop above answers a question. The research factory points the same loop at a
+codebase and keeps going until a patch both meets a rule you set and survives an
+evaluation the agents cannot see, then opens a PR. Use it when you can state the
+improvement as a number: "p95 latency of `/search` at or under 120 ms".
+
+### 9.1 The interview
+
+```bash
+/grd:factory "cut p95 latency of /search in ~/code/shop"
+```
+
+The skill asks one question at a time and backs every question after the first with
+something it measured. You choose from options; you never edit JSON.
+
+1. **Goal.** What should get better, and in which repo.
+2. **Environment.** `gd factory scan <repo>` proposes a container image and setup
+   command and reports free memory.
+3. **Metric and dev evaluation.** A command that prints
+   `__RESULT__ {"<metric>": <number>}`, run repeatedly inside the container with
+   the network off.
+4. **Target.** `gd factory validate <id>` measures the unmodified code and the
+   interview proposes targets from the median and spread. A metric whose repeat runs
+   vary too much to decide on is flagged as noisy.
+5. **Editable paths.** The globs a patch may change. Evaluation files can never be
+   among them.
+6. **Hidden evaluation.** A held-out variant of the dev evaluation (different workload,
+   seed or data split), written outside the repo, ideally measuring from outside the
+   process under test.
+7. **Budget.** Small, Medium or Large: candidates, hidden queries and minutes, with
+   a token estimate.
+8. **Review.** `validate` runs again and every check is shown. On your confirmation
+   `gd factory save <id>` moves the order and the hidden evaluation into the vault. It
+   refuses unless `validate` passed on exactly the draft content being saved.
+
+Running the order is a separate, explicit step: `gd factory run <id>` (or accept the
+offer at the end of the interview). It spends the budget.
+
+### 9.2 What happens on a run
+
+For each candidate the loop's hypothesize station proposes an idea, the
+`grd-factory-builder` agent turns it into a patch in a fresh worktree, and the factory
+runs the dev evaluation in a container. Deterministic checks reject a patch that touches
+a path outside `editable` or adds the text `__RESULT__`. A dev miss goes back to the
+learn station and on to the next hypothesis.
+
+A patch that meets the rule on dev goes through three trust gates, in order:
+
+1. **Replicate.** A fresh builder gets only the objective, the rule, the editable paths
+   and the first builder's strategy note: no diff, no transcript, no hypothesis. Its
+   patch must pass the same checks and the same dev rule.
+2. **Hidden gate.** The hidden evaluation runs on the original candidate. The query is
+   logged before it starts, so a crash cannot refund it. The measured value goes to
+   `queries.jsonl` and nowhere else; later hypotheses are told only that the candidate
+   was rejected at the final gate.
+3. **Ship.** Exactly the allowlisted paths are committed, `factory/<order>/<candidate>`
+   is pushed to the order's remote, and a PR is opened against `base`. The order then stops.
+
+### 9.3 Stop conditions
+
+| Stop | Meaning |
+|---|---|
+| `shipped` | A patch cleared every gate; one PR per order |
+| `budget_spent` | Tokens, candidates or wall-clock ran out; the report shows the best dev result, unshipped |
+| `holdout_spent` | Every hidden query is used. A new hidden evaluation resets this |
+| `plateau` | The last `research_plateau_window` candidates (default 3) all missed the rule and none beat the best dev median before them |
+| `hidden_broken` | The hidden evaluation printed no metric. The query still counts |
+| `build_failures` | The builder produced no usable change three times in a row |
+| `docker_unavailable` | Docker went away. The factory never falls back to the host |
+
+### 9.4 Where state lives
+
+Everything is under `$GRD_FACTORY_HOME` (default `~/.grd/factory`). It is split on
+purpose: the build prompt has to name the worktree, so the hidden evaluation must not
+sit above it.
+
+```
+$GRD_FACTORY_HOME/
+  drafts/<id>/                     interview draft; deleted on save
+  work/<id>/                       what agents can reach
+    line/                          loop state: pinned .planning/config.json and threads
+    worktrees/<candidate>/         one per candidate, plus base/; removed at the end
+  orders/<id>/                     private to the factory
+    vault/order.json               the saved order
+    vault/hidden/                  the hidden evaluation
+    queries.jsonl                  hidden-query log (write-ahead)
+    candidates.jsonl               one row per candidate, at every stage
+    spend.jsonl                    tokens per spawn
+    containers.jsonl               names of containers the factory started
+    report.md  status.json         rewritten at every stop
+    started.json
+```
+
+Re-running an order resumes from `spend.jsonl`, `candidates.jsonl` and `queries.jsonl`
+instead of resetting them. `gd factory status <id>` prints the stop reason, spend and each
+candidate's outcome.
+
+### 9.5 Reading `report.md`
+
+The first line says why the run stopped, in one sentence. If it shipped, the PR link
+follows; if shipping failed after the gates passed, the exact commands to finish it are
+there. Then the objective, your rule, and the baseline on unmodified code, a table with
+one row per candidate (outcome, dev median, detail), and the totals: tokens of budget,
+candidates of budget, hidden queries of budget. If the backend reported no token counts
+the report says so on the Tokens line: the cap was not enforced, and spend may exceed it.
+
+### 9.6 Limits
+
+- The hidden evaluation is concealed, not isolated. An agent with filesystem tools could
+  still find it; the vault is outside every repo and never named in a prompt.
+- The code under test runs in the same container as the grader, so a determined patch
+  could forge a result line. Prefer hidden evaluations that measure from outside the
+  process under test.
+- Candidates share the learn station's takeaways and the composed question. An evaluator
+  bypass one candidate finds can reach later ones that way.
+- Agents are spawned with all permissions; only the builder has `Bash` removed, and only
+  on the claude backend.
+
+---
+
 ## 8. Cheat sheet
 
 ```bash
@@ -570,6 +691,13 @@ gd research portfolio [ids…] [--concurrency N] # advance many threads
 
 # Publish
 gd research report <id>                        # write PAPER.md
+
+# Research factory
+gd factory scan <repo>                         # propose image, setup, measurements
+gd factory validate <id>                       # run the intake checks on a draft
+gd factory save <id>                           # move a validated draft into the vault
+gd factory run <id>                            # spend the budget; open a PR if a patch clears every gate
+gd factory status [<id>]                       # home and orders, or one order's outcome
 
 # All commands accept --json for machine-readable output.
 ```
