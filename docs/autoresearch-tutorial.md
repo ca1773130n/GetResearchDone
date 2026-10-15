@@ -616,8 +616,8 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 3. **Hidden gate.** The hidden evaluation runs on the original candidate, in two
    containers: your run command in the candidate's own worktree, then your scoring script
    on the one file it wrote, somewhere no candidate code executes. The query is logged
-   before the first of them starts, so a crash cannot refund it. The measured value — and,
-   if either half fails, its error — go to `queries.jsonl` and nowhere else; later
+   before the first of them starts, so a crash cannot refund it. The measured value (and,
+   if either half fails, its error) goes to `queries.jsonl` and nowhere else; later
    hypotheses are told only that the candidate was rejected at the final gate.
 4. **Ship.** `factory/<order>/<candidate>` is pushed to the order's remote and a PR is
    opened against `base`. The order then stops.
@@ -627,10 +627,10 @@ A patch that meets the rule on dev goes through three trust gates, in order:
 | Stop | Meaning |
 |---|---|
 | `shipped` | A patch cleared every gate; one PR per order |
-| `budget_spent` | Tokens, candidates or wall-clock ran out; the report shows the best dev result, unshipped |
+| `budget_spent` | Tokens, candidates or wall-clock ran out; the report shows the best dev result, unshipped. The clock is checked before every agent spawn, so a run overshoots it by at most one spawn and its evaluations, and the report's `Wall clock` line says when it did |
 | `holdout_spent` | Every hidden query is used. A new hidden evaluation resets this |
 | `plateau` | The last `research_plateau_window` candidates (default 3) all missed the rule and none beat the best dev median before them |
-| `hidden_broken` | Your scoring script failed or printed no metric. A candidate that crashes under the evaluation is not this — that is the candidate failing the gate, and the line goes on. The query still counts |
+| `hidden_broken` | Your scoring script failed or printed no metric. A candidate that crashes under the evaluation is not this: that is the candidate failing the gate, and the line goes on. The query still counts |
 | `build_failures` | The builder produced no usable change three times in a row |
 | `docker_unavailable` | Docker went away. The factory never falls back to the host |
 
@@ -684,7 +684,7 @@ the counted total is then a floor and the real spend can exceed the cap.
   evaluation that feeds a candidate inputs cannot withhold them. A candidate can
   special-case those inputs, or forge the output file it writes. Prefer held-out
   evaluations that measure from outside the process under test, and write the scoring
-  script to parse the output defensively — those bytes are a candidate's choice.
+  script to parse the output defensively, because those bytes are a candidate's choice.
 - The output file is read back on the host, so its path is checked first: a symlink leading
   out of the worktree, or a symlinked parent directory, is refused and the candidate is
   recorded as failing. A symlink that stays inside the worktree still works.
@@ -697,7 +697,7 @@ the counted total is then a floor and the real spend can exceed the cap.
   backend the builder keeps a shell and the run says so in a warning.
 - Until 2026-10-16 that exception did not work at all. The denylist was sent alongside
   `--dangerously-skip-permissions`, which permits every tool and overrides it, so the builder
-  had a shell — and with it, the vault on the host, which is concealed rather than isolated.
+  had a shell, and with it the vault on the host, which is concealed rather than isolated.
   The builder now runs under `--permission-mode acceptEdits` instead, where the denylist
   holds. If you ran an order before this, treat its holdout as potentially seen.
 

@@ -134,8 +134,11 @@ running every check, and stops only at step 8 for confirmation.
 
 1. **Goal.** The only free-text question: what should get better, in which repo.
 2. **Environment.** `scan` proposes an image and setup command from the repo (a
-   Dockerfile, a devcontainer, or the lockfile's ecosystem). It proposes a memory cap
-   bounded by the machine's currently free memory, and says so when free memory is low.
+   Dockerfile, a devcontainer, or the lockfile's ecosystem). It proposes a memory cap of
+   half the machine's currently free memory, at most 2 GB, and never more than half, so
+   there is no floor that could push it toward what is free. When half is under 512 MB,
+   the size most setups need, `memoryWarning` says the order may not fit and the
+   interview shows it before offering the limit.
 3. **Metric and dev evaluation.** `scan` lists things in the repo that already measure
    something, such as package scripts, Makefile targets, and bench or test directories,
    and the skill offers those that fit the goal. If none fits, it offers to write a dev
@@ -267,7 +270,7 @@ summary and outcome, so continuity survives the thread boundary.
 | Stop | Meaning |
 |---|---|
 | Shipped | A patch cleared every gate. One PR per order |
-| Budget spent | Tokens, candidates or wall-clock ran out. The report shows the best dev result, unshipped |
+| Budget spent | Tokens, candidates or wall-clock ran out. The report shows the best dev result, unshipped. Tokens and the clock are both checked before every agent spawn, so neither waits for an attempt to end; the clock can still be overshot by one spawn and the container runs after it, and the report's `Wall clock` line says so when it was |
 | Holdout spent | Hidden queries are used up. Further queries would overfit it; a new hidden evaluation resets this |
 | Plateau | The last `research_plateau_window` candidates (default 3) all missed the contract, and none beat the best dev median seen before them. Checked by the factory over `candidates.jsonl` between attempts |
 
@@ -292,7 +295,7 @@ Every command that runs candidate code runs in a container built from the order'
 - **Evaluations** run with network `none` and the same mount and caps.
 - **The hidden evaluation** is two containers. The run step gets the candidate's worktree
   at `/work` and, if the order declares `inputs`, that one directory of the vault read-only
-  at `/inputs` — nothing else of the vault. The score step gets a staging directory holding
+  at `/inputs`, and nothing else of the vault. The score step gets a staging directory holding
   a copy of the run step's output file at `/work`, and the whole `hidden/` directory
   read-only at `/grader`. No candidate code runs in the score step. The staging directory
   lives beside the vault, under the order's private tree, and is deleted after each query.
@@ -316,12 +319,12 @@ Every command that runs candidate code runs in a container built from the order'
    over, and neither does one tuned to a script the candidate has read.
 
    The one part of the vault a candidate is given is `hidden_eval.inputs`, mounted
-   read-only at `/inputs` for the run step — because an evaluation that feeds a
+   read-only at `/inputs` for the run step, because an evaluation that feeds a
    candidate inputs cannot withhold them. `validate` rejects a scoring script placed
    inside that directory.
 
    Reading the output file back is the one place the factory itself touches something a
-   candidate wrote, and it does so on the host rather than in a container — so the path is
+   candidate wrote, and it does so on the host rather than in a container, so the path is
    checked before it is read. A symlinked output is refused, and so is one whose real path
    leaves the worktree, which is what catches the same trick played on a parent directory.
    A symlink that stays inside the worktree is fine: containment is the rule, not a ban.
@@ -331,7 +334,7 @@ Every command that runs candidate code runs in a container built from the order'
    computation. The interview therefore still prefers held-out evaluations that measure
    from outside the process under test, for example driving a server from a separate
    process and timing it there. A scoring script that parses the output file is itself
-   attack surface — it reads bytes a candidate chose — so it should parse defensively
+   attack surface (it reads bytes a candidate chose), so it should parse defensively
    and never execute what it reads.
 6. **Known limit: a bypass can propagate between candidates.** Work on multi-agent
    coding systems (arXiv 2610.12822, found in the late re-query, §17)
@@ -397,8 +400,9 @@ $GRD_FACTORY_HOME            default ~/.grd/factory
     pr-body-<candidate>.md   the evidence bundle of a shipped candidate; `gh pr create
                              --body-file` points at it, including in the printed recovery
                              command, so it outlives the run
-    report.md                rewritten at every stop
-    status.json              the last stop reason and PR URL
+    report.md                rewritten at every stop, by an atomic rename
+    status.json              the last stop reason and PR URL; atomic, because `factory
+                             status` parses it and a torn write would make it unreadable
     started.json             when the order first ran, for the wall-clock budget
 ```
 
@@ -438,7 +442,7 @@ Every test injects spawn, runner, Docker, git and `gh`, so the suite spends no t
 needs no Docker.
 
 - **No leak.** Across every prompt captured in a full line run, the held-out evaluation's
-  paths — scoring script, inputs, output file and both mount points — its contents and its
+  paths (scoring script, inputs, output file and both mount points), its contents and its
   result never appear.
 - **No shared filesystem.** In a full line run, the container that executes the run step
   carries no mount of the vault beyond `inputs`, and the container that executes the score
@@ -518,13 +522,13 @@ needs no Docker.
   asks for `acceptEdits`. Measured in the same pass: under `acceptEdits` with
   `--disallowedTools Bash`, an agent wrote a file without prompting and reported
   `NO_BASH`. Without any permission flag, writing was blocked too, so dropping the skip
-  flag alone would have left the builder unable to edit — `acceptEdits` is the mode that
+  flag alone would have left the builder unable to edit; `acceptEdits` is the mode that
   makes a denylist usable at all.
 
   What this means for the defenses in §11: item 4's containment was never load-bearing
   for the held-out evaluation, which is enforced by the container split, not by the
   builder's tools. What the builder's shell did reach was the vault on the host, which
-  is concealed rather than isolated — so for any order run before this fix, treat the
+  is concealed rather than isolated, so for any order run before this fix, treat the
   holdout as potentially seen.
 
 ## 18. Build order

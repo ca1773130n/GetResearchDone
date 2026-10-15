@@ -78,18 +78,30 @@ function createMeteredSpawn(o: {
   scheduler: { spawn: (prompt: string, opts: SpawnOpts) => Promise<SchedulerSpawnResult> };
   orderDir: string;
   budgetTokens: number;
+  /**
+   * Epoch ms after which no new spawn starts. Checked here, at every spawn, because the line
+   * only checks its own stop conditions between attempts — and one attempt can build several
+   * candidates. So a run overshoots the wall clock by at most one spawn and the container runs
+   * that follow it, never by a whole attempt.
+   */
+  deadline?: number;
+  now?: () => number;
   model?: string;
   warn: (m: string) => void;
 }): MeteredSpawn {
   let spent = readSpent(o.orderDir, o.warn);
   let unmetered = 0;
+  const now = o.now || Date.now;
   return {
     spent: () => spent,
     unmeteredSpawns: () => unmetered,
     spawnFn(cwdFor, candidateFor) {
       return async (prompt: string, agentType: string): Promise<string> => {
         if (spent >= o.budgetTokens) {
-          throw new BudgetSpentError(`token budget spent (${spent} of ${o.budgetTokens})`);
+          throw new BudgetSpentError(`the token budget ran out (${spent} of ${o.budgetTokens})`);
+        }
+        if (o.deadline !== undefined && now() >= o.deadline) {
+          throw new BudgetSpentError('the wall-clock budget ran out');
         }
         const isBuilder = agentType === BUILDER;
         const r = await o.scheduler.spawn(prompt, {

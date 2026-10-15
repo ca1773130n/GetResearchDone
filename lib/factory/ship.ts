@@ -6,6 +6,9 @@ import type { CandidateEvent, StopReason, WorkOrder } from './types';
 const { commitCandidate } = require('./worktrees') as {
   commitCandidate: (e: Exec, dir: string, branch: string, paths: string[], msg: string) => void;
 };
+const { atomicWriteFileSync } = require('../autopilot-waves') as {
+  atomicWriteFileSync: (filePath: string, data: string) => void;
+};
 
 export interface Evidence {
   order: WorkOrder;
@@ -128,6 +131,8 @@ export interface ReportInput {
   /** Spawns whose backend reported no token count, so `tokens` under-states the real spend. */
   unmeteredSpawns: number;
   hiddenQueries: number;
+  /** Minutes from the order's first start to this report, across every resumed run. */
+  elapsedMinutes: number;
   warnings: string[];
 }
 
@@ -149,11 +154,18 @@ function writeReport(orderDir: string, r: ReportInput): string {
     '',
     `Tokens: ${r.tokens} of ${o.budget.tokens}${r.unmeteredSpawns > 0 ? ` (${r.unmeteredSpawns} spawn(s) reported no token count, so the real spend is higher than this and can exceed the cap)` : ''}.`,
     `Candidates: ${r.events.length} of ${o.budget.candidates}. Hidden queries: ${r.hiddenQueries} of ${o.budget.hidden_queries}.`,
+    // The clock is checked before each agent spawn, so it can be overshot by one spawn and the
+    // container runs after it. Say so when it was, rather than print a number past the cap bare.
+    `Wall clock: ${r.elapsedMinutes} of ${o.budget.wall_minutes} minutes${r.elapsedMinutes > o.budget.wall_minutes
+      ? ' (checked before each agent spawn, so the last spawn and the evaluations after it ran past the cap)' : ''}.`,
     ...(r.warnings.length ? ['', 'Warnings:', ...r.warnings.map((w) => `- ${w}`)] : []),
   ];
+  // Atomic, because `factory status` parses status.json and a write torn by a crash would
+  // leave an order whose status cannot be read at all.
   const file = path.join(orderDir, 'report.md');
-  fs.writeFileSync(file, lines.join('\n') + '\n');
-  fs.writeFileSync(path.join(orderDir, 'status.json'), JSON.stringify({ stop: r.stop, prUrl: r.prUrl, at: new Date().toISOString() }) + '\n');
+  atomicWriteFileSync(file, lines.join('\n') + '\n');
+  atomicWriteFileSync(path.join(orderDir, 'status.json'),
+    JSON.stringify({ stop: r.stop, prUrl: r.prUrl, at: new Date().toISOString() }) + '\n');
   return file;
 }
 

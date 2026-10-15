@@ -208,7 +208,7 @@ setup-node step (it injects a placeholder token and OIDC silently loses).
   ran a shell command and `--allowedTools Read Write` did not stop one either; without
   it, the denylist was honoured. The skip flag permits every tool and overrides any
   filter. So a spawn that needs a restriction sets `SpawnOpts.permissionMode`, which
-  makes the adapter pass `--permission-mode` *instead of* the skip flag — the builder
+  makes the adapter pass `--permission-mode` *instead of* the skip flag. The builder
   uses `acceptEdits`, the one mode where file edits still apply unprompted while a
   denied tool is genuinely absent. Dropping the skip flag without a mode blocks `Write`
   as well, so the builder cannot simply go without.

@@ -38,7 +38,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   against claude 2.1.300 on 2026-10-16, an agent given `--disallowedTools Bash` ran a shell
   command anyway, and `--allowedTools Read Write` did not stop one either; without the skip
   flag the denylist was honoured. The builder therefore had a shell from the start, and with
-  it the vault on the host, which is concealed rather than isolated — treat the holdout of
+  it the vault on the host, which is concealed rather than isolated. Treat the holdout of
   any order run before this as potentially seen. When `permissionMode` is set the adapter
   passes `--permission-mode <mode>` *instead of* the skip flag; `acceptEdits` is the mode
   where file edits still apply unprompted while a denied tool is genuinely absent (with no
@@ -76,6 +76,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   must have none — so wiring one up fails the build until it leaves the list.
 
 ### Fixed
+- **The factory's wall-clock budget is enforced at every agent spawn, not only between
+  attempts** (`lib/factory/spawn.ts`). One attempt can build several candidates, and the line
+  checked its stop conditions only between attempts, so a run could overrun `wall_minutes` by
+  whole builds. The metered spawn now refuses to start once the deadline has passed, through
+  the same `BudgetSpentError` path the token cap uses, so the overshoot is at most one spawn and
+  the container runs after it. `report.md` gains a `Wall clock: <used> of <cap> minutes` line,
+  which says why when the figure is past the cap. A cap running out mid-attempt is also no
+  longer counted toward the three-failures stop; it is the budget ending, not the builder failing.
+- **`factory scan` no longer proposes a container memory limit near or above free memory**
+  (`lib/factory/intake.ts`). The proposal is half of free memory, at most 2 GB, but a 512 MB
+  floor overrode that whenever memory was scarce: with 400 MB free it proposed 512m. The floor
+  is gone. When half of free memory is under 512 MB, the new `memoryWarning` says the order may
+  not fit and the interview shows it, rather than the limit quietly rising to compensate.
+- **`report.md` and `status.json` are written atomically** (`lib/factory/ship.ts`), through the
+  existing `atomicWriteFileSync`. `factory status` parses `status.json`, so a write torn by a
+  crash left an order whose status could not be read.
 - **The pre-committed metric contract is now pinned for the whole research
   thread, not just across debug re-plans.** GRD-Bench `dedup-precision-gap`
   (2026-09-11) showed iteration 1 correctly returning `inconclusive` — the

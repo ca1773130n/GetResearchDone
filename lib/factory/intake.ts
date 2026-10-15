@@ -45,7 +45,16 @@ export interface ScanReport {
   measurements: Array<{ kind: 'npm-script' | 'make-target' | 'directory'; name: string; command: string; files: string[] }>;
   freeMemoryMb: number;
   proposedMemory: string;
+  /**
+   * Set when half of free memory is under MEMORY_WORKABLE_MB, the size below which a typical
+   * build or test run starts failing. The proposal still stays at half of free — never more —
+   * and this says why the order may not fit, so the interview raises it instead of the limit.
+   */
+  memoryWarning: string | null;
 }
+
+/** Below this, most Node and Python setup or test runs fail for want of memory. */
+const MEMORY_WORKABLE_MB = 512;
 
 const MEASURING = /bench|perf|test|eval/i;
 const MEASURE_DIRS = new Set(['test', 'tests', 'bench', 'benchmarks', 'perf', 'eval', 'evals']);
@@ -94,14 +103,25 @@ function scanRepo(repo: string, freeMemBytes: number = os.freemem()): ScanReport
     }
   }
   const freeMemoryMb = Math.floor(freeMemBytes / (1024 * 1024));
+  // Half of what is free, capped at 2 GB, so a runaway candidate cannot starve the machine.
+  // There is deliberately no floor: a floor would override that rule exactly when memory is
+  // scarce, and propose a limit near or above what is free. A limit too small for the workload
+  // fails `validate`'s setup check loudly; one too large for the host fails nothing until it
+  // runs the host out of memory. The 6 MB minimum is Docker's own.
+  const half = Math.floor(freeMemoryMb / 2);
+  const proposedMb = Math.max(6, Math.min(2048, half));
   return {
     ecosystem, proposedImage, proposedSetup,
     dockerfile: exists(repo, 'Dockerfile'),
     devcontainer: exists(repo, '.devcontainer'),
     measurements,
     freeMemoryMb,
-    // Half of what is free, between 512 MB and 2 GB, so a runaway candidate cannot starve the machine.
-    proposedMemory: `${Math.max(512, Math.min(2048, Math.floor(freeMemoryMb / 2)))}m`,
+    proposedMemory: `${proposedMb}m`,
+    memoryWarning: half < MEMORY_WORKABLE_MB
+      ? `only ${freeMemoryMb} MB is free, so the proposed limit is ${proposedMb} MB — under the `
+        + `${MEMORY_WORKABLE_MB} MB most setups need. Free memory and scan again, or raise the `
+        + 'limit knowing a runaway candidate could then exhaust the host.'
+      : null,
   };
 }
 

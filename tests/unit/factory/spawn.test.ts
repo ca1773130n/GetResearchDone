@@ -9,7 +9,8 @@ const sp = require('../../../lib/factory/spawn') as {
   tokensFrom: (r: SchedulerSpawnResult) => number;
   readSpent: (od: string, warn?: (m: string) => void) => number;
   createMeteredSpawn: (o: { scheduler: { spawn: (p: string, o: SpawnOpts) => Promise<SchedulerSpawnResult> };
-    orderDir: string; budgetTokens: number; warn: (m: string) => void }) => MeteredSpawn;
+    orderDir: string; budgetTokens: number; deadline?: number; now?: () => number;
+    warn: (m: string) => void }) => MeteredSpawn;
 };
 const { tmpDir } = require('./fixtures') as { tmpDir: (p: string) => string };
 
@@ -38,11 +39,29 @@ describe('createMeteredSpawn', () => {
     return { m, orderDir, calls, fn: m.spawnFn((a) => (a === 'grd-factory-builder' ? '/wt/c1' : '/line'), () => 'c1') };
   }
 
+  it('refuses a spawn once the wall clock has run out, mid-attempt', async () => {
+    // The line only checks its stop conditions between attempts, and one attempt can build
+    // several candidates, so the clock has to be enforced here at every spawn.
+    let t = 1000;
+    let calls = 0;
+    const m = sp.createMeteredSpawn({
+      scheduler: { spawn: async () => { calls++; return res(); } },
+      orderDir: tmpDir('grd-factory-od-'), budgetTokens: 1e9, deadline: 5000, now: () => t,
+      warn: () => undefined,
+    });
+    const fn = m.spawnFn(() => '/line', () => 'c1');
+    await fn('p', 'grd-hypothesizer');
+    t = 5000;
+    await expect(fn('p', 'grd-hypothesizer')).rejects.toThrow(sp.BudgetSpentError);
+    await expect(fn('p', 'grd-hypothesizer')).rejects.toThrow(/the wall-clock budget ran out/);
+    expect(calls).toBe(1);
+  });
+
   it('logs every spawn and refuses the next one once the budget is spent', async () => {
     const { m, orderDir, calls, fn } = meter(1500, () => res());
     await fn('p', 'grd-hypothesizer');
     await fn('p', 'grd-factory-builder');
-    await expect(fn('p', 'grd-knowledge-miner')).rejects.toThrow(/token budget spent \(2000 of 1500\)/);
+    await expect(fn('p', 'grd-knowledge-miner')).rejects.toThrow(/the token budget ran out \(2000 of 1500\)/);
     expect(calls.n).toBe(2); // the refused spawn never reached the scheduler
     expect(m.spent()).toBe(2000);
     const rows = String(fs.readFileSync(path.join(orderDir, 'spend.jsonl'), 'utf8')).trim().split('\n');
@@ -89,7 +108,7 @@ describe('createMeteredSpawn', () => {
     await fn('p', 'grd-hypothesizer');
     expect(m.spent()).toBe(2000);
     expect(m.unmeteredSpawns()).toBe(1);
-    await expect(fn('p', 'grd-hypothesizer')).rejects.toThrow(/token budget spent \(2000 of 1500\)/);
+    await expect(fn('p', 'grd-hypothesizer')).rejects.toThrow(/the token budget ran out \(2000 of 1500\)/);
   });
 
   it('resumes from a spend ledger whose last line a crash tore, naming the file', async () => {
