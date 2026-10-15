@@ -60,6 +60,10 @@ describe('createMeteredSpawn', () => {
     // Bash alone is not the restriction: Task spawns a subagent that has a shell, and the two
     // network tools reach what the sandbox denies.
     expect(seen[1].disallowedTools).toEqual(expect.arrayContaining(['Bash', 'Task', 'WebFetch', 'WebSearch', 'KillShell', 'BashOutput']));
+    // Without this mode the denylist is inert: --dangerously-skip-permissions, which the
+    // scheduler passes otherwise, permits every tool regardless of the list.
+    expect(seen[1].permissionMode).toBe('acceptEdits');
+    expect(seen[0].permissionMode).toBeUndefined();
   });
 
   it('keeps the token cap enforced when a backend reports no count, and warns once', async () => {

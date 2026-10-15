@@ -129,6 +129,24 @@ describe('backend adapters', () => {
       expect(ADAPTERS.claude.buildArgs('p', {})).not.toContain('--disallowedTools');
       expect(ADAPTERS.claude.buildArgs('p', { disallowedTools: [] })).not.toContain('--disallowedTools');
     });
+
+    it('swaps --dangerously-skip-permissions for a permission mode when one is asked for', () => {
+      // The two are mutually exclusive in effect: the skip flag permits every tool, so a
+      // --disallowedTools list sent alongside it does nothing. Measured on claude 2.1.300.
+      const args = ADAPTERS.claude.buildArgs('p', {
+        permissionMode: 'acceptEdits', disallowedTools: ['Bash'],
+      });
+      expect(args).not.toContain('--dangerously-skip-permissions');
+      expect(args.slice(args.indexOf('--permission-mode'), args.indexOf('--permission-mode') + 2))
+        .toEqual(['--permission-mode', 'acceptEdits']);
+      expect(args).toContain('--disallowedTools');
+    });
+
+    it('keeps --dangerously-skip-permissions when no permission mode is asked for', () => {
+      const args = ADAPTERS.claude.buildArgs('p', {});
+      expect(args).toContain('--dangerously-skip-permissions');
+      expect(args).not.toContain('--permission-mode');
+    });
   });
   describe('QUOTA_EXHAUSTED_RE', () => {
     it('matches the exhaustion text providers actually print', () => {

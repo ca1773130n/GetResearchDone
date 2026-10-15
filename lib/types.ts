@@ -567,13 +567,32 @@ export interface SpawnOpts {
    */
   strictMcp?: boolean;
   /**
-   * Tools removed from the spawned agent's context. The claude adapter passes them as
-   * `--disallowedTools`, which removes a tool outright, so it holds under
-   * --dangerously-skip-permissions (that flag only skips prompts for tools that exist).
-   * Other adapters have no equivalent and ignore it; callers that depend on the
-   * restriction check SchedulerSpawnResult.backend and warn.
+   * Tools removed from the spawned agent's context, passed by the claude adapter as
+   * `--disallowedTools`.
+   *
+   * **It does nothing under `--dangerously-skip-permissions`**, which this adapter passes by
+   * default. Measured against claude 2.1.300 on 2026-10-16: with that flag, an agent given
+   * `--disallowedTools Bash` still ran a shell command, and `--allowedTools Read Write` did
+   * not stop it either; without the flag, `--disallowedTools Bash` was honoured. So set
+   * `permissionMode` alongside this whenever the restriction has to hold.
+   *
+   * Other adapters have no equivalent and ignore it; callers that depend on the restriction
+   * check SchedulerSpawnResult.backend and warn.
    */
   disallowedTools?: string[];
+  /**
+   * Permission mode for this spawn. When set, the claude adapter passes
+   * `--permission-mode <mode>` and omits `--dangerously-skip-permissions`, because the two
+   * are mutually exclusive in effect: the skip flag permits every tool and overrides any
+   * tool filter.
+   *
+   * `acceptEdits` is the mode that makes `disallowedTools` usable — file edits still apply
+   * without prompting, while a denied tool is genuinely absent. An agent that must run
+   * shell commands needs the default (skip-permissions) and cannot be restricted.
+   *
+   * Other adapters ignore it.
+   */
+  permissionMode?: 'acceptEdits' | 'auto' | 'bypassPermissions' | 'manual' | 'dontAsk' | 'plan';
   /**
    * Reasoning effort for this spawn. Threaded to the backend CLI
    * (claude `--effort`, codex `model_reasoning_effort`). Falls back to the

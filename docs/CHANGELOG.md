@@ -31,8 +31,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   This option passes `--disallowedTools` on the claude backend, and the factory builder
   uses it to lose every tool that would hand back a shell (`Bash`, `BashOutput`,
   `KillShell` and `Task`, which spawns a subagent that has one) or reach the network
-  (`WebFetch`, `WebSearch`), plus `NotebookEdit`. Other backends ignore it. That the flag
-  removes the tool in practice has not been observed live.
+  (`WebFetch`, `WebSearch`), plus `NotebookEdit`. Other backends ignore it.
+- **`SpawnOpts.permissionMode`** (`lib/scheduler.ts`), and the factory builder now spawns
+  with `acceptEdits`. `--disallowedTools` turned out to do nothing under
+  `--dangerously-skip-permissions`, which the adapter passed on every spawn: measured
+  against claude 2.1.300 on 2026-10-16, an agent given `--disallowedTools Bash` ran a shell
+  command anyway, and `--allowedTools Read Write` did not stop one either; without the skip
+  flag the denylist was honoured. The builder therefore had a shell from the start, and with
+  it the vault on the host, which is concealed rather than isolated — treat the holdout of
+  any order run before this as potentially seen. When `permissionMode` is set the adapter
+  passes `--permission-mode <mode>` *instead of* the skip flag; `acceptEdits` is the mode
+  where file edits still apply unprompted while a denied tool is genuinely absent (with no
+  permission flag at all, `Write` is blocked too, so the builder cannot simply go without).
 - **`contract` and `design` options on the research loop** (`lib/research/orchestrator.ts`):
   a caller can seed a thread's pinned metric contract and replace the design station.
   Both default to absent, which leaves the loop unchanged.

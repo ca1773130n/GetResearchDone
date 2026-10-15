@@ -695,6 +695,11 @@ the counted total is then a floor and the real spend can exceed the cap.
   subagent that has a shell), `WebFetch`, `WebSearch` and `NotebookEdit`. That is a denylist,
   so a tool Claude Code gains later is permitted until the list is updated. On any other
   backend the builder keeps a shell and the run says so in a warning.
+- Until 2026-10-16 that exception did not work at all. The denylist was sent alongside
+  `--dangerously-skip-permissions`, which permits every tool and overrides it, so the builder
+  had a shell — and with it, the vault on the host, which is concealed rather than isolated.
+  The builder now runs under `--permission-mode acceptEdits` instead, where the denylist
+  holds. If you ran an order before this, treat its holdout as potentially seen.
 
 ---
 
