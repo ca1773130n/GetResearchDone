@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+- **`factory scan` measures free memory correctly on macOS** (`lib/factory/intake.ts`). It used
+  `os.freemem()`, which on macOS counts only pages never used, not cache the kernel can reclaim.
+  On a 16 GB Mac with 12% available it read 81 MB, proposed a 68 MB container limit and warned
+  that memory had run out. It now reads `kern.memorystatus_level`, the figure `memory_pressure`
+  prints, and falls back to `os.freemem()` if that cannot be read. Linux is unchanged.
+
 ## [0.7.0] - 2026-10-16
 
 ### Added

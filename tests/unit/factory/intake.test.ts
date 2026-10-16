@@ -6,12 +6,14 @@ import type { WorkOrder } from '../../../lib/factory/types';
 import type { ScanReport, ValidateReport } from '../../../lib/factory/intake';
 const intake = require('../../../lib/factory/intake') as {
   scanRepo: (repo: string, free?: number) => ScanReport;
+  availableMemoryBytes: (platform?: string, readLevel?: () => string) => number;
   validateDraft: (home: string, id: string, deps?: { exec?: Exec }) => ValidateReport;
 };
 const order = require('../../../lib/factory/order') as {
   writeDraft: (h: string, o: WorkOrder) => void; draftDir: (h: string, id: string) => string;
   readDraft: (h: string, id: string) => WorkOrder; saveOrder: (h: string, id: string) => string;
 };
+const os = require('os');
 const fx = require('./fixtures') as {
   HIDDEN_RUN: string; HIDDEN_OUTPUT: string;
   isScoreStep: (a: string[]) => boolean; isHiddenRunStep: (a: string[]) => boolean;
@@ -66,6 +68,36 @@ describe('scanRepo', () => {
   it('leaves image and setup to the interview for other ecosystems', () => {
     const r = intake.scanRepo(fx.makeRepo({ 'go.mod': 'module x\n' }), 4e9);
     expect([r.ecosystem, r.proposedImage, r.proposedSetup]).toEqual(['unknown', null, '']);
+  });
+
+  describe('availableMemoryBytes', () => {
+    // os.freemem() on macOS counts only never-used pages: 81 MB on a 16 GB Mac the kernel said
+    // was 12% free, so scan proposed a 68 MB limit and warned the host was out of memory.
+    it('uses the kernel availability level on macOS, not the free-page count', () => {
+      expect(intake.availableMemoryBytes('darwin', () => '12\n')).toBe(Math.floor(os.totalmem() * 0.12));
+    });
+
+    it('falls back to os.freemem when the level cannot be read or makes no sense', () => {
+      const unreadable = () => { throw new Error('no sysctl'); };
+      for (const read of [unreadable, () => '', () => 'abc', () => '150']) {
+        const r = intake.availableMemoryBytes('darwin', read);
+        expect(r).toBeGreaterThan(0);
+        expect(r).toBeLessThan(os.totalmem());
+        expect(r).not.toBe(Math.floor(os.totalmem() * 1.5));
+      }
+    });
+
+    it('reads the real sysctl, or falls back where there is none (Linux CI)', () => {
+      const r = intake.availableMemoryBytes('darwin');
+      expect(r).toBeGreaterThan(0);
+      expect(r).toBeLessThanOrEqual(os.totalmem());
+    });
+
+    it('trusts os.freemem elsewhere, where it already means available', () => {
+      const read = jest.fn(() => '12');
+      intake.availableMemoryBytes('linux', read);
+      expect(read).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -61,8 +61,26 @@ const MEASURE_DIRS = new Set(['test', 'tests', 'bench', 'benchmarks', 'perf', 'e
 
 function exists(repo: string, rel: string): boolean { return fs.existsSync(path.join(repo, rel)); }
 
+/**
+ * Memory the host can give a container. On macOS `os.freemem()` counts only never-used pages, so
+ * it reads ~100 MB on a machine with gigabytes held as reclaimable cache. The kernel's own figure,
+ * the one `memory_pressure` prints, is `kern.memorystatus_level`: available RAM as a percentage.
+ * Elsewhere `os.freemem()` is already the available figure (MemAvailable on Linux).
+ */
+function availableMemoryBytes(
+  platform: string = process.platform,
+  readLevel: () => string = () => String(require('child_process').execFileSync('sysctl', ['-n', 'kern.memorystatus_level'])),
+): number {
+  if (platform !== 'darwin') return os.freemem();
+  let level = '';
+  try { level = readLevel().trim(); } catch { /* fall through to os.freemem */ }
+  const pct = /^\d+$/.test(level) ? Number(level) : NaN;
+  // ponytail: an unreadable or nonsensical level falls back to the undercount, which errs small.
+  return pct >= 0 && pct <= 100 ? Math.floor(os.totalmem() * pct / 100) : os.freemem();
+}
+
 /** Read-only look at a repo: what it can already measure, and how to run it in a container. */
-function scanRepo(repo: string, freeMemBytes: number = os.freemem()): ScanReport {
+function scanRepo(repo: string, freeMemBytes: number = availableMemoryBytes()): ScanReport {
   const measurements: ScanReport['measurements'] = [];
   let ecosystem: ScanReport['ecosystem'] = 'unknown';
   let proposedImage: string | null = null;
@@ -246,4 +264,4 @@ function validateDraft(home: string, id: string, deps: { exec?: Exec; timeoutMs?
   }
 }
 
-module.exports = { scanRepo, validateDraft };
+module.exports = { scanRepo, validateDraft, availableMemoryBytes };
