@@ -37,12 +37,12 @@ const { addWorktree, removeWorktree } = require('./worktrees') as {
 const { compare } = require('../research/verdict') as { compare: (v: number, c: Comparator, t: number) => boolean };
 
 export interface ScanReport {
-  ecosystem: 'node' | 'python' | 'unknown';
+  ecosystem: 'node' | 'python' | 'rust' | 'unknown';
   proposedImage: string | null;
   proposedSetup: string;
   dockerfile: boolean;
   devcontainer: boolean;
-  measurements: Array<{ kind: 'npm-script' | 'make-target' | 'directory'; name: string; command: string; files: string[] }>;
+  measurements: Array<{ kind: 'npm-script' | 'make-target' | 'cargo' | 'directory'; name: string; command: string; files: string[] }>;
   freeMemoryMb: number;
   proposedMemory: string;
   /**
@@ -57,9 +57,33 @@ export interface ScanReport {
 const MEMORY_WORKABLE_MB = 512;
 
 const MEASURING = /bench|perf|test|eval/i;
-const MEASURE_DIRS = new Set(['test', 'tests', 'bench', 'benchmarks', 'perf', 'eval', 'evals']);
+const MEASURE_DIRS = new Set(['test', 'tests', 'bench', 'benches', 'benchmarks', 'perf', 'eval', 'evals']);
 
 function exists(repo: string, rel: string): boolean { return fs.existsSync(path.join(repo, rel)); }
+
+/**
+ * Setup runs with network and measurement without, and only /work outlives a container. Cargo
+ * keeps fetched crates in CARGO_HOME, outside /work in the rust image, so after a plain
+ * `cargo fetch` an offline `cargo test` fails with "no matching package". Every cargo command
+ * the scan proposes carries this prefix, which keeps the crates under target/ (git-ignored).
+ */
+const CARGO_ENV = 'CARGO_HOME=/work/target/cargo-home';
+
+/**
+ * The image for the repo's toolchain file. A pinned version gets that exact image and stable
+ * gets the latest. A nightly or beta channel gets null, so the interview asks: the toolchain
+ * would otherwise be downloaded during setup and lost before measurement, just like the crates.
+ */
+function rustImage(repo: string): string | null {
+  const file = ['rust-toolchain.toml', 'rust-toolchain'].find((f) => exists(repo, f));
+  if (!file) return 'rust:1-bookworm';
+  const text = String(fs.readFileSync(path.join(repo, file), 'utf8'));
+  const quoted = /^\s*channel\s*=\s*"([^"]+)"/m.exec(text);
+  // The legacy `rust-toolchain` file may be a bare channel name instead of TOML.
+  const channel = quoted ? quoted[1] : /^[\w.-]+$/.test(text.trim()) ? text.trim() : 'stable';
+  if (channel === 'stable') return 'rust:1-bookworm';
+  return /^\d+\.\d+(\.\d+)?$/.test(channel) ? `rust:${channel}-bookworm` : null;
+}
 
 /**
  * Memory the host can give a container. On macOS `os.freemem()` counts only never-used pages, so
@@ -107,6 +131,14 @@ function scanRepo(repo: string, freeMemBytes: number = availableMemoryBytes()): 
       proposedSetup = exists(repo, 'requirements.txt')
         ? 'python -m venv .venv && .venv/bin/pip install -r requirements.txt'
         : 'python -m venv .venv && .venv/bin/pip install -e .';
+    }
+  } else if (exists(repo, 'Cargo.toml')) {
+    ecosystem = 'rust';
+    proposedImage = rustImage(repo);
+    proposedSetup = `${CARGO_ENV} cargo fetch${exists(repo, 'Cargo.lock') ? ' --locked' : ''}`;
+    measurements.push({ kind: 'cargo', name: 'test', command: `${CARGO_ENV} cargo test --offline`, files: ['Cargo.toml'] });
+    if (exists(repo, 'benches')) {
+      measurements.push({ kind: 'cargo', name: 'bench', command: `${CARGO_ENV} cargo bench --offline`, files: ['Cargo.toml'] });
     }
   }
   if (exists(repo, 'Makefile')) {

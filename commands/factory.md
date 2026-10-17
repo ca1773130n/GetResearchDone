@@ -36,8 +36,11 @@ from `factory status`. Write it after every step. The human never edits it.
    recommendations": if chosen, take the recommended option at steps 2 to 7, still
    running every command, and stop only at step 8.
 2. **Environment.** Run `factory scan <repo>`. Offer `proposedImage` and `proposedSetup`.
-   If the scan returned no image (ecosystem `unknown`), ask for the image and setup
-   command. Offer `proposedMemory`; if `freeMemoryMb` is under 2048, say so. If
+   If the scan returned no image (ecosystem `unknown`, or a Rust nightly or beta
+   toolchain), ask for the image and setup command. For ecosystem `rust`, every cargo
+   command in the order, including the dev evaluation and `hidden_eval.run`, needs the
+   same `CARGO_HOME=/work/target/cargo-home` prefix the scan's commands carry: setup
+   fetches crates there with network, and measurement runs without network. Offer `proposedMemory`; if `freeMemoryMb` is under 2048, say so. If
    `memoryWarning` is set, show it verbatim before offering the limit, and do not raise the
    limit above `proposedMemory` unless the human chooses to after reading it: that limit is
    half of what is free, and more risks running the host out of memory.

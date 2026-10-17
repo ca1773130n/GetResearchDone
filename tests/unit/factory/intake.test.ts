@@ -65,6 +65,34 @@ describe('scanRepo', () => {
     expect(intake.scanRepo(fx.makeRepo({ 'package.json': '{}' }), 4 * 1024 * 1024).proposedMemory).toBe('6m');
   });
 
+  it('proposes cargo for a Rust repo, with the crates kept where an offline run can find them', () => {
+    const repo = fx.makeRepo({
+      'Cargo.toml': '[package]\nname="x"\n', 'Cargo.lock': '', 'rust-toolchain.toml': '[toolchain]\nchannel = "stable"\n',
+      'benches/b.rs': '', 'tests/t.rs': '',
+    });
+    const r = intake.scanRepo(repo, 4e9);
+    const env = 'CARGO_HOME=/work/target/cargo-home';
+    expect([r.ecosystem, r.proposedImage, r.proposedSetup]).toEqual(['rust', 'rust:1-bookworm', `${env} cargo fetch --locked`]);
+    expect(r.measurements).toEqual([
+      { kind: 'cargo', name: 'test', command: `${env} cargo test --offline`, files: ['Cargo.toml'] },
+      { kind: 'cargo', name: 'bench', command: `${env} cargo bench --offline`, files: ['Cargo.toml'] },
+      { kind: 'directory', name: 'benches', command: '', files: [] },
+      { kind: 'directory', name: 'tests', command: '', files: [] },
+    ]);
+  });
+
+  it('matches the image to a pinned toolchain, and asks when the channel has no image', () => {
+    const image = (files: Record<string, string>) => intake.scanRepo(fx.makeRepo({ 'Cargo.toml': '', ...files }), 4e9).proposedImage;
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\nchannel = "1.80.0"\n' })).toBe('rust:1.80.0-bookworm');
+    expect(image({ 'rust-toolchain': '1.79\n' })).toBe('rust:1.79-bookworm');
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\nchannel = "nightly-2026-01-01"\n' })).toBeNull();
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\ncomponents = ["clippy"]\n' })).toBe('rust:1-bookworm');
+    expect(image({})).toBe('rust:1-bookworm');
+    const r = intake.scanRepo(fx.makeRepo({ 'Cargo.toml': '' }), 4e9);
+    expect(r.proposedSetup).toBe('CARGO_HOME=/work/target/cargo-home cargo fetch');
+    expect(r.measurements.map((m) => m.name)).toEqual(['test']);
+  });
+
   it('leaves image and setup to the interview for other ecosystems', () => {
     const r = intake.scanRepo(fx.makeRepo({ 'go.mod': 'module x\n' }), 4e9);
     expect([r.ecosystem, r.proposedImage, r.proposedSetup]).toEqual(['unknown', null, '']);

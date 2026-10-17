@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **`factory scan` recognises Rust repos** (`lib/factory/intake.ts`). A `Cargo.toml` now
+  gets ecosystem `rust`, a `rust:1-bookworm` image (or `rust:<version>-bookworm` when
+  `rust-toolchain.toml` pins one; a nightly or beta channel is asked in the interview),
+  `cargo fetch` as setup (`--locked` when there is a `Cargo.lock`), and `cargo test` and
+  `cargo bench` as measurements. `benches/` is now found as a measuring directory. Every
+  proposed cargo command sets `CARGO_HOME=/work/target/cargo-home`. Without it the crates
+  fetched during setup would sit outside `/work` and vanish with the setup container, and the
+  offline measurement would fail with "no matching package". justfile recipes are not
+  scanned, since `just` is not in the rust image.
+
 ### Fixed
 - **`factory scan` measures free memory correctly on macOS** (`lib/factory/intake.ts`). It used
   `os.freemem()`, which on macOS counts only pages never used, not cache the kernel can reclaim.
