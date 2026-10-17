@@ -6,12 +6,14 @@ import type { WorkOrder } from '../../../lib/factory/types';
 import type { ScanReport, ValidateReport } from '../../../lib/factory/intake';
 const intake = require('../../../lib/factory/intake') as {
   scanRepo: (repo: string, free?: number) => ScanReport;
+  availableMemoryBytes: (platform?: string, readLevel?: () => string) => number;
   validateDraft: (home: string, id: string, deps?: { exec?: Exec }) => ValidateReport;
 };
 const order = require('../../../lib/factory/order') as {
   writeDraft: (h: string, o: WorkOrder) => void; draftDir: (h: string, id: string) => string;
   readDraft: (h: string, id: string) => WorkOrder; saveOrder: (h: string, id: string) => string;
 };
+const os = require('os');
 const fx = require('./fixtures') as {
   HIDDEN_RUN: string; HIDDEN_OUTPUT: string;
   isScoreStep: (a: string[]) => boolean; isHiddenRunStep: (a: string[]) => boolean;
@@ -63,9 +65,67 @@ describe('scanRepo', () => {
     expect(intake.scanRepo(fx.makeRepo({ 'package.json': '{}' }), 4 * 1024 * 1024).proposedMemory).toBe('6m');
   });
 
+  it('proposes cargo for a Rust repo, with the crates kept where an offline run can find them', () => {
+    const repo = fx.makeRepo({
+      'Cargo.toml': '[package]\nname="x"\n', 'Cargo.lock': '', 'rust-toolchain.toml': '[toolchain]\nchannel = "stable"\n',
+      'benches/b.rs': '', 'tests/t.rs': '',
+    });
+    const r = intake.scanRepo(repo, 4e9);
+    const env = 'CARGO_HOME=/work/target/cargo-home';
+    expect([r.ecosystem, r.proposedImage, r.proposedSetup]).toEqual(['rust', 'rust:1-bookworm', `${env} cargo fetch --locked`]);
+    expect(r.measurements).toEqual([
+      { kind: 'cargo', name: 'test', command: `${env} cargo test --offline`, files: ['Cargo.toml'] },
+      { kind: 'cargo', name: 'bench', command: `${env} cargo bench --offline`, files: ['Cargo.toml'] },
+      { kind: 'directory', name: 'benches', command: '', files: [] },
+      { kind: 'directory', name: 'tests', command: '', files: [] },
+    ]);
+  });
+
+  it('matches the image to a pinned toolchain, and asks when the channel has no image', () => {
+    const image = (files: Record<string, string>) => intake.scanRepo(fx.makeRepo({ 'Cargo.toml': '', ...files }), 4e9).proposedImage;
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\nchannel = "1.80.0"\n' })).toBe('rust:1.80.0-bookworm');
+    expect(image({ 'rust-toolchain': '1.79\n' })).toBe('rust:1.79-bookworm');
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\nchannel = "nightly-2026-01-01"\n' })).toBeNull();
+    expect(image({ 'rust-toolchain.toml': '[toolchain]\ncomponents = ["clippy"]\n' })).toBe('rust:1-bookworm');
+    expect(image({})).toBe('rust:1-bookworm');
+    const r = intake.scanRepo(fx.makeRepo({ 'Cargo.toml': '' }), 4e9);
+    expect(r.proposedSetup).toBe('CARGO_HOME=/work/target/cargo-home cargo fetch');
+    expect(r.measurements.map((m) => m.name)).toEqual(['test']);
+  });
+
   it('leaves image and setup to the interview for other ecosystems', () => {
     const r = intake.scanRepo(fx.makeRepo({ 'go.mod': 'module x\n' }), 4e9);
     expect([r.ecosystem, r.proposedImage, r.proposedSetup]).toEqual(['unknown', null, '']);
+  });
+
+  describe('availableMemoryBytes', () => {
+    // os.freemem() on macOS counts only never-used pages: 81 MB on a 16 GB Mac the kernel said
+    // was 12% free, so scan proposed a 68 MB limit and warned the host was out of memory.
+    it('uses the kernel availability level on macOS, not the free-page count', () => {
+      expect(intake.availableMemoryBytes('darwin', () => '12\n')).toBe(Math.floor(os.totalmem() * 0.12));
+    });
+
+    it('falls back to os.freemem when the level cannot be read or makes no sense', () => {
+      const unreadable = () => { throw new Error('no sysctl'); };
+      for (const read of [unreadable, () => '', () => 'abc', () => '150']) {
+        const r = intake.availableMemoryBytes('darwin', read);
+        expect(r).toBeGreaterThan(0);
+        expect(r).toBeLessThan(os.totalmem());
+        expect(r).not.toBe(Math.floor(os.totalmem() * 1.5));
+      }
+    });
+
+    it('reads the real sysctl, or falls back where there is none (Linux CI)', () => {
+      const r = intake.availableMemoryBytes('darwin');
+      expect(r).toBeGreaterThan(0);
+      expect(r).toBeLessThanOrEqual(os.totalmem());
+    });
+
+    it('trusts os.freemem elsewhere, where it already means available', () => {
+      const read = jest.fn(() => '12');
+      intake.availableMemoryBytes('linux', read);
+      expect(read).not.toHaveBeenCalled();
+    });
   });
 });
 
