@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-23
+
 ### Added
 - **`factory scan` recognises Rust repos** (`lib/factory/intake.ts`). A `Cargo.toml` now
   gets ecosystem `rust`, a `rust:1-bookworm` image (or `rust:<version>-bookworm` when
